@@ -10,7 +10,7 @@
 // 两者语义相同，必须在比较前对齐，否则一次「清空提示词」也会被当成未保存改动。
 
 export type AIComparableSettings = {
-  reply?: { systemPrompt?: string }
+  reply?: { systemPrompt?: string, triggerMode?: string }
   gates?: { toolCallsPerReply?: number | null }
   purposes?: Record<string, AIPurposeOverride>
 }
@@ -187,7 +187,15 @@ export function normalizedAISettingsForComparison<T extends AIComparableSettings
   const copy = JSON.parse(JSON.stringify(settings)) as T
   const prompt = typeof copy.reply?.systemPrompt === 'string' ? copy.reply.systemPrompt : ''
   if (promptUsesDefault(prompt, defaultPrompt)) {
-    copy.reply = { systemPrompt: '' }
+    copy.reply = { ...copy.reply, systemPrompt: '' }
+  }
+  // triggerMode 同样要按服务端归一化对齐：缺省 / 未知值 / 'mention' 在服务端是
+  // 同一语义（mention），不统一会让面板在未改动时误报 dirty。
+  if (copy.reply && 'triggerMode' in copy.reply) {
+    const mode = (copy.reply as { triggerMode?: string }).triggerMode
+    if (mode === undefined || mode === null || mode === '' || mode === 'mention' || !['mention', 'autonomous', 'off'].includes(mode)) {
+      delete (copy.reply as { triggerMode?: string }).triggerMode
+    }
   }
   if (copy.gates && 'toolCallsPerReply' in copy.gates) {
     if (toolCallsPerReplyUsesDefault(copy.gates.toolCallsPerReply)) {

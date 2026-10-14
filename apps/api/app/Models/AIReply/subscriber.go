@@ -23,7 +23,11 @@ func (s *Subscriber) Emit(ctx context.Context, envelope appevents.Envelope) appe
 	if s == nil || s.trigger == nil {
 		return result
 	}
-	if envelope.Name == appevents.CommentCreated && envelope.Kind == appevents.KindObserve {
+	if envelope.Kind != appevents.KindObserve {
+		return result
+	}
+	switch envelope.Name {
+	case appevents.CommentCreated:
 		// 「AI 为什么没回复」是运维会问的第一个问题。这条日志把「事件到了」
 		// 与「判定跳过了」分开，否则两种失败在外部看起来完全一样。
 		slog.InfoContext(ctx, "aireply: comment.created reached the reply trigger",
@@ -31,6 +35,11 @@ func (s *Subscriber) Emit(ctx context.Context, envelope appevents.Envelope) appe
 			"topicId", envelope.Payload["topicId"],
 			"authorUserId", envelope.Payload["authorUserId"])
 		s.trigger.CommentCreated(ctx, envelope)
+	case appevents.TopicCreated:
+		slog.InfoContext(ctx, "aireply: topic.created reached the reply trigger",
+			"topicId", envelope.Payload["topicId"],
+			"authorUserId", envelope.Payload["authorUserId"])
+		s.trigger.TopicCreated(ctx, envelope)
 	}
 	return result
 }

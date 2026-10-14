@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
 	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
 )
 
@@ -38,9 +39,18 @@ type CommentContext struct {
 	RawContent         string
 }
 
+// TopicContext 是判定一条新主题是否唤起 AI 所需的快照。
+type TopicContext struct {
+	TopicID      int64
+	AuthorUserID int64
+	Status       string
+	RawContent   string
+}
+
 // CommentReader 补齐事件载荷里没有的上下文：正文、父评论作者、账号类型。
 type CommentReader interface {
 	CommentContext(ctx context.Context, commentID int64) (CommentContext, error)
+	TopicContext(ctx context.Context, topicID int64) (TopicContext, error)
 	UserKind(ctx context.Context, userID int64) (identity.UserKind, error)
 }
 
@@ -62,15 +72,43 @@ type Enqueuer interface {
 	EnqueueReply(ctx context.Context, input ReplyJobInput) error
 }
 
+// TriggerModeSource 提供当前生效的回复触发模式。读失败按 mention（默认）处理：
+// 配置不可用时回到最保守、成本最低的行为，而不是放开自主参与。
+type TriggerModeSource interface {
+	ReplyTriggerMode(ctx context.Context) (string, error)
+}
+
 // Trigger 把 comment.created 事件转换成一次待生成的回复。
 type Trigger struct {
 	accounts AccountResolver
 	reader   CommentReader
 	enqueue  Enqueuer
+	// modes 可为 nil：nil 等价于永远返回 mention。旧的装配路径不必立即传入。
+	modes TriggerModeSource
 }
 
 func NewTrigger(accounts AccountResolver, reader CommentReader, enqueue Enqueuer) *Trigger {
 	return &Trigger{accounts: accounts, reader: reader, enqueue: enqueue}
+}
+
+// WithTriggerModes 注入触发模式来源。返回同一触发器以便链式装配。
+func (t *Trigger) WithTriggerModes(modes TriggerModeSource) *Trigger {
+	t.modes = modes
+	return t
+}
+
+// triggerMode 返回当前生效的触发模式。任何异常都归一到 mention：这是默认行
+// 为，也是故障时最安全的行为。
+func (t *Trigger) triggerMode(ctx context.Context) string {
+	if t == nil || t.modes == nil {
+		return supportai.TriggerModeMention
+	}
+	mode, err := t.modes.ReplyTriggerMode(ctx)
+	if err != nil {
+		slog.WarnContext(ctx, "aireply: load trigger mode failed; falling back to mention", "err", err)
+		return supportai.TriggerModeMention
+	}
+	return supportai.ReplySettings{TriggerMode: mode}.NormalizedTriggerMode()
 }
 
 // CommentCreated 处理一条已提交的评论。它只做判定与入队，绝不等待生成，
@@ -137,30 +175,187 @@ func (t *Trigger) CommentCreated(ctx context.Context, envelope appevents.Envelop
 	if !mentioned {
 		repliedToBot = t.repliedToBot(ctx, snapshot.ParentAuthorUserID, account)
 	}
-	if !mentioned && !repliedToBot {
-		// 最重要的一条：它同时给出「期望被 @ 的用户名」和「被回复者是谁」，
-		// 运营者据此立刻能看出是没 @ 对，还是回复的对象不是机器人。
-		skip("not_directed_at_bot",
-			"assistantUsername", account.Username,
-			"parentAuthorUserId", snapshot.ParentAuthorUserID,
-			"mentions", mentionedUsernames(snapshot.RawContent))
+
+	// off 模式在 mention 判定之后才短路：被 @ 也不回。放在防循环之后、入队
+	// 之前，日志仍然能回答「为什么不回」。
+	if mode := t.triggerMode(ctx); mode == supportai.TriggerModeOff {
+		skip("trigger_mode_off", "wasDirectedAtBot", mentioned || repliedToBot)
 		return
 	}
 
-	if err := t.enqueue.EnqueueReply(ctx, ReplyJobInput{
-		TopicID:          topicID,
-		ParentCommentID:  commentID,
-		TriggerCommentID: commentID,
-		TriggerUserID:    authorUserID,
-		BotUserID:        account.UserID,
-	}); err != nil {
-		slog.WarnContext(ctx, "aireply: enqueue reply failed",
-			"commentId", commentID, "topicId", topicID, "err", err)
+	if mentioned || repliedToBot {
+		t.enqueueReply(ctx, ReplyJobInput{
+			TopicID:          topicID,
+			ParentCommentID:  commentID,
+			TriggerCommentID: commentID,
+			TriggerUserID:    authorUserID,
+			BotUserID:        account.UserID,
+		}, map[string]any{"commentId": commentID}, mentioned, repliedToBot)
 		return
 	}
-	slog.InfoContext(ctx, "aireply: reply enqueued",
-		"commentId", commentID, "topicId", topicID, "botUserId", account.UserID,
-		"viaMention", mentioned, "viaReply", repliedToBot)
+
+	// 自主模式：未被 @ / 不是回复机器人时，交给 triage 判定值不值得回。判定
+	// 失败按 SKIP 落日志，绝不静默吞掉——「AI 为什么没回」必须可从日志回答。
+	if t.triggerMode(ctx) == supportai.TriggerModeAutonomous {
+		t.enqueueTriage(ctx, TriageJobInput{
+			TopicID:          topicID,
+			TriggerCommentID: commentID,
+			SubjectUserID:    authorUserID,
+		}, map[string]any{"commentId": commentID})
+		return
+	}
+
+	// 最重要的一条：它同时给出「期望被 @ 的用户名」和「被回复者是谁」，
+	// 运营者据此立刻能看出是没 @ 对，还是回复的对象不是机器人。
+	skip("not_directed_at_bot",
+		"assistantUsername", account.Username,
+		"parentAuthorUserId", snapshot.ParentAuthorUserID,
+		"mentions", mentionedUsernames(snapshot.RawContent))
+}
+
+// TopicCreated 处理一条已提交的主题。发帖 @ 机器人与评论 @ 机器人是同一个
+// 用户预期：主题正文里的提及同样应该唤起回复。与评论路径的差别只有两点：
+// 没有父评论可查（AI 回复直接挂在主题下，ParentCommentID=0），也没有
+// 「回复机器人」这条触发途径。
+func (t *Trigger) TopicCreated(ctx context.Context, envelope appevents.Envelope) {
+	if t == nil || t.accounts == nil || t.reader == nil || t.enqueue == nil {
+		slog.WarnContext(ctx, "aireply: trigger is not wired; reply generation is disabled")
+		return
+	}
+	topicID := payloadID(envelope.Payload, "topicId")
+	authorUserID := payloadID(envelope.Payload, "authorUserId")
+	if topicID <= 0 || authorUserID <= 0 {
+		slog.WarnContext(ctx, "aireply: trigger skipped", "reason", "incomplete_payload",
+			"topicId", topicID, "authorUserId", authorUserID)
+		return
+	}
+	skip := func(reason string, extra ...any) {
+		args := append([]any{"reason", reason, "topicId", topicID}, extra...)
+		slog.InfoContext(ctx, "aireply: trigger skipped", args...)
+	}
+
+	authorKind, err := t.reader.UserKind(ctx, authorUserID)
+	if err != nil {
+		slog.WarnContext(ctx, "aireply: resolve author kind failed", "userId", authorUserID, "err", err)
+		return
+	}
+	if authorKind.IsBot() {
+		skip("author_is_bot", "authorUserId", authorUserID)
+		return
+	}
+
+	account, ok, err := t.accounts.ReplyBotAccount(ctx)
+	if err != nil {
+		slog.WarnContext(ctx, "aireply: resolve bot account failed", "err", err)
+		return
+	}
+	if !ok {
+		skip("no_bot_account")
+		return
+	}
+	if authorUserID == account.UserID {
+		skip("author_is_the_assistant", "botUserId", account.UserID)
+		return
+	}
+
+	snapshot, err := t.reader.TopicContext(ctx, topicID)
+	if err != nil {
+		slog.WarnContext(ctx, "aireply: load topic context failed", "topicId", topicID, "err", err)
+		return
+	}
+	// 待审主题不触发：触发评论的审核通过事件由评论路径自行覆盖，主题这里
+	// 只接受立即可见的内容。
+	if snapshot.Status != "" && snapshot.Status != "active" {
+		skip("topic_not_public", "status", snapshot.Status)
+		return
+	}
+
+	mentioned := mentionsBot(mentionedUsernames(snapshot.RawContent), account.Username)
+
+	// off 模式：@ 了也不回。
+	if t.triggerMode(ctx) == supportai.TriggerModeOff {
+		skip("trigger_mode_off", "wasMentioned", mentioned)
+		return
+	}
+
+	if mentioned {
+		t.enqueueReply(ctx, ReplyJobInput{
+			TopicID:       topicID,
+			TriggerUserID: authorUserID,
+			BotUserID:     account.UserID,
+		}, map[string]any{"topicId": topicID}, true, false)
+		return
+	}
+
+	// 自主模式：正文没有 @ 机器人时交给 triage 判定。
+	if t.triggerMode(ctx) == supportai.TriggerModeAutonomous {
+		t.enqueueTriage(ctx, TriageJobInput{
+			TopicID:       topicID,
+			SubjectUserID: authorUserID,
+		}, map[string]any{"topicId": topicID})
+		return
+	}
+
+	skip("not_directed_at_bot",
+		"assistantUsername", account.Username,
+		"mentions", mentionedUsernames(snapshot.RawContent))
+}
+
+// TriageEnqueuer 把判定任务交给后台队列。
+type TriageEnqueuer interface {
+	EnqueueTriage(ctx context.Context, input TriageJobInput) error
+}
+
+// TriageJobInput 是一次自主参与判定任务。
+type TriageJobInput struct {
+	TopicID int64
+	// TriggerCommentID 是触发判定的评论；主题触发时为 0，判定以主楼正文为对象。
+	TriggerCommentID int64
+	// SubjectUserID 是触发者，判定调用按他的每日配额计量。
+	SubjectUserID int64
+}
+
+// enqueueTriage 入队一次判定。triage 入队器在装配层包装，避免 Trigger 直接依
+// 赖 River 细节；没有装配判定入队器（旧部署）时按「未启用自主模式」处理。
+func (t *Trigger) enqueueTriage(ctx context.Context, input TriageJobInput, logFields map[string]any) {
+	enqueuer, ok := t.enqueue.(TriageEnqueuer)
+	if !ok {
+		args := append([]any{"reason", "triage_enqueuer_missing"}, logFieldsToArgs(logFields)...)
+		slog.InfoContext(ctx, "aireply: trigger skipped", args...)
+		return
+	}
+	if err := enqueuer.EnqueueTriage(ctx, input); err != nil {
+		args := append([]any{"err", err}, logFieldsToArgs(logFields)...)
+		slog.WarnContext(ctx, "aireply: enqueue triage failed", args...)
+		return
+	}
+	args := append([]any{"topicId", input.TopicID, "queued", "triage"}, logFieldsToArgs(logFields)...)
+	slog.InfoContext(ctx, "aireply: triage enqueued", args...)
+}
+
+func logFieldsToArgs(fields map[string]any) []any {
+	args := make([]any, 0, len(fields)*2)
+	for key, value := range fields {
+		args = append(args, key, value)
+	}
+	return args
+}
+
+func (t *Trigger) enqueueReply(ctx context.Context, input ReplyJobInput, logFields map[string]any, viaMention, viaReply bool) {
+	if err := t.enqueue.EnqueueReply(ctx, input); err != nil {
+		args := []any{"err", err}
+		for key, value := range logFields {
+			args = append(args, key, value)
+		}
+		slog.WarnContext(ctx, "aireply: enqueue reply failed", args...)
+		return
+	}
+	args := []any{"botUserId", input.BotUserID, "topicId", input.TopicID,
+		"viaMention", viaMention, "viaReply", viaReply}
+	for key, value := range logFields {
+		args = append(args, key, value)
+	}
+	slog.InfoContext(ctx, "aireply: reply enqueued", args...)
 }
 
 func (t *Trigger) repliedToBot(ctx context.Context, parentAuthorUserID int64, account BotAccount) bool {

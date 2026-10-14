@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	httpserver "github.com/zhuchunshu/sforum/apps/api/app/Http"
+	aireplyjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIReply"
 	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
 	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
@@ -34,8 +35,35 @@ func newEmbeddedAIReplyGenerator(core *apiCoreStack) *aireply.Generator {
 		return nil
 	}
 	// AI 服务同时提供回复提示词与工具白名单两项配置来源：两者都住在同一份设置
-	// 文档里，且都在每次回复时读取，配置改完立即生效。
-	return providers.NewAIReplyGenerator(core.pool, core.identityStore, forumService, gateway, core.aiOrchestrator, core.aiProvider.Service())
+	// 文档里，且都在每次回复时读取，配置改完立即生效。附件服务让多模态输入
+	// 能以机器人身份读取图片附件（是否启用由站点设置的多模态开关决定）。
+	return providers.NewAIReplyGenerator(core.pool, core.identityStore, forumService, gateway, core.aiOrchestrator, core.aiProvider.Service(),
+		providers.NewAIReplyImageReader(core.attachmentService, core.identityStore))
+}
+
+// newEmbeddedAITriageDecider 用 API 已装配的网关与 AI 服务构建自主参与判定器。
+// 依赖缺失时返回 nil：注册逻辑据此跳过判定 worker，autonomous 模式退回 mention
+// 行为（trigger 侧对缺失判定入队器的处理）。
+func newEmbeddedAITriageDecider(core *apiCoreStack) *aireply.TriageDecider {
+	if core == nil || core.aiProvider == nil {
+		return nil
+	}
+	gateway := core.aiProvider.Gateway()
+	if gateway == nil {
+		return nil
+	}
+	completer := aireply.NewGatewayCompleter(gateway, core.aiOrchestrator)
+	return aireply.NewTriageDecider(completer, core.aiProvider.Service())
+}
+
+// newEmbeddedAIThreadReader 返回判定读取上下文用的 PostgresReader。它独立构造
+// 一份而不是与生成器共享：reader 无状态（只持连接池），共享与否不改变行为，
+// 独立构造让两条装配路径互不牵连。
+func newEmbeddedAIThreadReader(core *apiCoreStack) aireply.ThreadReader {
+	if core == nil || core.pool == nil {
+		return nil
+	}
+	return aireply.NewPostgresReader(core.pool)
 }
 
 // finishAPIHTTP：Fiber 应用、主题 watcher、嵌入 worker 与 API 句柄。
@@ -117,6 +145,11 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 			// AI 回复复用 API 已装配的论坛服务与网关。worker 侧另建一份会得到
 			// 独立的设置与发布策略，让同样内容在两处走不同的审核判断。
 			AIReplyGenerator: newEmbeddedAIReplyGenerator(core),
+			// 自主参与判定与生成共用同一份网关、论坛服务与队列入队器；判定
+			// 组件与生成器绑定同一批依赖，避免两条路径对设置做出不同解释。
+			AIReplyTriageDecider: newEmbeddedAITriageDecider(core),
+			AIReplyThreadReader:  newEmbeddedAIThreadReader(core),
+			AIReplyEnqueuer:      aireplyjobs.NewEnqueuer(supportjobs.NewDispatcher(core.jobClient)),
 		})
 		if err != nil {
 			core.closeRouteFailureRecorder()

@@ -2,6 +2,7 @@
 import SFAdminAIAutoActionBlock from '~/components/admin/ai/blocks/SFAdminAIAutoActionBlock.vue'
 import SFAdminAIModelField from '~/components/admin/ai/blocks/SFAdminAIModelField.vue'
 import SFAdminAIRedactionBlock from '~/components/admin/ai/blocks/SFAdminAIRedactionBlock.vue'
+import SFAdminAIMultimodalBlock from '~/components/admin/ai/blocks/SFAdminAIMultimodalBlock.vue'
 import SFAdminAIProviderPicker from '~/components/admin/ai/blocks/SFAdminAIProviderPicker.vue'
 import { ADMIN_AI_KEY, MICRO_PER_UNIT } from '~/composables/admin/useAdminAI'
 import { ADMIN_AI_DRAFT_KEY } from '~/composables/admin/useAdminAISettingsForm'
@@ -300,5 +301,7 @@ function setSupportsTools(value: boolean | 'indeterminate') {
     <SFAdminAIAutoActionBlock v-model:form="form" v-model:disabled="readOnly" />
 
     <SFAdminAIRedactionBlock v-model:form="form" v-model:disabled="readOnly" />
+
+    <SFAdminAIMultimodalBlock v-model:form="form" v-model:disabled="readOnly" />
   </div>
 </template>

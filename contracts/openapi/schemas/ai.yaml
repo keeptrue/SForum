@@ -143,6 +143,16 @@ AIRedactionSettings:
     redactIp:
       type: boolean
 
+AIMultimodalSettings:
+  type: object
+  description: |
+    站点级图片理解开关。开启后 AI 回复会把主题与被回复评论里的公开图片
+    附件（每次最多 4 张、单张 2MB）一并发送给模型。Core 不维护模型能力
+    名单：运营者需自行确认所选模型支持图片理解。
+  properties:
+    enabled:
+      type: boolean
+
 AISettings:
   type: object
   properties:
@@ -184,6 +194,10 @@ AISettings:
       "$ref": "#/AIGateSettings"
     redaction:
       "$ref": "#/AIRedactionSettings"
+    multimodal:
+      "$ref": "#/AIMultimodalSettings"
+    reply:
+      "$ref": "#/AIReplySettings"
     revision:
       type: integer
       format: int64
@@ -230,6 +244,8 @@ AISettingsUpdateRequest:
       "$ref": "#/AIGateSettings"
     redaction:
       "$ref": "#/AIRedactionSettings"
+    multimodal:
+      "$ref": "#/AIMultimodalSettings"
     reply:
       "$ref": "#/AIReplySettings"
 
@@ -336,6 +352,14 @@ AIReplySettings:
           type: array
           items:
             type: string
+    triggerMode:
+      type: string
+      description: |
+        机器人回复的触发方式。`mention`（默认）：只有被 @ 或被回复才回复；
+        `autonomous`：每条新主题/评论先由经济档模型判定是否值得回复，判 REPLY
+        才生成；`off`：停用一切自动触发（不影响控制台手动探测）。空串与未知值
+        运行期按 `mention` 处理。
+      enum: [mention, autonomous, off]
 
 AISettingsPayload:
   type: object

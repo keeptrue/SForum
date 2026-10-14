@@ -368,6 +368,36 @@ func (s *Service) ReplyPurposeParameters(ctx context.Context) (aireply.ReplyPurp
 	}, nil
 }
 
+// ReplyTriggerMode 返回当前生效的回复触发模式。它实现 aireply.TriggerModeSource：
+// 触发器在每次事件到达时读取，配置改完立即生效。
+func (s *Service) ReplyTriggerMode(ctx context.Context) (string, error) {
+	if s == nil || s.settings == nil {
+		return supportai.TriggerModeMention, nil
+	}
+	settings, err := s.settings.GetSettings(ctx)
+	if err != nil {
+		return "", err
+	}
+	return settings.Reply.NormalizedTriggerMode(), nil
+}
+
+// TriagePurposeParameters 返回判定用途当前生效的参数（成本等级与提示词版本）。
+// 它实现 aireply.TriageParameterSource。判定不允许工具，也没有按用途的站点工具
+// 覆盖——唯一性就是这条边界的一部分，配置面不提供打开它的入口。
+func (s *Service) TriagePurposeParameters(ctx context.Context) (aireply.TriagePurposeParameters, error) {
+	if s == nil || s.purposes == nil {
+		return aireply.TriagePurposeParameters{}, nil
+	}
+	declaration, ok := s.purposes.Lookup(supportai.CorePurposeForumReplyTriage)
+	if !ok {
+		return aireply.TriagePurposeParameters{}, supportai.ErrPurposeUnknown
+	}
+	return aireply.TriagePurposeParameters{
+		CostClass:     declaration.CostClass,
+		PromptVersion: declaration.PromptVersion,
+	}, nil
+}
+
 // PurposeDetails 返回按用途的生效参数，供控制台按用途展示与配置。
 func (s *Service) PurposeDetails(ctx context.Context, actor identity.Actor) ([]supportai.ValidatedPurpose, error) {
 	if !actor.Can(identity.PermissionAIManage) {

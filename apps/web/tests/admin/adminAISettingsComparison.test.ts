@@ -36,6 +36,26 @@ describe('admin AI prompt comparison', () => {
     expect(JSON.stringify(normalizedAISettingsForComparison(customized, DEFAULT_PROMPT)))
       .not.toBe(JSON.stringify(normalizedAISettingsForComparison(stored, DEFAULT_PROMPT)))
   })
+
+  test('treats missing, empty, unknown and explicit mention trigger modes as equal', () => {
+    // 服务端对未知值 / 空串归一为缺省（mention），且缺省时字段可能整个省略。
+    const stored = { reply: {} }
+    const empty = { reply: { triggerMode: '' } }
+    const unknown = { reply: { triggerMode: 'yolo' } }
+    const explicit = { reply: { triggerMode: 'mention' } }
+    const canonical = JSON.stringify(normalizedAISettingsForComparison(stored, DEFAULT_PROMPT))
+    expect(JSON.stringify(normalizedAISettingsForComparison(empty, DEFAULT_PROMPT))).toBe(canonical)
+    expect(JSON.stringify(normalizedAISettingsForComparison(unknown, DEFAULT_PROMPT))).toBe(canonical)
+    expect(JSON.stringify(normalizedAISettingsForComparison(explicit, DEFAULT_PROMPT))).toBe(canonical)
+  })
+
+  test('keeps an autonomous or off trigger mode distinguishable from mention', () => {
+    const stored = { reply: {} }
+    for (const triggerMode of ['autonomous', 'off']) {
+      expect(JSON.stringify(normalizedAISettingsForComparison({ reply: { triggerMode } }, DEFAULT_PROMPT)))
+        .not.toBe(JSON.stringify(normalizedAISettingsForComparison(stored, DEFAULT_PROMPT)))
+    }
+  })
 })
 
 describe('admin AI tool call budget default semantics', () => {

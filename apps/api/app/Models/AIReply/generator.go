@@ -118,6 +118,27 @@ func (g *Generator) resolveParameters(ctx context.Context) (ReplyPurposeParamete
 	return parameters, systemOverride
 }
 
+// ImageAttachmentReader 是 ThreadReader 的可选扩展：能查出本次回复候选的
+// 图片附件定位。PostgresReader 实现了它；测试 fake 不实现时回复退化为纯文本。
+type ImageAttachmentReader interface {
+	ReplyImageAttachments(ctx context.Context, topicID int64, parentCommentID int64) ([]ImageAttachment, error)
+}
+
+// resolveImageCandidates 查询候选图片附件。查询失败按「无图」处理：附件元
+// 数据的一次读失败不该让整次回复失败。是否真正读取由 completer 按开关决定。
+func (g *Generator) resolveImageCandidates(ctx context.Context, input ReplyJobInput) []ImageAttachment {
+	reader, ok := g.threads.(ImageAttachmentReader)
+	if !ok {
+		return nil
+	}
+	attachments, err := reader.ReplyImageAttachments(ctx, input.TopicID, input.ParentCommentID)
+	if err != nil {
+		slog.WarnContext(ctx, "aireply: load image attachments failed; sending text only", "err", err)
+		return nil
+	}
+	return attachments
+}
+
 // Generate 执行一次完整的生成：读上下文 → 组装提示词 → 调用模型 → 以机器人
 // 身份发布。任何一步失败都返回错误，由队列按重试策略处理。
 //
@@ -141,6 +162,8 @@ func (g *Generator) Generate(ctx context.Context, input ReplyJobInput) error {
 		User:          user,
 		MaxTokens:     ReplyMaxTokens,
 		SubjectUserID: input.TriggerUserID,
+		Images:        g.resolveImageCandidates(ctx, input),
+		ActorUserID:   input.BotUserID,
 		Tools:         append([]string(nil), parameters.ToolsAllowed...),
 		// 工具以提问者视角取数：可见性判定用触发者身份，位置信息用于限定
 		// 「当前这栋楼」。

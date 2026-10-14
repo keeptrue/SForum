@@ -44,6 +44,34 @@ func (r *PostgresReader) CommentContext(ctx context.Context, commentID int64) (C
 	return snapshot, nil
 }
 
+// TopicContext 补齐 topic.created 事件载荷里没有的判定输入：主题正文与
+// 当前状态。与 CommentContext 同理，事件只带定位信息以保持发布路径轻量。
+func (r *PostgresReader) TopicContext(ctx context.Context, topicID int64) (TopicContext, error) {
+	if r == nil || r.pool == nil {
+		return TopicContext{}, ErrGeneratorUnavailable
+	}
+	var snapshot TopicContext
+	err := r.pool.QueryRow(ctx, `
+		SELECT topics.id, COALESCE(topics.author_user_id, 0), topics.status,
+		       COALESCE(posts.plain_text, '')
+		FROM topics
+		JOIN posts ON posts.id = topics.content_id
+		WHERE topics.id = $1
+	`, topicID).Scan(
+		&snapshot.TopicID,
+		&snapshot.AuthorUserID,
+		&snapshot.Status,
+		&snapshot.RawContent,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TopicContext{}, fmt.Errorf("topic %d not found", topicID)
+	}
+	if err != nil {
+		return TopicContext{}, fmt.Errorf("load topic context: %w", err)
+	}
+	return snapshot, nil
+}
+
 // UserKind 查询账号类型，供防循环判定使用。
 func (r *PostgresReader) UserKind(ctx context.Context, userID int64) (identity.UserKind, error) {
 	if r == nil || r.pool == nil {

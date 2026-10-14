@@ -72,6 +72,38 @@ type ReplySettings struct {
 	// （Core 内置列表）；非 nil（含空列表）表示以站点配置为准，空列表即「回复不允许
 	// 调用任何工具」。插件的贡献工具只有在这里被显式列名之后才对模型可见。
 	Tools *ReplyToolSettings `json:"tools,omitempty"`
+	// TriggerMode 决定机器人何时回复。缺省（空串）与 "mention" 等价：只有被
+	// @ 或被回复才回。"autonomous" 让 AI 先判一次每条新发言是否值得回，再决
+	// 定是否参与；"off" 完全停用触发（不影响控制台手动诊断）。规范化发生在
+	// settings 保存路径，运行期读到的一切非枚举值都按 mention 处理。
+	TriggerMode string `json:"triggerMode,omitempty"`
+}
+
+// 回复触发模式。TriggerModeAutonomous 是自主参与：每条新主题/评论先进
+// triage 判定，判 REPLY 才生成回复。
+const (
+	TriggerModeMention    = "mention"
+	TriggerModeAutonomous = "autonomous"
+	TriggerModeOff        = "off"
+)
+
+// ValidTriggerMode 报告一个触发模式字符串是否为受支持的枚举值。
+func ValidTriggerMode(value string) bool {
+	switch value {
+	case TriggerModeMention, TriggerModeAutonomous, TriggerModeOff:
+		return true
+	default:
+		return false
+	}
+}
+
+// NormalizedTriggerMode 返回运行期可安全使用的触发模式：空串与未知值都落在
+// mention（默认行为），这样「升级前保存的旧配置」不会意外改变机器人行为。
+func (r ReplySettings) NormalizedTriggerMode() string {
+	if ValidTriggerMode(r.TriggerMode) {
+		return r.TriggerMode
+	}
+	return TriggerModeMention
 }
 
 // ReplyToolSettings 是回复用途的工具白名单覆盖。
@@ -109,3 +141,24 @@ func (r ReplySettings) EffectiveSystemPrompt() string {
 func (r ReplySettings) Customized() bool {
 	return strings.TrimSpace(r.SystemPrompt) != ""
 }
+
+// CoreTriagePromptVersion 是自主参与判定（triage）提示词的版本，规则与回复
+// 用途相同：改动提示词必须递增，否则历史执行记录无法对应产出它的那版提示词。
+const CoreTriagePromptVersion = "forum-reply-triage@1"
+
+// DefaultTriageSystemPrompt 是自主参与判定的内置系统指令。它与回复提示词分离：
+// 判定只需要「这条发言是否在向 AI 或社区提出一个值得回答的问题」，不需要回复
+// 所需的长规则。运营者不覆盖它——判定质量由这里的措辞保证，暴露可编辑提示词
+// 只会让「AI 到处插话」变得容易。
+//
+// 社区发言同样是不可信输入：这段指令与安全尾注（ReplyPromptSafetyAppendix）
+// 一起使用，注入不能把 SKIP 翻成 REPLY 之外的任何行为——判定的唯一输出是
+// 回不回，判定永远不参与「回什么」。
+const DefaultTriageSystemPrompt = `你是一个社区论坛的守门员。给你一段社区讨论，判断 AI 助手是否应该主动参与这条讨论。
+
+只回答一个词：REPLY 或 SKIP。
+- REPLY：这条发言在向 AI 助手或整个社区提出具体问题、求助、请求核实或纠正错误，且现有讨论里还没有人给出有效回答。
+- SKIP：闲聊、接龙、情绪表达、纯意见交流、已有成员正在有效回答、或内容与提问无关。
+- 有人 @ 了 AI 助手时永远输出 REPLY（正常情况下这类发言不会到达你，到达说明是兜底）。
+- 犹豫不决时输出 SKIP：少说话永远比插话更安全。
+- 不要输出任何其他内容，不要解释。`

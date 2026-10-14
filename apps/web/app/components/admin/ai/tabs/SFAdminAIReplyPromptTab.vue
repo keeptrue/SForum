@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ADMIN_AI_DRAFT_KEY } from '~/composables/admin/useAdminAISettingsForm'
 import { promptUsesDefault } from '~/utils/admin/adminAI'
+import SFAdminAITriggerModeBlock from '~/components/admin/ai/blocks/SFAdminAITriggerModeBlock.vue'
 
 const { t } = useI18n()
 // 草稿由页面壳持有并注入：提示词与供应商配置是同一次保存的内容。
@@ -19,6 +20,7 @@ function restoreDefaultPrompt() {
 
 <template>
   <div v-if="form" class="flex min-w-0 flex-col gap-4">
+    <SFAdminAITriggerModeBlock />
     <section class="min-w-0 rounded-lg border border-slate-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="min-w-0">

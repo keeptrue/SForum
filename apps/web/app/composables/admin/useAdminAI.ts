@@ -55,10 +55,14 @@ export type AdminAISettings = {
   // 替代品（旧字段由服务端在归一化时迁移进来）。
   purposes?: Record<string, AdminAIPurposeOverride>
   // reply.systemPrompt 为空表示使用内置默认提示词；一键恢复就是把这里清空。
-  reply: { systemPrompt: string }
+  // triggerMode 决定机器人何时回复：mention（默认）/ autonomous（AI 自主判定
+  // 是否参与）/ off（停用自动触发）。旧文档可能没有这个字段。
+  reply: { systemPrompt: string, triggerMode?: 'mention' | 'autonomous' | 'off' }
   autoAction: { enabled: boolean, confidenceThreshold: number, allowedActions: string[] }
   gates: { rateLimitPerMinute: number, extensionDailyQuota: number, userDailyQuota: number, monthlyBudgetMicros: number, toolCallsPerReply?: number }
   redaction: { enabled: boolean, redactEmail: boolean, redactPhone: boolean, redactIp: boolean }
+  // multimodal 是图片理解开关。旧文档可能没有这个字段（引入前保存的）。
+  multimodal?: { enabled: boolean }
   revision: number
   updatedAt?: string
 }
@@ -177,7 +181,7 @@ export function emptyAdminAISettings(): AdminAISettings {
     profiles: [],
     costClassProfiles: {},
     purposeFailurePosture: {},
-    reply: { systemPrompt: '' },
+    reply: { systemPrompt: '', triggerMode: 'mention' },
     autoAction: { enabled: false, confidenceThreshold: 0.9, allowedActions: [] },
     gates: { rateLimitPerMinute: 0, extensionDailyQuota: 0, userDailyQuota: 0, monthlyBudgetMicros: 0, toolCallsPerReply: 3 },
     redaction: { enabled: true, redactEmail: true, redactPhone: true, redactIp: true },

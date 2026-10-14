@@ -118,6 +118,13 @@ type workerRuntimeDeps struct {
 	// AI 回复因此只在 embed 模式下启用。
 	// 为 nil 时该能力整体关闭，不注册执行器。
 	AIReplyGenerator *aireply.Generator
+	// AI 回复的判定在 worker 里执行，复用 API 已装配的网关与用途登记表；为 nil
+	// 时自主参与整体关闭，mention 触发不受影响。
+	AIReplyTriageDecider *aireply.TriageDecider
+	// AIReplyThreadReader 供判定读取上下文；与生成器共用同一个 PostgresReader。
+	AIReplyThreadReader aireply.ThreadReader
+	// AIReplyEnqueuer 供判定判 REPLY 后入队正式生成。
+	AIReplyEnqueuer *aireplyjobs.Enqueuer
 	// OwnsRuntime 为 true 时 Worker.Close 关闭 runtime（及自建的 Host API gateway）。
 	// 注入共享 runtime 时必须为 false，由 API shutdown 负责 Close。
 	OwnsRuntime bool
@@ -706,7 +713,7 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	registerForumAutoLockWorker(registry, cfg, pool, logger)
 	registerForumFlushViewCountsWorker(registry, pool, deps.HostCacheRedis, logger)
 	// AI 回复：只有 embed 路径会注入生成器，独立 worker 拿不到等价装配。
-	registerAIReplyWorker(registry, deps.AIReplyGenerator)
+	registerAIReplyWorker(registry, deps.AIReplyGenerator, deps.AIReplyTriageDecider, deps.AIReplyThreadReader, deps.AIReplyEnqueuer)
 	// F2.2：插件经 Host API 入队的 extension.plugin_job。
 	pluginJobEnqueuer := &hostapi.RiverJobEnqueuer{}
 	registry.Add(func(workers *river.Workers) error {
@@ -851,14 +858,27 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 // registerIdentityCleanupWorker 注册历史会话清理 worker。
 // keep_days 从 runtime option 读取（每次执行时实时解析，admin 改动即生效）。
 // 对应的 daily schedule 由 Schedule Registry 统一拥有，不在此返回 PeriodicJob。
-// registerAIReplyWorker 注册 AI 回复生成。它只在 embed 模式注入生成器时注册：
-// 生成器携带 API 的论坛服务与网关，独立 worker 拿不到等价装配。
-func registerAIReplyWorker(registry *supportjobs.Registry, generator *aireply.Generator) {
+// registerAIReplyWorker 注册 AI 回复生成与自主参与判定。它只在 embed 模式注入
+// 生成器时注册：生成器携带 API 的论坛服务与网关，独立 worker 拿不到等价装配。
+func registerAIReplyWorker(registry *supportjobs.Registry, generator *aireply.Generator, decider *aireply.TriageDecider, threads aireply.ThreadReader, enqueuer *aireplyjobs.Enqueuer) {
 	if registry == nil || generator == nil {
 		return
 	}
 	registry.Add(func(workers *river.Workers) error {
 		return river.AddWorkerSafely[aireplyjobs.GenerateReplyArgs](workers, aireplyjobs.NewGenerateReplyWorker(generator))
+	})
+	// 判定与生成共用网关与用途登记表。判 REPLY 后经 enqueuer 入队正式生成，
+	// 与 mention 路径同一条 Unique ByArgs 去重。判定组件缺失（旧装配）时只注册
+	// 生成——autonomous 模式下 trigger 会因没有判定入队器而按未启用处理。
+	if decider == nil || threads == nil || enqueuer == nil {
+		return
+	}
+	generate := func(ctx context.Context, input aireply.ReplyJobInput) error {
+		return enqueuer.EnqueueReply(ctx, input)
+	}
+	registry.Add(func(workers *river.Workers) error {
+		return river.AddWorkerSafely[aireplyjobs.TriageReplyArgs](workers,
+			aireplyjobs.NewTriageReplyWorker(decider, threads).WithGenerate(generate))
 	})
 }
 

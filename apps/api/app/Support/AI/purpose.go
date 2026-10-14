@@ -28,7 +28,11 @@ var (
 const (
 	// CorePurposeForumReply 是以机器人身份回复社区成员的用途。
 	CorePurposeForumReply = "forum.reply"
-	// CorePurposeDiagnose 是控制台连通性探测的用途。它与 DiagnosePurpose
+	// CorePurposeForumReplyTriage 是自主参与模式的判定用途：每条新发言先由
+	// 经济档模型判一次「值不值得回」，判 REPLY 才进入正式回复生成。它没有
+	// 工具（判定不需要查站内资料），失败时按 closed 丢弃——判定失败的含义
+	// 是「这次不回复」，fail_open 会把每次网关故障放大成一轮意外刷屏。
+	CorePurposeForumReplyTriage = "forum.reply.triage"
 	// 同值；保留两个名字是因为 diagnose.go 的常量先存在，登记表这里按
 	// 用途命名空间的习惯再暴露一次。
 	CorePurposeDiagnose = "admin.connectivity_test"
@@ -224,6 +228,22 @@ func BuiltinPurposes() []PurposeDeclaration {
 			ToolAllowlist:  append([]string(nil), CoreReplyToolAllowlist...),
 			ResourceType:   "topic",
 			PromptVersion:  CoreReplyPromptVersion,
+			BlastRadius:    PurposesBlastRadiusSingle,
+		},
+		{
+			ID: CorePurposeForumReplyTriage,
+			Label: LocalizedPurposeLabel{
+				Default: "AI 回复判定", EnUS: "AI reply triage",
+			},
+			Description: LocalizedPurposeLabel{
+				Default: "自主参与模式下判断一条新发言是否值得 AI 回复；不产生任何用户可见输出。",
+				EnUS:    "Decide whether a new post deserves an AI reply in autonomous mode; produces no user-visible output.",
+			},
+			CostClass:      CostClassEconomy,
+			FailurePosture: FailurePostureClosed,
+			ToolAllowlist:  nil,
+			ResourceType:   "topic",
+			PromptVersion:  CoreTriagePromptVersion,
 			BlastRadius:    PurposesBlastRadiusSingle,
 		},
 		{

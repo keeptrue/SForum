@@ -167,6 +167,8 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	// AI 回复的触发来自事件而非论坛服务内部。包装必须发生在论坛服务创建之前，
 	// 否则论坛拿到的是未包装的发布者，事件不会到达判定。
 	aiReplyReader := aireply.NewPostgresReader(pool)
+	// 触发模式（mention / autonomous / off）在 aiProvider 就绪后补挂：见下方
+	// aiProvider 创建处的 WithTriggerModes 调用。
 	aiReplyTrigger := aireply.NewTrigger(providers.BotAccountAdapter{Store: identityStore}, aiReplyReader, aireplyjobs.NewEnqueuer(jobDispatcher))
 	eventPublisher = aireply.NewSubscriber(eventPublisher, aiReplyTrigger)
 	// 与 extensionService 共享同一 attachmentService 实例（禁用回落 + 候选目录 + 事件 + 存储 RPC）。
@@ -386,6 +388,10 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	if extensionPlatform.commandDeferred != nil {
 		extensionPlatform.commandDeferred.AI.Set(aiProvider.Gateway())
 	}
+	// AI 回复触发模式来自 AI 设置（mention / autonomous / off）。事件订阅者持
+	// 有的是同一个触发器指针，这里补挂读法后控制台改配置立即生效；读失败时
+	// 触发器自回退到 mention（默认），装配层不做兜底解释。
+	aiReplyTrigger.WithTriggerModes(aiProvider.Service())
 	optionsProvider := providers.NewOptionsProviderWithService(optionsService, identityStore, authSessions)
 	systemUpdatesProvider := providers.NewSystemUpdatesProvider(
 		systemupdates.NewService(options.NewSystemUpdatesSource(optionsService), systemupdates.WithLogger(logger)),
@@ -626,6 +632,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		systemUpdatesProvider:     systemUpdatesProvider,
 		apiTokenService:           apiTokenService,
 		attachmentsProvider:       attachmentsProvider,
+		attachmentService:         attachmentService,
 		auditWriter:               auditWriter,
 		authSessions:              authSessions,
 		closePluginRuntime:        closePluginRuntime,

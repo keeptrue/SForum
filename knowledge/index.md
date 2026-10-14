@@ -250,6 +250,11 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- AI 自主参与（autonomous triage）（2026-10-15）：AI 回复触发方式可配置为
+  mention（默认）/ autonomous / off；autonomous 下每条新主题/评论先进
+  `forum.reply.triage` 经济档判定（无工具、8 tokens、fail-closed），判 REPLY
+  才入队正式生成，被 @ 仍直达。控制台 AI 设置新增触发方式三选块。
+  详见 `sessions/2026-10-15-ai-autonomous-triage-handoff.md`。
 - 移动端评论区几何修复（2026-10-15）：正文「拉满整行」不再硬编码 lead，改由
   `--sf-comment-avatar-size + --sf-comment-entry-gap` 算出，并补 `max-width: none`
   （同文件的 `max-width: 100%` 会把 `calc(100% + lead)` 夹回，正文右缘因此永远短一截）；

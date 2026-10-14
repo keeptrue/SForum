@@ -7,6 +7,7 @@ import (
 
 	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
 	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
 )
 
@@ -22,6 +23,7 @@ func (f *fakeAccounts) ReplyBotAccount(context.Context) (aireply.BotAccount, boo
 
 type fakeReader struct {
 	comments map[int64]aireply.CommentContext
+	topics   map[int64]aireply.TopicContext
 	kinds    map[int64]identity.UserKind
 	kindErr  error
 }
@@ -31,6 +33,13 @@ func (f *fakeReader) CommentContext(_ context.Context, commentID int64) (aireply
 		return snapshot, nil
 	}
 	return aireply.CommentContext{}, errors.New("comment not found")
+}
+
+func (f *fakeReader) TopicContext(_ context.Context, topicID int64) (aireply.TopicContext, error) {
+	if snapshot, ok := f.topics[topicID]; ok {
+		return snapshot, nil
+	}
+	return aireply.TopicContext{}, errors.New("topic not found")
 }
 
 func (f *fakeReader) UserKind(_ context.Context, userID int64) (identity.UserKind, error) {
@@ -45,12 +54,27 @@ func (f *fakeReader) UserKind(_ context.Context, userID int64) (identity.UserKin
 
 type fakeEnqueuer struct {
 	inputs []aireply.ReplyJobInput
+	triage []aireply.TriageJobInput
 	err    error
 }
 
 func (f *fakeEnqueuer) EnqueueReply(_ context.Context, input aireply.ReplyJobInput) error {
 	f.inputs = append(f.inputs, input)
 	return f.err
+}
+
+// EnqueueTriage 让 fake 满足 aireply.TriageEnqueuer：自主模式的测试走同一套
+// 断言工具。
+func (f *fakeEnqueuer) EnqueueTriage(_ context.Context, input aireply.TriageJobInput) error {
+	f.triage = append(f.triage, input)
+	return f.err
+}
+
+// fakeModes 是一个静态的触发模式来源。
+type fakeModes struct{ mode string }
+
+func (f fakeModes) ReplyTriggerMode(context.Context) (string, error) {
+	return f.mode, nil
 }
 
 func commentCreatedEvent(commentID, topicID, authorUserID int64) appevents.Envelope {
@@ -199,8 +223,69 @@ func TestReaderFailureIsSwallowed(t *testing.T) {
 	}
 }
 
+func topicCreatedEvent(topicID, authorUserID int64) appevents.Envelope {
+	return appevents.Envelope{
+		Name:        appevents.TopicCreated,
+		Kind:        appevents.KindObserve,
+		ActorUserID: authorUserID,
+		Payload: map[string]any{
+			"topicId":      topicID,
+			"authorUserId": authorUserID,
+		},
+	}
+}
+
+func withTopic(snapshot aireply.TopicContext) *fakeReader {
+	return &fakeReader{topics: map[int64]aireply.TopicContext{snapshot.TopicID: snapshot}}
+}
+
+// 发帖 @ 机器人与评论 @ 机器人是同一个用户预期：主题正文里的提及必须唤起回复。
+func TestMentioningTheBotInANewTopicTriggers(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	topic := aireply.TopicContext{TopicID: 9, AuthorUserID: 11, Status: "active", RawContent: "请问 @sforum_ai 这个怎么配置？"}
+	newTrigger(enqueuer, withTopic(topic)).TopicCreated(context.Background(), topicCreatedEvent(9, 11))
+	if len(enqueuer.inputs) != 1 {
+		t.Fatalf("expected one enqueue, got %+v", enqueuer.inputs)
+	}
+	job := enqueuer.inputs[0]
+	// 主题触发没有父评论：回复直接挂在主题下，TriggerCommentID 为 0 表示
+	// 提示词以上楼主正文为触发内容。
+	if job.TopicID != 9 || job.ParentCommentID != 0 || job.TriggerCommentID != 0 || job.TriggerUserID != 11 || job.BotUserID != 77 {
+		t.Fatalf("job = %+v", job)
+	}
+}
+
+func TestOrdinaryTopicDoesNotTrigger(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	topic := aireply.TopicContext{TopicID: 9, AuthorUserID: 11, Status: "active", RawContent: "普通讨论，没有提及任何人。"}
+	newTrigger(enqueuer, withTopic(topic)).TopicCreated(context.Background(), topicCreatedEvent(9, 11))
+	if len(enqueuer.inputs) != 0 {
+		t.Fatalf("an ordinary topic must not wake the bot: %+v", enqueuer.inputs)
+	}
+}
+
+func TestPendingTopicDoesNotTrigger(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	topic := aireply.TopicContext{TopicID: 9, AuthorUserID: 11, Status: "pending", RawContent: "@sforum_ai 帮我看看"}
+	newTrigger(enqueuer, withTopic(topic)).TopicCreated(context.Background(), topicCreatedEvent(9, 11))
+	if len(enqueuer.inputs) != 0 {
+		t.Fatalf("pending content must not trigger: %+v", enqueuer.inputs)
+	}
+}
+
+// 机器人自己发帖（例如未来插件代发）同样不允许唤起新一轮生成。
+func TestBotTopicNeverTriggersAnotherGeneration(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	reader := withTopic(aireply.TopicContext{TopicID: 9, AuthorUserID: 77, Status: "active", RawContent: "@sforum_ai"})
+	reader.kinds = map[int64]identity.UserKind{77: identity.UserKindBot}
+	newTrigger(enqueuer, reader).TopicCreated(context.Background(), topicCreatedEvent(9, 77))
+	if len(enqueuer.inputs) != 0 {
+		t.Fatalf("a bot topic must never trigger generation: %+v", enqueuer.inputs)
+	}
+}
+
 // Subscriber 是发布路径上的一层包装：它必须原样返回原发布结果，且只对
-// comment.created 这一个事件做额外处理。
+// comment.created / topic.created 这两个事件做额外处理。
 func TestSubscriberForwardsAndOnlyHandlesCommentCreated(t *testing.T) {
 	enqueuer := &fakeEnqueuer{}
 	inner := &recordingPublisher{result: appevents.Result{OK: true}}
@@ -216,9 +301,23 @@ func TestSubscriberForwardsAndOnlyHandlesCommentCreated(t *testing.T) {
 		t.Fatalf("comment.created should reach the trigger: %+v", enqueuer.inputs)
 	}
 
-	subscriber.Emit(context.Background(), appevents.Envelope{Name: appevents.TopicCreated, Kind: appevents.KindObserve})
+	subscriber.Emit(context.Background(), appevents.Envelope{Name: appevents.TopicUpdated, Kind: appevents.KindObserve})
 	if len(enqueuer.inputs) != 1 {
 		t.Fatalf("unrelated events must not reach the trigger: %+v", enqueuer.inputs)
+	}
+}
+
+// topic.created 必须同样到达判定器：发帖 @ 机器人不回应用是这个订阅路径
+// 曾经缺失时的外部表现。
+func TestSubscriberForwardsTopicCreated(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	topic := aireply.TopicContext{TopicID: 9, AuthorUserID: 11, Status: "active", RawContent: "@sforum_ai 在吗"}
+	subscriber := aireply.NewSubscriber(&recordingPublisher{result: appevents.Result{OK: true}},
+		newTrigger(enqueuer, withTopic(topic)))
+
+	subscriber.Emit(context.Background(), topicCreatedEvent(9, 11))
+	if len(enqueuer.inputs) != 1 {
+		t.Fatalf("topic.created should reach the trigger: %+v", enqueuer.inputs)
 	}
 }
 
@@ -230,4 +329,101 @@ type recordingPublisher struct {
 func (p *recordingPublisher) Emit(_ context.Context, envelope appevents.Envelope) appevents.Result {
 	p.names = append(p.names, envelope.Name)
 	return p.result
+}
+
+// ===== 触发模式矩阵 =====
+//
+// mention（默认）：只有被 @ / 回复机器人才入队生成；
+// autonomous：未被点名时先进判定，被点名仍然直达生成；
+// off：一切都不入队，包括被 @。
+
+func withModes(mode string) func(*aireply.Trigger) *aireply.Trigger {
+	return func(t *aireply.Trigger) *aireply.Trigger { return t.WithTriggerModes(fakeModes{mode: mode}) }
+}
+
+func TestAutonomousModeTriagesOrdinaryComments(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	trigger := withModes(supportai.TriggerModeAutonomous)(newTrigger(enqueuer, withComment(activeComment("普通讨论，没有提及任何人。"))))
+	trigger.CommentCreated(context.Background(), commentCreatedEvent(501, 9, 11))
+	if len(enqueuer.inputs) != 0 {
+		t.Fatalf("autonomous mode must not enqueue generation directly: %+v", enqueuer.inputs)
+	}
+	if len(enqueuer.triage) != 1 {
+		t.Fatalf("expected one triage enqueue, got %+v", enqueuer.triage)
+	}
+	job := enqueuer.triage[0]
+	if job.TopicID != 9 || job.TriggerCommentID != 501 || job.SubjectUserID != 11 {
+		t.Fatalf("triage job = %+v", job)
+	}
+}
+
+func TestAutonomousModeStillDirectlyRepliesWhenMentioned(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	trigger := withModes(supportai.TriggerModeAutonomous)(newTrigger(enqueuer, withComment(activeComment("请问 @sforum_ai 这个怎么配置？"))))
+	trigger.CommentCreated(context.Background(), commentCreatedEvent(501, 9, 11))
+	if len(enqueuer.inputs) != 1 || len(enqueuer.triage) != 0 {
+		t.Fatalf("a mention must bypass triage: replies=%+v triage=%+v", enqueuer.inputs, enqueuer.triage)
+	}
+}
+
+func TestAutonomousModeTriagesOrdinaryTopics(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	topic := aireply.TopicContext{TopicID: 9, AuthorUserID: 11, Status: "active", RawContent: "普通新帖，没有提及任何人。"}
+	trigger := withModes(supportai.TriggerModeAutonomous)(newTrigger(enqueuer, withTopic(topic)))
+	trigger.TopicCreated(context.Background(), topicCreatedEvent(9, 11))
+	if len(enqueuer.triage) != 1 || len(enqueuer.inputs) != 0 {
+		t.Fatalf("ordinary topic must go to triage: replies=%+v triage=%+v", enqueuer.inputs, enqueuer.triage)
+	}
+	if job := enqueuer.triage[0]; job.TriggerCommentID != 0 {
+		t.Fatalf("topic triage has no trigger comment: %+v", job)
+	}
+}
+
+func TestOffModeSuppressesEverything(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	reader := withComment(activeComment("请问 @sforum_ai 这个怎么配置？"))
+	reader.topics = map[int64]aireply.TopicContext{9: {TopicID: 9, AuthorUserID: 11, Status: "active", RawContent: "@sforum_ai"}}
+	trigger := withModes(supportai.TriggerModeOff)(newTrigger(enqueuer, reader))
+	trigger.CommentCreated(context.Background(), commentCreatedEvent(501, 9, 11))
+	trigger.TopicCreated(context.Background(), topicCreatedEvent(9, 11))
+	if len(enqueuer.inputs) != 0 || len(enqueuer.triage) != 0 {
+		t.Fatalf("off mode must suppress all triggers: replies=%+v triage=%+v", enqueuer.inputs, enqueuer.triage)
+	}
+}
+
+// 未装配模式来源（旧装配路径 / 读法缺失）时行为必须与 mention 完全一致。
+func TestMissingModeSourceBehavesAsMention(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	newTrigger(enqueuer, withComment(activeComment("普通讨论，没有提及任何人。"))).
+		CommentCreated(context.Background(), commentCreatedEvent(501, 9, 11))
+	if len(enqueuer.inputs) != 0 || len(enqueuer.triage) != 0 {
+		t.Fatalf("no mode source must mean mention: replies=%+v triage=%+v", enqueuer.inputs, enqueuer.triage)
+	}
+}
+
+// 模式读法故障时回到 mention：这是故障时最保守的行为，绝不能变成放开自主参与。
+func TestModeSourceFailureFallsBackToMention(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	failing := failingModes{}
+	trigger := newTrigger(enqueuer, withComment(activeComment("普通讨论，没有提及任何人。"))).WithTriggerModes(failing)
+	trigger.CommentCreated(context.Background(), commentCreatedEvent(501, 9, 11))
+	if len(enqueuer.inputs) != 0 || len(enqueuer.triage) != 0 {
+		t.Fatalf("mode failure must fall back to mention: replies=%+v triage=%+v", enqueuer.inputs, enqueuer.triage)
+	}
+}
+
+type failingModes struct{}
+
+func (failingModes) ReplyTriggerMode(context.Context) (string, error) {
+	return "", errors.New("settings unavailable")
+}
+
+// 未知模式值同样归一到 mention：NormalizedTriggerMode 的兜底语义。
+func TestUnknownModeValueFallsBackToMention(t *testing.T) {
+	enqueuer := &fakeEnqueuer{}
+	trigger := withModes("yolo")(newTrigger(enqueuer, withComment(activeComment("普通讨论，没有提及任何人。"))))
+	trigger.CommentCreated(context.Background(), commentCreatedEvent(501, 9, 11))
+	if len(enqueuer.triage) != 0 {
+		t.Fatalf("unknown mode must not enable autonomous: %+v", enqueuer.triage)
+	}
 }

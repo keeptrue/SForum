@@ -107,6 +107,12 @@ type CompletionInput struct {
 	Tools []string
 	// ToolContext 是工具调用可以依赖的会话事实。
 	ToolContext supportai.ToolContext
+	// Images 是本次回复要考虑的图片附件定位（主楼 + 被回复评论）。是否真正
+	// 读取并发送由 completer 按多模态开关决定；生成器只负责把候选带过来。
+	Images []ImageAttachment
+	// ActorUserID 是执行本次回复的机器人账号：读取附件以它的身份走与普通
+	// 用户相同的授权路径。
+	ActorUserID int64
 }
 
 type CompletionOutput struct {
@@ -154,9 +160,13 @@ func buildReplyPrompt(thread ReplyContext, systemOverride string) (string, strin
 			builder.WriteString(label + "：" + truncateForPrompt(comment.Content, 600) + "\n")
 		}
 	}
-	builder.WriteString("\n你正在回复 ")
-	builder.WriteString(commentLabel(thread.ParentAuthor, "这条发言"))
-	builder.WriteString("：\n" + truncateForPrompt(thread.ParentContent, 1200) + "\n")
+	// 评论触发时 ParentContent 是被 @ / 被回复的那条评论；主题触发（发帖 @
+	// 机器人）时没有父评论，主楼正文本身就是触发内容，上面已经展示过了。
+	if parent := strings.TrimSpace(thread.ParentContent); parent != "" {
+		builder.WriteString("\n你正在回复 ")
+		builder.WriteString(commentLabel(thread.ParentAuthor, "这条发言"))
+		builder.WriteString("：\n" + truncateForPrompt(parent, 1200) + "\n")
+	}
 	if trigger := strings.TrimSpace(thread.TriggerContent); trigger != "" && trigger != strings.TrimSpace(thread.ParentContent) {
 		builder.WriteString("\n另有成员向你发起了对话：\n")
 		builder.WriteString(commentLabel(thread.TriggerAuthor, "某位成员") + "：" + truncateForPrompt(trigger, 600) + "\n")

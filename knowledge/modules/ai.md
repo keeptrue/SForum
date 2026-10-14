@@ -84,7 +84,20 @@ live in configuration, not in Core code.
 
 ## Reply bot and built-in read-only tools
 
-- `app/Models/AIReply` owns the trigger (comment.created → enqueue), the thread
+- `app/Models/AIReply` owns the trigger (comment.created and topic.created →
+  enqueue; a topic mention enqueues with ParentCommentID=0 / TriggerCommentID=0
+  so the reply hangs under the topic and the prompt uses the topic body as the
+  triggering content), the thread
+- **Trigger modes** live in `settings.Reply.TriggerMode`
+  (`Support/AI/reply_prompt.go`): `mention` (default, only @ / reply-to-bot),
+  `autonomous`, `off`. Autonomous mode enqueues a triage job
+  (`Jobs/AIReply/TriageReplyArgs`, `ai.reply_triage`, unique key topic ×
+  debounce window) which runs `aireply.TriageDecider` — an economy-tier,
+  tool-free, 8-token call under the `forum.reply.triage` purpose that answers
+  REPLY or SKIP; only REPLY enqueues a `GenerateReplyArgs`. Triage failure and
+  unknown model output both mean SKIP (fail-closed: a gateway outage must not
+  become a reply storm). Unknown/missing mode values normalize to mention at
+  runtime; mode read failures also fall back to mention.
   snapshot (`ReplyContext`), the prompt assembly and the generator;
   `app/Models/AITools` owns the six Core built-in tools
   (`forum-search`, `forum-topic-read`, `forum-topic-list`, `user-profile-read`,
@@ -104,6 +117,23 @@ live in configuration, not in Core code.
   every member), LIKE metacharacters escaped, active accounts only, bounded
   results, and a projection type with no email/status/role field. See
   `decisions/2026-10-11-ai-reply-endpoint-identity-and-user-search.md`.
+
+## Multimodal image input (2026-10-15)
+
+- `Settings.Multimodal.Enabled`（默认 false）是站点级图片理解开关；控制台
+  providers 页签的 `SFAdminAIMultimodalBlock` 提供 checkbox。Core 不维护模型
+  能力名单，运营者自行确认模型支持图片理解；配错降级为纯文本或按失败姿态
+  处理，不会崩溃。决策：`decisions/2026-10-15-ai-multimodal-image-input.md`。
+- 契约 `Part` 增加 `PartImage`（base64 `ImageContent`），只允许用户消息；
+  上限每次 4 张、单张 2MB（`MaxImagesPerMessage` / `MaxImageBytes` 硬边界）。
+  `sforum.ai.completion@1` 版本不变（新增字段向后兼容）。
+- 收集范围：主楼 + 被回复评论的公开图片附件（`PostgresReader.ReplyImageAttachments`
+  可选接口，fake 不实现即纯文本）。字节由 completer 在开关开启时按需读取，
+  生产适配器 `providers.AIReplyImageReader` 以机器人账号身份走
+  `attachments.Service.OpenContent`——授权链与普通用户一致。
+- openai-chat 翻译成混合 content 数组（`image_url` + data URI；纯文本消息
+  保持字符串）；anthropic-messages 翻译成 `image` block + base64 source。
+  图片调用照常过闸门/配额/trace；提示词末尾标注图片计数。
 
 ## Purposes
 

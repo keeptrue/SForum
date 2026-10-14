@@ -40,7 +40,10 @@ export function useAdminAISettingsForm(ai: AdminAIContext) {
     // 已保存的文档可能来自引入 reply 之前的版本，那时这个字段不存在。
     // 先补全再绑定，否则任何 .trim() 都会炸在 undefined 上。
     if (form.value && (typeof form.value.reply?.systemPrompt !== 'string')) {
-      form.value.reply = { systemPrompt: '' }
+      form.value.reply = { systemPrompt: '', triggerMode: 'mention' }
+    }
+    if (form.value && !form.value.reply.triggerMode) {
+      form.value.reply.triggerMode = 'mention'
     }
     // 没有自定义时在编辑器里预填内置默认：运营者要能看见默认值是什么，
     // 而不是面对一个空框去猜。「使用默认」的语义由保存时的归一化维持。
