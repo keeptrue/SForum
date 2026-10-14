@@ -15,11 +15,17 @@ import (
 // AnthropicAPIVersion 是 Messages API 的必需版本头。
 const AnthropicAPIVersion = "2023-06-01"
 
-// anthropicBlock 同时承载 text / tool_use / tool_result 三种 block 形态。
-// 三种形态字段互斥，用一个结构体换来「Content 是同类数组」的简单性。
+// anthropicBlock 同时承载 text / image / tool_use / tool_result 四种 block 形态。
+// 各形态字段互斥，用一个结构体换来「Content 是同类数组」的简单性。
 type anthropicBlock struct {
 	Type string `json:"type"`
 	Text string `json:"text,omitempty"`
+	// image 的字段：source 只支持 base64 内联（与契约的 ImageContent 对应）。
+	Source *struct {
+		Type      string `json:"type"`
+		MediaType string `json:"media_type"`
+		Data      string `json:"data"`
+	} `json:"source,omitempty"`
 	// tool_use 与 tool_result 的字段。
 	ID        string          `json:"id,omitempty"`
 	Name      string          `json:"name,omitempty"`
@@ -28,6 +34,28 @@ type anthropicBlock struct {
 	// tool_result 的内容本身也是 block 数组。
 	Content []anthropicBlock `json:"content,omitempty"`
 	IsError bool             `json:"is_error,omitempty"`
+}
+
+// anthropicContentBlocks 把中立 parts 翻译成 Anthropic block 数组：文本拼接成
+// 一个 text block，图片各自成为 image block。
+func anthropicContentBlocks(message Message) []anthropicBlock {
+	blocks := make([]anthropicBlock, 0, len(message.Parts)+1)
+	if text := messageText(message); text != "" {
+		blocks = append(blocks, anthropicBlock{Type: "text", Text: text})
+	}
+	for _, part := range message.Parts {
+		if part.Type != PartImage || part.Image == nil {
+			continue
+		}
+		block := anthropicBlock{Type: "image"}
+		block.Source = &struct {
+			Type      string `json:"type"`
+			MediaType string `json:"media_type"`
+			Data      string `json:"data"`
+		}{Type: "base64", MediaType: part.Image.MediaType, Data: part.Image.Data}
+		blocks = append(blocks, block)
+	}
+	return blocks
 }
 
 type anthropicMessage struct {
@@ -113,7 +141,7 @@ func buildAnthropicMessagesRequest(profile Profile, apiKey string, request Compl
 			messages = append(messages, anthropicMessage{Role: "assistant", Content: blocks})
 			lastWasToolResult = false
 		default:
-			messages = append(messages, anthropicMessage{Role: "user", Content: anthropicTextBlocks(messageText(message))})
+			messages = append(messages, anthropicMessage{Role: "user", Content: anthropicContentBlocks(message)})
 			lastWasToolResult = false
 		}
 	}

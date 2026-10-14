@@ -68,6 +68,14 @@ type RedactionSettings struct {
 	RedactIP    bool `json:"redactIp"`
 }
 
+// MultimodalSettings 控制图片理解输入。默认关闭：开启后 AI 回复会把主题与
+// 被回复评论里的图片附件（最多 MaxImagesPerMessage 张、单张 MaxImageBytes 以内）
+// 一并发送给模型。Core 不维护模型能力名单——运营者需要自己确认所选模型支持
+// 图片理解；模型不支持时供应商侧会忽略或报错，按既有失败姿态降级，不会崩溃。
+type MultimodalSettings struct {
+	Enabled bool `json:"enabled"`
+}
+
 // PurposeSettings 是某个用途的站点覆盖。缺省（用途不在 map 里，或某项未设置）
 // 表示沿用用途自己的声明；显式给出则以站点配置为准。
 type PurposeSettings struct {
@@ -124,6 +132,8 @@ type Settings struct {
 	AutoAction AutoActionSettings `json:"autoAction"`
 	Gates      GateSettings       `json:"gates"`
 	Redaction  RedactionSettings  `json:"redaction"`
+	// Multimodal 是图片理解开关。零值即关闭，升级前的旧配置文档天然兼容。
+	Multimodal MultimodalSettings `json:"multimodal"`
 	// Revision 每次保存递增，用于在执行记录中快照生效配置版本。
 	Revision        int64     `json:"revision"`
 	UpdatedByUserID *int64    `json:"updatedByUserId,omitempty"`

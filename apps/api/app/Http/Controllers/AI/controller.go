@@ -42,7 +42,8 @@ type updateSettingsRequest struct {
 	// Reply 承载回复提示词与旧版工具白名单覆盖。前端一直在发这一项，但 DTO 此前
 	// 没有它，保存设置会静默丢掉运营者写过的提示词——这里补齐，并让工具白名单
 	// 走同一条经过校验的路径。
-	Reply supportai.ReplySettings `json:"reply"`
+	Reply      supportai.ReplySettings      `json:"reply"`
+	Multimodal supportai.MultimodalSettings `json:"multimodal"`
 }
 
 // purposeCatalogEntry 是控制台渲染用途清单所需的事实：这个用途是什么、花哪一档、
@@ -326,6 +327,7 @@ func settingsFromRequest(request updateSettingsRequest) supportai.Settings {
 		Gates:                 request.Gates,
 		Redaction:             request.Redaction,
 		Reply:                 request.Reply,
+		Multimodal:            request.Multimodal,
 	}.Normalized()
 }
 

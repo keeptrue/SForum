@@ -49,14 +49,27 @@ const (
 	RoleTool      Role = "tool"
 )
 
-// PartType 目前只承认文本。多模态输入已由运营者决定排除。
+// PartType 承认文本与图片两种内容块。图片只在站点开启多模态输入时出现；
+// 运营者选择支持图片理解的模型，Core 不维护任何模型能力名单。
 type PartType string
 
-const PartText PartType = "text"
+const (
+	PartText  PartType = "text"
+	PartImage PartType = "image"
+)
+
+// ImageContent 是一张以内联 base64 承载的图片。只支持内联而非 URL 引用：
+// 附件可能来自私网存储，模型端点不一定抓得到站内地址；base64 让「图片是否
+// 送达」与「附件是否公网可达」解耦。
+type ImageContent struct {
+	MediaType string `json:"mediaType"`
+	Data      string `json:"data"`
+}
 
 type Part struct {
-	Type PartType `json:"type"`
-	Text string   `json:"text,omitempty"`
+	Type  PartType      `json:"type"`
+	Text  string        `json:"text,omitempty"`
+	Image *ImageContent `json:"image,omitempty"`
 }
 
 // ToolDefinition 是给模型看的工具声明。Parameters 是 JSON Schema 对象，原样
@@ -307,17 +320,37 @@ func (r CompletionRequest) Validate() error {
 			}
 			total += len(call.Name) + len(call.Arguments)
 		}
+		imageCount := 0
 		for _, part := range message.Parts {
-			if part.Type != PartText {
+			switch part.Type {
+			case PartText:
+				if strings.TrimSpace(part.Text) == "" {
+					return ErrRequestInvalid
+				}
+				if len(part.Text) > MaxMessageBytes {
+					return ErrRequestInvalid
+				}
+				total += len(part.Text)
+			case PartImage:
+				// 图片只允许出现在用户消息：assistant/tool 角色的历史消息带图
+				// 没有语义，只会放大出站体积。
+				if message.Role != RoleUser {
+					return ErrRequestInvalid
+				}
+				if part.Image == nil || !ValidImageMediaType(part.Image.MediaType) {
+					return ErrRequestInvalid
+				}
+				if part.Image.Data == "" || len(part.Image.Data) > MaxImageBase64Bytes {
+					return ErrRequestInvalid
+				}
+				imageCount++
+				if imageCount > MaxImagesPerMessage {
+					return ErrRequestInvalid
+				}
+				total += len(part.Image.Data)
+			default:
 				return ErrRequestInvalid
 			}
-			if strings.TrimSpace(part.Text) == "" {
-				return ErrRequestInvalid
-			}
-			if len(part.Text) > MaxMessageBytes {
-				return ErrRequestInvalid
-			}
-			total += len(part.Text)
 		}
 	}
 	if total > MaxTotalInputBytes {
@@ -339,9 +372,23 @@ func (r CompletionRequest) InputBytes() int {
 		}
 		for _, part := range message.Parts {
 			total += len(part.Text)
+			if part.Image != nil {
+				total += len(part.Image.Data)
+			}
 		}
 	}
 	return total
+}
+
+// ValidImageMediaType 限定可出站的图片类型。集合刻意保守：jpeg/png/webp/gif
+// 是主流视觉端点都接受的公约数；svg 是文本可注入载体，永不进入。
+func ValidImageMediaType(mediaType string) bool {
+	switch strings.ToLower(strings.TrimSpace(mediaType)) {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+		return true
+	default:
+		return false
+	}
 }
 
 // TruncateBytes 按 UTF-8 字符边界截断，避免截出半个多字节字符。

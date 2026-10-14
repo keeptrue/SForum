@@ -626,6 +626,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		systemUpdatesProvider:     systemUpdatesProvider,
 		apiTokenService:           apiTokenService,
 		attachmentsProvider:       attachmentsProvider,
+		attachmentService:         attachmentService,
 		auditWriter:               auditWriter,
 		authSessions:              authSessions,
 		closePluginRuntime:        closePluginRuntime,

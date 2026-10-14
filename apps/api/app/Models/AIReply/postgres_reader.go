@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
 )
 
 // PostgresReader 从数据库读取生成所需的线程快照。
@@ -117,6 +118,49 @@ func (r *PostgresReader) recentComments(ctx context.Context, topicID int64) ([]T
 	// 查询是倒序的，翻回时间正序。
 	for left, right := 0, len(collected)-1; left < right; left, right = left+1, right-1 {
 		collected[left], collected[right] = collected[right], collected[left]
+	}
+	return collected, nil
+}
+
+// ReplyImageAttachments 返回一次回复需要考虑图片的定位：主楼与被回复那条
+// 评论。只返回定位信息（publicID/content_type），字节由 completer 层在确认
+// 多模态开关开启后才读——查询很便宜，读字节很贵。
+func (r *PostgresReader) ReplyImageAttachments(ctx context.Context, topicID int64, parentCommentID int64) ([]ImageAttachment, error) {
+	if r == nil || r.pool == nil {
+		return nil, ErrGeneratorUnavailable
+	}
+	// 只取公开、active 的图片附件；与可见内容的对齐由 attachments 侧的
+	// authorizeAttachmentView 保证，这里先收窄到「机器人在公开主题里能引用的
+	// 那类附件」。
+	rows, err := r.pool.Query(ctx, `
+		SELECT a.public_id, a.content_type
+		FROM attachment_references ar
+		JOIN attachments a ON a.id = ar.attachment_id
+		WHERE (
+		    (ar.resource_type = 'topic' AND ar.resource_id = $1)
+		    OR (ar.resource_type = 'comment' AND ar.resource_id = $2)
+		  )
+		  AND a.status = 'active'
+		  AND a.visibility = 'public'
+		  AND a.deleted_at IS NULL
+		  AND a.content_type IN ('image/jpeg', 'image/png', 'image/webp', 'image/gif')
+		ORDER BY a.id
+		LIMIT $3
+	`, topicID, parentCommentID, supportai.MaxImagesPerMessage*2)
+	if err != nil {
+		return nil, fmt.Errorf("load reply image attachments: %w", err)
+	}
+	defer rows.Close()
+	collected := make([]ImageAttachment, 0, supportai.MaxImagesPerMessage)
+	for rows.Next() {
+		var attachment ImageAttachment
+		if err := rows.Scan(&attachment.PublicID, &attachment.ContentType); err != nil {
+			return nil, err
+		}
+		collected = append(collected, attachment)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return collected, nil
 }

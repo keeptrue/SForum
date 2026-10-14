@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
+	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
 	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
 	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
@@ -35,6 +36,7 @@ type apiCoreStack struct {
 	systemUpdatesProvider        *providers.SystemUpdatesProvider
 	apiTokenService              *apitokens.Service
 	attachmentsProvider          *providers.AttachmentsProvider
+	attachmentService            *attachments.Service
 	auditWriter                  audit.Writer
 	authSessions                 *authsession.Manager
 	closePluginRuntime           func()

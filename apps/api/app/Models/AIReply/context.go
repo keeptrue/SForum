@@ -107,6 +107,12 @@ type CompletionInput struct {
 	Tools []string
 	// ToolContext 是工具调用可以依赖的会话事实。
 	ToolContext supportai.ToolContext
+	// Images 是本次回复要考虑的图片附件定位（主楼 + 被回复评论）。是否真正
+	// 读取并发送由 completer 按多模态开关决定；生成器只负责把候选带过来。
+	Images []ImageAttachment
+	// ActorUserID 是执行本次回复的机器人账号：读取附件以它的身份走与普通
+	// 用户相同的授权路径。
+	ActorUserID int64
 }
 
 type CompletionOutput struct {

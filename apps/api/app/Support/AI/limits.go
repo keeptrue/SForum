@@ -51,6 +51,14 @@ const (
 	MaxToolResultBytes    = 8_000
 	MaxToolResultRunBytes = 16_000
 
+	// 多模态图片上限。单张 2MB 是「能看清截图/照片」与「一次请求不会把月度预算
+	// 打穿」的折中；4 张是一次回复所需的合理上下文上限。两者都是硬边界，运营者
+	// 不可调——可调上限意味着运营者要为「多少 token 一张图」这种细节负责。
+	MaxImagesPerMessage = 4
+	MaxImageBytes       = 2 * 1024 * 1024
+	// MaxImageBase64Bytes 是 base64 编码后的长度上限（原始字节的 4/3，向上取整）。
+	MaxImageBase64Bytes = (MaxImageBytes+2)/3*4 + 4
+
 	// 温度范围。
 	MinTemperature = 0.0
 	MaxTemperature = 2.0

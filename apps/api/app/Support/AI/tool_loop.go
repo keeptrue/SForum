@@ -132,7 +132,10 @@ type RunInput struct {
 	CostClass     string
 	System        string
 	User          string
-	MaxTokens     int
+	// Images 是首条用户消息要携带的图片部件（已编码）。只进首条消息：
+	// 后续工具步的历史消息带图只会重复计费。
+	Images    []Part
+	MaxTokens int
 	PromptVersion string
 	Metadata      Metadata
 	// SubjectUserID 只计入首次调用：用户配额按「一次回复」结算，而不是按步数。
@@ -185,7 +188,14 @@ func (o *Orchestrator) Run(ctx context.Context, input RunInput) (RunResult, erro
 		remaining = steps
 	}
 
-	messages := []Message{{Role: RoleUser, Parts: []Part{{Type: PartText, Text: input.User}}}}
+	userText := input.User
+	if len(input.Images) > 0 {
+		userText += fmt.Sprintf("\n\n（本条发言附带 %d 张图片，请结合图片内容回答。）", len(input.Images))
+	}
+	firstParts := make([]Part, 0, len(input.Images)+1)
+	firstParts = append(firstParts, Part{Type: PartText, Text: userText})
+	firstParts = append(firstParts, input.Images...)
+	messages := []Message{{Role: RoleUser, Parts: firstParts}}
 	result := RunResult{PromptVersion: input.PromptVersion}
 	budget := MaxToolResultRunBytes
 	firstCall := true

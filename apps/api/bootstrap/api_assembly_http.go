@@ -34,8 +34,10 @@ func newEmbeddedAIReplyGenerator(core *apiCoreStack) *aireply.Generator {
 		return nil
 	}
 	// AI 服务同时提供回复提示词与工具白名单两项配置来源：两者都住在同一份设置
-	// 文档里，且都在每次回复时读取，配置改完立即生效。
-	return providers.NewAIReplyGenerator(core.pool, core.identityStore, forumService, gateway, core.aiOrchestrator, core.aiProvider.Service())
+	// 文档里，且都在每次回复时读取，配置改完立即生效。附件服务让多模态输入
+	// 能以机器人身份读取图片附件（是否启用由站点设置的多模态开关决定）。
+	return providers.NewAIReplyGenerator(core.pool, core.identityStore, forumService, gateway, core.aiOrchestrator, core.aiProvider.Service(),
+		providers.NewAIReplyImageReader(core.attachmentService, core.identityStore))
 }
 
 // finishAPIHTTP：Fiber 应用、主题 watcher、嵌入 worker 与 API 句柄。

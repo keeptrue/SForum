@@ -59,6 +59,8 @@ export type AdminAISettings = {
   autoAction: { enabled: boolean, confidenceThreshold: number, allowedActions: string[] }
   gates: { rateLimitPerMinute: number, extensionDailyQuota: number, userDailyQuota: number, monthlyBudgetMicros: number, toolCallsPerReply?: number }
   redaction: { enabled: boolean, redactEmail: boolean, redactPhone: boolean, redactIp: boolean }
+  // multimodal 是图片理解开关。旧文档可能没有这个字段（引入前保存的）。
+  multimodal?: { enabled: boolean }
   revision: number
   updatedAt?: string
 }

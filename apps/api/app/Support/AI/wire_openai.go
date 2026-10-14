@@ -28,13 +28,58 @@ type openAIToolCall struct {
 	Function openAIFunctionCall `json:"function"`
 }
 
+// openAIContentPart 是 OpenAI 混合内容数组里的一项：text 或 image_url。
+// 只有用户消息会用数组形态；system/assistant/tool 仍是纯字符串——这是
+// OpenAI 兼容实现的公约数，多数端点对 assistant 数组形态支持并不一致。
+type openAIContentPart struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	ImageURL *struct {
+		URL string `json:"url"`
+	} `json:"image_url,omitempty"`
+}
+
 type openAIChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content,omitempty"`
+	Role string `json:"role"`
+	// Content 是 string（纯文本）或 []openAIContentPart（含图片）；nil 表示
+	// 该消息没有正文（assistant 只发工具调用的形态）。
+	Content any `json:"content,omitempty"`
 	// ToolCalls 只出现在 assistant 消息上：模型要求先执行这些工具。
 	ToolCalls []openAIToolCall `json:"tool_calls,omitempty"`
 	// ToolCallID 只出现在 role=tool 的消息上，指向它所回应的调用。
 	ToolCallID string `json:"tool_call_id,omitempty"`
+}
+
+// openAIMessageContent 把中立 parts 翻译成 OpenAI 的 content 形态：纯文本
+// 保持字符串（最兼容），含图片时变成数组。
+func openAIMessageContent(message Message) any {
+	hasImage := false
+	for _, part := range message.Parts {
+		if part.Type == PartImage && part.Image != nil {
+			hasImage = true
+			break
+		}
+	}
+	if !hasImage {
+		return messageText(message)
+	}
+	parts := make([]openAIContentPart, 0, len(message.Parts))
+	for _, part := range message.Parts {
+		switch part.Type {
+		case PartText:
+			parts = append(parts, openAIContentPart{Type: "text", Text: part.Text})
+		case PartImage:
+			if part.Image == nil {
+				continue
+			}
+			imagePart := openAIContentPart{Type: "image_url"}
+			imagePart.ImageURL = &struct {
+				URL string `json:"url"`
+			}{URL: "data:" + part.Image.MediaType + ";base64," + part.Image.Data}
+			parts = append(parts, imagePart)
+		}
+	}
+	return parts
 }
 
 type openAIFunctionDefinition struct {
@@ -124,7 +169,9 @@ func buildOpenAIChatRequest(profile Profile, apiKey string, request CompletionRe
 				})
 			}
 		default:
-			built.Content = messageText(message)
+			// 用户消息可能带图片：纯文本保持字符串形态（兼容面最大），
+			// 含图片时切换为混合内容数组。
+			built.Content = openAIMessageContent(message)
 		}
 		messages = append(messages, built)
 	}
