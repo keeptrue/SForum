@@ -659,6 +659,7 @@ AdminOverviewBuildInfo:
   - name
   - version
   - goVersion
+  - platform
   - dirty
   - sourceUrl
   properties:
@@ -680,6 +681,11 @@ AdminOverviewBuildInfo:
       description: Deterministic release commit time when available.
     goVersion:
       type: string
+    platform:
+      type: string
+      description: Build target operating system and architecture (GOOS/GOARCH), such as linux/amd64.
+      examples:
+      - linux/amd64
     dirty:
       type: boolean
       description: Whether Go VCS metadata reports local source modifications.

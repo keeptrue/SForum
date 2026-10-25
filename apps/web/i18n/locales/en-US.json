@@ -1139,6 +1139,7 @@
         "commit": "Build commit",
         "builtAt": "Build time",
         "goVersion": "Go version",
+        "arch": "System architecture",
         "dirty": "Local changes",
         "unavailable": "Unavailable",
         "source": "View SForum source code",

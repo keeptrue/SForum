@@ -1179,6 +1179,7 @@
         "commit": "构建提交",
         "builtAt": "构建时间",
         "goVersion": "Go 版本",
+        "arch": "系统架构",
         "dirty": "有本地修改",
         "unavailable": "暂无数据",
         "source": "查看 SForum 源代码",

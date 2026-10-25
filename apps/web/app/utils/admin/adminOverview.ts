@@ -214,6 +214,8 @@ export type AdminOverviewBuildInfo = {
   commit?: string
   builtAt?: string
   goVersion: string
+  /** Build target OS/arch (GOOS/GOARCH), such as linux/amd64. */
+  platform: string
   dirty: boolean
   sourceUrl: string
 }

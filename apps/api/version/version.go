@@ -38,6 +38,7 @@ type BuildInfo struct {
 	Commit    string `json:"commit,omitempty"`
 	BuiltAt   string `json:"builtAt,omitempty"`
 	GoVersion string `json:"goVersion"`
+	Platform  string `json:"platform"` // 构建目标 GOOS/GOARCH，用于管理端展示当前系统架构。
 	Dirty     bool   `json:"dirty"`
 	SourceURL string `json:"sourceUrl"`
 }
@@ -49,6 +50,7 @@ func Get() BuildInfo {
 		Commit:    strings.TrimSpace(Commit),
 		BuiltAt:   strings.TrimSpace(BuildTime),
 		GoVersion: runtime.Version(),
+		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
 		SourceURL: SourceURL,
 	}
 	build, ok := debug.ReadBuildInfo()

@@ -64,6 +64,12 @@ const rows = computed<RuntimeRow[]>(() => {
       icon: 'i-lucide-code-xml'
     },
     {
+      label: t('admin.home.runtime.arch'),
+      value: runtime.build.platform || t('admin.home.runtime.unavailable'),
+      title: runtime.build.platform || undefined,
+      icon: 'i-lucide-monitor-cog'
+    },
+    {
       label: t('admin.home.runtime.uptime'),
       value: formatOverviewUptime(runtime.uptimeSeconds),
       icon: 'i-lucide-clock-3'

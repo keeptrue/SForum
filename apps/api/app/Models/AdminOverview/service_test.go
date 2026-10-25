@@ -154,7 +154,7 @@ func TestRuntimeCollectorReturnsProcessStats(t *testing.T) {
 	if stats.GoroutineCount == 0 {
 		t.Fatal("expected goroutine count to be non-zero")
 	}
-	if stats.Build.Name != "SForum" || stats.Build.Version == "" || stats.Build.GoVersion == "" {
+	if stats.Build.Name != "SForum" || stats.Build.Version == "" || stats.Build.GoVersion == "" || stats.Build.Platform == "" {
 		t.Fatalf("expected complete build identity, got %#v", stats.Build)
 	}
 	// 真实采样成功时 family >= parent；失败时 family 可省略。

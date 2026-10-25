@@ -2,6 +2,8 @@ package version
 
 import (
 	"bytes"
+	"encoding/json"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -21,6 +23,17 @@ func TestGetExposesProjectAndInjectedBuildIdentity(t *testing.T) {
 	}
 	if info.GoVersion == "" || info.SourceURL != SourceURL {
 		t.Fatalf("missing runtime project identity: %#v", info)
+	}
+	if want := runtime.GOOS + "/" + runtime.GOARCH; info.Platform != want {
+		t.Fatalf("unexpected platform %q, want %q", info.Platform, want)
+	}
+	// 管理端运行状态卡直接消费该 JSON 字段，确保契约里的 platform 真实下发。
+	encoded, err := json.Marshal(info)
+	if err != nil {
+		t.Fatalf("marshal build info: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"platform":"`+info.Platform+`"`) {
+		t.Fatalf("build info JSON missing platform: %s", encoded)
 	}
 }
 

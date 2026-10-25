@@ -48,6 +48,7 @@ describe('admin overview helpers', () => {
           name: 'SForum',
           version: 'dev',
           goVersion: 'go1.25',
+          platform: 'linux/amd64',
           dirty: false,
           sourceUrl: 'https://example.com'
         },
@@ -219,6 +220,7 @@ describe('admin overview helpers', () => {
         commit: '0123456789abcdef',
         builtAt: '2026-07-29T02:00:00Z',
         goVersion: 'go1.26.5',
+        platform: 'linux/arm64',
         dirty: false,
         sourceUrl: 'https://github.com/zhuchunshu/SForum'
       },
