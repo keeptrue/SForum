@@ -843,11 +843,33 @@ func lifecycleCleanupFailureError(err error) error {
 	return apphttp.NewError(fiber.StatusServiceUnavailable, extensions.CodeLifecycleCleanupFailed)
 }
 
+// mapCoreIncompatibleError 把清单与 core 的兼容拒绝拆成两个状态码：
+// 安装是「这个包本身不可用」（422），运行阶段是「当前状态冲突」（409）。
+// 结构化字段让管理员直接看到声明范围与实际宿主版本，而不是一句笼统的失败。
+func mapCoreIncompatibleError(err error) error {
+	var incompatible *extensions.CoreIncompatibleError
+	if !errors.As(err, &incompatible) {
+		return nil
+	}
+	status := fiber.StatusConflict
+	if incompatible.Stage == extensions.CoreCompatibilityStageInstall {
+		status = fiber.StatusUnprocessableEntity
+	}
+	return apphttp.NewErrorWithFields(status, extensions.CodeCoreIncompatible, map[string][]string{
+		"required":     {incompatible.Required},
+		"coreVersion":  {incompatible.CoreVersion},
+		"buildVersion": {incompatible.BuildVersion},
+	})
+}
+
 func mapExtensionError(err error) error {
 	if mapped := mapRemoteInstallError(err); mapped != nil {
 		return mapped
 	}
 	if mapped := mapLifecycleInspectionError(err); mapped != nil {
+		return mapped
+	}
+	if mapped := mapCoreIncompatibleError(err); mapped != nil {
 		return mapped
 	}
 	switch {

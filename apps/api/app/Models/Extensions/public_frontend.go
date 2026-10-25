@@ -18,6 +18,7 @@ import (
 	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
 	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
 	stablefile "github.com/zhuchunshu/sforum/apps/api/app/Support/StableFile"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 var ErrPublicFrontendUnavailable = errors.New("extensions: public frontend is unavailable")
@@ -113,8 +114,9 @@ func (s *FrontendService) PublicComponent(ctx context.Context, extensionID, comp
 	return PublicFrontendComponent{
 		SchemaVersion: PublicFrontendSchemaV1, APIVersion: PublicFrontendAPIVersion,
 		TrustNotice: PublicFrontendTrustNotice, ExtensionID: extension.ID,
-		ExtensionVersion: extension.Version, PackageDigest: extension.PackageDigest,
-		ImpactDigest: ownerPublication.Artifact.ImpactDigest, ComponentID: component.ID,
+		ExtensionVersion: extension.Version, CoreVersion: platformversion.CoreCompatibilityVersion(),
+		PackageDigest: extension.PackageDigest,
+		ImpactDigest:  ownerPublication.Artifact.ImpactDigest, ComponentID: component.ID,
 		ContractVersion: component.ContractVersion, Action: component.Action,
 		TargetID: component.TargetID, TargetContractVersion: component.TargetContractVersion,
 		PropsSchema: component.PropsSchema, ResultSchema: component.ResultSchema,

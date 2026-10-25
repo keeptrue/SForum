@@ -27,6 +27,19 @@ export type AdminMicroFrontendAppearance = Readonly<{
 }>
 
 /**
+ * 宿主构建标识。`coreVersion` 是兼容判定唯一权威（严格 semver）；
+ * `buildVersion` 只用于识别开发版与排障，永远不要拿它做约束比较。
+ *
+ * 旧宿主可能不提供这个字段：插件必须 feature-detect（`bridge.host` 为
+ * `undefined`），不要自己推断宿主版本。
+ */
+export type AdminHostIdentity = Readonly<{
+  coreVersion: string
+  buildVersion: string
+  valid: boolean
+}>
+
+/**
  * 宿主图标解析器：插件只提供图标名，SVG 标记始终由宿主生成。
  * 名称语法为 `i-(lucide|tabler)-<name>`，与宿主贡献点校验共用同一条规则。
  * 无法解析的图标名会从结果中缺失，调用方必须容忍缺项。
@@ -43,6 +56,8 @@ export type AdminMicroFrontendBridgeV1 = Readonly<{
   appearance: AdminMicroFrontendAppearance
   /** 可选：宿主未提供时为 `undefined`，插件必须优雅降级。 */
   icons?: AdminIconResolver
+  /** 可选：旧宿主没有这一项；缺失即「未知」，不要猜版本。 */
+  host?: AdminHostIdentity
   settings: Readonly<{
     items: readonly AdminExtensionSettingItem[]
     values: () => Readonly<Record<string, string>>
@@ -113,6 +128,8 @@ export type AdminPageBridgeV1 = Readonly<{
   appearance: AdminMicroFrontendAppearance
   /** 可选：宿主未提供时为 `undefined`，插件必须优雅降级。 */
   icons?: AdminIconResolver
+  /** 可选：旧宿主没有这一项；缺失即「未知」，不要猜版本。 */
+  host?: AdminHostIdentity
   page: AdminPageDescriptor
   request: <T>(path: string, options?: Record<string, unknown>) => Promise<T>
   toast: (input: SForumAdminToastInput) => void

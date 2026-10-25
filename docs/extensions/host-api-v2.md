@@ -134,6 +134,22 @@ required. The magic cookie prevents accidental execution as an ordinary CLI;
 it is not authentication. AutoMTLS authenticates this process connection, and
 the typed runtime binding supplies the exact trust identity.
 
+## Host build identity
+
+`HandshakeRequest.host_build` carries the frozen Host build identity:
+
+- `core_version` is the **only** compatibility authority (strict semver).
+  Manifest `sforumVersion` constraints are evaluated against it by the Host.
+- `build_version` is display and troubleshooting only (`dev`, `dev-abc12`).
+  Never compare it to a constraint.
+
+`pluginv2.Server` captures the value at the first successful handshake and
+exposes it as `Server.HostBuild()`. The boolean is false before the handshake
+and when the Host predates the field, so treat a missing identity as *unknown*
+instead of guessing or hardcoding a version. A repeated handshake carrying a
+different identity is rejected with `protocol.stale_runtime`, exactly like
+token, artifact, or broker drift.
+
 ## Host broker and runtime token
 
 The host allocates a runtime-scoped go-plugin `GRPCBroker` service before the
@@ -797,6 +813,8 @@ following against a real SForum host subprocess:
   compatible with the host's pinned go-plugin core;
 - the typed handshake rejects incomplete identity, incompatible version,
   missing limits, and stale repeat handshakes;
+- `host_build` is read from the handshake request and an absent value is
+  treated as unknown, never as a guessed version;
 - `host_broker_id` is dialed through the broker control stream and every Host
   call carries exactly one raw `x-sforum-runtime-token-bin` value;
 - request contexts preserve actor/locale/trace while exact identity, ordered

@@ -48,6 +48,42 @@ func TestServerHandshakeBindsTokenAndExactIdentity(t *testing.T) {
 	}
 }
 
+func TestServerFreezesHostBuildIdentityFromHandshake(t *testing.T) {
+	server := NewServer()
+	if _, ok := server.HostBuild(); ok {
+		t.Fatal("host build must be unknown before the handshake")
+	}
+	request := validHandshakeRequest()
+	request.HostBuild = &protocolwire.HostBuild{CoreVersion: "3.0.16", BuildVersion: "dev-abc12"}
+	if _, err := server.Handshake(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	build, ok := server.HostBuild()
+	if !ok || build.CoreVersion != "3.0.16" || build.BuildVersion != "dev-abc12" {
+		t.Fatalf("host build = %#v, ok=%v", build, ok)
+	}
+
+	drifted := validHandshakeRequest()
+	drifted.HostBuild = &protocolwire.HostBuild{CoreVersion: "3.0.17"}
+	response, err := server.Handshake(context.Background(), drifted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.GetError().GetCode() != protocolwire.ErrorCode_ERROR_CODE_STALE_RUNTIME {
+		t.Fatalf("drifted host build must be stale: %#v", response.GetError())
+	}
+
+	// A Host that predates the field sends nothing; plugins must see unknown
+	// rather than an empty-but-usable identity.
+	legacy := NewServer()
+	if _, err := legacy.Handshake(context.Background(), validHandshakeRequest()); err != nil {
+		t.Fatal(err)
+	}
+	if build, ok := legacy.HostBuild(); ok {
+		t.Fatalf("legacy host build must be unknown: %#v", build)
+	}
+}
+
 func TestServerRejectsIncompleteAndMismatchedHandshake(t *testing.T) {
 	tests := []struct {
 		name   string

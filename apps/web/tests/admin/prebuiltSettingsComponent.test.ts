@@ -43,6 +43,10 @@ describe('prebuilt extension settings component runtime', () => {
     expect(sdk).toContain('values: () => Readonly<Record<string, string>>')
     expect(sdk).toContain('request: <T>')
     expect(sdk).toContain('AdminMicroFrontendCleanup')
+    // Host build identity is optional on the bridge and must be forwarded from
+    // the bootstrap payload rather than fetched again by the component.
+    expect(sdk).toContain('host?: AdminHostIdentity')
+    expect(component).toContain('host: props.host')
     expect(fixture).toContain('export const apiVersion = 1')
     expect(fixture).toContain('export function mount(target, bridge)')
     expect(fixture).toContain('removeEventListener')

@@ -12,6 +12,22 @@ does not rebuild Nuxt.
 
 ## Current Program State
 
+- **Host coreVersion is exposed and manifest compatibility is enforced
+  (2026-10-25).** `apps/api/version.Identity()` is the single authority
+  (`coreVersion` = strict semver release identity, `buildVersion` = display
+  label). It reaches v2 backend plugins through
+  `HandshakeRequest.host_build` / `Server.HostBuild()`, admin page and settings
+  bridges through `page-bootstrap`'s `host`, public L2 components through the
+  descriptor's `coreVersion`, and ops through `GET /api/v1/health`. Manifest
+  `sforumVersion` is now actually evaluated: install rejects with 422, enable /
+  theme activation / upgrade / rollback / restart with 409, both carrying
+  `extension.core_incompatible`. Built-in packages are exempt and an invalid
+  core label skips enforcement with a startup warning; prerelease cores are also
+  evaluated against their release base so alpha/beta releases do not reject
+  every package. The Host API v1 `Ping` surface is *not* used for this: production
+  never injects `SFORUM_HOST_API_*` into plugin subprocesses. See
+  `../decisions/2026-10-25-core-version-surface.md`.
+
 - **Every shipped package carries brand assets (2026-10-25).** 12 extensions
   (8 built-in plugins, the default theme, 3 independent-repository plugins) plus
   the main repository now ship `brand/icon.svg` (512 viewBox), `brand/icon.png`
@@ -1270,6 +1286,12 @@ catalog IDs do not rely on string replacement as sanitization.
 Every core module maintains an Extension Surface Matrix. A closed surface needs
 an explicit security, integrity, or ownership reason; ordinary integrations
 should use dedicated registries instead of raw database or whole-route power.
+
+Host build identity (`coreVersion` / `buildVersion`) is a read-only surface with
+one authority and four projections: v2 handshake (`host_build` → `Server.HostBuild()`),
+admin bridges (`page-bootstrap.host`), the public L2 descriptor (`coreVersion`),
+and `GET /api/v1/health`. It is frozen per process; there is no query, command, or
+event for it, and `buildVersion`/`commit` never enter a public response.
 
 ## Themes And Page Registry
 

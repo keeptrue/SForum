@@ -168,6 +168,9 @@ func (s *LifecycleService) Upgrade(ctx context.Context, actor identity.Actor, id
 	if !ok || !usesLifecycleV2(target) {
 		return Extension{}, ErrStagedVersionNotFound
 	}
+	if err := requireEnablePreflight(target); err != nil {
+		return Extension{}, err
+	}
 	return s.runLifecycleV2(ctx, actor, lifecycleServiceRequest{
 		operation: LifecycleMachineUpgrade, source: exactLifecycleCopy(extension), target: target,
 		idempotencyKey: input.IdempotencyKey, confirmationToken: input.ConfirmationToken,
@@ -215,6 +218,9 @@ func (s *LifecycleService) Rollback(ctx context.Context, actor identity.Actor, i
 	target := extensionFromExactVersion(extension, version)
 	if !usesLifecycleV2(target) {
 		return Extension{}, fmt.Errorf("%w: rollback target has no lifecycle V2 contract", ErrLifecycleCoordinatorInvalid)
+	}
+	if err := requireEnablePreflight(target); err != nil {
+		return Extension{}, err
 	}
 	return s.runLifecycleV2(ctx, actor, lifecycleServiceRequest{
 		operation: LifecycleMachineRollback, source: exactLifecycleCopy(extension), target: target,

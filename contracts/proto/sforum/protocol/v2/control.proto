@@ -34,6 +34,16 @@ message RuntimeLimits {
   google.protobuf.Duration graceful_stop_deadline = 7;
 }
 
+// HostBuild is the frozen Host build identity. core_version is the only
+// compatibility authority: manifest sforumVersion constraints are evaluated
+// against it. build_version is display and troubleshooting only and must never
+// be compared to a constraint. Hosts older than this field send nothing, so
+// plugins must treat an empty core_version as unknown rather than guessing.
+message HostBuild {
+  string core_version = 1;
+  string build_version = 2;
+}
+
 // HandshakeRequest starts a protocol-v2 runtime and identifies the host broker.
 message HandshakeRequest {
   RequestContext context = 1;
@@ -43,6 +53,7 @@ message HandshakeRequest {
   uint32 host_broker_id = 5;
   string host_api_version = 6;
   bytes runtime_token = 7;
+  HostBuild host_build = 8;
 }
 
 // HandshakeResponse selects one compatible version and declares plugin services.

@@ -13,7 +13,7 @@
     "apps/api/app/Support/Extensions/plugin_runtime_full_set.go": 907,
     "apps/api/app/Support/Extensions/protocol.go": 941,
     "apps/api/app/Support/Extensions/protocol_instances.go": 1052,
-    "apps/api/app/Support/Extensions/protocol_v2_client.go": 1022,
+    "apps/api/app/Support/Extensions/protocol_v2_client.go": 1003,
     "apps/api/app/Support/Pages/registry.go": 672,
     "apps/api/app/Support/Pages/theme_runtime.go": 890,
     "apps/web/app/components/forum/SFTopicShowPage.vue": 1137,

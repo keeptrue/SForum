@@ -295,7 +295,7 @@ func (s *LifecycleService) Enable(ctx context.Context, actor identity.Actor, id 
 		s.assetPublicationMu.Unlock()
 		return Extension{}, ErrThemeActivationRequired
 	}
-	if err := requireArtifactAvailable(extension); err != nil {
+	if err := requireEnablePreflight(extension); err != nil {
 		s.assetPublicationMu.Unlock()
 		return Extension{}, err
 	}
@@ -777,7 +777,7 @@ func (s *serviceCore) activateTheme(
 			activationTarget = staged
 		}
 	}
-	if err := requireArtifactAvailable(activationTarget); err != nil {
+	if err := requireEnablePreflight(activationTarget); err != nil {
 		return Extension{}, err
 	}
 	if requirePreview && (strings.TrimSpace(input.Version) == "" || strings.TrimSpace(input.PackageDigest) == "" ||

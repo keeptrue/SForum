@@ -28,7 +28,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -299,25 +298,7 @@ func (c *protocolV2Client) Handshake(ctx context.Context) error {
 	ctx, cancel := protocolV2Deadline(ctx, DefaultProtocolV2HandshakeTimeout)
 	defer cancel()
 	hostFeatures := protocolV2HostFeatures(c.queries, c.queryResultFilters, c.manifestIdentity, c.content)
-	response, err := c.client.Handshake(ctx, &protocolv2.HandshakeRequest{
-		Context: c.requestContext(ctx, "handshake"),
-		HostProtocols: []*protocolv2.ProtocolRange{{
-			Protocol: protocolV2Name, Major: 2, MinMinor: 0, MaxMinor: 0,
-		}},
-		HostFeatures: hostFeatures,
-		Limits: &protocolv2.RuntimeLimits{
-			MaxReceiveBytes:         uint64(DefaultProtocolV2MaxMessageBytes),
-			MaxSendBytes:            uint64(DefaultProtocolV2MaxMessageBytes),
-			MaxConcurrentUnaryCalls: uint32(DefaultProtocolV2ConcurrentCalls),
-			MaxConcurrentStreams:    uint32(DefaultProtocolV2ConcurrentCalls),
-			DefaultDeadline:         durationpb.New(DefaultProtocolV2RequestTimeout),
-			HealthDeadline:          durationpb.New(DefaultProtocolV2HandshakeTimeout),
-			GracefulStopDeadline:    durationpb.New(5 * time.Second),
-		},
-		HostApiVersion: hostAPIV2Version,
-		HostBrokerId:   c.hostBrokerID,
-		RuntimeToken:   append([]byte(nil), c.token...),
-	})
+	response, err := c.client.Handshake(ctx, protocolV2HandshakeRequest(ctx, c, hostFeatures))
 	if err != nil {
 		return err
 	}

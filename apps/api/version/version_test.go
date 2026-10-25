@@ -82,3 +82,29 @@ func TestCoreCompatibilityVersionSeparatesDevelopmentBuildIdentity(t *testing.T)
 		t.Fatalf("invalid injected version was rewritten to %q", got)
 	}
 }
+
+func TestIdentityFreezesCompatibilityAndBuildLabels(t *testing.T) {
+	originalCurrent, originalCommit := Current, Commit
+	t.Cleanup(func() { Current, Commit = originalCurrent, originalCommit })
+
+	Current = "2.8.0"
+	Commit = "0123456789abcdef"
+	identity := Identity()
+	if identity.CoreVersion != "2.8.0" || identity.BuildVersion != "2.8.0" || !identity.Valid {
+		t.Fatalf("release identity = %#v", identity)
+	}
+
+	Current = "dev"
+	identity = Identity()
+	if identity.CoreVersion != "1.0.0" || identity.BuildVersion != "dev-01234" || !identity.Valid {
+		t.Fatalf("development identity = %#v", identity)
+	}
+
+	// A tag-shaped build label is not strict semver: compatibility must be
+	// reported as unknown instead of being silently rewritten.
+	Current = "v3.0.16"
+	identity = Identity()
+	if identity.CoreVersion != "v3.0.16" || identity.Valid {
+		t.Fatalf("invalid identity = %#v", identity)
+	}
+}

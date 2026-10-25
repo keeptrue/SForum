@@ -17,8 +17,10 @@ import (
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
 	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
 	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
 	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 // TrustRevoker 在包 digest 变化时吊销前端信任（F2.4 升级重审批）。
@@ -72,6 +74,10 @@ func (s *LifecycleService) InstallOrUpgradeArchive(ctx context.Context, actor id
 	// 期望身份必须在类型权限 switch 之前比对：类型不符时报“期望不匹配”，
 	// 而不是让调用者看到一个像是权限问题的错误。
 	if err := checkArchiveExpectations(input, manifest); err != nil {
+		return InstallResult{}, err
+	}
+	// 上传包只会以 uploaded 身份落库，因此安装阶段不需要内置豁免。
+	if err := ensureCoreCompatible(manifest, CoreCompatibilityStageInstall); err != nil {
 		return InstallResult{}, err
 	}
 	switch manifest.Type {
@@ -670,6 +676,78 @@ func (e *ArchiveExpectationMismatchError) Error() string {
 }
 
 func (e *ArchiveExpectationMismatchError) Unwrap() error { return ErrArchiveExpectationMismatch }
+
+// 清单兼容求值的两个阶段分开表示：安装只暂存不可变候选，运行阶段会让制品
+// 真正跑起来（启用/升级/回滚/主题激活/重启），对运维的含义不同。
+const (
+	CoreCompatibilityStageInstall = "install"
+	CoreCompatibilityStageRuntime = "runtime"
+)
+
+// ErrCoreIncompatible 表示清单声明的 sforumVersion 不覆盖运行中的 coreVersion。
+// 它是中止条件：core 是兼容性的最终裁判，插件不得自行推断宿主版本。
+var ErrCoreIncompatible = errors.New("extensions: manifest sforumVersion excludes the running core")
+
+// CoreIncompatibleError 携带声明范围与宿主身份，供 API 回传结构化字段。
+type CoreIncompatibleError struct {
+	Required     string
+	CoreVersion  string
+	BuildVersion string
+	Stage        string
+}
+
+func (e *CoreIncompatibleError) Error() string {
+	return fmt.Sprintf("%v: required=%q core=%q build=%q stage=%s",
+		ErrCoreIncompatible, e.Required, e.CoreVersion, e.BuildVersion, e.Stage)
+}
+
+func (e *CoreIncompatibleError) Unwrap() error { return ErrCoreIncompatible }
+
+// ensureCoreCompatible 用运行中的 coreVersion 求值清单约束。
+//
+// coreVersion 不是严格 semver 时跳过（启动时已 WARN）：那是构建标签缺陷，
+// 不能把所有安装都判死；此时调用方看到的是「未知」，不是「不兼容」。
+func ensureCoreCompatible(manifest Manifest, stage string) error {
+	identity := platformversion.Identity()
+	if !identity.Valid {
+		return nil
+	}
+	err := extensionmanifest.CheckSForumVersion(manifest, identity.CoreVersion)
+	if err == nil {
+		return nil
+	}
+	var incompatible *extensionmanifest.SForumVersionIncompatibleError
+	if errors.As(err, &incompatible) {
+		return &CoreIncompatibleError{
+			Required:     incompatible.Required,
+			CoreVersion:  identity.CoreVersion,
+			BuildVersion: identity.BuildVersion,
+			Stage:        stage,
+		}
+	}
+	return nil
+}
+
+// requireEnablePreflight 是「这个制品现在可以跑吗」的唯一闸门：制品必须在位，
+// 且非内置包必须被当前 core 的 sforumVersion 覆盖。
+//
+// 内置包豁免：它们与 core 同一个发行物，约束写错时运维没有修复手段；把它们
+// 一起判死只会让默认主题在自己的发行版里装不上。
+func requireEnablePreflight(extension Extension) error {
+	if err := requireArtifactAvailable(extension); err != nil {
+		return err
+	}
+	return requireCoreCompatibleRun(extension.Manifest, extension.Source)
+}
+
+// requireCoreCompatibleRun 只看「运行中的制品」这一层。source 由持有制品的
+// 扩展传入：暂存版本与历史版本都会继承来源，所以内置包在任何入口都豁免。
+func requireCoreCompatibleRun(manifest Manifest, source string) error {
+	if source == SourceBuiltin {
+		return nil
+	}
+	return ensureCoreCompatible(manifest, CoreCompatibilityStageRuntime)
+}
 
 // checkArchiveExpectations compares the caller-declared identity with the parsed
 // manifest. Empty expectations are allowed so manual URL installs from the core

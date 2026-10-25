@@ -26,6 +26,21 @@ degrade instead of failing. Names must match
 does not know. `@sforum/plugin-ui` wraps all of this in `SPluginIcon`, so most
 plugins never call the resolver directly.
 
+## Host version (1.3.0)
+
+Both bridges may carry the Host build identity. It is optional: a Host that
+predates `1.3.0` omits it, so feature-detect and treat a missing value as
+*unknown* — never guess a version and never hardcode one.
+
+```ts
+const core = bridge.host?.coreVersion      // strict semver, compatibility authority
+const build = bridge.host?.buildVersion    // dev-abc12 etc., display only
+```
+
+Compare `coreVersion` with a semver constraint; `buildVersion` must never be
+used for compatibility decisions. `valid` is `false` when the Host build label
+itself is not strict semver, in which case the Host skips its own manifest gate.
+
 ## Host-mediated install (1.2.0)
 
 A page whose manifest declares `hostActions: ["extension.install"]` gets one

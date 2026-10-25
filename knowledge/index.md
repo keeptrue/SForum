@@ -6,6 +6,19 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 宿主 coreVersion 暴露 + 清单兜底
+
+- Status: **landed（2026-10-25）**。`version.Identity()` 是唯一权威
+  （`coreVersion` 严格 semver / `buildVersion` 展示标签），经四条面下发：
+  v2 握手 `host_build` → `Server.HostBuild()`、管理 bridge `host`
+  （page-bootstrap 同包下发，零额外请求）、公开 L2 `host.coreVersion`、
+  `GET /api/v1/health`。`manifest.sforumVersion` 第一次真正被求值：
+  安装 422、启用/激活/升级/回滚/重启 409，统一 `extension.core_incompatible`；
+  内置包豁免，非法 core 标签跳过并告警，预发布 core 按发行基线再求值一次。
+  商城 `upstream.go` 的转发重开条件写在决策记录第 5 节。
+  Handoff：`sessions/2026-10-25-core-version-surface-handoff.md`；
+  决策：`decisions/2026-10-25-core-version-surface.md`。
+
 ### 扩展品牌资产（图标 / 社交卡）
 
 - Status: **landed（2026-10-25）**。12 个扩展（8 内置插件 + 默认主题 + 3 个独立仓
@@ -621,7 +634,17 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **扩展品牌资产（2026-10-25，最新）**：12 个扩展 + 主仓的图标与社交卡落地，
+- **宿主 coreVersion 暴露 + 清单兜底（2026-10-25，最新）**：`version.Identity()`
+  单一权威（`coreVersion` 严格 semver / `buildVersion` 展示），四面下发：v2 握手
+  `host_build` → `Server.HostBuild()`、管理 bridge `host`（page-bootstrap 同包下发）、
+  公开 L2 `host.coreVersion`、`GET /api/v1/health`。`manifest.sforumVersion` 首次真正
+  求值：安装 422、启用/激活/升级/回滚/重启 409，统一 `extension.core_incompatible`；
+  内置包豁免、非法 core 标签跳过并告警、预发布 core 按发行基线再求值。
+  Go/Web/架构/OpenAPI/catalog/静态全绿；商城 `upstream.go` 转发重开条件见决策第 5 节。
+  详见 `sessions/2026-10-25-core-version-surface-handoff.md` 与
+  `decisions/2026-10-25-core-version-surface.md`。
+
+- **扩展品牌资产（2026-10-25）**：12 个扩展 + 主仓的图标与社交卡落地，
   `scripts/brand/` 一条 spec 生成（确定输出），`sforum extension brand check`
   + 仓内 Go 测试做门禁；品牌进包内 `brand/`、不进 `packageFiles`、仍属包树摘要。
   文档：`../docs/extensions/brand-assets.md`、双语 `../docs/zh-CN/development/plugin-standard.md`。

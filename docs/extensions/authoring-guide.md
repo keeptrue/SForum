@@ -288,6 +288,31 @@ does not replace either exact-artifact declaration. A missing or stale entry is
 rejected by `extension validate` and causes activation to fail closed with
 `extension.build_failed`.
 
+### Core compatibility (`sforumVersion`)
+
+`sforumVersion` is a required Masterminds semver constraint, and the Host now
+**evaluates it** instead of only parsing it. The single authority is
+`coreVersion`: the release identity reported by `/api/v1/health`, the v2
+handshake (`Server.HostBuild()`), and the admin bridge. Never compare it to
+`buildVersion` — that label (`dev`, `dev-abc12`) exists for display only.
+
+- Installation (staged) rejects an out-of-range package with
+  `extension.core_incompatible` (HTTP 422, structured `required`,
+  `coreVersion`, `buildVersion` fields).
+- Every path that lets an artifact run — enable, theme activation, upgrade,
+  rollback, restart — rejects it with the same reason code and HTTP 409.
+- Development builds report `coreVersion: 1.0.0`; a package declaring `^3.0.0`
+  therefore cannot be installed there. Prefer ranges that describe the release
+  line you actually support.
+- Prerelease Hosts (`3.0.13-alpha.1`) are evaluated against both the exact
+  version and its release base (`3.0.13`), so an ordinary `>=3.0.0` range keeps
+  working across alpha/beta releases.
+- Built-in packages are exempt: they ship with the Host, so a stale constraint
+  there cannot be fixed by the operator.
+- If the Host build label itself is not strict semver, the Host logs a warning
+  and skips enforcement; treat that as an unknown Host version, not permission
+  to assume one.
+
 ### Navigation and region kinds
 
 `navigation[]` accepts these `kind` values: `menu`, `item`, `breadcrumb`,
@@ -394,6 +419,11 @@ carries the same value as a machine-readable `data-l2-trust` attribute; no
 in-page trust banner is rendered. Public L2 is always enabled: trust only
 extensions whose browser code you accept. SSR/L1 slot content remains the
 fallback when L2 fails, is quarantined, or is disabled by Safe Mode.
+
+The mount bridge also carries `host.coreVersion` (release identity, strict
+semver). It is optional: a Host that predates the field omits it, so detect it
+and treat a missing value as unknown. The public descriptor intentionally never
+carries `buildVersion`, `commit`, or a `dev-` label.
 
 There is no per-package switch, but two prerequisites gate the mount: the
 extension must be enabled, and exact-artifact trust confirmation must be on
@@ -1122,6 +1152,13 @@ Version id: `sforum.host/v1`. Env injected by the host:
 
 SDK helpers: `pluginsdk.Ping`, `GetSettings`, `CheckPermission`, `EnqueueOwnJob`,
 `AppendAudit`, `GetUserSafe`.
+
+> **The v1 HTTP surface is not the protocol-v2 runtime path.** The Host currently
+> issues no `SFORUM_HOST_API_*` variables to plugin subprocesses, so a v2 plugin
+> cannot reach these methods at runtime; use the typed Host API v2 client
+> instead. In particular, `Ping` does not expose the Host version — read
+> `Server.HostBuild()` from the handshake (see
+> [`host-api-v2.md`](./host-api-v2.md#host-build-identity)).
 
 ## Stable Host Queries (Protocol V2)
 

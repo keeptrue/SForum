@@ -27,6 +27,7 @@ import (
 	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
 	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
 	"github.com/zhuchunshu/sforum/apps/api/config"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 type apiEnvelope[T any] struct {
@@ -50,6 +51,7 @@ type healthResponse struct {
 	Locale           string    `json:"locale"`
 	SupportedLocales []string  `json:"supportedLocales"`
 	Time             time.Time `json:"time"`
+	CoreVersion      string    `json:"coreVersion"`
 }
 
 func TestNewAppRegistersRouteProviders(t *testing.T) {
@@ -184,6 +186,11 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 	if body.Data.Status != "ok" {
 		t.Fatalf("expected ok status, got %q", body.Data.Status)
+	}
+	// 公开面只暴露 release 级 coreVersion：它必须等于兼容权威，且不含
+	// dev/commit 标识。
+	if body.Data.CoreVersion != platformversion.CoreCompatibilityVersion() {
+		t.Fatalf("coreVersion = %q, want %q", body.Data.CoreVersion, platformversion.CoreCompatibilityVersion())
 	}
 	if body.Data.Locale != "zh-CN" {
 		t.Fatalf("expected zh-CN locale, got %q", body.Data.Locale)

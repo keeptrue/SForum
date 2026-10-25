@@ -17,6 +17,7 @@ import (
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
 	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
 	"github.com/zhuchunshu/sforum/apps/api/config"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 // pageBootstrapFrontendStub 只实现 TrustedFrontendService 的三个方法，
@@ -43,7 +44,8 @@ func (s *pageBootstrapFrontendStub) Revoke(context.Context, identity.Actor, stri
 type pageBootstrapEnvelope struct {
 	Data struct {
 		extensions.AdminPageBootstrap
-		Frontend *extensions.FrontendStatus `json:"frontend"`
+		Frontend *extensions.FrontendStatus   `json:"frontend"`
+		Host     platformversion.HostIdentity `json:"host"`
 	} `json:"data"`
 }
 
@@ -132,6 +134,10 @@ func TestControllerPageBootstrapCarriesFrontendStatusForUIRenderingViews(t *test
 		if envelope.Data.Frontend.TrustState != extensions.FrontendTrustTrusted ||
 			envelope.Data.Frontend.Digest != strings.Repeat("d", 64) {
 			t.Fatalf("%s frontend payload=%#v", pagePath, envelope.Data.Frontend)
+		}
+		// 受信管理页组件必须首帧就能读到宿主版本，而不是再发一次请求。
+		if envelope.Data.Host.CoreVersion != platformversion.Identity().CoreVersion || envelope.Data.Host.CoreVersion == "" {
+			t.Fatalf("%s host payload=%#v", pagePath, envelope.Data.Host)
 		}
 	}
 	if len(frontend.requests) != 2 {

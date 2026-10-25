@@ -39,7 +39,7 @@ func (s *LifecycleService) Restart(
 	if current.Type != TypePlugin {
 		return Extension{}, ErrThemeActivationRequired
 	}
-	if err := requireArtifactAvailable(current); err != nil {
+	if err := requireEnablePreflight(current); err != nil {
 		return Extension{}, err
 	}
 
@@ -124,7 +124,7 @@ func restartRequiresCapabilityConfirmation(target Extension) bool {
 }
 
 func (s *serviceCore) preflightRestartTarget(ctx context.Context, target Extension) error {
-	if err := requireArtifactAvailable(target); err != nil {
+	if err := requireEnablePreflight(target); err != nil {
 		return err
 	}
 	if err := s.ensureRequiredFeatures(ctx, target.Manifest.RequiresFeatures); err != nil {

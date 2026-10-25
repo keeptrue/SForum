@@ -51,11 +51,21 @@ type productionAPILifecycle struct {
 func (lifecycle *productionAPILifecycle) Listen() error {
 	if lifecycle.logger != nil {
 		build := platformversion.Get()
+		identity := platformversion.Identity()
 		lifecycle.logger.Info(
 			"starting api server", "addr", lifecycle.api.Addr,
 			"env", lifecycle.cfg.AppEnv, "locale", lifecycle.cfg.AppLocale,
 			"version", build.Version, "commit", build.Commit,
+			"coreVersion", identity.CoreVersion,
 		)
+		if !identity.Valid {
+			// 清单兜底要靠 coreVersion 求值；标签不是严格 semver 时它无法判定，
+			// 与其把所有安装判死，不如明确告警并跳过兜底。
+			lifecycle.logger.Warn(
+				"coreVersion is not strict semver; extension manifest compatibility is not enforced",
+				"coreVersion", identity.CoreVersion,
+			)
+		}
 	}
 	// air 热重载存在新旧进程端口交接窗口；对 EADDRINUSE 做短暂重试。
 	return listenWithAddrInUseRetry(lifecycle.api.App, lifecycle.api.Addr, lifecycle.logger)

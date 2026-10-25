@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,8 +43,18 @@ type Server struct {
 	streams          RuntimeStreams
 	broker           *plugin.GRPCBroker
 	host             *Host
+	hostBuild        *protocolwire.HostBuild
 	brokerID         uint32
 	now              func() time.Time
+}
+
+// HostBuild is the Host build identity frozen at the first successful
+// handshake. CoreVersion is the only compatibility authority: manifest
+// sforumVersion constraints are evaluated against it, never against
+// BuildVersion.
+type HostBuild struct {
+	CoreVersion  string
+	BuildVersion string
 }
 
 // BindProtocolV2Broker is called by the transport before the runtime service is
@@ -62,6 +73,23 @@ func (s *Server) Host() (*Host, error) {
 		return nil, ErrHostUnavailable
 	}
 	return s.host, nil
+}
+
+// HostBuild returns the Host build identity captured at handshake. ok is false
+// before the first handshake and when the Host predates the host_build field,
+// so plugins must treat an unknown identity as unknown instead of assuming a
+// version. The value is frozen for the process lifetime: a repeated handshake
+// carrying a different identity is rejected as a stale runtime.
+func (s *Server) HostBuild() (HostBuild, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.hostBuild == nil || strings.TrimSpace(s.hostBuild.GetCoreVersion()) == "" {
+		return HostBuild{}, false
+	}
+	return HostBuild{
+		CoreVersion:  s.hostBuild.GetCoreVersion(),
+		BuildVersion: s.hostBuild.GetBuildVersion(),
+	}, true
 }
 
 // NewServer constructs a protocol-v2 default server.
@@ -225,9 +253,9 @@ func (s *Server) Handshake(_ context.Context, request *protocolwire.HandshakeReq
 	defer s.mu.Unlock()
 	if s.started {
 		if subtle.ConstantTimeCompare(s.tokenHash[:], tokenHash[:]) != 1 || !proto.Equal(s.identity, identity) ||
-			s.brokerID != request.GetHostBrokerId() {
+			s.brokerID != request.GetHostBrokerId() || !proto.Equal(s.hostBuild, request.GetHostBuild()) {
 			response.Error = protocolError(protocolwire.ErrorCode_ERROR_CODE_STALE_RUNTIME,
-				"protocol.stale_runtime", "Runtime token, exact artifact identity, or Host broker changed.")
+				"protocol.stale_runtime", "Runtime token, exact artifact identity, Host broker, or Host build identity changed.")
 			return response, nil
 		}
 	} else {
@@ -243,6 +271,7 @@ func (s *Server) Handshake(_ context.Context, request *protocolwire.HandshakeReq
 		s.started = true
 		s.tokenHash = tokenHash
 		s.identity = proto.Clone(identity).(*protocolwire.ExtensionIdentity)
+		s.hostBuild = cloneHostBuild(request.GetHostBuild())
 		s.brokerID = request.GetHostBrokerId()
 		s.selectedFeatures = selectFeatures(request.GetHostFeatures(), s.features)
 	}
@@ -483,6 +512,13 @@ func selectFeatures(host, supported []*protocolwire.ProtocolFeature) []*protocol
 		}
 	}
 	return selected
+}
+
+func cloneHostBuild(value *protocolwire.HostBuild) *protocolwire.HostBuild {
+	if value == nil {
+		return nil
+	}
+	return proto.Clone(value).(*protocolwire.HostBuild)
 }
 
 func cloneFeatures(values []*protocolwire.ProtocolFeature) []*protocolwire.ProtocolFeature {

@@ -28,4 +28,11 @@ describe('public L2 trust disclosure', () => {
     expect(guide).toContain('fully_trusted_browser_code')
     expect(guide).toContain('not a sandbox')
   })
+
+  test('public bridge exposes only the release-level coreVersion', () => {
+    // 公开面只给 coreVersion；buildVersion/commit 由管理面承载。
+    expect(widget).toContain('host: current.coreVersion ? Object.freeze({ coreVersion: current.coreVersion }) : undefined')
+    expect(widget).not.toContain('buildVersion')
+    expect(guide).toContain('host.coreVersion')
+  })
 })

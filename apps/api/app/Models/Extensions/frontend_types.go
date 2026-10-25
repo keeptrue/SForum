@@ -89,11 +89,13 @@ type PublicFrontendAssetReference struct {
 }
 
 type PublicFrontendComponent struct {
-	SchemaVersion         string                         `json:"schemaVersion"`
-	APIVersion            int                            `json:"apiVersion"`
-	TrustNotice           string                         `json:"trustNotice"`
-	ExtensionID           string                         `json:"extensionId"`
-	ExtensionVersion      string                         `json:"extensionVersion"`
+	SchemaVersion    string `json:"schemaVersion"`
+	APIVersion       int    `json:"apiVersion"`
+	TrustNotice      string `json:"trustNotice"`
+	ExtensionID      string `json:"extensionId"`
+	ExtensionVersion string `json:"extensionVersion"`
+	// CoreVersion 是宿主 release 级版本；公开面只给这一项，不含 commit/dev 标识。
+	CoreVersion           string                         `json:"coreVersion"`
 	PackageDigest         string                         `json:"packageDigest"`
 	ImpactDigest          string                         `json:"impactDigest"`
 	ComponentID           string                         `json:"componentId"`

@@ -20,6 +20,7 @@ import (
 	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
 	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
 	"github.com/zhuchunshu/sforum/apps/api/config"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 type healthResponse struct {
@@ -30,6 +31,8 @@ type healthResponse struct {
 	Locale           string    `json:"locale"`
 	SupportedLocales []string  `json:"supportedLocales"`
 	Time             time.Time `json:"time"`
+	// CoreVersion 是兼容判定唯一权威；不含 commit/dev 标识。
+	CoreVersion string `json:"coreVersion"`
 }
 
 type RouteProvider interface {
@@ -211,6 +214,7 @@ func registerRoutes(app *fiber.App, cfg config.Config, deps Dependencies) {
 			Locale:           settings.DefaultLocale,
 			SupportedLocales: settings.SupportedLocales,
 			Time:             time.Now().UTC(),
+			CoreVersion:      platformversion.CoreCompatibilityVersion(),
 		})
 	})
 

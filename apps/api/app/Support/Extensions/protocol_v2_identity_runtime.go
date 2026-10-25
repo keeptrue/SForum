@@ -13,9 +13,11 @@ import (
 	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
 	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
 	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var ErrProtocolV2IdentityProviderInvalid = errors.New("protocol v2 identity provider invocation is invalid")
@@ -182,6 +184,39 @@ func mapProtocolV2IdentityCallError(ctx context.Context, err error) error {
 		return ctx.Err()
 	}
 	return err
+}
+
+// protocolV2HandshakeRequest 冻结一次握手的完整请求。宿主版本随第一帧一起下发：
+// coreVersion 是唯一兼容权威，buildVersion 只用于识别 dev 构建与排障，永不参与
+// 约束求值。握手是插件在发任何 RPC 之前就能读到版本的唯一时机。
+func protocolV2HandshakeRequest(
+	ctx context.Context,
+	client *protocolV2Client,
+	hostFeatures []*protocolv2.ProtocolFeature,
+) *protocolv2.HandshakeRequest {
+	identity := platformversion.Identity()
+	return &protocolv2.HandshakeRequest{
+		Context: client.requestContext(ctx, "handshake"),
+		HostProtocols: []*protocolv2.ProtocolRange{{
+			Protocol: protocolV2Name, Major: 2, MinMinor: 0, MaxMinor: 0,
+		}},
+		HostFeatures: hostFeatures,
+		Limits: &protocolv2.RuntimeLimits{
+			MaxReceiveBytes:         uint64(DefaultProtocolV2MaxMessageBytes),
+			MaxSendBytes:            uint64(DefaultProtocolV2MaxMessageBytes),
+			MaxConcurrentUnaryCalls: uint32(DefaultProtocolV2ConcurrentCalls),
+			MaxConcurrentStreams:    uint32(DefaultProtocolV2ConcurrentCalls),
+			DefaultDeadline:         durationpb.New(DefaultProtocolV2RequestTimeout),
+			HealthDeadline:          durationpb.New(DefaultProtocolV2HandshakeTimeout),
+			GracefulStopDeadline:    durationpb.New(5 * time.Second),
+		},
+		HostApiVersion: hostAPIV2Version,
+		HostBrokerId:   client.hostBrokerID,
+		RuntimeToken:   append([]byte(nil), client.token...),
+		HostBuild: &protocolv2.HostBuild{
+			CoreVersion: identity.CoreVersion, BuildVersion: identity.BuildVersion,
+		},
+	}
 }
 
 // protocolV2HostFeatures only offers runtime families required by the frozen

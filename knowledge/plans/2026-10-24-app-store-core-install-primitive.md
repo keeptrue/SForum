@@ -47,7 +47,8 @@ Decision records（批准实施时创建）:
 - 不创建 `sforum-app-store` 仓库、不写 `sforum.store` 插件、不写 Next.js 服务端。
 - 不删除 `install-from-url`（它是通用原语，与商城无关）。
 - 不新增 `extensions.install` capability、Host Command、意图表、worker（见 §4 D8 与 §6.9 的升级路径）。
-- 不新增 `hostVersion` 到 bridge（见 §4 D9）。
+- 不新增 `hostVersion` 到 bridge（见 §4 D9；该条随后被
+  `knowledge/decisions/2026-10-25-core-version-surface.md` supersede）。
 - 不改扩展信任/启用/升级/回滚语义。
 
 ## 4. 关键决策
@@ -61,6 +62,9 @@ Decision records（批准实施时创建）:
 - **D7 身份绑定**：插件声明期望的扩展 ID/版本/类型；宿主下载解析后不一致就**中止**，不是只警告。
 - **D8 v1 不做异步**：没有意图表、没有 worker、没有状态命令。管理员离开页面会取消请求，结果丢失；页面必须明确写“安装期间不要关闭页面”。bridge 的 promise 语义固定为“resolve 时已暂存或失败”，将来换成“意图 + worker”时插件页面无需改动（§6.9）。
 - **D9 暂不做 `hostVersion`**：v1 由商城目录展示每个 release 的 `sforumVersion` 约束，core 在安装时兜底拒绝。确需“兼容”徽标时再单开。
+  **2026-10-25 已 supersede**：另行落地了 `coreVersion`/`buildVersion` 暴露与
+  清单兜底，见 `knowledge/decisions/2026-10-25-core-version-surface.md`；商城
+  `upstream.go` 的重开条件写在该记录第 5 节。
 - **D10 清单披露**：`admin.pages[].hostActions: ["extension.install"]` 只允许出现在 `view: component` 的管理页；插件详情/信任页显示“此插件可请求安装扩展包”。
 
 ## 5. P0：清算预留代码

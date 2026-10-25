@@ -96,6 +96,14 @@
       "tagline": "四个可切换后端，带熔断与缓存",
       "glyph": "world-search",
       "slug": "zhuchunshu/sforum-web-search"
+    },
+    {
+      "package": "../sforum-app-store/plugin/plugins/sforum.store",
+      "kind": "external",
+      "title": "应用商城",
+      "tagline": "在论坛后台浏览应用商城，选中扩展交给宿主安装",
+      "glyph": "building-store",
+      "slug": "zhuchunshu/sforum-app-store"
     }
   ],
   "repos": [

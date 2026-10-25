@@ -2922,6 +2922,7 @@ PublicFrontendComponent:
   - trustNotice
   - extensionId
   - extensionVersion
+  - coreVersion
   - packageDigest
   - impactDigest
   - componentId
@@ -2935,6 +2936,12 @@ PublicFrontendComponent:
     trustNotice: { type: string, const: fully_trusted_browser_code }
     extensionId: { type: string }
     extensionVersion: { type: string }
+    coreVersion:
+      type: string
+      description: |
+        Host release identity (strict semver) read by the public component.
+        Only the release-level value is exposed here; never a commit hash or a
+        development build label.
     packageDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
     impactDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
     componentId: { type: string }

@@ -6,6 +6,7 @@ import (
 	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
 	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
 	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 // adminPageBootstrapResponse 在目录服务的解析结果之上附带前端信任结论。
@@ -17,6 +18,9 @@ import (
 type adminPageBootstrapResponse struct {
 	extensions.AdminPageBootstrap
 	Frontend *extensions.FrontendStatus `json:"frontend"`
+	// Host 让受信管理页组件在首帧就拿到宿主版本，不必再发一次请求；
+	// 这是管理面，允许带 buildVersion/valid（公开面只有 coreVersion）。
+	Host platformversion.HostIdentity `json:"host"`
 }
 
 func (h *Controller) pageBootstrap(c fiber.Ctx) error {
@@ -31,6 +35,7 @@ func (h *Controller) pageBootstrap(c fiber.Ctx) error {
 	return apphttp.OK(c, adminPageBootstrapResponse{
 		AdminPageBootstrap: result,
 		Frontend:           h.pageFrontendStatus(c, actor, result),
+		Host:               platformversion.Identity(),
 	})
 }
 

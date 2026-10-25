@@ -20,6 +20,7 @@ Health:
   - locale
   - supportedLocales
   - time
+  - coreVersion
   properties:
     name:
       type: string
@@ -40,6 +41,14 @@ Health:
     time:
       type: string
       format: date-time
+    coreVersion:
+      type: string
+      description: |
+        Release identity used for extension compatibility. Strict semantic
+        version; development builds report their compatibility baseline
+        (1.0.0). Never carries a commit hash or a dev build label.
+      examples:
+      - 3.0.16
 ApiResponseReady:
   type: object
   required:

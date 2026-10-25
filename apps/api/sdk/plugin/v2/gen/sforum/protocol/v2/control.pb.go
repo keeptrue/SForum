@@ -385,6 +385,63 @@ func (x *RuntimeLimits) GetGracefulStopDeadline() *durationpb.Duration {
 	return nil
 }
 
+// HostBuild is the frozen Host build identity. core_version is the only
+// compatibility authority: manifest sforumVersion constraints are evaluated
+// against it. build_version is display and troubleshooting only and must never
+// be compared to a constraint. Hosts older than this field send nothing, so
+// plugins must treat an empty core_version as unknown rather than guessing.
+type HostBuild struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CoreVersion   string                 `protobuf:"bytes,1,opt,name=core_version,json=coreVersion,proto3" json:"core_version,omitempty"`
+	BuildVersion  string                 `protobuf:"bytes,2,opt,name=build_version,json=buildVersion,proto3" json:"build_version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HostBuild) Reset() {
+	*x = HostBuild{}
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostBuild) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostBuild) ProtoMessage() {}
+
+func (x *HostBuild) ProtoReflect() protoreflect.Message {
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HostBuild.ProtoReflect.Descriptor instead.
+func (*HostBuild) Descriptor() ([]byte, []int) {
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *HostBuild) GetCoreVersion() string {
+	if x != nil {
+		return x.CoreVersion
+	}
+	return ""
+}
+
+func (x *HostBuild) GetBuildVersion() string {
+	if x != nil {
+		return x.BuildVersion
+	}
+	return ""
+}
+
 // HandshakeRequest starts a protocol-v2 runtime and identifies the host broker.
 type HandshakeRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -395,13 +452,14 @@ type HandshakeRequest struct {
 	HostBrokerId   uint32                 `protobuf:"varint,5,opt,name=host_broker_id,json=hostBrokerId,proto3" json:"host_broker_id,omitempty"`
 	HostApiVersion string                 `protobuf:"bytes,6,opt,name=host_api_version,json=hostApiVersion,proto3" json:"host_api_version,omitempty"`
 	RuntimeToken   []byte                 `protobuf:"bytes,7,opt,name=runtime_token,json=runtimeToken,proto3" json:"runtime_token,omitempty"`
+	HostBuild      *HostBuild             `protobuf:"bytes,8,opt,name=host_build,json=hostBuild,proto3" json:"host_build,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *HandshakeRequest) Reset() {
 	*x = HandshakeRequest{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[3]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -413,7 +471,7 @@ func (x *HandshakeRequest) String() string {
 func (*HandshakeRequest) ProtoMessage() {}
 
 func (x *HandshakeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[3]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -426,7 +484,7 @@ func (x *HandshakeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandshakeRequest.ProtoReflect.Descriptor instead.
 func (*HandshakeRequest) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{3}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *HandshakeRequest) GetContext() *RequestContext {
@@ -478,6 +536,13 @@ func (x *HandshakeRequest) GetRuntimeToken() []byte {
 	return nil
 }
 
+func (x *HandshakeRequest) GetHostBuild() *HostBuild {
+	if x != nil {
+		return x.HostBuild
+	}
+	return nil
+}
+
 // HandshakeResponse selects one compatible version and declares plugin services.
 type HandshakeResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
@@ -493,7 +558,7 @@ type HandshakeResponse struct {
 
 func (x *HandshakeResponse) Reset() {
 	*x = HandshakeResponse{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[4]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -505,7 +570,7 @@ func (x *HandshakeResponse) String() string {
 func (*HandshakeResponse) ProtoMessage() {}
 
 func (x *HandshakeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[4]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -518,7 +583,7 @@ func (x *HandshakeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandshakeResponse.ProtoReflect.Descriptor instead.
 func (*HandshakeResponse) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{4}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HandshakeResponse) GetContext() *ResponseContext {
@@ -579,7 +644,7 @@ type ServiceDescriptor struct {
 
 func (x *ServiceDescriptor) Reset() {
 	*x = ServiceDescriptor{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[5]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +656,7 @@ func (x *ServiceDescriptor) String() string {
 func (*ServiceDescriptor) ProtoMessage() {}
 
 func (x *ServiceDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[5]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +669,7 @@ func (x *ServiceDescriptor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceDescriptor.ProtoReflect.Descriptor instead.
 func (*ServiceDescriptor) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{5}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ServiceDescriptor) GetServiceId() string {
@@ -666,7 +731,7 @@ type HealthRequest struct {
 
 func (x *HealthRequest) Reset() {
 	*x = HealthRequest{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[6]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -678,7 +743,7 @@ func (x *HealthRequest) String() string {
 func (*HealthRequest) ProtoMessage() {}
 
 func (x *HealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[6]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -691,7 +756,7 @@ func (x *HealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthRequest.ProtoReflect.Descriptor instead.
 func (*HealthRequest) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{6}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HealthRequest) GetContext() *RequestContext {
@@ -715,7 +780,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[7]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +792,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[7]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +805,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{7}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *HealthResponse) GetContext() *ResponseContext {
@@ -788,7 +853,7 @@ type ReadinessRequest struct {
 
 func (x *ReadinessRequest) Reset() {
 	*x = ReadinessRequest{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[8]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -800,7 +865,7 @@ func (x *ReadinessRequest) String() string {
 func (*ReadinessRequest) ProtoMessage() {}
 
 func (x *ReadinessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[8]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -813,7 +878,7 @@ func (x *ReadinessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadinessRequest.ProtoReflect.Descriptor instead.
 func (*ReadinessRequest) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{8}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ReadinessRequest) GetContext() *RequestContext {
@@ -836,7 +901,7 @@ type ReadinessResponse struct {
 
 func (x *ReadinessResponse) Reset() {
 	*x = ReadinessResponse{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[9]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -848,7 +913,7 @@ func (x *ReadinessResponse) String() string {
 func (*ReadinessResponse) ProtoMessage() {}
 
 func (x *ReadinessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[9]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -861,7 +926,7 @@ func (x *ReadinessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadinessResponse.ProtoReflect.Descriptor instead.
 func (*ReadinessResponse) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{9}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ReadinessResponse) GetContext() *ResponseContext {
@@ -911,7 +976,7 @@ type LifecycleRequest struct {
 
 func (x *LifecycleRequest) Reset() {
 	*x = LifecycleRequest{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[10]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +988,7 @@ func (x *LifecycleRequest) String() string {
 func (*LifecycleRequest) ProtoMessage() {}
 
 func (x *LifecycleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[10]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +1001,7 @@ func (x *LifecycleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LifecycleRequest.ProtoReflect.Descriptor instead.
 func (*LifecycleRequest) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{10}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *LifecycleRequest) GetContext() *RequestContext {
@@ -1013,7 +1078,7 @@ type ProgressUpdate struct {
 
 func (x *ProgressUpdate) Reset() {
 	*x = ProgressUpdate{}
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[11]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1025,7 +1090,7 @@ func (x *ProgressUpdate) String() string {
 func (*ProgressUpdate) ProtoMessage() {}
 
 func (x *ProgressUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_sforum_protocol_v2_control_proto_msgTypes[11]
+	mi := &file_sforum_protocol_v2_control_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1038,7 +1103,7 @@ func (x *ProgressUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProgressUpdate.ProtoReflect.Descriptor instead.
 func (*ProgressUpdate) Descriptor() ([]byte, []int) {
-	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{11}
+	return file_sforum_protocol_v2_control_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ProgressUpdate) GetContext() *ResponseContext {
@@ -1125,7 +1190,10 @@ const file_sforum_protocol_v2_control_proto_rawDesc = "" +
 	"\x16max_concurrent_streams\x18\x04 \x01(\rR\x14maxConcurrentStreams\x12D\n" +
 	"\x10default_deadline\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\x0fdefaultDeadline\x12B\n" +
 	"\x0fhealth_deadline\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\x0ehealthDeadline\x12O\n" +
-	"\x16graceful_stop_deadline\x18\a \x01(\v2\x19.google.protobuf.DurationR\x14gracefulStopDeadline\"\x94\x03\n" +
+	"\x16graceful_stop_deadline\x18\a \x01(\v2\x19.google.protobuf.DurationR\x14gracefulStopDeadline\"S\n" +
+	"\tHostBuild\x12!\n" +
+	"\fcore_version\x18\x01 \x01(\tR\vcoreVersion\x12#\n" +
+	"\rbuild_version\x18\x02 \x01(\tR\fbuildVersion\"\xd2\x03\n" +
 	"\x10HandshakeRequest\x12<\n" +
 	"\acontext\x18\x01 \x01(\v2\".sforum.protocol.v2.RequestContextR\acontext\x12H\n" +
 	"\x0ehost_protocols\x18\x02 \x03(\v2!.sforum.protocol.v2.ProtocolRangeR\rhostProtocols\x12H\n" +
@@ -1133,7 +1201,9 @@ const file_sforum_protocol_v2_control_proto_rawDesc = "" +
 	"\x06limits\x18\x04 \x01(\v2!.sforum.protocol.v2.RuntimeLimitsR\x06limits\x12$\n" +
 	"\x0ehost_broker_id\x18\x05 \x01(\rR\fhostBrokerId\x12(\n" +
 	"\x10host_api_version\x18\x06 \x01(\tR\x0ehostApiVersion\x12#\n" +
-	"\rruntime_token\x18\a \x01(\fR\fruntimeToken\"\xb4\x03\n" +
+	"\rruntime_token\x18\a \x01(\fR\fruntimeToken\x12<\n" +
+	"\n" +
+	"host_build\x18\b \x01(\v2\x1d.sforum.protocol.v2.HostBuildR\thostBuild\"\xb4\x03\n" +
 	"\x11HandshakeResponse\x12=\n" +
 	"\acontext\x18\x01 \x01(\v2#.sforum.protocol.v2.ResponseContextR\acontext\x12N\n" +
 	"\x11selected_protocol\x18\x02 \x01(\v2!.sforum.protocol.v2.ProtocolRangeR\x10selectedProtocol\x12P\n" +
@@ -1228,63 +1298,65 @@ func file_sforum_protocol_v2_control_proto_rawDescGZIP() []byte {
 }
 
 var file_sforum_protocol_v2_control_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_sforum_protocol_v2_control_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_sforum_protocol_v2_control_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_sforum_protocol_v2_control_proto_goTypes = []any{
 	(LifecycleAction)(0),          // 0: sforum.protocol.v2.LifecycleAction
 	(ProgressState)(0),            // 1: sforum.protocol.v2.ProgressState
 	(*ProtocolRange)(nil),         // 2: sforum.protocol.v2.ProtocolRange
 	(*ProtocolFeature)(nil),       // 3: sforum.protocol.v2.ProtocolFeature
 	(*RuntimeLimits)(nil),         // 4: sforum.protocol.v2.RuntimeLimits
-	(*HandshakeRequest)(nil),      // 5: sforum.protocol.v2.HandshakeRequest
-	(*HandshakeResponse)(nil),     // 6: sforum.protocol.v2.HandshakeResponse
-	(*ServiceDescriptor)(nil),     // 7: sforum.protocol.v2.ServiceDescriptor
-	(*HealthRequest)(nil),         // 8: sforum.protocol.v2.HealthRequest
-	(*HealthResponse)(nil),        // 9: sforum.protocol.v2.HealthResponse
-	(*ReadinessRequest)(nil),      // 10: sforum.protocol.v2.ReadinessRequest
-	(*ReadinessResponse)(nil),     // 11: sforum.protocol.v2.ReadinessResponse
-	(*LifecycleRequest)(nil),      // 12: sforum.protocol.v2.LifecycleRequest
-	(*ProgressUpdate)(nil),        // 13: sforum.protocol.v2.ProgressUpdate
-	nil,                           // 14: sforum.protocol.v2.HealthResponse.DetailsEntry
-	(*durationpb.Duration)(nil),   // 15: google.protobuf.Duration
-	(*RequestContext)(nil),        // 16: sforum.protocol.v2.RequestContext
-	(*ResponseContext)(nil),       // 17: sforum.protocol.v2.ResponseContext
-	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
-	(*ErrorDetail)(nil),           // 19: sforum.protocol.v2.ErrorDetail
-	(*TypedDocument)(nil),         // 20: sforum.protocol.v2.TypedDocument
+	(*HostBuild)(nil),             // 5: sforum.protocol.v2.HostBuild
+	(*HandshakeRequest)(nil),      // 6: sforum.protocol.v2.HandshakeRequest
+	(*HandshakeResponse)(nil),     // 7: sforum.protocol.v2.HandshakeResponse
+	(*ServiceDescriptor)(nil),     // 8: sforum.protocol.v2.ServiceDescriptor
+	(*HealthRequest)(nil),         // 9: sforum.protocol.v2.HealthRequest
+	(*HealthResponse)(nil),        // 10: sforum.protocol.v2.HealthResponse
+	(*ReadinessRequest)(nil),      // 11: sforum.protocol.v2.ReadinessRequest
+	(*ReadinessResponse)(nil),     // 12: sforum.protocol.v2.ReadinessResponse
+	(*LifecycleRequest)(nil),      // 13: sforum.protocol.v2.LifecycleRequest
+	(*ProgressUpdate)(nil),        // 14: sforum.protocol.v2.ProgressUpdate
+	nil,                           // 15: sforum.protocol.v2.HealthResponse.DetailsEntry
+	(*durationpb.Duration)(nil),   // 16: google.protobuf.Duration
+	(*RequestContext)(nil),        // 17: sforum.protocol.v2.RequestContext
+	(*ResponseContext)(nil),       // 18: sforum.protocol.v2.ResponseContext
+	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
+	(*ErrorDetail)(nil),           // 20: sforum.protocol.v2.ErrorDetail
+	(*TypedDocument)(nil),         // 21: sforum.protocol.v2.TypedDocument
 }
 var file_sforum_protocol_v2_control_proto_depIdxs = []int32{
-	15, // 0: sforum.protocol.v2.RuntimeLimits.default_deadline:type_name -> google.protobuf.Duration
-	15, // 1: sforum.protocol.v2.RuntimeLimits.health_deadline:type_name -> google.protobuf.Duration
-	15, // 2: sforum.protocol.v2.RuntimeLimits.graceful_stop_deadline:type_name -> google.protobuf.Duration
-	16, // 3: sforum.protocol.v2.HandshakeRequest.context:type_name -> sforum.protocol.v2.RequestContext
+	16, // 0: sforum.protocol.v2.RuntimeLimits.default_deadline:type_name -> google.protobuf.Duration
+	16, // 1: sforum.protocol.v2.RuntimeLimits.health_deadline:type_name -> google.protobuf.Duration
+	16, // 2: sforum.protocol.v2.RuntimeLimits.graceful_stop_deadline:type_name -> google.protobuf.Duration
+	17, // 3: sforum.protocol.v2.HandshakeRequest.context:type_name -> sforum.protocol.v2.RequestContext
 	2,  // 4: sforum.protocol.v2.HandshakeRequest.host_protocols:type_name -> sforum.protocol.v2.ProtocolRange
 	3,  // 5: sforum.protocol.v2.HandshakeRequest.host_features:type_name -> sforum.protocol.v2.ProtocolFeature
 	4,  // 6: sforum.protocol.v2.HandshakeRequest.limits:type_name -> sforum.protocol.v2.RuntimeLimits
-	17, // 7: sforum.protocol.v2.HandshakeResponse.context:type_name -> sforum.protocol.v2.ResponseContext
-	2,  // 8: sforum.protocol.v2.HandshakeResponse.selected_protocol:type_name -> sforum.protocol.v2.ProtocolRange
-	3,  // 9: sforum.protocol.v2.HandshakeResponse.selected_features:type_name -> sforum.protocol.v2.ProtocolFeature
-	7,  // 10: sforum.protocol.v2.HandshakeResponse.services:type_name -> sforum.protocol.v2.ServiceDescriptor
-	18, // 11: sforum.protocol.v2.HandshakeResponse.token_expires_at:type_name -> google.protobuf.Timestamp
-	19, // 12: sforum.protocol.v2.HandshakeResponse.error:type_name -> sforum.protocol.v2.ErrorDetail
-	16, // 13: sforum.protocol.v2.HealthRequest.context:type_name -> sforum.protocol.v2.RequestContext
-	17, // 14: sforum.protocol.v2.HealthResponse.context:type_name -> sforum.protocol.v2.ResponseContext
-	14, // 15: sforum.protocol.v2.HealthResponse.details:type_name -> sforum.protocol.v2.HealthResponse.DetailsEntry
-	19, // 16: sforum.protocol.v2.HealthResponse.error:type_name -> sforum.protocol.v2.ErrorDetail
-	16, // 17: sforum.protocol.v2.ReadinessRequest.context:type_name -> sforum.protocol.v2.RequestContext
-	17, // 18: sforum.protocol.v2.ReadinessResponse.context:type_name -> sforum.protocol.v2.ResponseContext
-	19, // 19: sforum.protocol.v2.ReadinessResponse.error:type_name -> sforum.protocol.v2.ErrorDetail
-	16, // 20: sforum.protocol.v2.LifecycleRequest.context:type_name -> sforum.protocol.v2.RequestContext
-	0,  // 21: sforum.protocol.v2.LifecycleRequest.action:type_name -> sforum.protocol.v2.LifecycleAction
-	20, // 22: sforum.protocol.v2.LifecycleRequest.input:type_name -> sforum.protocol.v2.TypedDocument
-	17, // 23: sforum.protocol.v2.ProgressUpdate.context:type_name -> sforum.protocol.v2.ResponseContext
-	1,  // 24: sforum.protocol.v2.ProgressUpdate.state:type_name -> sforum.protocol.v2.ProgressState
-	20, // 25: sforum.protocol.v2.ProgressUpdate.result:type_name -> sforum.protocol.v2.TypedDocument
-	19, // 26: sforum.protocol.v2.ProgressUpdate.error:type_name -> sforum.protocol.v2.ErrorDetail
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	5,  // 7: sforum.protocol.v2.HandshakeRequest.host_build:type_name -> sforum.protocol.v2.HostBuild
+	18, // 8: sforum.protocol.v2.HandshakeResponse.context:type_name -> sforum.protocol.v2.ResponseContext
+	2,  // 9: sforum.protocol.v2.HandshakeResponse.selected_protocol:type_name -> sforum.protocol.v2.ProtocolRange
+	3,  // 10: sforum.protocol.v2.HandshakeResponse.selected_features:type_name -> sforum.protocol.v2.ProtocolFeature
+	8,  // 11: sforum.protocol.v2.HandshakeResponse.services:type_name -> sforum.protocol.v2.ServiceDescriptor
+	19, // 12: sforum.protocol.v2.HandshakeResponse.token_expires_at:type_name -> google.protobuf.Timestamp
+	20, // 13: sforum.protocol.v2.HandshakeResponse.error:type_name -> sforum.protocol.v2.ErrorDetail
+	17, // 14: sforum.protocol.v2.HealthRequest.context:type_name -> sforum.protocol.v2.RequestContext
+	18, // 15: sforum.protocol.v2.HealthResponse.context:type_name -> sforum.protocol.v2.ResponseContext
+	15, // 16: sforum.protocol.v2.HealthResponse.details:type_name -> sforum.protocol.v2.HealthResponse.DetailsEntry
+	20, // 17: sforum.protocol.v2.HealthResponse.error:type_name -> sforum.protocol.v2.ErrorDetail
+	17, // 18: sforum.protocol.v2.ReadinessRequest.context:type_name -> sforum.protocol.v2.RequestContext
+	18, // 19: sforum.protocol.v2.ReadinessResponse.context:type_name -> sforum.protocol.v2.ResponseContext
+	20, // 20: sforum.protocol.v2.ReadinessResponse.error:type_name -> sforum.protocol.v2.ErrorDetail
+	17, // 21: sforum.protocol.v2.LifecycleRequest.context:type_name -> sforum.protocol.v2.RequestContext
+	0,  // 22: sforum.protocol.v2.LifecycleRequest.action:type_name -> sforum.protocol.v2.LifecycleAction
+	21, // 23: sforum.protocol.v2.LifecycleRequest.input:type_name -> sforum.protocol.v2.TypedDocument
+	18, // 24: sforum.protocol.v2.ProgressUpdate.context:type_name -> sforum.protocol.v2.ResponseContext
+	1,  // 25: sforum.protocol.v2.ProgressUpdate.state:type_name -> sforum.protocol.v2.ProgressState
+	21, // 26: sforum.protocol.v2.ProgressUpdate.result:type_name -> sforum.protocol.v2.TypedDocument
+	20, // 27: sforum.protocol.v2.ProgressUpdate.error:type_name -> sforum.protocol.v2.ErrorDetail
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_sforum_protocol_v2_control_proto_init() }
@@ -1299,7 +1371,7 @@ func file_sforum_protocol_v2_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sforum_protocol_v2_control_proto_rawDesc), len(file_sforum_protocol_v2_control_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

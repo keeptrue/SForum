@@ -15,6 +15,7 @@ import (
 	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
 	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
 
 func TestPublicFrontendRequiresLiveExactArtifactTrust(t *testing.T) {
@@ -43,6 +44,10 @@ func TestPublicFrontendRequiresLiveExactArtifactTrust(t *testing.T) {
 	if descriptor.Entry.Integrity == "" || descriptor.Assets[0].Integrity == "" ||
 		!strings.Contains(descriptor.Entry.AssetPath, "/_sforum/assets/extensions/"+extension.ID+"/"+extension.PackageDigest+"/frontend/public/card.mjs") {
 		t.Fatalf("descriptor is not immutable/integrity-bound: %#v", descriptor)
+	}
+	// 公开描述符是匿名可读的：只带 release 级 coreVersion。
+	if descriptor.CoreVersion != platformversion.CoreCompatibilityVersion() {
+		t.Fatalf("descriptor coreVersion = %q", descriptor.CoreVersion)
 	}
 }
 

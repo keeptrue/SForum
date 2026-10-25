@@ -38,6 +38,11 @@ export type PublicFrontendComponentDescriptor = {
   trustNotice: typeof PUBLIC_FRONTEND_TRUST_NOTICE
   extensionId: string
   extensionVersion: string
+  /**
+   * 宿主 release 级版本（严格 semver）。公开描述符匿名可读，因此只给这一项，
+   * 不含 commit 或 dev 构建标识。旧宿主缺省，组件必须按「未知」处理。
+   */
+  coreVersion?: string
   packageDigest: string
   impactDigest: string
   componentId: string
@@ -72,6 +77,11 @@ export type PublicFrontendBridgeV1 = Readonly<{
   }>
   /** 可选：宿主未提供时为 `undefined`，插件必须优雅降级。 */
   icons?: PublicFrontendIconResolver
+  /**
+   * 宿主 release 级版本；公开面只有 coreVersion。缺失即「未知」，
+   * 组件不得推断或硬编码宿主版本。
+   */
+  host?: Readonly<{ coreVersion: string }>
   props: Readonly<Record<string, unknown>>
   ssrRoot: HTMLElement
   request: <T>(path: string, options?: Record<string, unknown>) => Promise<T>
@@ -110,6 +120,7 @@ export function parsePublicFrontendDescriptor(
     || typeof input.extensionVersion !== 'string'
     || !input.extensionVersion
     || input.extensionVersion !== input.extensionVersion.trim()
+    || !validOptionalCoreVersion(input.coreVersion)
     || !DIGEST_PATTERN.test(String(input.packageDigest))
     || !DIGEST_PATTERN.test(String(input.impactDigest))
     || !CONTRACT_PATTERN.test(String(input.contractVersion))
@@ -147,6 +158,7 @@ export function parsePublicFrontendDescriptor(
     trustNotice: PUBLIC_FRONTEND_TRUST_NOTICE,
     extensionId: input.extensionId,
     extensionVersion: input.extensionVersion,
+    coreVersion: optionalString(input.coreVersion),
     packageDigest: input.packageDigest,
     impactDigest: input.impactDigest,
     componentId: input.componentId,
@@ -441,6 +453,13 @@ function descriptorFingerprint(descriptor: PublicFrontendComponentDescriptor) {
 
 function optionalString(input: unknown) {
   return typeof input === 'string' && input ? input : undefined
+}
+
+// coreVersion 是可选的（旧宿主没有），但一旦出现就必须是规范的非空字符串：
+// 描述符是 fail-closed 契约，半截版本号比没有更容易被误用。
+function validOptionalCoreVersion(input: unknown) {
+  if (input === undefined || input === null) return true
+  return typeof input === 'string' && input.length > 0 && input === input.trim()
 }
 
 function assertID(value: string, label: string) {

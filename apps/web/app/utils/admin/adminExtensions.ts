@@ -448,6 +448,15 @@ export type AdminExtensionPageBootstrap = {
    * 管理端是 SSR，缺少它时"信任状态未知"会被首帧渲染成"未授权"。
    */
   frontend: AdminFrontendStatus | null
+  /**
+   * 宿主构建标识。coreVersion 是兼容判定唯一权威；buildVersion 只用于
+   * 识别开发版与排障。旧宿主缺该字段，插件必须按「未知」处理。
+   */
+  host?: {
+    coreVersion: string
+    buildVersion: string
+    valid: boolean
+  } | null
 }
 
 export type AdminLifecycleRemovalMode = 'preserve' | 'export_then_remove' | 'complete_removal'

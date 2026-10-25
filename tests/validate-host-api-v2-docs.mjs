@@ -23,6 +23,11 @@ const hostProto = hostProtoPaths.map(read).join('\n')
 const server = read('apps/api/sdk/plugin/v2/transport.go')
 const hostRuntime = read('apps/api/app/Support/Extensions/protocol_v2_host.go')
 const clientRuntime = read('apps/api/app/Support/Extensions/protocol_v2_client.go')
+// The handshake request literal moved out of protocol_v2_client.go to keep that
+// legacy-capped file from growing; the wire invariants still belong to the v2
+// runtime as a whole.
+const handshakeRuntime = read('apps/api/app/Support/Extensions/protocol_v2_identity_runtime.go')
+const protocolV2Runtime = `${clientRuntime}\n${handshakeRuntime}`
 const testScript = read('scripts/test.sh')
 
 for (const [source, packageName] of [
@@ -46,7 +51,7 @@ for (const field of [
 }
 
 for (const field of [
-  'host_broker_id', 'runtime_token', 'host_api_version', 'RequestContext',
+  'host_broker_id', 'runtime_token', 'host_api_version', 'host_build', 'RequestContext',
   'ExtensionIdentity', 'AuthorityGrant', 'Actor', 'deadline'
 ]) {
   assert(commonProto.includes(field) || controlProto.includes(field), `wire contract no longer defines ${field}`)
@@ -81,9 +86,10 @@ for (const [label, pattern] of [
   ['hostAPIV2Contract = "sforum.host@2"', /hostAPIV2Contract\s*=\s*"sforum\.host@2"/],
   ['hostAPIV2Legacy = "sforum.host-api@2"', /hostAPIV2Legacy\s*=\s*"sforum\.host-api@2"/],
   ['HostBrokerId:', /HostBrokerId\s*:/],
-  ['RuntimeToken:', /RuntimeToken\s*:/]
+  ['RuntimeToken:', /RuntimeToken\s*:/],
+  ['HostBuild:', /HostBuild\s*:/]
 ]) {
-  assert(pattern.test(clientRuntime), `runtime no longer contains documented invariant: ${label}`)
+  assert(pattern.test(protocolV2Runtime), `runtime no longer contains documented invariant: ${label}`)
 }
 
 for (const phrase of [

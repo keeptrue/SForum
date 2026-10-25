@@ -5,6 +5,7 @@ import { useAdminFrontendTrust } from '~/composables/admin/useAdminFrontendTrust
 import SFAdminFrontendTrustPanel from '~/components/admin/SFAdminFrontendTrustPanel.vue'
 import type {
   AdminExtensionSettingItem,
+  AdminHostIdentity,
   AdminMicroFrontendBridgeV1,
   AdminMicroFrontendCleanup,
   AdminMicroFrontendModuleV1
@@ -26,6 +27,8 @@ const props = defineProps<{
   settings: AdminExtensionSettings
   /** 服务端 page-bootstrap 已解析出的信任结论，缺省时才回落到客户端请求。 */
   initialStatus?: AdminFrontendStatus | null
+  /** 服务端 page-bootstrap 一并返回的宿主构建标识；旧宿主缺省。 */
+  host?: AdminHostIdentity
   context: Readonly<{
     items: readonly AdminExtensionSettingItem[]
     values: Readonly<Record<string, string>>
@@ -113,6 +116,7 @@ function bridge(): AdminMicroFrontendBridgeV1 {
     locale: locale.value,
     appearance: appearance(),
     icons: hostIconResolver,
+    host: props.host,
     settings: {
       items: props.context.items,
       values: () => ({ ...props.context.values }),

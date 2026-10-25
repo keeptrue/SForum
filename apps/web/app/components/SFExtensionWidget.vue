@@ -140,6 +140,7 @@ function bridge(current: PublicFrontendComponentDescriptor): PublicFrontendBridg
     trust: PUBLIC_FRONTEND_TRUST_NOTICE,
     extensionId: current.extensionId,
     extensionVersion: current.extensionVersion,
+    host: current.coreVersion ? Object.freeze({ coreVersion: current.coreVersion }) : undefined,
     packageDigest: current.packageDigest,
     impactDigest: current.impactDigest,
     componentId: current.componentId,

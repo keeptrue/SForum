@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	semver "github.com/Masterminds/semver/v3"
 )
 
 const (
@@ -86,6 +88,32 @@ func CoreCompatibilityVersion() string {
 		return developmentCoreCompatibilityVersion
 	}
 	return current
+}
+
+// HostIdentity is the frozen build identity the Host exposes to extensions.
+//
+// CoreVersion is the only compatibility authority: manifest sforumVersion
+// constraints are evaluated against it. BuildVersion is display and
+// troubleshooting only and must never be compared to a constraint. Valid
+// reports whether CoreVersion is strict semver, so consumers can distinguish
+// "unknown" from "incompatible" instead of guessing.
+type HostIdentity struct {
+	CoreVersion  string `json:"coreVersion"`
+	BuildVersion string `json:"buildVersion"`
+	Valid        bool   `json:"valid"`
+}
+
+// Identity composes the Host identity shared with plugin runtimes, admin
+// pages, and public HTTP consumers. It never introduces a second version
+// authority: CoreCompatibilityVersion stays the single source.
+func Identity() HostIdentity {
+	core := CoreCompatibilityVersion()
+	_, err := semver.StrictNewVersion(core)
+	return HostIdentity{
+		CoreVersion:  core,
+		BuildVersion: Get().Version,
+		Valid:        err == nil,
+	}
 }
 
 func resolveDevelopmentCommit() string {

@@ -121,6 +121,8 @@ const (
 	CodeExpectedMismatch      = "extension.expected_mismatch"
 	CodeStagedVersionNotFound = "extension.staged_version_not_found"
 	CodeVersionNotFound       = "extension.version_not_found"
+	// CodeCoreIncompatible 表示清单 sforumVersion 不覆盖运行中的 coreVersion。
+	CodeCoreIncompatible = "extension.core_incompatible"
 	// CodeUntrustedBackendRestricted 见 backend_trust.go（非 super_admin 执行非内置后端）。
 
 	SourceBuiltin  = "builtin"

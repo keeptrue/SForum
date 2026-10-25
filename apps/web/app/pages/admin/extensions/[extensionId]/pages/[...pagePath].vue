@@ -106,6 +106,7 @@ const pageTitle = computed(() => adminPage.value?.label || extensionDisplay.valu
 const pageDescription = computed(() => adminPage.value?.description || extensionDisplay.value?.description || '')
 // bootstrap 已解析的信任结论：传给组件视图/设置视图，避免首帧把"未知"渲染成"未授权"。
 const pageFrontendStatus = computed(() => pageBootstrap.value?.frontend || null)
+const pageHostIdentity = computed(() => pageBootstrap.value?.host || undefined)
 const isSettingsView = computed(() => adminPage.value?.view === 'settings')
 const isComponentView = computed(() => adminPage.value?.view === 'component')
 // 插件/主题未启用时：允许查看 about，但功能性设置页与贡献组件不可用。
@@ -384,6 +385,7 @@ async function executeSettingsAction(action: AdminExtensionSettingsAction) {
       :extension="extension"
       :settings="settings"
       :initial-status="pageFrontendStatus"
+      :host="pageHostIdentity"
       :context="settingsComponentContext"
     >
       <template #fallback>
@@ -432,6 +434,7 @@ async function executeSettingsAction(action: AdminExtensionSettingsAction) {
       :extension="extension"
       :page="adminPage"
       :initial-status="pageFrontendStatus"
+      :host="pageHostIdentity"
     />
   </div>
 

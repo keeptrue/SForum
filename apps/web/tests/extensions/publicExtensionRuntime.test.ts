@@ -108,6 +108,19 @@ describe('public extension runtime contract', () => {
       ...descriptor,
       extensionVersion: ''
     }, descriptor.extensionId, descriptor.componentId)).toThrow(PublicFrontendContractError)
+    // coreVersion 可选但必须规范：空串或含空白都属于破损描述符。
+    for (const coreVersion of ['', ' 3.0.16 ']) {
+      expect(() => parsePublicFrontendDescriptor({
+        ...descriptor,
+        coreVersion
+      }, descriptor.extensionId, descriptor.componentId)).toThrow(PublicFrontendContractError)
+    }
+    expect(parsePublicFrontendDescriptor({
+      ...descriptor,
+      coreVersion: '3.0.16'
+    }, descriptor.extensionId, descriptor.componentId).coreVersion).toBe('3.0.16')
+    expect(parsePublicFrontendDescriptor(descriptor, descriptor.extensionId, descriptor.componentId).coreVersion)
+      .toBeUndefined()
   })
 
   it('rejects forged cross-owner artifact digests and immutable URLs', () => {
