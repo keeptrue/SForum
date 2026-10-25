@@ -794,6 +794,90 @@ func TestControllerProxiesOnlyDeclaredPluginRoutesAfterHostAuthorization(t *test
 	}
 }
 
+// TestProxyExtensionRouteDeniesBeforeGatewayDispatch 固定「守卫在代理之前」这条语义：
+// legacy 前缀对协议 v2 插件回落派发之后，匿名与无权限请求仍然不能到达网关。
+func TestProxyExtensionRouteDeniesBeforeGatewayDispatch(t *testing.T) {
+	manager := authsession.NewManager(session.NewStore(), authsession.Config{HashSecret: "test-secret"})
+	plugin := extensions.Extension{
+		ID: "demo.plugin", Name: "Demo Plugin", Version: "1.0.0",
+		Type: extensions.TypePlugin, Status: extensions.StatusEnabled,
+		Manifest: extensions.Manifest{
+			ManifestVersion: 3, ID: "demo.plugin", Name: "Demo Plugin",
+			Description: "Demo plugin for guard ordering.", Version: "1.0.0", Type: extensions.TypePlugin,
+			URL: "https://example.com/demo-plugin",
+			Author: extensions.ManifestAuthor{
+				Name: "SForum Team", URL: "https://example.com", Email: "dev@example.com",
+			},
+			SForumVersion: "^1.0.0",
+			Permissions:   []string{"extension.demo.manage"},
+			Routes: []extensions.ManifestRoute{
+				{ID: "demo.route.public", Path: "/hello", Methods: []string{http.MethodGet}, Access: extensions.RouteAccessPublic},
+				{ID: "demo.route.login", Path: "/profile", Methods: []string{http.MethodGet}, Access: extensions.RouteAccessLogin},
+				{
+					ID: "demo.route.permission", Path: "/admin/reindex", Methods: []string{http.MethodPost},
+					Access: extensions.RouteAccessPermission, Permission: "extension.demo.manage",
+				},
+			},
+		},
+	}
+	store := &controllerFakeStore{items: map[string]extensions.Extension{plugin.ID: plugin}}
+	gateway := &controllerRecordingGateway{}
+	controller := NewControllerWithGateway(
+		extensions.NewService(store, t.TempDir()),
+		controllerActors{actors: map[int64]identity.Actor{
+			2: {ID: 2, Status: identity.UserStatusActive, Permissions: map[string]bool{}},
+		}},
+		manager,
+		gateway,
+	)
+	app := apphttp.NewApp(config.Config{
+		AppName: "SForum", AppEnv: "test", CSRFEnabled: false,
+		AppLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"},
+	}, slog.Default(), apphttp.Dependencies{RouteProviders: []apphttp.RouteProvider{
+		controller,
+		extensionRouteProviderFunc(func(api fiber.Router) {
+			api.Post("/test-login/:id", func(c fiber.Ctx) error {
+				var id int64 = 1
+				if c.Params("id") == "2" {
+					id = 2
+				}
+				_, err := manager.Start(c, id)
+				return err
+			})
+		}),
+	}})
+
+	// 匿名：login 与 permission 路由都必须在网关之前被拦下。
+	for _, probe := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/extensions/demo.plugin/profile"},
+		{http.MethodPost, "/api/v1/extensions/demo.plugin/admin/reindex"},
+	} {
+		resp := performExtensionRequest(t, app, probe.method, probe.path, nil)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("anonymous %s %s: expected 401, got %d", probe.method, probe.path, resp.StatusCode)
+		}
+	}
+	if gateway.calls != 0 {
+		t.Fatalf("anonymous requests reached the gateway %d times", gateway.calls)
+	}
+
+	// 已登录但无权限：403，且同样不能到达网关。
+	ordinaryCookie := loginExtensionUser(t, app, manager, 2)
+	resp := performExtensionRequest(t, app, http.MethodPost, "/api/v1/extensions/demo.plugin/admin/reindex", ordinaryCookie)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden || gateway.calls != 0 {
+		t.Fatalf("permission route: status=%d gatewayCalls=%d", resp.StatusCode, gateway.calls)
+	}
+
+	// RouteAccessPublic 仍然放行。
+	resp = performExtensionRequest(t, app, http.MethodGet, "/api/v1/extensions/demo.plugin/hello", nil)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || gateway.calls != 1 {
+		t.Fatalf("public route: status=%d gatewayCalls=%d", resp.StatusCode, gateway.calls)
+	}
+}
+
 func TestControllerRejectsStalePublicFrontendBridgeBeforeRuntimeDispatch(t *testing.T) {
 	manager := authsession.NewManager(session.NewStore(), authsession.Config{HashSecret: "test-secret"})
 	packageDigest := strings.Repeat("a", 64)

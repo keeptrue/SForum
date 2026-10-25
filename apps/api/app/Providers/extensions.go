@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"time"
@@ -21,6 +22,7 @@ import (
 	editorregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorRegistry"
 	entityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EntityRegistry"
 	extensioncomposition "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionComposition"
+	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionprotocol "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionProtocol"
 	extensionruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionRuntime"
 	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
@@ -263,6 +265,23 @@ type extensionRouteGateway struct {
 	gateway *extensionsruntime.RouteGateway
 }
 
+// protocolV2RouteInvoker 是「按 exact 运行时实例派发一条 V2 路由」的最小边界。
+//
+// 协议 v2 插件按设计不回报 HTTP BaseURL（见 Support/Extensions 的
+// isPluginRouteTargetNone），因此 legacy 代理前缀只能经这条 gRPC 通道到达插件。
+// 这里只声明接口，具体实现仍由运行时包持有，宿主不另写协议。
+//
+// 它与 dispatchProtocolV2 一起留在本文件（而不是拆到 extensions_route_protocol_v2.go）：
+// 这两个声明要引用 Support/Extensions 的 Protocol V2 类型，而架构闸只允许既有文件
+// import 那个 legacy 包；纯 HTTP→V2 的字段转换才搬到了同包新文件。
+type protocolV2RouteInvoker interface {
+	InvokeRouteInstance(
+		context.Context,
+		extensionsruntime.RuntimeInstanceIdentity,
+		extensionsruntime.ProtocolV2RouteRequest,
+	) (extensionsruntime.ProtocolV2RouteResponse, error)
+}
+
 func (g extensionRouteGateway) Proxy(c fiber.Ctx, input extensionscontroller.ProxyInput) error {
 	target, admission, err := g.runtime.AcquireActiveRuntimeCall(c.Context(), input.Matched.Extension.ID, extensionruntime.RuntimeCallRoute)
 	if err != nil {
@@ -272,12 +291,12 @@ func (g extensionRouteGateway) Proxy(c fiber.Ctx, input extensionscontroller.Pro
 	if !publicFrontendRuntimeMatches(input.PublicFrontendExact, target) {
 		return extensionscontroller.ErrPublicFrontendBridgeStale
 	}
-	if target.Target.BaseURL == "" {
-		return extensions.ErrRuntimeUnavailable
-	}
 	timeout := 3 * time.Second
 	if input.Matched.Route.TimeoutMS > 0 {
 		timeout = time.Duration(input.Matched.Route.TimeoutMS) * time.Millisecond
+	}
+	if target.Target.BaseURL == "" {
+		return g.dispatchProtocolV2(c, input, target, admission, timeout)
 	}
 	targetPath := input.Matched.Path
 	if query := c.Request().URI().QueryString(); len(query) > 0 {
@@ -298,6 +317,104 @@ func (g extensionRouteGateway) Proxy(c fiber.Ctx, input extensionscontroller.Pro
 		TargetPath:  targetPath,
 		Timeout:     timeout,
 	})
+}
+
+// dispatchProtocolV2 把 legacy 代理请求改写成一次 exact-instance V2 路由调用。
+//
+// 只处理「运行时不提供 HTTP BaseURL」的目标：v1 插件的 HTTP 代理分支保持原样。
+// 请求按声明路由的同一口径组装（声明路径 + 原 query + 类型化 body + 宿主推导的
+// 请求权威 + 宿主侧 actor），响应再把状态码/头/body 写回 Fiber。
+//
+// 守卫不在这里：login/permission 判定由 controller 在调用本网关之前完成，本函数
+// 只在「已经授权」的请求上做传输选择，不改变 401/403 语义。
+func (g extensionRouteGateway) dispatchProtocolV2(
+	c fiber.Ctx,
+	input extensionscontroller.ProxyInput,
+	target extensionsruntime.RuntimeInstanceSnapshot,
+	admission *extensionruntime.RuntimeAdmissionLease,
+	timeout time.Duration,
+) error {
+	invoker, ok := g.runtime.(protocolV2RouteInvoker)
+	if !ok {
+		// 运行时没有 V2 派发能力：维持原来的 fail closed 语义。
+		return extensions.ErrRuntimeUnavailable
+	}
+	authority, err := extensionsruntime.ProtocolV2RouteRequestAuthority(
+		input.Matched.Route, input.Matched.Extension.Manifest.Guards,
+	)
+	if err != nil {
+		return errors.Join(extensions.ErrRuntimeUnavailable, err)
+	}
+	query, queryValues, err := protocolV2RouteQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return err
+	}
+	body, present, err := protocolV2RouteBody(input.Matched.Route.RequestSchema, c.Body())
+	if err != nil {
+		return err
+	}
+	var actor *extensionsruntime.ProtocolV2RouteActor
+	if input.HasActor {
+		actor = extensionsruntime.NewProtocolV2RouteActor(input.Actor.ID, true, input.Actor.Permissions)
+	}
+	callCtx, cancel := context.WithTimeout(admission.Context, timeout)
+	defer cancel()
+	response, err := invoker.InvokeRouteInstance(callCtx, target.Identity, extensionsruntime.ProtocolV2RouteRequest{
+		RouteID:               input.Matched.Route.ID,
+		ContractVersion:       input.Matched.Route.ContractVersion,
+		RouteAction:           input.Matched.Route.Action,
+		InvocationStage:       extensionsruntime.ProtocolV2RouteInvocationStageHandler,
+		Method:                c.Method(),
+		Path:                  input.Matched.Path,
+		Headers:               protocolV2RouteRequestHeaders(c),
+		QueryParameters:       query,
+		QueryParameterValues:  queryValues,
+		RequestSchema:         input.Matched.Route.RequestSchema,
+		ResponseSchema:        input.Matched.Route.ResponseSchema,
+		MutableRequestFields:  input.Matched.Route.MutableRequestFields,
+		MutableResponseFields: input.Matched.Route.MutableResponseFields,
+		Body:                  body,
+		BodyPresent:           present,
+		Authority:             authority,
+		Actor:                 actor,
+		Timeout:               timeout,
+	})
+	if err != nil {
+		return errors.Join(extensions.ErrRuntimeFailed, err)
+	}
+	return writeProtocolV2RouteResponse(c, response)
+}
+
+func writeProtocolV2RouteResponse(c fiber.Ctx, response extensionsruntime.ProtocolV2RouteResponse) error {
+	if response.StreamFollows {
+		return errors.Join(extensions.ErrRuntimeFailed, extensionsruntime.ErrProtocolV2RouteStream)
+	}
+	status := response.StatusCode
+	if status == 0 {
+		status = fiber.StatusOK
+	}
+	if !routes.ValidTerminalResponseStatus(extensionmanifest.RouteModeHTTP, status) {
+		return errors.Join(extensions.ErrRuntimeFailed, extensionsruntime.ErrProtocolV2RouteResponseInvalid)
+	}
+	var payload []byte
+	if response.BodyPresent {
+		encoded, err := json.Marshal(response.Body)
+		if err != nil {
+			return errors.Join(extensions.ErrRuntimeFailed, err)
+		}
+		payload = encoded
+	}
+	// 与声明路由派发同一套响应头过滤：插件不能借 legacy 前缀写回 Link/Set-Cookie 等。
+	for name, values := range routes.FilterPluginResponseHeaders(response.Headers) {
+		for _, value := range values {
+			c.Response().Header.Add(name, value)
+		}
+	}
+	if len(payload) > 0 && len(c.Response().Header.Peek(fiber.HeaderContentType)) == 0 {
+		c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	}
+	c.Status(status)
+	return c.Send(payload)
 }
 
 func publicFrontendRuntimeMatches(

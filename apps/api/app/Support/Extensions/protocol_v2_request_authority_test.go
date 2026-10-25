@@ -496,3 +496,80 @@ func TestProtocolV2RequestAuthorityBoundsOversizedDocumentsAtTheRPCBoundary(t *t
 		t.Fatalf("oversized request reached the plugin")
 	}
 }
+
+// TestProtocolV2RouteRequestAuthorityMatchesFrozenDeclaration 固定「宿主推导的请求权威
+// 与运行时冻结声明一致」这条不变量：legacy 代理回落与声明路由派发必须算出同一个值。
+func TestProtocolV2RouteRequestAuthorityMatchesFrozenDeclaration(t *testing.T) {
+	customGuards := []extensions.ManifestGuard{
+		{ID: "demo.guard.custom", Kind: "custom"},
+		{ID: "demo.guard.raw", Kind: "raw_request"},
+		{ID: "demo.guard.unknown", Kind: "mystery"},
+	}
+	cases := []struct {
+		name    string
+		route   extensions.ManifestRoute
+		want    ProtocolV2RequestAuthority
+		wantErr bool
+	}{
+		{
+			name:  "core login is host-filtered",
+			route: extensions.ManifestRoute{Guard: extensionmanifest.GuardCoreLogin},
+			want: ProtocolV2RequestAuthority{
+				Mode: ProtocolV2RequestAuthorityFiltered, GuardKind: ProtocolV2RequestGuardHost,
+			},
+		},
+		{
+			name:  "core public is host-filtered",
+			route: extensions.ManifestRoute{Guard: extensionmanifest.GuardCorePublic},
+			want: ProtocolV2RequestAuthority{
+				Mode: ProtocolV2RequestAuthorityFiltered, GuardKind: ProtocolV2RequestGuardHost,
+			},
+		},
+		{
+			name:    "raw host guard fails closed",
+			route:   extensions.ManifestRoute{Guard: extensionmanifest.GuardCoreRaw},
+			wantErr: true,
+		},
+		{
+			name:  "custom guard keeps filtered credentials",
+			route: extensions.ManifestRoute{Guard: "demo.guard.custom"},
+			want: ProtocolV2RequestAuthority{
+				Mode: ProtocolV2RequestAuthorityFiltered, GuardKind: ProtocolV2RequestGuardCustom,
+			},
+		},
+		{
+			name:  "raw_request guard keeps raw credentials",
+			route: extensions.ManifestRoute{Guard: "demo.guard.raw"},
+			want: ProtocolV2RequestAuthority{
+				Mode: ProtocolV2RequestAuthorityRaw, GuardKind: ProtocolV2RequestGuardRawRequest,
+			},
+		},
+		{
+			name:    "undeclared guard fails closed",
+			route:   extensions.ManifestRoute{Guard: "demo.guard.missing"},
+			wantErr: true,
+		},
+		{
+			name:    "unknown guard kind fails closed",
+			route:   extensions.ManifestRoute{Guard: "demo.guard.unknown"},
+			wantErr: true,
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got, err := ProtocolV2RouteRequestAuthority(testCase.route, customGuards)
+			if testCase.wantErr {
+				if !errors.Is(err, ErrProtocolV2RequestAuthorityInvalid) {
+					t.Fatalf("expected ErrProtocolV2RequestAuthorityInvalid, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != testCase.want {
+				t.Fatalf("authority = %#v, want %#v", got, testCase.want)
+			}
+		})
+	}
+}

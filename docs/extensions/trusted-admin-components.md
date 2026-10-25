@@ -76,7 +76,9 @@ multiple pages, but every component id must be unique inside the package:
 
 The entry exports the same `apiVersion` and `mount(target, bridge)` shape. Its
 page bridge supplies `page`, namespaced `request`, `toast`, `t`, `navigate`,
-locale, and appearance. It deliberately does not expose settings draft methods.
+locale, and appearance. `request` resolves to your extension route's own JSON
+body (not a Host envelope) — see "`bridge.request` return contract" below. It
+deliberately does not expose settings draft methods.
 Plugin authors may compile Vue SFC source to this module; production SForum
 loads only the prebuilt output.
 
@@ -283,9 +285,40 @@ The v1 bridge supplies:
 - an optional `installExtension(request)`, present from `@sforum/admin-sdk@1.2.0`
   and only on pages that declared `hostActions: ["extension.install"]` — see
   "Host actions on an admin page" above.
+- an optional `host` identity (`{ coreVersion, buildVersion, valid }`), present
+  from `@sforum/admin-sdk@1.3.0`. `coreVersion` is the only compatibility
+  authority; `buildVersion` is display-only (`dev-abc12`). The field is sourced
+  from the same `page-bootstrap` payload that already carries the trust state,
+  so reading it costs no extra request. A Host that predates it omits it — treat
+  the absence as unknown and never guess a version.
 
 It does not expose Cookie or Authorization values. The extension API remains
 permission checked by the backend; bridge access is not an authorization grant.
+
+### `bridge.request` return contract
+
+`bridge.request(path, options)` resolves to **the JSON response body of your
+extension route itself** — the body your own response schema declares, not a
+Host `{ code, message, data }` envelope:
+
+```js
+const catalog = await bridge.request('/api/store/catalog')
+catalog.items // the array your route returned at the top level
+```
+
+The Host unwraps its own envelope for its own routes. Extension routes have no
+envelope, so the page bridge asks the request layer for the raw body. Practical
+consequences:
+
+- Respond with the payload directly (for example `200` plus
+  `{ items, total, fetchedAt }`). If you wrap it in `{ code, message, data }`,
+  your page receives the wrapper, not `data`.
+- Non-2xx responses still reject, with the Host's usual error mapping, CSRF
+  double-submit handling, and timeouts — including unsafe methods such as the
+  `POST` that stages an install.
+- `options` (`method`, `body`, `headers`, `timeout`) is passed through to the
+  Host request layer. The response mode is a Host-owned contract and cannot be
+  overridden from the plugin side.
 
 ## Trust and loading
 

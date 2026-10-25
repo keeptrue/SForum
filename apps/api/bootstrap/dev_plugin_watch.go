@@ -209,7 +209,11 @@ func devWatchEventRelevant(path string) bool {
 	if strings.HasPrefix(base, ".") && base != ".htaccess" {
 		return false
 	}
-	for _, suffix := range []string{".sforum.zip", ".zip", ".tmp", ".swp", ".swx", ".swo", "~", ".log", ".map"} {
+	// "-go-tmp-umask" 是 Go 链接器的中间产物后缀：`go build -o X` 会先写
+	// `X-go-tmp-umask` 再改名成 X。BuildBackend 的输出是 backend/plugin.tmp，
+	// 于是真实事件路径是 plugin.tmp-go-tmp-umask —— 它不以 ".tmp" 结尾，
+	// 只靠下面那条 ".tmp" 规则拦不住，会自己触发自己形成稳态重建循环。
+	for _, suffix := range []string{".sforum.zip", ".zip", ".tmp", ".swp", ".swx", ".swo", "~", ".log", ".map", "-go-tmp-umask"} {
 		if strings.HasSuffix(base, suffix) {
 			return false
 		}

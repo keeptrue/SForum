@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ADMIN_MICRO_FRONTEND_API_VERSION } from '@sforum/admin-sdk'
 import type {
+  AdminHostIdentity,
   AdminMicroFrontendCleanup,
   AdminPageBridgeV1,
   AdminPageModuleV1
@@ -30,6 +31,8 @@ const props = defineProps<{
   page: AdminExtensionAdminPage
   /** 服务端 page-bootstrap 已解析出的信任结论，缺省时才回落到客户端请求。 */
   initialStatus?: AdminFrontendStatus | null
+  /** 服务端 page-bootstrap 一并返回的宿主构建标识；旧宿主缺省。 */
+  host?: AdminHostIdentity
 }>()
 
 const extension = computed(() => props.extension)
@@ -132,6 +135,7 @@ function bridge(): AdminPageBridgeV1 {
     locale: locale.value,
     appearance: appearance(),
     icons: hostIconResolver,
+    host: props.host,
     page: {
       path: props.page.path,
       label: props.page.label,
@@ -140,7 +144,13 @@ function bridge(): AdminPageBridgeV1 {
     },
     request: <T>(path: string, options: Record<string, unknown> = {}) => request<T>(
       extensionRequestPath(props.extension.id, path),
-      options as Parameters<typeof request>[1]
+      {
+        ...options,
+        // 插件路由返回自己声明的裸 JSON，没有宿主 `{ code, message, data }` 信封。
+        // 走 'body' 拿整个响应体；默认 'data' 会解出 envelope.data === undefined。
+        // 放在展开之后：模式由宿主契约决定，插件不能自己改。
+        responseMode: 'body'
+      } as Parameters<typeof request>[1]
     ),
     toast: (input) => {
       const error = input.kind === 'error'

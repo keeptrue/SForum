@@ -17,6 +17,13 @@ export type ApiErrorData = {
 
 type ApiRequestBody = BodyInit | Record<string, unknown> | null
 
+/**
+ * 响应体解包模式。宿主自己的路由统一返回 `{ code, message, data }` 信封，
+ * 但扩展（插件）路由返回的是它自己声明的裸 JSON，没有信封可解。
+ * 用显式开关区分两条契约，不要按「body 里有没有 data 键」去猜。
+ */
+export type ApiResponseMode = 'data' | 'body'
+
 type ApiFetchOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   body?: ApiRequestBody
@@ -25,6 +32,12 @@ type ApiFetchOptions = {
   timeout?: number
   /** Nuxt 错误渲染等上下文必须绕过相对 URL，直连服务端 API。 */
   serverInternal?: boolean
+  /**
+   * `'data'`（默认）解包宿主信封后返回 `envelope.data`；
+   * `'body'` 直接返回解析后的响应体本身（扩展路由的裸 JSON）。
+   * 只影响成功响应的返回值，CSRF、超时、错误映射等传输行为完全一致。
+   */
+  responseMode?: ApiResponseMode
 }
 
 const UNSAFE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE'])
@@ -138,7 +151,7 @@ export function useApiClient() {
       const requestBaseUrl = import.meta.server && options.serverInternal
         ? (process.env.NUXT_API_INTERNAL_BASE_URL || 'http://api:8080/api/v1')
         : apiBaseUrl
-      const envelope = await $fetch<ApiEnvelope<T>>(`${requestBaseUrl.replace(/\/+$/, '')}${path}`, {
+      const payload = await $fetch<ApiEnvelope<T> | T>(`${requestBaseUrl.replace(/\/+$/, '')}${path}`, {
         method: options.method,
         body: options.body,
         credentials: options.credentials ?? 'include',
@@ -146,7 +159,12 @@ export function useApiClient() {
         timeout: options.timeout ?? (unsafe ? DEFAULT_UNSAFE_TIMEOUT_MS : DEFAULT_SAFE_TIMEOUT_MS)
       })
 
-      return envelope.data
+      if (options.responseMode === 'body') {
+        // 扩展路由的裸 JSON：整个响应体就是调用方要的数据，没有信封可解。
+        return payload as T
+      }
+
+      return (payload as ApiEnvelope<T>).data
     }
 
     try {

@@ -7,6 +7,7 @@ installTestDom()
 const routeFilename = 'app/pages/admin/extensions/[extensionId]/pages/[...pagePath].vue'
 const route = await Bun.file(new URL('../../app/pages/admin/extensions/[extensionId]/pages/[...pagePath].vue', import.meta.url)).text()
 const component = await Bun.file(new URL('../../app/components/extensions/admin/SFTrustedAdminPageComponent.vue', import.meta.url)).text()
+const settingsComponent = await Bun.file(new URL('../../app/components/extensions/settings/SFTrustedSettingsComponent.vue', import.meta.url)).text()
 const sdk = await Bun.file(new URL('../../packages/admin-sdk/src/index.ts', import.meta.url)).text()
 const manifest = JSON.parse(await Bun.file(
   new URL('../../../../extensions/fixtures/plugins/sforum-prebuilt-settings/sforum.extension.json', import.meta.url)
@@ -68,10 +69,29 @@ describe('trusted admin plugin pages', () => {
     expect(sdk).toContain('page: AdminPageDescriptor')
     const pageBridge = sdk.slice(sdk.indexOf('export type AdminPageBridgeV1'), sdk.indexOf('export type AdminMicroFrontendCleanup'))
     expect(pageBridge).not.toContain('settings:')
+    // 宿主版本随 page-bootstrap 一起下发，经 bridge.host 透出，不再多发请求。
+    expect(pageBridge).toContain('host?: AdminHostIdentity')
+    expect(component).toContain('host: props.host')
+    expect(route).toContain(':host="pageHostIdentity"')
     expect(component).toContain('recordContributionFailure')
     expect(component).toContain('<SFAdminFrontendTrustPanel')
     expect(component).toContain('await currentCleanup()')
     expect(component).toContain('loadIsCurrent(generation)')
     expect(component).toContain('loadGeneration += 1')
+  })
+
+  test('page bridge reads raw plugin JSON, settings keeps the Host envelope', () => {
+    const requestWrapper = component.slice(
+      component.indexOf('request: <T>('),
+      component.indexOf('toast: (input)')
+    )
+    // 插件路由返回裸 JSON：页面桥必须显式要 body，不能靠宿主信封解包。
+    expect(requestWrapper).toContain("responseMode: 'body'")
+    // 模式是宿主契约：先展开插件选项，再覆盖 responseMode，插件改不了。
+    expect(requestWrapper.indexOf('...options')).toBeGreaterThan(-1)
+    expect(requestWrapper.indexOf('responseMode')).toBeGreaterThan(requestWrapper.indexOf('...options'))
+    // 设置页走的是宿主信封（settings save/reset），必须保持默认 'data'。
+    expect(settingsComponent).toContain('const { request } = useApiClient()')
+    expect(settingsComponent).not.toContain("responseMode: 'body'")
   })
 })

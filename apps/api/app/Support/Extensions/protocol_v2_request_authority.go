@@ -69,6 +69,18 @@ func (c *protocolV2Client) validateFrozenRouteAuthority(
 func (c *protocolV2Client) frozenRouteAuthority(
 	route extensions.ManifestRoute,
 ) (ProtocolV2RequestAuthority, error) {
+	return ProtocolV2RouteRequestAuthority(route, c.guards)
+}
+
+// ProtocolV2RouteRequestAuthority 返回一条清单路由在 Protocol V2 线路上冻结的请求权威。
+//
+// 宿主侧所有 V2 入口（声明路由派发、legacy 代理前缀回落）必须用这一份实现推导：
+// 运行时会用同一份清单重算并逐字段比对，推导结果不一致的调用只会被
+// ErrProtocolV2RequestAuthorityInvalid 拒绝，而不是被悄悄降级成另一种权威。
+func ProtocolV2RouteRequestAuthority(
+	route extensions.ManifestRoute,
+	guards []extensions.ManifestGuard,
+) (ProtocolV2RequestAuthority, error) {
 	switch route.Guard {
 	case extensionmanifest.GuardCorePublic, extensionmanifest.GuardCoreLogin,
 		extensionmanifest.GuardCorePermission, extensionmanifest.GuardCoreGuest,
@@ -82,8 +94,8 @@ func (c *protocolV2Client) frozenRouteAuthority(
 		return ProtocolV2RequestAuthority{}, ErrProtocolV2RequestAuthorityInvalid
 	}
 	var matched *extensions.ManifestGuard
-	for index := range c.guards {
-		candidate := &c.guards[index]
+	for index := range guards {
+		candidate := &guards[index]
 		if candidate.ID != route.Guard {
 			continue
 		}
