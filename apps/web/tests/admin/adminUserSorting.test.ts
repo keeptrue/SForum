@@ -13,13 +13,14 @@ const componentPath = fileURLToPath(
   new URL('../../app/components/admin/identity/users/SFAdminUserListToolbar.vue', import.meta.url)
 )
 const Toolbar = await compileVueSfc(componentPath, 'admin-user-list-toolbar')
-const page = await Bun.file(new URL('../../app/pages/admin/users.vue', import.meta.url)).text()
+// 排序参数由列表 composable 负责；拆分后页面只做装配。
+const list = await Bun.file(new URL('../../app/composables/admin/identity/useAdminUserList.ts', import.meta.url)).text()
 
 describe('admin user sorting', () => {
   test('sends the selected stable server-side sorting parameters', () => {
-    expect(page).toContain("params.set('sortBy', sortBy.value)")
-    expect(page).toContain("params.set('sortOrder', sortOrder.value)")
-    expect(page).toContain('watch([status, roleKey, sortBy, sortOrder]')
+    expect(list).toContain("params.set('sortBy', sortBy.value)")
+    expect(list).toContain("params.set('sortOrder', sortOrder.value)")
+    expect(list).toContain('watch([status, roleKey, sortBy, sortOrder]')
   })
 
   test('lets the operator select a field and direction', async () => {

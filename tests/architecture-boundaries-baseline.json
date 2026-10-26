@@ -17,8 +17,7 @@
     "apps/api/app/Support/Pages/registry.go": 672,
     "apps/api/app/Support/Pages/theme_runtime.go": 890,
     "apps/web/app/components/forum/SFTopicShowPage.vue": 1137,
-    "apps/web/app/composables/admin/useAdminExtensionsManager.ts": 921,
-    "apps/web/app/pages/admin/users.vue": 1138
+    "apps/web/app/composables/admin/useAdminExtensionsManager.ts": 921
   },
   "rootDirectoryAllowlists": [
     {

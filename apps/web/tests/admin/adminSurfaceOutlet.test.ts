@@ -15,8 +15,8 @@ describe('admin surface outlet', () => {
   test('renders only normalized descriptors and binds mutations to exact command contracts', () => {
     const outlet = source('../../app/components/admin/SFAdminSurfaceOutlet.vue')
     const client = source('../../app/composables/admin/useAdminSurfaces.ts')
-    const users = source('../../app/pages/admin/users.vue')
-    expect(users).toContain("import SFAdminSurfaceOutlet from '~/components/admin/SFAdminSurfaceOutlet.vue'")
+    const drawer = source('../../app/components/admin/identity/users/SFAdminUserDetailDrawer.vue')
+    expect(drawer).toContain("import SFAdminSurfaceOutlet from '~/components/admin/SFAdminSurfaceOutlet.vue'")
     expect(outlet).toContain('normalizeAdminSurfaceOutput(result.output)')
     expect(outlet).toContain('server: false')
     expect(outlet).toContain('mounted && placement && (pending || error || hasContent)')

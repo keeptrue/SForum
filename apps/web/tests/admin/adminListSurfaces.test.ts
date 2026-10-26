@@ -25,11 +25,15 @@ describe('admin list surface consumers', () => {
   })
 
   test('connects columns, filters, row and bulk actions, and selected-user regions', () => {
+    // 页面只把 surface 对象交给表格/抽屉；消费方各自渲染列、筛选、行/批量动作与详情区域。
     const page = source('../../app/pages/admin/users.vue')
-    expect(page).toContain('userListSurfaces.columns.value.map')
+    const table = source('../../app/components/admin/identity/users/SFAdminUserTable.vue')
+    const drawer = source('../../app/components/admin/identity/users/SFAdminUserDetailDrawer.vue')
+    expect(page).toContain(':surfaces="userListSurfaces"')
     expect(page).toContain('userListSurfaces.filters.value')
-    expect(page).toContain('userListSurfaces.bulkActions.value')
-    expect(page).toContain('userListSurfaces.rowActionsFor')
-    expect(page).toContain(":kinds=\"['detail_region', 'editor_panel']\"")
+    expect(table).toContain('surfaces.columns.value.map')
+    expect(table).toContain('surfaces.bulkActions.value')
+    expect(table).toContain('surfaces.rowActionsFor')
+    expect(drawer).toContain(":kinds=\"['detail_region', 'editor_panel']\"")
   })
 })
