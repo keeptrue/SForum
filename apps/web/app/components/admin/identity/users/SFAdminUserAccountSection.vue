@@ -59,7 +59,7 @@ const kindOptions = computed(() => [
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2">
-      <UFormField data-user-field="username" :label="t('admin.users.username')" :error="errors.username?.[0]">
+      <UFormField data-user-field="username" :label="t('admin.users.usernameField')" :error="errors.username?.[0]">
         <UInput
           v-model="props.form.username"
           class="w-full"

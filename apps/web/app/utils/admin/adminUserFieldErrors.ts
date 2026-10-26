@@ -20,7 +20,7 @@ export interface AdminUserErrorCopy {
 
 /** 字段名 → admin.users 里的标签 key，供摘要点名使用。 */
 export const ADMIN_USER_FIELD_LABEL_KEYS: Record<string, string> = {
-  username: 'admin.users.username',
+  username: 'admin.users.usernameField',
   email: 'admin.users.email',
   displayName: 'admin.users.displayName',
   locale: 'admin.users.locale',
