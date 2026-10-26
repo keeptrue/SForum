@@ -203,6 +203,31 @@ export function ungroupedExtensionNavigation(items: AdminExtensionNavigationItem
   return items.filter(item => !(item.group || '').trim())
 }
 
+/** 扩展页签在后台路由里的稳定 pageId 形状，供侧栏与页签共用。 */
+export function adminExtensionNavPageId(item: Pick<AdminExtensionNavigationItem, 'extensionId' | 'path'>): string {
+  return extensionAdminPageRoute(item.extensionId, item.path)
+}
+
+/** 声明了 group 的页由 Core 分区或自有分组承载，不再算「扩展管理」的子页。 */
+export function extensionNavPageIdsWithOwnMenu(items: AdminExtensionNavigationItem[]): Set<string> {
+  const ids = new Set<string>()
+  for (const item of items) {
+    // 判定必须与 groupExtensionNavigation 一致，避免两处漂移。
+    if ((item.group || '').trim()) {
+      ids.add(adminExtensionNavPageId(item))
+    }
+  }
+  return ids
+}
+
+/** 该扩展页未声明 group，因此由「扩展管理」承载；group 页有自己的分区或分组。 */
+export function extensionPageSitsUnderExtensionsFolder(
+  items: AdminExtensionNavigationItem[],
+  pageId?: string | null
+): boolean {
+  return !extensionNavPageIdsWithOwnMenu(items).has(`${pageId || ''}`.trim())
+}
+
 export type AdminExtensionSettingValue = {
   key: string
   label: string

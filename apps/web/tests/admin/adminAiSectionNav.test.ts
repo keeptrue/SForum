@@ -65,7 +65,7 @@ describe('admin shared navigation sections', () => {
     expect(layout).toContain('isRegisteredNavSection(item.group)')
     expect(layout).toContain('entry.sectionId')
     // 父菜单要在子项（插件页）激活时也高亮/展开。
-    expect(layout).toContain('sectionActive')
+    expect(layout).toContain('children.some(child => child.active)')
   })
 
   test('ships the new nav label in both locales', () => {

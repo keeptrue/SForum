@@ -571,10 +571,7 @@ export function isAdminNavigationEntryActive(entry: AdminNavigationEntry, pageId
   }
 
   if (entry.type === 'folder') {
-    if (entry.labelKey === 'admin.nav.extensions' && isExtensionAdminPageId(activePageId)) {
-      return true
-    }
-
+    // 扩展页归哪个菜单由 admin shell 依据 manifest group 计算，静态 config 不猜测。
     return entry.children.some(child => isAdminNavigationEntryActive(child, activePageId))
   }
 

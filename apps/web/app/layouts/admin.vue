@@ -24,6 +24,8 @@ import {
 import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
 import { type AdminTab, useAdminTabs } from '~/composables/admin/useAdminTabs'
 import {
+  adminExtensionNavPageId,
+  extensionPageSitsUnderExtensionsFolder,
   groupExtensionNavigation,
   ungroupedExtensionNavigation,
   type AdminExtensionNavigationItem
@@ -234,10 +236,6 @@ const navigationItems = computed(() => {
   return withExtensionGroups
 })
 
-function extensionNavigationPageId(item: AdminExtensionNavigationItem) {
-  return `/extensions/${item.extensionId}/pages${item.path}`
-}
-
 /** group 命中 Core 注册分区时，该页并入对应的一级菜单，不再自成一组。 */
 function isRegisteredNavSection(group?: string) {
   const value = (group || '').trim()
@@ -271,7 +269,7 @@ const extensionGroupNavigation = computed<SidebarNavigationItem[]>(() => {
   const grouped = (extensionNavigation.value || []).filter(item => !isRegisteredNavSection(item.group))
   return groupExtensionNavigation(grouped).map((group) => {
     const children = group.pages.map((item): SidebarNavigationItem => {
-      const pageId = extensionNavigationPageId(item)
+      const pageId = adminExtensionNavPageId(item)
       return {
         label: item.label,
         icon: item.icon || group.icon || 'i-lucide-plug',
@@ -291,6 +289,12 @@ const extensionGroupNavigation = computed<SidebarNavigationItem[]>(() => {
     }
   })
 })
+
+// 未分组插件页没有独立菜单，仍归「扩展管理」；基础模式下也不掉高亮。
+const activeExtensionPageIsFlat = computed(() =>
+  isExtensionAdminPageId(currentAdminPageId.value)
+  && extensionPageSitsUnderExtensionsFolder(extensionNavigation.value || [], currentAdminPageId.value)
+)
 
 function buildNavigationItem(
   entry: AdminNavigationEntry,
@@ -314,7 +318,7 @@ function buildNavigationItem(
     // 插件成员按 manifest order 追加在后。
     if (entry.sectionId) {
       for (const item of sectionExtensionPages.value.get(entry.sectionId) ?? []) {
-        const pageId = extensionNavigationPageId(item)
+        const pageId = adminExtensionNavPageId(item)
         children.push({
           label: item.label,
           icon: item.icon || entry.icon,
@@ -335,10 +339,10 @@ function buildNavigationItem(
       return null
     }
 
-    // 分区里的插件页不在静态 entry 里，isAdminNavigationEntryActive 看不到它们：
-    // 用子项的 active 补一次，否则正在看插件设置页时父菜单既不高亮也不展开。
-    const sectionActive = entry.sectionId ? children.some(child => child.active) : false
-    const isActive = isAdminNavigationEntryActive(entry, currentAdminPageId) || sectionActive
+    // 动态子项（分区成员、未分组插件页）不在静态 entry 里：用已渲染子项的 active 补一次。
+    const childActive = children.some(child => child.active)
+    const ownsActiveExtensionPage = entry.labelKey === EXTENSION_FOLDER_NAV_VALUE && activeExtensionPageIsFlat.value
+    const isActive = isAdminNavigationEntryActive(entry, currentAdminPageId) || childActive || ownsActiveExtensionPage
 
     return {
       label: t(entry.labelKey),
@@ -346,7 +350,7 @@ function buildNavigationItem(
       value: entry.labelKey,
       active: isActive,
       defaultOpen: entry.defaultOpen,
-      open: shouldOpenAdminNavigationEntry(entry, currentAdminPageId) || sectionActive,
+      open: shouldOpenAdminNavigationEntry(entry, currentAdminPageId) || childActive || ownsActiveExtensionPage,
       children
     }
   }
@@ -386,7 +390,7 @@ function buildExtensionNavigationItems(currentAdminPageId: string): SidebarNavig
   // 声明了 group 的页签已经收进独立一级菜单，这里只平铺剩下的。
   return ungroupedExtensionNavigation(extensionNavigation.value || [])
     .map((item) => {
-      const pageId = extensionNavigationPageId(item)
+      const pageId = adminExtensionNavPageId(item)
       return {
         label: item.label,
         icon: item.icon || (item.extensionType === 'theme' ? 'i-lucide-palette' : 'i-lucide-plug'),
@@ -400,7 +404,7 @@ function buildExtensionNavigationItems(currentAdminPageId: string): SidebarNavig
 function openExtensionRoutePlaceholderTab(tabId: string) {
   // 导航数据在 SSR 阶段已经可用时直接复用正式标题，避免服务端占位标题与客户端扩展详情数据产生水合差异。
   const navigationItem = (extensionNavigation.value || []).find((item) => {
-    return `/extensions/${item.extensionId}/pages${item.path}` === tabId
+    return adminExtensionNavPageId(item) === tabId
   })
   adminTabs.openCustomTab({
     id: tabId,

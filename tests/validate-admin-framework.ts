@@ -368,7 +368,13 @@ assert(typeof isExtensionAdminPageId === 'function', 'Admin navigation should id
 assert(isExtensionAdminPageId('/extensions/sforum.default-theme/pages/about'), 'Dynamic extension admin page ids should be recognized')
 assert(!isExtensionAdminPageId('/extensions/themes'), 'Static extension manager pages should not be treated as dynamic extension admin pages')
 assert(isAdminNavigationEntryActive(extensionFolder, '/extensions/themes'), 'Extension folder should be active when one of its child pages is active')
-assert(isAdminNavigationEntryActive(extensionFolder, '/extensions/sforum.default-theme/pages/about'), 'Extension folder should be active for dynamic extension admin pages')
+// 动态扩展页归属由 admin shell 依据 manifest `group` 计算：声明了 group 的页有自己的
+// 一级菜单/分区，未声明的仍归「扩展管理」。静态 config 拿不到 manifest，不能替它们
+// 认领——否则 group 页会同时点亮自己的一级菜单和「扩展管理」。
+assert(!isAdminNavigationEntryActive(extensionFolder, '/extensions/sforum.default-theme/pages/about'), 'Static admin config should not claim dynamic extension pages for the extension folder')
+assert(adminLayout.includes('extensionPageSitsUnderExtensionsFolder('), 'Admin layout should delegate dynamic extension page ownership to the manifest group placement rule')
+assert(/const isActive = isAdminNavigationEntryActive\(entry, currentAdminPageId\)[^\n]*ownsActiveExtensionPage/.test(adminLayout), 'Admin layout should highlight the extension folder for ungrouped dynamic extension pages')
+assert(/entry\.labelKey === EXTENSION_FOLDER_NAV_VALUE\s*&&\s*activeExtensionPageIsFlat\.value/.test(adminLayout), 'The dynamic extension page fallback should be scoped to the extension folder')
 assert(!isAdminNavigationEntryActive(systemFolder, '/extensions/themes'), 'System folder should not be active for extension child pages')
 assert(isAdminNavigationEntryActive(operationsFolder, '/database'), 'Operations folder should be active when database page is active')
 assert(isAdminNavigationEntryActive(operationsFolder, '/jobs'), 'Operations folder should be active when jobs page is active')
@@ -378,7 +384,7 @@ assert(shouldOpenAdminNavigationEntry(operationsFolder, '/jobs'), 'Active operat
 assert(isAdminNavigationEntryActive(attachmentsFolder, '/attachments/settings'), 'Attachment folder should be active for Basic Configuration')
 assert(isAdminNavigationEntryActive(attachmentsFolder, '/attachments/manager'), 'Attachment folder should be active for Attachment Management')
 assert(shouldOpenAdminNavigationEntry(attachmentsFolder, '/attachments/manager'), 'Attachment folder should open for its active submenu')
-assert(shouldOpenAdminNavigationEntry(extensionFolder, '/extensions/sforum.default-theme/pages/about'), 'Extension folder should open for dynamic extension admin pages')
+assert(/open: shouldOpenAdminNavigationEntry\(entry, currentAdminPageId\)[^\n]*ownsActiveExtensionPage/.test(adminLayout), 'Admin layout should open the extension folder for ungrouped dynamic extension pages')
 assert(!shouldOpenAdminNavigationEntry(systemFolder, '/extensions/themes'), 'Inactive sidebar folders should stay collapsed by default')
 assert(firstSidebarGroup
   .filter(entry => entry.type === 'folder')
