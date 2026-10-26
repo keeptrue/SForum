@@ -1405,12 +1405,17 @@ ExtensionManifestAdminPage:
       uniqueItems: true
       description: >-
         Host-provided actions this page may call. Only valid with
-        view=component. The first version accepts extension.install only, which
-        exposes bridge.installExtension after a Host confirmation dialog and
-        stages the package without enabling or trusting it.
+        view=component; unknown ids fail manifest validation.
+        `extension.install` exposes bridge.installExtension after a Host
+        confirmation dialog and only stages the package: it does not enable,
+        trust, or activate anything. `extension.install.enable` runs the same
+        Host install path and then lets the Host enable or upgrade the extension
+        through its own enable flow after the same Host confirmation; the
+        declared package identity is still verified, and an executable backend
+        still requires the Host's exact-artifact super_admin trust confirmation.
       items:
         type: string
-        enum: [extension.install]
+        enum: [extension.install, extension.install.enable]
 ExtensionManifestMigration:
   type: object
   required: [path]

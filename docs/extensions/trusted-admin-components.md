@@ -85,7 +85,9 @@ loads only the prebuilt output.
 ### Host actions on an admin page
 
 A `view: component` page may additionally ask the Host to perform an action it
-owns. The first (and currently only) action is `extension.install`:
+owns. Two actions exist: `extension.install` stages a package, and
+`extension.install.enable` installs it and then lets the Host enable or upgrade
+it through its own lifecycle flow:
 
 ```json
 {
@@ -101,19 +103,26 @@ Rules, enforced at manifest validation:
 
 - `hostActions` is rejected on `about` / `settings` pages — an action needs a
   mounted component to call it.
-- Only known action ids are accepted (`extension.install`); unknown ids reject
-  the whole manifest.
+- Only known action ids are accepted: `extension.install` (stage only) and
+  `extension.install.enable` (install, then let the Host enable or upgrade).
+  Unknown ids reject the whole manifest.
+- Each declared action injects its own bridge member, so a page that declares
+  only `extension.install.enable` never receives `installExtension` by accident,
+  and vice versa. A page that wants both declares both.
 - At most 8 entries; empty strings are dropped and duplicates collapse
   (trimmed, lowercased).
 - Hosts older than this field reject the manifest (`additionalProperties:
-  false`), so publishers must state a minimum Host version in their release
-  notes.
+  false`), and a Host that predates `extension.install.enable` rejects the whole
+  manifest as an unknown action id. Either way, publishers must state a minimum
+  Host version in their release notes.
 
-Declaring the action is disclosed: the plugin detail card and the enable
-confirmation dialog both show "this plugin can request extension installs".
-The disclosure is a separate line item with its own i18n key — it is **not**
-folded into capability risk levels, because it is a Host action rather than a
-process capability the plugin itself gains.
+Declaring an action is disclosed: the plugin detail card, the theme detail card
+and the enable confirmation dialog show "this plugin can request extension
+installs", plus a second line for `extension.install.enable` explaining that the
+Host may also enable what it installs. The disclosure is a separate line item
+with its own i18n keys — it is **not** folded into capability risk levels,
+because it is a Host action rather than a process capability the plugin itself
+gains.
 
 ### `bridge.installExtension`
 
@@ -150,7 +159,8 @@ What it deliberately does not do:
 
 - No enable, trust, activate, or upgrade. A resolved promise means **staged**.
   The administrator finishes trust/enable on the core plugin/theme pages, which
-  the success state links to.
+  the success state links to. For install-and-enable, declare
+  `extension.install.enable` and use `bridge.installAndEnableExtension` below.
 - No queue, intent row, or worker. The call is synchronous; navigating away
   cancels the request (the browser disconnect cancels the Go context) and the
   promise rejects with `install_cancelled`. The dialog says so while installing.
@@ -167,6 +177,90 @@ installation is the service-layer authorization, the `super_admin` requirement
 for untrusted executable backends, digest pinning, and the fact that an install
 only stages an inert package. The dialog exists so the normal path is explicit
 and reviewable.
+
+### `bridge.installAndEnableExtension`
+
+Present **only** when the current page declared `extension.install.enable`:
+
+```ts
+const result = await bridge.installAndEnableExtension?.({
+  url: 'https://cdn.example.com/sforum.store-1.4.0.zip',
+  sha256: '9f2c…',            // 64 lowercase hex, required
+  expectedExtensionId: 'sforum.store',
+  expectedType: 'plugin',
+  expectedVersion: '1.4.0'    // optional
+})
+result?.outcome // 'enabled' | 'upgraded' | 'staged'
+```
+
+It takes the same request shape and runs the same Host install path as
+`bridge.installExtension`, then continues into the Host's own enable flow. The
+resolved value carries the install identity block (`extensionId`, `version`,
+`type`, `packageDigest`, `upgraded`, `requiresTrust`) plus `outcome`, which is a
+report of what the Host reached and never a promise:
+
+| `outcome` | Meaning |
+| --- | --- |
+| `enabled` | A new package was installed and is now running. |
+| `upgraded` | A staged replacement was installed and the upgrade/restart lifecycle action succeeded. |
+| `staged` | The Host installed the package and deliberately stopped. |
+
+`staged` covers three honest stops: a theme (the operator activates themes on
+the theme page), an **untrusted** executable backend with a non-super-admin
+operator, and an operator who closed the impact review. The stage-only member has
+no `outcome` field at all — a resolved `installExtension` already means staged. A
+front-end-only package, or an artifact that is already trusted, enables
+immediately.
+
+The trust review happens inside the same dialog: the Host renders its impact
+report (`sforum.trust-impact@2`) and mints the one-use confirmation before
+calling the lifecycle route. If the backend still answers
+`extension.trust_challenge_required` to a tokenless enable, the Host falls back
+to that review instead of failing the call.
+
+Failure codes are the same set as `bridge.installExtension`. `install_failed`
+additionally covers an enable that failed after a successful install: the
+package stays installed, and the retry repeats only the enable — it never
+re-downloads the package.
+
+The enable step calls the ordinary lifecycle routes
+(`POST /admin/extensions/{id}/enable`, or the same upgrade/restart action the
+extension page uses) with an `Idempotency-Key`. There is no second enable
+implementation behind the bridge and no trust bypass.
+
+### Dialog layering (host dialog above plugin overlays)
+
+The Host dialog is usually not the only modal on the page: a catalog page has
+its own overlay. Three facts decide the stack:
+
+- Nuxt UI 4's `UModal` renders its overlay and content with **no z-index**, so it
+  relies on DOM order.
+- A plugin page's overlay is a positioned `body` child. At `z-index: 40` it
+  paints above the Host dialog whatever the DOM order is.
+- While a reka modal layer is open, `DismissableLayer` sets
+  `body.style.pointerEvents = 'none'` and restores `auto` only on its own layer
+  content. An overlay above the Host dialog therefore swallows every click: the
+  dialog is invisible and the page looks frozen.
+
+The contract, as implemented by the install/confirm dialog that opens above a
+plugin page:
+
+| Layer | z-index |
+| --- | --- |
+| Host install dialog overlay and content | `ADMIN_HOST_DIALOG_Z_INDEX` = 80 (literal `z-[80]`) |
+| Plugin overlays | `≤ z-40` |
+| Toasts | `z-100` |
+
+The number has one name in code: `ADMIN_HOST_DIALOG_Z_INDEX`, exported from
+`apps/web/app/utils/admin/extensions/hostActions.ts`. The component keeps the
+literal `z-[80]` because Tailwind has no safelist here and cannot see an
+interpolated candidate; a unit test keeps the two in sync. The `≤ 40` side is a
+cross-repository convention and is not machine-checked.
+
+Do not raise a plugin overlay above the Host dialog. The earlier workaround —
+dropping your own overlay to `z-index: 0` while an install is pending — is gone:
+the plugin overlay keeps its `z-index: 40` and never rewrites it during an
+install.
 
 ## Vue authoring with Plugin UI SDK v1
 
@@ -285,6 +379,11 @@ The v1 bridge supplies:
 - an optional `installExtension(request)`, present from `@sforum/admin-sdk@1.2.0`
   and only on pages that declared `hostActions: ["extension.install"]` — see
   "Host actions on an admin page" above.
+- an optional `installAndEnableExtension(request)`, present from
+  `@sforum/admin-sdk@1.3.0` (the SDK version that also adds `bridge.host`) and
+  only on pages that declared `hostActions: ["extension.install.enable"]`. It
+  resolves with the install identity plus `outcome: 'enabled' | 'upgraded' |
+  'staged'`.
 - an optional `host` identity (`{ coreVersion, buildVersion, valid }`), present
   from `@sforum/admin-sdk@1.3.0`. `coreVersion` is the only compatibility
   authority; `buildVersion` is display-only (`dev-abc12`). The field is sourced

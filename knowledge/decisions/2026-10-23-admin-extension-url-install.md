@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-23).
+Accepted (2026-10-23; revised 2026-10-26).
 
 ## Context
 
@@ -61,6 +61,14 @@ Two constraints shaped the design:
 - **Two upload entry points.** The overview quick upload and the new page use
   separate UI code paths for now. Consolidating them is deferred until the
   install UI needs shared progress or async status.
+- **Revised 2026-10-26 — auto-enable exists only as a separate host action.**
+  This route still stages and nothing else. "Install and enable" is the
+  page-level `extension.install.enable` action: the Host confirms, installs
+  through this same route, then enables through its own lifecycle route, and an
+  executable backend still needs the exact-artifact `super_admin` confirmation.
+  There is no auto-enable flag, no config switch, and no change for manual URL
+  installs — the default remains an inert install. See
+  `2026-10-24-admin-page-host-action.md` (2026-10-26 revision).
 
 ## References
 

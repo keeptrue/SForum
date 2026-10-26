@@ -14,8 +14,15 @@ const (
 	ContributionPointKindDescriptor = "descriptor"
 
 	// AdminHostActionExtensionInstall 是宿主为受信任管理页提供的安装动作。
-	// 首版只此一项：动作由宿主执行并需要管理员当场确认，不是插件进程能力。
+	// 动作由宿主执行并需要管理员当场确认，不是插件进程能力；它只暂存包，
+	// 不启用、不信任。语义自首版起保持不变。
 	AdminHostActionExtensionInstall = "extension.install"
+
+	// AdminHostActionExtensionInstallEnable 在安装动作之上追加「装完由宿主按自身
+	// 规则启用」：宿主确认后先完成安装，再由宿主既有的启用流程接管。它不是插件
+	// 进程能力，也不跳过任何宿主门禁——可执行后端仍要 exact-artifact 的
+	// super_admin 信任确认，其余判断沿用服务层策略。
+	AdminHostActionExtensionInstallEnable = "extension.install.enable"
 
 	// adminPageHostActionsMax 与清单 schema 的 maxItems 保持一致。
 	adminPageHostActionsMax = 8
@@ -62,12 +69,20 @@ func AdminManagePath(manifest Manifest) string {
 }
 
 // AdminHostActions 返回宿主支持的全部页面级动作 ID，用于清单校验与披露。
+// 顺序稳定且旧动作在前：披露与快照按此顺序渲染，调用方可以安全修改返回值。
 func AdminHostActions() []string {
-	return []string{AdminHostActionExtensionInstall}
+	return []string{AdminHostActionExtensionInstall, AdminHostActionExtensionInstallEnable}
 }
 
+// knownAdminHostAction 是动作词表的唯一判定入口；新增动作必须同时登记在这里
+// 与 AdminHostActions，admin_host_actions_test.go 会校验两者一致。
 func knownAdminHostAction(value string) bool {
-	return value == AdminHostActionExtensionInstall
+	switch value {
+	case AdminHostActionExtensionInstall, AdminHostActionExtensionInstallEnable:
+		return true
+	default:
+		return false
+	}
 }
 
 // validateAdminHostActions 只允许 component 页面声明动作，且动作 ID 必须已知。
