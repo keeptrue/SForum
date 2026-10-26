@@ -2,6 +2,7 @@
 
 Status: accepted
 Date: 2026-10-25
+Updated: 2026-10-26 — dev 构建的 `coreVersion` 改为从最近可达 git tag 派生（无 tag 仍回落 `1.0.0`），见 `2026-10-26-dev-core-version-from-git.md`；本文其余结论不变。
 Supersedes: `2026-10-24-admin-page-host-action.md` D9（「暂不做 hostVersion」）
 Related: `2026-10-24-app-store-out-of-tree.md`
 

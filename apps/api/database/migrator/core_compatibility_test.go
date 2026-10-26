@@ -43,7 +43,12 @@ func assertCoreUpgradeCompatibilityLifecycle(t *testing.T, manifest, trustImpact
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := Up(ctx, Config{DatabaseURL: databaseURL, TargetCoreVersion: "1.0.0"}); err != nil {
+	// Prepare the shared schema at whatever release this checkout reports:
+	// the migrated Core version follows the nearest git tag, so pinning a
+	// literal target would either be a downgrade guard trip or a no-op that
+	// hides schema drift. The compatibility targets asserted below stay
+	// explicit, because they are the values under test.
+	if err := Up(ctx, Config{DatabaseURL: databaseURL}); err != nil {
 		t.Fatalf("prepare current schema: %v", err)
 	}
 	db, err := sql.Open("pgx", databaseURL)

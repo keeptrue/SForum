@@ -574,7 +574,7 @@ func exactCoordinatorTestExtension(id, version, digest, contract string, version
 			ManifestVersion: 3, ID: id, Name: "Lifecycle fixture",
 			Description: "Exact lifecycle runtime fixture.", URL: "https://example.test/lifecycle-fixture",
 			Author: extensions.ManifestAuthor{Name: "SForum"}, Version: version,
-			Type: extensions.TypePlugin, SForumVersion: "^1.0.0",
+			Type: extensions.TypePlugin, SForumVersion: ">=0.1.0",
 			Backend: extensions.ManifestBackend{
 				Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
 				Digest: digest, HostAPIVersion: "sforum.host@2",

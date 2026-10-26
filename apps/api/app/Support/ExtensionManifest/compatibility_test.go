@@ -6,6 +6,7 @@ import (
 )
 
 func TestCheckSForumVersionEvaluatesAgainstCoreVersion(t *testing.T) {
+	// ^1.0.0 在这里是被测的约束本身，不是本机清单：判定对象是显式传入的 core。
 	manifest := Manifest{ID: "demo.plugin", SForumVersion: "^1.0.0"}
 
 	if err := CheckSForumVersion(manifest, "1.4.2"); err != nil {

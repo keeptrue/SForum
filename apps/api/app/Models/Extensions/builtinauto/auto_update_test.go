@@ -343,7 +343,7 @@ func testExtension(t *testing.T, id, activeVersion, stagedVersion string, lifecy
 		Author:          extensions.ManifestAuthor{Name: "SForum"},
 		Version:         activeVersion,
 		Type:            extensions.TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 		Backend: extensions.ManifestBackend{
 			Entry: "backend/plugin", ProtocolVersion: 2, HostAPIVersion: "sforum.host@2", RPC: "hashicorp-go-plugin",
 		},

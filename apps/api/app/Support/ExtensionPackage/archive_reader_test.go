@@ -15,7 +15,7 @@ func TestReadArchiveEnforcesInflatedByteLimit(t *testing.T) {
 	var buffer bytes.Buffer
 	writer := zip.NewWriter(&buffer)
 	for name, body := range map[string]string{
-		extensionmanifest.ManifestFileName: `{"manifestVersion":3,"id":"demo.plugin","name":"Demo","description":"Demo package.","url":"https://example.com","author":{"name":"Demo"},"version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0"}`,
+		extensionmanifest.ManifestFileName: `{"manifestVersion":3,"id":"demo.plugin","name":"Demo","description":"Demo package.","url":"https://example.com","author":{"name":"Demo"},"version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0"}`,
 		"big.txt":                          strings.Repeat("A", 256),
 	} {
 		handle, err := writer.Create(name)

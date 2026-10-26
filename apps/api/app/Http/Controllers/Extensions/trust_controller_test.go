@@ -158,7 +158,7 @@ func executableTrustHTTPFixture(t *testing.T) extensions.Extension {
 		ManifestVersion: 3,
 		ID:              "demo.trust", Name: "Trust Demo", Description: "Trust HTTP fixture.",
 		URL: "https://example.test/trust", Author: extensions.ManifestAuthor{Name: "SForum"},
-		Version: "1.0.0", Type: extensions.TypePlugin, SForumVersion: "^1.0.0",
+		Version: "1.0.0", Type: extensions.TypePlugin, SForumVersion: ">=0.1.0",
 		Backend: extensions.ManifestBackend{
 			Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
 			HostAPIVersion: "sforum.host@2",

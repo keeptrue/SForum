@@ -4,14 +4,40 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
 	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
 )
+
+// hostCoreCompatibility returns the database compatibility declaration a
+// high-risk fixture package must carry to be accepted by the running Host, and
+// the first Core release outside that declaration.
+//
+// The migrated Core release follows the nearest reachable git tag
+// (knowledge/decisions/2026-10-26-dev-core-version-from-git.md), so a range
+// frozen in the test would pin the assertion to one release line instead of to
+// the compatibility rule under test. CoreCompatibilityVersion stays the only
+// authority; this helper only reads it.
+func hostCoreCompatibility(t *testing.T) (declaration string, outside string) {
+	t.Helper()
+	host := strings.TrimSpace(platformversion.CoreCompatibilityVersion())
+	current, err := semver.StrictNewVersion(host)
+	if err != nil {
+		t.Fatalf("Host core compatibility version %q is not strict semver: %v", host, err)
+	}
+	// Build metadata never participates in precedence, so the declaration is
+	// written against the release itself (3.0.16+13.gabc12 -> 3.0.16).
+	release := strings.SplitN(current.String(), "+", 2)[0]
+	outside = fmt.Sprintf("%d.0.0", current.Major()+1)
+	return fmt.Sprintf(">=%s <%s", release, outside), outside
+}
 
 func TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence(t *testing.T) {
 	ctx, pool := openExtensionDatabaseRawCoreTestPool(t)
@@ -23,12 +49,17 @@ func TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence(t *test
 	`).Scan(&originalCurrent, &originalTarget, &originalStatus); err != nil {
 		t.Fatalf("load durable Core runtime state: %v", err)
 	}
-	if originalCurrent != "1.0.0" || originalTarget != originalCurrent || originalStatus != "ready" {
+	hostVersion := strings.TrimSpace(platformversion.CoreCompatibilityVersion())
+	if originalCurrent != hostVersion || originalTarget != originalCurrent || originalStatus != "ready" {
 		t.Fatalf(
-			"high-risk lease test requires ready Core 1.0.0, got current=%q target=%q status=%q",
-			originalCurrent, originalTarget, originalStatus,
+			"high-risk lease test requires a ready Core at the Host compatibility version %q, got current=%q target=%q status=%q",
+			hostVersion, originalCurrent, originalTarget, originalStatus,
 		)
 	}
+	// A Core migration past the declared release line is what the fence must
+	// catch, so the target is derived from the same authority as the fixture
+	// declaration rather than frozen to a fixed next release.
+	_, outsideCoreVersion := hostCoreCompatibility(t)
 	restoreCoreRuntimeState := func() {
 		restoreCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -92,10 +123,10 @@ func TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence(t *test
 	}()
 	if _, err := lockConnection.Exec(ctx, `
 		UPDATE public.sforum_core_runtime_state
-		SET target_version = '2.0.0', status = 'migrating', migrated_at = NULL,
+		SET target_version = $1, status = 'migrating', migrated_at = NULL,
 		    revision = revision + 1, updated_at = statement_timestamp()
 		WHERE singleton = TRUE
-	`); err != nil {
+	`, outsideCoreVersion); err != nil {
 		t.Fatal(err)
 	}
 
@@ -119,11 +150,11 @@ func TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence(t *test
 
 	if _, err := lockConnection.Exec(ctx, `
 		UPDATE public.sforum_core_runtime_state
-		SET current_version = '2.0.0', target_version = '2.0.0', status = 'ready',
+		SET current_version = $1, target_version = $1, status = 'ready',
 		    migrated_at = statement_timestamp(), revision = revision + 1,
 		    updated_at = statement_timestamp()
 		WHERE singleton = TRUE
-	`); err != nil {
+	`, outsideCoreVersion); err != nil {
 		t.Fatal(err)
 	}
 	if err := unlockExtensionDatabasePhysicalAuthoritySession(ctx, lockConnection); err != nil {

@@ -75,7 +75,7 @@ func buildFixture(t *testing.T, options fixtureOptions) Artifact {
 		ManifestVersion: extensionmanifest.ManifestVersionV3,
 		ID:              options.extensionID, Name: "OpenAPI Fixture", Description: "Static aggregate fixture.",
 		URL: "https://example.com/fixture", Author: extensionmanifest.ManifestAuthor{Name: "SForum"},
-		Version: "1.0.0", Type: extensionmanifest.TypePlugin, SForumVersion: "^1.0.0",
+		Version: "1.0.0", Type: extensionmanifest.TypePlugin, SForumVersion: ">=0.1.0",
 		Routes:      []extensionmanifest.ManifestRoute{route},
 		Permissions: nonEmptyValues(options.permission),
 		OpenAPI: []extensionmanifest.ManifestOpenAPIFragment{{

@@ -250,7 +250,7 @@ func databaseCatalogFixture(t *testing.T) extensions.Extension {
 		ManifestVersion: extensionmanifest.ManifestVersionV3,
 		ID:              "demo.catalog", Name: "Database Catalog", Description: "Database catalog fixture.",
 		URL: "https://example.com/database-catalog", Author: extensionmanifest.ManifestAuthor{Name: "SForum"},
-		Version: "1.0.0", Type: extensionmanifest.TypePlugin, SForumVersion: "^1.0.0",
+		Version: "1.0.0", Type: extensionmanifest.TypePlugin, SForumVersion: ">=0.1.0",
 		Database: &extensionmanifest.ManifestDatabase{
 			ContractVersion: "demo.catalog.database@1",
 			Grants:          []string{extensionmanifest.DatabaseGrantOwnSchema, extensionmanifest.DatabaseGrantHostCommands},

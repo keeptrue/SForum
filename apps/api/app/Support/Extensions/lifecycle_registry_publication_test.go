@@ -498,7 +498,7 @@ func lifecycleRegistryTestExtension(t *testing.T, version, digest string, versio
 	extension.Manifest.Description = "Lifecycle registry fixture."
 	extension.Manifest.URL = "https://example.com/registry-demo"
 	extension.Manifest.Author = extensions.ManifestAuthor{Name: "SForum"}
-	extension.Manifest.SForumVersion = "^1.0.0"
+	extension.Manifest.SForumVersion = ">=0.1.0"
 	backendBody := []byte("registry-demo-binary")
 	backendDigest := sha256.Sum256(backendBody)
 	backendDigestValue := hex.EncodeToString(backendDigest[:])

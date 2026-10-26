@@ -289,7 +289,7 @@ func lifecyclePublicationTestRequest(
 		extension.Manifest.Description = "Exact lifecycle publication fixture."
 		extension.Manifest.URL = "https://example.com/lifecycle-publication"
 		extension.Manifest.Author = extensions.ManifestAuthor{Name: "SForum"}
-		extension.Manifest.SForumVersion = "^1.0.0"
+		extension.Manifest.SForumVersion = ">=0.1.0"
 		extension.Manifest.Backend = extensions.ManifestBackend{
 			Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
 			Digest: extension.PackageDigest, HostAPIVersion: "sforum.host@2",

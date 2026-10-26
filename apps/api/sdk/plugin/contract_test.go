@@ -55,7 +55,7 @@ func TestTestManifestScaffoldStubWarn(t *testing.T) {
 		Author:        extensionmanifest.ManifestAuthor{Name: "Acme"},
 		Version:       "0.1.0",
 		Type:          extensionmanifest.TypePlugin,
-		SForumVersion: "^1.0.0",
+		SForumVersion: ">=0.1.0",
 		Backend: extensionmanifest.ManifestBackend{
 			Entry: "backend/plugin",
 			RPC:   "hashicorp-go-plugin",

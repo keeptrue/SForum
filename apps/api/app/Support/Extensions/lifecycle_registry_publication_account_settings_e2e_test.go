@@ -25,7 +25,7 @@ const accountSettingsProbeManifest = `{
   "author": {"name": "SForum"},
   "version": "1.0.0",
   "type": "plugin",
-  "sforumVersion": "^1.0.0",
+  "sforumVersion": ">=0.1.0",
   "permissionDefinitions": [
     {"key": "registry.demo.apps", "contractVersion": "registry.demo.apps@1", "label": "Apps", "description": "Show the personal settings entry.", "assignmentPolicy": "host"}
   ],

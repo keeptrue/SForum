@@ -71,7 +71,7 @@ func TestServiceInstallArchiveValidatesManifestAndSafeZipPaths(t *testing.T) {
 
 	_, err = service.InstallArchive(context.Background(), actor, ArchiveInput{
 		FileName: "bad-manifest.zip",
-		Data:     extensionArchive(t, `{"id":"Bad Space","name":"Broken","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0"}`),
+		Data:     extensionArchive(t, `{"id":"Bad Space","name":"Broken","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0"}`),
 	})
 	if !errors.Is(err, ErrInvalidManifest) {
 		t.Fatalf("expected invalid manifest, got %v", err)
@@ -276,7 +276,7 @@ func TestServiceInstallArchiveAllowsThemeSettingsAndAdminPages(t *testing.T) {
 			"author":{"name":"SForum Team","url":"https://example.com","email":"dev@example.com"},
 			"version":"1.0.0",
 			"type":"theme",
-			"sforumVersion":"^1.0.0",
+			"sforumVersion":">=0.1.0",
 			"settings":[{"key":"theme.banner","label":"Banner","type":"text","default":"Welcome"}],
 			"adminPages":[{"path":"/settings","label":"Settings","view":"settings","icon":"i-lucide-settings","order":10}]
 		}`,
@@ -296,62 +296,62 @@ func TestServiceInstallArchiveAllowsThemeSettingsAndAdminPages(t *testing.T) {
 		{
 			name: "missing frontend layer",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0"
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0"
 			}`,
 		},
 		{
 			name: "theme declares permissions",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"permissions":["topic.create"],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares migrations",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"migrations":[{"path":"migrations/001.sql"}],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares backend",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"backend":{"entry":"backend/plugin","rpc":"hashicorp-go-plugin"},"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares routes",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"routes":[{"path":"/hello","methods":["GET"]}],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares hooks",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"hooks":[{"name":"topic.created"}],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares events",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"events":[{"name":"topic.created","kind":"observe"}],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares jobs",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"jobs":[{"name":"demo.sync"}],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
 		{
 			name: "theme declares providers",
 			manifest: `{
-				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0",
+				"id":"bad.theme","name":"Bad Theme","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0",
 				"providers":[{"slot":"search.provider","label":"Search"}],"frontend":{"layer":"frontend/layer"}
 			}`,
 		},
@@ -418,7 +418,7 @@ func TestServiceListsContributionPointsAndEffectiveContributions(t *testing.T) {
 			Author:        ManifestAuthor{Name: "SForum Team"},
 			Version:       "1.0.0",
 			Type:          TypeTheme,
-			SForumVersion: "^1.0.0",
+			SForumVersion: ">=0.1.0",
 		},
 	}
 
@@ -640,7 +640,7 @@ func TestServiceSyncBuiltinsPreservesSelectedUploadedThemeAcrossRestart(t *testi
 		Status: StatusEnabled, Source: SourceUploaded, PackageDigest: strings.Repeat("a", 64),
 		Manifest: Manifest{
 			ID: "operator.theme", Name: "Operator Theme", Version: "2.0.0",
-			Type: TypeTheme, SForumVersion: "^1.0.0",
+			Type: TypeTheme, SForumVersion: ">=0.1.0",
 		},
 	}
 	store := &fakeExtensionStore{
@@ -720,7 +720,7 @@ func TestServiceInstallArchiveValidatesRuntimeManifestDeclarations(t *testing.T)
 		"author":{"name":"SForum Team","url":"https://example.com","email":"dev@example.com"},
 		"version":"1.0.0",
 		"type":"plugin",
-		"sforumVersion":"^1.0.0",
+		"sforumVersion":">=0.1.0",
 		"events":[{
 			"id":"event.plugin.event.topic-before-create",
 			"contractVersion":"event.plugin.event.topic-before-create@1",
@@ -750,49 +750,49 @@ func TestServiceInstallArchiveValidatesRuntimeManifestDeclarations(t *testing.T)
 		{
 			name: "unsafe route path",
 			manifest: `{
-				"id":"bad.route","name":"Bad Route","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.route","name":"Bad Route","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"routes":[{"path":"../escape","methods":["GET"]}]
 			}`,
 		},
 		{
 			name: "public write route",
 			manifest: `{
-				"id":"bad.public","name":"Bad Public","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.public","name":"Bad Public","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"routes":[{"path":"/write","methods":["POST"],"access":"public"}]
 			}`,
 		},
 		{
 			name: "unknown hook",
 			manifest: `{
-				"id":"bad.hook","name":"Bad Hook","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.hook","name":"Bad Hook","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"hooks":[{"name":"topic.destroyed"}]
 			}`,
 		},
 		{
 			name: "unknown provider",
 			manifest: `{
-				"id":"bad.provider","name":"Bad Provider","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.provider","name":"Bad Provider","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"providers":[{"slot":"unknown.provider","label":"Unknown"}]
 			}`,
 		},
 		{
 			name: "unknown event",
 			manifest: `{
-				"id":"bad.event","name":"Bad Event","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.event","name":"Bad Event","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"events":[{"name":"topic.destroyed","kind":"observe"}]
 			}`,
 		},
 		{
 			name: "wrong event kind",
 			manifest: `{
-				"id":"bad.event.kind","name":"Bad Event Kind","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.event.kind","name":"Bad Event Kind","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"events":[{"name":"topic.before_create","kind":"observe"}]
 			}`,
 		},
 		{
 			name: "permission route without manifest permission",
 			manifest: `{
-				"id":"bad.permission","name":"Bad Permission","version":"1.0.0","type":"plugin","sforumVersion":"^1.0.0",
+				"id":"bad.permission","name":"Bad Permission","version":"1.0.0","type":"plugin","sforumVersion":">=0.1.0",
 				"routes":[{"path":"/admin","methods":["POST"],"access":"permission","permission":"extension.bad.manage"}]
 			}`,
 		},
@@ -1932,7 +1932,7 @@ func TestServiceEnsureDefaultThemeActiveRepairsUnsafeThemeState(t *testing.T) {
 				Name:          "Starter Theme",
 				Version:       "1.0.0",
 				Type:          TypeTheme,
-				SForumVersion: "^1.0.0",
+				SForumVersion: ">=0.1.0",
 			},
 			InstalledAt: time.Now(),
 			UpdatedAt:   time.Now(),
@@ -2011,7 +2011,7 @@ func validManifest(id string, extensionType string) string {
 		"author": {"name": "SForum Team", "url": "https://example.com", "email": "dev@example.com"},
 		"version": "1.0.0",
 		"type": "` + extensionType + `",
-		"sforumVersion": "^1.0.0",
+		"sforumVersion": ">=0.1.0",
 		"permissions": ["topic.create"],
 		"migrations": [{
 			"id": "` + id + `.migration.init",
@@ -2077,7 +2077,7 @@ func validThemeManifest(id string) string {
 		"author": {"name": "SForum Team", "url": "https://example.com", "email": "dev@example.com"},
 		"version": "1.0.0",
 		"type": "theme",
-		"sforumVersion": "^1.0.0"
+		"sforumVersion": ">=0.1.0"
 	}`
 }
 
@@ -2211,7 +2211,7 @@ func installedExtension(id string, extensionType string, backend ManifestBackend
 			Author:          ManifestAuthor{Name: "SForum Team", URL: "https://example.com", Email: "dev@example.com"},
 			Version:         "1.0.0",
 			Type:            extensionType,
-			SForumVersion:   "^1.0.0",
+			SForumVersion:   ">=0.1.0",
 			Backend:         backend,
 			PackageFiles:    packageFiles,
 		},
@@ -2261,7 +2261,7 @@ func contributionTestPlugin(id string, status string, contributions []ManifestCo
 			Author:        ManifestAuthor{Name: "SForum Team"},
 			Version:       "1.0.0",
 			Type:          TypePlugin,
-			SForumVersion: "^1.0.0",
+			SForumVersion: ">=0.1.0",
 			Contributions: contributions,
 		},
 		// 通用夹具表示制品存在；缺失制品用例会显式覆盖为不存在的路径。

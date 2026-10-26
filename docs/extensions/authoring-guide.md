@@ -301,9 +301,15 @@ handshake (`Server.HostBuild()`), and the admin bridge. Never compare it to
   `coreVersion`, `buildVersion` fields).
 - Every path that lets an artifact run — enable, theme activation, upgrade,
   rollback, restart — rejects it with the same reason code and HTTP 409.
-- Development builds report `coreVersion: 1.0.0`; a package declaring `^3.0.0`
-  therefore cannot be installed there. Prefer ranges that describe the release
-  line you actually support.
+- Development builds derive `coreVersion` from the nearest reachable `v*` git
+  tag, so a local checkout can install packages that target its own release
+  line: a `^3.0.0` package is no longer rejected on a dev build derived from
+  `3.0.16`. When the checkout is ahead of that tag, the commit distance, short
+  SHA, and a dirty marker go into build metadata (`3.0.16+13.g6f94488ad`,
+  `3.0.16+13.g6f94488ad.dirty`) — never into a prerelease segment — so the
+  constraints evaluate exactly as they do for the tag. Without a reachable tag
+  they report `1.0.0`. Prefer ranges that describe the release line you
+  actually support.
 - Prerelease Hosts (`3.0.13-alpha.1`) are evaluated against both the exact
   version and its release base (`3.0.13`), so an ordinary `>=3.0.0` range keeps
   working across alpha/beta releases.

@@ -258,7 +258,7 @@ func runtimeExtension(id string) extensions.Extension {
 			Name:            "Demo Plugin",
 			Version:         "1.0.0",
 			Type:            extensions.TypePlugin,
-			SForumVersion:   "^1.0.0",
+			SForumVersion:   ">=0.1.0",
 			Backend:         extensions.ManifestBackend{Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2, HostAPIVersion: "sforum.host@2"},
 			Routes:          []extensions.ManifestRoute{{Path: "/hello", Methods: []string{"GET"}, Access: extensions.RouteAccessPublic}},
 		},

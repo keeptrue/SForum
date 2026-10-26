@@ -298,7 +298,7 @@ func lifecyclePluginBusinessMaterial(
 		PackageDigest: packageDigest, PackagePath: root, ActiveVersionID: 1,
 		Manifest: extensions.Manifest{
 			ManifestVersion: extensionmanifest.ManifestVersionV3,
-			ID:              extensionID, Version: version, Type: extensions.TypePlugin, SForumVersion: "^1.0.0",
+			ID:              extensionID, Version: version, Type: extensions.TypePlugin, SForumVersion: ">=0.1.0",
 			Templates: []extensions.ManifestTemplate{{
 				ID: extensionID + ".template.article", ContractVersion: extensionID + ".template.article@1",
 				Action: "add", Path: "templates/article.html", Digest: hex.EncodeToString(templateDigest[:]),
@@ -365,7 +365,7 @@ func lifecycleBackendOnlyPluginExtension(t *testing.T, extensionID string) exten
 		Manifest: extensions.Manifest{
 			ManifestVersion: extensionmanifest.ManifestVersionV3,
 			ID:              extensionID, Name: "Backend Only", Version: "1.1.0",
-			Type: extensions.TypePlugin, SForumVersion: "^1.0.0",
+			Type: extensions.TypePlugin, SForumVersion: ">=0.1.0",
 			Backend: extensions.ManifestBackend{
 				Entry: "bin/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
 				Digest: backendDigestValue, HostAPIVersion: "sforum.host@2",

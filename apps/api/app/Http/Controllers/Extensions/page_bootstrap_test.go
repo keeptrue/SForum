@@ -67,7 +67,7 @@ func newPageBootstrapApp(t *testing.T, frontend TrustedFrontendService) (*fiber.
 		Type: extensions.TypePlugin, Status: extensions.StatusEnabled, Source: extensions.SourceUploaded,
 		Manifest: extensions.Manifest{
 			ID: "bootstrap.plugin", Name: "Bootstrap Plugin", Version: "1.0.0", Type: extensions.TypePlugin,
-			SForumVersion: "^1.0.0",
+			SForumVersion: ">=0.1.0",
 			Admin: extensions.ManifestAdmin{
 				Pages: []extensions.ManifestAdminPage{
 					{

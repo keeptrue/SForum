@@ -169,7 +169,7 @@ func writeSchemaViewPackage(t *testing.T, options schemaViewPackageOptions) stri
 		"description": "V3 theme package for schema view preflight.",
 		"url":         "https://example.com/demo-theme",
 		"author":      map[string]any{"name": "Demo"},
-		"version":     "1.0.0", "type": "theme", "sforumVersion": "^1.0.0",
+		"version":     "1.0.0", "type": "theme", "sforumVersion": ">=0.1.0",
 		"packageFiles": packageFiles,
 		"assets": []map[string]any{{
 			"handle": "demo.theme.asset.theme", "contractVersion": "demo.theme.asset.theme@1",

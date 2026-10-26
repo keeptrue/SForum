@@ -44,11 +44,19 @@ Health:
     coreVersion:
       type: string
       description: |
-        Release identity used for extension compatibility. Strict semantic
-        version; development builds report their compatibility baseline
-        (1.0.0). Never carries a commit hash or a dev build label.
+        Release identity used for extension compatibility; strict semantic
+        version. Release builds carry no commit hash and no dev build label.
+        Development builds derive it from the nearest reachable v* git tag
+        (3.0.16); when the checkout is ahead of that tag the commit distance,
+        short SHA, and a dirty marker go into build metadata
+        (3.0.16+13.g6f94488ad, 3.0.16+13.g6f94488ad.dirty), never into a
+        prerelease segment, so constraints evaluate exactly as they do for the
+        tag. Without a reachable tag they fall back to 1.0.0. A development
+        checkout can therefore install packages that target the release line
+        it is built on.
       examples:
       - 3.0.16
+      - 3.0.16+13.g6f94488ad
 ApiResponseReady:
   type: object
   required:

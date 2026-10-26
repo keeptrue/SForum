@@ -7,7 +7,7 @@
   "author": { "name": "SForum Team", "url": "https://sforum.local" },
   "version": "1.0.0",
   "type": "plugin",
-  "sforumVersion": "^1.0.0",
+  "sforumVersion": ">=0.1.0",
   "templates": [
     {
       "id": "sforum.page-registry-demo.template.docs",

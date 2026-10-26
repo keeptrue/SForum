@@ -20,11 +20,11 @@ func TestSnapshotUploadedCanonicalizesManifestAndReusesIdenticalContent(t *testi
   "url": "https://example.com/demo",
   "description": "Snapshot test plugin.",
   "name": "Demo Plugin",
-  "sforumVersion": "^1.0.0",
+  "sforumVersion": ">=0.1.0",
   "type": "plugin",
   "id": "demo.plugin"
 }`)
-	secondManifest := []byte(`{"manifestVersion":3,"id":"demo.plugin","type":"plugin","name":"Demo Plugin","description":"Snapshot test plugin.","url":"https://example.com/demo","author":{"name":"SForum Test"},"sforumVersion":"^1.0.0","version":"1.0.0"}`)
+	secondManifest := []byte(`{"manifestVersion":3,"id":"demo.plugin","type":"plugin","name":"Demo Plugin","description":"Snapshot test plugin.","url":"https://example.com/demo","author":{"name":"SForum Test"},"sforumVersion":">=0.1.0","version":"1.0.0"}`)
 
 	first, err := SnapshotUploaded(destination, firstManifest, []File{
 		{Path: `frontend\\admin\\components\\Cell.vue`, Mode: 0o644, Body: []byte("<template>cell</template>")},
@@ -260,7 +260,7 @@ func TestSnapshotUploadedMergesIncludesAndKeepsPartials(t *testing.T) {
   "author": {"name": "SForum Test"},
   "version": "1.0.0",
   "type": "plugin",
-  "sforumVersion": "^1.0.0",
+  "sforumVersion": ">=0.1.0",
   "includes": {
     "langs": "manifest/langs",
     "settings": "manifest/settings.json"
@@ -311,7 +311,7 @@ func snapshotTestManifest(id string, version string) []byte {
 }
 
 func snapshotTestManifestString(id string, version string) string {
-	return `{"manifestVersion":3,"id":"` + id + `","name":"Snapshot Test","description":"Snapshot package test.","url":"https://example.com/snapshot","author":{"name":"SForum Test"},"version":"` + version + `","type":"plugin","sforumVersion":"^1.0.0"}`
+	return `{"manifestVersion":3,"id":"` + id + `","name":"Snapshot Test","description":"Snapshot package test.","url":"https://example.com/snapshot","author":{"name":"SForum Test"},"version":"` + version + `","type":"plugin","sforumVersion":">=0.1.0"}`
 }
 
 func writeSnapshotTestFile(t *testing.T, root string, relativePath string, body string, mode os.FileMode) {

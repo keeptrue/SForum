@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -19,6 +20,10 @@ const (
 	SourceURL = "https://github.com/zhuchunshu/SForum"
 )
 
+// developmentCoreCompatibilityVersion is the last-resort fallback for
+// development builds without a reachable git tag. It cannot be empty: the
+// database migrator parses the compatibility version with StrictNewVersion
+// (database/migrator/core_runtime_state.go, core_compatibility.go).
 const developmentCoreCompatibilityVersion = "1.0.0"
 
 // These values are replaced by release builds through -ldflags. Current is the
@@ -30,7 +35,17 @@ var (
 
 	developmentCommitOnce sync.Once
 	developmentCommit     string
+
+	// developmentVersionProbe runs at most once per process: git state cannot
+	// change under a running build, and CoreCompatibilityVersion is called from
+	// startup, handshakes, and health probes. Tests replace it directly.
+	developmentVersionProbe = sync.OnceValue(probeDevelopmentCoreVersion)
 )
+
+// gitDescribePattern matches
+// `git describe --tags --match 'v[0-9]*' --long --dirty --always`:
+// v<semver>-<commits since tag>-g<short sha>[-dirty].
+var gitDescribePattern = regexp.MustCompile(`^v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-(\d+)-g([0-9a-f]+)(-dirty)?$`)
 
 type BuildInfo struct {
 	Name      string `json:"name"`
@@ -84,9 +99,16 @@ func Get() BuildInfo {
 
 // CoreCompatibilityVersion keeps the local build label separate from the
 // strict semantic version used by database and high-risk extension fences.
+//
+// Development builds derive it from the nearest reachable git tag so a local
+// checkout reports the release it is actually built on; without a tag the
+// compatibility baseline applies.
 func CoreCompatibilityVersion() string {
 	current := strings.TrimSpace(Current)
 	if current == "dev" {
+		if derived := strings.TrimSpace(developmentVersionProbe()); derived != "" {
+			return derived
+		}
 		return developmentCoreCompatibilityVersion
 	}
 	return current
@@ -126,6 +148,40 @@ func resolveDevelopmentCommit() string {
 		}
 	})
 	return developmentCommit
+}
+
+// probeDevelopmentCoreVersion derives the compatibility version of a
+// development build from git. Any failure (no git binary, no checkout, no
+// reachable tag) returns "" so CoreCompatibilityVersion can fall back.
+func probeDevelopmentCoreVersion() string {
+	output, err := exec.Command(
+		"git", "describe", "--tags", "--match", "v[0-9]*", "--long", "--dirty", "--always",
+	).Output()
+	if err != nil {
+		return ""
+	}
+	return parseGitDescribe(string(output))
+}
+
+// parseGitDescribe turns `git describe --long` output into a strict semantic
+// version. Sitting exactly on a clean tag reports the tag alone; anything else
+// keeps traceability in build metadata, which compatibility constraints ignore.
+func parseGitDescribe(describe string) string {
+	matches := gitDescribePattern.FindStringSubmatch(strings.TrimSpace(describe))
+	if matches == nil {
+		return ""
+	}
+	version, commits, sha, dirty := matches[1], matches[2], matches[3], matches[4] != ""
+	if commits != "0" || dirty {
+		version += "+" + commits + ".g" + sha
+		if dirty {
+			version += ".dirty"
+		}
+	}
+	if _, err := semver.StrictNewVersion(version); err != nil {
+		return ""
+	}
+	return version
 }
 
 func Summary() string {

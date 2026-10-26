@@ -89,7 +89,7 @@ func TestServiceActivateThemeLegacyZipResolvesThemeJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 同级 manifest（validateInstalledPackage 要求）
-	if err := os.WriteFile(filepath.Join(root, ManifestFileName), []byte(`{"id":"legacy.theme","name":"Legacy","version":"1.0.0","type":"theme","sforumVersion":"^1.0.0"}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, ManifestFileName), []byte(`{"id":"legacy.theme","name":"Legacy","version":"1.0.0","type":"theme","sforumVersion":">=0.1.0"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

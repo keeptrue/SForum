@@ -120,7 +120,7 @@ func TestPreflightExactTemplateRuntimeRejectsLegacyAndSkipsL0(t *testing.T) {
   "author": {"name": "Legacy"},
   "version": "1.0.0",
   "type": "theme",
-  "sforumVersion": "^1.0.0"
+  "sforumVersion": ">=0.1.0"
 }`)
 	if _, err := extensionmanifest.LoadPackage(legacyRoot); err == nil {
 		t.Fatal("legacy manifest must be rejected")
@@ -204,7 +204,7 @@ func writeV3ThemePackage(t *testing.T, opts v3ThemePackageOptions) string {
 		"author":          map[string]any{"name": "Demo"},
 		"version":         "1.0.0",
 		"type":            "theme",
-		"sforumVersion":   "^1.0.0",
+		"sforumVersion":   ">=0.1.0",
 		"packageFiles":    packageFiles,
 		"assets":          assets,
 	}

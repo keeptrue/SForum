@@ -200,7 +200,7 @@ func lifecycleStaticValidArtifact(item extensions.Extension) extensions.Extensio
 	item.Manifest.Description = "Static lifecycle preflight fixture."
 	item.Manifest.URL = "https://example.com/" + item.ID
 	item.Manifest.Author = extensions.ManifestAuthor{Name: "SForum Tests"}
-	item.Manifest.SForumVersion = "^1.0.0"
+	item.Manifest.SForumVersion = ">=0.1.0"
 	item.Manifest.Backend.Entry = "backend/plugin"
 	item.Manifest.Backend.RPC = "hashicorp-go-plugin"
 	item.Manifest.Backend.Digest = backendDigest

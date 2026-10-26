@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 func TestExtensionValidateBuiltinThemes(t *testing.T) {
@@ -112,7 +114,7 @@ func writeCLIThemePackage(t *testing.T, withTemplateDeclaration bool) string {
 		"author":          map[string]any{"name": "CLI"},
 		"version":         "1.0.0",
 		"type":            "theme",
-		"sforumVersion":   "^1.0.0",
+		"sforumVersion":   ">=0.1.0",
 		"packageFiles": []map[string]any{
 			{"id": "cli.theme.file.template", "kind": "template", "path": "templates/home.html", "digest": homeDigest},
 			{"id": "cli.theme.file.css", "kind": "asset", "path": "assets/theme.css", "digest": cssDigest},
@@ -137,6 +139,65 @@ func writeCLIThemePackage(t *testing.T, withTemplateDeclaration bool) string {
 	}
 	writeCLIFile(t, root, "sforum.extension.json", string(raw)+"\n")
 	return root
+}
+
+// 脚手架产物必须声明当前宿主能接受的发行线。写死 ^1.0.0 的模板会在 3.x 宿主上被
+// 兼容预检直接拒绝（dev 的 coreVersion 现在从 git tag 派生），所以这里生成真实产物
+// 再验一遍，而不是只断言模板字符串。
+func TestMakePluginScaffoldDeclaresCompatibleReleaseLine(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{name: "simple"},
+		{name: "complex", args: []string{"--complex"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			target := filepath.Join(t.TempDir(), "acme.scaffold")
+			args := append([]string{
+				"make:plugin",
+				"--id", "acme.scaffold",
+				"--name", "Acme Scaffold",
+				"--description", "Scaffold release line check.",
+				"--url", "https://example.com/acme",
+				"--author-name", "Acme",
+				"--out", target,
+				"--no-interaction",
+			}, tc.args...)
+
+			cmd := newRootCommand()
+			cmd.SetArgs(args)
+			var out strings.Builder
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("make:plugin: %v\n%s", err, out.String())
+			}
+
+			body, err := os.ReadFile(filepath.Join(target, extensionmanifest.ManifestFileName))
+			if err != nil {
+				t.Fatalf("read scaffold manifest: %v", err)
+			}
+			var manifest extensionmanifest.Manifest
+			if err := json.Unmarshal(body, &manifest); err != nil {
+				t.Fatalf("decode scaffold manifest: %v", err)
+			}
+			if manifest.SForumVersion != ">=0.1.0" {
+				t.Fatalf("scaffold sforumVersion = %q, want >=0.1.0", manifest.SForumVersion)
+			}
+
+			validate := newRootCommand()
+			validate.SetArgs([]string{"extension", "validate", target})
+			var validateOut strings.Builder
+			validate.SetOut(&validateOut)
+			validate.SetErr(&validateOut)
+			if err := validate.Execute(); err != nil {
+				t.Fatalf("scaffold must pass extension validate: %v\n%s", err, validateOut.String())
+			}
+		})
+	}
 }
 
 func writeCLIFile(t *testing.T, root, rel, body string) {

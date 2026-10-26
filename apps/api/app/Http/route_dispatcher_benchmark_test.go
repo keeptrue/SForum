@@ -384,7 +384,7 @@ func buildV3BenchmarkArtifact(tb testing.TB, composed bool) (extensionopenapi.Ar
 		ManifestVersion: extensionmanifest.ManifestVersionV3,
 		ID:              benchmarkRouteExtensionID, Name: "V3 Route Benchmark", Description: "Reproducible route benchmark fixture.",
 		URL: "https://example.com/benchmark", Author: extensionmanifest.ManifestAuthor{Name: "SForum"},
-		Version: "1.0.0", Type: extensionmanifest.TypePlugin, SForumVersion: "^1.0.0",
+		Version: "1.0.0", Type: extensionmanifest.TypePlugin, SForumVersion: ">=0.1.0",
 		Permissions: []string{}, Routes: declarations,
 		OpenAPI: []extensionmanifest.ManifestOpenAPIFragment{{
 			ID: benchmarkRouteExtensionID + ".openapi", ContractVersion: benchmarkRouteExtensionID + ".openapi@1",

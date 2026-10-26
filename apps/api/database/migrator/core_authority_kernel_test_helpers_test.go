@@ -144,6 +144,11 @@ func createCoreKernelTestLease(
 	t.Helper()
 	compatibility := options.Compatibility
 	if compatibility == "" {
+		// 这条声明是被 checkCoreUpgradeCompatibility 拿「本组用例自己选的
+		// 迁移目标」校验的（runCoreKernelTestUp 传 1.0.0 … 1.9.0），不是拿
+		// 当前宿主校验，所以**不能**像 extensionsruntime 的高风险夹具那样从
+		// CoreCompatibilityVersion() 派生：dev 宿主是 3.0.16+…，派生会让所有
+		// 1.x 目标当场被判不兼容。这里考的是 kernel 资源回收与权限漂移。
 		compatibility = ">=1.0.0 <2.0.0"
 	}
 	lease := coreKernelTestLease{

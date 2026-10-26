@@ -35,6 +35,6 @@ func versionedTestManifest(version int) Manifest {
 		Author:          ManifestAuthor{Name: "SForum"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 }

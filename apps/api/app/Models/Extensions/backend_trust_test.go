@@ -76,7 +76,7 @@ func TestTechAdminCanInstallFrontendOnlyPlugin(t *testing.T) {
 		"author": {"name": "SForum Team"},
 		"version": "1.0.0",
 		"type": "plugin",
-		"sforumVersion": "^1.0.0"
+		"sforumVersion": ">=0.1.0"
 	}`
 	installed, err := service.InstallArchive(context.Background(), techAdminPluginManager(), ArchiveInput{
 		FileName: "ui.zip",

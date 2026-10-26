@@ -32,7 +32,7 @@ func TestThemeRejectsCapabilities(t *testing.T) {
 		Author:        ManifestAuthor{Name: "Demo"},
 		Version:       "1.0.0",
 		Type:          TypeTheme,
-		SForumVersion: "^1.0.0",
+		SForumVersion: ">=0.1.0",
 		Capabilities:  []string{capabilities.HostAPI},
 	}
 	if err := Validate(manifest); !errors.Is(err, ErrInvalidManifest) {
@@ -63,6 +63,6 @@ func validPluginManifest() Manifest {
 		Author:          ManifestAuthor{Name: "Demo Studio", URL: "https://example.com"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 }

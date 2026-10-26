@@ -135,7 +135,7 @@ func buildManifest(opts makeOptions) scaffoldManifest {
 		Author:          extensionmanifest.ManifestAuthor{Name: opts.AuthorName, URL: opts.AuthorURL, Email: opts.AuthorEmail},
 		Version:         "0.1.0",
 		Type:            opts.Kind,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 		Settings: scaffoldSettingsDocument(opts, []extensionmanifest.ManifestSetting{{
 			Key:         opts.ID + ".enabled",
 			Label:       extensionmanifest.LocalizedText{Default: "Enabled"},
@@ -214,7 +214,7 @@ func writeComplexPluginScaffold(target string, opts makeOptions) error {
 		Author:          extensionmanifest.ManifestAuthor{Name: opts.AuthorName, URL: opts.AuthorURL, Email: opts.AuthorEmail},
 		Version:         "0.1.0",
 		Type:            extensionmanifest.TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 		Permissions:     []string{opts.ID + ".manage"},
 		Includes: map[string]string{
 			"langs":    "manifest/langs",

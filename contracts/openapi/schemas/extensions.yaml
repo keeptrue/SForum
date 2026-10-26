@@ -2940,8 +2940,12 @@ PublicFrontendComponent:
       type: string
       description: |
         Host release identity (strict semver) read by the public component.
-        Only the release-level value is exposed here; never a commit hash or a
-        development build label.
+        Only coreVersion is exposed here; buildVersion and the full commit hash
+        never are. Release builds carry no commit hash and no dev build label.
+        Development builds derive it from the nearest reachable v* git tag and
+        keep the commit distance, short SHA, and a dirty marker in build
+        metadata (3.0.16+13.g6f94488ad, 3.0.16+13.g6f94488ad.dirty); without a
+        reachable tag they fall back to 1.0.0.
     packageDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
     impactDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
     componentId: { type: string }

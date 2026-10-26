@@ -543,7 +543,10 @@ func insertExtensionDatabaseRuntimeLeaseFixture(
 	}
 	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantRawCore) ||
 		containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantKernel) {
-		manifest.Database.CoreCompatibility = ">=1.0.0 <2.0.0"
+		// High-risk powers are only issuable when the declaration covers the
+		// migrated Core release, which follows this checkout's git tag. Derive
+		// it from the Host authority instead of freezing a release line here.
+		manifest.Database.CoreCompatibility, _ = hostCoreCompatibility(t)
 	}
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {

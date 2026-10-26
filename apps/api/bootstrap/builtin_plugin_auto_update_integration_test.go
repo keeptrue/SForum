@@ -211,7 +211,7 @@ func saveBuiltinAutoIntegrationVersion(
 		Author:          extensions.ManifestAuthor{Name: "SForum"},
 		Version:         version,
 		Type:            extensions.TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 	body, err := json.Marshal(manifest)
 	if err != nil {

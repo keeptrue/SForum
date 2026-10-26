@@ -382,7 +382,7 @@ func transitionFixturePlugin(
 		ManifestVersion: 3,
 		ID:              id, Name: "Transition Fixture", Description: "Plugin runtime transition fixture.",
 		URL: "https://example.com/transition-fixture", Author: ManifestAuthor{Name: "SForum"},
-		Version: version, Type: TypePlugin, SForumVersion: "^1.0.0",
+		Version: version, Type: TypePlugin, SForumVersion: ">=0.1.0",
 	}
 	if backendEntry != "" {
 		backendDigest := strings.Repeat("e", 64)

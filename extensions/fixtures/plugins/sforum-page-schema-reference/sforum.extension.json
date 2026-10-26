@@ -46,7 +46,7 @@
       "version": "1"
     }
   ],
-  "sforumVersion": "^1.0.0",
+  "sforumVersion": ">=0.1.0",
   "type": "plugin",
   "url": "https://github.com/zhuchunshu/sforum",
   "version": "1.0.0"

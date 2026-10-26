@@ -10,7 +10,8 @@ import (
 )
 
 // withCoreVersion 把全局构建标签固定成一个可判定的值。该包测试不并行，
-// 用例结束即恢复，避免污染其它用例的 dev=1.0.0 语义。
+// 用例结束即恢复。dev 构建的 coreVersion 由 git tag 派生，所以关心兼容结论的
+// 用例必须自己钉住版本，不能依赖本机有没有 tag。
 func withCoreVersion(t *testing.T, value string) {
 	t.Helper()
 	original := platformversion.Current
@@ -22,7 +23,7 @@ func incompatibleManifest(t *testing.T, id string, constraint string) string {
 	t.Helper()
 	return strings.Replace(
 		validManifest(id, TypePlugin),
-		`"sforumVersion": "^1.0.0"`,
+		`"sforumVersion": ">=0.1.0"`,
 		`"sforumVersion": "`+constraint+`"`,
 		1,
 	)
@@ -55,24 +56,27 @@ func TestInstallRejectsManifestThatExcludesTheRunningCore(t *testing.T) {
 }
 
 func TestInstallAcceptsTheSameManifestOnAMatchingReleaseLine(t *testing.T) {
-	// 同一份 ^1.0.0 清单：dev 构建（1.0.0）通过，3.x 发行版拒绝。
+	// 同一份 ^3.0.0 归档：3.0.16 发行线通过，1.0.0 线拒绝。字节完全相同，
+	// 结论只由运行中的 core 决定——dev 构建也走这条判定，它的 coreVersion 现在
+	// 从 git tag 派生，不再恒为 1.0.0。
+	archive := extensionArchive(t, incompatibleManifest(t, "line.plugin", "^3.0.0"))
+
+	withCoreVersion(t, "3.0.16")
 	store := &fakeExtensionStore{}
 	service := newLifecycleService(store, t.TempDir(), &fakeRuntimeManager{})
-	archive := extensionArchive(t, validManifest("expect.plugin", TypePlugin))
-
 	if _, err := service.InstallOrUpgradeArchive(context.Background(), extensionManager(), ArchiveInput{
 		FileName: "package.zip", Data: archive,
 	}); err != nil {
-		t.Fatalf("dev build should accept ^1.0.0: %v", err)
+		t.Fatalf("3.0.16 build should accept ^3.0.0: %v", err)
 	}
 
-	withCoreVersion(t, "3.0.16")
+	withCoreVersion(t, "1.0.0")
 	store = &fakeExtensionStore{}
 	service = newLifecycleService(store, t.TempDir(), &fakeRuntimeManager{})
 	if _, err := service.InstallOrUpgradeArchive(context.Background(), extensionManager(), ArchiveInput{
 		FileName: "package.zip", Data: archive,
 	}); !errors.Is(err, ErrCoreIncompatible) {
-		t.Fatalf("3.x build must reject ^1.0.0, got %v", err)
+		t.Fatalf("1.0.0 build must reject ^3.0.0, got %v", err)
 	}
 }
 

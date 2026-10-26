@@ -19,7 +19,7 @@ func baseIdentity() map[string]any {
 		"author":          map[string]any{"name": "Demo Author"},
 		"version":         "1.0.0",
 		"type":            "plugin",
-		"sforumVersion":   "^1.0.0",
+		"sforumVersion":   ">=0.1.0",
 	}
 }
 

@@ -240,7 +240,7 @@ func TestServiceInstallArchiveCleansSnapshotAfterAdminDigestFailure(t *testing.T
 		"author":{"name":"SForum Test"},
 		"version":"1.0.0",
 		"type":"plugin",
-		"sforumVersion":"^1.0.0",
+		"sforumVersion":">=0.1.0",
 		"settings":{
 			"schemaVersion":1,
 			"ui":{

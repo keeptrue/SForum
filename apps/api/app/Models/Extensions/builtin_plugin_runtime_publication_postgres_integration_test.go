@@ -159,6 +159,7 @@ func builtinPluginManifest(id, version, backendEntry string) Manifest {
 		ManifestVersion: 3,
 		ID:              id, Name: "Builtin Plugin", Description: "Builtin SaveBuiltin fixture.",
 		URL: "https://example.com/builtin-plugin", Author: ManifestAuthor{Name: "SForum"},
+		// 内置包与 core 同一发行物：陈旧约束按 source 豁免（默认主题今天也写 ^1.0.0）。
 		Version: version, Type: TypePlugin, SForumVersion: "^1.0.0",
 	}
 	if backendEntry != "" {

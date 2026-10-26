@@ -780,7 +780,7 @@ func runtimeManifestBody(t *testing.T, id, version, extensionType, backendEntry 
 		ManifestVersion: 3,
 		ID:              id, Name: "Runtime Fixture", Description: "Runtime publication fixture.",
 		URL: "https://example.com/runtime-fixture", Author: ManifestAuthor{Name: "SForum"},
-		Version: version, Type: extensionType, SForumVersion: "^1.0.0",
+		Version: version, Type: extensionType, SForumVersion: ">=0.1.0",
 	}
 	if backendEntry != "" {
 		backendDigest := strings.Repeat("e", 64)

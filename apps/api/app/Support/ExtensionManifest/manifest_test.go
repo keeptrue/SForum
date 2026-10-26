@@ -67,7 +67,7 @@ func TestF43ContributionPayloadValidation(t *testing.T) {
 		Author:          ManifestAuthor{Name: "Demo"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 		Routes: []ManifestRoute{
 			{
 				ID: "demo.f43.route.action", ContractVersion: "demo.f43.route.action@1", Action: RouteActionAdd,
@@ -219,7 +219,7 @@ func TestManifestLangsOptionalAndLocalizedDisplay(t *testing.T) {
 		Author:          ManifestAuthor{Name: "Demo Studio", URL: "https://example.com"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 	if err := Validate(withoutLangs); err != nil {
 		t.Fatalf("manifest without langs should validate: %v", err)
@@ -238,7 +238,7 @@ func TestManifestLangsOptionalAndLocalizedDisplay(t *testing.T) {
 		"author":{"name":"Demo Studio","url":"https://example.com"},
 		"version":"1.0.0",
 		"type":"plugin",
-		"sforumVersion":"^1.0.0",
+		"sforumVersion":">=0.1.0",
 		"langs":{
 			"zh":{
 				"name":"演示插件",
@@ -292,7 +292,7 @@ func TestAdminManifestV2NormalizeValidateAndResolveManagePath(t *testing.T) {
 		"author":{"name":"Demo Studio"},
 		"version":"1.0.0",
 		"type":"plugin",
-		"sforumVersion":"^1.0.0",
+		"sforumVersion":">=0.1.0",
 		"admin":{
 			"entry":"settings",
 			"pages":[
@@ -343,7 +343,7 @@ func TestAdminManifestV2RejectsBrokenEntryAndExternalPaths(t *testing.T) {
 		Author:          ManifestAuthor{Name: "Demo Studio"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 
 	cases := []struct {
@@ -397,7 +397,7 @@ func TestLegacyAdminPagesRemainCompatible(t *testing.T) {
 		Author:          ManifestAuthor{Name: "Demo Studio"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 		AdminPages: []ManifestAdminPage{
 			{Path: "/settings", Label: "Settings", View: "settings", Menu: true},
 		},
@@ -426,7 +426,7 @@ func TestRegionPlacementContributionPayloadValidation(t *testing.T) {
 		Author:          ManifestAuthor{Name: "Demo"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 		Routes: []ManifestRoute{
 			{
 				ID: "demo.regions.route.ping", ContractVersion: "demo.regions.route.ping@1", Action: RouteActionAdd,
@@ -522,7 +522,7 @@ func TestManifestContributionsNormalizeAndValidateTopicAction(t *testing.T) {
 		"author":{"name":"Demo Studio"},
 		"version":"1.0.0",
 		"type":"plugin",
-		"sforumVersion":"^1.0.0",
+		"sforumVersion":">=0.1.0",
 		"contributions":[
 			{
 				"point":" forum.topic.actions ",
@@ -574,7 +574,7 @@ func TestManifestContributionsRejectUnsafeDeclarations(t *testing.T) {
 		Author:          ManifestAuthor{Name: "Demo Studio"},
 		Version:         "1.0.0",
 		Type:            TypePlugin,
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 	valid := ManifestContribution{
 		Point: "forum.topic.actions",
@@ -694,7 +694,7 @@ func validBaseManifest() Manifest {
 		Author:          ManifestAuthor{Name: "Demo"},
 		Version:         "1.0.0",
 		Type:            "plugin",
-		SForumVersion:   "^1.0.0",
+		SForumVersion:   ">=0.1.0",
 	}
 }
 
