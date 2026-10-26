@@ -26,11 +26,17 @@ func TestPostgresExtensionDatabaseDispositionToleratesStaleActiveGrant(t *testin
 		LifecycleBoundaryCleanupPreserve, extensions.LifecycleRemovalPreserve,
 	)
 	artifact := lifecycleCleanupDispositionArtifact(t, h)
+	identifiers, err := ExtensionDatabaseIdentifiersFor(artifact.ExtensionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 先注册回收再写库：stale grant / resources 在 provision 之前就落库，
+	// provision 中途失败时也要把 schema、role、grant 一并清掉。
+	cleanupExtensionDatabaseDispositionFixture(t, h, artifact, identifiers)
 	// 升级前的旧 artifact 先落库，物理顺序在前 —— 与生产现场同形。
 	staleVersionID := insertStaleExtensionDatabaseGrant(t, h, artifact)
-	identifiers, _, live := provisionExtensionDatabaseDispositionFixture(t, h, artifact)
+	_, _, live := provisionExtensionDatabaseDispositionFixture(t, h, artifact)
 	defer live.Close(context.Background())
-	cleanupExtensionDatabaseDispositionFixture(t, h, artifact, identifiers)
 
 	assertStaleGrantShadowsArtifact(t, h, artifact, staleVersionID)
 

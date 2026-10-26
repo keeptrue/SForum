@@ -1,7 +1,8 @@
 # 卸载 disposition 的 exact-artifact 授予校验
 
 - Date: 2026-10-26
-- Status: Accepted（修复已落地；同一路径下游还有两个独立阻塞，见「未解决」）
+- Status: Accepted（授予校验这一层已修并验证；卸载收敛本身仍未完成——本轮只是把
+  tombstone 从第一层推到第二层，见「未解决」）
 - Related: `sessions/2026-10-26-uninstall-tombstone-diagnosis.md`（第 5 节）、
   迁移 `202607150022_extension_database_additive_grants.sql`、
   `202607160027_plugin_runtime_publications.sql`、
@@ -58,11 +59,17 @@
   `TestPostgresExtensionDatabaseDispositionToleratesStaleActiveGrant`（真库、两条
   active grant、旧 artifact 物理序在前并断言其遮蔽新 artifact）。修前
   `extension database exact artifact conflict`，修后 PASS 且两条 grant 都被
-  disposition 撤销。
+  disposition 撤销。dev 库与**全新迁移库**（`extension_versions` 序列只有个位数）
+  双侧各跑 3 次全绿——旧 artifact 身份取 `version_id=1 / version="0" / digest 全零`
+  这一最小三元组，不依赖库里 id 的量级。
 - 现场：908/909 不再报 `extension database exact artifact conflict`，推进到
   disposition 之后的下一步；703 仍按 `active_version_id` 比对 fail-closed
   （A 类，需要 `superseded` 终态才能收尾）；1154 仍停在 actor 守卫。
 - 不再有「重试也不会变」的假死循环：grant 这一层已不再是卡点。
+
+**验收边界（终版）**：本轮**不**要求 908/909 变成 `finalized`。可验证的负向断言是
+「越过授予层、停在 identity 删除的 FK RESTRICT 错误上」；真正收敛需要先解决下面
+第 2 条，归 task-8。任何「修好了 / finalized」的表述都与事实不符。
 
 ## 未解决（本轮刻意不修，各自需要独立决策）
 

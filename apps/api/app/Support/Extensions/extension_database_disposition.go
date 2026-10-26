@@ -29,6 +29,12 @@ var (
 
 // ExtensionDatabaseDisposition is the only supported physical database cleanup
 // boundary. Lifecycle purgers must not reproduce its private Registry SQL.
+//
+// ApplyLifecycleDataDisposition 的 exact-artifact 授予校验只回答「本次要抹除的
+// artifact 自己还挂着 active grant 吗」，不再替调用方判定「有没有别的 artifact
+// 的 grant 还活着」。调用方必须先完成 exact identity fence（例如 purger 的
+// lockExactExtension 比对 extensions.active_version_id，以及 disposition 之后
+// extension 级撤销 + active==0 断言），否则新的调用者可能跳过那道防线。
 type ExtensionDatabaseDisposition interface {
 	ApplyLifecycleDataDisposition(
 		context.Context,
