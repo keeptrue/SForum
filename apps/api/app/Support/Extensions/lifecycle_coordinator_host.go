@@ -12,6 +12,13 @@ import (
 var (
 	ErrLifecycleHostGateInvalid     = errors.New("extension lifecycle Host gate is invalid")
 	ErrLifecycleHostBoundaryMissing = errors.New("extension lifecycle Host boundary is unavailable")
+	// ErrLifecycleHostRuntimeDiverged means the active process for an extension
+	// does not run the artifact the Host records as its active version. The
+	// source role must never stage a replacement for that case: the drain and
+	// publication fences are keyed to the recorded artifact, so a staged decoy
+	// can be drained while the real process stays open, and every later
+	// publication fails closed on an unsatisfiable fence.
+	ErrLifecycleHostRuntimeDiverged = errors.New("extension lifecycle active runtime diverged from the recorded active artifact")
 )
 
 // LifecycleHostRuntime is the exact-instance process surface used by Host
@@ -103,7 +110,7 @@ func (h *ExactLifecycleCoordinatorHost) rebuildLifecycleHostRuntimes(
 ) (extensions.LifecycleCoordinatorGateRequest, error) {
 	if lifecycleHostRequiresSource(request.Operation) {
 		source := lifecycleHostSourceExtension(request)
-		snapshot, err := h.ensureRuntime(ctx, source, request.SourceBinding)
+		snapshot, err := h.ensureSourceRuntime(ctx, source, request.SourceBinding)
 		if err != nil {
 			return request, fmt.Errorf("rebuild source runtime for revalidation: %w", err)
 		}
@@ -175,7 +182,7 @@ func (h *ExactLifecycleCoordinatorHost) prepareExactRuntimes(
 	ctx = lifecycleHostRuntimeStartContext(ctx, request)
 	if lifecycleHostRequiresSource(request.Operation) {
 		source := lifecycleHostSourceExtension(request)
-		snapshot, err := h.ensureRuntime(ctx, source, request.SourceBinding)
+		snapshot, err := h.ensureSourceRuntime(ctx, source, request.SourceBinding)
 		if err != nil {
 			return extensions.LifecycleCoordinatorGateResult{}, fmt.Errorf("prepare source runtime: %w", err)
 		}
@@ -234,6 +241,61 @@ func (h *ExactLifecycleCoordinatorHost) ensureRuntime(
 	} else if !errors.Is(err, ErrRuntimeInstanceNotFound) {
 		return RuntimeInstanceSnapshot{}, err
 	}
+	staged, err := h.runtime.StageRuntimeInstance(ctx, extension)
+	if err != nil {
+		return RuntimeInstanceSnapshot{}, err
+	}
+	if err := validateLifecycleHostRuntimeSnapshot("staged", staged, extension, RuntimeInstanceIdentity{}); err != nil {
+		return RuntimeInstanceSnapshot{}, err
+	}
+	return staged, nil
+}
+
+// ensureSourceRuntime resolves the exact process a transition is leaving. The
+// source role is the one place where staging a fresh process is never a valid
+// recovery: the recorded source artifact is supposed to be the live active
+// process, and the publication fence compares drain state against that exact
+// instance. A mismatch therefore fails closed with both identities instead of
+// starting a decoy that can be drained while the real process stays open.
+func (h *ExactLifecycleCoordinatorHost) ensureSourceRuntime(
+	ctx context.Context,
+	extension extensions.Extension,
+	binding extensions.LifecycleRuntimeBinding,
+) (RuntimeInstanceSnapshot, error) {
+	if binding.RuntimeInstanceID != "" {
+		identity := RuntimeInstanceIdentity{ExtensionID: extension.ID, InstanceID: binding.RuntimeInstanceID}
+		snapshot, err := h.runtime.InspectRuntimeInstance(identity)
+		if err == nil {
+			if err := validateLifecycleHostRuntimeSnapshot("persisted", snapshot, extension, identity); err != nil {
+				return RuntimeInstanceSnapshot{}, err
+			}
+			return snapshot, nil
+		}
+		if !errors.Is(err, ErrRuntimeInstanceNotFound) {
+			return RuntimeInstanceSnapshot{}, err
+		}
+	}
+	active, err := h.runtime.ActiveRuntimeInstance(extension.ID)
+	if err == nil {
+		if !runtimeInstanceMatchesExtension(active, extension) {
+			return RuntimeInstanceSnapshot{}, fmt.Errorf(
+				"%w: active runtime %s runs %s/%s (version id %d) but the recorded active artifact is %s/%s (version id %d)",
+				ErrLifecycleHostRuntimeDiverged, active.Identity.InstanceID,
+				active.ExtensionVersion, active.ArtifactDigest, active.VersionID,
+				extension.Version, extension.PackageDigest, extension.ActiveVersionID,
+			)
+		}
+		if err := validateLifecycleHostRuntimeSnapshot("active", active, extension, RuntimeInstanceIdentity{}); err != nil {
+			return RuntimeInstanceSnapshot{}, err
+		}
+		return active, nil
+	}
+	if !errors.Is(err, ErrRuntimeInstanceNotFound) {
+		return RuntimeInstanceSnapshot{}, err
+	}
+	// No active process at all: keep the legacy staging behaviour. The
+	// divergence guard above owns the "active process exists but is another
+	// artifact" case only.
 	staged, err := h.runtime.StageRuntimeInstance(ctx, extension)
 	if err != nil {
 		return RuntimeInstanceSnapshot{}, err

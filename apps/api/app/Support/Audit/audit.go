@@ -46,20 +46,23 @@ const (
 	// ActionExtensionLifecycleOrphanReclaim 宿主回收孤儿 lifecycle operation
 	// （所有 step lease 均已过期、无活进程推进）时写入。
 	ActionExtensionLifecycleOrphanReclaim = "extension.lifecycle_orphan_reclaim"
+	// ActionExtensionLifecycleActivationRecovered 启动修复把一条「state 事务已
+	// 提交 target、publication 未提交」的中断 activation 恢复到 source 时写入。
+	ActionExtensionLifecycleActivationRecovered = "extension.lifecycle_activation_recovered"
 	// ActionExtensionVersionGC 扩展版本 GC：一条审计对应一个被回收的版本行。
-	ActionExtensionVersionGC = "extension.version_gc"
-	ActionExtensionFrontendGrant          = "extension.frontend_trust_grant"
-	ActionExtensionFrontendRevoke         = "extension.frontend_trust_revoke"
-	ActionExtensionTrustChallenge         = "extension.trust_challenge"
-	ActionExtensionTrustGrant             = "extension.trust_grant"
-	ActionExtensionTrustRevoke            = "extension.trust_revoke"
-	ActionExtensionTrustDenied            = "extension.trust_denied"
-	ActionExtensionSafeModeBoot           = "extension.safe_mode_boot"
-	ActionExtensionCLIRecovery            = "extension.cli_recovery"
-	ActionExtensionPluginCommand          = "extension.plugin_command"
-	ActionExtensionAdminSurface           = "extension.admin_surface"
-	ActionExtensionActivationFailed       = "extension.activation_failed"
-	ActionExtensionActivationSkipped      = "extension.activation_skipped"
+	ActionExtensionVersionGC         = "extension.version_gc"
+	ActionExtensionFrontendGrant     = "extension.frontend_trust_grant"
+	ActionExtensionFrontendRevoke    = "extension.frontend_trust_revoke"
+	ActionExtensionTrustChallenge    = "extension.trust_challenge"
+	ActionExtensionTrustGrant        = "extension.trust_grant"
+	ActionExtensionTrustRevoke       = "extension.trust_revoke"
+	ActionExtensionTrustDenied       = "extension.trust_denied"
+	ActionExtensionSafeModeBoot      = "extension.safe_mode_boot"
+	ActionExtensionCLIRecovery       = "extension.cli_recovery"
+	ActionExtensionPluginCommand     = "extension.plugin_command"
+	ActionExtensionAdminSurface      = "extension.admin_surface"
+	ActionExtensionActivationFailed  = "extension.activation_failed"
+	ActionExtensionActivationSkipped = "extension.activation_skipped"
 	// ActionExtensionDatabaseGrant 记录一次由操作者发起的扩展数据库精确授权
 	// 供给（own_schema 等直接运行时权力的授权行）。它是 extension_database_grants
 	// 行的审计锚点：没有这条事件，运行时租约就不会自建授权。

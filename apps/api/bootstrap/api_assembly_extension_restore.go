@@ -11,6 +11,7 @@ import (
 	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
 	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
 	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	lifecyclerecovery "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions/LifecycleRecovery"
 	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
 	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
 	pluginbootstrap "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginBootstrap"
@@ -147,6 +148,27 @@ func restoreAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger 
 		})
 	}
 	var reconciledExtensions []extensions.Extension
+	// 中断 activation 修复：state 事务已提交 target、publication 未写 commit
+	// marker 的 operation 会让 extensions.active_version_id 与已收敛的 runtime
+	// 永久分叉，之后每次 lifecycle 都会 drain 一个替身实例并失败关闭。修复只
+	// 使用 durable 证据，必须在 plugin runtime 收敛之前执行；失败不阻断启动
+	// （运行期仍有 drain 守卫与 source fail-closed 兜底）。
+	if !cfg.SafeMode {
+		recovered, recoveryErr := lifecyclerecovery.NewPostgresInterruptedActivationRecovery(pool).
+			RecoverInterruptedActivations(ctx, 0)
+		if recoveryErr != nil {
+			logger.Warn("recover interrupted activation state failed; continuing startup", "error", recoveryErr)
+		}
+		for _, item := range recovered {
+			logger.Warn("recovered interrupted activation state",
+				"operationId", item.OperationID,
+				"extensionId", item.ExtensionID,
+				"fromVersionId", item.FromVersionID,
+				"toVersionId", item.ToVersionID,
+				"auditEventId", item.AuditEventID,
+			)
+		}
+	}
 	if cfg.SafeMode {
 		reconciledExtensions, err = reconcileAPIExtensionRuntime(ctx, true, extensionStore, extensionRuntime)
 	} else {

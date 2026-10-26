@@ -1004,3 +1004,75 @@ func TestLifecycleHostRuntimeStartContextCarriesOperatorGrantAuthority(t *testin
 		}
 	}
 }
+
+func TestExactLifecycleCoordinatorHostSourceRoleReusesRecordedActiveRuntime(t *testing.T) {
+	request := lifecycleHostTestRequest(t, extensions.LifecycleMachineUpgrade, 0)
+	source := lifecycleHostSourceExtension(request)
+	runtime := newLifecycleHostRuntimeTestDouble()
+	runtime.active[source.ID] = lifecycleHostRuntimeSnapshot(source, "live-source")
+
+	result, err := NewExactLifecycleCoordinatorHost(runtime, &lifecycleHostBoundaryTestDouble{}).
+		RunLifecycleHostGate(context.Background(), request)
+	if err != nil {
+		t.Fatalf("RunLifecycleHostGate() error = %v", err)
+	}
+	if result.SourceBinding.RuntimeInstanceID != "live-source" ||
+		result.TargetBinding.RuntimeInstanceID != "staged-"+request.TargetExtension.Version {
+		t.Fatalf("bindings = %#v", result)
+	}
+	if countLifecycleHostCalls(runtime.calls, "stage") != 1 ||
+		countLifecycleHostCalls(runtime.calls, "stage:"+source.Version) != 0 {
+		t.Fatalf("source role staged a replacement: %#v", runtime.calls)
+	}
+}
+
+func TestExactLifecycleCoordinatorHostSourceRoleFailsClosedOnRuntimeDivergence(t *testing.T) {
+	divergedSnapshot := func(source extensions.Extension) RuntimeInstanceSnapshot {
+		snapshot := lifecycleHostRuntimeSnapshot(source, "live-foreign")
+		snapshot.ExtensionVersion = source.Version
+		snapshot.ArtifactDigest = strings.Repeat("c", 64)
+		snapshot.VersionID = 999
+		return snapshot
+	}
+	assertDiverged := func(t *testing.T, err error, source extensions.Extension, runtime *lifecycleHostRuntimeTestDouble) {
+		t.Helper()
+		if !errors.Is(err, ErrLifecycleHostRuntimeDiverged) {
+			t.Fatalf("divergence error = %v", err)
+		}
+		message := err.Error()
+		for _, want := range []string{
+			"live-foreign", strings.Repeat("c", 64), source.PackageDigest, "999",
+		} {
+			if !strings.Contains(message, want) {
+				t.Fatalf("divergence message %q does not carry %q", message, want)
+			}
+		}
+		if countLifecycleHostCalls(runtime.calls, "stage") != 0 {
+			t.Fatalf("diverged source role staged a decoy: %#v", runtime.calls)
+		}
+	}
+
+	t.Run("prepare", func(t *testing.T) {
+		request := lifecycleHostTestRequest(t, extensions.LifecycleMachineUpgrade, 0)
+		source := lifecycleHostSourceExtension(request)
+		runtime := newLifecycleHostRuntimeTestDouble()
+		runtime.active[source.ID] = divergedSnapshot(source)
+
+		_, err := NewExactLifecycleCoordinatorHost(runtime, nil).
+			RunLifecycleHostGate(context.Background(), request)
+		assertDiverged(t, err, source, runtime)
+	})
+
+	t.Run("revalidation", func(t *testing.T) {
+		request := lifecycleHostTestRequest(t, extensions.LifecycleMachineUpgrade, 2)
+		request.Revalidation = true
+		request.SourceBinding.RuntimeInstanceID = "lost-source"
+		source := lifecycleHostSourceExtension(request)
+		runtime := newLifecycleHostRuntimeTestDouble()
+		runtime.active[source.ID] = divergedSnapshot(source)
+
+		_, err := NewExactLifecycleCoordinatorHost(runtime, nil).
+			RunLifecycleHostGate(context.Background(), request)
+		assertDiverged(t, err, source, runtime)
+	})
+}

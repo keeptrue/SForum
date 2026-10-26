@@ -1,8 +1,10 @@
 package extensions
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -88,6 +90,79 @@ func decorateArtifactState(extension Extension) Extension {
 func requireArtifactAvailable(extension Extension) error {
 	if artifactState(extension.PackagePath) == ArtifactMissing {
 		return fmt.Errorf("%w: %s", ErrArtifactMissing, extension.ID)
+	}
+	return nil
+}
+
+// executableEntry 只在「插件 + 声明了 backend entry」时返回入口路径。
+// 主题与纯前端插件没有可执行后端，不受架构约束。
+func executableEntry(manifest Manifest) string {
+	if manifest.Type != TypePlugin {
+		return ""
+	}
+	return strings.TrimSpace(manifest.Backend.Entry)
+}
+
+// executablePlatformError 判定一份 backend 可执行文件能否在当前宿主上运行。
+//
+// 判据只读文件头（Go buildinfo 优先，ELF/Mach-O/PE 兜底），不执行任何包代码，
+// 也不要求清单声明平台。探测不出目标平台时返回 nil：那是探测能力的边界，
+// 交给 Core 原有的进程启动诊断（exec format error）兜底。
+func executablePlatformError(entry string, body io.ReaderAt, stage string) error {
+	detected, ok := extensionpackage.DetectTarget(body)
+	if !ok {
+		return nil
+	}
+	host := extensionpackage.HostTarget()
+	if detected.CompatibleWith(host) {
+		return nil
+	}
+	return &ExecutablePlatformMismatchError{
+		Entry:    entry,
+		Required: detected.String(),
+		Host:     host.String(),
+		Stage:    stage,
+	}
+}
+
+// requireExecutablePlatform 是运行阶段的架构闸门：启用、主题激活、升级、回滚
+// 和重启共用 requireEnablePreflight，所以都在这里被挡住。内置包不豁免——
+// 错架构的内置包同样跑不起来。
+func requireExecutablePlatform(extension Extension) error {
+	entry := executableEntry(extension.Manifest)
+	if entry == "" {
+		return nil
+	}
+	target, ok := installedFilePath(extension, entry)
+	if !ok {
+		return nil
+	}
+	file, err := os.Open(target)
+	if err != nil {
+		// 「制品不在位」由 requireArtifactAvailable 给出结论，这里不抢它的话。
+		return nil
+	}
+	defer file.Close()
+	return executablePlatformError(entry, file, CoreCompatibilityStageRuntime)
+}
+
+// requireArchiveExecutablePlatform 是安装阶段的同一道闸门。它读的是
+// ReadArchive 已经解进内存的包内容，因此错架构的包在落盘前就被拒绝：管理端
+// 不会看到一个永远起不来的扩展。
+func requireArchiveExecutablePlatform(manifest Manifest, files []extensionpackage.File) error {
+	entry := executableEntry(manifest)
+	if entry == "" {
+		return nil
+	}
+	name, ok := safeArchivePath(entry)
+	if !ok {
+		return nil
+	}
+	for _, file := range files {
+		if file.Path != name {
+			continue
+		}
+		return executablePlatformError(entry, bytes.NewReader(file.Body), CoreCompatibilityStageInstall)
 	}
 	return nil
 }

@@ -53,6 +53,7 @@ func newExtensionRecoveryCommand() *cobra.Command {
 		Short: "Out-of-band extension recovery without starting SForum or plugin code",
 	}
 	cmd.AddCommand(newExtensionRecoveryLifecycleCloseCommand())
+	cmd.AddCommand(newExtensionRecoveryActivationStateCommand())
 	return cmd
 }
 
