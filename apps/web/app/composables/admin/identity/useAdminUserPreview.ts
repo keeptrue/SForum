@@ -11,7 +11,6 @@ export const PREVIEW_PERMISSION_PAGE_SIZE = 24
 export type AdminUserPreviewDeps = {
   // openUser 由页面提供：从预览「转为管理」要进入详情抽屉，而那套状态属于页面。
   openUser: (user: AdminUserSummary) => Promise<void>
-  showError: (message: string) => void
 }
 
 // 用户预览：列表里点一下就能看到账号全貌，不进入管理抽屉。
@@ -23,6 +22,8 @@ export function useAdminUserPreview(deps: AdminUserPreviewDeps) {
   const previewTargetId: Ref<number | null> = ref(null)
   const previewOpen = ref(false)
   const previewPending = ref(false)
+  // 加载失败留在预览弹窗内：关窗会让操作者丢失「我刚才点了谁」的上下文。
+  const previewError = ref('')
   const previewSessionsPage = ref(1)
   const previewAuthEventsPage = ref(1)
   const previewPermissionsPage = ref(1)
@@ -53,16 +54,14 @@ export function useAdminUserPreview(deps: AdminUserPreviewDeps) {
     previewTargetId.value = user.id
     previewOpen.value = true
     previewUser.value = null
+    previewError.value = ''
     resetPreviewListPages()
     try {
       previewUser.value = await request<AdminUserDetail>(`/users/${user.id}`)
       // 加载完成后按实际条数夹紧页码（通常仍是第 1 页）。
       resetPreviewListPages()
     } catch (error) {
-      previewOpen.value = false
-      previewTargetId.value = null
-      resetPreviewListPages()
-      deps.showError(apiErrorMessage(error) || t('admin.users.previewLoadFailed'))
+      previewError.value = apiErrorMessage(error) || t('admin.users.previewLoadFailed')
     } finally {
       previewPending.value = false
     }
@@ -72,6 +71,7 @@ export function useAdminUserPreview(deps: AdminUserPreviewDeps) {
     previewOpen.value = false
     previewUser.value = null
     previewTargetId.value = null
+    previewError.value = ''
     resetPreviewListPages()
   }
 
@@ -103,6 +103,7 @@ export function useAdminUserPreview(deps: AdminUserPreviewDeps) {
     previewTargetId,
     previewOpen,
     previewPending,
+    previewError,
     previewSessionsPage,
     previewAuthEventsPage,
     previewPermissionsPage,

@@ -15,17 +15,15 @@ defineProps<{
 const { t } = useI18n()
 const emit = defineEmits<{
   manage: [user: AdminUserSummary]
-  error: [message: string]
 }>()
 
 const {
-  previewUser, previewTargetId, previewOpen, previewPending,
+  previewUser, previewTargetId, previewOpen, previewPending, previewError,
   previewSessionsPage, previewAuthEventsPage, previewPermissionsPage,
   previewSessionsPageInfo, previewAuthEventsPageInfo, previewPermissionsPageInfo,
   openUserPreview, closeUserPreview, manageFromPreview, displayOrDash, authActionLabel
 } = useAdminUserPreview({
-  openUser: async user => { emit('manage', user) },
-  showError: message => { emit('error', message) }
+  openUser: async user => { emit('manage', user) }
 })
 
 // 模板沿用抽取前的 formatter 名称，避免改写大段展示逻辑。
@@ -67,6 +65,15 @@ defineExpose({
         </div>
 
         <div class="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          <UAlert
+            v-if="previewError"
+            color="error"
+            variant="soft"
+            icon="i-lucide-triangle-alert"
+            :title="t('admin.users.previewLoadFailed')"
+            :description="previewError"
+          />
+
           <div v-if="previewPending" class="flex min-h-40 items-center justify-center text-sm text-slate-500">
             <UIcon name="i-lucide-loader-circle" class="mr-2 size-4 animate-spin" />
             {{ t('admin.common.loading') }}

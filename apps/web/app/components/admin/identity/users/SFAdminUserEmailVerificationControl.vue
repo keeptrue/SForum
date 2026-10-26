@@ -11,14 +11,18 @@ const toast = useToast()
 const confirmOpen = ref(false)
 const targetVerified = ref(false)
 const saving = ref(false)
+// 失败留在确认弹窗里：关窗会让人以为「点了没反应」，还得自己再点一次。
+const confirmError = ref('')
 
 function requestChange(verified: boolean) {
   targetVerified.value = verified
+  confirmError.value = ''
   confirmOpen.value = true
 }
 
 function closeConfirmation() {
   confirmOpen.value = false
+  confirmError.value = ''
 }
 
 async function confirmChange() {
@@ -40,12 +44,7 @@ async function confirmChange() {
       duration: 5000
     })
   } catch (error) {
-    toast.add({
-      color: 'error',
-      icon: 'i-lucide-triangle-alert',
-      title: apiErrorMessage(error) || t('admin.users.emailVerificationUpdateFailed'),
-      duration: 0
-    })
+    confirmError.value = apiErrorMessage(error) || t('admin.users.emailVerificationUpdateFailed')
   } finally {
     saving.value = false
   }
@@ -105,6 +104,15 @@ async function confirmChange() {
             </p>
           </div>
         </div>
+        <UAlert
+          v-if="confirmError"
+          class="mt-4"
+          color="error"
+          variant="soft"
+          icon="i-lucide-triangle-alert"
+          :title="t('admin.users.emailVerificationUpdateFailed')"
+          :description="confirmError"
+        />
         <div class="mt-5 flex justify-end gap-2">
           <UButton type="button" color="neutral" variant="ghost" :disabled="saving" @click="closeConfirmation">
             {{ t('admin.common.cancel') }}

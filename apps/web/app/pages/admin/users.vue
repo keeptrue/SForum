@@ -8,6 +8,7 @@ import SFAdminUserNicknameHistory from '~/components/admin/identity/users/SFAdmi
 import SFAdminUserPreviewModal from '~/components/admin/identity/users/SFAdminUserPreviewModal.vue'
 import SFAdminUserCreateDialog from '~/components/admin/identity/users/SFAdminUserCreateDialog.vue'
 import { apiErrorMessage } from '~/composables/useApiClient'
+import { firstAdminUserErrorField, resolveAdminUserError } from '~/utils/admin/adminUserFieldErrors'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { formatAdminDateTime } from '~/utils/admin/adminDateFormat'
@@ -92,8 +93,16 @@ const clearingClientIPs = ref(false)
 const resettingPassword = ref(false)
 const newPassword = ref('')
 const confirmPassword = ref('')
+// 页面级错误只服务列表加载/筛选失败；抽屉内的保存失败一律留在抽屉里。
 const errorMessage = ref('')
-const successMessage = ref('')
+const drawerOpen = ref(false)
+const drawerError = ref('')
+const fieldErrors = ref<Record<string, string[]>>({})
+const errorFocusRequest = ref(0)
+const drawerEl = ref<HTMLElement | null>(null)
+const detailError = ref('')
+const detailTarget = ref<AdminUserSummary | null>(null)
+let detailRequestToken = 0
 const overrideModes = ['inherit', 'allow', 'deny'] as const
 
 onMounted(() => {
@@ -193,6 +202,17 @@ const localeOptions = computed(() => [
   { value: 'en-US', label: t('admin.users.localeEn') }
 ])
 
+const statusOptions = computed(() => [
+  { value: 'active', label: t('admin.users.statusActive') },
+  { value: 'disabled', label: t('admin.users.statusDisabled') },
+  { value: 'banned', label: t('admin.users.statusBanned') }
+])
+
+const kindOptions = computed(() => [
+  { value: 'human', label: t('admin.users.kindHuman') },
+  { value: 'bot', label: t('admin.users.kindBot') }
+])
+
 useSeoMeta({
   title: t('admin.users.metaTitle')
 })
@@ -200,7 +220,6 @@ useSeoMeta({
 const formatDateTime = formatAdminDateTime
 
 function showSuccess(message: string) {
-  successMessage.value = message
   toast.add({
     title: message,
     color: 'success',
@@ -216,6 +235,25 @@ function showError(message: string) {
     color: 'error',
     icon: 'i-lucide-triangle-alert'
   })
+}
+
+function clearDrawerErrors() {
+  drawerError.value = ''
+  fieldErrors.value = {}
+}
+
+// 抽屉内失败：摘要进抽屉顶部，字段级原因交给后端 data.fields，前端只兜底 summary。
+function presentDrawerError(error: unknown, fallback: string) {
+  const presentation = resolveAdminUserError(error, {
+    fallback,
+    fieldsSummary: t('admin.users.fieldFallback'),
+    noChanges: t('admin.users.noChanges')
+  })
+  drawerError.value = presentation.summary
+  fieldErrors.value = presentation.fields
+  if (Object.keys(presentation.fields).length > 0) {
+    errorFocusRequest.value += 1
+  }
 }
 
 async function loadInitialData() {
@@ -321,30 +359,60 @@ function applyDetailToForm(detail: AdminUserDetail) {
   confirmPassword.value = ''
 }
 
+// 详情加载失败也要开抽屉：错误、重试都在抽屉里，不再落到列表区红条。
 async function openUser(user: AdminUserSummary) {
+  const token = ++detailRequestToken
+  drawerOpen.value = true
+  detailTarget.value = user
   detailPending.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  detailError.value = ''
+  clearDrawerErrors()
   try {
     const detail = await request<AdminUserDetail>(`/users/${user.id}`)
+    if (token !== detailRequestToken) return
     applyDetailToForm(detail)
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.detailLoadFailed'))
+    if (token !== detailRequestToken) return
+    selectedUser.value = null
+    detailError.value = apiErrorMessage(error) || t('admin.users.detailLoadFailed')
   } finally {
-    detailPending.value = false
+    if (token === detailRequestToken) {
+      detailPending.value = false
+    }
   }
 }
 
+async function retryOpenUser() {
+  if (detailTarget.value) {
+    await openUser(detailTarget.value)
+  }
+}
+
+// 插件 surface 触发的刷新不该把抽屉打回骨架屏，静默重取即可。
 async function refreshSelectedUser() {
-  if (!selectedUser.value) return
-  await openUser(selectedUser.value)
+  if (!selectedUser.value) {
+    return
+  }
+  try {
+    applyDetailToForm(await request<AdminUserDetail>(`/users/${selectedUser.value.id}`))
+  } catch (error) {
+    presentDrawerError(error, t('admin.users.detailLoadFailed'))
+  }
 }
 
 function closeUser() {
+  detailRequestToken += 1
+  drawerOpen.value = false
+  detailPending.value = false
+  detailError.value = ''
+  detailTarget.value = null
   selectedUser.value = null
   selectedRoleKeys.value = []
   allowOverrides.value = []
   denyOverrides.value = []
+  newPassword.value = ''
+  confirmPassword.value = ''
+  clearDrawerErrors()
 }
 
 function toggleRole(key: string) {
@@ -381,8 +449,7 @@ async function saveAccount() {
     return
   }
   savingAccount.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     const detail = await request<AdminUserDetail>(`/users/${selectedUser.value.id}`, {
       method: 'PATCH',
@@ -399,7 +466,7 @@ async function saveAccount() {
     await loadUsers()
     showSuccess(t('admin.users.accountSaved'))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.saveFailed'))
+    presentDrawerError(error, t('admin.users.saveAccountFailed'))
   } finally {
     savingAccount.value = false
   }
@@ -410,8 +477,7 @@ async function saveProfile() {
     return
   }
   savingProfile.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     const detail = await request<AdminUserDetail>(`/users/${selectedUser.value.id}`, {
       method: 'PATCH',
@@ -425,7 +491,7 @@ async function saveProfile() {
     applyDetailToForm(detail)
     showSuccess(t('admin.users.profileSaved'))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.saveFailed'))
+    presentDrawerError(error, t('admin.users.saveProfileFailed'))
   } finally {
     savingProfile.value = false
   }
@@ -436,8 +502,7 @@ async function saveRoles() {
     return
   }
   savingRoles.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     const detail = await request<AdminUserDetail>(`/users/${selectedUser.value.id}/roles`, {
       method: 'PUT',
@@ -449,7 +514,7 @@ async function saveRoles() {
     await loadUsers()
     showSuccess(t('admin.users.rolesSaved'))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.saveFailed'))
+    presentDrawerError(error, t('admin.users.saveRolesFailed'))
   } finally {
     savingRoles.value = false
   }
@@ -460,8 +525,7 @@ async function savePermissionOverrides() {
     return
   }
   savingOverrides.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     const detail = await request<AdminUserDetail>(`/users/${selectedUser.value.id}/permission-overrides`, {
       method: 'PUT',
@@ -474,7 +538,7 @@ async function savePermissionOverrides() {
     await loadUsers()
     showSuccess(t('admin.users.permissionsSaved'))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.saveFailed'))
+    presentDrawerError(error, t('admin.users.savePermissionsFailed'))
   } finally {
     savingOverrides.value = false
   }
@@ -486,15 +550,14 @@ async function revokeUserSessions() {
     return
   }
   revokingSessions.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     const result = await request<{ revoked: number }>(`/users/${selectedUser.value.id}/sessions/revoke`, {
       method: 'POST'
     })
     showSuccess(t('admin.users.sessionsRevoked', { count: result.revoked }))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.revokeSessionsFailed'))
+    presentDrawerError(error, t('admin.users.revokeSessionsFailed'))
   } finally {
     revokingSessions.value = false
   }
@@ -506,15 +569,14 @@ async function clearUserClientIPs() {
     return
   }
   clearingClientIPs.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     await request(`/users/${selectedUser.value.id}/client-ips/clear`, {
       method: 'POST'
     })
     showSuccess(t('admin.users.clientIPsCleared'))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.clearClientIPsFailed'))
+    presentDrawerError(error, t('admin.users.clearClientIPsFailed'))
   } finally {
     clearingClientIPs.value = false
   }
@@ -526,17 +588,21 @@ async function resetUserPassword() {
     return
   }
   const password = newPassword.value
+  // 纯 UX 判断：必填与两次一致。长度/复杂度是后端策略，前端不镜像。
   if (!password) {
-    showError(t('admin.users.passwordRequired'))
+    drawerError.value = ''
+    fieldErrors.value = { password: [t('admin.users.passwordRequired')] }
+    errorFocusRequest.value += 1
     return
   }
   if (password !== confirmPassword.value) {
-    showError(t('admin.users.passwordMismatch'))
+    drawerError.value = ''
+    fieldErrors.value = { confirmPassword: [t('admin.users.passwordMismatch')] }
+    errorFocusRequest.value += 1
     return
   }
   resettingPassword.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  clearDrawerErrors()
   try {
     const result = await request<{ revokedSessions: number }>(`/users/${selectedUser.value.id}/password`, {
       method: 'POST',
@@ -546,11 +612,33 @@ async function resetUserPassword() {
     confirmPassword.value = ''
     showSuccess(t('admin.users.passwordResetSuccess', { count: result.revokedSessions ?? 0 }))
   } catch (error) {
-    showError(apiErrorMessage(error) || t('admin.users.passwordResetFailed'))
+    presentDrawerError(error, t('admin.users.passwordResetFailed'))
   } finally {
     resettingPassword.value = false
   }
 }
+
+function clearFieldError(name: string) {
+  if (!fieldErrors.value[name]) {
+    return
+  }
+  const next = { ...fieldErrors.value }
+  delete next[name]
+  fieldErrors.value = next
+}
+
+// 保存失败后把视野带到第一个出错字段：滚动 + 聚焦，键盘操作者不用自己找。
+watch(errorFocusRequest, async () => {
+  await nextTick()
+  const name = firstAdminUserErrorField(fieldErrors.value)
+  if (!name) {
+    return
+  }
+  const field = drawerEl.value?.querySelector<HTMLElement>(`[data-user-field="${name}"]`)
+  const target = field?.querySelector<HTMLElement>('input, select, textarea')
+  target?.scrollIntoView({ block: 'center' })
+  target?.focus()
+})
 
 watch([status, roleKey, sortBy, sortOrder], () => {
   if (suppressFilterReload) return
@@ -616,13 +704,6 @@ watch([status, roleKey, sortBy, sortOrder], () => {
       variant="soft"
       icon="i-lucide-triangle-alert"
       :title="errorMessage"
-    />
-    <UAlert
-      v-if="successMessage"
-      color="success"
-      variant="soft"
-      icon="i-lucide-check-circle"
-      :title="successMessage"
     />
     <UAlert
       v-if="userListSurfaces.failureMessage.value"
@@ -734,7 +815,7 @@ watch([status, roleKey, sortBy, sortOrder], () => {
               color="primary"
               variant="ghost"
               leading-icon="i-lucide-panel-right-open"
-              :loading="detailPending && selectedUser?.id === row.original.id"
+              :loading="detailPending && detailTarget?.id === row.original.id"
               @click="openUser(row.original)"
             >
               {{ t('admin.users.manage') }}
@@ -776,352 +857,404 @@ watch([status, roleKey, sortBy, sortOrder], () => {
   </div>
 
 
-  <div
-    v-if="selectedUser"
-    class="fixed inset-0 z-40 flex justify-end bg-slate-950/30 backdrop-blur-[1px]"
-    @click.self="closeUser"
+  <USlideover
+    :open="drawerOpen"
+    side="right"
+    :title="selectedUser?.displayName || t('admin.users.manage')"
+    :description="t('admin.users.drawerDescription')"
+    :close="false"
+    :ui="{ content: 'w-full max-w-3xl' }"
+    @update:open="value => !value && closeUser()"
   >
-    <aside class="h-full w-full max-w-3xl overflow-y-auto border-l border-slate-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
-      <header class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <div>
-          <h3 class="text-base font-semibold text-slate-950 dark:text-zinc-50">
-            {{ selectedUser.displayName }}
-          </h3>
-          <p class="text-xs text-slate-500 dark:text-zinc-400">
-            {{ selectedUser.username }} · {{ selectedUser.email }}
-          </p>
-          <p class="mt-1 text-xs text-slate-400 dark:text-zinc-500">
-            {{ t('admin.users.userId') }}: {{ selectedUser.id }}
-            · {{ t('admin.users.createdAt') }}: {{ formatDateTime(selectedUser.createdAt) }}
-            · {{ t('admin.users.updatedAt') }}: {{ formatDateTime(selectedUser.updatedAt) }}
-          </p>
+    <template #content>
+      <div ref="drawerEl" class="flex h-full min-w-0 flex-col bg-white dark:bg-zinc-950">
+        <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-zinc-800">
+          <div class="min-w-0">
+            <h3 class="text-base font-semibold text-slate-950 dark:text-zinc-50">
+              {{ selectedUser?.displayName || t('admin.users.manage') }}
+            </h3>
+            <p v-if="selectedUser" class="text-xs text-slate-500 dark:text-zinc-400">
+              {{ selectedUser.username }} · {{ selectedUser.email }}
+            </p>
+            <p v-if="selectedUser" class="mt-1 text-xs text-slate-400 dark:text-zinc-500">
+              {{ t('admin.users.userId') }}: {{ selectedUser.id }}
+              · {{ t('admin.users.createdAt') }}: {{ formatDateTime(selectedUser.createdAt) }}
+              · {{ t('admin.users.updatedAt') }}: {{ formatDateTime(selectedUser.updatedAt) }}
+            </p>
+          </div>
+          <UButton color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="t('admin.users.close')" @click="closeUser" />
+        </header>
+
+        <!-- 保存失败摘要钉在头部下方，不随内容滚走；错误提示不自动消失。 -->
+        <div v-if="drawerError" class="border-b border-slate-200 px-5 py-3 dark:border-zinc-800" role="alert">
+          <UAlert
+            color="error"
+            variant="soft"
+            icon="i-lucide-triangle-alert"
+            :title="t('admin.users.drawerErrorTitle')"
+            :description="drawerError"
+          />
         </div>
-        <UButton color="neutral" variant="ghost" icon="i-lucide-x" :aria-label="t('admin.users.close')" @click="closeUser" />
-      </header>
 
-      <div class="space-y-5 px-5 py-5">
-        <SFAdminSurfaceOutlet
-          page-id="/users"
-          :kinds="['detail_region', 'editor_panel']"
-          :context="{ resourceType: 'user', resource: selectedUser }"
-          @refresh="refreshSelectedUser"
-        />
+        <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div v-if="detailPending" class="space-y-4">
+            <USkeleton class="h-6 w-1/2" />
+            <USkeleton class="h-40 w-full" />
+            <USkeleton class="h-40 w-full" />
+          </div>
 
-        <!-- 账户信息 -->
-        <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-          <div class="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                {{ t('admin.users.accountSection') }}
-              </h4>
-              <p class="text-xs text-slate-500 dark:text-zinc-400">
-                {{ t('admin.users.accountSectionHelp') }}
-              </p>
-            </div>
-            <UButton
-              color="primary"
-              leading-icon="i-lucide-save"
-              :loading="savingAccount"
-              @click="saveAccount"
-            >
-              {{ t('admin.users.saveAccount') }}
+          <div v-else-if="detailError" class="space-y-3">
+            <UAlert
+              color="error"
+              variant="soft"
+              icon="i-lucide-triangle-alert"
+              :title="t('admin.users.detailLoadFailed')"
+              :description="detailError"
+            />
+            <UButton color="primary" leading-icon="i-lucide-refresh-cw" @click="retryOpenUser">
+              {{ t('admin.users.detailRetry') }}
             </UButton>
           </div>
 
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.username') }}</span>
-              <UInput v-model="editUsername" class="w-full" />
-            </label>
-            <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.email') }}</span>
-              <UInput v-model="editEmail" type="email" class="w-full" />
-            </label>
-            <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.displayName') }}</span>
-              <UInput v-model="editDisplayName" class="w-full" />
-            </label>
-            <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.locale') }}</span>
-              <select
-                v-model="editLocale"
-                class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-              >
-                <option v-for="opt in localeOptions" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
-            </label>
-            <label class="block space-y-1.5 text-sm sm:col-span-2">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.status') }}</span>
-              <select
-                v-model="editStatus"
-                class="h-9 w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-              >
-                <option value="active">{{ t('admin.users.statusActive') }}</option>
-                <option value="disabled">{{ t('admin.users.statusDisabled') }}</option>
-                <option value="banned">{{ t('admin.users.statusBanned') }}</option>
-              </select>
-              <span
-                v-if="selectedUser.isInitialSuperAdmin"
-                class="mt-1 block text-xs text-amber-600 dark:text-amber-400"
-              >
-                {{ t('admin.users.initialSuperAdmin') }}
-              </span>
-            </label>
-            <label class="block space-y-1.5 text-sm sm:col-span-2">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.kind') }}</span>
-              <select
-                v-model="editKind"
-                :disabled="selectedUser.isInitialSuperAdmin"
-                class="h-9 w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-              >
-                <option value="human">{{ t('admin.users.kindHuman') }}</option>
-                <option value="bot">{{ t('admin.users.kindBot') }}</option>
-              </select>
-              <span class="mt-1 block text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.users.kindHint') }}</span>
-            </label>
-          </div>
-          <SFAdminUserEmailVerificationControl :user="selectedUser" @updated="applyDetailToForm" />
-        </section>
+          <div v-else-if="selectedUser" class="space-y-5">
+            <SFAdminSurfaceOutlet
+              page-id="/users"
+              :kinds="['detail_region', 'editor_panel']"
+              :context="{ resourceType: 'user', resource: selectedUser }"
+              @refresh="refreshSelectedUser"
+            />
 
-        <SFAdminUserNicknameHistory :changes="selectedUser.nicknameHistory" />
-
-        <!-- 公开资料 -->
-        <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-          <div class="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                {{ t('admin.users.profileSection') }}
-              </h4>
-              <p class="text-xs text-slate-500 dark:text-zinc-400">
-                {{ t('admin.users.profileSectionHelp') }}
-              </p>
-            </div>
-            <UButton
-              color="primary"
-              leading-icon="i-lucide-save"
-              :loading="savingProfile"
-              @click="saveProfile"
-            >
-              {{ t('admin.users.saveProfile') }}
-            </UButton>
-          </div>
-
-          <div class="grid gap-3">
-            <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.bio') }}</span>
-              <UTextarea v-model="editBio" :rows="3" class="w-full" />
-            </label>
-            <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.signature') }}</span>
-              <UTextarea v-model="editSignature" :rows="2" class="w-full" />
-            </label>
-            <div class="grid gap-3 sm:grid-cols-2">
-              <label class="block space-y-1.5 text-sm">
-                <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.location') }}</span>
-                <UInput v-model="editLocation" class="w-full" />
-              </label>
-              <label class="block space-y-1.5 text-sm">
-                <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.websiteUrl') }}</span>
-                <UInput v-model="editWebsiteUrl" type="url" placeholder="https://" class="w-full" />
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <!-- 账号安全 -->
-        <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-          <div class="space-y-4">
-            <div>
-              <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                {{ t('admin.users.passwordSection') }}
-              </h4>
-              <p class="text-xs text-slate-500 dark:text-zinc-400">
-                {{ t('admin.users.passwordSectionHelp') }}
-              </p>
-              <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                <label class="block space-y-1.5 text-sm">
-                  <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.newPassword') }}</span>
-                  <UInput
-                    v-model="newPassword"
-                    type="password"
-                    autocomplete="new-password"
-                    class="w-full"
-                    :placeholder="t('admin.users.newPasswordPlaceholder')"
-                  />
-                </label>
-                <label class="block space-y-1.5 text-sm">
-                  <span class="font-medium text-slate-700 dark:text-zinc-300">{{ t('admin.users.confirmPassword') }}</span>
-                  <UInput
-                    v-model="confirmPassword"
-                    type="password"
-                    autocomplete="new-password"
-                    class="w-full"
-                    :placeholder="t('admin.users.confirmPasswordPlaceholder')"
-                  />
-                </label>
-              </div>
-              <div class="mt-3 flex flex-wrap items-center gap-2">
+            <!-- 账户信息 -->
+            <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                    {{ t('admin.users.accountSection') }}
+                  </h4>
+                  <p class="text-xs text-slate-500 dark:text-zinc-400">
+                    {{ t('admin.users.accountSectionHelp') }}
+                  </p>
+                </div>
                 <UButton
                   color="primary"
-                  leading-icon="i-lucide-key-round"
-                  :loading="resettingPassword"
-                  :disabled="!newPassword || !confirmPassword"
-                  @click="resetUserPassword"
+                  leading-icon="i-lucide-save"
+                  :loading="savingAccount"
+                  @click="saveAccount"
                 >
-                  {{ t('admin.users.resetPassword') }}
+                  {{ t('admin.users.saveAccount') }}
                 </UButton>
-                <p class="text-xs text-slate-500 dark:text-zinc-400">
-                  {{ t('admin.users.passwordResetHint') }}
-                </p>
               </div>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
-              <div>
-                <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                  {{ t('admin.users.sessionSection') }}
-                </h4>
-                <p class="text-xs text-slate-500 dark:text-zinc-400">
-                  {{ t('admin.users.sessionSectionHelp') }}
-                </p>
-              </div>
-              <UButton
-                color="error"
-                variant="soft"
-                leading-icon="i-lucide-log-out"
-                :loading="revokingSessions"
-                @click="revokeUserSessions"
-              >
-                {{ t('admin.users.revokeSessions') }}
-              </UButton>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
-              <div>
-                <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                  {{ t('admin.users.clearClientIPs') }}
-                </h4>
-                <p class="text-xs text-slate-500 dark:text-zinc-400">
-                  {{ t('admin.users.clearClientIPsHelp') }}
-                </p>
-              </div>
-              <UButton
-                color="neutral"
-                variant="soft"
-                leading-icon="i-lucide-shield-off"
-                :loading="clearingClientIPs"
-                @click="clearUserClientIPs"
-              >
-                {{ t('admin.users.clearClientIPs') }}
-              </UButton>
-            </div>
-          </div>
-        </section>
 
-        <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-          <div class="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                {{ t('admin.users.roleSection') }}
-              </h4>
-              <p class="text-xs text-slate-500 dark:text-zinc-400">
-                {{ t('admin.users.roleSectionHelp') }}
-              </p>
-            </div>
-            <UButton
-              color="primary"
-              leading-icon="i-lucide-save"
-              :loading="savingRoles"
-              @click="saveRoles"
-            >
-              {{ t('admin.users.saveRoles') }}
-            </UButton>
-          </div>
-
-          <div class="grid gap-2 sm:grid-cols-2">
-            <label
-              v-for="role in roles"
-              :key="role.key"
-              class="flex min-h-14 cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-[var(--sf-accent-soft-border)] dark:border-zinc-800 dark:bg-zinc-950"
-            >
-              <input
-                type="checkbox"
-                class="mt-1 size-4 accent-[var(--sf-accent)]"
-                :checked="selectedRoleKeys.includes(role.key)"
-                @change="toggleRole(role.key)"
-              >
-              <span class="min-w-0">
-                <span class="block font-semibold text-slate-900 dark:text-zinc-100">{{ role.alias }}</span>
-                <span class="block truncate text-xs text-slate-500 dark:text-zinc-400">{{ role.key }}</span>
-              </span>
-            </label>
-          </div>
-        </section>
-
-        <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-          <div class="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                {{ t('admin.users.permissionSection') }}
-              </h4>
-              <p class="text-xs text-slate-500 dark:text-zinc-400">
-                {{ selectedUserIsSuperAdmin ? t('admin.users.superAdminOverrideLocked') : t('admin.users.permissionSectionHelp') }}
-              </p>
-            </div>
-            <UButton
-              color="primary"
-              leading-icon="i-lucide-save"
-              :loading="savingOverrides"
-              :disabled="selectedUserIsSuperAdmin"
-              @click="savePermissionOverrides"
-            >
-              {{ t('admin.users.savePermissions') }}
-            </UButton>
-          </div>
-
-          <div class="space-y-4">
-            <div v-for="group in groupedPermissions" :key="group.module" class="space-y-2">
-              <div class="text-xs font-semibold uppercase text-slate-500 dark:text-zinc-400">
-                {{ permissionModuleLabel(group.module) }}
-              </div>
-              <div class="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
-                <div
-                  v-for="permission in group.items"
-                  :key="permission.key"
-                  class="grid gap-3 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+              <div class="grid gap-3 sm:grid-cols-2">
+                <UFormField data-user-field="username" :label="t('admin.users.username')" :error="fieldErrors.username?.[0]">
+                  <UInput
+                    v-model="editUsername"
+                    class="w-full"
+                    @update:model-value="clearFieldError('username')"
+                  />
+                </UFormField>
+                <UFormField data-user-field="email" :label="t('admin.users.email')" :error="fieldErrors.email?.[0]">
+                  <UInput
+                    v-model="editEmail"
+                    type="email"
+                    class="w-full"
+                    @update:model-value="clearFieldError('email')"
+                  />
+                </UFormField>
+                <UFormField data-user-field="displayName" :label="t('admin.users.displayName')" :error="fieldErrors.displayName?.[0]">
+                  <UInput
+                    v-model="editDisplayName"
+                    class="w-full"
+                    @update:model-value="clearFieldError('displayName')"
+                  />
+                </UFormField>
+                <UFormField data-user-field="locale" :label="t('admin.users.locale')" :error="fieldErrors.locale?.[0]">
+                  <USelect v-model="editLocale" :items="localeOptions" class="w-full" />
+                </UFormField>
+                <UFormField
+                  data-user-field="status"
+                  class="sm:col-span-2"
+                  :label="t('admin.users.status')"
+                  :error="fieldErrors.status?.[0]"
                 >
-                  <div class="min-w-0">
-                    <span class="block font-semibold text-slate-900 dark:text-zinc-100">
-                      {{ permissionLabel(permission) }}
-                    </span>
-                    <code class="mt-0.5 block text-xs text-slate-500 dark:text-zinc-400">{{ permission.key }}</code>
-                    <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
-                      {{ permissionDescription(permission) }}
+                  <USelect v-model="editStatus" :items="statusOptions" class="w-full max-w-xs" />
+                  <p v-if="selectedUser.isInitialSuperAdmin" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    {{ t('admin.users.initialSuperAdmin') }}
+                  </p>
+                </UFormField>
+                <UFormField
+                  data-user-field="kind"
+                  class="sm:col-span-2"
+                  :label="t('admin.users.kind')"
+                  :error="fieldErrors.kind?.[0]"
+                  :help="t('admin.users.kindHint')"
+                >
+                  <USelect
+                    v-model="editKind"
+                    :items="kindOptions"
+                    :disabled="selectedUser.isInitialSuperAdmin"
+                    class="w-full max-w-xs"
+                  />
+                </UFormField>
+              </div>
+              <SFAdminUserEmailVerificationControl :user="selectedUser" @updated="applyDetailToForm" />
+            </section>
+
+            <SFAdminUserNicknameHistory :changes="selectedUser.nicknameHistory" />
+
+            <!-- 公开资料 -->
+            <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                    {{ t('admin.users.profileSection') }}
+                  </h4>
+                  <p class="text-xs text-slate-500 dark:text-zinc-400">
+                    {{ t('admin.users.profileSectionHelp') }}
+                  </p>
+                </div>
+                <UButton
+                  color="primary"
+                  leading-icon="i-lucide-save"
+                  :loading="savingProfile"
+                  @click="saveProfile"
+                >
+                  {{ t('admin.users.saveProfile') }}
+                </UButton>
+              </div>
+
+              <div class="grid gap-3">
+                <UFormField data-user-field="bio" :label="t('admin.users.bio')" :error="fieldErrors.bio?.[0]">
+                  <UTextarea
+                    v-model="editBio"
+                    :rows="3"
+                    class="w-full"
+                    @update:model-value="clearFieldError('bio')"
+                  />
+                </UFormField>
+                <UFormField data-user-field="signature" :label="t('admin.users.signature')" :error="fieldErrors.signature?.[0]">
+                  <UTextarea
+                    v-model="editSignature"
+                    :rows="2"
+                    class="w-full"
+                    @update:model-value="clearFieldError('signature')"
+                  />
+                </UFormField>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <UFormField data-user-field="location" :label="t('admin.users.location')" :error="fieldErrors.location?.[0]">
+                    <UInput
+                      v-model="editLocation"
+                      class="w-full"
+                      @update:model-value="clearFieldError('location')"
+                    />
+                  </UFormField>
+                  <UFormField data-user-field="websiteUrl" :label="t('admin.users.websiteUrl')" :error="fieldErrors.websiteUrl?.[0]">
+                    <UInput
+                      v-model="editWebsiteUrl"
+                      type="url"
+                      placeholder="https://"
+                      class="w-full"
+                      @update:model-value="clearFieldError('websiteUrl')"
+                    />
+                  </UFormField>
+                </div>
+              </div>
+            </section>
+
+            <!-- 账号安全 -->
+            <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div class="space-y-4">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                    {{ t('admin.users.passwordSection') }}
+                  </h4>
+                  <p class="text-xs text-slate-500 dark:text-zinc-400">
+                    {{ t('admin.users.passwordSectionHelp') }}
+                  </p>
+                  <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                    <UFormField data-user-field="password" :label="t('admin.users.newPassword')" :error="fieldErrors.password?.[0]">
+                      <UInput
+                        v-model="newPassword"
+                        type="password"
+                        autocomplete="new-password"
+                        class="w-full"
+                        :placeholder="t('admin.users.newPasswordPlaceholder')"
+                        @update:model-value="clearFieldError('password')"
+                      />
+                    </UFormField>
+                    <UFormField data-user-field="confirmPassword" :label="t('admin.users.confirmPassword')" :error="fieldErrors.confirmPassword?.[0]">
+                      <UInput
+                        v-model="confirmPassword"
+                        type="password"
+                        autocomplete="new-password"
+                        class="w-full"
+                        :placeholder="t('admin.users.confirmPasswordPlaceholder')"
+                        @update:model-value="clearFieldError('confirmPassword')"
+                      />
+                    </UFormField>
+                  </div>
+                  <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <UButton
+                      color="primary"
+                      leading-icon="i-lucide-key-round"
+                      :loading="resettingPassword"
+                      :disabled="!newPassword || !confirmPassword"
+                      @click="resetUserPassword"
+                    >
+                      {{ t('admin.users.resetPassword') }}
+                    </UButton>
+                    <p class="text-xs text-slate-500 dark:text-zinc-400">
+                      {{ t('admin.users.passwordResetHint') }}
                     </p>
                   </div>
-                  <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-                    <button
-                      v-for="mode in overrideModes"
-                      :key="mode"
-                      type="button"
-                      class="h-7 px-2.5 font-medium transition"
-                      :class="permissionMode(permission.key) === mode
-                        ? 'rounded bg-white text-[var(--sf-accent)] shadow-sm dark:bg-zinc-800 dark:text-[var(--sf-accent-dark)]'
-                        : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
-                      :disabled="selectedUserIsSuperAdmin"
-                      @click="setPermissionMode(permission.key, mode)"
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
+                  <div>
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                      {{ t('admin.users.sessionSection') }}
+                    </h4>
+                    <p class="text-xs text-slate-500 dark:text-zinc-400">
+                      {{ t('admin.users.sessionSectionHelp') }}
+                    </p>
+                  </div>
+                  <UButton
+                    color="error"
+                    variant="soft"
+                    leading-icon="i-lucide-log-out"
+                    :loading="revokingSessions"
+                    @click="revokeUserSessions"
+                  >
+                    {{ t('admin.users.revokeSessions') }}
+                  </UButton>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
+                  <div>
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                      {{ t('admin.users.clearClientIPs') }}
+                    </h4>
+                    <p class="text-xs text-slate-500 dark:text-zinc-400">
+                      {{ t('admin.users.clearClientIPsHelp') }}
+                    </p>
+                  </div>
+                  <UButton
+                    color="neutral"
+                    variant="soft"
+                    leading-icon="i-lucide-shield-off"
+                    :loading="clearingClientIPs"
+                    @click="clearUserClientIPs"
+                  >
+                    {{ t('admin.users.clearClientIPs') }}
+                  </UButton>
+                </div>
+              </div>
+            </section>
+
+            <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                    {{ t('admin.users.roleSection') }}
+                  </h4>
+                  <p class="text-xs text-slate-500 dark:text-zinc-400">
+                    {{ t('admin.users.roleSectionHelp') }}
+                  </p>
+                </div>
+                <UButton
+                  color="primary"
+                  leading-icon="i-lucide-save"
+                  :loading="savingRoles"
+                  @click="saveRoles"
+                >
+                  {{ t('admin.users.saveRoles') }}
+                </UButton>
+              </div>
+
+              <div class="grid gap-2 sm:grid-cols-2">
+                <label
+                  v-for="role in roles"
+                  :key="role.key"
+                  class="flex min-h-14 cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-[var(--sf-accent-soft-border)] dark:border-zinc-800 dark:bg-zinc-950"
+                >
+                  <input
+                    type="checkbox"
+                    class="mt-1 size-4 accent-[var(--sf-accent)]"
+                    :checked="selectedRoleKeys.includes(role.key)"
+                    @change="toggleRole(role.key)"
+                  >
+                  <span class="min-w-0">
+                    <span class="block font-semibold text-slate-900 dark:text-zinc-100">{{ role.alias }}</span>
+                    <span class="block truncate text-xs text-slate-500 dark:text-zinc-400">{{ role.key }}</span>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div class="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h4 class="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                    {{ t('admin.users.permissionSection') }}
+                  </h4>
+                  <p class="text-xs text-slate-500 dark:text-zinc-400">
+                    {{ selectedUserIsSuperAdmin ? t('admin.users.superAdminOverrideLocked') : t('admin.users.permissionSectionHelp') }}
+                  </p>
+                </div>
+                <UButton
+                  color="primary"
+                  leading-icon="i-lucide-save"
+                  :loading="savingOverrides"
+                  :disabled="selectedUserIsSuperAdmin"
+                  @click="savePermissionOverrides"
+                >
+                  {{ t('admin.users.savePermissions') }}
+                </UButton>
+              </div>
+
+              <div class="space-y-4">
+                <div v-for="group in groupedPermissions" :key="group.module" class="space-y-2">
+                  <div class="text-xs font-semibold uppercase text-slate-500 dark:text-zinc-400">
+                    {{ permissionModuleLabel(group.module) }}
+                  </div>
+                  <div class="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+                    <div
+                      v-for="permission in group.items"
+                      :key="permission.key"
+                      class="grid gap-3 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                     >
-                      {{ t(`admin.users.overrideMode.${mode}`) }}
-                    </button>
+                      <div class="min-w-0">
+                        <span class="block font-semibold text-slate-900 dark:text-zinc-100">
+                          {{ permissionLabel(permission) }}
+                        </span>
+                        <code class="mt-0.5 block text-xs text-slate-500 dark:text-zinc-400">{{ permission.key }}</code>
+                        <p class="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
+                          {{ permissionDescription(permission) }}
+                        </p>
+                      </div>
+                      <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+                        <button
+                          v-for="mode in overrideModes"
+                          :key="mode"
+                          type="button"
+                          class="h-7 px-2.5 font-medium transition"
+                          :class="permissionMode(permission.key) === mode
+                            ? 'rounded bg-white text-[var(--sf-accent)] shadow-sm dark:bg-zinc-800 dark:text-[var(--sf-accent-dark)]'
+                            : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
+                          :disabled="selectedUserIsSuperAdmin"
+                          @click="setPermissionMode(permission.key, mode)"
+                        >
+                          {{ t(`admin.users.overrideMode.${mode}`) }}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
-    </aside>
-  </div>
+    </template>
+  </USlideover>
 
   <SFAdminUserCreateDialog
     v-model:open="createOpen"
@@ -1133,6 +1266,5 @@ watch([status, roleKey, sortBy, sortOrder], () => {
     ref="previewModal"
     :roles="roles"
     @manage="openUser"
-    @error="showError"
   />
 </template>
