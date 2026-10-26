@@ -251,8 +251,10 @@ CDN 场景不要动应用的 `TRUSTED_PROXIES`：Caddy 用 `{client_ip}` 重算�
 | `SFORUM_DEPLOY_STABILITY_SECONDS` | `3` | 服务稳定观察时间 |
 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` | `120` | 蓝绿槽健康检查超时 |
 | `SFORUM_CONFIRM_RESTORE` | 空 | 设为 `RESTORE` 才允许恢复 |
-| `SFORUM_SKIP_ATTESTATION` | `false` | bootstrap 跳过 `gh attestation verify` |
-| `SFORUM_RELEASE_REPOSITORY` | `keeptrue/SForum` | bootstrap 使用的 GitHub 仓库 |
+| `SFORUM_INSTALL_DIR` | `./sforum` | 一行 loader 的安装目录；等同 `-d DIR` |
+| `SFORUM_INSTALL_SHA256` | 空 | loader 额外要求的 `sforum-bootstrap.sh` 精确 SHA-256 |
+| `SFORUM_SKIP_ATTESTATION` | `false` | loader 与 bootstrap 跳过 `gh attestation verify` |
+| `SFORUM_RELEASE_REPOSITORY` | `keeptrue/SForum` | loader 与 bootstrap 使用的 GitHub 仓库 |
 | `SFORUM_RELEASE_DOWNLOAD_BASE_URL` | GitHub Releases 下载前缀 | 镜像或离线发布源 |
 | `SFORUM_LATEST_RELEASE_API_URL` | GitHub `releases/latest` | 稳定通道解析地址 |
 | `SFORUM_RELEASES_API_URL` | GitHub Releases 列表 | 预发布通道解析地址 |

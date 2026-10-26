@@ -665,7 +665,17 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **生产真实客户端 IP（2026-10-27，最新）**：`user_sessions.ip_address` 记成
+- **一行安装 loader（2026-10-27，最新）**：新增第 10 个 Release 资产
+  `sforum-install.sh`，把 20 行部署命令压成
+  `curl -fsSL .../releases/latest/download/sforum-install.sh | bash`。loader 只做
+  解析标签、校验该标签的 `sforum-bootstrap.sh`（`SHA256SUMS` 精确条目 + 可选
+  attestation + `SFORUM_INSTALL_SHA256` pin）、落盘、exec，不含安装逻辑；
+  `sforum-bootstrap.sh` 仍然禁止管道执行，`validate-docs` 的规则从「禁止一切
+  curl|bash」收窄为「只有 loader 可管道」。默认装到 `./sforum`，已装目录自动转
+  upgrade，无终端时降级 `--yes`。首层未校验与 `get.docker.com` 同级，审计版命令
+  保留在 `one-click.md`。见
+  `knowledge/sessions/2026-10-27-one-line-install-loader.md`。
+- **生产真实客户端 IP（2026-10-27）**：`user_sessions.ip_address` 记成
   `192.168.*` 的根因是生产默认零信任、`TrustPrivate` 把链上的内网客户端当代理剥掉、
   `TRUST_PROXY` 又不是总开关。现在 `clientip.Config` 带 `TrustProxy` 总开关（零值
   fail-closed），私网信任只作用于 TCP 对端，链条目只认显式代理与 loopback；

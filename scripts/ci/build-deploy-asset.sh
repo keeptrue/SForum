@@ -106,14 +106,18 @@ ARCHIVE="$OUTPUT_DIR/sforum-deploy.tar.gz"
   tar -czf "$ARCHIVE" sforum-deploy
 )
 
-# Standalone fixed-name compatibility assets. New operator flows use the
-# bootstrap; upgrade.sh remains available for installations from older releases.
+# Standalone fixed-name assets. sforum-install.sh is the one-line entry and
+# stays outside the bundle on purpose: it exists to bootstrap a directory, not
+# to live in one. upgrade.sh remains available for older installations.
 cp "$ROOT_DIR/sforum-bootstrap.sh" "$OUTPUT_DIR/sforum-bootstrap.sh"
 chmod 0755 "$OUTPUT_DIR/sforum-bootstrap.sh"
 cp "$ROOT_DIR/upgrade.sh" "$OUTPUT_DIR/upgrade.sh"
 chmod 0755 "$OUTPUT_DIR/upgrade.sh"
+cp "$ROOT_DIR/sforum-install.sh" "$OUTPUT_DIR/sforum-install.sh"
+chmod 0755 "$OUTPUT_DIR/sforum-install.sh"
 
 echo "Created deploy assets:"
 echo "  $ARCHIVE"
 echo "  $OUTPUT_DIR/sforum-bootstrap.sh"
 echo "  $OUTPUT_DIR/upgrade.sh"
+echo "  $OUTPUT_DIR/sforum-install.sh"

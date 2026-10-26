@@ -99,88 +99,50 @@ Full steps: [docs/zh-CN/getting-started.md](./docs/zh-CN/getting-started.md) or 
 
 ## Production
 
-The rolling install entry downloads and verifies the latest stable Release
-bootstrap. It then refreshes the complete matching deploy toolkit:
+One line installs the latest stable Release into `./sforum`:
 
 ```sh
-(
-  set -eu
-  mkdir -p sforum
-  cd sforum
-  bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
-  trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
-  curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
-  curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
-  (
-    cd "$bootstrap_dir"
-    awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
-    test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
-    if command -v sha256sum >/dev/null 2>&1; then
-      sha256sum -c sforum-bootstrap.sha256
-    else
-      shasum -a 256 -c sforum-bootstrap.sha256
-    fi
-    if command -v gh >/dev/null 2>&1; then
-      gh attestation verify sforum-bootstrap.sh --repo keeptrue/SForum
-    fi
-  )
-  install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
-  rm -rf "$bootstrap_dir"
-  trap - EXIT HUP INT TERM
-  ./sforum-bootstrap.sh install  # Enter uses the latest stable release
-)
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-Never pipe remote shell content into `bash`. Download the bootstrap and its
-`SHA256SUMS`, verify the exact filename entry, and only then execute it — see
-[docs/zh-CN/deployment.md](./docs/zh-CN/deployment.md) for the full
-instructions.
+`SFORUM_INSTALL_DIR` or `-d DIR` changes the target, `--version <TAG>` pins an
+immutable tag, and `--yes` skips prompts. The loader resolves the tag, verifies
+that tag's `sforum-bootstrap.sh` against `SHA256SUMS` (plus GitHub build
+provenance when `gh` is available), promotes it, and hands off. The bootstrap
+then refreshes the complete matching deploy toolkit before the install wizard
+starts.
 
-Existing installations update through `./sforum-bootstrap.sh upgrade`. Every
-run refreshes the bootstrap and the target Release's complete deploy toolkit
-before handing off to `upgrade.sh`. The default resolves to the newest
-**stable** Release and is confirmed before any change (`--yes` skips prompts).
-Prereleases are never selected implicitly: pass
-`--channel prerelease` or an explicit tag. Every choice resolves to an
-immutable `vX.Y.Z` tag — floating `latest` images are never used in production
-Compose.
-
-For updates that must not trust the bootstrap already on disk, run the
-repository-side wrapper from the install directory. This is one copy-paste and
-verifies the wrapper's own SHA-256 before executing it:
+Running the same line inside an existing installation updates it instead. To
+update without trusting the bootstrap already on disk:
 
 ```sh
-# Run inside the install directory. Rerunning replaces the wrapper atomically;
-# no manual deletion is needed.
-tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
-mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
-mv -f "$tmp" sforum-latest.sh && \
-{ sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
-chmod 0755 sforum-latest.sh && \
-./sforum-latest.sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
 ```
 
-Each run resolves the newest Release, downloads and verifies its complete
+Only the loader may run from a pipe; it contains no install logic. The
+auditable equivalent — download the bootstrap and its `SHA256SUMS`, select
+exactly one filename entry, verify, then execute — stays documented in
+[docs/en-US/deployment/one-click.md](./docs/en-US/deployment/one-click.md)
+([中文](./docs/zh-CN/deployment/one-click.md)).
+
+A local `./sforum-bootstrap.sh upgrade` behaves the same way: every run
+refreshes the bootstrap and the target Release's complete deploy toolkit before
+handing off to `upgrade.sh`. The default resolves to the newest **stable**
+Release and is confirmed before any change (`--yes` skips prompts). Prereleases
+are never selected implicitly: pass `--channel prerelease` or an explicit tag.
+Every choice resolves to an immutable `vX.Y.Z` tag — floating `latest` images
+are never used in production Compose.
+
+For toolkit repair — re-syncing every managed file from a Release instead of
+only the bootstrap — use the repository-side `sforum-latest.sh` wrapper
+documented in
+[docs/en-US/deployment/one-click.md](./docs/en-US/deployment/one-click.md).
+It resolves the newest Release, downloads and verifies its complete
 `sforum-deploy.tar.gz`, syncs every managed toolkit file (`deploy.sh`,
-`upgrade.sh`, Compose files, `deploy/scripts`, Caddy examples, `VERSION`) to
-that version, backs up the previous files under `.sforum/tooling-backups/`, and
-only then delegates to install or upgrade. `--check` lists exactly which files
-are missing or stale without writing anything. Interactive runs ask for the
-channel first: stable, the newest published release including alpha/beta, or an
-explicit tag; `--channel prerelease` and `--version <TAG>` skip the prompt. A
-target older than the version recorded in `.deployrc` is caught before any
-download, and a migration failure prints the migrated Core version with the
-command that matches it. When `.env.production` exists but
-`.deployrc` has no usable version record (for example a manual-Compose install),
-the wrapper runs `./deploy.sh --action deploy --version <TAG>` once to rebuild
-the managed state instead of stopping inside `upgrade.sh`. `--yes`,
-`--channel prerelease`, and `--version <TAG>` behave as they do for the
-bootstrap. The script itself is repository tooling, not a Release asset; only
-this one wrapper file comes from `main`.
+`upgrade.sh`, Compose files, `deploy/scripts`, Caddy examples, `VERSION`) to that
+version, backs up the previous files under `.sforum/tooling-backups/`, and only
+then delegates to install or upgrade. `--check` lists exactly which files are
+missing or stale without writing anything.
 
 Production uses one API process with an embedded River worker, sharing the
 database pool, SecretStore-backed settings, and extension runtime. Existing

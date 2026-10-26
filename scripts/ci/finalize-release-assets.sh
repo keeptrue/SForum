@@ -22,6 +22,7 @@ EXPECTED=(
   "sforum-deploy.tar.gz"
   "sforum-bootstrap.sh"
   "upgrade.sh"
+  "sforum-install.sh"
 )
 
 for asset in "${EXPECTED[@]}"; do
@@ -97,7 +98,7 @@ done
 # own (release.yml must not need a chmod workaround), so content checks run
 # first, then the execute bit is restored before the -x post-check and
 # checksum generation.
-for script in sforum-bootstrap.sh upgrade.sh; do
+for script in sforum-bootstrap.sh upgrade.sh sforum-install.sh; do
   [[ "$(head -n 1 "$ASSET_DIR/$script")" == "#!/usr/bin/env bash" ]] || {
     echo "Standalone $script asset is not a shell script" >&2
     exit 1

@@ -36,6 +36,8 @@ git -C "$TEMP_DIR" tag -a v3.0.0-alpha.11 -m $'SForum 3.0.0-alpha.11\n\n- Produc
 grep -Fq -- '- Production fixes' "$TEMP_DIR/notes.md" || fail "annotated tag notes are missing"
 grep -Fq '> Maintainable, plugin-first open-source forum framework.' "$TEMP_DIR/notes.md" || fail "product summary is missing"
 grep -Fq 'docker pull ghcr.io/keeptrue/sforum-api:v3.0.0-alpha.11' "$TEMP_DIR/notes.md" || fail "Docker pull instructions are missing"
+grep -Fq 'curl -fsSL https://github.com/keeptrue/SForum/releases/download/v3.0.0-alpha.11/sforum-install.sh | bash' "$TEMP_DIR/notes.md" || fail "one-line install entry is missing"
+grep -Fq 'curl -fsSL https://github.com/keeptrue/SForum/releases/download/v3.0.0-alpha.11/sforum-install.sh | bash -s -- upgrade' "$TEMP_DIR/notes.md" || fail "one-line update entry is missing"
 if grep -Fq 'sforum-worker' "$TEMP_DIR/notes.md"; then
   fail "release notes still advertise the retired standalone Worker image"
 fi

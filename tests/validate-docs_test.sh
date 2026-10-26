@@ -34,12 +34,10 @@ write_base_fixture() {
   cat > "$dir/README.md" <<'EOF'
 # Fixture README
 
-Install: curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
-  set -eu
-  awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS
-  test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
-./sforum-bootstrap.sh install
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 Prereleases require --channel prerelease.
+Local updates use ./sforum-bootstrap.sh upgrade.
+Auditable sequence: [one-click](./docs/zh-CN/deployment/one-click.md)
 EOF
 
   cat > "$dir/docs/README.md" <<'EOF'
@@ -55,14 +53,9 @@ EOF
     cat > "$dir/docs/$locale/deployment.md" <<'EOF'
 # Deployment
 
-curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
-  set -eu
-  awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS
-  test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
-  install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
-./sforum-bootstrap.sh install
-./sforum-bootstrap.sh upgrade
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 Use --channel prerelease for prereleases.
+Local updates use ./sforum-bootstrap.sh upgrade.
 Historical compatibility: the v3.0.0-alpha.13 bundled updater stays pinned.
 
 [one-click](./deployment/one-click.md)
@@ -74,6 +67,13 @@ EOF
     cat > "$dir/docs/$locale/deployment/one-click.md" <<'EOF'
 # One-click
 
+curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
+  set -eu
+  awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS
+  test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
+  install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
+./sforum-bootstrap.sh install
+./sforum-bootstrap.sh upgrade
 ./deploy.sh --action deploy
 ./upgrade.sh
 --confirm-maintenance
@@ -309,6 +309,7 @@ EXPECTED=(
   "sforum-deploy.tar.gz"
   "sforum-bootstrap.sh"
   "upgrade.sh"
+  "sforum-install.sh"
 )
 EOF
 
@@ -377,8 +378,8 @@ EOF
 git -C "$CASE_IGNORED_LINK" init -q
 assert_validator_fails_with "$CASE_IGNORED_LINK" "local link points to a gitignored target" "gitignored local link check"
 
-# Stable install snippets must stop on failure and select the checksum entry by
-# its exact filename field.
+# The rolling entry must be the one-line loader; a bare bootstrap download is
+# no longer the documented first step.
 CASE_INSTALL_SAFETY="$TEMP_DIR/install-safety"
 write_base_fixture "$CASE_INSTALL_SAFETY"
 cat > "$CASE_INSTALL_SAFETY/README.md" <<'EOF'
@@ -387,16 +388,39 @@ cat > "$CASE_INSTALL_SAFETY/README.md" <<'EOF'
 curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
 Use --channel prerelease for prereleases.
 EOF
-assert_validator_fails_with "$CASE_INSTALL_SAFETY" "bootstrap commands must be fail-closed" "install verification safety check"
+assert_validator_fails_with "$CASE_INSTALL_SAFETY" "must use the stable rolling one-line entry" "one-line entry check"
 
-# Remote shell content must be saved and verified before execution.
+# Only the loader may run from a pipe. The install state machine must not.
 CASE_PIPE_TO_SHELL="$TEMP_DIR/pipe-to-shell"
 write_base_fixture "$CASE_PIPE_TO_SHELL"
 cat >> "$CASE_PIPE_TO_SHELL/README.md" <<'EOF'
 
 curl -fsSL https://example.invalid/install.sh | bash
 EOF
-assert_validator_fails_with "$CASE_PIPE_TO_SHELL" "must not pipe remote shell content directly into a shell" "remote shell pipe check"
+assert_validator_fails_with "$CASE_PIPE_TO_SHELL" "only the one-line loader may be piped into a shell" "remote shell pipe check"
+
+CASE_BOOTSTRAP_PIPE="$TEMP_DIR/bootstrap-pipe"
+write_base_fixture "$CASE_BOOTSTRAP_PIPE"
+cat >> "$CASE_BOOTSTRAP_PIPE/README.md" <<'EOF'
+
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh | bash
+EOF
+assert_validator_fails_with "$CASE_BOOTSTRAP_PIPE" "only the one-line loader may be piped into a shell" "bootstrap pipe check"
+
+# The auditable sequence must stay complete even though the first screen is a
+# one-liner.
+CASE_AUDIT_MISSING="$TEMP_DIR/audit-missing"
+write_base_fixture "$CASE_AUDIT_MISSING"
+cat > "$CASE_AUDIT_MISSING/docs/zh-CN/deployment/one-click.md" <<'EOF'
+# One-click
+
+./deploy.sh --action deploy
+./upgrade.sh
+--confirm-maintenance
+.deployrc
+./sforum-bootstrap.sh upgrade
+EOF
+assert_validator_fails_with "$CASE_AUDIT_MISSING" "the auditable bootstrap sequence must stay complete" "auditable sequence check"
 
 # Unknown CLI constructor registered at the root.
 CASE_CLI="$TEMP_DIR/cli"

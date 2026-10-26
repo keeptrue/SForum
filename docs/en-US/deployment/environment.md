@@ -284,8 +284,10 @@ container.
 | `SFORUM_DEPLOY_STABILITY_SECONDS` | `3` | service stability observation time |
 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` | `120` | blue/green slot health check timeout |
 | `SFORUM_CONFIRM_RESTORE` | empty | set to `RESTORE` to allow a restore |
-| `SFORUM_SKIP_ATTESTATION` | `false` | bootstrap skips `gh attestation verify` |
-| `SFORUM_RELEASE_REPOSITORY` | `keeptrue/SForum` | GitHub repository used by bootstrap |
+| `SFORUM_INSTALL_DIR` | `./sforum` | install directory for the one-line loader; same as `-d DIR` |
+| `SFORUM_INSTALL_SHA256` | empty | exact SHA-256 the loader additionally requires for `sforum-bootstrap.sh` |
+| `SFORUM_SKIP_ATTESTATION` | `false` | loader and bootstrap skip `gh attestation verify` |
+| `SFORUM_RELEASE_REPOSITORY` | `keeptrue/SForum` | GitHub repository used by the loader and bootstrap |
 | `SFORUM_RELEASE_DOWNLOAD_BASE_URL` | GitHub Releases download prefix | mirror or offline release source |
 | `SFORUM_LATEST_RELEASE_API_URL` | GitHub `releases/latest` | stable channel resolution address |
 | `SFORUM_RELEASES_API_URL` | GitHub Releases list | prerelease channel resolution address |

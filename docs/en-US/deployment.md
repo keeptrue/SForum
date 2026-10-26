@@ -13,7 +13,8 @@ host reverse proxy.
 | --- | --- | --- |
 | Brand-new server, fastest way live | `./sforum-bootstrap.sh install` | [One-click install and update](./deployment/one-click.md) |
 | Existing install, update to a new version | `./sforum-bootstrap.sh upgrade` | [One-click install and update](./deployment/one-click.md) |
-| Existing install, re-verify the official bootstrap on every run | `./sforum-latest.sh` | [One-click install and update](./deployment/one-click.md) |
+| Existing install, re-verify the official bootstrap on every run | the loader's `upgrade` subcommand | [One-click install and update](./deployment/one-click.md) |
+| Existing install, re-sync the whole toolkit from a Release | `./sforum-latest.sh` | [One-click install and update](./deployment/one-click.md) |
 | Target version has migrations that require downtime | `./upgrade.sh --version <TAG> --confirm-maintenance` | [One-click install and update](./deployment/one-click.md) |
 | No scripts, write your own Compose | Download, migrate, and start manually | [Manual Compose deployment](./deployment/manual.md) |
 | Only backup, restore, logs, restart | `./deploy.sh --action ...` | [Troubleshooting](./deployment/troubleshooting.md) |
@@ -33,64 +34,41 @@ Git is not required, and you do not need to clone the repository.
 
 ## Quick install (latest stable)
 
-The command below downloads and verifies the **latest stable**
-`sforum-bootstrap.sh`; the bootstrap then refreshes the complete deploy toolkit
-for that same target version:
+One line installs the latest stable Release into `./sforum`:
 
 ```sh
-(
-  set -eu
-  mkdir -p sforum
-  cd sforum
-  bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
-  trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
-  curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
-  curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
-  (
-    cd "$bootstrap_dir"
-    awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
-    test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
-    if command -v sha256sum >/dev/null 2>&1; then
-      sha256sum -c sforum-bootstrap.sha256
-    else
-      shasum -a 256 -c sforum-bootstrap.sha256
-    fi
-    if command -v gh >/dev/null 2>&1; then
-      gh attestation verify sforum-bootstrap.sh --repo keeptrue/SForum
-    fi
-  )
-  install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
-  rm -rf "$bootstrap_dir"
-  trap - EXIT HUP INT TERM
-  ./sforum-bootstrap.sh install
-)
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-That address always points at the latest stable Release, so no version number
-needs maintaining. The install wizard explains each setting and automatically
-generates the PostgreSQL, Redis, session, verification, identity HMAC,
-sensitive-option encryption, and Marketplace verifier keys.
-Pressing Enter for every question yields a runnable local configuration; the
-generated `.env.production` is mode `0600` and secrets are never printed to the
-terminal.
+`SFORUM_INSTALL_DIR` or `-d DIR` changes the target, `--version <TAG>` pins an
+immutable tag, and `--yes` skips prompts. That address always points at the
+latest stable Release, so no version number needs maintaining. The loader
+resolves the tag, verifies that tag's `sforum-bootstrap.sh`, then hands off; the
+bootstrap refreshes the complete deploy toolkit for the same target version. The
+install wizard explains each setting and automatically generates the PostgreSQL,
+Redis, session, verification, identity HMAC, sensitive-option encryption, and
+Marketplace verifier keys. Pressing Enter for every question yields a runnable
+local configuration; the generated `.env.production` is mode `0600` and secrets
+are never printed to the terminal.
 
 ### Verification rules (required)
 
-- **Never pipe a remote response directly into a shell**: save the bootstrap
-  first, then download the checksum file.
-- Verify only the exact `sforum-bootstrap.sh` entry in `SHA256SUMS`, and require
-  that the result is exactly one line; the bootstrap applies the same rule to
-  the complete deploy bundle internally.
-- The whole command runs in a `set -eu` subshell; a failed download, a missing
-  or duplicate entry, or a checksum or provenance failure aborts before any
-  remote script executes.
+- **Only the loader may run from a pipe**: it carries no install logic, just
+  resolution, verification, and handoff. `sforum-bootstrap.sh` itself always
+  runs from disk and never receives piped content.
+- The loader verifies only the exact `sforum-bootstrap.sh` entry in
+  `SHA256SUMS`, and requires that the result is exactly one line; the bootstrap
+  applies the same rule to itself and to the complete deploy bundle internally.
+- A failed download, a missing or duplicate entry, or a checksum or provenance
+  failure aborts before any remote script executes. The loader's own bytes are
+  not checksummed; use `SFORUM_INSTALL_SHA256` to pin the expected hash of
+  `sforum-bootstrap.sh` when that first layer must be fixed too.
 - `gh attestation verify` is an optional provenance check (it needs the GitHub
-  CLI, authenticated). When the bootstrap detects `gh`, it also verifies the
-  downloaded bootstrap and deploy bundle automatically;
-  `SFORUM_SKIP_ATTESTATION=true` skips it explicitly, but only where `gh`
-  cannot be installed.
+  CLI, authenticated). The loader and the bootstrap both verify when `gh` is
+  present; `SFORUM_SKIP_ATTESTATION=true` skips it explicitly, but only where
+  `gh` cannot be installed.
+- The fully auditable equivalent — download, verify, then execute — stays in
+  [One-click install and update](./deployment/one-click.md).
 
 ### Channels and pinned versions
 
@@ -134,46 +112,23 @@ then restart normally.
 ### Re-fetch the official toolkit on every run (optional)
 
 The bootstrap's self-refresh is initiated by the local old script. When an
-update must prove that the bootstrap came from GitHub, run this one command
-inside the install directory; it verifies the wrapper's own SHA-256 before
-executing it:
+update must prove that the bootstrap came from GitHub, use the loader's
+`upgrade` subcommand:
 
 ```sh
-# Run inside the install directory. Rerunning replaces the wrapper atomically;
-# no manual deletion is needed.
-tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
-mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
-mv -f "$tmp" sforum-latest.sh && \
-{ sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
-chmod 0755 sforum-latest.sh && \
-./sforum-latest.sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
 ```
 
-Each run resolves the newest Release, downloads and verifies its complete
-`sforum-deploy.tar.gz`, syncs every managed toolkit file (`deploy.sh`,
-`upgrade.sh`, Compose files, `deploy/scripts`, Caddy examples, `VERSION`) to
+When the whole toolkit must be re-synced as well (`deploy.sh`, Compose files,
+`deploy/scripts`, Caddy examples, `VERSION`), use the repository-side
+`sforum-latest.sh` wrapper. Each run resolves the newest Release, downloads and
+verifies its complete `sforum-deploy.tar.gz`, syncs every managed toolkit file to
 that version, backs up the previous files under `.sforum/tooling-backups/`, and
 only then delegates to install or upgrade. `--check` lists exactly which files
-are missing or stale without writing anything. Interactive runs ask for the
-channel first: stable, the newest published release including alpha/beta, or an
-explicit tag; `--channel prerelease` and `--version <TAG>` skip the prompt. A
-target older than the version recorded in `.deployrc` is caught before any
-download, and a migration failure prints the migrated Core version with the
-command that matches it. If the database has already migrated to a higher
-version, an older stable tag stops at the migration step; follow
-[troubleshooting](./deployment/troubleshooting.md) to pick a matching version.
-When `.env.production` exists but `.deployrc` has no
-usable version record (for example a manual-Compose install), the wrapper runs
-`./deploy.sh --action deploy --version <TAG>` once to rebuild the managed state
-instead of stopping inside `upgrade.sh`. `--yes`, `--channel prerelease`, and
-`--version <TAG>` match the bootstrap semantics.
-The script is repository tooling: it is not a Release asset and the bootstrap
-does not refresh it. Only this wrapper file comes from `main`; the bootstrap and
-the complete toolkit still come from the Release asset. In a Git checkout,
-syncing requires the explicit `--allow-git` flag so source files are not
-replaced by accident.
+are missing or stale without writing anything; in a Git checkout, syncing
+requires the explicit `--allow-git` flag so source files are not replaced by
+accident. Full usage and failure semantics are in
+[One-click install and update](./deployment/one-click.md).
 
 When adopting the bootstrap for the first time, download and verify it inside
 the existing install directory from the **latest stable Release asset** (do not

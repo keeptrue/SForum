@@ -28,8 +28,7 @@ else
     fail "sforum-latest.sh.sha256 is stale; run: shasum -a 256 sforum-latest.sh > sforum-latest.sh.sha256"
 fi
 
-for file in README.md docs/zh-CN/deployment.md docs/en-US/deployment.md \
-  docs/zh-CN/deployment/one-click.md docs/en-US/deployment/one-click.md; do
+for file in docs/zh-CN/deployment/one-click.md docs/en-US/deployment/one-click.md; do
   grep -q 'sforum-latest\.sh\.sha256' "$file" || \
     fail "$file must document the checksum-verified sforum-latest.sh entry"
 done

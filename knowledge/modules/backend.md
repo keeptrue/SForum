@@ -149,15 +149,22 @@ Backup and restore helpers parse only the exact database keys from dotenv and
 never execute the configuration as shell input.
 
 Production installation and updates now enter through the Release-owned
-`sforum-bootstrap.sh`. It resolves an immutable stable tag by default, refreshes
-and re-executes the verified bootstrap from that tag, verifies the matching
-complete deploy bundle, then hands the concrete version to `deploy.sh` or
-`upgrade.sh`. Existing instances retain `.env.production`, `.deployrc`, router
-runtime state, data, and volumes; only the explicit Release-managed toolkit is
-promoted, with the prior files backed up under `.sforum/tooling-backups/`.
-Status, logs, backup, restore, restart, and stop remain local `deploy.sh`
-operations so recovery does not depend on GitHub availability. See
-`knowledge/decisions/2026-08-18-verified-release-bootstrap.md`.
+`sforum-install.sh` one-line loader. It resolves an immutable tag, downloads
+that tag's `sforum-bootstrap.sh` and `SHA256SUMS`, requires exactly one matching
+filename entry, verifies the hash (plus optional `gh attestation verify` and an
+`SFORUM_INSTALL_SHA256` pin), promotes the bootstrap, and execs it. The loader
+is deliberately the only entry allowed to run from a pipe: it carries no
+install logic and never touches `.env.production`, `.deployrc`, router runtime
+state, data, or volumes. The bootstrap then refreshes and re-executes the
+verified bootstrap from that tag, verifies the matching complete deploy bundle,
+then hands the concrete version to `deploy.sh` or `upgrade.sh`. Existing
+instances retain `.env.production`, `.deployrc`, router runtime state, data, and
+volumes; only the explicit Release-managed toolkit is promoted, with the prior
+files backed up under `.sforum/tooling-backups/`. Status, logs, backup, restore,
+restart, and stop remain local `deploy.sh` operations so recovery does not
+depend on GitHub availability. See
+`knowledge/decisions/2026-08-18-verified-release-bootstrap.md` and
+`knowledge/decisions/2026-10-27-one-line-install-loader.md`.
 
 An optional repository-side prefetch wrapper, `sforum-latest.sh`, resolves the
 newest Release before any local script runs, downloads and verifies that
@@ -215,10 +222,12 @@ cannot leak its current version into a later interactive deploy selection
 
 Release deploy assets (2026-08-16): each GitHub Release also publishes a
 fixed-name `sforum-deploy.tar.gz` (Compose files, `deploy.sh`, `upgrade.sh`,
-`.env.production.example`, `deploy/scripts/*`, Caddy examples, VERSION) plus a
-standalone `upgrade.sh`, built by `scripts/ci/build-deploy-asset.sh` and
-verified by `scripts/ci/finalize-release-assets.sh` into `SHA256SUMS` before
-attestation. `https://github.com/keeptrue/SForum/releases/latest/download/
+`.env.production.example`, `deploy/scripts/*`, Caddy examples, VERSION) plus
+standalone `upgrade.sh` and `sforum-install.sh` assets, built by
+`scripts/ci/build-deploy-asset.sh` and verified by
+`scripts/ci/finalize-release-assets.sh` into `SHA256SUMS` before attestation
+(the expected matrix is 10 assets, so `SHA256SUMS` carries 10 entries).
+`https://github.com/keeptrue/SForum/releases/latest/download/
 sforum-deploy.tar.gz` always points at the latest stable bundle; docs and the
 root README use that rolling entry instead of hard-coded version numbers.
 Documented download flow (review fix 2026-08-16): download the archive first,

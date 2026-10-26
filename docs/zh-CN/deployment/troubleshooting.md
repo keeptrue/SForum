@@ -47,6 +47,11 @@ COMPOSE=(docker compose --env-file .env.production \
 | `deployment bundle contains path traversal` | 包内路径异常 | 停止使用该包，重新从 Release 下载 |
 | `another bootstrap operation is already running` | bootstrap 锁未释放 | 等另一个操作结束；确认无进程后删除 `.sforum-bootstrap.lock` |
 | `another deployment or update operation is running` | 部署锁未释放 | 等另一个操作结束；`upgrade.sh` 会在持有进程退出或锁龄超过一小时后自动清理 |
+| `sforum-install: could not query the latest stable Release` | loader 解析标签失败 | 检查网络/DNS；用 `--version <TAG>` 跳过解析，或 `--channel prerelease` 选预发布 |
+| `sforum-install: sforum-bootstrap.sh checksum verification failed` | `SHA256SUMS` 缺该条目、条目重复，或下载内容不匹配 | 重新下载同一标签的 `SHA256SUMS`；不要手工编辑，也不要跳过校验 |
+| `sforum-install: does not match SFORUM_INSTALL_SHA256` | 设置的 pin 与下载的 bootstrap 不一致 | 确认 pin 来自同一标签的 `SHA256SUMS`；不一致就停下排查，不要清空 pin 继续 |
+| `sforum-install: install path exists and is not a directory` | `-d`/`SFORUM_INSTALL_DIR` 指向了文件 | 换一个目录，或先移走该文件 |
+| `notice: no interactive terminal available` | 管道执行且没有可用的 `/dev/tty` | 预期行为：loader 用推荐默认值继续（等同 `--yes`）。需要交互时在终端里跑 `bash <(curl -fsSL .../sforum-install.sh)` |
 
 ## 安装与更新状态
 

@@ -474,41 +474,58 @@ function validateDocumentedHttpEndpoints() {
 }
 
 function validateStableInstallEntry() {
-  const files = [
+  // The rolling entry is the one-line loader. Piping it into bash is allowed
+  // because it only resolves a tag, verifies that tag's bootstrap, promotes it,
+  // and execs it. The bootstrap itself carries the install state machine and
+  // must never be piped; the auditable sequence stays complete in one-click.md.
+  const entryFiles = [
     'README.md',
     'docs/zh-CN/deployment.md',
     'docs/en-US/deployment.md',
   ]
-  for (const file of files) {
+  const auditFiles = [
+    'docs/zh-CN/deployment/one-click.md',
+    'docs/en-US/deployment/one-click.md',
+  ]
+
+  for (const file of entryFiles) {
     const content = read(file)
-    if (!content.includes('releases/latest/download/sforum-bootstrap.sh')) {
-      fail(`${file}: must use the stable rolling entry releases/latest/download/sforum-bootstrap.sh`)
+    if (!content.includes('releases/latest/download/sforum-install.sh')) {
+      fail(`${file}: must use the stable rolling one-line entry releases/latest/download/sforum-install.sh`)
     }
     if (!content.includes('--channel prerelease')) {
       fail(`${file}: must document the explicit prerelease channel (--channel prerelease)`)
     }
-    const requiredSafetyMarkers = [
+    if (!content.includes('deployment/one-click.md')) {
+      fail(`${file}: must link the auditable one-click guide`)
+    }
+    if (!content.includes('./sforum-bootstrap.sh upgrade')) {
+      fail(`${file}: existing-install updates must still use the verified local bootstrap`)
+    }
+    for (const match of content.matchAll(/curl\b[^\n]*\|\s*(?:ba)?sh\b/g)) {
+      if (!match[0].includes('sforum-install.sh')) {
+        fail(`${file}: only the one-line loader may be piped into a shell (found: ${match[0].trim()})`)
+      }
+    }
+  }
+
+  for (const file of auditFiles) {
+    const content = read(file)
+    const requiredAuditMarkers = [
+      'releases/latest/download/sforum-bootstrap.sh',
       'set -eu',
       `awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS`,
       `test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1`,
+      'install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh',
       './sforum-bootstrap.sh install',
     ]
-    for (const marker of requiredSafetyMarkers) {
+    for (const marker of requiredAuditMarkers) {
       if (!content.includes(marker)) {
-        fail(`${file}: bootstrap commands must be fail-closed and select exactly one checksum filename entry (missing: ${marker})`)
+        fail(`${file}: the auditable bootstrap sequence must stay complete (missing: ${marker})`)
       }
     }
-    if (/curl[^\n]*\|\s*(?:ba)?sh\b/.test(content)) {
-      fail(`${file}: must not pipe remote shell content directly into a shell`)
-    }
-  }
-  for (const file of files.slice(1)) {
-    const content = read(file)
     if (!content.includes('./sforum-bootstrap.sh upgrade')) {
       fail(`${file}: existing-install updates must use the verified bootstrap`)
-    }
-    if (!content.includes('install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh')) {
-      fail(`${file}: existing-install adoption must promote the bootstrap only after verification`)
     }
   }
 }
@@ -626,7 +643,7 @@ function validateReleaseAssets() {
     fail('.github/workflows/release.yml must upload the deploy asset artifact')
   }
   const finalize = read('scripts/ci/finalize-release-assets.sh')
-  for (const asset of ['sforum-deploy.tar.gz', 'sforum-bootstrap.sh', 'upgrade.sh']) {
+  for (const asset of ['sforum-deploy.tar.gz', 'sforum-bootstrap.sh', 'upgrade.sh', 'sforum-install.sh']) {
     if (!finalize.includes(asset)) {
       fail(`scripts/ci/finalize-release-assets.sh must include ${asset} in the expected asset set`)
     }

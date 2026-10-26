@@ -12,7 +12,8 @@ PostgreSQL 和 Redis。只支持 Linux `amd64`/`arm64`，不支持 Windows。对
 | --- | --- | --- |
 | 全新服务器，想最快上线 | `./sforum-bootstrap.sh install` | [一键安装与更新](./deployment/one-click.md) |
 | 已有安装，更新到新版本 | `./sforum-bootstrap.sh upgrade` | [一键安装与更新](./deployment/one-click.md) |
-| 已有安装，每次都要重新校验官方 bootstrap | `./sforum-latest.sh` | [一键安装与更新](./deployment/one-click.md) |
+| 已有安装，每次都要重新校验官方 bootstrap | loader 的 `upgrade` 子命令 | [一键安装与更新](./deployment/one-click.md) |
+| 已有安装，连整包工具链一起重新同步 | `./sforum-latest.sh` | [一键安装与更新](./deployment/one-click.md) |
 | 目标版本包含必须停机的迁移 | `./upgrade.sh --version <TAG> --confirm-maintenance` | [一键安装与更新](./deployment/one-click.md) |
 | 不想用脚本，自己写 Compose | 手动下载、迁移、启动 | [手动 Compose 部署](./deployment/manual.md) |
 | 只做备份、恢复、日志、重启 | `./deploy.sh --action ...` | [故障排查](./deployment/troubleshooting.md) |
@@ -35,52 +36,32 @@ PostgreSQL 和 Redis。只支持 Linux `amd64`/`arm64`，不支持 Windows。对
 会刷新同一目标版本的完整部署工具包：
 
 ```sh
-(
-  set -eu
-  mkdir -p sforum
-  cd sforum
-  bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
-  trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
-  curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
-  curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
-  (
-    cd "$bootstrap_dir"
-    awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
-    test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
-    if command -v sha256sum >/dev/null 2>&1; then
-      sha256sum -c sforum-bootstrap.sha256
-    else
-      shasum -a 256 -c sforum-bootstrap.sha256
-    fi
-    if command -v gh >/dev/null 2>&1; then
-      gh attestation verify sforum-bootstrap.sh --repo keeptrue/SForum
-    fi
-  )
-  install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
-  rm -rf "$bootstrap_dir"
-  trap - EXIT HUP INT TERM
-  ./sforum-bootstrap.sh install
-)
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-这个地址始终指向最新稳定 Release，不需要维护版本号。安装向导会逐项解释
+`SFORUM_INSTALL_DIR` 或 `-d DIR` 改安装目录，`--version <TAG>` 固定版本，
+`--yes` 跳过确认。这个地址始终指向最新稳定 Release，不需要维护版本号。
+loader 先解析不可变标签、校验该标签的 `sforum-bootstrap.sh`，再把控制权交给
+它；bootstrap 随后刷新同一目标版本的完整部署工具包。安装向导会逐项解释
 配置，并自动生成 PostgreSQL、Redis、会话、验证码、身份 HMAC、敏感选项
 加密和 Marketplace 验签密钥。全部直接回车即可得到一套能启动的本机配置；
 生成的 `.env.production` 权限为 `0600`，秘密不会打印到终端。
 
 ### 校验规则（必需）
 
-- **不要把远程响应直接管道给 shell**：先保存 bootstrap，再下载校验文件。
-- 只校验 `SHA256SUMS` 中 `sforum-bootstrap.sh` 的精确条目，并要求结果恰好
-  只有一条；bootstrap 内部会用同样规则校验完整部署包。
-- 整段命令在 `set -eu` 子 shell 中运行；下载失败、条目缺失/重复、checksum
-  或来源证明失败都会在任何远程脚本执行前终止。
+- **只有 loader 允许从管道执行**：它不含安装逻辑，只做解析、校验和移交。
+  `sforum-bootstrap.sh` 本身始终从磁盘执行，从不接收管道内容。
+- loader 只校验 `SHA256SUMS` 中 `sforum-bootstrap.sh` 的精确条目，并要求结果
+  恰好只有一条；bootstrap 内部会用同样规则再校验一次自身和完整部署包。
+- 任何下载失败、条目缺失/重复、checksum 或来源证明失败都会在任何远程脚本
+  执行前终止。首层 loader 的字节本身没有校验；需要连它一起固定时，用
+  `SFORUM_INSTALL_SHA256` 指定 `sforum-bootstrap.sh` 的期望哈希。
 - `gh attestation verify` 是可选的来源核对步骤（需要 GitHub CLI 且已认证）。
-  bootstrap 在检测到 `gh` 时会自动核对下载的 bootstrap 和部署包；可用
+  loader 与 bootstrap 在检测到 `gh` 时都会核对；可用
   `SFORUM_SKIP_ATTESTATION=true` 显式跳过，但只建议在无法安装 `gh` 的环境
   这样做。
+- 完整可审计的等价命令（逐条下载、校验、执行）见
+  [一键安装与更新](./deployment/one-click.md)。
 
 ### 通道与固定版本
 
@@ -119,36 +100,19 @@ PostgreSQL 和 Redis。只支持 Linux `amd64`/`arm64`，不支持 Windows。对
 ### 每次重新获取官方工具链（可选）
 
 `./sforum-bootstrap.sh upgrade` 的自刷新由本地旧脚本发起。若要求本次使用的
-bootstrap 一定来自 GitHub，在安装目录执行下面这一条命令。它会先校验包装器自身
-的 SHA-256，再运行：
+bootstrap 一定来自 GitHub，用 loader 的 `upgrade` 子命令：
 
 ```sh
-# 在安装目录执行；重复运行会原子替换包装器，不需要先删除旧文件
-tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
-mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
-mv -f "$tmp" sforum-latest.sh && \
-{ sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
-chmod 0755 sforum-latest.sh && \
-./sforum-latest.sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
 ```
 
-每次运行都会解析最新 Release、下载并校验其完整部署包 `sforum-deploy.tar.gz`，
-把 `deploy.sh`、`upgrade.sh`、compose 文件、`deploy/scripts`、Caddy 示例与
-`VERSION` 全部同步到该版本，旧文件备份到 `.sforum/tooling-backups/`，然后才交给
-install/upgrade。`--check` 只列出缺失或过期的文件，不写入任何内容。
-如果 `.env.production` 存在但 `.deployrc` 没有有效版本记录（例如早期手动 Compose
-部署），脚本会先执行一次 `./deploy.sh --action deploy --version <TAG>` 重建受管
-状态，而不是在 `upgrade.sh` 里报当前版本未知。不带参数运行时会先询问渠道：正式版
-stable、最新发布版（含 alpha/beta）或指定标签；`--channel` 与 `--version` 跳过
-询问。目标版本低于 `.deployrc` 记录时会在下载前被拦下；数据库迁移失败时，脚本会
-打印已迁移到的 Core 版本和匹配的命令。数据库已经迁移到更高版本时，stable 的旧
-标签会在迁移阶段中止；按[故障排查](./deployment/troubleshooting.md)改用匹配的
-版本。`--yes`、`--channel prerelease`、`--version <TAG>` 与 bootstrap 语义一致。
-这个脚本属于仓库工具，不随 Release 工具包分发，也不由 bootstrap 刷新。只有
-这一个包装器文件来自 `main`；bootstrap 与完整工具包仍来自 Release 资产。
-在 Git 检出目录里实际同步需要显式加 `--allow-git`，避免误覆盖源码。
+需要连整包工具链（`deploy.sh`、compose 文件、`deploy/scripts`、Caddy 示例、
+`VERSION`）一起重新同步时，用仓库侧的 `sforum-latest.sh` 包装器：每次运行都会
+解析最新 Release、下载并校验其完整部署包 `sforum-deploy.tar.gz`，把受管文件
+全部同步到该版本，旧文件备份到 `.sforum/tooling-backups/`，然后才交给
+install/upgrade。`--check` 只列出缺失或过期的文件，不写入任何内容；在 Git
+检出目录里实际同步需要显式加 `--allow-git`，避免误覆盖源码。完整用法与失败
+语义见[一键安装与更新](./deployment/one-click.md)。
 
 第一次接入 bootstrap 时，在现有安装目录从**最新稳定 Release 资产**下载并
 校验（不要使用 `main` 分支的浮动内容）：

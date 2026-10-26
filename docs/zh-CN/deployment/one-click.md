@@ -10,6 +10,7 @@
 
 | 文件 | 职责 |
 | --- | --- |
+| `sforum-install.sh` | 一行入口（Release 资产）：解析不可变标签、校验该标签的 `sforum-bootstrap.sh`、落盘后 exec 交给它；不含安装逻辑 |
 | `sforum-bootstrap.sh` | 在线入口：解析不可变标签，校验并刷新自身和完整工具包，然后交给 `deploy.sh` 或 `upgrade.sh` |
 | `sforum-deploy.tar.gz` | 同一 Release 的完整部署工具包 |
 | `deploy.sh` | 安装/更新控制台，以及备份、恢复、状态、日志、重启、停止 |
@@ -31,6 +32,7 @@ install/upgrade。
 调用关系：
 
 ```text
+curl .../sforum-install.sh | bash ──> sforum-bootstrap.sh install|upgrade
 sforum-bootstrap.sh install ──> deploy.sh --action deploy
 sforum-bootstrap.sh upgrade ──> upgrade.sh
 sforum-latest.sh            ──> sforum-bootstrap.sh upgrade
@@ -39,9 +41,33 @@ sforum-latest.sh            ──> sforum-bootstrap.sh upgrade
 
 ## 获取方式
 
-### 方式 A：单文件 bootstrap（推荐）
+### 方式 A：一行 loader（推荐）
 
-滚动安装：
+```sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
+```
+
+装到 `./sforum`；目录里已有 `.env.production` 和带版本记录的 `.deployrc` 时自动
+转成 upgrade。`-d DIR` 或 `SFORUM_INSTALL_DIR` 改目录，`--version <TAG>` 固定
+版本，`--channel prerelease` 选预发布，`--yes` 跳过确认。在已有安装目录里不信任
+本地 bootstrap 时：
+
+```sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
+```
+
+loader 只做四件事：解析不可变标签、下载该标签的 `sforum-bootstrap.sh` 与
+`SHA256SUMS`、按精确文件名字段校验（可选 `gh attestation verify` 与
+`SFORUM_INSTALL_SHA256` pin）、`install -m 0755` 落盘后 `exec` 交给 bootstrap。
+它不读写 `.env.production`、`.deployrc`、`deploy/runtime/` 或数据卷。
+
+首层 loader 的字节本身没有校验，这是 `get.docker.com` / rustup 同级的取舍；补偿
+手段是可逐行审计的小体积、`SFORUM_INSTALL_SHA256` pin、bootstrap 的自校验，以及
+需要连首层都验证时改用下面的可审计命令。
+
+#### 可审计等价命令
+
+逐条下载、校验、执行，语义与 loader 完全一致：
 
 ```sh
 (

@@ -11,6 +11,7 @@ and finally state files and failure semantics.
 
 | File | Responsibility |
 | --- | --- |
+| `sforum-install.sh` | One-line entry (Release asset): resolves an immutable tag, verifies that tag's `sforum-bootstrap.sh`, promotes it, and execs it; carries no install logic |
 | `sforum-bootstrap.sh` | Online entry point: resolves an immutable tag, verifies and refreshes itself and the complete toolkit, then hands off to `deploy.sh` or `upgrade.sh` |
 | `sforum-deploy.tar.gz` | The complete deploy toolkit for the same Release |
 | `deploy.sh` | Install/update console, plus backup, restore, status, logs, restart, and stop |
@@ -28,6 +29,7 @@ and finally state files and failure semantics.
 Call graph:
 
 ```text
+curl .../sforum-install.sh | bash ──> sforum-bootstrap.sh install|upgrade
 sforum-bootstrap.sh install ──> deploy.sh --action deploy
 sforum-bootstrap.sh upgrade ──> upgrade.sh
 ./deploy.sh                  ──> interactive menu / --action ...
@@ -35,9 +37,36 @@ sforum-bootstrap.sh upgrade ──> upgrade.sh
 
 ## How to obtain
 
-### Option A: single-file bootstrap (recommended)
+### Option A: one-line loader (recommended)
 
-Rolling install:
+```sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
+```
+
+It installs into `./sforum`; a directory that already has `.env.production` and a
+versioned `.deployrc` updates instead. `-d DIR` or `SFORUM_INSTALL_DIR` changes
+the target, `--version <TAG>` pins a tag, `--channel prerelease` selects a
+prerelease, and `--yes` skips prompts. To update inside an existing installation
+without trusting the local bootstrap:
+
+```sh
+curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
+```
+
+The loader does exactly four things: resolve an immutable tag, download that
+tag's `sforum-bootstrap.sh` and `SHA256SUMS`, verify the exact filename entry
+(with optional `gh attestation verify` and an `SFORUM_INSTALL_SHA256` pin), then
+`install -m 0755` and exec the bootstrap. It never reads or writes
+`.env.production`, `.deployrc`, `deploy/runtime/`, or data volumes.
+
+The loader's own bytes are not checksummed — the same first-layer tradeoff as
+`get.docker.com` and rustup. The compensations are its small auditable size, the
+`SFORUM_INSTALL_SHA256` pin, the bootstrap's own re-verification, and the
+auditable command below when even the first layer must be verified.
+
+#### Auditable equivalent
+
+Download, verify, then execute — the same semantics as the loader:
 
 ```sh
 (

@@ -49,6 +49,11 @@ COMPOSE=(docker compose --env-file .env.production \
 | `deployment bundle contains path traversal` | the bundle contains an abnormal path | Stop using that bundle and download it again from the Release |
 | `another bootstrap operation is already running` | the bootstrap lock was not released | Wait for the other operation to finish; once no process remains, delete `.sforum-bootstrap.lock` |
 | `another deployment or update operation is running` | the deployment lock was not released | Wait for the other operation; `upgrade.sh` cleans up automatically when the holding process exits or the lock is older than one hour |
+| `sforum-install: could not query the latest stable Release` | the loader could not resolve a tag | Check network/DNS; use `--version <TAG>` to skip resolution, or `--channel prerelease` |
+| `sforum-install: sforum-bootstrap.sh checksum verification failed` | `SHA256SUMS` lacks that entry, has it twice, or the download does not match | Re-download `SHA256SUMS` for the same tag; do not edit it by hand or skip verification |
+| `sforum-install: does not match SFORUM_INSTALL_SHA256` | the configured pin and the downloaded bootstrap disagree | Confirm the pin came from the same tag's `SHA256SUMS`; stop and investigate instead of clearing the pin |
+| `sforum-install: install path exists and is not a directory` | `-d`/`SFORUM_INSTALL_DIR` points at a file | Pick another directory, or move that file aside |
+| `notice: no interactive terminal available` | piped execution with no usable `/dev/tty` | Expected: the loader continues with the recommended defaults (equivalent to `--yes`). For prompts, run `bash <(curl -fsSL .../sforum-install.sh)` in a terminal |
 
 ## Install and update state
 

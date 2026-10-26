@@ -60,6 +60,10 @@ printf '\n---\n\n## Installation\n\n**Docker images:**\n\n```bash\n' >> "$temp_f
 for image in api migrate web; do
   printf 'docker pull ghcr.io/keeptrue/sforum-%s:%s\n' "$image" "$release_tag" >> "$temp_file"
 done
+printf '```\n\n**One-line install (this release):**\n\n```bash\n' >> "$temp_file"
+printf 'curl -fsSL %s/releases/download/%s/sforum-install.sh | bash\n' "$repository_url" "$release_tag" >> "$temp_file"
+printf '```\n\n**One-line update (does not trust the local bootstrap):**\n\n```bash\n' >> "$temp_file"
+printf 'curl -fsSL %s/releases/download/%s/sforum-install.sh | bash -s -- upgrade\n' "$repository_url" "$release_tag" >> "$temp_file"
 printf '```\n\n**Update an existing installation with a verified bootstrap:**\n\n```bash\n(\n  set -eu\n  cd /path/to/sforum\n' >> "$temp_file"
 printf '  bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"\n' >> "$temp_file"
 printf "  trap 'rm -rf \"\$bootstrap_dir\"' EXIT HUP INT TERM\n" >> "$temp_file"

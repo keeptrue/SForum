@@ -42,6 +42,9 @@ echo "Running zero-downtime release selection validation..."
 echo "Running verified release bootstrap validation..."
 ./deploy/scripts/bootstrap_test.sh
 
+echo "Running one-line install loader validation..."
+./deploy/scripts/install-loader_test.sh
+
 echo "Running zero-downtime state-machine validation..."
 ./deploy/scripts/zero-downtime-state_test.sh
 
