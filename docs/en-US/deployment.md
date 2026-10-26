@@ -241,9 +241,12 @@ The direct topology publishes only two loopback ports:
 
 Ordinary `/api/v1/*` is forwarded same-origin by Nuxt to `api:8080`. Host
 Caddy/Nginx examples live in `deploy/caddy/Caddyfile` in the deploy bundle; the
-WebSocket Upgrade can go straight to the API port. After configuring the
-reverse proxy, remember to set `TRUST_PROXY` and a precise `TRUSTED_PROXIES`;
-do not trust every network range.
+WebSocket Upgrade can go straight to the API port. Client IP handling already
+matches this topology by default (private-network peers trusted, loopback not
+trusted), so a host reverse proxy needs no `TRUSTED_PROXIES` entry of its own.
+With a CDN in front, put its egress ranges into Caddy's `servers.trusted_proxies`;
+Caddy deletes the CDN headers and recomputes the real client, so the app side
+stays empty. Never trust every network range.
 
 ## Maintainer releases
 

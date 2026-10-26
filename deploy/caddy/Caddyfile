@@ -42,13 +42,35 @@
 		reverse_proxy @host_api_websocket 127.0.0.1:{$API_PORT:18080} {
 			# Caddy 默认保留原始 Host、Origin、Cookie、Authorization 和 Upgrade；
 			# 不在这里重写这些 Host authority 输入。
-			header_up X-Real-IP {remote_host}
+			# 客户端 IP 一律在本层重新计算：{client_ip} 在没配 trusted_proxies 时
+			# 等于 {remote_host}，配了之后按 CDN 链算出真实客户端。CDN 的单值头
+			# 在这里删掉，否则上游会把任意客户端自带的头当成客户端 IP。
+			header_up X-Real-IP {client_ip}
+			header_up -CF-Connecting-IP
+			header_up -True-Client-IP
 		}
 
-		# 普通 HTTP 和 Nuxt HMR 仍走 Web。若前面还有 Cloudflare 等 CDN，请在
-		# API 的 TRUSTED_PROXIES 中列入 Caddy 所在网段（以及 CDN 出口）。
+		# 普通 HTTP 和 Nuxt HMR 仍走 Web。X-Real-IP 由本层按 {client_ip} 重写，
+		# Nuxt 再解析成唯一客户端 IP 上行，API 看到的对端始终是 web 容器，因此
+		# 不需要把 Caddy 网段写进应用侧 TRUSTED_PROXIES。
+		#
+		# 前面有 CDN（Cloudflare 等）时，在本文件顶部加全局选项块，由 Caddy 负责
+		# 剥头与计算 {client_ip}，应用侧 TRUSTED_PROXIES 保持为空：
+		#   {
+		#       servers {
+		#           trusted_proxies static <CDN 出口段...>
+		#           client_ip_headers CF-Connecting-IP True-Client-IP X-Forwarded-For
+		#       }
+		#   }
+		# client_ip_headers 可省略（默认只认 X-Forwarded-For）；Cloudflare 必须
+		# 显式加上 CF-Connecting-IP。trusted_proxies 必须写在 servers 块里，
+		# Caddy 2.10 不认顶层同名选项。不要把 CDN 段写进应用侧
+		# TRUSTED_PROXIES：那时 Nuxt 会把唯一一条边缘 IP 当成代理剥掉，结果
+		# 回退成容器网关地址。
 		reverse_proxy 127.0.0.1:{$WEB_PORT:3000} {
-			header_up X-Real-IP {remote_host}
+			header_up X-Real-IP {client_ip}
+			header_up -CF-Connecting-IP
+			header_up -True-Client-IP
 		}
 	}
 }

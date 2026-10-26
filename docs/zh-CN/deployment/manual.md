@@ -90,9 +90,13 @@ chmod 600 .env.production
 openssl rand -hex 32   # 可重复执行，每个秘密单独生成
 ```
 
-`APP_DOMAIN` 只给宿主机 Caddy 示例使用，不会进入应用容器。反向代理后要
-设置 `TRUST_PROXY=true` 和精确的 `TRUSTED_PROXIES`；生产默认不信任任何
-网段。
+`APP_DOMAIN` 只给宿主机 Caddy 示例使用，不会进入应用容器。真实客户端 IP 的
+四个变量（`TRUST_PROXY`、`TRUSTED_PROXIES`、`TRUST_PROXY_PRIVATE`、
+`TRUST_PROXY_LOOPBACK`）由向导写成适合标准 Compose 拓扑的默认值：总开关开、
+信任私网对端、不信任 loopback、`TRUSTED_PROXIES` 留空。前面还有 CDN 时，CDN
+出口段写进 Caddy 的 `servers.trusted_proxies`（见 `deploy/caddy/Caddyfile`），
+应用侧 `TRUSTED_PROXIES` 仍然留空；需要完全不采信转发头时把 `TRUST_PROXY` 置
+`false`。
 
 ## 步骤 3：校验 Compose 展开
 
@@ -160,8 +164,11 @@ curl -fsS "http://127.0.0.1:${WEB_PORT:-3000}/health"
   转发到 `api:8080`。
 - WebSocket Upgrade 指向 `127.0.0.1:${API_PORT:-18080}`。
 - TLS 由宿主机终止；容器不监听公网。
-- 反代后设置 `TRUST_PROXY=true`，并把 `TRUSTED_PROXIES` 设为反代地址或
-  网段，例如同机 Caddy 用 `127.0.0.1/32`。不要写 `0.0.0.0/0`。
+- 真实客户端 IP 默认已开：API 的对端是 `web` 容器，信任私网对端就够，宿主机
+  Caddy 不需要再往 `TRUSTED_PROXIES` 里写自己的地址（API 根本看不到它）。前面
+  还有 CDN 时，把 CDN 出口段写进 Caddy 的 `servers.trusted_proxies`，由 Caddy
+  剥掉 `CF-Connecting-IP` / `True-Client-IP` 并重算真实客户端；不要写
+  `0.0.0.0/0`。
 
 Caddy 进程读取的是宿主机环境变量，不是容器内的 `.env.production`：
 

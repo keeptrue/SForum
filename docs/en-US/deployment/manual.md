@@ -96,8 +96,12 @@ openssl rand -hex 32   # repeat for each secret, one value per secret
 ```
 
 `APP_DOMAIN` is only used by the host Caddy example and never enters the
-application container. Behind a reverse proxy, set `TRUST_PROXY=true` and a
-precise `TRUSTED_PROXIES`; production trusts no network range by default.
+application container. The wizard writes client-IP settings that fit the
+standard Compose topology: `TRUST_PROXY` on, private-network peers trusted,
+loopback not trusted, `TRUSTED_PROXIES` empty. When a CDN sits in front, put its
+egress ranges into Caddy's `servers.trusted_proxies` (see
+`deploy/caddy/Caddyfile`) and leave the app-side `TRUSTED_PROXIES` empty; set
+`TRUST_PROXY=false` to stop honouring forwarded headers entirely.
 
 ## Step 3: Validate the Compose expansion
 
@@ -169,9 +173,12 @@ The host Caddy example is in `deploy/caddy/Caddyfile`. The core goals:
   `/api/v1/*` is forwarded by Nuxt to `api:8080`.
 - WebSocket Upgrade points at `127.0.0.1:${API_PORT:-18080}`.
 - TLS terminates on the host; containers do not listen publicly.
-- Behind a reverse proxy set `TRUST_PROXY=true` and set `TRUSTED_PROXIES` to
-  the proxy address or CIDR range, for example `127.0.0.1/32` for a same-host
-  Caddy. Do not write `0.0.0.0/0`.
+- Client IP handling is already on: the API peer is the `web` container, so
+  trusting private-network peers is enough and a host Caddy needs no
+  `TRUSTED_PROXIES` entry (the API never sees Caddy's address). With a CDN in
+  front, put its egress ranges into Caddy's `servers.trusted_proxies`; Caddy
+  deletes `CF-Connecting-IP` / `True-Client-IP` and recomputes the real client.
+  Do not write `0.0.0.0/0`.
 
 The Caddy process reads host environment variables, not the
 `.env.production` inside the containers:

@@ -259,6 +259,25 @@ install/update/manual/troubleshooting command markers to survive edits, and the
 old “four GHCR images”/“five long-running services” counts to stay absent.
 `tests/validate-docs_test.sh` carries a failure case for each rule.
 
+Client IP trust model (2026-10-27): `app/Support/ClientIP` separates
+`isTrustedPeer` (explicit proxies, private ranges, loopback, link-local; TCP peer
+only) from `isProxyAddr` (explicit proxies plus loopback/link-local, never
+RFC1918; `X-Forwarded-For` entries), so trusting a private network no longer
+strips an intranet client out of the chain. `Config.TrustProxy` is a master
+switch and the zero value fails closed: `NewResolver(Config{})` reads no
+forwarded header, and the package-level default resolver sets
+`TrustProxy: true` explicitly. Startup logs one effective-policy line. The
+write-rate-limiter key goes through `clientip.FromCtx` instead of Fiber's
+`c.IP()`, whose left-most fallback disagrees with the resolver and can be forged.
+`compose.yaml`, `deploy/scripts/configure-production.sh`, and
+`.env.production.example` ship `TRUST_PROXY=true`,
+`TRUST_PROXY_PRIVATE=true`, `TRUST_PROXY_LOOPBACK=false`, and an empty
+`TRUSTED_PROXIES`, because the API peer in Compose is the `web` container; the
+Nuxt layer resolves the single client IP and overwrites the outbound headers
+first. `config` keeps its fail-closed built-in defaults for hand-written
+bare-metal env files. See `decisions/2026-07-12-client-real-ip.md` (2026-10-27
+revision) and `plans/2026-10-27-client-real-ip-production.md`.
+
 The admin release checker caches both successful and failed upstream results
 for five minutes per API process. Forced checks still bypass that cache.
 

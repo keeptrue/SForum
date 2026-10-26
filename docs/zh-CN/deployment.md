@@ -211,8 +211,10 @@ stable、最新发布版（含 alpha/beta）或指定标签；`--channel` 与 `-
 
 普通 `/api/v1/*` 由 Nuxt 同域转发到 `api:8080`。宿主机 Caddy/Nginx 示例在
 部署包的 `deploy/caddy/Caddyfile`；WebSocket Upgrade 可直打 API 端口。
-配置反代后记得设置 `TRUST_PROXY` 与精确的 `TRUSTED_PROXIES`，不要信任所有
-网段。
+真实客户端 IP 默认已按这个拓扑配好（信任私网对端、不信任 loopback），宿主机
+反代不需要再往 `TRUSTED_PROXIES` 里写自己的地址。前面有 CDN 时，CDN 出口段写进
+Caddy 的 `servers.trusted_proxies`，由 Caddy 剥掉 CDN 头并重算真实客户端；应用侧
+仍然留空，永远不要信任所有网段。
 
 ## 维护者发布
 

@@ -9,6 +9,8 @@ import {
   setResponseHeader
 } from 'h3'
 
+import { applyClientIPHeaders, clientIPConfig, resolveClientIP } from './clientIp'
+
 export const INTERNAL_ROUTE_PROBE_HEADER = 'x-sforum-internal-route-probe'
 export const INTERNAL_ROUTE_METHOD_HEADER = 'x-sforum-internal-route-method'
 export const INTERNAL_ROUTE_RESULT_HEADER = 'x-sforum-internal-route-result'
@@ -99,6 +101,11 @@ export function canFallbackAfterRouteProbeFailure(method: string) {
   return method === 'GET' || method === 'HEAD'
 }
 
+// TCP 对端（宿主机 Caddy / 同网络容器）。IPv4-mapped IPv6 由 resolveClientIP 归一化。
+function clientPeerAddress(event: H3Event) {
+  return event.node.req.socket?.remoteAddress ?? ''
+}
+
 function proxyRequestAbortSignal(event: H3Event) {
   const controller = new AbortController()
   const webSignal = event.web?.request?.signal
@@ -164,10 +171,17 @@ export async function proxyRouteRequest(
   target: URL,
   options: { omitCredentials?: boolean, requestHeaders?: HeadersInit } = {}
 ) {
-  const headers = pluginRouteProxyHeaders(getProxyRequestHeaders(event), options.omitCredentials)
+  const inboundHeaders = getProxyRequestHeaders(event)
+  const headers = pluginRouteProxyHeaders(inboundHeaders, options.omitCredentials)
   for (const [name, value] of new Headers(options.requestHeaders)) {
     headers.set(name, value)
   }
+  // web 是客户端 IP 的唯一权威出口：解析出唯一 IP 后覆盖上行头，API 侧链条只剩一个条目。
+  // 必须放在合并 requestHeaders 之后，调用方无法再把伪造值写回来。
+  applyClientIPHeaders(
+    headers,
+    resolveClientIP(clientPeerAddress(event), new Headers(inboundHeaders), clientIPConfig())
+  )
   const hasRequestBody = event.method !== 'GET' && event.method !== 'HEAD'
   const signal = proxyRequestAbortSignal(event)
   return retrySafeProxyRequest(event.method, () => sendProxy(event, target.toString(), {

@@ -152,6 +152,76 @@ func TestLimiterBlocksExcessiveWriteRequests(t *testing.T) {
 	}
 }
 
+// TestLimiterKeyIgnoresForgedXFFWhenProxyUntrusted 验证写限流键来自 clientip 而不是
+// Fiber c.IP()：对端不可信时，伪造的 X-Forwarded-For 不能把请求拆进不同的限流桶。
+func TestLimiterKeyIgnoresForgedXFFWhenProxyUntrusted(t *testing.T) {
+	cfg := testConfig()
+	cfg.LimiterWriteMax = 2
+	cfg.LimiterWindow = time.Minute
+	// testConfig 不信任任何代理（TrustProxy 为零值），转发头必须被整体忽略。
+	app := apphttp.NewApp(cfg, slog.Default(), apphttp.Dependencies{
+		RouteProviders: []apphttp.RouteProvider{routeProviderFunc(func(api fiber.Router) {
+			api.Post("/write", func(c fiber.Ctx) error { return c.SendString("ok") })
+		})},
+	})
+
+	// 三个不同的伪造 XFF，同一 TCP 对端 → 应落在同一个限流桶。
+	xffs := []string{"198.51.100.1", "203.0.113.7", "192.0.2.99"}
+	for i, xff := range xffs {
+		req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/write", nil)
+		req.Header.Set("X-Forwarded-For", xff)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("write request %d failed: %v", i, err)
+		}
+		resp.Body.Close()
+		want := nethttp.StatusOK
+		if i == len(xffs)-1 {
+			want = nethttp.StatusTooManyRequests
+		}
+		if resp.StatusCode != want {
+			t.Fatalf("request %d (xff=%q): status=%d, want %d", i, xff, resp.StatusCode, want)
+		}
+	}
+}
+
+// TestLimiterKeyUsesClientIPNotFiberLeftmostXFF 覆盖 Fiber c.IP() 与 clientip 判定
+// 分歧的场景：整条 XFF 都被判为可信时 Fiber 会回退到最左条目，clientip 取最右非代理地址。
+// 若限流键退回 c.IP()，三条伪造链会落进三个不同的桶，第三次就不会被限流。
+func TestLimiterKeyUsesClientIPNotFiberLeftmostXFF(t *testing.T) {
+	cfg := testConfig()
+	cfg.LimiterWriteMax = 2
+	cfg.LimiterWindow = time.Minute
+	cfg.TrustProxy = true
+	cfg.TrustProxyPrivate = true
+	// app.Test 的 TCP 对端固定是 0.0.0.0，必须显式信任它才能进入转发头分支。
+	cfg.TrustedProxies = []string{"0.0.0.0"}
+	app := apphttp.NewApp(cfg, slog.Default(), apphttp.Dependencies{
+		RouteProviders: []apphttp.RouteProvider{routeProviderFunc(func(api fiber.Router) {
+			api.Post("/write", func(c fiber.Ctx) error { return c.SendString("ok") })
+		})},
+	})
+
+	// 三条链的 clientip 结论都是 10.2.2.2（私网不算代理，取最右条目）。
+	xffs := []string{"10.2.2.2", "10.3.3.3, 10.2.2.2", "10.4.4.4, 10.2.2.2"}
+	for i, xff := range xffs {
+		req := httptest.NewRequest(nethttp.MethodPost, "/api/v1/write", nil)
+		req.Header.Set("X-Forwarded-For", xff)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("write request %d failed: %v", i, err)
+		}
+		resp.Body.Close()
+		want := nethttp.StatusOK
+		if i == len(xffs)-1 {
+			want = nethttp.StatusTooManyRequests
+		}
+		if resp.StatusCode != want {
+			t.Fatalf("request %d (xff=%q): status=%d, want %d", i, xff, resp.StatusCode, want)
+		}
+	}
+}
+
 func TestHealthEndpoint(t *testing.T) {
 	cfg := config.Config{
 		AppName:          "SForum",

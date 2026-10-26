@@ -665,7 +665,23 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **dev「Core 版本未知」不再等于「更低」（2026-10-27，最新）**：shallow clone 让
+- **生产真实客户端 IP（2026-10-27，最新）**：`user_sessions.ip_address` 记成
+  `192.168.*` 的根因是生产默认零信任、`TrustPrivate` 把链上的内网客户端当代理剥掉、
+  `TRUST_PROXY` 又不是总开关。现在 `clientip.Config` 带 `TrustProxy` 总开关（零值
+  fail-closed），私网信任只作用于 TCP 对端，链条目只认显式代理与 loopback；
+  `compose.yaml`、向导 `configure-production.sh` 与 `.env.production.example` 三处
+  统一写 `TRUST_PROXY=true`、`TRUST_PROXY_PRIVATE=true`、
+  `TRUST_PROXY_LOOPBACK=false`、空 `TRUSTED_PROXIES`（api 只发布 loopback，对端是
+  `web` 容器）；Nuxt 在转发前解析唯一客户端 IP 并覆盖上行头，写限流键统一走
+  `clientip.FromCtx`。`deploy/caddy/Caddyfile` 用 `{client_ip}` 重写 `X-Real-IP` 并删除
+  `CF-Connecting-IP` / `True-Client-IP`（否则任意客户端自带这两个头就能指定落库 IP），
+  CDN 段由 Caddy `servers.trusted_proxies` 处理、应用侧留空。部署文档删掉「同机 Caddy
+  用 `127.0.0.1/32`」这个错误配方，换成每跳对端拓扑表。决策
+  `decisions/2026-07-12-client-real-ip.md`（2026-10-27 修订）；handoff
+  `sessions/2026-10-27-client-real-ip-production.md`；计划
+  `plans/2026-10-27-client-real-ip-production.md`。
+
+- **dev「Core 版本未知」不再等于「更低」（2026-10-27）**：shallow clone 让
   `git describe` 退化成裸 sha，dev 构建回落哨兵 `1.0.0`，再被 `validateCoreMigrationTarget`
   当成真实降级，API 起不来。现在 `version.CoreCompatibilityDeclared()` 把「版本」与
   「是否真实声明」成对暴露，字符串仍是唯一版本权威；未声明的 target 不参与任何**版本比较**

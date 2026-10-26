@@ -85,12 +85,17 @@ services:
       ALTCHA_CHALLENGE_TTL: ${ALTCHA_CHALLENGE_TTL:-10m}
       ALTCHA_COST: ${ALTCHA_COST:-1000}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
-      # 宿主机反代后的真实客户端 IP。生产默认不信任任何网段，只有显式开启
-      # TRUST_PROXY 并给出精确 TRUSTED_PROXIES 才会采信转发头。
-      TRUST_PROXY: ${TRUST_PROXY:-}
+      # 真实客户端 IP。普通请求的 TCP 对端一定是同 compose 网络里的 web（Nuxt）
+      # 容器，所以「信任私网对端」的边界正好是宿主机与 compose 网络：api 只在
+      # 127.0.0.1:${API_PORT:-18080} 上发布，容器之间不跨宿主。
+      # TRUST_PROXY 是总开关，false 时任何转发头都不读，只记录 TCP 对端。
+      # 若把 API 直接暴露到公网，公网对端不可信，转发头一律忽略——此时关掉
+      # TRUST_PROXY，不要指望 TRUSTED_PROXIES 补救。
+      # TRUSTED_PROXIES 只用于 CDN 或额外代理的出口段，不要填 0.0.0.0/0。
+      TRUST_PROXY: ${TRUST_PROXY:-true}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
-      TRUST_PROXY_PRIVATE: ${TRUST_PROXY_PRIVATE:-}
-      TRUST_PROXY_LOOPBACK: ${TRUST_PROXY_LOOPBACK:-}
+      TRUST_PROXY_PRIVATE: ${TRUST_PROXY_PRIVATE:-true}
+      TRUST_PROXY_LOOPBACK: ${TRUST_PROXY_LOOPBACK:-false}
       # 带外恢复开关：扩展导致启动失败时，设为 true 后重启 API 可跳过插件启动。
       SFORUM_SAFE_MODE: ${SFORUM_SAFE_MODE:-}
       EXTENSION_ROOT: ${EXTENSION_ROOT:-/var/lib/sforum/extensions}
@@ -125,6 +130,9 @@ services:
       NUXT_SITE_URL: ${APP_URL:-http://127.0.0.1:3000}
       NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-/api/v1}
       NUXT_API_INTERNAL_BASE_URL: ${NUXT_API_INTERNAL_BASE_URL:-http://api:8080/api/v1}
+      # Nuxt 在转发 /api/v1/* 之前解析出唯一客户端 IP 并覆盖上行头；这里只
+      # 用于 CDN / 额外代理的出口段，与 api 侧同名变量保持一致。
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
 
 volumes:
   postgres_data:

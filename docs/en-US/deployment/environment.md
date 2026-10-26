@@ -196,20 +196,70 @@ key ID; never put the private key in the repository or containers.
 | Variable | Default/example | Notes |
 | --- | --- | --- |
 | `CSRF_TRUSTED_ORIGINS` | `https://forum.example.com` | allowed public origins; derived from `APP_URL` when empty |
-| `TRUST_PROXY` | empty (production-equivalent `false`) | whether forwarded headers are trusted |
-| `TRUSTED_PROXIES` | empty | reverse proxy addresses or CIDR ranges, comma-separated |
-| `TRUST_PROXY_PRIVATE` | empty (production-equivalent `false`) | whether private-network sources are trusted |
-| `TRUST_PROXY_LOOPBACK` | empty (production-equivalent `false`) | whether loopback sources are trusted |
+| `TRUST_PROXY` | `true` | master switch: when `false`, no forwarded header is read and only the TCP peer is recorded |
+| `TRUSTED_PROXIES` | empty | extra proxies the app itself must trust, comma-separated; always empty under the standard Compose topology (no CDN ranges, no Compose subnet) |
+| `TRUST_PROXY_PRIVATE` | `true` | whether private-network (RFC1918 / ULA) **peers** are trusted |
+| `TRUST_PROXY_LOOPBACK` | `false` | whether loopback (`127.0.0.0/8`, `::1`) **peers** are trusted |
 
-Production trusts no network range by default. Enable `TRUST_PROXY` only when
-deployed behind a host reverse proxy, and set `TRUSTED_PROXIES` to the proxy
-address, for example `127.0.0.1/32` for a same-host Caddy. Do not write
-`0.0.0.0/0`; blanket trust lets a forged `X-Forwarded-For` bypass rate limiting
-and audit logging.
+`TRUST_PROXY` is the only master switch: setting it to `false` disables the
+other three and makes the API record the TCP peer. That single variable is the
+rollback when forwarded headers must not be honoured at all.
+
+Private-network trust applies to the **peer address only**. A private entry
+inside `X-Forwarded-For` is not stripped as if it were a proxy: on this chain a
+private address is far more likely to be the intranet client itself, and
+stripping it would fall back to the peer address. Only explicit proxies from
+`TRUSTED_PROXIES` (plus loopback entries once `TRUST_PROXY_LOOPBACK` is on) take
+part in chain stripping. The `web` (Nuxt) layer resolves the single client IP
+and overwrites the outbound headers before forwarding `/api/v1/*`, so the API
+normally sees a one-entry chain.
+
+Every hop has a different peer, so the correct setting differs:
+
+| Topology | TCP peer the API sees | What to configure |
+| --- | --- | --- |
+| Host Caddy → `web` → `api` (standard Compose) | the `web` container on the Compose network (private) | defaults |
+| `router` container → `web` → `api` (zero-downtime stack) | same | defaults |
+| Caddy sends the WebSocket Upgrade straight to `127.0.0.1:18080` | `127.0.0.1` (loopback) | only `127.0.0.1` is recorded by default; WebSocket traffic writes no session IP, so turn on `TRUST_PROXY_LOOPBACK=true` only when an exact value matters |
+| Bare-metal Nuxt + API on one host, loopback | `127.0.0.1` | `TRUST_PROXY=true` plus `TRUST_PROXY_LOOPBACK=true` |
+| Bare-metal Nuxt + API, API bound to a LAN address | the host LAN address (private) | `TRUST_PROXY=true` plus `TRUST_PROXY_PRIVATE=true` (`config` defaults these to off in production) |
+| API exposed to the internet with no `web` layer | a public address | keep it untrusted: `TRUST_PROXY=false` |
+| CDN in front of Caddy | still the `web` container | list the CDN egress ranges in **Caddy's** global `servers` block as `trusted_proxies static <ranges>` (Cloudflare also needs `client_ip_headers CF-Connecting-IP`); leave the app-side `TRUSTED_PROXIES` empty |
+
+Do not touch the app-side `TRUSTED_PROXIES` for a CDN: Caddy recomputes the real
+client into `{client_ip}` and deletes `CF-Connecting-IP` / `True-Client-IP`
+before forwarding, so Nuxt already receives a single trustworthy value. Adding
+the CDN ranges on the app side makes Nuxt strip that single edge IP as if it
+were a proxy and fall back to the container gateway address. `trusted_proxies`
+must live inside the `servers` block (Caddy 2.10 rejects the top-level option);
+copy the example in `deploy/caddy/Caddyfile`.
+
+**Under the standard Compose topology the app-side `TRUSTED_PROXIES` must stay
+empty at all times** — and that is not only about CDN ranges: **never put the
+Compose subnet (`172.x`, `10.x`, and similar) there either**. The variable exists
+for one special chain only: the peer really is an explicit proxy and the app
+layer genuinely needs to honour CDN single-value headers such as
+`CF-Connecting-IP` / `True-Client-IP`. Once the container subnet is listed, any
+`web` peer inside that subnet (the zero-downtime `router` container, a
+containerized reverse proxy) is treated as an explicit proxy and those headers
+are honoured again; if the chain still contains a proxy that does not delete them
+(an older Caddyfile, Nginx, or another middlebox), a forged value reaches the
+database.
+
+Do not write `0.0.0.0/0`; blanket trust lets a forged `X-Forwarded-For` bypass
+rate limiting and audit logging. `api` publishes only on
+`127.0.0.1:${API_PORT:-18080}`, so the default trust boundary is the host plus
+the Compose network; publishing the API port publicly breaks that boundary and
+`TRUST_PROXY` must be turned off.
+
+"Defaults" above means the values written by `compose.yaml` and the wizard. When
+you write the environment file by hand, note that `config` still defaults these
+four variables to off under `APP_ENV=production`; a bare-metal deployment must
+set `TRUST_PROXY=true` plus the matching trust class itself.
 
 `compose.yaml` already passes these four variables through to the `api`
-container. `PROXY_HEADER` defaults to `X-Forwarded-For`; inject it through an
-override when it must change.
+container and `TRUSTED_PROXIES` to `web` as well. `PROXY_HEADER` defaults to
+`X-Forwarded-For`; inject it through an override when it must change.
 
 ### AI provider egress
 

@@ -413,6 +413,81 @@ describe('trusted plugin arbitrary-route proxy', () => {
       await close(api)
     }
   })
+
+  test('overwrites forged client IP headers with one resolved value', async () => {
+    const seen: Array<Record<string, string | string[] | undefined>> = []
+    const api = createServer((request, response) => {
+      seen.push({ ...request.headers })
+      response.statusCode = 200
+      response.end('ok')
+    })
+    const apiURL = await listen(api)
+    const app = createApp()
+    app.use(eventHandler(event => proxyRouteRequest(event, new URL(`${apiURL}/plugin/ip`))))
+    const web = createServer(toNodeListener(app))
+    const webURL = await listen(web)
+    const oldTrustedProxies = process.env.TRUSTED_PROXIES
+    delete process.env.TRUSTED_PROXIES
+
+    try {
+      const forged = await fetch(`${webURL}/plugin/ip`, {
+        headers: {
+          'cf-connecting-ip': '203.0.113.7',
+          'true-client-ip': '203.0.113.8',
+          'x-real-ip': '203.0.113.9',
+          'x-forwarded-for': '198.51.100.7, 10.9.9.9'
+        }
+      })
+      expect(forged.status).toBe(200)
+      expect(seen).toHaveLength(1)
+      // 对端是 loopback（可信但不是显式代理）：伪造的 CDN 头必须被忽略，落回 X-Real-IP，
+      // 且两个 CDN 头在出站时删除——否则公网客户端可以凭空指定自己的审计 IP。
+      expect(seen[0]?.['x-forwarded-for']).toBe('203.0.113.9')
+      expect(seen[0]?.['x-real-ip']).toBe('203.0.113.9')
+      expect(seen[0]?.['cf-connecting-ip']).toBeUndefined()
+      expect(seen[0]?.['true-client-ip']).toBeUndefined()
+
+      // 只有 XFF 时从右往左取最右侧非代理地址；私网客户端不被当代理剥掉。
+      const chained = await fetch(`${webURL}/plugin/ip`, {
+        headers: { 'x-forwarded-for': '198.51.100.7, 10.9.9.9' }
+      })
+      expect(chained.status).toBe(200)
+      expect(seen[1]?.['x-forwarded-for']).toBe('10.9.9.9')
+      expect(seen[1]?.['x-real-ip']).toBe('10.9.9.9')
+
+      // TRUSTED_PROXIES 生效后，同一链条里的代理跳被剥掉。
+      process.env.TRUSTED_PROXIES = '10.9.9.0/24'
+      const stripped = await fetch(`${webURL}/plugin/ip`, {
+        headers: { 'x-forwarded-for': '198.51.100.7, 10.9.9.9' }
+      })
+      expect(stripped.status).toBe(200)
+      expect(seen[2]?.['x-forwarded-for']).toBe('198.51.100.7')
+      expect(seen[2]?.['x-real-ip']).toBe('198.51.100.7')
+
+      // 对端本身列进 TRUSTED_PROXIES（这里用测试服务器的 127.0.0.1）后，CDN 头才被采信。
+      process.env.TRUSTED_PROXIES = '127.0.0.1/32'
+      const cdn = await fetch(`${webURL}/plugin/ip`, {
+        headers: {
+          'cf-connecting-ip': '203.0.113.7',
+          'true-client-ip': '203.0.113.8',
+          'x-real-ip': '203.0.113.9'
+        }
+      })
+      expect(cdn.status).toBe(200)
+      expect(seen[3]?.['x-forwarded-for']).toBe('203.0.113.7')
+      expect(seen[3]?.['x-real-ip']).toBe('203.0.113.7')
+      expect(seen[3]?.['cf-connecting-ip']).toBeUndefined()
+      expect(seen[3]?.['true-client-ip']).toBeUndefined()
+    } finally {
+      if (oldTrustedProxies === undefined) {
+        delete process.env.TRUSTED_PROXIES
+      } else {
+        process.env.TRUSTED_PROXIES = oldTrustedProxies
+      }
+      await close(web)
+      await close(api)
+    }
+  })
 })
 
 async function listen(server: Server) {

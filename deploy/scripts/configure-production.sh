@@ -122,6 +122,7 @@ t() {
       invalid_url) printf '%s' "Site URL must be an http:// or https:// URL without spaces, credentials, fragments, or newlines." ;;
       invalid_port) printf '%s' "Ports must be different integers from 1 to 65535." ;;
       invalid_admin_prefix) printf '%s' "Admin route prefix must be a safe URL path such as /control-panel or /staff-admin." ;;
+      client_ip) printf '%s' "Client IP: trusting private-network peers (host and Compose network), not loopback. Put any CDN egress ranges into TRUSTED_PROXIES; TRUST_PROXY=false turns header trust off." ;;
     esac
   else
     case "$key" in
@@ -139,6 +140,7 @@ t() {
       invalid_url) printf '%s' "站点地址必须是 http:// 或 https:// URL，且不能包含空格、账号信息、片段或换行。" ;;
       invalid_port) printf '%s' "两个端口必须不同，且都是 1 到 65535 之间的整数。" ;;
       invalid_admin_prefix) printf '%s' "管理后台路径前缀必须是安全的 URL 路径，例如 /control-panel 或 /staff-admin。" ;;
+      client_ip) printf '%s' "真实客户端 IP：信任私网对端（宿主机与 Compose 网络），不信任 loopback。前面有 CDN 时把出口段写进 TRUSTED_PROXIES；TRUST_PROXY=false 可整体关掉转发头采信。" ;;
     esac
   fi
 }
@@ -294,6 +296,11 @@ trap cleanup EXIT HUP INT TERM
     'ALTCHA_CHALLENGE_TTL=10m' \
     'ALTCHA_COST=1000' \
     "CSRF_TRUSTED_ORIGINS=$csrf_origin" \
+    '# 真实客户端 IP：api 的 TCP 对端是同 compose 网络的 web 容器，故信任私网对端。' \
+    'TRUST_PROXY=true' \
+    'TRUSTED_PROXIES=' \
+    'TRUST_PROXY_PRIVATE=true' \
+    'TRUST_PROXY_LOOPBACK=false' \
     'EXTENSION_ROOT=/var/lib/sforum/extensions' \
     'BUILTIN_EXTENSION_ROOT=/app/extensions/builtin' \
     'SFORUM_V3_TRUST_CHALLENGES=true' \
@@ -309,4 +316,5 @@ temp_file=""
 trap - EXIT HUP INT TERM
 
 printf '%s %s\n' "$(t written)" "$OUTPUT_PATH"
+printf '%s\n' "$(t client_ip)"
 printf '%s\n' "$(t managed)"

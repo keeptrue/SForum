@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -72,13 +73,19 @@ type Dependencies struct {
 func NewApp(cfg config.Config, logger *slog.Logger, deps Dependencies) *fiber.App {
 	// 进程级真实 IP 解析器：业务统一走 clientip.FromCtx。
 	clientip.Configure(clientip.Config{
+		TrustProxy:    cfg.TrustProxy,
 		Proxies:       cfg.TrustedProxies,
 		TrustPrivate:  cfg.TrustProxyPrivate,
 		TrustLoopback: cfg.TrustProxyLoopback,
 	})
-	if logger != nil && strings.EqualFold(cfg.AppEnv, "production") && cfg.TrustProxy && len(cfg.TrustedProxies) == 0 && !cfg.TrustProxyPrivate && !cfg.TrustProxyLoopback {
-		// 生产开了 TrustProxy 却没有任何信任集合：c.IP()/转发头不会被采信，限流与审计可能只看到边缘 IP。
-		logger.Warn("trust_proxy enabled but TRUSTED_PROXIES is empty; client IPs may fall back to TCP remote")
+	if logger != nil {
+		// 生效策略必须可观测：生产上「真实 IP 变成服务端跳数地址」只能靠这行定位。
+		logger.Info(fmt.Sprintf("client_ip policy: trust=%t private=%t loopback=%t proxies=%v",
+			cfg.TrustProxy, cfg.TrustProxyPrivate, cfg.TrustProxyLoopback, cfg.TrustedProxies))
+	}
+	if logger != nil && cfg.TrustProxy && len(cfg.TrustedProxies) == 0 && !cfg.TrustProxyPrivate && !cfg.TrustProxyLoopback {
+		// 开了总开关却没有任何信任集合：转发头不会被采信，限流与审计只能看到 TCP 对端。
+		logger.Warn("trust_proxy enabled but no trusted proxies configured; client IPs will fall back to TCP remote")
 	}
 
 	proxyHeader := strings.TrimSpace(cfg.ProxyHeader)
@@ -125,6 +132,10 @@ func NewApp(cfg config.Config, logger *slog.Logger, deps Dependencies) *fiber.Ap
 			Storage:    deps.Storage,
 			Max:        cfg.LimiterWriteMax,
 			Expiration: cfg.LimiterWindow,
+			// Fiber 的 c.IP() 在「链条全部判为可信」时会回退到最左条目
+			// (fiber@v3.4.0/req.go:658-692)，与 clientip 的判定分歧且可伪造，
+			// 所以限流键统一走 clientip.FromCtx。
+			KeyGenerator: func(c fiber.Ctx) string { return clientip.FromCtx(c) },
 			Next: func(c fiber.Ctx) bool {
 				// 只限写方法，读请求直接放行（读路径已有缓存挡）。
 				switch c.Method() {
