@@ -348,7 +348,31 @@ func (s *sessionTestStore) SetAdminUserEmailVerified(_ context.Context, _ int64,
 func (s *sessionTestStore) UpdateAdminUser(context.Context, int64, int64, identity.AdminUpdateUserInput) (identity.AdminUserDetail, error) {
 	return identity.AdminUserDetail{}, nil
 }
-func (s *sessionTestStore) ListRoles(context.Context) ([]identity.Role, error) { return nil, nil }
+func (s *sessionTestStore) CreateAdminUser(ctx context.Context, _ int64, input identity.AdminCreateUserStoreInput) (identity.AdminUserDetail, error) {
+	s.mu.Lock()
+	id := s.nextUserID
+	s.nextUserID++
+	s.users[id] = identity.CurrentUser{
+		ID:            id,
+		Username:      input.Username,
+		DisplayName:   input.DisplayName,
+		Locale:        input.Locale,
+		Status:        identity.UserStatusActive,
+		EmailVerified: input.EmailVerified,
+		RoleKeys:      append([]string(nil), input.RoleKeys...),
+	}
+	s.loginIndex[lower(input.Username)] = id
+	s.loginIndex[lower(input.Email)] = id
+	s.creds[id] = input.PasswordHash
+	s.mu.Unlock()
+	return s.GetAdminUser(ctx, id)
+}
+func (s *sessionTestStore) ListRoles(context.Context) ([]identity.Role, error) {
+	return []identity.Role{
+		{ID: 1, Key: identity.RoleSuperAdmin, Alias: "超级管理员", IsSystem: true, IsEnabled: true},
+		{ID: 2, Key: identity.RoleMember, Alias: "普通会员", IsSystem: true, IsDefault: true, IsEnabled: true},
+	}, nil
+}
 func (s *sessionTestStore) CreateRole(context.Context, identity.RoleInput) (identity.Role, error) {
 	return identity.Role{}, nil
 }

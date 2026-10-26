@@ -740,6 +740,66 @@ AdminUserDetail:
         description: Most recent nickname changes (newest first, capped). The history table itself is retained indefinitely.
         items:
           "$ref": "#/NicknameChange"
+AdminCreateUserInput:
+  type: object
+  description: |
+    Admin-only user creation. `password` and `generatePassword` are mutually
+    exclusive; exactly one is required.
+  required:
+  - username
+  - email
+  properties:
+    username:
+      type: string
+    email:
+      type: string
+      format: email
+    displayName:
+      type: string
+      description: Optional. Defaults to the username when blank.
+    password:
+      type: string
+      description: Required unless `generatePassword` is true. Must satisfy the site password policy.
+    generatePassword:
+      type: boolean
+      default: false
+      description: Generate a policy-compliant random password and return it once as `generatedPassword`.
+    roleKeys:
+      type: array
+      description: |
+        Exact role set. Empty or omitted assigns the default `member` role.
+        Granting `super_admin` requires the actor to be a super admin.
+      items:
+        type: string
+    emailVerified:
+      type: boolean
+      default: false
+      description: Mark the email as verified at creation time.
+AdminCreateUserResult:
+  type: object
+  required:
+  - user
+  properties:
+    user:
+      "$ref": "#/AdminUserDetail"
+    generatedPassword:
+      type: string
+      description: |
+        Plaintext initial password. Only present when `generatePassword` is true.
+        Shown once; the server persists only the Argon2id hash.
+ApiResponseAdminCreateUserResult:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/AdminCreateUserResult"
 NicknameChange:
   type: object
   required:

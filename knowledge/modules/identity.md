@@ -10,6 +10,20 @@ helpers.
 
 Initial identity foundation is implemented.
 
+- **后台新增用户（2026-10-27）：** `POST /api/v1/users` 由 `user.manage` 授权，
+  在单事务内创建用户、Argon2id 凭据、角色与 `user.admin_create` 审计。`password`
+  与 `generatePassword` 二选一：自设密码走站点策略校验；随机密码由
+  `GenerateCompliantPassword` 生成，只在 201 响应的 `generatedPassword` 出现一次，
+  数据库只存哈希。角色是精确集合，空集合回落 `member`；授予 `super_admin` 仍要求
+  操作者是超管。管理员创建不受开放注册开关影响，也不触发 `user.before_register`，
+  但仍执行 host 用户名/邮箱/密码策略，并在提交后发出 `user.registered`
+  （actor 为管理员）。实现放在 `AdminUserCreator` 聚焦协作者而非 `Service`，避免
+  继续增长 God-object。后台 `/control-panel/users` 标题行新增「新增用户」按钮与
+  `SFAdminUserCreateDialog`（两种密码模式、用户组多选、邮箱已验证勾选、字段级 422），
+  创建成功后回到第 1 页并高亮新行；用户预览 inspector 同时抽成
+  `SFAdminUserPreviewModal`，`users.vue` 架构 baseline 由 1516 降到 1138。
+  V3 目录新增 `core.route.identity.create_user` 与两个 admin 组件稳定身份。
+
 - **App / 机器客户端单请求登录换令牌（2026-10-02）：** `POST /auth/login` 新增可选
   `issueApiToken`（形状与 `POST /auth/tokens` 完全一致：`name` 必填、`scopes`
   显式且必须是当前账号权限子集、`expiresAt` 可选）。携带时在同一次请求内签发

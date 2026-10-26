@@ -29,6 +29,7 @@ var _ optionsResolver = (*options.Service)(nil)
 
 type Controller struct {
 	service            *identity.Service
+	adminUsers         *identity.AdminUserCreator
 	appearance         *identity.AppearancePreferenceService
 	localePreferences  *identity.LocalePreferenceService
 	authSessions       *authsession.Manager
@@ -119,6 +120,7 @@ func NewControllerWithPasswordReset(service *identity.Service, sessions *authses
 	}
 	return &Controller{
 		service:       service,
+		adminUsers:    identity.NewAdminUserCreator(service),
 		authSessions:  sessions,
 		verifier:      verifier,
 		passwordReset: passwordReset,
@@ -413,6 +415,17 @@ type updateUserRequest struct {
 	Signature  *string `json:"signature"`
 	Location   *string `json:"location"`
 	WebsiteURL *string `json:"websiteUrl"`
+}
+
+// createUserRequest 管理员创建用户；password 与 generatePassword 二选一。
+type createUserRequest struct {
+	Username         string   `json:"username"`
+	Email            string   `json:"email"`
+	DisplayName      string   `json:"displayName"`
+	Password         string   `json:"password"`
+	GeneratePassword bool     `json:"generatePassword"`
+	RoleKeys         []string `json:"roleKeys"`
+	EmailVerified    bool     `json:"emailVerified"`
 }
 
 type setUserEmailVerificationRequest struct {

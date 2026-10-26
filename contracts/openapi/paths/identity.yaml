@@ -645,6 +645,36 @@ users:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+  post:
+    summary: Create a user from the admin panel
+    description: |
+      Requires `user.manage`. Creates a human account with a password credential,
+      optional role assignments, and an audit event in one transaction.
+      The registration switch and `user.before_register` hook do not apply to this
+      admin path; host username/email/password policies still do.
+      `password` and `generatePassword` are mutually exclusive. When
+      `generatePassword` is true the response returns the plaintext password
+      exactly once; the server stores only its Argon2id hash.
+    operationId: createAdminUser
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/identity.yaml#/AdminCreateUserInput"
+    responses:
+      '201':
+        description: User created. `generatedPassword` is present only for random generation.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/identity.yaml#/ApiResponseAdminCreateUserResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 userByID:
   get:
     summary: Get an admin user detail

@@ -77,6 +77,8 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Put("/roles/:roleKey/permissions", h.replaceRolePermissions)
 
 	api.Get("/users", h.listUsers)
+	// 管理员直接创建可登录账号（user.manage；super_admin 授予另需超管）。
+	api.Post("/users", h.createUser)
 	api.Get("/users/:userID", h.getUser)
 	// 管理员更新账户/资料字段（user.manage；封禁另需 user.ban）。
 	api.Patch("/users/:userID", h.updateUser)

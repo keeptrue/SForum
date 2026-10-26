@@ -64,6 +64,9 @@ func (passwordResetFakeStore) GetAdminUser(context.Context, int64) (identity.Adm
 func (passwordResetFakeStore) UpdateAdminUser(context.Context, int64, int64, identity.AdminUpdateUserInput) (identity.AdminUserDetail, error) {
 	return identity.AdminUserDetail{}, nil
 }
+func (passwordResetFakeStore) CreateAdminUser(context.Context, int64, identity.AdminCreateUserStoreInput) (identity.AdminUserDetail, error) {
+	return identity.AdminUserDetail{}, nil
+}
 func (passwordResetFakeStore) ListRoles(context.Context) ([]identity.Role, error) { return nil, nil }
 func (passwordResetFakeStore) CreateRole(context.Context, identity.RoleInput) (identity.Role, error) {
 	return identity.Role{}, nil

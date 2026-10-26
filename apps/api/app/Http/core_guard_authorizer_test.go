@@ -1658,6 +1658,7 @@ func TestProductionIdentityAdminGuardPartitionsCatalogByProvablePolicy(t *testin
 
 		"core.route.identity.delete_role":                       {method: "DELETE", supported: true, permissions: []string{identity.PermissionRoleManage}},
 		"core.route.identity.replace_role_permissions":          {method: "PUT", supported: true, permissions: []string{identity.PermissionRoleManage}, body: `{"permissions":["post.create"]}`},
+		"core.route.identity.create_user":                       {method: "POST"},
 		"core.route.identity.update_user":                       {method: "PATCH"},
 		"core.route.identity.admin_clear_user_client_ips":       {method: "POST"},
 		"core.route.identity.set_user_email_verification":       {method: "PUT"},

@@ -70,6 +70,38 @@ func (h *Controller) listUsers(c fiber.Ctx) error {
 	return apphttp.OK(c, users)
 }
 
+func (h *Controller) createUser(c fiber.Ctx) error {
+	if h.adminUsers == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "service.not_ready")
+	}
+	actor, err := h.actor(c)
+	if err != nil {
+		return err
+	}
+
+	var req createUserRequest
+	if err := c.Bind().Body(&req); err != nil {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "validation.invalid")
+	}
+
+	// 管理端创建不暴露语言字段：新账号跟随站点默认语言。
+	locale, _ := h.resolveUserLocale(c.Context(), "")
+	result, err := h.adminUsers.Create(c.Context(), actor, identity.AdminCreateUserInput{
+		Username:         req.Username,
+		Email:            req.Email,
+		DisplayName:      req.DisplayName,
+		Password:         req.Password,
+		GeneratePassword: req.GeneratePassword,
+		RoleKeys:         req.RoleKeys,
+		EmailVerified:    req.EmailVerified,
+		Locale:           locale,
+	})
+	if err != nil {
+		return mapIdentityError(err)
+	}
+	return apphttp.Created(c, result)
+}
+
 func (h *Controller) getUser(c fiber.Ctx) error {
 	actor, err := h.actor(c)
 	if err != nil {

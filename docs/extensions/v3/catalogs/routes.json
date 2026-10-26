@@ -4867,7 +4867,7 @@
     "handler": "health",
     "method": "GET",
     "path": "/api/v1/health",
-    "source": "apps/api/app/Http/server.go:203",
+    "source": "apps/api/app/Http/server.go:214",
     "access": "public",
     "policy": "host liveness/readiness; non-overridable recovery prerequisite",
     "guard": {
@@ -5455,7 +5455,7 @@
     "handler": "ready",
     "method": "GET",
     "path": "/api/v1/ready",
-    "source": "apps/api/app/Http/server.go:222",
+    "source": "apps/api/app/Http/server.go:233",
     "access": "public",
     "policy": "host liveness/readiness; non-overridable recovery prerequisite",
     "guard": {
@@ -5551,7 +5551,7 @@
     "handler": "listRoleSuggestions",
     "method": "GET",
     "path": "/api/v1/roles/suggestions",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:94",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:96",
     "access": "permission",
     "policy": "active cookie session with role.manage; PAT denied; Host explicit decision",
     "guard": {
@@ -5567,7 +5567,7 @@
     "handler": "decideRoleSuggestion",
     "method": "POST",
     "path": "/api/v1/roles/suggestions/:suggestionID/decision",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:95",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:97",
     "access": "permission",
     "policy": "active cookie session with role.manage; PAT denied; Host explicit decision",
     "guard": {
@@ -6185,13 +6185,29 @@
     }
   },
   {
+    "id": "core.route.identity.create_user",
+    "contractVersion": "sforum.route.identity.create_user@1",
+    "module": "identity",
+    "handler": "createUser",
+    "method": "POST",
+    "path": "/api/v1/users",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:81",
+    "access": "permission",
+    "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
+    "guard": {
+      "kind": "contextual",
+      "permissions": [],
+      "evaluatorId": "core.guard.identity.admin"
+    }
+  },
+  {
     "id": "core.route.identity.get_user",
     "contractVersion": "sforum.route.identity.get_user@1",
     "module": "identity",
     "handler": "getUser",
     "method": "GET",
     "path": "/api/v1/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:80",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:82",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6207,7 +6223,7 @@
     "handler": "updateUser",
     "method": "PATCH",
     "path": "/api/v1/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:82",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:84",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6223,7 +6239,7 @@
     "handler": "adminClearUserClientIPs",
     "method": "POST",
     "path": "/api/v1/users/:userID/client-ips/clear",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:91",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:93",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6239,7 +6255,7 @@
     "handler": "setUserEmailVerification",
     "method": "PUT",
     "path": "/api/v1/users/:userID/email-verification",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:83",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:85",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6255,7 +6271,7 @@
     "handler": "adminSetUserPassword",
     "method": "POST",
     "path": "/api/v1/users/:userID/password",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:89",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:91",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6271,7 +6287,7 @@
     "handler": "replaceUserPermissionOverrides",
     "method": "PUT",
     "path": "/api/v1/users/:userID/permission-overrides",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:85",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:87",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6287,7 +6303,7 @@
     "handler": "replaceUserRoles",
     "method": "PUT",
     "path": "/api/v1/users/:userID/roles",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:84",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:86",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6303,7 +6319,7 @@
     "handler": "adminRevokeUserSessions",
     "method": "POST",
     "path": "/api/v1/users/:userID/sessions/revoke",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:87",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go:89",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {

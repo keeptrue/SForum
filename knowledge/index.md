@@ -6,6 +6,14 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 后台新增用户（创建弹窗 + `POST /users`）
+
+- Status: **landed（2026-10-27）**。`user.manage` 授权的创建端点在一个事务内
+  写入用户、凭据、角色与审计；自设/随机两种初始密码，随机密码只在响应中出现
+  一次。`/control-panel/users` 标题行新增按钮与创建弹窗，成功后回第 1 页并
+  高亮新行；预览 inspector 抽成独立组件，`users.vue` baseline 降到 1138。
+- Handoff：`sessions/2026-10-27-admin-create-user.md`。
+
 ### 邮件提供商默认与选择生命周期
 
 - Status: **landed（2026-10-26）**。`mail_provider_selection` 不再是唯一

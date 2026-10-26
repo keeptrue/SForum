@@ -900,6 +900,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sfadmin_user_create_dialog",
+    "contractVersion": "sforum.component.admin.sfadmin_user_create_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserCreateDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_user_email_verification_control",
     "contractVersion": "sforum.component.admin.sfadmin_user_email_verification_control@1",
     "kind": "component",
@@ -924,6 +934,16 @@
     "contractVersion": "sforum.component.admin.sfadmin_user_nickname_history@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/identity/users/SFAdminUserNicknameHistory.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_user_preview_modal",
+    "contractVersion": "sforum.component.admin.sfadmin_user_preview_modal@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserPreviewModal.vue",
     "owners": [
       "admin"
     ],

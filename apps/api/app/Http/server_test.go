@@ -1839,6 +1839,29 @@ func (s *httpFakeStore) UpdateAdminUser(_ context.Context, _ int64, targetUserID
 	return s.GetAdminUser(context.Background(), targetUserID)
 }
 
+func (s *httpFakeStore) CreateAdminUser(_ context.Context, _ int64, input identity.AdminCreateUserStoreInput) (identity.AdminUserDetail, error) {
+	user := identity.CurrentUser{
+		ID:            s.nextUserID,
+		Username:      input.Username,
+		DisplayName:   input.DisplayName,
+		Locale:        input.Locale,
+		Status:        identity.UserStatusActive,
+		EmailVerified: input.EmailVerified,
+	}
+	s.nextUserID++
+	s.users[user.ID] = user
+	s.userEmails[user.ID] = input.Email
+	s.credentials[user.ID] = input.PasswordHash
+	for _, roleKey := range input.RoleKeys {
+		role, ok := s.roles[roleKey]
+		if !ok {
+			return identity.AdminUserDetail{}, identity.ErrInvalidRole
+		}
+		s.userRoleIDs[user.ID] = append(s.userRoleIDs[user.ID], role.ID)
+	}
+	return s.GetAdminUser(context.Background(), user.ID)
+}
+
 func (s *httpFakeStore) ListRoles(context.Context) ([]identity.Role, error) {
 	roles := make([]identity.Role, 0, len(s.roles))
 	for _, role := range s.roles {

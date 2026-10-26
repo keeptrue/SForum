@@ -114,3 +114,9 @@ export type AdminUserList = {
   page: number
   perPage: number
 }
+
+/** 管理端创建用户的结果；generatedPassword 只在随机生成模式下出现一次。 */
+export type AdminCreateUserResult = {
+  user: AdminUserDetail
+  generatedPassword?: string
+}

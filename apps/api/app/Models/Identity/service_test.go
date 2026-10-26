@@ -955,6 +955,35 @@ func (s *fakeStore) AssignRole(_ context.Context, userID int64, roleID int64) er
 	return nil
 }
 
+func (s *fakeStore) CreateAdminUser(ctx context.Context, _ int64, input AdminCreateUserStoreInput) (AdminUserDetail, error) {
+	user, err := s.CreateUser(ctx, CreateUserInput{
+		Username:      input.Username,
+		Email:         input.Email,
+		DisplayName:   input.DisplayName,
+		Locale:        input.Locale,
+		EmailVerified: input.EmailVerified,
+	})
+	if err != nil {
+		return AdminUserDetail{}, err
+	}
+	stored := s.users[user.ID]
+	stored.EmailVerified = input.EmailVerified
+	s.users[user.ID] = stored
+	if err := s.CreateCredential(ctx, user.ID, input.PasswordHash); err != nil {
+		return AdminUserDetail{}, err
+	}
+	for _, roleKey := range input.RoleKeys {
+		role, ok := s.roles[roleKey]
+		if !ok {
+			return AdminUserDetail{}, ErrInvalidRole
+		}
+		if err := s.AssignRole(ctx, user.ID, role.ID); err != nil {
+			return AdminUserDetail{}, err
+		}
+	}
+	return s.GetAdminUser(ctx, user.ID)
+}
+
 func (s *fakeStore) LoadCurrentUserAccess(_ context.Context, current *CurrentUser) error {
 	if s.loadAccessErr != nil {
 		return s.loadAccessErr

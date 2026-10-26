@@ -25,6 +25,8 @@ type Store interface {
 	UserKindOf(ctx context.Context, userID int64) (UserKind, error)
 	// UpdateAdminUser 更新用户账户字段与资料；input 中非空指针字段才会写入。
 	UpdateAdminUser(ctx context.Context, actorUserID int64, targetUserID int64, input AdminUpdateUserInput) (AdminUserDetail, error)
+	// CreateAdminUser 管理员创建账号：用户、凭据、角色与审计在同一事务内完成。
+	CreateAdminUser(ctx context.Context, actorUserID int64, input AdminCreateUserStoreInput) (AdminUserDetail, error)
 	ListRoles(ctx context.Context) ([]Role, error)
 	CreateRole(ctx context.Context, input RoleInput) (Role, error)
 	UpdateRole(ctx context.Context, roleKey string, input RoleInput) (Role, error)

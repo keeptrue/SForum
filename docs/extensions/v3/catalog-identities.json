@@ -2168,6 +2168,12 @@
       "path": "/api/v1/users"
     },
     {
+      "id": "core.route.identity.create_user",
+      "contractVersion": "sforum.route.identity.create_user@1",
+      "method": "POST",
+      "path": "/api/v1/users"
+    },
+    {
       "id": "core.route.identity.get_user",
       "contractVersion": "sforum.route.identity.get_user@1",
       "method": "GET",
@@ -5295,6 +5301,26 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/identity/users/SFAdminUserListToolbar.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_preview_modal",
+      "contractVersion": "sforum.component.admin.sfadmin_user_preview_modal@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserPreviewModal.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_create_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_user_create_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserCreateDialog.vue"
     },
     {
       "id": "core.component.admin.sfadmin_user_nickname_history",
