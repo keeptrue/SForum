@@ -331,6 +331,13 @@ func validateExtensionDatabaseDispositionRoleMembers(
 	return rows.Err()
 }
 
+// validateExactActiveDispositionGrant 校验「本次要抹除的 exact artifact」是否还挂着
+// active grant。查询必须带 artifact 条件（version_id / version / digest）：
+// extension_database_grants 允许一个扩展同时存在多条 active（唯一索引只约束同一
+// artifact，见 202607150022_extension_database_additive_grants.sql:60），正常
+// install → upgrade → uninstall 必然留下旧 artifact 的 active grant；只按
+// extension_id 取首行会拿到旧行，从而把 purge 永久判成 conflict。
+// 无匹配行即通过：该 artifact 没有 active grant，没有需要撤销的授予。
 func validateExactActiveDispositionGrant(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -342,8 +349,10 @@ func validateExactActiveDispositionGrant(
 		SELECT extension_version_id, extension_version, package_digest
 		FROM extension_database_grants
 		WHERE extension_id = $1 AND status = 'active'
+		  AND extension_version_id = $2 AND extension_version = $3 AND package_digest = $4
 		FOR UPDATE
-	`, artifact.ExtensionID).Scan(&versionID, &version, &digest)
+	`, artifact.ExtensionID, artifact.VersionID, artifact.Version, artifact.PackageDigest).
+		Scan(&versionID, &version, &digest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
