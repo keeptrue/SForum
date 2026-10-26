@@ -654,16 +654,41 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **应用商城安装体验：宿主动作二连 + 弹窗层级（2026-10-26，最新）**：新增第二个
-  页面级宿主动作 `extension.install.enable`
-  （`bridge.installAndEnableExtension` → 安装身份 + 三态 `outcome`：`enabled` /
-  `upgraded` / `staged`）；启用走既有生命周期路由（`enable`，升级态
-  `upgrade`/`restart`）并带 `Idempotency-Key`，可执行后端仍在宿主弹窗内做
-  exact-artifact 审阅，非 super_admin 与主题回落 `staged`，启用失败保留已安装并只
-  重试启用；`extension.install` 语义零改动。死锁根因（`UModal` 无 z-index + 商店遮罩
-  `z-index:40` + reka 给 `body` 设 `pointer-events:none`）已修：宿主弹窗固定
-  `z-[80]`，toast 仍 `z-100`。Go 清单测试与 web 61 用例通过；**商店侧去掉
-  z-index hack 仍在进行，真机 QA 待补**。详见
+- **卸载 tombstone 三层诊断：grant 层已修，identity purge 层未解（2026-10-26，最新）**：
+  908/909 长期 `pending` 的根因分三层，本轮修到第二层。① 授予校验只按
+  `extension_id + status='active'` 取首行（隐含「一个扩展一条 active grant」，与 schema
+  相反）→ 改为 exact-artifact 三元组匹配（`ae3913ec6`）；② identity purge 与 append-only
+  发布账本的 `ON DELETE RESTRICT` 冲突 → **需要新决策，归
+  `plans/2026-10-26-uninstall-identity-purge.md`，不能写成「已修好」**；③ 703 是
+  fail-closed 正确、缺的是 `superseded` 出口，不是 bug。`record id 30/34` 是 cleanup
+  record 编号而非「30/34 条成功」—— 这两条能 finalized 恰恰因为它们从未进过发布账本，
+  是**负证据**。另有 op 926 job publication 停在 `target/pending` 的读取侧缺线
+  （`plans/2026-10-26-op926-job-publication.md`）。诊断
+  `sessions/2026-10-26-uninstall-tombstone-diagnosis.md`、决策
+  `decisions/2026-10-26-disposition-grant-exact-artifact.md`。**本轮 5 个提交全部未
+  push、未打 tag**，待推送清单与三条易误读结论见
+  `sessions/2026-10-26-store-install-release-handoff.md` 的 Next。商城 6–7MB 包交付风险
+  （90s 硬超时，推荐 A 收敛版 + 错误码修正）见
+  `plans/2026-10-26-store-package-delivery-risk.md`。
+
+- **v3.0.18 补发：商城安装链路首次真正发布（2026-10-26，最新）**：`v3.0.17` 的
+  tag 已推但**零发布** —— `release.yml` 的 `Publish versioned Web SDKs` 卡在
+  `Vue scaffold must depend on "@sforum/admin-sdk": "^1.3.0"`，`promote` 及其下游
+  全部 skipped，npm / GHCR `latest` / GitHub Release 三处都没动；按「不移动已推送
+  tag」惯例保留该 tag，由 `v3.0.18` 补发（tag message 首行即写明补的是 v3.0.17）。
+  补发 run 24 job 全绿：Release「SForum v3.0.18」11 个 asset、
+  `@sforum/admin-sdk@1.3.0`、GHCR `latest` 与 `3.0.18` 同 digest。core HEAD
+  `26d808403` = tag `v3.0.18`（`v3.0.16..v3.0.18` 30 个提交，含宿主动作二连
+  `extension.install.enable` 三态 `enabled`/`upgraded`/`staged`、`CoreCompatibilityVersion`
+  从 tag 派生、`LifecycleRecovery`、平台闸门、`LiveGrant` NULL 修复）；store HEAD
+  `6b3885f`，pin 完整 40 位 `26d808403…`（`# v3.0.18`）、`sforumVersion >=3.0.17`、
+  `backend.digest 82156831…`，CI 两 job 全绿。关键修复：把 Web SDK 校验从
+  release-only 挂进主门禁 `ci.yml`（原先失败永远发生在发版最后一步）。**残留**：
+  store `ci.yml:75` 注释文本仍写 v3.0.17（与 ref 的 `# v3.0.18` 不一致，纯注释）；
+  真机取证 P0-2/P0-3 未过（取包截断 2.0MB、一次 503）；6–7MB 包贴 90s 宿主超时，
+  见 `plans/2026-10-26-store-package-delivery-risk.md`。详见
+  `sessions/2026-10-26-store-install-release-handoff.md`；安装交互与弹窗层级
+  （宿主弹窗固定 `z-[80]`、商店侧 z-index hack 已移除）见
   `sessions/2026-10-26-store-install-ux.md` 与
   `decisions/2026-10-24-admin-page-host-action.md`（2026-10-26 修订）。
 
