@@ -29,13 +29,15 @@ type CommentResourceGuardSubject struct {
 
 // LoadTopicResourceGuardSubject loads current topic ownership for a production
 // route guard. Missing rows return ErrTopicNotFound so the guard can fail closed.
+// 作者注销后 author_user_id 被 FK 置为 NULL（ON DELETE SET NULL），这里归一成 0，
+// 交给上层按「作者已注销」fail-closed，而不是把记录误判成不存在。
 func (s *PostgresStore) LoadTopicResourceGuardSubject(ctx context.Context, topicID int64) (TopicResourceGuardSubject, error) {
 	if s == nil || s.pool == nil || ctx == nil || topicID <= 0 {
 		return TopicResourceGuardSubject{}, ErrInvalidTopic
 	}
 	var subject TopicResourceGuardSubject
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, author_user_id, status FROM topics WHERE id = $1
+		SELECT id, COALESCE(author_user_id, 0), status FROM topics WHERE id = $1
 	`, topicID).Scan(&subject.TopicID, &subject.AuthorUserID, &subject.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TopicResourceGuardSubject{}, ErrTopicNotFound
@@ -49,13 +51,14 @@ func (s *PostgresStore) LoadTopicResourceGuardSubject(ctx context.Context, topic
 
 // LoadCommentResourceGuardSubject loads current comment ownership for a
 // production route guard. Missing rows return ErrCommentNotFound.
+// 同 topic：NULL 作者归一成 0，记录本身仍然存在。
 func (s *PostgresStore) LoadCommentResourceGuardSubject(ctx context.Context, commentID int64) (CommentResourceGuardSubject, error) {
 	if s == nil || s.pool == nil || ctx == nil || commentID <= 0 {
 		return CommentResourceGuardSubject{}, ErrCommentNotFound
 	}
 	var subject CommentResourceGuardSubject
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, author_user_id, status FROM comments WHERE id = $1
+		SELECT id, COALESCE(author_user_id, 0), status FROM comments WHERE id = $1
 	`, commentID).Scan(&subject.CommentID, &subject.AuthorUserID, &subject.Status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return CommentResourceGuardSubject{}, ErrCommentNotFound

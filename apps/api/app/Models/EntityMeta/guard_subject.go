@@ -22,6 +22,7 @@ type ValueGuardSubject struct {
 
 // LoadValueGuardSubject 读取 entity-meta value 路由的当前实体所有权与字段保护等级。
 // 每次请求读取 PostgreSQL，确保另一 API 节点更新 owner/visibility 后立即生效。
+// topics.author_user_id 可空（作者注销后 FK 置 NULL），归一成 0 表示「作者已注销」。
 func (s *PostgresStore) LoadValueGuardSubject(
 	ctx context.Context,
 	entityType string,
@@ -38,7 +39,7 @@ func (s *PostgresStore) LoadValueGuardSubject(
 	case EntityUser:
 		err = s.pool.QueryRow(ctx, `SELECT id FROM users WHERE id = $1`, entityID).Scan(&subject.OwnerUserID)
 	case EntityTopic:
-		err = s.pool.QueryRow(ctx, `SELECT author_user_id FROM topics WHERE id = $1`, entityID).Scan(&subject.OwnerUserID)
+		err = s.pool.QueryRow(ctx, `SELECT COALESCE(author_user_id, 0) FROM topics WHERE id = $1`, entityID).Scan(&subject.OwnerUserID)
 	}
 	if err != nil {
 		return ValueGuardSubject{}, fmt.Errorf("load entity-meta guard owner: %w", err)

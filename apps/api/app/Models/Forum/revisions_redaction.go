@@ -84,11 +84,14 @@ func (s *PostgresStore) redactRevision(ctx context.Context, input RevisionRedact
 	return nil
 }
 
+// lockRedactionTarget 锁定抹除目标的 content 行。作者注销后 author_user_id 为 NULL
+// （ON DELETE SET NULL），这里归一成 0：抹除照常完成，审计 target_user_id 落 NULL
+// （audit.Event 约定 0 表示无目标用户），不因为作者已注销而整条请求失败。
 func lockRedactionTarget(ctx context.Context, tx pgx.Tx, targetType string, targetID int64) (postID, currentRevision, authorID int64, err error) {
-	query := `SELECT content_id, current_revision, author_user_id FROM topics JOIN posts ON posts.id = topics.content_id WHERE topics.id = $1 FOR UPDATE OF topics, posts`
+	query := `SELECT content_id, current_revision, COALESCE(topics.author_user_id, 0) FROM topics JOIN posts ON posts.id = topics.content_id WHERE topics.id = $1 FOR UPDATE OF topics, posts`
 	notFound := ErrTopicNotFound
 	if targetType == "comment" {
-		query = `SELECT content_id, current_revision, author_user_id FROM comments JOIN posts ON posts.id = comments.content_id WHERE comments.id = $1 FOR UPDATE OF comments, posts`
+		query = `SELECT content_id, current_revision, COALESCE(comments.author_user_id, 0) FROM comments JOIN posts ON posts.id = comments.content_id WHERE comments.id = $1 FOR UPDATE OF comments, posts`
 		notFound = ErrCommentNotFound
 	}
 	err = tx.QueryRow(ctx, query, targetID).Scan(&postID, &currentRevision, &authorID)
