@@ -92,7 +92,7 @@ func (s *PostgresExecutableTrustStore) LiveGrant(ctx context.Context, identity T
 	var grant TrustGrant
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, extension_id, extension_version, package_digest, action,
-		       impact_digest, granted_by_user_id, granted_at, revoked_at,
+		       impact_digest, COALESCE(granted_by_user_id, 0), granted_at, revoked_at,
 		       COALESCE(revoked_by_user_id, 0), revocation_reason
 		FROM extension_trust_grants
 		WHERE extension_id = $1 AND extension_version = $2

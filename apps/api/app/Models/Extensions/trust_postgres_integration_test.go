@@ -440,3 +440,85 @@ func TestPostgresExecutableTrustStoreSupersedesStaleLiveGrantForSamePackage(t *t
 		t.Fatalf("challenge consumption must also converge to one live grant: %v", impacts)
 	}
 }
+
+// TestPostgresExecutableTrustStoreLoadsGrantWhoseGrantorWasDeleted 固化
+// granted_by_user_id 可空这一事实：列上挂着 ON DELETE SET NULL，删掉曾授予
+// 可执行信任的管理员后，live grant 仍然有效，但授予人变成 NULL。
+//
+// 启动期 refresh extension guard policy 会读这条 grant；把 NULL 扫进 int64
+// 会让整个 API 起不来（cannot scan NULL into *int64），所以 LiveGrant 必须
+// 与 revoked_by_user_id 一样把缺失的授予人归一成 0（未知）。
+func TestPostgresExecutableTrustStoreLoadsGrantWhoseGrantorWasDeleted(t *testing.T) {
+	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
+	if databaseURL == "" {
+		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	extensionID := "trust.deleted-grantor." + suffix
+	var actorID int64
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO users (username, username_lower, email, email_lower, display_name)
+		VALUES ($1, $1, $2, $2, 'Deleted Grantor') RETURNING id
+	`, "trust_grantor_"+suffix, "trust_grantor_"+suffix+"@example.test").Scan(&actorID); err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, actorID)
+	if _, err := pool.Exec(ctx, `INSERT INTO extensions (id, type, name) VALUES ($1, 'plugin', 'Deleted Grantor')`, extensionID); err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Exec(ctx, `DELETE FROM extensions WHERE id = $1`, extensionID)
+
+	identity := TrustIdentity{
+		ExtensionID: extensionID, ExtensionVersion: "1.0.0",
+		PackageDigest: strings.Repeat("a", 64), Action: TrustActionEnable,
+		ImpactDigest: strings.Repeat("b", 64),
+	}
+	store := NewPostgresExecutableTrustStore(pool)
+	if _, err := store.EnsureLiveGrant(ctx, TrustEnsureGrantInput{
+		ActorUserID: actorID, Identity: identity,
+		ArtifactDigests: map[string]string{"package": identity.PackageDigest},
+		Impact: TrustImpact{
+			SchemaVersion: TrustImpactSchemaV1, Action: TrustActionEnable,
+			ExtensionID: extensionID, ExtensionVersion: identity.ExtensionVersion,
+			PackageDigest:   identity.PackageDigest,
+			ArtifactDigests: map[string]string{"package": identity.PackageDigest},
+			Digest:          identity.ImpactDigest,
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 删掉授予人：FK 的 ON DELETE SET NULL 把列置空，grant 本身仍是 live。
+	if _, err := pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, actorID); err != nil {
+		t.Fatal(err)
+	}
+	var grantorNull, live bool
+	if err := pool.QueryRow(ctx, `
+		SELECT granted_by_user_id IS NULL, revoked_at IS NULL
+		FROM extension_trust_grants
+		WHERE extension_id = $1
+	`, extensionID).Scan(&grantorNull, &live); err != nil {
+		t.Fatal(err)
+	}
+	if !grantorNull || !live {
+		t.Fatalf("fixture must leave one live grant with a NULL grantor: null=%v live=%v", grantorNull, live)
+	}
+
+	grant, err := store.LiveGrant(ctx, identity)
+	if err != nil {
+		t.Fatalf("load live grant whose grantor was deleted: %v", err)
+	}
+	if grant.GrantedByUserID != 0 {
+		t.Fatalf("granted_by_user_id = %d, want 0 for a deleted grantor", grant.GrantedByUserID)
+	}
+	if grant.ID <= 0 || grant.ExtensionID != extensionID || grant.RevokedAt != nil {
+		t.Fatalf("loaded grant = %#v", grant)
+	}
+}
