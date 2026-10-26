@@ -70,7 +70,7 @@ done
 | 5 | 说明句 | success 色 alert 的描述 === **「插件已经在运行。要停用或改设置，去插件页。」** |
 | 6 | 制品摘要 | 「制品摘要」的 dd 非空、64 位 hex，且与确认态那屏显示的 SHA-256 逐字相同（同一弹窗前后两屏对比；不要求等于商城页面上的 sha256，两者口径可能不同） |
 | 7 | 底部动作 | 两个按钮：**「关闭」** + **「去插件页完成信任与启用」** |
-| 8 | **独立复核** | 点「去插件页完成信任与启用」→ 落到 `/admin/extensions/plugins`，该扩展行状态为**已启用**，版本列 === 本次版本 |
+| 8 | **独立复核** | 点「去插件页完成信任与启用」→ 落到「当前管理前缀 + `/extensions/plugins`」，该扩展行状态为**已启用**，版本列 === 本次版本。**前缀是实例配置**：本机实测 `/control-panel`，代码默认 `/n`（`adminRoutePrefix.ts`），不要写死 |
 
 更硬的复核（能取到就用）：
 - `GET /api/v1/admin/extensions` 里该 id `status === 'enabled'` 且 active version === 本次版本；
@@ -168,7 +168,7 @@ const id = setInterval(() => {
 
 ```
 时间：
-URL：/admin/extensions/sforum.store/pages/catalog
+URL：<当前管理前缀>/extensions/sforum.store/pages/catalog（本机实测前缀 `/control-panel`）
 账号角色：super_admin?（是/否）
 扩展：<id> <旧版本> → <新版本>
 DOM：<选择器> = "<文本>"
