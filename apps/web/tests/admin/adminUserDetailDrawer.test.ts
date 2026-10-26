@@ -15,6 +15,11 @@ const AccountSection = await compileVueSfc(accountPath, 'drawer-account-section'
   SFAdminUserEmailVerificationControl: { template: '<div />' }
 })
 
+const rolesPath = fileURLToPath(
+  new URL('../../app/components/admin/identity/users/SFAdminUserRolesSection.vue', import.meta.url)
+)
+const RolesSection = await compileVueSfc(rolesPath, 'drawer-roles-section')
+
 const passthrough = { template: '<div />' }
 
 const Drawer = await compileVueSfc(drawerPath, 'admin-user-detail-drawer', {
@@ -23,7 +28,7 @@ const Drawer = await compileVueSfc(drawerPath, 'admin-user-detail-drawer', {
   SFAdminUserAccountSection: AccountSection,
   SFAdminUserProfileSection: passthrough,
   SFAdminUserSecuritySection: passthrough,
-  SFAdminUserRolesSection: passthrough,
+  SFAdminUserRolesSection: RolesSection,
   SFAdminUserPermissionsSection: passthrough,
   SFAdminUserNicknameHistory: passthrough,
   SFAdminSurfaceOutlet: passthrough,
@@ -64,7 +69,11 @@ function installGlobals(requests: Array<{ path: string, options?: Record<string,
     computed: testVue.computed,
     watch: testVue.watch,
     nextTick: testVue.nextTick,
-    useI18n: () => ({ t: (key: string) => key }),
+    // 摘要会用 t(key, { fields }) 拼句子；把参数带进返回值，断言才看得见字段名。
+    useI18n: () => ({
+      t: (key: string, params?: Record<string, unknown>) =>
+        typeof params?.fields === 'string' ? `${key}(${params.fields})` : key
+    }),
     useToast: () => ({ add: (toast: Record<string, unknown>) => toasts.push(toast) }),
     usePermissionText: () => ({
       permissionLabel: (permission: { key: string }) => permission.key,
@@ -74,6 +83,16 @@ function installGlobals(requests: Array<{ path: string, options?: Record<string,
     useApiClient: () => ({
       request: async (path: string, options?: Record<string, unknown>) => {
         requests.push({ path, options })
+        if (options?.method === 'PUT' && path.endsWith('/roles')) {
+          throw {
+            code: 422,
+            message: '用户更新内容不正确，请检查账户和资料字段后重试。',
+            data: {
+              reason: 'user.invalid_update',
+              fields: { roleKeys: ['所选用户组不存在。'] }
+            }
+          }
+        }
         if (options?.method === 'PATCH') {
           // 后端契约：422 + data.fields 携带本地化字段消息。
           throw {
@@ -91,12 +110,12 @@ function installGlobals(requests: Array<{ path: string, options?: Record<string,
   })
 }
 
-function mountDrawer() {
+function mountDrawer(roles: Array<{ key: string, alias: string }> = []) {
   const requests: Array<{ path: string, options?: Record<string, unknown> }> = []
   const toasts: Record<string, unknown>[] = []
   installGlobals(requests, toasts)
   const wrapper = mount(Drawer, {
-    props: { roles: [], permissions: [] },
+    props: { roles, permissions: [] },
     global: {
       stubs: {
         USlideover: {
@@ -135,7 +154,8 @@ describe('admin user detail drawer errors', () => {
     try {
       await openAndSaveInvalidEmail(wrapper)
       expect(wrapper.get('[data-user-field="email"] .field-error').text()).toBe('邮箱格式不正确。')
-      expect(wrapper.get('[data-testid="drawer"] .alert').text()).toContain('admin.users.fieldFallback')
+      expect(wrapper.get('[data-testid="drawer"] .alert').text())
+        .toContain('admin.users.fieldFallback(admin.users.email)')
     } finally {
       wrapper.unmount()
     }
@@ -148,6 +168,27 @@ describe('admin user detail drawer errors', () => {
       expect(toasts.filter(toast => toast.color === 'error')).toHaveLength(0)
       // 抽屉不向页面冒错误事件：列表区红条只服务列表加载/筛选失败。
       expect(Object.keys(wrapper.emitted())).not.toContain('error')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('renders a roleKeys failure on the group picker itself', async () => {
+    const { wrapper } = mountDrawer([
+      { key: 'member', alias: 'Member' },
+      { key: 'moderator', alias: 'Moderator' }
+    ])
+    try {
+      await (wrapper.vm as unknown as { open: (user: typeof baseUser) => Promise<void> }).open(baseUser)
+      await flushPromises()
+      // 先真的改一次用户组，否则保存按钮按 dirty 规则保持禁用。
+      await wrapper.findAll('input[type="checkbox"]')[1].trigger('change')
+      const save = wrapper.findAll('button').find(item => item.text().includes('admin.users.saveRoles'))
+      await save!.trigger('click')
+      await flushPromises()
+      expect(wrapper.get('[data-user-field="roleKeys"] .field-error').text()).toBe('所选用户组不存在。')
+      expect(wrapper.get('[data-testid="drawer"] .alert').text())
+        .toContain('admin.users.fieldFallback(admin.users.roles)')
     } finally {
       wrapper.unmount()
     }

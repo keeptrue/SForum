@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  adminUserErrorFieldNames,
   firstAdminUserErrorField,
   resolveAdminUserError
 } from '../../app/utils/admin/adminUserFieldErrors'
 
 const copy = {
   fallback: '保存失败，请稍后重试。',
-  fieldsSummary: '请按字段提示修改后重试。',
+  fieldsSummary: (fields: Record<string, string[]>) => `点名:${Object.keys(fields).join(',')}`,
   noChanges: '没有检测到改动，请先修改再保存。'
 }
 
@@ -26,7 +27,7 @@ describe('admin user drawer errors', () => {
     }
 
     expect(resolveAdminUserError(error, copy)).toEqual({
-      summary: copy.fieldsSummary,
+      summary: copy.fieldsSummary({ email: ['邮箱格式不正确。'] }),
       fields: { email: ['邮箱格式不正确。'] }
     })
   })
@@ -42,7 +43,7 @@ describe('admin user drawer errors', () => {
     }
 
     expect(resolveAdminUserError(error, copy)).toEqual({
-      summary: copy.fieldsSummary,
+      summary: copy.fieldsSummary({ username: ['这个用户名已被使用，请换一个。'] }),
       fields: { username: ['这个用户名已被使用，请换一个。'] }
     })
   })
@@ -70,10 +71,19 @@ describe('admin user drawer errors', () => {
     })
   })
 
+  test('names the failing fields in drawer order and folds the rest', () => {
+    expect(adminUserErrorFieldNames({ roleKeys: ['x'], email: ['y'], username: ['z'] }))
+      .toEqual({ names: ['username', 'email', 'roleKeys'], extra: 0 })
+    expect(adminUserErrorFieldNames({ roleKeys: ['x'], email: ['y'], username: ['z'], status: ['w'], bio: ['v'] }))
+      .toEqual({ names: ['username', 'email', 'status'], extra: 2 })
+    expect(adminUserErrorFieldNames({ unknownField: ['x'] })).toEqual({ names: ['unknownField'], extra: 0 })
+  })
+
   test('focuses the first error in drawer visual order', () => {
     expect(firstAdminUserErrorField({ websiteUrl: ['x'], email: ['y'] })).toBe('email')
     expect(firstAdminUserErrorField({ confirmPassword: ['x'], password: ['y'] })).toBe('password')
     expect(firstAdminUserErrorField({ unknownField: ['x'] })).toBe('unknownField')
+    expect(firstAdminUserErrorField({ roleKeys: ['x'], confirmPassword: ['y'] })).toBe('confirmPassword')
     expect(firstAdminUserErrorField({})).toBeNull()
   })
 })

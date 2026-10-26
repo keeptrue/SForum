@@ -6,6 +6,7 @@ const props = defineProps<{
   selectedKeys: string[]
   saving: boolean
   dirty: boolean
+  errors: Record<string, string[]>
 }>()
 
 const emit = defineEmits<{
@@ -38,23 +39,25 @@ const { t } = useI18n()
       </UButton>
     </div>
 
-    <div class="grid gap-2 sm:grid-cols-2">
-      <label
-        v-for="role in props.roles"
-        :key="role.key"
-        class="flex min-h-14 cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-[var(--sf-accent-soft-border)] dark:border-zinc-800 dark:bg-zinc-950"
-      >
-        <input
-          type="checkbox"
-          class="mt-1 size-4 accent-[var(--sf-accent)]"
-          :checked="props.selectedKeys.includes(role.key)"
-          @change="emit('toggle', role.key)"
+    <UFormField data-user-field="roleKeys" :error="props.errors.roleKeys?.[0]">
+      <div class="grid gap-2 sm:grid-cols-2">
+        <label
+          v-for="role in props.roles"
+          :key="role.key"
+          class="flex min-h-14 cursor-pointer items-start gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-[var(--sf-accent-soft-border)] dark:border-zinc-800 dark:bg-zinc-950"
         >
-        <span class="min-w-0">
-          <span class="block font-semibold text-slate-900 dark:text-zinc-100">{{ role.alias }}</span>
-          <span class="block truncate text-xs text-slate-500 dark:text-zinc-400">{{ role.key }}</span>
-        </span>
-      </label>
-    </div>
+          <input
+            type="checkbox"
+            class="mt-1 size-4 accent-[var(--sf-accent)]"
+            :checked="props.selectedKeys.includes(role.key)"
+            @change="emit('toggle', role.key)"
+          >
+          <span class="min-w-0">
+            <span class="block font-semibold text-slate-900 dark:text-zinc-100">{{ role.alias }}</span>
+            <span class="block truncate text-xs text-slate-500 dark:text-zinc-400">{{ role.key }}</span>
+          </span>
+        </label>
+      </div>
+    </UFormField>
   </section>
 </template>

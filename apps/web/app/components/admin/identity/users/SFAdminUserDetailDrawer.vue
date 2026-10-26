@@ -209,6 +209,7 @@ defineExpose({
               :selected-keys="selectedRoleKeys"
               :saving="savingRoles"
               :dirty="rolesDirty"
+              :errors="fieldErrors"
               @toggle="toggleRole"
               @save="saveRoles"
             />

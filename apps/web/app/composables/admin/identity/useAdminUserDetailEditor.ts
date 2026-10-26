@@ -2,6 +2,8 @@ import type { Ref } from 'vue'
 import type { AdminUserDetail, AdminUserSummary, UserStatus } from '~/utils/admin/adminUsers'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import {
+  ADMIN_USER_FIELD_LABEL_KEYS,
+  adminUserErrorFieldNames,
   firstAdminUserErrorField,
   resolveAdminUserError
 } from '~/utils/admin/adminUserFieldErrors'
@@ -147,10 +149,18 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
     errorFocusRequest.value += 1
   }
 
+  // 摘要点名出错字段：抽屉是长表单，只说「请按字段提示修改」等于没说。
+  function describeFieldErrors(fields: Record<string, string[]>) {
+    const { names, extra } = adminUserErrorFieldNames(fields)
+    const labels = names.map(name => t(ADMIN_USER_FIELD_LABEL_KEYS[name] ?? name))
+    const list = labels.join(t('admin.users.fieldListSeparator'))
+    return extra > 0 ? `${list}${t('admin.users.fieldListMore', { count: extra })}` : list
+  }
+
   function presentError(error: unknown, fallback: string) {
     const presentation = resolveAdminUserError(error, {
       fallback,
-      fieldsSummary: t('admin.users.fieldFallback'),
+      fieldsSummary: fields => t('admin.users.fieldFallback', { fields: describeFieldErrors(fields) }),
       noChanges: t('admin.users.noChanges')
     })
     drawerError.value = presentation.summary
