@@ -1,5 +1,5 @@
 {
-  "sharedRuntimeDigest": "4f9416cd3e28064c7372995f7901b5e1ee03322f4577833ff971515e8b10ba00",
+  "sharedRuntimeDigest": "09fb43ed5340c444c02470e1790d123e0c9b2848734fca47460b3ed681f0eed0",
   "plugins": {
     "sforum.auth-github": {
       "version": "1.0.8",
