@@ -124,6 +124,11 @@ jobs:
       - name: Reject generated SDK drift
         run: git diff --exit-code -- apps/api/sdk/plugin/v2/gen contracts
 
+      # 这条断言原本只在 release.yml 的 publish-web-sdks 里，导致「SDK 版本抬了但
+      # Vue 脚手架模板没跟上」这类问题要等到发版最后一步才暴露（v3.0.17 就是这么红的）。
+      - name: Validate Web SDK packages
+        run: node ./scripts/ci/validate-web-sdks.mjs
+
   containers:
     name: Container / ${{ matrix.image }}
     runs-on: ubuntu-latest
