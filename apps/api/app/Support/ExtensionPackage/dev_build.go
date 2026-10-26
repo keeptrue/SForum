@@ -50,7 +50,7 @@ func BuildBackend(packageRoot string) error {
 	// 一致时不替换 backend/plugin——否则每次重建都会自触发 watch 事件,
 	// 形成「构建 → 写产物 → 事件 → 重建」的稳态循环。
 	staging := binary + ".tmp"
-	cmd := exec.Command("go", "build", "-trimpath", "-buildvcs=false", "-o", staging, "./")
+	cmd := exec.Command("go", backendBuildArgs(staging)...)
 	cmd.Dir = backendDir
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	output, err := cmd.CombinedOutput()
@@ -68,6 +68,16 @@ func BuildBackend(packageRoot string) error {
 		return nil
 	}
 	return os.Rename(staging, binary)
+}
+
+// backendBuildArgs 是 dev 后端构建的完整 argv。
+//
+// 它必须与发行构建脚本（sforum-app-store `plugin/scripts/build.sh`）逐参数一致：
+// 同一棵插件树有两个写者（host dev watcher 与发行脚本），任何一处口径差异都会让
+// 两边算出不同的二进制摘要，进而让 manifest 永远在两个 digest 之间抖动。
+// `-ldflags="-s -w"` 是历史上唯一缺的一项；`-trimpath`/`-buildvcs=false` 保证可复现。
+func backendBuildArgs(staging string) []string {
+	return []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", staging, "./"}
 }
 
 // filesHaveEqualBytes 判断两个文件内容是否逐字节一致;任一不存在视为不一致。
@@ -279,12 +289,21 @@ func syncInlineDeclarationDigests(manifest map[string]any, digests map[string]st
 	}
 }
 
+// marshalManifestJSON 把清单写回磁盘，口径必须与发行脚本的
+// `JSON.stringify(manifest, null, 2) + "\n"` 逐字节一致：
+//   - 2 空格缩进、结尾换行；
+//   - 不做 HTML 转义。encoding/json 默认把 `<` `>` `&` 写成 `\u003c` `\u003e`
+//     `\u0026`，而 JSON.stringify 原样输出。同一份 manifest 被两个写者轮流落盘时，
+//     这个差异会表现为 `"sforumVersion": "\u003e=1.0.0"` 与 `">=1.0.0"` 的永久抖动。
 func marshalManifestJSON(value any) ([]byte, error) {
-	body, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(value); err != nil {
 		return nil, err
 	}
-	return append(body, '\n'), nil
+	return buffer.Bytes(), nil
 }
 
 // BuildAndDigestDevPackage 是 dev watcher 的单包构建入口：
