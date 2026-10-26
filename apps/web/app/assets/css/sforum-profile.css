@@ -145,7 +145,9 @@
   color: var(--sf-accent);
 }
 
-/* 分区 tab：下划线样式，对齐 demo .tabs / .tab */
+/* 分区 tab：下划线样式，对齐 demo .tabs / .tab。
+   扩展 widget tab 会追加到同一条栏里，条目数不再固定为三项，
+   所以基线就是可横滑容器：子项不收缩，溢出走横向滚动且不显示滚动条。 */
 .sf-profile-tabs {
   display: flex;
   min-height: 51px;
@@ -153,10 +155,17 @@
   gap: 4px;
   margin-top: 4px;
   border-bottom: 1px solid var(--sf-public-border-strong);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sf-profile-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .sf-profile-tab {
   display: inline-flex;
+  flex: 0 0 auto;
   min-height: 49px;
   align-items: center;
   gap: 6px;
@@ -168,6 +177,7 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .sf-profile-tab:hover {
@@ -206,6 +216,11 @@
 
 .sf-profile-about__empty {
   color: var(--sf-public-text-faint);
+}
+
+/* 扩展 widget 面板：宿主只给内边距，视觉由插件自己的 L2 组件决定。 */
+.sf-profile-extension-panel {
+  padding: 22px 0 8px;
 }
 
 .sf-profile-summary {
@@ -652,12 +667,7 @@
     width: auto;
   }
 
-  .sf-profile-tabs {
-    overflow-x: auto;
-  }
-
   .sf-profile-tab {
-    flex: 0 0 auto;
     padding: 0 12px;
   }
 

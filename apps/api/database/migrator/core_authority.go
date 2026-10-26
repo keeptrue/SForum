@@ -42,13 +42,21 @@ type coreAuthorityTransactionBeginner interface {
 }
 
 func prepareCoreMigrationAuthority(ctx context.Context, db coreAuthorityTransactionBeginner) (coreMigrationAuthority, error) {
-	return prepareCoreMigrationAuthorityForVersion(ctx, db, "")
+	// No target means no version opinion: declared is moot because the
+	// compatibility comparison is gated on a non-empty target.
+	return prepareCoreMigrationAuthorityForVersion(ctx, db, "", false)
 }
 
+// prepareCoreMigrationAuthorityForVersion converges Core ownership and, when
+// targetVersion is non-empty, validates the physical extension declarations
+// against it. declared reports whether targetVersion is a real declaration; an
+// undeclared target skips only the version comparison, never the exactness
+// validation of the declarations themselves.
 func prepareCoreMigrationAuthorityForVersion(
 	ctx context.Context,
 	db coreAuthorityTransactionBeginner,
 	targetVersion string,
+	declared bool,
 ) (coreMigrationAuthority, error) {
 	if ctx == nil || db == nil {
 		return coreMigrationAuthority{}, fmt.Errorf("%w: database connection is required", ErrCoreAuthorityConflict)
@@ -82,7 +90,7 @@ func prepareCoreMigrationAuthorityForVersion(
 	if err := ensureCoreOwnerRole(ctx, tx, authority); err != nil {
 		return coreMigrationAuthority{}, err
 	}
-	compatibilityErr, err := reconcileCoreKernelAuthority(ctx, tx, authority, targetVersion)
+	compatibilityErr, err := reconcileCoreKernelAuthority(ctx, tx, authority, targetVersion, declared)
 	if err != nil {
 		return coreMigrationAuthority{}, err
 	}

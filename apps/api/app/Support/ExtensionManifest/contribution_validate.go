@@ -137,13 +137,13 @@ func allowedContributionIcon(icon string) bool {
 }
 
 // validateDescriptorContributionPayload 按 payloadType 校验宿主拥有的描述符（F4.3 / E2）。
-// manifest 仅供需要交叉引用包内声明的 payload（如 regionPlacement 的 l2Widget）使用。
+// manifest 仅供需要交叉引用包内声明的 payload（regionPlacement / profileSection 的 l2Widget）使用。
 func validateDescriptorContributionPayload(manifest Manifest, payloadType string, raw json.RawMessage) error {
 	switch payloadType {
 	case PayloadTypeExtensionRoute:
 		return validateTopicActionContributionPayload(raw)
 	case PayloadTypeProfileSection:
-		return validateProfileTabContributionPayload(raw)
+		return validateProfileTabContributionPayload(manifest, raw)
 	case PayloadTypeTopicSidebarCard:
 		return validateTopicSidebarContributionPayload(raw)
 	case PayloadTypeTopicBadge:
@@ -251,7 +251,7 @@ func validateTopicActionContributionPayload(raw json.RawMessage) error {
 	return nil
 }
 
-func validateProfileTabContributionPayload(raw json.RawMessage) error {
+func validateProfileTabContributionPayload(manifest Manifest, raw json.RawMessage) error {
 	if len(raw) == 0 {
 		return ErrInvalidManifest
 	}
@@ -259,8 +259,16 @@ func validateProfileTabContributionPayload(raw json.RawMessage) error {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return ErrInvalidManifest
 	}
+	// 权限过滤只在服务端发生，因此权限键必须由本扩展声明过：
+	// 声明一个不存在的权限等于一个永远不会出现的 tab。
+	if permission := strings.TrimSpace(payload.Permission); permission != "" && !manifestHasPermission(manifest, permission) {
+		return ErrInvalidManifest
+	}
 	switch strings.TrimSpace(payload.Type) {
 	case PayloadTypeExtensionRoute:
+		if payload.ComponentID != "" {
+			return ErrInvalidManifest
+		}
 		method := strings.ToUpper(strings.TrimSpace(payload.Method))
 		// 资料页 tab 导航以 GET 为主；仍允许写方法以便插件做「关注」类动作。
 		switch method {
@@ -273,10 +281,34 @@ func validateProfileTabContributionPayload(raw json.RawMessage) error {
 		}
 		return nil
 	case "hostLink":
+		if payload.ComponentID != "" {
+			return ErrInvalidManifest
+		}
 		if !safeHostLinkPath(payload.Href) {
 			return ErrInvalidManifest
 		}
 		return nil
+	case PayloadProfileTabL2Widget:
+		if payload.Method != "" || payload.Path != "" || payload.Href != "" {
+			return ErrInvalidManifest
+		}
+		componentID := NormalizeID(payload.ComponentID)
+		if componentID == "" {
+			return ErrInvalidManifest
+		}
+		// 必须引用本 manifest 内的公开 L2 add 组件：公开 = 组件自身不带 Permission
+		// （与公开 L2 运行时的 AdmitPublicComponent 同一判据）。tab 的 permission
+		// 只过滤「谁看到这个 tab」，不授予组件执行权。
+		for _, component := range manifest.Components {
+			if NormalizeID(component.ID) != componentID {
+				continue
+			}
+			if component.L2Component == "" || component.Action != ComponentActionAdd || component.Permission != "" {
+				return ErrInvalidManifest
+			}
+			return nil
+		}
+		return ErrInvalidManifest
 	default:
 		return ErrInvalidManifest
 	}

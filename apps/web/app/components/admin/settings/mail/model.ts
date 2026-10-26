@@ -1,4 +1,11 @@
-export type MailProvider = { extensionId: string, label: string, healthy: boolean }
+export type MailProviderState = 'ready' | 'unavailable' | 'unconfigured'
+export type MailProvider = { extensionId: string, label: string, healthy: boolean, status?: 'enabled' | 'unavailable' }
+export type MailProviderResponse = {
+  items: MailProvider[]
+  selected: { extensionId: string, label: string }
+  configured: boolean
+  state: MailProviderState
+}
 export type MailDelivery = { id: number, recipient: string, templateKey: string, status: string, reason?: string, errorSummary?: string, createdAt: string }
 export type MailChannelPolicy = { inAppEnabled: boolean, emailEnabled: boolean }
 export type MailPolicy = { reply: MailChannelPolicy, mention: MailChannelPolicy, moderation: MailChannelPolicy }

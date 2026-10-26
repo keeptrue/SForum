@@ -324,15 +324,6 @@ type CommentActionContributionPayload = TopicActionContributionPayload
 // 与主题操作相同：宿主渲染按钮，执行走扩展路由代理。
 type ComposerToolbarContributionPayload = TopicActionContributionPayload
 
-// ProfileTabContributionPayload 用于 forum.profile.tabs（profileSection）。
-// type=extensionRoute：走扩展路由；type=hostLink：仅允许站内相对路径（非 /api）。
-type ProfileTabContributionPayload struct {
-	Type   string `json:"type"`
-	Method string `json:"method,omitempty"`
-	Path   string `json:"path,omitempty"`
-	Href   string `json:"href,omitempty"`
-}
-
 // TopicSidebarContributionPayload 用于 forum.topic.sidebar（topicSidebarCard）。
 // 卡片标题/图标来自 contribution.label / icon；payload 只描述跳转目标。
 // type=extensionRoute：走扩展路由代理；type=hostLink：仅站内相对路径（非 /api）。
@@ -412,7 +403,7 @@ func ContributionPointDefinitions() []ContributionPointDefinition {
 		{ID: PointForumNavItems, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Extra public navbar entries (hostLink or public extensionRoute). Core/operator nav first; contributions secondary. No admin-only paths.", PayloadType: PayloadTypeNavItem},
 		{ID: PointForumTopicListBadges, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "List-row badge descriptors for topic lists (same topicBadge shape as detail badges). List-level once; no per-row plugin RPC.", PayloadType: PayloadTypeTopicBadge},
 		{ID: PointForumComposerToolbar, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Composer/editor toolbar actions rendered by the host UI; payload is an extensionRoute only.", PayloadType: PayloadTypeExtensionRoute},
-		{ID: PointForumProfileTabs, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Public profile tabs/sections rendered by the host UI (extensionRoute or hostLink).", PayloadType: PayloadTypeProfileSection},
+		{ID: PointForumProfileTabs, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Public profile tabs rendered by the host UI: extensionRoute/hostLink link tabs, or an in-place l2Widget panel resolved by the public L2 runtime. Optional permission keys are filtered server-side and never reach the client.", PayloadType: PayloadTypeProfileSection},
 		{ID: PointAdminDashboardWidgets, Owner: "admin", Kind: ContributionPointKindDescriptor, Description: "Admin dashboard link widgets; host-owned routes only, no executable payloads.", PayloadType: PayloadTypeDashboardLink},
 		{ID: PointSystemHealthChecks, Owner: "system", Kind: ContributionPointKindDescriptor, Description: "Plugin readiness components merged into GET /ready without invoking plugin RPC.", PayloadType: PayloadTypeHealthDescriptor},
 		{ID: PointForumPageRegions, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Standard page region placements (RegionCatalog whitelist): hostLink card, extensionRoute action card, or l2Widget reference resolved by the public L2 runtime.", PayloadType: PayloadTypeRegionPlacement},

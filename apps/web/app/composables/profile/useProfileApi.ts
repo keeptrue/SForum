@@ -23,8 +23,15 @@ export type ProfileExtensionTab = {
   order: number
   label?: Record<string, string>
   icon?: string
-  kind: 'extensionRoute' | 'hostLink'
+  /**
+   * widget 由宿主在资料页 tab 栏原地挂载 L2 组件（不发请求、不跳转）；
+   * extensionRoute / hostLink 仍是右栏跳转入口。
+   */
+  kind: 'extensionRoute' | 'hostLink' | 'widget'
+  /** 仅 widget 使用：本扩展 manifest 内声明的公开 L2 组件 id。 */
+  componentId?: string
   method?: string
+  /** widget 无跳转目标，后端按契约仍返回该字段（空串）。 */
   url: string
 }
 

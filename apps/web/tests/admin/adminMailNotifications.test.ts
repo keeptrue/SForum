@@ -34,12 +34,17 @@ describe('mail and notification admin center', () => {
 
   test('keeps provider selection generic and preserves the admin email fallback', () => {
     expect(providerTab).toContain("'/admin/mail/provider'")
-    expect(providerTab).toContain('`/extensions/${selected}/pages/settings`')
+    expect(providerTab).toContain('`/extensions/${providerSettingsTarget}/pages/settings`')
     expect(providerTab).toContain("item.name === 'site.admin_email'")
     expect(providerTab).toContain('recipientOrAdminEmailRequired')
 	    expect(providerTab).toContain("'mail.welcome.enabled'")
 	    expect(providerTab).toContain('welcomeEnabledHelp')
     expect(providerTab).not.toContain('selected === \'sforum.smtp\'')
+    expect(providerTab).toContain("t('admin.mailSettings.defaultProviderHint')")
+    expect(providerTab).toContain("t('admin.mailSettings.selectedUnavailable')")
+    expect(providerTab).toContain('response.state')
+    expect(providerTab).toContain('await load()')
+    expect(providerTab).not.toContain('configured.value = false')
   })
 
   test('combines Mail and Notification responsibilities into permission-aware tabs', () => {
@@ -66,6 +71,8 @@ describe('mail and notification admin center', () => {
   test('keeps overview guidance and localizes delivery list codes', () => {
     expect(overviewTab).toContain("t('admin.mailSettings.gettingStarted')")
     expect(overviewTab).toContain("t('admin.mailSettings.stepProvider')")
+    expect(overviewTab).toContain('mailStatusText')
+    expect(overviewTab).toContain('response.state')
     expect(deliveriesTab).toContain('mailDeliveryCodeKey')
     expect(mailDeliveryCodeKey('reasons', 'smtp.transport.failed')).toBe('admin.mailSettings.reasons.smtp_transport_failed')
     expect(zh.admin.mailSettings.deliveryStatus.sent).toBe('已发送')
@@ -75,6 +82,9 @@ describe('mail and notification admin center', () => {
 	    expect(zh.admin.mailSettings.templates.identity_welcome).toBe('注册欢迎')
 	    expect(en.admin.mailSettings.welcomeEnabled).toBe('Send a registration welcome email')
     expect(zh.admin.mailSettings.reasons.provider_unavailable).toBe('邮件提供商不可用')
+    expect(zh.admin.mailSettings.reasons.provider_unconfigured).toBe('未配置邮件提供商')
     expect(en.admin.mailSettings.reasons.smtp_transport_failed).toBe('SMTP transport failed')
+    expect(zh.admin.mailSettings.unavailable).toBe('暂不可用')
+    expect(en.admin.mailSettings.defaultProviderHint).toContain('built-in SMTP')
   })
 })

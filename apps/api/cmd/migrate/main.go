@@ -24,6 +24,14 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
 	}))
+	// The separate migrate binary is the production entry point (the deploy
+	// templates write MIGRATE_ON_STARTUP=false), so the same fail-closed gate
+	// applies here: a build that cannot name its Core version would skip both
+	// version fences instead of reporting a downgrade.
+	if err := platformversion.RequireDeclaredForProduction(cfg.AppEnv); err != nil {
+		logger.Error("migrations refused: undeclared Core version in production", "error", err)
+		os.Exit(1)
+	}
 	if hasArgument(os.Args[1:], "--check-no-pending") {
 		upToDate, err := migrator.IsUpToDate(context.Background(), migrator.Config{
 			DatabaseURL: cfg.DatabaseURL,

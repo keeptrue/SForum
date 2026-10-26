@@ -52,7 +52,7 @@ func TestCoreUpgradeCompatibilityRechecksPhysicalAuthorityUnderLock(t *testing.T
 	`, resource.ExtensionID); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0"); err != nil {
+	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0", true); err != nil {
 		t.Fatalf("ledger without a physical role unexpectedly blocked compatibility: %v", err)
 	}
 
@@ -91,7 +91,7 @@ func TestCoreUpgradeCompatibilityRechecksPhysicalAuthorityUnderLock(t *testing.T
 	defer upgradeDB.Close()
 	result := make(chan error, 1)
 	go func() {
-		_, err := prepareCoreMigrationAuthorityForVersion(ctx, upgradeDB, "2.0.0")
+		_, err := prepareCoreMigrationAuthorityForVersion(ctx, upgradeDB, "2.0.0", true)
 		result <- err
 	}()
 
@@ -143,7 +143,7 @@ func TestCorePhysicalAuthoritySessionSpansMigrationPipeline(t *testing.T) {
 	pipelineResult := make(chan error, 1)
 	go func() {
 		pipelineResult <- withCorePhysicalAuthoritySession(ctx, db, func(connection *sql.Conn) error {
-			if _, err := prepareCoreMigrationAuthorityForVersion(ctx, connection, "1.0.0"); err != nil {
+			if _, err := prepareCoreMigrationAuthorityForVersion(ctx, connection, "1.0.0", true); err != nil {
 				return err
 			}
 			close(prepared)

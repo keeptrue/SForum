@@ -38,8 +38,10 @@ SMTP, log delivery, no-op delivery, authentication, or TLS.
   queue. Standalone workers reconcile enabled plugin runtimes themselves;
   when the worker is embedded in the API it reuses the API extension runtime
   (single plugin process per enabled backend extension).
-- No selected provider produces `skipped/provider_unavailable`; in-app
-  notifications and forum writes remain successful.
+- No resolvable provider produces `skipped/provider_unconfigured`; a selected
+  provider that is temporarily disabled or restarting is retried instead of
+  being terminally skipped. In-app notifications and forum writes remain
+  successful.
 - Password-reset token, delivery, and River job are inserted in one PostgreSQL
   transaction. The public request remains enumeration-safe.
 - Explicit password-recovery and email-verification sends share the
@@ -48,7 +50,9 @@ SMTP, log delivery, no-op delivery, authentication, or TLS.
   deliberately excluded from that end-user resend policy.
 - `settings.manage` protects provider selection, reset, recent deliveries, test
   mail, and mail-provider plugin settings. `extension.manage` still controls
-  plugin enable/disable. Disabling the selected plugin clears the selection.
+  plugin enable/disable. Disabling the selected plugin keeps the mail provider
+  preference: it is reported unavailable while disabled and becomes effective
+  again on enable. Uninstall clears it.
 - Core admin route `/settings/mail` is the unified Mail and Notifications
   settings surface. It owns mail provider configuration, mail delivery history,
   notification type policy, and external channels; existing `/admin/mail/policy`
@@ -114,16 +118,19 @@ Document and Provider Probe contract:
   has no SMTP-specific field or port branching; secrets stay
   encrypted/masked, blank updates preserve them, and recommended restore is
   still host-owned.
-- The core mail provider select defaults visually to the selected provider, or
-  to enabled `sforum.smtp` when unconfigured, but selection is only persisted
-  after the operator clicks save.
+- When no explicit selection row exists, the host resolves the enabled built-in
+  `sforum.smtp` as the recommended default and persists it during API/worker
+  startup. The admin select reflects the resolved selection; reset clears the
+  explicit row and falls back to that default.
 
 ## Compatibility
 
 Startup runs idempotent migration marker `mail_provider_plugin_v1` after
 built-in sync. Legacy `mail.smtp.*` values are copied without overwriting newer
-plugin settings. Legacy `mail.provider=smtp` enables/selects `sforum.smtp`;
-`dev_log`, `noop`, blank, and unknown values become unconfigured.
+plugin settings. Legacy `mail.provider=smtp` enables/selects `sforum.smtp`; a
+legacy site with `dev_log`, `noop`, blank, or unknown values stays unconfigured.
+A fresh database keeps no selection row and the startup repair selects the
+recommended SMTP default.
 
 ## Architecture Debt Checkpoint
 

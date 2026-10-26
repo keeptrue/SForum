@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,7 +14,6 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
-	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 const onlineSafeDirective = "-- +sforum OnlineSafe"
@@ -42,11 +42,15 @@ func CheckOnlineSafe(ctx context.Context, cfg Config) (OnlineMigrationPlan, erro
 		return plan, fmt.Errorf("ping database: %w", err)
 	}
 
-	targetVersion := strings.TrimSpace(cfg.TargetCoreVersion)
-	if targetVersion == "" {
-		targetVersion = platformversion.CoreCompatibilityVersion()
+	logger := cfg.Logger
+	if logger == nil {
+		logger = slog.Default()
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, db, targetVersion); err != nil {
+	targetVersion, targetDeclared := resolveCoreTargetVersion(cfg)
+	if !targetDeclared {
+		warnUndeclaredCoreVersion(ctx, logger, cfg, targetVersion)
+	}
+	if err := checkCoreUpgradeCompatibility(ctx, db, targetVersion, targetDeclared); err != nil {
 		return plan, fmt.Errorf("check core upgrade compatibility: %w", err)
 	}
 

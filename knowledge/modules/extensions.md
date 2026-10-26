@@ -486,6 +486,12 @@ does not rebuild Nuxt.
   `SFRegionOutlet.vue` and `SFThemeTemplate.vue`); every other point is a
   link/action/badge descriptor, so accepting `l2Widget` there would create a
   validated, documented, never-rendered capability.
+  **Recorded exception (2026-10-26):** `forum.profile.tabs` now accepts
+  `l2Widget`, because a profile tab selects a panel the host already renders
+  (a container, not a link/action); `SFProfileShowPage.vue` is now a third
+  `SFExtensionWidget` mount site. The conclusion above still holds for every
+  other descriptor point - do not generalize from this one. Decision:
+  `../decisions/2026-10-26-profile-tab-l2widget.md`.
   Also frozen: public plugin pages gain `layout: site|bare` with **`bare` as the
   backward-compatible default** (current plugin templates mount no global chrome,
   and artifacts are digest-bound, so defaulting to `site` would retroactively add
@@ -1126,6 +1132,14 @@ Decision: `../decisions/2026-07-22-external-extension-source-roots.md`.
 - Versioned registries cover routes, hooks, services, providers, jobs,
   schedules, commands, admin surfaces, queries, identity/permission/profile,
   media, navigation/regions, content, cache, assets, and packages.
+- `forum.profile.tabs` (`profileSection`) accepts `extensionRoute`, `hostLink`,
+  and - since 2026-10-26 - `l2Widget` (required `componentId` referencing a
+  public `action: add` L2 component declared in the same manifest; optional
+  `permission` filtered server-side through `Actor.Can()` and never serialized
+  to the browser). At most 8 widget tabs render per profile; overflow is
+  truncated in contribution order. This is a recorded exception to the
+  descriptor "no content surface" rule, not a general reopening:
+  `../decisions/2026-10-26-profile-tab-l2widget.md`.
 - Shortcode V1 uses Content Registry declarations but does not delegate storage
   or authorization to them. The Host owns `sforumShortcodeRef` and
   `sforumShortcodeBlock`, exact argument/placement validation, public-source

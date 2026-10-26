@@ -113,7 +113,7 @@ func TestLegacyProviderCleanupDoesNotRequireV2RouteAuditEvidence(t *testing.T) {
 		store, t.TempDir(), "", &fakeRuntimeManager{},
 		WithRouteProviderSelectionInvalidator(routes),
 	)
-	if err := service.clearPluginProviderSelections(t.Context(), item.ID); err != nil {
+	if err := service.clearPluginProviderSelections(t.Context(), item.ID, clearMailProviderSelection); err != nil {
 		t.Fatal(err)
 	}
 	if len(routes.calls) != 0 || store.selectedMail != "" {
@@ -145,7 +145,7 @@ func TestLifecycleCleanupInvalidatesProviderSlotsBeforeRoutesAndLegacySelections
 		WithRouteProviderSelectionInvalidator(routeSelections),
 	)
 	if err := service.clearPluginProviderSelectionsWithAudit(
-		t.Context(), item.ID, 17, 23, "extension_disabled",
+		t.Context(), item.ID, 17, 23, "extension_disabled", clearMailProviderSelection,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -154,14 +154,14 @@ func TestLifecycleCleanupInvalidatesProviderSlotsBeforeRoutesAndLegacySelections
 	}
 }
 
-func TestServiceLifecycleV2DisableClearsProviderSelectionsWithoutLegacyRuntimeStop(t *testing.T) {
+func TestServiceLifecycleV2DisableKeepsMailProviderSelectionWithoutLegacyRuntimeStop(t *testing.T) {
 	item := lifecycleV2ServiceArtifact(t, "service.provider-disable", "1.0.0", SourceBuiltin)
 	item.Status = StatusEnabled
 	base := newFakeExtensionStore(map[string]Extension{item.ID: item})
 	store := &lifecycleProviderSelectionStore{fakeExtensionStore: base, selectedMail: item.ID}
 	storage := &lifecycleStorageSelectionClearer{}
 	routeSelections := &lifecycleRouteSelectionInvalidator{onCall: func() {
-		if store.selectedMail == "" || len(storage.calls) != 0 {
+		if store.selectedMail != item.ID || len(storage.calls) != 0 {
 			t.Fatal("route selection was not invalidated before other provider cleanup")
 		}
 	}}
@@ -190,7 +190,7 @@ func TestServiceLifecycleV2DisableClearsProviderSelectionsWithoutLegacyRuntimeSt
 	if err != nil {
 		t.Fatal(err)
 	}
-	if disabled.Status != StatusDisabled || store.selectedMail != "" || store.restoreCalls != 1 ||
+	if disabled.Status != StatusDisabled || store.selectedMail != item.ID || store.restoreCalls != 0 ||
 		len(storage.calls) != 1 || storage.calls[0] != item.ID || len(routeSelections.calls) != 1 ||
 		!strings.HasSuffix(routeSelections.calls[0], ":extension_disabled") {
 		t.Fatalf("disabled=%#v mail=%q restore=%d storage=%#v", disabled, store.selectedMail, store.restoreCalls, storage.calls)
@@ -258,7 +258,7 @@ func TestServiceLifecycleV2DisableReplayRetriesProviderCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	if disabled.Status != StatusDisabled || len(storage.calls) != 2 || replayRunner.calls != 0 ||
-		store.restoreCalls != 1 || store.selectedMail != "" || len(routeSelections.calls) != 2 {
+		store.restoreCalls != 0 || store.selectedMail != item.ID || len(routeSelections.calls) != 2 {
 		t.Fatalf("replay disabled=%#v storage=%#v runner=%d restore=%d mail=%q",
 			disabled, storage.calls, replayRunner.calls, store.restoreCalls, store.selectedMail)
 	}

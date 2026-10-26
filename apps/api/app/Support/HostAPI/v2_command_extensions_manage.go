@@ -187,10 +187,8 @@ func newProtocolV2ExtensionPluginDisableCommandDefinition() protocolV2CommandDef
 				false,
 			)
 		}
-		// 清理邮件提供商选择，与 store.Disable 行为对齐。
-		if _, err := tx.Exec(ctx, `DELETE FROM mail_provider_selection WHERE extension_id = $1`, mutation.targetExtensionID); err != nil {
-			return nil, fmt.Errorf("clear mail provider selection: %w", err)
-		}
+		// Keep the mail provider preference across disable; it is a preference,
+		// not a runtime registration. Uninstall clears it.
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO extension_events (extension_id, actor_user_id, action, message)
 			VALUES ($1, $2, 'disabled', 'Extension disabled via extensions.manage Host Command.')

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PublicProfile } from '~/composables/profile/useProfileApi'
 import { forumTopicPath, type ForumTopicSummary } from '~/utils/forum/forumTaxonomy'
+import { extensionTabLabel } from '~/utils/profile/profileExtensionTab'
 import { safeUrl } from '~/utils/sfUrl'
 
 const props = defineProps<{
@@ -31,10 +32,9 @@ const websiteHref = computed(() => {
 // 曾用名是可选公开面：只有运营开启 history_public 时接口才会返回，最多一条。
 const previousDisplayName = computed(() => props.profile.previousDisplayNames?.[0] || '')
 
-function extensionTabLabel(tab: NonNullable<PublicProfile['extensionTabs']>[number]) {
-  const labels = tab.label || {}
-  return labels[String(locale.value)] || labels['zh-CN'] || labels['en-US'] || Object.values(labels)[0] || tab.id
-}
+// widget tab 已在主 tab 栏原地挂载；这里再列一次会让同一个扩展入口出现两处。
+const extensionLinks = computed(() => (props.profile.extensionTabs || [])
+  .filter(tab => tab.kind !== 'widget'))
 
 function extensionTabTo(tab: NonNullable<PublicProfile['extensionTabs']>[number]) {
   if (tab.kind === 'hostLink') {
@@ -113,20 +113,20 @@ function extensionTabTo(tab: NonNullable<PublicProfile['extensionTabs']>[number]
       <p v-else class="sf-profile-side-empty">{{ t('profile.recentTopicsEmpty') }}</p>
     </section>
 
-    <section v-if="profile.extensionTabs?.length" class="sf-profile-side-section">
+    <section v-if="extensionLinks.length" class="sf-profile-side-section">
       <header class="sf-profile-side-section__head">
         <h3>{{ t('profile.extensionLinks') }}</h3>
         <span>{{ t('profile.publicContent') }}</span>
       </header>
       <div class="sf-profile-extension-links">
-        <template v-for="tab in profile.extensionTabs" :key="`${tab.extensionId}:${tab.id}`">
+        <template v-for="tab in extensionLinks" :key="`${tab.extensionId}:${tab.id}`">
           <NuxtLink v-if="tab.kind === 'hostLink'" :to="extensionTabTo(tab)">
             <UIcon v-if="tab.icon" :name="tab.icon" class="size-4" aria-hidden="true" />
-            <span>{{ extensionTabLabel(tab) }}</span>
+            <span>{{ extensionTabLabel(tab, String(locale)) }}</span>
           </NuxtLink>
           <a v-else :href="extensionTabTo(tab)">
             <UIcon v-if="tab.icon" :name="tab.icon" class="size-4" aria-hidden="true" />
-            <span>{{ extensionTabLabel(tab) }}</span>
+            <span>{{ extensionTabLabel(tab, String(locale)) }}</span>
           </a>
         </template>
       </div>

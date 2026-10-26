@@ -19,7 +19,23 @@ type coreCompatibilityBlocker struct {
 	DeclarationExact bool
 }
 
-func checkCoreUpgradeCompatibility(ctx context.Context, db coreAuthorityQueryer, targetVersion string) error {
+// checkCoreUpgradeCompatibility rejects a Core target that an enabled raw
+// database extension does not declare compatible.
+//
+// declared reports whether targetVersion is a real declaration. When it is
+// false the value is the untagged-development fallback sentinel, which carries
+// no intent: comparing it against extension declarations would reject every
+// extension declaring >=3.x on a machine that merely has no reachable v* tag.
+// "Unknown" is not "incompatible", so the check returns before running any SQL.
+func checkCoreUpgradeCompatibility(
+	ctx context.Context,
+	db coreAuthorityQueryer,
+	targetVersion string,
+	declared bool,
+) error {
+	if !declared {
+		return nil
+	}
 	target, err := semver.StrictNewVersion(strings.TrimSpace(targetVersion))
 	if err != nil {
 		return fmt.Errorf("invalid target SForum version %q: %w", targetVersion, err)

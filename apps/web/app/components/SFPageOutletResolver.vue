@@ -19,9 +19,15 @@ import {
   PAGE_REGION_PAGES,
   usePageRegionsState
 } from '~/composables/pages/usePageRegions'
+import {
+  normalizePublicFrontendComponentRefs,
+  type PublicFrontendComponentRef
+} from '~/runtime/public-extensions/pagePolicy'
 
 const props = defineProps<{
   page: string
+  /** 页面级 L2 refs（非区域来源，例如资料页 widget tab）：与区域 refs 一起参与同一次 CSP 聚合。 */
+  extraL2Refs?: PublicFrontendComponentRef[]
 }>()
 
 const route = useRoute()
@@ -160,10 +166,25 @@ if (PAGE_REGION_PAGES.has(props.page)) {
     pageRegionsState.value = pageRegionsData.value ?? null
   })
 }
-const regionWidgetRefs = computed(() => collectRegionWidgetRefs(pageRegionsState.value))
+// 页面 widget refs = 区域目录里的 widget + 页面自己声明的 widget（如资料页 tab，
+// 它们不在区域目录里）。两个来源各自已经失败关闭，这里只做合并去重。
+const regionWidgetRefs = computed(() => {
+  const regionRefs = collectRegionWidgetRefs(pageRegionsState.value)
+  const extraRefs = props.extraL2Refs ?? []
+  if (!extraRefs.length) {
+    return regionRefs
+  }
+  try {
+    return normalizePublicFrontendComponentRefs([...regionRefs, ...extraRefs])
+  } catch {
+    // 兜底保留区域 refs：一条坏 ref 不该让整页 L2 策略失效。
+    return regionRefs
+  }
+})
 
 // CSP 单点聚合:主题模板路径把 refs 交给 SFThemeTemplate 合并(那里是唯一调用点);
 // 原生路径(host chrome / 纯 slot)没有 ThemeTemplate,由本组件(已在 async setup 内)聚合一次。
+// 聚合条件用合并后的长度：只有页面级 widget、没有区域 widget 时也必须写 header。
 const willUseThemeTemplate = computed(() => {
   const payload = resolved.value as ResolvePayload | null
   return Boolean(payload

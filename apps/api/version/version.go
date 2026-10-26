@@ -104,14 +104,100 @@ func Get() BuildInfo {
 // checkout reports the release it is actually built on; without a tag the
 // compatibility baseline applies.
 func CoreCompatibilityVersion() string {
-	current := strings.TrimSpace(Current)
+	value, _ := CoreCompatibilityDeclared()
+	return value
+}
+
+// normalizeCompatibilityVersion turns a build label into the value the version
+// fences parse. Deployment names a release with its git tag
+// (SFORUM_VERSION=v3.0.18) and that same string reaches -ldflags through the
+// build arg, while strict semver has no "v" prefix. Stripping it here keeps one
+// variable on the deployment side instead of asking operators to maintain a
+// second, differently spelled one.
+//
+// Display is a different contract: BuildInfo.Version (Get) keeps the raw label,
+// so an operator still sees what the build was stamped with.
+func normalizeCompatibilityVersion(value string) string {
+	return strings.TrimPrefix(strings.TrimSpace(value), "v")
+}
+
+// CoreCompatibilityDeclared reports the compatibility version together with
+// whether it came from a real declaration (release ldflags or a reachable v*
+// tag) instead of the untagged-development fallback sentinel.
+//
+// The boolean is the only way a caller can tell "this build does not know its
+// release line" from "this build really is 1.0.0": both report the same string.
+// Gates that compare versions must skip the comparison when it is false rather
+// than read the sentinel as a real, lower intent: a shallow clone that hides
+// every v* tag is a missing fact, not a downgrade request.
+func CoreCompatibilityDeclared() (string, bool) {
+	// Normalize before the "dev" comparison: a tag-shaped Current is a release
+	// declaration, not an invalid identity.
+	current := normalizeCompatibilityVersion(Current)
 	if current == "dev" {
 		if derived := strings.TrimSpace(developmentVersionProbe()); derived != "" {
-			return derived
+			return derived, true
 		}
-		return developmentCoreCompatibilityVersion
+		return developmentCoreCompatibilityVersion, false
 	}
-	return current
+	// Release builds always declare: Current is injected through -ldflags and
+	// the git probe is never consulted.
+	return current, true
+}
+
+// RequireDeclaredForProduction fails closed when a production process cannot
+// name its Core compatibility version.
+//
+// Both version fences (the Core downgrade fence and the raw-extension
+// compatibility fence) compare that value, so an undeclared build would skip
+// them and read the sentinel as intent. A version fence is a fail-closed
+// surface on the same footing as safe mode: it may not run on a guess.
+//
+// Source-built images must pass the version explicitly
+// (`docker build --build-arg SFORUM_VERSION=<semver>`, or set SFORUM_VERSION
+// for docker compose); the published release images inject it through
+// -ldflags.
+func RequireDeclaredForProduction(appEnv string) error {
+	if !isProductionAppEnv(appEnv) {
+		// Resolving the build identity runs the git probe; non-production
+		// processes must not pay for it.
+		return nil
+	}
+	value, declared := CoreCompatibilityDeclared()
+	return RequireDeclaredCoreVersion(appEnv, value, declared)
+}
+
+func isProductionAppEnv(appEnv string) bool {
+	return strings.EqualFold(strings.TrimSpace(appEnv), "production")
+}
+
+// RequireDeclaredCoreVersion is the pure form of the production gate: it
+// decides from an already-resolved build identity, so callers that cache the
+// identity do not re-probe git and tests can exercise the policy directly.
+//
+// The production branch checks two things, not one: that the build declared a
+// version, and that the declared version is usable. A declared-but-unparseable
+// value — the common `SFORUM_VERSION=v3.0.18` copied from a git tag — would
+// otherwise pass the gate and fail deep inside the migrator with
+// `invalid target SForum version`, which is fail-closed at the wrong layer and
+// impossible to diagnose from the startup log.
+func RequireDeclaredCoreVersion(appEnv string, coreVersion string, declared bool) error {
+	if !isProductionAppEnv(appEnv) {
+		return nil
+	}
+	if !declared {
+		return fmt.Errorf(
+			"production build has no declared Core compatibility version (coreVersion=%q): rebuild with --build-arg SFORUM_VERSION=<semver> (docker compose: set SFORUM_VERSION), or deploy the published release image; the Core downgrade and raw-extension compatibility fences are fail-closed and may not run on a guess",
+			coreVersion,
+		)
+	}
+	if _, err := semver.StrictNewVersion(normalizeCompatibilityVersion(coreVersion)); err != nil {
+		return fmt.Errorf(
+			"production build declares an unusable Core compatibility version %q: the fences parse it with strict semver (for example SFORUM_VERSION=3.0.18, or 3.0.18-rc.1 for a pre-release); a leading \"v\" is stripped automatically, so v3.0.18 is accepted: %w",
+			coreVersion, err,
+		)
+	}
+	return nil
 }
 
 // HostIdentity is the frozen build identity the Host exposes to extensions.

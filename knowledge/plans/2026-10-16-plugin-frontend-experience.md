@@ -3,14 +3,16 @@
 Status: **active** - M0 contract frozen; M1 (host icon service + theme
 template helper) and M1b (author build-loop repair) done; M2 (single region
 source + drift gate) and M3 batch 1 (region density) done and verified
-end-to-end. M4 cancelled (premise disproved), M5 delivered by the authoring-speed plan,
+end-to-end. M4 cancelled (premise disproved; `forum.profile.tabs` partially
+reopened for `l2Widget` on 2026-10-26, see the M4 section), M5 delivered by the
+authoring-speed plan,
 M7 `view: schema` done, M9 closed, and **M6 closed (2026-10-16)** — the last open
 item ("the component does not appear in the 390x844 headless context") was
 **resolved as a measurement artefact**, not a client gap: see the M6 section.
 M8 remains and delegates public navigation to the navigation platform plan M7.
 
 Date: 2026-10-16
-Last updated: 2026-10-16 - M6 closed (headless reading explained and the harness fixed)
+Last updated: 2026-10-26 - M4 partially reopened for `forum.profile.tabs` only
 
 Goal: make plugin frontend development feel like ordinary Vue work without
 introducing Nuxt Layers, runtime SFC compilation, Host-private component
@@ -64,7 +66,7 @@ side is where the gap is.
 | M1b | Repair the author build loop found while proving M1 end to end | **done** |
 | M2 | Page-region single source + generated web projection + render-site contract | **done (rescoped, see below)** |
 | M3 | Region density: semantic regions instead of three generic ones | **batches 1-2 done and verified end-to-end** |
-| M4 | `l2Widget` accepted on every region and descriptor point | **cancelled** - the descriptor points are link/action shaped, not content surfaces |
+| M4 | `l2Widget` accepted on every region and descriptor point | **cancelled** - the descriptor points are link/action shaped, not content surfaces. **Partially reopened 2026-10-26:** `forum.profile.tabs` accepts `l2Widget` because a tab selects a host-rendered panel; every other point stays closed (`decisions/2026-10-26-profile-tab-l2widget.md`) |
 | M5 | Public `layout: site` shell - **delegates to the authoring-speed plan M1/M2** | **delivered by that plan** - `layout: site\|bare` (default `site`), Host fallback shell and the theme-authored shell are implemented and verified on the real path; this task book must not reimplement them. Remaining caveat: `dataSource: plugin` pages are blocked by the Loader Gateway transport gap. **Corrected 2026-10-16:** the earlier caveat "the built-in theme hides the shell footer" no longer holds — the Host stylesheet's `:has()` suppression was complemented by a `:not(:has(.sforum-content-footer))` restoration rule in `apps/web/app/assets/css/sforum-theme.css` and the active theme artifact moved `4691a605…` -> `85ddda6a…` through rebuild + admin reactivation. Runtime evidence at the current artifact: the shell template `templates/plugin-page-shell.html` mounts `<sf-footer>`, SSR of `/probe-site` and `/probe-default` contains exactly one `<footer class="sf-footer">`, a real browser at 500px reports `visibleFooters=1`, and `/probe-bare` reports 0. See `sessions/2026-10-16-route-a-layer6-and-loader-transport-handoff.md` and `tests/registry-page-shell-runtime-evidence.mjs` |
 | M6 | Public Plugin UI entry + public `view: component` pages | **closed (2026-10-16)** - fixture + resolve (`view=component`, `fallback=false`) + descriptor endpoint 200 (`trustNotice=fully_trusted_browser_code`) + the component mounting in a real browser session inside the reviewed body exit with exactly one header/footer, **and now a measured 390x844 mount on real Chrome over CDP** (`l2=mounted`, own content + host trust notice rendered, `headers=1 footers=1 overflow=false clipped=0 consoleErrors=0`). The previously-open item ("in the headless CDP context the component does not appear and no descriptor request is issued at all, at any width or settle time") turned out to be a **defect in the harness's settle heuristic**, not a client gap — see "M6 closed" below. |
 | M7 | `view: schema` declarative public pages (list/detail/form/notice) | **done** - declaration + shared CLI/runtime preflight, resolve pass-through, public renderer, catalog identity, fixture and browser evidence. `form` renders read-only, no faked submit; **update 2026-10-16**: decision R2 chose a Protocol V2 data-fetch method for the loader gap, so form submission becomes buildable once that method lands |
@@ -227,6 +229,16 @@ have a detail body distinct from their list.
 
 Status: **cancelled after inspection. Do not implement as written.**
 
+> **Partial reopening (2026-10-26).** `forum.profile.tabs` now accepts
+> `type: l2Widget`. That one point differs from the points examined below:
+> selecting a tab swaps a panel the host already renders in the profile content
+> column, so it is a container with a host-owned render site, not a
+> link/action descriptor. Only that point, and only for `l2Widget`; every
+> conclusion below still holds for the others. The "`SFExtensionWidget` is used
+> in exactly two files" count below is now three - `SFProfileShowPage.vue` is
+> the third mount site. Decision:
+> `decisions/2026-10-26-profile-tab-l2widget.md`.
+
 The milestone assumed the descriptor points are content surfaces that merely
 lack widget support. They are not content surfaces. Evidence gathered before
 writing any code:
@@ -264,6 +276,8 @@ Consequence for M5-M9: rich embedded content in a public page is now only
 reachable through regions or a whole page owned by the plugin, which is exactly
 what M5 (public `layout: site`) and M6 (public Plugin UI entry) deliver — so
 those become the only remaining route to the capability M4 was reaching for.
+(Updated 2026-10-26: a profile tab panel is now a third, bounded route to that
+capability - see the partial-reopening note above.)
 
 ## M5-M9
 

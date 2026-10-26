@@ -55,22 +55,44 @@ func (h *Controller) listProviders(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	selected, ok, err := h.providers.Selected(c.Context())
+	selection, state, err := h.providers.Resolve(c.Context())
 	if err != nil {
 		return err
 	}
 	providers := []map[string]any{}
+	listed := map[string]bool{}
 	for _, item := range items {
 		if item.Status != extensions.StatusEnabled {
 			continue
 		}
 		for _, provider := range item.Manifest.Providers {
 			if provider.Slot == extensionsruntime.MailProviderSlot {
-				providers = append(providers, map[string]any{"extensionId": item.ID, "label": provider.Label, "healthy": item.Runtime == nil || item.Runtime.State == extensions.RuntimeRunning})
+				providers = append(providers, map[string]any{
+					"extensionId": item.ID,
+					"label":       provider.Label,
+					"healthy":     item.Runtime == nil || item.Runtime.State == extensions.RuntimeRunning,
+					"status":      "enabled",
+				})
+				listed[item.ID] = true
 			}
 		}
 	}
-	return apphttp.OK(c, map[string]any{"items": providers, "selected": selected, "configured": ok})
+	// Keep the selected provider visible even while it is disabled or
+	// restarting; the admin surface must not look like nothing is selected.
+	if selection.ExtensionID != "" && !listed[selection.ExtensionID] {
+		providers = append(providers, map[string]any{
+			"extensionId": selection.ExtensionID,
+			"label":       selection.Label,
+			"healthy":     false,
+			"status":      "unavailable",
+		})
+	}
+	return apphttp.OK(c, map[string]any{
+		"items":      providers,
+		"selected":   selection,
+		"configured": state != extensionsruntime.MailProviderUnconfigured,
+		"state":      string(state),
+	})
 }
 
 func (h *Controller) getPolicy(c fiber.Ctx) error {
@@ -165,7 +187,16 @@ func (h *Controller) resetProvider(c fiber.Ctx) error {
 	if err := h.providers.RestoreDefault(c.Context()); err != nil {
 		return err
 	}
-	return apphttp.OK(c, map[string]any{"configured": false, "secretsPreserved": true})
+	selection, state, err := h.providers.Resolve(c.Context())
+	if err != nil {
+		return err
+	}
+	return apphttp.OK(c, map[string]any{
+		"selected":         selection,
+		"configured":       state != extensionsruntime.MailProviderUnconfigured,
+		"state":            string(state),
+		"secretsPreserved": true,
+	})
 }
 func (h *Controller) listDeliveries(c fiber.Ctx) error {
 	if err := h.authorize(c); err != nil {

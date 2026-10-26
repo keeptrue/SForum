@@ -329,7 +329,7 @@ func (s *serviceCore) finishLifecycleV2(
 	if result.Operation.TerminalResult == LifecycleTerminalSucceeded && request.operation == LifecycleMachineDisable {
 		if err := s.clearPluginProviderSelectionsWithAudit(
 			ctx, request.target.ID, lifecycleOperationActorUserID(result.Operation),
-			lifecycleOperationAuditEventID(result.Operation), "extension_disabled",
+			lifecycleOperationAuditEventID(result.Operation), "extension_disabled", keepMailProviderSelection,
 		); err != nil {
 			return Extension{}, errors.Join(ErrLifecycleCoordinatorUnavailable, fmt.Errorf("clear disabled provider selections: %w", err))
 		}
@@ -396,7 +396,7 @@ func (s *serviceCore) replayLifecycleV2(
 				LifecycleMachineOperation(operation.Operation) == LifecycleMachineDisable {
 				if cleanupErr := s.clearPluginProviderSelectionsWithAudit(
 					ctx, current.ID, lifecycleOperationActorUserID(operation),
-					lifecycleOperationAuditEventID(operation), "extension_disabled",
+					lifecycleOperationAuditEventID(operation), "extension_disabled", keepMailProviderSelection,
 				); cleanupErr != nil {
 					return Extension{}, true, errors.Join(
 						ErrLifecycleCoordinatorUnavailable,
@@ -694,7 +694,7 @@ func (s *serviceCore) finalizeLifecycleUninstall(
 	// package/identity available for an idempotent retry.
 	if err := s.clearPluginProviderSelectionsWithAudit(
 		ctx, extensionID, lifecycleOperationActorUserID(operation),
-		lifecycleOperationAuditEventID(operation), "extension_uninstalled",
+		lifecycleOperationAuditEventID(operation), "extension_uninstalled", clearMailProviderSelection,
 	); err != nil {
 		return UninstallResult{}, lifecycleCleanupFinalizationFailure(operation.ID,
 			LifecycleCleanupStepClearProviderSelections,

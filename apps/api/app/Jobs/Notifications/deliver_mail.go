@@ -25,7 +25,7 @@ type DeliveryStore interface {
 	UpdateDelivery(context.Context, notifications.DeliveryUpdate) error
 }
 type ProviderResolver interface {
-	Selected(context.Context) (extensionsruntime.MailProviderSelection, bool, error)
+	Resolve(context.Context) (extensionsruntime.MailProviderSelection, extensionsruntime.MailProviderState, error)
 }
 type ProviderSender interface {
 	SendMail(context.Context, string, extensionsruntime.MailProviderRequest) (extensionsruntime.MailProviderResponse, error)
@@ -50,17 +50,28 @@ func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMail
 	if outbox.IsTerminal(delivery.Status) {
 		return nil
 	}
-	selection, ok, err := w.Providers.Selected(ctx)
+	selection, state, err := w.Providers.Resolve(ctx)
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySkipped, Reason: "provider_unavailable", AttemptCount: delivery.AttemptCount + 1})
+	attempt := delivery.AttemptCount + 1
+	switch state {
+	case extensionsruntime.MailProviderUnconfigured:
+		return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySkipped, Reason: "provider_unconfigured", AttemptCount: attempt})
+	case extensionsruntime.MailProviderUnavailable:
+		maxAttempts := 5
+		if job.JobRow != nil && job.MaxAttempts > 0 {
+			maxAttempts = job.MaxAttempts
+		}
+		if outbox.ExhaustedAttempts(attempt, maxAttempts) {
+			return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliveryFailed, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt})
+		}
+		_ = w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySending, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt})
+		return fmt.Errorf("mail provider %s is temporarily unavailable", selection.ExtensionID)
 	}
 	if w.Sender == nil {
 		return fmt.Errorf("mail provider sender is not configured")
 	}
-	attempt := delivery.AttemptCount + 1
 	if err := w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySending, ExtensionID: selection.ExtensionID, AttemptCount: attempt}); err != nil {
 		return err
 	}

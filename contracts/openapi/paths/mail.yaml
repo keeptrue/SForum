@@ -27,10 +27,14 @@ adminMailTest:
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminMailProviders:
   get:
-    summary: List enabled mail provider plugins and current selection
+    summary: List enabled mail provider plugins and the resolved selection
     security: [{cookieAuth: []}]
     responses:
-      '200': {description: Provider state}
+      '200':
+        description: Provider state and the resolved default/selection
+        content:
+          application/json:
+            schema: {$ref: "../schemas/mail.yaml#/ApiResponseMailProviders"}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
 adminMailProvider:
@@ -46,10 +50,14 @@ adminMailProvider:
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
 adminMailProviderReset:
   post:
-    summary: Clear provider selection while preserving plugin secrets
+    summary: Restore the recommended mail provider default while preserving plugin secrets
     security: [{cookieAuth: []}]
     responses:
-      '200': {description: Provider selection cleared}
+      '200':
+        description: Recommended default resolved
+        content:
+          application/json:
+            schema: {$ref: "../schemas/mail.yaml#/ApiResponseMailProviderReset"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
 adminMailDeliveries:
   get:

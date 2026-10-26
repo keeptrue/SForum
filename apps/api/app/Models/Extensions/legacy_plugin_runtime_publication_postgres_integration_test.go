@@ -47,8 +47,8 @@ func TestPostgresLegacyPluginRuntimePublicationCommitsExactStateAndFullSet(t *te
 	var mailSelections int
 	if err := fixture.pool.QueryRow(fixture.ctx, `
 		SELECT count(*) FROM mail_provider_selection WHERE extension_id = $1
-	`, target.ID).Scan(&mailSelections); err != nil || mailSelections != 0 {
-		t.Fatalf("mail selections=%d error=%v", mailSelections, err)
+	`, target.ID).Scan(&mailSelections); err != nil || mailSelections != 1 {
+		t.Fatalf("disable must keep the mail provider preference: selections=%d error=%v", mailSelections, err)
 	}
 	assertPluginRuntimePublicationCount(t, fixture, 3)
 }

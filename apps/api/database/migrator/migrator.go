@@ -23,9 +23,48 @@ import (
 )
 
 type Config struct {
-	DatabaseURL       string
-	Logger            *slog.Logger
+	DatabaseURL string
+	Logger      *slog.Logger
+	// TargetCoreVersion pins the Core version this run migrates to. Leave it
+	// empty to derive it from the build identity; that derivation also reports
+	// whether the value is a real declaration or the untagged-development
+	// fallback sentinel.
 	TargetCoreVersion string
+}
+
+// coreCompatibilityDeclared resolves the build identity's compatibility version
+// and its provenance. Tests replace it to simulate an untagged development
+// checkout without depending on the git state of the working copy.
+var coreCompatibilityDeclared = platformversion.CoreCompatibilityDeclared
+
+// resolveCoreTargetVersion decides which Core version this run migrates to and
+// whether that value is a real declaration.
+//
+// An undeclared target is the untagged-development fallback: it keeps the row
+// parseable but says nothing about intent, so the compatibility and downgrade
+// fences skip it instead of comparing it as a real (and therefore "older")
+// version.
+func resolveCoreTargetVersion(cfg Config) (string, bool) {
+	if target := strings.TrimSpace(cfg.TargetCoreVersion); target != "" {
+		// Naming a version is itself the declaration: a caller that writes
+		// "1.0.0" means it, so "unknown" cannot apply and the downgrade fence
+		// must still reject it.
+		return target, true
+	}
+	return coreCompatibilityDeclared()
+}
+
+// warnUndeclaredCoreVersion explains a skipped version fence in one line. It is
+// a warning rather than an error because an untagged development checkout is a
+// legitimate state, but the operator still needs the actionable cause.
+func warnUndeclaredCoreVersion(ctx context.Context, logger *slog.Logger, cfg Config, targetVersion string) {
+	logger.WarnContext(ctx,
+		"Core version is unknown for this build: git describe found no reachable v* tag, so the Core downgrade and raw-extension compatibility fences are skipped for this run",
+		slog.String("derived_version", targetVersion),
+		slog.Bool("caller_declared_target", strings.TrimSpace(cfg.TargetCoreVersion) != ""),
+		slog.String("usual_cause", "shallow clone hiding the release tags"),
+		slog.String("fix", "git fetch --unshallow, then confirm `git describe --tags --match 'v[0-9]*' --long --dirty --always` starts with v"),
+	)
 }
 
 // IsUpToDate performs a read-only schema check for zero-downtime releases.
@@ -69,6 +108,10 @@ func Up(ctx context.Context, cfg Config) error {
 	if logger == nil {
 		logger = slog.Default()
 	}
+	targetVersion, targetDeclared := resolveCoreTargetVersion(cfg)
+	if !targetDeclared {
+		warnUndeclaredCoreVersion(ctx, logger, cfg, targetVersion)
+	}
 
 	adminDB, err := openMigrationSQLDatabase(cfg.DatabaseURL, "")
 	if err != nil {
@@ -83,12 +126,10 @@ func Up(ctx context.Context, cfg Config) error {
 	if err := adminDB.PingContext(ctx); err != nil {
 		return fmt.Errorf("ping database: %w", err)
 	}
-	targetVersion := strings.TrimSpace(cfg.TargetCoreVersion)
-	if targetVersion == "" {
-		targetVersion = platformversion.CoreCompatibilityVersion()
-	}
 	return withCorePhysicalAuthoritySession(ctx, adminDB, func(adminConnection *sql.Conn) error {
-		return runCoreMigrationsLocked(ctx, cfg, logger, adminDB, adminConnection, targetVersion)
+		return runCoreMigrationsLocked(
+			ctx, cfg, logger, adminDB, adminConnection, targetVersion, targetDeclared,
+		)
 	})
 }
 
@@ -99,14 +140,20 @@ func runCoreMigrationsLocked(
 	adminDB *sql.DB,
 	adminConnection *sql.Conn,
 	targetVersion string,
+	targetDeclared bool,
 ) error {
 	if err := ensureCoreDatabaseExtensions(ctx, adminConnection); err != nil {
 		return fmt.Errorf("ensure Core database extensions: %w", err)
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, adminConnection, targetVersion); err != nil {
+	if err := checkCoreUpgradeCompatibility(ctx, adminConnection, targetVersion, targetDeclared); err != nil {
 		return fmt.Errorf("check core upgrade compatibility: %w", err)
 	}
-	authority, err := prepareCoreMigrationAuthorityForVersion(ctx, adminConnection, targetVersion)
+	// An undeclared target still reaches the kernel reconciliation: the
+	// exactness validation of physical declarations does not depend on the
+	// build identity, only the version comparison does.
+	authority, err := prepareCoreMigrationAuthorityForVersion(
+		ctx, adminConnection, targetVersion, targetDeclared,
+	)
 	if err != nil {
 		return fmt.Errorf("prepare Core migration authority: %w", err)
 	}
@@ -141,7 +188,7 @@ func runCoreMigrationsLocked(
 		return fmt.Errorf("create goose provider: %w", err)
 	}
 	runtimeStateExisted, runtimeStateMarked, err := markCoreMigrationStarted(
-		ctx, adminConnection, targetVersion, false,
+		ctx, adminConnection, targetVersion, false, targetDeclared,
 	)
 	if err != nil {
 		return err
@@ -152,7 +199,9 @@ func runCoreMigrationsLocked(
 		return fmt.Errorf("run migrations: %w", err)
 	}
 	if !runtimeStateExisted {
-		_, runtimeStateMarked, err = markCoreMigrationStarted(ctx, adminConnection, targetVersion, true)
+		_, runtimeStateMarked, err = markCoreMigrationStarted(
+			ctx, adminConnection, targetVersion, true, targetDeclared,
+		)
 		if err != nil {
 			return err
 		}
@@ -175,7 +224,7 @@ func runCoreMigrationsLocked(
 	if !runtimeStateMarked {
 		return nil
 	}
-	return publishCoreRuntimeVersion(ctx, adminConnection, targetVersion)
+	return publishCoreRuntimeVersion(ctx, adminConnection, targetVersion, targetDeclared)
 }
 
 func withCorePhysicalAuthoritySession(

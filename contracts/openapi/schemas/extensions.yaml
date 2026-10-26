@@ -1595,6 +1595,7 @@ ExtensionManifestContribution:
       - forum.profile.tabs
       - admin.dashboard.widgets
       - system.health.checks
+      - forum.page.regions
     id:
       type: string
       description: Unique contribution id within this extension and point.
@@ -1625,7 +1626,7 @@ ExtensionContributionPayload:
     Host-owned contribution payloads (F4.3). Never executable JSON.
     Shape depends on the contribution point payloadType:
     extensionRoute, profileSection, topicSidebarCard, topicBadge, navItem,
-    dashboardLink, or healthDescriptor.
+    dashboardLink, healthDescriptor, or regionPlacement.
   required:
   - type
   properties:
@@ -1637,6 +1638,7 @@ ExtensionContributionPayload:
       - adminLink
       - extensionRuntime
       - static
+      - l2Widget
     method:
       type: string
       enum:
@@ -1651,6 +1653,36 @@ ExtensionContributionPayload:
     href:
       type: string
       description: In-app relative path for profile hostLink contributions.
+    componentId:
+      type: string
+      description: >
+        Public L2 component reference for `type: l2Widget` contributions
+        (`forum.profile.tabs`, `forum.page.regions`). Normalized as trimmed and
+        lowercased, and must match a `components[]` entry in the same manifest
+        that has `action: add`, a built `l2Component` file, and no
+        component-level permission gate. `l2Widget` payloads must not carry
+        `method` / `path` / `href`; other payload types must not carry
+        `componentId`.
+    permission:
+      type: string
+      description: >
+        Optional visibility gate on `forum.profile.tabs` descriptors. Must be
+        declared by the same manifest in `permissionDefinitions[]` or the legacy
+        `permissions[]` shard. The host filters gated contributions per viewer
+        and never returns the key to clients, so it is a visibility filter and
+        not an authorization boundary.
+    region:
+      type: string
+      description: >
+        Target page region for `regionPlacement` contributions; must be a
+        RegionCatalog region of the pages listed in `pages`.
+    pages:
+      type: array
+      description: >
+        Public page ids the `regionPlacement` contribution applies to, from the
+        RegionCatalog whitelist.
+      items:
+        type: string
     route:
       type: string
       description: Admin-shell relative route for dashboard widgets.

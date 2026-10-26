@@ -4,6 +4,11 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: migrate
+      # 源码构建的生产 migrate 镜像同样需要版本声明：这个服务没有继承
+      # compose.yaml 的 api build args，APP_ENV 默认 production，缺了会被
+      # 生产闸门直接拒。发布路径走 compose.release.yaml 的镜像，不受影响。
+      args:
+        SFORUM_VERSION: ${SFORUM_VERSION:-dev}
     profiles:
       - tools
     environment:

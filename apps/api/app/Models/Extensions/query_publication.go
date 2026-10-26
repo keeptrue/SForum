@@ -104,7 +104,7 @@ func (s *serviceCore) disableLegacyQueryPlugin(
 	// QuarantineRuntimeQueries has already closed exact runtime admission. Keep
 	// the process retained until Store.Disable commits so compensation can resume
 	// that same instance rather than starting an unbound replacement.
-	if err := s.clearPluginProviderSelections(ctx, extension.ID); err != nil {
+	if err := s.clearPluginProviderSelections(ctx, extension.ID, keepMailProviderSelection); err != nil {
 		return Extension{}, s.compensateLegacyQueryDisable(assetMutation, queryMutation, identityMutation, err)
 	}
 	disabled, err := s.disableLegacyPluginState(ctx, extension, actorUserID)

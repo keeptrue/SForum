@@ -1,14 +1,29 @@
 <script setup lang="ts">
-import type { MailProvider } from '../model'
+import type { MailProviderResponse, MailProviderState } from '../model'
 const { t } = useI18n()
 const { request } = useApiClient()
 const pending = ref(true)
-const configured = ref(false)
+const state = ref<MailProviderState>('unconfigured')
+const providerLabel = ref('')
 const errorMessage = ref('')
+const mailStatusText = computed(() => {
+  if (state.value === 'ready') return t('admin.mailSettings.providerReady')
+  if (state.value === 'unavailable') return providerLabel.value ? `${t('admin.mailSettings.selectedUnavailable')} (${providerLabel.value})` : t('admin.mailSettings.selectedUnavailable')
+  return t('admin.mailSettings.inAppContinues')
+})
+const mailBadge = computed(() => {
+  if (state.value === 'ready') return { color: 'success' as const, label: t('admin.mailSettings.ready') }
+  if (state.value === 'unavailable') return { color: 'warning' as const, label: t('admin.mailSettings.unavailable') }
+  return { color: 'warning' as const, label: t('admin.mailSettings.needsSetup') }
+})
 onMounted(load)
 async function load() {
   pending.value = true
-  try { configured.value = (await request<{ items: MailProvider[], configured: boolean }>('/admin/mail/providers')).configured } catch (error) { errorMessage.value = apiErrorMessage(error) || t('admin.mailSettings.loadFailed') } finally { pending.value = false }
+  try {
+    const response = await request<MailProviderResponse>('/admin/mail/providers')
+    state.value = response.state
+    providerLabel.value = response.selected?.label || ''
+  } catch (error) { errorMessage.value = apiErrorMessage(error) || t('admin.mailSettings.loadFailed') } finally { pending.value = false }
 }
 defineExpose({ refresh: load, pending })
 </script>
@@ -42,9 +57,9 @@ defineExpose({ refresh: load, pending })
         <div class="flex flex-col gap-2 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 class="text-sm font-semibold">{{ t('admin.mailSettings.mailStatus') }}</h3>
-            <p class="mt-1 text-sm text-muted">{{ configured ? t('admin.mailSettings.providerReady') : t('admin.mailSettings.inAppContinues') }}</p>
+            <p class="mt-1 text-sm text-muted">{{ mailStatusText }}</p>
           </div>
-          <UBadge :color="configured ? 'success' : 'warning'" variant="soft">{{ configured ? t('admin.mailSettings.ready') : t('admin.mailSettings.needsSetup') }}</UBadge>
+          <UBadge :color="mailBadge.color" variant="soft">{{ mailBadge.label }}</UBadge>
         </div>
       </section>
 

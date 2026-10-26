@@ -103,6 +103,7 @@ func reconcileCoreKernelAuthority(
 	tx *sql.Tx,
 	authority coreMigrationAuthority,
 	targetVersion string,
+	declared bool,
 ) (error, error) {
 	ready, err := coreKernelAuthorityFactsReady(ctx, tx)
 	if err != nil {
@@ -128,10 +129,15 @@ func reconcileCoreKernelAuthority(
 		if err != nil {
 			return nil, err
 		}
+		// Exactness validation describes the declarations themselves and must
+		// run even when the target is undeclared; only the version comparison
+		// depends on knowing which release this build is.
 		if err := validatePhysicalCoreCompatibilityDeclarations(declarations); err != nil {
 			return nil, err
 		}
-		compatibilityErr = rejectCoreCompatibilityDeclarations(target, declarations)
+		if declared {
+			compatibilityErr = rejectCoreCompatibilityDeclarations(target, declarations)
+		}
 	}
 	for _, candidate := range candidates {
 		if err := validateCoreKernelLeaseCandidate(ctx, tx, authority, candidate); err != nil {

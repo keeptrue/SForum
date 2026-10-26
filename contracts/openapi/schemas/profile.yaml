@@ -102,7 +102,12 @@ PublicProfile:
       format: date-time
     extensionTabs:
       type: array
-      description: Host-rendered profile tabs/sections from forum.profile.tabs (F4.3).
+      description: |
+        Host-rendered profile tabs from forum.profile.tabs (F4.3). Tabs gated by
+        a contribution `permission` are already filtered for the requesting
+        viewer, and the permission key itself is never returned. At most 8
+        `widget` tabs are returned; `extensionRoute` and `hostLink` tabs are not
+        capped.
       items:
         "$ref": "#/ProfileExtensionTab"
     nickname:
@@ -194,6 +199,11 @@ ProfileActivityTopic:
       format: date-time
 ProfileExtensionTab:
   type: object
+  description: |
+    One host-rendered tab on a public profile. `extensionRoute` and `hostLink`
+    tabs are right-rail links that navigate away from the profile; `widget` tabs
+    are appended to the profile tab strip after the built-in tabs and mount
+    their public L2 component in place.
   required:
   - extensionId
   - id
@@ -218,10 +228,34 @@ ProfileExtensionTab:
       enum:
       - extensionRoute
       - hostLink
+      - widget
+      description: |
+        `extensionRoute` opens the extension route proxy URL, `hostLink` opens a
+        site-relative path, `widget` mounts the public L2 component named by
+        `componentId` without navigating.
     method:
       type: string
+      enum:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      description: Present for `extensionRoute` tabs only.
     url:
       type: string
+      description: |
+        `extensionRoute` -> `/extensions/{extensionId}{path}`; `hostLink` ->
+        site-relative path. Always present: for `widget` tabs it is the empty
+        string, because the component is addressed by `componentId` instead of
+        a URL.
+    componentId:
+      type: string
+      description: |
+        `widget` tabs only. Normalized (trimmed, lowercased) id of a public L2
+        component declared in the same extension manifest: `action: add`, a
+        built `l2Component` file, and no component-level permission gate.
+        Absent for `extensionRoute` and `hostLink` tabs.
 UpdateProfileRequest:
   type: object
   description: All fields optional. Omitted fields are left unchanged.

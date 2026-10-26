@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import { useProfileApi } from '~/composables/profile/useProfileApi'
+import { useProfileShowData } from '~/composables/profile/useProfileShowData'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useForumApi } from '~/composables/forum/useForumApi'
@@ -12,7 +13,7 @@ import SFPublicMobileRightDrawerHeader from '~/components/navigation/SFPublicMob
 import { usePublicSidebarDrawer } from '~/composables/navigation/usePublicSidebarDrawer'
 /**
  * 宿主 body 岛：forum.profile.show。主题 L1 挂载；路由页仅 outlet + fail-closed 回退。
- * 布局对齐 demo B1：intro + 分区 tab（主题 / 回复 / 关于）+ 分日时间线。
+ * 布局对齐 demo B1：intro + 分区 tab（主题 / 回复 / 关于 + 扩展 widget tab）+ 分日时间线。
  */
 
 import {
@@ -22,7 +23,6 @@ import {
 import { userDisplayName } from '~/utils/forum/userDisplay'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import type {
-  PublicProfile,
   ProfileActivity,
   ProfileActivityKind,
   ProfileActivityPage
@@ -32,9 +32,24 @@ import {
   profileActivityLink,
   profileHasPublicDetails
 } from '~/utils/profile/profileActivity'
+import {
+  extensionTabLabel,
+  profileWidgetTabValue,
+  profileWidgetTabs
+} from '~/utils/profile/profileExtensionTab'
 import { safeUrl } from '~/utils/sfUrl'
 
-type ProfileTab = 'topics' | 'replies' | 'about'
+/**
+ * 内置分区与扩展贡献的 widget tab 共用一条栏，值域不能再收窄成字面量联合：
+ * 内置值仍是 'topics' | 'replies' | 'about'，扩展值是 `${extensionId}:${id}`。
+ */
+type ProfileTab = string
+
+type ProfileTabOption = {
+  value: ProfileTab
+  label: string
+  count?: number
+}
 
 type ActivityFeedState = {
   items: ProfileActivity[]
@@ -72,11 +87,9 @@ function emptyFeed(): ActivityFeedState {
 const topicFeed = ref<ActivityFeedState>(emptyFeed())
 const replyFeed = ref<ActivityFeedState>(emptyFeed())
 
-const { data: profile, pending: profilePending, error: profileError } = await useAsyncData(
-  () => `forum-profile-${username.value}`,
-  () => profileApi.getPublicProfile(username.value),
-  { default: () => null as PublicProfile | null }
-)
+// 路由壳是唯一取数点（见 useProfileShowData）：这里 inject 同一份 refs，
+// 既不会重复请求，也不会和壳的 options 产生 dev 警告。
+const { profile, pending: profilePending, error: profileError } = await useProfileShowData(username)
 
 const { data: categoryGroups, pending: categoriesPending } = await useAsyncData(
   'forum-profile-category-groups',
@@ -133,22 +146,51 @@ const navTotalTopics = computed(() => navCategories.value.reduce((sum, category)
 const hasPublicDetails = computed(() => profileHasPublicDetails(profile.value))
 const recentTopics = computed(() => profile.value?.recentTopics || [])
 
-const profileTabs = computed(() => [
+const widgetTabs = computed(() => profileWidgetTabs(profile.value?.extensionTabs))
+
+const profileTabs = computed<ProfileTabOption[]>(() => [
   {
-    value: 'topics' as const,
+    value: 'topics',
     label: t('profile.tabs.topics'),
     count: profile.value?.topicCount ?? 0
   },
   {
-    value: 'replies' as const,
+    value: 'replies',
     label: t('profile.tabs.replies'),
     count: profile.value?.commentCount ?? 0
   },
   {
-    value: 'about' as const,
+    value: 'about',
     label: t('profile.tabs.about')
-  }
+  },
+  // 内置三项位置保持稳定；扩展 widget tab 一律排在「关于」之后，按 order 再按 id 定序。
+  ...widgetTabs.value.map(tab => ({
+    value: profileWidgetTabValue(tab),
+    label: extensionTabLabel(tab, String(locale.value))
+  }))
 ])
+
+const activeWidgetTab = computed(() => widgetTabs.value.find(
+  tab => profileWidgetTabValue(tab) === activeTab.value
+))
+
+const activeWidgetTabLabel = computed(() => activeWidgetTab.value
+  ? extensionTabLabel(activeWidgetTab.value, String(locale.value))
+  : '')
+
+// 面板只拿最小身份上下文；扩展自己按需再走公开 L2 bridge 请求数据。
+const widgetComponentProps = computed<Record<string, unknown>>(() => ({
+  username: profile.value?.username || username.value,
+  userId: profile.value?.userId ?? 0,
+  displayName: displayName.value
+}))
+
+// 扩展被禁用/升级后 widget tab 会消失；激活态留在已不存在的 tab 上会静默渲染成空时间线。
+watch(profileTabs, (tabs) => {
+  if (!tabs.some(tab => tab.value === activeTab.value)) {
+    activeTab.value = 'topics'
+  }
+})
 
 const activeFeed = computed(() => {
   if (activeTab.value === 'replies') {
@@ -174,7 +216,8 @@ const activityGroups = computed(() => groupProfileActivitiesByDate(panelActiviti
 }))
 
 const showLoadMore = computed(() => {
-  if (activeTab.value === 'about') {
+  // 「关于」和扩展 widget 面板都没有分页，只有两条活动流会有下一页。
+  if (!activityKindForTab(activeTab.value)) {
     return false
   }
   return activeFeed.value.loaded && activeFeed.value.hasMore
@@ -471,7 +514,7 @@ async function shareProfile() {
 
           <SFRegionOutlet page="forum.profile.show" region="profile_header_after" />
 
-          <!-- 分区 tab：主题 / 回复 / 关于 -->
+          <!-- 分区 tab：内置三项在前，扩展 widget tab 追加在「关于」之后 -->
           <nav class="sf-profile-tabs" :aria-label="t('profile.tabs.ariaLabel')">
             <button
               v-for="tab in profileTabs"
@@ -515,6 +558,21 @@ async function shareProfile() {
                   <span>{{ profile.profile.signature }}</span>
                 </li>
               </ul>
+            </section>
+          </template>
+
+          <template v-else-if="activeWidgetTab">
+            <!-- 扩展 widget tab：宿主只提供挂载点。SSR 骨架、失败隔离、退避重试和重试按钮
+                 全部由 SFExtensionWidget 自己承担，这里不再叠一层错误 UI。
+                 v-if 而非 v-show：切走即卸载 L2 组件、租约监控与 CSS 租约。 -->
+            <section class="sf-profile-extension-panel" :aria-label="activeWidgetTabLabel">
+              <SFExtensionWidget
+                :extension-id="activeWidgetTab.extensionId"
+                :component-id="activeWidgetTab.componentId"
+                :component-props="widgetComponentProps"
+              >
+                <SFSkeleton :lines="3" />
+              </SFExtensionWidget>
             </section>
           </template>
 

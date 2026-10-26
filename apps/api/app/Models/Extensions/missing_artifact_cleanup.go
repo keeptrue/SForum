@@ -125,7 +125,7 @@ func (s *CatalogService) pruneMissingBuiltins(ctx context.Context, activeIDs []s
 		return err
 	}
 	for _, extensionID := range result.DisabledPluginIDs {
-		if err := s.clearPluginProviderSelections(ctx, extensionID); err != nil {
+		if err := s.clearPluginProviderSelections(ctx, extensionID, clearMailProviderSelection); err != nil {
 			return fmt.Errorf("clear removed builtin provider selections for %s: %w", extensionID, err)
 		}
 		if s.pageRegistry != nil {

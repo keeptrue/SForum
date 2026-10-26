@@ -24,7 +24,7 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `forum.nav.items` | forum | descriptor | `navItem` | Extra public navbar entries (hostLink or public extensionRoute). Core/operator nav first; contributions secondary. No admin-only paths. |
 | `forum.topic.list.badges` | forum | descriptor | `topicBadge` | List-row badge descriptors for topic lists (same topicBadge shape as detail badges). List-level once; no per-row plugin RPC. |
 | `forum.composer.toolbar` | forum | descriptor | `extensionRoute` | Composer/editor toolbar actions rendered by the host UI; payload is an extensionRoute only. |
-| `forum.profile.tabs` | forum | descriptor | `profileSection` | Public profile tabs/sections rendered by the host UI (extensionRoute or hostLink). |
+| `forum.profile.tabs` | forum | descriptor | `profileSection` | Public profile tabs rendered by the host UI: extensionRoute/hostLink link tabs, or an in-place l2Widget panel resolved by the public L2 runtime. Optional permission keys are filtered server-side and never reach the client. |
 | `admin.dashboard.widgets` | admin | descriptor | `dashboardLink` | Admin dashboard link widgets; host-owned routes only, no executable payloads. |
 | `system.health.checks` | system | descriptor | `healthDescriptor` | Plugin readiness components merged into GET /ready without invoking plugin RPC. |
 | `forum.page.regions` | forum | descriptor | `regionPlacement` | Standard page region placements (RegionCatalog whitelist): hostLink card, extensionRoute action card, or l2Widget reference resolved by the public L2 runtime. |

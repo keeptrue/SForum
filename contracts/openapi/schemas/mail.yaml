@@ -3,6 +3,42 @@ MailProviderSelectionRequest:
   required: [extensionId]
   properties:
     extensionId: {type: string, description: Enabled plugin declaring mail.provider.}
+MailProviderState:
+  type: string
+  enum: [ready, unavailable, unconfigured]
+  description: ready = selected and runnable; unavailable = selected but disabled/restarting; unconfigured = no resolvable provider.
+MailProviderItem:
+  type: object
+  required: [extensionId, label, healthy]
+  properties:
+    extensionId: {type: string}
+    label: {type: string}
+    healthy: {type: boolean}
+    status: {type: string, enum: [enabled, unavailable]}
+MailProviderSelection:
+  type: object
+  required: [extensionId, label]
+  properties:
+    extensionId: {type: string}
+    label: {type: string}
+ApiResponseMailProviders:
+  type: object
+  required: [items, selected, configured, state]
+  properties:
+    items:
+      type: array
+      items: {$ref: "#/MailProviderItem"}
+    selected: {$ref: "#/MailProviderSelection"}
+    configured: {type: boolean, description: True when a provider is selected, even if temporarily unavailable.}
+    state: {$ref: "#/MailProviderState"}
+ApiResponseMailProviderReset:
+  type: object
+  required: [selected, configured, state, secretsPreserved]
+  properties:
+    selected: {$ref: "#/MailProviderSelection"}
+    configured: {type: boolean}
+    state: {$ref: "#/MailProviderState"}
+    secretsPreserved: {type: boolean}
 MailTestRequest:
   type: object
   properties:

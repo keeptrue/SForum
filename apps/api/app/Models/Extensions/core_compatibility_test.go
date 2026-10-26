@@ -118,7 +118,9 @@ func TestEnableKeepsBuiltinExemptionFromManifestConstraints(t *testing.T) {
 }
 
 func TestUnverifiableCoreVersionSkipsInsteadOfBlocking(t *testing.T) {
-	withCoreVersion(t, "v3.0.16")
+	// 带 v 的标签现在会在兼容版本解析处归一成 strict semver（v3.0.16 → 3.0.16），
+	// 不再是「不可验证」的样本；这里用真正解析不出来的标签守住原意。
+	withCoreVersion(t, "not-semver")
 	item := uploadedExtension("future.plugin", TypePlugin)
 	item.Manifest.SForumVersion = "^9.0.0"
 	if err := requireEnablePreflight(item); err != nil {

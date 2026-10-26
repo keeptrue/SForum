@@ -29,3 +29,15 @@ func TestLegacyNonSMTPLeavesProviderUnconfigured(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyMailSiteDistinguishesFreshInstall(t *testing.T) {
+	if legacyMailSite(map[string]string{"mail.welcome.enabled": "disabled"}) {
+		t.Fatal("modern mail options must not be treated as a legacy site")
+	}
+	if !legacyMailSite(map[string]string{"mail.provider": "noop"}) {
+		t.Fatal("an explicit legacy provider must count as a legacy site")
+	}
+	if !legacyMailSite(map[string]string{"mail.smtp.host": "smtp.example.com"}) {
+		t.Fatal("legacy SMTP settings must count as a legacy site")
+	}
+}

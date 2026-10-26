@@ -553,9 +553,9 @@ func (s *PostgresStore) Disable(ctx context.Context, id string) (Extension, erro
 	if command.RowsAffected() == 0 {
 		return Extension{}, ErrExtensionNotFound
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM mail_provider_selection WHERE extension_id=$1`, id); err != nil {
-		return Extension{}, fmt.Errorf("clear disabled mail provider: %w", err)
-	}
+	// Keep the mail provider preference across disable. It is not a runtime
+	// registration: the registry reports it unavailable while disabled and it
+	// becomes effective again on the next enable. Uninstall clears it.
 	if err := tx.Commit(ctx); err != nil {
 		return Extension{}, fmt.Errorf("commit disable extension: %w", err)
 	}

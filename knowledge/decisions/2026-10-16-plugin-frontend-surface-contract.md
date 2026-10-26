@@ -6,6 +6,11 @@ Accepted. M0 of the plugin frontend experience program. The icon service
 (M1) is implemented under this contract; public shell, region density, and the
 declarative page view follow in later milestones.
 
+**Partially superseded (2026-10-26):** `forum.profile.tabs` now accepts
+`l2Widget` because its render site gained real L2 mounting; every other
+descriptor point keeps the boundary below. See
+`2026-10-26-profile-tab-l2widget.md`.
+
 ## Context
 
 Plugin authors report three concrete frontend authoring gaps:
@@ -141,6 +146,15 @@ descriptor.** A descriptor states *where to go or what to trigger*
 A region states *what to put here*, and only `SFRegionOutlet` /
 `SFThemeTemplate` can mount an L2 component for it.
 
+**Recorded exception (2026-10-26):** `forum.profile.tabs` is now a second kind of
+content surface. Selecting a profile tab swaps a panel the host already renders
+in the profile content column, so that point satisfies the condition stated
+below ("the point's render site gains real L2 mounting plus membership in the
+page's single CSP aggregation"). `forum.topic.sidebar`, `forum.nav.items`,
+`forum.topic.actions`, `forum.comment.actions`, the badge points, and
+`forum.composer.toolbar` remain closed. Decision:
+`2026-10-26-profile-tab-l2widget.md`.
+
 Consequences to keep:
 
 - Do not add `l2Widget` (or any embedded-content variant) to a descriptor point
@@ -194,7 +208,8 @@ populated `forum.topic.show` (9 regions).
   lists in sync by hand.
 - `l2Widget` acceptance on the descriptor points that today take only
   `extensionRoute`/`hostLink` is still open (M4); nothing in this change
-  touches it.
+  touches it. **Updated 2026-10-26:** `forum.profile.tabs` now accepts it; the
+  other descriptor points remain closed (`2026-10-26-profile-tab-l2widget.md`).
 - Nuxt Layers, runtime SFC compilation, Host-private component imports, and
   package build-script execution remain unsupported. L2 code remains fully
   trusted after exact-artifact approval, not sandboxed.

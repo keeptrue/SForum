@@ -208,7 +208,7 @@ func disableLegacyContentPlugin(
 	if contentMutation == nil {
 		return Extension{}, ErrRuntimeContentPublicationUnavailable
 	}
-	if err := s.clearPluginProviderSelections(ctx, extension.ID); err != nil {
+	if err := s.clearPluginProviderSelections(ctx, extension.ID, keepMailProviderSelection); err != nil {
 		return Extension{}, compensateLegacyContentDisable(s, assetMutation, contentMutation, err)
 	}
 	disabled, err := s.disableLegacyPluginState(ctx, extension, actorUserID)

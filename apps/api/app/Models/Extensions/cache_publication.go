@@ -75,7 +75,7 @@ func (s *serviceCore) disableLegacyCachePlugin(
 	}
 	// Both Registry publications are quarantined before persistent state changes.
 	// Query owns the final resume when present because it drained the runtime first.
-	if err := s.clearPluginProviderSelections(ctx, extension.ID); err != nil {
+	if err := s.clearPluginProviderSelections(ctx, extension.ID, keepMailProviderSelection); err != nil {
 		return Extension{}, s.compensateLegacyCacheDisable(assetMutation, queryMutation, cacheMutation, identityMutation, err)
 	}
 	disabled, err := s.disableLegacyPluginState(ctx, extension, actorUserID)

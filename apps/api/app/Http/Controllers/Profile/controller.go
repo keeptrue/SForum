@@ -2,6 +2,7 @@ package profilecontroller
 
 import (
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -40,12 +41,28 @@ type updateProfileRequest struct {
 	DisplayName *string `json:"displayName"`
 }
 
+// setViewerScopedResponse 标记「响应内容随请求者身份变化」的读取。
+// 与 SiteChrome.publicNavigation / Pages.setPrivatePageResponse 同一组合：
+// 共享缓存不得复用，且显式声明三个变体维度。Cookie/Authorization 决定
+// 受限扩展 tab 是否出现，Accept-Language 决定 label 解析。
+func setViewerScopedResponse(c fiber.Ctx) {
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	c.Vary(fiber.HeaderCookie, fiber.HeaderAuthorization, fiber.HeaderAcceptLanguage)
+}
+
 func (h *Controller) publicProfile(c fiber.Ctx) error {
+	setViewerScopedResponse(c)
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	username := c.Params("username")
-	data, err := h.service.GetPublicProfile(c.Context(), username)
+	// 公开页不因登录态异常失败：会话存储抖动、账号已删除等情况降级为匿名视角，
+	// 只丢失「受限扩展 tab」，不影响资料页本身。
+	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	if err != nil {
+		slog.Warn("profile: optional actor resolve failed, serving anonymous view", "error", err)
+		viewer = identity.Actor{}
+	}
+	data, err := h.service.GetPublicProfileForViewer(c.Context(), c.Params("username"), viewer)
 	if err != nil {
 		return mapProfileError(err)
 	}
@@ -100,6 +117,7 @@ func (h *Controller) requireGuestRead(c fiber.Ctx) error {
 }
 
 func (h *Controller) myProfile(c fiber.Ctx) error {
+	setViewerScopedResponse(c)
 	actor, err := h.actor(c)
 	if err != nil {
 		return err
@@ -211,6 +229,7 @@ func mapProfileError(err error) error {
 // nicknameAvailability 是改名前的预检。它不写任何东西，只回答三件事：
 // 这个值能不能用、有多少人同名、如果不能用是哪个原因。
 func (h *Controller) nicknameAvailability(c fiber.Ctx) error {
+	setViewerScopedResponse(c)
 	actor, err := h.actor(c)
 	if err != nil {
 		return err

@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -14,6 +15,21 @@ var legacyToPluginSetting = map[string]string{
 	"mail.from_address": "from_address", "mail.from_name": "from_name", "mail.smtp.host": "host",
 	"mail.smtp.port": "port", "mail.smtp.username": "username", "mail.smtp.password": "password",
 	"mail.smtp.encryption": "encryption",
+}
+
+// legacyMailSite distinguishes a pre-plugin installation from a fresh
+// database. A fresh install has no legacy mail keys; it must leave the
+// selection row absent so the registry can resolve the recommended default.
+func legacyMailSite(values map[string]string) bool {
+	if strings.TrimSpace(values["mail.provider"]) != "" {
+		return true
+	}
+	for key := range legacyToPluginSetting {
+		if strings.TrimSpace(values[key]) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func legacyMailSettings(legacy, current map[string]string) (map[string]string, bool) {
@@ -88,7 +104,7 @@ func (s *PostgresStore) AdoptLegacyMail(ctx context.Context, legacy map[string]s
 		if _, err = tx.Exec(ctx, `INSERT INTO mail_provider_selection (slot, extension_id) VALUES ('mail.provider',$1) ON CONFLICT (slot) DO UPDATE SET extension_id=EXCLUDED.extension_id, updated_at=NOW()`, builtinSMTPPluginID); err != nil {
 			return err
 		}
-	} else {
+	} else if legacyMailSite(legacy) {
 		if _, err = tx.Exec(ctx, `DELETE FROM mail_provider_selection WHERE slot='mail.provider'`); err != nil {
 			return err
 		}

@@ -22,6 +22,13 @@ Member public profiles and current-user profile settings.
   `attachments(id)` set null on delete; `created_at`/`updated_at`.
 - Sparse by design: no background images, custom code, birthday, phone,
   follow counts, or gamification fields.
+- `ExtensionProfileTabProvider` (`app/Providers/profile_contributions.go`)
+  resolves `forum.profile.tabs` for a viewer: tabs with an empty
+  `payload.permission` are public, the rest require `viewer.Can(permission)`.
+  `kind: widget` tabs carry a `componentId`, keep `url` empty (no extension
+  proxy), and are capped at 8 per render; overflow is truncated in contribution
+  order with a warning log. Link tabs are not capped. Decision:
+  `decisions/2026-10-26-profile-tab-l2widget.md`.
 - Profile responses include an `avatar` view object with `kind`, `url`,
   `attachmentId`, and `alt`. Uploaded avatars win; otherwise the service falls
   back to the configured default provider (`initials`, `gravatar`, or
@@ -41,6 +48,8 @@ Member public profiles and current-user profile settings.
   public-visible topic/comment counts, 5 recent public topics, and a bounded
   public activity timeline. Counts and timeline rows only include active
   public topics and active comments in public active/locked topics.
+  `extensionTabs` are filtered by the optional viewer's permissions; the
+  permission key itself is never serialized.
 - `GET /api/v1/profiles/{username}/activities?kind=topic|comment&page&perPage`
   paginated public activities. Comment items include `commentId` and
   `commentPage` (flat-view page, same formula as
@@ -95,6 +104,65 @@ editor in V1.
 - `SFProfileRightRail` owns the shared desktop/mobile rendering of public
   details, real statistics, recent topics, and extension links. On mobile the
   left navigation and this right rail use the default-theme shared drawers.
+- Extension tab contributions (`forum.profile.tabs`) have two shapes.
+  `extensionRoute` / `hostLink` tabs stay right-rail links; `widget` tabs join
+  the main tab bar after `about` and mount `SFExtensionWidget` in the panel
+  area. The right rail filters widget tabs out so one contribution never
+  appears twice. Switching tabs unmounts the widget (`v-if`, not `v-show`), so
+  an L2 lease and its CSS never outlive the panel. Widget order is `order`, then
+  `extensionId`, then `id` - independent-field code-unit comparison, the same
+  key the backend uses for truncation - and the built-in
+  `topics`/`replies`/`about` positions never move.
+- A tab `permission` is a server-side visibility filter, not a data boundary:
+  the field is `json:"-"` and never reaches the browser, and plugin routes must
+  authorize their own data. `GET /profiles/{username}` resolves an optional
+  actor and degrades to anonymous when the session cannot be resolved;
+  `GetPublicProfile` keeps its anonymous signature for `PageViewModels` and
+  `AITools`, so host read surfaces do not become viewer-dependent.
+- Widget tabs are L2 mounts, so the profile page aggregates their component
+  refs into the document CSP through `GET /extensions/runtime/page-policy`. The
+  route shell is the single fetch point (next bullet) and passes
+  `collectProfileWidgetRefs()` to `SFPageOutlet`; `SFPageOutletResolver`
+  aggregates once on the native path and `SFThemeTemplate` once on the
+  theme-template path (mutually exclusive, pinned by
+  `apps/web/tests/extensions/profile-page-policy.test.ts`). Omitting the refs
+  does not block the mount: the app then writes no `Content-Security-Policy` for
+  that response, and L2 JS (`import()`), CSS (`<link rel=stylesheet>`) and
+  descriptor/asset fetches are same-origin, so `script-src`/`style-src`/
+  `connect-src 'self'` would allow them anyway. The costs are a missing
+  digest-bound style pre-injection on the theme-template path (first-frame
+  flash) and no document policy / `X-SForum-Document-Policy-Digest` evidence.
+  Do not diagnose a broken widget tab as "CSP blocked it".
+- `collectProfileWidgetRefs` drops invalid refs one at a time, deliberately
+  unlike `collectRegionWidgetRefs` (all-or-nothing): one plugin's bad
+  contribution must not void the whole page's L2 policy, and the dropped tab
+  fails closed on its own.
+- The route shell is the single profile fetch point: `useProfileShowData()`
+  (`apps/web/app/composables/profile/useProfileShowData.ts`) creates the one
+  `useAsyncData` and provides the refs; the island injects them. Default options
+  are deliberate - they keep Nuxt's payload purge. Two independent callers
+  would cost two separate things: differing options log `Incompatible options
+  detected` in dev (`asyncData.js`), and because `payloadExtraction: false`
+  (`apps/web/nuxt.config.ts`) the server has no `static.data` to reuse, a
+  second same-key call re-executes the handler even with identical options
+  (default dedupe `cancel` aborts the first and sends another). Do not add
+  `getCachedData`/`dedupe` back on either side; a future second consumer should
+  call `useProfileShowData()` instead.
+- On a response that carries the strict document policy (any page with L2 refs,
+  including a profile that has widget tabs), `img-src 'self'` blocks avatar
+  images hosted off-site: the gravatar provider (default base URL
+  `https://gravatar.com/avatar/<hash>`) and the `static` provider when its
+  operator-configured URL points off-site. The shared builder would also honor
+  an external `avatar.Attachment.URL` (`app/Support/Avatar/view.go:88`), but no
+  current avatar source populates it - the `attachments` table has no URL
+  column, storage URLs are computed at read time and never reach the avatar
+  source - so uploaded avatars resolve to the same-origin
+  `/media/avatars/{publicId}`. `SFAvatar`'s existing `@error`
+  fallback renders initials instead - that fallback working as designed, not a
+  new degradation path. The default `initials` provider and a default install
+  (no L2 refs, so no document policy) are unaffected. Adding an
+  operator-configured avatar source allowlist to `img-src` in the policy layer
+  is a separate backend task.
 - Public activity links use existing legal forum routes:
   `/t/{topicId}/{slug}` for topics and
   `/t/{topicId}/{slug}/page/N#comment-{id}` for replies (`/page/N` omitted when

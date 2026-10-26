@@ -79,8 +79,18 @@ func NewAvatarViewBuilder(avatarOptions AvatarOptionResolver) *AvatarViewBuilder
 	return avatar.NewViewBuilder(avatarOptionResolverAdapter{inner: avatarOptions})
 }
 
-// GetPublicProfile 返回公开资料页聚合数据。
+// GetPublicProfile 返回公开资料页聚合数据（匿名视角）。
+//
+// 保留这条签名是刻意的：PageViewModels 与 AITools 是宿主读取面，它们取到的
+// 就应该是不带登录态的最宽公开视图，不该因为谁在浏览而变形。需要按访客权限
+// 过滤扩展 tab 的 HTTP 入口走 GetPublicProfileForViewer。
 func (s *Service) GetPublicProfile(ctx context.Context, username string) (PublicProfile, error) {
+	return s.GetPublicProfileForViewer(ctx, username, identity.Actor{})
+}
+
+// GetPublicProfileForViewer 按请求者视角返回公开资料页聚合数据。
+// 唯一受 viewer 影响的是扩展 tab 的可见性过滤（由 ProfileTabProvider 执行）。
+func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string, viewer identity.Actor) (PublicProfile, error) {
 	normalized := strings.TrimSpace(username)
 	if normalized == "" {
 		return PublicProfile{}, ErrProfileNotFound
@@ -106,7 +116,7 @@ func (s *Service) GetPublicProfile(ctx context.Context, username string) (Public
 		return PublicProfile{}, err
 	}
 	profile = s.decorateProfile(ctx, user, profile)
-	tabs, err := s.listProfileTabs(ctx)
+	tabs, err := s.listProfileTabs(ctx, viewer)
 	if err != nil {
 		return PublicProfile{}, err
 	}
@@ -312,11 +322,11 @@ func commentActivity(comment ProfileCommentActivity) ProfileActivity {
 	}
 }
 
-func (s *Service) listProfileTabs(ctx context.Context) ([]ProfileExtensionTab, error) {
+func (s *Service) listProfileTabs(ctx context.Context, viewer identity.Actor) ([]ProfileExtensionTab, error) {
 	if s == nil || s.profileTabs == nil {
 		return nil, nil
 	}
-	return s.profileTabs.ProfileTabs(ctx)
+	return s.profileTabs.ProfileTabs(ctx, viewer)
 }
 
 // GetMyProfile 读取当前用户可编辑的资料。

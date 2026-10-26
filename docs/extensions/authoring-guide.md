@@ -1409,7 +1409,7 @@ Payloads are JSON descriptors — **never executable code**.
 | `forum.nav.items` | `navItem` (`hostLink` \| public `extensionRoute` GET) | `GET /site/nav-items` → `extensionItems` (default theme navbar) |
 | `forum.topic.list.badges` | `topicBadge` | Topic list `extensionListBadges` (list-row pills) |
 | `forum.composer.toolbar` | `extensionRoute` | `GET /composer/toolbar` + composer UI |
-| `forum.profile.tabs` | `profileSection` (`extensionRoute` \| `hostLink`) | Public profile `extensionTabs` |
+| `forum.profile.tabs` | `profileSection` (`extensionRoute` \| `hostLink` \| `l2Widget`) | Public profile `extensionTabs` (link tabs in the right rail, `l2Widget` in the tab strip) |
 | `admin.dashboard.widgets` | `dashboardLink` (`adminLink` + admin route) | Admin overview `extensionWidgets` |
 | `system.health.checks` | `healthDescriptor` (`static` \| `extensionRuntime`) | Merged into `GET /ready` without plugin RPC |
 
@@ -1455,6 +1455,52 @@ the web-side whitelist is generated from the Go catalog, so never hand-edit it.
 - Host returns descriptors once on `TopicList.extensionListBadges` (not per
   topic row). Themes attach the same set to each list row; no per-row plugin
   RPC and no custom components.
+
+### Profile tabs (F4.3)
+
+- Point: `forum.profile.tabs`, payload type `profileSection`. Three payload
+  shapes: `extensionRoute` (opens the extension route proxy), `hostLink`
+  (site-relative path, not `/api`), and `l2Widget`.
+- `extensionRoute` / `hostLink` tabs stay right-rail links and navigate away
+  from the profile. `l2Widget` tabs join the profile tab strip after the
+  built-in topics / replies / about tabs and mount their component **in place**:
+  selecting the tab renders the component, it never navigates. Widget tabs are
+  ordered by contribution `order`, then by `{extensionId}:{id}`, so a
+  contribution reorder cannot silently reshuffle the strip.
+- `l2Widget` payload rules: `componentId` is required and must name a component
+  declared in the **same** manifest with `action: "add"`, a built `l2Component`
+  file, and **no component-level `permission`**. The id is normalized (trimmed,
+  lowercased). `method` / `path` / `href` must be empty on this shape; a payload
+  carrying them fails manifest validation instead of being silently ignored.
+- At most **8 widget tabs** render on one profile page. Extra widget
+  contributions are dropped in contribution order (the host logs one warning);
+  `extensionRoute` / `hostLink` tabs are not capped. A widget contribution that
+  cannot mount (no `componentId`, unknown type) is dropped whole by the reader —
+  never a half-built tab; manifest validation rejects the same payloads outright.
+- Mount contract: the host renders the component with
+  `componentProps: { username, userId, displayName }` and unmounts it as soon as
+  the visitor switches tabs — coming back is a fresh mount, not a reused hidden
+  instance, so keep view state inside the component. A widget that fails to load
+  degrades inside its own panel (fallback UI plus bounded retry, quarantine
+  after 3 failures) and never takes the rest of the profile page with it.
+- Tab label resolution: current locale, then `zh-CN`, then `en-US`, then any
+  declared label, then the contribution `id`.
+
+**Permission gating (all three shapes).** A `profileSection` payload may carry
+an optional `permission` key. It must be declared by the same extension — in
+`permissionDefinitions[]` or in the legacy `permissions[]` shard — otherwise the
+manifest is rejected: a tab pointing at an undeclared key would never render
+anyway. Filtering happens on the server for the requesting viewer: a tab whose
+key the viewer lacks is absent from `extensionTabs` entirely, and the
+`permission` field itself never appears in the response.
+
+- A tab `permission` gates **who sees the tab**, not what the component may do.
+  The referenced component must still be public, and mounting still goes through
+  public L2 admission (exact digest, `super_admin` trust grant, SRI). An
+  untrusted widget fails closed inside its panel while the rest of the page
+  keeps rendering.
+- Host read surfaces that carry no viewer (page view models, AI tools) read the
+  anonymous view, so only ungated tabs appear there.
 
 ## Entity meta / custom fields (F4.4)
 

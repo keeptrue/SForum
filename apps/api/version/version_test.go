@@ -122,6 +122,134 @@ func TestCoreCompatibilityVersionSeparatesDevelopmentBuildIdentity(t *testing.T)
 	}
 }
 
+func TestCoreCompatibilityDeclaredDistinguishesFallbackFromRealVersion(t *testing.T) {
+	originalCurrent := Current
+	t.Cleanup(func() { Current = originalCurrent })
+
+	derived := stubDevelopmentVersionProbe(t, "")
+
+	// 1) dev + 探针为空：返回哨兵，但**不是**声明。
+	Current = "dev"
+	value, declared := CoreCompatibilityDeclared()
+	if value != developmentCoreCompatibilityVersion || declared {
+		t.Fatalf("untagged development declaration = %q/%t, want %q/false",
+			value, declared, developmentCoreCompatibilityVersion)
+	}
+	if got := CoreCompatibilityVersion(); got != value {
+		t.Fatalf("CoreCompatibilityVersion = %q, want the declared pair's value %q", got, value)
+	}
+
+	// 2) dev + 探针有值：派生值就是声明。
+	*derived = "3.0.18+10.gd1153068c.dirty"
+	value, declared = CoreCompatibilityDeclared()
+	if value != "3.0.18+10.gd1153068c.dirty" || !declared {
+		t.Fatalf("tagged development declaration = %q/%t", value, declared)
+	}
+
+	// 3) release：ldflags 注入值恒为声明，且不触发 git 探针。
+	*derived = ""
+	Current = " 2.8.0-beta.1 "
+	value, declared = CoreCompatibilityDeclared()
+	if value != "2.8.0-beta.1" || !declared {
+		t.Fatalf("release declaration = %q/%t", value, declared)
+	}
+}
+
+func TestRequireDeclaredCoreVersionFailsClosedOnlyInProduction(t *testing.T) {
+	cases := []struct {
+		name        string
+		appEnv      string
+		coreVersion string
+		declared    bool
+		wantErr     bool
+		wantText    []string
+	}{
+		{"production undeclared", "production", "1.0.0", false, true, nil},
+		{"production case variant", "Production", "1.0.0", false, true, nil},
+		{"production declared", "production", "3.0.18", true, false, nil},
+		{"production declared with build metadata", "production", "3.0.18+4.ga4e91267b", true, false, nil},
+		// 照 tag 抄是最自然的写法：v 前缀在兼容版本解析处被剥掉，闸门放行。
+		{"production v-prefixed tag", "production", "v3.0.18", true, false, nil},
+		{"production padded tag", "production", " v3.0.18 ", true, false, nil},
+		{"production bare v", "production", "v", true, true, nil},
+		{"production not semver", "production", "not-semver", true, true, nil},
+		{"production empty version", "production", "", true, true, nil},
+		{"development undeclared", "development", "1.0.0", false, false, nil},
+		{"development v-prefixed tag", "development", "v3.0.18", true, false, nil},
+		{"staging undeclared", "staging", "1.0.0", false, false, nil},
+		{"empty env undeclared", "", "1.0.0", false, false, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := RequireDeclaredCoreVersion(tc.appEnv, tc.coreVersion, tc.declared)
+			if !tc.wantErr {
+				if err != nil {
+					t.Fatalf("gate error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("gate error = nil, want a refusal")
+			}
+			for _, want := range append([]string{"SFORUM_VERSION"}, tc.wantText...) {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("gate error %q does not mention %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+// 生产闸门必须真的读构建身份：无 tag 的 dev 构建过不去，声明过就放行。
+func TestRequireDeclaredForProductionReadsTheBuildIdentity(t *testing.T) {
+	originalCurrent := Current
+	t.Cleanup(func() { Current = originalCurrent })
+	derived := stubDevelopmentVersionProbe(t, "")
+
+	Current = "dev"
+	if err := RequireDeclaredForProduction("production"); err == nil {
+		t.Fatal("untagged development build passed the production gate")
+	}
+
+	*derived = "3.0.18+10.gd1153068c.dirty"
+	if err := RequireDeclaredForProduction("production"); err != nil {
+		t.Fatalf("tag-derived development build was refused: %v", err)
+	}
+
+	Current = " 3.0.18 "
+	if err := RequireDeclaredForProduction("production"); err != nil {
+		t.Fatalf("release build was refused: %v", err)
+	}
+
+	Current = "v3.0.18"
+	if err := RequireDeclaredForProduction("production"); err != nil {
+		t.Fatalf("tag-shaped release build was refused: %v", err)
+	}
+}
+
+// 部署侧沿用 tag 语义的 SFORUM_VERSION=v3.0.18：兼容版本去 v，展示标签保留原样。
+func TestTagShapedBuildLabelStripsVPrefixOnlyFromCompatibilityVersion(t *testing.T) {
+	originalCurrent := Current
+	t.Cleanup(func() { Current = originalCurrent })
+
+	Current = "v3.0.18"
+	value, declared := CoreCompatibilityDeclared()
+	if value != "3.0.18" || !declared {
+		t.Fatalf("tag-shaped declaration = %q/%t, want 3.0.18/true", value, declared)
+	}
+	if got := CoreCompatibilityVersion(); got != "3.0.18" {
+		t.Fatalf("CoreCompatibilityVersion = %q, want 3.0.18", got)
+	}
+	if got := Get().Version; got != "v3.0.18" {
+		t.Fatalf("BuildInfo.Version = %q, want the raw v3.0.18", got)
+	}
+
+	Current = " v3.0.18 "
+	if value, declared := CoreCompatibilityDeclared(); value != "3.0.18" || !declared {
+		t.Fatalf("padded tag-shaped declaration = %q/%t", value, declared)
+	}
+}
+
 func TestReleaseBuildsNeverConsultTheGitProbe(t *testing.T) {
 	originalCurrent := Current
 	t.Cleanup(func() { Current = originalCurrent })
@@ -137,6 +265,9 @@ func TestReleaseBuildsNeverConsultTheGitProbe(t *testing.T) {
 	Current = "3.0.16"
 	if got := CoreCompatibilityVersion(); got != "3.0.16" {
 		t.Fatalf("release Core compatibility version = %q", got)
+	}
+	if value, declared := CoreCompatibilityDeclared(); value != "3.0.16" || !declared {
+		t.Fatalf("release declaration = %q/%t", value, declared)
 	}
 }
 
@@ -242,11 +373,10 @@ func TestIdentityFreezesCompatibilityAndBuildLabels(t *testing.T) {
 		t.Fatalf("tagged development identity = %#v", identity)
 	}
 
-	// A tag-shaped build label is not strict semver: compatibility must be
-	// reported as unknown instead of being silently rewritten.
+	// 带 v 的标签是发行声明：兼容版本归一成 strict semver，展示标签保留原样。
 	Current = "v3.0.16"
 	identity = Identity()
-	if identity.CoreVersion != "v3.0.16" || identity.Valid {
-		t.Fatalf("invalid identity = %#v", identity)
+	if identity.CoreVersion != "3.0.16" || identity.BuildVersion != "v3.0.16" || !identity.Valid {
+		t.Fatalf("tag-shaped identity = %#v", identity)
 	}
 }

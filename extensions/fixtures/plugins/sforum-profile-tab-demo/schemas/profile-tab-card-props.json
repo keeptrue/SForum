@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "username": { "type": "string" },
+    "userId": { "type": "integer" },
+    "displayName": { "type": "string" }
+  },
+  "additionalProperties": true
+}

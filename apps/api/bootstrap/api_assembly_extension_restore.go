@@ -128,6 +128,9 @@ func restoreAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger 
 	if err := notifications.NewPostgresStore(pool).AdoptLegacyMail(ctx, legacyMailValues); err != nil {
 		return nil, fmt.Errorf("adopt legacy mail settings: %w", err)
 	}
+	// A fresh install has no explicit selection row. Persist the recommended
+	// default so the first transactional email is not skipped as unconfigured.
+	ensureDefaultMailProvider(ctx, extensionStore, logger)
 	var pluginRuntimeCoordinator *pluginRuntimeCoordinatorRuntime
 	var pluginRuntimeRecovery *health.RecoveryRequirement
 	pluginRuntimeStopTimeout := normalizedPluginRuntimeCoordinatorStopTimeout(cfg.WorkerShutdownTimeout)
@@ -301,5 +304,19 @@ func pluginRuntimeRecoveryMessage(err error) string {
 		return "plugin process failed to start"
 	default:
 		return "plugin runtime convergence failed; inspect API logs for the exact cause"
+	}
+}
+
+// ensureDefaultMailProvider persists the recommended mail provider for a
+// fresh database. Both the API and worker call it after legacy adoption; the
+// registry upsert makes the repair idempotent across processes.
+func ensureDefaultMailProvider(ctx context.Context, store *extensions.PostgresStore, logger *slog.Logger) {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if selected, err := extensionsruntime.NewMailProviderRegistry(store).EnsureDefault(ctx); err != nil {
+		logger.Warn("ensure default mail provider failed", "error", err)
+	} else if selected != "" {
+		logger.Info("default mail provider selected", "extensionId", selected)
 	}
 }

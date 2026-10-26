@@ -365,6 +365,10 @@ func (s *LifecycleService) UninstallWithResult(ctx context.Context, actor identi
 		// 目录卸载仍须成功：保留不可变身份，删除包文件，扩展保持 disabled。
 		if isPublishedPluginRuntimeIdentityRetained(err) {
 			identityRetained = true
+			// The immutable identity survives, but uninstall still clears the
+			// mail provider preference; the row would otherwise point at a
+			// disabled extension with no package.
+			_ = s.clearPluginProviderSelections(ctx, extension.ID, clearMailProviderSelection)
 		} else {
 			if restoreErr := s.rollbackExactAssetMutation(assetMutation); restoreErr != nil {
 				return UninstallResult{}, errors.Join(err, fmt.Errorf("restore asset publication after uninstall failure: %w", restoreErr))
@@ -524,10 +528,21 @@ type ProviderSlotSelectionInvalidator interface {
 	) error
 }
 
+// providerSelectionCleanup decides whether a lifecycle transition also removes
+// the mail provider preference. A normal disable/restart keeps the preference:
+// the plugin can be enabled again without the operator re-selecting it. Only
+// uninstall and explicit artifact cleanup clear it.
+type providerSelectionCleanup bool
+
+const (
+	keepMailProviderSelection  providerSelectionCleanup = false
+	clearMailProviderSelection providerSelectionCleanup = true
+)
+
 // clearPluginProviderSelections 是 V1/V2 共用的 Host-owned 幂等清理边界。
 // 它不触碰 runtime；V2 的进程 drain 只能由 durable coordinator 管理。
-func (s *serviceCore) clearPluginProviderSelections(ctx context.Context, extensionID string) error {
-	return s.clearPluginNonRouteProviderSelections(ctx, extensionID)
+func (s *serviceCore) clearPluginProviderSelections(ctx context.Context, extensionID string, mail providerSelectionCleanup) error {
+	return s.clearPluginNonRouteProviderSelections(ctx, extensionID, mail)
 }
 
 func (s *serviceCore) clearPluginProviderSelectionsWithAudit(
@@ -536,6 +551,7 @@ func (s *serviceCore) clearPluginProviderSelectionsWithAudit(
 	actorUserID int64,
 	auditEventID int64,
 	reasonCode string,
+	mail providerSelectionCleanup,
 ) error {
 	if s.providerSlotSelections != nil {
 		if actorUserID <= 0 || auditEventID <= 0 || reasonCode == "" {
@@ -557,18 +573,20 @@ func (s *serviceCore) clearPluginProviderSelectionsWithAudit(
 			return err
 		}
 	}
-	return s.clearPluginNonRouteProviderSelections(ctx, extensionID)
+	return s.clearPluginNonRouteProviderSelections(ctx, extensionID, mail)
 }
 
-func (s *serviceCore) clearPluginNonRouteProviderSelections(ctx context.Context, extensionID string) error {
-	if selectionStore, ok := s.store.(mailProviderSelectionStore); ok {
-		selected, err := selectionStore.SelectedMailProvider(ctx)
-		if err != nil {
-			return err
-		}
-		if selected == extensionID {
-			if err := selectionStore.RestoreMailProvider(ctx); err != nil {
+func (s *serviceCore) clearPluginNonRouteProviderSelections(ctx context.Context, extensionID string, mail providerSelectionCleanup) error {
+	if mail == clearMailProviderSelection {
+		if selectionStore, ok := s.store.(mailProviderSelectionStore); ok {
+			selected, err := selectionStore.SelectedMailProvider(ctx)
+			if err != nil {
 				return err
+			}
+			if selected == extensionID {
+				if err := selectionStore.RestoreMailProvider(ctx); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -586,7 +604,7 @@ func (s *serviceCore) drainPluginRuntime(ctx context.Context, extension Extensio
 	if extension.Type != TypePlugin {
 		return nil
 	}
-	if err := s.clearPluginProviderSelections(ctx, extension.ID); err != nil {
+	if err := s.clearPluginProviderSelections(ctx, extension.ID, keepMailProviderSelection); err != nil {
 		return err
 	}
 	if s.runtime != nil {

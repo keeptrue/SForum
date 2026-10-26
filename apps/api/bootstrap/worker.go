@@ -675,6 +675,7 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	if err := notificationStore.AdoptLegacyMail(context.Background(), legacyMailValues); err != nil {
 		return nil, fmt.Errorf("adopt worker legacy mail settings: %w", err)
 	}
+	ensureDefaultMailProvider(context.Background(), extensionStore, logger)
 	// mail.deliver 必须命中共享/本进程同一 runtime，避免 embed 时打到第二套插件进程。
 	mailProviders := extensionsruntime.NewMailProviderRegistry(extensionStore)
 	notificationjobs.Register(registry, &notificationjobs.DeliverMailWorker{Store: notificationStore, Providers: mailProviders, Sender: extensionRuntime})

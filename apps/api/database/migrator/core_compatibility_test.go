@@ -95,10 +95,10 @@ func assertCoreUpgradeCompatibilityLifecycle(t *testing.T, manifest, trustImpact
 		t.Fatal(err)
 	}
 
-	if err := checkCoreUpgradeCompatibility(ctx, db, "1.9.9"); err != nil {
+	if err := checkCoreUpgradeCompatibility(ctx, db, "1.9.9", true); err != nil {
 		t.Fatalf("compatible target was blocked: %v", err)
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0"); !errors.Is(err, ErrCoreUpgradeIncompatible) {
+	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0", true); !errors.Is(err, ErrCoreUpgradeIncompatible) {
 		t.Fatalf("incompatible target was not blocked: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, `
@@ -110,7 +110,7 @@ func assertCoreUpgradeCompatibilityLifecycle(t *testing.T, manifest, trustImpact
 	`, versionID); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0"); !errors.Is(err, ErrCoreUpgradeIncompatible) {
+	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0", true); !errors.Is(err, ErrCoreUpgradeIncompatible) {
 		t.Fatalf("constraint-only exact-trust drift was not blocked: %v", err)
 	}
 	if _, err := db.ExecContext(ctx,
@@ -118,17 +118,54 @@ func assertCoreUpgradeCompatibilityLifecycle(t *testing.T, manifest, trustImpact
 	); err != nil {
 		t.Fatal(err)
 	}
+	// 「未知」不等于「更低」：让扩展与信任声明一致地要求 >=3.0.0，此时只有
+	// 约束本身能否决。未声明 target（dev 无 tag 时的哨兵 1.0.0）必须跳过比对，
+	// 否则没有 tag 的开发机上所有 >=3.x 扩展都会被误判不兼容。
+	if _, err := db.ExecContext(ctx, `
+		UPDATE extension_versions
+		SET manifest = jsonb_set(manifest, '{database,coreCompatibility}', to_jsonb('>=3.0.0'::TEXT))
+		WHERE id = $1
+	`, versionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		UPDATE extension_trust_grants
+		SET impact_document = jsonb_set(
+			impact_document, '{database,coreCompatibility}', to_jsonb('>=3.0.0'::TEXT)
+		)
+		WHERE id = $1
+	`, grantID); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkCoreUpgradeCompatibility(ctx, db, "1.0.0", false); err != nil {
+		t.Fatalf("undeclared target was compared against an extension declaration: %v", err)
+	}
+	if err := checkCoreUpgradeCompatibility(ctx, db, "1.0.0", true); !errors.Is(err, ErrCoreUpgradeIncompatible) {
+		t.Fatalf("declared older target was not blocked by the same declaration: %v", err)
+	}
 	if _, err := db.ExecContext(ctx, `UPDATE extension_trust_grants SET revoked_at = now() WHERE id = $1`, grantID); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0"); err != nil {
+	if err := checkCoreUpgradeCompatibility(ctx, db, "2.0.0", true); err != nil {
 		t.Fatalf("revoked raw authority still blocked upgrade: %v", err)
 	}
 }
 
 func TestCoreUpgradeCompatibilityRejectsInvalidTargetVersion(t *testing.T) {
-	err := checkCoreUpgradeCompatibility(context.Background(), nil, "not-semver")
+	err := checkCoreUpgradeCompatibility(context.Background(), nil, "not-semver", true)
 	if err == nil || errors.Is(err, ErrCoreUpgradeIncompatible) {
 		t.Fatalf("invalid target version error = %v", err)
+	}
+}
+
+// 未声明 target 必须在任何 SQL 之前返回：传 nil 查询器时若仍去读 schema 会
+// 得到 "database is required"，从而暴露「跳过」其实发生在查询之后。
+func TestCoreUpgradeCompatibilitySkipsUndeclaredTargetBeforeQuerying(t *testing.T) {
+	if err := checkCoreUpgradeCompatibility(context.Background(), nil, "1.0.0", false); err != nil {
+		t.Fatalf("undeclared target touched the database or rejected the target: %v", err)
+	}
+	err := checkCoreUpgradeCompatibility(context.Background(), nil, "1.0.0", true)
+	if err == nil || errors.Is(err, ErrCoreUpgradeIncompatible) {
+		t.Fatalf("declared target skipped the compatibility query: %v", err)
 	}
 }

@@ -118,13 +118,8 @@ func (s *PostgresStore) transitionLegacyPluginRuntime(
 			"write legacy plugin state: %w", err,
 		)
 	}
-	if !activate {
-		if _, err := tx.Exec(ctx, `DELETE FROM mail_provider_selection WHERE extension_id = $1`, target.ID); err != nil {
-			return Extension{}, PluginRuntimePublication{}, fmt.Errorf(
-				"clear disabled mail provider: %w", err,
-			)
-		}
-	}
+	// A disabled plugin keeps its mail provider preference. The registry reports
+	// it unavailable and re-enabling restores it without a second selection.
 
 	publication, err := PublishPluginRuntimePublicationTransitionTx(
 		ctx,

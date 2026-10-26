@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 func TestRecommendedForumSettingsIncludePaginationDefaults(t *testing.T) {
@@ -118,7 +119,7 @@ func TestExtensionProfileTabAndDashboardProviders(t *testing.T) {
 		{ExtensionID: "demo.plugin", Point: "admin.dashboard.widgets", ID: "jobs", Order: 2, Label: map[string]string{"en-US": "Jobs"}, Icon: "i-lucide-gauge", Payload: widgetPayload},
 		{ExtensionID: "demo.plugin", Point: "admin.dashboard.widgets", ID: "evil", Payload: json.RawMessage(`{"type":"adminLink","route":"https://evil/","severity":"info"}`)},
 	}}
-	tabs, err := NewExtensionProfileTabProvider(source).ProfileTabs(context.Background())
+	tabs, err := NewExtensionProfileTabProvider(source).ProfileTabs(context.Background(), identity.Actor{})
 	if err != nil || len(tabs) != 1 || tabs[0].URL != "/tags" || tabs[0].Kind != "hostLink" {
 		t.Fatalf("tabs=%#v err=%v", tabs, err)
 	}

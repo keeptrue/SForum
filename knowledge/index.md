@@ -6,6 +6,17 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 邮件提供商默认与选择生命周期
+
+- Status: **landed（2026-10-26）**。`mail_provider_selection` 不再是唯一
+  事实源：无行时 Host 解析并持久化推荐默认（enabled `sforum.smtp`，否则唯一
+  enabled provider）；disable/restart 保留偏好，uninstall/cleanup 清除；
+  `mail.deliver` 区分 `skipped/provider_unconfigured` 与可重试的
+  `provider_unavailable`。后台 Mail 页三态展示 ready/unavailable/unconfigured，
+  reset 回到推荐默认。
+- Handoff：`sessions/2026-10-26-mail-provider-default-selection.md`；
+  决策：`decisions/2026-10-26-mail-provider-default-selection.md`。
+
 ### 宿主 coreVersion 暴露 + 清单兜底
 
 - Status: **landed（2026-10-25）**。`version.Identity()` 是唯一权威
@@ -653,6 +664,35 @@ load archived sessions or completed plans as current context.
   dev server on port 3000; do not kill it.
 
 ## Latest Handoff
+
+- **dev「Core 版本未知」不再等于「更低」（2026-10-27，最新）**：shallow clone 让
+  `git describe` 退化成裸 sha，dev 构建回落哨兵 `1.0.0`，再被 `validateCoreMigrationTarget`
+  当成真实降级，API 起不来。现在 `version.CoreCompatibilityDeclared()` 把「版本」与
+  「是否真实声明」成对暴露，字符串仍是唯一版本权威；未声明的 target 不参与任何**版本比较**
+  （ledger 兼容性、运行时状态降级围栏、物理 kernel 兼容性），但 exactness/结构校验一条不减，
+  改为打一条 `git fetch --unshallow` 的可操作告警。复核补了三处：物理 kernel 闸门改传
+  `declared` 而不是空 target（空串会连 exactness 校验一起跳过）；未声明运行不再写
+  `current_version`（只把 `target_version` 收敛回去）；**生产源码构建必须显式声明版本**——
+  `runStartupMigrations`（`MIGRATE_ON_STARTUP` 早退之前）与 `cmd/migrate` 双闸门 fail-closed，
+  `compose.yaml` 的 api 与 `compose.prod.yaml` 的 migrate 都补了 `SFORUM_VERSION` build-arg，
+  且 `v` 前缀在兼容版本解析处归一（部署侧沿用 v-tag 语义的同一个变量）。决策
+  `decisions/2026-10-27-dev-core-version-unknown-vs-lower.md`；handoff
+  `sessions/2026-10-27-dev-core-version-unknown-vs-lower-handoff.md`。
+
+- **个人资料页扩展 tab 支持 `l2Widget` 原地挂载（2026-10-26）**：只重开
+  `forum.profile.tabs` 一个贡献点 —— 选中 tab 后由宿主在资料页内容列渲染面板，
+  它是容器；actions / sidebar / badges / nav 仍是动作与标记，M4 对其结论继续有效。
+  payload 新增 `type: l2Widget` + 必填 `componentId`（须指向本包 public L2 组件，
+  组件自身不得带 `Permission`）与可选 `permission`（服务端按 `Actor.Can()` 过滤，
+  `json:"-"` 永不下发；**是可见性过滤，不是安全边界**，数据访问仍由插件路由自查）。
+  内置三项位置不变，widget tab 排在「关于」之后，单页上限 8 个、按贡献顺序截断。
+  资料页 widget refs 已并入页面文档 CSP 聚合（`SFPageOutletResolver` 原生路径 /
+  `SFThemeTemplate` 主题路径，各一次）。注意失败模式：不聚合**不会**拦挂载（无
+  header 时同源 import/link/fetch 本就放行），代价只是没有 digest 样式预注入
+  （主题路径）与 policy digest 证据。决策
+  `decisions/2026-10-26-profile-tab-l2widget.md`；handoff
+  `sessions/2026-10-26-profile-tab-l2widget-handoff.md`；模块
+  `modules/profile.md`、`modules/extensions.md`。
 
 - **卸载 tombstone 三层诊断：grant 层已修，identity purge 层未解（2026-10-26，最新）**：
   908/909 长期 `pending` 的根因分三层，本轮修到第二层。① 授予校验只按

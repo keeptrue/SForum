@@ -681,3 +681,110 @@ func TestServiceCheckNicknameAvailability(t *testing.T) {
 		t.Fatalf("availability = %+v", result)
 	}
 }
+
+// profileTabProviderStub 记录 Service 传下来的 viewer，并按接口约定过滤：
+// tab.Permission == "" || viewer.Can(tab.Permission)。
+// 过滤规则本身由 providers 包针对真实 provider 覆盖；这里的职责是证明 Service
+// 确实把请求者视角交到了 provider 手上（而不是永远传零值）。
+type profileTabProviderStub struct {
+	tabs   []ProfileExtensionTab
+	viewer identity.Actor
+	calls  int
+	err    error
+}
+
+func (p *profileTabProviderStub) ProfileTabs(_ context.Context, viewer identity.Actor) ([]ProfileExtensionTab, error) {
+	p.calls++
+	p.viewer = viewer
+	if p.err != nil {
+		return nil, p.err
+	}
+	visible := make([]ProfileExtensionTab, 0, len(p.tabs))
+	for _, tab := range p.tabs {
+		if tab.Permission == "" || viewer.Can(tab.Permission) {
+			visible = append(visible, tab)
+		}
+	}
+	return visible, nil
+}
+
+func newProfileTabTestService(provider *profileTabProviderStub) *Service {
+	return NewService(&fakeStore{
+		user:    UserProfileSummary{UserID: 7, Username: "alice", DisplayName: "Alice"},
+		profile: Profile{UserID: 7},
+	}).WithProfileTabs(provider)
+}
+
+func gatedProfileTabs() []ProfileExtensionTab {
+	return []ProfileExtensionTab{
+		{ID: "public", Kind: "hostLink", URL: "/tags"},
+		{ID: "gated", Kind: "hostLink", URL: "/moderation", Permission: "demo.moderate"},
+		{ID: "widget", Kind: "widget", ComponentID: "demo.stats"},
+	}
+}
+
+// GetPublicProfile 的签名保留是有语义的：宿主读取面（PageViewModels / AITools）
+// 永远拿匿名视角，扩展 tab 过滤不能因为「谁在读」而漂移。
+func TestServiceGetPublicProfileKeepsAnonymousViewer(t *testing.T) {
+	provider := &profileTabProviderStub{tabs: gatedProfileTabs()}
+	service := newProfileTabTestService(provider)
+
+	result, err := service.GetPublicProfile(context.Background(), "alice")
+	if err != nil {
+		t.Fatalf("GetPublicProfile error: %v", err)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("provider calls = %d, want 1", provider.calls)
+	}
+	if provider.viewer.ID != 0 || provider.viewer.Status != "" || len(provider.viewer.Permissions) != 0 {
+		t.Fatalf("GetPublicProfile must pass a zero-value actor, got %#v", provider.viewer)
+	}
+	if len(result.ExtensionTabs) != 2 || result.ExtensionTabs[0].ID != "public" || result.ExtensionTabs[1].ID != "widget" {
+		t.Fatalf("anonymous tabs = %#v, want public + widget", result.ExtensionTabs)
+	}
+}
+
+func TestServiceGetPublicProfileForViewerFiltersTabsByPermission(t *testing.T) {
+	provider := &profileTabProviderStub{tabs: gatedProfileTabs()}
+	service := newProfileTabTestService(provider)
+
+	anonymous, err := service.GetPublicProfileForViewer(context.Background(), "alice", identity.Actor{})
+	if err != nil {
+		t.Fatalf("anonymous GetPublicProfileForViewer: %v", err)
+	}
+	if len(anonymous.ExtensionTabs) != 2 {
+		t.Fatalf("anonymous tabs = %#v, want the two ungated tabs", anonymous.ExtensionTabs)
+	}
+
+	// 活跃但缺权限键：受限 tab 不出现。
+	member := identity.Actor{ID: 5, Status: identity.UserStatusActive, Permissions: map[string]bool{"other.permission": true}}
+	memberProfile, err := service.GetPublicProfileForViewer(context.Background(), "alice", member)
+	if err != nil {
+		t.Fatalf("member GetPublicProfileForViewer: %v", err)
+	}
+	if len(memberProfile.ExtensionTabs) != 2 {
+		t.Fatalf("member tabs = %#v, want the two ungated tabs", memberProfile.ExtensionTabs)
+	}
+
+	// 有权限键：受限 tab 出现，且 viewer 原样到达 provider。
+	moderator := identity.Actor{ID: 6, Status: identity.UserStatusActive, Permissions: map[string]bool{"demo.moderate": true}}
+	moderatorProfile, err := service.GetPublicProfileForViewer(context.Background(), "alice", moderator)
+	if err != nil {
+		t.Fatalf("moderator GetPublicProfileForViewer: %v", err)
+	}
+	if len(moderatorProfile.ExtensionTabs) != 3 || moderatorProfile.ExtensionTabs[1].ID != "gated" {
+		t.Fatalf("moderator tabs = %#v, want gated tab included", moderatorProfile.ExtensionTabs)
+	}
+	if provider.viewer.ID != moderator.ID || !provider.viewer.Can("demo.moderate") {
+		t.Fatalf("provider received viewer %#v, want moderator %#v", provider.viewer, moderator)
+	}
+}
+
+func TestServiceGetPublicProfilePropagatesTabProviderError(t *testing.T) {
+	expected := errors.New("contributions unavailable")
+	service := newProfileTabTestService(&profileTabProviderStub{err: expected})
+
+	if _, err := service.GetPublicProfileForViewer(context.Background(), "alice", identity.Actor{}); !errors.Is(err, expected) {
+		t.Fatalf("expected provider error, got %v", err)
+	}
+}

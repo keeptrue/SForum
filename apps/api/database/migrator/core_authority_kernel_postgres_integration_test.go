@@ -246,7 +246,7 @@ func TestCoreUpgradeCompatibilityBlocksPhysicalKernelAuthority(t *testing.T) {
 			); err != nil {
 				t.Fatal(err)
 			}
-			if err := checkCoreUpgradeCompatibility(ctx, db, "1.9.9"); err != nil {
+			if err := checkCoreUpgradeCompatibility(ctx, db, "1.9.9", true); err != nil {
 				t.Fatalf("compatible physical kernel lease was blocked: %v", err)
 			}
 			err := runCoreKernelTestUp(ctx, fixture, "2.0.0")
@@ -295,11 +295,21 @@ func TestCoreUpgradeCompatibilityRejectsDriftedPhysicalRawCoreDeclaration(t *tes
 	if !canUpdateCore {
 		t.Fatal("drifted physical raw-core lease lost its Core DML authority before the gate")
 	}
-	if err := checkCoreUpgradeCompatibility(ctx, db, "1.9.0"); err != nil {
+	if err := checkCoreUpgradeCompatibility(ctx, db, "1.9.0", true); err != nil {
 		t.Fatalf("lock-free declaration preflight inspected physical raw-core drift: %v", err)
 	}
 	if err := runCoreKernelTestUp(ctx, fixture, "1.9.0"); !errors.Is(err, ErrCoreAuthorityConflict) {
 		t.Fatalf("drifted physical raw-core declaration error = %v", err)
+	}
+	// 未声明 target 只跳过版本比较；物理声明的 exactness 校验描述的是声明本身，
+	// 同一个漂移现场在 declared=false 时仍必须拒绝。
+	err := runCoreKernelTestUpUndeclared(ctx, fixture)
+	if !errors.Is(err, ErrCoreAuthorityConflict) {
+		t.Fatalf("undeclared target skipped the physical declaration exactness gate: %v", err)
+	}
+	// 同一个 sentinel 也由 identity 校验抛出；用文案钉死走的是 exactness 分支。
+	if err == nil || !strings.Contains(err.Error(), "does not match its exact artifact declaration") {
+		t.Fatalf("undeclared target was rejected by a different authority check: %v", err)
 	}
 }
 
@@ -342,7 +352,7 @@ func TestCoreMigrationAuthorityReadsPublicKernelLedgerWithShadowSearchPath(t *te
 	shadowConfig.RuntimeParams["search_path"] = "kernel_shadow,public"
 	shadowDB := stdlib.OpenDB(*shadowConfig)
 	defer shadowDB.Close()
-	if _, err := prepareCoreMigrationAuthorityForVersion(ctx, shadowDB, "1.7.0"); err != nil {
+	if _, err := prepareCoreMigrationAuthorityForVersion(ctx, shadowDB, "1.7.0", true); err != nil {
 		t.Fatalf("converge public kernel ledger through shadow search_path: %v", err)
 	}
 	assertCoreAuthorityOwner(t, ctx, db, "relation", "public."+tableName, fixture.ownerRole)
@@ -805,7 +815,7 @@ func TestCoreMigratorPublishesRuntimeVersionAndRejectsOlderTarget(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer connection.Close()
-	_, marked, err := markCoreMigrationStarted(ctx, connection, "1.6.0", true)
+	_, marked, err := markCoreMigrationStarted(ctx, connection, "1.6.0", true, true)
 	if err != nil || !marked {
 		t.Fatalf("mark higher Core migration target: marked=%t err=%v", marked, err)
 	}

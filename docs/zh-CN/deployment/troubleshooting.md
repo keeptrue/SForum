@@ -56,6 +56,7 @@ COMPOSE=(docker compose --env-file .env.production \
 | `.deployrc is missing; run install first` | 只完成了一半安装 | 先跑 `./deploy.sh --action deploy --version <TAG>` 补齐状态，再回到 bootstrap upgrade |
 | `The currently deployed version is unknown; re-run ./deploy.sh to restore state.` | `.deployrc` 没有有效 `version=vX.Y.Z`，也没有可反查的蓝绿槽容器 | 跑 `./deploy.sh --action deploy --version <TAG>` 重建状态；`./sforum-latest.sh` 会自动识别并走这一步 |
 | `core upgrade is incompatible ... target=... is older than migrated Core=...` | 数据库已迁移到更高的 Core 版本，目标版本比它旧 | 用 `./sforum-latest.sh --version <migrated Core 版本>` 或 `--channel prerelease`；需要真正回退时先恢复部署前备份，不要只回退镜像 |
+| 同一条报错出现在**本机 dev 构建**（`target=1.0.0`） | `git describe --tags --match 'v[0-9]*' --long --dirty --always` 退化成裸 sha（常见原因：shallow clone 藏了 `v*` tag），dev 构建派生不出发行线，落回哨兵 `1.0.0`，于是「不知道我是谁」被当成了「我要降级」 | 先 `git rev-parse --is-shallow-repository`；输出 `true` 时执行 `git fetch --unshallow`，再确认上面的 `git describe` 输出带 `v` 前缀。当前版本起未声明的 target 不再参与降级判定，日志会给出 `Core version is unknown for this build` 告警 |
 | `.env.production is missing; run install first` | 配置被移走或安装未完成 | 恢复配置或重新跑安装向导；不要凭空生成数据库密码 |
 | `生产配置不完整或不安全。... <KEY>` | 环境变量契约不满足 | 按提示修对应键；规则见[环境变量与密钥](./environment.md) |
 | `以下本机端口已被其他程序占用：` | `WEB_PORT`/`API_PORT` 被占 | 停掉占用进程，或在 `.env.production` 改端口；蓝绿拓扑还要检查 `edge` |

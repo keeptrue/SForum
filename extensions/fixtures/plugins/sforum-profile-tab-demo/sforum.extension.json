@@ -1,0 +1,120 @@
+{
+  "author": {
+    "name": "SForum",
+    "url": "https://github.com/keeptrue/sforum"
+  },
+  "components": [
+    {
+      "action": "add",
+      "contractVersion": "sforum.profile.tab.demo.component.card@1",
+      "id": "sforum.profile.tab.demo.component.card",
+      "l2Component": "sforum.profile.tab.demo.file.frontend.card",
+      "propsSchema": "sforum.profile.tab.demo.component.card.props@1"
+    },
+    {
+      "action": "add",
+      "contractVersion": "sforum.profile.tab.demo.component.stats@1",
+      "id": "sforum.profile.tab.demo.component.stats",
+      "l2Component": "sforum.profile.tab.demo.file.frontend.stats",
+      "propsSchema": "sforum.profile.tab.demo.component.stats.props@1"
+    }
+  ],
+  "contributions": [
+    {
+      "icon": "i-lucide-user",
+      "id": "sforum.profile.tab.demo.card",
+      "label": {
+        "en-US": "Profile Card",
+        "zh-CN": "资料卡片"
+      },
+      "order": 10,
+      "payload": {
+        "componentId": "sforum.profile.tab.demo.component.card",
+        "type": "l2Widget"
+      },
+      "point": "forum.profile.tabs"
+    },
+    {
+      "icon": "i-lucide-chart-no-axes-column",
+      "id": "sforum.profile.tab.demo.stats",
+      "label": {
+        "en-US": "Profile Stats",
+        "zh-CN": "资料统计"
+      },
+      "order": 20,
+      "payload": {
+        "componentId": "sforum.profile.tab.demo.component.stats",
+        "permission": "sforum.profile.tab.demo.view_stats",
+        "type": "l2Widget"
+      },
+      "point": "forum.profile.tabs"
+    },
+    {
+      "icon": "i-lucide-tags",
+      "id": "sforum.profile.tab.demo.tags",
+      "label": {
+        "en-US": "Browse tags",
+        "zh-CN": "浏览标签"
+      },
+      "order": 30,
+      "payload": {
+        "href": "/tags",
+        "type": "hostLink"
+      },
+      "point": "forum.profile.tabs"
+    }
+  ],
+  "description": "CI fixture and copyable example for forum.profile.tabs: a public l2Widget tab, a permission-gated l2Widget tab, and a legacy hostLink tab.",
+  "id": "sforum.profile.tab.demo",
+  "manifestVersion": 3,
+  "name": "Profile Tab Demo Fixture",
+  "packageFiles": [
+    {
+      "digest": "f140d760e27be6b5743920ffdb96d22df9447f57ed7b8765b004c6de49f6d78a",
+      "id": "sforum.profile.tab.demo.component.card.props",
+      "kind": "schema",
+      "path": "schemas/profile-tab-card-props.json",
+      "version": "1"
+    },
+    {
+      "digest": "f140d760e27be6b5743920ffdb96d22df9447f57ed7b8765b004c6de49f6d78a",
+      "id": "sforum.profile.tab.demo.component.stats.props",
+      "kind": "schema",
+      "path": "schemas/profile-tab-stats-props.json",
+      "version": "1"
+    },
+    {
+      "digest": "9ba20e2c59174a5136589a4ebcd19c031d06262262a75c4b0018e1964a78db00",
+      "id": "sforum.profile.tab.demo.file.frontend.card",
+      "kind": "frontend",
+      "path": "assets/profile-tab-card.mjs",
+      "version": "1"
+    },
+    {
+      "digest": "fc3249293f12bc0340cac203e24e231d4e9fe044030f556c16855a6a38800206",
+      "id": "sforum.profile.tab.demo.file.frontend.stats",
+      "kind": "frontend",
+      "path": "assets/profile-tab-stats.mjs",
+      "version": "1"
+    }
+  ],
+  "permissionDefinitions": [
+    {
+      "assignmentPolicy": "host",
+      "contractVersion": "sforum.profile.tab.demo.permission.view_stats@1",
+      "description": "See the permission-gated profile statistics tab contributed by this package.",
+      "key": "sforum.profile.tab.demo.view_stats",
+      "label": {
+        "en-US": "View profile stats tab",
+        "zh-CN": "查看资料统计标签页"
+      },
+      "recommendedRoles": [
+        "member"
+      ]
+    }
+  ],
+  "sforumVersion": "\u003e=0.1.0",
+  "type": "plugin",
+  "url": "https://github.com/keeptrue/sforum",
+  "version": "1.0.0"
+}

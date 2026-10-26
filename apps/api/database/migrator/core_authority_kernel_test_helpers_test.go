@@ -69,6 +69,20 @@ func runCoreKernelTestUp(
 	})
 }
 
+// runCoreKernelTestUpUndeclared simulates a source build without a reachable
+// v* tag: the sentinel target must be read as "unknown", not as a version.
+func runCoreKernelTestUpUndeclared(ctx context.Context, fixture *coreAuthorityTestDatabase) error {
+	original := coreCompatibilityDeclared
+	coreCompatibilityDeclared = func() (string, bool) { return "1.0.0", false }
+	defer func() { coreCompatibilityDeclared = original }()
+	return Up(ctx, Config{
+		DatabaseURL: fixture.databaseURL,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+			Level: slog.LevelError,
+		})),
+	})
+}
+
 func createCoreKernelTestResource(
 	t *testing.T,
 	ctx context.Context,

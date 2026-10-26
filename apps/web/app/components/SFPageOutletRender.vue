@@ -6,8 +6,8 @@ const props = defineProps<{
   page: string
   resolved?: PageResolvePayload | null
   resolveError?: unknown
-  /** 区域 widget refs：仅主题模板路径需要（由 SFThemeTemplate 合并进单次 CSP 聚合）；
-   * 原生路径的 CSP 已在 SFPageOutletResolver 聚合。 */
+  /** 页面级 widget refs（区域 + 页面自声明，例如资料页 tab）：仅主题模板路径需要，
+   * 由 SFThemeTemplate 合并进单次 CSP 聚合；原生路径的 CSP 已在 SFPageOutletResolver 聚合。 */
   regionWidgetRefs?: PublicFrontendComponentRef[]
 }>()
 

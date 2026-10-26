@@ -149,16 +149,22 @@ type ProfileExtensionTab struct {
 	Order       int               `json:"order"`
 	Label       map[string]string `json:"label,omitempty"`
 	Icon        string            `json:"icon,omitempty"`
-	// Kind: extensionRoute | hostLink
+	// Kind: extensionRoute | hostLink | widget
 	Kind   string `json:"kind"`
 	Method string `json:"method,omitempty"`
-	// URL 对 extensionRoute 为 /extensions/{id}{path}；对 hostLink 为站内 href。
+	// URL 对 extensionRoute 为 /extensions/{id}{path}；对 hostLink 为站内 href；
+	// 对 widget 为空（组件由 ComponentID 引用，由公开 L2 运行时挂载）。
 	URL string `json:"url"`
+	// ComponentID 仅 widget 使用：本扩展声明的公开 L2 组件 ID。
+	ComponentID string `json:"componentId,omitempty"`
+	// Permission 是可见性门控键，只在服务端过滤使用，永不下发前端。
+	Permission string `json:"-"`
 }
 
 // ProfileTabProvider 解析 forum.profile.tabs。
+// viewer 是请求者视角：provider 按 tab.Permission 过滤，匿名传零值 Actor。
 type ProfileTabProvider interface {
-	ProfileTabs(ctx context.Context) ([]ProfileExtensionTab, error)
+	ProfileTabs(ctx context.Context, viewer identity.Actor) ([]ProfileExtensionTab, error)
 }
 
 // UpdateProfileInput 是当前用户更新自己资料的输入。所有指针字段为 nil 表示不改。

@@ -21,6 +21,7 @@ Parent layout map (not product install): [../README.md](../README.md).
 | `plugins/sforum-notification-reference` | Namespaced notification declaration and Host API v2 emission |
 | `plugins/sforum-plugin-page-business-e2e` | Plugin-owned page data contract and presentation-only theme override target |
 | `plugins/sforum-prebuilt-settings` | Digest-trusted, author-prebuilt admin settings ESM/CSS |
+| `plugins/sforum-profile-tab-demo` | `forum.profile.tabs` shapes: public `l2Widget` tab, permission-gated `l2Widget` tab, and legacy `hostLink` tab |
 | `plugins/sforum-query-reference` | Host-owned Query Registry execution and cross-plugin result filtering |
 | `plugins/sforum-region-demo` | Public page region placements, setting gates, and prebuilt L2 widget |
 | `plugins/sforum-seo-reference` | Protocol V2 SEO Registry transport, Host-policy fallback, and trace attribution |

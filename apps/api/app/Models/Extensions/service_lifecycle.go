@@ -623,7 +623,7 @@ func (s *LifecycleService) DisableWithInput(ctx context.Context, actor identity.
 			return Extension{}, rollbackRuntimeContentMutation(contentMutation, err)
 		}
 	} else if identityMutation != nil {
-		if err := s.clearPluginProviderSelections(ctx, extension.ID); err != nil {
+		if err := s.clearPluginProviderSelections(ctx, extension.ID, keepMailProviderSelection); err != nil {
 			err = rollbackRuntimeEditorMutation(editorMutation, err)
 			err = rollbackRuntimeContentMutation(contentMutation, err)
 			return Extension{}, s.compensateLegacyIdentityDisable(
