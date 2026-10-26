@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 const runtimeQuerySettingsCompensationTimeout = 5 * time.Second

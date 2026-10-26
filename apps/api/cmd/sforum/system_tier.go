@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
-	systemtier "github.com/zhuchunshu/sforum/apps/api/app/Support/SystemTier"
+	systemtier "github.com/keeptrue/sforum/apps/api/app/Support/SystemTier"
 )
 
 // system tier CLI is out-of-band recovery: connects to PostgreSQL only, never

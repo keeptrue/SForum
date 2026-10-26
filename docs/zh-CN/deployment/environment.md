@@ -206,7 +206,7 @@ API 始终内嵌 River Worker，没有独立 Worker 开关。
 | 变量 | 默认/示例 | 说明 |
 | --- | --- | --- |
 | `SFORUM_VERSION` | 无 | 目标不可变标签；`compose.release.yaml` 必需 |
-| `SFORUM_REGISTRY` | `ghcr.io/zhuchunshu` | 镜像仓库前缀 |
+| `SFORUM_REGISTRY` | `ghcr.io/keeptrue` | 镜像仓库前缀 |
 | `COMPOSE_PROJECT_NAME` | `sforum` | Compose 项目名；影响容器与卷命名 |
 | `SFORUM_BACKUP_DIR` | `./backups` | 备份目录 |
 | `SFORUM_DEPLOY_HEALTH_TIMEOUT_SECONDS` | `120` | `deploy.sh` 健康检查超时 |
@@ -214,7 +214,7 @@ API 始终内嵌 River Worker，没有独立 Worker 开关。
 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` | `120` | 蓝绿槽健康检查超时 |
 | `SFORUM_CONFIRM_RESTORE` | 空 | 设为 `RESTORE` 才允许恢复 |
 | `SFORUM_SKIP_ATTESTATION` | `false` | bootstrap 跳过 `gh attestation verify` |
-| `SFORUM_RELEASE_REPOSITORY` | `zhuchunshu/SForum` | bootstrap 使用的 GitHub 仓库 |
+| `SFORUM_RELEASE_REPOSITORY` | `keeptrue/SForum` | bootstrap 使用的 GitHub 仓库 |
 | `SFORUM_RELEASE_DOWNLOAD_BASE_URL` | GitHub Releases 下载前缀 | 镜像或离线发布源 |
 | `SFORUM_LATEST_RELEASE_API_URL` | GitHub `releases/latest` | 稳定通道解析地址 |
 | `SFORUM_RELEASES_API_URL` | GitHub Releases 列表 | 预发布通道解析地址 |

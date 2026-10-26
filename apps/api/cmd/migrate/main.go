@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrator"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	"github.com/keeptrue/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/database/migrator"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 func main() {

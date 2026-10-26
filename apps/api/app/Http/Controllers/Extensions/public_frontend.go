@@ -6,8 +6,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 // publicFrontendPagePolicy 公开：按页面即将挂载的 L2 soft refs 聚合 Host CSP。

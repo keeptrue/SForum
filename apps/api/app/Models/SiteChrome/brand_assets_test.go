@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
 )
 
 type brandAssetUploaderStub struct {

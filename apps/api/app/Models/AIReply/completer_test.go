@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // GatewayCompleter 的 run id 透出契约。

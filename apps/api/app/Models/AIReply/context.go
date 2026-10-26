@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // AuthorRef 是一条发言的作者身份快照。

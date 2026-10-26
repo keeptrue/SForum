@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 const (

@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	lifecyclerecovery "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions/LifecycleRecovery"
-	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	pluginbootstrap "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginBootstrap"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	lifecyclerecovery "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/LifecycleRecovery"
+	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	pluginbootstrap "github.com/keeptrue/sforum/apps/api/app/Support/PluginBootstrap"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 type apiExtensionRestoreInput struct {

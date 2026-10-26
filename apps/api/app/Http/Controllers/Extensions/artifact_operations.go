@@ -3,8 +3,8 @@ package extensionscontroller
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	modelextensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	modelextensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 func (h *Controller) cleanupMissingArtifacts(c fiber.Ctx) error {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // RedactedExtensionInventoryItem 是自动化可读的扩展清单行。

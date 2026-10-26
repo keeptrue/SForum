@@ -3,7 +3,7 @@ package notifications
 import (
 	"context"
 
-	mail "github.com/zhuchunshu/sforum/apps/api/app/Support/Mail"
+	mail "github.com/keeptrue/sforum/apps/api/app/Support/Mail"
 )
 
 type MailBrand = mail.Brand

@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 )
 
 const (

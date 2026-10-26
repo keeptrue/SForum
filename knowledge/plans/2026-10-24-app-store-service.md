@@ -66,7 +66,7 @@ sforum-app-store/
   .github/workflows/{ci,release}.yml
 ```
 
-- 插件后端的 `go.mod` 沿用 `sforum-oauth2-provider` 的做法：`require github.com/zhuchunshu/sforum/apps/api v0.0.0` + 本地 `replace`，CI 用 `go mod edit -replace` 指向检出目录。
+- 插件后端的 `go.mod` 沿用 `sforum-oauth2-provider` 的做法：`require github.com/keeptrue/sforum/apps/api v0.0.0` + 本地 `replace`，CI 用 `go mod edit -replace` 指向检出目录。
 - 根 `package.json` 使用 Bun workspace：`service` + `plugin/plugins/sforum.store/frontend/admin`。
 
 ## 5. 服务端

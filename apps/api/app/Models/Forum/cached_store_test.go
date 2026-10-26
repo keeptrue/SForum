@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Cache"
 )
 
 type referenceInvalidatorSpy struct {

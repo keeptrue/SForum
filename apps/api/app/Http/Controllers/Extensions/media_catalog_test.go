@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	mediaregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/MediaRegistry"
+	mediaregistry "github.com/keeptrue/sforum/apps/api/app/Support/MediaRegistry"
 )
 
 func TestPublicMediaCatalogEmptyWithoutRegistry(t *testing.T) {

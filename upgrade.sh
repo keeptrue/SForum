@@ -170,7 +170,7 @@ resolve_latest_version() {
   local response resolved
   if [ "$CHANNEL" = "stable" ]; then
     say "正在查询最新稳定版..." "Resolving the newest stable GitHub Release..." >&2
-    local api_url="${SFORUM_LATEST_RELEASE_API_URL:-https://api.github.com/repos/zhuchunshu/SForum/releases/latest}"
+    local api_url="${SFORUM_LATEST_RELEASE_API_URL:-https://api.github.com/repos/keeptrue/SForum/releases/latest}"
     response="$(fetch_with_retry \
       "无法查询最新稳定版 Release。请检查网络（或配置 https_proxy 代理），也可使用 --channel prerelease。" \
       "Could not query the latest stable GitHub Release. Check the network (or configure an https_proxy), or use --channel prerelease to allow prereleases." \
@@ -182,7 +182,7 @@ resolve_latest_version() {
     say "正在查询最新发布版本（含预发布）..." "Resolving the newest published GitHub Release (including prereleases)..." >&2
     # Public unauthenticated listings exclude drafts. Asking for one result keeps
     # the parser dependency-free while still including prereleases.
-    local api_url="${SFORUM_RELEASES_API_URL:-https://api.github.com/repos/zhuchunshu/SForum/releases?per_page=1}"
+    local api_url="${SFORUM_RELEASES_API_URL:-https://api.github.com/repos/keeptrue/SForum/releases?per_page=1}"
     response="$(fetch_with_retry \
       "无法查询最新 Release。请检查网络（或配置 https_proxy 代理）后重试。" \
       "Could not query the latest GitHub Release. Check the network (or configure an https_proxy) and retry." \
@@ -330,7 +330,7 @@ pull_target_images() {
   for image in api migrate web; do
     ok=false
     for attempt in 1 2 3; do
-      if docker pull "ghcr.io/zhuchunshu/sforum-${image}:${version}"; then
+      if docker pull "ghcr.io/keeptrue/sforum-${image}:${version}"; then
         ok=true
         break
       fi
@@ -340,14 +340,14 @@ pull_target_images() {
         sleep $((attempt * 2))
       fi
     done
-    [ "$ok" = true ] || die "Could not pull ghcr.io/zhuchunshu/sforum-${image}:${version} after 3 attempts."
+    [ "$ok" = true ] || die "Could not pull ghcr.io/keeptrue/sforum-${image}:${version} after 3 attempts."
   done
 }
 
 verify_target_images() {
   local version="$1" expected="${1#v}" image actual
   for image in api migrate web; do
-    actual="$(docker image inspect "ghcr.io/zhuchunshu/sforum-${image}:${version}" \
+    actual="$(docker image inspect "ghcr.io/keeptrue/sforum-${image}:${version}" \
       --format '{{index .Config.Labels "org.opencontainers.image.version"}}')"
     [ "$actual" = "$expected" ] || die "$image image version is '$actual', expected '$expected'"
   done
@@ -356,7 +356,7 @@ verify_target_images() {
 target_migrator_supports_online_safe_check() {
   local version="$1"
   local capability
-  capability="$(docker image inspect "ghcr.io/zhuchunshu/sforum-migrate:${version}" \
+  capability="$(docker image inspect "ghcr.io/keeptrue/sforum-migrate:${version}" \
     --format '{{index .Config.Labels "io.sforum.migrations.online-safe-check"}}' 2>/dev/null || true)"
   [ "$capability" = v1 ]
 }

@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 func newExtensionTestCommand() *cobra.Command {

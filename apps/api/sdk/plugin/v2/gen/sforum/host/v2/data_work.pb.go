@@ -7,7 +7,7 @@
 package hostv2
 
 import (
-	v2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	v2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -2493,7 +2493,7 @@ const file_sforum_host_v2_data_work_proto_rawDesc = "" +
 	"\x05Watch\x12\x1f.sforum.host.v2.JobWatchRequest\x1a\".sforum.protocol.v2.ProgressUpdate0\x012\xc0\x01\n" +
 	"\x0fScheduleService\x12Q\n" +
 	"\x04List\x12#.sforum.host.v2.ScheduleListRequest\x1a$.sforum.host.v2.ScheduleListResponse\x12Z\n" +
-	"\aTrigger\x12&.sforum.host.v2.ScheduleTriggerRequest\x1a'.sforum.host.v2.ScheduleTriggerResponseBOZMgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
+	"\aTrigger\x12&.sforum.host.v2.ScheduleTriggerRequest\x1a'.sforum.host.v2.ScheduleTriggerResponseBMZKgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
 
 var (
 	file_sforum_host_v2_data_work_proto_rawDescOnce sync.Once

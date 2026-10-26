@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // M1/T1B 单元测试：subject HMAC digest。

@@ -1,6 +1,6 @@
 package aitools
 
-import supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+import supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 
 // 本文件为九个 Core 内置工具补上「仅控制台展示」的英文说明。
 //

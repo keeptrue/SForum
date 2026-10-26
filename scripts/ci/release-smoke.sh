@@ -12,7 +12,7 @@ if [[ -z "$SFORUM_VERSION" || -z "$EXPECTED_VERSION" || -z "$EXPECTED_COMMIT" ]]
 fi
 
 export SFORUM_VERSION
-export SFORUM_REGISTRY="${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}"
+export SFORUM_REGISTRY="${SFORUM_REGISTRY:-ghcr.io/keeptrue}"
 export APP_ENV=production
 export APP_URL=http://127.0.0.1:3000
 export POSTGRES_PASSWORD=sforum-release-smoke-postgres

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 type fakeSettings struct{ settings ai.Settings }

@@ -25,7 +25,7 @@ if [ -z "${GITHUB_REPOSITORY:-}" ]; then
     https://github.com/*.git) repository_url="${remote_url%.git}" ;;
     https://github.com/*) repository_url="$remote_url" ;;
     git@github.com:*) repository_url="https://github.com/${remote_url#git@github.com:}"; repository_url="${repository_url%.git}" ;;
-    *) repository_url="https://github.com/zhuchunshu/SForum" ;;
+    *) repository_url="https://github.com/keeptrue/SForum" ;;
   esac
 fi
 
@@ -58,7 +58,7 @@ fi
 
 printf '\n---\n\n## Installation\n\n**Docker images:**\n\n```bash\n' >> "$temp_file"
 for image in api migrate web; do
-  printf 'docker pull ghcr.io/zhuchunshu/sforum-%s:%s\n' "$image" "$release_tag" >> "$temp_file"
+  printf 'docker pull ghcr.io/keeptrue/sforum-%s:%s\n' "$image" "$release_tag" >> "$temp_file"
 done
 printf '```\n\n**Update an existing installation with a verified bootstrap:**\n\n```bash\n(\n  set -eu\n  cd /path/to/sforum\n' >> "$temp_file"
 printf '  bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"\n' >> "$temp_file"

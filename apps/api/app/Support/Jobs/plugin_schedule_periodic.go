@@ -9,7 +9,7 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/robfig/cron/v3"
-	timezone "github.com/zhuchunshu/sforum/apps/api/app/Support/Timezone"
+	timezone "github.com/keeptrue/sforum/apps/api/app/Support/Timezone"
 )
 
 const PluginScheduleTriggerKind = "extension.plugin_schedule_trigger"

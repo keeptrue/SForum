@@ -12,7 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestNewAppStartupBannerUsesSForumBrand(t *testing.T) {

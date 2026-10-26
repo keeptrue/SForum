@@ -5,11 +5,11 @@ import (
 
 	"github.com/riverqueue/river"
 
-	aiderivedjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIDerived"
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aiderivedjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIDerived"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // newAIDerivedGenerator 用 API 已装配的依赖构建派生生成器（B3）。

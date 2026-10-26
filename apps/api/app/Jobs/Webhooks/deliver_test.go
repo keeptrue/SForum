@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
-	webhooks "github.com/zhuchunshu/sforum/apps/api/app/Models/Webhooks"
+	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
 )
 
 func TestDeliverWorkerSignsAndSucceeds(t *testing.T) {

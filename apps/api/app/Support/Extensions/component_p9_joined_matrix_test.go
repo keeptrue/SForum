@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // TestP9JoinedComponentActionMatrix is the authoritative P9 production matrix row.

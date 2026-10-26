@@ -14,8 +14,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 func externalRegistrationContinuationHarness(

@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	entitymeta "github.com/zhuchunshu/sforum/apps/api/app/Models/EntityMeta"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func entityMetaReadGuardEvaluator(policy EntityMetaValueGuardPolicy) routes.CoreGuardEvaluatorFunc {

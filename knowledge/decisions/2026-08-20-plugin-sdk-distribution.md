@@ -44,7 +44,7 @@ and contract-test commands separately.
 - The first registry publication could not use package-level Trusted Publishing
   because the packages did not exist yet. On 2026-08-20 the `sforum` owner
   published both reviewed `1.0.0` tarballs with interactive 2FA, then bound both
-  package settings to `zhuchunshu/SForum`, workflow `release.yml`, action
+  package settings to `keeptrue/SForum`, workflow `release.yml`, action
   `npm publish`, with no GitHub environment. Both packages require 2FA for
   interactive publication and disallow bypass-2FA tokens; OIDC Trusted
   Publishing remains compatible with that strict setting.

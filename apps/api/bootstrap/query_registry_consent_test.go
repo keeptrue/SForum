@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 type consentAuthorityResolverStub struct {

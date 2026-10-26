@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 )
 
 func TestRenderDeliveryUsesStoredPasswordResetContent(t *testing.T) {

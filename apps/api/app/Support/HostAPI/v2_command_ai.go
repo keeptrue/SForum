@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 // 插件发起 AI 补全的边界。

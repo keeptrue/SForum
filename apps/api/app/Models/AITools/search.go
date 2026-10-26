@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // searchPageSize 是每次检索返回的条数。它固定而不是交给模型：一次工具调用的

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
 func validateCoreKernelLeaseCandidate(

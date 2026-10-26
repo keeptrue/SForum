@@ -3,7 +3,7 @@ package notifications
 import (
 	"context"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 type Store interface {

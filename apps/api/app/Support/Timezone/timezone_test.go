@@ -3,7 +3,7 @@ package timezone_test
 import (
 	"testing"
 
-	timezone "github.com/zhuchunshu/sforum/apps/api/app/Support/Timezone"
+	timezone "github.com/keeptrue/sforum/apps/api/app/Support/Timezone"
 )
 
 func TestLoadAcceptsIANAZones(t *testing.T) {

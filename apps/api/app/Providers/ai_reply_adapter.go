@@ -3,8 +3,8 @@ package providers
 import (
 	"context"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // BotAccountAdapter 把身份层的机器人账号查询适配成回复判定需要的形状。

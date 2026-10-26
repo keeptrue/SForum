@@ -3,10 +3,10 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	webhookscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Webhooks"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	webhooks "github.com/zhuchunshu/sforum/apps/api/app/Models/Webhooks"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	webhookscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Webhooks"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type WebhooksProvider struct {

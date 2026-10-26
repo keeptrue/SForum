@@ -1,6 +1,6 @@
 package hostapi
 
-import queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
+import queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 
 func shortcodeProjectionCoreMapping(definition protocolV2QueryDefinition) (queryRegistryCoreMapping, bool) {
 	public := queryregistry.PermissionPolicyPublic

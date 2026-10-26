@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 // 这一组是 B4/B5 的**端到端落库证据**，全部在真实 PostgreSQL 上跑，且**不依赖

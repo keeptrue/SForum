@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	uploadpolicy "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/UploadPolicy"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
 )
 
 func (h *Controller) currentUploadPolicy(c fiber.Ctx) error {

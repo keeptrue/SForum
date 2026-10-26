@@ -1,8 +1,8 @@
-module github.com/zhuchunshu/sforum/extensions/builtin/plugins/sforum-search-site/backend
+module github.com/keeptrue/sforum/extensions/builtin/plugins/sforum-search-site/backend
 
 go 1.26.10
 
-require github.com/zhuchunshu/sforum/apps/api v0.0.0
+require github.com/keeptrue/sforum/apps/api v0.0.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
@@ -23,4 +23,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api

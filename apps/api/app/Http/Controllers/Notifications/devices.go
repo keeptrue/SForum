@@ -6,9 +6,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 // 原生推送设备注册：自服务，所有权由 store 层 user_id 过滤保证（与登录设备一致）。

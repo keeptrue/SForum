@@ -6,7 +6,7 @@ import (
 	"log"
 	"strconv"
 
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 const (

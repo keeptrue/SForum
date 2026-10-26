@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 type revisionBackfillOptions struct {

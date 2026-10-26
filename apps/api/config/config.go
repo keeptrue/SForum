@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Localization"
 )
 
 type Config struct {

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	semver "github.com/Masterminds/semver/v3"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/systemactor"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/systemactor"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // IdempotencyKeyPrefix 是 Host 自动升级内置插件的保留前缀。

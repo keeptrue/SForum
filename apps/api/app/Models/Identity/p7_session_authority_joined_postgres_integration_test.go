@@ -17,8 +17,8 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 type p7JoinedSessionFlow string

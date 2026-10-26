@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // SearchRuntime 是插件搜索引擎 RPC 入口（Manager / ProtocolStarter）。

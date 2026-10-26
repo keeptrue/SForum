@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionopenapi "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionOpenAPI"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionopenapi "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionOpenAPI"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestLifecycleRegistryBootPublishesExactOpenAPIAndSafeModeRestoresCoreOnly(t *testing.T) {

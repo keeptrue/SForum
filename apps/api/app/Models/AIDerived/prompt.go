@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	aidomain "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aidomain "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 提示词与版本在这里同处一文件：版本常量住在用途声明里（Support/AI/purpose.go），

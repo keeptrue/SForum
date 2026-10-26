@@ -15,10 +15,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Localization"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 var errCommentStreamTestStop = errors.New("comment stream test stop")

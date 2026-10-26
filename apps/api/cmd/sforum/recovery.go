@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	postgres "github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	postgres "github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
 )
 
 var (

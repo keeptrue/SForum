@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestManagerPluginJobUsesExactAdmissionAndDrainCancellation(t *testing.T) {

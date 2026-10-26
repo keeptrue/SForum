@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // DevAutoRuntime 的行为测试：彻底 0 命令 dev 自动激活的三个核心语义——

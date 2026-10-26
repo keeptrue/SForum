@@ -12,12 +12,12 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	systemupdates "github.com/zhuchunshu/sforum/apps/api/app/Models/SystemUpdates"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	systemupdates "github.com/keeptrue/sforum/apps/api/app/Models/SystemUpdates"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	"github.com/keeptrue/sforum/apps/api/config"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 type systemUpdatesEnvelope struct {

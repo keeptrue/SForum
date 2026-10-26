@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestProductionSecretStoreFailClosedWithoutEncryptionKey(t *testing.T) {

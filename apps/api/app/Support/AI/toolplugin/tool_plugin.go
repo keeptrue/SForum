@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // 插件工具执行器：把 Host 的工具接口接到「一次 Host → plugin RPC」上。

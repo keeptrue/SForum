@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 func TestCreateEndpointRejectsPrivateTargets(t *testing.T) {

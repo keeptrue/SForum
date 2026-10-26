@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 func TestRegistryPluginPolicyDefaultsDisabledPostgres(t *testing.T) {

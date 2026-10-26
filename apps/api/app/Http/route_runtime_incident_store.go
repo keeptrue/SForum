@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 var (

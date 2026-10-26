@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type ProtocolV2IdentityAuthorityMutationGate interface {

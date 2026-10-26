@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	consentbridge "github.com/zhuchunshu/sforum/apps/api/app/Support/ConsentBridge"
+	consentbridge "github.com/keeptrue/sforum/apps/api/app/Support/ConsentBridge"
 )
 
 type fixedClock struct{ now time.Time }

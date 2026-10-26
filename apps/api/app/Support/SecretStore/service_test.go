@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
 )
 
 func TestPutMetaResolveMaskAndNoValueLeak(t *testing.T) {

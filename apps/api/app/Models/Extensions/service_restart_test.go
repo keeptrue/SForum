@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 func TestRestartLegacyIdentityPluginQuarantinesBeforeRepublish(t *testing.T) {

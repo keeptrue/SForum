@@ -9,10 +9,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 const (

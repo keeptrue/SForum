@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 const (

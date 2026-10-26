@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 func TestPublicFrontendRequiresLiveExactArtifactTrust(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
 	"golang.org/x/net/http/httpguts"
 )
 

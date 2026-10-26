@@ -12,14 +12,14 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	localization "github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
-	useragent "github.com/zhuchunshu/sforum/apps/api/app/Support/UserAgent"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	localization "github.com/keeptrue/sforum/apps/api/app/Support/Localization"
+	useragent "github.com/keeptrue/sforum/apps/api/app/Support/UserAgent"
 )
 
 func (h *Controller) register(c fiber.Ctx) error {

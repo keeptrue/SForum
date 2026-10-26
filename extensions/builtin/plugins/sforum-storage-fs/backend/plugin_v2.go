@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/storageprovider"
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
-	pluginwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
-	protocolwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/storageprovider"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
+	pluginwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
+	protocolwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 // 与 Host protocol_v2_storage.providerCall 对齐的 known-slot schema。

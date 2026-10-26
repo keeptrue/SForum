@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 // CodeUntrustedBackendRestricted 非 super_admin 试图引入或执行非内置后端插件时的稳定 reason。

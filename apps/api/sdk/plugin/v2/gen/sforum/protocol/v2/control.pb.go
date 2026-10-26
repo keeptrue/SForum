@@ -1283,7 +1283,7 @@ const file_sforum_protocol_v2_control_proto_rawDesc = "" +
 	"\x16PROGRESS_STATE_WAITING\x10\x03\x12\x1c\n" +
 	"\x18PROGRESS_STATE_SUCCEEDED\x10\x04\x12\x19\n" +
 	"\x15PROGRESS_STATE_FAILED\x10\x05\x12\x1c\n" +
-	"\x18PROGRESS_STATE_CANCELLED\x10\x06BWZUgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2;protocolv2b\x06proto3"
+	"\x18PROGRESS_STATE_CANCELLED\x10\x06BUZSgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2;protocolv2b\x06proto3"
 
 var (
 	file_sforum_protocol_v2_control_proto_rawDescOnce sync.Once

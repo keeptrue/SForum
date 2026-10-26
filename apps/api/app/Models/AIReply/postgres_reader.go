@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // PostgresReader 从数据库读取生成所需的线程快照。

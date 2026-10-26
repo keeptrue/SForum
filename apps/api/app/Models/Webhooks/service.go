@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	outboundhttp "github.com/zhuchunshu/sforum/apps/api/app/Support/OutboundHTTP"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
 )
 
 type TxEnqueuer interface {

@@ -3,12 +3,12 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	profilecontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Profile"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	profilecontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Profile"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type ProfileProvider struct {

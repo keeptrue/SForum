@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
 )
 
 type nicknameTestEditor struct {

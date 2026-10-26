@@ -62,7 +62,7 @@ EOF
 chmod +x "$TEMP_DIR/bin/gh"
 
 export PATH="$TEMP_DIR/bin:$PATH"
-export GITHUB_REPOSITORY="zhuchunshu/SForum"
+export GITHUB_REPOSITORY="keeptrue/SForum"
 export MOCK_GH_ARGS="$TEMP_DIR/gh-args"
 export MOCK_GH_COUNT="$TEMP_DIR/gh-count"
 export MOCK_RELEASE_COMMIT="$COMMIT"

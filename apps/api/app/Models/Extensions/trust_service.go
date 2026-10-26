@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 const DefaultTrustChallengeTTL = 5 * time.Minute

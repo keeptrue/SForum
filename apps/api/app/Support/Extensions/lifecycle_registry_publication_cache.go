@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
 )
 
 func (b *PostgresLifecycleBoundaryRegistries) CacheRegistry() *cacheregistry.Registry {

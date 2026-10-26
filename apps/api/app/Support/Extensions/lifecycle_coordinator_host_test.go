@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 func TestExactLifecycleCoordinatorHostDispatchesEveryAuthoritativeGate(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
 type PostgresStore struct {

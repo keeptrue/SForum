@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 func TestPublicContentCatalogEmptyWithoutRegistry(t *testing.T) {

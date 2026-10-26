@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	extensionreference "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/ExtensionReference"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 // 已认领的扩展图标必须对所有访客可读，但绝不能因此让附件 API 返回存储直链。

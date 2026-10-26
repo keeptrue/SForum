@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 // CreateSession 登记一条新会话/设备到 user_sessions。

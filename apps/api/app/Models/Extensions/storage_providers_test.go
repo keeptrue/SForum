@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 func TestListStorageProviderCandidatesOnlyEnabledSlot(t *testing.T) {

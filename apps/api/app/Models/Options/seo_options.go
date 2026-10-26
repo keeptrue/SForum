@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 const seoContentPrefix = "seo.content_type."

@@ -16,8 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestPostgresStoreConcurrentRotateAndRestart(t *testing.T) {

@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	pluginsessionstate "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginSessionState"
-	privacy "github.com/zhuchunshu/sforum/apps/api/app/Support/Privacy"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	pluginsessionstate "github.com/keeptrue/sforum/apps/api/app/Support/PluginSessionState"
+	privacy "github.com/keeptrue/sforum/apps/api/app/Support/Privacy"
 )
 
 // privacyTestBackend 是本测试需要的全部 Redis 语义（与 HostAPI 侧的替身同形）。

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // SearchProviderSlot 与 search.ProviderSlot 一致。

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math/rand/v2"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
 )
 
 // 本文件为种子用户补齐公开资料（简介 / 签名 / 所在地 / 个人站点）。

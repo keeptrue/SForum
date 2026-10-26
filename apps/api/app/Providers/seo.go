@@ -4,9 +4,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	seocontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/SEO"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	seo "github.com/zhuchunshu/sforum/apps/api/app/Models/SEO"
+	seocontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/SEO"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	seo "github.com/keeptrue/sforum/apps/api/app/Models/SEO"
 )
 
 type SEOProvider struct {

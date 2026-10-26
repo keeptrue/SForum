@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestRouteSchemaPublicationResolvesOnlyExactArtifactPolicy(t *testing.T) {

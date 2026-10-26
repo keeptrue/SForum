@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 type fakeImageReader struct {

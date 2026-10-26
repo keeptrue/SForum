@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
 )
 
 // accountSettingsProbeManifest 是插件作者会真正写进 sforum.extension.json 的形态：

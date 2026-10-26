@@ -12,7 +12,7 @@ import (
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
 const coreKernelLeaseConnectionLimit = 1

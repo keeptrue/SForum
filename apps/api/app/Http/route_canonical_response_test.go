@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestPluginRouteLinkHeadersDoNotReachFiber(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/riverqueue/river"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 func TestDeliverMailSkipsWithoutProvider(t *testing.T) {

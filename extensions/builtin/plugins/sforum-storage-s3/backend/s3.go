@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/smithy-go"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/storageprovider"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/storageprovider"
 )
 
 const (

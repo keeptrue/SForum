@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
 var ErrCoreAuthorityConflict = errors.New("core database authority conflicts with the Host ownership boundary")

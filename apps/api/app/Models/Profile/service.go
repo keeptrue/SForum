@@ -7,11 +7,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
 type Service struct {

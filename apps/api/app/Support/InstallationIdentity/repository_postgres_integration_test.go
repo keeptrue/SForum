@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestPostgresRepositoryConcurrentInitializationAndTamperRejection(t *testing.T) {

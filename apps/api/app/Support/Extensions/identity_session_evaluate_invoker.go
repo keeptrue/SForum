@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // IdentitySessionEvaluateInvoker adapts IdentityProviderRuntime to the Host

@@ -7,11 +7,11 @@ import (
 	"maps"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 type LifecycleService struct {

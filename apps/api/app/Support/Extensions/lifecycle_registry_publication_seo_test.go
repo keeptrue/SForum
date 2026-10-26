@@ -11,15 +11,15 @@ import (
 	"sync"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
-	seoregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/SEORegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+	seoregistry "github.com/keeptrue/sforum/apps/api/app/Support/SEORegistry"
 )
 
 func TestLifecycleSEOMaterialFreezesExactAuthorityAndReachableDigestAliases(t *testing.T) {

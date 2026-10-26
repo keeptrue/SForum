@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 func TestWebPushProviderEncryptsAndClassifiesFakeEndpoint(t *testing.T) {

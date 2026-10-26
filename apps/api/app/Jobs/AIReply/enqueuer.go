@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // Enqueuer 实现 aireply.Enqueuer：把触发判定产生的任务放进持久队列。

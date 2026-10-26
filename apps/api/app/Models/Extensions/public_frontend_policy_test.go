@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 )
 
 func TestPublicPagePolicyAggregatesStrictStructuredDirectives(t *testing.T) {

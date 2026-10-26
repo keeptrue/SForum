@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // ErrToolCallsUnavailable 表示工具调用记录能力没有装配（pool 缺失）。

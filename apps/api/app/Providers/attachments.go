@@ -3,14 +3,14 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	attachmentscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Attachments"
-	seocontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/SEO"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	seo "github.com/zhuchunshu/sforum/apps/api/app/Models/SEO"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	attachmentscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Attachments"
+	seocontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/SEO"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	seo "github.com/keeptrue/sforum/apps/api/app/Models/SEO"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 type AttachmentsProvider struct {

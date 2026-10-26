@@ -4,13 +4,13 @@ import (
 	"context"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	runtimerollout "github.com/zhuchunshu/sforum/apps/api/app/Support/RuntimeRollout"
-	settingslifecycle "github.com/zhuchunshu/sforum/apps/api/app/Support/SettingsLifecycle"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	runtimerollout "github.com/keeptrue/sforum/apps/api/app/Support/RuntimeRollout"
+	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
 )
 
 // ListRedactedInventory 实现 hostapi.ExtensionInventoryReader。

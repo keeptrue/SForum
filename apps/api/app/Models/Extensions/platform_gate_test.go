@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 // 可执行平台闸门的测试。合成 ELF 头只用来表达「这份后端是为哪个平台构建的」，

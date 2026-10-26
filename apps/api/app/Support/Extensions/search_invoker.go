@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 // SearchEngineInvoker 由 ProtocolStarter 实现，供 Manager 做准入后转发。

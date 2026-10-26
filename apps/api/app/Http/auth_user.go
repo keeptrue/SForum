@@ -3,9 +3,9 @@ package http
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 // ResolveUserID 解析当前请求用户：Bearer PAT 优先，否则 cookie session。

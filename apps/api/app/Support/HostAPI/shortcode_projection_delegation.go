@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 // ProtocolV2ShortcodeProjectionDelegationRequest is Host-authored for one

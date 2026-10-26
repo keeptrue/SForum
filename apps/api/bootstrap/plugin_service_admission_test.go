@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 type pluginServiceAdmissionRuntimeStub struct {

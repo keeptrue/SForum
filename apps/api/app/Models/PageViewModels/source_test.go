@@ -11,16 +11,16 @@ import (
 	"testing/fstest"
 	"time"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 var sourceTestNow = time.Date(2026, 7, 15, 8, 0, 0, 0, time.UTC)

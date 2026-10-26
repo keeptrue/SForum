@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 func TestMapExecutablePlatformErrorSplitsInstallFromRuntime(t *testing.T) {

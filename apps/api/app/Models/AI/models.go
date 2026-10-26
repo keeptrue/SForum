@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // ListModels 列出某个供应商端点当前可用的模型，供控制台一键选择。

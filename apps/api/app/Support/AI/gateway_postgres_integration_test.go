@@ -16,8 +16,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // 端到端集成测试：真实 Postgres（独立 schema）+ 真实 Secret Store + 受控出站

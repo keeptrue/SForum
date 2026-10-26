@@ -8,7 +8,7 @@ release 组合而不碰 registry 的开发者。
 `compose.release.yaml` 是**覆盖文件**，它：
 
 1. 把三个服务的 `build` 置空（`!reset null`）——发布栈不接受本地构建；
-2. 把镜像固定为 `${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}/sforum-<service>:${SFORUM_VERSION}`；
+2. 把镜像固定为 `${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-<service>:${SFORUM_VERSION}`；
 3. 设 `pull_policy: always`。
 
 `SFORUM_VERSION` 是**必填**的：不设置时 compose 会逐服务报错并拒绝启动
@@ -44,7 +44,7 @@ services:
 ```
 
 ```sh
-for t in api migrate web; do docker tag sforum-$t:candidate ghcr.io/zhuchunshu/sforum-$t:smoke-local; done
+for t in api migrate web; do docker tag sforum-$t:candidate ghcr.io/keeptrue/sforum-$t:smoke-local; done
 export SFORUM_VERSION=smoke-local APP_ENV=production \
   DATABASE_URL='postgres://sforum:sforum@postgres:5432/sforum?sslmode=disable' \
   REDIS_ADDR=redis:6379 EXTENSION_ROOT=/var/lib/sforum/extensions \
@@ -82,7 +82,7 @@ docker compose -p sforum-release-smoke -f compose.yaml -f compose.release.yaml d
 用本地候选镜像跑 release 组合（`APP_ENV=production`）：
 
 ```text
-compose 解析            → 三个服务均为 ghcr.io/zhuchunshu/sforum-<svc>:<tag>，pull_policy: always
+compose 解析            → 三个服务均为 ghcr.io/keeptrue/sforum-<svc>:<tag>，pull_policy: always
 不设 SFORUM_VERSION     → compose 逐服务报错并拒绝启动（fail-closed）
 启动后                  → postgres/redis healthy，api 自跑迁移（MIGRATE_ON_STARTUP=true），
                           GET /api/v1/health → 200 {"environment":"production"}
@@ -108,7 +108,7 @@ docker compose -p sforum-release-real -f compose.yaml -f compose.release.yaml \
   -f /tmp/ports-override.yaml --env-file /tmp/sforum-release-real.env up -d --no-build
 ```
 
-实测（ghcr.io/zhuchunshu/sforum-{api,migrate,web}:v3.0.9）：
+实测（ghcr.io/keeptrue/sforum-{api,migrate,web}:v3.0.9）：
 
 ```text
 migrate → 迁移 145 表 + 7 River（二次启动 "No migrations to apply"）

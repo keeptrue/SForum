@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // F4.5：站点级产品开关，与 RBAC 权限正交。

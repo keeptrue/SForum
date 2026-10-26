@@ -11,8 +11,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestAbortUsesDefaultReason(t *testing.T) {

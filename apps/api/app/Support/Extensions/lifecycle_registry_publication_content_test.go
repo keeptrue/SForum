@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestLifecycleContentMaterialFreezesExactAuthorityAndReachableDigestAliases(t *testing.T) {

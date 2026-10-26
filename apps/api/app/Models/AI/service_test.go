@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	modelsai "github.com/zhuchunshu/sforum/apps/api/app/Models/AI"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	modelsai "github.com/keeptrue/sforum/apps/api/app/Models/AI"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 type stubSettings struct {

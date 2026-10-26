@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // ExtensionTopicSurfaceProvider 解析 forum.topic.sidebar / badges / list.badges（E2.1 + E2.4）。

@@ -13,8 +13,8 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 var (

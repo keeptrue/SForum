@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	aitools "github.com/zhuchunshu/sforum/apps/api/app/Models/AITools"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aitools "github.com/keeptrue/sforum/apps/api/app/Models/AITools"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 九个内置工具必须都能回答控制台的两个问题：「这个工具是干什么的」与「它的英文

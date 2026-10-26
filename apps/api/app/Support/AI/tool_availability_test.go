@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // metadataTool 只实现必备接口（Definition + Invoke）。登记表必须容忍这种工具：

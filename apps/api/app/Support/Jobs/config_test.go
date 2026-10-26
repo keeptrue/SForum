@@ -6,7 +6,7 @@ import (
 
 	"github.com/riverqueue/river"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestFromAppConfigBuildsRiverQueues(t *testing.T) {

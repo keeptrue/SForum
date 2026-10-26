@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // ExtensionNavItemProvider 解析 forum.nav.items（E2.3）。

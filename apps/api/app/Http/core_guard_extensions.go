@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func requireExtensionsMutationAuthority(_ context.Context, evaluation routes.CoreGuardEvaluation) error {

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 var attachmentPublicIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)

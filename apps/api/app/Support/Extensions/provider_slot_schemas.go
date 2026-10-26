@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 const providerSchemaMaximumBytes = 1 << 20

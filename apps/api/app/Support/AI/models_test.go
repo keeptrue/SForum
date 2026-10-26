@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // requestRecorder 捕获最近一次请求。用结构体而不是裸指针：闭包里的赋值目标是

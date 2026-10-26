@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // view=schema 公开页的预检契约：作者（CLI）与运行时激活共用

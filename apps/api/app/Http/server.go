@@ -14,13 +14,13 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/gofiber/fiber/v3/middleware/requestid"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
-	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
+	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+	"github.com/keeptrue/sforum/apps/api/config"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 type healthResponse struct {

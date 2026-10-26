@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // TestP13ReferencePluginPackagesExist is the installable-package inventory gate

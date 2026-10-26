@@ -3,7 +3,7 @@ package forumcontroller
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
 )
 
 // commentCitations 返回一条评论作为 AI 产物时留下的依据。

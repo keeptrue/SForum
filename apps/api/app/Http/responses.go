@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Localization"
 )
 
 const MessageOK = "ok"

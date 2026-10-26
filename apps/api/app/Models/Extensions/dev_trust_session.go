@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	devhygiene "github.com/zhuchunshu/sforum/apps/api/app/Support/DevHygiene"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	devhygiene "github.com/keeptrue/sforum/apps/api/app/Support/DevHygiene"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // DevTrustSession 是开发环境下 super_admin 一次性确认后授予的「会话级自动信任」：

@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	pluginsdkstorage "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/storageprovider"
+	pluginsdkstorage "github.com/keeptrue/sforum/apps/api/sdk/plugin/storageprovider"
 )
 
 // Storage provider aliases preserve the root SDK API while new Protocol V2

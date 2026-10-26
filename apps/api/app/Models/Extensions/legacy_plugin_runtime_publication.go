@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 var ErrRuntimeContentPublicationUnavailable = errors.New("extensions: runtime content publication boundary is unavailable")

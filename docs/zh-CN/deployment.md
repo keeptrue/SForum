@@ -42,9 +42,9 @@ PostgreSQL 和 Redis。只支持 Linux `amd64`/`arm64`，不支持 Windows。对
   bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
   trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
   curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
   curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/SHA256SUMS
+    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
   (
     cd "$bootstrap_dir"
     awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
@@ -55,7 +55,7 @@ PostgreSQL 和 Redis。只支持 Linux `amd64`/`arm64`，不支持 Windows。对
       shasum -a 256 -c sforum-bootstrap.sha256
     fi
     if command -v gh >/dev/null 2>&1; then
-      gh attestation verify sforum-bootstrap.sh --repo zhuchunshu/SForum
+      gh attestation verify sforum-bootstrap.sh --repo keeptrue/SForum
     fi
   )
   install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
@@ -125,8 +125,8 @@ bootstrap 一定来自 GitHub，在安装目录执行下面这一条命令。它
 ```sh
 # 在安装目录执行；重复运行会原子替换包装器，不需要先删除旧文件
 tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/zhuchunshu/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/zhuchunshu/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
+curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
+curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
 mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
 mv -f "$tmp" sforum-latest.sh && \
 { sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
@@ -160,9 +160,9 @@ stable、最新发布版（含 alpha/beta）或指定标签；`--channel` 与 `-
   bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
   trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
   curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
   curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/SHA256SUMS
+    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
   (
     cd "$bootstrap_dir"
     awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
@@ -173,7 +173,7 @@ stable、最新发布版（含 alpha/beta）或指定标签；`--channel` 与 `-
       shasum -a 256 -c sforum-bootstrap.sha256
     fi
     if command -v gh >/dev/null 2>&1; then
-      gh attestation verify sforum-bootstrap.sh --repo zhuchunshu/SForum
+      gh attestation verify sforum-bootstrap.sh --repo keeptrue/SForum
     fi
   )
   install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
@@ -237,7 +237,7 @@ stable、最新发布版（含 alpha/beta）或指定标签；`--channel` 与 `-
 
 后端运行包不包含 Nuxt Web、PostgreSQL 或 Redis，不是完整站点安装包；生产
 仍使用三个版本一致的 Docker 镜像。下载后可用
-`gh attestation verify <文件> --repo zhuchunshu/SForum` 和 `SHA256SUMS`
+`gh attestation verify <文件> --repo keeptrue/SForum` 和 `SHA256SUMS`
 核对。
 
 ## 深入阅读

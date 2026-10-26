@@ -21,7 +21,7 @@ schedules.
 | Surface | Use for |
 | --- | --- |
 | Manifest V3 `sforum.extension.json` (+ optional `includes`) | Versioned Registry/platform declarations and exact package-file identity |
-| Go SDK `github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2` | New typed backend server, generated Host clients, exact runtime binding, health/readiness |
+| Go SDK `github.com/keeptrue/sforum/apps/api/sdk/plugin/v2` | New typed backend server, generated Host clients, exact runtime binding, health/readiness |
 | Host API v2 wire `sforum.host/v2` | Typed queries/commands and versioned platform services over the runtime-scoped Host broker |
 | go-plugin gRPC Protocol V2 | The only executable process protocol accepted by the Host; no fallback or downgrade |
 | Published catalogs | Which events/points/slots/capabilities exist |
@@ -243,7 +243,7 @@ Minimal backend using the public SDK:
 ```go
 package main
 
-import pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+import pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 
 func main() {
 	pluginv2.Serve(pluginv2.NewServer())

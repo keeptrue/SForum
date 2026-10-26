@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 评论创建的发言节流：冷却与日限额。它被拆到独立文件，是因为 service_ops.go 已经

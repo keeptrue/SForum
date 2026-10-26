@@ -15,8 +15,8 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 	"github.com/riverqueue/river/rivertype"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 type pluginJobLifecycleIntegrationHarness struct {

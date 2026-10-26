@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 200 但没有正文不是成功。这条断言来自一次真实故障：控制台一整列 succeeded、

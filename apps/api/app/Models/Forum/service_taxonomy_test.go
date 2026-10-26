@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 func categoryManagerActor() identity.Actor {

@@ -12,7 +12,7 @@ IMAGE_TAG="${4:-}"
 TARGET_OS="${5:-}"
 TARGET_ARCH="${6:-}"
 OUTPUT_DIR="${7:-}"
-REGISTRY="${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}"
+REGISTRY="${SFORUM_REGISTRY:-ghcr.io/keeptrue}"
 
 usage() {
   echo "Usage: build-release-assets.sh VERSION COMMIT BUILD_TIME IMAGE_TAG GOOS GOARCH OUTPUT_DIR" >&2
@@ -119,7 +119,7 @@ CLI_BINARY_NAME="sforum"
 CLI_ARCHIVE="$OUTPUT_DIR/$CLI_ROOT_NAME.tar.gz"
 
 mkdir -p "$CLI_ROOT"
-LDFLAGS="-s -w -X github.com/zhuchunshu/sforum/apps/api/version.Current=$VERSION -X github.com/zhuchunshu/sforum/apps/api/version.Commit=$COMMIT -X github.com/zhuchunshu/sforum/apps/api/version.BuildTime=$BUILD_TIME"
+LDFLAGS="-s -w -X github.com/keeptrue/sforum/apps/api/version.Current=$VERSION -X github.com/keeptrue/sforum/apps/api/version.Commit=$COMMIT -X github.com/keeptrue/sforum/apps/api/version.BuildTime=$BUILD_TIME"
 (
   cd "$ROOT_DIR/apps/api"
   CGO_ENABLED=0 GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" \
@@ -136,7 +136,7 @@ This archive contains the sforum developer and recovery CLI for
 $TARGET_OS/$TARGET_ARCH. Run "sforum --version" (or "sforum.exe --version")
 to inspect its embedded release identity.
 
-Documentation: https://github.com/zhuchunshu/SForum/tree/main/docs
+Documentation: https://github.com/keeptrue/SForum/tree/main/docs
 EOF
 archive_directory "$CLI_ROOT" "$CLI_ARCHIVE"
 

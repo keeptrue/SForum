@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 )
 
 func TestProtocolV2QueryRegistryBridgeReusesTypedPlanAndExecutor(t *testing.T) {

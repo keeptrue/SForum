@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	uploadpolicy "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/UploadPolicy"
+	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
 )
 
 func TestUploadPolicyManagementFailsClosedWithoutPolicyService(t *testing.T) {

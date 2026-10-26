@@ -14,13 +14,13 @@ import (
 	"regexp"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 // TrustRevoker 在包 digest 变化时吊销前端信任（F2.4 升级重审批）。

@@ -3,7 +3,7 @@ package ai_test
 import (
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 有些网关不把思考放进 reasoning_content，而是把它和回答拼在同一个 content 里，

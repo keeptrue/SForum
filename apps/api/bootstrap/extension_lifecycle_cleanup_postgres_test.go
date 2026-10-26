@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 func TestProductionLifecycleCleanupIdentityExactCASAndEvidenceRetention(t *testing.T) {

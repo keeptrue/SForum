@@ -6,8 +6,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 func TestEventDeliveryArgsKindAndOptions(t *testing.T) {

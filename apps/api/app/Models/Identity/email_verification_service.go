@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	mail "github.com/zhuchunshu/sforum/apps/api/app/Support/Mail"
+	mail "github.com/keeptrue/sforum/apps/api/app/Support/Mail"
 )
 
 type EmailVerificationPolicy struct {

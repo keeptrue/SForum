@@ -51,9 +51,9 @@ sforum-latest.sh            ──> sforum-bootstrap.sh upgrade
   bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
   trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
   curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
   curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/SHA256SUMS
+    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
   (
     cd "$bootstrap_dir"
     awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
@@ -74,8 +74,8 @@ sforum-latest.sh            ──> sforum-bootstrap.sh upgrade
 固定版本时，把两个滚动地址换成同一标签：
 
 ```sh
-https://github.com/zhuchunshu/SForum/releases/download/<TAG>/sforum-bootstrap.sh
-https://github.com/zhuchunshu/SForum/releases/download/<TAG>/SHA256SUMS
+https://github.com/keeptrue/SForum/releases/download/<TAG>/sforum-bootstrap.sh
+https://github.com/keeptrue/SForum/releases/download/<TAG>/SHA256SUMS
 ```
 
 ### 方式 B：完整部署包
@@ -88,9 +88,9 @@ https://github.com/zhuchunshu/SForum/releases/download/<TAG>/SHA256SUMS
   mkdir -p sforum
   cd sforum
   curl -fsSLo sforum-deploy.tar.gz \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-deploy.tar.gz
+    https://github.com/keeptrue/SForum/releases/latest/download/sforum-deploy.tar.gz
   curl -fsSLo SHA256SUMS \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/SHA256SUMS
+    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
   awk '$2 == "sforum-deploy.tar.gz" { print }' SHA256SUMS > sforum-deploy.sha256
   test "$(wc -l < sforum-deploy.sha256 | tr -d '[:space:]')" = 1
   if command -v sha256sum >/dev/null 2>&1; then
@@ -99,7 +99,7 @@ https://github.com/zhuchunshu/SForum/releases/download/<TAG>/SHA256SUMS
     shasum -a 256 -c sforum-deploy.sha256
   fi
   if command -v gh >/dev/null 2>&1; then
-    gh attestation verify sforum-deploy.tar.gz --repo zhuchunshu/SForum
+    gh attestation verify sforum-deploy.tar.gz --repo keeptrue/SForum
   fi
   tar -xzf sforum-deploy.tar.gz --strip-components=1
   ./sforum-bootstrap.sh install
@@ -217,8 +217,8 @@ https://github.com/zhuchunshu/SForum/releases/download/<TAG>/SHA256SUMS
 ```sh
 # 重复运行会原子替换包装器，不需要先删除旧文件
 tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/zhuchunshu/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/zhuchunshu/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
+curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
+curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
 mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
 mv -f "$tmp" sforum-latest.sh && \
 { sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
@@ -271,7 +271,7 @@ Worker，切换期间可能短暂同时消费队列；任务领取和重试由 R
 (
   set -eu
   curl -fsSLo upgrade.sh \
-    https://raw.githubusercontent.com/zhuchunshu/SForum/v3.0.0-alpha.13/upgrade.sh
+    https://raw.githubusercontent.com/keeptrue/SForum/v3.0.0-alpha.13/upgrade.sh
   printf '%s  %s\n' ae186e13ca9551014e21ce7f77a7335413791268d97fb0b72f6be9820dedfe13 upgrade.sh > upgrade.sh.sha256
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum -c upgrade.sh.sha256

@@ -218,7 +218,7 @@ fixed-name `sforum-deploy.tar.gz` (Compose files, `deploy.sh`, `upgrade.sh`,
 `.env.production.example`, `deploy/scripts/*`, Caddy examples, VERSION) plus a
 standalone `upgrade.sh`, built by `scripts/ci/build-deploy-asset.sh` and
 verified by `scripts/ci/finalize-release-assets.sh` into `SHA256SUMS` before
-attestation. `https://github.com/zhuchunshu/SForum/releases/latest/download/
+attestation. `https://github.com/keeptrue/SForum/releases/latest/download/
 sforum-deploy.tar.gz` always points at the latest stable bundle; docs and the
 root README use that rolling entry instead of hard-coded version numbers.
 Documented download flow (review fix 2026-08-16): download the archive first,

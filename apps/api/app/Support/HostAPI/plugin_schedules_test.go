@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/riverqueue/river"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type pluginScheduleJobEnqueuerStub struct {

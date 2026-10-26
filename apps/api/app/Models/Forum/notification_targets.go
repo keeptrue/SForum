@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 // ResolveNotificationTarget 复用公开论坛读路径的可见性规则。通知收件人身份

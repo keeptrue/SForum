@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrator"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/database/migrator"
 )
 
 const pluginTestClusterMarker = "sforum.disposable-test-cluster.v1"

@@ -8,7 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	entityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EntityRegistry"
+	entityregistry "github.com/keeptrue/sforum/apps/api/app/Support/EntityRegistry"
 )
 
 func TestPublicEntityCatalogEmptyWithoutRegistry(t *testing.T) {

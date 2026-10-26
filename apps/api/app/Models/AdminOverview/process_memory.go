@@ -1,7 +1,7 @@
 package adminoverview
 
 import (
-	processmemory "github.com/zhuchunshu/sforum/apps/api/app/Support/ProcessMemory"
+	processmemory "github.com/keeptrue/sforum/apps/api/app/Support/ProcessMemory"
 )
 
 // ProcessSample 描述一次可测试的进程采样结果（兼容旧测试与注入点）。

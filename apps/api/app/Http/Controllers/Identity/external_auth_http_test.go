@@ -16,11 +16,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // T1E controller HTTP：allowed/denied、callback replay/exact-artifact、

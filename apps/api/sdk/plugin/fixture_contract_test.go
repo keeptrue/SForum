@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage/referencefixture"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	"github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage/referencefixture"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 func repoRoot(t *testing.T) string {

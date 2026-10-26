@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/builtinauto"
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/systemactor"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/builtinauto"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/systemactor"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 const (

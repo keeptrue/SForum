@@ -3,7 +3,7 @@ package attachments
 import (
 	"context"
 
-	extensionreference "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/ExtensionReference"
+	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
 )
 
 // ExtensionAttachmentPolicy 解析扩展认领附件时的有效约束。

@@ -3,11 +3,11 @@ package extensionscontroller
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
-	editorregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorRegistry"
-	entityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EntityRegistry"
-	mediaregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/MediaRegistry"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+	editorregistry "github.com/keeptrue/sforum/apps/api/app/Support/EditorRegistry"
+	entityregistry "github.com/keeptrue/sforum/apps/api/app/Support/EntityRegistry"
+	mediaregistry "github.com/keeptrue/sforum/apps/api/app/Support/MediaRegistry"
 )
 
 // 公开声明目录（editor / entity / content / media）。

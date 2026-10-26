@@ -7,9 +7,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	installationidentity "github.com/zhuchunshu/sforum/apps/api/app/Support/InstallationIdentity"
-	pluginsessionstate "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginSessionState"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	installationidentity "github.com/keeptrue/sforum/apps/api/app/Support/InstallationIdentity"
+	pluginsessionstate "github.com/keeptrue/sforum/apps/api/app/Support/PluginSessionState"
 )
 
 // productionPluginSessionState is the process-wide S1-S9 substrate: one store,

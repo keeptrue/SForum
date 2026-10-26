@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
 )
 
 func TestProductionNavigationRuntimeAdmitsExactDeclarativeContribution(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
 )
 
 // applyDefaultsOverrides 把部署期 Defaults（站点标识、语言、人机验证密钥与参数）

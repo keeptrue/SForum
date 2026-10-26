@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensioncomposition "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionComposition"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensioncomposition "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionComposition"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
 )
 
 const (

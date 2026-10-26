@@ -3,7 +3,7 @@ package forum
 import (
 	"context"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 func (s *Service) ListTopicRevisions(ctx context.Context, actor identity.Actor, topicID int64, input RevisionListInput) (RevisionList, error) {

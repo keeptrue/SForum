@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/systemactor"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/systemactor"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // DevAutoRuntime 是「彻底 0 命令」dev 模式的 host 侧自动激活服务。

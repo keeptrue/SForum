@@ -9,17 +9,17 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	httpserver "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	aireplyjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIReply"
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	providers "github.com/zhuchunshu/sforum/apps/api/app/Providers"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	httpserver "github.com/keeptrue/sforum/apps/api/app/Http"
+	aireplyjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	providers "github.com/keeptrue/sforum/apps/api/app/Providers"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // newEmbeddedAIReplyGenerator 用 API 已装配的依赖构建回复生成器。任一依赖缺失

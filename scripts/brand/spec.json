@@ -7,7 +7,7 @@
       "title": "SMTP 邮件",
       "tagline": "邮件队列与模板归宿主，投递归插件",
       "glyph": "mail-forward",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-storage-fs",
@@ -15,7 +15,7 @@
       "title": "本地文件存储",
       "tagline": "附件存储提供者：本地文件系统",
       "glyph": "folder",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-storage-s3",
@@ -23,7 +23,7 @@
       "title": "S3 兼容存储",
       "tagline": "多实例 S3 兼容附件存储",
       "glyph": "bucket",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-search-site",
@@ -31,7 +31,7 @@
       "title": "站内搜索",
       "tagline": "PostgreSQL 全文检索，默认搜索提供者",
       "glyph": "file-search",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-auth-github",
@@ -39,7 +39,7 @@
       "title": "GitHub 登录",
       "tagline": "用 GitHub 账号登录，账号与会话归宿主",
       "glyph": "brand-github",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-web-push",
@@ -47,7 +47,7 @@
       "title": "Web Push 推送",
       "tagline": "浏览器推送通知渠道",
       "glyph": "bell-ringing",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-content-policy",
@@ -55,7 +55,7 @@
       "title": "内容策略",
       "tagline": "发帖前的内容关键词闸门",
       "glyph": "shield-check",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/plugins/sforum-shortcodes",
@@ -63,7 +63,7 @@
       "title": "内置短代码",
       "tagline": "结构化的论坛短代码运行时",
       "glyph": "code",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "extensions/builtin/themes/sforum-default",
@@ -71,7 +71,7 @@
       "title": "默认主题",
       "tagline": "完整 Page Registry 覆盖的官方主题",
       "glyph": "palette",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     },
     {
       "package": "../sforum-fetch-url/plugins/sforum.fetch-url",
@@ -79,7 +79,7 @@
       "title": "AI 网页抓取",
       "tagline": "让 AI 读到白名单内网页的正文",
       "glyph": "world-download",
-      "slug": "zhuchunshu/sforum-fetch-url"
+      "slug": "keeptrue/sforum-fetch-url"
     },
     {
       "package": "../sforum-oauth2-provider/plugins/sforum-oauth2-provider",
@@ -87,7 +87,7 @@
       "title": "OAuth2 授权服务",
       "tagline": "授权码 + PKCE，SForum 当授权服务器",
       "glyph": "key",
-      "slug": "zhuchunshu/sforum-oauth2-provider"
+      "slug": "keeptrue/sforum-oauth2-provider"
     },
     {
       "package": "../sforum-web-search/plugins/sforum.web-search",
@@ -95,7 +95,7 @@
       "title": "AI 联网搜索",
       "tagline": "四个可切换后端，带熔断与缓存",
       "glyph": "world-search",
-      "slug": "zhuchunshu/sforum-web-search"
+      "slug": "keeptrue/sforum-web-search"
     },
     {
       "package": "../sforum-app-store/plugin/plugins/sforum.store",
@@ -103,7 +103,7 @@
       "title": "应用商城",
       "tagline": "在论坛后台浏览应用商城，选中扩展交给宿主安装",
       "glyph": "building-store",
-      "slug": "zhuchunshu/sforum-app-store"
+      "slug": "keeptrue/sforum-app-store"
     }
   ],
   "repos": [
@@ -112,7 +112,7 @@
       "kind": "framework",
       "title": "SForum",
       "tagline": "插件优先的开源论坛框架",
-      "slug": "zhuchunshu/SForum"
+      "slug": "keeptrue/SForum"
     }
   ]
 }

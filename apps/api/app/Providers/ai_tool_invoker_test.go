@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	toolplugin "github.com/zhuchunshu/sforum/apps/api/app/Support/AI/toolplugin"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	toolplugin "github.com/keeptrue/sforum/apps/api/app/Support/AI/toolplugin"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 type aiToolInvokerStarter struct {

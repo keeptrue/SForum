@@ -6,8 +6,8 @@ import (
 	"log"
 	"strings"
 
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
-	seoregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/SEORegistry"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
+	seoregistry "github.com/keeptrue/sforum/apps/api/app/Support/SEORegistry"
 )
 
 // P13 SEO reference: multi-kind Host SEO Registry contributions.

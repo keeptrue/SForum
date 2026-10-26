@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 const lifecyclePackageSchemaMaximumBytes int64 = 1 << 20

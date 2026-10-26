@@ -3,7 +3,7 @@ package webhooks
 import (
 	"context"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // BridgePublisher 在 extension runtime 发事件后扇出 webhook（不改动插件投递语义）。

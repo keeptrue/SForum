@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 // 这一组用例存在的理由：论坛多附件写入长期只有「假 pgx.Tx」覆盖，唯一约束永远

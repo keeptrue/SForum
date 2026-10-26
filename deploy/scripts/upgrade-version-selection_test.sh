@@ -175,7 +175,7 @@ if (
 fi
 assert_contains "$TEMP_DIR/yes.out" 'Current resolved version: v3.0.0-alpha.10'
 assert_contains "$TEMP_DIR/yes.out" 'Target resolved version: v3.0.0'
-assert_contains "$MOCK_LOG" 'docker pull ghcr.io/zhuchunshu/sforum-api:v3.0.0'
+assert_contains "$MOCK_LOG" 'docker pull ghcr.io/keeptrue/sforum-api:v3.0.0'
 assert_contains "$MOCK_LOG" '/releases/latest'
 
 # Unattended prerelease channel resolves the newest release including prereleases.
@@ -187,7 +187,7 @@ if (
   fail "the fake image pull should stop the --yes prerelease update"
 fi
 assert_contains "$TEMP_DIR/yes-prerelease.out" 'Target resolved version: v3.0.0-beta.1 (prerelease)'
-assert_contains "$MOCK_LOG" 'docker pull ghcr.io/zhuchunshu/sforum-api:v3.0.0-beta.1'
+assert_contains "$MOCK_LOG" 'docker pull ghcr.io/keeptrue/sforum-api:v3.0.0-beta.1'
 assert_contains "$MOCK_LOG" 'per_page=1'
 
 # docker pull retries: a flaky daemon that fails twice then succeeds must not
@@ -278,7 +278,7 @@ if (
   fail "the fake docker compose should stop the maintenance update"
 fi
 assert_contains "$TEMP_DIR/maintenance-confirmed.out" 'Maintenance-window upgrade authorized'
-assert_contains "$MOCK_LOG" 'ghcr.io/zhuchunshu/sforum-migrate:v3.0.0'
+assert_contains "$MOCK_LOG" 'ghcr.io/keeptrue/sforum-migrate:v3.0.0'
 assert_not_contains "$MOCK_LOG" 'up -d --no-build --pull never api-'
 
 # Interactive decline cancels the maintenance-window upgrade.

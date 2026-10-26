@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 图片收集只发生在站点开启多模态时。收集范围刻意收窄：主楼与被回复那条评论

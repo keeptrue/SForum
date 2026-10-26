@@ -14,10 +14,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pressly/goose/v3"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 const siteNavigationV1MigrationVersion = int64(202607280072)

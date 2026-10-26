@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 const (

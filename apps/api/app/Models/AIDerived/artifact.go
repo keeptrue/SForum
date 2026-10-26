@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 var (

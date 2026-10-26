@@ -1,7 +1,7 @@
 package extensions
 
 import (
-	processmemory "github.com/zhuchunshu/sforum/apps/api/app/Support/ProcessMemory"
+	processmemory "github.com/keeptrue/sforum/apps/api/app/Support/ProcessMemory"
 )
 
 // sampleOwnedPluginMemory 一次 ps 采样，得到 extensionID → RSS 字节。

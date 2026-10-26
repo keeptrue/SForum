@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 )
 
 func notificationDescriptorOwner(material *lifecycleRegistryMaterial) notifications.DescriptorOwner {

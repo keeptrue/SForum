@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	mediaregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/MediaRegistry"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	mediaregistry "github.com/keeptrue/sforum/apps/api/app/Support/MediaRegistry"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 func TestServiceUploadHonorsMediaRegistryMIMEPolicy(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 const (

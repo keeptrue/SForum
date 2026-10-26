@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	modelsai "github.com/zhuchunshu/sforum/apps/api/app/Models/AI"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	modelsai "github.com/keeptrue/sforum/apps/api/app/Models/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // diagnoseSettingsStore 提供一份已启用 deepseek 的配置，让诊断走到真正的调用路径。

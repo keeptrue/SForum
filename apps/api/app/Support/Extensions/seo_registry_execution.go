@@ -9,8 +9,8 @@ import (
 	"io"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	seoregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/SEORegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	seoregistry "github.com/keeptrue/sforum/apps/api/app/Support/SEORegistry"
 )
 
 type versionedSEOInvoker interface {

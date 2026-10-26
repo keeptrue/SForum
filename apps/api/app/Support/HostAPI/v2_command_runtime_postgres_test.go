@@ -7,9 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	extensionreference "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/ExtensionReference"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestPostgresProtocolV2CommandRuntimeRequiresCompleteDependencies(t *testing.T) {

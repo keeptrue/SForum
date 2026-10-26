@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // fakeIndexer 记录 EnqueueIndex/EnqueueDelete 调用，用于断言业务流触发搜索调度。

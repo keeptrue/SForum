@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestProductionIdentityAdminSubjectGuardAllowsResourceRoutes(t *testing.T) {

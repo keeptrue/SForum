@@ -5,9 +5,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 const routeCatalogUnavailableReason = "extensions.route_catalog_unavailable"

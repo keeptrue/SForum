@@ -3,7 +3,7 @@ package aireply_test
 import (
 	"testing"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 // Label 是提示词里唯一生成作者标识的地方，所以它的每个分支都要有确定行为：

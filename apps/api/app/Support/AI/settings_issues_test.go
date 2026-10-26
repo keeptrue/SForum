@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // fieldOf 返回第一条命中前缀的问题代码，便于断言「是哪一项错了」。

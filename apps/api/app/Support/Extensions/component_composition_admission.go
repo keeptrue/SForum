@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-import extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+import extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 
 type componentHeldAdmission struct {
 	request      ComponentRuntimeAdmissionRequest

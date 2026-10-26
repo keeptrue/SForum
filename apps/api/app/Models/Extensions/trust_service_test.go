@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 func TestExecutableTrustChallengeBindsExactImpactAndIsOneUse(t *testing.T) {

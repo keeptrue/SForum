@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // makeThemeScaffold 生成一个真实的 `make:theme` 脚手包，返回包根与合并后的 manifest。

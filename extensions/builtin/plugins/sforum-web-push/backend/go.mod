@@ -1,10 +1,10 @@
-module github.com/zhuchunshu/sforum/extensions/builtin/plugins/sforum-web-push/backend
+module github.com/keeptrue/sforum/extensions/builtin/plugins/sforum-web-push/backend
 
 go 1.26.10
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
-	github.com/zhuchunshu/sforum/apps/api v0.0.0
+	github.com/keeptrue/sforum/apps/api v0.0.0
 )
 
 require (
@@ -28,4 +28,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api

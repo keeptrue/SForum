@@ -12,11 +12,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // passwordResetFakeStore 仅满足 identity.Store 接口以构造 PasswordResetService。

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
 )
 
 func TestHostCacheServiceBoundsAndNamespaceEscape(t *testing.T) {

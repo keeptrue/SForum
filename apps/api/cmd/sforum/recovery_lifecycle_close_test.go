@@ -17,7 +17,7 @@ import (
 	"github.com/pressly/goose/v3"
 	"github.com/spf13/cobra"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 // lifecycleClosePostgresFixture 提供只含 lifecycle 账本 + audit_events 的

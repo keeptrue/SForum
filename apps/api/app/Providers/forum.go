@@ -8,14 +8,14 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	forumcontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Forum"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Idempotency"
+	forumcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
 )
 
 type ForumProvider struct {

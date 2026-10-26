@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	timezone "github.com/zhuchunshu/sforum/apps/api/app/Support/Timezone"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	timezone "github.com/keeptrue/sforum/apps/api/app/Support/Timezone"
 )
 
 // 推荐默认：UTC 时区 + 中文社区常用的年月日与 24 小时制 + 周一为一周起始。

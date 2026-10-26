@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // A3 的关联 id（correlation id）验收用例。

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"strings"
 
-	searchjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Search"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	searchjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Search"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // EngineGate 可选：在入队前用轻量检查（如 DB 选择）判断是否应调度索引 job。

@@ -17,9 +17,9 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
 
-	devhygiene "github.com/zhuchunshu/sforum/apps/api/app/Support/DevHygiene"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	devhygiene "github.com/keeptrue/sforum/apps/api/app/Support/DevHygiene"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 // M8：`sforum extension dev <package-root>` —— 把「编辑 → 浏览器」压成一条命令。

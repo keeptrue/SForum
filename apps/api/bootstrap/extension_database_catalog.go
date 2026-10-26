@@ -15,9 +15,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 const protocolV2DatabaseMaximumSQLFileSize = 64 << 10

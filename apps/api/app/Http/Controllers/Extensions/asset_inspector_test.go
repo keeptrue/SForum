@@ -11,11 +11,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 const (

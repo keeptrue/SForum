@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 )
 
 var ErrInvalid = errors.New("public content styles: invalid asset plan")

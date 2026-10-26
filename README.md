@@ -110,9 +110,9 @@ bootstrap. It then refreshes the complete matching deploy toolkit:
   bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"
   trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
   curl -fsSLo "$bootstrap_dir/sforum-bootstrap.sh" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+    https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
   curl -fsSLo "$bootstrap_dir/SHA256SUMS" \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/SHA256SUMS
+    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
   (
     cd "$bootstrap_dir"
     awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS > sforum-bootstrap.sha256
@@ -123,7 +123,7 @@ bootstrap. It then refreshes the complete matching deploy toolkit:
       shasum -a 256 -c sforum-bootstrap.sha256
     fi
     if command -v gh >/dev/null 2>&1; then
-      gh attestation verify sforum-bootstrap.sh --repo zhuchunshu/SForum
+      gh attestation verify sforum-bootstrap.sh --repo keeptrue/SForum
     fi
   )
   install -m 0755 "$bootstrap_dir/sforum-bootstrap.sh" ./sforum-bootstrap.sh
@@ -155,8 +155,8 @@ verifies the wrapper's own SHA-256 before executing it:
 # Run inside the install directory. Rerunning replaces the wrapper atomically;
 # no manual deletion is needed.
 tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/zhuchunshu/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/zhuchunshu/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
+curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
+curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
 mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
 mv -f "$tmp" sforum-latest.sh && \
 { sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \

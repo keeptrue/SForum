@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 // Invalid loopback runtime targets must fail before admission or HTTP. The existing

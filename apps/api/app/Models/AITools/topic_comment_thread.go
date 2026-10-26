@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 const (

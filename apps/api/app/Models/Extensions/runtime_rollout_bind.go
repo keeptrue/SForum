@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	runtimerollout "github.com/zhuchunshu/sforum/apps/api/app/Support/RuntimeRollout"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	runtimerollout "github.com/keeptrue/sforum/apps/api/app/Support/RuntimeRollout"
 )
 
 // RuntimeRolloutCoordinator is the minimal RuntimeRollout surface used by upgrades.

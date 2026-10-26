@@ -12,9 +12,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 )
 
 // pushDeviceTestStore 复用通知测试假 store，并补上设备注册能力（控制器按接口断言接线）。

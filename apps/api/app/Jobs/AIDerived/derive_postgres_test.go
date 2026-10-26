@@ -14,11 +14,11 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 
-	aiderivedjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIDerived"
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	aidomain "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aiderivedjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIDerived"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	aidomain "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // 这一条覆盖 B3 的验收形态「手动触发一次，产物落成预期位置」：真实 River 客户端

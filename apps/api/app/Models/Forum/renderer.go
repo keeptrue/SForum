@@ -16,8 +16,8 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"golang.org/x/net/html"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 const defaultExcerptRuneLimit = RecommendedExcerptRuneLimit

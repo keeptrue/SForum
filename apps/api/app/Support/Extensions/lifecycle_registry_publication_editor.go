@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	editorregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	editorregistry "github.com/keeptrue/sforum/apps/api/app/Support/EditorRegistry"
 )
 
 func (b *PostgresLifecycleBoundaryRegistries) EditorRegistry() *editorregistry.Registry {

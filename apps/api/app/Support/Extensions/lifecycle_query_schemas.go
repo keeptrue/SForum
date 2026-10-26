@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 )
 
 func bindLifecycleQuerySchemas(

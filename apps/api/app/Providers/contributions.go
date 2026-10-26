@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // EffectiveContributionSource 供各模块解析已启用插件的贡献。

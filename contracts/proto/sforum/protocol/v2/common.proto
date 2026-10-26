@@ -5,7 +5,7 @@ package sforum.protocol.v2;
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2;protocolv2";
+option go_package = "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2;protocolv2";
 
 // RiskTier mirrors the operator-visible authority disclosure tier.
 enum RiskTier {

@@ -4,9 +4,9 @@ import (
 	"net/url"
 	"testing"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 func TestListViewModelCanonicalUsesAuthoritativePageAndExcludesFilters(t *testing.T) {

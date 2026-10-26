@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	cache "github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
+	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
 )
 
 // Service is the Host cache policy runtime. It plans isolation keys from the

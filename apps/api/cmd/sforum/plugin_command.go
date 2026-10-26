@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 type pluginCommandOptions struct {

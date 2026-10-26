@@ -7,7 +7,7 @@ import (
 	"log"
 	"strconv"
 
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 // P13 custom-content reference: 真实实体存储/校验/分类法/Query/搜索/导入导出/

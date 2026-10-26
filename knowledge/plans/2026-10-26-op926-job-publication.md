@@ -193,7 +193,7 @@ $ cd apps/api && SFORUM_TEST_DATABASE_URL='postgres://sforum:sforum@127.0.0.1:15
 === RUN   TestPostgresLifecycleBoundaryJobsCrashRestartCommitAndConcurrentReconcile
 --- PASS: TestPostgresLifecycleBoundaryJobsCrashRestartCommitAndConcurrentReconcile (1.31s)
 PASS
-ok  github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions  1.476s
+ok  github.com/keeptrue/sforum/apps/api/app/Support/Extensions  1.476s
 $ docker exec ... DROP DATABASE sforum_research_926
 ```
 

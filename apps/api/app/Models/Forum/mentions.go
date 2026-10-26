@@ -9,7 +9,7 @@ import (
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 var mentionPattern = regexp.MustCompile(`(?:^|[^\pL\pN_])@([\pL\pN_-]{1,` + strconv.Itoa(mentionUsernameMaxLength) + `})`)

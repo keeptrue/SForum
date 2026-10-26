@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	aidomain "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aidomain "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 读取面。它们都是窄接口，且与 AITools 取数用的是同一条公开读取路径：

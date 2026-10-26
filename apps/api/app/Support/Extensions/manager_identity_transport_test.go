@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
-	pluginwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
+	pluginwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
 )
 
 func TestManagerIdentityProviderInvocationKeepsExactLeaseThroughAccept(t *testing.T) {

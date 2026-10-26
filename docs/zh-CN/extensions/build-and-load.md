@@ -54,21 +54,21 @@ go run ./cmd/sforum make:plugin \
 ## 1. 接好后端 Go 模块
 
 后端 import 公共 SDK，而 SDK 位于宿主模块
-`github.com/zhuchunshu/sforum/apps/api` 内。该模块没有发布为带版本号的依赖，
+`github.com/keeptrue/sforum/apps/api` 内。该模块没有发布为带版本号的依赖，
 因此仓库内每个包都用 `replace` 指令指向本地 checkout。工具链版本以宿主
 `go.mod` 为准（当前 Go 1.26.9）。
 
 `backend/go.mod`（仓库内包）：
 
 ```go
-module github.com/zhuchunshu/sforum/extensions/builtin/plugins/sforum-smtp/backend
+module github.com/keeptrue/sforum/extensions/builtin/plugins/sforum-smtp/backend
 
 go 1.26.9
 
-require github.com/zhuchunshu/sforum/apps/api v0.0.0-00010101000000-000000000000
+require github.com/keeptrue/sforum/apps/api v0.0.0-00010101000000-000000000000
 
 // 指向包含 apps/api 的仓库 checkout。
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api
 ```
 
 - 仓库内：相对 `replace` 路径必须从你的 `backend/` 目录数出足够层级的 `..`
@@ -86,7 +86,7 @@ replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
 ```go
 package main
 
-import pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+import pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 
 func main() {
 	pluginv2.Serve(pluginv2.NewServer())

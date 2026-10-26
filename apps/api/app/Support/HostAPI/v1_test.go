@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type fakeCaps struct {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // T1C：原子 CAS 激活、有效可用性、catalog fail-closed、probe 不得 ok=true。

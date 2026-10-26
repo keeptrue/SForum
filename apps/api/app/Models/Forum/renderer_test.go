@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 func TestRenderMarkdownContentSanitizesHTML(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // TrustGuardAuthorizationView 是「哪条路由的授权由哪个精确制品拥有」的派生视图（M5）。

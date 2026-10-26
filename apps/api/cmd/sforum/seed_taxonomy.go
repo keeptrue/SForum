@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 本文件提供 seed:forum 的内置分类/标签目录，以及「保证存在」的追加写入逻辑。

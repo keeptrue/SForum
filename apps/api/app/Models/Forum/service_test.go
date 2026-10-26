@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 func TestForumUserSummaryCarriesAvatarView(t *testing.T) {

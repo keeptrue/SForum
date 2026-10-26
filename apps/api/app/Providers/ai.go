@@ -6,13 +6,13 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	aicontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/AI"
-	modelsai "github.com/zhuchunshu/sforum/apps/api/app/Models/AI"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	cache "github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	aicontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/AI"
+	modelsai "github.com/keeptrue/sforum/apps/api/app/Models/AI"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // identityStore 是 AI 控制台需要的身份能力：读取当前操作者，以及解析充当 AI

@@ -18,11 +18,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 const (

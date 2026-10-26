@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 var (

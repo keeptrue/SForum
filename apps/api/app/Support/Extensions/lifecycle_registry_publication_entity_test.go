@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	entityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EntityRegistry"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	entityregistry "github.com/keeptrue/sforum/apps/api/app/Support/EntityRegistry"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 func TestLifecycleEntityMaterialFreezesEntityTaxonomyFieldAndDigestV11(t *testing.T) {

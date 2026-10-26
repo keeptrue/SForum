@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/riverqueue/river/rivertype"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestPluginJobLifecycleExpectedPlanRejectsRowDriftBeforeMutation(t *testing.T) {

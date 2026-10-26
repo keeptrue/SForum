@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	runtimediagnostics "github.com/zhuchunshu/sforum/apps/api/app/Support/RuntimeDiagnostics"
-	"github.com/zhuchunshu/sforum/apps/api/bootstrap"
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	runtimediagnostics "github.com/keeptrue/sforum/apps/api/app/Support/RuntimeDiagnostics"
+	"github.com/keeptrue/sforum/apps/api/bootstrap"
+	"github.com/keeptrue/sforum/apps/api/config"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 func main() {

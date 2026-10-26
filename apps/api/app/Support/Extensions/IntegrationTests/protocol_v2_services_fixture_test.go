@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	pluginv2sdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
-	hostwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	pluginwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
-	protocolwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	pluginv2sdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
+	hostwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	pluginwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
+	protocolwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 

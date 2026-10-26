@@ -97,7 +97,7 @@ Update an existing installation with ./sforum-bootstrap.sh upgrade. The local
 bootstrap refreshes itself and the complete target toolkit before handoff. Full
 instructions:
 EOF
-  printf 'https://github.com/zhuchunshu/SForum/blob/%s/docs/zh-CN/deployment.md\n' "$VERSION_INPUT"
+  printf 'https://github.com/keeptrue/SForum/blob/%s/docs/zh-CN/deployment.md\n' "$VERSION_INPUT"
 } > "$ASSET_ROOT/README.md"
 
 ARCHIVE="$OUTPUT_DIR/sforum-deploy.tar.gz"

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
 )
 
 // 人机验证限流取值范围与推荐默认（每场景、每 IP、每分钟）。

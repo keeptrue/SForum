@@ -9,7 +9,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestOnlineSafePendingMigrationsAcceptsDeclaredSQL(t *testing.T) {

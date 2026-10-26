@@ -7,8 +7,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // TriageReplyArgs 是一次自主参与判定。与 GenerateReplyArgs 同样只带定位信息：

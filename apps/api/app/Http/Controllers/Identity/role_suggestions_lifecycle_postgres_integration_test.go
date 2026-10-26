@@ -20,17 +20,17 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionopenapi "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionOpenAPI"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionopenapi "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionOpenAPI"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 const maximumIdentityProviderDocumentBytes = 1 << 20

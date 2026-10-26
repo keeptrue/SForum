@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	installationidentity "github.com/zhuchunshu/sforum/apps/api/app/Support/InstallationIdentity"
-	pluginsessionstate "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginSessionState"
-	privacy "github.com/zhuchunshu/sforum/apps/api/app/Support/Privacy"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	installationidentity "github.com/keeptrue/sforum/apps/api/app/Support/InstallationIdentity"
+	pluginsessionstate "github.com/keeptrue/sforum/apps/api/app/Support/PluginSessionState"
+	privacy "github.com/keeptrue/sforum/apps/api/app/Support/Privacy"
 )
 
 // NewPrivacyRegistry 构造生产形态的 Privacy Registry：真实 RBAC 权限门 +

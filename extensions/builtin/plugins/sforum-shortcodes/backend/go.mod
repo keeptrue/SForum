@@ -1,9 +1,9 @@
-module github.com/zhuchunshu/sforum/extensions/builtin/plugins/sforum-shortcodes/backend
+module github.com/keeptrue/sforum/extensions/builtin/plugins/sforum-shortcodes/backend
 
 go 1.26.10
 
 require (
-	github.com/zhuchunshu/sforum/apps/api v0.0.0
+	github.com/keeptrue/sforum/apps/api v0.0.0
 	golang.org/x/net v0.60.0
 )
 
@@ -25,4 +25,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api

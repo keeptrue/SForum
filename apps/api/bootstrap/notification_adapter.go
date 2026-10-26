@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 )
 
 type forumNotificationAdapter struct{ outbox *notifications.Outbox }

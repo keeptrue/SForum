@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	cache "github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
 )
 
 type failingCache struct{ cache.Cache }

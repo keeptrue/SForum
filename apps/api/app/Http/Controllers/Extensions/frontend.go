@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 var frontendDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)

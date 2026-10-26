@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
 )
 
 const (

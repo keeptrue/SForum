@@ -2,10 +2,10 @@
   "id": "sforum.storage-fs",
   "name": "SForum Filesystem Storage",
   "description": "Protected built-in filesystem storage provider for attachment.storage.provider (E6 reference).",
-  "url": "https://github.com/zhuchunshu/sforum",
+  "url": "https://github.com/keeptrue/sforum",
   "author": {
     "name": "SForum",
-    "url": "https://github.com/zhuchunshu/sforum"
+    "url": "https://github.com/keeptrue/sforum"
   },
   "version": "1.1.8",
   "type": "plugin",

@@ -14,8 +14,8 @@ import (
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // view=schema 公开页的宿主边界。

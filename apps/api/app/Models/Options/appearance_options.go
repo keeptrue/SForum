@@ -1,6 +1,6 @@
 package options
 
-import appearance "github.com/zhuchunshu/sforum/apps/api/app/Support/Appearance"
+import appearance "github.com/keeptrue/sforum/apps/api/app/Support/Appearance"
 
 func normalizeAppearanceTheme(value string) (string, bool) {
 	return appearance.NormalizeTheme(value)

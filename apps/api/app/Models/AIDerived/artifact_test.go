@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	aidomain "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	aidomain "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 这一组是 B3 的单元证据：产物模型、提示词组装、生成时序与失败姿态。它们不需要

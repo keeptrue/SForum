@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // ExtensionProfileTabProvider 解析 forum.profile.tabs（F4.3）。

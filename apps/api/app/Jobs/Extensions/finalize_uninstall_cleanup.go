@@ -6,8 +6,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // FinalizeUninstallCleanupSweeper 是 worker 侧的最小依赖。由 embed 路径注入

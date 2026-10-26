@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Outbox"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
 )
 
 type PostgresStore struct {

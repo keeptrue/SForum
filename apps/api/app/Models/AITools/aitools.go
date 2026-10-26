@@ -20,12 +20,12 @@ import (
 	"strings"
 	"time"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // Searcher 是站内检索的最小面，由 Support/Search 的服务实现。

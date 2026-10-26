@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	identitydelegation "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityDelegation"
+	identitydelegation "github.com/keeptrue/sforum/apps/api/app/Support/IdentityDelegation"
 )
 
 type fixedClock struct{ now time.Time }

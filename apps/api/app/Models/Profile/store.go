@@ -3,7 +3,7 @@ package profile
 import (
 	"context"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 type Store interface {

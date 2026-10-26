@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	protocolwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	protocolwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 func TestProtocolV2StagesPublishesRollsBackAndStopsExactInstances(t *testing.T) {

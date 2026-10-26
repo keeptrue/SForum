@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 const (

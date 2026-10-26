@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 const (

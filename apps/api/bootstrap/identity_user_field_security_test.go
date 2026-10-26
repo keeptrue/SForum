@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	installationidentity "github.com/zhuchunshu/sforum/apps/api/app/Support/InstallationIdentity"
+	installationidentity "github.com/keeptrue/sforum/apps/api/app/Support/InstallationIdentity"
 )
 
 func TestDeriveIdentityUserFieldDigestKey(t *testing.T) {

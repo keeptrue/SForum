@@ -17,7 +17,7 @@ import (
 
 const (
 	Name      = "SForum"
-	SourceURL = "https://github.com/zhuchunshu/SForum"
+	SourceURL = "https://github.com/keeptrue/SForum"
 )
 
 // developmentCoreCompatibilityVersion is the last-resort fallback for

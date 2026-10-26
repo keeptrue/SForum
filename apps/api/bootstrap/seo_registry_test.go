@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	seoregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/SEORegistry"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	seoregistry "github.com/keeptrue/sforum/apps/api/app/Support/SEORegistry"
 )
 
 func TestBindProductionSEORegistryUsesSharedSnapshotAndHostPolicy(t *testing.T) {

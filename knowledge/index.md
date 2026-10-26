@@ -163,7 +163,7 @@ load archived sessions or completed plans as current context.
 
 ### 发布 v3.0.13 正式版
 
-- Status: **已发布 (2026-10-23)**。`ghcr.io/zhuchunshu/sforum-{api,migrate,web}:3.0.13`
+- Status: **已发布 (2026-10-23)**。`ghcr.io/keeptrue/sforum-{api,migrate,web}:3.0.13`
   同时写入 `latest` 与 `3.0`（linux/amd64 + linux/arm64，带 attestation，匿名拉取
   验证，三个 tag 的 manifest digest 一致）；GitHub Release 正式版（10 个资产 +
   `SHA256SUMS`）；npm `@sforum/{admin-sdk,plugin-ui}@1.1.0` 命中 exact-artifact，
@@ -218,7 +218,7 @@ load archived sessions or completed plans as current context.
 
 ### 发布 v3.0.13-alpha.1
 
-- Status: **已发布 (2026-10-22)**。`ghcr.io/zhuchunshu/sforum-{api,migrate,web}:3.0.13-alpha.1`
+- Status: **已发布 (2026-10-22)**。`ghcr.io/keeptrue/sforum-{api,migrate,web}:3.0.13-alpha.1`
   （amd64+arm64）、GitHub Pre-release（10 个资产）、npm `@sforum/{admin-sdk,plugin-ui}@1.1.0`。
 - 途中修掉三处真实缺陷：Go stdlib CVE-2026-111943（toolchain → 1.26.10，26 个
   go.mod 同步）、migrate 缺绝对 `EXTENSION_ROOT`、内置插件源码契约漂移（8 个插件
@@ -1748,7 +1748,7 @@ challenge 200（64 字符 token、5 分钟 TTL、`sforum.trust-impact@2` 影响�
   Release OIDC 发布门禁；`extension build` 会在作者侧完成 Bun 构建、摘要刷新、
   完整校验和契约测试，生产仍不执行源码或 package scripts。两个 npm 包的
   `1.0.0` 已通过 `sforum` 账号 2FA 首次发布，registry 下载与审核 tarball
-  SHA-256 完全一致；两者均已绑定 `zhuchunshu/SForum` 的 `release.yml`
+  SHA-256 完全一致；两者均已绑定 `keeptrue/SForum` 的 `release.yml`
   Trusted Publisher，仅允许 `npm publish`，并已切换为必须 2FA、禁止 bypass
   token 的严格发布策略。下一次 SDK 版本变化时再验证 OIDC provenance；已有
   `1.0.0` 不会被重复发布：

@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 // 本文件钉住「作者已注销」这条真实 schema 路径。topics.author_user_id 与

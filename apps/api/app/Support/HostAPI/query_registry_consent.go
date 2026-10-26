@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 const (

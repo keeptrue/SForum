@@ -7,7 +7,7 @@
 package hostv2
 
 import (
-	v2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	v2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -434,7 +434,7 @@ const file_sforum_host_v2_session_proto_rawDesc = "" +
 	"\x14PluginSessionService\x12X\n" +
 	"\x03Get\x12'.sforum.host.v2.PluginSessionGetRequest\x1a(.sforum.host.v2.PluginSessionGetResponse\x12X\n" +
 	"\x03Set\x12'.sforum.host.v2.PluginSessionSetRequest\x1a(.sforum.host.v2.PluginSessionSetResponse\x12a\n" +
-	"\x06Delete\x12*.sforum.host.v2.PluginSessionDeleteRequest\x1a+.sforum.host.v2.PluginSessionDeleteResponseBOZMgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
+	"\x06Delete\x12*.sforum.host.v2.PluginSessionDeleteRequest\x1a+.sforum.host.v2.PluginSessionDeleteResponseBMZKgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
 
 var (
 	file_sforum_host_v2_session_proto_rawDescOnce sync.Once

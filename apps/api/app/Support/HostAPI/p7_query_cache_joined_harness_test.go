@@ -12,14 +12,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	queryregistryjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/QueryRegistry"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrator"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	queryregistryjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/QueryRegistry"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
+	"github.com/keeptrue/sforum/apps/api/database/migrator"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/protobuf/proto"
 )
 

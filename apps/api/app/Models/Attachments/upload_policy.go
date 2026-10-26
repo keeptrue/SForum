@@ -3,8 +3,8 @@ package attachments
 import (
 	"context"
 
-	uploadpolicy "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/UploadPolicy"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 func (s *Service) WithUploadPolicy(policy *uploadpolicy.Service, transportMaxBodyBytes int64) *Service {

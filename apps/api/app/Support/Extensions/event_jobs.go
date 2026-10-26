@@ -6,8 +6,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type EventDeliveryArgs struct {

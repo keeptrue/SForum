@@ -3,8 +3,8 @@ package forumcontroller
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Idempotency"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
 )
 
 func (h *Controller) RegisterRoutes(api fiber.Router) {

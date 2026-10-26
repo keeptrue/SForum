@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 // 插件发布自身事件的边界。

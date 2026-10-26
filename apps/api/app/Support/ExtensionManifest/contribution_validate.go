@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	regioncatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/RegionCatalog"
+	regioncatalog "github.com/keeptrue/sforum/apps/api/app/Support/RegionCatalog"
 )
 
 func normalizeContribution(contribution ManifestContribution) ManifestContribution {

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestProductionIdentitySelfResourceGuardAllowsOwnedResources(t *testing.T) {

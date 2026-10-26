@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 func deepseekProfile() ai.Profile {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // ErrNoUsers 表示 Host 还不能创建系统账号：库里没有任何用户。

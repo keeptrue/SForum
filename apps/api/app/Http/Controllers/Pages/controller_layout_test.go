@@ -11,8 +11,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // resolvedLayout 是控制器边界的防御性映射：空值走平台默认 site；

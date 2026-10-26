@@ -15,7 +15,7 @@ services:
       file: compose.yaml
       service: api
     profiles: ["zero-downtime"]
-    image: ghcr.io/zhuchunshu/sforum-api:${SFORUM_BLUE_VERSION:?SFORUM_BLUE_VERSION is required}
+    image: ghcr.io/keeptrue/sforum-api:${SFORUM_BLUE_VERSION:?SFORUM_BLUE_VERSION is required}
     restart: unless-stopped
     environment:
       APP_ENV: production
@@ -26,7 +26,7 @@ services:
       file: compose.yaml
       service: web
     profiles: ["zero-downtime"]
-    image: ghcr.io/zhuchunshu/sforum-web:${SFORUM_BLUE_VERSION:?SFORUM_BLUE_VERSION is required}
+    image: ghcr.io/keeptrue/sforum-web:${SFORUM_BLUE_VERSION:?SFORUM_BLUE_VERSION is required}
     restart: unless-stopped
     depends_on:
       api-blue:
@@ -40,7 +40,7 @@ services:
       file: compose.yaml
       service: api
     profiles: ["zero-downtime"]
-    image: ghcr.io/zhuchunshu/sforum-api:${SFORUM_GREEN_VERSION:?SFORUM_GREEN_VERSION is required}
+    image: ghcr.io/keeptrue/sforum-api:${SFORUM_GREEN_VERSION:?SFORUM_GREEN_VERSION is required}
     restart: unless-stopped
     environment:
       APP_ENV: production
@@ -51,7 +51,7 @@ services:
       file: compose.yaml
       service: web
     profiles: ["zero-downtime"]
-    image: ghcr.io/zhuchunshu/sforum-web:${SFORUM_GREEN_VERSION:?SFORUM_GREEN_VERSION is required}
+    image: ghcr.io/keeptrue/sforum-web:${SFORUM_GREEN_VERSION:?SFORUM_GREEN_VERSION is required}
     restart: unless-stopped
     depends_on:
       api-green:

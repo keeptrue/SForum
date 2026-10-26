@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	componentcatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/ComponentCatalog"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	componentcatalog "github.com/keeptrue/sforum/apps/api/app/Support/ComponentCatalog"
 )
 
 var (

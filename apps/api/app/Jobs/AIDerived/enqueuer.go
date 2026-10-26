@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // Enqueuer 实现 aiderived.Enqueuer：把一次手动派生请求放进持久队列。

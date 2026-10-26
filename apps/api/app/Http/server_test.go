@@ -18,16 +18,16 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identitycontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Identity"
-	optionscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Options"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identitycontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Identity"
+	optionscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Options"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	"github.com/keeptrue/sforum/apps/api/config"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 type apiEnvelope[T any] struct {

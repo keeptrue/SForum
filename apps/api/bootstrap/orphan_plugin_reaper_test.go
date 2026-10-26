@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestStartDevelopmentOrphanPluginReaperDisabledOutsideDevelopment(t *testing.T) {

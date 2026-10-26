@@ -12,10 +12,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	extensionscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Extensions"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensionscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 func TestPublicFrontendRuntimeMatchesExactAcquiredInstance(t *testing.T) {

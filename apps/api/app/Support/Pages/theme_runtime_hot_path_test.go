@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 func TestAllCatalogThemeRendersPerformNoFilesystemIOAfterCompilation(t *testing.T) {

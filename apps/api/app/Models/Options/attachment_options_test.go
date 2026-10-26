@@ -3,7 +3,7 @@ package options
 import (
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // TestNormalizeAttachmentMIMETypesRejectsActiveContent 验证主动内容类型被 denylist 硬封禁，

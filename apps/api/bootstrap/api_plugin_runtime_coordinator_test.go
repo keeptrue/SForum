@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	pluginbootstrap "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginBootstrap"
+	pluginbootstrap "github.com/keeptrue/sforum/apps/api/app/Support/PluginBootstrap"
 )
 
 func TestAPIRuntimeCoordinatorSupervisorClosesAdmissionBeforeReporting(t *testing.T) {

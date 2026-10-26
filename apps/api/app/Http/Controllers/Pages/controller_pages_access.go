@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // Pages 控制器的访问校验：把贡献声明的 access/permission 映射为传输层结果。

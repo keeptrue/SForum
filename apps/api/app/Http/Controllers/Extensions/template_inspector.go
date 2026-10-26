@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 const (

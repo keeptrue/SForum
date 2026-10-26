@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	settingslifecycle "github.com/zhuchunshu/sforum/apps/api/app/Support/SettingsLifecycle"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
 )
 
 func TestAuthProviderSettingsConfigured(t *testing.T) {

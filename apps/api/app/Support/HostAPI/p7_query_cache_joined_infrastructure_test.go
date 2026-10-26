@@ -16,11 +16,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/riverqueue/river"
-	queryregistryjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/QueryRegistry"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	queryregistryjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/QueryRegistry"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
 func runP7QueryCacheJoinedWorker(

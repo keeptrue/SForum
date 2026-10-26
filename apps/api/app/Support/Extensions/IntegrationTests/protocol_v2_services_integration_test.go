@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 // serviceE2ECapabilitySource grants extensions.call to every test consumer so

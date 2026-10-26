@@ -6,11 +6,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	seo "github.com/zhuchunshu/sforum/apps/api/app/Models/SEO"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	seo "github.com/keeptrue/sforum/apps/api/app/Models/SEO"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type Controller struct {

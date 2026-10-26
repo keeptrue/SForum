@@ -28,7 +28,7 @@ knowledge base, and tests.
 
 - `apps/api` — Go 1.26.10 API + background worker (toolchain anchored in
   `apps/api/go.mod`; do not let docs lag behind it). Module path
-  `github.com/zhuchunshu/sforum/apps/api`. Laravel-style Go layout:
+  `github.com/keeptrue/sforum/apps/api`. Laravel-style Go layout:
   - `cmd/` — `api` (HTTP server), `worker` (River queue worker), `migrate`
     (embedded Goose migrator), `sforum` (developer CLI; scaffolds
     plugins/themes, runs `seed:forum`).

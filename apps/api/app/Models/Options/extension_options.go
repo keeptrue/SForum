@@ -3,7 +3,7 @@ package options
 import (
 	"context"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // NameExtensionBuiltinAutoUpdate 控制 Host 是否在启动时自动升级受保护内置插件。

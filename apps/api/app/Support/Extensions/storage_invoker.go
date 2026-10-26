@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionRuntime"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionruntime "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionRuntime"
 )
 
 // StorageProviderInvoker 是 ProtocolStarter / 测试替身对存储 RPC 的宿主入口。

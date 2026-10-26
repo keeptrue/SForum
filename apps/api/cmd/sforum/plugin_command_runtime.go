@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	postgres "github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	postgres "github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
 )
 
 type postgresPluginCommandConsole struct {

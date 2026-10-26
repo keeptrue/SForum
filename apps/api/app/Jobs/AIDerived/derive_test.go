@@ -7,10 +7,10 @@ import (
 
 	"github.com/riverqueue/river"
 
-	aiderivedjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIDerived"
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	aidomain "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aiderivedjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIDerived"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	aidomain "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // --- kind 与入队策略 ---

@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	postgres "github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	postgres "github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
 )
 
 var (

@@ -14,8 +14,8 @@ import (
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 var (

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // writeEvalSnapshot 把一条快照写进基线目录。

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 // fakeCitations 是 B4 的引用存储替身：它同时扮演校验器、记录器与事实复校验器，

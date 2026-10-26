@@ -13,9 +13,9 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestLifecycleBoundaryJobsPlansAllSixOperationsWithoutMutatingRiver(t *testing.T) {

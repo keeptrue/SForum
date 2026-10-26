@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 // ContentPostFilter is an optional Host seam after authoritative RenderContent.

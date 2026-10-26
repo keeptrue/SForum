@@ -10,7 +10,7 @@
   ],
   "author": {
     "name": "SForum",
-    "url": "https://github.com/zhuchunshu/sforum"
+    "url": "https://github.com/keeptrue/sforum"
   },
   "description": "CI fixture for a public page whose body is a bounded declarative descriptor (theme.json page view=schema): no Vue, no Go template, no build step.",
   "id": "sforum.page-schema-reference",
@@ -48,6 +48,6 @@
   ],
   "sforumVersion": ">=0.1.0",
   "type": "plugin",
-  "url": "https://github.com/zhuchunshu/sforum",
+  "url": "https://github.com/keeptrue/sforum",
   "version": "1.0.0"
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // ExternalAuthRegistrationResult 是外部注册（用户+默认角色+link 原子事务）结果。

@@ -12,8 +12,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // deriveRequest 是一次派生的内部载体，**不是** River 的 JobArgs。

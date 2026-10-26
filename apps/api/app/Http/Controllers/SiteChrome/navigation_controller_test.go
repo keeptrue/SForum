@@ -12,12 +12,12 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestPublicNavigationRejectsInvalidLocationAndUsesOptionalActor(t *testing.T) {

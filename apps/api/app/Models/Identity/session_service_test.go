@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 // seedTestSessions 在 fakeStore 里为某用户预置若干会话行，返回 sid 列表（按插入顺序）。

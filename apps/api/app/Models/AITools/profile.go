@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // userProfileRecentTopics 是资料里带出的近期主题条数上限。

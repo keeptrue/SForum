@@ -3,7 +3,7 @@ package identity
 import (
 	"context"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type Store interface {

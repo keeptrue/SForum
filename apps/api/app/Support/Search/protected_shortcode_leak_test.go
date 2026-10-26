@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 const protectedSearchMarker = "M8_SEARCH_SECRET_MARKER_7F4C2D"

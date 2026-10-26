@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
 type UserStatus string

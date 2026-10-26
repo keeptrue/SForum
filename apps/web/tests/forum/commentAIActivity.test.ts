@@ -172,8 +172,8 @@ describe('tool call projection', () => {
 
   test('a fetch tool argument shows the url, not the raw JSON', () => {
     // 公开面上出现 {"url": "..."} 是机器味道；读者只想知道它去读了哪一页。
-    expect(toolArgumentSummary('{"url":"https://github.com/zhuchunshu/SForum/releases"}'))
-      .toBe('https://github.com/zhuchunshu/SForum/releases')
+    expect(toolArgumentSummary('{"url":"https://github.com/keeptrue/SForum/releases"}'))
+      .toBe('https://github.com/keeptrue/SForum/releases')
     // query 仍然优先于 url（同一条调用里两者都有时，检索词才是「在做什么」）。
     expect(toolArgumentSummary('{"query":"SForum","url":"https://example.com"}')).toBe('SForum')
   })

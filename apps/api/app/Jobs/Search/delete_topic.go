@@ -6,7 +6,7 @@ import (
 
 	"github.com/riverqueue/river"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // DeleteTopicArgs 调度从搜索索引移除主题（删除/隐藏）。

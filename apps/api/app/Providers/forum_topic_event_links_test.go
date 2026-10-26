@@ -3,7 +3,7 @@ package providers
 import (
 	"testing"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 func TestAbsoluteTopicEventURLUsesConfiguredModeAndBasePath(t *testing.T) {

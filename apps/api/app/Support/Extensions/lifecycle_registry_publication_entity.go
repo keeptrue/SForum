@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	entityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EntityRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	entityregistry "github.com/keeptrue/sforum/apps/api/app/Support/EntityRegistry"
 )
 
 func (b *PostgresLifecycleBoundaryRegistries) EntityRegistry() *entityregistry.Registry {

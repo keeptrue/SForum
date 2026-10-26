@@ -6,8 +6,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 const CompressImageKind = "attachments.compress_image"

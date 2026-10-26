@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 客户端（原生 App / 桌面端）版本策略。三个选项全部 public：客户端在冷启动读取

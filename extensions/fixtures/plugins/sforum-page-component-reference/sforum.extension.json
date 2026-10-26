@@ -1,7 +1,7 @@
 {
   "author": {
     "name": "SForum",
-    "url": "https://github.com/zhuchunshu/sforum"
+    "url": "https://github.com/keeptrue/sforum"
   },
   "components": [
     {
@@ -61,6 +61,6 @@
     }
   ],
   "type": "plugin",
-  "url": "https://github.com/zhuchunshu/sforum",
+  "url": "https://github.com/keeptrue/sforum",
   "version": "1.0.0"
 }

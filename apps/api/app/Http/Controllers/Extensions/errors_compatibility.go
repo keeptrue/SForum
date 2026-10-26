@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 // mapCoreIncompatibleError 把清单与 core 的兼容拒绝拆成两个状态码：

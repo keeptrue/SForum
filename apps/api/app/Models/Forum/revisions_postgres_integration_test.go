@@ -16,8 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestRevisionLedgerCreateTopicWritesRevisionOnePostgres(t *testing.T) {

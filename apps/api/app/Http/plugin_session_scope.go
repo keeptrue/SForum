@@ -3,7 +3,7 @@ package http
 import (
 	"github.com/gofiber/fiber/v3"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 // PluginSessionScopeSource resolves the Core session scope of the current

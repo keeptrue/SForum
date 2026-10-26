@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // newEncryptedSecretService 返回具备加密能力的 Secret Store：Put 路径的

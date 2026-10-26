@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 type extensionBuildOptions struct {

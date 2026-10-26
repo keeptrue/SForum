@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 func TestServiceUploadStoresObjectAndMetadata(t *testing.T) {

@@ -14,17 +14,17 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	pageviewmodels "github.com/zhuchunshu/sforum/apps/api/app/Models/PageViewModels"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	apilts "github.com/zhuchunshu/sforum/apps/api/app/Support/APILTS"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	regioncatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/RegionCatalog"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	pageviewmodels "github.com/keeptrue/sforum/apps/api/app/Models/PageViewModels"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	apilts "github.com/keeptrue/sforum/apps/api/app/Support/APILTS"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	regioncatalog "github.com/keeptrue/sforum/apps/api/app/Support/RegionCatalog"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 // ThemePackageStore 页面解析所需的扩展包最小接口（避免测试实现完整 Store）。

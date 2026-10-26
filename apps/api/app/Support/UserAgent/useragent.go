@@ -7,7 +7,7 @@ import (
 
 	"github.com/mileusna/useragent"
 
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
 )
 
 // DeviceInfo 是从请求 UA/IP 解析出的展示信息。

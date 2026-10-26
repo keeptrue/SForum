@@ -3,8 +3,8 @@ package regioncatalog_test
 import (
 	"testing"
 
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	regioncatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/RegionCatalog"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	regioncatalog "github.com/keeptrue/sforum/apps/api/app/Support/RegionCatalog"
 )
 
 func TestStandardRegionsAreWellFormed(t *testing.T) {

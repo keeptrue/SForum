@@ -3,7 +3,7 @@ package appearance_test
 import (
 	"testing"
 
-	appearance "github.com/zhuchunshu/sforum/apps/api/app/Support/Appearance"
+	appearance "github.com/keeptrue/sforum/apps/api/app/Support/Appearance"
 )
 
 func TestNormalizeTheme(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 const (

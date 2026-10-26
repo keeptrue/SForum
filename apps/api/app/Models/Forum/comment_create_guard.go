@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // CommentCreateGuardSubject is the minimal authoritative topic state required

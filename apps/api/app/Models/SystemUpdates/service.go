@@ -17,8 +17,8 @@ import (
 
 	semver "github.com/Masterminds/semver/v3"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 const (

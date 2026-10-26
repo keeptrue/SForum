@@ -3,10 +3,10 @@
   "id": "sforum.auth-github",
   "name": "GitHub Login",
   "description": "Protected built-in GitHub OAuth protocol adapter. Host owns accounts, callback state, and sessions.",
-  "url": "https://github.com/zhuchunshu/sforum",
+  "url": "https://github.com/keeptrue/sforum",
   "author": {
     "name": "SForum",
-    "url": "https://github.com/zhuchunshu/sforum"
+    "url": "https://github.com/keeptrue/sforum"
   },
   "version": "1.0.8",
   "type": "plugin",

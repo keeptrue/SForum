@@ -37,15 +37,15 @@ export PATH="$TEMP_DIR/bin:$PATH"
 export MOCK_DOCKER_LOG="$MOCK_LOG"
 export DOCKER_AUTH_CONFIG='{"auths":{"ghcr.io":{"auth":"must-not-be-used"}}}'
 
-"$ROOT_DIR/scripts/ci/verify-public-images.sh" ghcr.io/zhuchunshu v3.0.0-beta.1 >/dev/null
+"$ROOT_DIR/scripts/ci/verify-public-images.sh" ghcr.io/keeptrue v3.0.0-beta.1 >/dev/null
 expected="$(printf '%s\n' \
-  'ghcr.io/zhuchunshu/sforum-api:v3.0.0-beta.1' \
-  'ghcr.io/zhuchunshu/sforum-migrate:v3.0.0-beta.1' \
-  'ghcr.io/zhuchunshu/sforum-web:v3.0.0-beta.1')"
+  'ghcr.io/keeptrue/sforum-api:v3.0.0-beta.1' \
+  'ghcr.io/keeptrue/sforum-migrate:v3.0.0-beta.1' \
+  'ghcr.io/keeptrue/sforum-web:v3.0.0-beta.1')"
 [[ "$(cat "$MOCK_LOG")" == "$expected" ]] || fail "unexpected anonymous pull set"
 
 : > "$MOCK_LOG"
-if MOCK_FAIL_IMAGE=sforum-migrate "$ROOT_DIR/scripts/ci/verify-public-images.sh" ghcr.io/zhuchunshu v3.0.0 >/dev/null 2>&1; then
+if MOCK_FAIL_IMAGE=sforum-migrate "$ROOT_DIR/scripts/ci/verify-public-images.sh" ghcr.io/keeptrue v3.0.0 >/dev/null 2>&1; then
   fail "one failed image pull did not fail the gate"
 fi
 [[ "$(wc -l < "$MOCK_LOG" | tr -d ' ')" -eq 2 ]] || fail "gate continued after a failed pull"
@@ -53,7 +53,7 @@ fi
 if "$ROOT_DIR/scripts/ci/verify-public-images.sh" invalid.example/owner v3.0.0 >/dev/null 2>&1; then
   fail "non-GHCR registry was accepted"
 fi
-if "$ROOT_DIR/scripts/ci/verify-public-images.sh" ghcr.io/zhuchunshu latest >/dev/null 2>&1; then
+if "$ROOT_DIR/scripts/ci/verify-public-images.sh" ghcr.io/keeptrue latest >/dev/null 2>&1; then
   fail "mutable release tag was accepted"
 fi
 

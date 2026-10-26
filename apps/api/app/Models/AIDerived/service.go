@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 派生用途的权限面：复用 ai.manage，不注册新权限键。

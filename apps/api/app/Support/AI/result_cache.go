@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	cache "github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
+	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
 )
 
 // 结果缓存的生产实现：把 cache.Cache（Redis）接到网关的 ResultCache 面上。

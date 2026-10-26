@@ -9,12 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	aiderivedjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIDerived"
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	postgres "github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	aiderivedjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIDerived"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	postgres "github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // `sforum ai:derived` 是 B3 的手动触发面：运营者指定一条话题与一个用途，入队一次

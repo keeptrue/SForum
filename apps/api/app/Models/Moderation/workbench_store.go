@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 func (s *PostgresStore) QueueCounts(ctx context.Context) (QueueCounts, error) {

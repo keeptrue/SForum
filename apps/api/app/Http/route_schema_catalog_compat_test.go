@@ -6,9 +6,9 @@ import (
 	stdhttp "net/http"
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionopenapi "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionOpenAPI"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionopenapi "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionOpenAPI"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 var _ RouteSchemaCatalog = (*extensionopenapi.RouteSchemaCatalog)(nil)

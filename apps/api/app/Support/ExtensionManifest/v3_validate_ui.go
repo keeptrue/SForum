@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	componentcatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/ComponentCatalog"
+	componentcatalog "github.com/keeptrue/sforum/apps/api/app/Support/ComponentCatalog"
 )
 
 func (v *v3Validator) validateUIAndPackage() error {

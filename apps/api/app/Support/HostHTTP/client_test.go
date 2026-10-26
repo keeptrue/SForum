@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 func TestDoSuccessAndTrace(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 func TestRequireSuperAdminForUntrustedBackend(t *testing.T) {

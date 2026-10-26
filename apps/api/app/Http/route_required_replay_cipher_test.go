@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	idempotency "github.com/zhuchunshu/sforum/apps/api/app/Support/Idempotency"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	idempotency "github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestRequiredRouteReplayMissingCipherRejectsMutablePlanBeforeAcquisitionAndProtocolV2(t *testing.T) {

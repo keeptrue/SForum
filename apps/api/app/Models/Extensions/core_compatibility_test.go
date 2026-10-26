@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 // withCoreVersion 把全局构建标签固定成一个可判定的值。该包测试不并行，

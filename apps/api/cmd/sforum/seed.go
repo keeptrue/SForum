@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // small（默认）profile 的规模默认值：显式传 0 表示关闭该类数据。

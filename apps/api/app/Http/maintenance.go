@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 // maintenanceMiddleware 在站点维护模式下拦截写请求。

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 )
 
 func TestRuntimeQuerySettingsRestartPublishesExactReplacement(t *testing.T) {

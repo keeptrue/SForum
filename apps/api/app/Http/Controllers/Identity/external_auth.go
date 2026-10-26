@@ -10,11 +10,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
 )
 
 // 外部认证 Host 端点：保留 Core 回调路由 + 登录/注册/link 编排。

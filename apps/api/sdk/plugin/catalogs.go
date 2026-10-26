@@ -3,12 +3,12 @@ package plugin
 import (
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 // 只读宿主目录快照，供脚手架、离线校验与文档生成（F4.1 / F4.2 共用）。

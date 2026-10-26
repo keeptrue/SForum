@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 const MailProviderSlot = "mail.provider"

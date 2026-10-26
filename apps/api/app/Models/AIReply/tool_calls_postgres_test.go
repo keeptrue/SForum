@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 // 这一组把工具轨迹的落库形态钉在真实 PostgreSQL 上。内存 fake 证明不了三件事：

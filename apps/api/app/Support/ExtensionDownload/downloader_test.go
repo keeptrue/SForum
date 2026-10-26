@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	extensiondownload "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionDownload"
+	extensiondownload "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionDownload"
 )
 
 var zipPrefix = []byte("PK\x03\x04extension-fixture")

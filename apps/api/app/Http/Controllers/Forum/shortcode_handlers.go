@@ -3,8 +3,8 @@ package forumcontroller
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 // 短代码相关的公开读端点集中在独立文件，避免 controller.go 超过架构

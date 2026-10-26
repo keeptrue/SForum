@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	toolplugin "github.com/zhuchunshu/sforum/apps/api/app/Support/AI/toolplugin"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	toolplugin "github.com/keeptrue/sforum/apps/api/app/Support/AI/toolplugin"
 )
 
 type bootstrapPluginToolInvoker struct {

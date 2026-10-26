@@ -3,7 +3,7 @@ package extensionsruntime
 import (
 	"testing"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 // 回归：forum 写路径把 ContentInput / []string 直接塞进 hook payload，

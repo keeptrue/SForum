@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // userSearchLimit 是每次检索返回的条数上限。理由与 forum-search 相同：一次工具

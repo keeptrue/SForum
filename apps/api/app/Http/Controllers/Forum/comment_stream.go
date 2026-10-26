@@ -12,9 +12,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
 )
 
 // 评论实时信号节拍与生命周期。与通知流保持一致：心跳让中间代理不回收连接，

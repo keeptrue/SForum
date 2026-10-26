@@ -242,7 +242,7 @@ resolve_target_version() {
         -H 'Accept: application/vnd.github+json' \
         -H 'X-GitHub-Api-Version: 2022-11-28' \
         -H 'User-Agent: SForum-deploy' \
-        "${SFORUM_LATEST_RELEASE_API_URL:-https://api.github.com/repos/zhuchunshu/SForum/releases/latest}")" || \
+        "${SFORUM_LATEST_RELEASE_API_URL:-https://api.github.com/repos/keeptrue/SForum/releases/latest}")" || \
         die "Could not query the latest stable GitHub Release. Check the network, or use --channel prerelease to allow prereleases."
       resolved="$(printf '%s\n' "$response" | sed -n 's/^.*"tag_name":[[:space:]]*"\([^"]*\)".*$/\1/p' | sed -n '1p')"
       [ -n "$resolved" ] || die "GitHub returned no stable SForum Release. Use --channel prerelease to allow prereleases."
@@ -253,7 +253,7 @@ resolve_target_version() {
         -H 'Accept: application/vnd.github+json' \
         -H 'X-GitHub-Api-Version: 2022-11-28' \
         -H 'User-Agent: SForum-deploy' \
-        "${SFORUM_RELEASES_API_URL:-https://api.github.com/repos/zhuchunshu/SForum/releases?per_page=1}")" || \
+        "${SFORUM_RELEASES_API_URL:-https://api.github.com/repos/keeptrue/SForum/releases?per_page=1}")" || \
         die "Could not query the latest GitHub Release. Check the network and retry."
       resolved="$(printf '%s\n' "$response" | sed -n 's/^.*"tag_name":[[:space:]]*"\([^"]*\)".*$/\1/p' | sed -n '1p')"
       [ -n "$resolved" ] || die "GitHub returned no published SForum Release."
@@ -509,7 +509,7 @@ verify_release_identities() {
   t verifying_images
   for service in "${backend_services[@]}"; do
     binary="sforum-$service"
-    image="${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}/sforum-${service}:${RELEASE_VERSION}"
+    image="${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-${service}:${RELEASE_VERSION}"
     if ! actual="$(docker run --rm "$image" "$binary" --version)"; then
       echo "Could not inspect the $service image identity." >&2
       return 1

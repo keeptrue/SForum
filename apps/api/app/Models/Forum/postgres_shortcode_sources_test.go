@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 type shortcodeSourceQueryTracer struct {

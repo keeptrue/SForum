@@ -5,11 +5,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zhuchunshu/SForum.git",
+    "url": "git+https://github.com/keeptrue/SForum.git",
     "directory": "apps/web/packages/plugin-ui"
   },
-  "homepage": "https://github.com/zhuchunshu/SForum#readme",
-  "bugs": "https://github.com/zhuchunshu/SForum/issues",
+  "homepage": "https://github.com/keeptrue/SForum#readme",
+  "bugs": "https://github.com/keeptrue/SForum/issues",
   "keywords": [
     "sforum",
     "plugin",

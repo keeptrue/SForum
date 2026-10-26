@@ -3,10 +3,10 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	adminoverviewcontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/AdminOverview"
-	adminoverview "github.com/zhuchunshu/sforum/apps/api/app/Models/AdminOverview"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	adminoverviewcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/AdminOverview"
+	adminoverview "github.com/keeptrue/sforum/apps/api/app/Models/AdminOverview"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type AdminOverviewProvider struct {

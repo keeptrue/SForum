@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 const protectedSideEffectMarker = "M8_SIDE_EFFECT_SECRET_MARKER_93D6E1"

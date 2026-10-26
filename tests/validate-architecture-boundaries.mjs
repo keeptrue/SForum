@@ -77,7 +77,7 @@ const productionFiles = [
   ...walkFiles('apps/web/app')
 ].filter(shouldScanProductionSource)
 
-const legacyExtensionsImport = 'github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions'
+const legacyExtensionsImport = 'github.com/keeptrue/sforum/apps/api/app/Support/Extensions'
 const goProductionFiles = productionFiles.filter(path => path.endsWith('.go'))
 const legacyExtensionsImporters = goProductionFiles
   .filter(path => read(path).includes(`"${legacyExtensionsImport}"`))
@@ -113,7 +113,7 @@ const lightweightStorageSDKInvalidImports = lightweightStorageSDKFiles
   .filter(path => {
     const source = read(path)
     return source.includes(`"${legacyExtensionsImport}"`) ||
-      source.includes('"github.com/zhuchunshu/sforum/apps/api/sdk/plugin"')
+      source.includes('"github.com/keeptrue/sforum/apps/api/sdk/plugin"')
   })
 if (lightweightStorageSDKInvalidImports.length > 0) {
   failures.push(
@@ -135,9 +135,9 @@ const stableExtensionPackages = [
 ]
 const forbiddenStableImports = [
   legacyExtensionsImport,
-  'github.com/zhuchunshu/sforum/apps/api/app/Models/',
-  'github.com/zhuchunshu/sforum/apps/api/app/Http/',
-  'github.com/zhuchunshu/sforum/apps/api/bootstrap'
+  'github.com/keeptrue/sforum/apps/api/app/Models/',
+  'github.com/keeptrue/sforum/apps/api/app/Http/',
+  'github.com/keeptrue/sforum/apps/api/bootstrap'
 ]
 for (const directory of stableExtensionPackages) {
   const files = goProductionFiles.filter(path => path.startsWith(`${directory}/`))

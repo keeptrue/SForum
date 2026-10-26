@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // OutcomeRecorder 记录一条回复的最终裁决，并回答「这条触发是不是已经回过」。

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 func TestRootCommandIncludesResetPasswordCommand(t *testing.T) {

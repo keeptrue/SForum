@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestLifecycleQueryPublicationUpgradeRollbackDisableAndStaleCAS(t *testing.T) {

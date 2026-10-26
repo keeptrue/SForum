@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	forumcontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Forum"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	forumcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 type adapterSearchEngine struct{}

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 type fakeStorageCatalog struct {

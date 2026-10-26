@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	apilts "github.com/zhuchunshu/sforum/apps/api/app/Support/APILTS"
+	apilts "github.com/keeptrue/sforum/apps/api/app/Support/APILTS"
 )
 
 func repoRoot(t *testing.T) string {

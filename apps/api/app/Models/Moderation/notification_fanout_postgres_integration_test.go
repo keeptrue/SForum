@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 var errFanoutAfterProjection = errors.New("fanout failed after projection")

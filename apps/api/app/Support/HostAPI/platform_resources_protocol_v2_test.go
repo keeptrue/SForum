@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	hosthttp "github.com/zhuchunshu/sforum/apps/api/app/Support/HostHTTP"
-	pluginfiles "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginFiles"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	hosthttp "github.com/keeptrue/sforum/apps/api/app/Support/HostHTTP"
+	pluginfiles "github.com/keeptrue/sforum/apps/api/app/Support/PluginFiles"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/protobuf/proto"
 )
 

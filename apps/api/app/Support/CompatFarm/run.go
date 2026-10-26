@@ -18,11 +18,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	apilts "github.com/zhuchunshu/sforum/apps/api/app/Support/APILTS"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	apilts "github.com/keeptrue/sforum/apps/api/app/Support/APILTS"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 // CellOutcome is the machine status of one executed cell.

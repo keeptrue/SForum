@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // T8A：CompleteRegistration 授权提交边界与事务正确性。

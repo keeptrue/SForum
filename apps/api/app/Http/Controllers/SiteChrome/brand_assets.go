@@ -5,10 +5,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
 )
 
 type brandAssetDTO struct {

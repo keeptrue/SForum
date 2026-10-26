@@ -16,9 +16,9 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestRouteRuntimeIncidentKeyAndPayloadFreeValidation(t *testing.T) {

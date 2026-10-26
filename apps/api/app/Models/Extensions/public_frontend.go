@@ -15,10 +15,10 @@ import (
 	"sort"
 	"strings"
 
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	stablefile "github.com/zhuchunshu/sforum/apps/api/app/Support/StableFile"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	stablefile "github.com/keeptrue/sforum/apps/api/app/Support/StableFile"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 var ErrPublicFrontendUnavailable = errors.New("extensions: public frontend is unavailable")

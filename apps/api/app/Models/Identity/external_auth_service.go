@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // ExternalAuthService 是 Host 拥有的外部认证编排层。

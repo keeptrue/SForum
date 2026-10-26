@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/AI/toolplugin"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	"github.com/keeptrue/sforum/apps/api/app/Support/AI/toolplugin"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 func pluginAIToolFixture() (extensions.Extension, extensions.ManifestAITool) {

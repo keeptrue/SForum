@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	searchjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Search"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	searchjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Search"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 const (

@@ -271,7 +271,7 @@ trap cleanup EXIT HUP INT TERM
     printf 'SFORUM_VERSION=%s\n' "$release_version"
   fi
   printf '%s\n' \
-    'SFORUM_REGISTRY=ghcr.io/zhuchunshu' \
+    'SFORUM_REGISTRY=ghcr.io/keeptrue' \
     'HTTP_HOST=0.0.0.0' \
     'HTTP_PORT=8080' \
     'HTTP_BODY_LIMIT=67108864' \

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 // 前后端净化白名单契约（H3 纵深防御的接缝守卫）。

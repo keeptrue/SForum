@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Outbox"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
 )
 
 type queryRunner interface {

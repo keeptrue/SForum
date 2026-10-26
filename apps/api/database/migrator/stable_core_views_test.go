@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
 func TestStableCoreViewsProductionMigrationContract(t *testing.T) {

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"testing"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 type policyOptions struct {

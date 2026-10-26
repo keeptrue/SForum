@@ -34,7 +34,7 @@ write_base_fixture() {
   cat > "$dir/README.md" <<'EOF'
 # Fixture README
 
-Install: curl -fsSLo sforum-bootstrap.sh https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+Install: curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
   set -eu
   awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS
   test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
@@ -55,7 +55,7 @@ EOF
     cat > "$dir/docs/$locale/deployment.md" <<'EOF'
 # Deployment
 
-curl -fsSLo sforum-bootstrap.sh https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
   set -eu
   awk '$2 == "sforum-bootstrap.sh" { print }' SHA256SUMS
   test "$(wc -l < sforum-bootstrap.sha256 | tr -d '[:space:]')" = 1
@@ -384,7 +384,7 @@ write_base_fixture "$CASE_INSTALL_SAFETY"
 cat > "$CASE_INSTALL_SAFETY/README.md" <<'EOF'
 # Unsafe install
 
-curl -fsSLo sforum-bootstrap.sh https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-bootstrap.sh
+curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
 Use --channel prerelease for prereleases.
 EOF
 assert_validator_fails_with "$CASE_INSTALL_SAFETY" "bootstrap commands must be fail-closed" "install verification safety check"

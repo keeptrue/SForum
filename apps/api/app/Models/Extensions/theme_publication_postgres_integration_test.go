@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestPostgresThemeActivationPublishesAtomicallyAndRollsBackInsertFailure(t *testing.T) {

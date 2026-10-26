@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	idempotency "github.com/zhuchunshu/sforum/apps/api/app/Support/Idempotency"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	idempotency "github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 const routeIdempotencyCleanupTimeout = 2 * time.Second

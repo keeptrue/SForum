@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
 )
 
 func TestValidateRejectsUnknownCapability(t *testing.T) {

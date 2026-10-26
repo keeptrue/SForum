@@ -1412,7 +1412,7 @@ const file_sforum_protocol_v2_common_proto_rawDesc = "" +
 	"\x1cERROR_CODE_PROTOCOL_MISMATCH\x10\v\x12\x1c\n" +
 	"\x18ERROR_CODE_STALE_RUNTIME\x10\f\x12\x1a\n" +
 	"\x16ERROR_CODE_UNAVAILABLE\x10\r\x12\x17\n" +
-	"\x13ERROR_CODE_INTERNAL\x10\x0eBWZUgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2;protocolv2b\x06proto3"
+	"\x13ERROR_CODE_INTERNAL\x10\x0eBUZSgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2;protocolv2b\x06proto3"
 
 var (
 	file_sforum_protocol_v2_common_proto_rawDescOnce sync.Once

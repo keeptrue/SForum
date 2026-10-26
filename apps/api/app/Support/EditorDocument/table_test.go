@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 func acceptTable(t *testing.T, native string) editordocument.Accepted {

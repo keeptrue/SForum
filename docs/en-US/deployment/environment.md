@@ -227,7 +227,7 @@ container.
 | Variable | Default/example | Notes |
 | --- | --- | --- |
 | `SFORUM_VERSION` | none | target immutable tag; required by `compose.release.yaml` |
-| `SFORUM_REGISTRY` | `ghcr.io/zhuchunshu` | image registry prefix |
+| `SFORUM_REGISTRY` | `ghcr.io/keeptrue` | image registry prefix |
 | `COMPOSE_PROJECT_NAME` | `sforum` | Compose project name; affects container and volume naming |
 | `SFORUM_BACKUP_DIR` | `./backups` | backup directory |
 | `SFORUM_DEPLOY_HEALTH_TIMEOUT_SECONDS` | `120` | `deploy.sh` health check timeout |
@@ -235,7 +235,7 @@ container.
 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` | `120` | blue/green slot health check timeout |
 | `SFORUM_CONFIRM_RESTORE` | empty | set to `RESTORE` to allow a restore |
 | `SFORUM_SKIP_ATTESTATION` | `false` | bootstrap skips `gh attestation verify` |
-| `SFORUM_RELEASE_REPOSITORY` | `zhuchunshu/SForum` | GitHub repository used by bootstrap |
+| `SFORUM_RELEASE_REPOSITORY` | `keeptrue/SForum` | GitHub repository used by bootstrap |
 | `SFORUM_RELEASE_DOWNLOAD_BASE_URL` | GitHub Releases download prefix | mirror or offline release source |
 | `SFORUM_LATEST_RELEASE_API_URL` | GitHub `releases/latest` | stable channel resolution address |
 | `SFORUM_RELEASES_API_URL` | GitHub Releases list | prerelease channel resolution address |

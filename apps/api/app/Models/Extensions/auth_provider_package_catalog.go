@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // AuthProviderPackageCatalog 从 Host 扩展包目录构建 auth provider 只读 discovery。

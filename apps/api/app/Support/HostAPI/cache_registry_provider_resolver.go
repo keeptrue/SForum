@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
 )
 
 const HostCacheProviderMaximumCallTimeout = 5 * time.Second

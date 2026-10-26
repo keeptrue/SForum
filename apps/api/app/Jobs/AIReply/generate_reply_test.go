@@ -7,8 +7,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	aireplyjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/AIReply"
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireplyjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 // stubThreads 提供一次回复所需的最小上下文。

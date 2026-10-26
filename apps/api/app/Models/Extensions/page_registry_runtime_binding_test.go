@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // 允许侧 / 拒绝侧：插件页面贡献必须在 **enable 期**就带上活动 runtime instance id。

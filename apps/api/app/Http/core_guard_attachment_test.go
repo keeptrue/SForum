@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestProductionAttachmentReadGuardAllowsCurrentResourceAuthority(t *testing.T) {

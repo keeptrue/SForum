@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionopenapi "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionOpenAPI"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionopenapi "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionOpenAPI"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 func newExtensionCommand() *cobra.Command {

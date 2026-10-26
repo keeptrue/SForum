@@ -3,7 +3,7 @@ package plugin_test
 import (
 	"testing"
 
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 // TestFixtureRegionDemoContract 锁定 forum.page.regions 三类放置声明

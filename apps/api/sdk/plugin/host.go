@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 // Host API 方法名与版本（与宿主 sforum.host/v1 对齐）。

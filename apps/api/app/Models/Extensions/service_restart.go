@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // Restart 是 Host 拥有的可恢复重启入口。普通重启先完整停用旧 runtime，

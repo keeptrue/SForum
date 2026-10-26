@@ -29,13 +29,13 @@ git -C "$TEMP_DIR" tag -a v3.0.0-alpha.11 -m $'SForum 3.0.0-alpha.11\n\n- Produc
 
 (
   cd "$TEMP_DIR"
-  GITHUB_REPOSITORY=zhuchunshu/SForum \
+  GITHUB_REPOSITORY=keeptrue/SForum \
     "$ROOT_DIR/scripts/ci/generate-release-notes.sh" v3.0.0-alpha.11 "$TEMP_DIR/notes.md"
 )
 
 grep -Fq -- '- Production fixes' "$TEMP_DIR/notes.md" || fail "annotated tag notes are missing"
 grep -Fq '> Maintainable, plugin-first open-source forum framework.' "$TEMP_DIR/notes.md" || fail "product summary is missing"
-grep -Fq 'docker pull ghcr.io/zhuchunshu/sforum-api:v3.0.0-alpha.11' "$TEMP_DIR/notes.md" || fail "Docker pull instructions are missing"
+grep -Fq 'docker pull ghcr.io/keeptrue/sforum-api:v3.0.0-alpha.11' "$TEMP_DIR/notes.md" || fail "Docker pull instructions are missing"
 if grep -Fq 'sforum-worker' "$TEMP_DIR/notes.md"; then
   fail "release notes still advertise the retired standalone Worker image"
 fi
@@ -74,7 +74,7 @@ notes_extract_line="$(grep -nF 'tar -xzf sforum-deploy.tar.gz' "$TEMP_DIR/notes.
 git -C "$TEMP_DIR" tag -a v3.0.0-alpha.12 -m 'SForum 3.0.0-alpha.12'
 (
   cd "$TEMP_DIR"
-  GITHUB_REPOSITORY=zhuchunshu/SForum \
+  GITHUB_REPOSITORY=keeptrue/SForum \
     "$ROOT_DIR/scripts/ci/generate-release-notes.sh" v3.0.0-alpha.12 "$TEMP_DIR/automatic.md"
 )
 grep -Fq -- '- add zero-downtime updates' "$TEMP_DIR/automatic.md" || fail "automatic commit summary is missing"

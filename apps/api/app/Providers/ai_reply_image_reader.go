@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // AIReplyImageReader 把 attachments.Service 适配成 AI 回复的图片读取面。

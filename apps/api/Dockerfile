@@ -56,13 +56,13 @@ ARG SFORUM_VERSION=dev
 ARG SFORUM_COMMIT=
 ARG SFORUM_BUILD_TIME=
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false \
-	-ldflags="-s -w -X github.com/zhuchunshu/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/zhuchunshu/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/zhuchunshu/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
+	-ldflags="-s -w -X github.com/keeptrue/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/keeptrue/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/keeptrue/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
 	-o /out/sforum-api ./cmd/api
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false \
-	-ldflags="-s -w -X github.com/zhuchunshu/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/zhuchunshu/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/zhuchunshu/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
+	-ldflags="-s -w -X github.com/keeptrue/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/keeptrue/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/keeptrue/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
 	-o /out/sforum-worker ./cmd/worker
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false \
-	-ldflags="-s -w -X github.com/zhuchunshu/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/zhuchunshu/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/zhuchunshu/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
+	-ldflags="-s -w -X github.com/keeptrue/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/keeptrue/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/keeptrue/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
 	-o /out/sforum-migrate ./cmd/migrate
 
 FROM alpine:3.22 AS api

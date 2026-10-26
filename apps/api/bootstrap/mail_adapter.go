@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 )
 
 type passwordResetOutbox struct{ outbox *notifications.Outbox }

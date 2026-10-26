@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
 func TestCoreMigratorReclaimsLiveKernelObjectsAndPreservesACL(t *testing.T) {

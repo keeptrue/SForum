@@ -12,7 +12,7 @@ import (
 	"time"
 
 	semver "github.com/Masterminds/semver/v3"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // Bounds keep publication graphs and plan inputs finite. Individually valid

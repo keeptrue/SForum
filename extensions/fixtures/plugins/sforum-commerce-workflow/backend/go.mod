@@ -1,10 +1,10 @@
-module github.com/zhuchunshu/sforum/extensions/fixtures/plugins/sforum-commerce-workflow/backend
+module github.com/keeptrue/sforum/extensions/fixtures/plugins/sforum-commerce-workflow/backend
 
 go 1.26.10
 
 require (
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/zhuchunshu/sforum/apps/api v0.0.0
+	github.com/keeptrue/sforum/apps/api v0.0.0
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -30,4 +30,4 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 )
 
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api

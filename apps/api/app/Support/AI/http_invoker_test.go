@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	outboundhttp "github.com/zhuchunshu/sforum/apps/api/app/Support/OutboundHTTP"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
 )
 
 func testInvoker(server *httptest.Server) *ai.HTTPInvoker {

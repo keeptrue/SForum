@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 var (

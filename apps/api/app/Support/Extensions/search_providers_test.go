@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 type fakeSearchProviderStore struct {

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	outboundhttp "github.com/zhuchunshu/sforum/apps/api/app/Support/OutboundHTTP"
+	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
 )
 
 // MaxProviderResponseBytes 限制读取的供应商响应体大小。异常或恶意的超大响应

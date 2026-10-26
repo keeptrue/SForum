@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 // M3 契约测试：生成的公开页/中间件脚手架必须**无需手工编辑**就通过 CLI 校验、

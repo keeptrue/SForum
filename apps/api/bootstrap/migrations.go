@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrator"
+	"github.com/keeptrue/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/database/migrator"
 )
 
 func runStartupMigrations(ctx context.Context, cfg config.Config, logger *slog.Logger) error {

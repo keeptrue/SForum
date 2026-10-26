@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // Wave 1 社区策略：注册/用户名/登录锁定/新人信任/维护模式/论坛阅读与行为开关/正文外链呈现。

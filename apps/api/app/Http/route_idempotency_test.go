@@ -14,12 +14,12 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	idempotency "github.com/zhuchunshu/sforum/apps/api/app/Support/Idempotency"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	idempotency "github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 const requiredReplayTestPath = "/api/v1/idempotent-route"

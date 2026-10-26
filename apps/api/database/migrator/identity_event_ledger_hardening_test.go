@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 const identityEventLedgerHardeningVersion = int64(202607190040)

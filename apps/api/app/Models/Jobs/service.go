@@ -10,8 +10,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 var (

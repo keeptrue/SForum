@@ -9,8 +9,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	uploadpolicy "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/UploadPolicy"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
 )
 
 type attachmentStreamReader struct {

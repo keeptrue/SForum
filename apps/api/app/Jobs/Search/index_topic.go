@@ -7,7 +7,7 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // TopicIndexer 由 search 支持包实现，供 worker 执行实际索引/删除操作。

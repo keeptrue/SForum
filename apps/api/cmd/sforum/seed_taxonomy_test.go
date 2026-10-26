@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // fakeTaxonomyStore 只实现分类/标签相关方法；嵌入 nil 接口让其余 Store 方法

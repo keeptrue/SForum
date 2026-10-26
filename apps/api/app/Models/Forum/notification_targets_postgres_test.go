@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 // TestResolveNotificationTargetCommentPageSegment 验证评论通知深链携带 flat 分页页码：

@@ -3,7 +3,7 @@ package routes
 import (
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // M10 行 3：中间件动作词表的完整顺序与**方法过滤**对比。

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // TestGatewayLiveProviderCall 打一次真实供应商调用。默认跳过，只有显式提供

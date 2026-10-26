@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	extensionopenapi "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionOpenAPI"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionopenapi "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionOpenAPI"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 type lifecycleRoutePublicationCAS interface {

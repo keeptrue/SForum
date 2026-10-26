@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	mediaregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/MediaRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	mediaregistry "github.com/keeptrue/sforum/apps/api/app/Support/MediaRegistry"
 )
 
 func (b *PostgresLifecycleBoundaryRegistries) MediaRegistry() *mediaregistry.Registry {

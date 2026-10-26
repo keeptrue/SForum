@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	regioncatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/RegionCatalog"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	regioncatalog "github.com/keeptrue/sforum/apps/api/app/Support/RegionCatalog"
 )
 
 // ExtensionPageRegionProvider 解析 forum.page.regions 贡献为宿主区域描述符。

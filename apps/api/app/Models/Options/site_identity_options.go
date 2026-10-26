@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 副标题与管理邮箱的长度边界。

@@ -1,6 +1,6 @@
 package pages
 
-import themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+import themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 
 // CorePageViewModelData is the closed set of Host-produced page payloads.
 // Keeping one typed slot per catalog page prevents request data, domain models,

@@ -8,9 +8,9 @@ import (
 	"strconv"
 
 	"github.com/riverqueue/river"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Outbox"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
 )
 
 const (

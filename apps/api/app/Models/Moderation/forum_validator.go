@@ -3,7 +3,7 @@ package moderation
 import (
 	"context"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 // ForumTargetValidator 复用 forum store 判定 topic/comment 是否可被公开举报。

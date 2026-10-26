@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	forumcontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Forum"
-	searchjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Search"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	forumcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Forum"
+	searchjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Search"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // forumSearchReader 把 forum.Service 适配为 search.TopicReader。

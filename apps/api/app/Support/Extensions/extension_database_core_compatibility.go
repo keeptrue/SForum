@@ -7,10 +7,10 @@ import (
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/jackc/pgx/v5"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	"github.com/zhuchunshu/sforum/apps/api/database/coreauthority"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 func validateExtensionDatabaseCoreCompatibility(

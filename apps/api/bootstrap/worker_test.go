@@ -10,13 +10,13 @@ import (
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/config"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
 )
 
 func TestWorkerStartStopAllowNilClient(t *testing.T) {

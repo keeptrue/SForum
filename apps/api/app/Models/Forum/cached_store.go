@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Cache"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 // CachedStore 通过嵌入 Store 接口装饰底层 store：

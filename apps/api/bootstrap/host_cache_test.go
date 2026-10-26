@@ -7,8 +7,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 var validHostCacheInstallationID = strings.Repeat("a", 64)

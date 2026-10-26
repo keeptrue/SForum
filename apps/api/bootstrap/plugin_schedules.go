@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type activeWorkerRuntimeSource interface {

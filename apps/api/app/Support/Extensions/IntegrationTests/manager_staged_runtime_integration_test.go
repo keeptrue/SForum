@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 func TestManagerStagedRuntimeUsesRealProtocolV2Process(t *testing.T) {

@@ -3,10 +3,10 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	systemupdatescontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/SystemUpdates"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	systemupdates "github.com/zhuchunshu/sforum/apps/api/app/Models/SystemUpdates"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	systemupdatescontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/SystemUpdates"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	systemupdates "github.com/keeptrue/sforum/apps/api/app/Models/SystemUpdates"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type SystemUpdatesProvider struct {

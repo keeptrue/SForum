@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 // RecoverLifecycleOperation 只恢复指定 durable operation。原 authority、artifact、

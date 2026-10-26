@@ -16,16 +16,16 @@ import (
 	"strings"
 	"time"
 
-	uploadpolicy "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/UploadPolicy"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionRuntime"
-	localization "github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
-	mediaregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/MediaRegistry"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionruntime "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionRuntime"
+	localization "github.com/keeptrue/sforum/apps/api/app/Support/Localization"
+	mediaregistry "github.com/keeptrue/sforum/apps/api/app/Support/MediaRegistry"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 const defaultSignedURLTTL = 5 * time.Minute

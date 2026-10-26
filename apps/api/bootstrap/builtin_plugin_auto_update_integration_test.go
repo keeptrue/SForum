@@ -18,13 +18,13 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/builtinauto"
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/systemactor"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/builtinauto"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/systemactor"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 type builtinAutoIntegrationPromoter struct {

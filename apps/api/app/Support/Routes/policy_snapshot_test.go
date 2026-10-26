@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 func TestBindRouteExecutionPoliciesFreezesExactMultiMethodPlans(t *testing.T) {

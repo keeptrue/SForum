@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 type fakeThreads struct {

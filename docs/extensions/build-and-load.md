@@ -58,7 +58,7 @@ For local experiments the scaffold default lands under `extensions/dev/`
 ## 1. Wire the backend Go module
 
 The backend imports the public SDK, which lives in the host module
-`github.com/zhuchunshu/sforum/apps/api`. Because that module is not published
+`github.com/keeptrue/sforum/apps/api`. Because that module is not published
 as a versioned dependency, every in-repo package uses a `replace` directive to
 a local checkout. The toolchain version is anchored by the host `go.mod`
 (currently Go 1.26.9).
@@ -66,14 +66,14 @@ a local checkout. The toolchain version is anchored by the host `go.mod`
 `backend/go.mod` (in-repo package):
 
 ```go
-module github.com/zhuchunshu/sforum/extensions/builtin/plugins/sforum-smtp/backend
+module github.com/keeptrue/sforum/extensions/builtin/plugins/sforum-smtp/backend
 
 go 1.26.9
 
-require github.com/zhuchunshu/sforum/apps/api v0.0.0
+require github.com/keeptrue/sforum/apps/api v0.0.0
 
 // Point at the repository checkout containing apps/api.
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api
 ```
 
 - Inside the repo, the relative `replace` path must reach the repo root
@@ -89,7 +89,7 @@ Minimal `main.go`:
 ```go
 package main
 
-import pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+import pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 
 func main() {
 	pluginv2.Serve(pluginv2.NewServer())

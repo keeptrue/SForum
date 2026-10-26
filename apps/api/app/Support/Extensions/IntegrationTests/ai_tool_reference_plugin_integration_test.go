@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	providers "github.com/zhuchunshu/sforum/apps/api/app/Providers"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	toolplugin "github.com/zhuchunshu/sforum/apps/api/app/Support/AI/toolplugin"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	providers "github.com/keeptrue/sforum/apps/api/app/Providers"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	toolplugin "github.com/keeptrue/sforum/apps/api/app/Support/AI/toolplugin"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 // M2 的端到端验证：一个只贡献 AI 工具的真实子进程，从模型侧工具接口一路走到

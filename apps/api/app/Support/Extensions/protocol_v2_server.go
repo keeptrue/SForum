@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-plugin"
-	pluginv2sdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
-	pluginwire "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
+	pluginv2sdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
+	pluginwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2"
 	"google.golang.org/grpc"
 )
 

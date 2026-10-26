@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
 )
 
 func TestSiteChromeConcurrentCompositionAndProviderSelection(t *testing.T) {

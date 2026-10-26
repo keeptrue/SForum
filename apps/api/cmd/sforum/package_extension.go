@@ -15,7 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 func newExtensionPackageCommand() *cobra.Command {

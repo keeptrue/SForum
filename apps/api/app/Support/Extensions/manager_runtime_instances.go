@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 type managedRuntimeInstance struct {

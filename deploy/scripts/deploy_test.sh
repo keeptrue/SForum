@@ -252,7 +252,7 @@ run_deploy() {
 }
 
 for image in migrate api web; do
-  assert_contains "$ROOT_DIR/compose.release.yaml" "image: \${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}/sforum-${image}:\${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}"
+  assert_contains "$ROOT_DIR/compose.release.yaml" "image: \${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-${image}:\${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}"
 done
 
 if ! run_deploy clean f ""; then
@@ -260,7 +260,7 @@ if ! run_deploy clean f ""; then
 fi
 assert_contains "$MOCK_LOG" "docker version=v3.0.0-alpha.9 compose --env-file .env.production -f compose.yaml -f compose.prod.yaml -f compose.release.yaml pull migrate api web"
 for service in api migrate; do
-  assert_contains "$MOCK_LOG" "docker version=v3.0.0-alpha.9 run --rm ghcr.io/zhuchunshu/sforum-${service}:v3.0.0-alpha.9 sforum-${service} --version"
+  assert_contains "$MOCK_LOG" "docker version=v3.0.0-alpha.9 run --rm ghcr.io/keeptrue/sforum-${service}:v3.0.0-alpha.9 sforum-${service} --version"
 done
 assert_not_contains "$MOCK_LOG" "compose --env-file .env.production -f compose.yaml -f compose.prod.yaml -f compose.release.yaml run --rm -T --no-deps --pull never worker"
 assert_contains "$MOCK_LOG" "docker version=v3.0.0-alpha.9 compose --env-file .env.production -f compose.yaml -f compose.prod.yaml -f compose.release.yaml up -d --no-build --pull never postgres redis api web"

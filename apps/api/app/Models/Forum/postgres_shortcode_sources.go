@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 const maxPublicShortcodeSourceResources = 256

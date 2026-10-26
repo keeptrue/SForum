@@ -17,7 +17,7 @@
   ],
   "author": {
     "name": "SForum",
-    "url": "https://github.com/zhuchunshu/sforum"
+    "url": "https://github.com/keeptrue/sforum"
   },
   "backend": {
     "digest": "d18eef715b8f58f99d65306a9a797c6b042e24ec84917de9fe1cc46a77c028a7",
@@ -191,6 +191,6 @@
   ],
   "sforumVersion": "\u003e=0.1.0",
   "type": "plugin",
-  "url": "https://github.com/zhuchunshu/sforum",
+  "url": "https://github.com/keeptrue/sforum",
   "version": "1.3.5"
 }

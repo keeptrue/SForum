@@ -3,7 +3,7 @@ package extensionmanifest
 import (
 	"testing"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // 队列声明只在两条道之间选择：能通过清单校验的取值必须能被入队侧如实映射，

@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 
-	lifecyclerecovery "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions/LifecycleRecovery"
+	lifecyclerecovery "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/LifecycleRecovery"
 )
 
 type activationStateRecoveryOptions struct {

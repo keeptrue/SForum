@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	mail "github.com/zhuchunshu/sforum/apps/api/app/Support/Mail"
+	mail "github.com/keeptrue/sforum/apps/api/app/Support/Mail"
 )
 
 // PasswordResetConfig 是密码重置流程的可选依赖。

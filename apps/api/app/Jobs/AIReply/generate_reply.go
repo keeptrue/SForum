@@ -7,8 +7,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // GenerateReplyArgs 是一次待生成的 AI 回复。它只带定位信息，不携带正文本体：

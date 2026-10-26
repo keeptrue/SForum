@@ -7,7 +7,7 @@
 package pluginv2
 
 import (
-	v2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	v2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -3259,7 +3259,7 @@ const file_sforum_plugin_v2_runtime_proto_rawDesc = "" +
 	"\fProviderCall\x12%.sforum.plugin.v2.ProviderCallRequest\x1a&.sforum.plugin.v2.ProviderCallResponse\x12L\n" +
 	"\fTransferFile\x12\x1b.sforum.plugin.v2.FileFrame\x1a\x1b.sforum.plugin.v2.FileFrame(\x010\x01\x12T\n" +
 	"\rInvokeService\x12 .sforum.plugin.v2.ServiceRequest\x1a!.sforum.plugin.v2.ServiceResponse\x12_\n" +
-	"\rStreamService\x12$.sforum.plugin.v2.ServiceStreamFrame\x1a$.sforum.plugin.v2.ServiceStreamFrame(\x010\x01BSZQgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2;pluginv2b\x06proto3"
+	"\rStreamService\x12$.sforum.plugin.v2.ServiceStreamFrame\x1a$.sforum.plugin.v2.ServiceStreamFrame(\x010\x01BQZOgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/plugin/v2;pluginv2b\x06proto3"
 
 var (
 	file_sforum_plugin_v2_runtime_proto_rawDescOnce sync.Once

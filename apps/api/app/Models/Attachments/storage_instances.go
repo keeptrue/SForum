@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 const storageInstanceSecretPurpose = "attachment.storage.instance"

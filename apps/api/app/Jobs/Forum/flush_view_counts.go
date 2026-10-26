@@ -7,8 +7,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // FlushViewCountsArgs 将 Redis 浏览增量刷入 topics.view_count / hot_score。

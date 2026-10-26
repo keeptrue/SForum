@@ -7,7 +7,7 @@
 package hostv2
 
 import (
-	v2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	v2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -2032,7 +2032,7 @@ const file_sforum_host_v2_resources_proto_rawDesc = "" +
 	"\x04Stat\x12\x1f.sforum.host.v2.FileStatRequest\x1a .sforum.host.v2.FileStatResponse2\x9e\x01\n" +
 	"\vHttpService\x12?\n" +
 	"\x02Do\x12\x1b.sforum.host.v2.HttpRequest\x1a\x1c.sforum.host.v2.HttpResponse\x12N\n" +
-	"\x06Stream\x12\x1f.sforum.host.v2.HttpStreamFrame\x1a\x1f.sforum.host.v2.HttpStreamFrame(\x010\x01BOZMgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
+	"\x06Stream\x12\x1f.sforum.host.v2.HttpStreamFrame\x1a\x1f.sforum.host.v2.HttpStreamFrame(\x010\x01BMZKgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
 
 var (
 	file_sforum_host_v2_resources_proto_rawDescOnce sync.Once

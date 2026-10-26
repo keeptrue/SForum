@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 // 读取层是提示词里身份信息的唯一来源：昵称错了只是难看，@用户名错了模型就会查错人。

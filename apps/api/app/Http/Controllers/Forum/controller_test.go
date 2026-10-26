@@ -16,13 +16,13 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 type forumTestEnvelope[T any] struct {

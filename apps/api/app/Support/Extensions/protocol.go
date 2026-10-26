@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionobservability "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionObservability"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	pluginbootstrap "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginBootstrap"
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionobservability "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionObservability"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	pluginbootstrap "github.com/keeptrue/sforum/apps/api/app/Support/PluginBootstrap"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 )
 
 var (

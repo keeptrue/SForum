@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	extensiondatabase "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionDatabase"
+	extensiondatabase "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionDatabase"
 )
 
 const (

@@ -7,10 +7,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 const (

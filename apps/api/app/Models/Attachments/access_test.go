@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 func TestAuthorizeAttachmentViewByReferencedResource(t *testing.T) {

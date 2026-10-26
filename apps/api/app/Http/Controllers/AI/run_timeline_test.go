@@ -9,10 +9,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	modelsai "github.com/zhuchunshu/sforum/apps/api/app/Models/AI"
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	modelsai "github.com/keeptrue/sforum/apps/api/app/Models/AI"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // A4 的轨迹回放端点验收。

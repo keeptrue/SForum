@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	outboundhttp "github.com/zhuchunshu/sforum/apps/api/app/Support/OutboundHTTP"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // Client is the Host outbound HTTP runtime.

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 // M5：管理端视图必须与持久状态一致，且不泄漏任何请求内容。

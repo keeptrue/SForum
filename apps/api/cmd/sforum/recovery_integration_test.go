@@ -16,8 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 func TestPostgresRecoveryRepositoryPublishesImmutableFullSetsWithoutPackageReads(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	extensionreference "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/ExtensionReference"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 这条测试补上「谓词拆分」与「读守卫 SQL」之间的接缝：匿名可读判定依赖

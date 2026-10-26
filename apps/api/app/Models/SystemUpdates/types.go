@@ -3,7 +3,7 @@ package systemupdates
 import "time"
 
 const (
-	RepositoryOwner = "zhuchunshu"
+	RepositoryOwner = "keeptrue"
 	RepositoryName  = "SForum"
 
 	StateCurrent       = "current"

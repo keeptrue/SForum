@@ -3,7 +3,7 @@ package identity
 import (
 	"context"
 
-	appearance "github.com/zhuchunshu/sforum/apps/api/app/Support/Appearance"
+	appearance "github.com/keeptrue/sforum/apps/api/app/Support/Appearance"
 )
 
 type CurrentUserAppearanceStore interface {

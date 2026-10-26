@@ -85,7 +85,7 @@ owns, and use the explicit v2 entry point:
 package main
 
 import (
-  pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+  pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 type server struct {

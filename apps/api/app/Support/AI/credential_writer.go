@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // CredentialWriter 把 provider 密钥写入 Host Secret Store。它是控制台唯一的密钥

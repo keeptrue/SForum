@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 )
 
 type DeliveryPolicyResolver interface {

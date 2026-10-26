@@ -1,8 +1,8 @@
 package ai
 
 import (
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 工具目录：控制台需要知道「站内有哪些 AI 工具」，运营者才能在用途白名单里

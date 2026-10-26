@@ -222,7 +222,7 @@ describe('admin overview helpers', () => {
         goVersion: 'go1.26.5',
         platform: 'linux/arm64',
         dirty: false,
-        sourceUrl: 'https://github.com/zhuchunshu/SForum'
+        sourceUrl: 'https://github.com/keeptrue/SForum'
       },
       memoryBytes: 160 * 1024 * 1024,
       heapAllocBytes: 80 * 1024 * 1024,

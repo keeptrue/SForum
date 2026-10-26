@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
+	"github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
 )
 
 func decodeTarget(t *testing.T, href string) string {

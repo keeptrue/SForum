@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 // htmlSegments converts complete inline-safe card HTML into typed render

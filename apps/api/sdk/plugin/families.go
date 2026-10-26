@@ -3,9 +3,9 @@ package plugin
 import (
 	"sort"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // P7 冻结的六个扩展家族：hooks / services / providers / jobs / schedules / commands。

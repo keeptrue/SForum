@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	store "github.com/zhuchunshu/sforum/apps/api/database/sqlc"
+	store "github.com/keeptrue/sforum/apps/api/database/sqlc"
 )
 
 func (s *postgresTxStore) AnyUserExists(ctx context.Context) (bool, error) {

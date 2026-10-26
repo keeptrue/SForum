@@ -1,15 +1,15 @@
 services:
   migrate:
     build: !reset null
-    image: ${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}/sforum-migrate:${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}
+    image: ${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-migrate:${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}
     pull_policy: always
 
   api:
     build: !reset null
-    image: ${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}/sforum-api:${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}
+    image: ${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-api:${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}
     pull_policy: always
 
   web:
     build: !reset null
-    image: ${SFORUM_REGISTRY:-ghcr.io/zhuchunshu}/sforum-web:${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}
+    image: ${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-web:${SFORUM_VERSION:?Set SFORUM_VERSION to an immutable release tag}
     pull_policy: always

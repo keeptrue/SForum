@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // GatewayCompleter 把生成器的请求转成一次网关调用。

@@ -9,7 +9,7 @@ HTTP 422 `options.invalid`。根因是运行镜像 `apps/api/Dockerfile` 最终�
 `FROM alpine:3.22 AS api` 只装 `ca-certificates`，没有 `/usr/share/zoneinfo`；
 API/worker 以 `CGO_ENABLED=0` 构建，且没有任何包 import `time/tzdata`。
 `time.LoadLocation("Asia/Shanghai")` 在镜像内直接返回 `unknown time zone`
-（发布镜像 `ghcr.io/zhuchunshu/sforum-api:v3.0.9` 实测），而 `UTC` 被 Go
+（发布镜像 `ghcr.io/keeptrue/sforum-api:v3.0.9` 实测），而 `UTC` 被 Go
 特判所以能保存。本机 dev（宿主有 zoneinfo）无法复现。
 
 同一根因还影响插件定时任务：manifest 的 `schedule.Timezone` 校验与 River

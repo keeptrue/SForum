@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 const systemUpdatesGitHubMirrorMaxRunes = 2048
@@ -60,7 +60,7 @@ func normalizeSystemUpdatesGitHubMirrorURL(value string) (string, bool) {
 	}
 
 	candidate := value
-	const officialEndpoint = "https://api.github.com/repos/zhuchunshu/SForum/releases?per_page=30"
+	const officialEndpoint = "https://api.github.com/repos/keeptrue/SForum/releases?per_page=30"
 	if strings.Contains(candidate, "{url_encoded}") {
 		candidate = strings.ReplaceAll(candidate, "{url_encoded}", url.QueryEscape(officialEndpoint))
 	}

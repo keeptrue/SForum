@@ -10,7 +10,7 @@ set -euo pipefail
 export LC_ALL=C
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY="${SFORUM_RELEASE_REPOSITORY:-zhuchunshu/SForum}"
+REPOSITORY="${SFORUM_RELEASE_REPOSITORY:-keeptrue/SForum}"
 API_ROOT="https://api.github.com/repos/${REPOSITORY}/releases"
 DOWNLOAD_ROOT="${SFORUM_RELEASE_DOWNLOAD_BASE_URL:-https://github.com/${REPOSITORY}/releases/download}"
 LOCK_DIR="$ROOT_DIR/.sforum-latest.lock"
@@ -63,7 +63,7 @@ deploy.sh、upgrade.sh、compose 文件、deploy/scripts、Caddy 示例与 VERSI
   ./sforum-latest.sh --version v3.0.9
 
 环境变量:
-  SFORUM_RELEASE_REPOSITORY        覆盖仓库（默认 zhuchunshu/SForum）
+  SFORUM_RELEASE_REPOSITORY        覆盖仓库（默认 keeptrue/SForum）
   SFORUM_RELEASE_DOWNLOAD_BASE_URL 覆盖下载基址（镜像场景）
   SFORUM_SKIP_ATTESTATION=true     跳过 gh 构建来源校验（bootstrap 同样识别）
   https_proxy / http_proxy         访问 GitHub 需要时自行设置

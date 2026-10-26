@@ -7,9 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 type publicShortcodeReadStore struct {

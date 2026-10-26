@@ -8,13 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	aitools "github.com/zhuchunshu/sforum/apps/api/app/Models/AITools"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	postgres "github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	aitools "github.com/keeptrue/sforum/apps/api/app/Models/AITools"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	postgres "github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // evalOptions 是 `sforum ai:eval` 的入参。

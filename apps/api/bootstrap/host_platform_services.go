@@ -8,13 +8,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	hosthttp "github.com/zhuchunshu/sforum/apps/api/app/Support/HostHTTP"
-	pluginfiles "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginFiles"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	settingslifecycle "github.com/zhuchunshu/sforum/apps/api/app/Support/SettingsLifecycle"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	hosthttp "github.com/keeptrue/sforum/apps/api/app/Support/HostHTTP"
+	pluginfiles "github.com/keeptrue/sforum/apps/api/app/Support/PluginFiles"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // productionHostPlatform holds SecretStore / HostHTTP / PluginFiles / SettingsLifecycle.

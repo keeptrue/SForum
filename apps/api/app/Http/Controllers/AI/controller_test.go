@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 控制台的真实使用路径是「GET 默认配置 → 只改一个开关 → PUT 整份文档」。

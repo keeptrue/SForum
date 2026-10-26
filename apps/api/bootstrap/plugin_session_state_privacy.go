@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	privacy "github.com/zhuchunshu/sforum/apps/api/app/Support/Privacy"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	privacy "github.com/keeptrue/sforum/apps/api/app/Support/Privacy"
 )
 
 // pluginSessionStatePrivacyContributionID is the Host-owned privacy

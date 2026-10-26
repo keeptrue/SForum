@@ -35,7 +35,7 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 ## Authoring
 
 - Hand-written guide: [../authoring-guide.md](../authoring-guide.md)
-- Go SDK: `github.com/zhuchunshu/sforum/apps/api/sdk/plugin` and `/v2`
+- Go SDK: `github.com/keeptrue/sforum/apps/api/sdk/plugin` and `/v2`
 - Contract CLI: `sforum extension test [path]`
 - Scenario map: [../scenario-map.md](../scenario-map.md)
 - Reference plugins: built-in `sforum.smtp` (mail provider), `sforum.content-policy` (workflow filters), fixtures under `extensions/fixtures/plugins/`

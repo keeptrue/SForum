@@ -7,11 +7,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	webhooks "github.com/zhuchunshu/sforum/apps/api/app/Models/Webhooks"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 type Controller struct {

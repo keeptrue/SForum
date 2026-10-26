@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
-	editorregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorRegistry"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
+	editorregistry "github.com/keeptrue/sforum/apps/api/app/Support/EditorRegistry"
 )
 
 // 产品路径：Service.renderContent 经 EditorRegistrySchemaBridge 接纳插件节点。

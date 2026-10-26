@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 type productionLifecyclePackageArtifact struct {

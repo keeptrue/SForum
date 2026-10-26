@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func TestBufferedRouteStepInvokerSelectsV2WithOneAdmission(t *testing.T) {

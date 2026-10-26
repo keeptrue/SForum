@@ -6,9 +6,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	installationidentity "github.com/zhuchunshu/sforum/apps/api/app/Support/InstallationIdentity"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	installationidentity "github.com/keeptrue/sforum/apps/api/app/Support/InstallationIdentity"
 )
 
 type productionHostCache struct {

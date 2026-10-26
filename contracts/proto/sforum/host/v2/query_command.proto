@@ -4,7 +4,7 @@ package sforum.host.v2;
 
 import "sforum/protocol/v2/common.proto";
 
-option go_package = "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2";
+option go_package = "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2";
 
 // HostQueryService executes declared, policy-checked query plans.
 service HostQueryService {

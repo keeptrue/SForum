@@ -11,11 +11,11 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 type settingsStore struct {

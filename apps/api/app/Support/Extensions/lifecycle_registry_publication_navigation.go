@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
 )
 
 func (b *PostgresLifecycleBoundaryRegistries) NavigationRegistry() *navigationregistry.Registry {

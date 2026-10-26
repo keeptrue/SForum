@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	localization "github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	localization "github.com/keeptrue/sforum/apps/api/app/Support/Localization"
 )
 
 func isValidURL(value string) bool {

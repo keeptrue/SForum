@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 type AttachmentStorageProviderCatalog struct{ catalog *CatalogService }

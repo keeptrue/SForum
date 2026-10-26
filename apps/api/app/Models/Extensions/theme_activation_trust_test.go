@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 func TestThemeActivationTrustLeavesOrdinaryUploadedThemeBuildless(t *testing.T) {

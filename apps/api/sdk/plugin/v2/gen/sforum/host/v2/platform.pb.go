@@ -7,7 +7,7 @@
 package hostv2
 
 import (
-	v2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	v2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -2142,7 +2142,7 @@ const file_sforum_host_v2_platform_proto_rawDesc = "" +
 	"\x06Append\x12\".sforum.host.v2.AuditAppendRequest\x1a#.sforum.host.v2.AuditAppendResponse\x12K\n" +
 	"\x04List\x12 .sforum.host.v2.AuditListRequest\x1a!.sforum.host.v2.AuditListResponse2]\n" +
 	"\x0eTracingService\x12K\n" +
-	"\x04Emit\x12 .sforum.host.v2.TraceEmitRequest\x1a!.sforum.host.v2.TraceEmitResponseBOZMgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
+	"\x04Emit\x12 .sforum.host.v2.TraceEmitRequest\x1a!.sforum.host.v2.TraceEmitResponseBMZKgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
 
 var (
 	file_sforum_host_v2_platform_proto_rawDescOnce sync.Once

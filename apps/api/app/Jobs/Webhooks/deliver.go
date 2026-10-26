@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
-	webhooks "github.com/zhuchunshu/sforum/apps/api/app/Models/Webhooks"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	outboundhttp "github.com/zhuchunshu/sforum/apps/api/app/Support/OutboundHTTP"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Outbox"
+	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
 )
 
 type DeliverArgs struct {

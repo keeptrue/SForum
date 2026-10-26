@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 // M5 任务 6：路由/守卫发布必须整体切换。升级丢弃旧守卫绑定（不得残留旧授权），

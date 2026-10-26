@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 // TestHostFinalRichContentAndAttachmentXSSBoundaries is the P10 product-joined

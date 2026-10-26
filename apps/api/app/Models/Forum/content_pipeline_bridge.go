@@ -3,8 +3,8 @@ package forum
 import (
 	"context"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
-	editorregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorRegistry"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
+	editorregistry "github.com/keeptrue/sforum/apps/api/app/Support/EditorRegistry"
 )
 
 // ContentRegistryPostFilter adapts ContentRegistry's filter surface to the

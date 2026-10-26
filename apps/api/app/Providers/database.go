@@ -3,10 +3,10 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	databasecontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Database"
-	database "github.com/zhuchunshu/sforum/apps/api/app/Models/Database"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	databasecontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Database"
+	database "github.com/keeptrue/sforum/apps/api/app/Models/Database"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type DatabaseProvider struct {

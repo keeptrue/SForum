@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	extensionreference "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/ExtensionReference"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestBindPostgresProtocolV2CommandRuntimePublishesDelegatedCatalog(t *testing.T) {

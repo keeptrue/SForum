@@ -3,8 +3,8 @@ package themecompiler_test
 import (
 	"testing"
 
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 func TestCorePageViewModelsMatchAuthoritativePageCatalog(t *testing.T) {

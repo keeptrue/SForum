@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	entitymeta "github.com/zhuchunshu/sforum/apps/api/app/Models/EntityMeta"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 func TestPostgresEntityMetaValueGuardObservesCrossNodeAuthority(t *testing.T) {

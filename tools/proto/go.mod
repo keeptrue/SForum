@@ -1,4 +1,4 @@
-module github.com/zhuchunshu/sforum/tools/proto
+module github.com/keeptrue/sforum/tools/proto
 
 go 1.26.10
 

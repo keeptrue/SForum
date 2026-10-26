@@ -3,10 +3,10 @@ package extensionscontroller
 import (
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 // adminPageBootstrapResponse 在目录服务的解析结果之上附带前端信任结论。

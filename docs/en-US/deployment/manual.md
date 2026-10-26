@@ -30,9 +30,9 @@ switch. Production still recommends
   mkdir -p sforum
   cd sforum
   curl -fsSLo sforum-deploy.tar.gz \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/sforum-deploy.tar.gz
+    https://github.com/keeptrue/SForum/releases/latest/download/sforum-deploy.tar.gz
   curl -fsSLo SHA256SUMS \
-    https://github.com/zhuchunshu/SForum/releases/latest/download/SHA256SUMS
+    https://github.com/keeptrue/SForum/releases/latest/download/SHA256SUMS
   awk '$2 == "sforum-deploy.tar.gz" { print }' SHA256SUMS > sforum-deploy.sha256
   test "$(wc -l < sforum-deploy.sha256 | tr -d '[:space:]')" = 1
   if command -v sha256sum >/dev/null 2>&1; then
@@ -41,7 +41,7 @@ switch. Production still recommends
     shasum -a 256 -c sforum-deploy.sha256
   fi
   if command -v gh >/dev/null 2>&1; then
-    gh attestation verify sforum-deploy.tar.gz --repo zhuchunshu/SForum
+    gh attestation verify sforum-deploy.tar.gz --repo keeptrue/SForum
   fi
   tar -xzf sforum-deploy.tar.gz --strip-components=1
 )
@@ -124,8 +124,8 @@ missing version; that fail-closed behavior is intentional.
 ```sh
 "${COMPOSE[@]}" pull migrate api web
 
-docker run --rm "ghcr.io/zhuchunshu/sforum-api:${SFORUM_VERSION}" sforum-api --version
-docker run --rm "ghcr.io/zhuchunshu/sforum-migrate:${SFORUM_VERSION}" sforum-migrate --version
+docker run --rm "ghcr.io/keeptrue/sforum-api:${SFORUM_VERSION}" sforum-api --version
+docker run --rm "ghcr.io/keeptrue/sforum-migrate:${SFORUM_VERSION}" sforum-migrate --version
 ```
 
 The output should contain `SForum <version>`. If the tag is wrong or the

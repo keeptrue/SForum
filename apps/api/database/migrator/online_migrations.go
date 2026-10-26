@@ -12,8 +12,8 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 
-	"github.com/zhuchunshu/sforum/apps/api/database/migrations"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 const onlineSafeDirective = "-- +sforum OnlineSafe"

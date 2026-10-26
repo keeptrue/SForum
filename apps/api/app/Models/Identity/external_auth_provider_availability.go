@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // 有效可用性（effective availability）评估。

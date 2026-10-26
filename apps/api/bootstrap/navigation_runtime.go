@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	navigationregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/NavigationRegistry"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	navigationregistry "github.com/keeptrue/sforum/apps/api/app/Support/NavigationRegistry"
 )
 
 // productionNavigationRuntime 将 Manager exact-instance admission 适配到

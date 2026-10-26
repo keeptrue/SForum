@@ -3,7 +3,7 @@ package ai
 import (
 	"testing"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 诊断必须探测实际能承载流量的那份配置：只绑定 standard/premium 的站点若被

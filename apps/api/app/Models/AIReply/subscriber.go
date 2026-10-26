@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // Subscriber 包装事件发布者：原样转发事件，并额外把 comment.created 交给回复

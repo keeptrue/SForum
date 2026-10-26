@@ -1,8 +1,8 @@
-module github.com/zhuchunshu/sforum/tests/compat
+module github.com/keeptrue/sforum/tests/compat
 
 go 1.26.10
 
-require github.com/zhuchunshu/sforum/apps/api v0.0.0
+require github.com/keeptrue/sforum/apps/api v0.0.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
@@ -69,4 +69,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/zhuchunshu/sforum/apps/api => ../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../apps/api

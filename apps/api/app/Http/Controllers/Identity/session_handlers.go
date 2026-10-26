@@ -8,12 +8,12 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
-	useragent "github.com/zhuchunshu/sforum/apps/api/app/Support/UserAgent"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
+	useragent "github.com/keeptrue/sforum/apps/api/app/Support/UserAgent"
 )
 
 func (h *Controller) sessionUserID(c fiber.Ctx) (int64, bool, error) {

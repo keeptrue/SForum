@@ -296,7 +296,7 @@ npm publish /tmp/sforum-web-sdks/sforum-plugin-ui-1.0.0.tgz --access public
 ```
 
 Both package settings are now bound to the GitHub Actions Trusted Publisher
-organization `zhuchunshu`, repository `SForum`, workflow filename
+organization `keeptrue`, repository `SForum`, workflow filename
 `release.yml`, no environment, allowed action `npm publish`. Do not repeat the
 bootstrap or add a long-lived npm token to the repository. Later releases use
 `.github/workflows/release.yml` exclusively. Both packages use npm's strict

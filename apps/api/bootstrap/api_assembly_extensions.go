@@ -7,17 +7,17 @@ import (
 	"strings"
 	"time"
 
-	extensionreference "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/ExtensionReference"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 type apiExtensionPlatform struct {

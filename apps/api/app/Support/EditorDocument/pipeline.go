@@ -16,7 +16,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
 )
 
 const (

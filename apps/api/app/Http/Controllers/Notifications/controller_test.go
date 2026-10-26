@@ -19,11 +19,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestNotificationListRejectsInvalidPATBeforeResolvingUserID(t *testing.T) {

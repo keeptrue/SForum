@@ -3,8 +3,8 @@ package ai_test
 import (
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 // SDK 刻意不 import Support/AI（插件二进制不该拖进整个网关实现），边界值因此在

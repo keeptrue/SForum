@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
 )
 
 func TestAcceptNativeJSONRoundTripAndSanitizerCorpus(t *testing.T) {

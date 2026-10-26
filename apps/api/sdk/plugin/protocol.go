@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 // 协议类型别名：插件实现 Protocol，经 Serve 暴露给宿主。

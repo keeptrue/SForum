@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 func TestAdminSetUserPasswordRequiresPermission(t *testing.T) {

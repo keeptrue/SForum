@@ -10,7 +10,7 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	nethtml "golang.org/x/net/html"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
 )
 
 var (

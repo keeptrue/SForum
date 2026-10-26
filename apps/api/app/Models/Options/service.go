@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	crypto "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	localization "github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	crypto "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	localization "github.com/keeptrue/sforum/apps/api/app/Support/Localization"
 )
 
 const defaultCacheTTL = 30 * time.Second

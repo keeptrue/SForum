@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // PageRuntimeInstanceSource 解析扩展当前活动 runtime instance id。

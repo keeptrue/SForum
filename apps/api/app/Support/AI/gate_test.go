@@ -3,7 +3,7 @@ package ai_test
 import (
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 func gateSettings() ai.GateSettings {

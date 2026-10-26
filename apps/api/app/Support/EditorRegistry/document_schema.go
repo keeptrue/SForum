@@ -3,7 +3,7 @@ package editorregistry
 import (
 	"strings"
 
-	editordocument "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorDocument"
+	editordocument "github.com/keeptrue/sforum/apps/api/app/Support/EditorDocument"
 )
 
 // DocumentSchema projects the active Editor Registry graph into an

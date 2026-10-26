@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	health "github.com/zhuchunshu/sforum/apps/api/app/Support/Health"
-	processmemory "github.com/zhuchunshu/sforum/apps/api/app/Support/ProcessMemory"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
+	processmemory "github.com/keeptrue/sforum/apps/api/app/Support/ProcessMemory"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 type RuntimeCollector struct {

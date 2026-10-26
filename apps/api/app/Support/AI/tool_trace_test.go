@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // A2 的工具轨迹（ToolTrace）验收用例。

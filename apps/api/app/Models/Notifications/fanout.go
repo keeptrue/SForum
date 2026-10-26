@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/jackc/pgx/v5"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 const moderationReviewPermission = "moderation.review"

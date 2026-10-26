@@ -5,10 +5,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	adminoverview "github.com/zhuchunshu/sforum/apps/api/app/Models/AdminOverview"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	adminoverview "github.com/keeptrue/sforum/apps/api/app/Models/AdminOverview"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type Controller struct {

@@ -3,7 +3,7 @@ package events_test
 import (
 	"testing"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // 声明侧（Manifest V3 knownOrNamespacedContract）与发布侧的尺子必须一致，

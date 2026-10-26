@@ -9,7 +9,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
 )
 
 // RenderSafe renders operator-authored Markdown and sanitizes the result before

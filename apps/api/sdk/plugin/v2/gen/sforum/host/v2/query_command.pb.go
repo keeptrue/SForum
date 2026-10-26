@@ -7,7 +7,7 @@
 package hostv2
 
 import (
-	v2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	v2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1082,7 +1082,7 @@ const file_sforum_host_v2_query_command_proto_rawDesc = "" +
 	"\x06Stream\x12\x1c.sforum.host.v2.QueryRequest\x1a\x18.sforum.host.v2.QueryRow0\x012\xa3\x01\n" +
 	"\x12HostCommandService\x12C\n" +
 	"\x04Plan\x12\x1e.sforum.host.v2.CommandRequest\x1a\x1b.sforum.host.v2.CommandPlan\x12H\n" +
-	"\aExecute\x12\x1e.sforum.host.v2.CommandRequest\x1a\x1d.sforum.host.v2.CommandResultBOZMgithub.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
+	"\aExecute\x12\x1e.sforum.host.v2.CommandRequest\x1a\x1d.sforum.host.v2.CommandResultBMZKgithub.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2;hostv2b\x06proto3"
 
 var (
 	file_sforum_host_v2_query_command_proto_rawDescOnce sync.Once

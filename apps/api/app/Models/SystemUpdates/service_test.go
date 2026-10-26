@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	systemupdates "github.com/zhuchunshu/sforum/apps/api/app/Models/SystemUpdates"
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	systemupdates "github.com/keeptrue/sforum/apps/api/app/Models/SystemUpdates"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 func TestStatusSelectsHighestStableReleaseAndCachesIt(t *testing.T) {
 	client := &fakeHTTPClient{body: `[
-		{"tag_name":"v1.1.0","name":"Older","html_url":"https://github.com/zhuchunshu/SForum/releases/tag/v1.1.0"},
-		{"tag_name":"v1.3.0","name":"Newest","html_url":"https://github.com/zhuchunshu/SForum/releases/tag/v1.3.0","published_at":"2026-07-30T00:00:00Z"},
+		{"tag_name":"v1.1.0","name":"Older","html_url":"https://github.com/keeptrue/SForum/releases/tag/v1.1.0"},
+		{"tag_name":"v1.3.0","name":"Newest","html_url":"https://github.com/keeptrue/SForum/releases/tag/v1.3.0","published_at":"2026-07-30T00:00:00Z"},
 		{"tag_name":"v2.0.0-rc.1","prerelease":true}
 	]`}
 	service := systemupdates.NewService(
@@ -112,7 +112,7 @@ func TestStatusDoesNotCallUpstreamForDevelopmentBuild(t *testing.T) {
 }
 
 func TestStatusUsesMirrorAndCheckNowBypassesCache(t *testing.T) {
-	client := &fakeHTTPClient{body: `[{"tag_name":"v1.1.0","html_url":"https://github.com/zhuchunshu/SForum/releases/tag/v1.1.0"}]`}
+	client := &fakeHTTPClient{body: `[{"tag_name":"v1.1.0","html_url":"https://github.com/keeptrue/SForum/releases/tag/v1.1.0"}]`}
 	service := systemupdates.NewService(
 		fakeSource{mirror: "https://mirror.example.com/api/"},
 		systemupdates.WithHTTPClient(client),
@@ -122,7 +122,7 @@ func TestStatusUsesMirrorAndCheckNowBypassesCache(t *testing.T) {
 	if _, err := service.Status(context.Background(), adminActor()); err != nil {
 		t.Fatalf("Status returned error: %v", err)
 	}
-	if !strings.Contains(client.lastURL, "mirror.example.com/api/repos/zhuchunshu/SForum/releases") {
+	if !strings.Contains(client.lastURL, "mirror.example.com/api/repos/keeptrue/SForum/releases") {
 		t.Fatalf("unexpected mirror URL %q", client.lastURL)
 	}
 	if _, err := service.CheckNow(context.Background(), settingsActor()); err != nil {

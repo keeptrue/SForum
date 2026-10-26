@@ -7,8 +7,8 @@ import (
 	"time"
 
 	semver "github.com/Masterminds/semver/v3"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	timezone "github.com/zhuchunshu/sforum/apps/api/app/Support/Timezone"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	timezone "github.com/keeptrue/sforum/apps/api/app/Support/Timezone"
 )
 
 var (

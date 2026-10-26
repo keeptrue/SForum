@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 type ProtocolV2ProviderBroker struct {

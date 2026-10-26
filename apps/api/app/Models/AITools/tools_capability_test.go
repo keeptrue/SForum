@@ -9,11 +9,11 @@ import (
 	"time"
 	"unicode/utf8"
 
-	aitools "github.com/zhuchunshu/sforum/apps/api/app/Models/AITools"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aitools "github.com/keeptrue/sforum/apps/api/app/Models/AITools"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // B2 的三只新工具共用一套 fake：它们都以「提问者身份」读公开内容，因此 fake 必须

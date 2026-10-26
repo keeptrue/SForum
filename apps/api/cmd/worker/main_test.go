@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 var (

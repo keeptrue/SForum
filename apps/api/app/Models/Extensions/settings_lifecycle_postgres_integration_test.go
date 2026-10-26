@@ -13,9 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
-	settingslifecycle "github.com/zhuchunshu/sforum/apps/api/app/Support/SettingsLifecycle"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
 )
 
 func TestLegacyCiphertextMigratesOnFirstPostgresSettingsWrite(t *testing.T) {

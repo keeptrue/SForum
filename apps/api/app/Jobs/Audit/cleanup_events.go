@@ -7,7 +7,7 @@ import (
 
 	"github.com/riverqueue/river"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // CleanupEventsArgs 清理超过保留期的 audit_events 行。

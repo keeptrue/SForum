@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	aiderived "github.com/zhuchunshu/sforum/apps/api/app/Models/AIDerived"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // 这一组把 B3 的落库形态钉在真实 PostgreSQL 上：内存 fake 证明不了「status 真的

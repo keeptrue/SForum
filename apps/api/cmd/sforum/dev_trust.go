@@ -16,8 +16,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	devhygiene "github.com/zhuchunshu/sforum/apps/api/app/Support/DevHygiene"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	devhygiene "github.com/keeptrue/sforum/apps/api/app/Support/DevHygiene"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // 开发期信任会话 CLI：与 tests/admin-extension-activation.sh 同一套凭据约定。

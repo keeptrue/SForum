@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // BotAccountReader 读取充当 AI 助手的机器人账号。

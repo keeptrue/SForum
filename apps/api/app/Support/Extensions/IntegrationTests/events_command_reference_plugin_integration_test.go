@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 const (

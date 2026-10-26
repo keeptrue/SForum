@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	platformversion "github.com/zhuchunshu/sforum/apps/api/version"
+	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
 
 type makeOptions struct {

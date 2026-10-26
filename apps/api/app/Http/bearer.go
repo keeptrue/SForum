@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 )
 
 // BearerAuthenticator 校验 Authorization: Bearer sft_...

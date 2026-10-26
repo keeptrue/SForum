@@ -2,13 +2,13 @@ package providers
 
 import (
 	"github.com/gofiber/fiber/v3"
-	mailcontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Mail"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	mailcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Mail"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 type MailProvider struct{ controller *mailcontroller.Controller }

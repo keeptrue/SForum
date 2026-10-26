@@ -2,11 +2,11 @@ package providers
 
 import (
 	"github.com/gofiber/fiber/v3"
-	notificationscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Notifications"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	notificationscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Notifications"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type NotificationsProvider struct {

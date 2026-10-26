@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
-	store "github.com/zhuchunshu/sforum/apps/api/database/sqlc"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
+	store "github.com/keeptrue/sforum/apps/api/database/sqlc"
 )
 
 type PostgresStore struct {

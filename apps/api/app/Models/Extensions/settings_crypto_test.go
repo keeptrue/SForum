@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 func TestEncryptSecretSettingsAtRest(t *testing.T) {

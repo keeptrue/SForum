@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 func syncExternalExtensionSources(ctx context.Context, logger *slog.Logger, service *extensions.Service) error {

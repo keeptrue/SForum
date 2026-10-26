@@ -1,37 +1,37 @@
 {
-  "sharedRuntimeDigest": "09fb43ed5340c444c02470e1790d123e0c9b2848734fca47460b3ed681f0eed0",
+  "sharedRuntimeDigest": "c406b255e15e0d74294fec36e772992ed9cdbb6409a98111ce74477206c66756",
   "plugins": {
     "sforum.auth-github": {
       "version": "1.0.8",
-      "sourceDigest": "1fc6ccd767548d1776f6ede8746c4b138eff7c5447151b86849d6c20b8985628"
+      "sourceDigest": "db9714203046401379d6221c5543952a03da2cbaa35ab9ba80adeeb3c69ada7c"
     },
     "sforum.content-policy": {
       "version": "1.1.7",
-      "sourceDigest": "06258e7a9fedd0de2bd1b2be257b100c6fb22c85e6da9a336482f5a003091ff4"
+      "sourceDigest": "f767f9f0d308213a45ec9b833c1ff1d4836cd4e1a589f1254bebe8f1f6d23bba"
     },
     "sforum.search-site": {
       "version": "1.0.7",
-      "sourceDigest": "6df8d22044b003f14fe25d80a29b87ff3b5d3d99452c03fff68b382f0c5c4da2"
+      "sourceDigest": "e0056d6920777cc28904290a356da0badec4c8c2593d044f27482d4ebc6bfbbc"
     },
     "sforum-shortcodes": {
       "version": "1.3.5",
-      "sourceDigest": "ae585fcb062279650f068326a978d8abfa9f572e3ede49f100431dbe99e440ae"
+      "sourceDigest": "bd586d3f69cb0e4bc564c63f5653a30a8ac25b7c4afe4d7f88f514732f9021ae"
     },
     "sforum.smtp": {
       "version": "1.1.7",
-      "sourceDigest": "e075435d6818ca44a645ac8ebe090bca23df7001f9ec8597eab52efc559cb32a"
+      "sourceDigest": "a99fb784a2b263251f00a18626e4148b37681997a95dadade15d7de1b2a3c232"
     },
     "sforum.storage-fs": {
       "version": "1.1.8",
-      "sourceDigest": "54691739e90e8d2787642b0fc6693e75e26c03fa768202793727d3d231976bd0"
+      "sourceDigest": "2f7c020bf1735b7a04b48e9471d048266d5558f47f62484216105a1ce7f1cd02"
     },
     "sforum.storage-s3": {
       "version": "1.0.10",
-      "sourceDigest": "a216eddfe58335e63061f173d4bd3472d9b1afb38de95d6ebc7b10b4a316f67d"
+      "sourceDigest": "bd5b1b4f400b120b9e2f631327c446fb5c8e2058115990d96130a2d55b318ddf"
     },
     "sforum.web-push": {
       "version": "1.0.7",
-      "sourceDigest": "73219b94cef184219bb6269a990a768c2fa459c95d5d10d98795126e3f3960c9"
+      "sourceDigest": "ad36eadfe8ec7f37acf52546069aea43acf44c900de89fb6498d02c0eaa701f2"
     }
   }
 }

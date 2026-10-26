@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 )
 
 func TestTriageDebounceBucketsByWindow(t *testing.T) {

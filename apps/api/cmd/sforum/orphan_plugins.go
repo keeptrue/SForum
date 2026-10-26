@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	devhygiene "github.com/zhuchunshu/sforum/apps/api/app/Support/DevHygiene"
+	devhygiene "github.com/keeptrue/sforum/apps/api/app/Support/DevHygiene"
 )
 
 func newDevCleanupOrphanPluginsCommand() *cobra.Command {

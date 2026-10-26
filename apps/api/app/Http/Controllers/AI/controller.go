@@ -8,12 +8,12 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	modelsai "github.com/zhuchunshu/sforum/apps/api/app/Models/AI"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	modelsai "github.com/keeptrue/sforum/apps/api/app/Models/AI"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 type Controller struct {

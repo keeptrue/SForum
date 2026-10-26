@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strconv"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 昵称策略：昵称是展示标签而不是身份，唯一性只属于 username。这里只声明

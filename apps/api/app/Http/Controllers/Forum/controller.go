@@ -12,12 +12,12 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	clientip "github.com/zhuchunshu/sforum/apps/api/app/Support/ClientIP"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Idempotency"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
 )
 
 type Controller struct {

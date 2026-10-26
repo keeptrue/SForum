@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/systemactor"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/systemactor"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 )
 
 type fakeInventory struct {

@@ -7,10 +7,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	privacy "github.com/zhuchunshu/sforum/apps/api/app/Support/Privacy"
-	runtimerollout "github.com/zhuchunshu/sforum/apps/api/app/Support/RuntimeRollout"
-	systemtier "github.com/zhuchunshu/sforum/apps/api/app/Support/SystemTier"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	privacy "github.com/keeptrue/sforum/apps/api/app/Support/Privacy"
+	runtimerollout "github.com/keeptrue/sforum/apps/api/app/Support/RuntimeRollout"
+	systemtier "github.com/keeptrue/sforum/apps/api/app/Support/SystemTier"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // productionP12Ops holds durable P12 operations packages bound at API boot.

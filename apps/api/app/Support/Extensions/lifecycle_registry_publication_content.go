@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	pluginv2sdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	pluginv2sdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 func (b *PostgresLifecycleBoundaryRegistries) ContentRegistry() *contentregistry.Registry {

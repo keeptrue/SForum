@@ -1,8 +1,8 @@
 package main
 
 import (
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/storageprovider"
-	pluginv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/storageprovider"
+	pluginv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 )
 
 func main() {

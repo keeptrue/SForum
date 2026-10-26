@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // T1A 安全门控测试：授权顺序、零写入、artifact 漂移、禁用、PKCE 传递、redirect 防护。

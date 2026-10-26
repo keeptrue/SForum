@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 func TestRegisterFirstUserAssignsSuperAdminAndMember(t *testing.T) {

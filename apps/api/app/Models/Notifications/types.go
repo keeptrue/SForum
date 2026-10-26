@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Outbox"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
 )
 
 const (

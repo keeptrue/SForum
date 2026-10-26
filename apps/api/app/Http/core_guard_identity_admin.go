@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 func identityAdminGuardEvaluator(policy IdentityAdminGuardPolicy) routes.CoreGuardEvaluatorFunc {

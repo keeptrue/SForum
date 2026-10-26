@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	audit "github.com/zhuchunshu/sforum/apps/api/app/Support/Audit"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 func TestActivationCoordinatorPersistsFailureAndSkipsSameDigest(t *testing.T) {

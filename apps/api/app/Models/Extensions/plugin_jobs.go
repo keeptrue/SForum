@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // PluginJobContract loads one enabled plugin's immutable manifest contract.

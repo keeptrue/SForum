@@ -3,7 +3,7 @@ package ai
 import (
 	"errors"
 
-	outboundhttp "github.com/zhuchunshu/sforum/apps/api/app/Support/OutboundHTTP"
+	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
 )
 
 // DiagnoseResult 是一次连通性探测的结论。失败时带上足够定位问题的信息，

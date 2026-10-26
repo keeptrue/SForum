@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	ai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
+	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 )
 
 // imageRequest 构造一条带图片的用户消息：契约允许的形态是文本 + 图片混合

@@ -5,9 +5,9 @@ import (
 	"runtime"
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage/referencefixture"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	"github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage/referencefixture"
 )
 
 // A1 / R2：带 loader 数据的参考包必须能在**构建期**通过路由 schema 目录校验。

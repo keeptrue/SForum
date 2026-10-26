@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	cache "github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 func TestProtectedShortcodeProcessCacheContainsOnlyPublicBase(t *testing.T) {

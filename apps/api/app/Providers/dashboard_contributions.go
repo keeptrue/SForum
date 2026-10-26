@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	adminoverview "github.com/zhuchunshu/sforum/apps/api/app/Models/AdminOverview"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	adminoverview "github.com/keeptrue/sforum/apps/api/app/Models/AdminOverview"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // ExtensionDashboardWidgetProvider 解析 admin.dashboard.widgets（F4.3）。

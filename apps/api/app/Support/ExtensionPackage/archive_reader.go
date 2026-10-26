@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // ErrInvalidArchive 表示 ZIP 结构、条目或资源边界不符合扩展包约束。

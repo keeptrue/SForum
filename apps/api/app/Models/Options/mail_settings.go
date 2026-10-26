@@ -3,8 +3,8 @@ package options
 import (
 	"context"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	mail "github.com/zhuchunshu/sforum/apps/api/app/Support/Mail"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	mail "github.com/keeptrue/sforum/apps/api/app/Support/Mail"
 )
 
 func init() {

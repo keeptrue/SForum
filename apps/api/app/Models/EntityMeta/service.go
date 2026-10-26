@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 var fieldKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9._-]{1,63}$`)

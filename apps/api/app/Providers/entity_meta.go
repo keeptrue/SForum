@@ -3,10 +3,10 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	entitymetacontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/EntityMeta"
-	entitymeta "github.com/zhuchunshu/sforum/apps/api/app/Models/EntityMeta"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	entitymetacontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/EntityMeta"
+	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type EntityMetaProvider struct {

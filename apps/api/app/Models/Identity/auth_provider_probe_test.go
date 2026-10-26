@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 func TestAuthProviderFlowProbeSuccessAndRedaction(t *testing.T) {

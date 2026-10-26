@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 // fakeCaps 最小能力源，供 Host API 网关集成测试。

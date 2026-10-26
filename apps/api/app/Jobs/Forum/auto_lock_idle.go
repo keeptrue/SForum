@@ -7,7 +7,7 @@ import (
 
 	"github.com/riverqueue/river"
 
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // IdleLocker 将超过闲置天数的 active 主题锁帖。

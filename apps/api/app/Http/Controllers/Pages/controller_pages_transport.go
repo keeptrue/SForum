@@ -6,9 +6,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
 
 // Pages 控制器的传输层类型与响应辅助：页面解析响应的序列化形状、失败原因常量，

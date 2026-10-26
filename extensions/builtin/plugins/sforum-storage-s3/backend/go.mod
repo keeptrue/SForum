@@ -1,4 +1,4 @@
-module github.com/zhuchunshu/sforum/extensions/builtin/plugins/sforum-storage-s3/backend
+module github.com/keeptrue/sforum/extensions/builtin/plugins/sforum-storage-s3/backend
 
 go 1.26.10
 
@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.20
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
 	github.com/aws/smithy-go v1.24.2
-	github.com/zhuchunshu/sforum/apps/api v0.0.0
+	github.com/keeptrue/sforum/apps/api v0.0.0
 )
 
 require (
@@ -43,4 +43,4 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 )
 
-replace github.com/zhuchunshu/sforum/apps/api => ../../../../../apps/api
+replace github.com/keeptrue/sforum/apps/api => ../../../../../apps/api

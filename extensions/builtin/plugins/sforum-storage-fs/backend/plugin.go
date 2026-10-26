@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	pluginsdk "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/storageprovider"
+	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/storageprovider"
 )
 
 // fsStoragePlugin 是 attachment.storage.provider 的参考实现（E6.4）。

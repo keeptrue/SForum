@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 // AI 网关解析 provider 密钥时声明的用途。Secret Store 会把它写进审计流水，

@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // M8 / M0 ADR 6.2.5：内置包清单必须从清单树发现，而不是在 shell 里再抄一份。

@@ -5,15 +5,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
-	jobscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Jobs"
-	attachmentjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Attachments"
-	auditjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Audit"
-	identityjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Identity"
-	searchjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Search"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	jobs "github.com/zhuchunshu/sforum/apps/api/app/Models/Jobs"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	jobscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Jobs"
+	attachmentjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Attachments"
+	auditjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Audit"
+	identityjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Identity"
+	searchjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Search"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	jobs "github.com/keeptrue/sforum/apps/api/app/Models/Jobs"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type JobsProvider struct{ controller *jobscontroller.Controller }

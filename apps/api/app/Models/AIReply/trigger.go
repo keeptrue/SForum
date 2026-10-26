@@ -11,9 +11,9 @@ import (
 	"log/slog"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // BotAccount 描述充当 AI 助手的账号。

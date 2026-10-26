@@ -14,10 +14,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrator"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	"github.com/keeptrue/sforum/apps/api/database/migrator"
 )
 
 // TestReferenceSEOFormalZipUploadTrustEnableRestartDisableUpgradeUninstall

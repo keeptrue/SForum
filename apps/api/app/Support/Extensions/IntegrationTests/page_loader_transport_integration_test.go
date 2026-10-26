@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	"github.com/zhuchunshu/sforum/apps/api/bootstrap"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	"github.com/keeptrue/sforum/apps/api/bootstrap"
 )
 
 // R2（2026-10-16）：页面数据经 Protocol V2 精确实例调用取数。

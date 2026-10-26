@@ -6,11 +6,11 @@ import (
 	"sort"
 	"strings"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
-	capabilities "github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
 var (

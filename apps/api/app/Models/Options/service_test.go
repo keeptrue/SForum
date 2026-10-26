@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
 )
 
 func TestServiceReturnsDefaultSiteName(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	searchjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Search"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	searchjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Search"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 type fakeProviderResolver struct {

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	installationidentity "github.com/zhuchunshu/sforum/apps/api/app/Support/InstallationIdentity"
+	installationidentity "github.com/keeptrue/sforum/apps/api/app/Support/InstallationIdentity"
 )
 
 const identityUserFieldDigestKeyDomain = "sforum/identity/user-field-value-digest/v1"

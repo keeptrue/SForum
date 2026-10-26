@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
 func insertTag(ctx context.Context, tx pgx.Tx, actorUserID int64, slug string, status string) (TopicTagSummary, error) {

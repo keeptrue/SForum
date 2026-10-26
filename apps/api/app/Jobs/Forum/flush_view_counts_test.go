@@ -6,7 +6,7 @@ import (
 
 	"github.com/riverqueue/river"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 )
 
 type flushDrainer struct {

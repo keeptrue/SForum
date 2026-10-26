@@ -17,7 +17,7 @@ SForum 目前只为**最新正式发布版本**提供安全更新。安全修复
 | 预发布版本 | 尽力支持 |
 | 更早的正式版本 | 不支持 |
 
-请通过 [GitHub Releases](https://github.com/zhuchunshu/SForum/releases)
+请通过 [GitHub Releases](https://github.com/keeptrue/SForum/releases)
 确认当前最新版本，并在报告中写明受影响的版本或提交。
 
 ### 私密报告漏洞
@@ -40,7 +40,7 @@ SForum 目前只为**最新正式发布版本**提供安全更新。安全修复
 交换额外的敏感材料，请先通过邮件协商合适的传输方式。
 
 一般缺陷、功能建议和不含敏感细节的加固建议可以使用
-[GitHub Issues](https://github.com/zhuchunshu/SForum/issues)。如果无法
+[GitHub Issues](https://github.com/keeptrue/SForum/issues)。如果无法
 判断问题是否具有安全影响，请优先按安全漏洞私密报告。
 
 ### 处理流程
@@ -84,8 +84,8 @@ SForum Core 和本仓库维护的内置扩展属于本策略范围。第三方�
 ### 获取安全更新
 
 安全修复通过新的 SForum 版本发布，并记录在
-[GitHub Releases](https://github.com/zhuchunshu/SForum/releases) 或
-[GitHub Security Advisories](https://github.com/zhuchunshu/SForum/security/advisories)
+[GitHub Releases](https://github.com/keeptrue/SForum/releases) 或
+[GitHub Security Advisories](https://github.com/keeptrue/SForum/security/advisories)
 中。部署者应升级到最新正式版本，并避免将分支名或浮动镜像标签作为可
 复现的生产版本依据。
 
@@ -105,7 +105,7 @@ production. Security fixes are not normally backported to older releases.
 | Prereleases | Best effort |
 | Older stable releases | Unsupported |
 
-Check [GitHub Releases](https://github.com/zhuchunshu/SForum/releases) for the
+Check [GitHub Releases](https://github.com/keeptrue/SForum/releases) for the
 current version, and identify the affected version or commit in your report.
 
 ### Reporting a Vulnerability Privately
@@ -129,7 +129,7 @@ production dumps. Redact sensitive values first. Contact the maintainer before
 sending additional sensitive material so an appropriate transfer method can be
 agreed.
 
-Use [GitHub Issues](https://github.com/zhuchunshu/SForum/issues) for ordinary
+Use [GitHub Issues](https://github.com/keeptrue/SForum/issues) for ordinary
 bugs, feature requests, and hardening suggestions that contain no sensitive
 details. If you are unsure whether an issue has security impact, report it
 privately.
@@ -189,7 +189,7 @@ welcome.
 ### Receiving Security Updates
 
 Security fixes are shipped in new SForum releases and documented through
-[GitHub Releases](https://github.com/zhuchunshu/SForum/releases) or
-[GitHub Security Advisories](https://github.com/zhuchunshu/SForum/security/advisories).
+[GitHub Releases](https://github.com/keeptrue/SForum/releases) or
+[GitHub Security Advisories](https://github.com/keeptrue/SForum/security/advisories).
 Operators should upgrade to the latest stable release and avoid branch names or
 floating image tags as the source of a reproducible production version.

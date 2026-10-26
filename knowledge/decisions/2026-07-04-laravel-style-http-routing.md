@@ -73,7 +73,7 @@ revisit generated dependency wiring before adopting runtime container behavior.
   behavior remains discoverable.
 - The project avoids Laravel-style hidden magic while retaining the parts of
   Laravel's organization that make large applications easier to navigate.
-- The API module path is `github.com/zhuchunshu/sforum/apps/api`.
+- The API module path is `github.com/keeptrue/sforum/apps/api`.
 
 ## Follow-up
 

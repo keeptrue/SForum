@@ -3,8 +3,8 @@ package bootstrap
 import (
 	"github.com/riverqueue/river"
 
-	extensionsjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	extensionsjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // applyUninstallCleanupSweepRegistration 把卸载物理清理收敛挂到 worker 装配：

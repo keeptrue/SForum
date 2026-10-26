@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestFrozenFamilySurfacesCompleteAndOrdered(t *testing.T) {

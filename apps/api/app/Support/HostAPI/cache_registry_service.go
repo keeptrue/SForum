@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	cacheregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/CacheRegistry"
+	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	contentlinks "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentLinks"
+	contentlinks "github.com/keeptrue/sforum/apps/api/app/Support/ContentLinks"
 )
 
 // TestRenderSegmentLinkPolicyIsSanitizeStable 固定「链接改写后仍是净化固定点」这一契约：

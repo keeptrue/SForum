@@ -3,7 +3,7 @@ package extensionsruntime
 import (
 	"time"
 
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // search.provider known-slot 载荷（Protocol V2 ProviderCall）。

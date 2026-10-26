@@ -16,11 +16,11 @@ import (
 	"time"
 	"unicode"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 // evalFixture 是一条 eval 用例：一段固定的社群上下文 + 谁在什么时候叫了机器人。

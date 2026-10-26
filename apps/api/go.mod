@@ -1,4 +1,4 @@
-module github.com/zhuchunshu/sforum/apps/api
+module github.com/keeptrue/sforum/apps/api
 
 go 1.26.10
 

@@ -4,10 +4,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	optionscontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Options"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	optionscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Options"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type OptionsProvider struct {

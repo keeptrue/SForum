@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	cryptox "github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	secretstore "github.com/zhuchunshu/sforum/apps/api/app/Support/SecretStore"
+	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 )
 
 func TestPutPreviewResetExportImportAndMigration(t *testing.T) {

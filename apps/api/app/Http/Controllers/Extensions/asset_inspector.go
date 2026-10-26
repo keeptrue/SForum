@@ -7,8 +7,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	apphttp "github.com/zhuchunshu/sforum/apps/api/app/Http"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 )
 
 const (

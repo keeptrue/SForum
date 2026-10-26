@@ -1,6 +1,6 @@
 package extensionsruntime
 
-import extensionruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionRuntime"
+import extensionruntime "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionRuntime"
 
 var (
 	ErrRuntimeAdmissionInvalid     = extensionruntime.ErrRuntimeAdmissionInvalid

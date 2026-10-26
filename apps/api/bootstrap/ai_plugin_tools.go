@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	toolplugin "github.com/zhuchunshu/sforum/apps/api/app/Support/AI/toolplugin"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	toolplugin "github.com/keeptrue/sforum/apps/api/app/Support/AI/toolplugin"
 )
 
 // 具体传输适配器（toolplugin.PluginToolInvoker → 扩展运行时的 versioned

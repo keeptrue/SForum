@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionpackage "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionPackage"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 // PreflightExactTemplateRuntime 对显式 Manifest V3 包复用生产

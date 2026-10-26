@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	cache "github.com/zhuchunshu/sforum/apps/api/app/Support/Cache"
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 func TestProtectedShortcodeRedisCachesOnlyActorIndependentBase(t *testing.T) {

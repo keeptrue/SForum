@@ -3,11 +3,11 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
-	moderationcontroller "github.com/zhuchunshu/sforum/apps/api/app/Http/Controllers/Moderation"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	authsession "github.com/zhuchunshu/sforum/apps/api/app/Support/AuthSession"
+	moderationcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Moderation"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
 type ModerationProvider struct {

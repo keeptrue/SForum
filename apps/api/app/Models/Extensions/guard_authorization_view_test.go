@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // M5：影响文档必须能回答「哪条路由的授权由哪个精确制品拥有」。该信息以**派生视图**

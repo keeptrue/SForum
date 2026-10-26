@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 )
 
 func TestPostgresProtocolV2AttachmentStatusMutatorUsesCallerTransaction(t *testing.T) {

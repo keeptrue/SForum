@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // GeneratedDocs 是一次目录文档生成的结果（内存）。
@@ -161,7 +161,7 @@ func renderIndex() string {
 	b.WriteString("| [notifications.md](./notifications.md) | Notification type declarations + bounded `notifications.emit@1` Host command |\n")
 	b.WriteString("\n## Authoring\n\n")
 	b.WriteString("- Hand-written guide: [../authoring-guide.md](../authoring-guide.md)\n")
-	b.WriteString("- Go SDK: `github.com/zhuchunshu/sforum/apps/api/sdk/plugin` and `/v2`\n")
+	b.WriteString("- Go SDK: `github.com/keeptrue/sforum/apps/api/sdk/plugin` and `/v2`\n")
 	b.WriteString("- Contract CLI: `sforum extension test [path]`\n")
 	b.WriteString("- Scenario map: [../scenario-map.md](../scenario-map.md)\n")
 	b.WriteString("- Reference plugins: built-in `sforum.smtp` (mail provider), `sforum.content-policy` (workflow filters), fixtures under `extensions/fixtures/plugins/`\n")

@@ -11,10 +11,10 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Postgres"
-	privacy "github.com/zhuchunshu/sforum/apps/api/app/Support/Privacy"
-	"github.com/zhuchunshu/sforum/apps/api/bootstrap"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Postgres"
+	privacy "github.com/keeptrue/sforum/apps/api/app/Support/Privacy"
+	"github.com/keeptrue/sforum/apps/api/bootstrap"
 )
 
 // privacy:erase-user 是 `privacy.Registry.EraseUser` 的生产入口（D2 决定）：

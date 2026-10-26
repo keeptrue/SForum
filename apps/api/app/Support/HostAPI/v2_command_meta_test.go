@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	entitymeta "github.com/zhuchunshu/sforum/apps/api/app/Models/EntityMeta"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	hostv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
-	protocolv2 "github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
+	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 

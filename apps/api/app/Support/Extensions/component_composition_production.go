@@ -7,10 +7,10 @@ import (
 	"strings"
 	"sync"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	componentcatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/ComponentCatalog"
-	extensioncomposition "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionComposition"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	componentcatalog "github.com/keeptrue/sforum/apps/api/app/Support/ComponentCatalog"
+	extensioncomposition "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionComposition"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // ProductionComponentCompositionConfig wires the Host-owned composition stack.

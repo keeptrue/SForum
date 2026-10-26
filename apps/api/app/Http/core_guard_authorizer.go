@@ -11,14 +11,14 @@ import (
 	"path"
 	"strings"
 
-	apitokens "github.com/zhuchunshu/sforum/apps/api/app/Models/APITokens"
-	attachments "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments"
-	entitymeta "github.com/zhuchunshu/sforum/apps/api/app/Models/EntityMeta"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
+	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 type ProductionRouteGuardAuthorizer struct {

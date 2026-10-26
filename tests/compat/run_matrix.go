@@ -18,7 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
-	compatfarm "github.com/zhuchunshu/sforum/apps/api/app/Support/CompatFarm"
+	compatfarm "github.com/keeptrue/sforum/apps/api/app/Support/CompatFarm"
 )
 
 func main() {

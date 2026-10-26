@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	contentregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/ContentRegistry"
+	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
 )
 
 var ErrContentRegistryAdmissionInvalid = errors.New("hostapi: content registry admission is invalid")

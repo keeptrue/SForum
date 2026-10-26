@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	aireply "github.com/zhuchunshu/sforum/apps/api/app/Models/AIReply"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 type fakeAccounts struct {

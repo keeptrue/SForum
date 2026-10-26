@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // seedDeps 把 runSeed 依赖的 service/store 收拢在一起，方便命令装配。

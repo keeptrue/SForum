@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/riverqueue/river"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 // PluginScheduleTriggerWorker converts a Host-owned periodic marker into the

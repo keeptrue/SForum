@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	store "github.com/zhuchunshu/sforum/apps/api/database/sqlc"
+	store "github.com/keeptrue/sforum/apps/api/database/sqlc"
 )
 
 func (s *PostgresStore) ListRoles(ctx context.Context) ([]Role, error) {

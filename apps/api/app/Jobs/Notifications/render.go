@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 )
 
 func renderDelivery(delivery notifications.MailDelivery) extensionsruntime.MailProviderRequest {

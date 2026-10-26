@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	publicstyles "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions/publicstyles"
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
+	publicstyles "github.com/keeptrue/sforum/apps/api/app/Models/Extensions/publicstyles"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 )
 
 const (

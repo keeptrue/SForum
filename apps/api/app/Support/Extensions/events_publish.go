@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
 
 // normalizeEnvelopeAs 为插件发起的信封补齐宿主权威的默认值：ID、关联 ID 与

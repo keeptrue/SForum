@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Crypto"
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	hostapi "github.com/zhuchunshu/sforum/apps/api/app/Support/HostAPI"
-	humanverify "github.com/zhuchunshu/sforum/apps/api/app/Support/HumanVerify"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestAPIAddressUsesConfiguredHostAndPort(t *testing.T) {

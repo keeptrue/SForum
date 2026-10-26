@@ -4,8 +4,8 @@ import (
 	"path"
 	"strings"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	storage "github.com/zhuchunshu/sforum/apps/api/app/Support/Storage"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	storage "github.com/keeptrue/sforum/apps/api/app/Support/Storage"
 )
 
 const attachmentPathTemplateMaxRunes = 160

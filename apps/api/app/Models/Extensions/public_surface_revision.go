@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // PublicSurfaceRevisionBumper 在扩展设置变更影响公开贡献面时递增宿主 revision。

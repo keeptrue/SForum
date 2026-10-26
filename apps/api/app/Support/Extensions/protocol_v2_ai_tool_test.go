@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 // aiToolTransportStarter 同时实现 Starter 与 AI 工具派发面，用来验证协作者只做

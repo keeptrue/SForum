@@ -16,7 +16,7 @@ staging) with the trust/iteration cycle.
 Contents (canonical page):
 
 - Package shape after a build
-- Backend Go module (`go.mod` + `replace github.com/zhuchunshu/sforum/apps/api => <checkout>/apps/api`)
+- Backend Go module (`go.mod` + `replace github.com/keeptrue/sforum/apps/api => <checkout>/apps/api`)
 - Building frontend assets (final self-contained ESM/CSS; the Host never compiles uploaded source)
 - `extension digest --write` / `validate` / `test` / `package`
 - Loading into a running instance (four paths + admin trust/enable)

@@ -11,7 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 )
 
 func TestPostgresStoreReportMutationsReturnStoredProjection(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 type scaffoldManifest struct {
@@ -614,7 +614,7 @@ func readmeBody(opts makeOptions) string {
 
 func pluginBackendReadme(opts makeOptions) string {
 	return "# Backend Stub\n\nBuild a HashiCorp go-plugin compatible executable named `plugin` in this directory before enabling `" + opts.ID + "`.\n\n" +
-		"Use the Protocol V2 public Go SDK:\n\n```go\npackage main\n\nimport pluginv2 \"github.com/zhuchunshu/sforum/apps/api/sdk/plugin/v2\"\n\nfunc main() { pluginv2.Serve(pluginv2.NewServer()) }\n```\n\n" +
+		"Use the Protocol V2 public Go SDK:\n\n```go\npackage main\n\nimport pluginv2 \"github.com/keeptrue/sforum/apps/api/sdk/plugin/v2\"\n\nfunc main() { pluginv2.Serve(pluginv2.NewServer()) }\n```\n\n" +
 		"After replacing the generated stub, refresh the exact file digests:\n\n```bash\ncd apps/api && go run ./cmd/sforum extension digest --write <package-root>\n```\n\n" +
 		"Contract test (no binary required while scaffolding):\n\n```bash\ncd apps/api && go run ./cmd/sforum extension test --allow-scaffold <package-root>\n```\n"
 }

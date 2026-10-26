@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	routes "github.com/zhuchunshu/sforum/apps/api/app/Support/Routes"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 )
 
 type ForumCommentCreateGuardPolicy interface {

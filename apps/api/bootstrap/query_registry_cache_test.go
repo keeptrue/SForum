@@ -13,8 +13,8 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	queryregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/QueryRegistry"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 func TestProductionQueryResultCacheSafeModeDoesNotCreateRedisRuntime(t *testing.T) {

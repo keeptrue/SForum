@@ -3,8 +3,8 @@ package bootstrap
 import (
 	"log/slog"
 
-	devhygiene "github.com/zhuchunshu/sforum/apps/api/app/Support/DevHygiene"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	devhygiene "github.com/keeptrue/sforum/apps/api/app/Support/DevHygiene"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 // startDevelopmentOrphanPluginReaper 在 development 下延迟清理 air 热重载遗留的

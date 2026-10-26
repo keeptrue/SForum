@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
 // 插件贡献工具的契约边界。

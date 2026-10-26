@@ -8,14 +8,14 @@ import (
 	"strings"
 	"time"
 
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	moderation "github.com/zhuchunshu/sforum/apps/api/app/Models/Moderation"
-	notifications "github.com/zhuchunshu/sforum/apps/api/app/Models/Notifications"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	sitechrome "github.com/zhuchunshu/sforum/apps/api/app/Models/SiteChrome"
-	componentcatalog "github.com/zhuchunshu/sforum/apps/api/app/Support/ComponentCatalog"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
-	themecompiler "github.com/zhuchunshu/sforum/apps/api/app/Support/ThemeCompiler"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
+	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
+	componentcatalog "github.com/keeptrue/sforum/apps/api/app/Support/ComponentCatalog"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
+	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
 )
 
 func mapForumTopics(items []forum.TopicSummary, topicURLMode string) []themecompiler.TopicSummaryView {

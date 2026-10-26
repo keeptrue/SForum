@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	aitools "github.com/zhuchunshu/sforum/apps/api/app/Models/AITools"
-	forum "github.com/zhuchunshu/sforum/apps/api/app/Models/Forum"
-	profile "github.com/zhuchunshu/sforum/apps/api/app/Models/Profile"
-	supportai "github.com/zhuchunshu/sforum/apps/api/app/Support/AI"
-	search "github.com/zhuchunshu/sforum/apps/api/app/Support/Search"
+	aitools "github.com/keeptrue/sforum/apps/api/app/Models/AITools"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+	search "github.com/keeptrue/sforum/apps/api/app/Support/Search"
 )
 
 type fakeSearcher struct {

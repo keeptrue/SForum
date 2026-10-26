@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 var errWorkerRuntimeCoordinatorTerminalTest = errors.New("worker runtime coordinator lease lost")

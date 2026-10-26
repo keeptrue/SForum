@@ -10,7 +10,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	editorregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/EditorRegistry"
+	editorregistry "github.com/keeptrue/sforum/apps/api/app/Support/EditorRegistry"
 )
 
 func TestPublicEditorCatalogEmptyWithoutRegistry(t *testing.T) {

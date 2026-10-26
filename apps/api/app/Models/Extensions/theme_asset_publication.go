@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	assetregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/AssetRegistry"
+	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 )
 
 var errAssetPublicationConflict = errors.New("extensions: asset publication snapshot conflicts with exact extension state")

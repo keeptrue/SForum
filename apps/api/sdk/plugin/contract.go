@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	appevents "github.com/zhuchunshu/sforum/apps/api/app/Support/Events"
-	extensionmanifest "github.com/zhuchunshu/sforum/apps/api/app/Support/ExtensionManifest"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	pages "github.com/zhuchunshu/sforum/apps/api/app/Support/Pages"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 )
 
 // Check 是一次契约检查的结果项。

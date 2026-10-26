@@ -6,8 +6,8 @@ import (
 	"math"
 	"testing"
 
-	uploadpolicy "github.com/zhuchunshu/sforum/apps/api/app/Models/Attachments/UploadPolicy"
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 const mib int64 = 1024 * 1024

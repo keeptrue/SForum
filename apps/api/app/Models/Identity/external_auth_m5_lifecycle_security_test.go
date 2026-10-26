@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	identityregistry "github.com/zhuchunshu/sforum/apps/api/app/Support/IdentityRegistry"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 )
 
 // M5 / T7：生命周期矩阵 + 安全矩阵 + 限流 + 非枚举公共错误边界。

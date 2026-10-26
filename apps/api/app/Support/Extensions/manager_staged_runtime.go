@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
 // StageRuntimeInstance starts one inert Protocol V2 process and retains its

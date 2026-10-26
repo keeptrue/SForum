@@ -18,12 +18,12 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/riverqueue/river"
 
-	queryregistryjobs "github.com/zhuchunshu/sforum/apps/api/app/Jobs/QueryRegistry"
-	extensions "github.com/zhuchunshu/sforum/apps/api/app/Models/Extensions"
-	extensionsruntime "github.com/zhuchunshu/sforum/apps/api/app/Support/Extensions"
-	supportjobs "github.com/zhuchunshu/sforum/apps/api/app/Support/Jobs"
-	"github.com/zhuchunshu/sforum/apps/api/config"
-	"github.com/zhuchunshu/sforum/apps/api/database/migrator"
+	queryregistryjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/QueryRegistry"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/database/migrator"
 )
 
 func TestProductionQueryWorkerOwnershipAndSafeModeKindJoined(t *testing.T) {

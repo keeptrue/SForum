@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	pluginbootstrap "github.com/zhuchunshu/sforum/apps/api/app/Support/PluginBootstrap"
+	pluginbootstrap "github.com/keeptrue/sforum/apps/api/app/Support/PluginBootstrap"
 )
 
 func TestClassifyHistoricalCookieMismatch(t *testing.T) {

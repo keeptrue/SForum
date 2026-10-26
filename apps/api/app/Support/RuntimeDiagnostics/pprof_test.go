@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	runtimediagnostics "github.com/zhuchunshu/sforum/apps/api/app/Support/RuntimeDiagnostics"
+	runtimediagnostics "github.com/keeptrue/sforum/apps/api/app/Support/RuntimeDiagnostics"
 )
 
 func TestStartPprofDisabledCreatesNoListener(t *testing.T) {

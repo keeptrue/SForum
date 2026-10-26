@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
-	avatar "github.com/zhuchunshu/sforum/apps/api/app/Support/Avatar"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
 const (

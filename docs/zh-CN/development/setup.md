@@ -69,7 +69,7 @@ API 始终内嵌并拥有 Worker。`scripts/worker-dev.sh` 仅保留为旧命令
 ## 4. 编辑器建议
 
 - 打开仓库根为 workspace  
-- Go 模块路径：`github.com/zhuchunshu/sforum/apps/api`  
+- Go 模块路径：`github.com/keeptrue/sforum/apps/api`  
 - 前端在 `apps/web`，包名 `@sforum/web`  
 
 ## 5. 常见问题

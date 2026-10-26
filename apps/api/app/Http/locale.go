@@ -3,9 +3,9 @@ package http
 import (
 	"github.com/gofiber/fiber/v3"
 
-	options "github.com/zhuchunshu/sforum/apps/api/app/Models/Options"
-	"github.com/zhuchunshu/sforum/apps/api/app/Support/Localization"
-	"github.com/zhuchunshu/sforum/apps/api/config"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Localization"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
 const requestLocaleKey = "sforum.locale"

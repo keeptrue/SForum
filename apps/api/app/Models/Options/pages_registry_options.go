@@ -3,7 +3,7 @@ package options
 import (
 	"context"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // Page Registry / runtime theme 开关，与 features.* 产品面开关正交。

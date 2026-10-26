@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	identity "github.com/zhuchunshu/sforum/apps/api/app/Models/Identity"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // fakeTrustPolicy 是新人信任阶梯的最小假实现：只关心「是否禁止外链」。
