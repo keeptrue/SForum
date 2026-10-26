@@ -30,20 +30,15 @@ type DetailDrawerHandle = {
 }
 
 const { t } = useI18n()
-const toast = useToast()
 const adminPage = useAdminPage('/users')
 const { can } = useAuthSession()
 const canManage = computed(() => can('user.manage'))
 
 // 页面级红条只留给列表加载/筛选失败；抽屉与弹窗的错误各自留在自己的壳里。
+// 这里只写持久横幅：同一句再弹一个会自消失的 error toast 属于重复告知。
 const errorMessage = ref('')
 function showError(message: string) {
   errorMessage.value = message
-  toast.add({
-    title: message,
-    color: 'error',
-    icon: 'i-lucide-triangle-alert'
-  })
 }
 
 const {
