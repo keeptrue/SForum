@@ -50,9 +50,14 @@ func BuildBackend(packageRoot string) error {
 	// 一致时不替换 backend/plugin——否则每次重建都会自触发 watch 事件,
 	// 形成「构建 → 写产物 → 事件 → 重建」的稳态循环。
 	staging := binary + ".tmp"
+	plan, err := newBackendBuildPlan(backendDir)
+	if err != nil {
+		return err
+	}
+	defer plan.Cleanup()
 	cmd := exec.Command("go", backendBuildArgs(staging)...)
 	cmd.Dir = backendDir
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	cmd.Env = plan.Env
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		_ = os.Remove(staging)
@@ -78,6 +83,150 @@ func BuildBackend(packageRoot string) error {
 // `-ldflags="-s -w"` 是历史上唯一缺的一项；`-trimpath`/`-buildvcs=false` 保证可复现。
 func backendBuildArgs(staging string) []string {
 	return []string{"build", "-trimpath", "-buildvcs=false", "-ldflags=-s -w", "-o", staging, "./"}
+}
+
+// backendBuildPlan 是一次 dev 后端构建的完整环境。
+//
+// 两个构建者（host dev watcher 与本包的 BuildBackend、发行脚本
+// sforum-app-store 的 plugin/scripts/build.sh）必须产出逐字节相同的二进制，
+// 否则 manifest 的 backend.digest 会在两个值之间抖动。有两个变量必须消掉：
+//
+//  1. Go 工具链。`go` 指令只是下限，本机 Go 更新时会用本机版本，而 CI 用
+//     setup-go 按同一条指令装的精确版本。⇒ GOTOOLCHAIN 钉到 go.mod 的 go 行。
+//  2. replace 的文件系统路径。Go 会把它逐字写进 buildinfo（`go version -m` 可见
+//     `=> /path/to/module`），`-trimpath` 不处理它；而本地兄弟布局与 CI 的嵌套
+//     布局深度必然不同。⇒ 用临时 go.work 承载同一组模块，workspace 解析不经过
+//     replace，路径因此不进二进制。
+type backendBuildPlan struct {
+	// Env 是构建进程的完整环境。
+	Env []string
+	// Work 是临时 go.work 路径；空表示该模块不需要 workspace。
+	Work string
+
+	cleanup func()
+}
+
+// Cleanup 删除为本次构建创建的临时 workspace；重复调用安全。
+func (p *backendBuildPlan) Cleanup() {
+	if p != nil && p.cleanup != nil {
+		p.cleanup()
+		p.cleanup = nil
+	}
+}
+
+// newBackendBuildPlan 从目标模块的 go.mod 派生构建环境。
+//
+// 没有 `go` 行就不钉工具链；没有文件系统 replace 就不建 workspace（显式
+// GOWORK=off，避免被上层目录的 go.work 意外影响）。
+func newBackendBuildPlan(backendDir string) (*backendBuildPlan, error) {
+	env := append(os.Environ(), "CGO_ENABLED=0")
+	plan := &backendBuildPlan{Env: env}
+
+	goVersion, replacePaths := readBackendGoMod(filepath.Join(backendDir, "go.mod"))
+	if goVersion != "" {
+		plan.Env = append(plan.Env, "GOTOOLCHAIN=go"+goVersion)
+	}
+	if len(replacePaths) == 0 {
+		plan.Env = append(plan.Env, "GOWORK=off")
+		return plan, nil
+	}
+
+	absoluteRoot, err := filepath.Abs(backendDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve module root: %w", err)
+	}
+	var uses []string
+	uses = append(uses, absoluteRoot)
+	for _, relative := range replacePaths {
+		resolved := relative
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(absoluteRoot, relative)
+		}
+		uses = append(uses, filepath.Clean(resolved))
+	}
+
+	dir, err := os.MkdirTemp("", "sforum-plugin-work-")
+	if err != nil {
+		return nil, fmt.Errorf("create workspace dir: %w", err)
+	}
+	workPath := filepath.Join(dir, "go.work")
+	var body strings.Builder
+	if goVersion != "" {
+		body.WriteString("go " + goVersion + "\n\n")
+	}
+	body.WriteString("use (\n")
+	for _, use := range uses {
+		body.WriteString("\t" + use + "\n")
+	}
+	body.WriteString(")\n")
+	if err := os.WriteFile(workPath, []byte(body.String()), 0o644); err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, fmt.Errorf("write workspace file: %w", err)
+	}
+	plan.Work = workPath
+	plan.Env = append(plan.Env, "GOWORK="+workPath)
+	plan.cleanup = func() { _ = os.RemoveAll(dir) }
+	return plan, nil
+}
+
+// readBackendGoMod 从 go.mod 里取出 `go` 行与所有文件系统 replace 目标。
+//
+// 只认路径形式（`./x`、`../x`、`/x`）；模块版本形式的 replace 不影响构建路径，
+// 交给默认解析即可。解析失败一律返回空，调用方据此退回默认行为。
+func readBackendGoMod(path string) (goVersion string, replacePaths []string) {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return "", nil
+	}
+	inReplaceBlock := false
+	for _, line := range strings.Split(string(body), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if inReplaceBlock {
+			if trimmed == ")" {
+				inReplaceBlock = false
+				continue
+			}
+			if target, ok := replaceTargetPath(trimmed); ok {
+				replacePaths = append(replacePaths, target)
+			}
+			continue
+		}
+		if trimmed == "replace (" {
+			inReplaceBlock = true
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) == 2 && fields[0] == "go" && goVersion == "" {
+			// 只有 x.y.z 才钉工具链：`go 1.26` 这种两段式在 GOTOOLCHAIN 里是
+			// 非法/歧义取值，会让 go 去下载一个不存在的补丁版本。
+			if strings.Count(fields[1], ".") == 2 {
+				goVersion = fields[1]
+			}
+			continue
+		}
+		if len(fields) > 1 && fields[0] == "replace" {
+			if target, ok := replaceTargetPath(strings.TrimPrefix(trimmed, "replace ")); ok {
+				replacePaths = append(replacePaths, target)
+			}
+		}
+	}
+	return goVersion, replacePaths
+}
+
+// replaceTargetPath 从 `old [version] => target` 里取出文件系统目标。
+func replaceTargetPath(spec string) (string, bool) {
+	arrow := strings.Index(spec, "=>")
+	if arrow < 0 {
+		return "", false
+	}
+	target := strings.TrimSpace(spec[arrow+2:])
+	if target == "" || strings.HasPrefix(target, ".") == false && strings.HasPrefix(target, "/") == false {
+		return "", false
+	}
+	return target, true
 }
 
 // filesHaveEqualBytes 判断两个文件内容是否逐字节一致;任一不存在视为不一致。

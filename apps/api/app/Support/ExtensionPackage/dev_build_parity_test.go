@@ -2,6 +2,9 @@ package extensionpackage
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -63,5 +66,90 @@ func TestMarshalManifestJSONMatchesReleaseSerializer(t *testing.T) {
 		if bytes.Contains(body, []byte(escaped)) {
 			t.Fatalf("manifest still HTML-escapes %s: %s", escaped, body)
 		}
+	}
+}
+
+func TestBackendBuildPlanPinsToolchainAndWorkspace(t *testing.T) {
+	// `go` 指令只是下限；replace 的文件系统路径会被逐字写进 buildinfo。
+	// 两个构建者（dev watcher 与发行脚本）必须消掉这两个变量才可能产出同一份字节。
+	dir := t.TempDir()
+	depDir := filepath.Join(dir, "sibling", "core", "apps", "api")
+	if err := os.MkdirAll(depDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "module example.com/plugin\n\ngo 1.26.10\n\n" +
+		"require example.com/core/apps/api v0.0.0\n\n" +
+		"replace example.com/core/apps/api => ./sibling/core/apps/api\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := newBackendBuildPlan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer plan.Cleanup()
+
+	if plan.Work == "" {
+		t.Fatal("plan should create a workspace for a filesystem replace")
+	}
+	body, err := os.ReadFile(plan.Work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantUse := filepath.Clean(depDir)
+	if !strings.Contains(string(body), wantUse) {
+		t.Fatalf("go.work should use the resolved absolute path %q:\n%s", wantUse, body)
+	}
+	if !strings.Contains(string(body), "go 1.26.10") {
+		t.Fatalf("go.work should carry the module go directive:\n%s", body)
+	}
+	for _, want := range []string{"GOTOOLCHAIN=go1.26.10", "GOWORK=" + plan.Work} {
+		found := false
+		for _, entry := range plan.Env {
+			if entry == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("build env is missing %q", want)
+		}
+	}
+
+	workDir := filepath.Dir(plan.Work)
+	plan.Cleanup()
+	if _, err := os.Stat(workDir); !os.IsNotExist(err) {
+		t.Fatalf("temporary workspace should be removed after cleanup, stat err = %v", err)
+	}
+}
+
+func TestBackendBuildPlanLeavesDefaultsWithoutReplace(t *testing.T) {
+	// 没有文件系统 replace 的模块不需要 workspace；显式 GOWORK=off，避免被上层
+	// 目录的 go.work 意外影响。没有 go 行就不钉工具链。
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/plugin\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := newBackendBuildPlan(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer plan.Cleanup()
+	if plan.Work != "" {
+		t.Fatalf("plan should not create a workspace without a filesystem replace, got %q", plan.Work)
+	}
+	for _, entry := range plan.Env {
+		if strings.HasPrefix(entry, "GOTOOLCHAIN=") {
+			t.Fatalf("build env should not pin GOTOOLCHAIN without a go directive: %q", entry)
+		}
+	}
+	found := false
+	for _, entry := range plan.Env {
+		if entry == "GOWORK=off" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("build env should set GOWORK=off when no workspace is created")
 	}
 }
