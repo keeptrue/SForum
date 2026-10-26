@@ -30,7 +30,13 @@ function buttonStub() {
   }
 }
 
-function mountControl(emailVerified: boolean, requests: Array<{ path: string, options: Record<string, unknown> }>) {
+type ControlScenario = { failWith?: unknown, apiMessage?: string }
+
+function mountControl(
+  emailVerified: boolean,
+  requests: Array<{ path: string, options: Record<string, unknown> }>,
+  scenario: ControlScenario = {}
+) {
   const toasts: Record<string, unknown>[] = []
   Object.assign(globalThis, {
     ref: testVue.ref,
@@ -38,11 +44,14 @@ function mountControl(emailVerified: boolean, requests: Array<{ path: string, op
     useApiClient: () => ({
       request: async (path: string, options: Record<string, unknown>) => {
         requests.push({ path, options })
+        if (scenario.failWith !== undefined) {
+          throw scenario.failWith
+        }
         return { ...baseUser, emailVerified: (options.body as { verified: boolean }).verified }
       }
     }),
     useToast: () => ({ add: (toast: Record<string, unknown>) => toasts.push(toast) }),
-    apiErrorMessage: () => ''
+    apiErrorMessage: () => scenario.apiMessage ?? ''
   })
   return {
     toasts,
@@ -52,6 +61,10 @@ function mountControl(emailVerified: boolean, requests: Array<{ path: string, op
         stubs: {
           UButton: buttonStub(),
           UBadge: { template: '<span><slot /></span>' },
+          UAlert: {
+            props: ['title', 'description', 'color'],
+            template: '<div class="alert" :data-color="color">{{ title }}|{{ description }}</div>'
+          },
           UIcon: true,
           UModal: {
             props: ['open'],
@@ -99,6 +112,35 @@ describe('admin user email verification control', () => {
         options: { body: { verified: false } }
       })
       expect(wrapper.emitted('updated')?.[0]?.[0]).toMatchObject({ id: 42, emailVerified: false })
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  // 失败必须留在确认弹窗里：关窗会让人以为「点了没反应」，弹 error toast 又会 5 秒后消失。
+  test('keeps a failed verification inside the confirmation dialog', async () => {
+    const requests: Array<{ path: string, options: Record<string, unknown> }> = []
+    const { wrapper, toasts } = mountControl(false, requests, {
+      failWith: {
+        code: 503,
+        message: '邮件验证服务暂时不可用，请稍后重试。',
+        data: { reason: 'auth.email_verification_unavailable' }
+      },
+      apiMessage: '邮件验证服务暂时不可用，请稍后重试。'
+    })
+    try {
+      await wrapper.get('button').trigger('click')
+      const confirm = wrapper.findAll('button').filter(button => button.text().includes('admin.users.markEmailVerified')).at(-1)
+      await confirm!.trigger('click')
+      await flushPromises()
+
+      expect(requests).toHaveLength(1)
+      // 弹窗不关、错误在弹窗里、没有成功事件、没有 toast。
+      expect(wrapper.find('[data-testid="confirmation"]').exists()).toBe(true)
+      expect(wrapper.get('[data-testid="confirmation"] .alert').text())
+        .toContain('邮件验证服务暂时不可用，请稍后重试。')
+      expect(wrapper.emitted('updated')).toBeUndefined()
+      expect(toasts).toHaveLength(0)
     } finally {
       wrapper.unmount()
     }

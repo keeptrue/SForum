@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { FetchError } from 'ofetch'
 import {
   adminUserErrorFieldNames,
   firstAdminUserErrorField,
@@ -69,6 +70,62 @@ describe('admin user drawer errors', () => {
       summary: copy.fallback,
       fields: {}
     })
+  })
+
+  test('reads fields from a real ofetch FetchError', () => {
+    const error = new FetchError('422 Unprocessable Entity')
+    error.statusCode = 422
+    error.response = {
+      _data: {
+        code: 422,
+        message: '提交的用户信息有误，请按标出的字段修改后再保存。',
+        data: {
+          reason: 'user.invalid_update',
+          fields: { displayName: ['显示名不能为空。'], roleKeys: ['所选用户组不存在。'] }
+        }
+      }
+    } as unknown as typeof error.response
+
+    expect(resolveAdminUserError(error, copy)).toEqual({
+      summary: copy.fieldsSummary({ displayName: ['显示名不能为空。'], roleKeys: ['所选用户组不存在。'] }),
+      fields: { displayName: ['显示名不能为空。'], roleKeys: ['所选用户组不存在。'] }
+    })
+  })
+
+  // 网络中断、代理返回 HTML、调用方抛字符串……这些都必须在抽屉里降级成兜底文案，不能抛。
+  test('degrades unknown error shapes to the fallback copy without throwing', () => {
+    // 完全没有可用 message 的形态：必须落到兜底文案。
+    const silent: unknown[] = [
+      null,
+      undefined,
+      'boom',
+      42,
+      [],
+      {},
+      { response: { _data: 'not-an-envelope' } }
+    ]
+    for (const shape of silent) {
+      expect(() => resolveAdminUserError(shape, copy)).not.toThrow()
+      expect(resolveAdminUserError(shape, copy)).toEqual({ summary: copy.fallback, fields: {} })
+    }
+
+    // 有信封 message、但 fields 不是字符串数组：用 message 兜底，仍然不抛。
+    const malformedFields: unknown[] = [
+      { code: 422, message: 'x', data: { fields: { email: 'not-an-array' } } },
+      { code: 422, message: 'x', data: { fields: null } }
+    ]
+    for (const shape of malformedFields) {
+      expect(() => resolveAdminUserError(shape, copy)).not.toThrow()
+      expect(resolveAdminUserError(shape, copy)).toEqual({ summary: 'x', fields: {} })
+    }
+  })
+
+  test('treats an empty fields object as no field errors', () => {
+    expect(resolveAdminUserError({
+      code: 422,
+      message: '提交的用户信息有误，请按标出的字段修改后再保存。',
+      data: { reason: 'user.invalid_update', fields: {} }
+    }, copy)).toEqual({ summary: '提交的用户信息有误，请按标出的字段修改后再保存。', fields: {} })
   })
 
   test('names the failing fields in drawer order and folds the rest', () => {
