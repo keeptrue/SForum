@@ -1284,6 +1284,8 @@
         "expectedMismatch": "The archive does not match the declared identity (ID, version, or type); nothing was installed.",
         "archiveInvalid": "The archive is not a readable extension package.",
         "manifestInvalid": "The manifest failed validation, so the install was rejected.",
+        "platformIncompatible": "This extension's backend was built for {required}, but this system is {host}, so the install was stopped.",
+        "platformIncompatibleGeneric": "This extension's backend does not match this system's platform, so the install was stopped.",
         "permissionDenied": "This account lacks the matching extension management permission.",
         "invalidRequest": "The install request is not valid."
       },

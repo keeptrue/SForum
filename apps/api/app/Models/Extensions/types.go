@@ -3,6 +3,7 @@ package extensions
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/zhuchunshu/sforum/apps/api/app/Support/Capabilities"
@@ -123,6 +124,9 @@ const (
 	CodeVersionNotFound       = "extension.version_not_found"
 	// CodeCoreIncompatible 表示清单 sforumVersion 不覆盖运行中的 coreVersion。
 	CodeCoreIncompatible = "extension.core_incompatible"
+	// CodePlatformIncompatible 表示后端可执行文件不是为当前宿主平台构建的。
+	// 安装阶段是 422（这个包本身不可用），运行阶段是 409（当前状态冲突）。
+	CodePlatformIncompatible = "extension.platform_incompatible"
 	// CodeUntrustedBackendRestricted 见 backend_trust.go（非 super_admin 执行非内置后端）。
 
 	SourceBuiltin  = "builtin"
@@ -162,7 +166,30 @@ var (
 	ErrMustDisableFirst = errors.New("extensions: must disable before uninstall")
 	ErrMigrationFailed  = errors.New("extensions: migration failed")
 	ErrSafeModeActive   = errors.New("extensions: safe mode active")
+	// ErrExecutablePlatformMismatch 表示后端可执行文件的目标平台与宿主不符。
+	ErrExecutablePlatformMismatch = errors.New("extensions: backend executable targets another platform")
 )
+
+// ExecutablePlatformMismatchError 携带入口路径、探测到的目标平台和宿主平台，
+// 供 API 回传结构化字段（required/host/entry）。
+//
+// Stage 复用 CoreCompatibilityStageInstall/CoreCompatibilityStageRuntime：两者
+// 是同一条「安装 vs 运行」判定轴，不需要第二套阶段常量。
+type ExecutablePlatformMismatchError struct {
+	Entry    string
+	Required string
+	Host     string
+	Stage    string
+}
+
+func (e *ExecutablePlatformMismatchError) Error() string {
+	return fmt.Sprintf("%v: entry=%q required=%q host=%q stage=%s",
+		ErrExecutablePlatformMismatch, e.Entry, e.Required, e.Host, e.Stage)
+}
+
+func (e *ExecutablePlatformMismatchError) Unwrap() error {
+	return ErrExecutablePlatformMismatch
+}
 
 type Manifest = extensionmanifest.Manifest
 type ManifestAuthor = extensionmanifest.ManifestAuthor

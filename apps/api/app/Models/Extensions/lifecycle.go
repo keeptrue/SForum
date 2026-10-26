@@ -80,6 +80,11 @@ func (s *LifecycleService) InstallOrUpgradeArchive(ctx context.Context, actor id
 	if err := ensureCoreCompatible(manifest, CoreCompatibilityStageInstall); err != nil {
 		return InstallResult{}, err
 	}
+	// 架构闸门也在落盘之前：错架构的包一旦进 store，管理端就会看到一个永远
+	// 起不来的扩展。判定读的是已解进内存的 backend 可执行文件头。
+	if err := requireArchiveExecutablePlatform(manifest, packageFiles); err != nil {
+		return InstallResult{}, err
+	}
 	switch manifest.Type {
 	case TypePlugin:
 		if !canManagePlugins(actor) {
@@ -729,15 +734,19 @@ func ensureCoreCompatible(manifest Manifest, stage string) error {
 }
 
 // requireEnablePreflight 是「这个制品现在可以跑吗」的唯一闸门：制品必须在位，
-// 且非内置包必须被当前 core 的 sforumVersion 覆盖。
+// 非内置包必须被当前 core 的 sforumVersion 覆盖，后端可执行文件必须是本平台构建。
 //
-// 内置包豁免：它们与 core 同一个发行物，约束写错时运维没有修复手段；把它们
-// 一起判死只会让默认主题在自己的发行版里装不上。
+// 内置包对 coreVersion 豁免：它们与 core 同一个发行物，约束写错时运维没有修复
+// 手段；把它们一起判死只会让默认主题在自己的发行版里装不上。架构不豁免——错
+// 架构的内置包同样跑不起来，而且那种错是构建产物问题，不是声明问题。
 func requireEnablePreflight(extension Extension) error {
 	if err := requireArtifactAvailable(extension); err != nil {
 		return err
 	}
-	return requireCoreCompatibleRun(extension.Manifest, extension.Source)
+	if err := requireCoreCompatibleRun(extension.Manifest, extension.Source); err != nil {
+		return err
+	}
+	return requireExecutablePlatform(extension)
 }
 
 // requireCoreCompatibleRun 只看「运行中的制品」这一层。source 由持有制品的

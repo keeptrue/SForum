@@ -253,6 +253,22 @@ func main() {
 Build the executable to the path declared in `backend.entry` (usually
 `backend/plugin`) before enabling the plugin in admin.
 
+Build it for the platform that will run it. The Host reads the artifact's own
+file header at install and again at enable (Go buildinfo first, then ELF /
+Mach-O / PE), so a package cross-compiled for another OS or architecture is
+rejected with `422 extension.platform_incompatible` before any bytes are stored,
+and with `409` if the same artifact is enabled later. Cross-compile explicitly
+instead of relying on the build machine:
+
+```sh
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o backend/plugin .
+```
+
+The gate only applies to packages that declare `backend.entry`; themes and
+front-end-only plugins are unaffected. Artifacts whose target cannot be detected
+(scripts, unusual container formats) are allowed through and fail later at
+process start, which is the pre-existing behaviour.
+
 Scaffolds and built-in references use Protocol V2. Follow
 [Host API v2 and non-Go runtimes](./host-api-v2.md) for the generated Go SDK,
 AutoMTLS broker, exact trust binding, and non-Go interoperability rules.

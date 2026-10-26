@@ -390,7 +390,7 @@ func TestControllerExecutableTrustTargetBindsExactStagedArtifact(t *testing.T) {
 		Manifest: extensions.Manifest{
 			ManifestVersion: 3,
 			ID:              "trust.controller", Name: "Trust Controller", Version: "1.0.0",
-			Type: extensions.TypePlugin, SForumVersion: "^1.0.0",
+			Type: extensions.TypePlugin, SForumVersion: ">=0.1.0",
 			Backend: extensions.ManifestBackend{
 				Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
 				HostAPIVersion: "sforum.host@2",
@@ -523,7 +523,7 @@ func TestControllerAdminPageBootstrapReturnsExtensionPageAndSettings(t *testing.
 		Type: extensions.TypePlugin, Status: extensions.StatusEnabled, Source: extensions.SourceUploaded,
 		Manifest: extensions.Manifest{
 			ID: "bootstrap.plugin", Name: "Bootstrap Plugin", Version: "1.0.0", Type: extensions.TypePlugin,
-			SForumVersion: "^1.0.0",
+			SForumVersion: ">=0.1.0",
 			Admin: extensions.ManifestAdmin{
 				Pages: []extensions.ManifestAdminPage{
 					{Path: "/ops/config", Label: "Ops Config", View: "settings", Icon: "i-lucide-sliders", Order: 20},
@@ -743,7 +743,7 @@ func TestControllerProxiesOnlyDeclaredPluginRoutesAfterHostAuthorization(t *test
 			Author:          extensions.ManifestAuthor{Name: "SForum Team", URL: "https://example.com", Email: "dev@example.com"},
 			Version:         "1.0.0",
 			Type:            extensions.TypePlugin,
-			SForumVersion:   "^1.0.0",
+			SForumVersion:   ">=0.1.0",
 			Permissions:     []string{"extension.demo.manage"},
 			Routes: []extensions.ManifestRoute{
 				{Path: "/hello", Methods: []string{"GET"}, Access: extensions.RouteAccessPublic},
@@ -808,7 +808,7 @@ func TestProxyExtensionRouteDeniesBeforeGatewayDispatch(t *testing.T) {
 			Author: extensions.ManifestAuthor{
 				Name: "SForum Team", URL: "https://example.com", Email: "dev@example.com",
 			},
-			SForumVersion: "^1.0.0",
+			SForumVersion: ">=0.1.0",
 			Permissions:   []string{"extension.demo.manage"},
 			Routes: []extensions.ManifestRoute{
 				{ID: "demo.route.public", Path: "/hello", Methods: []string{http.MethodGet}, Access: extensions.RouteAccessPublic},
@@ -1152,7 +1152,7 @@ func newExtensionTestApp(t *testing.T) (*fiber.App, *authsession.Manager, *contr
 			Author:          extensions.ManifestAuthor{Name: "SForum Team", URL: "https://example.com", Email: "dev@example.com"},
 			Version:         "1.0.0",
 			Type:            extensions.TypePlugin,
-			SForumVersion:   "^1.0.0",
+			SForumVersion:   ">=0.1.0",
 		},
 		InstalledAt: time.Now(),
 		UpdatedAt:   time.Now(),
@@ -1174,7 +1174,7 @@ func newExtensionTestApp(t *testing.T) (*fiber.App, *authsession.Manager, *contr
 			Author:          extensions.ManifestAuthor{Name: "SForum Team", URL: "https://example.com", Email: "dev@example.com"},
 			Version:         "1.0.0",
 			Type:            extensions.TypeTheme,
-			SForumVersion:   "^1.0.0",
+			SForumVersion:   ">=0.1.0",
 		},
 		InstalledAt: time.Now(),
 		UpdatedAt:   time.Now(),
@@ -1235,7 +1235,7 @@ func controllerExecutablePackage(t *testing.T, manifest extensions.Manifest, bin
 	t.Helper()
 	manifest.ManifestVersion = 3
 	if manifest.SForumVersion == "" {
-		manifest.SForumVersion = "^1.0.0"
+		manifest.SForumVersion = ">=0.1.0"
 	}
 	if manifest.Backend.Entry != "" {
 		digest := sha256.Sum256([]byte(binary))

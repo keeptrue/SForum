@@ -741,7 +741,12 @@ adminExtensions:
       '422':
         description: >-
           Invalid archive or manifest. Invalid theme manifests keep the normal
-          error envelope and use reason extension.manifest_invalid.
+          error envelope and use reason extension.manifest_invalid. A plugin
+          archive whose declared backend entry is an executable built for
+          another platform is rejected before any package bytes are stored with
+          reason extension.platform_incompatible; data.fields reports the
+          detected target platform (required), the host platform (host), and the
+          offending manifest entry (entry).
         content:
           application/json:
             schema:
@@ -798,8 +803,10 @@ adminExtensionInstallFromURL:
           whose manifest identity does not match the declared expectations.
           Reasons include extension.remote_url_invalid,
           extension.remote_digest_mismatch, extension.archive_invalid,
-          extension.manifest_invalid, and extension.expected_mismatch (which
-          also reports the manifest id/type/version in data.fields).
+          extension.manifest_invalid, extension.expected_mismatch (which
+          also reports the manifest id/type/version in data.fields), and
+          extension.platform_incompatible (a plugin backend executable built
+          for another platform; data.fields reports required/host/entry).
         content:
           application/json:
             schema:
@@ -1615,7 +1622,10 @@ adminExtensionEnable:
         description: >-
           Themes must use activation, or capability confirmation is required
           (reason extension.capability_confirmation_required), or Safe Mode
-          blocks executable activation (extension.safe_mode_active).
+          blocks executable activation (extension.safe_mode_active), or the
+          artifact's backend executable was built for another platform
+          (extension.platform_incompatible, which reports required/host/entry in
+          data.fields).
         content:
           application/json:
             schema:
@@ -1678,7 +1688,12 @@ adminExtensionRestart:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
-        description: Another lifecycle operation is open, exact staged CAS changed, trust is missing, or Safe Mode blocks restart.
+        description: >-
+          Another lifecycle operation is open, exact staged CAS changed, trust
+          is missing, Safe Mode blocks restart, or the exact target's backend
+          executable was built for another platform
+          (extension.platform_incompatible, which reports required/host/entry in
+          data.fields).
         content:
           application/json:
             schema:
@@ -2035,7 +2050,11 @@ adminExtensionUpgrade:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
-        description: No staged candidate, trust conflict, or another lifecycle operation is open.
+        description: >-
+          No staged candidate, trust conflict, another lifecycle operation is
+          open, or the exact staged artifact's backend executable was built for
+          another platform (extension.platform_incompatible, which reports
+          required/host/entry in data.fields).
         content:
           application/json:
             schema:
@@ -2093,7 +2112,11 @@ adminExtensionRollback:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '409':
-        description: No successful frozen authority or another lifecycle operation is open.
+        description: >-
+          No successful frozen authority, another lifecycle operation is open,
+          or the exact historical artifact's backend executable was built for
+          another platform (extension.platform_incompatible, which reports
+          required/host/entry in data.fields).
         content:
           application/json:
             schema:
@@ -2162,7 +2185,11 @@ adminExtensionActivate:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
-        description: Safe Mode blocks activation, or the exact preview artifact is stale.
+        description: >-
+          Safe Mode blocks activation, the exact preview artifact is stale, or
+          the theme's backend executable was built for another platform
+          (extension.platform_incompatible, which reports required/host/entry in
+          data.fields).
         content:
           application/json:
             schema:

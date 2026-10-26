@@ -1324,6 +1324,8 @@
         "expectedMismatch": "压缩包与声明的扩展身份不一致（ID、版本或类型不符），已中止安装。",
         "archiveInvalid": "压缩包结构无效，无法作为扩展包读取。",
         "manifestInvalid": "清单校验未通过，安装被拒绝。",
+        "platformIncompatible": "这个扩展包的后端是为 {required} 构建的，当前系统是 {host}，已停止安装。",
+        "platformIncompatibleGeneric": "这个扩展包的后端与当前系统的平台不兼容，已停止安装。",
         "permissionDenied": "当前账号缺少对应的扩展管理权限。",
         "invalidRequest": "安装请求参数无效。"
       },
