@@ -191,9 +191,12 @@ func (s *PostgresStore) EntityExists(ctx context.Context, entityType string, ent
 	return exists, err
 }
 
+// TopicAuthorID 返回 topic 的所有者。作者被带外删除后 author_user_id 由 FK
+// 置为 NULL（ON DELETE SET NULL），这里归一成 0：调用方拿到 (0, true) 表示
+// 「记录在、作者已注销」，而不是把它当成扫描失败。
 func (s *PostgresStore) TopicAuthorID(ctx context.Context, topicID int64) (int64, bool, error) {
 	var authorID int64
-	err := s.pool.QueryRow(ctx, `SELECT author_user_id FROM topics WHERE id = $1`, topicID).Scan(&authorID)
+	err := s.pool.QueryRow(ctx, `SELECT COALESCE(author_user_id, 0) FROM topics WHERE id = $1`, topicID).Scan(&authorID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, false, nil
 	}
