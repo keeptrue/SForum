@@ -72,6 +72,9 @@ func TestMarshalManifestJSONMatchesReleaseSerializer(t *testing.T) {
 func TestBackendBuildPlanPinsToolchainAndWorkspace(t *testing.T) {
 	// `go` 指令只是下限；replace 的文件系统路径会被逐字写进 buildinfo。
 	// 两个构建者（dev watcher 与发行脚本）必须消掉这两个变量才可能产出同一份字节。
+	// CI 的父环境可能已经带了 GOTOOLCHAIN（setup-go 会设 local），先归一化，
+	// 让断言只针对本包自己派生出来的那一项。
+	t.Setenv("GOTOOLCHAIN", "")
 	dir := t.TempDir()
 	depDir := filepath.Join(dir, "sibling", "core", "apps", "api")
 	if err := os.MkdirAll(depDir, 0o755); err != nil {
@@ -126,6 +129,7 @@ func TestBackendBuildPlanPinsToolchainAndWorkspace(t *testing.T) {
 func TestBackendBuildPlanLeavesDefaultsWithoutReplace(t *testing.T) {
 	// 没有文件系统 replace 的模块不需要 workspace；显式 GOWORK=off，避免被上层
 	// 目录的 go.work 意外影响。没有 go 行就不钉工具链。
+	t.Setenv("GOTOOLCHAIN", "")
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/plugin\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -139,7 +143,7 @@ func TestBackendBuildPlanLeavesDefaultsWithoutReplace(t *testing.T) {
 		t.Fatalf("plan should not create a workspace without a filesystem replace, got %q", plan.Work)
 	}
 	for _, entry := range plan.Env {
-		if strings.HasPrefix(entry, "GOTOOLCHAIN=") {
+		if strings.HasPrefix(entry, "GOTOOLCHAIN=go") {
 			t.Fatalf("build env should not pin GOTOOLCHAIN without a go directive: %q", entry)
 		}
 	}
