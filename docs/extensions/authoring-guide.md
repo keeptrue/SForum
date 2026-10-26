@@ -1321,6 +1321,48 @@ and `@sforum/plugin-ui@1` page/section/form/table/feedback/icon components. The
 SDK is bundled into the plugin output and deliberately does not expose
 Host-private Nuxt UI or `SF*` imports as a compatibility contract.
 
+### Admin list surfaces (`list_column` links)
+
+A `list_column` Admin Surface contributes one read-only column to a Host admin
+list page. The Host invokes the surface once per page load with the page's
+resource rows (`id` plus a small attribute map), then renders each returned cell
+on its row — the surface is never invoked per row, so keep the handler one
+bounded batch.
+
+```json
+{
+  "title": "Update available",
+  "tone": "warning",
+  "icon": "i-lucide-arrow-up-circle",
+  "cells": { "demo.notes": "v2.0.0", "demo.sync": "v1.4.0" },
+  "links": {
+    "demo.notes": "/extensions/demo.notes",
+    "demo.sync": "/extensions/demo.sync"
+  }
+}
+```
+
+- `cells` maps a resource ID to a primitive. A non-empty cell becomes that row's
+  column value (a row badge on pages that render a compact identity row); an
+  empty, `null`, or missing cell is skipped, because "no value" must never read
+  as "no update".
+- `links` is optional and maps the same resource IDs to a **Host admin page
+  path**, not a URL. A value must start with `/`, must not start with `//`, must
+  not contain a backslash, and must not contain control characters
+  (`U+0000`–`U+001F`). A value that breaks any rule is dropped on its own: it
+  never fails the surface and never reaches the page as a link.
+- Where the Host renders a cell as a row badge, a valid `links` entry makes it
+  clickable and navigates inside the admin shell. A cell without one still
+  renders, as plain content rather than a dead link — do not fabricate a target.
+- Only an `action: add` surface that is invokable contributes row badges, and a
+  resource the surface marked invisible in `visibleResourceIds` gets none.
+- `links` is additive to the existing result contract: no `contractVersion`
+  bump, and an older Host ignores the field, so one package keeps working across
+  both (badges simply render without a target).
+
+Decision record:
+`knowledge/decisions/2026-10-27-extension-update-badges-admin-surface.md`.
+
 ### Host icons in plugin pages
 
 Plugin page bodies and public L2 components can use the Host icon set without

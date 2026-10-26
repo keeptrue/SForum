@@ -4,7 +4,9 @@ import { apiErrorMessage } from '~/composables/useApiClient'
 import {
   adminSurfaceKindIcon,
   normalizeAdminSurfaceOutput,
+  resolveAdminListBadges,
   resolveAdminSurfacePlacement,
+  type AdminListBadge,
   type AdminSurfaceContract,
   type AdminSurfaceTone,
   type AdminSurfaceViewModel
@@ -61,6 +63,8 @@ export function useAdminListSurfaces(options: AdminListSurfaceOptions) {
 
   const columns = computed(() => resolved.value.filter(item => item.surface.kind === 'list_column'))
   const filters = computed(() => resolved.value.filter(item => item.surface.kind === 'list_filter'))
+  // 基于已发现的 surface 而非已解析的列：查询失败时按钮要留着，warning 里的重试才有入口。
+  const hasListColumns = computed(() => surfaces.value.some(surface => surface.kind === 'list_column'))
   const failureMessage = computed(() => failures.value.map(item => `${item.label}: ${item.message}`).join('\n'))
   const hasBulkActions = computed(() => surfaces.value.some(surface => surface.kind === 'bulk_action'))
   const visibleResourceIds = computed(() => resources.value
@@ -189,6 +193,11 @@ export function useAdminListSurfaces(options: AdminListSurfaceOptions) {
     return actionsFor('row_action', [resourceId])
   }
 
+  // 徽章和列同源：都读已解析的 list_column 输出，避免页面再自己拼状态。
+  function badgesFor(resourceId: string): AdminListBadge[] {
+    return resolveAdminListBadges(resolved.value, resourceId)
+  }
+
   function actionsFor(kind: 'row_action' | 'bulk_action', resourceIds: string[]) {
     const descriptors = resolved.value.filter(item => item.surface.kind === kind)
     const referenced = new Set(descriptors.flatMap(item => item.view.commandSurfaceId || []))
@@ -301,6 +310,8 @@ export function useAdminListSurfaces(options: AdminListSurfaceOptions) {
   return {
     columns,
     filters,
+    failures,
+    hasListColumns,
     pending,
     busySurfaceId,
     failureMessage,
@@ -313,6 +324,7 @@ export function useAdminListSurfaces(options: AdminListSurfaceOptions) {
     filterValue,
     isResourceVisible,
     columnValue,
+    badgesFor,
     rowActionsFor,
     toggleResource,
     selectAllVisible,

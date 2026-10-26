@@ -10,11 +10,13 @@ import SFAdminExtensionUninstallDialog from '~/components/admin/SFAdminExtension
 import SFAdminMissingArtifactsCleanupDialog from '~/components/admin/SFAdminMissingArtifactsCleanupDialog.vue'
 import SFAdminVersionGcDialog from '~/components/admin/SFAdminVersionGcDialog.vue'
 import SFAdminThemeActivateDialog from '~/components/admin/SFAdminThemeActivateDialog.vue'
+import SFAdminExtensionIdentity from '~/components/admin/extensions/SFAdminExtensionIdentity.vue'
+import { useAdminListSurfaces } from '~/composables/admin/useAdminListSurfaces'
+import { useAdminExtensionVersionGc } from '~/composables/admin/useAdminExtensionVersionGc'
 import {
   canRequestExtensionUninstall,
   canRestartPlugin,
   canUpgradePlugin,
-  capabilityCount,
   extensionEventPage,
   extensionLocalizedDisplay,
   extensionManageRoute,
@@ -28,12 +30,6 @@ import {
   type AdminMissingArtifactCleanupResult,
   type AdminMissingArtifactDataMode
 } from '~/utils/admin/adminExtensions'
-import {
-  type AdminVersionGCCandidate,
-  type AdminVersionGCConfirmation,
-  type AdminVersionGCPolicy,
-  type AdminVersionGCSweepResult
-} from '~/utils/admin/adminVersionGc'
 
 definePageMeta({
   middleware: 'admin',
@@ -149,6 +145,31 @@ const {
   confirmUpgradeExtension,
   cancelUpgradeExtension
 } = useAdminExtensionUpgradeFlow({ extensions, refresh, isSuperAdmin })
+
+// 总览页同样把每行扩展当作 resource：list_column 徽章与 links 深链都来自
+// Admin Surface，页面不再自己推断「有没有更新」。
+const updateSurfaces = useAdminListSurfaces({
+  pageId: '/extensions',
+  resources: computed(() => extensions.value.map(item => ({
+    id: item.id,
+    attributes: {
+      version: item.version,
+      stagedVersion: item.stagedVersion?.version || '',
+      type: item.type,
+      status: item.status,
+      source: item.source || ''
+    }
+  }))),
+  context: { resourceType: 'extension', page: 'overview' },
+  refreshHost: refresh
+})
+
+const surfaceFailures = computed(() => updateSurfaces.failures.value.filter(item => item.id !== 'catalog'))
+
+async function refreshAll() {
+  await refresh()
+  await updateSurfaces.refreshSurfaces()
+}
 const selectedEventPageInfo = computed(() => extensionEventPage(selectedEvents.value, selectedEventPage.value))
 const missingArtifacts = computed(() => missingArtifactCleanupCandidates(extensions.value))
 const missingCleanupOpen = ref(false)
@@ -225,133 +246,20 @@ useSeoMeta({
 })
 
 // ---- Version GC（阶段 5 管理端入口）：plan → confirmation → result 阶段机 ----
-const versionGcOpen = ref(false)
-const versionGcBusy = ref(false)
-const versionGcError = ref('')
-const versionGcCandidates = ref<AdminVersionGCCandidate[]>([])
-const versionGcPolicy = ref<AdminVersionGCPolicy>({ retain: 1, retainDays: 0 })
-const versionGcConfirmation = ref<AdminVersionGCConfirmation | null>(null)
-const versionGcResult = ref<AdminVersionGCSweepResult | null>(null)
-
-function versionGcQueryString() {
-  const query = new URLSearchParams({
-    retain: String(Math.max(0, Number(versionGcPolicy.value.retain) || 0)),
-    retainDays: String(Math.max(0, Number(versionGcPolicy.value.retainDays) || 0))
-  })
-  return query.toString()
-}
-
-function resetVersionGcState() {
-  versionGcError.value = ''
-  versionGcCandidates.value = []
-  versionGcPolicy.value = { retain: 1, retainDays: 0 }
-  versionGcConfirmation.value = null
-  versionGcResult.value = null
-}
-
-function openVersionGc() {
-  if (!isSuperAdmin.value) return
-  resetVersionGcState()
-  versionGcOpen.value = true
-  void refreshVersionGcPlan()
-}
-
-function cancelVersionGc() {
-  if (versionGcBusy.value) return
-  versionGcOpen.value = false
-  resetVersionGcState()
-}
-
-async function refreshVersionGcPlan() {
-  if (versionGcBusy.value) return
-  versionGcBusy.value = true
-  versionGcError.value = ''
-  versionGcConfirmation.value = null
-  versionGcResult.value = null
-  try {
-    const data = await request<{ candidates: AdminVersionGCCandidate[] }>(
-      `/admin/extensions/version-gc/candidates?${versionGcQueryString()}`,
-      { method: 'GET' }
-    )
-    versionGcCandidates.value = data.candidates
-  } catch (error) {
-    versionGcError.value = apiErrorMessage(error) || t('admin.extensions.actionFailed')
-  } finally {
-    versionGcBusy.value = false
-  }
-}
-
-async function confirmVersionGcPlan() {
-  if (versionGcBusy.value) return
-  versionGcBusy.value = true
-  versionGcError.value = ''
-  try {
-    versionGcConfirmation.value = await request<AdminVersionGCConfirmation>(
-      '/admin/extensions/version-gc/confirmations',
-      {
-        method: 'POST',
-        body: {
-          retain: Math.max(0, Number(versionGcPolicy.value.retain) || 0),
-          retainDays: Math.max(0, Number(versionGcPolicy.value.retainDays) || 0)
-        }
-      }
-    )
-  } catch (error) {
-    versionGcError.value = apiErrorMessage(error) || t('admin.extensions.actionFailed')
-  } finally {
-    versionGcBusy.value = false
-  }
-}
-
-async function executeVersionGc() {
-  if (versionGcBusy.value || !versionGcConfirmation.value) return
-  versionGcBusy.value = true
-  versionGcError.value = ''
-  try {
-    const result = await request<AdminVersionGCSweepResult>('/admin/extensions/version-gc/execute', {
-      method: 'POST',
-      body: {
-        retain: Math.max(0, Number(versionGcPolicy.value.retain) || 0),
-        retainDays: Math.max(0, Number(versionGcPolicy.value.retainDays) || 0),
-        token: versionGcConfirmation.value.token
-      }
-    })
-    // 防御旧后端/缓存的 null 数组：JSON null 不满足数组契约时按空数组归一。
-    versionGcResult.value = {
-      ...result,
-      removed: result.removed ?? [],
-      skipped: result.skipped ?? [],
-      failed: result.failed ?? [],
-      warnings: result.warnings ?? []
-    }
-    await refresh()
-    if ((result.failed ?? []).length > 0) {
-      toast.add({
-        color: 'error',
-        icon: 'i-lucide-triangle-alert',
-        title: t('admin.extensions.versionGc.failedSummary', { count: (result.failed ?? []).length }),
-        duration: 0
-      })
-    } else {
-      toast.add({
-        color: 'success',
-        icon: 'i-lucide-archive-x',
-        title: t('admin.extensions.versionGc.success', { removed: (result.removed ?? []).length }),
-        duration: 5000
-      })
-    }
-  } catch (error) {
-    versionGcError.value = apiErrorMessage(error) || t('admin.extensions.actionFailed')
-    toast.add({
-      color: 'error',
-      icon: 'i-lucide-triangle-alert',
-      title: versionGcError.value,
-      duration: 0
-    })
-  } finally {
-    versionGcBusy.value = false
-  }
-}
+const {
+  versionGcOpen,
+  versionGcBusy,
+  versionGcError,
+  versionGcCandidates,
+  versionGcPolicy,
+  versionGcConfirmation,
+  versionGcResult,
+  openVersionGc,
+  cancelVersionGc,
+  refreshVersionGcPlan,
+  confirmVersionGcPlan,
+  executeVersionGc
+} = useAdminExtensionVersionGc({ isSuperAdmin, refresh })
 
 watch(() => selected.value?.id, async (id) => {
   if (!id) {
@@ -441,13 +349,25 @@ function extensionStatusLabel(item: (typeof extensions.value)[number]) {
         <span class="hidden sm:inline">{{ t('admin.extensions.versionGc.action') }}</span>
       </UButton>
       <UButton
+        v-if="updateSurfaces.hasListColumns.value"
+        icon="i-lucide-package-search"
+        color="neutral"
+        variant="subtle"
+        :loading="updateSurfaces.pending.value"
+        :aria-label="t('admin.extensions.updateCheck.refresh')"
+        :title="t('admin.extensions.updateCheck.refresh')"
+        @click="updateSurfaces.refreshSurfaces()"
+      >
+        <span class="hidden sm:inline">{{ t('admin.extensions.updateCheck.refresh') }}</span>
+      </UButton>
+      <UButton
         icon="i-lucide-rotate-cw"
         color="neutral"
         variant="subtle"
         :loading="pending"
         :aria-label="t('admin.extensions.refresh')"
         :title="t('admin.extensions.refresh')"
-        @click="refresh()"
+        @click="refreshAll()"
       >
         <span class="hidden sm:inline">{{ t('admin.extensions.refresh') }}</span>
       </UButton>
@@ -472,6 +392,26 @@ function extensionStatusLabel(item: (typeof extensions.value)[number]) {
     :title="apiErrorMessage(error) || t('admin.extensions.loadFailed')"
     class="mb-6"
   />
+
+  <UAlert
+    v-if="surfaceFailures.length"
+    color="warning"
+    icon="i-lucide-triangle-alert"
+    variant="subtle"
+    :title="t('admin.extensions.updateCheck.failed')"
+    class="mb-6"
+  >
+    <template #description>
+      <ul class="list-inside list-disc">
+        <li v-for="failure in surfaceFailures" :key="failure.id">{{ failure.label }}: {{ failure.message }}</li>
+      </ul>
+    </template>
+    <template #actions>
+      <UButton color="warning" variant="subtle" icon="i-lucide-rotate-cw" @click="updateSurfaces.refreshSurfaces()">
+        {{ t('admin.extensions.updateCheck.retry') }}
+      </UButton>
+    </template>
+  </UAlert>
 
   <div class="grid gap-5 md:grid-cols-3 mb-6">
     <UCard class="elegant-card border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
@@ -540,19 +480,18 @@ function extensionStatusLabel(item: (typeof extensions.value)[number]) {
             :class="selected?.id === item.id ? 'bg-slate-50 dark:bg-zinc-800/50' : ''"
           >
             <div class="min-w-0">
-              <button
-                type="button"
-                class="block w-full min-w-0 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-900"
-                @click="selectedId = item.id"
+              <SFAdminExtensionIdentity
+                :extension="item"
+                :display="display"
+                :status-label="extensionStatusLabel(item)"
+                :status-color="statusColor(item.status)"
+                :icon="item.type === 'theme' ? 'i-lucide-palette' : 'i-lucide-blocks'"
+                :badges="updateSurfaces.badgesFor(item.id)"
+                selectable
+                :selected="selected?.id === item.id"
+                @select="selectedId = item.id"
               >
-                <div class="flex flex-wrap items-center gap-2">
-                  <UIcon :name="item.type === 'theme' ? 'i-lucide-palette' : 'i-lucide-blocks'" class="size-4 text-[var(--sf-accent)]" />
-                  <h3 class="truncate text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                    {{ display.name }}
-                  </h3>
-                  <UBadge :color="statusColor(item.status)" variant="subtle">
-                    {{ extensionStatusLabel(item) }}
-                  </UBadge>
+                <template #badges>
                   <UBadge color="neutral" variant="outline">
                     {{ typeLabel(item.type) }}
                   </UBadge>
@@ -582,37 +521,8 @@ function extensionStatusLabel(item: (typeof extensions.value)[number]) {
                   >
                     {{ t('admin.extensions.uninstallCleanup.pendingBadge') }}
                   </UBadge>
-                </div>
-                <p
-                  v-if="display.description"
-                  class="mt-1.5 line-clamp-2 text-sm leading-5 text-slate-600 dark:text-zinc-300"
-                >
-                  {{ display.description }}
-                </p>
-                <p v-if="!isExtensionArtifactAvailable(item)" class="mt-1.5 text-sm text-red-600 dark:text-red-400">
-                  {{ t('admin.extensions.artifact.missingDescription') }}
-                </p>
-                <p class="mt-1 truncate text-xs text-slate-500 dark:text-zinc-400">
-                  {{ item.id }} · v{{ item.version }} · {{ t('admin.extensions.capabilityCount', { count: capabilityCount(item) }) }}
-                </p>
-              </button>
-              <a
-                v-if="display.author.url || display.url"
-                :href="display.author.url || display.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="mt-2 inline-flex max-w-full items-center gap-1.5 rounded text-xs font-medium text-slate-500 transition hover:text-[var(--sf-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-zinc-400 dark:hover:text-[var(--sf-accent-dark)] dark:focus-visible:ring-offset-zinc-900"
-                :title="t('admin.extensions.authorWebsiteTitle', { name: display.author.name })"
-                :aria-label="t('admin.extensions.authorWebsiteTitle', { name: display.author.name })"
-              >
-                <UIcon name="i-lucide-user-round" class="size-3.5 shrink-0" />
-                <span class="truncate">{{ t('admin.extensions.authorLinkLabel', { name: display.author.name }) }}</span>
-                <UIcon name="i-lucide-external-link" class="size-3 shrink-0" />
-              </a>
-              <span v-else-if="display.author.name" class="mt-2 inline-flex max-w-full items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
-                <UIcon name="i-lucide-user-round" class="size-3.5 shrink-0" />
-                <span class="truncate">{{ t('admin.extensions.authorLinkLabel', { name: display.author.name }) }}</span>
-              </span>
+                </template>
+              </SFAdminExtensionIdentity>
             </div>
             <div class="flex flex-wrap items-center gap-2 [&>a]:shrink-0 [&>button]:shrink-0 md:justify-end">
               <UButton

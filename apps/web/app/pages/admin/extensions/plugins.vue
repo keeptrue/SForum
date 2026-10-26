@@ -11,10 +11,11 @@ import SFAdminExtensionLifecycleDialog from '~/components/admin/SFAdminExtension
 import SFAdminExtensionUninstallDialog from '~/components/admin/SFAdminExtensionUninstallDialog.vue'
 import SFAdminFrontendTrustPanel from '~/components/admin/SFAdminFrontendTrustPanel.vue'
 import SFAdminExtensionHostActionsNotice from '~/components/admin/SFAdminExtensionHostActionsNotice.vue'
+import SFAdminExtensionIdentity from '~/components/admin/extensions/SFAdminExtensionIdentity.vue'
+import { useAdminListSurfaces } from '~/composables/admin/useAdminListSurfaces'
 import {
   canRestartPlugin,
   canUpgradePlugin,
-  capabilityCount,
   extensionLocalizedDisplay,
   extensionManageRoute,
   extensionSettingsPresentation,
@@ -203,6 +204,31 @@ const pluginRows = computed(() => plugins.value.map((item) => ({
   display: extensionLocalizedDisplay(item, locale.value)
 })))
 
+// 扩展列表把每一行当作一个 resource 交给 Admin Surface：list_column 的输出
+// 渲染成行内徽章，links 提供深链。没有 surface 时这一层完全不出现。
+const updateSurfaces = useAdminListSurfaces({
+  pageId: '/extensions/plugins',
+  resources: computed(() => plugins.value.map(item => ({
+    id: item.id,
+    attributes: {
+      version: item.version,
+      stagedVersion: item.stagedVersion?.version || '',
+      type: item.type,
+      status: item.status,
+      source: item.source || ''
+    }
+  }))),
+  context: { resourceType: 'extension', page: 'plugins' },
+  refreshHost: refresh
+})
+
+const surfaceFailures = computed(() => updateSurfaces.failures.value.filter(item => item.id !== 'catalog'))
+
+async function refreshAll() {
+  await refresh()
+  await updateSurfaces.refreshSurfaces()
+}
+
 function runtimeColor(state?: AdminRuntimeState) {
   if (state === 'running') {
     return 'success'
@@ -385,13 +411,25 @@ useSeoMeta({
         {{ t('admin.nav.extensionProviderSlots') }}
       </UButton>
       <UButton
+        v-if="updateSurfaces.hasListColumns.value"
+        icon="i-lucide-package-search"
+        color="neutral"
+        variant="subtle"
+        :loading="updateSurfaces.pending.value"
+        :aria-label="t('admin.extensions.updateCheck.refresh')"
+        :title="t('admin.extensions.updateCheck.refresh')"
+        @click="updateSurfaces.refreshSurfaces()"
+      >
+        <span class="hidden xl:inline">{{ t('admin.extensions.updateCheck.refresh') }}</span>
+      </UButton>
+      <UButton
         icon="i-lucide-rotate-cw"
         color="neutral"
         variant="subtle"
         :loading="pending"
         :aria-label="t('admin.extensions.refresh')"
         :title="t('admin.extensions.refresh')"
-        @click="refresh()"
+        @click="refreshAll()"
       >
         <span class="hidden xl:inline">{{ t('admin.extensions.refresh') }}</span>
       </UButton>
@@ -406,6 +444,26 @@ useSeoMeta({
     :title="apiErrorMessage(error) || t('admin.extensions.loadFailed')"
     class="mb-6"
   />
+
+  <UAlert
+    v-if="surfaceFailures.length"
+    color="warning"
+    icon="i-lucide-triangle-alert"
+    variant="subtle"
+    :title="t('admin.extensions.updateCheck.failed')"
+    class="mb-6"
+  >
+    <template #description>
+      <ul class="list-inside list-disc">
+        <li v-for="failure in surfaceFailures" :key="failure.id">{{ failure.label }}: {{ failure.message }}</li>
+      </ul>
+    </template>
+    <template #actions>
+      <UButton color="warning" variant="subtle" icon="i-lucide-rotate-cw" @click="updateSurfaces.refreshSurfaces()">
+        {{ t('admin.extensions.updateCheck.retry') }}
+      </UButton>
+    </template>
+  </UAlert>
 
   <UAlert
     v-if="canManagePlugins && builtinAutoUpdateLoadFailed"
@@ -427,153 +485,130 @@ useSeoMeta({
         class="grid gap-4 px-4 py-4 md:grid-cols-[1fr_auto]"
       >
         <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <UIcon name="i-lucide-plug" class="size-4 text-[var(--sf-accent)]" />
-            <h3 class="truncate text-sm font-semibold text-slate-900 dark:text-zinc-100">
-              {{ display.name }}
-            </h3>
-            <UBadge :color="statusColor(item.status)" variant="subtle">
-              {{ statusLabel(item.status) }}
-            </UBadge>
-            <UBadge :color="runtimeColor(item.runtime?.state)" variant="subtle">
-              {{ t(runtimeStatusLabelKey(item)) }}
-            </UBadge>
-            <UBadge
-              v-if="isBuiltinMaintainedExtension(item)"
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-package-check"
-              :title="t('admin.extensions.plugins.autoUpdate.builtinMaintainedHint')"
-            >
-              {{ t('admin.extensions.plugins.autoUpdate.builtinMaintained') }}
-            </UBadge>
-            <UBadge
-              v-if="shouldShowBuiltinAutoUpdateDisabled(item, builtinAutoUpdateState)"
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-pause"
-              :title="t('admin.extensions.plugins.autoUpdate.disabledHint')"
-            >
-              {{ t('admin.extensions.plugins.autoUpdate.disabledBadge') }}
-            </UBadge>
-            <UBadge
-              v-if="item.stagedVersion"
-              color="warning"
-              variant="outline"
-              icon="i-lucide-package-plus"
-              :title="stagedVersionHint(item)"
-            >
-              {{ t('admin.extensions.stagedVersionBadge', { version: item.stagedVersion.version }) }}
-            </UBadge>
-            <UBadge
-              v-if="!isExtensionArtifactAvailable(item)"
-              color="error"
-              variant="subtle"
-              icon="i-lucide-package-x"
-            >
-              {{ t('admin.extensions.artifact.missing') }}
-            </UBadge>
-            <UBadge
-              v-if="item.pendingUninstallCleanup"
-              color="warning"
-              variant="subtle"
-              icon="i-lucide-brush-cleaning"
-              :title="t('admin.extensions.uninstallCleanup.pendingHint')"
-            >
-              {{ t('admin.extensions.uninstallCleanup.pendingBadge') }}
-            </UBadge>
-            <UBadge
-              v-if="item.runtime?.protocolDeprecated"
-              color="warning"
-              variant="subtle"
-              icon="i-lucide-history"
-            >
-              {{ t('admin.extensions.runtime.protocolDeprecated', { version: item.runtime.protocolVersion }) }}
-            </UBadge>
-            <UBadge
-              :color="extensionSettingsPresentation(item).color"
-              variant="subtle"
-              :icon="extensionSettingsPresentation(item).icon"
-            >
-              {{ t(extensionSettingsPresentation(item).labelKey) }}
-            </UBadge>
-            <UBadge
-              v-if="item.runtime?.circuitOpen"
-              color="warning"
-              variant="subtle"
-              icon="i-lucide-zap-off"
-            >
-              {{ t('admin.extensions.runtime.circuitOpen') }}
-            </UBadge>
-            <UBadge
-              v-if="item.runtime?.memoryBytes"
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-memory-stick"
-              :title="t('admin.extensions.runtime.memoryHint')"
-            >
-              {{ t('admin.extensions.runtime.memory', { size: formatPluginMemoryBytes(item.runtime.memoryBytes) }) }}
-            </UBadge>
-          </div>
-          <p
-            v-if="display.description"
-            class="mt-1.5 line-clamp-2 text-sm leading-5 text-slate-600 dark:text-zinc-300"
+          <SFAdminExtensionIdentity
+            :extension="item"
+            :display="display"
+            :status-label="statusLabel(item.status)"
+            :status-color="statusColor(item.status)"
+            icon="i-lucide-plug"
+            :badges="updateSurfaces.badgesFor(item.id)"
           >
-            {{ display.description }}
-          </p>
-          <p v-if="!isExtensionArtifactAvailable(item)" class="mt-1.5 text-sm text-red-600 dark:text-red-400">
-            {{ t('admin.extensions.artifact.missingDescription') }}
-          </p>
-          <p class="mt-1 truncate text-xs text-slate-500 dark:text-zinc-400">
-            {{ item.id }} · v{{ item.version }} · {{ t('admin.extensions.capabilityCount', { count: capabilityCount(item) }) }}
-          </p>
-          <p
-            v-if="item.runtime?.protocolVersion"
-            class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400"
-          >
-            <span>{{ t('admin.extensions.runtime.protocol', { transport: item.runtime.protocolTransport, version: item.runtime.protocolVersion }) }}</span>
-            <span>{{ t('admin.extensions.runtime.protocolStarts', { count: item.runtime.protocolStartCount || 0 }) }}</span>
-            <span>{{ t('admin.extensions.runtime.protocolCalls', { count: item.runtime.protocolCallCount || 0 }) }}</span>
-          </p>
-          <p
-            v-if="item.runtime?.state === 'degraded' || item.runtime?.consecutiveFailures"
-            class="mt-1 text-xs text-amber-700 dark:text-amber-300"
-          >
-            <span v-if="item.runtime?.consecutiveFailures">
-              {{ t('admin.extensions.runtime.failures', { count: item.runtime.consecutiveFailures }) }}
-            </span>
-            <span v-if="item.runtime?.lastFailureReason" class="ml-1">
-              · {{ t('admin.extensions.runtime.lastFailure', { reason: item.runtime.lastFailureReason }) }}
-            </span>
-          </p>
-          <a
-            v-if="display.author.url || display.url"
-            :href="display.author.url || display.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="mt-2 inline-flex max-w-full items-center gap-1.5 rounded text-xs font-medium text-slate-500 transition hover:text-[var(--sf-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-zinc-400 dark:hover:text-[var(--sf-accent-dark)] dark:focus-visible:ring-offset-zinc-900"
-            :title="t('admin.extensions.authorWebsiteTitle', { name: display.author.name })"
-            :aria-label="t('admin.extensions.authorWebsiteTitle', { name: display.author.name })"
-          >
-            <UIcon name="i-lucide-user-round" class="size-3.5 shrink-0" />
-            <span class="truncate">{{ t('admin.extensions.authorLinkLabel', { name: display.author.name }) }}</span>
-            <UIcon name="i-lucide-external-link" class="size-3 shrink-0" />
-          </a>
-          <span v-else-if="display.author.name" class="mt-2 inline-flex max-w-full items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
-            <UIcon name="i-lucide-user-round" class="size-3.5 shrink-0" />
-            <span class="truncate">{{ t('admin.extensions.authorLinkLabel', { name: display.author.name }) }}</span>
-          </span>
-          <p class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400">
-            <span>{{ t('admin.extensions.capability.routes', { count: runtimeCapabilitySummary(item).routes }) }}</span>
-            <span>{{ t('admin.extensions.capability.hooks', { count: runtimeCapabilitySummary(item).hooks }) }}</span>
-            <span>{{ t('admin.extensions.capability.events', { count: runtimeCapabilitySummary(item).events }) }}</span>
-            <span>{{ t('admin.extensions.capability.providers', { count: runtimeCapabilitySummary(item).providers }) }}</span>
-          </p>
-          <p v-if="item.runtime?.lastError" class="mt-1 truncate text-xs text-red-600 dark:text-red-400">
-            {{ item.runtime.lastError }}
-          </p>
-          <SFAdminExtensionHostActionsNotice :extension="item" />
-          <SFAdminFrontendTrustPanel :extension="item" />
+            <template #badges>
+              <UBadge :color="runtimeColor(item.runtime?.state)" variant="subtle">
+                {{ t(runtimeStatusLabelKey(item)) }}
+              </UBadge>
+              <UBadge
+                v-if="isBuiltinMaintainedExtension(item)"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-package-check"
+                :title="t('admin.extensions.plugins.autoUpdate.builtinMaintainedHint')"
+              >
+                {{ t('admin.extensions.plugins.autoUpdate.builtinMaintained') }}
+              </UBadge>
+              <UBadge
+                v-if="shouldShowBuiltinAutoUpdateDisabled(item, builtinAutoUpdateState)"
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-pause"
+                :title="t('admin.extensions.plugins.autoUpdate.disabledHint')"
+              >
+                {{ t('admin.extensions.plugins.autoUpdate.disabledBadge') }}
+              </UBadge>
+              <UBadge
+                v-if="item.stagedVersion"
+                color="warning"
+                variant="outline"
+                icon="i-lucide-package-plus"
+                :title="stagedVersionHint(item)"
+              >
+                {{ t('admin.extensions.stagedVersionBadge', { version: item.stagedVersion.version }) }}
+              </UBadge>
+              <UBadge
+                v-if="!isExtensionArtifactAvailable(item)"
+                color="error"
+                variant="subtle"
+                icon="i-lucide-package-x"
+              >
+                {{ t('admin.extensions.artifact.missing') }}
+              </UBadge>
+              <UBadge
+                v-if="item.pendingUninstallCleanup"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-brush-cleaning"
+                :title="t('admin.extensions.uninstallCleanup.pendingHint')"
+              >
+                {{ t('admin.extensions.uninstallCleanup.pendingBadge') }}
+              </UBadge>
+              <UBadge
+                v-if="item.runtime?.protocolDeprecated"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-history"
+              >
+                {{ t('admin.extensions.runtime.protocolDeprecated', { version: item.runtime.protocolVersion }) }}
+              </UBadge>
+              <UBadge
+                :color="extensionSettingsPresentation(item).color"
+                variant="subtle"
+                :icon="extensionSettingsPresentation(item).icon"
+              >
+                {{ t(extensionSettingsPresentation(item).labelKey) }}
+              </UBadge>
+              <UBadge
+                v-if="item.runtime?.circuitOpen"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-zap-off"
+              >
+                {{ t('admin.extensions.runtime.circuitOpen') }}
+              </UBadge>
+              <UBadge
+                v-if="item.runtime?.memoryBytes"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-memory-stick"
+                :title="t('admin.extensions.runtime.memoryHint')"
+              >
+                {{ t('admin.extensions.runtime.memory', { size: formatPluginMemoryBytes(item.runtime.memoryBytes) }) }}
+              </UBadge>
+            </template>
+            <template #details>
+              <p
+                v-if="item.runtime?.protocolVersion"
+                class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400"
+              >
+                <span>{{ t('admin.extensions.runtime.protocol', { transport: item.runtime.protocolTransport, version: item.runtime.protocolVersion }) }}</span>
+                <span>{{ t('admin.extensions.runtime.protocolStarts', { count: item.runtime.protocolStartCount || 0 }) }}</span>
+                <span>{{ t('admin.extensions.runtime.protocolCalls', { count: item.runtime.protocolCallCount || 0 }) }}</span>
+              </p>
+              <p
+                v-if="item.runtime?.state === 'degraded' || item.runtime?.consecutiveFailures"
+                class="mt-1 text-xs text-amber-700 dark:text-amber-300"
+              >
+                <span v-if="item.runtime?.consecutiveFailures">
+                  {{ t('admin.extensions.runtime.failures', { count: item.runtime.consecutiveFailures }) }}
+                </span>
+                <span v-if="item.runtime?.lastFailureReason" class="ml-1">
+                  · {{ t('admin.extensions.runtime.lastFailure', { reason: item.runtime.lastFailureReason }) }}
+                </span>
+              </p>
+            </template>
+            <template #footer>
+              <p class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-zinc-400">
+                <span>{{ t('admin.extensions.capability.routes', { count: runtimeCapabilitySummary(item).routes }) }}</span>
+                <span>{{ t('admin.extensions.capability.hooks', { count: runtimeCapabilitySummary(item).hooks }) }}</span>
+                <span>{{ t('admin.extensions.capability.events', { count: runtimeCapabilitySummary(item).events }) }}</span>
+                <span>{{ t('admin.extensions.capability.providers', { count: runtimeCapabilitySummary(item).providers }) }}</span>
+              </p>
+              <p v-if="item.runtime?.lastError" class="mt-1 truncate text-xs text-red-600 dark:text-red-400">
+                {{ item.runtime.lastError }}
+              </p>
+              <SFAdminExtensionHostActionsNotice :extension="item" />
+              <SFAdminFrontendTrustPanel :extension="item" />
+            </template>
+          </SFAdminExtensionIdentity>
         </div>
         <div class="flex flex-wrap items-center gap-2 [&>a]:shrink-0 [&>button]:shrink-0">
           <UButton

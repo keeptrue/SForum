@@ -240,6 +240,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sf_admin_extension_identity",
+    "contractVersion": "sforum.component.admin.sf_admin_extension_identity@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/extensions/SFAdminExtensionIdentity.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_extension_install_panel",
     "contractVersion": "sforum.component.admin.sfadmin_extension_install_panel@1",
     "kind": "component",
@@ -264,6 +274,16 @@
     "contractVersion": "sforum.component.admin.sfadmin_extension_uninstall_dialog@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/SFAdminExtensionUninstallDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_extension_update_badges",
+    "contractVersion": "sforum.component.admin.sf_admin_extension_update_badges@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateBadges.vue",
     "owners": [
       "admin"
     ],
@@ -900,10 +920,30 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sf_admin_user_account_section",
+    "contractVersion": "sforum.component.admin.sf_admin_user_account_section@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserAccountSection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_user_create_dialog",
     "contractVersion": "sforum.component.admin.sfadmin_user_create_dialog@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/identity/users/SFAdminUserCreateDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_user_detail_drawer",
+    "contractVersion": "sforum.component.admin.sf_admin_user_detail_drawer@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserDetailDrawer.vue",
     "owners": [
       "admin"
     ],
@@ -940,10 +980,60 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sf_admin_user_permissions_section",
+    "contractVersion": "sforum.component.admin.sf_admin_user_permissions_section@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserPermissionsSection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_user_preview_modal",
     "contractVersion": "sforum.component.admin.sfadmin_user_preview_modal@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/identity/users/SFAdminUserPreviewModal.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_user_profile_section",
+    "contractVersion": "sforum.component.admin.sf_admin_user_profile_section@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserProfileSection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_user_roles_section",
+    "contractVersion": "sforum.component.admin.sf_admin_user_roles_section@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserRolesSection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_user_security_section",
+    "contractVersion": "sforum.component.admin.sf_admin_user_security_section@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserSecuritySection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_user_table",
+    "contractVersion": "sforum.component.admin.sf_admin_user_table@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/identity/users/SFAdminUserTable.vue",
     "owners": [
       "admin"
     ],

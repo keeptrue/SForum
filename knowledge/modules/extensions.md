@@ -1463,6 +1463,17 @@ Relevant plans:
   provider inspection. There is no store surface in core: the app store is
   out-of-tree, and a catalog plugin installs through `install-from-url` or the
   host-mediated install action of its own trusted admin page.
+- A `list_column` Admin Surface result may carry an optional `links` map
+  (resource ID → Host admin path). The Host normalizes it through
+  `safeAdminPageId` and drops, per entry, anything that is not a `/`-prefixed
+  path, starts with `//`, or contains a backslash or a control character; a cell
+  without a link renders as a plain badge instead of a dead link. The three
+  extension admin pages (overview, plugins, themes) read their update badges from
+  `list_column` surfaces through `useAdminListSurfaces().badgesFor()`, with the
+  row identity extracted into `SFAdminExtensionIdentity` and link badges kept
+  outside the selection button. Whether an extension *has* an update stays the
+  store plugin's decision: Core adds no store catalog, table, or API. See
+  `../decisions/2026-10-27-extension-update-badges-admin-surface.md`.
 - Admin extension overview and plugin management label `stagedVersion` as a
   pending upgrade rather than a generic candidate, while retaining the exact
   current/staged version explanation. Each staged plugin has an Upgrade action;

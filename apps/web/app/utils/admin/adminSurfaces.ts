@@ -49,6 +49,25 @@ export type AdminSurfaceCatalog = {
   surfaces: AdminSurfaceContract[]
 }
 
+/**
+ * 列表行上的只读徽章：来自 `list_column` surface 的单元格，
+ * 链接目标来自同一份输出的 `links[resourceId]`。
+ */
+export type AdminListBadge = {
+  id: string
+  label: string
+  title: string
+  tone: AdminSurfaceTone
+  icon?: string
+  pageId?: string
+}
+
+/** `resolveAdminListBadges` 只需要已解析的 surface + view，避免反向依赖 composable 类型。 */
+export type AdminListBadgeSource = {
+  surface: AdminSurfaceContract
+  view: AdminSurfaceViewModel
+}
+
 export type AdminSurfaceInvocation = {
   surface: AdminSurfaceContract
   output: Record<string, unknown>
@@ -79,6 +98,8 @@ export type AdminSurfaceViewModel = {
   commandSurfaceId?: string
   items: Array<{ label: string, value: AdminSurfacePrimitive }>
   cells: Record<string, AdminSurfacePrimitive>
+  /** resourceId → 后台相对页面路径；徽章/单元格可据此深链到宿主页面。 */
+  links: Record<string, string>
   options: AdminSurfaceOption[]
   visibleResourceIds: string[]
   visibleResourceIdsDeclared: boolean
@@ -133,6 +154,7 @@ export function normalizeAdminSurfaceOutput(output: unknown): AdminSurfaceViewMo
     commandSurfaceId: safeSurfaceId(output.commandSurfaceId),
     items: normalizeItems(output.items),
     cells: normalizePrimitiveRecord(output.cells, 1000),
+    links: normalizeResourceLinks(output.links),
     options: normalizeOptions(output.options),
     visibleResourceIds: normalizeResourceIds(output.visibleResourceIds),
     visibleResourceIdsDeclared: Array.isArray(output.visibleResourceIds),
@@ -143,7 +165,7 @@ export function normalizeAdminSurfaceOutput(output: unknown): AdminSurfaceViewMo
   }
   if (result.title === undefined && result.description === undefined && result.message === undefined && result.value === undefined &&
     result.icon === undefined && result.pageId === undefined && result.commandSurfaceId === undefined &&
-    result.items.length === 0 && Object.keys(result.cells).length === 0 &&
+    result.items.length === 0 && Object.keys(result.cells).length === 0 && Object.keys(result.links).length === 0 &&
     result.options.length === 0 && !result.visibleResourceIdsDeclared && result.fields.length === 0 &&
     Object.keys(result.values).length === 0 && !result.refresh && result.download === undefined) {
     return null
@@ -174,6 +196,41 @@ export function adminSurfaceKindIcon(kind: AdminSurfaceKind) {
     exporter: 'i-lucide-file-down'
   }
   return icons[kind]
+}
+
+/**
+ * 把 `list_column` surface 在某个资源上的单元格折叠成徽章。
+ * 只接受精确放置的 add + invokable 列；空单元格、不可见资源直接跳过，
+ * 因为宿主不能替扩展把“没有值”渲染成“没有更新”。
+ */
+export function resolveAdminListBadges(
+  resolved: readonly AdminListBadgeSource[],
+  resourceId: string
+): AdminListBadge[] {
+  const id = String(resourceId || '').trim()
+  if (!id) return []
+  const result: AdminListBadge[] = []
+  for (const item of resolved) {
+    const { surface, view } = item
+    if (surface.kind !== 'list_column' || surface.action !== 'add' || !surface.invokable) continue
+    if (view.visibleResourceIdsDeclared && !view.visibleResourceIds.includes(id)) continue
+    const cell = view.cells[id]
+    if (cell === undefined || cell === null || cell === '') continue
+    const label = String(cell).trim()
+    if (!label) continue
+    // 资源 ID 是不透明字符串，可能撞上 Object.prototype 的键（constructor/toString）。
+    // 只认自有属性，否则 pageId 会拿到函数并一路炸到 adminRoutes.path()。
+    const linked = Object.hasOwn(view.links, id) ? view.links[id] : undefined
+    result.push({
+      id: surface.id,
+      label,
+      title: view.title || surface.label || label,
+      tone: view.tone,
+      icon: view.icon,
+      pageId: typeof linked === 'string' ? linked : undefined
+    })
+  }
+  return result
 }
 
 function normalizeAdminSurfaceRoute(pageId: string) {
@@ -258,6 +315,21 @@ function normalizeOptions(value: unknown): AdminSurfaceOption[] {
 function normalizeResourceIds(value: unknown) {
   if (!Array.isArray(value)) return []
   return [...new Set(value.slice(0, 1000).flatMap(item => boundedString(item, 160) || []))]
+}
+
+// 资源深链和 pageId 同源：必须是后台相对路径，任何协议、协议相对地址或
+// 控制字符都在宿主边界丢弃，扩展不能借徽章把管理员带去站外。
+function normalizeResourceLinks(value: unknown) {
+  if (!isRecord(value)) return {}
+  const result: Record<string, string> = {}
+  for (const [key, item] of Object.entries(value).slice(0, 1000)) {
+    const resourceId = boundedString(key, 160)
+    if (!resourceId) continue
+    const pageId = safeAdminPageId(item)
+    if (!pageId) continue
+    result[resourceId] = pageId
+  }
+  return result
 }
 
 function normalizeFields(value: unknown): AdminSurfaceField[] {

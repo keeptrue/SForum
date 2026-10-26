@@ -1356,6 +1356,11 @@
       "title": "Extension overview",
       "intro": "Review installed plugins and themes, and upload ZIP extension packages with an SForum manifest.",
       "refresh": "Refresh",
+      "updateCheck": {
+        "refresh": "Check for updates",
+        "failed": "Extension update check did not finish.",
+        "retry": "Retry"
+      },
       "upload": "Upload ZIP",
       "configureStorage": "Configure storage",
       "configureStorageEnableFirst": "Enable the plugin before configuring storage service instances.",

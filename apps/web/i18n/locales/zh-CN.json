@@ -1396,6 +1396,11 @@
       "title": "扩展总览",
       "intro": "查看已安装插件与主题的整体状态，并上传符合 SForum manifest 规范的 ZIP 扩展包。",
       "refresh": "刷新",
+      "updateCheck": {
+        "refresh": "检查更新",
+        "failed": "扩展更新检查未完成。",
+        "retry": "重试"
+      },
       "upload": "上传 ZIP",
       "configureStorage": "配置存储",
       "configureStorageEnableFirst": "请先启用插件，再配置存储服务实例。",

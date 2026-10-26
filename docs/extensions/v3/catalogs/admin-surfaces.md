@@ -16,11 +16,11 @@
 | `core.admin.page.extensions_component_inspector` | `apps/web/app/pages/admin/extensions/component-inspector.vue` | yes | no | yes | no | no | no | no | yes | yes | no | no | yes | no |
 | `core.admin.page.extensions_contributions` | `apps/web/app/pages/admin/extensions/contributions.vue` | yes | no | yes | no | no | no | no | yes | yes | no | no | yes | no |
 | `core.admin.page.extensions_events` | `apps/web/app/pages/admin/extensions/events.vue` | yes | no | yes | no | yes | no | no | yes | yes | no | no | yes | no |
-| `core.admin.page.extensions` | `apps/web/app/pages/admin/extensions/index.vue` | yes | no | yes | no | yes | yes | no | yes | yes | no | yes | yes | no |
+| `core.admin.page.extensions` | `apps/web/app/pages/admin/extensions/index.vue` | yes | no | yes | yes | yes | yes | no | yes | yes | no | yes | yes | no |
 | `core.admin.page.extensions_install` | `apps/web/app/pages/admin/extensions/install.vue` | yes | no | yes | no | no | no | no | no | no | no | no | yes | no |
 | `core.admin.page.extensions_navigation_inspector` | `apps/web/app/pages/admin/extensions/navigation-inspector.vue` | yes | no | yes | no | no | no | no | yes | yes | no | no | yes | no |
 | `core.admin.page.extensions_pages` | `apps/web/app/pages/admin/extensions/pages.vue` | yes | no | yes | no | no | yes | no | yes | yes | no | no | yes | no |
-| `core.admin.page.extensions_plugins` | `apps/web/app/pages/admin/extensions/plugins.vue` | yes | no | yes | no | yes | yes | no | yes | yes | no | yes | yes | no |
+| `core.admin.page.extensions_plugins` | `apps/web/app/pages/admin/extensions/plugins.vue` | yes | no | yes | yes | yes | yes | no | yes | yes | no | yes | yes | no |
 | `core.admin.page.extensions_provider_slots` | `apps/web/app/pages/admin/extensions/provider-slots.vue` | yes | no | yes | no | yes | no | no | yes | yes | no | no | yes | no |
 | `core.admin.page.extensions_query_catalog` | `apps/web/app/pages/admin/extensions/query-catalog.vue` | yes | no | yes | no | yes | no | no | no | yes | no | no | yes | no |
 | `core.admin.page.extensions_registry_catalogs` | `apps/web/app/pages/admin/extensions/registry-catalogs.vue` | yes | no | yes | no | no | no | no | yes | yes | no | no | yes | yes |
@@ -29,7 +29,7 @@
 | `core.admin.page.extensions_route_providers` | `apps/web/app/pages/admin/extensions/route-providers.vue` | yes | no | yes | no | yes | no | no | yes | yes | no | no | yes | no |
 | `core.admin.page.extensions_settings` | `apps/web/app/pages/admin/extensions/settings.vue` | yes | no | yes | no | no | no | no | no | yes | no | no | yes | no |
 | `core.admin.page.extensions_template_inspector` | `apps/web/app/pages/admin/extensions/template-inspector.vue` | yes | no | yes | no | no | no | no | yes | yes | no | no | yes | no |
-| `core.admin.page.extensions_themes` | `apps/web/app/pages/admin/extensions/themes.vue` | yes | no | yes | no | yes | yes | no | yes | yes | no | yes | yes | no |
+| `core.admin.page.extensions_themes` | `apps/web/app/pages/admin/extensions/themes.vue` | yes | no | yes | yes | yes | yes | no | yes | yes | no | yes | yes | no |
 | `core.admin.page.forum_categories` | `apps/web/app/pages/admin/forum/categories.vue` | yes | no | yes | no | no | no | no | yes | yes | no | yes | yes | no |
 | `core.admin.page.forum_content` | `apps/web/app/pages/admin/forum/content.vue` | yes | no | yes | yes | yes | yes | no | yes | yes | yes | yes | yes | no |
 | `core.admin.page.forum_settings` | `apps/web/app/pages/admin/forum/settings.vue` | yes | no | yes | no | yes | no | no | no | yes | no | no | yes | no |
@@ -50,5 +50,5 @@
 | `core.admin.page.settings_mail` | `apps/web/app/pages/admin/settings/mail.vue` | yes | no | yes | no | no | no | no | no | yes | no | no | yes | no |
 | `core.admin.page.settings_notifications` | `apps/web/app/pages/admin/settings/notifications.vue` | yes | no | no | no | no | no | no | no | no | no | no | yes | no |
 | `core.admin.page.site_chrome` | `apps/web/app/pages/admin/site-chrome.vue` | yes | no | no | no | no | no | no | no | no | no | no | yes | no |
-| `core.admin.page.users` | `apps/web/app/pages/admin/users.vue` | yes | no | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | no |
+| `core.admin.page.users` | `apps/web/app/pages/admin/users.vue` | yes | no | yes | no | yes | no | no | yes | yes | no | yes | yes | no |
 | `core.admin.page.webhooks` | `apps/web/app/pages/admin/webhooks.vue` | yes | no | yes | no | yes | yes | no | yes | yes | no | yes | yes | no |

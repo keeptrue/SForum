@@ -673,7 +673,19 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **一行安装 loader（2026-10-27，最新）**：新增第 10 个 Release 资产
+- **扩展管理三页的「可更新」徽章（2026-10-27，最新）**：Core 复用 `list_column`
+  Admin Surface，结果新增可选 `links`（资源 ID → 同源后台路径，`safeAdminPageId`
+  白名单，非法值降级为不可点击徽章）；三页（plugins / themes / overview）经
+  `useAdminListSurfaces().badgesFor()` 挂徽章，身份簇抽成
+  `SFAdminExtensionIdentity`，徽章在选择按钮之外；只读访问需 `admin.access` +
+  `extension.view`（只带后者会被重定向）。是否有更新仍由 `sforum.store`
+  插件判定，Core 不加商城目录/表/API。T5 验收：`bun test` 1767 pass，typecheck /
+  架构边界 / `v3-catalog --check` / `go build` 全绿；浏览器证据 fixture 与真实
+  分开记录。遗留 3 条 P2（503/504/502 文案不可区分、restart 后出站连接僵死，
+  以及「只读 UI 可点管理动作」——该条为 pre-existing、非本功能引入，out of scope）
+  与 3 条 P3。见
+  `knowledge/sessions/2026-10-27-extension-update-badges-review.md`。
+- **一行安装 loader（2026-10-27）**：新增第 10 个 Release 资产
   `sforum-install.sh`，把 20 行部署命令压成
   `curl -fsSL .../releases/latest/download/sforum-install.sh | bash`。loader 只做
   解析标签、校验该标签的 `sforum-bootstrap.sh`（`SHA256SUMS` 精确条目 + 可选
