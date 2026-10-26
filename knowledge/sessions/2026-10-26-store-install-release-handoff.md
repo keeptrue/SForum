@@ -2,7 +2,7 @@
 
 ## Changed
 
-- **core 8 个提交到 `5a4ce5eaf`**：C1 dev `coreVersion` 从 git tag 派生（含 16 个 DB
+- **core 10 个提交到 `e658aedf0`（含 P0 修复 `c6d6d53ba`）**：C1 dev `coreVersion` 从 git tag 派生（含 16 个 DB
   集成测试改为从 `CoreCompatibilityVersion()` 派生）；C2 清单词表新增
   `extension.install.enable`；C3 安装并启用二连（bridge 三态 + 弹窗 + 披露）；
   C4 扩展页归属交给 manifest `group`；C5 平台闸门（`ExtensionPackage.DetectTarget`）；
@@ -11,8 +11,8 @@
 - **store 5 个提交到 `18a9a07`**：既有 1（`97348b9`）+ pin（完整 40 位 SHA
   `5a4ce5eaf341ba0825fdb6ffca87e63be88d3250`，行内注释 `# v3.0.17`）+
   service 35 文件 + 插件 30 文件 + 文档 20 文件。未跟踪残留：`tun2.html`。
-- **发版**：annotated tag `v3.0.17` 已指向 `5a4ce5eaf`，但**需重打**（见下节 P0）；
-  最终 SHA 以重打后的 HEAD 为准，推送状态以老运为准。
+- **发版**：annotated tag `v3.0.17` 指向含本批与 P0 修复的提交（最终 SHA 以
+  `git rev-parse v3.0.17^{commit}` 为准）；推送状态以老运为准。
 
 ## P0 拦截
 
@@ -23,8 +23,8 @@
   `granted_by_user_id` 时漏写 `COALESCE(…,0)`；该列 `ON DELETE SET NULL` 可空；
   同表 6 处读该列的查询里只有这一处漏。
 - **发现方式**：真机取证删临时管理员 `qa-agent` 时意外触发 —— 取证流程本身撞出一个既有 P0。
-- **处置**：修 1 行 + 回归用例（修前必失败已留证）。改动**尚未提交**，v3.0.17 需重打到
-  含修复的提交；旧 tag 从未推送，因此不是 force-move 已发布 tag。
+- **处置**：修 1 行 + 回归用例（修前必失败已留证）。改动已随 `c6d6d53ba` 提交，
+  `v3.0.17` 已重打到含修复的提交；旧 tag 从未推送，因此不是 force-move 已发布 tag。
 - **同类残留**（本次不发，另开单）：`Forum/resource_guard.go` 两处、
   `EntityMeta/guard_subject.go`、`Forum/revisions_redaction.go` —— 作者账号带外删除后
   编辑/删除鉴权 500，不在启动路径。
