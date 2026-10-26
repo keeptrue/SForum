@@ -511,6 +511,12 @@ func cleanupExtensionDatabaseDispositionFixture(
 		_, _ = h.pool.Exec(ctx, `DELETE FROM extension_database_dispositions WHERE operation_id = $1`, h.request.OperationID)
 		_, _ = h.pool.Exec(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = $1`, identifiers.RuntimeRole)
 		_, _ = h.pool.Exec(ctx, `DELETE FROM extension_database_credentials WHERE extension_id = $1`, artifact.ExtensionID)
+		// grant_powers.grant_id 是 ON DELETE RESTRICT：不先删 powers，
+		// 下面两条 DELETE 会静默失败并留下 grants/resources 残留。
+		_, _ = h.pool.Exec(ctx, `
+			DELETE FROM extension_database_grant_powers
+			WHERE grant_id IN (SELECT id FROM extension_database_grants WHERE extension_id = $1)
+		`, artifact.ExtensionID)
 		_, _ = h.pool.Exec(ctx, `DELETE FROM extension_database_grants WHERE extension_id = $1`, artifact.ExtensionID)
 		_, _ = h.pool.Exec(ctx, `DELETE FROM extension_database_resources WHERE extension_id = $1`, artifact.ExtensionID)
 		_, _ = h.pool.Exec(ctx, `DROP SCHEMA IF EXISTS `+pgx.Identifier{identifiers.Schema}.Sanitize()+` CASCADE`)

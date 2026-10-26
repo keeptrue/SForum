@@ -59,9 +59,17 @@
   `TestPostgresExtensionDatabaseDispositionToleratesStaleActiveGrant`（真库、两条
   active grant、旧 artifact 物理序在前并断言其遮蔽新 artifact）。修前
   `extension database exact artifact conflict`，修后 PASS 且两条 grant 都被
-  disposition 撤销。dev 库与**全新迁移库**（`extension_versions` 序列只有个位数）
-  双侧各跑 3 次全绿——旧 artifact 身份取 `version_id=1 / version="0" / digest 全零`
-  这一最小三元组，不依赖库里 id 的量级。
+  disposition 撤销。
+- 用例的确定性前提（**单独跑该用例**时才成立，不能拿「整包绿」当证据）：
+  旧 artifact 身份取 `version_id=1 / version="0" / digest 全零` 这一最小三元组，
+  因此目标版本 id 必须 ≥ 2。全新库里 fixture 的目标 id 恰好是 1，两者会在
+  active-artifact 唯一索引前缀上撞车，断言退化成空过；所以用例开头先
+  `nextval('extension_versions_id_seq')` 烧掉一个序列值，并在
+  `assertStaleGrantShadowsArtifact` 里硬断言
+  `stale.VersionID < artifact.VersionID` 且首行确实是旧 artifact，撞车时响亮失败。
+  验证记录：新建库 + 全量迁移后**只跑该用例**连跑 3 次全绿；同一库里把 SELECT
+  临时还原成旧形态后立刻复现 `extension database exact artifact conflict`。
+  整包运行会因更早的测试推进了序列而「碰巧」通过，不作为确定性证据。
 - 现场：908/909 不再报 `extension database exact artifact conflict`，推进到
   disposition 之后的下一步；703 仍按 `active_version_id` 比对 fail-closed
   （A 类，需要 `superseded` 终态才能收尾）；1154 仍停在 actor 守卫。
