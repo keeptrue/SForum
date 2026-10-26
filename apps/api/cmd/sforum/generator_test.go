@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,9 +218,12 @@ func TestGenerateVueAdminPageScaffold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, dependency := range []string{"\"@sforum/admin-sdk\": \"^1.2.0\"", "\"@sforum/plugin-ui\": \"^1.1.0\""} {
-		if !strings.Contains(string(adminPackage), dependency) {
-			t.Fatalf("author workspace must depend on %s: %s", dependency, adminPackage)
+	// 期望版本从真实 SDK 的 package.json 读，不写死：写死的话每次 SDK 升版都会
+	// 在别处炸一次（v3.0.17 的 release 就是被同一个错配挡下的）。
+	for _, dependency := range []string{"@sforum/admin-sdk", "@sforum/plugin-ui"} {
+		want := fmt.Sprintf("%q: %q", dependency, "^"+sdkPackageVersion(t, dependency))
+		if !strings.Contains(string(adminPackage), want) {
+			t.Fatalf("author workspace must depend on %s: %s", want, adminPackage)
 		}
 	}
 	readme, err := os.ReadFile(filepath.Join(target, "README.md"))
@@ -415,4 +420,24 @@ func TestExtensionDigestCommandRefreshesGeneratedArtifact(t *testing.T) {
 	if after == "" || after == before || !strings.Contains(out.String(), "updated ") {
 		t.Fatalf("digest not refreshed: before=%s after=%s output=%s", before, after, out.String())
 	}
+}
+
+// sdkPackageVersion 读 apps/web/packages/<name> 的真实版本，作为脚手架的期望值。
+func sdkPackageVersion(t *testing.T, name string) string {
+	t.Helper()
+	manifest := filepath.Join("..", "..", "..", "web", "packages", strings.TrimPrefix(name, "@sforum/"), "package.json")
+	body, err := os.ReadFile(manifest)
+	if err != nil {
+		t.Fatalf("read %s manifest: %v", name, err)
+	}
+	var parsed struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("decode %s manifest: %v", name, err)
+	}
+	if parsed.Version == "" {
+		t.Fatalf("%s manifest has no version", name)
+	}
+	return parsed.Version
 }
