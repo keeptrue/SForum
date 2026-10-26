@@ -1,6 +1,8 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { fileURLToPath } from 'node:url'
 import { compileTemplate, parse } from '@vue/compiler-sfc'
 import { installTestDom } from '../helpers/dom'
+import { compileVueSfc, mount, testVue } from '../helpers/vueSfc'
 
 installTestDom()
 
@@ -54,8 +56,64 @@ describe('admin page install dialog', () => {
   test('warns about super_admin, the post-download verification and staging only', () => {
     expect(dialog).toContain("t('admin.extensionInstall.hostAction.superAdminTitle')")
     expect(dialog).toContain("t('admin.extensionInstall.hostAction.verifyBody')")
-    expect(dialog).toContain("t('admin.extensionInstall.hostAction.stagedOnlyBody')")
+    expect(dialog).toContain('admin.extensionInstall.hostAction.stagedOnlyBody')
     expect(dialog).toContain("t('admin.extensionInstall.hostAction.installingHint')")
+  })
+
+  test('the template literal matches the declared stacking constant', async () => {
+    const { ADMIN_HOST_DIALOG_Z_INDEX } = await import('../../app/utils/admin/extensions/hostActions')
+    // Tailwind 没有 safelist，模板里必须是字面量；这条把字面量与常量绑在一起。
+    expect(dialog).toContain(`z-[${ADMIN_HOST_DIALOG_Z_INDEX}]`)
+    expect(ADMIN_HOST_DIALOG_Z_INDEX).toBeGreaterThan(40)
+    expect(ADMIN_HOST_DIALOG_Z_INDEX).toBeLessThan(100)
+  })
+
+  test('fixes the deadlock: the host modal sits above the plugin overlay and below toasts', () => {
+    // 商店遮罩是 z-index:40，UModal 默认没有任何 z-index，弹窗会被盖住；
+    // 而 reka 在弹窗打开时给 body 加了 pointer-events:none —— 于是整页点不动。
+    expect(dialog).toContain("overlay: 'z-[80]'")
+    expect(dialog).toContain("'z-[80] sm:max-w-lg'")
+    expect(dialog).toContain("'z-[80] sm:max-w-4xl'")
+    expect(dialog).toContain(':ui="modalUi"')
+    expect(dialog).not.toContain('z-[100]')
+    expect(dialog).toContain(':dismissible="false"')
+  })
+
+  test('spins the installing icon and reports elapsed seconds against the 120 s budget', () => {
+    expect(dialog).toContain(":ui=\"{ icon: 'animate-spin motion-reduce:animate-none' }\"")
+    expect(dialog).toContain('ADMIN_HOST_INSTALL_TIMEOUT_MS')
+    expect(dialog).toContain('installLimitSeconds')
+    expect(dialog).toContain("t('admin.extensionInstall.hostAction.elapsed', { seconds: props.elapsedSeconds, limit: installLimitSeconds })")
+  })
+
+  test('renders the trust review step through the shared impact component', () => {
+    expect(dialog).toContain("import SFAdminExecutableTrustImpact from '~/components/admin/SFAdminExecutableTrustImpact.vue'")
+    expect(dialog).toContain('<SFAdminExecutableTrustImpact')
+    expect(dialog).toContain(':impact="trustStatus.impact"')
+    expect(dialog).toContain(':guard-authorization="trustStatus.guardAuthorization"')
+    // 不在宿主弹窗里另写一份权限披露。
+    expect(dialog).not.toContain('requestedAuthority')
+    expect(dialog).not.toContain('packageFiles')
+    expect(dialog).toContain("t('admin.extensionInstall.hostAction.trustReviewConfirm')")
+  })
+
+  test('separates enabled, upgraded and staged results', () => {
+    expect(dialog).toContain("props.outcome === 'enabled'")
+    expect(dialog).toContain("props.outcome === 'upgraded'")
+    for (const key of ['stagedThemeTitle', 'stagedSuperAdminTitle', 'stagedDeclinedTitle', 'stagedOnlyTitle']) {
+      expect(dialog).toContain(`admin.extensionInstall.hostAction.${key}`)
+    }
+    // 启用失败必须是失败文案 + 只重试启用，不能落进成功分支。
+    expect(dialog).toContain("props.failurePhase === 'activate'")
+    expect(dialog).toContain('admin.extensionInstall.hostAction.enableFailedTitle')
+    expect(dialog).toContain('admin.extensionInstall.hostAction.retryEnable')
+  })
+
+  test('announces the enable step before the operator confirms', () => {
+    expect(dialog).toContain("t('admin.extensionInstall.hostAction.titleEnable')")
+    expect(dialog).toContain("t('admin.extensionInstall.hostAction.enableNoticeTitle')")
+    expect(dialog).toContain('admin.extensionInstall.hostAction.confirmEnable')
+    expect(dialog).toContain('enableNoticeBodyDelegated')
   })
 
   test('renders cancel, retry, success and failure branches', () => {
@@ -99,10 +157,15 @@ describe('admin page install dialog', () => {
 })
 
 describe('bridge injection surface', () => {
-  test('injects installExtension only for pages that declare the action', () => {
-    expect(bridge).toContain('if (!adminPageCanInstallExtensions(props.page)) return base')
+  test('injects each host action only for pages that declare it', () => {
+    expect(bridge).toContain('const canInstall = adminPageCanInstallExtensions(props.page)')
+    expect(bridge).toContain('const canInstallAndEnable = adminPageCanInstallAndEnable(props.page)')
+    expect(bridge).toContain('if (!canInstall && !canInstallAndEnable) return base')
     expect(bridge).toContain('installExtension: (request: AdminHostInstallRequest) => hostInstall.start(request)')
+    expect(bridge).toContain('installAndEnableExtension: (request: AdminHostInstallRequest) => hostInstall.startEnable(request)')
     expect(bridge).toContain('satisfies AdminPageBridgeV1')
+    // 旧宿主行为不变：声明 extension.install 的页面不会多拿到启用能力。
+    expect(bridge).not.toContain('installAndEnableExtension: hostInstall')
   })
 
   test('wires the shared transport and the shared error mapping, not a private copy', () => {
@@ -116,6 +179,250 @@ describe('bridge injection surface', () => {
 
   test('aborts an in-flight install when the page unmounts', () => {
     expect(bridge).toContain('hostInstall.abortOnUnmount()')
+  })
+
+  test('reuses the shared trust path and lifecycle helpers instead of a private enable flow', () => {
+    expect(bridge).toContain('executableTrustPath(item, action)')
+    expect(bridge).toContain('executableTrustPath(item, action, true)')
+    expect(bridge).toContain('`/admin/extensions/${item.id}/${action}`')
+    expect(bridge).toContain('useAdminPageHostInstall({')
+    // 弹窗自己不该拼生命周期请求。
+    expect(bridge).not.toContain("'/enable'")
+  })
+})
+
+describe('admin page install dialog rendering', () => {
+  const impact = {
+    schemaVersion: 'sforum.trust-impact@2',
+    digest: 'impact-1',
+    extensionId: 'sforum.store',
+    extensionVersion: '1.4.0',
+    capabilities: []
+  }
+  let Dialog: Awaited<ReturnType<typeof compileVueSfc>>
+
+  beforeAll(async () => {
+    Object.assign(globalThis, {
+      computed: testVue.computed,
+      watch: testVue.watch,
+      useI18n: () => ({
+        t: (key: string, params?: Record<string, unknown>) => params ? `${key}|${JSON.stringify(params)}` : key
+      })
+    })
+    Dialog = await compileVueSfc(
+      fileURLToPath(new URL('../../app/components/extensions/admin/SFAdminPageInstallDialog.vue', import.meta.url)),
+      'admin-page-install-dialog',
+      {
+        ADMIN_HOST_INSTALL_TIMEOUT_MS: 120000,
+        SFAdminExecutableTrustImpact: {
+          props: ['impact', 'guardAuthorization'],
+          template: '<div data-testid="trust-impact">{{ impact.digest }}</div>'
+        }
+      }
+    )
+  })
+
+  function uiStubs() {
+    return {
+      UModal: { props: ['open', 'ui'], template: '<div v-if="open"><slot name="content" /></div>' },
+      UButton: {
+        props: ['disabled', 'loading', 'icon'],
+        emits: ['click'],
+        template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>'
+      },
+      UAlert: {
+        props: ['title', 'description', 'ui'],
+        template: '<div data-alert><span data-alert-title>{{ title }}</span><span data-alert-body>{{ description }}</span></div>'
+      },
+      UIcon: { props: ['name'], template: '<i :data-icon="name" />' }
+    }
+  }
+
+  function mountDialog(overrides: Record<string, unknown> = {}) {
+    return mount(Dialog, {
+      props: {
+        open: true,
+        request: {
+          url: 'https://cdn.example.com/sforum.store-1.4.0.zip',
+          sha256: 'a'.repeat(64),
+          expectedExtensionId: 'sforum.store',
+          expectedType: 'plugin'
+        },
+        state: 'confirming',
+        mode: 'enable',
+        result: null,
+        outcome: null,
+        stagedReason: null,
+        failurePhase: 'install',
+        error: '',
+        elapsedSeconds: 0,
+        trustStatus: null,
+        trustBusy: false,
+        trustError: '',
+        permission: 'extension.plugin.manage',
+        isSuperAdmin: true,
+        ...overrides
+      },
+      global: { stubs: uiStubs() }
+    })
+  }
+
+  const installed = {
+    extensionId: 'sforum.store',
+    version: '1.4.0',
+    type: 'plugin',
+    packageDigest: 'b'.repeat(64),
+    upgraded: false,
+    requiresTrust: true
+  }
+
+  test('an enabled result reads as running, never as merely staged', () => {
+    const wrapper = mountDialog({ state: 'success', result: installed, outcome: 'enabled' })
+    try {
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.enabledTitle')
+      expect(wrapper.text()).not.toContain('admin.extensionInstall.hostAction.stagedOnlyTitle')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the success panel states the result once and explains the stop separately', () => {
+    const wrapper = mountDialog({
+      state: 'success',
+      result: { ...installed, type: 'theme' },
+      outcome: 'staged',
+      stagedReason: 'theme'
+    })
+    try {
+      const headline = wrapper.find('[data-role="result-headline"]').text()
+      const alertTitle = wrapper.find('[data-alert-title]').text()
+      expect(headline).toBe('admin.extensionInstall.result.installed')
+      expect(alertTitle).toBe('admin.extensionInstall.hostAction.stagedThemeTitle')
+      expect(headline).not.toBe(alertTitle)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('a staged upgrade keeps the upgrade-candidate wording', () => {
+    const wrapper = mountDialog({
+      state: 'success',
+      result: { ...installed, upgraded: true },
+      outcome: 'staged',
+      stagedReason: 'stage'
+    })
+    try {
+      expect(wrapper.find('[data-role="result-headline"]').text())
+        .toBe('admin.extensionInstall.result.upgradeStaged')
+      expect(wrapper.find('[data-alert-title]').text())
+        .toBe('admin.extensionInstall.hostAction.stagedOnlyTitle')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('an enabled result does not repeat its headline in the alert', () => {
+    const wrapper = mountDialog({ state: 'success', result: installed, outcome: 'enabled' })
+    try {
+      expect(wrapper.find('[data-role="result-headline"]').text())
+        .toBe('admin.extensionInstall.hostAction.enabledTitle')
+      expect(wrapper.find('[data-alert-title]').text()).toBe('')
+      expect(wrapper.find('[data-alert-body]').text())
+        .toBe('admin.extensionInstall.hostAction.enabledBody')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the enable confirm step discloses that the host confirms capabilities', () => {
+    const wrapper = mountDialog()
+    try {
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.enableCapabilitiesNote')
+    } finally {
+      wrapper.unmount()
+    }
+    const staged = mountDialog({ mode: 'stage' })
+    try {
+      // stage 模式没有「代你确认能力」这回事，就不该出现这句话。
+      expect(staged.text()).not.toContain('admin.extensionInstall.hostAction.enableCapabilitiesNote')
+    } finally {
+      staged.unmount()
+    }
+  })
+
+  test('a staged result explains why the host stopped', () => {
+    const theme = mountDialog({
+      state: 'success',
+      result: { ...installed, type: 'theme' },
+      outcome: 'staged',
+      stagedReason: 'theme'
+    })
+    try {
+      expect(theme.text()).toContain('admin.extensionInstall.hostAction.stagedThemeTitle')
+    } finally {
+      theme.unmount()
+    }
+    const delegated = mountDialog({ state: 'success', result: installed, outcome: 'staged', stagedReason: 'super_admin' })
+    try {
+      expect(delegated.text()).toContain('admin.extensionInstall.hostAction.stagedSuperAdminTitle')
+    } finally {
+      delegated.unmount()
+    }
+  })
+
+  test('a failed enable shows the enable failure and only offers to retry the enable', () => {
+    const wrapper = mountDialog({
+      state: 'error',
+      failurePhase: 'activate',
+      error: 'extension.lifecycle_failed'
+    })
+    try {
+      // 当前状态在前，后端错误在后：绝不能读成「成功」。
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.enableFailedTitle')
+      expect(wrapper.text()).toContain('extension.lifecycle_failed')
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.enableFailedHint')
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.retryEnable')
+      expect(wrapper.text()).not.toContain('admin.extensionInstall.hostAction.enabledTitle')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the trust review renders the shared impact report and confirms through one event', async () => {
+    const wrapper = mountDialog({ state: 'trust-review', trustStatus: { impact, trustRequired: true, trusted: false } })
+    try {
+      expect(wrapper.find('[data-testid="trust-impact"]').text()).toBe('impact-1')
+      const confirm = wrapper.findAll('button').find(candidate =>
+        candidate.text() === 'admin.extensionInstall.hostAction.trustReviewConfirm')
+      expect(confirm).toBeTruthy()
+      await confirm?.trigger('click')
+      expect(wrapper.emitted('confirmTrust')).toEqual([[]])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the installing state shows the elapsed seconds against the install budget', () => {
+    const wrapper = mountDialog({ state: 'installing', elapsedSeconds: 12 })
+    try {
+      const body = wrapper.find('[data-alert-body]').text()
+      expect(body).toContain('admin.extensionInstall.hostAction.installingHint')
+      expect(body).toContain('"seconds":12')
+      expect(body).toContain('"limit":120')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the enable step is announced before the operator clicks install', () => {
+    const wrapper = mountDialog()
+    try {
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.titleEnable')
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.enableNoticeTitle')
+      expect(wrapper.text()).toContain('admin.extensionInstall.hostAction.confirmEnable')
+    } finally {
+      wrapper.unmount()
+    }
   })
 })
 

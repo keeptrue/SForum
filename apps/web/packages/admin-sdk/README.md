@@ -74,3 +74,61 @@ What the Host does, and what it does not:
   operator retries. One dialog/install per page at a time.
 
 See `docs/extensions/trusted-admin-components.md` in the SForum repository.
+
+## Install and enable (1.3.0)
+
+A page whose manifest declares `hostActions: ["extension.install.enable"]` gets a
+different bridge member. The two actions are separate declarations, not a
+hierarchy: declaring `.enable` does not hand the page `installExtension`, and
+declaring only `extension.install` never hands it this one.
+
+```ts
+const result = await bridge.installAndEnableExtension?.({
+  url: 'https://cdn.example.com/sforum.store-1.4.0.zip',
+  sha256: '9f2c…',                 // 64 lowercase hex
+  expectedExtensionId: 'sforum.store',
+  expectedType: 'plugin',
+  expectedVersion: '1.4.0'         // optional
+})
+if (!result) return // the page did not declare the action
+result.outcome // 'enabled' | 'upgraded' | 'staged'
+```
+
+The request shape is the same as `installExtension`. The Host runs the same
+install path and then continues into its own enable flow. `outcome` reports what
+the Host actually reached — it is never a promise:
+
+| `outcome` | Meaning |
+| --- | --- |
+| `enabled` | A new package was installed and is now running. |
+| `upgraded` | A staged replacement was installed and the upgrade/restart lifecycle action succeeded. |
+| `staged` | The Host installed the package and deliberately stopped. |
+
+`staged` is an honest stop, not a failure, and covers three cases: a theme (the
+operator activates themes on the theme page), an **untrusted** executable backend
+with a non-super-admin operator, and an operator who closed the impact review. A
+front-end-only package, or an artifact that is already trusted, enables
+immediately.
+
+Failure codes are the same union as `installExtension`:
+`install_permission_denied`, `install_cancelled`, `install_in_progress`,
+`install_invalid_request`, `install_failed`. `install_failed` also covers an
+enable that failed after a successful install, and says which phase it was:
+`error.phase === 'activate'` means the package **is** installed and only the
+enable failed, so show "installed, not enabled" and do not offer a reinstall
+(`error.phase === 'install'` or an absent phase is a real install failure).
+Match on `error.code`/`error.phase`, not on the text.
+
+A Host that predates the id rejects the manifest outright (unknown action id), so
+a page declaring `.enable` does not load there at all. Feature-detect the member
+anyway and degrade to what the page actually declared:
+
+```ts
+if (bridge.installAndEnableExtension) {
+  await bridge.installAndEnableExtension(request)
+} else if (bridge.installExtension) {
+  await bridge.installExtension(request) // install only; enable on the extension page
+} else {
+  // Neither action: ask the operator to install from the extension page
+}
+```

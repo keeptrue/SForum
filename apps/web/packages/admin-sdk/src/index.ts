@@ -106,12 +106,35 @@ export type AdminHostInstallResult = Readonly<{
   requiresTrust: boolean
 }>
 
+/**
+ * What the Host actually reached for an install-and-enable request. It is a
+ * report, never a promise: `staged` means the Host deliberately stopped after
+ * the install (theme activation, non-super-admin operator, declined review).
+ */
+export type AdminHostInstallEnableOutcome = 'enabled' | 'upgraded' | 'staged'
+
+/**
+ * Result of the install-and-enable host action. It carries the same identity
+ * block as {@link AdminHostInstallResult} plus the outcome the Host reached, so
+ * a caller can never mistake "installed" for "running".
+ */
+export type AdminHostInstallEnableResult = AdminHostInstallResult & Readonly<{
+  outcome: AdminHostInstallEnableOutcome
+}>
+
 export type AdminHostInstallFailureCode =
   | 'install_permission_denied'
   | 'install_cancelled'
   | 'install_in_progress'
   | 'install_invalid_request'
   | 'install_failed'
+
+/**
+ * Which phase produced an `install_failed`. A failure that carries no phase is a
+ * plain install failure (nothing landed); `'activate'` means the package is
+ * installed but the enable did not run, so offering a reinstall would be wrong.
+ */
+export type AdminHostInstallFailurePhase = 'install' | 'activate'
 
 export type AdminPageDescriptor = Readonly<{
   path: string
@@ -146,6 +169,31 @@ export type AdminPageBridgeV1 = Readonly<{
    * install and rejects with `install_cancelled`.
    */
   installExtension?: (request: AdminHostInstallRequest) => Promise<AdminHostInstallResult>
+  /**
+   * Optional Host-mediated install **and** enable. Present only when this page
+   * declared `hostActions: ["extension.install.enable"]`.
+   *
+   * Declaring that action is a manifest-level requirement, not a soft one: a
+   * Host that predates the id rejects the whole manifest (unknown admin host
+   * action), so the page never loads there and there is nothing to degrade to.
+   * The `typeof bridge.installAndEnableExtension === 'function'` check is for a
+   * Host that accepts the manifest but has not wired the member yet; a fallback
+   * to {@link AdminPageBridgeV1.installExtension} is only meaningful for a page
+   * that declared the old action alone.
+   *
+   * The Host still owns every gate: a front-end-only package is enabled right
+   * after the install, a package with an executable backend needs the same
+   * exact-artifact confirmation a super administrator would give on the
+   * extension page (an already trusted artifact is enabled without one, for any
+   * administrator), and anything the Host declines to enable settles as
+   * `outcome: 'staged'` instead of pretending the extension runs.
+   *
+   * Rejects with the same codes as {@link AdminPageBridgeV1.installExtension}.
+   * `install_failed` also covers an enable that failed after a successful
+   * install — the Host keeps the package installed, so `error.phase` is
+   * `'activate'` and a retry only repeats the enable.
+   */
+  installAndEnableExtension?: (request: AdminHostInstallRequest) => Promise<AdminHostInstallEnableResult>
 }>
 
 export type AdminMicroFrontendCleanup = () => void | Promise<void>

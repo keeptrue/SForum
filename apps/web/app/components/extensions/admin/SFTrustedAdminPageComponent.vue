@@ -2,6 +2,7 @@
 import { ADMIN_MICRO_FRONTEND_API_VERSION } from '@sforum/admin-sdk'
 import type {
   AdminHostIdentity,
+  AdminHostInstallRequest,
   AdminMicroFrontendCleanup,
   AdminPageBridgeV1,
   AdminPageModuleV1
@@ -15,9 +16,11 @@ import { usePermissions } from '~/composables/identity/usePermissions'
 import SFAdminFrontendTrustPanel from '~/components/admin/SFAdminFrontendTrustPanel.vue'
 import SFAdminPageInstallDialog from '~/components/extensions/admin/SFAdminPageInstallDialog.vue'
 import type { AdminExtension, AdminExtensionAdminPage, AdminFrontendStatus } from '~/utils/admin/adminExtensions'
-import { adminPageCanInstallExtensions } from '~/utils/admin/extensions/hostActions'
-import type { AdminHostInstallRequest } from '~/utils/admin/extensions/hostActions'
+import { adminPageCanInstallAndEnable, adminPageCanInstallExtensions } from '~/utils/admin/extensions/hostActions'
+import type { AdminPageHostActivateAction } from '~/utils/admin/extensions/hostActions'
+import { executableTrustPath } from '~/utils/admin/extensions/lifecyclePresentation'
 import { assertAdminExtensionRelativePath, extensionRequestPath } from '~/runtime/admin-extensions/types'
+import type { ExecutableTrustChallenge, ExecutableTrustStatus } from '~/utils/extensions/extensionTrust'
 import { hostIconResolver } from '~/utils/icons/hostIcons'
 import {
   clearContributionFailures,
@@ -107,6 +110,20 @@ const hostInstall = useAdminPageHostInstall({
   isSuperAdmin: () => Boolean(user.value?.roleKeys?.includes('super_admin')),
   install: installFromUrl,
   toResult: toAdminHostInstallResult,
+  // 信任路径与升级动作都走既有助手：宿主弹窗不是第二套启用实现。
+  trustStatus: (item, action) => request<ExecutableTrustStatus>(executableTrustPath(item, action)),
+  trustChallenge: (item, action) => request<ExecutableTrustChallenge>(
+    executableTrustPath(item, action, true),
+    { method: 'POST', body: {} }
+  ),
+  activate: (item, action: AdminPageHostActivateAction, body) => request<AdminExtension>(
+    `/admin/extensions/${item.id}/${action}`,
+    {
+      method: 'POST',
+      body,
+      headers: { 'Idempotency-Key': globalThis.crypto.randomUUID() }
+    }
+  ),
   t,
   notify: input => toast.add({
     color: 'success',
@@ -121,8 +138,16 @@ const {
   dialogOpen: installDialogOpen,
   request: installRequest,
   state: installState,
+  mode: installMode,
   result: installResult,
+  outcome: installOutcome,
+  stagedReason: installStagedReason,
+  failurePhase: installFailurePhase,
   errorMessage: installError,
+  elapsedSeconds: installElapsedSeconds,
+  trustStatus: installTrustStatus,
+  trustBusy: installTrustBusy,
+  trustError: installTrustError,
   permission: installPermission,
   isSuperAdmin: installIsSuperAdmin
 } = hostInstall
@@ -167,10 +192,20 @@ function bridge(): AdminPageBridgeV1 {
       await navigateTo(adminRoutes.path(assertAdminExtensionRelativePath(adminPath)))
     }
   } satisfies AdminPageBridgeV1
-  // 只有当前页在清单里声明了 extension.install 才注入；否则保持 undefined，
-  // 插件必须自己 feature-detect。
-  if (!adminPageCanInstallExtensions(props.page)) return base
-  return { ...base, installExtension: (request: AdminHostInstallRequest) => hostInstall.start(request) }
+  // 每个宿主动作单独注入：页面声明 extension.install 才拿到 installExtension，
+  // 声明 extension.install.enable 才拿到 installAndEnableExtension。旧宿主行为不变。
+  const canInstall = adminPageCanInstallExtensions(props.page)
+  const canInstallAndEnable = adminPageCanInstallAndEnable(props.page)
+  if (!canInstall && !canInstallAndEnable) return base
+  return {
+    ...base,
+    ...(canInstall
+      ? { installExtension: (request: AdminHostInstallRequest) => hostInstall.start(request) }
+      : {}),
+    ...(canInstallAndEnable
+      ? { installAndEnableExtension: (request: AdminHostInstallRequest) => hostInstall.startEnable(request) }
+      : {})
+  }
 }
 
 function loadIsCurrent(generation: number) {
@@ -331,11 +366,20 @@ onBeforeUnmount(() => {
       v-model:open="installDialogOpen"
       :request="installRequest"
       :state="installState"
+      :mode="installMode"
       :result="installResult"
+      :outcome="installOutcome"
+      :staged-reason="installStagedReason"
+      :failure-phase="installFailurePhase"
       :error="installError"
+      :elapsed-seconds="installElapsedSeconds"
+      :trust-status="installTrustStatus"
+      :trust-busy="installTrustBusy"
+      :trust-error="installTrustError"
       :permission="installPermission"
       :is-super-admin="installIsSuperAdmin"
       @confirm="hostInstall.confirm"
+      @confirm-trust="hostInstall.confirmTrust"
       @cancel="hostInstall.close"
       @close="hostInstall.close"
       @retry="hostInstall.retry"

@@ -5,12 +5,19 @@
  * look for another.
  */
 
-import { apiErrorReason } from '~/composables/useApiClient'
+import { apiErrorFields, apiErrorReason } from '~/composables/useApiClient'
 import { extensionAdminPages } from '~/utils/admin/adminExtensions'
 import type { AdminExtension, AdminExtensionAdminPage } from '~/utils/admin/adminExtensions'
 import { normalizeRemoteArchiveUrl, normalizeSha256 } from './extensionInstall'
 
 export const ADMIN_HOST_ACTION_EXTENSION_INSTALL = 'extension.install'
+
+/**
+ * Superset of {@link ADMIN_HOST_ACTION_EXTENSION_INSTALL}: the Host installs the
+ * package and then runs its own enable flow. Declaring it never bypasses a
+ * gate — an executable backend still needs the exact-artifact confirmation.
+ */
+export const ADMIN_HOST_ACTION_EXTENSION_INSTALL_ENABLE = 'extension.install.enable'
 
 /**
  * The host-mediated install is a synchronous download+stage. `useApiClient`
@@ -19,10 +26,46 @@ export const ADMIN_HOST_ACTION_EXTENSION_INSTALL = 'extension.install'
  */
 export const ADMIN_HOST_INSTALL_TIMEOUT_MS = 120000
 
+/**
+ * Stacking fact for the host confirmation dialog, declared here so the number has
+ * one name: the admin shell's toasts sit at 100 and a plugin's own page overlay at
+ * 40, so the host dialog must land strictly between them.
+ *
+ * This is a *statement of fact*, not a template input. Tailwind has no safelist in
+ * this repo and cannot see interpolated candidates, so the component keeps the
+ * literal `z-[80]`; a unit test keeps the literal and this constant in sync.
+ * It cannot detect a plugin overlay that picks a number above 80 — that stays a
+ * cross-repository convention, not something this constant can enforce.
+ */
+export const ADMIN_HOST_DIALOG_Z_INDEX = 80
+
 export type AdminHostInstallType = 'plugin' | 'theme'
 
+/** Which promise the caller is holding: stage only, or install then enable. */
+export type AdminPageHostInstallMode = 'stage' | 'enable'
+
+/** Host lifecycle call the activation step is allowed to run. */
+export type AdminPageHostActivateAction = 'enable' | 'upgrade' | 'restart'
+
 /** Bridge-side state machine for one host-mediated install. */
-export type AdminPageInstallState = 'idle' | 'confirming' | 'installing' | 'success' | 'error' | 'cancelled'
+export type AdminPageInstallState =
+  | 'idle'
+  | 'confirming'
+  | 'installing'
+  | 'trust-review'
+  | 'activating'
+  | 'success'
+  | 'error'
+  | 'cancelled'
+
+/** What the enable step reached; `staged` is an honest stop, not a success. */
+export type AdminHostInstallEnableOutcome = 'enabled' | 'upgraded' | 'staged'
+
+/** Which phase failed, so retry never re-downloads a package it already has. */
+export type AdminHostInstallPhase = 'install' | 'activate'
+
+/** Why the Host stopped after installing instead of enabling. */
+export type AdminHostInstallStagedReason = 'stage' | 'theme' | 'super_admin' | 'declined'
 
 export type AdminHostInstallRequest = {
   url: string
@@ -39,6 +82,11 @@ export type AdminHostInstallResult = {
   packageDigest: string
   upgraded: boolean
   requiresTrust: boolean
+}
+
+/** Same identity block as an install, plus what the enable step reached. */
+export type AdminHostInstallEnableResult = AdminHostInstallResult & {
+  outcome: AdminHostInstallEnableOutcome
 }
 
 /** Host actions a page declares, normalized to a deduplicated list. */
@@ -70,6 +118,15 @@ export function adminPageCanInstallExtensions(page: Pick<AdminExtensionAdminPage
 }
 
 /**
+ * Install-and-enable is declared separately from install-only: the bridge
+ * injects one method per declared action, so a page cannot get the stronger
+ * capability by accident.
+ */
+export function adminPageCanInstallAndEnable(page: Pick<AdminExtensionAdminPage, 'view' | 'hostActions'> | null | undefined) {
+  return adminPageDeclaresHostAction(page, ADMIN_HOST_ACTION_EXTENSION_INSTALL_ENABLE)
+}
+
+/**
  * True when any admin page of this extension declares the install action.
  * Disclosure UI and the bridge both read the manifest through this helper, so
  * they cannot disagree about what a plugin can ask for.
@@ -77,6 +134,16 @@ export function adminPageCanInstallExtensions(page: Pick<AdminExtensionAdminPage
 export function extensionCanRequestInstall(item: AdminExtension | null | undefined) {
   if (!item) return false
   return extensionAdminPages(item).some(page => adminPageCanInstallExtensions(page))
+}
+
+/**
+ * True when any admin page can make the Host enable what it installed. This is
+ * strictly more authority than install-only, so the disclosure notice has to
+ * cover it separately.
+ */
+export function extensionCanRequestEnableInstall(item: AdminExtension | null | undefined) {
+  if (!item) return false
+  return extensionAdminPages(item).some(page => adminPageCanInstallAndEnable(page))
 }
 
 export type InstallRequestValidation =
@@ -128,13 +195,21 @@ export type AdminHostInstallFailureCode =
   | 'install_invalid_request'
   | 'install_failed'
 
+/**
+ * `install_failed` covers two very different outcomes: nothing landed, or the
+ * package is installed but the enable did not run. `phase` tells them apart so a
+ * caller never offers a reinstall for a package that is already on disk.
+ */
 export class AdminHostInstallError extends Error {
   readonly code: AdminHostInstallFailureCode
+  /** Present only on `install_failed`: which phase produced the failure. */
+  readonly phase?: AdminHostInstallPhase
 
-  constructor(code: AdminHostInstallFailureCode, message?: string) {
+  constructor(code: AdminHostInstallFailureCode, message?: string, phase?: AdminHostInstallPhase) {
     super(message || code)
     this.name = 'AdminHostInstallError'
     this.code = code
+    if (phase) this.phase = phase
   }
 }
 
@@ -154,8 +229,15 @@ const INSTALL_ERROR_KEYS: Record<string, string> = {
   'extension.expected_mismatch': 'expectedMismatch',
   'extension.archive_invalid': 'archiveInvalid',
   'extension.manifest_invalid': 'manifestInvalid',
+  'extension.platform_incompatible': 'platformIncompatible',
   'permission.denied': 'permissionDenied',
   'validation.invalid': 'invalidRequest'
+}
+
+/** First diagnostic value for `field`; the API sends one-element arrays. */
+function firstErrorField(fields: Record<string, string[]>, field: string) {
+  const value = fields[field]?.[0]
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 /**
@@ -164,12 +246,23 @@ const INSTALL_ERROR_KEYS: Record<string, string> = {
  * never grow two different explanations.
  */
 export function adminExtensionInstallErrorMessage(
-  t: (key: string) => string,
+  t: (key: string, params?: Record<string, unknown>) => string,
   error: unknown,
   fallbackKey: string
 ) {
   const reason = apiErrorReason(error)
   const mapped = reason ? INSTALL_ERROR_KEYS[reason] : ''
-  if (mapped) return t(`admin.extensionInstall.errors.${mapped}`)
-  return t(fallbackKey)
+  if (!mapped) return t(fallbackKey)
+
+  // The platform gate always reports `required`/`host`; a backend that omits
+  // them must not print literal `{required}` at the operator.
+  if (mapped === 'platformIncompatible') {
+    const fields = apiErrorFields(error)
+    const required = firstErrorField(fields, 'required')
+    const host = firstErrorField(fields, 'host')
+    if (!required || !host) return t('admin.extensionInstall.errors.platformIncompatibleGeneric')
+    return t('admin.extensionInstall.errors.platformIncompatible', { required, host })
+  }
+
+  return t(`admin.extensionInstall.errors.${mapped}`)
 }
