@@ -5,6 +5,7 @@ const props = defineProps<{
   form: AdminUserEditorForm
   errors: Record<string, string[]>
   saving: boolean
+  dirty: boolean
   clearError: (name: string) => void
 }>()
 
@@ -28,6 +29,7 @@ const { t } = useI18n()
         color="primary"
         leading-icon="i-lucide-save"
         :loading="saving"
+        :disabled="!props.dirty"
         @click="emit('save')"
       >
         {{ t('admin.users.saveProfile') }}

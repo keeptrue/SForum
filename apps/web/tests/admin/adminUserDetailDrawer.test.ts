@@ -153,6 +153,20 @@ describe('admin user detail drawer errors', () => {
     }
   })
 
+  test('does not call the API when nothing changed', async () => {
+    const { wrapper, requests } = mountDrawer()
+    try {
+      await (wrapper.vm as unknown as { open: (user: typeof baseUser) => Promise<void> }).open(baseUser)
+      await flushPromises()
+      const save = wrapper.findAll('button').find(item => item.text().includes('admin.users.saveAccount'))
+      await save!.trigger('click')
+      await flushPromises()
+      expect(requests.filter(item => item.options?.method === 'PATCH')).toHaveLength(0)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   test('sends the edited account fields in the PATCH body', async () => {
     const { wrapper, requests } = mountDrawer()
     try {

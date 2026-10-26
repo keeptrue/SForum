@@ -5,6 +5,7 @@ const props = defineProps<{
   roles: Role[]
   selectedKeys: string[]
   saving: boolean
+  dirty: boolean
 }>()
 
 const emit = defineEmits<{
@@ -30,6 +31,7 @@ const { t } = useI18n()
         color="primary"
         leading-icon="i-lucide-save"
         :loading="saving"
+        :disabled="!props.dirty"
         @click="emit('save')"
       >
         {{ t('admin.users.saveRoles') }}

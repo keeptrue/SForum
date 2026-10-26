@@ -8,6 +8,7 @@ const props = defineProps<{
   deny: string[]
   saving: boolean
   locked: boolean
+  dirty: boolean
 }>()
 
 const emit = defineEmits<{
@@ -56,7 +57,7 @@ function modeOf(key: string) {
         color="primary"
         leading-icon="i-lucide-save"
         :loading="props.saving"
-        :disabled="props.locked"
+        :disabled="props.locked || !props.dirty"
         @click="emit('save')"
       >
         {{ t('admin.users.savePermissions') }}

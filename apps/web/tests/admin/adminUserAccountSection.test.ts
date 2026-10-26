@@ -58,13 +58,14 @@ const inputStub = {
   template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)">'
 }
 
-function mountSection(errors: Record<string, string[]>, cleared: string[] = []) {
+function mountSection(errors: Record<string, string[]>, cleared: string[] = [], dirty = true) {
   return mount(AccountSection, {
     props: {
       user: baseUser,
       form: createForm(),
       errors,
       saving: false,
+      dirty,
       clearError: (name: string) => { cleared.push(name) }
     },
     global: {
@@ -97,6 +98,20 @@ describe('admin user account section', () => {
       expect(wrapper.find('[data-user-field="websiteUrl"]').exists()).toBe(false)
     } finally {
       wrapper.unmount()
+    }
+  })
+
+  test('disables save until the operator changes something', () => {
+    const clean = mountSection({}, [], false)
+    const changed = mountSection({}, [], true)
+    try {
+      const cleanButton = clean.findAll('button').find(item => item.text().includes('admin.users.saveAccount'))
+      const changedButton = changed.findAll('button').find(item => item.text().includes('admin.users.saveAccount'))
+      expect(cleanButton!.attributes('disabled')).toBeDefined()
+      expect(changedButton!.attributes('disabled')).toBeUndefined()
+    } finally {
+      clean.unmount()
+      changed.unmount()
     }
   })
 

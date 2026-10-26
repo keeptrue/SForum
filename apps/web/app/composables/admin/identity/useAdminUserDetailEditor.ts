@@ -79,6 +79,54 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
     return selectedUser.value?.roleKeys.includes('super_admin') ?? false
   })
 
+  function sameStringSet(left: string[], right: string[]) {
+    if (left.length !== right.length) {
+      return false
+    }
+    const rightSet = new Set(right)
+    return left.every(item => rightSet.has(item))
+  }
+
+  // 未改动就不发请求：后端把「全量提交但值没变」判成 user.update_empty，
+  // 而抽屉每次都提交整组字段，所以「有没有改」只能在前端按载入值比对。
+  const accountDirty = computed(() => {
+    const detail = selectedUser.value
+    if (!detail) {
+      return false
+    }
+    return form.username.trim() !== detail.username
+      || form.email.trim() !== detail.email
+      || form.displayName.trim() !== detail.displayName
+      || form.locale !== (detail.locale || 'zh-CN')
+      || form.status !== detail.status
+      || form.kind !== (detail.kind === 'bot' ? 'bot' : 'human')
+  })
+
+  const profileDirty = computed(() => {
+    const detail = selectedUser.value
+    if (!detail) {
+      return false
+    }
+    return form.bio !== (detail.profile?.bio ?? '')
+      || form.signature !== (detail.profile?.signature ?? '')
+      || form.location !== (detail.profile?.location ?? '')
+      || form.websiteUrl.trim() !== (detail.profile?.websiteUrl ?? '')
+  })
+
+  const rolesDirty = computed(() => {
+    const detail = selectedUser.value
+    return detail ? !sameStringSet(selectedRoleKeys.value, detail.roleKeys) : false
+  })
+
+  const overridesDirty = computed(() => {
+    const detail = selectedUser.value
+    if (!detail) {
+      return false
+    }
+    return !sameStringSet(allowOverrides.value, detail.permissionOverrides.allow)
+      || !sameStringSet(denyOverrides.value, detail.permissionOverrides.deny)
+  })
+
   function clearErrors() {
     drawerError.value = ''
     fieldErrors.value = {}
@@ -222,7 +270,7 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
   }
 
   async function saveAccount() {
-    if (!selectedUser.value) {
+    if (!selectedUser.value || !accountDirty.value) {
       return
     }
     savingAccount.value = true
@@ -250,7 +298,7 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
   }
 
   async function saveProfile() {
-    if (!selectedUser.value) {
+    if (!selectedUser.value || !profileDirty.value) {
       return
     }
     savingProfile.value = true
@@ -275,7 +323,7 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
   }
 
   async function saveRoles() {
-    if (!selectedUser.value) {
+    if (!selectedUser.value || !rolesDirty.value) {
       return
     }
     savingRoles.value = true
@@ -298,7 +346,7 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
   }
 
   async function savePermissionOverrides() {
-    if (!selectedUser.value) {
+    if (!selectedUser.value || !overridesDirty.value) {
       return
     }
     savingOverrides.value = true
@@ -339,6 +387,10 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
     fieldErrors,
     errorFocusRequest,
     selectedUserIsSuperAdmin,
+    accountDirty,
+    profileDirty,
+    rolesDirty,
+    overridesDirty,
     clearErrors,
     clearFieldError,
     setFieldError,

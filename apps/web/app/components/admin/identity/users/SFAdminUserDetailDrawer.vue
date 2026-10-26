@@ -61,6 +61,10 @@ const {
   fieldErrors,
   errorFocusRequest,
   selectedUserIsSuperAdmin,
+  accountDirty,
+  profileDirty,
+  rolesDirty,
+  overridesDirty,
   clearFieldError,
   applyDetailToForm,
   retryOpenUser,
@@ -171,6 +175,7 @@ defineExpose({
               :form="form"
               :errors="fieldErrors"
               :saving="savingAccount"
+              :dirty="accountDirty"
               :clear-error="clearFieldError"
               @save="saveAccount"
               @refreshed="applyDetailToForm"
@@ -182,6 +187,7 @@ defineExpose({
               :form="form"
               :errors="fieldErrors"
               :saving="savingProfile"
+              :dirty="profileDirty"
               :clear-error="clearFieldError"
               @save="saveProfile"
             />
@@ -202,6 +208,7 @@ defineExpose({
               :roles="props.roles"
               :selected-keys="selectedRoleKeys"
               :saving="savingRoles"
+              :dirty="rolesDirty"
               @toggle="toggleRole"
               @save="saveRoles"
             />
@@ -212,6 +219,7 @@ defineExpose({
               :deny="denyOverrides"
               :saving="savingOverrides"
               :locked="selectedUserIsSuperAdmin"
+              :dirty="overridesDirty"
               @set-mode="setPermissionMode"
               @save="savePermissionOverrides"
             />
