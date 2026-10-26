@@ -422,7 +422,9 @@ func (s *PostgresStore) updateAdminUser(ctx context.Context, actorUserID int64, 
 			return AdminUserDetail{}, fmt.Errorf("check user uniqueness: %w", err)
 		}
 		if takenUsername || takenEmail {
-			return AdminUserDetail{}, ErrUsernameOrEmailNotUnique
+			// 落成字段消息：服务层预检与这里查的是同一件事，只是这里能给出并发竞态下
+			// 究竟哪个字段真的被占用。
+			return AdminUserDetail{}, NewAdminUserConflictError(adminUserConflictFields(takenUsername, takenEmail))
 		}
 	}
 

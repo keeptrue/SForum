@@ -5,10 +5,17 @@ ApiErrorData:
   properties:
     reason:
       type: string
-      description: Stable machine-readable reason code, such as auth.register_invalid.
+      description: |
+        Stable machine-readable reason code, such as `auth.register_invalid`,
+        `user.invalid_update`, or `user.username_or_email_taken`.
     fields:
       type: object
-      description: Localized field-level messages keyed by request field name. Registration uses username, email, password, and humanVerification.
+      description: |
+        Localized field-level messages keyed by request field name, present only
+        when the failure can be attributed to specific fields. Registration uses
+        `username`, `email`, `password`, and `humanVerification`; admin user
+        writes use `username`, `email`, `displayName`, `locale`, `status`,
+        `kind`, `bio`, `signature`, `location`, `websiteUrl`, and `roleKeys`.
       additionalProperties:
         type: array
         items:

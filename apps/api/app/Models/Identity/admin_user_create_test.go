@@ -90,13 +90,20 @@ func TestCreateAdminUserValidatesHostPolicies(t *testing.T) {
 	}
 
 	longName := strings.Repeat("长", maxAdminDisplayNameLength+1)
-	if _, err := NewAdminUserCreator(service).Create(ctx, actor, AdminCreateUserInput{
+	_, err = NewAdminUserCreator(service).Create(ctx, actor, AdminCreateUserInput{
 		Username:    "long-name",
 		Email:       "long-name@example.com",
 		DisplayName: longName,
 		Password:    "correct horse battery staple",
-	}); !errors.Is(err, ErrInvalidUserUpdate) {
-		t.Fatalf("expected invalid user update for long display name, got %v", err)
+	})
+	// 超长显示名现在也是字段级错误：创建弹窗要把提示标在输入框旁。
+	// 创建链路沿用 auth.register_invalid（一条响应只能有一个 reason），
+	// 与 username/email/password 的错误合并成同一份 fields。
+	if !errors.As(err, &invalid) {
+		t.Fatalf("expected register invalid for long display name, got %v", err)
+	}
+	if !fieldMessagesContain(invalid.Fields, FieldDisplayName, MessageDisplayNameTooLong) {
+		t.Fatalf("fields = %+v", invalid.Fields)
 	}
 }
 
@@ -141,8 +148,16 @@ func TestCreateAdminUserRejectsUnknownRole(t *testing.T) {
 		Password: "correct horse battery staple",
 		RoleKeys: []string{"missing-role"},
 	})
-	if !errors.Is(err, ErrInvalidRole) {
-		t.Fatalf("expected invalid role, got %v", err)
+	// 未知用户组落到 roleKeys 字段：创建弹窗才能把提示标在用户组选择器旁。
+	var roleErr *AdminUserFieldsError
+	if !errors.As(err, &roleErr) {
+		t.Fatalf("expected AdminUserFieldsError, got %v", err)
+	}
+	if roleErr.Reason != CodeRoleInvalid {
+		t.Fatalf("reason = %q, want %q", roleErr.Reason, CodeRoleInvalid)
+	}
+	if !fieldMessagesContain(roleErr.Fields, FieldRoleKeys, MessageRoleUnknown) {
+		t.Fatalf("fields = %+v", roleErr.Fields)
 	}
 }
 
@@ -218,8 +233,9 @@ func TestCreateAdminUserMapsConflicts(t *testing.T) {
 	if !errors.As(err, &invalid) {
 		t.Fatalf("expected register invalid, got %v", err)
 	}
-	if !fieldMessagesContain(invalid.Fields, FieldUsername, MessageUsernameTaken) ||
-		!fieldMessagesContain(invalid.Fields, FieldEmail, MessageEmailTaken) {
+	// 创建也是管理员操作：冲突话术必须用后台语境（不能说「请直接登录」）。
+	if !fieldMessagesContain(invalid.Fields, FieldUsername, MessageUserUsernameTaken) ||
+		!fieldMessagesContain(invalid.Fields, FieldEmail, MessageUserEmailTaken) {
 		t.Fatalf("fields = %+v", invalid.Fields)
 	}
 }

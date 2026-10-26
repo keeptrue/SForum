@@ -91,7 +91,8 @@ func (c *AdminUserCreator) Create(ctx context.Context, actor Actor, input AdminC
 
 	fields := validateRegisterIdentityFields(normalized.Username, normalized.Email, usernamePolicy)
 	if len([]rune(normalized.DisplayName)) > maxAdminDisplayNameLength {
-		return AdminCreateUserResult{}, ErrInvalidUserUpdate
+		// 与其余字段一起累积，让创建弹窗一次标出全部问题。
+		addFieldMessage(fields, FieldDisplayName, MessageDisplayNameTooLong)
 	}
 
 	passwordMode := AdminPasswordModeManual
@@ -133,7 +134,7 @@ func (c *AdminUserCreator) Create(ctx context.Context, actor Actor, input AdminC
 	if err != nil {
 		return AdminCreateUserResult{}, err
 	}
-	if conflictFields := registrationConflictFields(conflicts); len(conflictFields) > 0 {
+	if conflictFields := adminUserConflictFields(conflicts.UsernameTaken, conflicts.EmailTaken); len(conflictFields) > 0 {
 		return AdminCreateUserResult{}, NewRegisterInvalid(conflictFields)
 	}
 
@@ -195,7 +196,8 @@ func (c *AdminUserCreator) validateRoles(ctx context.Context, keys []string) err
 	}
 	for _, key := range keys {
 		if !known[key] {
-			return ErrInvalidRole
+			// 落到 roleKeys 字段上：创建弹窗才能把提示标在用户组选择器旁边。
+			return NewAdminUserRoleError()
 		}
 	}
 	return nil

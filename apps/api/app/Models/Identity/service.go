@@ -686,13 +686,13 @@ func (s *Service) UpdateAdminUser(ctx context.Context, actor Actor, targetUserID
 			// 因此仅当「新值」与当前不同且被占用时才报错。
 			fields := FieldMessages{}
 			if normalized.Username != nil && *normalized.Username != target.Username && conflicts.UsernameTaken {
-				addFieldMessage(fields, FieldUsername, MessageUsernameTaken)
+				addFieldMessage(fields, FieldUsername, MessageUserUsernameTaken)
 			}
 			if normalized.Email != nil && *normalized.Email != target.Email && conflicts.EmailTaken {
-				addFieldMessage(fields, FieldEmail, MessageEmailTaken)
+				addFieldMessage(fields, FieldEmail, MessageUserEmailTaken)
 			}
 			if len(fields) > 0 {
-				return AdminUserDetail{}, NewRegisterInvalid(fields)
+				return AdminUserDetail{}, NewAdminUserConflictError(fields)
 			}
 		}
 	}

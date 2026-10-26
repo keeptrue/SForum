@@ -674,7 +674,15 @@ users:
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
-        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: |
+          Validation failed and carries localized `data.fields` keyed by request
+          field name. `data.reason` is `auth.register_invalid` for
+          username/email/password policy, uniqueness, or `displayName` problems,
+          and `role.invalid` when a requested `roleKeys` entry does not exist.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
 userByID:
   get:
     summary: Get an admin user detail
@@ -734,9 +742,25 @@ userByID:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
-        "$ref": "../components/responses.yaml#/Conflict"
+        description: |
+          Username or email is already used by another account
+          (`user.username_or_email_taken`, with `data.fields.username` and/or
+          `data.fields.email`).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '422':
-        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: |
+          Field validation failed. `data.reason` is `user.invalid_update` with
+          localized `data.fields` keyed by request field name (`username`,
+          `email`, `displayName`, `locale`, `status`, `kind`, `bio`, `signature`,
+          `location`, `websiteUrl`), or `user.update_empty` when the request
+          carries no updatable field at all.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
 userRoles:
   put:
     summary: Replace roles assigned to a user

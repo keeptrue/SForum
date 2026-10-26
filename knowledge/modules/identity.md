@@ -471,6 +471,23 @@ Initial identity foundation is implemented.
   The stable reason for editable registration fields is
   `auth.register_invalid`; login failures still use one generic
   `auth.invalid_credentials` reason to avoid account enumeration.
+- Admin user writes (`POST /users`, `PATCH /users/{id}`) return field-level
+  errors under `data.fields` keyed by request field name: `username`, `email`,
+  `displayName`, `locale`, `status`, `kind`, `bio`, `signature`, `location`,
+  `websiteUrl`, and `roleKeys`.
+- `PATCH /users/{id}` uses `user.invalid_update` (422) for field errors,
+  `user.update_empty` (422) when no updatable field is submitted, and
+  `user.username_or_email_taken` (409) for uniqueness conflicts, each carrying
+  `data.fields` when the failure is attributable to specific fields.
+- Admin create still returns `auth.register_invalid` (422) for
+  identity/password/display-name fields and `role.invalid` (422) for an unknown
+  `roleKeys` entry; a follow-up will move it to `user.create_invalid`.
+- Field messages are localized by the transport layer (`LocalizeFields`) before
+  they reach the client; frontends render them as-is instead of re-mapping the
+  message keys themselves.
+- Field-level errors only cover fields the request actually submitted. `PATCH`
+  is a partial update, so an omitted field produces no message: absence means
+  "not part of this request", not "failed validation".
 - If account creation succeeds but the browser session cannot be saved,
   registration returns `auth.session_unavailable` with the localized message
   "账号已创建，但自动登录失败，请直接登录。"; the user should log in rather than retry

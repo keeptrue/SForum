@@ -445,10 +445,23 @@ func paramInt64(c fiber.Ctx, name string) (int64, error) {
 }
 
 func mapIdentityError(err error) error {
+	var adminFields *identity.AdminUserFieldsError
+	var adminConflict *identity.AdminUserConflictError
 	var registerErr *identity.RegisterInvalidError
 	var rejected *appevents.RejectedError
 	var resendLimited *identity.MailResendRateLimitError
 	switch {
+	// 管理端用户写入：字段级错误必须带 fields 出去，否则前端只能显示一句泛化提示。
+	// 这条分支排在 RegisterInvalidError 之前，注册链路的 auth.register_invalid 不受影响。
+	case errors.As(err, &adminFields):
+		// data.reason 是契约必填项，零值不能漏到响应里。
+		reason := adminFields.Reason
+		if reason == "" {
+			reason = identity.CodeUserInvalidUpdate
+		}
+		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, reason, adminFields.Fields)
+	case errors.As(err, &adminConflict):
+		return apphttp.NewErrorWithFields(fiber.StatusConflict, identity.CodeUsernameOrEmailTaken, adminConflict.Fields)
 	case errors.As(err, &registerErr):
 		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, identity.CodeRegisterInvalid, registerErr.Fields)
 	// 插件 user.before_register 等同步拒绝：422 + 稳定 reason，不暴露堆栈。
@@ -544,7 +557,7 @@ func mapIdentityError(err error) error {
 	case errors.Is(err, identity.ErrUserNotFound):
 		return fiber.NewError(fiber.StatusNotFound, "user.not_found")
 	case errors.Is(err, identity.ErrInvalidUserUpdate):
-		return fiber.NewError(fiber.StatusUnprocessableEntity, "user.invalid_update")
+		return fiber.NewError(fiber.StatusUnprocessableEntity, identity.CodeUserInvalidUpdate)
 	case errors.Is(err, identity.ErrUserLocaleUpdateUnavailable):
 		return fiber.NewError(fiber.StatusServiceUnavailable, "identity.locale_unavailable")
 	case errors.Is(err, identity.ErrInvalidAppearancePreference):
@@ -554,7 +567,7 @@ func mapIdentityError(err error) error {
 	case errors.Is(err, identity.ErrSelfStatusChange):
 		return fiber.NewError(fiber.StatusForbidden, "user.cannot_change_own_status")
 	case errors.Is(err, identity.ErrUsernameOrEmailNotUnique):
-		return fiber.NewError(fiber.StatusConflict, "user.username_or_email_taken")
+		return fiber.NewError(fiber.StatusConflict, identity.CodeUsernameOrEmailTaken)
 	default:
 		return err
 	}

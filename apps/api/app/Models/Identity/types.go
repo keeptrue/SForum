@@ -35,10 +35,20 @@ const (
 	// 自助改名审计。旧值/新值都记，历史表另有产品语义的一份记录。
 	AuditActionNicknameChange = "identity.nickname.change"
 
+	// 字段键必须等于管理端请求体的 JSON tag：前端用它把消息对到表单控件。
+	// displayName 的键由昵称域（nickname.go）声明，这里不重复定义。
 	FieldUsername          = "username"
 	FieldEmail             = "email"
 	FieldPassword          = "password"
 	FieldHumanVerification = "humanVerification"
+	FieldLocale            = "locale"
+	FieldStatus            = "status"
+	FieldKind              = "kind"
+	FieldBio               = "bio"
+	FieldSignature         = "signature"
+	FieldLocation          = "location"
+	FieldWebsiteURL        = "websiteUrl"
+	FieldRoleKeys          = "roleKeys"
 
 	MessageUsernameRequired = "auth.username_required"
 	MessageEmailRequired    = "auth.email_required"
@@ -58,7 +68,23 @@ const (
 	MessageUsernameTooLong      = "auth.username_too_long"
 	MessageUsernameReserved     = "auth.username_reserved"
 	MessageUsernameCharset      = "auth.username_invalid_charset"
-	CodeLoginLocked             = "auth.login_locked"
+	// 管理端用户更新/创建的字段级消息（后台语境用 user.*，不引入 admin.*）。
+	// 冲突话术单独一套：auth.*_taken 面向注册者（「请直接登录」），管理员在改别人的
+	// 资料时这句话是错的，所以后台三条路径一律用下面的 user.*_taken。
+	MessageUserUsernameTaken   = "user.username_taken"
+	MessageUserEmailTaken      = "user.email_taken"
+	MessageDisplayNameRequired = "user.display_name_required"
+	MessageDisplayNameTooLong  = "user.display_name_too_long"
+	MessageLocaleInvalid       = "user.locale_invalid"
+	MessageStatusInvalid       = "user.status_invalid"
+	MessageKindInvalid         = "user.kind_invalid"
+	MessageBioTooLong          = "user.bio_too_long"
+	MessageSignatureTooLong    = "user.signature_too_long"
+	MessageLocationTooLong     = "user.location_too_long"
+	MessageWebsiteInvalid      = "user.website_url_invalid"
+	MessageWebsiteTooLong      = "user.website_url_too_long"
+	MessageRoleUnknown         = "user.role_unknown"
+	CodeLoginLocked            = "auth.login_locked"
 )
 
 var (

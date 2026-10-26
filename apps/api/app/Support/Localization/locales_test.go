@@ -94,6 +94,23 @@ func TestMessageLocalizesSiteChromeAndRecentAdminCodes(t *testing.T) {
 		"extensions.template_inspector_unavailable":    {"模板检查服务暂时不可用，请稍后重试。", "Template inspection is temporarily unavailable. Please try again later."},
 		"extensions.asset_inspector_invalid":           {"资源检查请求不正确，limit 必须是 1 到 200 之间的整数。", "The asset inspection request is invalid. Limit must be an integer from 1 to 200."},
 		"extensions.asset_inspector_unavailable":       {"资源检查服务暂时不可用，请稍后重试。", "Asset inspection is temporarily unavailable. Please try again later."},
+		// 管理端保存用户的字段级提示：注册文案不能复用，字段名要能直接对到表单。
+		"user.invalid_update":          {"提交的用户信息有误，请按标出的字段修改后再保存。", "The submitted user details are invalid. Fix the marked fields, then save again."},
+		"user.update_empty":            {"没有检测到改动，请先修改再保存。", "No changes detected. Edit something first."},
+		"user.username_taken":          {"该用户名已被其他账号占用，请换一个。", "This username is already used by another account. Use a different one."},
+		"user.email_taken":             {"该邮箱已被其他账号占用，请换一个。", "This email is already used by another account. Use a different one."},
+		"user.username_or_email_taken": {"用户名或邮箱已被其他用户使用，请更换后重试。", "The username or email is already used by another account. Use a different username or email."},
+		"user.display_name_required":   {"显示名不能为空。", "Display name is required."},
+		"user.display_name_too_long":   {"显示名最多 80 个字符，请缩短后再保存。", "Display name is limited to 80 characters. Shorten it and save again."},
+		"user.locale_invalid":          {"语言设置不正确，请选择站点支持的语言。", "The language setting is invalid. Choose a language the site supports."},
+		"user.status_invalid":          {"请选择正常、停用或封禁。", "Choose Active, Disabled, or Banned."},
+		"user.kind_invalid":            {"账户类型不正确，请选择人类账号或机器人账号。", "The account kind is invalid. Choose human or bot."},
+		"user.bio_too_long":            {"简介最多 500 个字符，请精简后再保存。", "Bio is limited to 500 characters. Shorten it and save again."},
+		"user.signature_too_long":      {"签名最多 200 个字符，请精简后再保存。", "Signature is limited to 200 characters. Shorten it and save again."},
+		"user.location_too_long":       {"所在地最多 100 个字符，请精简后再保存。", "Location is limited to 100 characters. Shorten it and save again."},
+		"user.website_url_invalid":     {"个人网站需以 http:// 或 https:// 开头，例如 https://example.com。", "Website must start with http:// or https://, for example https://example.com."},
+		"user.website_url_too_long":    {"个人网站最多 200 个字符，请缩短后再保存。", "Website is limited to 200 characters. Shorten it and save again."},
+		"user.role_unknown":            {"所选用户组不存在，请重新选择。", "The selected user group does not exist. Choose another one."},
 	}
 	for key, want := range cases {
 		if got := Message("zh-CN", key); got != want[0] {
