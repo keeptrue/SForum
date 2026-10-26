@@ -173,7 +173,9 @@ async function execute(surface: AdminSurfaceContract, extra: Record<string, unkn
     toast.add({
       color: 'error',
       icon: 'i-lucide-triangle-alert',
-      title: apiErrorMessage(current) || t('admin.surfaces.failed', { label: surface.label })
+      title: apiErrorMessage(current) || t('admin.surfaces.failed', { label: surface.label }),
+      // 错误提示不自动消失，操作者要能读到原因。
+      duration: 0
     })
   } finally {
     busySurfaceId.value = ''

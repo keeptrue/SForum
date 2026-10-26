@@ -224,13 +224,23 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
   }
 
   // 插件 surface 触发的刷新不该把抽屉打回骨架屏，静默重取即可。
+  // await 期间可能已经切到另一个用户：回来必须先校验 id，否则会把旧详情
+  // 写进新用户的表单，失败也会把错误挂到新用户抽屉上。
   async function refreshSelectedUser() {
-    if (!selectedUser.value) {
+    const current = selectedUser.value
+    if (!current) {
       return
     }
     try {
-      applyDetailToForm(await request<AdminUserDetail>(`/users/${selectedUser.value.id}`))
+      const detail = await request<AdminUserDetail>(`/users/${current.id}`)
+      if (selectedUser.value?.id !== current.id) {
+        return
+      }
+      applyDetailToForm(detail)
     } catch (error) {
+      if (selectedUser.value?.id !== current.id) {
+        return
+      }
       presentError(error, t('admin.users.detailLoadFailed'))
     }
   }
