@@ -28,6 +28,21 @@ does not rebuild Nuxt.
   never injects `SFORUM_HOST_API_*` into plugin subprocesses. See
   `../decisions/2026-10-25-core-version-surface.md`.
 
+- **Executable backends are gated on the host architecture (2026-10-26).**
+  `extensionpackage.DetectTarget` reads the artifact's own file header (fat
+  Mach-O → Go buildinfo → ELF → thin Mach-O → PE) instead of trusting a manifest
+  declaration. `InstallOrUpgradeArchive` rejects a plugin whose
+  `backend.entry` targets another platform **before anything lands on disk**
+  (422 `extension.platform_incompatible`); `requireEnablePreflight` rejects the
+  same artifact at enable / theme activation / upgrade / rollback / restart
+  (409, same reason). `data.fields` carries `required` / `host` / `entry`. Only
+  `plugin` packages with a non-empty `backend.entry` are gated — themes,
+  front-end-only plugins, and script backends are untouched, and built-ins are
+  **not** exempt (a wrong-arch built-in cannot run either). Unknown formats and
+  an unreadable header pass through to the existing startup `exec format error`
+  diagnostic rather than being guessed. See
+  `../decisions/2026-10-26-extension-executable-platform-gate.md`.
+
 - **Every shipped package carries brand assets (2026-10-25).** 12 extensions
   (8 built-in plugins, the default theme, 3 independent-repository plugins) plus
   the main repository now ship `brand/icon.svg` (512 viewBox), `brand/icon.png`
@@ -330,12 +345,29 @@ does not rebuild Nuxt.
   `tests/admin/adminPageInstallDialog.test.ts`. No new capability, Host
   Command, intent table, or worker. Decisions:
   `../decisions/2026-10-24-admin-page-host-action.md`.
+- **Install-and-enable host action (2026-10-26)**: a second, separately declared
+  id `extension.install.enable` (`AdminHostActionExtensionInstallEnable`)
+  exposes `bridge.installAndEnableExtension`. After the same
+  `install-from-url` call it runs the Host's own lifecycle route — `enable` for a
+  new package, or the same `upgrade`/`restart` action the extension page uses for
+  a staged replacement — with an `Idempotency-Key`. It resolves with the install
+  identity plus `outcome: 'enabled' | 'upgraded' | 'staged'`. It reports `staged`
+  for a theme, an **untrusted** executable backend with a non-super-admin
+  operator, or a declined impact review; an enable failure keeps the package
+  installed so a retry repeats only the enable. The stage-only action and its
+  member are unchanged, and each declared action injects only its own member.
+  Host dialog overlay/content pin `z-[80]` (above plugin overlays at `z-40`,
+  below toasts at `z-100`), which is the fix for the "dialog invisible, page
+  frozen" deadlock. OpenAPI
+  `hostActions.enum` lists both ids. Decision:
+  `../decisions/2026-10-24-admin-page-host-action.md` (2026-10-26 revision).
 - **Install-action disclosure**: the plugin detail card, the theme detail card,
   and `SFAdminExtensionEnableDialog` all render
-  `SFAdminExtensionHostActionsNotice`, which shares one i18n key
-  (`admin.extensions.hostActions.*`) and reads the same manifest field the
-  bridge uses. It is deliberately a separate line item, not part of capability
-  risk levels.
+  `SFAdminExtensionHostActionsNotice`, which shares the i18n keys
+  (`admin.extensions.hostActions.title` / `.body` / `.enableBody`) and reads the
+  same manifest field the bridge uses. `.enableBody` is a second line so the
+  stronger action is never described by the weaker copy. It is deliberately a
+  separate line item, not part of capability risk levels.
 - The generic `account-settings` navigation contract now carries through
   Manifest V3 lifecycle publication with exact runtime filtering. The Manifest V3
   contract is aligned end to end (2026-10-15): `navigation[].kind` accepts
@@ -1291,7 +1323,15 @@ Host build identity (`coreVersion` / `buildVersion`) is a read-only surface with
 one authority and four projections: v2 handshake (`host_build` → `Server.HostBuild()`),
 admin bridges (`page-bootstrap.host`), the public L2 descriptor (`coreVersion`),
 and `GET /api/v1/health`. It is frozen per process; there is no query, command, or
-event for it, and `buildVersion`/`commit` never enter a public response.
+event for it, `buildVersion` never enters a public response, and a release
+`coreVersion` carries no commit. Development builds derive `coreVersion` from the
+nearest reachable `v*` git tag (`3.0.16`, or `3.0.16+13.gSHA` and
+`3.0.16+13.gSHA.dirty` in build metadata when the checkout is ahead of the tag)
+and fall back to `1.0.0` only when no tag is reachable, so a dev checkout can
+install packages for its own release line; release builds keep the `-ldflags`
+injected label and never probe git, and test binaries pin the `1.0.0` baseline
+so a suite never depends on local tags. See
+`../decisions/2026-10-26-dev-core-version-from-git.md`.
 
 ## Themes And Page Registry
 

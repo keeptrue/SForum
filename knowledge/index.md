@@ -18,6 +18,12 @@ load archived sessions or completed plans as current context.
   商城 `upstream.go` 的转发重开条件写在决策记录第 5 节。
   Handoff：`sessions/2026-10-25-core-version-surface-handoff.md`；
   决策：`decisions/2026-10-25-core-version-surface.md`。
+- Status: **landed（2026-10-26，dev 派生）**。dev 构建的 `coreVersion` 不再恒为
+  `1.0.0`：从最近可达 `v*` tag 派生严格 semver（`3.0.16`、`3.0.16+13.gSHA`、
+  领先时带 `.dirty`），无 tag 才回落 `1.0.0`（migrator 要求可解析）。测试清单
+  39 处 `^1.0.0` 一并订正为 `>=0.1.0`，生产代码里没有测试态分支。
+  Handoff：`sessions/2026-10-26-dev-core-version-from-git-handoff.md`；
+  决策：`decisions/2026-10-26-dev-core-version-from-git.md`。
 
 ### 扩展品牌资产（图标 / 社交卡）
 
@@ -34,16 +40,30 @@ load archived sessions or completed plans as current context.
 
 ### 应用商城 · SForum 侧（已落地）
 
-- Status: **landed（2026-10-24）**。P0（`381182cc7`）删除 Marketplace 死代码、
-  `MARKETPLACE_ED25519_*` 配置与 `/extensions/store*` 三页 + 占位货架，store UI
-  身份走 retired 墓碑账本；P1 新增管理页 host action：清单 `hostActions`
-  （仅 `view=component`、仅 `extension.install`）+ `bridge.installExtension` +
-  宿主确认框 + 期望 ID/版本/类型校验（`extension.expected_mismatch`）+
-  120 秒超时 + 页面级单飞 + 详情页/启用弹窗披露；只暂存，不启用/不信任。
-  无 capability/表/worker。**残留**：真实公网扩展包经确认框 staged 只做到
-  路由/服务层证明。Handoff：
-  `sessions/2026-10-24-app-store-core-handoff.md`；计划
+- Status: **landed（2026-10-24；2026-10-26 扩成两个动作）**。P0（`381182cc7`）
+  删除 Marketplace 死代码、`MARKETPLACE_ED25519_*` 配置与 `/extensions/store*`
+  三页 + 占位货架，store UI 身份走 retired 墓碑账本；P1 新增管理页 host action：
+  清单 `hostActions`（仅 `view=component`；`extension.install` 只暂存，
+  `extension.install.enable` 装完由宿主启用/升级）+
+  `bridge.installExtension` / `bridge.installAndEnableExtension` + 宿主确认框 +
+  期望 ID/版本/类型校验（`extension.expected_mismatch`）+ 120 秒超时 +
+  页面级单飞 + 详情页/启用弹窗披露；无 capability/表/worker。**残留**：真实公网
+  扩展包经确认框 staged 只做到路由/服务层证明；商店侧层级 hack 与真机 QA 待收尾。
+  Handoff：`sessions/2026-10-26-store-install-ux.md`（前序
+  `sessions/2026-10-24-app-store-core-handoff.md`）；计划
   `plans/2026-10-24-app-store-core-install-primitive.md`。
+- **发版就绪（2026-10-26，未打 tag）**：v3.0.17 的三个硬阻塞已核实 ——
+  ① core HEAD `8ab9f246b` 与商城 pin `10c2b21e8` 都不认识 `extension.install.enable`
+  （`git log --all -S` 为空，只有工作区有），必须先 commit + push；
+  ② store `sforumVersion` 仍 `>=1.0.0`，抬到 `>=3.0.17` 是**运行期**语义诚实
+  （`CheckSForumVersion` 唯一生产调用点 `Models/Extensions/lifecycle.go:720`），不是 CI 闸门；
+  ③ 商城签名下载实测不稳定（同 token 一次 200 但截断、一次 503 `upstream_unavailable`）。
+  清单：`sessions/2026-10-26-release-v3.0.17-readiness.md`（含门禁 G1–G6、两仓顺序、pin 形态、
+  回滚点、两个开放问题的建议）。
+- **真机取证标准（2026-10-26）**：已启用 / 已升级 / 已用 N 秒 / 有后端包影响面 四条各自的
+  判定表（锚点选择器、文案、时间差、独立复核、反例、夹具路径）见
+  `sessions/2026-10-26-install-evidence-acceptance.md`。当前目录 6 个商品无一可安装
+  （3 个已装且兼容、3 个约束 `<2.0.0`），夹具按该文 §5 走 fetch-url 1.0.2 → 1.0.3。
 - **本轮不做**：服务端 + 商城插件（`plans/2026-10-24-app-store-service.md`，
   新仓 `sforum-app-store`，仍是 draft）；不要创建该仓库或写插件。
 - 已定：服务端独立；一个仓库两个产物；全量 GitHub App（无验证文件）；
@@ -634,7 +654,47 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **宿主 coreVersion 暴露 + 清单兜底（2026-10-25，最新）**：`version.Identity()`
+- **应用商城安装体验：宿主动作二连 + 弹窗层级（2026-10-26，最新）**：新增第二个
+  页面级宿主动作 `extension.install.enable`
+  （`bridge.installAndEnableExtension` → 安装身份 + 三态 `outcome`：`enabled` /
+  `upgraded` / `staged`）；启用走既有生命周期路由（`enable`，升级态
+  `upgrade`/`restart`）并带 `Idempotency-Key`，可执行后端仍在宿主弹窗内做
+  exact-artifact 审阅，非 super_admin 与主题回落 `staged`，启用失败保留已安装并只
+  重试启用；`extension.install` 语义零改动。死锁根因（`UModal` 无 z-index + 商店遮罩
+  `z-index:40` + reka 给 `body` 设 `pointer-events:none`）已修：宿主弹窗固定
+  `z-[80]`，toast 仍 `z-100`。Go 清单测试与 web 61 用例通过；**商店侧去掉
+  z-index hack 仍在进行，真机 QA 待补**。详见
+  `sessions/2026-10-26-store-install-ux.md` 与
+  `decisions/2026-10-24-admin-page-host-action.md`（2026-10-26 修订）。
+
+- **插件/主题架构兼容闸门（2026-10-26，最新）**：Core 新增
+  `extensionpackage.DetectTarget`（fat Mach-O → buildinfo → ELF → Mach-O → PE，
+  读文件头不信清单声明，探测不出即放行），安装阶段**落盘前**拒绝错架构插件
+  （422 `extension.platform_incompatible`，`fields=required/host/entry`），
+  启用/激活/升级/回滚/重启 409 同 reason；主题、纯前端插件、脚本后端不受影响，
+  内置包不豁免。商城侧新增 `latestPlatforms` 与 `platform=strict|all`（`all` 只
+  放宽可见性、版本轴仍生效），管理页加「只看支持当前架构」开关、卡片徽标、弹窗
+  默认选最新可运行版本、平台下拉只留宿主/any。两仓门禁与本功能相关的全绿；
+  真机 1633×810 + 390×844 通过（含 422 与对照包 201 安装/卸载清理）。
+  **残留**：运行 409 与旧服务端回落无真机证据；Core 平台文案在用户 dev server 上
+  显示 raw key（i18n 产物早于 locale 编辑，未重启其进程）；全仓 `test.sh --fast`
+  两条红属另外两批未提交改动。详见
+  `sessions/2026-10-26-extension-platform-gate-handoff.md` 与
+  `decisions/2026-10-26-extension-executable-platform-gate.md`。
+
+- **dev coreVersion 从 git tag 派生（2026-10-26）**：dev 构建报告它所在发行线的
+  严格 semver（`3.0.16`、领先 tag 时 `3.0.16+13.gSHA`、脏树带 `.dirty`），无 tag 回落
+  `1.0.0`；release 仍走 `-ldflags`、不探 git。随之把 `apps/api` 里 39 处
+  `sforumVersion: ^1.0.0` 测试清单与 4 个自带包清单订正为 `>=0.1.0`（3 处真负例保留
+  并注明），生产代码不留测试态分支。全量 `go test ./...` 绿。
+  **运行中的 API 要重启才生效**；`wiki.harvester` 等 4 个包摘要变化，dev watcher 会
+  重新 stage 并要求重新授权。dev 现有真实降级护栏，但只覆盖更早的发行线（tag）：
+  切回更早 tag 会 `ErrCoreUpgradeIncompatible`，同一 tag 内的提交数/dirty 回退不受
+  保护（build metadata 不参与 precedence）。详见
+  `sessions/2026-10-26-dev-core-version-from-git-handoff.md` 与
+  `decisions/2026-10-26-dev-core-version-from-git.md`。
+
+- **宿主 coreVersion 暴露 + 清单兜底（2026-10-25）**：`version.Identity()`
   单一权威（`coreVersion` 严格 semver / `buildVersion` 展示），四面下发：v2 握手
   `host_build` → `Server.HostBuild()`、管理 bridge `host`（page-bootstrap 同包下发）、
   公开 L2 `host.coreVersion`、`GET /api/v1/health`。`manifest.sforumVersion` 首次真正
@@ -660,15 +720,16 @@ load archived sessions or completed plans as current context.
   /catalog 全绿；两段式卸载保留，收敛安全全部来自既有幂等机制。详见
   `sessions/2026-10-24-uninstall-cleanup-convergence-handoff.md` 与
   `decisions/2026-10-24-uninstall-cleanup-convergence.md`。
-- **应用商城 · SForum 侧落地（2026-10-24）**：P0 删除 Marketplace 预留包
-  （8 文件 1492 行）+ `MARKETPLACE_ED25519_*` + `/extensions/store*` 三页与占位货架，
-  store UI 身份转 retired 并进墓碑账本；P1 给受信任管理页加宿主中介安装动作
-  （清单 `hostActions` → `bridge.installExtension` → 确认框 → `install-from-url`，
-  期望 ID/版本/类型在清单解析后、类型权限 switch 前比对，120 秒超时 + 页面级单飞，
-  只暂存不启用）。Go/Web/架构/catalog/OpenAPI/`--fast` 全绿，
-  `rg -i marketplace` 在 `apps/api`/`apps/web` 归零；浏览器 QA 覆盖 1633×810 与
-  390×844、取消不发请求、真实公网 ZIP 下载+摘要校验+拒绝链路。详见
-  `sessions/2026-10-24-app-store-core-handoff.md`。
+- **应用商城 · SForum 侧（2026-10-24，2026-10-26 扩成两个宿主动作）**：P0 删除
+  Marketplace 预留包（8 文件 1492 行）+ `MARKETPLACE_ED25519_*` +
+  `/extensions/store*` 三页与占位货架，store UI 身份转 retired 并进墓碑账本；
+  P1 给受信任管理页加宿主中介安装动作（`extension.install` 只暂存、
+  `extension.install.enable` 装完由宿主启用/升级；期望 ID/版本/类型在清单解析后、
+  类型权限 switch 前比对，120 秒超时 + 页面级单飞）。安装链路 Go/Web/架构/catalog/
+  OpenAPI/`--fast` 全绿，`rg -i marketplace` 在 `apps/api`/`apps/web` 归零；浏览器
+  QA 覆盖 1633×810 与 390×844、取消不发请求、真实公网 ZIP 下载+摘要校验+拒绝链路。
+  详见 `sessions/2026-10-26-store-install-ux.md`（前序
+  `sessions/2026-10-24-app-store-core-handoff.md`）。
 - **内置 S3 存储插件 R2 兼容修复（2026-10-24）**：SDK 默认 CRC32 请求校验和被 R2 拒绝 + Virtual-host 寻址在 R2 上无 DNS，探测与上传必然失败；改为 checksum `when_required`、寻址三态 auto（非 AWS 端点自动 Path-style）、R2 空 region 自动 `auto`、读流不再被 60s 截断。插件 1.0.10，包校验/单测/架构门禁/fast 三线全绿；**真机 R2 已验证**：草稿探测 storage.ok（真实写/读/删往返）、实例激活为当前写入端、真实上传 201、/media 302 到 region=auto 的 R2 预签名 URL 且浏览器渲染成功、自定义域直读 200。详见
   `sessions/2026-10-24-s3-r2-compatibility-handoff.md` 与
   `decisions/2026-10-24-s3-compatible-auto-addressing.md`。
