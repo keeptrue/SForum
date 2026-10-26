@@ -263,3 +263,20 @@ func TestAdminUserConflictFieldsUseAdminCopy(t *testing.T) {
 		t.Fatal("no conflict must produce no fields")
 	}
 }
+
+// 角色校验失败要转成带 roleKeys 的错误；其它错误必须原样透出，不能顺手改语义。
+func TestMapAdminRoleValidationError(t *testing.T) {
+	t.Parallel()
+
+	var roleErr *AdminUserFieldsError
+	if err := mapAdminRoleValidationError(ErrInvalidRole); !errors.As(err, &roleErr) {
+		t.Fatalf("expected AdminUserFieldsError, got %v", err)
+	} else if roleErr.Reason != CodeRoleInvalid {
+		t.Fatalf("reason = %q, want %q", roleErr.Reason, CodeRoleInvalid)
+	}
+
+	storeErr := errors.New("identity: store unavailable")
+	if err := mapAdminRoleValidationError(storeErr); !errors.Is(err, storeErr) {
+		t.Fatalf("non-role errors must pass through unchanged, got %v", err)
+	}
+}

@@ -1,6 +1,9 @@
 package identity
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 // 管理端用户写入（创建/更新）的稳定错误码。它们只属于后台账户管理这条链路，
 // 与注册链路的 auth.* 分开：注册语境把失败提示成「注册失败」会让管理员困惑。
@@ -46,6 +49,18 @@ func NewAdminUserRoleError() *AdminUserFieldsError {
 		Reason: CodeRoleInvalid,
 		Fields: FieldMessages{FieldRoleKeys: {MessageRoleUnknown}},
 	}
+}
+
+// mapAdminRoleValidationError 把角色标识校验失败转成带 roleKeys 字段的错误。
+//
+// 抽成普通函数而不是写进 ReplaceUserRoles：service.go 已顶到架构门禁的行数上限，
+// 调用点保持原来的行数才能不改 baseline。ErrInvalidRole 的其它消费方（fake store、
+// 角色增删改）不受影响。
+func mapAdminRoleValidationError(err error) error {
+	if errors.Is(err, ErrInvalidRole) {
+		return NewAdminUserRoleError()
+	}
+	return err
 }
 
 // AdminUserConflictError 是用户名/邮箱唯一性冲突，带字段级提示。

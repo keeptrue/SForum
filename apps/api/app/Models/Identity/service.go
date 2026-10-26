@@ -788,7 +788,7 @@ func (s *Service) ReplaceUserRoles(ctx context.Context, actor Actor, targetUserI
 		return AdminUserDetail{}, ErrSuperAdminGrantRestricted
 	}
 	if err := s.validateRoles(ctx, normalized); err != nil {
-		return AdminUserDetail{}, err
+		return AdminUserDetail{}, mapAdminRoleValidationError(err)
 	}
 
 	return s.store.ReplaceUserRoles(ctx, actor.ID, targetUserID, normalized)

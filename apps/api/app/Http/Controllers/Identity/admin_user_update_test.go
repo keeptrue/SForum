@@ -166,3 +166,39 @@ func TestMapIdentityErrorKeepsRegisterInvalid(t *testing.T) {
 		t.Fatalf("unexpected register mapping: %+v", apiErr)
 	}
 }
+
+// PUT /users/{id}/roles 的未知用户组必须带 roleKeys 字段：抽屉里那块表单才有落点。
+func TestReplaceUserRolesEndpointReturnsRoleKeysFieldError(t *testing.T) {
+	app, store := newSessionTestApp(t)
+	cookie := registerTestUser(t, app, "alice", "alice@example.com")
+	promoteToUserManager(t, app, store, 1)
+	registerTestUser(t, app, "bob", "bob@example.com")
+
+	payload, err := json.Marshal(map[string]any{"roleKeys": []string{"missing-role"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(nethttp.MethodPut, "/api/v1/users/2/roles", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("replace user roles request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != nethttp.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d", resp.StatusCode)
+	}
+	var envelope errorEnvelope
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&envelope); decodeErr != nil {
+		t.Fatalf("decode response: %v", decodeErr)
+	}
+	// reason 仍是 role.invalid（前端只读 fields，不按 reason 分支）。
+	if envelope.Data.Reason != identity.CodeRoleInvalid {
+		t.Fatalf("reason = %q, want %q", envelope.Data.Reason, identity.CodeRoleInvalid)
+	}
+	if len(envelope.Data.Fields["roleKeys"]) == 0 {
+		t.Fatalf("expected roleKeys field error, got %+v", envelope.Data.Fields)
+	}
+}

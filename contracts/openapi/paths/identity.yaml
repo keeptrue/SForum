@@ -787,7 +787,13 @@ userRoles:
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
-        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: |
+          A submitted `roleKeys` entry does not exist. `data.reason` is
+          `role.invalid` with localized `data.fields.roleKeys`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
 adminUserEmailVerification:
   put:
     summary: Set a user's email verification state
