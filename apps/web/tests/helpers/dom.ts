@@ -23,7 +23,12 @@ export interface TestDomOptions {
 }
 
 export function installTestDom(options: TestDomOptions = {}) {
-  const testWindow = new Window({ url: options.url ?? 'http://localhost/' })
+  // 测试 DOM 从不执行脚本：显式关闭 JS 求值，把这条安全边界写成我们自己的契约，
+  // 而不是依赖 happy-dom 的默认值（GHSA-834v-8h66-3h79 的触发前提正是开启它）。
+  const testWindow = new Window({
+    url: options.url ?? 'http://localhost/',
+    settings: { enableJavaScriptEvaluation: false }
+  })
   Object.assign(globalThis, {
     window: testWindow,
     document: testWindow.document,
