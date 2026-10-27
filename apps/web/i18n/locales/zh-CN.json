@@ -5640,10 +5640,10 @@
       "loading": "正在加载登录方式…",
       "loadFailed": "加载登录方式失败。",
       "emptyTitle": "暂无登录提供方",
-      "emptyDescription": "内置 GitHub 登录插件会在启动时同步到扩展目录。请先确认插件已启用，并完成可执行信任（如需要）。",
+      "emptyDescription": "登录提供方会在插件启用后出现在这里。请先确认插件已启用，并完成可执行信任（如需要）。",
       "openPlugins": "打开插件管理",
       "recommendedTitle": "推荐路径：配置凭证 → 探测 → 再打开开关",
-      "recommendedDescription": "先填写 Client ID / Client Secret，复制回调 URL 到 GitHub OAuth App，运行探测确认配置形状，再分别打开登录、注册或绑定。默认全部关闭，密码登录始终可用。",
+      "recommendedDescription": "先填写 Client ID / Client Secret，复制回调 URL 到 {provider} 的 OAuth 应用，运行探测确认配置形状，再分别打开登录、注册或绑定。默认全部关闭，密码登录始终可用。",
       "secretsPreserved": "恢复推荐默认会关闭全部第三方操作开关，并保留已保存的密钥。",
       "restoreDefaults": "恢复推荐默认",
       "defaultsRestored": "已恢复推荐默认：第三方登录操作全部关闭。",
@@ -5666,11 +5666,11 @@
       "operationsHelp": "每个操作独立开关。插件启用 ≠ 公开登录按钮；需在此显式打开。",
       "ops": {
         "login": "登录",
-        "loginHelp": "已绑定 GitHub 的用户可用其登录。",
+        "loginHelp": "已绑定 {provider} 的用户可用其登录。",
         "registration": "注册",
-        "registrationHelp": "允许通过 GitHub 显式创建新账号（仍受站点注册策略约束）。",
+        "registrationHelp": "允许通过 {provider} 显式创建新账号（仍受站点注册策略约束）。",
         "link": "账号绑定",
-        "linkHelp": "已登录用户可在账号安全中绑定 GitHub。"
+        "linkHelp": "已登录用户可在账号安全中绑定 {provider}。"
       },
       "revision": "配置版本 revision={revision}",
       "callbackTitle": "回调 URL",

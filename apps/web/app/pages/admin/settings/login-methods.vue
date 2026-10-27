@@ -74,6 +74,11 @@ const selectedProvider = computed(() =>
   providers.value.find(p => p.id === activeTabId.value) || null
 )
 
+// 提供方展示名只来自 Host catalog；文案用它替换旧版写死的 GitHub。
+const selectedProviderLabel = computed(() =>
+  selectedProvider.value?.label?.trim() || t('auth.providers.genericName')
+)
+
 useSeoMeta({
   title: () => t('admin.loginMethods.metaTitle')
 })
@@ -471,7 +476,7 @@ watch(locale, () => {
       icon="i-lucide-sparkles"
       class="w-full shrink-0"
       :title="t('admin.loginMethods.recommendedTitle')"
-      :description="`${t('admin.loginMethods.recommendedDescription')} ${t('admin.loginMethods.secretsPreserved')}`"
+      :description="`${t('admin.loginMethods.recommendedDescription', { provider: selectedProviderLabel })} ${t('admin.loginMethods.secretsPreserved')}`"
     />
 
     <SFAlert
@@ -550,7 +555,7 @@ watch(locale, () => {
                     <div class="flex items-center justify-between gap-3">
                       <div>
                         <div class="text-sm font-medium">{{ t('admin.loginMethods.ops.login') }}</div>
-                        <div class="text-xs text-slate-500">{{ t('admin.loginMethods.ops.loginHelp') }}</div>
+                        <div class="text-xs text-slate-500">{{ t('admin.loginMethods.ops.loginHelp', { provider: selectedProviderLabel }) }}</div>
                       </div>
                       <USwitch
                         :model-value="selectedProvider?.loginEnabled"
@@ -561,7 +566,7 @@ watch(locale, () => {
                     <div class="flex items-center justify-between gap-3">
                       <div>
                         <div class="text-sm font-medium">{{ t('admin.loginMethods.ops.registration') }}</div>
-                        <div class="text-xs text-slate-500">{{ t('admin.loginMethods.ops.registrationHelp') }}</div>
+                        <div class="text-xs text-slate-500">{{ t('admin.loginMethods.ops.registrationHelp', { provider: selectedProviderLabel }) }}</div>
                       </div>
                       <USwitch
                         :model-value="selectedProvider?.registrationEnabled"
@@ -572,7 +577,7 @@ watch(locale, () => {
                     <div class="flex items-center justify-between gap-3">
                       <div>
                         <div class="text-sm font-medium">{{ t('admin.loginMethods.ops.link') }}</div>
-                        <div class="text-xs text-slate-500">{{ t('admin.loginMethods.ops.linkHelp') }}</div>
+                        <div class="text-xs text-slate-500">{{ t('admin.loginMethods.ops.linkHelp', { provider: selectedProviderLabel }) }}</div>
                       </div>
                       <USwitch
                         :model-value="selectedProvider?.linkEnabled"

@@ -5600,10 +5600,10 @@
       "loading": "Loading login methods…",
       "loadFailed": "Failed to load login methods.",
       "emptyTitle": "No login providers",
-      "emptyDescription": "The built-in GitHub login plugin is staged at boot. Enable the plugin and complete executable trust when required.",
+      "emptyDescription": "Login providers appear here once their plugin is enabled. Enable the plugin and complete executable trust when required.",
       "openPlugins": "Open plugins",
       "recommendedTitle": "Recommended path: credentials → probe → then toggles",
-      "recommendedDescription": "Fill Client ID / Client Secret, paste the Host callback URL into the GitHub OAuth App, run a probe, then enable login, registration, or linking separately. All operations default off; password login stays available.",
+      "recommendedDescription": "Fill Client ID / Client Secret, paste the Host callback URL into the {provider} OAuth app, run a probe, then enable login, registration, or linking separately. All operations default off; password login stays available.",
       "secretsPreserved": "Restoring recommended defaults turns all third-party operations off and preserves saved secrets.",
       "restoreDefaults": "Restore recommended defaults",
       "defaultsRestored": "Recommended defaults restored: third-party operations are off.",
@@ -5626,11 +5626,11 @@
       "operationsHelp": "Each operation is independent. Plugin enablement is not a public login button; activate here explicitly.",
       "ops": {
         "login": "Login",
-        "loginHelp": "Users with a linked GitHub identity can sign in.",
+        "loginHelp": "Users with a linked {provider} identity can sign in.",
         "registration": "Registration",
-        "registrationHelp": "Allow explicit GitHub-backed account creation (still obeys site registration policy).",
+        "registrationHelp": "Allow explicit {provider}-backed account creation (still obeys site registration policy).",
         "link": "Account linking",
-        "linkHelp": "Signed-in users can link GitHub from account security."
+        "linkHelp": "Signed-in users can link {provider} from account security."
       },
       "revision": "Config revision={revision}",
       "callbackTitle": "Callback URL",
