@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -18,6 +17,8 @@ import (
 
 	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 端到端集成测试：真实 Postgres（独立 schema）+ 真实 Secret Store + 受控出站
@@ -90,13 +91,7 @@ CREATE TABLE secret_store (
 
 func newAIFixturePool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, databaseURL)
 	if err != nil {

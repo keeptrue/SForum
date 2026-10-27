@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresStorePromoteStagedVersionExactCAS(t *testing.T) {
@@ -184,10 +186,7 @@ type stagedCASTestFixture struct {
 
 func newStagedCASTestFixture(t *testing.T, label string) stagedCASTestFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

@@ -3,20 +3,17 @@ package identity
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresStoreListPermissionsHidesTombstonedExtensionPermissions(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)

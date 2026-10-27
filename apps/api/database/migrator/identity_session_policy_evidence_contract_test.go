@@ -2,9 +2,10 @@ package migrator
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const identitySessionPolicyEvidenceContractVersion = int64(202607190041)
@@ -199,12 +200,6 @@ func TestIdentitySessionPolicyEvidenceContractRejectsLegacyAmbiguousRows(t *test
 
 func identitySessionPolicyEvidenceTestDatabaseURL(t *testing.T) string {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	return databaseURL
 }

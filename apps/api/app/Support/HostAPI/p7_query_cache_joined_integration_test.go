@@ -13,6 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const (
@@ -21,10 +23,7 @@ const (
 )
 
 func TestP7QueryCacheJoinedPreMarkerOwnershipCleanup(t *testing.T) {
-	baseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("set SFORUM_TEST_DATABASE_URL to run the pre-marker cleanup gate")
-	}
+	baseURL := testdb.IsolatedURL(t)
 	random := make([]byte, 32)
 	if _, err := rand.Read(random); err != nil {
 		t.Fatal(err)
@@ -92,10 +91,7 @@ func TestP7QueryRegistryMutationCacheRestartJoined(t *testing.T) {
 		t.Fatalf("%s is required", p7QueryCacheJoinedSeedEnv)
 	}
 	requireP7QueryCacheJoinedSeedOwnership(t, seed)
-	baseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Fatal("SFORUM_TEST_DATABASE_URL is required")
-	}
+	baseURL := testdb.RequireIsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 

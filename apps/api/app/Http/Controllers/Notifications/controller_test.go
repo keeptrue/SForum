@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +23,7 @@ import (
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	"github.com/keeptrue/sforum/apps/api/config"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestNotificationListRejectsInvalidPATBeforeResolvingUserID(t *testing.T) {
@@ -130,13 +130,7 @@ func TestNotificationDetailReturnsNotFoundWithoutLeakingForeignRows(t *testing.T
 }
 
 func TestNotificationListScrubsUnavailableForumTargetsPostgres(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

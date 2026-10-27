@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 	"github.com/riverqueue/river/rivertype"
-	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
-	"github.com/keeptrue/sforum/apps/api/database/migrations"
 )
 
 type pluginJobLifecycleIntegrationHarness struct {
@@ -28,13 +28,7 @@ type pluginJobLifecycleIntegrationHarness struct {
 
 func newPluginJobLifecycleIntegrationHarness(t *testing.T) *pluginJobLifecycleIntegrationHarness {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required for plugin job lifecycle integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)

@@ -441,6 +441,10 @@ func TestServiceCleanupUsesConfiguredRetentionWindow(t *testing.T) {
 	if result.Deleted != 1 || result.Failed != 0 {
 		t.Fatalf("unexpected cleanup result: %#v", result)
 	}
+	// 宽限期天数随结果下发，运营账号不必再读需要更高权限的 settings 端点。
+	if result.RetentionDays != 7 {
+		t.Fatalf("expected retentionDays 7 in cleanup result, got %#v", result)
+	}
 	if store.cleanupLimit != 25 {
 		t.Fatalf("expected cleanup limit 25, got %d", store.cleanupLimit)
 	}

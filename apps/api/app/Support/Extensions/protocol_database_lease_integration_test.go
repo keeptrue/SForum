@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,13 +12,12 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestProtocolStarterUsesRealExactDatabaseLease(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for protocol database lease integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)

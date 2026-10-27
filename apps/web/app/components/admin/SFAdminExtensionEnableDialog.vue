@@ -16,8 +16,9 @@ const props = defineProps<{
   error: string
   busy: boolean
   isSuperAdmin: boolean
-  // Theme activation and staged plugin upgrade reuse the exact trust review pattern.
-  purpose?: 'enable' | 'activate' | 'upgrade'
+  // Theme activation, staged plugin upgrade and content-update restart reuse the exact
+  // trust review pattern; `apply` is a restart that activates a staged artifact.
+  purpose?: 'enable' | 'activate' | 'upgrade' | 'apply'
 }>()
 const emit = defineEmits<{ cancel: [], issueChallenge: [], confirm: [] }>()
 const open = defineModel<boolean>('open', { required: true })
@@ -26,32 +27,47 @@ const { t, locale } = useI18n()
 const purpose = computed(() => props.purpose || 'enable')
 const isActivatePurpose = computed(() => purpose.value === 'activate')
 const isUpgradePurpose = computed(() => purpose.value === 'upgrade')
+const isApplyPurpose = computed(() => purpose.value === 'apply')
 const titleKey = computed(() => props.mode !== 'exact'
-  ? 'admin.extensions.confirmEnableTitle'
+  ? isApplyPurpose.value
+    ? 'admin.extensions.update.restartTitle'
+    : 'admin.extensions.confirmEnableTitle'
   : isActivatePurpose.value
     ? 'admin.extensions.trust.titleActivate'
     : isUpgradePurpose.value
       ? 'admin.extensions.trust.titleUpgrade'
-      : 'admin.extensions.trust.title')
+      : isApplyPurpose.value
+        ? 'admin.extensions.trust.titleApply'
+        : 'admin.extensions.trust.title')
 const bodyKey = computed(() => props.mode !== 'exact'
-  ? 'admin.extensions.confirmEnableBody'
+  ? isApplyPurpose.value
+    ? 'admin.extensions.update.restartBody'
+    : 'admin.extensions.confirmEnableBody'
   : isActivatePurpose.value
     ? 'admin.extensions.trust.bodyActivate'
     : isUpgradePurpose.value
       ? 'admin.extensions.trust.bodyUpgrade'
-      : 'admin.extensions.trust.body')
+      : isApplyPurpose.value
+        ? 'admin.extensions.trust.bodyApply'
+        : 'admin.extensions.trust.body')
 const blockingErrorKey = computed(() => isActivatePurpose.value
   ? 'admin.extensions.trust.blockingErrorActivate'
   : isUpgradePurpose.value
     ? 'admin.extensions.trust.blockingErrorUpgrade'
-    : 'admin.extensions.trust.blockingError')
+    : isApplyPurpose.value
+      ? 'admin.extensions.trust.blockingErrorApply'
+      : 'admin.extensions.trust.blockingError')
 const confirmKey = computed(() => props.mode !== 'exact'
-  ? 'admin.extensions.confirmEnableAction'
+  ? isApplyPurpose.value
+    ? 'admin.extensions.update.restartConfirm'
+    : 'admin.extensions.confirmEnableAction'
   : isActivatePurpose.value
     ? 'admin.extensions.trust.confirmActivate'
     : isUpgradePurpose.value
       ? 'admin.extensions.trust.confirmUpgrade'
-      : 'admin.extensions.trust.confirmEnable')
+      : isApplyPurpose.value
+        ? 'admin.extensions.trust.confirmApply'
+        : 'admin.extensions.trust.confirmEnable')
 
 const needsChallenge = computed(() => props.mode === 'exact'
   && props.trustStatus?.trustRequired === true

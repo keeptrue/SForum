@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +17,8 @@ import (
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const siteNavigationV1MigrationVersion = int64(202607280072)
@@ -28,10 +29,7 @@ const siteNavigationDynamicMaxItemsMigrationVersion = int64(202607290076)
 const siteNavigationMobileCategoriesMigrationVersion = int64(202607310001)
 
 func TestSiteNavigationV1MigrationPreservesLegacyTopbarRows(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for site navigation migration integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	if _, err := provider.UpTo(ctx, 202607120003); err != nil {
@@ -100,10 +98,7 @@ func TestSiteNavigationV1MigrationPreservesLegacyTopbarRows(t *testing.T) {
 }
 
 func TestSiteNavigationMaterializedDefaultsPreserveExplicitPlacements(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for site navigation migration integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	migrateSiteNavigationFixture(t, ctx, provider, siteNavigationSnapshotActorMigrationVersion)
@@ -165,10 +160,7 @@ func TestSiteNavigationMaterializedDefaultsPreserveExplicitPlacements(t *testing
 }
 
 func TestSiteNavigationMobileCategoriesMigrationPreservesExistingPlacement(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for site navigation migration integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	migrateSiteNavigationFixture(t, ctx, provider, siteNavigationDynamicMaxItemsMigrationVersion)
@@ -197,10 +189,7 @@ func TestSiteNavigationMobileCategoriesMigrationPreservesExistingPlacement(t *te
 }
 
 func TestSiteNavigationMobileCategoriesMigrationMaterializesDefault(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for site navigation migration integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	migrateSiteNavigationFixture(t, ctx, provider, siteNavigationDynamicMaxItemsMigrationVersion)
@@ -228,10 +217,7 @@ func (failingNavigationAudit) AppendTx(context.Context, pgx.Tx, audit.Event) err
 }
 
 func TestSiteNavigationCommandsAreAtomicAndRetainSnapshots(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for site navigation command integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	if _, err := provider.UpTo(ctx, 202607120003); err != nil {

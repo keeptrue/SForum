@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +30,7 @@ import (
 	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const (
@@ -415,10 +415,7 @@ type p7RoleMappingPostgresFixture struct {
 
 func newP7RoleMappingPostgresFixture(t *testing.T, extension extensions.Extension) *p7RoleMappingPostgresFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := t.Context()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // ---- 纯函数判据矩阵（allowed + denied 双侧）----
@@ -289,10 +291,7 @@ func findVersionGCCandidate(t *testing.T, candidates []RetiredVersionCandidate, 
 }
 
 func TestVersionGCCandidatesCriteriaMatrix(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -302,7 +301,9 @@ func TestVersionGCCandidatesCriteriaMatrix(t *testing.T) {
 
 	fixture := newVersionGCFixture(t, ctx, pool)
 	active := fixture.version("2.0.0")
-	candidates, err := fixture.store.ListVersionGCCandidates(ctx, VersionGCOptions{})
+	// 作用域计划：共享库里可能有上千条历史版本行（versionGCMaxCandidates=1000
+	// 会按 extension_id 截断），全局清单会让本用例的 fixture 落在 LIMIT 之外。
+	candidates, err := fixture.store.ListVersionGCCandidates(ctx, VersionGCOptions{ExtensionID: fixture.id})
 	if err != nil {
 		t.Fatalf("list version gc candidates: %v", err)
 	}
@@ -355,10 +356,7 @@ func TestVersionGCCandidatesCriteriaMatrix(t *testing.T) {
 }
 
 func TestVersionGCDryRunHasZeroSideEffects(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -393,10 +391,7 @@ func TestVersionGCDryRunHasZeroSideEffects(t *testing.T) {
 // TestVersionGCExecuteRemovesDiskThenLedger 覆盖验收矩阵：
 // 删盘成功 → 台账删（锚点 + 审计逐条可查）；重复执行幂等（无候选、零删除）。
 func TestVersionGCExecuteRemovesDiskThenLedger(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -405,14 +400,15 @@ func TestVersionGCExecuteRemovesDiskThenLedger(t *testing.T) {
 	t.Cleanup(pool.Close)
 
 	fixture := newVersionGCFixture(t, ctx, pool)
-	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, VersionGCOptions{})
+	options := VersionGCOptions{ExtensionID: fixture.id}
+	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, options)
 	if err != nil {
 		t.Fatalf("create gc confirmation: %v", err)
 	}
 	if confirmation.CandidateCount != 1 {
 		t.Fatalf("candidate count = %d, want 1 (v1 beyond retain=1)", confirmation.CandidateCount)
 	}
-	result, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{}, confirmation.Token)
+	result, err := fixture.store.ExecuteVersionGCSweep(ctx, options, confirmation.Token)
 	if err != nil {
 		t.Fatalf("execute gc sweep: %v", err)
 	}
@@ -459,11 +455,11 @@ func TestVersionGCExecuteRemovesDiskThenLedger(t *testing.T) {
 		t.Fatalf("gc audit events = %d, want 1", audits)
 	}
 	// 幂等：重复执行安全（无候选、零删除）。
-	second, err := fixture.store.CreateVersionGCConfirmation(ctx, VersionGCOptions{})
+	second, err := fixture.store.CreateVersionGCConfirmation(ctx, options)
 	if err != nil {
 		t.Fatalf("create second confirmation: %v", err)
 	}
-	secondResult, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{}, second.Token)
+	secondResult, err := fixture.store.ExecuteVersionGCSweep(ctx, options, second.Token)
 	if err != nil {
 		t.Fatalf("second gc sweep: %v", err)
 	}
@@ -489,10 +485,7 @@ func TestVersionGCExecuteRemovesDiskThenLedger(t *testing.T) {
 }
 
 func TestVersionGCExecuteRejectsInvalidTokens(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -528,8 +521,10 @@ func TestVersionGCExecuteRejectsInvalidTokens(t *testing.T) {
 	if _, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{}, fresh.Token); !errors.Is(err, ErrVersionGCConfirmationInvalid) {
 		t.Fatalf("replayed token error = %v, want ErrVersionGCConfirmationInvalid", err)
 	}
-	// 过期 token 拒绝。
-	expired := strings.Repeat("f", 64)
+	// 过期 token 拒绝。token 必须每次运行唯一：共享测试库里
+	// extension_gc_confirmations.token_hash 是 UNIQUE，固定串会让第二次运行
+	// 撞唯一约束（既有用例在已 seed 的 dev 库上不可重复执行）。
+	expired := fmt.Sprintf("%064x", time.Now().UnixNano())
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO extension_gc_confirmations (token_hash, plan_digest, candidate_count, options, expires_at, created_at)
 		VALUES ($1, $2, 0, '{}'::jsonb, statement_timestamp() - interval '1 minute', statement_timestamp() - interval '20 minutes')
@@ -541,14 +536,49 @@ func TestVersionGCExecuteRejectsInvalidTokens(t *testing.T) {
 	}
 }
 
+// TestVersionGCPlanDigestFollowsBlockedDrift 验证"dry-run 与 execute 同源判据"
+// 的确认语义：候选在两次调用之间被新的发布引用钉住（blocked 集合变化）时，
+// 计划摘要随之变化，旧 token 直接失效——不能拿一个按旧判据签发的 token 去执行
+// 新判据下的回收。
+func TestVersionGCPlanDigestFollowsBlockedDrift(t *testing.T) {
+	databaseURL := testdb.IsolatedURL(t)
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+
+	fixture := newVersionGCFixture(t, ctx, pool)
+	target := fixture.versions[0]
+	options := VersionGCOptions{ExtensionID: fixture.id}
+	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, options)
+	if err != nil {
+		t.Fatalf("create gc confirmation: %v", err)
+	}
+	if confirmation.CandidateCount != 1 {
+		t.Fatalf("candidate count = %d, want 1", confirmation.CandidateCount)
+	}
+	// 签发之后把 v1 钉进发布历史：可回收集合从 1 条变 0 条。
+	seedVersionGCPublication(t, ctx, pool, fixture.id, target.ID, target.Version, target.Digest)
+	if _, err := fixture.store.ExecuteVersionGCSweep(ctx, options, confirmation.Token); !errors.Is(err, ErrVersionGCConfirmationInvalid) {
+		t.Fatalf("stale-plan token error = %v, want ErrVersionGCConfirmationInvalid", err)
+	}
+	// 重新 dry-run 后，同一计划里已经没有可回收候选。
+	fresh, err := fixture.store.CreateVersionGCConfirmation(ctx, options)
+	if err != nil {
+		t.Fatalf("create fresh confirmation: %v", err)
+	}
+	if fresh.CandidateCount != 0 || fresh.PlanDigest == confirmation.PlanDigest {
+		t.Fatalf("fresh plan = %#v, want 0 candidates and a different digest", fresh)
+	}
+}
+
 // TestVersionGCTargetDriftRechecksInsideLock 直接验证锁内复核的私有不变量：
 // 判据在加锁与删除之间漂移时必须放弃该条且保留台账行（same-package 测试，
 // 该不变量无法通过公开契约稳定构造）。
 func TestVersionGCTargetDriftRechecksInsideLock(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -593,10 +623,7 @@ func TestVersionGCTargetDriftRechecksInsideLock(t *testing.T) {
 // TestVersionGCFKRestrictBackstop 验证数据库最后防线：即便应用判据漏网，
 // 发布引用的版本行在 SQL 层也删不掉。
 func TestVersionGCFKRestrictBackstop(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -620,10 +647,7 @@ func TestVersionGCFKRestrictBackstop(t *testing.T) {
 // TestVersionGCStagingRestoredOnTxFailure 验证失败方向：事务失败 → 台账保留
 // 且暂存目录恢复原路径（绝不产生盘缺悬挂态）。
 func TestVersionGCStagingRestoredOnTxFailure(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -659,10 +683,7 @@ func TestVersionGCStagingRestoredOnTxFailure(t *testing.T) {
 // 可读"：把候选目录的父目录设为不可写，改名（删盘第一步）必然失败。
 // root 环境无法用 chmod 制造该失败，跳过而不是伪造。
 func TestVersionGCDiskDeleteFailureKeepsLedger(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	if os.Geteuid() == 0 {
 		t.Skip("cannot simulate rename failure as root")
 	}
@@ -681,11 +702,12 @@ func TestVersionGCDiskDeleteFailureKeepsLedger(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
 
-	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, VersionGCOptions{})
+	options := VersionGCOptions{ExtensionID: fixture.id}
+	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, options)
 	if err != nil {
 		t.Fatalf("create confirmation: %v", err)
 	}
-	result, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{}, confirmation.Token)
+	result, err := fixture.store.ExecuteVersionGCSweep(ctx, options, confirmation.Token)
 	if err != nil {
 		t.Fatalf("execute sweep: %v", err)
 	}
@@ -710,10 +732,7 @@ func TestVersionGCDiskDeleteFailureKeepsLedger(t *testing.T) {
 // TestVersionGCMissingDiskBetweenPlanAndRunIsNotGcBusiness 验证执行路径上的
 // disk_missing 跳过：盘在计划之后消失的候选被跳过并报告，不删除台账。
 func TestVersionGCMissingDiskBetweenPlanAndRunIsNotGcBusiness(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -748,10 +767,7 @@ func TestVersionGCMissingDiskBetweenPlanAndRunIsNotGcBusiness(t *testing.T) {
 // ---- 阶段 5：VersionGCAdminService（管理端边界）----
 
 func TestVersionGCAdminServiceRequiresSuperAdmin(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -793,19 +809,23 @@ func TestVersionGCAdminServiceRequiresSuperAdmin(t *testing.T) {
 	if _, err := service.Candidates(ctx, extensionManager(), VersionGCOptions{}); err != nil {
 		t.Fatalf("super_admin candidates: %v", err)
 	}
-	confirmation, err := service.CreateConfirmation(ctx, extensionManager(), VersionGCOptions{})
+	options := VersionGCOptions{ExtensionID: fixture.id}
+	confirmation, err := service.CreateConfirmation(ctx, extensionManager(), options)
 	if err != nil {
 		t.Fatalf("super_admin confirmation: %v", err)
 	}
 	// 锚点表的 requested_by_user_id 对 users 有 RESTRICT 外键：先种 actor 用户行。
+	// 已 seed 的 dev 库里 id 42 可能已是真实用户，冲突时复用该行即可（断言只关心
+	// 锚点/审计确实绑定了这个 actor id）。
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO users (id, username, username_lower, email, email_lower, display_name)
 		VALUES ($1, 'gc-admin', 'gc-admin', 'gc-admin@example.com', 'gc-admin@example.com', 'GC Admin')
+		ON CONFLICT (id) DO NOTHING
 	`, extensionManager().ID); err != nil {
 		t.Fatalf("seed gc admin user: %v", err)
 	}
 	// Execute 绑定 actor：审计 mode=api、锚点 requested_by_user_id=42。
-	result, err := service.Execute(ctx, extensionManager(), VersionGCOptions{}, confirmation.Token)
+	result, err := service.Execute(ctx, extensionManager(), options, confirmation.Token)
 	if err != nil {
 		t.Fatalf("super_admin execute: %v", err)
 	}
@@ -856,5 +876,300 @@ func retireVersionGCFixture(t *testing.T, pool *pgxpool.Pool, extensionID string
 		WHERE id = $1
 	`, extensionID); err != nil {
 		t.Errorf("retire version-gc fixture %s: %v", extensionID, err)
+	}
+}
+
+// ---- 主题运行时发布账本的钉住判据（隔离 schema）----
+//
+// 为什么必须用隔离 schema：theme_runtime_publications 是 append-only 账本，
+// 往共享测试库里插一条测试发布行会变成全局最新修订，真实 watcher 下次启动
+// 就会去 apply 一个只存在于测试里的制品并永久失败。这里复用主题发布 fixture
+// 的 schema 隔离，绝不在共享库的发布账本里造行。
+
+type versionGCThemeVersion struct {
+	Version string
+	ID      int64
+	Digest  string
+	Path    string
+}
+
+// saveVersionGCThemeVersion 写入一个主题版本，并配一个真实磁盘目录：GC 的
+// disk 判据和"制品仍在"断言都需要它存在。
+func saveVersionGCThemeVersion(t *testing.T, fixture *themePublicationPGFixture, label, version, digest string) versionGCThemeVersion {
+	t.Helper()
+	extensionID := fixture.prefix + "." + label
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "package.bin"), []byte(strings.Repeat("x", 128)), 0o644); err != nil {
+		t.Fatalf("write theme gc fixture file: %v", err)
+	}
+	installed, err := fixture.store.SaveInstalled(fixture.ctx, SaveInstalledInput{
+		Manifest:    Manifest{ID: extensionID, Name: label, Version: version, Type: TypeTheme},
+		PackagePath: dir, PackageDigest: digest,
+	})
+	if err != nil {
+		t.Fatalf("save theme gc fixture version %s: %v", version, err)
+	}
+	fixture.extensionIDs = append(fixture.extensionIDs, extensionID)
+	entry := versionGCThemeVersion{Version: version, Digest: digest, Path: dir, ID: installed.ActiveVersionID}
+	if installed.StagedVersion != nil {
+		entry.ID = installed.StagedVersion.ID
+	}
+	if entry.ID <= 0 {
+		t.Fatalf("theme gc fixture version %s has no version row: %#v", version, installed)
+	}
+	return entry
+}
+
+// discardVersionGCThemeCandidate 走真实的 staged 候选丢弃路径：只清指针，
+// 版本行保留成历史版本（且从未进入发布账本）。
+func discardVersionGCThemeCandidate(t *testing.T, fixture *themePublicationPGFixture, extensionID string, active, staged versionGCThemeVersion) {
+	t.Helper()
+	if _, err := fixture.store.DiscardStagedVersion(fixture.ctx, StagedVersionCASInput{
+		ExtensionID:                 extensionID,
+		ExpectedActiveVersionID:     active.ID,
+		ExpectedActiveVersion:       active.Version,
+		ExpectedActivePackageDigest: active.Digest,
+		ExpectedStagedVersionID:     staged.ID,
+		ExpectedStagedVersion:       staged.Version,
+		ExpectedPackageDigest:       staged.Digest,
+	}); err != nil {
+		t.Fatalf("discard theme gc fixture version %s: %v", staged.Version, err)
+	}
+}
+
+// pinnedThemeFixture 是"上一版被发布账本钉住"的主题夹具：source 版本曾经
+// active，激活到 active 版本时它的三元组被写进 append-only 发布账本。
+type pinnedThemeFixture struct {
+	ExtensionID string
+	Source      versionGCThemeVersion
+	Active      versionGCThemeVersion
+	Publication ThemeRuntimePublication
+}
+
+// pinThemePublicationSource 走真实激活路径构造上述状态，而不是直接往账本插行：
+// 只有真实路径能保证夹具形态（source 三元组、reason、审批列）与生产一致。
+func pinThemePublicationSource(t *testing.T, fixture *themePublicationPGFixture, label string) pinnedThemeFixture {
+	t.Helper()
+	ctx := fixture.ctx
+	extensionID := fixture.prefix + "." + label
+	base := fixture.activeTheme()
+	source := saveVersionGCThemeVersion(t, fixture, label, "1.0.0", strings.Repeat("a", 64))
+	if _, err := fixture.store.ActivateThemeExact(ctx, extensionID, exactThemeActivationInput(
+		base,
+		Extension{ID: extensionID, Type: TypeTheme, Version: source.Version, PackageDigest: source.Digest},
+		0, false,
+	)); err != nil {
+		t.Fatalf("activate pinned theme source version: %v", err)
+	}
+	active := saveVersionGCThemeVersion(t, fixture, label, "2.0.0", strings.Repeat("b", 64))
+	activation, err := fixture.store.ActivateThemeExact(ctx, extensionID, exactThemeActivationInput(
+		Extension{ID: extensionID, Type: TypeTheme, Version: source.Version, PackageDigest: source.Digest},
+		Extension{ID: extensionID, Type: TypeTheme, Version: active.Version, PackageDigest: active.Digest},
+		0, false,
+	))
+	if err != nil {
+		t.Fatalf("activate pinned theme active version: %v", err)
+	}
+	return pinnedThemeFixture{
+		ExtensionID: extensionID, Source: source, Active: active, Publication: activation.Publication,
+	}
+}
+
+// TestVersionGCBlocksThemePublicationSource 钉住 2026-10-27 事故的根因：
+// 主题激活会把"上一版"的 source 三元组写进 append-only 发布账本，而
+// ThemeRuntimeWatcher 每次进程启动都要回查这条三元组。GC 若回收它，
+// apply 就永久 ErrExtensionVersionNotFound。
+func TestVersionGCBlocksThemePublicationSource(t *testing.T) {
+	fixture := newThemePublicationPGFixture(t, "gc-theme-pin")
+	ctx := fixture.ctx
+	pinnedTheme := pinThemePublicationSource(t, fixture, "pinned")
+	pinnedID, v1 := pinnedTheme.ExtensionID, pinnedTheme.Source
+
+	// 前置：v1 确实是这次激活的 source 三元组，否则下面的钉住结论没有意义。
+	activation := pinnedTheme.Publication
+	if activation.SourceThemeID != pinnedID ||
+		activation.SourceThemeVersion != v1.Version ||
+		activation.SourcePackageDigest != v1.Digest {
+		t.Fatalf("activation source tuple = %#v, want %s/%s/%s",
+			activation, pinnedID, v1.Version, v1.Digest)
+	}
+
+	candidates, err := fixture.store.ListVersionGCCandidates(ctx, VersionGCOptions{ExtensionID: pinnedID})
+	if err != nil {
+		t.Fatalf("list version gc candidates: %v", err)
+	}
+	pinned, ok := findVersionGCCandidate(t, candidates, v1.Version)
+	if !ok || pinned.Reclaimable || pinned.BlockedReason != VersionGCBlockedPublicationHistory {
+		t.Fatalf("pinned theme version = %#v, want blocked by %q", pinned, VersionGCBlockedPublicationHistory)
+	}
+
+	// dry-run 与 execute 同源判据：计划里不含它，执行也不会碰它。
+	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, VersionGCOptions{ExtensionID: pinnedID})
+	if err != nil {
+		t.Fatalf("create gc confirmation: %v", err)
+	}
+	if confirmation.CandidateCount != 0 {
+		t.Fatalf("dry-run plan count = %d, want 0 (the only historical version is pinned)", confirmation.CandidateCount)
+	}
+	result, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{ExtensionID: pinnedID}, confirmation.Token)
+	if err != nil {
+		t.Fatalf("execute gc sweep: %v", err)
+	}
+	if len(result.Removed) != 0 || len(result.Failed) != 0 || len(result.Skipped) != 0 {
+		t.Fatalf("sweep touched a pinned version: removed=%#v failed=%#v skipped=%#v",
+			result.Removed, result.Failed, result.Skipped)
+	}
+	var rows int
+	if err := fixture.pool.QueryRow(ctx, `SELECT count(*) FROM extension_versions WHERE id = $1`, v1.ID).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Fatalf("pinned version row was deleted")
+	}
+	if _, err := os.Stat(v1.Path); err != nil {
+		t.Fatalf("pinned package dir was removed: %v", err)
+	}
+
+	// P1：主题发布账本没有 FK 背线，锁内复核是它唯一的防线。这里绕过
+	// ListVersionGCCandidates 直接走删除路径——只走公开 sweep 时，计划阶段的
+	// blocked 判据会把这条路径盖住（reviewer 变异 B 存活的原因）。
+	err = fixture.store.deleteReclaimableVersionRow(ctx, RetiredVersionCandidate{
+		ExtensionID: pinnedID, VersionID: v1.ID, Version: v1.Version,
+		PackageDigest: v1.Digest, PackagePath: v1.Path,
+	}, 128, 0, versionGCAuditModeCLI)
+	var drift *versionGCTargetDriftError
+	if !errors.As(err, &drift) || drift.reason != VersionGCBlockedPublicationHistory {
+		t.Fatalf("in-lock theme recheck error = %v, want versionGCTargetDriftError(%q)",
+			err, VersionGCBlockedPublicationHistory)
+	}
+	if err := fixture.pool.QueryRow(ctx, `SELECT count(*) FROM extension_versions WHERE id = $1`, v1.ID).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Fatalf("version row was deleted despite the in-lock theme recheck")
+	}
+}
+
+// TestVersionGCRemovesUnreferencedThemeVersion 是 allowed 侧：没有进入任何
+// 发布账本、且超出保留窗口的主题历史版本仍然可回收（判据没有把主题版本
+// 一刀切成不可回收）。
+func TestVersionGCRemovesUnreferencedThemeVersion(t *testing.T) {
+	fixture := newThemePublicationPGFixture(t, "gc-theme-free")
+	ctx := fixture.ctx
+	freeID := fixture.prefix + ".free"
+
+	v1 := saveVersionGCThemeVersion(t, fixture, "free", "1.0.0", strings.Repeat("c", 64))
+	v2 := saveVersionGCThemeVersion(t, fixture, "free", "2.0.0", strings.Repeat("d", 64))
+	discardVersionGCThemeCandidate(t, fixture, freeID, v1, v2)
+	v3 := saveVersionGCThemeVersion(t, fixture, "free", "3.0.0", strings.Repeat("e", 64))
+	discardVersionGCThemeCandidate(t, fixture, freeID, v1, v3)
+
+	candidates, err := fixture.store.ListVersionGCCandidates(ctx, VersionGCOptions{ExtensionID: freeID})
+	if err != nil {
+		t.Fatalf("list version gc candidates: %v", err)
+	}
+	// v3 是最近的历史版本（rank 1）→ 默认 retain=1 保留；v2 是 rank 2 → 可回收。
+	kept, ok := findVersionGCCandidate(t, candidates, v3.Version)
+	if !ok || kept.Reclaimable || kept.BlockedReason != VersionGCBlockedWithinRetention {
+		t.Fatalf("newest historical version = %#v, want %q", kept, VersionGCBlockedWithinRetention)
+	}
+	reclaimable, ok := findVersionGCCandidate(t, candidates, v2.Version)
+	if !ok || !reclaimable.Reclaimable {
+		t.Fatalf("unreferenced historical version = %#v, want reclaimable", reclaimable)
+	}
+
+	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, VersionGCOptions{ExtensionID: freeID})
+	if err != nil {
+		t.Fatalf("create gc confirmation: %v", err)
+	}
+	if confirmation.CandidateCount != 1 {
+		t.Fatalf("dry-run plan count = %d, want 1", confirmation.CandidateCount)
+	}
+	result, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{ExtensionID: freeID}, confirmation.Token)
+	if err != nil {
+		t.Fatalf("execute gc sweep: %v", err)
+	}
+	if len(result.Removed) != 1 || result.Removed[0].Version != v2.Version {
+		t.Fatalf("removed = %#v, want exactly %s", result.Removed, v2.Version)
+	}
+	var rows int
+	if err := fixture.pool.QueryRow(ctx, `SELECT count(*) FROM extension_versions WHERE id = $1`, v2.ID).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Fatalf("unreferenced version row survived gc")
+	}
+	if _, err := os.Stat(v2.Path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("unreferenced package dir still present after gc: %v", err)
+	}
+}
+
+func findVersionGCCandidateByDigest(t *testing.T, candidates []RetiredVersionCandidate, digest string) (RetiredVersionCandidate, bool) {
+	t.Helper()
+	for _, candidate := range candidates {
+		if candidate.PackageDigest == digest {
+			return candidate, true
+		}
+	}
+	return RetiredVersionCandidate{}, false
+}
+
+// TestVersionGCThemeSourceMatchRequiresExactDigest 是判据的负例（reviewer 变异 C）：
+// source 匹配必须是 id + version + digest 三列合取。同一 extension_id、同一
+// version、只有 digest 不同的历史行若被误判成 pinned，"同版本号不同制品"就会
+// 永久无法回收——`UNIQUE (extension_id, version, package_digest)` 明确允许它们并存。
+func TestVersionGCThemeSourceMatchRequiresExactDigest(t *testing.T) {
+	fixture := newThemePublicationPGFixture(t, "gc-theme-digest")
+	ctx := fixture.ctx
+	pinned := pinThemePublicationSource(t, fixture, "digest")
+
+	// 两条同 version、不同 digest 的历史版本：先建的 installed_at 更早，会被
+	// 后建的挤到 rank 2，从而超出默认保留窗口（retain=1）成为真正可回收的候选。
+	unreferenced := saveVersionGCThemeVersion(t, fixture, "digest", "1.0.0", strings.Repeat("c", 64))
+	discardVersionGCThemeCandidate(t, fixture, pinned.ExtensionID, pinned.Active, unreferenced)
+	newest := saveVersionGCThemeVersion(t, fixture, "digest", "1.0.0", strings.Repeat("d", 64))
+	discardVersionGCThemeCandidate(t, fixture, pinned.ExtensionID, pinned.Active, newest)
+
+	candidates, err := fixture.store.ListVersionGCCandidates(ctx, VersionGCOptions{ExtensionID: pinned.ExtensionID})
+	if err != nil {
+		t.Fatalf("list version gc candidates: %v", err)
+	}
+	// 前置：三条历史版本共享同一个 version 字符串，只有 digest 不同。
+	if pinned.Source.Version != unreferenced.Version || unreferenced.Version != newest.Version {
+		t.Fatalf("fixture versions differ: %q/%q/%q", pinned.Source.Version, unreferenced.Version, newest.Version)
+	}
+	pinnedCandidate, ok := findVersionGCCandidateByDigest(t, candidates, pinned.Source.Digest)
+	if !ok || pinnedCandidate.Reclaimable || pinnedCandidate.BlockedReason != VersionGCBlockedPublicationHistory {
+		t.Fatalf("pinned source = %#v, want %q", pinnedCandidate, VersionGCBlockedPublicationHistory)
+	}
+	negative, ok := findVersionGCCandidateByDigest(t, candidates, unreferenced.Digest)
+	if !ok || !negative.Reclaimable {
+		t.Fatalf("same id+version with a different digest = %#v, want reclaimable", negative)
+	}
+	if negative.ExtensionID != pinnedCandidate.ExtensionID || negative.Version != pinnedCandidate.Version {
+		t.Fatalf("negative case is not same id+version: %#v vs %#v", negative, pinnedCandidate)
+	}
+
+	// 端到端：作用域计划只应包含这条同 version、不同 digest 的历史版本。
+	confirmation, err := fixture.store.CreateVersionGCConfirmation(ctx, VersionGCOptions{ExtensionID: pinned.ExtensionID})
+	if err != nil {
+		t.Fatalf("create gc confirmation: %v", err)
+	}
+	if confirmation.CandidateCount != 1 {
+		t.Fatalf("dry-run plan count = %d, want 1", confirmation.CandidateCount)
+	}
+	result, err := fixture.store.ExecuteVersionGCSweep(ctx, VersionGCOptions{ExtensionID: pinned.ExtensionID}, confirmation.Token)
+	if err != nil {
+		t.Fatalf("execute gc sweep: %v", err)
+	}
+	if len(result.Removed) != 1 || result.Removed[0].PackageDigest != unreferenced.Digest {
+		t.Fatalf("removed = %#v, want exactly digest %s", result.Removed, unreferenced.Digest)
+	}
+	var rows int
+	if err := fixture.pool.QueryRow(ctx, `SELECT count(*) FROM extension_versions WHERE id = $1`, pinned.Source.ID).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Fatalf("pinned source row was removed by the scoped sweep")
 	}
 }

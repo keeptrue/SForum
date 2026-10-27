@@ -17,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresLifecycleCleanupStagesEveryModeAndRetainsRecoveryMaterial(t *testing.T) {
@@ -234,8 +236,10 @@ func TestPostgresLifecycleCleanupFinalizerRequiresTerminalAndActualIdempotentPur
 		}
 	}
 	for result := range results {
+		// 收敛判据是 Status；PhysicalPurgeCompleted 只描述物理身份是否被删，
+		// finalizer 现在如实按 receipt.IdentityPurged 填写。
 		if result.CleanupID != staged.TombstoneID || result.Status != "finalized" ||
-			!result.PhysicalPurgeCompleted || result.PurgeReceiptID == "" ||
+			result.PurgeReceiptID == "" ||
 			!validLifecycleCleanupDigest(result.PurgeProofDigest) || result.FinalizedAt == nil {
 			t.Fatalf("finalization result = %#v", result)
 		}
@@ -249,7 +253,7 @@ func TestPostgresLifecycleCleanupFinalizerRequiresTerminalAndActualIdempotentPur
 
 	restarted := NewPostgresLifecycleBoundaryCleanupFinalizer(h.pool, purger)
 	result, err := restarted.FinalizeLifecycleHostCleanup(h.ctx, h.request.OperationID)
-	if err != nil || !result.PhysicalPurgeCompleted || result.Status != "finalized" {
+	if err != nil || result.PhysicalPurgeCompleted || result.Status != "finalized" {
 		t.Fatalf("finalizer restart replay = %#v, %v", result, err)
 	}
 	purger.mu.Lock()
@@ -410,7 +414,7 @@ func TestPostgresLifecycleCleanupFinalizerReplaysBothPurgeCommitWindows(t *testi
 	})
 	replayed, err := NewPostgresLifecycleBoundaryCleanupFinalizer(h.pool, mustNotRun).
 		FinalizeLifecycleHostCleanup(h.ctx, h.request.OperationID)
-	if err != nil || replayed.PurgeProofDigest != result.PurgeProofDigest || !replayed.PhysicalPurgeCompleted {
+	if err != nil || replayed.PurgeProofDigest != result.PurgeProofDigest || replayed.PhysicalPurgeCompleted {
 		t.Fatalf("post-commit replay = %#v, %v", replayed, err)
 	}
 }
@@ -439,10 +443,7 @@ func newLifecycleCleanupIntegration(
 	removalMode string,
 ) *lifecycleCleanupIntegration {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

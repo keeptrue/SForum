@@ -21,6 +21,13 @@ export function lifecycleSuccessIcon(action: ExtensionLifecycleAction) {
   }
 }
 
+/** 带 staged 内容的重启是在应用更新，成功文案要说出这件事，而不是只报「已重启」。 */
+export function lifecycleSuccessTitle(action: ExtensionLifecycleAction, item: AdminExtension) {
+  return action === 'restart' && item.stagedVersion
+    ? 'admin.extensions.update.restartedToApply'
+    : lifecycleSuccessMessage(action)
+}
+
 export function lifecycleSuccessMessage(action: ExtensionLifecycleAction) {
   switch (action) {
     case 'enable': return 'admin.extensions.enabled'

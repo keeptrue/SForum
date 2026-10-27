@@ -666,6 +666,24 @@
     }
   },
   {
+    "id": "core.route.attachments.reconcile_admin",
+    "contractVersion": "sforum.route.attachments.reconcile_admin@1",
+    "module": "attachments",
+    "handler": "reconcileAdmin",
+    "method": "POST",
+    "path": "/api/v1/admin/attachments/reconcile",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:37",
+    "access": "permission",
+    "policy": "attachment.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "attachment.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.database.list_tables",
     "contractVersion": "sforum.route.database.list_tables@1",
     "module": "database",

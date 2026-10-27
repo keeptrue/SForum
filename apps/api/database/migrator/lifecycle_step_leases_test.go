@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/pressly/goose/v3"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
+	"github.com/pressly/goose/v3"
 )
 
 const (
@@ -19,10 +19,7 @@ const (
 )
 
 func TestLifecycleStepLeaseMigrationContract(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	if _, err := provider.UpTo(ctx, lifecycleOperationLedgerVersion); err != nil {

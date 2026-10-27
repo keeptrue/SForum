@@ -18,6 +18,7 @@ import (
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	"github.com/keeptrue/sforum/apps/api/database/migrator"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // TestReferenceSEOFormalZipUploadTrustEnableRestartDisableUpgradeUninstall
@@ -31,13 +32,9 @@ func TestReferenceSEOFormalZipUploadTrustEnableRestartDisableUpgradeUninstall(t 
 	if testing.Short() {
 		t.Skip("skipping reference formal ZIP install chain in short mode")
 	}
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		databaseURL = "postgres://sforum:sforum@127.0.0.1:15432/sforum?sslmode=disable"
-	}
+	// 这里曾经回落到开发 compose 的 15432：在 source 过 .env 的 shell 里跑
+	// go test，正式 ZIP 链的扩展行会直接写进开发库。现在只认一次性测试集群。
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	database := newThemeE2EDatabase(t, databaseURL)
 	if err := migrator.Up(ctx, migrator.Config{DatabaseURL: database.url}); err != nil {

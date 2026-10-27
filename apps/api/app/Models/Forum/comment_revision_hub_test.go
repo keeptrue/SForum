@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -100,6 +101,44 @@ func TestCommentRevisionHubPublishesOnlyToTopicSubscribersAndCoalesces(t *testin
 	case <-wakeB:
 		t.Fatal("topic 43 subscriber must not receive topic 42 wake")
 	default:
+	}
+}
+
+// Stop 必须尊重调用方给出的截止时间：LISTEN 循环没退出时不能无限等下去，
+// 否则启动失败路径会在关池前再次挂住。
+func TestCommentRevisionHubStopHonorsDeadline(t *testing.T) {
+	listenCtx, cancelListen := context.WithCancel(context.Background())
+	hub := &CommentRevisionHub{ctx: listenCtx, cancel: cancelListen, done: make(chan struct{})}
+	stopCtx, stopCancel := context.WithCancel(context.Background())
+	stopCancel()
+	if err := hub.Stop(stopCtx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("stop error = %v, want context.Canceled", err)
+	}
+	if listenCtx.Err() == nil {
+		t.Fatal("stop did not cancel the LISTEN context")
+	}
+	// 循环退出后 Close 幂等：重复调用都立即返回。
+	close(hub.done)
+	hub.Close()
+	hub.Close()
+	var nilHub *CommentRevisionHub
+	if err := nilHub.Stop(context.Background()); err != nil {
+		t.Fatalf("nil hub stop error = %v, want nil", err)
+	}
+}
+
+// 正常路径下 Stop 应等到 LISTEN 循环真正退出，而不是取消后立刻返回。
+func TestCommentRevisionHubStopWaitsForListenLoopExit(t *testing.T) {
+	listenCtx, cancelListen := context.WithCancel(context.Background())
+	hub := &CommentRevisionHub{ctx: listenCtx, cancel: cancelListen, done: make(chan struct{})}
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer stopCancel()
+	if err := hub.Stop(stopCtx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("stop error = %v, want context.DeadlineExceeded", err)
+	}
+	close(hub.done)
+	if err := hub.Stop(context.Background()); err != nil {
+		t.Fatalf("stop after loop exit = %v, want nil", err)
 	}
 }
 

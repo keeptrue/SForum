@@ -4,22 +4,20 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const notificationWebPushDefaultsMigration = "202608020001_notification_web_push_recommended_defaults.sql"
 
 func TestNotificationWebPushDefaultsMigrationPreservesOperatorChoices(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

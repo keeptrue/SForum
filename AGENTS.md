@@ -114,7 +114,15 @@ Build, typecheck, lint, test:
   Registry route shells, public chrome/navigation, theme island binding, or
   admin settings shell contracts; focused slices alone can miss stale static
   contract tests that CI will still execute.
-- `cd apps/api && go build ./...` / `go test ./...` — Go build and tests.
+- `cd apps/api && go build ./...` — Go build.
+- `./scripts/test-api-isolated.sh` — Go tests. It provisions disposable
+  PostgreSQL clusters and exports both `DATABASE_URL` and
+  `SFORUM_TEST_DATABASE_URL` at them. Do not run database packages with plain
+  `go test` in a shell that has `DATABASE_URL` exported (for example after
+  sourcing `.env`): database tests resolve their connection only through
+  `internal/testdb`, which reads `SFORUM_TEST_DATABASE_URL` alone and refuses
+  to run against the development database (identified by the
+  `public.sforum_dev_guard` sentinel that `scripts/api-dev.sh` writes).
 - `node tests/validate-architecture-boundaries.mjs` — enforce file-size,
   flat-directory, fixed-tab, and legacy God-object non-growth guardrails.
 - `./scripts/test.sh` — full repo test gate, run as three concurrent lines:

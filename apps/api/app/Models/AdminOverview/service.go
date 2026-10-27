@@ -155,6 +155,8 @@ func overviewActions(snapshot StoreSnapshot) []OverviewAction {
 			Count:    snapshot.Attachments.OrphanCount,
 			Severity: severityForCount(snapshot.Attachments.OrphanCount, "info"),
 			Route:    "/attachments",
+			// 孤儿附件超过宽限期会被自动清理，不是需要人工处理的积压。
+			Advisory: true,
 		},
 		{
 			Key:      ActionFailedExtensionEvents,

@@ -98,3 +98,24 @@ Related: 商城仓 `sforum-app-store` 的 `2026-10-27-update-badges-via-admin-su
   users 页的 surface 清单仍然完整，语义修正在 identity 批次跟进。
 - 浏览器验证与残余风险见
   `../sessions/2026-10-27-extension-update-badges-review.md`（T5）。
+
+## 2026-10-27 修订：行徽章从「次级文字链接」改为 chip
+
+**背景**：T5 验收后实测截图显示，灰字徽章（`text-slate-600` 纯文本）落在
+`已启用` / `运行中` / `重启后生效` 一排 chip 之外，读起来像元信息，而它其实是整行
+唯一的可点动作；同时 surface 已经下发的 `tone` / `icon` 在 Core 侧被丢弃
+（组件硬编码 slate 色与固定 `arrow-up-right`），文档示例里的 `tone` / `icon` 因此
+只是装饰。
+
+**决定**：`SFAdminExtensionUpdateBadges.vue` 改用 `UBadge`（`variant="soft"`，
+`:color="badge.tone"`，`:icon="badge.icon || 'i-lucide-arrow-up-circle'"`），
+`links` 存在时在尾部加 `arrow-up-right` 并把整块包在 `<a>` 里。理由：
+
+- 同一行里其它状态都是 chip，徽章必须同节奏，否则「有更新」读成「补充说明」。
+- 语义上它是外部动作（去商城），与核心三态（本地已暂存、待重启/激活，`subtle` /
+  `outline` 的 warning）必须一眼分开，所以用 `soft` + surface 自己的 tone。
+- 前置图标表达「有更新」，尾部箭头表达「跳到后台另一页」，两个语义分开保留。
+
+**影响**：Core 侧渲染逻辑（徽章挂载位置、`safeAdminPageId` 白名单、可点/不可点
+降级）不变，只换视觉；`adminExtensionUpdateBadges.test.ts` 的「次级文字链接」
+断言反转为 chip 断言。商城侧无需改动，`tone=warning` 与 `icon` 从此真正生效。

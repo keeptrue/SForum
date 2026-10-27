@@ -2,18 +2,15 @@ package migrator
 
 import (
 	"context"
-	"os"
-	"strings"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const extensionDatabaseDispositionsVersion = int64(202607140014)
 
 func TestExtensionDatabaseDispositionsUpDownProtectionAndReapply(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	if _, err := provider.UpTo(ctx, extensionDatabaseRegistryVersion); err != nil {

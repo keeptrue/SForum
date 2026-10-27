@@ -673,7 +673,33 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **扩展管理三页的「可更新」徽章（2026-10-27，最新）**：Core 复用 `list_column`
+- **Version GC 钉住主题发布 source（2026-10-27）**：GC 判据补上
+  `theme_runtime_publications` 的 source 三元组（与插件账本共用
+  `publication_history`），dry-run/execute 同源 + 锁内复核；主题历史版本基本不再
+  回收，是刻意 fail-closed。见
+  `knowledge/sessions/2026-10-27-version-gc-theme-publication-pin.md`。
+- **商城更新徽章：真实数据取证（2026-10-27，最新）**：三条 `list_column` surface 在 dev 上
+  返回非空 cells，三页徽章断言全通（`<a>`、不在 `button` 内、`arrow-up-right`、
+  `title` 含「来自 sforum.store」、深链落 `/control-panel/extensions/sforum.store/pages/catalog?product=<slug>`
+  并开弹层）；「只看有更新」A/B：plugins 11→12 / themes 1→2 / overview 12→14。
+  真实商城对三个已装扩展只发布同版本商品（逐 `extensionIds=` 核实），因此徽章数据用本地
+  fixture 目录服务取得并明确标注；真实上游作为「无更新」负向对照（200 + `cells {}`）。
+  顺带定位**徽章非首屏就绪**：overview 从加载到 3 枚徽章齐备约 8.3s（surface 早于 resources
+  就绪 → 空 resources → 空 cells），这是本轮最初「0 徽章」的直接来源。商城仓三步门禁全绿
+  （go test / 826 pass / manifest:check），文案三处逐字一致；遗留 `surfaces_test.go` 未保护
+  `Label`、站内商城页 `copy.ts` 仍是「可更新至 v」。见
+  `knowledge/sessions/2026-10-27-update-badges-live-evidence.md`。
+- **扩展管理「更新」三态词汇与两控件行（2026-10-27）**：三页不再渲染原始
+  `stagedVersion` 徽章，改为每行派生 `可升级 v{staged}` / `重启后生效` / `激活后生效`
+  （`updateState.ts`，semver 2.0.0 含 prerelease、非法值 fail-closed）；行收敛为主按钮 +
+  `⋯` 菜单（`⋯` 永远渲染且至少含「管理」，Lead 覆盖了原「只剩重复项不渲染」规则），
+  `全部升级（N）` 只收版本升级、`{m} 个内置更新待重启` 只数内置**插件**内容更新，
+  `只看有更新` 为不持久化视图开关。审查发现 P2×2 + P3×4，frontend 修复后复核通过。
+  终态门禁：`bun test` 1777 pass / typecheck / 架构边界 / staged 契约 /
+  `v3-catalog --check` / `go build` 全绿；浏览器 QA 实测 22/20/2 行、筛选 9/8/1、
+  内置提示 6、`⋯` 全行可达、390 无溢出；商城 `list_column` 本轮 0 条，`+商城` 未覆盖。
+  见 `knowledge/sessions/2026-10-27-extension-update-vocabulary.md`。
+- **扩展管理三页的「可更新」徽章（2026-10-27）**：Core 复用 `list_column`
   Admin Surface，结果新增可选 `links`（资源 ID → 同源后台路径，`safeAdminPageId`
   白名单，非法值降级为不可点击徽章）；三页（plugins / themes / overview）经
   `useAdminListSurfaces().badgesFor()` 挂徽章，身份簇抽成

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +18,7 @@ import (
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestRouteRuntimeIncidentKeyAndPayloadFreeValidation(t *testing.T) {
@@ -234,10 +234,7 @@ type routeRuntimeIncidentPGFixture struct {
 
 func newRouteRuntimeIncidentPGFixture(t *testing.T) *routeRuntimeIncidentPGFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
 	adminConfig, err := pgxpool.ParseConfig(databaseURL)

@@ -1346,6 +1346,11 @@ bounded batch.
   column value (a row badge on pages that render a compact identity row); an
   empty, `null`, or missing cell is skipped, because "no value" must never read
   as "no update".
+- The result's `tone` and `icon` drive how that row badge looks: `tone` picks
+  the badge color (`neutral` / `primary` / `success` / `warning` / `error`) and
+  `icon` is its leading icon (default `i-lucide-arrow-up-circle`). A trailing
+  arrow is added only when the badge has a `links` target, so "has a value" and
+  "navigates somewhere" stay visually distinct.
 - `links` is optional and maps the same resource IDs to a **Host admin page
   path**, not a URL. A value must start with `/`, must not start with `//`, must
   not contain a backslash, and must not contain control characters

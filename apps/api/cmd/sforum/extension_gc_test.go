@@ -20,6 +20,7 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // extensionGCPostgresFixture 提供只含版本 GC 所需表族的 schema 隔离库：
@@ -39,10 +40,7 @@ type extensionGCPostgresFixture struct {
 
 func newExtensionGCPostgresFixture(t *testing.T) *extensionGCPostgresFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // providerSlotSelectionMigrationVersion 与 durable provider-slot selection 表迁移一致。
@@ -109,10 +110,7 @@ type providerSlotSelectionIntegration struct {
 
 func newProviderSlotSelectionIntegrationFixture(t *testing.T) *providerSlotSelectionIntegration {
 	t.Helper()
-	databaseURL, ok := requireSforumTestDatabaseURL()
-	if !ok {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -264,6 +262,8 @@ func insertProviderSlotSelectionExtension(
 }
 
 // requireSforumTestDatabaseURL 只认 SFORUM_TEST_DATABASE_URL，绝不回落到 DATABASE_URL。
+// 夹具本身已改走 internal/testdb（含开发库哨兵与集群校验）；这里保留给
+// "必须显式提供测试库"的负向用例。
 func requireSforumTestDatabaseURL() (string, bool) {
 	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
 	if databaseURL == "" {

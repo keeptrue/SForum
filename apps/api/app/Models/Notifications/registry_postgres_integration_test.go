@@ -2,19 +2,17 @@ package notifications_test
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestRegistryPluginPolicyDefaultsDisabledPostgres(t *testing.T) {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

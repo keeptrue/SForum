@@ -60,6 +60,8 @@ export type AdminListBadge = {
   tone: AdminSurfaceTone
   icon?: string
   pageId?: string
+  /** 贡献该列的扩展 id；徽章来源说明用它，Core 不解析扩展展示名。 */
+  sourceExtensionId?: string
 }
 
 /** `resolveAdminListBadges` 只需要已解析的 surface + view，避免反向依赖 composable 类型。 */
@@ -227,7 +229,8 @@ export function resolveAdminListBadges(
       title: view.title || surface.label || label,
       tone: view.tone,
       icon: view.icon,
-      pageId: typeof linked === 'string' ? linked : undefined
+      pageId: typeof linked === 'string' ? linked : undefined,
+      sourceExtensionId: surface.extensionId || undefined
     })
   }
   return result

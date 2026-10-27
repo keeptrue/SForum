@@ -1467,21 +1467,47 @@ Relevant plans:
   (resource ID → Host admin path). The Host normalizes it through
   `safeAdminPageId` and drops, per entry, anything that is not a `/`-prefixed
   path, starts with `//`, or contains a backslash or a control character; a cell
-  without a link renders as a plain badge instead of a dead link. The three
+  without a link renders as plain text instead of a dead link. The three
   extension admin pages (overview, plugins, themes) read their update badges from
   `list_column` surfaces through `useAdminListSurfaces().badgesFor()`, with the
-  row identity extracted into `SFAdminExtensionIdentity` and link badges kept
-  outside the selection button. Whether an extension *has* an update stays the
-  store plugin's decision: Core adds no store catalog, table, or API. See
+  row identity extracted into `SFAdminExtensionIdentity`. Store cells render as
+  secondary text links (`↗`, title/aria `{label} · 来自 {sourceExtensionId}`) and
+  stay outside the row-selection button; the core update badge is plain text and
+  may live inside it, so no `<a>` is ever nested in a `<button>`. Whether an
+  extension *has* an update stays the store plugin's decision: Core adds no store
+  catalog, table, or API. See
   `../decisions/2026-10-27-extension-update-badges-admin-surface.md`.
-- Admin extension overview and plugin management label `stagedVersion` as a
-  pending upgrade rather than a generic candidate, while retaining the exact
-  current/staged version explanation. Each staged plugin has an Upgrade action;
-  the bulk action runs candidates sequentially and pauses on any required
-  exact-artifact or legacy capability review. Enabled Lifecycle V2 source and
-  target artifacts use the native upgrade ledger, while legacy or recoverably
-  disabled sources use the existing restart bridge. Every item keeps its own
-  idempotency key and Host preflight; bulk UI is not a bypass or batch backend.
+- Extension admin lists derive one update state per row instead of rendering a raw
+  `stagedVersion` badge: `可升级 v{staged}` when the staged semver is higher,
+  `重启后生效` for a same-version plugin content change, `激活后生效` for a same-version
+  theme content change, and nothing when the staged version is identical, lower,
+  missing, or not valid semver. The derivation lives in
+  `app/utils/admin/extensions/updateState.ts` (semver 2.0.0 precedence including
+  prerelease, fail-closed on invalid input) with the action/badge mapping in
+  `updatePresentation.ts`; the legacy `stagedVersion*` copy is gone. See
+  `../decisions/2026-10-27-extension-update-vocabulary.md`.
+- The admin list itself excludes rows that carry a missing-artifact or built-in
+  removal tombstone: `PostgresStore.List` inner-joins the active version and filters
+  both tombstone tables, so a 30-row dev database renders 22 rows. A listed row whose
+  artifact is missing still renders `制品缺失` and never counts as an update, a bulk
+  candidate, or a `只看有更新` match.
+- Each row has two controls: a context primary action (`立即升级`, `升级并启用` for a
+  disabled source, `重启` / `重启并启用`, theme activate / reactivate / restore default,
+  `启用`, `管理`) and a `⋯` menu (`useExtensionRowMenu`) that always renders and always
+  contains at least `管理`, ordered manage → storage instances → enable/disable →
+  restart → lifecycle → uninstall. `全部升级（N）` queues only `kind=version` candidates
+  that `canUpgradePlugin` accepts, so same-version content updates are never restarted
+  in bulk; the toolbar separately reports `{m} 个内置更新待重启`, counting only
+  `source=builtin` **plugins** with a content update (built-in themes apply by
+  activation, not restart). `只看有更新` is a non-persisted view switch matching a
+  non-empty core update state or a store `list_column` badge; filtering out the
+  selected row clears the detail selection and never auto-selects another row.
+- The bulk upgrade runs candidates sequentially and pauses on any required
+  exact-artifact or legacy capability review. Enabled Lifecycle V2 source and target
+  artifacts use the native upgrade ledger, while legacy or recoverably disabled
+  sources use the existing restart bridge (a restart of a disabled source enables it,
+  so the button says `升级并启用` / `重启并启用`). Every item keeps its own idempotency
+  key and Host preflight; bulk UI is not a bypass or batch backend.
 - List/detail runtime RSS is best-effort and attributes only owned backend
   plugin children of the current API or its PID-namespace-sharing Worker.
   Linux release images use procfs, including the production extension root

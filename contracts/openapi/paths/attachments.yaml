@@ -491,6 +491,40 @@ adminAttachmentCleanup:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+adminAttachmentReconcile:
+  post:
+    summary: Reconcile stored attachment reference counts against reference rows
+    description: >
+      Compares every attachment's stored `reference_count` with its actual
+      `attachment_references` rows. A dry run only reports drift; an apply run
+      corrects only the drifting rows and is idempotent. Defaults to a dry run
+      when `dryRun` is omitted.
+    operationId: reconcileAdminAttachmentReferences
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              dryRun:
+                type: boolean
+                default: true
+                description: >
+                  True reports drift without writing. Omitted is treated as true.
+    responses:
+      '200':
+        description: Reference count reconciliation result.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/attachments.yaml#/ApiResponseAdminAttachmentRecount"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
 adminAttachmentCompressionStats:
   get:
     summary: Get attachment image compression queue and savings statistics

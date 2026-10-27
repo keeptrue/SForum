@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,13 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresProtocolV2AttachmentStatusMutatorUsesCallerTransaction(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for destructive attachment command integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

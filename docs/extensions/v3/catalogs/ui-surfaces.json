@@ -270,6 +270,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sf_admin_extension_primary_action",
+    "contractVersion": "sforum.component.admin.sf_admin_extension_primary_action@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/extensions/SFAdminExtensionPrimaryAction.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_extension_uninstall_dialog",
     "contractVersion": "sforum.component.admin.sfadmin_extension_uninstall_dialog@1",
     "kind": "component",
@@ -284,6 +294,16 @@
     "contractVersion": "sforum.component.admin.sf_admin_extension_update_badges@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateBadges.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sf_admin_extension_update_state",
+    "contractVersion": "sforum.component.admin.sf_admin_extension_update_state@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateState.vue",
     "owners": [
       "admin"
     ],

@@ -949,3 +949,10 @@ AdminOverviewAction:
       - danger
     route:
       type: string
+    advisory:
+      type: boolean
+      description: >
+        Informational metric that stays in the admin action summary but must not
+        count toward the actionable total or raise an alert tone (for example
+        orphan attachments that expire automatically). Optional for backward
+        compatibility; absent means false.

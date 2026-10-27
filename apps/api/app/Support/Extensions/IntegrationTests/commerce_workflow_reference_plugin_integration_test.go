@@ -21,6 +21,7 @@ import (
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 	protocolwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 )
 
@@ -847,14 +848,7 @@ func errorsIsGuardDenied(err error) bool {
 
 func commerceTestDatabaseURL(t *testing.T) string {
 	t.Helper()
-	if url := strings.TrimSpace(os.Getenv("DATABASE_URL")); url != "" {
-		return url
-	}
-	if url := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL")); url != "" {
-		return url
-	}
-	// 开发默认：与仓库 .env 一致。
-	return "postgres://sforum:sforum@127.0.0.1:15432/sforum?sslmode=disable"
+	return testdb.IsolatedURL(t)
 }
 
 func seedCommerceOwnSchemaGrant(t *testing.T, ctx context.Context, pool *pgxpool.Pool, extension extensions.Extension) (int64, error) {

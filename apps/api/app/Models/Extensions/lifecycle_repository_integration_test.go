@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresLifecycleRepositoryConcurrentAcquireAndRecovery(t *testing.T) {
@@ -447,10 +448,7 @@ func TestPostgresLifecycleInspectionRejectsInvalidScopeBeforeQuery(t *testing.T)
 
 func newLifecycleRepositoryIntegration(t *testing.T) (context.Context, *pgxpool.Pool, *PostgresLifecycleRepository, string) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

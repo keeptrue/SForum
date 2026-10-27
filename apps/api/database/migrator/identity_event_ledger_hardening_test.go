@@ -3,11 +3,11 @@ package migrator
 import (
 	"context"
 	"io/fs"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const identityEventLedgerHardeningVersion = int64(202607190040)
@@ -68,10 +68,7 @@ func TestIdentityEventLedgerHardeningMigrationContract(t *testing.T) {
 }
 
 func TestIdentityEventLedgerHardeningPostgres(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity event ledger hardening migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)

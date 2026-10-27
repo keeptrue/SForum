@@ -32,6 +32,8 @@ import (
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 	queryregistry "github.com/keeptrue/sforum/apps/api/app/Support/QueryRegistry"
 	protocolwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const shortcodeBuiltinExtensionID = "sforum-shortcodes"
@@ -654,13 +656,7 @@ func mustJSONRaw(t *testing.T, value any) []byte {
 
 func newShortcodeBuiltinPostgresHarness(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required for shortcode builtin integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

@@ -92,6 +92,18 @@ func TestServiceBuildsOverviewFromStoreAndRuntime(t *testing.T) {
 	if overview.Actions[0].Key != ActionModerationQueue || overview.Actions[0].Count != 5 || overview.Actions[0].Route != "/moderation" {
 		t.Fatalf("expected moderation action first, got %#v", overview.Actions)
 	}
+	advisoryByKey := make(map[string]bool, len(overview.Actions))
+	for _, action := range overview.Actions {
+		advisoryByKey[action.Key] = action.Advisory
+	}
+	if !advisoryByKey[ActionOrphanAttachments] {
+		t.Fatalf("expected orphan attachments to stay in the summary as advisory, got %#v", overview.Actions)
+	}
+	for _, key := range []string{ActionModerationQueue, ActionPendingTags, ActionFailedExtensionEvents} {
+		if advisoryByKey[key] {
+			t.Fatalf("expected %s to remain actionable, got %#v", key, overview.Actions)
+		}
+	}
 }
 
 func TestServiceResourcesReturnsLightweightRuntimeOnly(t *testing.T) {

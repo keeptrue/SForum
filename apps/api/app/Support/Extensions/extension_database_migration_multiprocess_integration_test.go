@@ -13,6 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const (
@@ -33,10 +35,7 @@ func TestPostgresLifecycleMigrationEngineRunsPlanOnceAcrossProcesses(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Fatal("DATABASE_URL disappeared after fixture setup")
-	}
+	databaseURL := testdb.RequireIsolatedURL(t)
 
 	type processResult struct {
 		index  int
@@ -54,7 +53,7 @@ func TestPostgresLifecycleMigrationEngineRunsPlanOnceAcrossProcesses(t *testing.
 			command.Env = append(os.Environ(),
 				extensionMigrationProcessHelperEnv+"=1",
 				extensionMigrationProcessPlanEnv+"="+base64.RawStdEncoding.EncodeToString(encodedPlan),
-				"DATABASE_URL="+databaseURL,
+				"SFORUM_TEST_DATABASE_URL="+databaseURL,
 			)
 			output, runErr := command.CombinedOutput()
 			results <- processResult{index: index, output: string(output), err: runErr}
@@ -112,10 +111,7 @@ func TestExtensionMigrationProcessHelper(t *testing.T) {
 	if err := json.Unmarshal(planJSON, &plan); err != nil {
 		t.Fatal(err)
 	}
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Fatal("DATABASE_URL is required")
-	}
+	databaseURL := testdb.RequireIsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	config, err := pgxpool.ParseConfig(databaseURL)

@@ -14,6 +14,7 @@ export * from './adminExtensionsEvents'
 // 其中的展示函数（extensionSettingDeclarations / extensionAdminPages），因此
 // 显式再 import 一次。方向仍是单向：对方只 import type 本文件。
 import { extensionDisplayName, extensionLocalizedDisplay } from './adminExtensionsLocalization'
+import { resolveExtensionUpdateState } from './extensions/updateState'
 
 export type AdminExtensionType = 'plugin' | 'theme'
 export type AdminExtensionStatus = 'installed' | 'enabled' | 'disabled'
@@ -806,8 +807,9 @@ export function extensionUpgradeLifecycleAction(item: AdminExtension): 'upgrade'
     : 'restart'
 }
 
+/** 「全部升级」只处理版本变高的插件；同版本内容更新要逐行决定重启时机。 */
 export function extensionUpgradeCandidates(items: AdminExtension[]) {
-  return items.filter(canUpgradePlugin)
+  return items.filter(item => resolveExtensionUpdateState(item).kind === 'version' && canUpgradePlugin(item))
 }
 
 

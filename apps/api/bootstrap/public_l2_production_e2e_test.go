@@ -22,6 +22,8 @@ import (
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPublicL2ProductionFixtureCompilesExactRuntime(t *testing.T) {
@@ -66,10 +68,7 @@ func TestPublicL2UploadTrustActivateMountRestartAndRevokeFallback(t *testing.T) 
 	if os.Getenv(publicL2ProductionE2EEnv) != "1" {
 		t.Skip(publicL2ProductionE2EEnv + "=1 is required for the production browser integration test")
 	}
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Fatal("SFORUM_TEST_DATABASE_URL is required when " + publicL2ProductionE2EEnv + "=1")
-	}
+	databaseURL := testdb.RequireIsolatedURL(t)
 	for _, command := range []string{"go", "bun", "node", "npx"} {
 		requireThemeE2ECommand(t, command)
 	}

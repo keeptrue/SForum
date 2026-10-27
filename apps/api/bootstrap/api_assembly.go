@@ -28,7 +28,7 @@ import (
 // Production API 分阶段装配（NewAPI 见 app.go 薄封装）。
 
 // apiCoreStack 是 foundation+domain 装配完成后交给 HTTP/worker 阶段的依赖包。
-// 失败路径的资源关闭仍在 wireAPICoreStack 内联处理；成功后由 API.close 统一收尾。
+// 失败路径由各阶段自己的收尾逻辑释放已取得的资源；成功后由 API.close 统一收尾。
 type apiCoreStack struct {
 	adminOverviewProvider        *providers.AdminOverviewProvider
 	aiProvider                   *providers.AIProvider
@@ -41,6 +41,7 @@ type apiCoreStack struct {
 	authSessions                 *authsession.Manager
 	closePluginRuntime           func()
 	closeRouteFailureRecorder    func()
+	closeCommentRevisionHub      func()
 	databaseLeaseRegistry        *extensionsruntime.PostgresExtensionDatabaseRegistry
 	databaseProvider             *providers.DatabaseProvider
 	entityMetaProvider           *providers.EntityMetaProvider
@@ -80,6 +81,34 @@ type apiCoreStack struct {
 	siteChromeProvider           *providers.SiteChromeProvider
 	stopPluginRuntimeCoordinator func()
 	webhooksProvider             *providers.WebhooksProvider
+}
+
+// apiStartupPoolCloseTimeout 是启动失败路径关池的兜底上限。
+const apiStartupPoolCloseTimeout = 5 * time.Second
+
+// closeAPIPoolOnFailure 在启动失败路径关闭连接池，并给 pool.Close 加超时看门狗。
+// puddle 的 Close 会等待所有已借出的资源归还：任何仍在持连接的协程（例如漏停的
+// LISTEN 循环）都会让它永久阻塞，把「启动失败」变成「进程活着但不监听」。超时
+// 只记录日志并继续返回真实启动错误，避免兜底本身成为新的挂死点。
+func closeAPIPoolOnFailure(logger *slog.Logger, pool *pgxpool.Pool) {
+	if pool == nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		pool.Close()
+	}()
+	timer := time.NewTimer(apiStartupPoolCloseTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		if logger != nil {
+			logger.Error("api database pool close timed out during startup failure",
+				"timeout", apiStartupPoolCloseTimeout)
+		}
+	}
 }
 
 func buildProductionAPI(ctx context.Context, cfg config.Config, logger *slog.Logger) (*API, error) {

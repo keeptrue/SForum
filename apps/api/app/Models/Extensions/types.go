@@ -443,9 +443,13 @@ type UninstallInput struct {
 
 // LifecycleCleanupFinalization 是 Host exact-receipt finalizer 的最小跨层结果。
 type LifecycleCleanupFinalization struct {
-	OperationID           int64  `json:"operationId"`
-	Status                string `json:"status"`
-	PhysicalPurgeComplete bool   `json:"physicalPurgeComplete"`
+	OperationID int64  `json:"operationId"`
+	Status      string `json:"status"`
+	// PhysicalPurgeComplete 只描述"物理身份行被删了没有"，不参与逻辑收敛判断：
+	// identityRetained 的卸载物理身份仍在（publication 是 append-only 证据），
+	// 但 cleanup record 一样收敛到 finalized。收敛判据请只看 Status
+	// （见 service_lifecycle_v2 的调用点）。
+	PhysicalPurgeComplete bool `json:"physicalPurgeComplete"`
 }
 
 type UninstallResult struct {

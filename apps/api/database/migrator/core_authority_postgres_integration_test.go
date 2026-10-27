@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestCoreMigrationAuthorityConvergesExistingDatabaseAndRepeats(t *testing.T) {
@@ -247,10 +248,7 @@ func newCoreAuthorityNonSuperTestDatabase(t *testing.T) *coreAuthorityTestDataba
 
 func newCoreAuthorityTestDatabaseWithSession(t *testing.T, nonSuperSession bool) *coreAuthorityTestDatabase {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for Core authority integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	baseConfig, err := pgx.ParseConfig(databaseURL)
 	if err != nil {
 		t.Fatal(err)

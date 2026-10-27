@@ -3,17 +3,15 @@ package migrator
 import (
 	"context"
 	"database/sql"
-	"os"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestUpCreatesRequiredRuntimeSchemas(t *testing.T) {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	if err := Up(ctx, Config{DatabaseURL: databaseURL}); err != nil {

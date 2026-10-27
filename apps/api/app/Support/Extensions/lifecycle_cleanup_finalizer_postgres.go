@@ -107,6 +107,9 @@ func (f *PostgresLifecycleBoundaryCleanupFinalizer) FinalizeLifecycleHostCleanup
 		return LifecycleCleanupFinalizationResult{}, err
 	}
 	if candidate.Status == "finalized" {
+		// 早返回把重复 finalize 短路掉（已实证：两次调用 purger 只跑一次、
+		// audit 恰好 1 行）。已知窗口：purge 成功但本函数提交失败时，重试会
+		// 再写一条 purge 证据——audit 幂等键未加，此窗口当前是接受的。
 		return candidate.result(), nil
 	}
 	if f.purger == nil {
@@ -118,7 +121,7 @@ func (f *PostgresLifecycleBoundaryCleanupFinalizer) FinalizeLifecycleHostCleanup
 	if err != nil {
 		return LifecycleCleanupFinalizationResult{}, fmt.Errorf("purge lifecycle cleanup %s: %w", candidate.CleanupID, err)
 	}
-	proof, proofDigest, err := validateLifecycleCleanupPurgeReceipt(request, receipt)
+	proof, proofDigest, err := ValidateLifecycleCleanupPurgeReceipt(request, receipt)
 	if err != nil {
 		return LifecycleCleanupFinalizationResult{}, err
 	}
@@ -181,7 +184,8 @@ func (f *PostgresLifecycleBoundaryCleanupFinalizer) FinalizeLifecycleHostCleanup
 	}
 	return LifecycleCleanupFinalizationResult{
 		CleanupID: locked.CleanupID, OperationID: locked.OperationID, Status: "finalized",
-		PhysicalPurgeCompleted: true, PurgeReceiptID: receipt.ReceiptID,
+		// 如实反映物理结果：身份被 publication 钉住时它仍是 false。
+		PhysicalPurgeCompleted: receipt.IdentityPurged, PurgeReceiptID: receipt.ReceiptID,
 		PurgeProofDigest: proofDigest, FinalizedAt: &finalizedAt,
 	}, nil
 }
@@ -321,13 +325,16 @@ func (c lifecycleCleanupFinalizationCandidate) result() LifecycleCleanupFinaliza
 	finalizedAt := c.FinalizedAt.Time
 	return LifecycleCleanupFinalizationResult{
 		CleanupID: c.CleanupID, OperationID: c.OperationID, Status: c.Status,
-		PhysicalPurgeCompleted: c.Status == "finalized",
+		// replay 路径没有 proof body，无法判定物理清理是否真的发生：不填，
+		// 留 false。字段语义见 extensions.LifecycleCleanupFinalization 的类型注释
+		// （只描述物理身份是否被删，不参与逻辑收敛）；收敛判据请用 Status。
+		PhysicalPurgeCompleted: false,
 		PurgeReceiptID:         c.PurgeReceiptID.String, PurgeProofDigest: c.PurgeProofDigest.String,
 		FinalizedAt: &finalizedAt,
 	}
 }
 
-func validateLifecycleCleanupPurgeReceipt(
+func ValidateLifecycleCleanupPurgeReceipt(
 	request LifecycleCleanupPurgeRequest,
 	receipt LifecycleCleanupPurgeReceipt,
 ) ([]byte, string, error) {
@@ -335,7 +342,12 @@ func validateLifecycleCleanupPurgeReceipt(
 		receipt.CleanupMode != request.CleanupMode ||
 		receipt.RetainedPackageDigest != request.RetainedPackageDigest ||
 		!validLifecycleCleanupOpaqueID(receipt.ReceiptID) ||
-		!receipt.IdentityPurged || !receipt.PackagePurged || !receipt.RuntimeRecoveryPurged {
+		!receipt.PackagePurged || !receipt.RuntimeRecoveryPurged {
+		return nil, "", ErrLifecycleCleanupPurgeInvalid
+	}
+	// identity 未被物理删除只在一种情况下合法：proof 明确声明 identityRetained。
+	// 这条不是"谁都放行"——purger 必须自己写出保留语义，否则与漏删无法区分。
+	if !receipt.IdentityPurged && !lifecycleCleanupProofRetainsIdentity(receipt.Proof) {
 		return nil, "", ErrLifecycleCleanupPurgeInvalid
 	}
 	expectedDisposition := ""
@@ -389,3 +401,15 @@ func validateLifecycleCleanupPurgeReceipt(
 }
 
 var _ LifecycleBoundaryCleanupFinalizer = (*PostgresLifecycleBoundaryCleanupFinalizer)(nil)
+
+// lifecycleCleanupProofRetainsIdentity 只认 proof 里显式写出的 identityRetained。
+func lifecycleCleanupProofRetainsIdentity(proof json.RawMessage) bool {
+	var parsed struct {
+		IdentityPurged   *bool `json:"identityPurged"`
+		IdentityRetained bool  `json:"identityRetained"`
+	}
+	if err := json.Unmarshal(proof, &parsed); err != nil {
+		return false
+	}
+	return parsed.IdentityRetained && parsed.IdentityPurged != nil && !*parsed.IdentityPurged
+}

@@ -34,4 +34,5 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Patch("/admin/attachments/:id", h.updateAdmin)
 	api.Delete("/admin/attachments/:id", h.deleteAdmin)
 	api.Post("/admin/attachments/cleanup", h.cleanupAdmin)
+	api.Post("/admin/attachments/reconcile", h.reconcileAdmin)
 }

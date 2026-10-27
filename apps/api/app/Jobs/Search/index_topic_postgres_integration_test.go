@@ -2,25 +2,19 @@ package searchjobs
 
 import (
 	"context"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 真实 River 唯一索引回归：历史 completed 不能阻塞重建，活跃任务仍必须去重。
 func TestIndexTopicUniqueStatesAllowReindexAfterCompletion(t *testing.T) {
-	dsn := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if dsn == "" {
-		dsn = strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	}
-	if dsn == "" {
-		t.Skip("DATABASE_URL / SFORUM_TEST_DATABASE_URL not set")
-	}
+	dsn := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)

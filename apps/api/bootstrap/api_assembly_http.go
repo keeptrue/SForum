@@ -66,6 +66,62 @@ func newEmbeddedAIThreadReader(core *apiCoreStack) aireply.ThreadReader {
 	return aireply.NewPostgresReader(core.pool)
 }
 
+// startAPIThemeRuntimeWatcherForAPI 是启动失败路径的测试缝：回归测试注入必定
+// 失败的启动函数，验证失败路径会先停掉持池协程再关池，而不是挂死。
+var startAPIThemeRuntimeWatcherForAPI = startAPIThemeRuntimeWatcher
+
+// startThemeRuntimeWatcherOrAbort 启动主题运行时 watcher；失败时按装配逆序释放
+// HTTP 阶段已取得的资源，并保留真实错误原因。启动失败必须能在有限时间内带着原因
+// 返回，而不是卡在资源关闭上。各释放步骤对缺失装配保持安全：失败可能发生在任一
+// 阶段之前，回归测试也用最小 core 栈验证关停顺序。
+func startThemeRuntimeWatcherOrAbort(
+	ctx context.Context,
+	cfg config.Config,
+	logger *slog.Logger,
+	core *apiCoreStack,
+) (*apiThemeRuntimeWatcherRuntime, error) {
+	stopTimeout := normalizedPluginRuntimeCoordinatorStopTimeout(cfg.WorkerShutdownTimeout)
+	watcher, err := startAPIThemeRuntimeWatcherForAPI(
+		ctx, core.extensionStore, core.extensionService, logger, stopTimeout,
+	)
+	if err == nil {
+		return watcher, nil
+	}
+	if core.closeRouteFailureRecorder != nil {
+		core.closeRouteFailureRecorder()
+	}
+	if core.stopPluginRuntimeCoordinator != nil {
+		core.stopPluginRuntimeCoordinator()
+	}
+	if stopErr := supportjobs.Stop(ctx, core.jobClient); stopErr != nil && logger != nil {
+		logger.Warn("job dispatcher stop failed", "error", stopErr)
+	}
+	if core.closePluginRuntime != nil {
+		core.closePluginRuntime()
+	}
+	if core.hostAPIGateway != nil {
+		_ = core.hostAPIGateway.Close()
+	}
+	if core.sharedRedisClient != nil {
+		core.sharedRedisClient.Close()
+	}
+	if core.redisStorage != nil {
+		if closeErr := core.redisStorage.Close(); closeErr != nil && logger != nil {
+			logger.Warn("redis session storage close failed", "error", closeErr)
+		}
+	}
+	if core.closeNotificationStore != nil {
+		core.closeNotificationStore()
+	}
+	// 评论修订 hub 的 LISTEN 协程持有池连接：必须早于关池停掉，否则 puddle 的
+	// Pool.Close 会等这条连接归还而永久阻塞。
+	if core.closeCommentRevisionHub != nil {
+		core.closeCommentRevisionHub()
+	}
+	closeAPIPoolOnFailure(logger, core.pool)
+	return nil, fmt.Errorf("start theme runtime watcher failed: %w", err)
+}
+
 // finishAPIHTTP：Fiber 应用、主题 watcher、嵌入 worker 与 API 句柄。
 func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, core *apiCoreStack) (*API, error) {
 	var err error
@@ -108,24 +164,9 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 		}
 	}()
 	if !cfg.SafeMode && !core.pluginRuntimeRecovery.Active() {
-		themeRuntimeWatcher, err = startAPIThemeRuntimeWatcher(
-			ctx, core.extensionStore, core.extensionService, logger, themeRuntimeStopTimeout,
-		)
+		themeRuntimeWatcher, err = startThemeRuntimeWatcherOrAbort(ctx, cfg, logger, core)
 		if err != nil {
-			core.closeRouteFailureRecorder()
-			core.stopPluginRuntimeCoordinator()
-			if stopErr := supportjobs.Stop(ctx, core.jobClient); stopErr != nil {
-				logger.Warn("job dispatcher stop failed", "error", stopErr)
-			}
-			core.closePluginRuntime()
-			_ = core.hostAPIGateway.Close()
-			core.sharedRedisClient.Close()
-			if closeErr := core.redisStorage.Close(); closeErr != nil {
-				logger.Warn("redis session storage close failed", "error", closeErr)
-			}
-			core.closeNotificationStore()
-			core.pool.Close()
-			return nil, fmt.Errorf("start theme runtime watcher failed: %w", err)
+			return nil, err
 		}
 	}
 
@@ -174,7 +215,8 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 				logger.Warn("redis session storage close failed", "error", closeErr)
 			}
 			core.closeNotificationStore()
-			core.pool.Close()
+			core.closeCommentRevisionHub()
+			closeAPIPoolOnFailure(logger, core.pool)
 			return nil, fmt.Errorf("embedded worker setup failed: %w", err)
 		}
 		if err := embeddedWorker.Start(ctx); err != nil {
@@ -192,7 +234,8 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 				logger.Warn("redis session storage close failed", "error", closeErr)
 			}
 			core.closeNotificationStore()
-			core.pool.Close()
+			core.closeCommentRevisionHub()
+			closeAPIPoolOnFailure(logger, core.pool)
 			return nil, fmt.Errorf("embedded worker start failed: %w", err)
 		}
 		go (&health.Publisher{Store: core.heartbeatStore}).Run(heartbeatCtx)
@@ -286,6 +329,7 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 				logger.Warn("shared redis client close failed", "error", err)
 			}
 			core.closeNotificationStore()
+			core.closeCommentRevisionHub()
 			core.pool.Close()
 		},
 	}

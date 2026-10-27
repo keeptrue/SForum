@@ -3,7 +3,6 @@ package aiderived_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +12,8 @@ import (
 
 	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
 	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 这一组把 B3 的落库形态钉在真实 PostgreSQL 上：内存 fake 证明不了「status 真的
@@ -210,13 +211,7 @@ func countRows(t *testing.T, ctx context.Context, pool *pgxpool.Pool, table stri
 // newDerivedPostgresHarness 建一个隔离 schema，只包含迁移 202610190004 的表。
 func newDerivedPostgresHarness(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

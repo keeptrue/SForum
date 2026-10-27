@@ -99,7 +99,8 @@ func (p *productionLifecycleCleanupPurger) PurgeLifecycleHostCleanup(
 	if err := identity.commitPurge(ctx); err != nil {
 		return extensionsruntime.LifecycleCleanupPurgeReceipt{}, err
 	}
-	return productionLifecycleCleanupReceipt(request, databaseReceipt)
+	// 身份被 publication 钉住时没有物理删除 extensions 行，receipt 必须如实反映。
+	return productionLifecycleCleanupReceipt(request, databaseReceipt, !identity.identityRetained)
 }
 
 func (p *productionLifecycleCleanupPurger) validateRequest(
@@ -215,6 +216,7 @@ func validateProductionLifecycleDatabaseReceipt(
 func productionLifecycleCleanupReceipt(
 	request extensionsruntime.LifecycleCleanupPurgeRequest,
 	database extensionsruntime.ExtensionDatabaseDispositionReceipt,
+	identityPurged bool,
 ) (extensionsruntime.LifecycleCleanupPurgeReceipt, error) {
 	proof := struct {
 		Schema                string          `json:"schema"`
@@ -228,6 +230,7 @@ func productionLifecycleCleanupReceipt(
 		DatabaseProofDigest   string          `json:"databaseProofDigest"`
 		DatabaseProof         json.RawMessage `json:"databaseProof"`
 		IdentityPurged        bool            `json:"identityPurged"`
+		IdentityRetained      bool            `json:"identityRetained,omitempty"`
 		PackagePurged         bool            `json:"packagePurged"`
 		RuntimeRecoveryPurged bool            `json:"runtimeRecoveryPurged"`
 		DataDisposition       string          `json:"dataDisposition"`
@@ -239,8 +242,9 @@ func productionLifecycleCleanupReceipt(
 		VersionID:        request.RetainedVersionID, PackageDigest: request.RetainedPackageDigest,
 		DatabaseReceiptID: database.ReceiptID, DatabaseProofDigest: database.ProofDigest,
 		DatabaseProof:  database.Proof,
-		IdentityPurged: true, PackagePurged: true, RuntimeRecoveryPurged: true,
-		DataDisposition: database.DataDisposition,
+		IdentityPurged: identityPurged, PackagePurged: true, RuntimeRecoveryPurged: true,
+		IdentityRetained: !identityPurged,
+		DataDisposition:  database.DataDisposition,
 	}
 	encoded, err := json.Marshal(proof)
 	if err != nil {
@@ -257,7 +261,7 @@ func productionLifecycleCleanupReceipt(
 		CleanupID: request.CleanupID, OperationID: request.OperationID,
 		CleanupMode: request.CleanupMode, RetainedPackageDigest: request.RetainedPackageDigest,
 		ReceiptID:      "host-purge-" + hex.EncodeToString(receiptMaterial[:]),
-		IdentityPurged: true, PackagePurged: true, RuntimeRecoveryPurged: true,
+		IdentityPurged: identityPurged, PackagePurged: true, RuntimeRecoveryPurged: true,
 		DataDisposition: database.DataDisposition, Proof: encoded,
 	}, nil
 }

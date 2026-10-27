@@ -28,7 +28,7 @@ import { lifecycleIdempotencyKey, useAdminUninstallCleanup } from '~/composables
 import {
   executableTrustPath,
   lifecycleSuccessIcon,
-  lifecycleSuccessMessage,
+  lifecycleSuccessTitle,
   type ExtensionLifecycleAction
 } from '~/utils/admin/extensions/lifecyclePresentation'
 
@@ -430,6 +430,9 @@ export const useAdminExtensionsManager = async () => {
     }
   }
 
+  // 带 staged 目标的重启复用的是「启用」信任对话框；用途决定标题与确认文案。
+  const enableDialogPurpose = computed(() => enableLifecycleAction.value === 'restart' && enableConfirmItem.value?.stagedVersion ? 'apply' as const : 'enable' as const)
+
   function cancelEnableExtension() {
     enableConfirmOpen.value = false
     enableTrustChallenge.value = null
@@ -577,10 +580,6 @@ export const useAdminExtensionsManager = async () => {
     await lifecycle(item, 'disable')
   }
 
-  async function upgradeExtension(item: AdminExtension, confirmationToken?: string) {
-    return lifecycle(item, 'upgrade', { confirmationToken })
-  }
-
   async function rollbackExtension(item: AdminExtension, target: AdminExtensionVersion) {
     return lifecycle(item, 'rollback', {
       targetVersion: target.version,
@@ -698,7 +697,7 @@ export const useAdminExtensionsManager = async () => {
       toast.add({
         color: 'success',
         icon: lifecycleSuccessIcon(action),
-        title: t(lifecycleSuccessMessage(action)),
+        title: t(lifecycleSuccessTitle(action, item)),
         duration: 5000
       })
       return { ok: true as const, updated }
@@ -872,6 +871,7 @@ export const useAdminExtensionsManager = async () => {
     enableTrustChallenge,
     enableTrustError,
     enableTrustBusy,
+    enableDialogPurpose,
     isSuperAdmin,
     themeActivateTrustMode,
     themeActivateConfirmOpen,
@@ -903,7 +903,6 @@ export const useAdminExtensionsManager = async () => {
     selectLifecycleOperation,
     recoverLifecycleOperation,
     disableExtension,
-    upgradeExtension,
     rollbackExtension,
     restartExtension,
     verifyExtension,

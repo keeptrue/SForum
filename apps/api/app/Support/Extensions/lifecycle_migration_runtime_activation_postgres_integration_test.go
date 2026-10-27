@@ -22,6 +22,7 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestLifecycleRuntimeActivationRequiresDurableMigrationProof(t *testing.T) {
@@ -73,13 +74,7 @@ func newLifecycleMigrationRuntimeActivationFixture(
 	failingMigration bool,
 ) *lifecycleMigrationRuntimeActivationFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

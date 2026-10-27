@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,13 +12,12 @@ import (
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresAttachmentReadGuardObservesCrossNodeResourceAuthority(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
 	root, err := pgxpool.New(ctx, databaseURL)

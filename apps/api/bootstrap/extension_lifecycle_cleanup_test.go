@@ -133,11 +133,11 @@ func TestProductionLifecycleCleanupRejectsDatabaseReceiptDrift(t *testing.T) {
 func TestProductionLifecycleCleanupReceiptIsDeterministicAndLinksDatabaseProof(t *testing.T) {
 	request := productionLifecycleCleanupTestRequest(t)
 	database := productionLifecycleDatabaseReceipt(t, request, true)
-	first, err := productionLifecycleCleanupReceipt(request, database)
+	first, err := productionLifecycleCleanupReceipt(request, database, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := productionLifecycleCleanupReceipt(request, database)
+	second, err := productionLifecycleCleanupReceipt(request, database, true)
 	if err != nil {
 		t.Fatal(err)
 	}

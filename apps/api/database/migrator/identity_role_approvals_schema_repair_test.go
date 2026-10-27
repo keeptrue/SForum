@@ -3,10 +3,11 @@ package migrator
 import (
 	"context"
 	"database/sql"
-	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const identityRoleApprovalsSchemaRepairVersion = int64(202607170034)
@@ -15,10 +16,7 @@ func requireIdentityRoleApprovalsRepairTestDatabaseURL(t *testing.T) string {
 	t.Helper()
 	// Never fall back to DATABASE_URL: repair tests must not touch the normal
 	// development database that already carries production-like goose history.
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for identity role approvals schema repair tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	return databaseURL
 }
 

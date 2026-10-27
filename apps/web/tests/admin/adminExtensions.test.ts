@@ -405,6 +405,16 @@ describe('admin extension helpers', () => {
       runtime: { state: 'running' }
     })
     const installed = extension({ ...upgradeable, id: 'installed.plugin', status: 'installed' })
+    // 同版本不同摘要属于内容更新：可执行，但不进「全部升级」批量队列。
+    const contentOnly = extension({
+      ...upgradeable,
+      id: 'content-only.plugin',
+      stagedVersion: {
+        ...upgradeable.stagedVersion!,
+        version: '1.0.0',
+        packageDigest: 'c'.repeat(64)
+      }
+    })
 
     expect(canUpgradePlugin(upgradeable)).toBe(true)
     expect(extensionUpgradeLifecycleAction(upgradeable)).toBe('upgrade')
@@ -413,7 +423,8 @@ describe('admin extension helpers', () => {
     expect(canUpgradePlugin(legacySource)).toBe(true)
     expect(extensionUpgradeLifecycleAction(legacySource)).toBe('restart')
     expect(canUpgradePlugin(installed)).toBe(false)
-    expect(extensionUpgradeCandidates([disabled, installed, upgradeable, legacySource]).map(item => item.id))
+    expect(canUpgradePlugin(contentOnly)).toBe(true)
+    expect(extensionUpgradeCandidates([disabled, installed, upgradeable, legacySource, contentOnly]).map(item => item.id))
       .toEqual(['disabled.plugin', 'upgradeable.plugin', 'legacy-source.plugin'])
   })
 

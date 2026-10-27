@@ -100,6 +100,19 @@ ApiResponseAttachmentCleanup:
       type: string
     data:
       "$ref": "#/AttachmentCleanupResult"
+ApiResponseAdminAttachmentRecount:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/AdminAttachmentRecountResult"
 AttachmentProvider:
   type: string
   description: >
@@ -421,6 +434,47 @@ AttachmentCleanupResult:
       type: integer
     failed:
       type: integer
+    skipped:
+      type: integer
+      description: >
+        Orphan candidates still inside the retention grace window. They are not
+        touched by this run and are removed automatically once due. Optional for
+        backward compatibility; absent means zero.
+    retentionDays:
+      type: integer
+      description: >
+        Retention grace period in days used by this run, so operators holding
+        only attachment.manage can explain the wait without reading the
+        settings endpoint (which needs attachment.settings.manage). Optional for
+        backward compatibility.
+AdminAttachmentRecountResult:
+  type: object
+  required:
+  - lowered
+  - raised
+  - unchanged
+  - applied
+  - samples
+  properties:
+    lowered:
+      type: integer
+      description: Rows whose stored reference count was higher than the actual reference rows.
+    raised:
+      type: integer
+      description: Rows whose stored reference count was lower than the actual reference rows.
+    unchanged:
+      type: integer
+      description: Rows whose stored reference count already matched the actual reference rows.
+    applied:
+      type: boolean
+      description: False for a dry run, true when the correction was written.
+    samples:
+      type: array
+      description: Up to 20 drifting attachment ids, for operator diagnosis only.
+      maxItems: 20
+      items:
+        type: integer
+        format: int64
 AttachmentCompressionSettingsInput:
   type: object
   required: [enabled, strength, maxDimension, minSizeKb, minSavingsPercent]

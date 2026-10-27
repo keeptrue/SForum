@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	apilts "github.com/keeptrue/sforum/apps/api/app/Support/APILTS"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func repoRoot(t *testing.T) string {
@@ -43,17 +45,14 @@ func TestRunMatrixGatePassesRequired(t *testing.T) {
 	}
 	root := repoRoot(t)
 	matrixPath := filepath.Join(root, "tests", "compat", "matrix.yaml")
-	// CI 使用隔离变量，避免让整轮 go test 误启共享数据库集成测试。
-	// 本地仍兼容通用变量，并默认连接开发 compose 的 15432 端口。
-	dbURL := os.Getenv("SFORUM_COMPAT_DATABASE_URL")
-	if dbURL == "" {
-		dbURL = os.Getenv("DATABASE_URL")
-	}
-	if dbURL == "" {
-		dbURL = os.Getenv("SFORUM_TEST_DATABASE_URL")
-	}
-	if dbURL == "" {
-		dbURL = "postgres://sforum:sforum@127.0.0.1:15432/sforum?sslmode=disable"
+	// CI 用 SFORUM_COMPAT_DATABASE_URL 指定隔离集群；它同样必须过 internal/testdb
+	// 的哨兵/一次性集群校验——否则换个变量名就能绕过整套守卫。没有它时走
+	// IsolatedURL，绝不回落到 DATABASE_URL 或写死的开发库。
+	dbURL := strings.TrimSpace(os.Getenv("SFORUM_COMPAT_DATABASE_URL"))
+	if dbURL != "" {
+		dbURL = testdb.ValidatedURL(t, dbURL)
+	} else {
+		dbURL = testdb.IsolatedURL(t)
 	}
 	result, err := RunMatrix(context.Background(), matrixPath, RunOptions{
 		RepoRoot:    root,

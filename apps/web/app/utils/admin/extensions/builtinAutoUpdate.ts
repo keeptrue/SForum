@@ -36,20 +36,6 @@ export function shouldShowBuiltinAutoUpdateDisabled(
   return isBuiltinMaintainedExtension(item) && state.supported && !state.enabled
 }
 
-/**
- * 开关开启却仍有 stagedVersion，说明启动扫描没完成（例如插件正被选为供应商）。
- * 此时保留原有的待升级徽标，但换成引导排查的提示。
- */
-export function shouldShowBuiltinAutoUpdateIncomplete(
-  item: BuiltinAutoUpdateExtension,
-  state: BuiltinAutoUpdateState
-): boolean {
-  return isBuiltinMaintainedExtension(item)
-    && Boolean(item.stagedVersion)
-    && state.supported
-    && state.enabled
-}
-
 export function builtinAutoUpdateStateLabelKey(enabled: boolean): string {
   return enabled
     ? 'admin.extensions.plugins.autoUpdate.stateOn'

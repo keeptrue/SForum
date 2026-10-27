@@ -3,7 +3,6 @@ package forum_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,19 +12,15 @@ import (
 
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // TestResolveNotificationTargetCommentPageSegment 验证评论通知深链携带 flat 分页页码：
 // page 1 目标保持旧链接形态 /t/{topic}#comment-{id}（兼容既有通知与测试断言），
 // page>1 目标输出 /t/{topic}/page/{N}#comment-{id}，与前端 forumTopicPath 同形。
 func TestResolveNotificationTargetCommentPageSegment(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

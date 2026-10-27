@@ -3,9 +3,9 @@ package migrator
 import (
 	"context"
 	"database/sql"
-	"os"
-	"strings"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const (
@@ -13,10 +13,7 @@ const (
 )
 
 func TestThemeRuntimePublicationMigrationConstraintsHistoryAndReapply(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	// Apply directly to avoid the intentionally global sforum_core_v1 schema

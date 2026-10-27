@@ -292,6 +292,11 @@ export type AdminOverviewAction = {
   count: number
   severity: string
   route: string
+  /**
+   * 信息性指标（当前为孤儿附件）：值得让运营知道，但不是需要人工处理的待办。
+   * advisory 项不计入「待处理」KPI，也不点亮告警色。
+   */
+  advisory?: boolean
 }
 
 export type OverviewTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral'
@@ -488,6 +493,25 @@ export function overviewActionTone(severity: string): OverviewTone {
     default:
       return 'neutral'
   }
+}
+
+/** 「待处理」KPI 求和：跳过 advisory 项，信息性指标不算待办。 */
+export function overviewActionTotal(actions: AdminOverviewAction[]) {
+  return (actions || []).reduce((total, action) => (
+    action.advisory ? total : total + Math.max(0, Number(action.count) || 0)
+  ), 0)
+}
+
+/** advisory 项合计，供 KPI 副标题补充说明（当前为孤儿附件）。 */
+export function overviewAdvisoryTotal(actions: AdminOverviewAction[]) {
+  return (actions || []).reduce((total, action) => (
+    action.advisory ? total + Math.max(0, Number(action.count) || 0) : total
+  ), 0)
+}
+
+/** KPI 色调只看真实待办量：纯 advisory 时保持 success。 */
+export function overviewActionsTone(actions: AdminOverviewAction[]): OverviewTone {
+  return overviewActionTotal(actions) > 0 ? 'warning' : 'success'
 }
 
 export function formatOverviewUptime(seconds: number) {

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 type builtinAutoIntegrationPromoter struct {
@@ -135,10 +135,7 @@ func TestBuiltinPluginAutoUpdateSelectsOnlyEnabledBuiltinPlugins(t *testing.T) {
 // 这样 SaveBuiltin 产生的 plugin runtime publication 不会污染共享测试库的不可变 full set。
 func openBuiltinAutoUpdateDatabase(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	baseConfig, err := pgx.ParseConfig(databaseURL)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 	"github.com/keeptrue/sforum/apps/api/database/migrator"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const pluginTestClusterMarker = "sforum.disposable-test-cluster.v1"
@@ -85,10 +86,7 @@ FROM pg_database WHERE datname = 'postgres'`).Scan(&marker, &developmentDatabase
 // Each fixture owns its database; fixed plugin IDs never touch the shared seed.
 func isolatedPluginTestDatabaseURL(t *testing.T) string {
 	t.Helper()
-	base := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if base == "" {
-		t.Skip("use scripts/test-api-isolated.sh for database plugin integration tests")
-	}
+	base := testdb.IsolatedURL(t)
 	if err := validatePluginTestDatabaseURL(base); err != nil {
 		t.Fatal(err)
 	}

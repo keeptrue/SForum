@@ -101,3 +101,34 @@ weaker missing-artifact dialog-only confirmation:
 - 集成测试：`apps/api/app/Models/Extensions/postgres_store_version_gc_integration_test.go`
   （隔离库 `SFORUM_TEST_DATABASE_URL`，12/12 绿）。
 - CLI 测试：`apps/api/cmd/sforum/extension_gc_test.go`（schema 隔离 fixture）。
+
+## Addendum 2026-10-27
+
+主题运行时发布账本（`theme_runtime_publications`，迁移 `202607150020`）推翻了
+上面第 3 条的"回收面"结论：它的 `source_theme_id + source_theme_version +
+source_package_digest` 三元组在 `ThemeRuntimeWatcher` 每次进程启动 apply 最新
+修订时都会被回查（`themePublicationSource` → `GetExtensionVersion`），行不在即
+`ErrExtensionVersionNotFound`、apply 永久失败（2026-10-27 dev 库 revision 20
+事故）。该账本同样是 append-only，因此：
+
+- **主题发布账本与插件发布账本一样永久钉住版本行。** GC 的 blocked 判据
+  （`versionGCCandidatesSQL` / `versionGCBlockedReason`）现在同时检查两个账本，
+  并复用同一个封闭词表值 `publication_history`——该值已是对外契约
+  （OpenAPI enum + 管理端 union），且"被 append-only 账本钉住、永久不可回收"
+  的运维含义完全相同（理由写在常量注释里）。
+- **回收面收窄为「从未成为任何账本 source 的版本」**，不再是"主题历史版本"。
+  每次主题激活都会把上一版写进 source，所以被激活过的主题历史版本基本不再
+  回收。这是**刻意**的 fail-closed 取舍：账本是 append-only 证据，任何修订引用
+  的精确三元组都应保持可解析；与插件账本的钉住语义一致。
+- **FK / 触发器不可行，应用层判据才是正确位置。** 两条依据：
+  1. 历史数据已经无法满足约束——本次修复时 dev 库 20 条带 source 的修订里
+     **18 条**三元组已不可解析（早先的 GC 已合法回收），加 FK 只能 `NOT VALID`，
+     等于只约束新行；
+  2. 语义上也不可行——`ON DELETE RESTRICT` 会让"曾当过 source 的主题"永远无法
+     卸载（`DELETE FROM extensions` 级联删 versions 会被挡住），而
+     `themePublicationSource` 明确允许 source 扩展已被卸载（fresh node 场景）；
+     `ON DELETE SET NULL` 会撞账本的 `BEFORE UPDATE OR DELETE` append-only
+     触发器（`reject_theme_runtime_publication_mutation`）并被 RAISE。
+
+实现、测试与验证证据见
+`knowledge/sessions/2026-10-27-version-gc-theme-publication-pin.md`。

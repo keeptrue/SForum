@@ -2,18 +2,15 @@ package migrator
 
 import (
 	"context"
-	"os"
-	"strings"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const themeRuntimeSourceApprovalVersion = int64(202607150021)
 
 func TestThemeRuntimeSourceApprovalMigrationConstraintsAndDownProtection(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	if _, err := provider.ApplyVersion(ctx, themeRuntimePublicationVersion, true); err != nil {

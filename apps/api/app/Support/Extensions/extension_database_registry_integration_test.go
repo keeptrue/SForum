@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,13 +16,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresExtensionDatabaseRegistryCredentialLifecycleAndIsolation(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for extension database registry integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -152,10 +150,7 @@ func TestPostgresExtensionDatabaseRegistryCredentialLifecycleAndIsolation(t *tes
 }
 
 func TestPostgresExtensionDatabaseRegistryRejectsPreexistingRoleMembership(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for extension database registry integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -224,10 +219,7 @@ func TestPostgresExtensionDatabaseRegistryRejectsPreexistingRoleMembership(t *te
 }
 
 func TestPostgresExtensionDatabaseRegistryRejectsPreexistingRoleOwnership(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for extension database registry integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -283,10 +275,7 @@ func TestPostgresExtensionDatabaseRegistryRejectsPreexistingRoleOwnership(t *tes
 }
 
 func TestPostgresExtensionDatabaseRegistryRejectsPreexistingRoleSettings(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for extension database registry integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)

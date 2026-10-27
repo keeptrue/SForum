@@ -3,7 +3,6 @@ package hostapi_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,24 +11,22 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/rivertype"
 	queryregistryjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/QueryRegistry"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	"github.com/keeptrue/sforum/apps/api/database/migrator"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
 	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestPostgresProtocolV2DatabaseRuntimeExactTransactionsAndRevocation(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for the destructive DatabaseService integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
 	if err := migrator.Up(ctx, migrator.Config{DatabaseURL: databaseURL}); err != nil {

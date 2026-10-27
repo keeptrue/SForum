@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,13 +15,14 @@ import (
 	cryptox "github.com/keeptrue/sforum/apps/api/app/Support/Crypto"
 	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
 	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestLegacyCiphertextMigratesOnFirstPostgresSettingsWrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("postgres legacy settings migration requires real database")
 	}
-	databaseURL := settingsLifecycleTestDatabaseURL()
+	databaseURL := settingsLifecycleTestDatabaseURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -104,10 +104,7 @@ func TestTwoIndependentPostgresConnectionsConcurrentSaveNoFieldLoss(t *testing.T
 	if testing.Short() {
 		t.Skip("postgres concurrent settings requires real database")
 	}
-	databaseURL := settingsLifecycleTestDatabaseURL()
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := settingsLifecycleTestDatabaseURL(t)
 	ctx := context.Background()
 
 	// 两条独立连接池，模拟双 API 节点。
@@ -287,10 +284,7 @@ func TestFailedMigrationDoesNotChangePostgresSettingsOrRevision(t *testing.T) {
 	if testing.Short() {
 		t.Skip("postgres failed migration requires real database")
 	}
-	databaseURL := settingsLifecycleTestDatabaseURL()
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := settingsLifecycleTestDatabaseURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -387,15 +381,9 @@ func TestFailedMigrationDoesNotChangePostgresSettingsOrRevision(t *testing.T) {
 	}
 }
 
-func settingsLifecycleTestDatabaseURL() string {
-	if v := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL")); v != "" {
-		return v
-	}
-	if v := strings.TrimSpace(os.Getenv("DATABASE_URL")); v != "" {
-		return v
-	}
-	// 开发 compose 默认端口。
-	return "postgres://sforum:sforum@127.0.0.1:15432/sforum?sslmode=disable"
+func settingsLifecycleTestDatabaseURL(t *testing.T) string {
+	t.Helper()
+	return testdb.IsolatedURL(t)
 }
 
 func parseInt64(raw string) int64 {

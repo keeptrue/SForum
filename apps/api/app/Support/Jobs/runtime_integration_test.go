@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +10,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 type unregisteredIntegrationArgs struct {
@@ -22,10 +23,7 @@ func (unregisteredIntegrationArgs) Kind() string {
 }
 
 func TestInsertOnlyClientAllowsUnregisteredJobKinds(t *testing.T) {
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for River client integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)

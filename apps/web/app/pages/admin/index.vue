@@ -11,6 +11,9 @@ import {
   formatOverviewCount,
   formatOverviewDate,
   overviewActionTone,
+  overviewActionsTone,
+  overviewActionTotal,
+  overviewAdvisoryTotal,
   overviewPercent,
   type AdminOverview,
   type AdminOverviewAction,
@@ -27,7 +30,7 @@ defineOptions({
   name: 'AdminIndex'
 })
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const { request } = useApiClient()
 const adminRoutes = useAdminRoutes()
 const adminPage = useAdminPage('/')
@@ -49,7 +52,14 @@ useAdminOverviewLive({ overview, request })
 const kpiCards = computed(() => {
   const data = overview.value
   if (!data) return []
-  const actionCount = data.actions.reduce((total, action) => total + action.count, 0)
+  const actions = data.actions || []
+  // 「待处理」只算真实待办；孤儿附件是 advisory，只进副标题说明。
+  const actionCount = overviewActionTotal(actions)
+  const advisoryCount = overviewAdvisoryTotal(actions)
+  const reports = formatOverviewCount(data.moderation.openCount + data.moderation.reviewingCount)
+  const actionsMeta = advisoryCount > 0
+    ? `${t('admin.home.kpi.actions.meta', { reports })} · ${t('admin.home.kpi.actions.metaAdvisory', { count: formatOverviewCount(advisoryCount) })}`
+    : t('admin.home.kpi.actions.meta', { reports })
   return [
     {
       key: 'topics',
@@ -60,7 +70,8 @@ const kpiCards = computed(() => {
         comments: formatOverviewCount(data.community.commentCount)
       }),
       icon: 'i-lucide-message-square-text',
-      tone: 'text-blue-600 dark:text-blue-400'
+      tone: 'text-blue-600 dark:text-blue-400',
+      to: ''
     },
     {
       key: 'users',
@@ -68,15 +79,19 @@ const kpiCards = computed(() => {
       value: formatOverviewCount(data.community.userCount),
       meta: t('admin.home.kpi.users.meta', { active: formatOverviewCount(data.community.activeUserCount) }),
       icon: 'i-lucide-users-round',
-      tone: 'text-green-600 dark:text-green-400'
+      tone: 'text-green-600 dark:text-green-400',
+      to: ''
     },
     {
       key: 'actions',
       label: t('admin.home.kpi.actions.label'),
       value: formatOverviewCount(actionCount),
-      meta: t('admin.home.kpi.actions.meta', { reports: formatOverviewCount(data.moderation.openCount + data.moderation.reviewingCount) }),
+      meta: actionsMeta,
       icon: 'i-lucide-list-checks',
-      tone: actionCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+      tone: overviewActionsTone(actions) === 'warning'
+        ? 'text-amber-600 dark:text-amber-400'
+        : 'text-emerald-600 dark:text-emerald-400',
+      to: '#admin-todo'
     }
   ]
 })
@@ -162,8 +177,15 @@ function actionRoute(action: AdminOverviewAction) {
 }
 
 function actionColor(action: AdminOverviewAction) {
+  // advisory 行只是信息提示，用中性徽章，避免和真实待办抢告警色。
+  if (action.advisory) return 'neutral'
   const tone = overviewActionTone(action.severity)
   return tone === 'danger' ? 'error' : tone
+}
+
+function actionAdvisoryHint(action: AdminOverviewAction) {
+  const key = `admin.home.actions.${action.key}.advisoryHint`
+  return te(key) ? t(key) : ''
 }
 
 const { locale } = useI18n()
@@ -250,24 +272,35 @@ function extensionWidgetColor(widget: AdminOverviewExtensionWidget) {
     <SFAdminOverviewResourceCards :runtime="overview.runtime" />
 
     <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-      <UCard v-for="card in kpiCards" :key="card.label" class="elegant-card border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase">
-              {{ card.label }}
-            </p>
-            <p class="mt-2.5 truncate text-3xl font-black text-slate-900 dark:text-white">
-              {{ card.value }}
-            </p>
-            <p class="mt-2 truncate text-xs text-slate-500 dark:text-zinc-400">
-              {{ card.meta }}
-            </p>
+      <component
+        :is="card.to ? 'NuxtLink' : 'div'"
+        v-for="card in kpiCards"
+        :key="card.key"
+        :to="card.to || undefined"
+        class="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
+      >
+        <UCard
+          class="elegant-card h-full border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100"
+          :class="card.to ? 'transition group-hover:border-[var(--sf-accent-soft-border)] dark:group-hover:border-[rgb(var(--sf-accent-rgb)/0.35)]' : ''"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase">
+                {{ card.label }}
+              </p>
+              <p class="mt-2.5 truncate text-3xl font-black text-slate-900 dark:text-white">
+                {{ card.value }}
+              </p>
+              <p class="mt-2 line-clamp-2 text-xs text-slate-500 dark:text-zinc-400">
+                {{ card.meta }}
+              </p>
+            </div>
+            <span class="icon-glass-box shrink-0" :class="card.tone">
+              <UIcon :name="card.icon" class="size-5 z-10" />
+            </span>
           </div>
-          <span class="icon-glass-box shrink-0" :class="card.tone">
-            <UIcon :name="card.icon" class="size-5 z-10" />
-          </span>
-        </div>
-      </UCard>
+        </UCard>
+      </component>
     </div>
 
     <!-- 社区趋势整行：横向三系列，不与旁侧卡抢高度 -->
@@ -319,7 +352,7 @@ function extensionWidgetColor(widget: AdminOverviewExtensionWidget) {
         </div>
       </UCard>
 
-      <UCard class="elegant-card border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
+      <UCard id="admin-todo" class="elegant-card scroll-mt-24 border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
         <template #header>
           <h3 class="text-base font-bold text-slate-900 dark:text-white">
             {{ t('admin.home.actionsTitle') }}
@@ -341,6 +374,9 @@ function extensionWidgetColor(widget: AdminOverviewExtensionWidget) {
               </span>
               <span class="block truncate text-xs text-slate-500 dark:text-zinc-400">
                 {{ actionDescription(action) }}
+              </span>
+              <span v-if="action.advisory && actionAdvisoryHint(action)" class="block truncate text-xs text-slate-400 dark:text-zinc-500">
+                {{ actionAdvisoryHint(action) }}
               </span>
             </span>
             <UIcon name="i-lucide-arrow-right" class="size-4 shrink-0 text-slate-400 dark:text-zinc-500" />

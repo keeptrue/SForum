@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +15,7 @@ import (
 
 	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestProductionRoleReplacementAndSuggestionApprovalSerializeExactMapping(t *testing.T) {
@@ -121,13 +120,7 @@ type productionIdentityApprovalFixture struct {
 
 func newProductionIdentityApprovalFixture(t *testing.T) *productionIdentityApprovalFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)

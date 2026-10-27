@@ -17,13 +17,12 @@ import (
 
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestProductionLifecycleCleanupIdentityExactCASAndEvidenceRetention(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	// CI 的共享 PG 容器较慢，8 路并发抢同一把 advisory lock 时 30s 可能不够。
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -224,8 +223,10 @@ func TestProductionLifecycleCleanupIdentityExactCASAndEvidenceRetention(t *testi
 		if result.OperationID == 0 {
 			result = item
 		}
+		// 收敛判据是 Status；PhysicalPurgeCompleted 只描述物理身份是否被删，
+		// 走 replay 路径的 goroutine 没有 proof 证据，必须如实返回 false。
 		if item.OperationID != operationID || item.CleanupID != cleanupID ||
-			item.Status != "finalized" || !item.PhysicalPurgeCompleted ||
+			item.Status != "finalized" ||
 			item.PurgeReceiptID == "" || item.PurgeProofDigest == "" ||
 			(result.OperationID != 0 && (item.PurgeReceiptID != result.PurgeReceiptID ||
 				item.PurgeProofDigest != result.PurgeProofDigest)) {
@@ -240,7 +241,7 @@ func TestProductionLifecycleCleanupIdentityExactCASAndEvidenceRetention(t *testi
 		t.Fatalf("replay production lifecycle cleanup: %v", err)
 	}
 	if replayed.PurgeReceiptID != result.PurgeReceiptID ||
-		replayed.PurgeProofDigest != result.PurgeProofDigest || !replayed.PhysicalPurgeCompleted {
+		replayed.PurgeProofDigest != result.PurgeProofDigest || replayed.PhysicalPurgeCompleted {
 		t.Fatalf("cleanup replay drifted: first=%#v replay=%#v", result, replayed)
 	}
 

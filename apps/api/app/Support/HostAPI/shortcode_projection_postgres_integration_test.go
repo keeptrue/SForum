@@ -3,13 +3,13 @@ package hostapi
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestShortcodeProjectionPostgresVisibilityAndActorMatrix(t *testing.T) {
@@ -130,13 +130,7 @@ func assertReplyDecision(t *testing.T, rows []map[string]any, authenticated, eli
 
 func newShortcodeProjectionPostgresHarness(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required for shortcode projection integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

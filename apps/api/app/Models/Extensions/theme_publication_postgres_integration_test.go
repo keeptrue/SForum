@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -13,10 +12,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
+	"github.com/pressly/goose/v3"
 )
 
 func TestPostgresThemeActivationPublishesAtomicallyAndRollsBackInsertFailure(t *testing.T) {
@@ -508,10 +508,7 @@ func newThemePublicationPGFixtureWithInitialPublication(
 	publishInitial bool,
 ) *themePublicationPGFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -570,9 +567,12 @@ func newThemePublicationPGFixtureWithInitialPublication(
 		removeSchema()
 		t.Fatalf("migrate isolated theme schema to registry: %v", err)
 	}
+	// 202610170002（Version GC 台账）也在列：GC 的主题发布钉住用例必须在
+	// 隔离 schema 里跑——主题发布账本是 append-only 的，往共享库里插测试行
+	// 会让最新修订指向测试制品，真实 watcher 会永久 apply 失败。
 	for _, version := range []int64{
 		202607150019, 202607150020, 202607150021, 202607160027,
-		202607270063, 202607300002, 202610230001,
+		202607270063, 202607300002, 202610170002, 202610230001,
 	} {
 		if _, err := provider.ApplyVersion(ctx, version, true); err != nil {
 			db.Close()

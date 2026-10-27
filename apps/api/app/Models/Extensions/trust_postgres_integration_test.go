@@ -4,20 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresExecutableTrustStoreConsumesChallengeOnce(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -256,10 +254,7 @@ func waitForExecutableTrustAdvisoryLockWaiter(
 }
 
 func TestPostgresActivationAttemptsDriveBootLoopSkip(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -303,10 +298,7 @@ func TestPostgresActivationAttemptsDriveBootLoopSkip(t *testing.T) {
 // 两行都留成 live，启动恢复公开权威时
 // (PostgresLifecycleAssetAuthority.exactLiveGrantImpact) 只能 fail closed。
 func TestPostgresExecutableTrustStoreSupersedesStaleLiveGrantForSamePackage(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -449,10 +441,7 @@ func TestPostgresExecutableTrustStoreSupersedesStaleLiveGrantForSamePackage(t *t
 // 会让整个 API 起不来（cannot scan NULL into *int64），所以 LiveGrant 必须
 // 与 revoked_by_user_id 一样把缺失的授予人归一成 0（未知）。
 func TestPostgresExecutableTrustStoreLoadsGrantWhoseGrantorWasDeleted(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

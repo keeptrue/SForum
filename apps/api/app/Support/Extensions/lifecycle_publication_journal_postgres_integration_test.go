@@ -19,6 +19,7 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresLifecyclePublicationJournalConcurrentCommitBindsOneRevision(t *testing.T) {
@@ -408,10 +409,7 @@ func TestLifecyclePublicationIntegrationRequiresExplicitTestDatabaseURL(t *testi
 
 func newLifecyclePublicationIntegrationFixture(t *testing.T) *lifecyclePublicationIntegration {
 	t.Helper()
-	databaseURL, ok := requireSforumTestDatabaseURL()
-	if !ok {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

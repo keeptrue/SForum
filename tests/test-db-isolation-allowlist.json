@@ -1,0 +1,41 @@
+{
+  "_doc": [
+    "静态扫描例外清单：apps/api 下 *_test.go 中出现 DATABASE_URL 的环境变量读取时，",
+    "只有登记在这里、并写明理由的条目才不算违规。默认应为空；每加一条都要能被复核。",
+    "kind 取值：subprocess-forwarding（只把 DATABASE_URL 传给子进程，本进程不拿它连库）、",
+    "guarded-read（读取后显式拒绝开发库地址）、non-test-database（读的是与测试库无关的配置）。",
+    "reason 至少 12 字，写清为什么安全；过期条目（文件已无读取）会被脚本提示删除。"
+  ],
+  "entries": [
+    {
+      "file": "apps/api/app/Support/Extensions/IntegrationTests/database_isolation_test.go",
+      "kind": "guarded-read",
+      "reason": "TestMain 是插件集成测试的总闸：SFORUM_TEST_DATABASE_URL 缺失时读 DATABASE_URL 只用来给出拒绝原因并以 exit 2 中止；拿到测试库后还会校验一次性集群标记、库名前缀与集群里不存在 sforum 开发库。全程不拿 DATABASE_URL 连库。"
+    },
+    {
+      "file": "apps/api/app/Support/Extensions/lifecycle_publication_journal_postgres_integration_test.go",
+      "kind": "guarded-read",
+      "reason": "负向用例把 DATABASE_URL 设成不可解析的 should-never-be-used/for-integration，断言 setup 在没有 SFORUM_TEST_DATABASE_URL 时拒绝；该值不会被任何连接使用。"
+    },
+    {
+      "file": "apps/api/app/Support/Extensions/provider_slot_selection_postgres_integration_test.go",
+      "kind": "guarded-read",
+      "reason": "负向用例把 DATABASE_URL 设成不可解析的 should-never-be-used/for-integration，断言 setup 在没有 SFORUM_TEST_DATABASE_URL 时拒绝；夹具本身已改走 internal/testdb。"
+    },
+    {
+      "file": "apps/api/cmd/sforum/privacy_erase_user_test.go",
+      "kind": "guarded-read",
+      "reason": "用例用 t.Setenv 把 DATABASE_URL 置空，断言隐私擦除命令在缺少连接串时拒绝执行，不建立任何数据库连接。"
+    },
+    {
+      "file": "apps/api/cmd/sforum/recovery_test.go",
+      "kind": "guarded-read",
+      "reason": "用例用 t.Setenv 把 DATABASE_URL 置空，断言 recovery 子命令在缺少连接串时拒绝执行，不建立任何数据库连接。"
+    },
+    {
+      "file": "apps/api/config/config_test.go",
+      "kind": "non-test-database",
+      "reason": "config 单元测试用 t.Setenv 写入示例连接串来验证配置解析、默认值与校验分支，全程不打开数据库连接，与测试库无关。"
+    }
+  ]
+}

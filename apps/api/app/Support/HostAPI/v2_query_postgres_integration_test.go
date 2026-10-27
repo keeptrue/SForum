@@ -3,7 +3,6 @@ package hostapi
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +14,8 @@ import (
 	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
 	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 type postgresQueryHarness struct {
@@ -267,13 +268,7 @@ func TestPostgresProtocolV2QueryAuthorityAcceptsOnlySystemBuiltinIdentity(t *tes
 
 func newPostgresQueryHarness(t *testing.T) *postgresQueryHarness {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required for Host Query integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

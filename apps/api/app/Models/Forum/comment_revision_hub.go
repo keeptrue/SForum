@@ -44,8 +44,9 @@ var (
 	ErrCommentRevisionConnectionLimit = errors.New("forum: comment revision connection limit reached")
 )
 
-// NewCommentRevisionHub 启动 LISTEN 循环。ctx 结束时循环退出并释放专用连接，
-// 因此调用方只需在进程关闭前取消 ctx（无需额外 Close 顺序约束）。
+// NewCommentRevisionHub 启动 LISTEN 循环。ctx 结束时循环退出并释放专用连接。
+// 但 LISTEN 连接是池资源：关池之前必须先 Stop/Close，否则 puddle 的 Pool.Close
+// 会一直等这条连接归还，把「启动失败」变成「进程活着但不服务」。
 func NewCommentRevisionHub(ctx context.Context, pool *pgxpool.Pool) *CommentRevisionHub {
 	if ctx == nil {
 		ctx = context.Background()
@@ -60,19 +61,36 @@ func NewCommentRevisionHub(ctx context.Context, pool *pgxpool.Pool) *CommentRevi
 	return hub
 }
 
-// Close 取消 LISTEN 并等待循环退出；可在测试或显式关停路径调用。
-func (h *CommentRevisionHub) Close() {
+// Stop 取消 LISTEN 循环，并在 ctx 截止前等待循环退出（释放专用连接）。
+// 有界等待是为了不把调用方拖进无限阻塞：启动失败与进程关停都必须能在有限时间内
+// 走完资源释放，否则关池会等不到连接归还。取消只执行一次（closeOnce），重复调用
+// 安全；ctx 到期返回 ctx.Err()，循环仍会在后台自行退出。
+func (h *CommentRevisionHub) Stop(ctx context.Context) error {
 	if h == nil {
-		return
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	h.closeOnce.Do(func() {
 		if h.cancel != nil {
 			h.cancel()
 		}
-		if h.done != nil {
-			<-h.done
-		}
 	})
+	if h.done == nil {
+		return nil
+	}
+	select {
+	case <-h.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Close 等价于无超时的 Stop，保持既有调用语义（一直等到循环退出）。
+func (h *CommentRevisionHub) Close() {
+	_ = h.Stop(context.Background())
 }
 
 // Subscribe 订阅某个主题的评论修订唤醒。返回的 release 必须恰好调用一次。

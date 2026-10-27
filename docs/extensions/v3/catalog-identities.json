@@ -260,6 +260,12 @@
       "path": "/api/v1/admin/attachments/cleanup"
     },
     {
+      "id": "core.route.attachments.reconcile_admin",
+      "contractVersion": "sforum.route.attachments.reconcile_admin@1",
+      "method": "POST",
+      "path": "/api/v1/admin/attachments/reconcile"
+    },
+    {
       "id": "core.route.attachments.compression_stats",
       "contractVersion": "sforum.route.attachments.compression_stats@1",
       "method": "GET",
@@ -5871,6 +5877,26 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateBadges.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_extension_primary_action",
+      "contractVersion": "sforum.component.admin.sf_admin_extension_primary_action@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionPrimaryAction.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_extension_update_state",
+      "contractVersion": "sforum.component.admin.sf_admin_extension_update_state@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateState.vue"
     },
     {
       "id": "core.component.admin.sf_admin_user_account_section",

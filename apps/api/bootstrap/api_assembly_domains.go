@@ -333,9 +333,18 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	}
 	forumCachedStore = forum.WithReferenceRenderCacheInvalidator(forumCachedStore, forumShortcodes)
 	// 评论区实时信号：修订号由 comments 触发器维护在 topics.comment_revision 上，
-	// 唤醒来源是本进程的 LISTEN hub。hub 随 ctx 结束释放专用连接，无需额外关停顺序。
+	// 唤醒来源是本进程的 LISTEN hub。hub 占着一条池连接，因此必须显式持有它并在
+	// 关池前停止（closeCommentRevisionHub）：puddle 的 Pool.Close 会等这条连接归还。
+	commentRevisionHub := forum.NewCommentRevisionHub(ctx, pool)
+	closeCommentRevisionHub := func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if stopErr := commentRevisionHub.Stop(stopCtx); stopErr != nil && logger != nil {
+			logger.Warn("comment revision hub stop timed out", "error", stopErr)
+		}
+	}
 	commentLive := forum.NewCommentLiveService(forumCachedStore).
-		WithWakeHub(forum.NewCommentRevisionHub(ctx, pool))
+		WithWakeHub(commentRevisionHub)
 	forumProvider := providers.NewForumProviderWithPublicContributions(
 		forumCachedStore,
 		optionsService,
@@ -653,6 +662,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	if !recoveryOnly {
 		if err := extensionGuardPolicy.Refresh(ctx); err != nil {
 			closeNotificationStore()
+			closeCommentRevisionHub()
 			stopPluginRuntimeCoordinator()
 			if stopErr := supportjobs.Stop(ctx, jobClient); stopErr != nil {
 				logger.Warn("job dispatcher stop failed", "error", stopErr)
@@ -662,7 +672,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 			if closeErr := redisStorage.Close(); closeErr != nil {
 				logger.Warn("redis session storage close failed", "error", closeErr)
 			}
-			pool.Close()
+			closeAPIPoolOnFailure(logger, pool)
 			return nil, fmt.Errorf("refresh extension guard policy failed: %w", err)
 		}
 	}
@@ -674,6 +684,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	)
 	if err != nil {
 		closeNotificationStore()
+		closeCommentRevisionHub()
 		stopPluginRuntimeCoordinator()
 		if stopErr := supportjobs.Stop(ctx, jobClient); stopErr != nil {
 			logger.Warn("job dispatcher stop failed", "error", stopErr)
@@ -683,7 +694,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		if closeErr := redisStorage.Close(); closeErr != nil {
 			logger.Warn("redis session storage close failed", "error", closeErr)
 		}
-		pool.Close()
+		closeAPIPoolOnFailure(logger, pool)
 		return nil, fmt.Errorf("create route failure recorder: %w", err)
 	}
 	closeRouteFailureRecorder := func() {
@@ -734,6 +745,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		authSessions:              authSessions,
 		closePluginRuntime:        closePluginRuntime,
 		closeRouteFailureRecorder: closeRouteFailureRecorder,
+		closeCommentRevisionHub:   closeCommentRevisionHub,
 		databaseLeaseRegistry:     databaseLeaseRegistry,
 		databaseProvider:          databaseProvider,
 		entityMetaProvider:        entityMetaProvider,

@@ -3,18 +3,15 @@ package migrator
 import (
 	"context"
 	"database/sql"
-	"os"
-	"strings"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const providerSlotSelectionsVersion = int64(202607150023)
 
 func TestProviderSlotSelectionsUpDownProtectionAndReapply(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for provider slot selection migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	if _, err := provider.UpTo(ctx, extensionDatabaseDispositionResourcePresenceVersion); err != nil {

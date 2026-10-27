@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SFAdminExtensionUpdateBadges from '~/components/admin/extensions/SFAdminExtensionUpdateBadges.vue'
+import SFAdminExtensionUpdateState from '~/components/admin/extensions/SFAdminExtensionUpdateState.vue'
 import {
   capabilityCount,
   isExtensionArtifactAvailable,
@@ -38,8 +39,9 @@ const authorUrl = computed(() => props.display.author.url || props.display.url)
 <template>
   <div class="min-w-0">
     <!--
-      可选中时身份簇整体是一个按钮：图标/名字/状态/页面徽章都可点。
-      更新徽章是链接，必须放在按钮之后——<a> 嵌 <button> 既非法也会吞掉键盘操作。
+      徽章五层顺序：状态(L0) → 运行态/制品缺失(L1/L2) → 核心更新(L2) → 商城链接(L3) → 页面徽章(L4/L5)。
+      可选中时身份簇整体是一个按钮；更新徽章是纯文本（可在按钮内），商城徽章是链接，
+      必须放在按钮之后——<a> 嵌 <button> 既非法也会吞掉键盘操作。
     -->
     <div class="flex min-w-0 flex-wrap items-center gap-2">
       <button
@@ -60,7 +62,8 @@ const authorUrl = computed(() => props.display.author.url || props.display.url)
         <UBadge :color="props.statusColor" variant="subtle">
           {{ props.statusLabel }}
         </UBadge>
-        <slot name="badges" />
+        <slot name="status-badges" />
+        <SFAdminExtensionUpdateState :extension="props.extension" />
       </button>
       <template v-else>
         <UIcon :name="props.icon" class="size-4 shrink-0 text-[var(--sf-accent)]" />
@@ -71,13 +74,14 @@ const authorUrl = computed(() => props.display.author.url || props.display.url)
         >
           {{ props.display.name }}
         </span>
-        <SFAdminExtensionUpdateBadges :badges="props.badges" :extension-name="props.display.name" />
         <UBadge :color="props.statusColor" variant="subtle">
           {{ props.statusLabel }}
         </UBadge>
-        <slot name="badges" />
+        <slot name="status-badges" />
+        <SFAdminExtensionUpdateState :extension="props.extension" />
       </template>
-      <SFAdminExtensionUpdateBadges v-if="props.selectable" :badges="props.badges" :extension-name="props.display.name" />
+      <SFAdminExtensionUpdateBadges :badges="props.badges" />
+      <slot name="badges" />
     </div>
 
     <p

@@ -2,23 +2,17 @@ package search
 
 import (
 	"context"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 真实 PostgreSQL 路径：Index → Search → Delete，覆盖 shipped PostgresSiteEngine。
 func TestPostgresSiteEngineIndexSearchDelete(t *testing.T) {
-	dsn := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if dsn == "" {
-		dsn = strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	}
-	if dsn == "" {
-		t.Skip("DATABASE_URL / SFORUM_TEST_DATABASE_URL not set")
-	}
+	dsn := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {

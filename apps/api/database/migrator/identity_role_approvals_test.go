@@ -4,11 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const identityRoleApprovalsVersion = int64(202607160029)
@@ -27,10 +28,7 @@ type identityRoleApprovalSuggestion struct {
 }
 
 func TestIdentityRoleApprovalsMigrationEnforcesAuthorityAndAuditBinding(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -210,10 +208,7 @@ func TestIdentityRoleApprovalsMigrationEnforcesAuthorityAndAuditBinding(t *testi
 }
 
 func TestIdentityRoleApprovalsMigrationAcceptsPreexistingMappingAndRejectsInvalidAuditFlags(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -361,10 +356,7 @@ func TestIdentityRoleApprovalsMigrationAcceptsPreexistingMappingAndRejectsInvali
 }
 
 func TestIdentityRoleApprovalsMigrationEmptyDownAndReapply(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -394,10 +386,7 @@ func TestIdentityRoleApprovalsMigrationEmptyDownAndReapply(t *testing.T) {
 }
 
 func TestIdentityRoleApprovalsMigrationDownPreservesNonPermissionOwnership(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -444,10 +433,7 @@ func TestIdentityRoleApprovalsMigrationDownPreservesNonPermissionOwnership(t *te
 }
 
 func TestIdentityRoleApprovalsMigrationPreservesLegacyApprovedWithoutGrant(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -551,10 +537,7 @@ func TestIdentityRoleApprovalsMigrationPreservesLegacyApprovedWithoutGrant(t *te
 }
 
 func TestIdentityRoleApprovalsMigrationBackfillsCatalogWithoutSuggestions(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -597,10 +580,7 @@ func TestIdentityRoleApprovalsMigrationBackfillsCatalogWithoutSuggestions(t *tes
 }
 
 func TestIdentityRoleApprovalsMigrationRejectsPermissionOwnerWithoutDeclarationHistory(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -652,10 +632,7 @@ func TestIdentityRoleApprovalsMigrationRejectsPermissionOwnerWithoutDeclarationH
 }
 
 func TestIdentityRoleApprovalsMigrationFailsClosedOnUntrackedHostPermission(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)
@@ -676,10 +653,7 @@ func TestIdentityRoleApprovalsMigrationFailsClosedOnUntrackedHostPermission(t *t
 }
 
 func TestIdentityRoleApprovalsMigrationConcurrentFenceBlocksOldDecision(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity role approvals migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRoleApprovalBaseTables(t, ctx, db)

@@ -6,8 +6,7 @@ import {
   builtinAutoUpdateStateLabelKey,
   isBuiltinAutoUpdateEnabledValue,
   isBuiltinMaintainedExtension,
-  shouldShowBuiltinAutoUpdateDisabled,
-  shouldShowBuiltinAutoUpdateIncomplete
+  shouldShowBuiltinAutoUpdateDisabled
 } from '../../app/utils/admin/extensions/builtinAutoUpdate'
 
 const pluginsPage = await Bun.file(
@@ -92,12 +91,6 @@ describe('builtin auto-update row hints', () => {
     expect(shouldShowBuiltinAutoUpdateDisabled(uploaded, { supported: true, enabled: false })).toBe(false)
   })
 
-  test('treats a remaining staged version under an enabled switch as incomplete', () => {
-    expect(shouldShowBuiltinAutoUpdateIncomplete(builtin, { supported: true, enabled: true })).toBe(true)
-    expect(shouldShowBuiltinAutoUpdateIncomplete(builtin, { supported: true, enabled: false })).toBe(false)
-    expect(shouldShowBuiltinAutoUpdateIncomplete({ source: 'builtin' }, { supported: true, enabled: true })).toBe(false)
-    expect(shouldShowBuiltinAutoUpdateIncomplete(uploaded, { supported: true, enabled: true })).toBe(false)
-  })
 })
 
 describe('useAdminBuiltinAutoUpdate', () => {
@@ -185,11 +178,13 @@ describe('plugins page auto-update wiring', () => {
     expect(pluginsPage).toContain('duration: 0')
   })
 
-  test('reuses the builtin badges and the incomplete staged hint', () => {
+  test('keeps the builtin row hints but leaves the staged badge to the core update state', () => {
     expect(pluginsPage).toContain('isBuiltinMaintainedExtension(item)')
     expect(pluginsPage).toContain('shouldShowBuiltinAutoUpdateDisabled(item, builtinAutoUpdateState)')
-    expect(pluginsPage).toContain('stagedVersionHint(item)')
-    expect(pluginsPage).toContain("t('admin.extensions.plugins.autoUpdate.incompleteHint')")
+    // 同版本不同摘要现在统一显示「重启后生效」；页面不再自己拼 staged 徽章。
+    expect(pluginsPage).not.toContain('stagedVersionHint(item)')
+    expect(pluginsPage).not.toContain("t('admin.extensions.plugins.autoUpdate.incompleteHint')")
+    expect(pluginsPage).toContain('<SFAdminExtensionIdentity')
   })
 
   test('ships every auto-update key in both locales', () => {
@@ -206,7 +201,6 @@ describe('plugins page auto-update wiring', () => {
       'builtinMaintainedHint',
       'disabledBadge',
       'disabledHint',
-      'incompleteHint',
       'loadFailed'
     ]
 

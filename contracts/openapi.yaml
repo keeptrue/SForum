@@ -481,6 +481,8 @@ paths:
     "$ref": "./openapi/paths/attachments.yaml#/adminAttachments"
   "/admin/attachments/cleanup":
     "$ref": "./openapi/paths/attachments.yaml#/adminAttachmentCleanup"
+  "/admin/attachments/reconcile":
+    "$ref": "./openapi/paths/attachments.yaml#/adminAttachmentReconcile"
   "/admin/attachments/compression-stats":
     "$ref": "./openapi/paths/attachments.yaml#/adminAttachmentCompressionStats"
   "/admin/attachments/compression/backfill":

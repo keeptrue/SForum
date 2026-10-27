@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,13 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t *testing.T) {
-	baseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if baseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for kernel non-super integration test")
-	}
+	baseURL := testdb.IsolatedURL(t)
 	baseConfig, err := pgx.ParseConfig(baseURL)
 	if err != nil {
 		t.Fatal(err)

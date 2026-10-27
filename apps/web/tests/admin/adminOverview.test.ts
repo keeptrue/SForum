@@ -14,6 +14,9 @@ import {
   formatOverviewTrendDayCount,
   formatOverviewVersion,
   overviewActionTone,
+  overviewActionsTone,
+  overviewActionTotal,
+  overviewAdvisoryTotal,
   overviewMemoryDisplayBytes,
   overviewPSSDisplayBytes,
   overviewPercent,
@@ -27,6 +30,7 @@ import {
   overviewTrendSparkPath,
   overviewTrendSum,
   type AdminOverview,
+  type AdminOverviewAction,
   type AdminOverviewRuntime,
   type AdminOverviewTrendDay
 } from '../../app/utils/admin/adminOverview'
@@ -324,5 +328,25 @@ describe('admin overview helpers', () => {
     expect(overviewActionTone('warning')).toBe('warning')
     expect(overviewActionTone('info')).toBe('info')
     expect(overviewActionTone('unknown')).toBe('neutral')
+  })
+
+  test('excludes advisory actions from the pending KPI total', () => {
+    const actions: AdminOverviewAction[] = [
+      { key: 'moderation_queue', count: 3, severity: 'warning', route: '/moderation' },
+      { key: 'orphan_attachments', count: 49, severity: 'info', route: '/attachments', advisory: true }
+    ]
+    expect(overviewActionTotal(actions)).toBe(3)
+    expect(overviewAdvisoryTotal(actions)).toBe(49)
+    expect(overviewActionsTone(actions)).toBe('warning')
+  })
+
+  test('keeps the pending KPI calm when only advisory actions have values', () => {
+    const actions: AdminOverviewAction[] = [
+      { key: 'moderation_queue', count: 0, severity: 'success', route: '/moderation' },
+      { key: 'orphan_attachments', count: 49, severity: 'info', route: '/attachments', advisory: true }
+    ]
+    expect(overviewActionTotal(actions)).toBe(0)
+    expect(overviewAdvisoryTotal(actions)).toBe(49)
+    expect(overviewActionsTone(actions)).toBe('success')
   })
 })

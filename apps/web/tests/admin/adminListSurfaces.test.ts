@@ -61,7 +61,7 @@ describe('admin list surface consumers', () => {
       expect(text).toContain(`context: { resourceType: 'extension', page: ${page} }`)
       expect(text).toContain('attributes: {')
       expect(text).toContain('stagedVersion: item.stagedVersion?.version ||')
-      expect(text).toContain(':badges="updateSurfaces.badgesFor(item.id)"')
+      expect(text).toContain(':badges="rowBadges.get(item.id) || []"')
     }
   })
 })

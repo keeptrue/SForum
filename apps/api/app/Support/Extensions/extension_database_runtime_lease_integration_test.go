@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,13 +15,12 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresExtensionDatabaseRuntimeLeasesOverlapAndRevokeExactly(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for runtime lease integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -235,10 +232,7 @@ func TestPostgresExtensionDatabaseRuntimeLeasesOverlapAndRevokeExactly(t *testin
 }
 
 func TestPostgresExtensionDatabaseRuntimeLeasePreservesAdditivePowers(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for runtime lease integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -311,10 +305,7 @@ func TestPostgresExtensionDatabaseRuntimeLeasePreservesAdditivePowers(t *testing
 }
 
 func TestPostgresExtensionDatabaseRuntimeLeaseReaperConvergesAndAudits(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for runtime lease integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)
@@ -428,10 +419,7 @@ func TestPostgresExtensionDatabaseRuntimeLeaseReaperConvergesAndAudits(t *testin
 // 真实运行时可能在 Host 重启前已经由旧实例或人工恢复删除 login role。此时
 // cleanup-pending 行必须收敛为终态，而不是让下一次 API bootstrap 永久失败。
 func TestPostgresExtensionDatabaseRuntimeLeaseReaperConvergesWhenRoleWasAlreadyRemoved(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for runtime lease integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	pool, err := pgxpool.New(ctx, databaseURL)

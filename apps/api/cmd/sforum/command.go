@@ -60,6 +60,9 @@ func newRootCommand() *cobra.Command {
 		newPrivacyEraseUserCommand(),
 		newRevisionsCommand(),
 		newExtensionCommand(),
+		// 带外恢复也作为顶层 `sforum recovery` 暴露：事故现场最常敲的是这一条，
+		// 与 `sforum extension recovery` 共享同一套子命令实现。
+		newExtensionRecoveryCommand(),
 		newDevCleanupOrphanPluginsCommand(),
 	)
 	return cmd

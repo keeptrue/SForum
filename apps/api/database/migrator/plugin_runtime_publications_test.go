@@ -5,20 +5,18 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const pluginRuntimePublicationVersion = int64(202607160027)
 
 func TestPluginRuntimePublicationMigrationExactSetsCASHistoryAndReapply(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedPluginRuntimeVersionTable(t, ctx, db)

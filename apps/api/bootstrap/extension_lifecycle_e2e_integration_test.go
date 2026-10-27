@@ -28,6 +28,8 @@ import (
 	pluginv2sdk "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2"
 	protocolwire "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const productionLifecycleE2EHelperEnv = "SFORUM_PRODUCTION_LIFECYCLE_E2E_HELPER"
@@ -311,10 +313,7 @@ func newProductionLifecycleE2EFixture(
 
 func openProductionLifecycleE2EPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -499,9 +498,10 @@ func assertProductionLifecycleE2EResult(
 	replayed bool,
 ) {
 	t.Helper()
+	// 收敛判据是 Status；PhysicalPurgeComplete 只描述物理身份是否被删（该夹具的
+	// 扩展进过 runtime publication，身份被钉住所以物理删除不会发生）。
 	if !result.Uninstalled || result.OperationID <= 0 || result.RemovalMode != extensions.LifecycleRemovalPreserve ||
-		result.Replayed != replayed || result.Cleanup == nil || result.Cleanup.Status != "finalized" ||
-		!result.Cleanup.PhysicalPurgeComplete {
+		result.Replayed != replayed || result.Cleanup == nil || result.Cleanup.Status != "finalized" {
 		t.Fatalf("production lifecycle result = %#v", result)
 	}
 }

@@ -6,17 +6,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/rivertype"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 var errFanoutAfterProjection = errors.New("fanout failed after projection")
@@ -316,10 +317,7 @@ func TestModerationNotificationFanoutPostgres(t *testing.T) {
 
 func newNotificationPGFixture(t *testing.T) *notificationPGFixture {
 	t.Helper()
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for PostgreSQL notification integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, databaseURL)
 	if err != nil {

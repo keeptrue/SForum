@@ -3,14 +3,14 @@ package entitymeta
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // entity-meta 用 topics.author_user_id 作为 topic 的所有者。这一列是
@@ -85,10 +85,7 @@ type entityMetaTopicGraph struct {
 // openEntityMetaPool 连真实迁移过的库；SFORUM_TEST_DATABASE_URL 未设置时跳过。
 func openEntityMetaPool(t *testing.T) (context.Context, *pgxpool.Pool, string) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

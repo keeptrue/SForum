@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 type identityRegistryStoreFixture struct {
@@ -32,10 +32,7 @@ func newIdentityRegistryStoreFixture(t *testing.T) *identityRegistryStoreFixture
 	t.Helper()
 	// Never fall back to the normal/dev DATABASE_URL: identity fixtures create
 	// private schemas and extension rows that must stay off the operator DB.
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)

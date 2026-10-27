@@ -32,5 +32,13 @@ fi
 # 使用 staging 内置树（含本机编译二进制 + 刷新后的 digest），避免改写 git 跟踪的 manifest。
 export BUILTIN_EXTENSION_ROOT="${SFORUM_BUILTIN_DEV_ROOT:-$ROOT_DIR/storage/builtin-dev}"
 
+# 在开发库写入哨兵 public.sforum_dev_guard：apps/api/internal/testdb 见到它就
+# 拒绝连接，避免在 source 过 .env 的 shell 里跑 go test 把测试扩展写进开发库。
+# 幂等，每次启动都执行；一次性测试集群不会被标记（由集群标记识别）。
+if ! (cd "$ROOT_DIR/apps/api" && go run ./internal/testdb/cmd/devguard); then
+  echo "Development database guard failed. Is the dev stack up (./scripts/dev.sh)?" >&2
+  exit 1
+fi
+
 cd "$ROOT_DIR/apps/api"
 exec air

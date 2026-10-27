@@ -76,8 +76,9 @@ for (const action of ["'enable'", "'disable'", "'upgrade'", "'rollback'"]) {
 }
 
 const overview = read('apps/web/app/pages/admin/extensions/index.vue')
-assert(overview.includes("t('admin.extensions.stagedVersionBadge'"), 'extension list must identify a staged candidate')
-assert(overview.includes("t('admin.extensions.stagedVersion')"), 'extension details must identify the staged version')
+assert(overview.includes('SFAdminExtensionPrimaryAction'), 'extension list must expose a context primary action')
+assert(overview.includes("t('admin.extensions.update.newVersion')"), 'extension details must identify the downloaded target version')
+assert(!overview.includes('stagedVersionBadge'), 'extension list must not keep the legacy staged badge')
 assert(overview.includes("t('admin.extensions.upgradeAll'"), 'extension overview must expose bulk plugin upgrade')
 assert(overview.includes('purpose="upgrade"'), 'extension overview must reuse exact-artifact trust review for upgrade')
 
@@ -85,8 +86,12 @@ for (const localeName of ['zh-CN', 'en-US']) {
   const locale = JSON.parse(read(`apps/web/i18n/locales/${localeName}.json`))
   const messages = locale.admin?.extensions
   assert(messages?.upgradeStaged && messages?.upgradeStagedHint, `${localeName} must describe the staged upload result`)
-  assert(messages?.stagedVersion && messages?.stagedVersionBadge && messages?.stagedVersionHint, `${localeName} must explain the staged version`)
-  assert(messages?.upgrade && messages?.upgradeAll && messages?.upgradeAllSuccess, `${localeName} must label single and bulk upgrade actions`)
+  assert(messages?.update?.available && messages?.update?.restartToApply && messages?.update?.activateToApply, `${localeName} must describe the three update states`)
+  assert(!messages?.stagedVersion && !messages?.stagedVersionBadge && !messages?.stagedVersionHint, `${localeName} must drop the legacy staged-version copy`)
+  assert(!messages?.upgradeUnavailable, `${localeName} must drop the legacy upgrade-unavailable copy`)
+  assert(messages?.update?.upgradeNow && messages?.update?.onlyWithUpdates, `${localeName} must label the update actions`)
+  assert(!messages?.upgrade, `${localeName} must drop the legacy single-upgrade label`)
+  assert(messages?.upgradeAll && messages?.upgradeAllSuccess, `${localeName} must label bulk upgrade actions`)
 }
 
 console.log('Staged extension management contract validation passed.')

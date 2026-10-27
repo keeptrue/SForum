@@ -202,4 +202,7 @@ type OverviewAction struct {
 	Count    int64  `json:"count"`
 	Severity string `json:"severity"`
 	Route    string `json:"route"`
+	// Advisory 表示纯信息性指标：仍需出现在待办摘要里，但不计入「待处理」
+	// 总数、也不触发告警着色（例如宽限期后会自动清理的孤儿附件）。
+	Advisory bool `json:"advisory"`
 }

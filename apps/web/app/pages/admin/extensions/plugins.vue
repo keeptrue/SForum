@@ -4,6 +4,7 @@ import { useAdminExtensionsManager } from '~/composables/admin/useAdminExtension
 import { useAdminExtensionUpgradeFlow } from '~/composables/admin/useAdminExtensionUpgradeFlow'
 import { useAdminBuiltinAutoUpdate } from '~/composables/admin/useAdminBuiltinAutoUpdate'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
+import { useExtensionRowMenu } from '~/composables/admin/useExtensionRowMenu'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import SFAdminExtensionEnableDialog from '~/components/admin/SFAdminExtensionEnableDialog.vue'
@@ -12,17 +13,14 @@ import SFAdminExtensionUninstallDialog from '~/components/admin/SFAdminExtension
 import SFAdminFrontendTrustPanel from '~/components/admin/SFAdminFrontendTrustPanel.vue'
 import SFAdminExtensionHostActionsNotice from '~/components/admin/SFAdminExtensionHostActionsNotice.vue'
 import SFAdminExtensionIdentity from '~/components/admin/extensions/SFAdminExtensionIdentity.vue'
+import SFAdminExtensionPrimaryAction from '~/components/admin/extensions/SFAdminExtensionPrimaryAction.vue'
 import { useAdminListSurfaces } from '~/composables/admin/useAdminListSurfaces'
 import {
-  canRestartPlugin,
-  canUpgradePlugin,
   extensionLocalizedDisplay,
-  extensionManageRoute,
   extensionSettingsPresentation,
   filterExtensionsByType,
   formatPluginMemoryBytes,
   isExtensionArtifactAvailable,
-  isLifecycleV2Plugin,
   runtimeCapabilitySummary,
   runtimeStatusLabelKey,
   type AdminExtension,
@@ -31,9 +29,9 @@ import {
 import {
   builtinAutoUpdateStateLabelKey,
   isBuiltinMaintainedExtension,
-  shouldShowBuiltinAutoUpdateDisabled,
-  shouldShowBuiltinAutoUpdateIncomplete
+  shouldShowBuiltinAutoUpdateDisabled
 } from '~/utils/admin/extensions/builtinAutoUpdate'
+import { builtinContentUpdateCount, resolveExtensionUpdateState } from '~/utils/admin/extensions/updateState'
 
 definePageMeta({
   middleware: 'admin',
@@ -59,6 +57,7 @@ const {
   cancelEnableExtension,
   enableConfirmOpen,
   enableConfirmItem,
+  enableDialogPurpose,
   enableTrustMode,
   enableTrustStatus,
   enableTrustChallenge,
@@ -173,19 +172,6 @@ async function restoreBuiltinAutoUpdateRecommended() {
   )
 }
 
-function stagedVersionHint(item: AdminExtension) {
-  if (!item.stagedVersion) {
-    return ''
-  }
-  if (shouldShowBuiltinAutoUpdateIncomplete(item, builtinAutoUpdateState.value)) {
-    return t('admin.extensions.plugins.autoUpdate.incompleteHint')
-  }
-  return t('admin.extensions.stagedVersionHint', {
-    version: item.stagedVersion.version,
-    current: item.version
-  })
-}
-
 const plugins = computed(() => filterExtensionsByType(extensions.value, 'plugin'))
 const inspectorMenuItems = computed(() => [[
   { label: t('admin.nav.extensionRouteProviders'), icon: 'i-lucide-route', to: adminRoutes.path('/extensions/route-providers') },
@@ -229,6 +215,25 @@ async function refreshAll() {
   await updateSurfaces.refreshSurfaces()
 }
 
+const onlyWithUpdates = ref(false)
+const rowBadges = computed(() => new Map(pluginRows.value.map(row => [row.item.id, updateSurfaces.badgesFor(row.item.id)])))
+
+// 命中条件 = 核心更新状态非空 或 商城徽章；制品缺失两者都不算。
+function hasUpdates(item: AdminExtension) {
+  // 制品缺失时任何应用动作都会失败，不计入「只看有更新」。
+  if (!isExtensionArtifactAvailable(item)) return false
+  return resolveExtensionUpdateState(item).kind !== 'none' || (rowBadges.value.get(item.id)?.length ?? 0) > 0
+}
+
+const updateCount = computed(() => pluginRows.value.filter(row => hasUpdates(row.item)).length)
+const builtinPendingRestart = computed(() => builtinContentUpdateCount(plugins.value))
+const visibleRows = computed(() => onlyWithUpdates.value
+  ? pluginRows.value.filter(row => hasUpdates(row.item))
+  : pluginRows.value)
+const updateFilterAria = computed(() => updateCount.value > 0
+  ? t('admin.extensions.update.onlyWithUpdatesAria', { count: updateCount.value })
+  : t('admin.extensions.update.onlyWithUpdatesAriaEmpty'))
+
 function runtimeColor(state?: AdminRuntimeState) {
   if (state === 'running') {
     return 'success'
@@ -248,6 +253,19 @@ function storageInstancesRoute(item: AdminExtension) {
   return `${adminRoutes.path('/attachments/settings')}?provider=${encodeURIComponent(item.id)}`
 }
 
+const rowMenu = useExtensionRowMenu({
+  canUninstall: item => Boolean(item.isDeletable) && item.source !== 'builtin' && !item.isSystem,
+  storageRoute: storageInstancesRoute,
+  enable: enableExtension,
+  disable: disableExtension,
+  restart: restartExtension,
+  lifecycle: openLifecycleExtension,
+  uninstall: openUninstallExtension
+})
+const rowMenus = computed(() => Object.fromEntries(
+  visibleRows.value.map(row => [row.item.id, rowMenu(row.item)])
+))
+
 useSeoMeta({
   title: t('admin.extensions.plugins.metaTitle')
 })
@@ -264,11 +282,28 @@ useSeoMeta({
     </p>
   </div>
 
-  <UDashboardToolbar class="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-lg px-4 py-2.5 mb-6 text-slate-500 dark:text-zinc-400">
+  <UDashboardToolbar
+    class="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-lg px-4 py-2.5 mb-6 text-slate-500 dark:text-zinc-400"
+    :ui="{ left: 'min-w-0 flex-wrap', right: 'flex-wrap justify-end' }"
+  >
     <template #left>
       <div class="flex min-w-0 items-center gap-2 text-sm">
         <UIcon name="i-lucide-plug" class="size-4" />
         <span class="hidden truncate sm:inline">{{ t('admin.extensions.plugins.count', { count: plugins.length }) }}</span>
+      </div>
+      <span v-if="builtinPendingRestart > 0" class="hidden whitespace-nowrap text-xs sm:inline">
+        {{ t('admin.extensions.update.builtinPendingRestart', { count: builtinPendingRestart }) }}
+      </span>
+      <div class="flex items-center gap-1.5">
+        <UIcon name="i-lucide-sparkles" class="size-4 shrink-0" aria-hidden="true" />
+        <span class="hidden whitespace-nowrap text-xs xl:inline">{{ t('admin.extensions.update.onlyWithUpdates') }}</span>
+        <USwitch
+          :model-value="onlyWithUpdates"
+          size="sm"
+          :aria-label="updateFilterAria"
+          :title="t('admin.extensions.update.onlyWithUpdatesHint')"
+          @update:model-value="onlyWithUpdates = Boolean($event)"
+        />
       </div>
     </template>
     <template #right>
@@ -320,14 +355,17 @@ useSeoMeta({
         </span>
       </UButton>
       <UDropdownMenu :items="inspectorMenuItems" :content="{ align: 'end' }">
-        <UButton
-          class="xl:hidden"
-          icon="i-lucide-ellipsis"
-          color="neutral"
-          variant="subtle"
-          :aria-label="t('common.more')"
-          :title="t('common.more')"
-        />
+        <template #default="{ open }">
+          <UButton
+            class="xl:hidden"
+            icon="i-lucide-ellipsis"
+            color="neutral"
+            variant="subtle"
+            :aria-label="t('common.more')"
+            :title="t('common.more')"
+            :aria-expanded="open"
+          />
+        </template>
       </UDropdownMenu>
       <UButton
         class="hidden xl:inline-flex"
@@ -478,11 +516,24 @@ useSeoMeta({
     <div v-if="plugins.length === 0 && !pending" class="p-10">
       <SFEmptyState icon-label="PLG" :title="t('admin.extensions.plugins.emptyTitle')" :description="t('admin.extensions.plugins.emptyDescription')" />
     </div>
+    <div v-else-if="visibleRows.length === 0" class="p-10">
+      <SFEmptyState
+        icon-label="OK"
+        :title="surfaceFailures.length
+          ? t('admin.extensions.update.noneInView')
+          : t('admin.extensions.update.allUpToDate')"
+        :description="surfaceFailures.length
+          ? t('admin.extensions.update.noneInViewDescription')
+          : t('admin.extensions.update.allUpToDateDescription', { count: plugins.length })"
+        :action-label="t('admin.extensions.update.showAll')"
+        @action="onlyWithUpdates = false"
+      />
+    </div>
     <div v-else class="divide-y divide-slate-200 dark:divide-zinc-800">
       <div
-        v-for="{ item, display } in pluginRows"
+        v-for="{ item, display } in visibleRows"
         :key="item.id"
-        class="grid gap-4 px-4 py-4 md:grid-cols-[1fr_auto]"
+        class="grid gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto]"
       >
         <div class="min-w-0">
           <SFAdminExtensionIdentity
@@ -491,12 +542,22 @@ useSeoMeta({
             :status-label="statusLabel(item.status)"
             :status-color="statusColor(item.status)"
             icon="i-lucide-plug"
-            :badges="updateSurfaces.badgesFor(item.id)"
+            :badges="rowBadges.get(item.id) || []"
           >
-            <template #badges>
+            <template #status-badges>
               <UBadge :color="runtimeColor(item.runtime?.state)" variant="subtle">
                 {{ t(runtimeStatusLabelKey(item)) }}
               </UBadge>
+              <UBadge
+                v-if="!isExtensionArtifactAvailable(item)"
+                color="error"
+                variant="subtle"
+                icon="i-lucide-package-x"
+              >
+                {{ t('admin.extensions.artifact.missing') }}
+              </UBadge>
+            </template>
+            <template #badges>
               <UBadge
                 v-if="isBuiltinMaintainedExtension(item)"
                 color="neutral"
@@ -514,23 +575,6 @@ useSeoMeta({
                 :title="t('admin.extensions.plugins.autoUpdate.disabledHint')"
               >
                 {{ t('admin.extensions.plugins.autoUpdate.disabledBadge') }}
-              </UBadge>
-              <UBadge
-                v-if="item.stagedVersion"
-                color="warning"
-                variant="outline"
-                icon="i-lucide-package-plus"
-                :title="stagedVersionHint(item)"
-              >
-                {{ t('admin.extensions.stagedVersionBadge', { version: item.stagedVersion.version }) }}
-              </UBadge>
-              <UBadge
-                v-if="!isExtensionArtifactAvailable(item)"
-                color="error"
-                variant="subtle"
-                icon="i-lucide-package-x"
-              >
-                {{ t('admin.extensions.artifact.missing') }}
               </UBadge>
               <UBadge
                 v-if="item.pendingUninstallCleanup"
@@ -610,100 +654,32 @@ useSeoMeta({
             </template>
           </SFAdminExtensionIdentity>
         </div>
-        <div class="flex flex-wrap items-center gap-2 [&>a]:shrink-0 [&>button]:shrink-0">
-          <UButton
-            v-if="item.stagedVersion"
-            size="sm"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-package-plus"
-            :disabled="upgradeAllBusy || !canUpgradePlugin(item)"
-            :loading="upgradeBusyId === item.id"
-            :title="canUpgradePlugin(item)
-              ? t('admin.extensions.stagedVersionHint', { version: item.stagedVersion.version, current: item.version })
-              : t('admin.extensions.upgradeUnavailable')"
-            @click="upgradeExtension(item)"
-          >
-            {{ t('admin.extensions.upgrade') }}
-          </UButton>
-          <UButton
-            v-if="storageInstancesRoute(item)"
-            size="sm"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-database"
-            :to="item.status === 'enabled' ? storageInstancesRoute(item) : undefined"
-            :disabled="item.status !== 'enabled'"
-            :title="item.status === 'enabled' ? t('admin.extensions.configureStorage') : t('admin.extensions.configureStorageEnableFirst')"
-          >
-            {{ t('admin.extensions.configureStorage') }}
-          </UButton>
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-history"
-            :title="t('admin.extensions.lifecycle.title')"
-            :aria-label="t('admin.extensions.lifecycle.title')"
-            @click="openLifecycleExtension(item)"
+        <div class="flex flex-wrap items-center gap-1">
+          <SFAdminExtensionPrimaryAction
+            :extension="item"
+            :busy="busyId === item.id"
+            :upgrade-busy="upgradeBusyId === item.id"
+            :upgrade-blocked="upgradeAllBusy"
+            @upgrade="upgradeExtension(item)"
+            @restart="restartExtension(item)"
+            @enable="enableExtension(item)"
           />
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-settings"
-            :to="isExtensionArtifactAvailable(item) ? adminRoutes.path(extensionManageRoute(item)) : undefined"
-            :disabled="!isExtensionArtifactAvailable(item)"
-            :title="!isExtensionArtifactAvailable(item) ? t('admin.extensions.artifact.actionUnavailable') : undefined"
+          <UDropdownMenu
+            :items="rowMenus[item.id] || []"
+            :content="{ align: 'end' }"
           >
-            {{ t('admin.extensions.manage') }}
-          </UButton>
-          <UButton
-            v-if="item.status !== 'enabled'"
-            size="sm"
-            icon="i-lucide-play"
-            :disabled="!isExtensionArtifactAvailable(item)"
-            :loading="busyId === item.id"
-            @click="enableExtension(item)"
-          >
-            {{ t('admin.extensions.enable') }}
-          </UButton>
-          <UButton
-            v-else
-            size="sm"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-pause"
-            :loading="busyId === item.id"
-            @click="disableExtension(item)"
-          >
-            {{ t('admin.extensions.disable') }}
-          </UButton>
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-refresh-cw"
-			:disabled="!canRestartPlugin(item)"
-            :loading="busyId === item.id && canRestartPlugin(item)"
-            :title="canRestartPlugin(item) ? t('admin.extensions.restart') : t('admin.extensions.restartUnavailable')"
-            @click="restartExtension(item)"
-          >
-            {{ t('admin.extensions.restart') }}
-          </UButton>
-          <UButton
-            v-if="item.isDeletable && item.source !== 'builtin' && !item.isSystem"
-            size="sm"
-            color="error"
-            variant="ghost"
-            icon="i-lucide-trash-2"
-            :disabled="item.status === 'enabled' && !isLifecycleV2Plugin(item)"
-            :loading="busyId === item.id"
-            :title="item.status === 'enabled' && !isLifecycleV2Plugin(item) ? t('admin.extensions.confirmUninstallBody', { name: item.name }) : t('admin.extensions.uninstall')"
-            @click="openUninstallExtension(item)"
-          >
-            {{ t('admin.extensions.uninstall') }}
-          </UButton>
+            <template #default="{ open }">
+              <UButton
+                icon="i-lucide-ellipsis"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="t('admin.extensions.update.moreActions', { name: display.name })"
+                :title="t('admin.extensions.update.moreActions', { name: display.name })"
+                :aria-expanded="open"
+              />
+            </template>
+          </UDropdownMenu>
         </div>
       </div>
     </div>
@@ -712,6 +688,7 @@ useSeoMeta({
       v-model:open="enableConfirmOpen"
       :extension="enableConfirmItem"
       :mode="enableTrustMode"
+      :purpose="enableDialogPurpose"
       :trust-status="enableTrustStatus"
       :challenge="enableTrustChallenge"
       :error="enableTrustError"

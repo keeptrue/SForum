@@ -3,7 +3,6 @@ package aiderivedjobs_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +18,8 @@ import (
 	aidomain "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 这一条覆盖 B3 的验收形态「手动触发一次，产物落成预期位置」：真实 River 客户端
@@ -193,13 +194,7 @@ func waitForArtifact(t *testing.T, ctx context.Context, pool *pgxpool.Pool, stor
 // River 版本漂移，而这条测试的价值正是「真实队列能跑通」。
 func newDerivedJobsHarness(t *testing.T) (context.Context, *pgxpool.Pool, string) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

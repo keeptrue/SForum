@@ -3,13 +3,13 @@ package profile
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 公开用户检索的 SQL 只有在真实 Postgres 上才能证明三件事：活跃用户过滤真的生效、
@@ -99,13 +99,7 @@ func TestPostgresSearchPublicUsersFiltersEscapesAndOrders(t *testing.T) {
 
 func newUserSearchPostgresHarness(t *testing.T) (context.Context, *PostgresStore) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

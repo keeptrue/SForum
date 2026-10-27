@@ -3,14 +3,14 @@ package forum
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 本文件钉住「作者已注销」这条真实 schema 路径。topics.author_user_id 与
@@ -36,10 +36,7 @@ type authorNullGraph struct {
 // openAuthorNullPool 连真实迁移过的库；SFORUM_TEST_DATABASE_URL 未设置时跳过。
 func openAuthorNullPool(t *testing.T) (context.Context, *pgxpool.Pool, string) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

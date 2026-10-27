@@ -27,19 +27,37 @@ import (
 //  1. 先删磁盘目录、成功后才删台账行；磁盘删除失败必须中止该条并报告，
 //     绝不产生新的 artifact_missing 悬挂态。
 //  2. 逐条锁定候选并在锁内复核判据（防 TOCTOU 与并发 enable/upgrade/rollback）。
-//  3. plugin_runtime_publication_members 对版本行是复合 FK ON DELETE RESTRICT，
-//     且发布账本被 202607160027 的 append-only 触发器保护（UPDATE/DELETE 一律
-//     RAISE）。因此被任何发布修订引用过的版本行是**永久钉住**：GC 不删除发布
-//     历史（运行时行为优先于任务书方案 A 的"过期修订删除"，见决策记录
-//     2026-10-17-version-gc-publication-restrict-cooperation），这类候选被
-//     报告为 blocked: publication_history。
-//  4. 开放的 extension_lifecycle_operations 绝不清理；它以不可变快照列引用
+//  3. 两个 append-only 发布账本都会永久钉住版本行，GC 从不删除发布历史
+//     （运行时行为优先于任务书方案 A 的"过期修订删除"，见决策记录
+//     2026-10-17-version-gc-publication-restrict-cooperation）：
+//     - plugin_runtime_publication_members 对版本行是复合 FK ON DELETE
+//       RESTRICT，且被 202607160027 的 append-only 触发器保护（UPDATE/DELETE
+//       一律 RAISE），数据库层就是最后一道背线。
+//     - theme_runtime_publications 的 source_* 三元组是裸 TEXT（迁移
+//       202607150020，无 FK），数据库层挡不住删除；但 ThemeRuntimeWatcher
+//       每次进程启动都要用**最新修订**的 source 三元组回查版本行
+//       （themePublicationSource → GetExtensionVersion），行不在就
+//       ErrExtensionVersionNotFound、apply 永久失败（2026-10-27 dev 库
+//       revision 20 事故）。因此主题发布引用必须由应用层判据补齐。
+//     被任一账本引用过的版本行都报告为 blocked: publication_history。
+//  4. 主题发布按**全历史**钉住，不做"只钉最新修订"的优化：账本是 append-only
+//     证据，任何修订引用的精确三元组都应保持可解析，这与插件账本的钉住语义
+//     一致。代价是主题历史版本一旦成为某次激活的 source 就不再回收——这是
+//     刻意的 fail-closed 取舍（见 knowledge/sessions/
+//     2026-10-27-version-gc-theme-publication-pin.md）。
+//  5. 开放的 extension_lifecycle_operations 绝不清理；它以不可变快照列引用
 //     版本身份、从不钉住版本行，因此只作为判据挡板而非清理对象。
 
 // VersionGCBlocked* 是 dry-run/清单里 blockedReason 的封闭词表。
 const (
-	// VersionGCBlockedPublicationHistory 版本行被发布历史（append-only）引用，
-	// 数据库层永久不可删。
+	// VersionGCBlockedPublicationHistory 版本行被 append-only 发布账本引用：
+	// 插件运行时 desired 集（plugin_runtime_publication_members，DB 层
+	// FK RESTRICT）或主题运行时 desired 状态（theme_runtime_publications 的
+	// source_* 三元组，应用层判据）。两者共用同一个词表值，理由：
+	//  1. 该值已是对外契约（contracts/openapi/schemas/extensions.yaml 的 enum +
+	//     apps/web 的 AdminVersionGCBlockedReason union），新增值要同步改契约与
+	//     前端，而"被发布历史钉住、永久不可回收"的运维含义完全一致；
+	//  2. 具体是哪个账本钉住它是实现细节，CLI 与管理端不需要据此分流。
 	VersionGCBlockedPublicationHistory = "publication_history"
 	// VersionGCBlockedOpenOperation 有开放 lifecycle operation 以该版本为目标。
 	VersionGCBlockedOpenOperation = "open_operation"
@@ -157,9 +175,9 @@ func (o VersionGCOptions) normalized() VersionGCOptions {
 	return normalized
 }
 
-// versionGCBlockedReason 是 GC 判据的纯函数核心：发布历史 > 开放操作 >
-// 保留窗口；返回空串表示可回收（磁盘存在性由调用方用 artifactState 判定，
-// 归一为 disk_missing）。
+// versionGCBlockedReason 是 GC 判据的纯函数核心：发布历史（插件/主题任一账本）
+// > 开放操作 > 保留窗口；返回空串表示可回收（磁盘存在性由调用方用
+// artifactState 判定，归一为 disk_missing）。
 func versionGCBlockedReason(
 	published, openOperation bool,
 	historyRank, retain, retainDays int,
@@ -181,8 +199,8 @@ func versionGCBlockedReason(
 }
 
 // versionGCCandidatesSQL 枚举全部历史版本行（非 active、非 staged），携带
-// 发布引用与开放操作两个挡板位。保留窗口在 Go 侧按 history_rank/installed_at
-// 判定，便于 CLI 与未来管理端复用同一判据函数。
+// 发布引用（插件账本 + 主题账本）与开放操作两个挡板位。保留窗口在 Go 侧按
+// history_rank/installed_at 判定，便于 CLI 与未来管理端复用同一判据函数。
 const versionGCCandidatesSQL = `
 WITH historical AS (
 	SELECT v.id, v.extension_id, v.version, v.package_digest, v.package_path,
@@ -199,12 +217,20 @@ WITH historical AS (
 )
 SELECT h.extension_id, e.type, e.name, h.id, h.version, h.package_digest,
        h.package_path, h.installed_at, h.history_rank,
-       EXISTS (
-         SELECT 1 FROM plugin_runtime_publication_members m
-         WHERE m.extension_id = h.extension_id
-           AND m.extension_version_id = h.id
-           AND m.extension_version = h.version
-           AND m.package_digest = h.package_digest
+       (
+         EXISTS (
+           SELECT 1 FROM plugin_runtime_publication_members m
+           WHERE m.extension_id = h.extension_id
+             AND m.extension_version_id = h.id
+             AND m.extension_version = h.version
+             AND m.package_digest = h.package_digest
+         )
+         OR EXISTS (
+           SELECT 1 FROM theme_runtime_publications t
+           WHERE t.source_theme_id = h.extension_id
+             AND t.source_theme_version = h.version
+             AND t.source_package_digest = h.package_digest
+         )
        ) AS published,
        EXISTS (
          SELECT 1 FROM extension_lifecycle_operations o
@@ -524,8 +550,9 @@ func (s *PostgresStore) reclaimOneVersion(ctx context.Context, candidate Retired
 }
 
 // deleteReclaimableVersionRow 在单事务内锁行复核全部判据后删除版本行，并写
-// 回收锚点与审计事件。FK RESTRICT（例如锁内复核后仍漏网的发布引用）会让
-// DELETE 失败并整体回滚——这是最后一道 fail-closed 防线。
+// 回收锚点与审计事件。插件发布引用的复合 FK RESTRICT 会让 DELETE 失败并整体
+// 回滚——那是插件侧的最后一道 fail-closed 防线；主题发布账本没有 FK，下面的
+// 锁内复核就是它唯一的防线。
 func (s *PostgresStore) deleteReclaimableVersionRow(ctx context.Context, candidate RetiredVersionCandidate, bytesFreed int64, actorUserID int64, auditMode string) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -577,6 +604,21 @@ func (s *PostgresStore) deleteReclaimableVersionRow(ctx context.Context, candida
 		return fmt.Errorf("recheck publication members: %w", err)
 	}
 	if publishedMembers > 0 {
+		return &versionGCTargetDriftError{reason: VersionGCBlockedPublicationHistory}
+	}
+
+	// 主题发布账本没有 FK 背线：激活事务只锁 extensions 行、不锁 source 版本行，
+	// 所以删除前必须在锁内重新读一次账本（与上面插件复核同源判据）。
+	var themePublications int
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*) FROM theme_runtime_publications
+		WHERE source_theme_id = $1 AND source_theme_version = $2
+		  AND source_package_digest = $3
+	`, candidate.ExtensionID, candidate.Version, candidate.PackageDigest,
+	).Scan(&themePublications); err != nil {
+		return fmt.Errorf("recheck theme publication sources: %w", err)
+	}
+	if themePublications > 0 {
 		return &versionGCTargetDriftError{reason: VersionGCBlockedPublicationHistory}
 	}
 

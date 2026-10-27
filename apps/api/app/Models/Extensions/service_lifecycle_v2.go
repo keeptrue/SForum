@@ -706,7 +706,9 @@ func (s *serviceCore) finalizeLifecycleUninstall(
 		return UninstallResult{}, lifecycleCleanupFinalizationFailure(
 			operation.ID, LifecycleCleanupStepPhysicalPurge, err)
 	}
-	if cleanup.OperationID != operation.ID || cleanup.Status != "finalized" || !cleanup.PhysicalPurgeComplete {
+	// 收敛判据只看 durable 终态：identityRetained 的卸载物理身份仍在（publication 是
+	// append-only 证据），PhysicalPurgeComplete 只描述物理清理，不参与逻辑收敛判断。
+	if cleanup.OperationID != operation.ID || cleanup.Status != "finalized" {
 		return UninstallResult{}, lifecycleCleanupNotFinalized(operation.ID, true)
 	}
 	return UninstallResult{

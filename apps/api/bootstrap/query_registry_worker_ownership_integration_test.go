@@ -24,16 +24,17 @@ import (
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	"github.com/keeptrue/sforum/apps/api/config"
 	"github.com/keeptrue/sforum/apps/api/database/migrator"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestProductionQueryWorkerOwnershipAndSafeModeKindJoined(t *testing.T) {
-	baseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
+	baseURL := testdb.IsolatedURL(t)
 	redisAddress := strings.TrimSpace(os.Getenv("SFORUM_QUERY_CACHE_TEST_REDIS_ADDR"))
 	redisPassword := os.Getenv("SFORUM_QUERY_CACHE_TEST_REDIS_PASSWORD")
 	expectedRedisRunID := strings.TrimSpace(os.Getenv("SFORUM_QUERY_CACHE_JOINED_EXPECTED_REDIS_RUN_ID"))
 	ownershipToken := strings.TrimSpace(os.Getenv("SFORUM_QUERY_CACHE_JOINED_OWNERSHIP_TOKEN"))
 	seed := strings.TrimSpace(os.Getenv("SFORUM_QUERY_CACHE_JOINED_SEED"))
-	if baseURL == "" || redisAddress == "" || expectedRedisRunID == "" || ownershipToken == "" || seed == "" {
+	if redisAddress == "" || expectedRedisRunID == "" || ownershipToken == "" || seed == "" {
 		t.Skip("set the joined PostgreSQL and runner-owned Redis environment")
 	}
 	if !strings.HasSuffix(seed, "-"+ownershipToken) {

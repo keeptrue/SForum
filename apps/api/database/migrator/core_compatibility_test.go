@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestCoreUpgradeCompatibilityBlocksExactTrustedRawExtension(t *testing.T) {
@@ -37,10 +38,7 @@ func TestCoreUpgradeCompatibilityBlocksExactTrustedAdditiveKernelGrant(t *testin
 
 func assertCoreUpgradeCompatibilityLifecycle(t *testing.T, manifest, trustImpact string) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for core compatibility integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	// Prepare the shared schema at whatever release this checkout reports:

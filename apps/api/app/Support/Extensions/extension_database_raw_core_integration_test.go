@@ -18,6 +18,7 @@ import (
 
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const (
@@ -242,7 +243,7 @@ func TestPostgresExtensionDatabaseRuntimeLeaseKernelFirstIssueHardensRoutines(t 
 
 func TestPostgresExtensionDatabaseRuntimeLeasesSerializeAcrossProcesses(t *testing.T) {
 	ctx, pool := openExtensionDatabaseRawCoreTestPool(t)
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
+	databaseURL := testdb.IsolatedURL(t)
 	type processFixture struct {
 		artifact    ExtensionDatabaseArtifact
 		identifiers ExtensionDatabaseIdentifiers
@@ -329,7 +330,7 @@ func TestExtensionDatabaseRuntimeLeaseProcessHelper(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	pool, err := pgxpool.New(ctx, strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL")))
+	pool, err := pgxpool.New(ctx, testdb.RequireIsolatedURL(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -431,10 +432,7 @@ func TestPostgresExtensionDatabaseRawCoreLeaseRejectsForeignIdentity(t *testing.
 
 func openExtensionDatabaseRawCoreTestPool(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for raw Core integration tests")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	t.Cleanup(cancel)
 	pool, err := pgxpool.New(ctx, databaseURL)

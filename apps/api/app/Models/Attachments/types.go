@@ -219,6 +219,11 @@ type LocalSettings struct {
 type CleanupResult struct {
 	Deleted int `json:"deleted"`
 	Failed  int `json:"failed"`
+	// Skipped 是仍处于保留宽限期内的孤儿候选数：本次不动，到期后自动清理。
+	Skipped int `json:"skipped"`
+	// RetentionDays 是本次使用的保留宽限期天数，随结果下发，
+	// 免得只持有 attachment.manage 的账号为了拿天数去读 settings 端点。
+	RetentionDays int `json:"retentionDays"`
 }
 
 type ProbeResult struct {

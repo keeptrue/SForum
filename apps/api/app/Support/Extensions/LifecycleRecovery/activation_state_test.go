@@ -3,7 +3,6 @@ package lifecyclerecovery
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const activationRecoveryDDL = `
@@ -338,10 +339,7 @@ func TestRecoverInterruptedActivationsRefusesDriftedEvidence(t *testing.T) {
 // database can never be repaired by a test run.
 func newActivationRecoveryPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

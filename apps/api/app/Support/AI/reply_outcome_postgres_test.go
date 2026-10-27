@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	ai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 回复结果的读写面：写入一行、按时间倒序读回、按触发判幂等。
@@ -42,13 +42,7 @@ CREATE TABLE ai_reply_outcomes (
 
 func openReplyOutcomeSchema(t *testing.T) (*pgxpool.Pool, func()) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

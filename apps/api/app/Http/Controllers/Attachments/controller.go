@@ -59,7 +59,24 @@ type updateAttachmentRequest struct {
 }
 
 type cleanupRequest struct {
-	Limit int `json:"limit"`
+	// 指针是为了区分「没传」和「传了 0」：空 body 必须走 service 的默认归一化，
+	// 而不是被绑定零值顶成一次无意的批量删除。
+	Limit *int `json:"limit"`
+}
+
+// decodeCleanupRequest 解析清理请求：空 body 返回 0（由 service 归一成默认值），
+// 非法 JSON 显式 400。绝不把坏请求吞成零值后继续删数据。
+func decodeCleanupRequest(c fiber.Ctx) (int, error) {
+	if body := c.Body(); len(body) > 0 {
+		var req cleanupRequest
+		if err := c.Bind().Body(&req); err != nil {
+			return 0, fiber.NewError(fiber.StatusBadRequest, "attachments.cleanup_body_invalid")
+		}
+		if req.Limit != nil {
+			return *req.Limit, nil
+		}
+	}
+	return 0, nil
 }
 
 type attachmentDTO struct {
@@ -499,9 +516,11 @@ func (h *Controller) cleanupAdmin(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	var req cleanupRequest
-	_ = c.Bind().Body(&req)
-	result, err := h.service.Cleanup(c.Context(), actor, req.Limit)
+	limit, err := decodeCleanupRequest(c)
+	if err != nil {
+		return err
+	}
+	result, err := h.service.Cleanup(c.Context(), actor, limit)
 	if err != nil {
 		return mapAttachmentError(err)
 	}

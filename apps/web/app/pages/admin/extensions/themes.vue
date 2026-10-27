@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
 import { useAdminExtensionsManager } from '~/composables/admin/useAdminExtensionsManager'
+import { useExtensionRowMenu } from '~/composables/admin/useExtensionRowMenu'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import SFAdminExtensionEnableDialog from '~/components/admin/SFAdminExtensionEnableDialog.vue'
 import SFAdminExtensionUninstallDialog from '~/components/admin/SFAdminExtensionUninstallDialog.vue'
 import SFAdminExtensionHostActionsNotice from '~/components/admin/SFAdminExtensionHostActionsNotice.vue'
 import SFAdminExtensionIdentity from '~/components/admin/extensions/SFAdminExtensionIdentity.vue'
+import SFAdminExtensionPrimaryAction from '~/components/admin/extensions/SFAdminExtensionPrimaryAction.vue'
 import { useAdminListSurfaces } from '~/composables/admin/useAdminListSurfaces'
 import SFAdminThemeActivateDialog from '~/components/admin/SFAdminThemeActivateDialog.vue'
-import { extensionLocalizedDisplay, extensionManageRoute, extensionSettingsPresentation, filterExtensionsByType, isExtensionArtifactAvailable, themeActionState, themeStatusLabelKey } from '~/utils/admin/adminExtensions'
+import { extensionLocalizedDisplay, extensionSettingsPresentation, filterExtensionsByType, isExtensionArtifactAvailable, themeStatusLabelKey } from '~/utils/admin/adminExtensions'
+import { resolveExtensionUpdateState } from '~/utils/admin/extensions/updateState'
 
 definePageMeta({
   middleware: 'admin',
@@ -22,7 +24,6 @@ defineOptions({
 
 const { t, locale } = useI18n()
 const adminPage = useAdminPage('/extensions/themes')
-const adminRoutes = useAdminRoutes()
 const {
   extensions,
   pending,
@@ -97,6 +98,32 @@ async function refreshAll() {
   await updateSurfaces.refreshSurfaces()
 }
 
+const onlyWithUpdates = ref(false)
+const rowBadges = computed(() => new Map(themeRows.value.map(row => [row.item.id, updateSurfaces.badgesFor(row.item.id)])))
+
+// 命中条件 = 核心更新状态非空 或 商城徽章；制品缺失两者都不算。
+function hasUpdates(item: (typeof themes.value)[number]) {
+  // 制品缺失时任何应用动作都会失败，不计入「只看有更新」。
+  if (!isExtensionArtifactAvailable(item)) return false
+  return resolveExtensionUpdateState(item).kind !== 'none' || (rowBadges.value.get(item.id)?.length ?? 0) > 0
+}
+
+const updateCount = computed(() => themeRows.value.filter(row => hasUpdates(row.item)).length)
+const visibleRows = computed(() => onlyWithUpdates.value
+  ? themeRows.value.filter(row => hasUpdates(row.item))
+  : themeRows.value)
+const updateFilterAria = computed(() => updateCount.value > 0
+  ? t('admin.extensions.update.onlyWithUpdatesAria', { count: updateCount.value })
+  : t('admin.extensions.update.onlyWithUpdatesAriaEmpty'))
+
+const rowMenu = useExtensionRowMenu({
+  canUninstall: item => Boolean(item.isDeletable) && item.source !== 'builtin' && !item.isSystem && item.status !== 'enabled',
+  uninstall: openUninstallExtension
+})
+const rowMenus = computed(() => Object.fromEntries(
+  visibleRows.value.map(row => [row.item.id, rowMenu(row.item)])
+))
+
 useSeoMeta({
   title: t('admin.extensions.themes.metaTitle')
 })
@@ -115,9 +142,22 @@ useSeoMeta({
 
   <UDashboardToolbar class="border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-lg px-4 py-2.5 mb-6 text-slate-500 dark:text-zinc-400">
     <template #left>
-      <div class="flex min-w-0 items-center gap-2 text-sm">
-        <UIcon name="i-lucide-palette" class="size-4" />
-        <span class="truncate">{{ t('admin.extensions.themes.count', { count: themes.length }) }}</span>
+      <div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        <div class="flex min-w-0 items-center gap-2">
+          <UIcon name="i-lucide-palette" class="size-4" />
+          <span class="hidden truncate sm:inline">{{ t('admin.extensions.themes.count', { count: themes.length }) }}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <UIcon name="i-lucide-sparkles" class="size-4 shrink-0" aria-hidden="true" />
+          <span class="hidden whitespace-nowrap text-xs xl:inline">{{ t('admin.extensions.update.onlyWithUpdates') }}</span>
+          <USwitch
+            :model-value="onlyWithUpdates"
+            size="sm"
+            :aria-label="updateFilterAria"
+            :title="t('admin.extensions.update.onlyWithUpdatesHint')"
+            @update:model-value="onlyWithUpdates = Boolean($event)"
+          />
+        </div>
       </div>
     </template>
     <template #right>
@@ -172,11 +212,24 @@ useSeoMeta({
     <div v-if="themes.length === 0 && !pending" class="p-10">
       <SFEmptyState icon-label="THM" :title="t('admin.extensions.themes.emptyTitle')" :description="t('admin.extensions.themes.emptyDescription')" />
     </div>
+    <div v-else-if="visibleRows.length === 0" class="p-10">
+      <SFEmptyState
+        icon-label="OK"
+        :title="surfaceFailures.length
+          ? t('admin.extensions.update.noneInView')
+          : t('admin.extensions.update.allUpToDate')"
+        :description="surfaceFailures.length
+          ? t('admin.extensions.update.noneInViewDescription')
+          : t('admin.extensions.update.allUpToDateDescription', { count: themes.length })"
+        :action-label="t('admin.extensions.update.showAll')"
+        @action="onlyWithUpdates = false"
+      />
+    </div>
     <div v-else class="divide-y divide-slate-200 dark:divide-zinc-800">
       <div
-        v-for="{ item, display } in themeRows"
+        v-for="{ item, display } in visibleRows"
         :key="item.id"
-        class="grid gap-4 px-4 py-4 md:grid-cols-[1fr_auto]"
+        class="grid gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto]"
       >
         <div class="min-w-0">
           <SFAdminExtensionIdentity
@@ -185,12 +238,9 @@ useSeoMeta({
             :status-label="themeLabel(item)"
             :status-color="statusColor(item.status)"
             icon="i-lucide-palette"
-            :badges="updateSurfaces.badgesFor(item.id)"
+            :badges="rowBadges.get(item.id) || []"
           >
-            <template #badges>
-              <UBadge v-if="item.source === 'builtin'" color="primary" variant="subtle" icon="i-lucide-shield-check">
-                {{ t('admin.extensions.source.builtin') }}
-              </UBadge>
+            <template #status-badges>
               <UBadge
                 v-if="!isExtensionArtifactAvailable(item)"
                 color="error"
@@ -198,6 +248,11 @@ useSeoMeta({
                 icon="i-lucide-package-x"
               >
                 {{ t('admin.extensions.artifact.missing') }}
+              </UBadge>
+            </template>
+            <template #badges>
+              <UBadge v-if="item.source === 'builtin'" color="primary" variant="subtle" icon="i-lucide-shield-check">
+                {{ t('admin.extensions.source.builtin') }}
               </UBadge>
               <UBadge
                 v-if="item.pendingUninstallCleanup"
@@ -221,62 +276,28 @@ useSeoMeta({
             </template>
           </SFAdminExtensionIdentity>
         </div>
-        <div class="flex items-center gap-2">
-          <UButton
-            size="sm"
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-settings"
-            :to="isExtensionArtifactAvailable(item) ? adminRoutes.path(extensionManageRoute(item)) : undefined"
-            :disabled="!isExtensionArtifactAvailable(item)"
-            :title="!isExtensionArtifactAvailable(item) ? t('admin.extensions.artifact.actionUnavailable') : undefined"
+        <div class="flex flex-wrap items-center gap-1">
+          <SFAdminExtensionPrimaryAction
+            :extension="item"
+            :busy="busyId === item.id"
+            @activate="activateTheme(item)"
+          />
+          <UDropdownMenu
+            :items="rowMenus[item.id] || []"
+            :content="{ align: 'end' }"
           >
-            {{ t('admin.extensions.manage') }}
-          </UButton>
-          <UButton
-            v-if="themeActionState(item) === 'activateDefault'"
-            size="sm"
-            icon="i-lucide-rotate-ccw"
-            :disabled="!isExtensionArtifactAvailable(item)"
-            :loading="busyId === item.id"
-            @click="activateTheme(item)"
-          >
-            {{ t('admin.extensions.restoreDefaultTheme') }}
-          </UButton>
-          <UButton
-            v-else-if="themeActionState(item) === 'activate'"
-            size="sm"
-            icon="i-lucide-play"
-            :disabled="!isExtensionArtifactAvailable(item)"
-            :loading="busyId === item.id"
-            @click="activateTheme(item)"
-          >
-            {{ t('admin.extensions.activateTheme') }}
-          </UButton>
-          <UButton
-            v-else
-            size="sm"
-            color="neutral"
-            variant="subtle"
-            icon="i-lucide-refresh-cw"
-            :disabled="!isExtensionArtifactAvailable(item)"
-            :loading="busyId === item.id"
-            :title="t('admin.extensions.reactivateThemeHint')"
-            @click="activateTheme(item)"
-          >
-            {{ t('admin.extensions.reactivateTheme') }}
-          </UButton>
-          <UButton
-            v-if="item.isDeletable && item.source !== 'builtin' && !item.isSystem && item.status !== 'enabled'"
-            size="sm"
-            color="error"
-            variant="ghost"
-            icon="i-lucide-trash-2"
-            :loading="busyId === item.id"
-            @click="openUninstallExtension(item)"
-          >
-            {{ t('admin.extensions.uninstall') }}
-          </UButton>
+            <template #default="{ open }">
+              <UButton
+                icon="i-lucide-ellipsis"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :aria-label="t('admin.extensions.update.moreActions', { name: display.name })"
+                :title="t('admin.extensions.update.moreActions', { name: display.name })"
+                :aria-expanded="open"
+              />
+            </template>
+          </UDropdownMenu>
         </div>
       </div>
     </div>

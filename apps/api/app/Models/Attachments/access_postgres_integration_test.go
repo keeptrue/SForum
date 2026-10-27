@@ -2,7 +2,6 @@ package attachments
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -12,19 +11,15 @@ import (
 
 	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 这条测试补上「谓词拆分」与「读守卫 SQL」之间的接缝：匿名可读判定依赖
 // ReferenceAccess.ContentType，而 ContentType 由 ListReferenceAccess /
 // LoadReadGuardSubject 的 SQL 提供。单元测试用的是假 store，覆盖不到这段 SQL。
 func TestExtensionReferenceReadGuardFromPostgres(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

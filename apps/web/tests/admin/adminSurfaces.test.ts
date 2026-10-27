@@ -166,7 +166,8 @@ describe('admin list badges', () => {
       title: '可更新',
       tone: 'warning',
       icon: 'i-lucide-arrow-up-circle',
-      pageId: '/extensions/sforum.store'
+      pageId: '/extensions/sforum.store',
+      sourceExtensionId: 'sforum.store'
     }])
 
     // 列替换/隐藏或不可调用都不算「附加列」，不能渲染成徽章。

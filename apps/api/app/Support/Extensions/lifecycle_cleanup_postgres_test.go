@@ -171,7 +171,7 @@ func TestLifecycleCleanupPurgeReceiptRequiresExactPhysicalCompletion(t *testing.
 		IdentityPurged: true, PackagePurged: true, RuntimeRecoveryPurged: true,
 		DataDisposition: "exported_then_removed", Proof: json.RawMessage(`{"storage":"verified","secret":"must-not-persist"}`),
 	}
-	proof, digest, err := validateLifecycleCleanupPurgeReceipt(request, receipt)
+	proof, digest, err := ValidateLifecycleCleanupPurgeReceipt(request, receipt)
 	if err != nil || !json.Valid(proof) || !validLifecycleCleanupDigest(digest) {
 		t.Fatalf("valid receipt = %s %q %v", proof, digest, err)
 	}
@@ -195,7 +195,7 @@ func TestLifecycleCleanupPurgeReceiptRequiresExactPhysicalCompletion(t *testing.
 		t.Run(test.name, func(t *testing.T) {
 			actual := receipt
 			test.mutate(&actual)
-			if _, _, err := validateLifecycleCleanupPurgeReceipt(request, actual); !errors.Is(err, ErrLifecycleCleanupPurgeInvalid) {
+			if _, _, err := ValidateLifecycleCleanupPurgeReceipt(request, actual); !errors.Is(err, ErrLifecycleCleanupPurgeInvalid) {
 				t.Fatalf("error = %v", err)
 			}
 		})

@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const themeRestartE2EEnv = "SFORUM_THEME_RESTART_E2E"
@@ -24,10 +26,7 @@ func TestThemeSwitchSurvivesProductionAPIAndNitroRestartAndConcurrentActivation(
 	if os.Getenv(themeRestartE2EEnv) != "1" {
 		t.Skip(themeRestartE2EEnv + "=1 is required for the API/Nitro restart integration test")
 	}
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Fatal("SFORUM_TEST_DATABASE_URL is required when " + themeRestartE2EEnv + "=1")
-	}
+	databaseURL := testdb.RequireIsolatedURL(t)
 	requireThemeE2ECommand(t, "go")
 	requireThemeE2ECommand(t, "bun")
 	requireThemeE2ECommand(t, "node")

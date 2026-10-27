@@ -3,8 +3,6 @@ package aireply_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 读取层是提示词里身份信息的唯一来源：昵称错了只是难看，@用户名错了模型就会查错人。
@@ -83,13 +83,7 @@ func TestPostgresReaderRefusesNonPublicThreads(t *testing.T) {
 
 func newReplyReaderPostgresHarness(t *testing.T) (context.Context, *aireply.PostgresReader) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

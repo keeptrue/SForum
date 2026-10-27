@@ -45,6 +45,24 @@ export type AttachmentList = {
   perPage: number
 }
 
+export type AttachmentCleanupResult = {
+  deleted: number
+  failed: number
+  /** 宽限期内未处理、到期后自动清理的孤儿附件数；旧帧无此字段。 */
+  skipped?: number
+  /** 宽限期天数，随清理结果一起返回；旧帧无此字段。 */
+  retentionDays?: number
+}
+
+export type AttachmentRecountResult = {
+  lowered: number
+  raised: number
+  unchanged: number
+  applied: boolean
+  /** 受影响附件主键示例（最多 20 条）。 */
+  samples: number[]
+}
+
 export type AttachmentFilters = {
   query: string
   provider: string

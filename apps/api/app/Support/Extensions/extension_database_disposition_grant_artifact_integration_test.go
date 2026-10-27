@@ -2,13 +2,14 @@ package extensionsruntime
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // TestPostgresExtensionDatabaseDispositionToleratesStaleActiveGrant 固化
@@ -174,10 +175,7 @@ func assertStaleGrantShadowsArtifact(
 // 正整数 version_id，合成的旧身份就只能与目标撞车 —— 那会让用例静默失去意义。
 func burnExtensionVersionSequence(t *testing.T) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

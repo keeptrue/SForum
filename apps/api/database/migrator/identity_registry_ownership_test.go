@@ -3,20 +3,18 @@ package migrator
 import (
 	"context"
 	"database/sql"
-	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 const identityRegistryOwnershipVersion = int64(202607160028)
 
 func TestIdentityRegistryOwnershipMigrationExactCASAndHostApproval(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity registry ownership migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRegistryOwnershipBaseTables(t, ctx, db)
@@ -305,10 +303,7 @@ func TestIdentityRegistryOwnershipMigrationExactCASAndHostApproval(t *testing.T)
 }
 
 func TestIdentityRegistryOwnershipMigrationEmptyDownAndReapply(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity registry ownership migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRegistryOwnershipBaseTables(t, ctx, db)
@@ -326,10 +321,7 @@ func TestIdentityRegistryOwnershipMigrationEmptyDownAndReapply(t *testing.T) {
 }
 
 func TestIdentityRegistryOwnershipMigrationDownSeesConcurrentHistory(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for identity registry ownership migration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	db, provider := openIsolatedLifecycleLeaseMigrationDB(t, ctx, databaseURL)
 	seedIdentityRegistryOwnershipBaseTables(t, ctx, db)

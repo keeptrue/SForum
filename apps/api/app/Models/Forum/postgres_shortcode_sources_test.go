@@ -3,7 +3,6 @@ package forum
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -12,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 type shortcodeSourceQueryTracer struct {
@@ -62,13 +63,7 @@ func TestPostgresShortcodeSourcesVisibilityAndNoNPlusOne(t *testing.T) {
 
 func newPostgresShortcodeSourceHarness(t *testing.T) (context.Context, *PostgresStore, *shortcodeSourceQueryTracer) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

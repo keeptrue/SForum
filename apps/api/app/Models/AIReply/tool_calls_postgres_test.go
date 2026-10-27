@@ -3,8 +3,6 @@ package aireply_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 这一组把工具轨迹的落库形态钉在真实 PostgreSQL 上。内存 fake 证明不了三件事：
@@ -112,13 +112,7 @@ func TestPostgresToolCallsRequireTheProducedComment(t *testing.T) {
 
 func newToolCallPostgresHarness(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

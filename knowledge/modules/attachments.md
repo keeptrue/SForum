@@ -311,6 +311,24 @@ upload and presigned upload credentials are intentionally deferred.
 - Admin delete is soft delete. Orphan cleanup only physically deletes rows with
   `status = deleted`, `reference_count = 0`, and `deleted_at` older than
   `attachment.cleanup_orphan_after_days`.
+- **Cleanup result is explicit about what it did not do (2026-10-27)**:
+  `CleanupResult` carries `deleted`, `failed`, `skipped`, and `retentionDays`.
+  `skipped` counts zero-reference rows still inside the grace window
+  (`status <> 'deleted' AND created_at > cutoff`), so "deleted 0" is never
+  mistaken for "no orphans"; `retentionDays` repeats the configured window in
+  the response, so an operator holding only `attachment.manage` can explain the
+  wait without calling `GET /admin/attachment-settings` (which needs
+  `attachment.settings.manage`). Default window stays **30 days**.
+- Two different orphan scopes exist and must not be conflated:
+  the admin overview KPI counts `reference_count = 0 AND status <> 'deleted'`
+  (so it **includes `disabled` rows**), while cleanup only removes `deleted`
+  rows past `deleted_at` and `active` rows past `created_at`. A `disabled`
+  zero-reference row is therefore counted as an orphan but is never a cleanup
+  candidate — it stays until an operator acts.
+- The cleanup request body is decoded defensively (2026-10-27): `limit` is a
+  pointer, an empty body falls through to the service default, and malformed
+  JSON returns `400 attachments.cleanup_body_invalid` instead of being swallowed
+  into `limit = 0` (which the service normalizes to 100 rows of deletion).
 - Profile avatar replacement writes `attachment_references` with resource
   `user` and context `avatar`, decrementing the old avatar reference and
   incrementing the new one so referenced avatars are not orphan-cleaned.
@@ -383,10 +401,41 @@ Admin:
 - `PATCH /api/v1/admin/attachments/:id`
 - `DELETE /api/v1/admin/attachments/:id`
 - `POST /api/v1/admin/attachments/cleanup`
+- `POST /api/v1/admin/attachments/reconcile` (`attachment.manage`; body
+  `{dryRun}` defaults to a dry run when omitted)
 
 Public attachment DTOs omit storage-only fields such as object key and SHA-256.
 Admin DTOs include object key, checksum, visibility, deleted timestamp, and
 references for governance.
+
+## Reference Count Reconciliation (2026-10-27)
+
+`attachments.reference_count` stays correct because **write paths** maintain it:
+forum topic/comment writes replace reference rows and recount inside the same
+transaction, avatar/SEO/site replacements delete-then-decrement in one
+statement, and the extension claim path recounts under a per-extension advisory
+lock. There is no background recomputation.
+
+Historical drift can still exist (for example a row with `reference_count = 1`
+but no `attachment_references` row). Such a row is exempt from orphan cleanup
+forever and never shows up in any orphan count, so it is invisible debt.
+
+`Service.ReconcileReferenceCounts` is the only correction path:
+
+- operator-triggered only, `attachment.manage` at the service layer **and**
+  `permission_any` at the HTTP layer (catalog-generated route guard);
+- `dryRun` defaults to `true`, including for an empty request body, and a dry
+  run issues only `SELECT`s inside its transaction;
+- apply corrects only drifting rows (`WHERE a.reference_count <> live.actual`),
+  so repeated runs are idempotent; `updated_at` is touched only for those rows;
+- it returns `lowered` / `raised` / `unchanged` / `applied` / `samples`
+  (up to 20 drifting ids, ids only — no per-row before/after values).
+
+**Hard constraint: never call this from `cleanupOrphans` or any background
+job.** Historical content may legitimately have a stored count with no
+reference row (a live reference written before the reference table existed).
+Silently recounting would drop those counts to zero and let the retention
+window physically delete attachments that are still in use.
 
 ## Tests
 
@@ -410,6 +459,15 @@ Current focused coverage includes:
 - M6 attachment/mail focused tests, architecture validation, Nuxt typecheck,
   and production build pass. Full repository and browser closeout remain
   tracked in the architecture debt plan.
+- Reference-count reconciliation (2026-10-27): dry run leaves stored counts
+  untouched, apply restores the whole-table invariant
+  `reference_count == count(attachment_references)`, repeat runs are idempotent,
+  a missing permission yields `identity.ErrPermissionDenied`, and the
+  invariant helper is count-based so an empty table passes instead of silently
+  "passing" through `pgx.ErrNoRows`.
+- Cleanup request decoding (2026-10-27): an empty body falls through to the
+  service default, while malformed JSON returns 400 before the service is
+  reached (proved at handler level by a counting store).
 
 ## Next Steps
 

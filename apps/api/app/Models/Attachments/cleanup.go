@@ -29,7 +29,16 @@ func (s *Service) cleanupOrphans(ctx context.Context, limit int) (CleanupResult,
 	if err != nil {
 		return CleanupResult{}, err
 	}
-	result := CleanupResult{}
+	result := CleanupResult{RetentionDays: settings.CleanupOrphanAfterDays}
+	// 宽限期内未到期的孤儿候选不进候选列表，但要如实反馈条数：否则「删除 0 条」
+	// 会被读成「没有孤儿」。统计失败不阻断清理，Skipped 保持 0。
+	if deferred, ok := s.store.(interface {
+		CountDeferredCleanupCandidates(context.Context, time.Time) (int, error)
+	}); ok {
+		if count, countErr := deferred.CountDeferredCleanupCandidates(ctx, cutoff); countErr == nil {
+			result.Skipped = count
+		}
+	}
 	for _, item := range items {
 		adapter, err := s.adapterForSettings(ctx, settings, item.Provider)
 		if err != nil {

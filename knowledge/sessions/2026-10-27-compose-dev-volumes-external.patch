@@ -1,0 +1,15 @@
+--- a/compose.dev.yaml
++++ b/compose.dev.yaml
+@@ -123,3 +123,12 @@
+   web_node_modules:
+   attachment_uploads:
+   extension_packages:
++  # dev 组合复用已在服务的手动容器卷，避免再建一套 sforum_postgres_data / sforum_redis_data。
++  # 只写在这里：compose.yaml 的 postgres_data / redis_data 仍被生产
++  # （compose.prod.yaml + compose.release.yaml）继承，在那里改会打断 deploy.sh 的部署链路。
++  postgres_data:
++    external: true
++    name: sforum-postgres-pgdata
++  redis_data:
++    external: true
++    name: sforum-redis-data

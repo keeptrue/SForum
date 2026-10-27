@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +15,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 这一组用例存在的理由：论坛多附件写入长期只有「假 pgx.Tx」覆盖，唯一约束永远
@@ -201,13 +200,7 @@ type attachmentReferencePGFixture struct {
 func newAttachmentReferencePGFixture(t *testing.T) *attachmentReferencePGFixture {
 	t.Helper()
 
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		databaseURL = strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	}
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL or DATABASE_URL is required")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 
 	ctx := context.Background()
 	// 迁移链包含数据库级对象（sforum_core_v1 等稳定视图 schema），schema 隔离

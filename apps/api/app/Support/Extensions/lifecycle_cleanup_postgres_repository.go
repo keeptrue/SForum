@@ -194,6 +194,9 @@ func lifecycleCleanupBoundaryResult(record lifecycleCleanupRecord) LifecycleBoun
 			}
 			return ""
 		}(),
+		// IdentityRetained 在这里是墓碑创建时的语义（"还没 purge"），与 purge
+		// receipt 的 identityPurged（"这次 purge 物理身份被删了没有"）不是同一个
+		// 字段；两者在 retained 卸载的时序上互为镜像，不要合并。
 		IdentityRetained: true, PackageRetained: true, RuntimeRecoveryRetained: true,
 		RetentionMarker:  record.RetentionMarker.String,
 		ExportArtifactID: record.ExportArtifactID.String, ExportDigest: record.ExportDigest.String,

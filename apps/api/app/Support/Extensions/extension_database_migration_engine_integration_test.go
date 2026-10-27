@@ -18,6 +18,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestPostgresLifecycleMigrationEngineRunsConcurrentPlanOnce(t *testing.T) {
@@ -272,10 +274,7 @@ func TestPostgresLifecycleMigrationEngineRejectsPreexistingMigrationRoleAuthorit
 }
 
 func TestReleaseExtensionDatabaseMigrationLockDiscardsUnprovenSession(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for advisory lock integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	config, err := pgxpool.ParseConfig(databaseURL)
@@ -340,10 +339,7 @@ func newExtensionDatabaseMigrationEngineFixture(
 	transactionPolicy string,
 ) extensionDatabaseMigrationEngineFixture {
 	t.Helper()
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("DATABASE_URL is required for extension migration engine integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {

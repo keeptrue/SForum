@@ -3,18 +3,14 @@ package migrator
 import (
 	"context"
 	"database/sql"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 func TestStableCoreViewsProductionMigrationContract(t *testing.T) {
-	databaseURL := strings.TrimSpace(os.Getenv("SFORUM_TEST_DATABASE_URL"))
-	if databaseURL == "" {
-		t.Skip("SFORUM_TEST_DATABASE_URL is required for migrator integration test")
-	}
+	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
 	if err := Up(ctx, Config{DatabaseURL: databaseURL}); err != nil {
 		t.Fatalf("apply stable core views migration: %v", err)

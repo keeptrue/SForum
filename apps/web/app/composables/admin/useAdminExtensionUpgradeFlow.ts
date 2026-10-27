@@ -7,6 +7,7 @@ import {
   type AdminExtension
 } from '~/utils/admin/adminExtensions'
 import { executableTrustPath } from '~/utils/admin/extensions/lifecyclePresentation'
+import { resolveExtensionUpdateState } from '~/utils/admin/extensions/updateState'
 import type { ExecutableTrustChallenge, ExecutableTrustStatus } from '~/utils/extensions/extensionTrust'
 import type { ExtensionEnableTrustMode } from '~/utils/extensions/extensionTrust'
 
@@ -37,6 +38,8 @@ export function useAdminExtensionUpgradeFlow(options: AdminExtensionUpgradeFlowO
   const upgradeAllFailures = ref<string[]>([])
   const upgradeQueue = ref<string[]>([])
 
+  // 批量只处理「版本变高」的插件：同版本内容更新需要逐行决定重启时机，
+  // 主题激活会切换公开站点外观，两者都不能被「全部升级」带走。
   const upgradeCandidates = computed(() => extensionUpgradeCandidates(options.extensions.value))
 
   function resetUpgradeTrust() {
@@ -105,10 +108,15 @@ export function useAdminExtensionUpgradeFlow(options: AdminExtensionUpgradeFlowO
       })
       await options.refresh()
       if (!bulk) {
+        const updated = resolveExtensionUpdateState(item)
         toast.add({
           color: 'success',
           icon: 'i-lucide-package-check',
-          title: t('admin.extensions.upgraded'),
+          title: updated.kind === 'content'
+            ? t('admin.extensions.update.restartedToApply')
+            : t('admin.extensions.update.upgradedTo', {
+              version: item.stagedVersion?.version || item.version
+            }),
           duration: 5000
         })
       }

@@ -6,10 +6,13 @@ import {
   buildAttachmentListQuery,
   humanFileSize,
   type AdminAttachment,
+  type AttachmentCleanupResult,
   type AttachmentDetail,
   type AttachmentFilters,
-  type AttachmentList
+  type AttachmentList,
+  type AttachmentRecountResult
 } from '../model'
+import { cleanupOutcome, reconcilePreviewOutcome, reconcileSamplesText } from '../attachmentMaintenance'
 
 const { format: formatSiteDateTime } = useSiteDateTime()
 const { t } = useI18n()
@@ -19,6 +22,10 @@ const loadingAttachments = ref(false)
 const loadingDetail = ref(false)
 const selected = ref<AttachmentDetail | null>(null)
 const list = ref<AttachmentList>({ items: [], total: 0, page: 1, perPage: 20 })
+const reconciling = ref(false)
+const reconcileApplying = ref(false)
+const reconcileOpen = ref(false)
+const reconcilePreview = ref<AttachmentRecountResult | null>(null)
 const filters = reactive<AttachmentFilters>({
   query: '',
   provider: '',
@@ -101,21 +108,75 @@ async function deleteAttachment(item: AdminAttachment) {
 
 async function cleanupAttachments() {
   try {
-    const result = await request<{ deleted: number, failed: number }>('/admin/attachments/cleanup', {
+    const result = await request<AttachmentCleanupResult>('/admin/attachments/cleanup', {
       method: 'POST',
       body: { limit: 100 }
     })
+    const outcome = cleanupOutcome(result)
     toast.add({
-      color: result.failed > 0 ? 'warning' : 'success',
-      icon: result.failed > 0 ? 'i-lucide-triangle-alert' : 'i-lucide-check',
-      title: t('admin.attachments.cleanupFinished', result),
+      color: outcome.color,
+      icon: outcome.icon,
+      title: t(outcome.messageKey, outcome.params),
       duration: 5000
     })
     await fetchAttachments()
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.cleanupFailed') })
+    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.cleanupFailed'), duration: 0 })
   }
 }
+
+async function previewReconcile() {
+  reconciling.value = true
+  try {
+    const preview = await request<AttachmentRecountResult>('/admin/attachments/reconcile', {
+      method: 'POST',
+      body: { dryRun: true }
+    })
+    if (reconcilePreviewOutcome(preview) === 'noop') {
+      toast.add({ color: 'info', icon: 'i-lucide-check', title: t('admin.attachments.reconcileUpToDate'), duration: 5000 })
+      return
+    }
+    reconcilePreview.value = preview
+    reconcileOpen.value = true
+  } catch (error) {
+    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.reconcileFailed'), duration: 0 })
+  } finally {
+    reconciling.value = false
+  }
+}
+
+async function applyReconcile() {
+  reconcileApplying.value = true
+  try {
+    const result = await request<AttachmentRecountResult>('/admin/attachments/reconcile', {
+      method: 'POST',
+      body: { dryRun: false }
+    })
+    reconcileOpen.value = false
+    toast.add({
+      color: 'success',
+      icon: 'i-lucide-check',
+      title: t('admin.attachments.reconcileApplied', {
+        lowered: result.lowered,
+        raised: result.raised,
+        unchanged: result.unchanged
+      }),
+      duration: 5000
+    })
+    await fetchAttachments()
+  } catch (error) {
+    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.reconcileFailed'), duration: 0 })
+  } finally {
+    reconcileApplying.value = false
+  }
+}
+
+const samplesText = computed(() => reconcileSamplesText(reconcilePreview.value?.samples))
+
+/** 低频维护动作收进图标下拉：三个文字按钮会把这一列挤到换行甚至裁切。 */
+const maintenanceItems = computed(() => [[
+  { label: t('admin.attachments.reconcile'), icon: 'i-lucide-calculator', onSelect: () => { void previewReconcile() } }
+]])
 
 function replaceAttachment(item: AdminAttachment) {
   list.value.items = list.value.items.map(current => current.id === item.id ? item : current)
@@ -169,9 +230,22 @@ function isPreviewableImage(item: AdminAttachment) {
             <option value="referenced">{{ t('admin.attachments.referenced') }}</option>
             <option value="orphan">{{ t('admin.attachments.orphan') }}</option>
           </select>
-          <div class="flex gap-2">
+          <div class="flex items-center justify-end gap-2">
             <UButton color="primary" leading-icon="i-lucide-search" :loading="loadingAttachments" @click="applyFilters">{{ t('admin.attachments.filter') }}</UButton>
             <UButton color="neutral" variant="outline" leading-icon="i-lucide-trash-2" @click="cleanupAttachments">{{ t('admin.attachments.cleanup') }}</UButton>
+            <UDropdownMenu :items="maintenanceItems" :content="{ align: 'end' }">
+              <template #default="{ open }">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-wrench"
+                  :loading="reconciling"
+                  :aria-label="t('admin.attachments.maintenance')"
+                  :title="t('admin.attachments.maintenance')"
+                  :aria-expanded="open"
+                />
+              </template>
+            </UDropdownMenu>
           </div>
         </div>
       </template>
@@ -272,4 +346,38 @@ function isPreviewableImage(item: AdminAttachment) {
       <SFEmptyState v-else :title="t('admin.attachments.selectOne')" />
     </aside>
   </div>
+
+  <UModal v-model:open="reconcileOpen" :ui="{ content: 'sm:max-w-lg' }">
+    <template #content>
+      <div class="p-5">
+        <h3 class="text-base font-bold">
+          {{ t('admin.attachments.reconcileConfirmTitle') }}
+        </h3>
+        <p class="mt-2 text-sm text-slate-600 dark:text-zinc-300">
+          {{ t('admin.attachments.reconcileConfirmBody') }}
+        </p>
+        <dl class="mt-4 grid grid-cols-3 gap-3 text-center">
+          <div class="rounded-md border border-slate-200 p-3 dark:border-zinc-800">
+            <dt class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.attachments.reconcileLowered') }}</dt>
+            <dd class="mt-1 font-mono text-lg font-bold">{{ reconcilePreview?.lowered ?? 0 }}</dd>
+          </div>
+          <div class="rounded-md border border-slate-200 p-3 dark:border-zinc-800">
+            <dt class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.attachments.reconcileRaised') }}</dt>
+            <dd class="mt-1 font-mono text-lg font-bold">{{ reconcilePreview?.raised ?? 0 }}</dd>
+          </div>
+          <div class="rounded-md border border-slate-200 p-3 dark:border-zinc-800">
+            <dt class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.attachments.reconcileUnchanged') }}</dt>
+            <dd class="mt-1 font-mono text-lg font-bold">{{ reconcilePreview?.unchanged ?? 0 }}</dd>
+          </div>
+        </dl>
+        <p v-if="samplesText" class="mt-3 break-words text-xs text-slate-500 dark:text-zinc-400">
+          {{ t('admin.attachments.reconcileSamples', { ids: samplesText }) }}
+        </p>
+        <div class="mt-5 flex justify-end gap-2">
+          <UButton type="button" color="neutral" variant="ghost" @click="() => { reconcileOpen = false }">{{ t('admin.common.cancel') }}</UButton>
+          <UButton type="button" icon="i-lucide-calculator" :loading="reconcileApplying" @click="applyReconcile">{{ t('admin.attachments.reconcileApply') }}</UButton>
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>
