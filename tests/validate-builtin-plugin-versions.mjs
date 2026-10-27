@@ -176,7 +176,22 @@ if (write) {
 
 const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'))
 if (JSON.stringify(stableJSON(current)) !== JSON.stringify(stableJSON(baseline))) {
-  throw new Error('built-in plugin source contract drifted; bump every changed plugin version, then run: node tests/validate-builtin-plugin-versions.mjs --write')
+  // 报出「到底谁漂了」：只说 drifted 会逼下一个人自己跑 --write 再 diff 基线，
+  // 而共享运行时漂移（一个 proto 变更）和单个插件改源码的处理方式完全不同。
+  const drifted = []
+  if (baseline.sharedRuntimeDigest !== current.sharedRuntimeDigest) drifted.push('shared plugin runtime')
+  const baselinePlugins = baseline.plugins ?? {}
+  for (const [id, entry] of Object.entries(current.plugins)) {
+    const before = baselinePlugins[id]
+    if (!before) drifted.push(`${id} (new)`)
+    else if (before.sourceDigest !== entry.sourceDigest || before.version !== entry.version) {
+      drifted.push(`${id} (${before.version} -> ${entry.version})`)
+    }
+  }
+  for (const id of Object.keys(baselinePlugins)) {
+    if (!current.plugins[id]) drifted.push(`${id} (removed)`)
+  }
+  throw new Error(`built-in plugin source contract drifted (${drifted.join(', ') || 'baseline formatting'}); bump every changed plugin version, then run: node tests/validate-builtin-plugin-versions.mjs --write`)
 }
 
 const baseRef = process.env.SFORUM_BUILTIN_VERSION_BASE?.trim()
