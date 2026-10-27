@@ -85,4 +85,20 @@ if grep -Eq '^- (feat|fix):' "$TEMP_DIR/automatic.md"; then
   fail "conventional commit prefix was not removed"
 fi
 
+# 稳定版的「一键安装」必须与 README 同一行：releases/latest/download。
+# 预发布不能这么写（latest 指向最新稳定版），仍用版本化 URL，由上面的 alpha 用例守住。
+git -C "$TEMP_DIR" tag -a v3.0.0 -m 'SForum 3.0.0'
+(
+  cd "$TEMP_DIR"
+  GITHUB_REPOSITORY=keeptrue/SForum \
+    "$ROOT_DIR/scripts/ci/generate-release-notes.sh" v3.0.0 "$TEMP_DIR/stable.md"
+)
+grep -Fq 'curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash' "$TEMP_DIR/stable.md" \
+  || fail "stable notes must use the README one-line install entry"
+grep -Fq 'curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade' "$TEMP_DIR/stable.md" \
+  || fail "stable notes must use the README one-line update entry"
+if grep -Fq 'releases/download/v3.0.0/sforum-install.sh' "$TEMP_DIR/stable.md"; then
+  fail "stable notes must not pin the install loader to the versioned release path"
+fi
+
 printf 'generate-release-notes_test.sh: all checks passed\n'

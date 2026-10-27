@@ -30,6 +30,15 @@ if [ -z "${GITHUB_REPOSITORY:-}" ]; then
 fi
 
 release_commit="$(git rev-parse "refs/tags/$release_tag^{commit}")"
+# 稳定版用 README 里的简短一键入口（releases/latest/download）；预发布不能这么写，
+# 因为 `latest` 永远指向最新稳定版，会把预发布说明变成「装稳定版」的入口。
+if [[ "$release_tag" == *-* ]]; then
+  install_url="$repository_url/releases/download/$release_tag/sforum-install.sh"
+  install_label="this release"
+else
+  install_url="$repository_url/releases/latest/download/sforum-install.sh"
+  install_label="latest stable, same one-liner as the README"
+fi
 previous_tag="$(git describe --tags --abbrev=0 "$release_commit^" 2>/dev/null || true)"
 tag_notes="$(git for-each-ref --format='%(contents:body)' "refs/tags/$release_tag")"
 temp_file="$(mktemp "${TMPDIR:-/tmp}/sforum-release-notes.XXXXXX")"
@@ -60,10 +69,10 @@ printf '\n---\n\n## Installation\n\n**Docker images:**\n\n```bash\n' >> "$temp_f
 for image in api migrate web; do
   printf 'docker pull ghcr.io/keeptrue/sforum-%s:%s\n' "$image" "$release_tag" >> "$temp_file"
 done
-printf '```\n\n**One-line install (this release):**\n\n```bash\n' >> "$temp_file"
-printf 'curl -fsSL %s/releases/download/%s/sforum-install.sh | bash\n' "$repository_url" "$release_tag" >> "$temp_file"
+printf '```\n\n**One-line install (%s):**\n\n```bash\n' "$install_label" >> "$temp_file"
+printf 'curl -fsSL %s | bash\n' "$install_url" >> "$temp_file"
 printf '```\n\n**One-line update (does not trust the local bootstrap):**\n\n```bash\n' >> "$temp_file"
-printf 'curl -fsSL %s/releases/download/%s/sforum-install.sh | bash -s -- upgrade\n' "$repository_url" "$release_tag" >> "$temp_file"
+printf 'curl -fsSL %s | bash -s -- upgrade\n' "$install_url" >> "$temp_file"
 printf '```\n\n**Update an existing installation with a verified bootstrap:**\n\n```bash\n(\n  set -eu\n  cd /path/to/sforum\n' >> "$temp_file"
 printf '  bootstrap_dir="$(mktemp -d .sforum-bootstrap.XXXXXX)"\n' >> "$temp_file"
 printf "  trap 'rm -rf \"\$bootstrap_dir\"' EXIT HUP INT TERM\n" >> "$temp_file"
