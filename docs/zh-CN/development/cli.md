@@ -37,6 +37,9 @@ go run ./cmd/sforum --version
 | `extension disable` / `disable-all` | 带外禁用第三方扩展 |
 | `extension quarantine` | 带外隔离精确的内置/系统制品 |
 | `extension recovery lifecycle-close` | 带外把一条开放 lifecycle operation 推进到 cancelled 终态（审计落库） |
+| `extension recovery activation-state` | 把中断的 activation 发布恢复到精确源制品（只按 durable 证据修复，条件漂移即 no-op） |
+| `extension recovery recheck` | 重建期望的插件运行时全集并与最新发布精确比对，一致时推进 `reason=recovery` 修订（不热恢复） |
+| `recovery` | 顶层带外恢复入口，与 `extension recovery` 共享同一套子命令 |
 | `extension gc` | 版本垃圾回收：默认 dry-run 清单 + 一次性 token 执行（先盘后账、审计落库） |
 | `extension command list/run` | 列出 / 运行已信任插件命令 |
 | `extension api-lts` | 打印 Host/Frontend API LTS 与 shim 遥测 |
@@ -332,6 +335,23 @@ go run ./cmd/sforum extension quarantine <extension-id> \
 ：所有 step lease 均已过期的孤儿操作会在 genesis 重试与 coordinator 轮询
 时被宿主推进到 cancelled（`extension.lifecycle_orphan_reclaim` 审计），
 无需人工干预。
+
+`recovery` 是同一套带外恢复子命令的顶层入口：`sforum recovery <subcommand>`
+与 `sforum extension recovery <subcommand>` 完全等价，事故现场可以少敲一段。
+两条路径都只读 durable 行，不启动主进程、不加载插件代码。
+
+`extension recovery activation-state` 处理「state 事务已提交 target、
+publication 未提交」的中断窗口：它和 API 启动修复调用同一个 collaborator，
+只按 durable 证据把发布恢复到精确源制品，条件一旦漂移就 no-op。`--limit`
+限制单次检查的候选数量（0 表示默认），`--json` 输出恢复明细（operation、
+扩展、state publication、from/to 版本与审计事件 ID）。
+
+`extension recovery recheck --reason "<原因>"` 是 recovery-only 的显式复核
+通道：从 durable 行重建期望的插件运行时全集，与最新不可变发布精确比对；完全
+一致时推进一条 `reason=recovery` 的不可变 revision，不一致时原样列出每个不符
+制品并非零退出，绝不「尽力修」。它只把「该重新收敛了」写成 durable 事实，
+**不热恢复**：运行中的进程仍是 recovery-only，生效点在进程下一次启动。
+`--reason` 必填并落审计（≤4096 字节）。
 
 ### 版本垃圾回收 — `gc`
 

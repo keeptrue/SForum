@@ -8,6 +8,19 @@ const loginRoutePath = 'apps/web/app/pages/login.vue';
 const registerFormPath = 'apps/web/app/components/identity/SFRegisterFormPage.vue';
 const loginFormPath = 'apps/web/app/components/identity/SFLoginFormPage.vue';
 const adminUsersToolbarPath = 'apps/web/app/components/admin/identity/users/SFAdminUserListToolbar.vue';
+// 用户管理已按路由壳 + 领域组件拆分：权限文案、分页、PATCH 保存与客户端 IP
+// 清理分别落在 users/ 组件与 admin/identity composable 里，校验必须覆盖真实
+// 拥有这些行为的文件，而不是逼着路由壳把实现字符串搬回来。
+const adminUserFeatureDir = 'apps/web/app/components/admin/identity/users';
+const adminUserFeaturePaths = [
+  'apps/web/app/composables/admin/identity/useAdminUserList.ts',
+  'apps/web/app/composables/admin/identity/useAdminUserDetailEditor.ts',
+  'apps/web/app/composables/admin/identity/useAdminUserSecurity.ts',
+  ...fs.readdirSync(path.resolve(root, adminUserFeatureDir))
+    .filter(name => name.endsWith('.vue'))
+    .sort()
+    .map(name => `${adminUserFeatureDir}/${name}`)
+];
 const adminRoleGroupsTabPath = 'apps/web/app/components/admin/identity/roles/tabs/SFAdminRoleGroupsTab.vue';
 const requiredFiles = [
   'apps/web/app/composables/identity/useAuthSession.ts',
@@ -81,6 +94,10 @@ const adminRolesPage = fs.readFileSync(path.resolve(root, 'apps/web/app/pages/ad
 const adminPermissionsPage = fs.readFileSync(path.resolve(root, 'apps/web/app/pages/admin/permissions.vue'), 'utf8');
 const adminRoleGroupsTab = fs.readFileSync(path.resolve(root, adminRoleGroupsTabPath), 'utf8');
 const adminRolesSurface = `${adminRolesPage}\n${adminRoleGroupsTab}`;
+const adminUsersSurface = [
+  adminUsersPage,
+  ...adminUserFeaturePaths.map(file => fs.readFileSync(path.resolve(root, file), 'utf8'))
+].join('\n');
 
 for (const [name, content] of [
   ['admin/users.vue', adminUsersPage],
@@ -99,7 +116,7 @@ for (const [name, content] of [
 }
 
 for (const [name, content] of [
-  ['admin/users.vue', adminUsersPage],
+  ['admin/users.vue', adminUsersSurface],
   ['admin/roles.vue', `${adminRolesPage}\n${adminRoleGroupsTab}`],
   ['admin/permissions.vue', adminPermissionsPage]
 ]) {
@@ -111,22 +128,22 @@ for (const [name, content] of [
   }
 }
 
-if (!adminUsersPage.includes('/permission-overrides')) {
+if (!adminUsersSurface.includes('/permission-overrides')) {
   throw new Error('Admin users page should manage per-user permission overrides');
 }
-if (!adminUsersPage.includes('DEFAULT_PER_PAGE = 20')) {
+if (!adminUsersSurface.includes('DEFAULT_PER_PAGE = 20')) {
   throw new Error('Admin users page should page users 20 per page');
 }
-if (!adminUsersPage.includes('UPagination')) {
+if (!adminUsersSurface.includes('UPagination')) {
   throw new Error('Admin users page should render pagination controls');
 }
-if (!adminUsersPage.includes("method: 'PATCH'")) {
+if (!adminUsersSurface.includes("method: 'PATCH'")) {
   throw new Error('Admin users page should PATCH account/profile fields');
 }
-if (!adminUsersPage.includes('saveAccount') || !adminUsersPage.includes('saveProfile')) {
+if (!adminUsersSurface.includes('saveAccount') || !adminUsersSurface.includes('saveProfile')) {
   throw new Error('Admin users page should expose account and profile save actions');
 }
-if (!adminUsersPage.includes('client-ips/clear')) {
+if (!adminUsersSurface.includes('client-ips/clear')) {
   throw new Error('Admin users page should support clearing stored client IPs');
 }
 if (!adminRolesSurface.includes('/permissions')) {

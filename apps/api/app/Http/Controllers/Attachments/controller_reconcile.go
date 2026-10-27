@@ -23,7 +23,7 @@ func decodeReconcileRequest(c fiber.Ctx) (bool, error) {
 	if body := c.Body(); len(body) > 0 {
 		var req reconcileRequest
 		if err := c.Bind().Body(&req); err != nil {
-			return false, fiber.NewError(fiber.StatusBadRequest, "attachments.reconcile_body_invalid")
+			return false, fiber.NewError(fiber.StatusBadRequest, "attachment.reconcile_body_invalid")
 		}
 		if req.DryRun != nil {
 			return *req.DryRun, nil
@@ -46,7 +46,7 @@ func (h *Controller) reconcileAdmin(c fiber.Ctx) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, attachments.ErrReferenceReconcileUnsupported):
-			return fiber.NewError(fiber.StatusUnprocessableEntity, "attachments.reconcile_unsupported")
+			return fiber.NewError(fiber.StatusUnprocessableEntity, "attachment.reconcile_unsupported")
 		default:
 			return mapAttachmentError(err)
 		}

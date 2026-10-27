@@ -70,7 +70,7 @@ func decodeCleanupRequest(c fiber.Ctx) (int, error) {
 	if body := c.Body(); len(body) > 0 {
 		var req cleanupRequest
 		if err := c.Bind().Body(&req); err != nil {
-			return 0, fiber.NewError(fiber.StatusBadRequest, "attachments.cleanup_body_invalid")
+			return 0, fiber.NewError(fiber.StatusBadRequest, "attachment.cleanup_body_invalid")
 		}
 		if req.Limit != nil {
 			return *req.Limit, nil

@@ -38,6 +38,9 @@ go run ./cmd/sforum --version
 | `extension disable` / `disable-all` | Out-of-band disable of third-party extensions |
 | `extension quarantine` | Out-of-band quarantine of an exact built-in/system artifact |
 | `extension recovery lifecycle-close` | Out-of-band close of one open lifecycle operation to the cancelled terminal state (audited) |
+| `extension recovery activation-state` | Restore an interrupted activation publication to its exact source artifact (durable evidence only; no-op when conditions drift) |
+| `extension recovery recheck` | Rebuild the desired plugin runtime full set, compare it with the latest publication, and publish a `reason=recovery` revision on an exact match (no hot recovery) |
+| `recovery` | Top-level out-of-band recovery entry sharing the same subcommands as `extension recovery` |
 | `extension gc` | Version garbage collection: dry-run candidate list by default plus one-time-token execution (disk-first, audited) |
 | `extension command list/run` | List / run trusted plugin commands |
 | `extension api-lts` | Print Host/Frontend API LTS and shim telemetry |
@@ -361,6 +364,30 @@ the API afterwards to resume convergence. The startup path also reclaims
 automatically: orphan operations whose every step lease has expired are
 advanced to `cancelled` by the host during genesis retries and coordinator
 polls (`extension.lifecycle_orphan_reclaim` audit), no manual step required.
+
+`recovery` is the top-level entry for the same out-of-band subcommands:
+`sforum recovery <subcommand>` is equivalent to
+`sforum extension recovery <subcommand>`, which shortens the command at an
+incident scene. Both paths only read durable rows; neither starts the main
+process nor loads plugin code.
+
+`extension recovery activation-state` handles the interruption window where
+the state transaction already committed its target while the publication did
+not: it calls the same collaborator as the API startup repair and restores the
+publication to its exact source artifact from durable evidence only, turning
+into a no-op as soon as conditions drift. `--limit` caps the candidates
+inspected in one run (0 means the default) and `--json` prints the recovered
+operations (extension, state publication, from/to versions, audit event ID).
+
+`extension recovery recheck --reason "<why>"` is the explicit recheck channel
+for recovery-only: it rebuilds the desired plugin runtime full set from durable
+rows and compares it with the latest immutable publication. On an exact match
+it publishes a new immutable `reason=recovery` revision; on any mismatch it
+prints every offending artifact and exits non-zero instead of "fixing" it. The
+command only records "re-converge" as a durable fact — it does **not** hot
+recover: the running process stays in recovery-only and the Host applies the
+revision at its next process start. `--reason` is required and audited
+(≤4096 bytes).
 
 ### Version garbage collection — `gc`
 
