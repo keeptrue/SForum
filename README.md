@@ -99,14 +99,17 @@ Full steps: [docs/zh-CN/getting-started.md](./docs/zh-CN/getting-started.md) or 
 
 ## Production
 
-One line installs the latest stable Release into `./sforum`:
+One line installs the latest stable Release. It asks for the install directory
+first — the default is `./sforum`, shown as an absolute path — and prints that
+path again once the install succeeds:
 
 ```sh
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-`SFORUM_INSTALL_DIR` or `-d DIR` changes the target, `--version <TAG>` pins an
-immutable tag, and `--yes` skips prompts. The loader resolves the tag, verifies
+`SFORUM_INSTALL_DIR` or `-d DIR` sets the target without asking,
+`SFORUM_NONINTERACTIVE=1` never prompts, `--version <TAG>` pins an immutable tag,
+and `--yes` skips prompts. The loader resolves the tag, verifies
 that tag's `sforum-bootstrap.sh` against `SHA256SUMS` (plus GitHub build
 provenance when `gh` is available), promotes it, and hands off. The bootstrap
 then refreshes the complete matching deploy toolkit before the install wizard

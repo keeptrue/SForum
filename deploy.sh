@@ -169,6 +169,9 @@ t() {
       verifying) echo "Checking API, Web, and all managed services..." ;;
       recovery_required) echo "Deployment did not complete after the old app stopped. Services were not declared healthy; inspect .deployrc and Docker logs before retrying." ;;
       version) echo "Release version" ;;
+      install_dir) echo "Install directory:" ;;
+      config_file) echo "Configuration file:" ;;
+      backup_dir) echo "Backup directory:" ;;
       web_proxy) echo "Reverse proxy Web target:" ;;
       api_proxy) echo "Reverse proxy API/WebSocket target:" ;;
       access_url) echo "Site access URL:" ;;
@@ -213,6 +216,9 @@ t() {
       verifying) echo "正在检查 API、Web 和全部内置服务..." ;;
       recovery_required) echo "旧应用停止后部署未能完成。当前服务未被声明为健康；重试前请检查 .deployrc 和 Docker 日志。" ;;
       version) echo "发布版本" ;;
+      install_dir) echo "安装目录：" ;;
+      config_file) echo "配置文件：" ;;
+      backup_dir) echo "备份目录：" ;;
       web_proxy) echo "反代 Web 目标地址：" ;;
       api_proxy) echo "反代 API/WebSocket 目标地址：" ;;
       access_url) echo "站点访问地址：" ;;
@@ -525,7 +531,8 @@ persist_successful_state() {
   local temp_file
   umask 077
   temp_file="$(mktemp "$ROOT_DIR/.deployrc.XXXXXX")"
-  printf 'lang=%s\nversion=%s\nmode=release\n' "$LANGUAGE" "$RELEASE_VERSION" > "$temp_file"
+  printf 'lang=%s\nversion=%s\nmode=release\ninstall_dir=%s\n' \
+    "$LANGUAGE" "$RELEASE_VERSION" "$ROOT_DIR" > "$temp_file"
   chmod 600 "$temp_file"
   mv -f "$temp_file" "$DEPLOY_RC"
 }
@@ -537,8 +544,8 @@ persist_recovery_state() {
   local temp_file
   umask 077
   temp_file="$(mktemp "$ROOT_DIR/.deployrc.XXXXXX")"
-  printf 'lang=%s\nstatus=recovery_required\nattempted_version=%s\nprevious_version=%s\nreason=%s\nbackup=%s\n' \
-    "$LANGUAGE" "$RELEASE_VERSION" "$previous_version" "$reason" "$backup_file" > "$temp_file"
+  printf 'lang=%s\nstatus=recovery_required\nattempted_version=%s\nprevious_version=%s\nreason=%s\nbackup=%s\ninstall_dir=%s\n' \
+    "$LANGUAGE" "$RELEASE_VERSION" "$previous_version" "$reason" "$backup_file" "$ROOT_DIR" > "$temp_file"
   chmod 600 "$temp_file"
   mv -f "$temp_file" "$DEPLOY_RC"
 }
@@ -554,6 +561,24 @@ acquire_deploy_lock() {
 release_deploy_lock() {
   rmdir "$DEPLOY_LOCK_DIR" 2>/dev/null || true
   trap - EXIT HUP INT TERM
+}
+
+# Absolute paths first: an operator should never have to guess where the
+# installation, its configuration, and its backups actually live.
+print_install_location() {
+  local recorded
+  printf '%s %s\n' "$(t install_dir)" "$ROOT_DIR"
+  printf '%s %s\n' "$(t config_file)" "$ROOT_DIR/.env.production"
+  printf '%s %s\n' "$(t backup_dir)" "$ROOT_DIR/backups"
+  recorded="$(rc_value install_dir)"
+  if [ -n "$recorded" ] && [ "$recorded" != "$ROOT_DIR" ]; then
+    if [ "$LANGUAGE" = en ]; then
+      printf 'Note: .deployrc records %s but the current directory is %s\n' \
+        "$recorded" "$ROOT_DIR"
+    else
+      printf '注意：.deployrc 记录为 %s，当前目录是 %s\n' "$recorded" "$ROOT_DIR"
+    fi
+  fi
 }
 
 print_access_urls() {
@@ -644,6 +669,7 @@ deploy_update() {
   "${COMPOSE[@]}" ps || true
   persist_successful_state
   release_deploy_lock
+  print_install_location
   print_access_urls
   t success
 }
@@ -672,7 +698,7 @@ restore_backup() {
   release_deploy_lock
 }
 
-show_status() { preflight; "${COMPOSE[@]}" ps; }
+show_status() { preflight; print_install_location; "${COMPOSE[@]}" ps; }
 show_logs() { preflight; "${COMPOSE[@]}" logs -f --tail=200; }
 restart_services() {
   acquire_deploy_lock
@@ -681,6 +707,7 @@ restart_services() {
   wait_for_deployment
   verify_services_running
   "${COMPOSE[@]}" ps
+  print_install_location
   print_access_urls
   release_deploy_lock
 }

@@ -150,7 +150,9 @@ online_update blue v3.0.0-alpha.10 v3.0.0-alpha.11 > "$TEMP_DIR/success.out"
 assert_contains "$DEPLOY_RC" 'active_slot=green'
 assert_contains "$DEPLOY_RC" 'version=v3.0.0-alpha.11'
 assert_contains "$DEPLOY_RC" 'green_version=v3.0.0-alpha.11'
+assert_contains "$DEPLOY_RC" "install_dir=$ROOT_DIR"
 assert_not_contains "$DEPLOY_RC" 'version=latest'
+assert_contains "$TEMP_DIR/success.out" "Install directory: $ROOT_DIR"
 assert_contains "$LOG_FILE" 'remove legacy workers'
 assert_contains "$LOG_FILE" 'stop web-blue api-blue'
 

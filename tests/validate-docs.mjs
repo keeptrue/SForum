@@ -597,6 +597,7 @@ function validateDeploymentGuides() {
       './upgrade.sh',
       '--confirm-maintenance',
       '.deployrc',
+      'SFORUM_NONINTERACTIVE',
     ],
     'deployment/manual.md': [
       'docker compose',

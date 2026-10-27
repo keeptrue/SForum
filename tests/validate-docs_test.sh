@@ -78,6 +78,7 @@ curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/late
 ./upgrade.sh
 --confirm-maintenance
 .deployrc
+SFORUM_NONINTERACTIVE=1
 EOF
     cat > "$dir/docs/$locale/deployment/manual.md" <<'EOF'
 # Manual

@@ -47,19 +47,42 @@ sforum-latest.sh            ──> sforum-bootstrap.sh upgrade
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-装到 `./sforum`；目录里已有 `.env.production` 和带版本记录的 `.deployrc` 时自动
-转成 upgrade。`-d DIR` 或 `SFORUM_INSTALL_DIR` 改目录，`--version <TAG>` 固定
-版本，`--channel prerelease` 选预发布，`--yes` 跳过确认。在已有安装目录里不信任
-本地 bootstrap 时：
+它会先问安装目录（默认 `./sforum`，提示里显示绝对路径），回车即用默认值；目录里
+已有 `.env.production` 和带版本记录的 `.deployrc` 时自动转成 upgrade。
+`-d DIR` 或 `SFORUM_INSTALL_DIR` 直接指定目录并跳过询问，`--version <TAG>` 固定
+版本，`--channel prerelease` 选预发布，`--yes` 跳过确认，
+`SFORUM_NONINTERACTIVE=1` 全链路不询问（目录用默认值，并向 bootstrap 传 `--yes`）。
+在已有安装目录里不信任本地 bootstrap 时：
 
 ```sh
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
 ```
 
-loader 只做四件事：解析不可变标签、下载该标签的 `sforum-bootstrap.sh` 与
-`SHA256SUMS`、按精确文件名字段校验（可选 `gh attestation verify` 与
-`SFORUM_INSTALL_SHA256` pin）、`install -m 0755` 落盘后 `exec` 交给 bootstrap。
-它不读写 `.env.production`、`.deployrc`、`deploy/runtime/` 或数据卷。
+#### 安装目录
+
+提示长这样，方括号里就是绝对路径：
+
+```text
+SForum 安装目录
+  当前目录：/srv/apps
+  安装目录 [ /srv/apps/sforum ]:
+```
+
+- 回车 → 用方括号里的默认值；相对路径以当前目录为基准，`~/` 会展开。
+- `/`、已存在的普通文件、没有写权限的位置会被拒绝并重新询问。
+- 目标非空且不是安装目录时，追加一次 `仍要安装到这里？[y/N]`，默认否；答否会
+  回到目录询问，而不是终止安装。
+- 当前目录本身已是安装目录时，默认值就是当前目录，不会嵌套出第二层 `./sforum`。
+- 非交互场景（`--yes`、`SFORUM_NONINTERACTIVE=1`、没有终端）不询问，直接使用
+  默认值或 `--dir` 指定的目录，并同样打印 `安装目录：/绝对路径`。
+- 安装或更新成功后，`deploy.sh` / `upgrade.sh` 会再次打印安装目录、配置文件、
+  备份目录和访问地址；`./deploy.sh --action status` 也显示同样三条路径。
+
+loader 的职责仍然很窄：确认安装目录（不写任何安装状态）、解析不可变标签、下载该
+标签的 `sforum-bootstrap.sh` 与 `SHA256SUMS`、按精确文件名字段校验（可选
+`gh attestation verify` 与 `SFORUM_INSTALL_SHA256` pin）、`install -m 0755` 落盘
+后 `exec` 交给 bootstrap。它只读取 `.env.production` / `.deployrc` 是否存在与其中
+的版本号来判断 install 还是 upgrade，从不修改它们、`deploy/runtime/` 或数据卷。
 
 首层 loader 的字节本身没有校验，这是 `get.docker.com` / rustup 同级的取舍；补偿
 手段是可逐行审计的小体积、`SFORUM_INSTALL_SHA256` pin、bootstrap 的自校验，以及

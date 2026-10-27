@@ -673,7 +673,14 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **首页右栏问候语按时段生成（2026-10-27，最新）**：`晚上好，{name}` 不再写死，
+- **交互式安装目录（2026-10-27，最新）**：一行 loader 先问安装目录（默认
+  `./sforum`，提示与回显都是绝对路径；当前目录已是安装目录时默认当前目录），
+  `-d`/`SFORUM_INSTALL_DIR` 跳过询问，新增 `SFORUM_NONINTERACTIVE=1` 全链路不问。
+  `deploy.sh`/`upgrade.sh` 成功与 `status` 打印安装目录、配置文件、备份目录，
+  `.deployrc` 记录 `install_dir=`。见
+  `knowledge/sessions/2026-10-27-interactive-install-directory.md`；决策
+  `knowledge/decisions/2026-10-27-interactive-install-directory.md`。
+- **首页右栏问候语按时段生成（2026-10-27）**：`晚上好，{name}` 不再写死，
   `utils/forum/forumHomeGreeting.ts` 分五档（05 早 / 11 中 / 13 下 / 18 晚 / 23 深夜），
   `useForumHomeGreeting` 在 SSR 用站点时区、挂载后改用访客本地时区，`useState` 钉首帧
   避免水合不一致；`welcomeUserTitle` 降级为缺键兜底。见

@@ -39,7 +39,9 @@ PostgreSQL 和 Redis。只支持 Linux `amd64`/`arm64`，不支持 Windows。对
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-`SFORUM_INSTALL_DIR` 或 `-d DIR` 改安装目录，`--version <TAG>` 固定版本，
+它会先询问安装目录（默认 `./sforum`，提示里显示绝对路径），回车即用默认值。
+`SFORUM_INSTALL_DIR` 或 `-d DIR` 直接指定目录并跳过询问，
+`SFORUM_NONINTERACTIVE=1` 全链路不询问，`--version <TAG>` 固定版本，
 `--yes` 跳过确认。这个地址始终指向最新稳定 Release，不需要维护版本号。
 loader 先解析不可变标签、校验该标签的 `sforum-bootstrap.sh`，再把控制权交给
 它；bootstrap 随后刷新同一目标版本的完整部署工具包。安装向导会逐项解释

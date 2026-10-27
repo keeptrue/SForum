@@ -466,6 +466,7 @@ main() {
 
   parse_args "$@"
   detect_action
+  printf '安装目录: %s\n' "$ROOT_DIR"
 
   if [ -z "$TARGET_TAG" ] && [ "$CHANNEL_EXPLICIT" != true ] && \
      [ "$ASSUME_YES" != true ] && [ -t 0 ]; then

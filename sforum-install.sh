@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # sforum-install.sh - one-line install/update entry for SForum.
 #
-# Resolves an immutable Release tag, downloads and verifies that tag's
-# sforum-bootstrap.sh, promotes it into the install directory, then execs it.
+# Confirms the install directory, resolves an immutable Release tag, downloads
+# and verifies that tag's sforum-bootstrap.sh, promotes it, then execs it.
 # Installation state still belongs to sforum-bootstrap.sh, deploy.sh, and
-# upgrade.sh. This loader never touches .env.production, .deployrc,
-# deploy/runtime/, or data volumes.
+# upgrade.sh. This loader never modifies .env.production, .deployrc,
+# deploy/runtime/, or data volumes; it only reads their existence and the
+# recorded version to choose install versus upgrade.
 #
 #   curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 #   curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
@@ -23,13 +24,17 @@ DOWNLOAD_BASE="${SFORUM_RELEASE_DOWNLOAD_BASE_URL:-https://github.com/$REPOSITOR
 API_ROOT="https://api.github.com/repos/$REPOSITORY/releases"
 
 # Piped execution leaves BASH_SOURCE empty, so the caller's working directory is
-# the only meaningful anchor for the default install location.
+# the only meaningful anchor for the default install location. The directory is
+# confirmed interactively before anything is downloaded.
 WORK_DIR="$PWD"
 INSTALL_DIR="${SFORUM_INSTALL_DIR:-$WORK_DIR/sforum}"
 ACTION=""
 ACTION_EXPLICIT=false
 TARGET_VERSION=""
 CHANNEL="stable"
+UI_LANG=""
+DIR_EXPLICIT=false
+ASSUME_DEFAULTS=false
 PASSTHROUGH=()
 STAGE=""
 BOOTSTRAP=""
@@ -45,7 +50,9 @@ running the install or update state machine.
 Options:
   install              Fresh install (default when the directory has no state)
   upgrade              Update an existing installation (default when installed)
-  -d, --dir DIR        Install directory (default: ./sforum)
+  -d, --dir DIR        Install directory, skips the directory prompt
+                       (default: ./sforum, or the current directory when it is
+                       already an installation)
   --version VERSION    Immutable target tag, or latest (default: latest)
   --channel CHANNEL    stable (default) or prerelease
   --lang zh|en         Installer language (install only)
@@ -55,6 +62,8 @@ Options:
 
 Environment:
   SFORUM_INSTALL_DIR              Same as --dir
+  SFORUM_NONINTERACTIVE=1         Never prompt: use the default directory and
+                                  pass --yes to the bootstrap
   SFORUM_INSTALL_SHA256           Require this exact SHA-256 for the downloaded
                                   sforum-bootstrap.sh (second check beyond
                                   SHA256SUMS)
@@ -64,9 +73,11 @@ Environment:
   SFORUM_RELEASES_API_URL         Override the prerelease lookup
   SFORUM_SKIP_ATTESTATION=true    Skip gh build provenance verification
 
-Without a terminal the loader continues with the recommended defaults and tells
-you so. A directory with .env.production but no version in .deployrc is a
-half-finished state and is left to ./sforum-latest.sh or manual repair.
+With a terminal the loader asks for the install directory, shows its absolute
+path, and asks again before writing into a non-empty directory. Without a
+terminal it continues with the recommended defaults and tells you so. A
+directory with .env.production but no version in .deployrc is a half-finished
+state and is left to ./sforum-latest.sh or manual repair.
 EOF
 }
 
@@ -87,6 +98,193 @@ passthrough_has() {
   return 1
 }
 
+resolve_ui_lang() {
+  if [ -n "$UI_LANG" ]; then
+    [ "$UI_LANG" = zh ] || [ "$UI_LANG" = en ] || die "--lang must be zh or en"
+    return 0
+  fi
+  case "${LANGUAGE:-}:${LC_MESSAGES:-}:${LANG:-}" in
+    *zh*|*ZH*) UI_LANG=zh ;;
+    *) UI_LANG=en ;;
+  esac
+}
+
+msg() {
+  if [ "$UI_LANG" = zh ]; then printf '%s' "$1"; else printf '%s' "$2"; fi
+}
+
+# Piped execution must never read fd 0: that fd is this script. The terminal is
+# opened separately, and an unavailable terminal degrades to the default value.
+ask_line() {
+  if [ -t 0 ]; then
+    read -r ANSWER && return 0
+  elif ( : </dev/tty ) 2>/dev/null; then
+    read -r ANSWER < /dev/tty && return 0
+  fi
+  ANSWER=""
+  return 1
+}
+
+interactive_available() {
+  [ -t 0 ] && return 0
+  ( : </dev/tty ) 2>/dev/null
+}
+
+# Absolute path without touching the filesystem: expands "~/", resolves relative
+# input against the caller's working directory, and folds trailing slashes,
+# "." and ".." lexically. Symlinks are left alone here on purpose.
+lexical_abs() {
+  local raw="$1" out="" part
+  local -a parts
+  case "$raw" in
+    "~") raw="$HOME" ;;
+    "~/"*) raw="$HOME/${raw#\~/}" ;;
+  esac
+  case "$raw" in
+    /*) ;;
+    *) raw="$WORK_DIR/$raw" ;;
+  esac
+  IFS=/ read -r -a parts <<< "$raw"
+  for part in "${parts[@]}"; do
+    case "$part" in
+      ""|.) ;;
+      ..) out="${out%/*}" ;;
+      *) out="$out/$part" ;;
+    esac
+  done
+  printf '%s' "${out:-/}"
+}
+
+# Absolute path whose deepest existing ancestor is resolved physically, so a
+# symlinked /home or /var is reported the way the filesystem will see it.
+display_path() {
+  local path head suffix="" parent result
+  path="$(lexical_abs "$1")"
+  head="$path"
+  while [ ! -d "$head" ]; do
+    [ "$head" != "/" ] || break
+    suffix="/$(basename "$head")$suffix"
+    parent="$(dirname "$head")"
+    [ "$parent" != "$head" ] || break
+    head="$parent"
+  done
+  [ -d "$head" ] && head="$(cd "$head" && pwd -P)"
+  result="${head%/}$suffix"
+  printf '%s' "${result:-/}"
+}
+
+writable_target() {
+  local head="$1" parent
+  while [ ! -d "$head" ]; do
+    [ "$head" != "/" ] || break
+    parent="$(dirname "$head")"
+    [ "$parent" != "$head" ] || break
+    head="$parent"
+  done
+  [ -d "$head" ] && [ -w "$head" ]
+}
+
+dir_is_installation() {
+  [ -f "$1/.env.production" ] || [ -f "$1/.deployrc" ]
+}
+
+existing_version() {
+  local value=""
+  if [ -f "$1/.deployrc" ]; then
+    value="$(sed -n 's/^version=//p' "$1/.deployrc" 2>/dev/null | tail -n 1)"
+  fi
+  printf '%s' "$value"
+}
+
+# The only interactive step in the loader. It owns no install state: it only
+# decides which directory the bootstrap is promoted into.
+prompt_install_dir() {
+  local default_dir="$WORK_DIR/sforum" existing answer candidate
+  if dir_is_installation "$WORK_DIR"; then
+    default_dir="$WORK_DIR"
+  fi
+  default_dir="$(display_path "$default_dir")"
+
+  printf '\n%s\n' "$(msg 'SForum 安装目录' 'SForum install directory')"
+  printf '  %s%s\n' "$(msg '当前目录：' 'Current directory: ')" "$WORK_DIR"
+  existing="$(existing_version "$default_dir")"
+  if [ -n "$existing" ]; then
+    if [ "$UI_LANG" = zh ]; then
+      printf '  检测到已有安装：%s（本次将执行更新）\n' "$existing"
+    else
+      printf '  Existing installation detected: %s (this run updates it)\n' "$existing"
+    fi
+  fi
+
+  while :; do
+    printf '  %s [ %s ]: ' "$(msg '安装目录' 'Install directory')" "$default_dir"
+    if ! ask_line; then
+      printf '\n  %s\n' "$(msg '未读取到输入，使用默认目录。' 'No input received; using the default directory.')"
+      ANSWER="$default_dir"
+    fi
+    answer="${ANSWER:-$default_dir}"
+    case "$answer" in
+      *$'\n'*|*$'\r'*)
+        printf '  %s\n' "$(msg '路径不能包含换行符。' 'The path must not contain a newline.')"
+        continue
+        ;;
+    esac
+    candidate="$(lexical_abs "$answer")"
+    if [ "$candidate" = "/" ]; then
+      printf '  %s\n' "$(msg '不能安装到根目录 /。' 'Refusing to install into the filesystem root /.')"
+      continue
+    fi
+    if [ -e "$candidate" ] && [ ! -d "$candidate" ]; then
+      printf '  %s%s\n' \
+        "$(msg '目标已存在且不是目录：' 'The target exists and is not a directory: ')" "$candidate"
+      continue
+    fi
+    if ! writable_target "$candidate"; then
+      printf '  %s%s\n' "$(msg '没有写入权限：' 'No write permission: ')" "$candidate"
+      continue
+    fi
+    if [ -d "$candidate" ] && ! dir_is_installation "$candidate" && \
+       [ -n "$(ls -A "$candidate" 2>/dev/null)" ]; then
+      printf '  %s%s\n' "$(msg '目录非空：' 'The directory is not empty: ')" "$candidate"
+      printf '  %s ' "$(msg '仍要安装到这里？[y/N]:' 'Install here anyway? [y/N]:')"
+      if ! ask_line; then ANSWER=""; fi
+      case "${ANSWER:-}" in
+        y|Y|yes|YES) ;;
+        *)
+          printf '  %s\n' "$(msg '已取消，请重新选择安装目录。' 'Canceled; choose the install directory again.')"
+          continue
+          ;;
+      esac
+    fi
+    INSTALL_DIR="$candidate"
+    return 0
+  done
+}
+
+# One place decides whether the directory is asked for, and always reports the
+# absolute path that the install will actually use.
+resolve_install_dir() {
+  local skip=false
+  # SFORUM_INSTALL_DIR is as explicit as --dir: it must never be overridden by
+  # a prompt.
+  if [ -n "${SFORUM_INSTALL_DIR:-}" ]; then
+    DIR_EXPLICIT=true
+  fi
+  [ "$DIR_EXPLICIT" = false ] || skip=true
+  [ "$ASSUME_DEFAULTS" = false ] || skip=true
+  [ "${SFORUM_NONINTERACTIVE:-0}" != 1 ] || skip=true
+
+  if [ "$skip" = false ] && interactive_available; then
+    prompt_install_dir
+  else
+    if [ "$DIR_EXPLICIT" = false ] && dir_is_installation "$WORK_DIR"; then
+      INSTALL_DIR="$WORK_DIR"
+    fi
+    INSTALL_DIR="$(lexical_abs "$INSTALL_DIR")"
+  fi
+  printf '%s%s\n' "$(msg '安装目录：' 'Install directory: ')" "$(display_path "$INSTALL_DIR")"
+}
+
 parse_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -97,10 +295,17 @@ parse_args() {
         ;;
       -d|--dir)
         [ "$#" -ge 2 ] || die "--dir needs a value"
+        [ -n "$2" ] || die "--dir needs a non-empty value"
         INSTALL_DIR="$2"
+        DIR_EXPLICIT=true
         shift 2
         ;;
-      --dir=*) INSTALL_DIR="${1#*=}"; shift ;;
+      --dir=*)
+        INSTALL_DIR="${1#*=}"
+        [ -n "$INSTALL_DIR" ] || die "--dir needs a non-empty value"
+        DIR_EXPLICIT=true
+        shift
+        ;;
       --version)
         [ "$#" -ge 2 ] || die "--version needs a value"
         [ -z "$TARGET_VERSION" ] || die "only one target version may be given"
@@ -120,11 +325,20 @@ parse_args() {
       --channel=*) CHANNEL="${1#*=}"; shift ;;
       --lang)
         [ "$#" -ge 2 ] || die "--lang needs a value"
+        UI_LANG="$2"
         PASSTHROUGH+=("$1" "$2")
         shift 2
         ;;
-      --lang=*) PASSTHROUGH+=("$1"); shift ;;
-      --yes|--defaults) PASSTHROUGH+=("$1"); shift ;;
+      --lang=*)
+        UI_LANG="${1#*=}"
+        PASSTHROUGH+=("$1")
+        shift
+        ;;
+      --yes|--defaults)
+        ASSUME_DEFAULTS=true
+        PASSTHROUGH+=("$1")
+        shift
+        ;;
       --bootstrap) PASSTHROUGH+=("$1"); shift ;;
       -h|--help) usage; exit 0 ;;
       -*) die "unknown option: $1" ;;
@@ -176,13 +390,12 @@ resolve_version() {
 }
 
 prepare_install_dir() {
-  case "$INSTALL_DIR" in
-    /*) ;;
-    *) INSTALL_DIR="$WORK_DIR/$INSTALL_DIR" ;;
-  esac
   [ ! -e "$INSTALL_DIR" ] || [ -d "$INSTALL_DIR" ] || \
     die "install path exists and is not a directory: $INSTALL_DIR"
   mkdir -p "$INSTALL_DIR" || die "could not create install directory: $INSTALL_DIR"
+  # Pin the physical path once: staging, promotion, and the handoff all use it.
+  INSTALL_DIR="$(cd "$INSTALL_DIR" && pwd -P)" || \
+    die "could not resolve install directory: $INSTALL_DIR"
 }
 
 detect_action() {
@@ -268,7 +481,16 @@ promote() {
 }
 
 run_bootstrap() {
-  local args=("$ACTION" --version "$TARGET_VERSION")
+  local args=("$ACTION" --version "$TARGET_VERSION") assume=false
+  if passthrough_has --yes || passthrough_has --defaults; then
+    assume=true
+  fi
+  # SFORUM_NONINTERACTIVE means "ask me nothing", including the bootstrap's
+  # channel prompt and the production configuration wizard.
+  if [ "$assume" = false ] && [ "${SFORUM_NONINTERACTIVE:-0}" = 1 ]; then
+    args+=(--yes)
+    assume=true
+  fi
   args+=(${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"})
 
   if [ -t 0 ]; then
@@ -277,7 +499,7 @@ run_bootstrap() {
   if ( : </dev/tty ) 2>/dev/null; then
     exec "$BOOTSTRAP" "${args[@]}" </dev/tty
   fi
-  if ! passthrough_has --yes && ! passthrough_has --defaults; then
+  if [ "$assume" = false ]; then
     printf 'notice: no interactive terminal available; continuing with recommended defaults (--yes)\n' >&2
     args+=(--yes)
   fi
@@ -289,16 +511,16 @@ main() {
   trap 'exit 130' HUP INT TERM
 
   parse_args "$@"
-
-  printf 'SForum install loader: resolving %s release\n' "$CHANNEL"
-
-  prepare_install_dir
-  TARGET_VERSION="$(resolve_version)"
-  printf 'Target release: %s\n' "$TARGET_VERSION"
+  resolve_ui_lang
+  resolve_install_dir
 
   if [ "$ACTION_EXPLICIT" = false ]; then
     detect_action
   fi
+
+  printf 'SForum install loader: resolving %s release\n' "$CHANNEL"
+  TARGET_VERSION="$(resolve_version)"
+  printf 'Target release: %s\n' "$TARGET_VERSION"
 
   case "$ACTION" in
     install|upgrade) ;;
@@ -318,6 +540,9 @@ main() {
     die "--bootstrap only applies to upgrade"
   fi
 
+  # The directory is created only after the target release is resolved, so an
+  # unreachable release or a cancelled prompt leaves nothing behind.
+  prepare_install_dir
   stage_and_verify
   promote
 

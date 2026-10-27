@@ -135,6 +135,12 @@ say() {
   if [ "$(lang)" = "en" ]; then printf '%s\n' "$en"; else printf '%s\n' "$zh"; fi
 }
 
+print_install_location() {
+  say "安装目录：$ROOT_DIR" "Install directory: $ROOT_DIR"
+  say "配置文件：$ROOT_DIR/.env.production" "Configuration file: $ROOT_DIR/.env.production"
+  say "备份目录：$ROOT_DIR/backups" "Backup directory: $ROOT_DIR/backups"
+}
+
 validate_version() {
   [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || \
     die "Version must look like v3.0.0 or v3.0.0-alpha.11"
@@ -463,6 +469,7 @@ maintenance_update() {
   persist_state "$inactive_slot" "$target_version" "$blue_version" "$green_version"
   say "停机升级完成：$current_version -> $target_version" \
     "Maintenance-window upgrade completed: $current_version -> $target_version"
+  print_install_location
 }
 
 apply_planned_online_migrations() {
@@ -600,8 +607,8 @@ persist_state() {
   validate_version "$green_version"
   temp_file="$(mktemp "$ROOT_DIR/.deployrc.XXXXXX")"
   umask 077
-  printf 'lang=%s\nversion=%s\nmode=release\ntopology=blue-green\nactive_slot=%s\nblue_version=%s\ngreen_version=%s\n' \
-    "$(lang)" "$active_version" "$active_slot" "$blue_version" "$green_version" > "$temp_file"
+  printf 'lang=%s\nversion=%s\nmode=release\ntopology=blue-green\nactive_slot=%s\nblue_version=%s\ngreen_version=%s\ninstall_dir=%s\n' \
+    "$(lang)" "$active_version" "$active_slot" "$blue_version" "$green_version" "$ROOT_DIR" > "$temp_file"
   chmod 600 "$temp_file"
   mv -f "$temp_file" "$DEPLOY_RC"
 }
@@ -693,6 +700,7 @@ online_update() {
   "${COMPOSE[@]}" stop "$old_web" "$old_api"
   persist_state "$inactive_slot" "$target_version" "$blue_version" "$green_version"
   say "零停机更新完成：$current_version -> $target_version" "Zero-downtime update completed: $current_version -> $target_version"
+  print_install_location
 }
 
 infer_running_version() {

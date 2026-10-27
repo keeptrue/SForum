@@ -164,8 +164,14 @@ mkdir -p "$INSTALL_ROOT"
 cp "$ROOT_DIR/sforum-bootstrap.sh" "$INSTALL_ROOT/sforum-bootstrap.sh"
 printf '# stale bootstrap\n' >> "$INSTALL_ROOT/sforum-bootstrap.sh"
 chmod 0755 "$INSTALL_ROOT/sforum-bootstrap.sh"
-run_bootstrap "$INSTALL_ROOT" install --channel prerelease --lang en --yes
+if ! run_bootstrap "$INSTALL_ROOT" install --channel prerelease --lang en --yes \
+  > "$TEMP_DIR/install.out" 2>&1; then
+  cat "$TEMP_DIR/install.out" >&2
+  fail "fresh install bootstrap failed"
+fi
 [ -f "$INSTALL_ROOT/.install-ran" ] || fail "fresh install did not hand off to deploy.sh"
+EXPECTED_INSTALL_ROOT="$(cd "$INSTALL_ROOT" && pwd -P)"
+assert_contains "$TEMP_DIR/install.out" "Install directory: $EXPECTED_INSTALL_ROOT"
 assert_contains "$INSTALL_ROOT/bootstrap.log" "deploy --action deploy --version $VERSION --lang en --yes"
 assert_contains "$INSTALL_ROOT/compose.yaml" "target=$VERSION"
 [ "$(file_mode "$INSTALL_ROOT/sforum-bootstrap.sh")" = 755 ] || fail "bootstrap mode is not 0755"

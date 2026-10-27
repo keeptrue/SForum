@@ -34,14 +34,16 @@ Git is not required, and you do not need to clone the repository.
 
 ## Quick install (latest stable)
 
-One line installs the latest stable Release into `./sforum`:
+One line installs the latest stable Release. It asks for the install directory
+first (default `./sforum`, shown as an absolute path):
 
 ```sh
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-`SFORUM_INSTALL_DIR` or `-d DIR` changes the target, `--version <TAG>` pins an
-immutable tag, and `--yes` skips prompts. That address always points at the
+`SFORUM_INSTALL_DIR` or `-d DIR` sets the target without asking,
+`SFORUM_NONINTERACTIVE=1` never prompts, `--version <TAG>` pins an immutable tag,
+and `--yes` skips prompts. That address always points at the
 latest stable Release, so no version number needs maintaining. The loader
 resolves the tag, verifies that tag's `sforum-bootstrap.sh`, then hands off; the
 bootstrap refreshes the complete deploy toolkit for the same target version. The

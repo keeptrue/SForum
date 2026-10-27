@@ -402,6 +402,8 @@ main() {
   refresh_bootstrap
   refresh_toolkit
 
+  printf 'Install directory: %s\n' "$ROOT_DIR"
+
   if [ "$COMMAND" = install ]; then
     exec "$ROOT_DIR/deploy.sh" --action deploy --version "$TARGET_VERSION" "${PASSTHROUGH[@]}"
   fi

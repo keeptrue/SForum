@@ -149,13 +149,21 @@ Backup and restore helpers parse only the exact database keys from dotenv and
 never execute the configuration as shell input.
 
 Production installation and updates now enter through the Release-owned
-`sforum-install.sh` one-line loader. It resolves an immutable tag, downloads
-that tag's `sforum-bootstrap.sh` and `SHA256SUMS`, requires exactly one matching
-filename entry, verifies the hash (plus optional `gh attestation verify` and an
+`sforum-install.sh` one-line loader. It asks once for the install directory
+(default `./sforum`, absolute path shown, current directory when that is already
+an installation), resolves an immutable tag, downloads that tag's
+`sforum-bootstrap.sh` and `SHA256SUMS`, requires exactly one matching filename
+entry, verifies the hash (plus optional `gh attestation verify` and an
 `SFORUM_INSTALL_SHA256` pin), promotes the bootstrap, and execs it. The loader
 is deliberately the only entry allowed to run from a pipe: it carries no
-install logic and never touches `.env.production`, `.deployrc`, router runtime
-state, data, or volumes. The bootstrap then refreshes and re-executes the
+install logic and never modifies `.env.production`, `.deployrc`, router runtime
+state, data, or volumes — it only reads their existence and recorded version to
+choose install versus upgrade. `-d DIR` / `SFORUM_INSTALL_DIR` skip the prompt;
+`--yes`, `SFORUM_NONINTERACTIVE=1`, and a missing terminal skip it too, and the
+knob also forwards `--yes` to the bootstrap. `deploy.sh` and `upgrade.sh` print
+the install directory, configuration file, and backup directory on success and
+on `status`, and `.deployrc` records `install_dir=` so a moved installation is
+reported instead of silently followed. The bootstrap then refreshes and re-executes the
 verified bootstrap from that tag, verifies the matching complete deploy bundle,
 then hands the concrete version to `deploy.sh` or `upgrade.sh`. Existing
 instances retain `.env.production`, `.deployrc`, router runtime state, data, and

@@ -33,10 +33,14 @@ only shell entry that may run from a pipe.
   `sforum-bootstrap.sh` and `SHA256SUMS`, verify the exact filename entry (plus
   optional `gh attestation verify` and an `SFORUM_INSTALL_SHA256` pin), and
   promote the bootstrap with `install -m 0755` before `exec`ing it.
-- It carries no install logic and never reads or writes `.env.production`,
-  `.deployrc`, `deploy/runtime/`, or data volumes.
+- It carries no install logic and never modifies `.env.production`,
+  `.deployrc`, `deploy/runtime/`, or data volumes. It reads only their existence
+  and the recorded version, to choose install versus upgrade.
 - The install root is the caller's working directory, defaulting to `./sforum`,
-  because piped execution leaves `BASH_SOURCE` empty.
+  because piped execution leaves `BASH_SOURCE` empty. Since
+  `2026-10-27-interactive-install-directory.md` the loader confirms that
+  directory interactively, shows its absolute path, and defaults to the current
+  directory when that directory is already an installation.
 - An existing installation with `.env.production` and a versioned `.deployrc`
   switches to `upgrade` automatically. A half-finished directory stops with a
   pointer to `sforum-latest.sh` or `deploy.sh` instead of guessing.

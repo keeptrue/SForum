@@ -276,6 +276,11 @@ assert_contains "$TEMP_DIR/clean.out" "Reverse proxy Web target: http://127.0.0.
 assert_contains "$TEMP_DIR/clean.out" "Reverse proxy API/WebSocket target: http://127.0.0.1:18080"
 assert_contains "$TEMP_DIR/clean.out" "Site access URL: http://127.0.0.1:3000"
 assert_contains "$TEMP_DIR/clean.out" "Admin URL: http://127.0.0.1:3000/control-panel"
+EXPECTED_ROOT="$(cd "$TEST_ROOT" && pwd -P)"
+assert_contains "$TEMP_DIR/clean.out" "Install directory: $EXPECTED_ROOT"
+assert_contains "$TEMP_DIR/clean.out" "Configuration file: $EXPECTED_ROOT/.env.production"
+assert_contains "$TEMP_DIR/clean.out" "Backup directory: $EXPECTED_ROOT/backups"
+assert_contains "$TEST_ROOT/.deployrc" "install_dir=$EXPECTED_ROOT"
 
 # A retained legacy setting cannot disable the API-owned Worker or revive the
 # removed standalone service.
@@ -536,6 +541,7 @@ fi
 assert_not_contains "$MOCK_LOG" "curl "
 assert_contains "$MOCK_LOG" "docker version=v3.0.0-alpha.8 compose --env-file .env.production"
 assert_contains "$TEMP_DIR/existing-status.out" "all services running"
+assert_contains "$TEMP_DIR/existing-status.out" "Install directory: $EXPECTED_ROOT"
 
 # The interactive process may perform several actions. Resolving status must
 # not leave its current version behind as the target of a later deploy choice.

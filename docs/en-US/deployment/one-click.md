@@ -43,21 +43,51 @@ sforum-bootstrap.sh upgrade ──> upgrade.sh
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
-It installs into `./sforum`; a directory that already has `.env.production` and a
-versioned `.deployrc` updates instead. `-d DIR` or `SFORUM_INSTALL_DIR` changes
-the target, `--version <TAG>` pins a tag, `--channel prerelease` selects a
-prerelease, and `--yes` skips prompts. To update inside an existing installation
-without trusting the local bootstrap:
+It asks for the install directory first (default `./sforum`, shown as an absolute
+path), and Enter accepts it; a directory that already has `.env.production` and a
+versioned `.deployrc` updates instead. `-d DIR` or `SFORUM_INSTALL_DIR` sets the
+target without asking, `--version <TAG>` pins a tag, `--channel prerelease`
+selects a prerelease, `--yes` skips prompts, and `SFORUM_NONINTERACTIVE=1` never
+prompts at all (default directory plus `--yes` for the bootstrap). To update
+inside an existing installation without trusting the local bootstrap:
 
 ```sh
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash -s -- upgrade
 ```
 
-The loader does exactly four things: resolve an immutable tag, download that
-tag's `sforum-bootstrap.sh` and `SHA256SUMS`, verify the exact filename entry
-(with optional `gh attestation verify` and an `SFORUM_INSTALL_SHA256` pin), then
-`install -m 0755` and exec the bootstrap. It never reads or writes
-`.env.production`, `.deployrc`, `deploy/runtime/`, or data volumes.
+#### Install directory
+
+The prompt looks like this; the brackets hold the absolute path:
+
+```text
+SForum install directory
+  Current directory: /srv/apps
+  Install directory [ /srv/apps/sforum ]:
+```
+
+- Enter accepts the default. Relative answers resolve against the current
+  directory, and `~/` expands.
+- `/`, an existing regular file, and an unwritable location are refused and the
+  question repeats.
+- A non-empty directory that is not an installation asks once more with
+  `Install here anyway? [y/N]`; declining returns to the directory question
+  instead of aborting.
+- When the current directory is already an installation, the default is that
+  directory, so a nested second `./sforum` is never created by accident.
+- Non-interactive runs (`--yes`, `SFORUM_NONINTERACTIVE=1`, no terminal) never
+  ask: they use the default or `--dir`, and still print
+  `Install directory: /abs/path`.
+- After a successful install or update, `deploy.sh` / `upgrade.sh` print the
+  install directory, configuration file, backup directory, and access URLs
+  again, and `./deploy.sh --action status` shows the same three paths.
+
+The loader stays narrow: it picks the install directory (writing no install
+state), resolves an immutable tag, downloads that tag's `sforum-bootstrap.sh`
+and `SHA256SUMS`, verifies the exact filename entry (with optional
+`gh attestation verify` and an `SFORUM_INSTALL_SHA256` pin), then
+`install -m 0755` and execs the bootstrap. It only reads `.env.production` /
+`.deployrc` for existence and the recorded version that selects install versus
+upgrade; it never modifies them, `deploy/runtime/`, or data volumes.
 
 The loader's own bytes are not checksummed — the same first-layer tradeoff as
 `get.docker.com` and rustup. The compensations are its small auditable size, the
