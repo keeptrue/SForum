@@ -13,7 +13,7 @@ load archived sessions or completed plans as current context.
   `resolveClientIP('')` 后 `applyClientIPHeaders` 把入口代理写好的四个 IP 头全删，
   API 只能回退 web 容器地址。现改为信任入口 `X-Real-IP`（缺失退 XFF 最右有效项）+
   单值化；web 不再接收 `TRUSTED_PROXIES`，端口必须只发布到 loopback。回归测试固定
-  Nitro 的 mock socket 形状。
+  Nitro 的 mock socket 形状。已随 **v3.0.22** 发布（2026-10-28）。
 - Handoff：`sessions/2026-10-28-client-ip-web-edge-header.md`；
   计划：`plans/2026-10-27-client-real-ip-production.md`（2026-10-28 修订）。
 

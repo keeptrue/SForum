@@ -69,6 +69,13 @@ Nuxt 4.4 / Nitro 2.13 的请求管线（dev 与生产 `bun` preset 相同）经
   `[client-ip] inbound request carried no valid x-real-ip ...` 告警，符合预期。
 - 待补：真机公网/内网两条路径取证。
 
+## 发布
+
+- v3.0.22（2026-10-28）：`scripts/release.sh 3.0.22 --type stable`，Release workflow
+  全绿（Verify main CI 8m27s、六路镜像构建与合并、四平台资产、smoke、SDK 发布、
+  promote、匿名拉取验证、GitHub Release）。
+  https://github.com/keeptrue/SForum/releases/tag/v3.0.22
+
 ## Next
 
 - 生产镜像验证（bun preset）与真机公网/内网两条路径取证。
