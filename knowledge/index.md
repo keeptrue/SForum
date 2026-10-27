@@ -673,7 +673,14 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **交互式安装目录（2026-10-27，最新）**：一行 loader 先问安装目录（默认
+- **CI 转绿与 v3.0.20-beta.2 发布（2026-10-27，最新）**：附件错误码本地化、
+  核心路由计数 380、CLI `recovery` 文档覆盖、两个静态契约测试跟随真实归属；
+  Release tooling 因共享插件运行时变更要求 8 个内置插件 patch 抬版；
+  Web SDK 1.3.0/1.1.0 因仓库改名元数据漂移 patch 到 1.3.1/1.1.1；发布链路的
+  GHCR `imagetools inspect` 加有限重试。tag `v3.0.20-beta.2` 已发布 prerelease，
+  镜像 promote、匿名拉取、npm SDK 全部校验通过。见
+  `knowledge/sessions/2026-10-27-ci-green-and-v3.0.20-beta.2.md`。
+- **交互式安装目录（2026-10-27）**：一行 loader 先问安装目录（默认
   `./sforum`，提示与回显都是绝对路径；当前目录已是安装目录时默认当前目录），
   `-d`/`SFORUM_INSTALL_DIR` 跳过询问，新增 `SFORUM_NONINTERACTIVE=1` 全链路不问。
   `deploy.sh`/`upgrade.sh` 成功与 `status` 打印安装目录、配置文件、备份目录，
