@@ -5,7 +5,9 @@ import { usePublicUserMenu } from '~/composables/navigation/usePublicUserMenu'
 const { t } = useI18n()
 const { user, displayName, menuGroups } = usePublicUserMenu()
 const mobileInfoOpen = useState<boolean>('forum-mobile-info-open', () => false)
-const menuOpen = ref(false)
+// 抽屉内本组件就是首屏唯一的操作区：默认折叠会呈现一块空面板，
+// 所以默认展开，身份行仍可点击折叠（组件随抽屉 v-if 挂载，每次打开回到展开态）。
+const menuOpen = ref(true)
 
 function closeDrawer() {
   mobileInfoOpen.value = false

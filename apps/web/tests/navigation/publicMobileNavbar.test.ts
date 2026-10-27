@@ -2,6 +2,24 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 
 const source = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8')
+
+// 公开 body 岛固定清单：每份都必须消费 forum-mobile-info-open 并渲染移动端右抽屉。
+const PUBLIC_BODY_ISLANDS = [
+  'app/components/forum/SFHomePage.vue',
+  'app/components/forum/SFCategoryShowPage.vue',
+  'app/components/forum/SFCategoryIndexPage.vue',
+  'app/components/forum/SFTagIndexPage.vue',
+  'app/components/forum/SFTagShowPage.vue',
+  'app/components/forum/SFTopicShowPage.vue',
+  'app/components/notifications/SFNotificationsPage.vue',
+  'app/components/profile/SFProfileShowPage.vue'
+]
+
+// 把右抽屉委托给专用组件的页面：页面 -> 承载抽屉标记的组件。
+const MOBILE_DRAWER_DELEGATES: Record<string, string> = {
+  'app/components/forum/SFTopicShowPage.vue': 'app/components/forum/SFTopicMobileInfoDrawer.vue'
+}
+
 const navbar = source('../../app/components/SFNavbar.vue')
 const searchBar = source('../../app/components/navigation/SFPublicMobileSearchBar.vue')
 const bottomNavigation = source('../../app/components/navigation/SFPublicMobileBottomNavigation.vue')
@@ -70,8 +88,10 @@ describe('public mobile navbar composition', () => {
     expect(userMenuComposable).toContain("key: 'resend-email-verification'")
   })
 
-  test('keeps the mobile user actions collapsed by default and exposes an accessible toggle', () => {
-    expect(mobileUserMenu).toContain('const menuOpen = ref(false)')
+  test('shows the mobile user actions on open and keeps an accessible toggle', () => {
+    // 抽屉内用户菜单是首屏唯一操作区，默认展开；折叠能力与 aria 契约不变。
+    expect(mobileUserMenu).toContain('const menuOpen = ref(true)')
+    expect(mobileUserMenu).toContain('@click="menuOpen = !menuOpen"')
     expect(mobileUserMenu).toContain(':aria-expanded="menuOpen"')
     expect(mobileUserMenu).toContain('aria-controls="sf-public-mobile-user-menu-actions"')
     expect(mobileUserMenu).toContain('v-if="menuOpen" id="sf-public-mobile-user-menu-actions"')
@@ -96,6 +116,34 @@ describe('public mobile navbar composition', () => {
     // 桌面下拉与移动抽屉共用同一 menuGroups，改一处即覆盖两个面。
     expect(navbar).toContain(':items="userMenuItems"')
     expect(mobileUserMenu).toContain('v-for="(group, groupIndex) in menuGroups"')
+  })
+
+  test('every public body island consumes the shared mobile info state and renders the right drawer', () => {
+    // 移动端导航栏头像只翻转 forum-mobile-info-open；抽屉不是全局组件，
+    // 每个公开 body 岛必须自己消费该状态并渲染右抽屉，否则点击毫无 UI 响应。
+    for (const page of PUBLIC_BODY_ISLANDS) {
+      const pageSource = source(`../../${page}`)
+      expect({ page, consumesState: pageSource.includes('forum-mobile-info-open') })
+        .toEqual({ page, consumesState: true })
+
+      // 主题详情页把右抽屉封装进 SFTopicMobileInfoDrawer（额外承载主题信息），
+      // 抽屉标记落在那份组件里；其余页面必须直接在页面内渲染。
+      const drawerSource = MOBILE_DRAWER_DELEGATES[page]
+        ? source(`../../${MOBILE_DRAWER_DELEGATES[page]}`)
+        : pageSource
+      expect({ page, rendersRightDrawer: drawerSource.includes('sforum-mobile-drawer--right') })
+        .toEqual({ page, rendersRightDrawer: true })
+      expect({ page, rendersUserMenu: drawerSource.includes('<SFPublicMobileUserMenu') })
+        .toEqual({ page, rendersUserMenu: true })
+    }
+  })
+
+  test('keeps the topic page delegation to its mobile info drawer explicit', () => {
+    const topicPage = source('../../app/components/forum/SFTopicShowPage.vue')
+    expect(topicPage).toContain('<SFTopicMobileInfoDrawer')
+    expect(topicPage).toContain('v-if="mobileInfoOpen && topic"')
+    expect(topicPage).toContain('class="sforum-mobile-drawer__backdrop"')
+    expect(topicPage).toContain('@click="closeMobileDrawers"')
   })
 
   test('ships bilingual copy for the admin entry', () => {

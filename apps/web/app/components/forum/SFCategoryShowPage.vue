@@ -7,6 +7,9 @@ import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
 import SFContentColumnFooter from '~/components/forum/SFContentColumnFooter.vue'
 import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsivePublicSidebar.vue'
 import SFPublicPageHeader from '~/components/public/SFPublicPageHeader.vue'
+import SFPublicMobileRightDrawerHeader from '~/components/navigation/SFPublicMobileRightDrawerHeader.vue'
+import SFPublicMobileUserMenu from '~/components/navigation/SFPublicMobileUserMenu.vue'
+import { usePublicSidebarDrawer } from '~/composables/navigation/usePublicSidebarDrawer'
 /**
  * 宿主 body 岛：forum.category.show。主题 L1 挂载；路由页仅 SEO + fail-closed 回退。
  */
@@ -32,6 +35,9 @@ const { can } = usePermissions()
 const categorySlug = computed(() => routeParam(route.params.categorySlug))
 const currentPage = computed(() => parsePublicPage(route.query.page))
 const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
+// 移动端导航栏头像只翻转共享状态；抽屉由本 body 岛渲染，因此必须在此消费它。
+const mobileInfoOpen = useState<boolean>('forum-mobile-info-open', () => false)
+const { closeDrawer: closeMobileMenu } = usePublicSidebarDrawer()
 const renderedAt = useState<number>('forum-taxonomy-rendered-at', () => Date.now())
 const emptyTopicList = (): ForumTopicList => ({
   items: [],
@@ -89,6 +95,11 @@ const totalPages = computed(() => Math.ceil(topicList.value.total / Math.max(top
 
 function routeParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] || '' : value || ''
+}
+
+function closeMobileDrawers() {
+  closeMobileMenu()
+  mobileInfoOpen.value = false
 }
 
 function categoryPageTo(page: number) {
@@ -216,5 +227,22 @@ function topicActivity(topic: ForumTopicSummary) {
         <SFContentColumnFooter />
       </section>
     </div>
+
+    <button
+      v-if="mobileInfoOpen"
+      type="button"
+      class="sforum-mobile-drawer__backdrop"
+      :aria-label="t('topicDetail.cancel')"
+      @click="closeMobileDrawers"
+    />
+
+    <aside v-if="mobileInfoOpen" class="sforum-mobile-drawer sforum-mobile-drawer--right">
+      <SFPublicMobileRightDrawerHeader
+        :title="t('home.rightRail.drawerTitle')"
+        :close-label="t('topicDetail.cancel')"
+        @close="closeMobileDrawers"
+      />
+      <SFPublicMobileUserMenu />
+    </aside>
   </main>
 </template>
