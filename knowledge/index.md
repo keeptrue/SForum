@@ -6,6 +6,15 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 安装弹窗收尾（信任入口按需出现 + 跳转前先卸载）
+
+- Status: **landed（2026-10-28）**。成功态按钮改成「剩余动作」：已在跑
+  （`enabled`/`upgraded`）不再渲染管理页按钮，只有信任确实待办时才在文案里提信任
+  （新增 `hostAction.openPluginsEnable`）；`openManagement()` 改为 `reset()` →
+  `nextTick()` → `navigate()`，并补 `dismissOnDeactivate()` 兜住 KeepAlive 停用；
+  焦点归还加 `isConnected` 守卫。`bun test` 1808 pass。
+- Handoff：`sessions/2026-10-28-install-dialog-handoff.md`。
+
 ### 后台新增用户（创建弹窗 + `POST /users`）
 
 - Status: **landed（2026-10-27）**。`user.manage` 授权的创建端点在一个事务内

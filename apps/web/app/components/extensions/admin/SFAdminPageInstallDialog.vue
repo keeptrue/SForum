@@ -72,9 +72,6 @@ const enableMode = computed(() => props.mode === 'enable')
 const typeLabelKey = computed(() => props.request.expectedType === 'theme'
   ? 'admin.extensionInstall.hostAction.typeTheme'
   : 'admin.extensionInstall.hostAction.typePlugin')
-const managementKey = computed(() => props.result?.type === 'theme'
-  ? 'admin.extensionInstall.hostAction.openThemes'
-  : 'admin.extensionInstall.hostAction.openPlugins')
 const installingDescription = computed(() =>
   `${t('admin.extensionInstall.hostAction.installingHint')} ${t('admin.extensionInstall.hostAction.elapsed', { seconds: props.elapsedSeconds, limit: installLimitSeconds })}`
 )
@@ -108,6 +105,26 @@ const outcomeBodyKey = computed(() => {
   }
 })
 const running = computed(() => props.outcome === 'enabled' || props.outcome === 'upgraded')
+/**
+ * 成功态底部的唯一去处：只在管理页还有事要做时才渲染。
+ *
+ * - 已在跑（enabled/upgraded）：什么都不用做，按钮整颗不出现 —— 这里曾经恒显示
+ *   「去插件页完成信任与启用」，而信任早就在上一次启用时确认过了，等于凭空派活。
+ * - 只有信任确实待办（超管待审 / 操作员刚拒绝）才在文案里提信任；主题从来不需要，
+ *   旧宿主的暂存路径（`stage`）在装完之前也说不清制品是否已信任，所以只写「启用」。
+ */
+const managementAction = computed<{ key: string } | null>(() => {
+  if (props.state !== 'success' || !props.result) return null
+  if (running.value) return null
+  if (props.result.type === 'theme') return { key: 'admin.extensionInstall.hostAction.openThemes' }
+  switch (props.stagedReason) {
+    case 'super_admin':
+    case 'declined':
+      return { key: 'admin.extensionInstall.hostAction.openPlugins' }
+    default:
+      return { key: 'admin.extensionInstall.hostAction.openPluginsEnable' }
+  }
+})
 const failedTitleKey = computed(() => props.failurePhase === 'activate'
   ? 'admin.extensionInstall.hostAction.enableFailedTitle'
   : 'admin.extensionInstall.hostAction.failedTitle')
@@ -137,7 +154,9 @@ function syncFocus(visible: boolean) {
   }
   const previous = restoreFocusTo
   restoreFocusTo = null
-  previous?.focus()
+  // 触发元素可能已经不在文档里（例如商城先关掉了自己的详情弹窗）：focus() 会静默失败，
+  // 焦点就掉到 body。只在它仍然挂载时归还。
+  if (previous?.isConnected) previous.focus()
 }
 
 watch(open, syncFocus)
@@ -402,8 +421,13 @@ function cancel() {
             <UButton color="neutral" variant="ghost" @click="emit('close')">
               {{ t('admin.extensionInstall.hostAction.close') }}
             </UButton>
-            <UButton icon="i-lucide-external-link" @click="emit('openManagement')">
-              {{ t(managementKey) }}
+            <!-- 只在管理页还有事要做时出现；已在跑就只剩「关闭」。 -->
+            <UButton
+              v-if="managementAction"
+              icon="i-lucide-external-link"
+              @click="emit('openManagement')"
+            >
+              {{ t(managementAction.key) }}
             </UButton>
           </template>
           <template v-else-if="state === 'trust-review'">

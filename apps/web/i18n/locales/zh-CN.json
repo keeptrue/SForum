@@ -1397,6 +1397,7 @@
         "stagedDeclinedBody": "你没有确认启用，所以它现在不会运行；之后可以在插件页启用。",
         "packageDigest": "制品摘要",
         "openPlugins": "去插件页完成信任与启用",
+        "openPluginsEnable": "去插件页启用",
         "openThemes": "去主题页完成激活"
       }
     },

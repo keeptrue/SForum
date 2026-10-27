@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { apiErrorMessage, apiErrorReason } from '~/composables/useApiClient'
 import type { AdminExtension, AdminExtensionInstallResult } from '~/utils/admin/adminExtensions'
 import {
@@ -472,7 +472,23 @@ export function useAdminPageHostInstall(deps: AdminPageHostInstallDeps) {
   async function openManagement() {
     const type = result.value?.type === 'theme' ? 'theme' : 'plugin'
     reset()
+    // 先让弹窗真的从 DOM 上消失，再换页。
+    // `reset()` 只改 ref，DOM 要到 Vue 的渲染微任务才更新；而动态扩展页是 KeepAlive
+    // 缓存的、弹窗又 teleport 到 body —— 同一帧里跳走，遮罩和 body 上的焦点锁会留在
+    // 新页面上，表现就是「到了插件页，弹窗还浮着」。
+    await nextTick()
     await deps.navigate(type === 'theme' ? '/extensions/themes' : '/extensions/plugins')
+  }
+
+  /**
+   * 页面被 KeepAlive 停用（切 tab、换路由）时调用：弹窗不能跨页面存活。
+   *
+   * 走 `close()` 的同一套收尾，免得两条路径对「信任审阅没确认」给出不同结论；
+   * 正在下载/启用时 `close()` 自己不动作 —— 那条 promise 由 unmount 的 abortOnUnmount
+   * 收尾，提前取消等于把一次进行中的安装判死。
+   */
+  function dismissOnDeactivate() {
+    close()
   }
 
   /** Page teardown aborts the in-flight install; the caller retries. */
@@ -506,6 +522,7 @@ export function useAdminPageHostInstall(deps: AdminPageHostInstallDeps) {
     close,
     retry,
     openManagement,
+    dismissOnDeactivate,
     abortOnUnmount
   }
 }

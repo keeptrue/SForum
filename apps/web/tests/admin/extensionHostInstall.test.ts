@@ -101,6 +101,8 @@ function harness(options: {
   const calls: Array<{ url: string, sha256: string, config: unknown }> = []
   const toasts: Array<{ title: string, description?: string }> = []
   const navigations: string[] = []
+  /** 记录 navigate 被调用那一刻的弹窗状态：换页时它必须已经撤掉。 */
+  const navigationSnapshots: Array<{ path: string, dialogOpen: boolean, hasRequest: boolean }> = []
   const trustCalls: Array<{ id: string, action: string }> = []
   const challengeCalls: Array<{ id: string, action: string }> = []
   const activateCalls: Array<{ id: string, action: string, body: Record<string, unknown> }> = []
@@ -133,9 +135,16 @@ function harness(options: {
     },
     t: key => key,
     notify: input => toasts.push(input),
-    navigate: path => { navigations.push(path) }
+    navigate: path => {
+      navigations.push(path)
+      navigationSnapshots.push({
+        path,
+        dialogOpen: hostInstall.dialogOpen.value,
+        hasRequest: hostInstall.request.value !== null
+      })
+    }
   })
-  return { hostInstall, calls, toasts, navigations, trustCalls, challengeCalls, activateCalls }
+  return { hostInstall, calls, toasts, navigations, navigationSnapshots, trustCalls, challengeCalls, activateCalls }
 }
 
 describe('host install request validation', () => {
@@ -405,6 +414,54 @@ describe('bridge install state machine', () => {
     await hostInstall.openManagement()
     expect(navigations).toEqual(['/extensions/plugins'])
     expect(hostInstall.state.value).toBe('idle')
+  })
+
+  test('the dialog is torn down before the route changes', async () => {
+    const { hostInstall, navigationSnapshots } = harness()
+    void hostInstall.start(validRequest())
+    await hostInstall.confirm()
+
+    const pending = hostInstall.openManagement()
+    // 同步阶段只撤弹窗、不跳转：DOM 要到渲染微任务才更新，同一帧换页会把遮罩留在新页面上。
+    expect(navigationSnapshots).toHaveLength(0)
+    await pending
+
+    expect(navigationSnapshots).toEqual([
+      { path: '/extensions/plugins', dialogOpen: false, hasRequest: false }
+    ])
+  })
+
+  test('a cached page that is deactivated closes its dialog and settles the promise', async () => {
+    const { hostInstall } = harness()
+    const pending = hostInstall.start(validRequest())
+    hostInstall.dismissOnDeactivate()
+    expect(hostInstall.dialogOpen.value).toBe(false)
+    expect(hostInstall.state.value).toBe('idle')
+    await expect(pending).rejects.toMatchObject({ code: 'install_cancelled' })
+  })
+
+  test('deactivation during the trust review counts as declining, not as a failed install', async () => {
+    const { hostInstall } = harness()
+    const pending = hostInstall.startEnable(validRequest())
+    await hostInstall.confirm()
+    expect(hostInstall.state.value).toBe('trust-review')
+
+    hostInstall.dismissOnDeactivate()
+    expect(hostInstall.dialogOpen.value).toBe(false)
+    // 包已经装好了，只是没人确认启用：结论必须仍是「已暂存」，不能降级成取消。
+    await expect(pending).resolves.toMatchObject({ outcome: 'staged' })
+  })
+
+  test('deactivation never cancels an install that is still running', async () => {
+    const { hostInstall } = harness({ install: () => new Promise(() => {}) })
+    void hostInstall.start(validRequest())
+    void hostInstall.confirm()
+    expect(hostInstall.state.value).toBe('installing')
+
+    hostInstall.dismissOnDeactivate()
+    // 正在下载：弹窗留在原地，交给 unmount 的 abort 收尾。
+    expect(hostInstall.dialogOpen.value).toBe(true)
+    expect(hostInstall.state.value).toBe('installing')
   })
 
   test('errors are typed so plugins can branch on code', () => {

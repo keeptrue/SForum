@@ -304,6 +304,11 @@ onBeforeUnmount(() => {
   hostInstall.abortOnUnmount()
   void dispose()
 })
+// 后台页签是 KeepAlive 缓存的：切走时组件不会卸载，弹窗（teleport 到 body）会留在
+// 新页面上。停用即收尾，进行中的安装交给 unmount 的 abort 处理。
+onDeactivated(() => {
+  hostInstall.dismissOnDeactivate()
+})
 </script>
 
 <template>

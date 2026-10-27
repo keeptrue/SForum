@@ -117,7 +117,7 @@ describe('admin page install dialog', () => {
   })
 
   test('renders cancel, retry, success and failure branches', () => {
-    for (const key of ['cancel', 'retry', 'confirm', 'close', 'failedTitle', 'openPlugins', 'openThemes']) {
+    for (const key of ['cancel', 'retry', 'confirm', 'close', 'failedTitle', 'openPlugins', 'openPluginsEnable', 'openThemes']) {
       expect(dialog).toContain(`admin.extensionInstall.hostAction.${key}`)
     }
     expect(dialog).toContain("@click=\"emit('confirm')\"")
@@ -128,7 +128,8 @@ describe('admin page install dialog', () => {
 
   test('returns focus to the trigger and leaves the initial focus to the modal scope', () => {
     expect(dialog).toContain('restoreFocusTo = document.activeElement instanceof HTMLElement')
-    expect(dialog).toContain('previous?.focus()')
+    // 触发元素可能已被关掉（商城详情先收起）：脱离文档就不归还，免得焦点掉到 body。
+    expect(dialog).toContain('if (previous?.isConnected) previous.focus()')
     expect(dialog).toContain('watch(open, syncFocus)')
     // 不和 FocusScope 抢初始焦点：确认动作不是默认焦点，必须显式点击/一次 Tab。
     expect(dialog).not.toContain('autofocus')
@@ -411,6 +412,42 @@ describe('admin page install dialog rendering', () => {
       expect(body).toContain('"limit":120')
     } finally {
       wrapper.unmount()
+    }
+  })
+
+  test('a package that is already running offers no management button', () => {
+    for (const outcome of ['enabled', 'upgraded'] as const) {
+      const wrapper = mountDialog({ state: 'success', result: installed, outcome })
+      try {
+        // 只剩「关闭」：信任早在上一次启用时就确认过了，不能再派人去「完成信任与启用」。
+        expect(wrapper.findAll('button').map(node => node.text()).filter(Boolean))
+          .toEqual(['admin.extensionInstall.hostAction.close'])
+        expect(wrapper.text()).not.toContain('admin.extensionInstall.hostAction.openPlugins')
+        expect(wrapper.text()).not.toContain('admin.extensionInstall.hostAction.openThemes')
+      } finally {
+        wrapper.unmount()
+      }
+    }
+  })
+
+  test('a staged package points at the page that still has work and names trust only when it is pending', () => {
+    const cases: Array<{ props: Record<string, unknown>, key: string }> = [
+      { props: { result: { ...installed, type: 'theme' }, stagedReason: 'theme' }, key: 'openThemes' },
+      { props: { result: installed, stagedReason: 'super_admin' }, key: 'openPlugins' },
+      { props: { result: installed, stagedReason: 'declined' }, key: 'openPlugins' },
+      // 旧宿主只暂存：装完之前说不清制品是否已信任，只能写「启用」。
+      { props: { result: installed, stagedReason: 'stage' }, key: 'openPluginsEnable' }
+    ]
+    for (const { props, key } of cases) {
+      const wrapper = mountDialog({ state: 'success', outcome: 'staged', ...props })
+      try {
+        expect(wrapper.findAll('button').map(node => node.text()).filter(Boolean)).toEqual([
+          'admin.extensionInstall.hostAction.close',
+          `admin.extensionInstall.hostAction.${key}`
+        ])
+      } finally {
+        wrapper.unmount()
+      }
     }
   })
 

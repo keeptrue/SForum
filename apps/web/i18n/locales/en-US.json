@@ -1357,6 +1357,7 @@
         "stagedDeclinedBody": "You did not confirm the enable, so it is not running. You can enable it later on the plugins page.",
         "packageDigest": "Package digest",
         "openPlugins": "Open plugins to trust and enable",
+        "openPluginsEnable": "Open plugins to enable",
         "openThemes": "Open themes to activate"
       }
     },
