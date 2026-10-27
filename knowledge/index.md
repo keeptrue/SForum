@@ -6,6 +6,18 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### Security 门禁：x/net 可达漏洞（v3.0.23）
+
+- Status: **landed（2026-10-28）**。main 上只有 `Govulncheck / core-api` 红：
+  `golang.org/x/net@v0.60.0` 的两条可达漏洞（GO-2026-6866 `html.Render` 祖先命名
+  空间跃迁、GO-2026-6860 文本节点合并平方复杂度），修于 `v0.62.0`。升级连带
+  `x/crypto` / `x/sync` / `x/text`；16 个 fixture 与 8 个内置插件的 backend 模块因
+  `replace` 复用主模块依赖图，必须逐个 `go mod tidy`（否则 `go build` 报
+  `updates to go.mod needed`，CI 的 `-mod=mod` 构建会写回工作区被 drift 检查判红）；
+  `backend/go.sum` 属于内置插件 sourceDigest，8 个插件 patch 抬版并刷新发布基线。
+  已随 **v3.0.23** 发布（2026-10-28）。
+- Handoff：`sessions/2026-10-28-govulncheck-x-net.md`。
+
 ### 真实客户端 IP（web 层改信任入口头）
 
 - Status: **landed（2026-10-28）**。2026-10-27 那版「web 层解析唯一 IP」在真实运行时
@@ -693,7 +705,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **CI 转绿与 v3.0.20 发布（2026-10-27，最新）**：附件错误码本地化、
+- **Security 门禁转绿与 v3.0.23 发布（2026-10-28，最新）**：`golang.org/x/net` 从
+  v0.60.0 抬到 v0.62.0，清掉两条可达漏洞（GO-2026-6866 / GO-2026-6860，命中
+  `ThemeCompiler` 与 `EditorDocument` 的 html 解析）；连带 crypto/sync/text 抬版。
+  级联范围是本轮真正的成本：16 个 fixture 与 8 个内置插件 backend 模块靠 `replace`
+  复用主模块依赖图，必须逐个 `go mod tidy`；`backend/go.sum` 属于 sourceDigest，
+  8 个插件 patch 抬版 + 刷新 `tests/builtin-plugin-release-baseline.json`。
+  CI `40596275765` 与 Security `40596275832` 全绿，Release `40598005034` 全绿。
+  见 `knowledge/sessions/2026-10-28-govulncheck-x-net.md`。
+- **CI 转绿与 v3.0.20 发布（2026-10-27）**：附件错误码本地化、
   核心路由计数 380、CLI `recovery` 文档覆盖、两个静态契约测试跟随真实归属；
   Release tooling 因共享插件运行时变更要求 8 个内置插件 patch 抬版；
   Web SDK 1.3.0/1.1.0 因仓库改名元数据漂移 patch 到 1.3.1/1.1.1；发布链路的
