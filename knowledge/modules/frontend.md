@@ -674,6 +674,13 @@ Plan: `../plans/2026-07-22-theme-defined-system-error-pages.md`
   tracks. Left/right column dividers are the rails' own 1 px border; the legacy
   ±12 px pseudo-element line shipped by an installed theme artifact is disabled
   in `sforum-topic.css` until that theme package is rebuilt.
+- The center column is a fixed-height flex scroll container on desktop, so its
+  children must keep their intrinsic height (`.sforum-content-column > * {
+  flex-shrink: 0 }`). A child with `overflow` gets an automatic minimum size of
+  0 in a flex column and collapses to 0~2px, clipping its content — this is how
+  the account-security device card and the profile section nav disappeared.
+  Do not patch individual cards with `shrink-0`; the contract belongs on the
+  shared column.
 - Public chrome islands such as `SFNavbar` and `SFFooter` must stay statically
   reachable from runtime theme templates so critical scoped CSS is present
   before browser back/forward restores the page.

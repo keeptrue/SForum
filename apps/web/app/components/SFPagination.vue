@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { buildPaginationWindow } from '~/utils/pagination/window'
+
 const props = withDefaults(defineProps<{
   page?: number
   totalPages?: number
@@ -14,34 +16,7 @@ const emit = defineEmits<{
   'update:page': [value: number]
 }>()
 
-const pages = computed(() => {
-  const total = Math.max(1, props.totalPages)
-  const current = Math.min(total, Math.max(1, props.page))
-  const siblings = Math.max(0, props.siblingCount)
-  const start = Math.max(1, current - siblings)
-  const end = Math.min(total, current + siblings)
-  const values: Array<number | 'ellipsis-start' | 'ellipsis-end'> = []
-
-  values.push(1)
-
-  if (start > 2) {
-    values.push('ellipsis-start')
-  }
-
-  for (let value = Math.max(2, start); value <= Math.min(total - 1, end); value += 1) {
-    values.push(value)
-  }
-
-  if (end < total - 1) {
-    values.push('ellipsis-end')
-  }
-
-  if (total > 1) {
-    values.push(total)
-  }
-
-  return values
-})
+const pages = computed(() => buildPaginationWindow(props.page, props.totalPages, props.siblingCount))
 
 function go(value: number) {
   const total = Math.max(1, props.totalPages)

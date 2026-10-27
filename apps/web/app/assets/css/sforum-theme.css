@@ -446,6 +446,16 @@ body[data-sforum-error="404"] > nuxt-error-overlay.pip-hidden {
   flex-direction: column;
 }
 
+/*
+ * 中心列在桌面端是固定高度的滚动容器（见下方 sticky 规则），子项必须保留自身高度。
+ * 带 overflow 的子项（卡片 overflow-hidden、tab 条 overflow-x:auto）在 flex 纵列里
+ * 自动最小尺寸为 0，会被压扁到 0~2px 并裁掉内容（账号安全的设备卡片、资料页的分区导航）。
+ * 滚动由容器负责，子项不参与收缩；只关 shrink，不动 grow/basis。
+ */
+.sforum-content-column > * {
+  flex-shrink: 0;
+}
+
 @media (min-width: 981px) {
   .sf-host-public-chrome--fullwidth-3col {
     display: flex;
