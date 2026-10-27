@@ -939,6 +939,27 @@
   box-shadow: none;
 }
 
+/* 标题行铺满正文列：右上操作菜单绝对定位，不再独占一整列。
+ * 原先 40px 预留列让 byline 分隔线比下方正文卡片短 52px，菜单下方到卡片顶部空出一块缺口。
+ * 特异性加一层 .sforum-topic-page：主题包 theme.css 也有同一条 grid 规则，皮肤链可能被重挂到
+ * head 末尾，必须赢在特异性上（同下方列线规则）。 */
+.sforum-topic-page .sforum-topic-page__heading-row {
+  position: relative;
+  display: block;
+}
+
+.sforum-topic-page .sforum-topic-page__heading-row > .sf-topic-action-menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* 菜单与面包屑同一行，只有面包屑需要避让（40px 按钮 + 12px 间距）。
+ * 标题在面包屑下方，不参与避让：给标题留 padding 会让窄屏每行少 52px，标题提前折行。 */
+.sforum-topic-page .sf-topic-heading__breadcrumbs {
+  padding-right: 3.25rem;
+}
+
 .sf-topic-heading__byline {
   margin-top: 18px;
   margin-bottom: 0;

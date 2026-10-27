@@ -286,6 +286,9 @@ describe('default theme V32 topic page contract', () => {
     expect(css).toContain('border-right: 1px solid var(--sf-public-border)')
     expect(css).toContain('border-left: 1px solid var(--sf-public-border)')
     expect(css).toContain('.sforum-topic-page .sf-topic-heading__title')
+    // 标题行不得为操作菜单预留整列，否则 byline 分隔线比正文卡片短一截、右上角留空白缺口。
+    expect(css).toContain('.sforum-topic-page .sforum-topic-page__heading-row {\n  position: relative;\n  display: block;\n}')
+    expect(css).toContain('.sforum-topic-page .sforum-topic-page__heading-row > .sf-topic-action-menu {\n  position: absolute;')
     expect(css).toContain('.sf-topic-side-card')
     expect(css).toContain('background: var(--sf-public-surface)')
     expect(css).toContain('overflow-wrap: anywhere')
