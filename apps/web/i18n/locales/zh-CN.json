@@ -334,8 +334,15 @@
       "statOnline": "当前在线"
     },
     "rightRail": {
-      "welcomeUserTitle": "晚上好，{name}",
+      "welcomeUserTitle": "你好，{name}",
       "welcomeUserSubtitle": "欢迎回来看看新讨论",
+      "greeting": {
+        "morning": "早上好，{name}",
+        "noon": "中午好，{name}",
+        "afternoon": "下午好，{name}",
+        "evening": "晚上好，{name}",
+        "lateNight": "夜深了，{name}"
+      },
       "ariaLabel": "辅助信息",
       "drawerTitle": "社区信息",
       "hotByReplies": "按回复",

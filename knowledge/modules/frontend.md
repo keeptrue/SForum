@@ -266,6 +266,14 @@ responsibilities.
   states that mobile follows sidebar. `public.mobile.primary` remains readable
   in V1 documents, snapshots, and imports for compatibility but is not rendered
   or independently edited by the current product.
+- The authenticated right-rail greeting is time-of-day aware rather than fixed
+  copy: `utils/forum/forumHomeGreeting.ts` buckets the local hour (05 morning /
+  11 noon / 13 afternoon / 18 evening / 23 late night, half-open ranges) and
+  `useForumHomeGreeting` renders it from `site.timezone` during SSR, then
+  switches to the visitor's own timezone after mount so the reader's clock wins.
+  The first-frame timestamp is pinned with `useState`, so the hydration text
+  matches SSR and the correction never triggers a mismatch. `welcomeUserTitle`
+  survives only as the missing-key fallback.
 
 ### Mobile comment actions
 

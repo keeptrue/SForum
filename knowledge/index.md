@@ -673,12 +673,17 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **首页右栏问候语按时段生成（2026-10-27，最新）**：`晚上好，{name}` 不再写死，
+  `utils/forum/forumHomeGreeting.ts` 分五档（05 早 / 11 中 / 13 下 / 18 晚 / 23 深夜），
+  `useForumHomeGreeting` 在 SSR 用站点时区、挂载后改用访客本地时区，`useState` 钉首帧
+  避免水合不一致；`welcomeUserTitle` 降级为缺键兜底。见
+  `knowledge/sessions/2026-10-27-home-right-rail-greeting.md`。
 - **Version GC 钉住主题发布 source（2026-10-27）**：GC 判据补上
   `theme_runtime_publications` 的 source 三元组（与插件账本共用
   `publication_history`），dry-run/execute 同源 + 锁内复核；主题历史版本基本不再
   回收，是刻意 fail-closed。见
   `knowledge/sessions/2026-10-27-version-gc-theme-publication-pin.md`。
-- **商城更新徽章：真实数据取证（2026-10-27，最新）**：三条 `list_column` surface 在 dev 上
+- **商城更新徽章：真实数据取证（2026-10-27）**：三条 `list_column` surface 在 dev 上
   返回非空 cells，三页徽章断言全通（`<a>`、不在 `button` 内、`arrow-up-right`、
   `title` 含「来自 sforum.store」、深链落 `/control-panel/extensions/sforum.store/pages/catalog?product=<slug>`
   并开弹层）；「只看有更新」A/B：plugins 11→12 / themes 1→2 / overview 12→14。

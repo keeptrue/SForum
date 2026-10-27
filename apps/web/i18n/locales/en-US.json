@@ -296,6 +296,13 @@
     "rightRail": {
       "welcomeUserTitle": "Welcome back, {name}",
       "welcomeUserSubtitle": "Catch up on the latest discussions",
+      "greeting": {
+        "morning": "Good morning, {name}",
+        "noon": "Good afternoon, {name}",
+        "afternoon": "Good afternoon, {name}",
+        "evening": "Good evening, {name}",
+        "lateNight": "Still up, {name}"
+      },
       "ariaLabel": "Sidebar",
       "drawerTitle": "Community information",
       "hotByReplies": "By replies",

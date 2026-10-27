@@ -2,6 +2,7 @@
 import { useActiveThemeSettings } from '~/composables/themes/useActiveThemeSettings'
 import { userDisplayName } from '~/utils/forum/userDisplay'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
+import { useForumHomeGreeting } from '~/composables/forum/useForumHomeGreeting'
 import {
   forumTopicPath,
   type ForumTag,
@@ -44,6 +45,8 @@ const isAuthenticated = computed(() => Boolean(user.value))
 const displayName = computed(() =>
   userDisplayName(user.value)
 )
+// 问候语按时段生成：SSR 用站点时区，挂载后改用访客本地时区。
+const { greetingKey } = useForumHomeGreeting()
 const profileTo = computed(() =>
   user.value ? localePath(`/u/${user.value.username}`) : localePath('/login')
 )
@@ -90,7 +93,7 @@ function isTopHotRank(index: string | number) {
             <SFAvatar :name="displayName" :avatar="user.avatar" size="md" />
             <span class="sf-home-right-rail__user-text">
               <span class="sf-home-right-rail__user-name">
-                {{ t('home.rightRail.welcomeUserTitle', { name: displayName }) }}
+                {{ t(greetingKey, { name: displayName }) }}
               </span>
               <span class="sf-home-right-rail__user-sub">{{ t('home.rightRail.welcomeUserSubtitle') }}</span>
             </span>

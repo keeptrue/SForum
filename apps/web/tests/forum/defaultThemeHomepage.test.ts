@@ -403,8 +403,10 @@ describe('default theme V32 left-nav homepage contract', () => {
     expect(rightRail).toContain('home.sidebar.forumStats')
     expect(rightRail).toContain('useAuthSession')
     expect(rightRail).toContain('home.sidebar.welcomeTitle')
-    expect(rightRail).toContain('home.rightRail.welcomeUserTitle')
     expect(rightRail).toContain('home.rightRail.welcomeUserSubtitle')
+    // 问候语按时段生成（站点时区 → 访客本地时区），不再固定「晚上好」。
+    expect(rightRail).toContain('useForumHomeGreeting')
+    expect(rightRail).toContain('t(greetingKey, { name: displayName })')
     expect(rightRail).toContain('rightRailWelcome')
     expect(rightRail).toContain("emit('select-tag'")
     // 排序：服务端 sort + URL 状态；前端本地重排已删除（只作用于已加载页，且破坏置顶与 cursor 语义）
