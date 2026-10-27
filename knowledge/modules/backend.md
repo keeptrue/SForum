@@ -289,11 +289,14 @@ write-rate-limiter key goes through `clientip.FromCtx` instead of Fiber's
 `compose.yaml`, `deploy/scripts/configure-production.sh`, and
 `.env.production.example` ship `TRUST_PROXY=true`,
 `TRUST_PROXY_PRIVATE=true`, `TRUST_PROXY_LOOPBACK=false`, and an empty
-`TRUSTED_PROXIES`, because the API peer in Compose is the `web` container; the
-Nuxt layer resolves the single client IP and overwrites the outbound headers
-first. `config` keeps its fail-closed built-in defaults for hand-written
-bare-metal env files. See `decisions/2026-07-12-client-real-ip.md` (2026-10-27
-revision) and `plans/2026-10-27-client-real-ip-production.md`.
+`TRUSTED_PROXIES`, because the API peer in Compose is the `web` container.
+The Nuxt layer cannot see a TCP peer at all (Nitro's `localFetch` hands h3 a
+mock socket whose `remoteAddress` is an empty string), so it forwards the
+ingress `X-Real-IP` as a single value instead of resolving one; `web` therefore
+does not receive `TRUSTED_PROXIES`, and its port must stay loopback-only.
+`config` keeps its fail-closed built-in defaults for hand-written bare-metal env
+files. See `decisions/2026-07-12-client-real-ip.md` (2026-10-27 and 2026-10-28
+revisions) and `plans/2026-10-27-client-real-ip-production.md`.
 
 The admin release checker caches both successful and failed upstream results
 for five minutes per API process. Forced checks still bypass that cache.

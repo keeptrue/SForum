@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-07-12. Implemented. Revised 2026-10-27（见文末「2026-10-27 修订」）。
+Accepted on 2026-07-12. Implemented. Revised 2026-10-27（见「2026-10-27 修订」）and 2026-10-28（见文末「2026-10-28 修订」，web 层模型纠正）。
 
 ## Context
 
@@ -99,3 +99,28 @@ CDN → Caddy/Nginx → Nuxt → API（Docker）链路上，API 的 TCP 对端�
 默认值**（裸机手写环境变量时成立），但不再是标准 Compose 部署的行为：Compose 与
 向导生成的环境文件都显式写入了上面的新默认值。计划与验收见
 `plans/2026-10-27-client-real-ip-production.md`。
+
+## 2026-10-28 修订：web 层不再解析对端
+
+**发现**：2026-10-27 的第 5 条在真实运行时从未生效，而且是净负面。Nuxt 4.4 /
+Nitro 2.13 的请求管线（dev 与生产 `bun` preset 相同）经
+`localFetch → fetchNodeRequestHandler → node-mock-http` 构造 h3 事件，mock
+`IncomingMessage.socket.remoteAddress` 恒为空串。于是 `resolveClientIP('')`
+返回空串，`applyClientIPHeaders(headers, '')` 把 `X-Real-IP` / `X-Forwarded-For` /
+`CF-Connecting-IP` / `True-Client-IP` **全部删除**，API 只能回退 TCP 对端
+（web 容器）——这正是「会话/审计记成容器地址」的直接原因。单测用
+`createServer(toNodeListener(app))`（真实 socket）所以没抓到。
+
+**修订**：
+
+1. web 层不再判断「对端是否可信」（运行时拿不到），改为信任入口代理写入的单值头：
+   `X-Real-IP` → `X-Forwarded-For` 最右有效项 → 空；规范化后写回单值并删 CDN 头。
+2. 空值仍 fail-closed（四个头全删），生产环境首次触发打一条 warn，避免入口漏配
+   再次静默降级。
+3. `TRUSTED_PROXIES` 只作用于 `api`；`web` 不再接收该变量。
+4. 信任边界改为部署约束：**web 端口只发布到 loopback/内网**。公网可达时客户端
+   可自定审计 IP——这是本模型的唯一取舍，写进部署文档；需要更强保证时再上
+   HMAC 跳签名。
+5. 回归测试固定 Nitro 形状（`socket.remoteAddress === ''`），防止实现退回 peer 判定。
+
+API 侧（第 1–4 条）保持不变：`clientip.FromCtx` 仍是唯一解析入口，限流键同源。

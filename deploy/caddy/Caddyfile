@@ -51,8 +51,8 @@
 		}
 
 		# 普通 HTTP 和 Nuxt HMR 仍走 Web。X-Real-IP 由本层按 {client_ip} 重写，
-		# Nuxt 再解析成唯一客户端 IP 上行，API 看到的对端始终是 web 容器，因此
-		# 不需要把 Caddy 网段写进应用侧 TRUSTED_PROXIES。
+		# Nuxt 把它规范化成单值后上行（Nitro 运行时拿不到 TCP 对端），API 看到的
+		# 对端始终是 web 容器，因此不需要把 Caddy 网段写进应用侧 TRUSTED_PROXIES。
 		#
 		# 前面有 CDN（Cloudflare 等）时，在本文件顶部加全局选项块，由 Caddy 负责
 		# 剥头与计算 {client_ip}，应用侧 TRUSTED_PROXIES 保持为空：
@@ -65,8 +65,8 @@
 		# client_ip_headers 可省略（默认只认 X-Forwarded-For）；Cloudflare 必须
 		# 显式加上 CF-Connecting-IP。trusted_proxies 必须写在 servers 块里，
 		# Caddy 2.10 不认顶层同名选项。不要把 CDN 段写进应用侧
-		# TRUSTED_PROXIES：那时 Nuxt 会把唯一一条边缘 IP 当成代理剥掉，结果
-		# 回退成容器网关地址。
+		# TRUSTED_PROXIES：应用侧只该看到本层写好的 X-Real-IP，再解析一次只会
+		# 把唯一的边缘地址当成代理剥掉。
 		reverse_proxy 127.0.0.1:{$WEB_PORT:3000} {
 			header_up X-Real-IP {client_ip}
 			header_up -CF-Connecting-IP

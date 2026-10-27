@@ -8,7 +8,10 @@ import { proxyNotificationStream } from '../../server/utils/notifications/notifi
 
 interface FakeEventOptions {
   headers: Record<string, string>
-  /** undefined 模拟拿不到 TCP 对端（例如 unix socket），用于验证 fail-closed。 */
+  /**
+   * 默认 `''`：Nuxt 4.4 / Nitro 的请求管线走 node-mock-http，h3 事件的
+   * `req.socket.remoteAddress` 恒为空串。web 层不再依赖对端，这里固定成真实形状。
+   */
   remoteAddress?: string
 }
 
@@ -23,7 +26,7 @@ function fakeEvent(options: FakeEventOptions) {
   downstream.setHeader = () => {}
   const request = Object.assign(new EventEmitter(), {
     headers: options.headers,
-    socket: options.remoteAddress === undefined ? undefined : { remoteAddress: options.remoteAddress }
+    socket: { remoteAddress: options.remoteAddress ?? '' }
   })
   return { event: { node: { req: request, res: downstream } } as unknown as H3Event, downstream }
 }
@@ -57,9 +60,8 @@ async function captureUpstreamHeaders(options: FakeEventOptions) {
 }
 
 describe('notification stream client IP normalization', () => {
-  test('覆盖伪造的单值头与多值 XFF，只留解析结果', async () => {
+  test('把入口代理的 X-Real-IP 收敛成单值，删除伪造的 CDN 头', async () => {
     const headers = await captureUpstreamHeaders({
-      remoteAddress: '127.0.0.1',
       headers: {
         authorization: 'Bearer sft_real',
         'cf-connecting-ip': '203.0.113.7',
@@ -69,7 +71,8 @@ describe('notification stream client IP normalization', () => {
       }
     })
 
-    // 对端不是显式代理：伪造的 CDN 头被忽略，落回 X-Real-IP，且两个 CDN 头出站即删。
+    // 对端是 Nitro 的 mock socket（remoteAddress 为空串），不再影响结果：
+    // 入口代理写入的 X-Real-IP 才是权威值，两个 CDN 头出站即删。
     expect(headers['x-forwarded-for']).toBe('203.0.113.9')
     expect(headers['x-real-ip']).toBe('203.0.113.9')
     expect(headers['cf-connecting-ip']).toBeUndefined()
@@ -78,24 +81,8 @@ describe('notification stream client IP normalization', () => {
     expect(headers.authorization).toBe('Bearer sft_real')
   })
 
-  test('公网对端忽略一切转发头，只写对端地址', async () => {
+  test('只有多值 XFF 时取最右侧有效项', async () => {
     const headers = await captureUpstreamHeaders({
-      remoteAddress: '198.51.100.20',
-      headers: {
-        'cf-connecting-ip': '203.0.113.7',
-        'x-real-ip': '203.0.113.9',
-        'x-forwarded-for': '198.51.100.7'
-      }
-    })
-
-    expect(headers['x-forwarded-for']).toBe('198.51.100.20')
-    expect(headers['x-real-ip']).toBe('198.51.100.20')
-    expect(headers['cf-connecting-ip']).toBeUndefined()
-  })
-
-  test('只有多值 XFF 时取最右侧非代理地址', async () => {
-    const headers = await captureUpstreamHeaders({
-      remoteAddress: '172.18.0.5',
       headers: { 'x-forwarded-for': '198.51.100.7, 10.9.9.9' }
     })
 
@@ -103,13 +90,11 @@ describe('notification stream client IP normalization', () => {
     expect(headers['x-real-ip']).toBe('10.9.9.9')
   })
 
-  test('拿不到对端时删除全部客户端 IP 头（fail-closed）', async () => {
+  test('入口头缺失时删除全部客户端 IP 头（fail-closed）', async () => {
     const headers = await captureUpstreamHeaders({
       headers: {
         'cf-connecting-ip': '203.0.113.7',
-        'true-client-ip': '203.0.113.8',
-        'x-real-ip': '203.0.113.9',
-        'x-forwarded-for': '198.51.100.7'
+        'true-client-ip': '203.0.113.8'
       }
     })
 

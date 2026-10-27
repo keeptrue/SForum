@@ -107,8 +107,10 @@ ruby -rjson -e '
   end
   abort "compose-production_test.sh: API does not pass through SFORUM_SAFE_MODE" unless api.fetch("environment").key?("SFORUM_SAFE_MODE")
   abort "compose-production_test.sh: SFORUM_SAFE_MODE should default to an empty value" unless api.fetch("environment").fetch("SFORUM_SAFE_MODE") == ""
-  unless services.fetch("web").fetch("environment").key?("TRUSTED_PROXIES")
-    abort "compose-production_test.sh: web does not receive TRUSTED_PROXIES for outbound client IP normalization"
+  # web 不再解析 TCP 对端（Nitro 的请求管线拿不到 socket），客户端 IP 由入口代理写入的
+  # 单值头决定，因此它不需要、也不应该收到 TRUSTED_PROXIES。
+  if services.fetch("web").fetch("environment").key?("TRUSTED_PROXIES")
+    abort "compose-production_test.sh: web must not receive TRUSTED_PROXIES; it forwards the ingress client IP instead of resolving peers"
   end
 
   legacy_services = JSON.parse(File.read(ARGV.fetch(2))).fetch("services")

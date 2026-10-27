@@ -6,6 +6,17 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 真实客户端 IP（web 层改信任入口头）
+
+- Status: **landed（2026-10-28）**。2026-10-27 那版「web 层解析唯一 IP」在真实运行时
+  从未生效：Nitro 的 `localFetch` 给 h3 的是 mock socket（`remoteAddress` 恒为空串），
+  `resolveClientIP('')` 后 `applyClientIPHeaders` 把入口代理写好的四个 IP 头全删，
+  API 只能回退 web 容器地址。现改为信任入口 `X-Real-IP`（缺失退 XFF 最右有效项）+
+  单值化；web 不再接收 `TRUSTED_PROXIES`，端口必须只发布到 loopback。回归测试固定
+  Nitro 的 mock socket 形状。
+- Handoff：`sessions/2026-10-28-client-ip-web-edge-header.md`；
+  计划：`plans/2026-10-27-client-real-ip-production.md`（2026-10-28 修订）。
+
 ### 安装弹窗收尾（信任入口按需出现 + 跳转前先卸载）
 
 - Status: **landed（2026-10-28）**。成功态按钮改成「剩余动作」：已在跑

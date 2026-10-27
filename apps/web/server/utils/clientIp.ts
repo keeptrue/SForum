@@ -3,38 +3,31 @@ import { isIP } from 'node:net'
 /**
  * web（Nuxt）层的客户端 IP 规范化。
  *
- * 为什么 web 层必须做这一步：
- * 1. 生产链路是「浏览器 → Caddy → web(Nuxt) → api(Go)」。Caddy 写入 X-Real-IP / XFF 后，
- *    Nuxt 用 h3 的 getProxyRequestHeaders 原样复制，API 只看到 web 容器这个 TCP 对端；
- *    在零信任默认下，审计、限流、会话记录全部把这个跳数地址当成客户端。
- * 2. 转发头本身可伪造：直连 :3000 的请求可以随便写 XFF / CF-Connecting-IP。
- * 所以 web 是客户端 IP 的唯一权威出口：先按信任规则解析出唯一 IP，再把上行头覆盖成单值，
- * 让 API 侧看到的链条永远只有一个条目。
+ * 为什么 web 层不判断「对端是否可信」：
+ * Nuxt 4.4 / Nitro 2.13 的请求管线（dev 与生产 `bun` preset 相同）走
+ * `localFetch → fetchNodeRequestHandler → node-mock-http`，h3 事件里的
+ * `event.node.req.socket` 是 mock Socket，`remoteAddress` 恒为空串。
+ * 也就是说 web 层拿不到 TCP 对端，任何基于 peer 的信任判定都是死代码；
+ * 更糟的是它会把入口代理已经写好的真实 IP 当成「不可信」整组删掉，
+ * 让 API 只能回退到 web 容器地址（2026-10-27 那版实现的实际后果）。
  *
- * 规则与 apps/api/app/Support/ClientIP/clientip.go 一一对应：
- * - 对端（TCP peer）：loopback 与 RFC1918/ULA 私网恒可信（web 容器只可能被宿主机或同网络
- *   容器访问）；公网对端一律不可信，此时直接返回对端，转发头一概不采信。
- * - 链条目：只认显式代理（TRUSTED_PROXIES）与 loopback。私网不是代理，因此私网客户端
- *   不会被当成跳数剥掉（Go 侧 D2 修复后的语义）。
- * - 门控通过后的解析顺序：CDN 单值头（仅当对端是显式代理）→ x-real-ip → x-forwarded-for（右→左）→ 对端。
+ * 因此 web 层的职责收敛为一条：**信任入口代理写入的单值头，规范化后上行**。
+ * 信任边界由部署保证：web 只在 loopback/内网发布（compose.prod 绑 127.0.0.1），
+ * 公网唯一入口是 Caddy；Caddy 用 `header_up X-Real-IP {client_ip}` 覆盖该头，
+ * 并删除 CF-Connecting-IP / True-Client-IP。若把 web 端口发布到公网，
+ * 客户端即可自定审计 IP——这条硬约束写在部署文档里。
  *
- * CDN 单值头（cf-connecting-ip / true-client-ip）有一道额外门控：**只有对端本身落在显式
- * cfg.proxies 里才采信**。标准拓扑是 Caddy 在前，它只用 header_up 覆盖 X-Real-IP，不会
- * 剥掉这两个头——任何人都能往请求里写一个假 CF 头，若只看「对端可信」就采信，公网客户端
- * 可以凭空指定自己的审计 IP 并打散写限流桶。真正接 Cloudflare 时，让 CDN 边缘直连 web
- * 并把 CDN 出口段写进 TRUSTED_PROXIES，这两个头才重新可信。
+ * 解析顺序：x-real-ip（入口覆盖，权威）→ x-forwarded-for 最右有效项（自定义反代兜底）→ 空。
+ * 空值仍然 fail-closed：四个客户端 IP 头全部删除，宁可让 API 回退 TCP 对端，
+ * 也不转发未经校验的声明。CDN 单值头在这里一律不采信：它们没有中间代理替我们覆盖，
+ * 由 Caddy 的 `servers.trusted_proxies` + `{client_ip}` 负责解析。
  */
 
-const CDN_CLIENT_HEADERS = ['cf-connecting-ip', 'true-client-ip'] as const
 const X_REAL_IP = 'x-real-ip'
 const X_FORWARDED_FOR = 'x-forwarded-for'
+const CDN_CLIENT_HEADERS = ['cf-connecting-ip', 'true-client-ip'] as const
 const IPV4_MAPPED_MARKER = 0xffffn
 const IPV4_MAX = 0xffffffffn
-
-export interface ClientIPConfig {
-  /** 显式信任的代理 IP 或 CIDR，来自 TRUSTED_PROXIES（逗号分隔）；非法条目静默忽略。 */
-  proxies: string[]
-}
 
 interface ParsedAddress {
   /** 规范化文本：IPv4 点分十进制，IPv6 为 RFC 5952 压缩形式；`::ffff:` 一律归一成 IPv4。 */
@@ -43,57 +36,27 @@ interface ParsedAddress {
   value: bigint
 }
 
-interface ParsedProxy extends ParsedAddress {
-  prefix: number
-}
+let warnedMissingEdgeIP = false
 
 /**
- * 从环境变量读取代理信任列表。默认空表示不信任任何显式代理，
- * 与 API 侧 TRUSTED_PROXIES 的默认值保持一致。
+ * 解析入口代理给出的客户端 IP。
+ *
+ * 只做「取值 + 校验 + 规范化」，不判断来源可信度：运行时拿不到 TCP 对端，
+ * 可信度由部署拓扑保证（web 不可从公网直达）。非法或缺失返回空串。
  */
-export function clientIPConfig(raw = process.env.TRUSTED_PROXIES ?? ''): ClientIPConfig {
-  return {
-    proxies: raw.split(',').map(entry => entry.trim()).filter(Boolean)
-  }
-}
-
-/**
- * 解析唯一客户端 IP。对端非法时返回空串（调用方按 fail-closed 处理）。
- */
-export function resolveClientIP(peer: string, headers: Headers, cfg: ClientIPConfig): string {
-  const peerAddress = parseAddress(peer)
-  if (!peerAddress) return ''
-
-  const proxies = compileProxies(cfg.proxies)
-  // 对端不是可信代理：绝不采信可伪造的转发头。
-  if (!isTrustedPeer(peerAddress, proxies)) return peerAddress.text
-
-  // 1) CDN 单值头：没有中间代理替我们覆盖这两个头，因此只有「对端本身就是显式配置的
-  //    CDN 边缘」才采信；标准拓扑里对端是 Caddy，这里的伪造值必须被忽略。
-  const peerIsExplicitProxy = proxies.some(proxy => matchesPrefix(peerAddress, proxy))
-  if (peerIsExplicitProxy) {
-    for (const name of CDN_CLIENT_HEADERS) {
-      const candidate = parseAddress(headers.get(name))
-      if (candidate && !isProxyAddress(candidate, proxies)) return candidate.text
-    }
-  }
-
-  // 2) X-Real-IP：官方 Caddyfile 用 header_up 覆盖它，对端可信即可采信。
+export function resolveEdgeClientIP(headers: Headers): string {
   const realIp = parseAddress(headers.get(X_REAL_IP))
-  if (realIp && !isProxyAddress(realIp, proxies)) return realIp.text
+  if (realIp) return realIp.text
 
-  // 3) X-Forwarded-For：从右往左剥代理，取最右侧的非代理地址。
   const chain = headers.get(X_FORWARDED_FOR)
-  if (chain) {
-    const entries = chain.split(',')
-    for (let index = entries.length - 1; index >= 0; index--) {
-      const candidate = parseAddress(entries[index])
-      if (!candidate || isProxyAddress(candidate, proxies)) continue
-      return candidate.text
-    }
+  if (!chain) return ''
+  // 从右往左取第一个可解析条目：最近一跳代理追加的值，客户端无法把它顶掉。
+  const entries = chain.split(',')
+  for (let index = entries.length - 1; index >= 0; index--) {
+    const candidate = parseAddress(entries[index])
+    if (candidate) return candidate.text
   }
-
-  return peerAddress.text
+  return ''
 }
 
 /**
@@ -101,70 +64,33 @@ export function resolveClientIP(peer: string, headers: Headers, cfg: ClientIPCon
  * ip 为空时同样删除全部四个头：宁可让 API 回退到 TCP 对端，也不转发任何未经校验的声明。
  */
 export function applyClientIPHeaders(headers: Headers, ip: string): void {
-  headers.delete('cf-connecting-ip')
-  headers.delete('true-client-ip')
+  for (const name of CDN_CLIENT_HEADERS) headers.delete(name)
   if (!ip) {
     headers.delete(X_FORWARDED_FOR)
-    headers.delete('x-real-ip')
+    headers.delete(X_REAL_IP)
     return
   }
   headers.set(X_FORWARDED_FOR, ip)
-  headers.set('x-real-ip', ip)
+  headers.set(X_REAL_IP, ip)
 }
 
-function isTrustedPeer(address: ParsedAddress, proxies: ParsedProxy[]) {
-  return isProxyAddress(address, proxies) || isPrivate(address)
+/**
+ * 代理上行前的统一入口：解析入口头、覆盖上行头、必要时告警。
+ * 生产环境解析为空只告警一次，避免入口漏配再次静默降级成容器地址。
+ */
+export function normalizeUpstreamClientIP(headers: Headers): void {
+  const ip = resolveEdgeClientIP(headers)
+  if (!ip) warnMissingEdgeIP()
+  applyClientIPHeaders(headers, ip)
 }
 
-// 链条目只认显式代理与 loopback；私网地址是客户端，不是跳数。
-function isProxyAddress(address: ParsedAddress, proxies: ParsedProxy[]) {
-  return isLoopback(address) || proxies.some(proxy => matchesPrefix(address, proxy))
-}
-
-function isLoopback(address: ParsedAddress) {
-  if (address.family === 4) return (address.value >> 24n) === 0x7fn
-  return address.value === 1n
-}
-
-function isPrivate(address: ParsedAddress) {
-  if (address.family === 6) return (address.value >> 121n) === 0x7en // fc00::/7
-  const first = Number((address.value >> 24n) & 0xffn)
-  const second = Number((address.value >> 16n) & 0xffn)
-  return first === 10
-    || (first === 172 && second >= 16 && second <= 31)
-    || (first === 192 && second === 168)
-}
-
-function matchesPrefix(address: ParsedAddress, proxy: ParsedProxy) {
-  if (address.family !== proxy.family) return false
-  const shift = BigInt(address.family === 4 ? 32 : 128) - BigInt(proxy.prefix)
-  if (shift === 0n) return address.value === proxy.value
-  return (address.value >> shift) === (proxy.value >> shift)
-}
-
-const proxyCache = new Map<string, ParsedProxy[]>()
-
-function compileProxies(proxies: readonly string[]) {
-  const key = proxies.join(',')
-  const cached = proxyCache.get(key)
-  if (cached) return cached
-  const compiled = proxies.map(parseProxy).filter((proxy): proxy is ParsedProxy => Boolean(proxy))
-  // 配置在进程内基本不变，只保留少量键即可，避免测试或热重载时无界增长。
-  if (proxyCache.size > 8) proxyCache.clear()
-  proxyCache.set(key, compiled)
-  return compiled
-}
-
-function parseProxy(raw: string): ParsedProxy | undefined {
-  const [addressPart, prefixPart, extra] = raw.split('/')
-  if (extra !== undefined) return undefined
-  const address = parseAddress(addressPart)
-  if (!address) return undefined
-  if (prefixPart === undefined) return { ...address, prefix: address.family === 4 ? 32 : 128 }
-  if (!/^\d{1,3}$/.test(prefixPart)) return undefined
-  const prefix = Number(prefixPart)
-  if (prefix > (address.family === 4 ? 32 : 128)) return undefined
-  return { ...address, prefix }
+function warnMissingEdgeIP() {
+  if (warnedMissingEdgeIP || process.env.APP_ENV !== 'production') return
+  warnedMissingEdgeIP = true
+  console.warn(
+    '[client-ip] inbound request carried no valid x-real-ip / x-forwarded-for; '
+    + 'no client IP header was forwarded (check the ingress proxy configuration)'
+  )
 }
 
 function parseAddress(raw: string | null | undefined): ParsedAddress | undefined {

@@ -1,6 +1,6 @@
 # 生产真实客户端 IP 修复计划书
 
-**Status**: ready（2026-10-27 批准，实施中）
+**Status**: landed（2026-10-27 批准；2026-10-28 纠正 web 层模型后实施）
 **Scope**: `apps/api` 真实 IP 解析、`apps/web` 同域 API 代理、`compose*.yaml`、`deploy/scripts`、部署文档
 **Relates**: 修订 `knowledge/decisions/2026-07-12-client-real-ip.md` 的信任模型
 
@@ -135,3 +135,19 @@ api：`TRUST_PROXY`/`TRUST_PROXY_PRIVATE` 默认 `true`，`TRUST_PROXY_LOOPBACK`
 
 - 是否补 `GET /api/v1/admin/system/client-ip` 诊断端点。
 - 是否清理历史错误 IP（当前不清理，仅提供运维说明）。
+
+## 修订（2026-10-28 运行时复核）
+
+P1-1 的「web 层解析唯一 IP」在真实运行时**从未生效**：Nitro 的请求管线经
+`localFetch → fetchNodeRequestHandler → node-mock-http` 构造 h3 事件，mock
+`socket.remoteAddress` 恒为空串；`resolveClientIP('')` 返回空串后
+`applyClientIPHeaders` 把入口代理写好的四个客户端 IP 头全部删除，API 只能回退
+web 容器地址。活体验证：经 `:3000` 的 `X-Real-IP: 203.0.113.200` /
+`X-Forwarded-For: 203.0.113.201` 落进同一个 `127.0.0.1` 限流桶；直连 `:8080`
+的同名头各自成桶。
+
+P1-1 改为「信任入口头 + 单值化」：web 不再解析对端，也不再接收
+`TRUSTED_PROXIES`；信任边界改为「web 端口只发布到 loopback」。回归测试固定
+Nitro 的 mock socket 形状。API 侧 P0-1/P0-2/P0-3 与 Caddy 侧改动不变。
+详见 `decisions/2026-07-12-client-real-ip.md` 的 2026-10-28 修订与
+`sessions/2026-10-28-client-ip-web-edge-header.md`。

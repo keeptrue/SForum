@@ -180,8 +180,8 @@ API 始终内嵌 River Worker，没有独立 Worker 开关。
 | 变量 | 默认/示例 | 说明 |
 | --- | --- | --- |
 | `CSRF_TRUSTED_ORIGINS` | `https://forum.example.com` | 允许的公开 origin；留空时从 `APP_URL` 派生 |
-| `TRUST_PROXY` | `true` | 总开关：`false` 时任何转发头都不读，只记录 TCP 对端 |
-| `TRUSTED_PROXIES` | 空 | 应用侧额外信任的代理 IP 或网段，逗号分隔；标准 Compose 拓扑下恒为空（CDN 段与 compose 网段都不写） |
+| `TRUST_PROXY` | `true` | API 总开关：`false` 时任何转发头都不读，只记录 TCP 对端 |
+| `TRUSTED_PROXIES` | 空 | **只作用于 api**：额外信任的代理 IP 或网段，逗号分隔；标准 Compose 拓扑下恒为空（CDN 段与 compose 网段都不写） |
 | `TRUST_PROXY_PRIVATE` | `true` | 是否信任私网（RFC1918 / ULA）**对端** |
 | `TRUST_PROXY_LOOPBACK` | `false` | 是否信任 loopback（`127.0.0.0/8`、`::1`）**对端** |
 
@@ -191,10 +191,26 @@ API 始终内嵌 River Worker，没有独立 Worker 开关。
 「信任私网」只作用于**对端地址**，不会把 `X-Forwarded-For` 链条上的私网条目当成
 代理剥掉——链上的私网地址更可能是内网客户端本身，剥掉它反而会退回对端地址。
 链条目只有 `TRUSTED_PROXIES` 里的显式代理（以及打开 `TRUST_PROXY_LOOPBACK`
-后的 loopback 条目）才参与剥离。web 层（Nuxt）在转发 `/api/v1/*` 之前已解析出
-唯一客户端 IP 并覆盖上行头，因此 API 侧看到的链条通常只有一个条目。
+后的 loopback 条目）才参与剥离。
 
-每一跳的 TCP 对端不同，配置也就不同：
+### web 层如何传客户端 IP
+
+链路是「浏览器 → Caddy → `web`(Nuxt) → `api`」。Nuxt 的请求管线（dev 与生产
+`bun` preset 相同）经 `localFetch` 进入 h3，**拿不到 TCP 对端**（mock socket 的
+`remoteAddress` 恒为空串），所以 web 层不做任何「对端是否可信」的判断：
+
+1. 读 Caddy 写入的 `X-Real-IP`（`header_up X-Real-IP {client_ip}` 覆盖，权威值）；
+2. 没有时退 `X-Forwarded-For` 的最右有效项（自定义反代兜底）；
+3. 规范化成单值后同时写回 `X-Real-IP` 与 `X-Forwarded-For`，并删除
+   `CF-Connecting-IP` / `True-Client-IP`；
+4. 两个头都缺失或非法时删除全部四个头（fail-closed），API 回退到 TCP 对端。
+
+**因此 `web` 端口必须只发布到 loopback/内网**（`compose.prod.yaml` 绑
+`127.0.0.1:${WEB_PORT:-3000}`）。一旦 web 端口公网可达，任何客户端都能自带
+`X-Real-IP` 指定自己的审计 IP；这是 web 层信任入口头的前提。直连 `:3000` 而不经过
+任何代理时（例如本地 `bun run dev`），没有头可转发，记录的就是 API 看到的回环地址。
+
+每一跳的 TCP 对端不同，API 侧配置也就不同：
 
 | 拓扑 | API 看到的 TCP 对端 | 该配什么 |
 | --- | --- | --- |
@@ -207,17 +223,16 @@ API 始终内嵌 River Worker，没有独立 Worker 开关。
 | CDN 在 Caddy 之前 | 仍是 `web` 容器 | 在 **Caddy** 的全局 `servers` 块写 `trusted_proxies static <CDN 出口段>`（Cloudflare 另加 `client_ip_headers CF-Connecting-IP`），应用侧 `TRUSTED_PROXIES` 留空 |
 
 CDN 场景不要动应用的 `TRUSTED_PROXIES`：Caddy 用 `{client_ip}` 重算真实客户端，并删除
-`CF-Connecting-IP` / `True-Client-IP` 之后才转发，Nuxt 看到的就是唯一值。反过来把 CDN
-段写进应用侧，Nuxt 会把唯一一条边缘 IP 当成代理剥掉，结果回退成容器网关地址。`trusted_proxies`
-必须写在 `servers` 块内（Caddy 2.10 不认顶层同名选项），可直接抄
+`CF-Connecting-IP` / `True-Client-IP` 之后才转发，web 再把这条唯一值收敛成单值上行。
+`trusted_proxies` 必须写在 `servers` 块内（Caddy 2.10 不认顶层同名选项），可直接抄
 `deploy/caddy/Caddyfile` 里的示例。
 
 **标准 Compose 拓扑下应用侧 `TRUSTED_PROXIES` 应当恒为空**，不只是 CDN 段不要写：
-**compose 网段（`172.x`、`10.x` 之类）同样不要写**。它只服务于一种特殊链路——对端本身
-就是显式代理，且应用层确实需要采信 `CF-Connecting-IP` / `True-Client-IP` 这类 CDN 单值
-头。把容器网段填进去后，只要 `web` 的对端落在该网段（零停机栈的 `router` 容器、容器化
-反代），它就会被判成「显式代理」，重新采信链路上的 CDN 单值头；此时链路上若还有没删这两
-个头的代理（旧 Caddyfile、Nginx 或其它中间件），伪造值就能直接落库。
+**compose 网段（`172.x`、`10.x` 之类）同样不要写**。它只服务于一种特殊链路——API 的
+对端本身就是显式代理，且应用层确实需要采信 `CF-Connecting-IP` / `True-Client-IP`
+这类 CDN 单值头。把容器网段填进去后，只要 API 的对端落在该网段，它就会被判成「显式
+代理」，重新采信链路上的 CDN 单值头；此时链路上若还有没删这两个头的代理（旧
+Caddyfile、Nginx 或其它中间件），伪造值就能直接落库。
 
 不要写 `0.0.0.0/0`；无脑信任会让伪造 `X-Forwarded-For` 绕过限流与审计。`api` 只发布
 在 `127.0.0.1:${API_PORT:-18080}`，所以默认值的信任边界就是宿主机与 compose 网络；
@@ -227,8 +242,22 @@ CDN 场景不要动应用的 `TRUSTED_PROXIES`：Caddy 用 `{client_ip}` 重算�
 `config` 在 `APP_ENV=production` 下这四个变量的内置默认值仍是关闭，裸机部署要自己
 写 `TRUST_PROXY=true` 与对应的一项。
 
-这四个变量已经由 `compose.yaml` 透传到 `api` 容器，`TRUSTED_PROXIES` 同时透传给
-`web`。`PROXY_HEADER` 默认是 `X-Forwarded-For`，需要改时通过 override 注入。
+这四个变量只透传给 `api`，`web` 不接收 `TRUSTED_PROXIES`——web 层不解析对端，也就
+没有「显式代理」这层语义。`PROXY_HEADER` 默认是 `X-Forwarded-For`，需要改时通过
+override 注入。
+
+### 症状：会话/审计里记成容器地址
+
+`user_sessions.ip_address`、登录审计 `metadata.ipAddress`、`moderation.view_ip`
+与写限流键都来自同一条解析链。如果它们出现 `172.x` / `192.168.x` 的容器地址而不是
+访问者地址：
+
+1. 看 API 启动日志的 `client_ip policy:` 一行，确认 `trust` / `private` 生效；
+2. 从真实客户端登录一次，查 `select ip_address from user_sessions order by created_at desc limit 1;`；
+3. 值仍是容器地址，说明 web 没收到入口头：检查 Caddy 的 `header_up X-Real-IP {client_ip}`
+   是否被自定义配置覆盖，以及 web 端口前面是否还挂着一层不写头的代理。
+
+历史行不会回溯修正（原值已丢失）。
 
 ### AI 供应商出站
 

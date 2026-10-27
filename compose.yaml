@@ -130,9 +130,9 @@ services:
       NUXT_SITE_URL: ${APP_URL:-http://127.0.0.1:3000}
       NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:-/api/v1}
       NUXT_API_INTERNAL_BASE_URL: ${NUXT_API_INTERNAL_BASE_URL:-http://api:8080/api/v1}
-      # Nuxt 在转发 /api/v1/* 之前解析出唯一客户端 IP 并覆盖上行头；这里只
-      # 用于 CDN / 额外代理的出口段，与 api 侧同名变量保持一致。
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # 客户端 IP 由入口代理（Caddy）写入 X-Real-IP，web 只做单值化转发，不再解析
+      # TCP 对端：Nitro 的请求管线（dev 与 bun preset 生产相同）拿不到 socket。
+      # 因此这里不需要 TRUSTED_PROXIES；web 端口必须只发布到 loopback。
 
 volumes:
   postgres_data:

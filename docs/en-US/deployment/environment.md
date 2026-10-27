@@ -196,8 +196,8 @@ key ID; never put the private key in the repository or containers.
 | Variable | Default/example | Notes |
 | --- | --- | --- |
 | `CSRF_TRUSTED_ORIGINS` | `https://forum.example.com` | allowed public origins; derived from `APP_URL` when empty |
-| `TRUST_PROXY` | `true` | master switch: when `false`, no forwarded header is read and only the TCP peer is recorded |
-| `TRUSTED_PROXIES` | empty | extra proxies the app itself must trust, comma-separated; always empty under the standard Compose topology (no CDN ranges, no Compose subnet) |
+| `TRUST_PROXY` | `true` | API master switch: when `false`, no forwarded header is read and only the TCP peer is recorded |
+| `TRUSTED_PROXIES` | empty | **API only**: extra proxies the app itself must trust, comma-separated; always empty under the standard Compose topology (no CDN ranges, no Compose subnet) |
 | `TRUST_PROXY_PRIVATE` | `true` | whether private-network (RFC1918 / ULA) **peers** are trusted |
 | `TRUST_PROXY_LOOPBACK` | `false` | whether loopback (`127.0.0.0/8`, `::1`) **peers** are trusted |
 
@@ -210,11 +210,33 @@ inside `X-Forwarded-For` is not stripped as if it were a proxy: on this chain a
 private address is far more likely to be the intranet client itself, and
 stripping it would fall back to the peer address. Only explicit proxies from
 `TRUSTED_PROXIES` (plus loopback entries once `TRUST_PROXY_LOOPBACK` is on) take
-part in chain stripping. The `web` (Nuxt) layer resolves the single client IP
-and overwrites the outbound headers before forwarding `/api/v1/*`, so the API
-normally sees a one-entry chain.
+part in chain stripping.
 
-Every hop has a different peer, so the correct setting differs:
+### How the web layer carries the client IP
+
+The chain is "browser → Caddy → `web` (Nuxt) → `api`". Nuxt's request pipeline
+(the same in dev and under the production `bun` preset) enters h3 through
+`localFetch`, which **cannot see the TCP peer** (the mock socket's
+`remoteAddress` is always an empty string). The web layer therefore makes no
+"is this peer trusted" decision at all:
+
+1. read the `X-Real-IP` Caddy writes (`header_up X-Real-IP {client_ip}`, the
+   authoritative value);
+2. otherwise fall back to the right-most valid `X-Forwarded-For` entry (for
+   custom reverse proxies);
+3. normalise it to a single value, write it to both `X-Real-IP` and
+   `X-Forwarded-For`, and delete `CF-Connecting-IP` / `True-Client-IP`;
+4. when both headers are missing or invalid, delete all four (fail closed) and
+   let the API fall back to its TCP peer.
+
+**The `web` port must therefore be published to loopback/intranet only**
+(`compose.prod.yaml` binds `127.0.0.1:${WEB_PORT:-3000}`). Once the web port is
+publicly reachable, any client can supply its own `X-Real-IP` and choose the
+audited IP; that is the precondition for trusting the ingress header. Hitting
+`:3000` directly without any proxy (for example `bun run dev`) has no header to
+forward, so the recorded value is the loopback address the API sees.
+
+Every hop has a different peer, so the correct API setting differs:
 
 | Topology | TCP peer the API sees | What to configure |
 | --- | --- | --- |
@@ -228,20 +250,17 @@ Every hop has a different peer, so the correct setting differs:
 
 Do not touch the app-side `TRUSTED_PROXIES` for a CDN: Caddy recomputes the real
 client into `{client_ip}` and deletes `CF-Connecting-IP` / `True-Client-IP`
-before forwarding, so Nuxt already receives a single trustworthy value. Adding
-the CDN ranges on the app side makes Nuxt strip that single edge IP as if it
-were a proxy and fall back to the container gateway address. `trusted_proxies`
-must live inside the `servers` block (Caddy 2.10 rejects the top-level option);
-copy the example in `deploy/caddy/Caddyfile`.
+before forwarding, and the web layer collapses that single value into one entry.
+`trusted_proxies` must live inside the `servers` block (Caddy 2.10 rejects the
+top-level option); copy the example in `deploy/caddy/Caddyfile`.
 
 **Under the standard Compose topology the app-side `TRUSTED_PROXIES` must stay
 empty at all times** — and that is not only about CDN ranges: **never put the
 Compose subnet (`172.x`, `10.x`, and similar) there either**. The variable exists
-for one special chain only: the peer really is an explicit proxy and the app
-layer genuinely needs to honour CDN single-value headers such as
+for one special chain only: the API's peer really is an explicit proxy and the
+app layer genuinely needs to honour CDN single-value headers such as
 `CF-Connecting-IP` / `True-Client-IP`. Once the container subnet is listed, any
-`web` peer inside that subnet (the zero-downtime `router` container, a
-containerized reverse proxy) is treated as an explicit proxy and those headers
+API peer inside that subnet is treated as an explicit proxy and those headers
 are honoured again; if the chain still contains a proxy that does not delete them
 (an older Caddyfile, Nginx, or another middlebox), a forged value reaches the
 database.
@@ -257,9 +276,28 @@ you write the environment file by hand, note that `config` still defaults these
 four variables to off under `APP_ENV=production`; a bare-metal deployment must
 set `TRUST_PROXY=true` plus the matching trust class itself.
 
-`compose.yaml` already passes these four variables through to the `api`
-container and `TRUSTED_PROXIES` to `web` as well. `PROXY_HEADER` defaults to
-`X-Forwarded-For`; inject it through an override when it must change.
+These four variables are passed to `api` only; `web` does not receive
+`TRUSTED_PROXIES`, because the web layer does not resolve peers and has no
+"explicit proxy" concept. `PROXY_HEADER` defaults to `X-Forwarded-For`; inject
+it through an override when it must change.
+
+### Symptom: sessions and audit record a container address
+
+`user_sessions.ip_address`, the login audit `metadata.ipAddress`,
+`moderation.view_ip`, and the write-rate-limit key all come from the same
+resolver. If they show a `172.x` / `192.168.x` container address instead of the
+visitor's address:
+
+1. check the `client_ip policy:` line in the API startup log to confirm `trust`
+   / `private` are in effect;
+2. log in once from the real client and run
+   `select ip_address from user_sessions order by created_at desc limit 1;`;
+3. if it is still a container address, the web layer received no ingress header:
+   check whether a custom configuration overrides Caddy's
+   `header_up X-Real-IP {client_ip}`, and whether another proxy that writes no
+   header sits in front of the web port.
+
+Historical rows are not backfilled; the original values are gone.
 
 ### AI provider egress
 
