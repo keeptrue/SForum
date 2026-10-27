@@ -1,37 +1,37 @@
 {
-  "sharedRuntimeDigest": "c406b255e15e0d74294fec36e772992ed9cdbb6409a98111ce74477206c66756",
+  "sharedRuntimeDigest": "0e0b1c02b70868d5ea88d661ae972ea7597b36b68fb58a5f9501f4df9b842ebd",
   "plugins": {
     "sforum.auth-github": {
-      "version": "1.0.8",
-      "sourceDigest": "db9714203046401379d6221c5543952a03da2cbaa35ab9ba80adeeb3c69ada7c"
+      "version": "1.0.9",
+      "sourceDigest": "ea1da5daa3c74c35682fc523c3dabff65c247c45754e9053bfa90a2c410f1bcd"
     },
     "sforum.content-policy": {
-      "version": "1.1.7",
-      "sourceDigest": "f767f9f0d308213a45ec9b833c1ff1d4836cd4e1a589f1254bebe8f1f6d23bba"
+      "version": "1.1.8",
+      "sourceDigest": "09f588921dddfa44e0549d53c813c48a391dd662e146bcd2e1cbba559a61ae96"
     },
     "sforum.search-site": {
-      "version": "1.0.7",
-      "sourceDigest": "e0056d6920777cc28904290a356da0badec4c8c2593d044f27482d4ebc6bfbbc"
+      "version": "1.0.8",
+      "sourceDigest": "1e43dca96069cc85dce0bee7e72236bef6c6526a05b784ebeeb26ce7afd9aa18"
     },
     "sforum-shortcodes": {
-      "version": "1.3.5",
-      "sourceDigest": "bd586d3f69cb0e4bc564c63f5653a30a8ac25b7c4afe4d7f88f514732f9021ae"
+      "version": "1.3.6",
+      "sourceDigest": "84e18b590e200ac33ec69fa09f19883b79ee2ae26ada985f0e23d0d0cdaeffe8"
     },
     "sforum.smtp": {
-      "version": "1.1.7",
-      "sourceDigest": "a99fb784a2b263251f00a18626e4148b37681997a95dadade15d7de1b2a3c232"
+      "version": "1.1.8",
+      "sourceDigest": "19a5e1daf5199b4ac0e13dda43889e6761f244237b365fbd9235fbc5d06acf5d"
     },
     "sforum.storage-fs": {
-      "version": "1.1.8",
-      "sourceDigest": "2f7c020bf1735b7a04b48e9471d048266d5558f47f62484216105a1ce7f1cd02"
+      "version": "1.1.9",
+      "sourceDigest": "1fb8facf4eb8ce278eb63d57f0318efdc5457f25554872514b107d89a7725141"
     },
     "sforum.storage-s3": {
-      "version": "1.0.10",
-      "sourceDigest": "bd5b1b4f400b120b9e2f631327c446fb5c8e2058115990d96130a2d55b318ddf"
+      "version": "1.0.11",
+      "sourceDigest": "3e35a31d144ac1aebb61891f6b3f0f3a47c3d2aaab475e9582ae65cbad2fcb5d"
     },
     "sforum.web-push": {
-      "version": "1.0.7",
-      "sourceDigest": "ad36eadfe8ec7f37acf52546069aea43acf44c900de89fb6498d02c0eaa701f2"
+      "version": "1.0.8",
+      "sourceDigest": "3c1657ec3286e0769e88300caca3a83b6280517633a9e0df58abf04047a07d7e"
     }
   }
 }
