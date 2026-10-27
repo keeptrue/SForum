@@ -16,6 +16,11 @@ DEPLOY_RC=".deployrc"
 RUNTIME_DIR="$ROOT_DIR/deploy/runtime"
 LOCK_DIR="$ROOT_DIR/.deploy.lock"
 COMPOSE=()
+# 镜像前缀必须与 compose 插值出的前缀一致：pull/verify 用这个变量，
+# compose run migrate 读的是 .env.production 的同名变量。
+REGISTRY=""
+CANONICAL_REGISTRY="ghcr.io/keeptrue"
+LEGACY_REGISTRY="ghcr.io/zhuchunshu"
 
 usage() {
   cat <<'EOF'
@@ -139,6 +144,48 @@ print_install_location() {
   say "安装目录：$ROOT_DIR" "Install directory: $ROOT_DIR"
   say "配置文件：$ROOT_DIR/.env.production" "Configuration file: $ROOT_DIR/.env.production"
   say "备份目录：$ROOT_DIR/backups" "Backup directory: $ROOT_DIR/backups"
+}
+
+rewrite_env_registry() {
+  # 只改写 SFORUM_REGISTRY 这一行。用临时文件 + mv 保持 0600 权限，
+  # 避免 sed -i 在 GNU/BSD 上的参数差异。
+  local prefix="$1" temp_file
+  temp_file="$(mktemp "$ROOT_DIR/.env.production.XXXXXX")"
+  awk -v prefix="$prefix" '
+    /^SFORUM_REGISTRY=/ { print "SFORUM_REGISTRY=" prefix; next }
+    { print }
+  ' .env.production > "$temp_file"
+  chmod 600 "$temp_file"
+  mv -f "$temp_file" .env.production
+}
+
+resolve_registry() {
+  # GitHub 账号改名后，ghcr.io/zhuchunshu 已不再提供新标签。仍固定旧前缀的
+  # 安装会在迁移阶段暴露成 `No such image`：pull 用的是新前缀，而
+  # `compose run --pull never migrate` 读 .env.production 里的旧前缀。
+  # 这里把前缀一次性迁到新命名空间，并让本次运行的 pull/verify 共用它。
+  local configured backup stamp
+  configured="$(env_value SFORUM_REGISTRY "")"
+  configured="${configured%/}"
+  case "$configured" in
+    ""|"$CANONICAL_REGISTRY")
+      REGISTRY="$CANONICAL_REGISTRY"
+      ;;
+    "$LEGACY_REGISTRY")
+      stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+      backup="$ROOT_DIR/.env.production.bak.$stamp"
+      cp -p .env.production "$backup"
+      rewrite_env_registry "$CANONICAL_REGISTRY"
+      say \
+        "检测到改名前的镜像命名空间 $LEGACY_REGISTRY，已更新为 $CANONICAL_REGISTRY（备份：$backup）。" \
+        "Found the pre-rename image namespace $LEGACY_REGISTRY; updated it to $CANONICAL_REGISTRY (backup: $backup)."
+      REGISTRY="$CANONICAL_REGISTRY"
+      ;;
+    *)
+      REGISTRY="$configured"
+      ;;
+  esac
+  export SFORUM_REGISTRY="$REGISTRY"
 }
 
 validate_version() {
@@ -336,7 +383,7 @@ pull_target_images() {
   for image in api migrate web; do
     ok=false
     for attempt in 1 2 3; do
-      if docker pull "ghcr.io/keeptrue/sforum-${image}:${version}"; then
+      if docker pull "${REGISTRY}/sforum-${image}:${version}"; then
         ok=true
         break
       fi
@@ -346,14 +393,14 @@ pull_target_images() {
         sleep $((attempt * 2))
       fi
     done
-    [ "$ok" = true ] || die "Could not pull ghcr.io/keeptrue/sforum-${image}:${version} after 3 attempts."
+    [ "$ok" = true ] || die "Could not pull ${REGISTRY}/sforum-${image}:${version} after 3 attempts."
   done
 }
 
 verify_target_images() {
   local version="$1" expected="${1#v}" image actual
   for image in api migrate web; do
-    actual="$(docker image inspect "ghcr.io/keeptrue/sforum-${image}:${version}" \
+    actual="$(docker image inspect "${REGISTRY}/sforum-${image}:${version}" \
       --format '{{index .Config.Labels "org.opencontainers.image.version"}}')"
     [ "$actual" = "$expected" ] || die "$image image version is '$actual', expected '$expected'"
   done
@@ -362,7 +409,7 @@ verify_target_images() {
 target_migrator_supports_online_safe_check() {
   local version="$1"
   local capability
-  capability="$(docker image inspect "ghcr.io/keeptrue/sforum-migrate:${version}" \
+  capability="$(docker image inspect "${REGISTRY}/sforum-migrate:${version}" \
     --format '{{index .Config.Labels "io.sforum.migrations.online-safe-check"}}' 2>/dev/null || true)"
   [ "$capability" = v1 ]
 }
@@ -747,6 +794,7 @@ main() {
 
   command -v docker >/dev/null 2>&1 || die "Docker is required."
   docker info >/dev/null 2>&1 || die "Docker daemon is not running."
+  resolve_registry
   export SFORUM_VERSION="$TARGET_VERSION"
   init_compose
   acquire_lock

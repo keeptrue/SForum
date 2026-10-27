@@ -319,4 +319,45 @@ fi
 assert_contains "$TEMP_DIR/live-lock.out" 'Another deployment or update operation is running'
 rm -rf "$TEST_ROOT/.deploy.lock"
 
+# Registry namespace repair: an install still pinned to the pre-rename namespace
+# must be migrated to the canonical prefix before any pull or compose call. The
+# pull itself has to use the repaired prefix, otherwise the migrate step later
+# resolves a name that was never pulled.
+printf '%s\n' \
+  'WEB_PORT=3000' \
+  'API_PORT=18080' \
+  'SFORUM_REGISTRY=ghcr.io/zhuchunshu' > "$TEST_ROOT/.env.production"
+rm -f "$TEST_ROOT"/.env.production.bak.*
+cat > "$MOCK_BIN/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
+if [ "${1:-}" = info ]; then
+  exit 0
+fi
+if [ "${1:-}" = pull ]; then
+  case "$*" in
+    *sforum-api*) exit 0 ;;
+  esac
+  exit 42
+fi
+exit 43
+EOF
+chmod +x "$MOCK_BIN/docker"
+: > "$MOCK_LOG"
+if (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" MOCK_UPGRADE_LOG="$MOCK_LOG" ./upgrade.sh --yes v3.0.0 </dev/null
+) > "$TEMP_DIR/legacy-registry.out" 2>&1; then
+  fail "the fake docker pull should stop the legacy-registry update"
+fi
+assert_contains "$TEMP_DIR/legacy-registry.out" 'Found the pre-rename image namespace ghcr.io/zhuchunshu'
+assert_contains "$TEST_ROOT/.env.production" 'SFORUM_REGISTRY=ghcr.io/keeptrue'
+assert_not_contains "$TEST_ROOT/.env.production" 'ghcr.io/zhuchunshu'
+assert_contains "$MOCK_LOG" 'docker pull ghcr.io/keeptrue/sforum-api:v3.0.0'
+assert_contains "$MOCK_LOG" 'docker pull ghcr.io/keeptrue/sforum-migrate:v3.0.0'
+ls "$TEST_ROOT"/.env.production.bak.* >/dev/null 2>&1 || \
+  fail "rewriting the registry namespace must leave a backup of .env.production"
+printf '%s\n' 'WEB_PORT=3000' 'API_PORT=18080' > "$TEST_ROOT/.env.production"
+
 printf 'upgrade-version-selection_test.sh: all checks passed\n'

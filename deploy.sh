@@ -509,13 +509,15 @@ verify_services_stable() {
 }
 
 verify_release_identities() {
-  local service binary image actual expected_version
+  local service binary image actual expected_version registry
   local backend_services=(api migrate)
   expected_version="${RELEASE_VERSION#v}"
-  t verifying_images
+  # 与 compose 插值保持一致：shell 环境优先，其次 .env.production，最后才是默认前缀。
+  registry="${SFORUM_REGISTRY:-$(env_file_value .env.production SFORUM_REGISTRY ghcr.io/keeptrue)}"
+  registry="${registry%/}"
   for service in "${backend_services[@]}"; do
     binary="sforum-$service"
-    image="${SFORUM_REGISTRY:-ghcr.io/keeptrue}/sforum-${service}:${RELEASE_VERSION}"
+    image="${registry}/sforum-${service}:${RELEASE_VERSION}"
     if ! actual="$(docker run --rm "$image" "$binary" --version)"; then
       echo "Could not inspect the $service image identity." >&2
       return 1
