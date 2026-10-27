@@ -515,6 +515,31 @@ Example:
 }
 ```
 
+### Backend writes to a secret field
+
+A `secret` field is not operator-only: a plugin backend holding `settings.own`
+can write one through `SecretService.Put` / `Clear` and it lands exactly where
+the settings page reads it. That is the supported way to store a credential a
+plugin obtained itself (an OAuth token, an installation key) without inventing
+its own storage:
+
+```go
+// value must be non-empty; use Clear to remove the field.
+resp, err := host.Secrets.Put(ctx, &hostv2.SecretPutRequest{
+    Context:  reqCtx,
+    SecretId: "token", // bare settings key, declared type: "secret"
+    Value:    []byte(token),
+})
+```
+
+The Host enforces four things, so do not work around them: the key must be
+declared `type: "secret"` in this extension's own manifest, the `secret_id`
+must be bare (no `sforum.secret://namespace/id`), the value is capped at 64 KiB,
+and the write is a compare-and-set on the settings document revision — a
+`host.settings_conflict` is retryable once. Every other field, including sibling
+secrets, survives the write. The settings page then shows the field as
+configured; the operator can still replace or clear it by hand.
+
 ### Reference A — theme tabs/groups, no JavaScript
 
 This is the default for new themes. Upload, configure, activate through Page

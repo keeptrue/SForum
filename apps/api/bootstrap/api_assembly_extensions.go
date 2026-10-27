@@ -455,6 +455,9 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 	hostAPIService.BindCapabilitySource(extensionService)
 	hostAPIService.BindExtensionInventory(extensions.HostInventoryAdapter{Service: extensionService})
 	hostAPIGateway.BindCommandCapabilitySource(extensionService)
+	// SecretService.Put/Clear 与 settings.own 同一能力源；平台服务先于 extensionService
+	// 构造，所以写半边在这里补绑，未绑时写入 fail closed。
+	hostPlatform.SecretV2.BindCapabilitySource(extensionService)
 	hostAPIService.BindPermissions(identityPermissionAdapter{store: identityStore})
 	// Identity user-field digests are installation-bound. GetUserSafe resolves
 	// extension declared_fields through the Host-owned store with live actor

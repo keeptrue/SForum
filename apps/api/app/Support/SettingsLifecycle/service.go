@@ -90,23 +90,71 @@ func (s *Service) RegisterMigration(extensionID string, migration Migration) err
 // Empty secret submissions preserve existing secrets when preserveSecrets is true.
 // Uses request ctx for all persistence and secret operations.
 func (s *Service) Put(ctx context.Context, extensionID, actor string, values map[string]string, preserveSecrets bool) (Document, error) {
+	doc, _, err := s.put(ctx, extensionID, actor, values, preserveSecrets, "")
+	return doc, err
+}
+
+// HasSecretField reports whether the extension's registered schema declares key as a
+// secret field. Runtime writes must pass this gate: an undeclared key has no document
+// slot, so accepting it would store plaintext nothing could ever read.
+func (s *Service) HasSecretField(extensionID, key string) bool {
 	if s == nil {
-		return Document{}, ErrInvalid
+		return false
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, field := range s.schemas[normalizeID(extensionID)] {
+		if field.Name == key && (field.Secret || field.Type == "secret") {
+			return true
+		}
+	}
+	return false
+}
+
+// PutSecret writes exactly one declared secret field and returns the new document
+// revision. An empty value clears the field (other secrets are preserved either way).
+// This is the write half the Host API exposes as SecretService.Put/Clear; admin saves
+// keep using Put so the two paths cannot disagree about CAS or migration.
+func (s *Service) PutSecret(ctx context.Context, extensionID, actor, key, value, mediaType string) (int64, error) {
+	key = strings.TrimSpace(key)
+	if !s.HasSecretField(extensionID, key) {
+		return 0, ErrValidation
+	}
+	// Present-and-empty means "clear"; anything else means "set". preserveSecrets mirrors
+	// that split so every other secret field in the document survives untouched.
+	clear := secretstore.ShouldPreserve(value)
+	_, revision, err := s.put(ctx, extensionID, actor, map[string]string{key: value}, !clear, mediaType)
+	return revision, err
+}
+
+func (s *Service) put(
+	ctx context.Context,
+	extensionID, actor string,
+	values map[string]string,
+	preserveSecrets bool,
+	secretMediaType string,
+) (Document, int64, error) {
+	if s == nil {
+		return Document{}, 0, ErrInvalid
 	}
 	if ctx == nil {
-		return Document{}, ErrInvalid
+		return Document{}, 0, ErrInvalid
 	}
 	extensionID = normalizeID(extensionID)
 	actor = strings.TrimSpace(actor)
 	if extensionID == "" || actor == "" {
-		return Document{}, ErrPermissionDenied
+		return Document{}, 0, ErrPermissionDenied
 	}
 	s.mu.Lock()
 	fields := s.schemas[extensionID]
 	target := s.targetVer[extensionID]
 	s.mu.Unlock()
 	if len(fields) == 0 || target < 1 {
-		return Document{}, ErrNotFound
+		return Document{}, 0, ErrNotFound
 	}
 	if values == nil {
 		values = map[string]string{}
@@ -115,7 +163,7 @@ func (s *Service) Put(ctx context.Context, extensionID, actor string, values map
 	current, rev, err := s.loadDocument(ctx, extensionID, actor)
 	hasCurrent := err == nil
 	if err != nil && err != ErrNotFound {
-		return Document{}, err
+		return Document{}, 0, err
 	}
 
 	doc := Document{
@@ -150,14 +198,14 @@ func (s *Service) Put(ctx context.Context, extensionID, actor string, values map
 				continue
 			}
 			if s.secrets == nil {
-				return Document{}, ErrInvalid
+				return Document{}, 0, ErrInvalid
 			}
 			ref := secretstore.Ref{Namespace: extensionID, SecretID: field.Name}
 			meta, putErr := s.secrets.Put(ctx, ref, []byte(raw), secretstore.PutOptions{
-				Actor: actor, Purposes: []string{"settings"},
+				Actor: actor, Purposes: []string{"settings"}, MediaType: secretMediaType,
 			})
 			if putErr != nil {
-				return Document{}, putErr
+				return Document{}, 0, putErr
 			}
 			doc.SecretRefs[field.Name] = meta.Reference
 			doc.SecretSet[field.Name] = true
@@ -171,17 +219,18 @@ func (s *Service) Put(ctx context.Context, extensionID, actor string, values map
 	// 迁移在内存副本上执行；失败则不写入 DocumentStore（回滚）。
 	migrated, err := s.migrate(extensionID, doc)
 	if err != nil {
-		return Document{}, err
+		return Document{}, 0, err
 	}
 	expected := rev
 	if !hasCurrent {
 		expected = 0
 	}
-	if _, err := s.docs.Save(ctx, extensionID, migrated, expected); err != nil {
+	saved, err := s.docs.Save(ctx, extensionID, migrated, expected)
+	if err != nil {
 		// CAS 冲突时重试一次读-合并不合适（调用方应重试）；直接返回。
-		return Document{}, err
+		return Document{}, 0, err
 	}
-	return cloneDocument(migrated), nil
+	return cloneDocument(migrated), saved, nil
 }
 
 // Get returns the current document (secrets masked).

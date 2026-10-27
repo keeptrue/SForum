@@ -8,9 +8,11 @@ import (
 	"strings"
 	"time"
 
+	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
 	hosthttp "github.com/keeptrue/sforum/apps/api/app/Support/HostHTTP"
 	pluginfiles "github.com/keeptrue/sforum/apps/api/app/Support/PluginFiles"
 	secretstore "github.com/keeptrue/sforum/apps/api/app/Support/SecretStore"
+	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
 	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
 	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
 	"google.golang.org/grpc/codes"
@@ -19,18 +21,31 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// ProtocolV2SecretServiceServer exposes SecretStore.Resolve to exact runtimes.
+// ProtocolV2SecretServiceServer exposes SecretStore.Resolve to exact runtimes and the
+// settings write half (Put/Clear) to runtimes that declare the same secret fields.
 type ProtocolV2SecretServiceServer struct {
 	hostv2.UnimplementedSecretServiceServer
 	secrets *secretstore.Service
+	// settings is the document authority behind Put/Clear; nil disables writes only.
+	settings *settingslifecycle.Service
+	// capabilities is late-bound by bootstrap (the extension service is built after the
+	// platform services), so a nil source denies writes instead of failing them open.
+	capabilities CapabilitySource
 }
 
 // NewProtocolV2SecretServiceServer builds the Protocol V2 Secret boundary.
-func NewProtocolV2SecretServiceServer(secrets *secretstore.Service) (*ProtocolV2SecretServiceServer, error) {
+func NewProtocolV2SecretServiceServer(secrets *secretstore.Service, settings *settingslifecycle.Service) (*ProtocolV2SecretServiceServer, error) {
 	if secrets == nil {
 		return nil, errors.New("hostapi: secret store is required")
 	}
-	return &ProtocolV2SecretServiceServer{secrets: secrets}, nil
+	return &ProtocolV2SecretServiceServer{secrets: secrets, settings: settings}, nil
+}
+
+// BindCapabilitySource late-binds the capability resolver used to gate secret writes.
+func (s *ProtocolV2SecretServiceServer) BindCapabilitySource(source CapabilitySource) {
+	if s != nil {
+		s.capabilities = source
+	}
 }
 
 // Resolve decrypts a secret for the broker-attested extension namespace only.
@@ -83,6 +98,146 @@ func (s *ProtocolV2SecretServiceServer) Resolve(
 	response.Value = append([]byte(nil), lease.Value...)
 	response.MediaType = lease.MediaType
 	return response, nil
+}
+
+// Put stores one settings secret the caller's manifest declares.
+//
+// The write goes through SettingsLifecycle so the Secret Store reference, the settings
+// document CAS revision and the migration path stay in one place: a plugin writing its own
+// token must be indistinguishable, to the admin settings page, from an operator typing it.
+func (s *ProtocolV2SecretServiceServer) Put(
+	ctx context.Context,
+	request *hostv2.SecretPutRequest,
+) (*hostv2.SecretPutResponse, error) {
+	identity, detail := protocolV2ResourceCaller(ctx, request.GetContext())
+	response := &hostv2.SecretPutResponse{Context: protocolV2ResourceResponseContext(request.GetContext(), identity)}
+	if detail != nil {
+		response.Error = detail
+		return response, nil
+	}
+	secretID, detail := s.secretWriteTarget(ctx, identity, request.GetSecretId(), len(request.GetValue()))
+	if detail != nil {
+		response.Error = detail
+		return response, nil
+	}
+	if len(request.GetValue()) == 0 {
+		// An empty Put is a Clear with extra steps; refuse it so a truncated body cannot
+		// silently delete a working credential.
+		response.Error = protocolV2ResourceFailure(secretstore.ErrInvalid, "host.secret_request_invalid", "value is required; use Clear to remove a secret.")
+		return response, nil
+	}
+	revision, err := s.settings.PutSecret(
+		ctx, identity.GetExtensionId(), settingsActor(identity.GetExtensionId()),
+		secretID, string(request.GetValue()), strings.TrimSpace(request.GetMediaType()),
+	)
+	if err != nil {
+		response.Error = protocolV2SecretWriteFailure(err)
+		return response, nil
+	}
+	response.SecretSet = true
+	response.Version = revision
+	return response, nil
+}
+
+// Clear removes one declared settings secret and leaves every other field untouched.
+func (s *ProtocolV2SecretServiceServer) Clear(
+	ctx context.Context,
+	request *hostv2.SecretClearRequest,
+) (*hostv2.SecretClearResponse, error) {
+	identity, detail := protocolV2ResourceCaller(ctx, request.GetContext())
+	response := &hostv2.SecretClearResponse{Context: protocolV2ResourceResponseContext(request.GetContext(), identity)}
+	if detail != nil {
+		response.Error = detail
+		return response, nil
+	}
+	secretID, detail := s.secretWriteTarget(ctx, identity, request.GetSecretId(), 0)
+	if detail != nil {
+		response.Error = detail
+		return response, nil
+	}
+	revision, err := s.settings.PutSecret(
+		ctx, identity.GetExtensionId(), settingsActor(identity.GetExtensionId()), secretID, "", "",
+	)
+	if err != nil {
+		response.Error = protocolV2SecretWriteFailure(err)
+		return response, nil
+	}
+	response.SecretSet = false
+	response.Version = revision
+	return response, nil
+}
+
+// secretWriteTarget runs every gate that is identical for Put and Clear: attested runtime,
+// configured settings authority, capability, bare-key shape, size and manifest declaration.
+func (s *ProtocolV2SecretServiceServer) secretWriteTarget(
+	ctx context.Context,
+	identity *protocolv2.ExtensionIdentity,
+	rawSecretID string,
+	valueBytes int,
+) (string, *protocolv2.ErrorDetail) {
+	if s == nil || s.secrets == nil || s.settings == nil {
+		return "", protocolV2ResourceFailure(secretstore.ErrInvalid, "host.secret_unavailable", "Secret Store is not configured.")
+	}
+	secretID := strings.TrimSpace(rawSecretID)
+	if secretID == "" {
+		return "", protocolV2ResourceFailure(secretstore.ErrInvalid, "host.secret_request_invalid", "secret_id is required.")
+	}
+	// Bare settings key only: the sforum.secret:// form carries a namespace, and a runtime
+	// must never be able to address another extension's document through this call.
+	if strings.HasPrefix(secretID, secretstore.ReferenceScheme) || strings.Contains(secretID, "/") {
+		return "", protocolV2ResourceFailure(secretstore.ErrInvalid, "host.secret_request_invalid", "secret_id must be a bare settings key.")
+	}
+	if valueBytes > secretstore.MaxPlaintextBytes {
+		return "", protocolV2ResourceFailure(secretstore.ErrInvalid, "host.secret_request_invalid", "value exceeds the Secret Store size limit.")
+	}
+	if detail := s.requireSettingsOwn(ctx, identity.GetExtensionId()); detail != nil {
+		return "", detail
+	}
+	if !s.settings.HasSecretField(identity.GetExtensionId(), secretID) {
+		return "", &protocolv2.ErrorDetail{
+			Code:    protocolv2.ErrorCode_ERROR_CODE_INVALID_ARGUMENT,
+			Reason:  "host.secret_field_not_declared",
+			Message: "The manifest does not declare this key as a secret setting.",
+		}
+	}
+	return secretID, nil
+}
+
+// requireSettingsOwn re-checks the capability the read path already requires: writing a
+// settings secret is the same power as reading one, and both come from `settings.own`.
+func (s *ProtocolV2SecretServiceServer) requireSettingsOwn(
+	ctx context.Context,
+	extensionID string,
+) *protocolv2.ErrorDetail {
+	if s.capabilities == nil {
+		return &protocolv2.ErrorDetail{
+			Code:    protocolv2.ErrorCode_ERROR_CODE_UNAVAILABLE,
+			Reason:  "host.capability_unavailable",
+			Message: "The Host capability resolver is not configured.",
+		}
+	}
+	caps, err := s.capabilities.CapabilitiesFor(ctx, extensionID)
+	if err != nil {
+		return &protocolv2.ErrorDetail{
+			Code:    protocolv2.ErrorCode_ERROR_CODE_UNAVAILABLE,
+			Reason:  "host.capability_unavailable",
+			Message: "The Host capability resolver is unavailable.",
+		}
+	}
+	if err := caps.Require(capabilities.SettingsOwn); err != nil {
+		return &protocolv2.ErrorDetail{
+			Code:    protocolv2.ErrorCode_ERROR_CODE_PERMISSION_DENIED,
+			Reason:  "host.secret_denied",
+			Message: "The exact runtime does not hold settings.own.",
+		}
+	}
+	return nil
+}
+
+// settingsActor is the audit actor for a plugin-initiated settings write. It names the
+// extension, never a user: the Host has no actor context on this boundary.
+func settingsActor(extensionID string) string {
+	return "extension:" + strings.ToLower(strings.TrimSpace(extensionID))
 }
 
 // ProtocolV2FileServiceServer exposes PluginFiles under exact runtime ownership.
@@ -420,6 +575,45 @@ func protocolV2SecretFailure(err error) *protocolv2.ErrorDetail {
 		detail.Code = protocolv2.ErrorCode_ERROR_CODE_FAILED_PRECONDITION
 		detail.Reason = "host.secret_cipher_failed"
 		detail.Message = "Secret decryption failed."
+	case errors.Is(err, context.Canceled):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_CANCELLED
+	case errors.Is(err, context.DeadlineExceeded):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_DEADLINE_EXCEEDED
+	default:
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_INTERNAL
+	}
+	return detail
+}
+
+// protocolV2SecretWriteFailure maps settings/secret write failures. The reason codes are
+// part of the contract a plugin branches on: a conflict is retryable, a missing schema is
+// not (the package and the enabled schema disagree).
+func protocolV2SecretWriteFailure(err error) *protocolv2.ErrorDetail {
+	detail := &protocolv2.ErrorDetail{Reason: "host.secret_write_failed", Message: "The secret write failed."}
+	switch {
+	case errors.Is(err, settingslifecycle.ErrConflict):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_CONFLICT
+		detail.Reason = "host.settings_conflict"
+		detail.Message = "The settings document changed underneath this write; retry once."
+		detail.Retryable = true
+	case errors.Is(err, settingslifecycle.ErrValidation):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_INVALID_ARGUMENT
+		detail.Reason = "host.secret_field_not_declared"
+		detail.Message = "The manifest does not declare this key as a secret setting."
+	case errors.Is(err, settingslifecycle.ErrInvalid):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_INVALID_ARGUMENT
+		detail.Reason = "host.secret_request_invalid"
+	case errors.Is(err, settingslifecycle.ErrNotFound):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_FAILED_PRECONDITION
+		detail.Reason = "host.secret_settings_unavailable"
+		detail.Message = "The extension has no registered settings schema."
+	case errors.Is(err, settingslifecycle.ErrPermissionDenied):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_PERMISSION_DENIED
+		detail.Reason = "host.secret_denied"
+	case errors.Is(err, secretstore.ErrCipher), errors.Is(err, secretstore.ErrCipherRequired):
+		detail.Code = protocolv2.ErrorCode_ERROR_CODE_FAILED_PRECONDITION
+		detail.Reason = "host.secret_cipher_failed"
+		detail.Message = "Secret encryption failed."
 	case errors.Is(err, context.Canceled):
 		detail.Code = protocolv2.ErrorCode_ERROR_CODE_CANCELLED
 	case errors.Is(err, context.DeadlineExceeded):

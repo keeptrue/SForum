@@ -275,6 +275,8 @@ var ServiceDiscoveryService_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	SecretService_Resolve_FullMethodName = "/sforum.host.v2.SecretService/Resolve"
+	SecretService_Put_FullMethodName     = "/sforum.host.v2.SecretService/Put"
+	SecretService_Clear_FullMethodName   = "/sforum.host.v2.SecretService/Clear"
 )
 
 // SecretServiceClient is the client API for SecretService service.
@@ -282,8 +284,12 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // SecretService mediates declared secret use without exposing storage internals.
+// Resolve reads one declared secret; Put/Clear are the write half of the same
+// boundary and only touch settings fields the manifest declares as `type: secret`.
 type SecretServiceClient interface {
 	Resolve(ctx context.Context, in *SecretResolveRequest, opts ...grpc.CallOption) (*SecretResolveResponse, error)
+	Put(ctx context.Context, in *SecretPutRequest, opts ...grpc.CallOption) (*SecretPutResponse, error)
+	Clear(ctx context.Context, in *SecretClearRequest, opts ...grpc.CallOption) (*SecretClearResponse, error)
 }
 
 type secretServiceClient struct {
@@ -304,13 +310,37 @@ func (c *secretServiceClient) Resolve(ctx context.Context, in *SecretResolveRequ
 	return out, nil
 }
 
+func (c *secretServiceClient) Put(ctx context.Context, in *SecretPutRequest, opts ...grpc.CallOption) (*SecretPutResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SecretPutResponse)
+	err := c.cc.Invoke(ctx, SecretService_Put_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *secretServiceClient) Clear(ctx context.Context, in *SecretClearRequest, opts ...grpc.CallOption) (*SecretClearResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SecretClearResponse)
+	err := c.cc.Invoke(ctx, SecretService_Clear_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SecretServiceServer is the server API for SecretService service.
 // All implementations must embed UnimplementedSecretServiceServer
 // for forward compatibility.
 //
 // SecretService mediates declared secret use without exposing storage internals.
+// Resolve reads one declared secret; Put/Clear are the write half of the same
+// boundary and only touch settings fields the manifest declares as `type: secret`.
 type SecretServiceServer interface {
 	Resolve(context.Context, *SecretResolveRequest) (*SecretResolveResponse, error)
+	Put(context.Context, *SecretPutRequest) (*SecretPutResponse, error)
+	Clear(context.Context, *SecretClearRequest) (*SecretClearResponse, error)
 	mustEmbedUnimplementedSecretServiceServer()
 }
 
@@ -323,6 +353,12 @@ type UnimplementedSecretServiceServer struct{}
 
 func (UnimplementedSecretServiceServer) Resolve(context.Context, *SecretResolveRequest) (*SecretResolveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Resolve not implemented")
+}
+func (UnimplementedSecretServiceServer) Put(context.Context, *SecretPutRequest) (*SecretPutResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Put not implemented")
+}
+func (UnimplementedSecretServiceServer) Clear(context.Context, *SecretClearRequest) (*SecretClearResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Clear not implemented")
 }
 func (UnimplementedSecretServiceServer) mustEmbedUnimplementedSecretServiceServer() {}
 func (UnimplementedSecretServiceServer) testEmbeddedByValue()                       {}
@@ -363,6 +399,42 @@ func _SecretService_Resolve_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SecretService_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SecretPutRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).Put(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecretService_Put_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).Put(ctx, req.(*SecretPutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SecretService_Clear_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SecretClearRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SecretServiceServer).Clear(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SecretService_Clear_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SecretServiceServer).Clear(ctx, req.(*SecretClearRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SecretService_ServiceDesc is the grpc.ServiceDesc for SecretService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -373,6 +445,14 @@ var SecretService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Resolve",
 			Handler:    _SecretService_Resolve_Handler,
+		},
+		{
+			MethodName: "Put",
+			Handler:    _SecretService_Put_Handler,
+		},
+		{
+			MethodName: "Clear",
+			Handler:    _SecretService_Clear_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

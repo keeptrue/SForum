@@ -356,6 +356,65 @@ Calling the stable id `sforum.core.identity.self_email` directly is always
 refused with `host.query_actor_delegation_invalid`: the delegated Query
 Registry projection above is the only executable outlet for this definition.
 
+## Declared secrets (`SecretService`)
+
+A secret setting is a manifest field with `type: "secret"`. Its plaintext lives in
+the Secret Store; the settings document keeps only a `sforum.secret://` reference
+and a `secretSet` flag, which is why the admin settings page can show "configured"
+without ever holding the value.
+
+`SecretService` is the only runtime surface for that store:
+
+| RPC | Effect |
+| --- | --- |
+| `Resolve(secret_id, purpose)` | Returns a short-lived lease with the decrypted value (existing read half) |
+| `Put(secret_id, value, media_type)` | Encrypts and stores one declared secret field, preserving every other field |
+| `Clear(secret_id)` | Removes one declared secret field, preserving every other field |
+
+Both write RPCs require:
+
+1. a broker-attested exact runtime (the same identity check as `Resolve`);
+2. the `settings.own` capability — the same grant that lets the plugin read its
+   own settings document, because writing a credential is the same power;
+3. a `secret_id` that is a **bare** settings key the manifest declares as
+   `type: "secret"`. The `sforum.secret://namespace/id` form is refused: a
+   runtime may only address its own document, never another extension's
+   namespace;
+4. `value` at most 64 KiB (`SecretStore` plaintext ceiling). `Put` with an empty
+   value is refused — use `Clear`, so a truncated request body cannot silently
+   delete a working credential.
+
+Writes go through the settings lifecycle, so they carry a settings document
+revision: the response reports `secret_set` and `version`. The write is a
+compare-and-set on that revision, and `version` lets a plugin notice that an
+operator saved the settings page in between. `media_type` is advisory metadata
+(defaults to `text/plain`) and is never logged.
+
+Audit records the namespace, the settings key, the actor, and the revision — never
+the value, the lease, or the reference. `Clear` removes the settings document
+reference (the ciphertext history stays in the Secret Store, exactly like an
+operator emptying the field on the settings page). The plugin sees the plaintext
+again only through its own runtime settings (`settings.own`), as if an operator
+had typed it in.
+
+Failure reasons:
+
+| Reason | Code | Meaning |
+| --- | --- | --- |
+| `host.runtime_unattested` | `PERMISSION_DENIED` | The call is not bound to an exact runtime identity |
+| `host.runtime_stale` | `STALE_RUNTIME` | The claimed extension identity does not match the attested runtime |
+| `host.capability_unavailable` | `UNAVAILABLE` | The Host capability resolver is not configured or failed |
+| `host.secret_denied` | `PERMISSION_DENIED` | The exact artifact does not hold `settings.own` |
+| `host.secret_field_not_declared` | `INVALID_ARGUMENT` | The manifest does not declare this key as a secret setting |
+| `host.secret_request_invalid` | `INVALID_ARGUMENT` | Empty or namespaced `secret_id`, empty `Put` value, or a value over 64 KiB |
+| `host.secret_settings_unavailable` | `FAILED_PRECONDITION` | The extension has no registered settings schema |
+| `host.settings_conflict` | `CONFLICT` | The settings document changed underneath the write; retry once (`retryable: true`) |
+| `host.secret_unavailable` | `INVALID_ARGUMENT` | Secret Store or settings lifecycle is not wired |
+
+There is deliberately no API for arbitrary secrets, for rotating a secret
+without a value, or for reading another extension's secret: those are Tier 3
+questions and would each need their own grant.
+
 ## Limits, deadlines, and cancellation
 
 ### Notification emission command

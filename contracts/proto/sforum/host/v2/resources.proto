@@ -18,8 +18,12 @@ service ServiceDiscoveryService {
 }
 
 // SecretService mediates declared secret use without exposing storage internals.
+// Resolve reads one declared secret; Put/Clear are the write half of the same
+// boundary and only touch settings fields the manifest declares as `type: secret`.
 service SecretService {
   rpc Resolve(SecretResolveRequest) returns (SecretResolveResponse);
+  rpc Put(SecretPutRequest) returns (SecretPutResponse);
+  rpc Clear(SecretClearRequest) returns (SecretClearResponse);
 }
 
 // FileService provides bounded access to declared host-managed files.
@@ -124,6 +128,40 @@ message SecretResolveResponse {
   bytes value = 3;
   string media_type = 4;
   sforum.protocol.v2.ErrorDetail error = 5;
+}
+
+// SecretPutRequest stores one secret the caller's manifest declares. secret_id is a bare
+// settings key: the sforum.secret:// namespace form is refused so a runtime can never
+// address another extension's namespace through this call.
+message SecretPutRequest {
+  sforum.protocol.v2.RequestContext context = 1;
+  string secret_id = 2;
+  // value is the plaintext to encrypt; the store's 64 KiB ceiling applies.
+  bytes value = 3;
+  // media_type is advisory metadata (defaults to text/plain) and never logged.
+  string media_type = 4;
+}
+
+message SecretPutResponse {
+  sforum.protocol.v2.ResponseContext context = 1;
+  sforum.protocol.v2.ErrorDetail error = 2;
+  bool secret_set = 3;
+  // version is the settings document revision after the write.
+  int64 version = 4;
+}
+
+// SecretClearRequest removes one declared secret, leaving every other field untouched.
+message SecretClearRequest {
+  sforum.protocol.v2.RequestContext context = 1;
+  string secret_id = 2;
+}
+
+message SecretClearResponse {
+  sforum.protocol.v2.ResponseContext context = 1;
+  sforum.protocol.v2.ErrorDetail error = 2;
+  bool secret_set = 3;
+  // version is the settings document revision after the clear.
+  int64 version = 4;
 }
 
 message FileReadRequest {

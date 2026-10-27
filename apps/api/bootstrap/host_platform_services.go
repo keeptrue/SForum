@@ -90,7 +90,7 @@ func bindProductionHostPlatform(
 		settingsSvc = settingslifecycle.NewWithStore(settingslifecycle.NewMemoryDocumentStore(), secretSvc).WithLegacyCipher(optionCipher)
 	}
 
-	secretV2, err := hostapi.NewProtocolV2SecretServiceServer(secretSvc)
+	secretV2, err := hostapi.NewProtocolV2SecretServiceServer(secretSvc, settingsSvc)
 	if err != nil {
 		return nil, fmt.Errorf("create Protocol V2 Secret service: %w", err)
 	}

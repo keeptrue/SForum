@@ -520,3 +520,122 @@ func TestFailedMigrationDoesNotTouchSecretStoreOrRevision(t *testing.T) {
 		// 仅断言 ref 字符串稳定即可；解析路径由 SecretStore 自己测。
 	}
 }
+
+// HasSecretField is the gate the Host API write half relies on: an undeclared key has no
+// document slot, so it must never reach SecretStore.
+func TestHasSecretFieldOnlyAcceptsDeclaredSecrets(t *testing.T) {
+	svc := New(mustSecrets(t))
+	if err := svc.RegisterSchema("demo.gate", 1, []FieldSchema{
+		{Name: "plain", Type: "string"},
+		{Name: "token", Type: "secret", Secret: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.HasSecretField("demo.gate", "token") {
+		t.Fatal("declared secret field was refused")
+	}
+	for _, key := range []string{"plain", "missing", "", "  "} {
+		if svc.HasSecretField("demo.gate", key) {
+			t.Fatalf("%q was accepted as a secret field", key)
+		}
+	}
+	if svc.HasSecretField("other.extension", "token") {
+		t.Fatal("another extension's schema answered for this one")
+	}
+	var nilService *Service
+	if nilService.HasSecretField("demo.gate", "token") {
+		t.Fatal("nil service accepted a secret field")
+	}
+}
+
+// PutSecret is the write half used by SecretService.Put/Clear: one field, everything else
+// untouched, and the returned revision advances on every write.
+func TestPutSecretWritesOneFieldAndPreservesSiblings(t *testing.T) {
+	ctx := context.Background()
+	secrets := mustSecrets(t)
+	docs := NewMemoryDocumentStore()
+	svc := NewWithStore(docs, secrets)
+	if err := svc.RegisterSchema("demo.write", 1, []FieldSchema{
+		{Name: "base_url", Type: "string", Default: "https://example.test"},
+		{Name: "token", Type: "secret", Secret: true},
+		{Name: "refresh", Type: "secret", Secret: true},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := svc.PutSecret(ctx, "demo.write", "extension:demo.write", "token", "sfo_one", "text/plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == 0 {
+		t.Fatal("revision was not reported")
+	}
+	second, err := svc.PutSecret(ctx, "demo.write", "extension:demo.write", "refresh", "sfo_two", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second <= first {
+		t.Fatalf("revision did not advance: %d then %d", first, second)
+	}
+
+	values, err := svc.RuntimeValues(ctx, "demo.write", "settings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if values["token"] != "sfo_one" || values["refresh"] != "sfo_two" {
+		t.Fatalf("values = %#v", values)
+	}
+
+	// 空值 = 清除该字段，兄弟字段与非 secret 值都保留。
+	third, err := svc.PutSecret(ctx, "demo.write", "extension:demo.write", "token", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if third <= second {
+		t.Fatalf("clear did not advance the revision: %d then %d", second, third)
+	}
+	doc, err := svc.Get(ctx, "demo.write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.SecretSet["token"] {
+		t.Fatalf("cleared field still marked set: %#v", doc.SecretSet)
+	}
+	if !doc.SecretSet["refresh"] {
+		t.Fatalf("clear removed a sibling secret: %#v", doc.SecretSet)
+	}
+	values, err = svc.RuntimeValues(ctx, "demo.write", "settings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := values["token"]; ok {
+		t.Fatalf("cleared secret still resolves: %#v", values)
+	}
+	if values["refresh"] != "sfo_two" {
+		t.Fatalf("sibling secret lost: %#v", values)
+	}
+
+	// 未声明 / 非 secret 键被拒绝，且不产生写入。
+	if _, err := svc.PutSecret(ctx, "demo.write", "extension:demo.write", "base_url", "x", ""); !errors.Is(err, ErrValidation) {
+		t.Fatalf("plain field write = %v", err)
+	}
+	if _, err := svc.PutSecret(ctx, "demo.write", "extension:demo.write", "missing", "x", ""); !errors.Is(err, ErrValidation) {
+		t.Fatalf("unknown field write = %v", err)
+	}
+	doc, err = svc.Get(ctx, "demo.write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.Values["base_url"] != "" {
+		t.Fatalf("rejected write still mutated the document: %#v", doc.Values)
+	}
+}
+
+func mustSecrets(t *testing.T) *secretstore.Service {
+	t.Helper()
+	secrets, err := secretstore.New(secretstore.NewMemoryStore(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secrets
+}
