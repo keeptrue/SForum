@@ -315,7 +315,23 @@ jobs:
             --tag "$IMAGE:$CANDIDATE_TAG" \
             "${references[@]}"
 
-          raw_manifest="$(docker buildx imagetools inspect "$IMAGE:$CANDIDATE_TAG" --raw)"
+          # GHCR 的读路径偶尔慢于刚返回的 push：imagetools create 成功后立刻
+          # inspect 仍可能 404（v3.0.20-beta.2 的 migrate 合并就这么红过一次）。
+          # 注册表抖动不该让整条发布卡死，这里按 5s 递增重试约 60s。
+          inspect_with_retry() {
+            local attempt output
+            for attempt in 1 2 3 4 5 6; do
+              if output="$(docker buildx imagetools inspect "$@" 2>&1)"; then
+                printf '%s\n' "$output"
+                return 0
+              fi
+              echo "imagetools inspect failed (attempt ${attempt}): ${output}" >&2
+              sleep $((attempt * 5))
+            done
+            return 1
+          }
+
+          raw_manifest="$(inspect_with_retry "$IMAGE:$CANDIDATE_TAG" --raw)"
           if ! jq -e '
             [.manifests[]?.platform
               | select(.os == "linux" and (.architecture == "amd64" or .architecture == "arm64"))
@@ -327,7 +343,7 @@ jobs:
             exit 1
           fi
 
-          manifest_json="$(docker buildx imagetools inspect "$IMAGE:$CANDIDATE_TAG" --format '{{json .Manifest}}')"
+          manifest_json="$(inspect_with_retry "$IMAGE:$CANDIDATE_TAG" --format '{{json .Manifest}}')"
           manifest_digest="$(jq -r '.digest // empty' <<< "$manifest_json")"
           if [[ ! "$manifest_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
             echo "Unexpected merged manifest digest: $manifest_digest" >&2
