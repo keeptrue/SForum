@@ -36,6 +36,11 @@
 
 ## 发布结果
 
+- **stable `v3.0.20`**（提交 `04765138d`）已发布：GitHub Release 非 prerelease，
+  GHCR 三镜像同时带 `v3.0.20` / `3.0.20` / `latest`，匿名拉取校验通过；发布说明的
+  「一键安装 / 一键更新」改用 README 同一行
+  `releases/latest/download/sforum-install.sh`（`generate-release-notes.sh` 只对
+  稳定版这么做；预发布仍用版本化 URL，因为 `latest` 指向最新稳定版）。
 - tag `v3.0.20-beta.2`（提交 `e3ab91e2e`）已发布为 GitHub prerelease：
   CLI/server 四平台包、`sforum-deploy.tar.gz`、`sforum-install.sh`、`SHA256SUMS`
   等资产齐全；GHCR 三镜像 promote 与匿名拉取校验通过；npm
@@ -52,9 +57,9 @@
 
 ## Next
 
-- 下次发布确认 `inspect_with_retry` 在真实流水线生效（本次 beta.2 用的还是旧
-  workflow，重跑才过）。
-- 若还要发 stable，从 `v3.0.20-beta.2` 之后的新提交重新走 tag 流程。
+- `inspect_with_retry` 已在 `v3.0.20` 的真实流水线生效（三镜像合并一次通过）。
+- 稳定版发布说明的一键入口已有测试覆盖（`generate-release-notes_test.sh` 的
+  `v3.0.0` 用例），后续改动别退回版本化长 URL。
 
 ## Open Questions
 
