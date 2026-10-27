@@ -1,6 +1,6 @@
 {
   "name": "@sforum/plugin-ui",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Stable Vue components for SForum plugin-owned pages",
   "license": "MIT",
   "repository": {

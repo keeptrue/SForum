@@ -1420,8 +1420,8 @@ bundling one. Pass a Host icon name to `SPluginIcon` or to the `icon` prop of
 
 ### Author frontend SDK version
 
-A `--vue-admin-page` workspace depends on `@sforum/admin-sdk@^1.1.0` and
-`@sforum/plugin-ui@^1.1.0`: the icon bridge member, `SPluginIcon`, the `icon`
+A `--vue-admin-page` workspace depends on `@sforum/admin-sdk@^1.3.1` and
+`@sforum/plugin-ui@^1.1.1`: the icon bridge member, `SPluginIcon`, the `icon`
 props, and `definePluginPage` all arrive in 1.1.0. The repository publishes both
 packages from the tag-driven Release workflow, so the version you pin must
 already exist on npm before `bun install` can resolve it.

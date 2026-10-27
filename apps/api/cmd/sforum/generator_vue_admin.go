@@ -139,8 +139,8 @@ func vueAdminPackageJSON(opts makeOptions) string {
     "build": "vite build"
   },
   "dependencies": {
-    "@sforum/admin-sdk": "^1.3.0",
-    "@sforum/plugin-ui": "^1.1.0",
+    "@sforum/admin-sdk": "^1.3.1",
+    "@sforum/plugin-ui": "^1.1.1",
     "vue": "^3.5.0"
   },
   "devDependencies": {
