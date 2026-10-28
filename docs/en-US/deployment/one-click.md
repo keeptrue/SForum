@@ -336,6 +336,11 @@ requires the explicit `--allow-git` flag.
    migrations; start the standby slot; check `api/v1/ready`, `/health`, and
    `api/v1/ready` forwarded through Web inside the slot; atomically switch
    Caddy to the new slot; stop the old slot; record the new state.
+   The in-slot check retries every 2 seconds for up to
+   `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` (default 120) seconds: probes fail
+   while the standby slot cold-starts, so the script only reports the final
+   outcome, and a timeout prints the last probe output plus that slot's
+   container state and the last 60 log lines.
 6. When migrations cannot run online, enter a maintenance window: interactive
    mode asks whether to continue; `--yes` mode never stops services
    automatically — it refuses and prints

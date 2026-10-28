@@ -6,6 +6,17 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 升级探针噪音（v3.0.21 → v3.0.23 的 8 条 wget 报错）
+
+- Status: **landed（2026-10-28）**。生产机在线更新时备用槽冷启动，槽内探针按 2 秒
+  重试打出 8 条 `wget: can't connect ... Connection refused`，随后正常切换：`up -d`
+  只保证容器 started，API 要跑完 `bootstrap.NewAPI`（连库、`SyncBuiltins`、插件运行时
+  genesis）才 `Listen()`。`upgrade.sh` 探针改为失败不上屏、重试后一行回执、每 15 秒
+  心跳、超时 dump 最后一次探针输出与该槽容器状态和 60 行日志；新增
+  `deploy/scripts/upgrade-health-probe_test.sh` 并进 release-tooling gate。修复随下一个
+  Release 生效（`upgrade.sh` 是发布资产），本次生产机只需复核状态。
+- Handoff：`sessions/2026-10-28-upgrade-health-probe-noise.md`。
+
 ### Security 门禁：x/net 可达漏洞（v3.0.23）
 
 - Status: **landed（2026-10-28）**。main 上只有 `Govulncheck / core-api` 红：

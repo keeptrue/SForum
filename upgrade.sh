@@ -556,25 +556,67 @@ remove_legacy_worker_containers() {
   [ "$failed" = false ]
 }
 
+# 探针：在槽容器内部访问自身端口。失败时把 wget / compose 的诊断留在
+# PROBE_OUTPUT，由超时路径一次性打印；循环内不直接输出，避免把「备用槽还在
+# 冷启动」写成一片红色错误。赋值放在 if 条件里，免得 set -e 把预期失败当致命错。
+PROBE_OUTPUT=""
+probe_slot_endpoint() {
+  local service="$1" url="$2"
+  if PROBE_OUTPUT="$("${COMPOSE[@]}" exec -T "$service" wget -q -O /dev/null "$url" 2>&1 >/dev/null)"; then
+    return 0
+  fi
+  return 1
+}
+
+dump_slot_diagnostics() {
+  # 探针只说「没就绪」，原因在容器日志里；新槽随后会被 stop，所以先留现场。
+  local service="$1"
+  say "正在收集 ${service} 的容器状态与最近 60 行日志..." \
+    "Collecting container state and the last 60 log lines for ${service}..." >&2
+  "${COMPOSE[@]}" ps -a "$service" >&2 || true
+  "${COMPOSE[@]}" logs --tail=60 --no-color "$service" >&2 || true
+}
+
 wait_inside_slot() {
-  local slot="$1" deadline=$((SECONDS + ${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}))
-  local api web last_failure=""
+  local slot="$1"
+  local timeout="${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}"
+  case "$timeout" in *[!0-9]*) timeout=120 ;; esac
+  [ "$timeout" -ge 1 ] || timeout=120
+  local started=$SECONDS deadline=$((SECONDS + timeout))
+  local api web attempts=0 elapsed next_report=15
+  local last_failure="" last_service="" last_output=""
   api="$(slot_api "$slot")"
   web="$(slot_web "$slot")"
   while [ "$SECONDS" -lt "$deadline" ]; do
-    if ! "${COMPOSE[@]}" exec -T "$api" wget -q -O /dev/null http://127.0.0.1:8080/api/v1/ready; then
-      last_failure="api ready ($api)"
-    elif ! "${COMPOSE[@]}" exec -T "$web" wget -q -O /dev/null http://127.0.0.1:3000/health; then
-      last_failure="web health ($web)"
-    elif ! "${COMPOSE[@]}" exec -T "$web" wget -q -O /dev/null http://127.0.0.1:3000/api/v1/ready; then
-      last_failure="web api ready ($web)"
+    attempts=$((attempts + 1))
+    elapsed=$((SECONDS - started))
+    if ! probe_slot_endpoint "$api" "http://127.0.0.1:8080/api/v1/ready"; then
+      last_failure="api ready"; last_service="$api"
+    elif ! probe_slot_endpoint "$web" "http://127.0.0.1:3000/health"; then
+      last_failure="web health"; last_service="$web"
+    elif ! probe_slot_endpoint "$web" "http://127.0.0.1:3000/api/v1/ready"; then
+      last_failure="web api ready"; last_service="$web"
     else
+      if [ "$attempts" -gt 1 ]; then
+        say "备用槽 $slot 已就绪（等待 ${elapsed}s，共 ${attempts} 次探测）。" \
+          "Standby slot $slot is ready after ${elapsed}s (${attempts} probes)."
+      fi
       return 0
+    fi
+    last_output="$PROBE_OUTPUT"
+    if [ "$elapsed" -ge "$next_report" ]; then
+      say "备用槽 $slot 仍在启动：${last_failure}（$last_service），已等待 ${elapsed}s/${timeout}s..." \
+        "Standby slot $slot is still starting: ${last_failure} ($last_service); waited ${elapsed}s/${timeout}s..." >&2
+      next_report=$((elapsed + 15))
     fi
     sleep 2
   done
-  say "健康检查超时（${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120} 秒），最后未通过的检查：$last_failure" \
-    "Health check timed out after ${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}s; the last failing probe was: $last_failure" >&2
+  say "健康检查超时（${timeout} 秒），最后未通过的检查：${last_failure:-无}（${last_service:-未知}）" \
+    "Health check timed out after ${timeout}s; the last failing probe was: ${last_failure:-none} (${last_service:-unknown})" >&2
+  if [ -n "$last_output" ]; then
+    say "最后一次探针输出：${last_output}" "Last probe output: ${last_output}" >&2
+  fi
+  [ -z "$last_service" ] || dump_slot_diagnostics "$last_service"
   return 1
 }
 

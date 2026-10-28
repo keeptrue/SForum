@@ -298,6 +298,10 @@ chmod 0755 sforum-latest.sh && \
    目标迁移是否全部可在线执行；备份数据库；执行已声明兼容的 Core 迁移；
    启动备用槽；槽内检查 `api/v1/ready`、`/health` 和经 Web 转发的
    `api/v1/ready`；原子切换 Caddy 到新槽；停止旧槽；记录新状态。
+   槽内检查按 2 秒一轮重试，最多等待 `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS`
+   （默认 120）秒：备用槽冷启动期间探针会失败，脚本只在最终就绪或超时时
+   给结论；超时会打印最后一次探针输出，并 dump 该槽的容器状态与最近 60 行
+   日志。
 6. 迁移不能在线执行时进入维护窗口：交互模式询问是否继续；`--yes` 模式
    不会自动停机，会拒绝并给出
    `./upgrade.sh --version <TAG> --confirm-maintenance`。该命令要在安装

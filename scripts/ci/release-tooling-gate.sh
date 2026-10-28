@@ -48,6 +48,9 @@ echo "Running one-line install loader validation..."
 echo "Running zero-downtime state-machine validation..."
 ./deploy/scripts/zero-downtime-state_test.sh
 
+echo "Running blue/green slot health probe validation..."
+./deploy/scripts/upgrade-health-probe_test.sh
+
 echo "Running documentation validation failure-path tests..."
 ./tests/validate-docs_test.sh
 
