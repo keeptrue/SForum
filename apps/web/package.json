@@ -47,7 +47,7 @@
     "@tiptap/starter-kit": "^3.31.3",
     "@tiptap/suggestion": "^3.31.3",
     "@tiptap/vue-3": "^3.31.3",
-    "altcha": "^3.1.0",
+    "altcha": "^3.5.0",
     "chart.js": "^4",
     "diff": "^9",
     "dompurify": "^3.4.17",
