@@ -2,7 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-sforum}
 
 services:
   postgres:
-    image: postgres:17.11-alpine
+    image: postgres:18.6-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sforum}
       POSTGRES_USER: ${POSTGRES_USER:-sforum}
@@ -16,7 +16,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7.4.10-alpine
+    image: redis:8.10.0-alpine
     # 启用 AOF 持久化与密码认证。默认开发密码与 .env.production.example 保持一致，
     # 外部无密码 Redis 时需将 REDIS_PASSWORD 置空并同步移除 --requirepass。
     command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
@@ -35,7 +35,7 @@ services:
   # 启用：docker compose --profile search up -d meilisearch
   # 并安装/扫描独立仓库中的 sforum-search-meilisearch（非内置）。
   meilisearch:
-    image: getmeili/meilisearch:v1.53.1
+    image: getmeili/meilisearch:v1.55.0
     profiles: ["search"]
     environment:
       MEILI_ENV: ${APP_ENV:-development}

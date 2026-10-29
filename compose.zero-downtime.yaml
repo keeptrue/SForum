@@ -1,6 +1,6 @@
 services:
   edge:
-    image: caddy:2.10.2-alpine
+    image: caddy:2.11.7-alpine
     profiles: ["zero-downtime"]
     restart: unless-stopped
     command: ["caddy", "run", "--config", "/etc/sforum-router/Caddyfile", "--adapter", "caddyfile"]
