@@ -1,4 +1,4 @@
-FROM golang:1.26.10-alpine AS base
+FROM golang:1.27.2-alpine AS base
 
 WORKDIR /app/apps/api
 RUN apk add --no-cache ca-certificates git
@@ -65,7 +65,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false \
 	-ldflags="-s -w -X github.com/keeptrue/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/keeptrue/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/keeptrue/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
 	-o /out/sforum-migrate ./cmd/migrate
 
-FROM alpine:3.22 AS api
+FROM alpine:3.24 AS api
 
 RUN apk add --no-cache ca-certificates && \
 	# H6：容器以非 root 用户运行，RCE/路径穿越后权限受限。
@@ -79,7 +79,7 @@ USER sforum
 EXPOSE 8080
 CMD ["sforum-api"]
 
-FROM alpine:3.22 AS worker
+FROM alpine:3.24 AS worker
 
 RUN apk add --no-cache ca-certificates && \
 	addgroup -S sforum && adduser -S -G sforum sforum && \
@@ -91,7 +91,7 @@ COPY --from=build --chown=sforum:sforum /app/extensions/builtin /app/extensions/
 USER sforum
 CMD ["sforum-worker"]
 
-FROM alpine:3.22 AS migrate
+FROM alpine:3.24 AS migrate
 
 RUN apk add --no-cache ca-certificates && \
 	addgroup -S sforum && adduser -S -G sforum sforum
