@@ -18,7 +18,7 @@
         "@tiptap/core": "^3.31.3",
         "@tiptap/extension-character-count": "^3.31.3",
         "@tiptap/extension-code-block": "3.31.3",
-        "@tiptap/extension-file-handler": "3.31.3",
+        "@tiptap/extension-file-handler": "3.32.0",
         "@tiptap/extension-image": "^3.31.3",
         "@tiptap/extension-link": "^3.31.3",
         "@tiptap/extension-placeholder": "^3.31.3",
@@ -777,7 +777,7 @@
 
     "@tiptap/extension-dropcursor": ["@tiptap/extension-dropcursor@3.31.3", "https://registry.npmmirror.com/@tiptap/extension-dropcursor/-/extension-dropcursor-3.31.3.tgz", { "peerDependencies": { "@tiptap/extensions": "3.31.3" } }, "sha512-NWomSfu5CSC7VacnMSDzKT8qm66SzMfZwVPEtwY5bPpRTJgTiT1rNK0neDrrzfMN27MfylGyKWWf7Q5Qf8w/fg=="],
 
-    "@tiptap/extension-file-handler": ["@tiptap/extension-file-handler@3.31.3", "https://registry.npmmirror.com/@tiptap/extension-file-handler/-/extension-file-handler-3.31.3.tgz", { "peerDependencies": { "@tiptap/core": "3.31.3", "@tiptap/extension-text-style": "3.31.3", "@tiptap/pm": "3.31.3" } }, "sha512-V0SyE6lGrTQuqGgxeTN4ZdpnM9s8WTL8OBUtu41nPWJud0ETDVwamF87gt72z4SPPZudcAzQ5hwc609wZYEY/g=="],
+    "@tiptap/extension-file-handler": ["@tiptap/extension-file-handler@3.32.0", "", { "peerDependencies": { "@tiptap/core": "3.32.0", "@tiptap/extension-text-style": "3.32.0", "@tiptap/pm": "3.32.0" } }, "sha512-qjXCPOWfUPedHHVzDBfSP0uOOsevTI5KWjqdHNLJDkUl8O7ADMHDpoUZESxQSmInfyaQCTkKbYVz+qCS49D9fA=="],
 
     "@tiptap/extension-floating-menu": ["@tiptap/extension-floating-menu@3.27.1", "https://registry.npmmirror.com/@tiptap/extension-floating-menu/-/extension-floating-menu-3.27.1.tgz", { "peerDependencies": { "@floating-ui/dom": "^1.0.0", "@tiptap/core": "3.27.1", "@tiptap/pm": "3.27.1" } }, "sha512-BmJF1VqB7dSJkgAalrpVFj88WLhxKjcWPuWHOqf2ITrUU2832BhKLXKmxjWUy1gqV8PfNNVWtGfIERy7I0y0+Q=="],
 
