@@ -47,7 +47,7 @@
       "devDependencies": {
         "@tailwindcss/typography": "^0.5.20",
         "@vitejs/devtools-kit": "^0.7.6",
-        "@vitejs/plugin-vue": "6.0.7",
+        "@vitejs/plugin-vue": "6.0.10",
         "@vue/compiler-sfc": "^3.5.39",
         "@vue/test-utils": "^2.4.11",
         "esbuild": "^0.28.1",
@@ -945,7 +945,7 @@
 
     "@vitejs/devtools-kit": ["@vitejs/devtools-kit@0.7.6", "https://registry.npmmirror.com/@vitejs/devtools-kit/-/devtools-kit-0.7.6.tgz", { "dependencies": { "@devframes/hub": "^1.0.0", "@devframes/json-render": "^1.0.0", "devframe": "^1.0.0", "local-pkg": "^1.2.1", "nostics": "^1.3.0", "package-manager-detector": "^1.8.0" }, "peerDependencies": { "vite": "*" } }, "sha512-VtnTo296ypQyksFcPgrUyDDxh/SuAa/18uWEitbODcJIu5eilMFQyaSzsLKgp0HQPsxo/Kfzbfl5gowNGfjwqQ=="],
 
-    "@vitejs/plugin-vue": ["@vitejs/plugin-vue@6.0.7", "https://registry.npmmirror.com/@vitejs/plugin-vue/-/plugin-vue-6.0.7.tgz", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0", "vue": "^3.2.25" } }, "sha512-km+p+XdSz9Sxm5rqUbqcSfZYaAniKxWBj1KURl+Jr7UaPvvX7BmaWMdP69I5rrFDeQGyxAG7NXdc57vz+snhWg=="],
+    "@vitejs/plugin-vue": ["@vitejs/plugin-vue@6.0.10", "", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0", "vue": "^3.2.25 || ^3.6.0-rc.10" } }, "sha512-b80aUQh3n+qEzzZm5oQp3rT2QImeCx58K6eFl/RkJ3d65KW0kTuv5lNsLRVAjbW9YRUpo/wzmvzMgV34bTAItA=="],
 
     "@vitejs/plugin-vue-jsx": ["@vitejs/plugin-vue-jsx@5.1.6", "https://registry.npmmirror.com/@vitejs/plugin-vue-jsx/-/plugin-vue-jsx-5.1.6.tgz", { "dependencies": { "@babel/core": "^7.29.0", "@babel/plugin-syntax-typescript": "^7.29.7", "@babel/plugin-transform-typescript": "^7.29.7", "@rolldown/pluginutils": "^1.0.1", "@vue/babel-plugin-jsx": "^2.0.1" }, "peerDependencies": { "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0", "vue": "^3.0.0" } }, "sha512-YXvi4as2clxt6DFw5+a0tTA97ntiQXm/raR8ofNj3aNwwdlVGTiG2gp7EvfZW17P50acL/9bP0ccF4XnqNmlgA=="],
 
