@@ -30,7 +30,7 @@
         "@tiptap/starter-kit": "^3.31.3",
         "@tiptap/suggestion": "^3.31.3",
         "@tiptap/vue-3": "^3.31.3",
-        "altcha": "^3.1.0",
+        "altcha": "^3.5.0",
         "chart.js": "^4",
         "diff": "^9",
         "dompurify": "^3.4.17",
@@ -1017,7 +1017,7 @@
 
     "alien-signals": ["alien-signals@3.2.1", "https://registry.npmmirror.com/alien-signals/-/alien-signals-3.2.1.tgz", {}, "sha512-I8FjmltrfnDFoZedi5CG8DghVYNhzb/Ijluz7tCSJH0xpd0484Kowhbb1XDYOxfJpU1p5wnM2X54dA+IfGyD1g=="],
 
-    "altcha": ["altcha@3.1.0", "https://registry.npmmirror.com/altcha/-/altcha-3.1.0.tgz", { "dependencies": { "hash-wasm": "^4.12.0" } }, "sha512-rzz+F1xGG55X1LWylHZyabf9V4+5qAZeqd0+mo+8HdFsCqPC4YfUyjQ7lcbW/GVXy1XSnKsPMFkBuhmTymZuWw=="],
+    "altcha": ["altcha@3.5.0", "", { "dependencies": { "hash-wasm": "^4.12.0" } }, "sha512-wBXNK1bBeWs/XTOZiyE3JQvRNECgFKYEJqcPxFW7tFd7ErG62yQmMlRasygZrza3zyNTTuon3BfMF/PcBcepcw=="],
 
     "ansi-regex": ["ansi-regex@6.2.2", "https://registry.npmmirror.com/ansi-regex/-/ansi-regex-6.2.2.tgz", {}, "sha512-Bq3SmSpyFHaWjPk8If9yc6svM8c56dB5BAtW4Qbw5jHTwwXXcTLoRMkpDJp6VL0XzlWaCHTXrkFURMYmD0sLqg=="],
 
