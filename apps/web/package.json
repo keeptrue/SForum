@@ -67,7 +67,7 @@
     "@vitejs/plugin-vue": "6.0.7",
     "@vue/compiler-sfc": "^3.5.39",
     "@vue/test-utils": "^2.4.11",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "happy-dom": "^21.0.4",
     "typescript": "^6.0.3",
     "vite": "8.3.4",
