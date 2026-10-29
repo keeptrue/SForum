@@ -111,7 +111,7 @@ services:
           path: ./apps/web/nuxt.config.ts
 
   mailpit:
-    image: axllent/mailpit:v1.30.7
+    image: axllent/mailpit:v1.32.0
     ports:
       - "127.0.0.1:${MAILPIT_SMTP_PORT:-11025}:1025"
       - "127.0.0.1:${MAILPIT_UI_PORT:-18025}:8025"
