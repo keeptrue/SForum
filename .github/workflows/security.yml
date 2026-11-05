@@ -61,7 +61,7 @@ jobs:
           cache-dependency-path: apps/api/go.sum
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@adfda868f108ac4222129de456ea554034a27db7 # v4
+        uses: github/codeql-action/init@0911ee96d2d6c8def97122c36c5cadd93829a4b4 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -72,7 +72,7 @@ jobs:
         run: go build ./...
 
       - name: Analyze
-        uses: github/codeql-action/analyze@adfda868f108ac4222129de456ea554034a27db7 # v4
+        uses: github/codeql-action/analyze@0911ee96d2d6c8def97122c36c5cadd93829a4b4 # v4
         with:
           category: /language:${{ matrix.language }}
 
