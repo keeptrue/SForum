@@ -45,15 +45,6 @@ func TestMemoryTopicViewCounterFailRecordSkips(t *testing.T) {
 	}
 }
 
-func TestComputeHotScore(t *testing.T) {
-	if got := ComputeHotScore(3, 10); got != 25 {
-		t.Fatalf("got %d", got)
-	}
-	if got := ComputeHotScore(-1, -5); got != 0 {
-		t.Fatalf("negative clamp got %d", got)
-	}
-}
-
 func TestHashVisitorKeyStable(t *testing.T) {
 	a := HashVisitorKey("u:9")
 	b := HashVisitorKey("u:9")

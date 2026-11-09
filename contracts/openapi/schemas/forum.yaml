@@ -1122,6 +1122,7 @@ TopicSummary:
   - status
   - commentCount
   - viewCount
+  - likeCount
   - excerpt
   - createdAt
   - updatedAt
@@ -1160,6 +1161,10 @@ TopicSummary:
     viewCount:
       type: integer
       format: int64
+    likeCount:
+      type: integer
+      format: int64
+      description: Denormalized like count. Present on list rows and detail.
     tags:
       type: array
       items:
@@ -1187,6 +1192,16 @@ TopicDetail:
     properties:
       content:
         "$ref": "#/PublicRenderedContent"
+      likedByMe:
+        type: boolean
+        description: Request-scoped; true only when the authenticated viewer already liked this topic. Never cached.
+      likedBy:
+        type: array
+        description: |
+          Reaction preview for the SSR avatar stack: at most 3 likers, self first,
+          then earliest. Decorated on the read path after the cache layer; never cached.
+        items:
+          "$ref": "#/ForumUser"
       editedAt:
         type: string
         format: date-time
@@ -1627,6 +1642,7 @@ Comment:
   - pathKey
   - depth
   - replyCount
+  - likeCount
   - status
   - content
   - createdAt
@@ -1661,6 +1677,20 @@ Comment:
     replyCount:
       type: integer
       format: int64
+    likeCount:
+      type: integer
+      format: int64
+      description: Denormalized like count for this comment.
+    likedByMe:
+      type: boolean
+      description: Request-scoped; true only when the authenticated viewer already liked this comment. Never cached.
+    likedBy:
+      type: array
+      description: |
+        Reaction preview for the SSR avatar stack: at most 3 likers, self first,
+        then earliest. Decorated on the read path after the cache layer; never cached.
+      items:
+        "$ref": "#/ForumUser"
     status:
       "$ref": "#/CommentStatus"
     content:
@@ -2295,3 +2325,80 @@ ApiResponseCommentRevisionState:
     code: {type: integer}
     message: {type: string}
     data: {$ref: "#/CommentRevisionState"}
+
+ReactionState:
+  type: object
+  required:
+  - targetType
+  - targetId
+  - reaction
+  - liked
+  - likeCount
+  properties:
+    targetType:
+      type: string
+      enum: [topic, comment]
+    targetId:
+      type: integer
+      format: int64
+    reaction:
+      type: string
+      enum: [like]
+    liked:
+      type: boolean
+      description: True when the authenticated member currently holds this reaction.
+    likeCount:
+      type: integer
+      format: int64
+      description: Authoritative count after the toggle.
+
+ReactionRoster:
+  type: object
+  required:
+  - items
+  - total
+  - hasMore
+  properties:
+    items:
+      type: array
+      description: Recent likers, newest first; bounded by limit (max 50).
+      items:
+        "$ref": "#/ForumUser"
+    total:
+      type: integer
+      format: int64
+      description: >
+        Total likers for this target as computed by the current page's window
+        function (COUNT(*) OVER ()). It is therefore page-derived: when offset
+        runs past the last page the query returns no rows and this value is 0.
+        Clients must not use it to shrink a total they already displayed.
+    hasMore:
+      type: boolean
+
+ApiResponseReactionState:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/ReactionState"
+
+ApiResponseReactionRoster:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/ReactionRoster"

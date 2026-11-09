@@ -29,6 +29,16 @@ type TopicEvent struct {
 	MentionedUsernames   []string
 }
 
+// ReactionEvent 是一次点赞的收件人视角：目标作者收到「X 赞了你的内容」。
+// RecipientUserID 为 0 或等于 ActorUserID 时不写投影（自赞不打扰）。
+type ReactionEvent struct {
+	TargetType      string
+	TargetID        int64
+	TopicID         int64
+	ActorUserID     int64
+	RecipientUserID int64
+}
+
 type ModerationEvent struct {
 	DecisionID               int64
 	TargetType               string
@@ -240,6 +250,46 @@ func (o *Outbox) NotifyCommentTx(ctx context.Context, tx pgx.Tx, event CommentEv
 		}
 	}
 	return nil
+}
+
+// NotifyReactionTx writes the like notification projection for the target author.
+//
+// 与 reply/mention 同一套投影与偏好规则：in_app 默认开，email/web_push 默认关。
+// 去重键包含 actor，因此「取消后再赞」不会产生第二条通知。
+func (o *Outbox) NotifyReactionTx(ctx context.Context, tx pgx.Tx, event ReactionEvent) error {
+	if event.RecipientUserID <= 0 || event.RecipientUserID == event.ActorUserID {
+		return nil
+	}
+	brand := resolveMailBrand(ctx, o.brandResolver)
+	var email, locale, name string
+	err := tx.QueryRow(ctx, `SELECT email, locale, display_name FROM users WHERE id=$1 AND status='active'`, event.RecipientUserID).Scan(&email, &locale, &name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load reaction notification recipient: %w", err)
+	}
+	payload, _ := json.Marshal(mailTemplateData(map[string]any{
+		"topicId":       event.TopicID,
+		"targetType":    event.TargetType,
+		"targetId":      event.TargetID,
+		"locale":        resolveMailLocale(ctx, locale, o.localeResolver),
+		"recipientName": name,
+	}, brand))
+	dedupe := fmt.Sprintf("reaction:%s:%d:%d", event.TargetType, event.TargetID, event.ActorUserID)
+	return o.CreateProjectionsTx(ctx, tx, CreateBundleInput{
+		Notification: CreateInput{
+			RecipientUserID: event.RecipientUserID,
+			Type:            TypeReaction,
+			ActorUserID:     &event.ActorUserID,
+			TargetType:      event.TargetType,
+			TargetID:        event.TargetID,
+			Payload:         payload,
+			DedupeKey:       dedupe,
+		},
+		Delivery: CreateDeliveryInput{Recipient: email, TemplateKey: "forum." + TypeReaction, TemplateData: payload, IdempotencyKey: dedupe},
+		Channels: coreDeliveryChannels(),
+	})
 }
 
 // NotifyTopicTx mirrors comment mention fanout for an active topic creation.

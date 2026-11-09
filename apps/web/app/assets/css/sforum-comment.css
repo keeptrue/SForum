@@ -407,6 +407,18 @@
   margin-top: 0.5rem;
 }
 
+/* 评论点赞并入 footer 动作行：同字号、同中性色，计数不被行的透明度压暗 */
+.sf-comment__actions .sf-reaction {
+  --sf-public-muted: var(--sf-fg-tertiary);
+  --sf-public-accent: var(--sf-accent);
+  opacity: 1;
+  line-height: 1.2;
+}
+
+.sf-comment__actions .sf-reaction.sf-reaction--sm {
+  font-size: 0.75rem;
+}
+
 .sf-comment__action,
 .sf-comment__disclosure {
   display: inline-flex;
@@ -642,6 +654,11 @@
     opacity: 1;
   }
 
+  /* 与移动端动作按钮同字号（12.5px），点赞仍在 38px 热区内 */
+  .sf-comment__actions .sf-reaction.sf-reaction--sm {
+    font-size: 12.5px;
+  }
+
   .sf-comment__action,
   .sf-comment__disclosure {
     min-height: 34px;
@@ -780,6 +797,10 @@
 
 .sf-comment__actions {
   margin-top: 8px;
+}
+
+/* 透明度下沉到文字按钮，点赞计数保持全不透明 */
+.sf-comment__actions > .sf-comment__action {
   opacity: .72;
 }
 

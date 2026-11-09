@@ -132,7 +132,9 @@ describe('default theme V32 topic page contract', () => {
     expect(source).toContain('sforum-topic-page__shell')
     expect(source).toContain('sforum-topic-page__reading')
     expect(source).toContain('sforum-topic-page__post-card')
-    expect(source).toContain('sforum-topic-page__actions')
+    // 动作行（分享/回复/点赞）抽成独立组件：页面挂载它，几何仍由该组件拥有。
+    expect(source).toContain('<SFTopicReactionBar')
+    expect(sourceFile('../../app/components/forum/SFTopicReactionBar.vue')).toContain('sforum-topic-page__actions')
     expect(source).toContain('<SFTopicSideCard')
     expect(source).toContain(':first-comment-id="comments[0]?.id"')
     expect(source).toContain(':latest-comment-id="comments[comments.length - 1]?.id"')

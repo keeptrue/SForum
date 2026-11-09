@@ -44,6 +44,8 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `attachment.before_upload` | validate | 2000 | fail_closed | `actorUserId`, `contentType`, `sizeBytes`, `filename` | — |
 | `attachment.uploaded` | observe | 5000 | fail_open | `attachmentId`, `publicId`, `ownerUserId`, `provider`, `contentType`, `sizeBytes` | — |
 | `entity_meta.updated` | observe | 5000 | fail_open | `entityType`, `entityId`, `fieldKeys`, `actorUserId` | — |
+| `reaction.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
+| `reaction.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
 
 ### Descriptions
 
@@ -154,4 +156,12 @@ Emitted after attachment metadata is committed.
 #### `entity_meta.updated`
 
 Emitted after entity custom field values are written or cleared.
+
+#### `reaction.created`
+
+Emitted after a like is committed on a visible topic or comment.
+
+#### `reaction.removed`
+
+Emitted after a like is removed from a visible topic or comment.
 

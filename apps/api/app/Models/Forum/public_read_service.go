@@ -11,10 +11,35 @@ import (
 type PublicReadService struct {
 	*Service
 	shortcodes *publicShortcodeRenderer
+	// reactions 可选：为登录访客补 likedByMe。装饰发生在缓存之后，永不进缓存。
+	reactions ReactionReader
 }
 
 func NewPublicReadService(service *Service) *PublicReadService {
 	return &PublicReadService{Service: service}
+}
+
+// WithReactions 注入点赞装饰器；nil 时读模型不含 likedByMe（匿名路径的默认形状）。
+func (s *PublicReadService) WithReactions(reader ReactionReader) *PublicReadService {
+	if s != nil {
+		s.reactions = reader
+	}
+	return s
+}
+
+func (s *PublicReadService) decorateTopic(ctx context.Context, viewer identity.Actor, topic *TopicDetail) {
+	if s == nil || s.reactions == nil || topic == nil {
+		return
+	}
+	// 装饰失败必须 fail-open：点赞状态是增强面，不能把公开读打成 500。
+	_ = s.reactions.DecorateTopic(ctx, viewer, topic)
+}
+
+func (s *PublicReadService) decorateComments(ctx context.Context, viewer identity.Actor, comments []Comment) {
+	if s == nil || s.reactions == nil || len(comments) == 0 {
+		return
+	}
+	_ = s.reactions.DecorateComments(ctx, viewer, comments)
 }
 
 func (s *PublicReadService) WithShortcodeDispatcher(dispatcher PublicShortcodeDispatcher) *PublicReadService {
@@ -68,6 +93,7 @@ func (s *PublicReadService) ListComments(ctx context.Context, input CommentListI
 		return CommentList{}, err
 	}
 	list.Items, list.ProtectedContent = s.shortcodes.renderComments(ctx, list.Items, input.Viewer)
+	s.decorateComments(ctx, input.Viewer, list.Items)
 	return list, nil
 }
 
@@ -77,6 +103,7 @@ func (s *PublicReadService) ListCommentRepliesForViewer(ctx context.Context, com
 		return nil, false, err
 	}
 	items, protected := s.shortcodes.renderComments(ctx, items, viewer)
+	s.decorateComments(ctx, viewer, items)
 	return items, protected, nil
 }
 
@@ -86,6 +113,7 @@ func (s *PublicReadService) GetTopicForViewer(ctx context.Context, topicID int64
 		return TopicDetail{}, err
 	}
 	topic, topic.ProtectedContent = s.shortcodes.renderTopic(ctx, topic, viewer)
+	s.decorateTopic(ctx, viewer, &topic)
 	return topic, nil
 }
 
@@ -95,5 +123,6 @@ func (s *PublicReadService) GetTopicBySlugForViewer(ctx context.Context, slug st
 		return TopicDetail{}, err
 	}
 	topic, topic.ProtectedContent = s.shortcodes.renderTopic(ctx, topic, viewer)
+	s.decorateTopic(ctx, viewer, &topic)
 	return topic, nil
 }

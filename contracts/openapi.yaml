@@ -119,6 +119,10 @@ paths:
     "$ref": "./openapi/paths/forum.yaml#/topicUnpin"
   "/topics/{topicID}/comments":
     "$ref": "./openapi/paths/forum.yaml#/topicComments"
+  "/topics/{topicID}/like":
+    "$ref": "./openapi/paths/forum.yaml#/topicLike"
+  "/topics/{topicID}/likes":
+    "$ref": "./openapi/paths/forum.yaml#/topicLikes"
   "/topics/{topicID}/comments/revision":
     "$ref": "./openapi/paths/forum.yaml#/topicCommentRevision"
   "/topics/{topicID}/comments/stream":
@@ -127,6 +131,10 @@ paths:
     "$ref": "./openapi/paths/forum.yaml#/topicCommentPage"
   "/comments/{commentID}/replies":
     "$ref": "./openapi/paths/forum.yaml#/commentReplies"
+  "/comments/{commentID}/like":
+    "$ref": "./openapi/paths/forum.yaml#/commentLike"
+  "/comments/{commentID}/likes":
+    "$ref": "./openapi/paths/forum.yaml#/commentLikes"
   "/comments/{commentID}/citations":
     "$ref": "./openapi/paths/forum.yaml#/commentCitations"
   "/comments/{commentID}/revisions":
@@ -888,6 +896,10 @@ components:
       "$ref": "./openapi/schemas/forum.yaml#/ApiResponseCommentList"
     ApiResponseTopicAction:
       "$ref": "./openapi/schemas/forum.yaml#/ApiResponseTopicAction"
+    ApiResponseReactionState:
+      "$ref": "./openapi/schemas/forum.yaml#/ApiResponseReactionState"
+    ApiResponseReactionRoster:
+      "$ref": "./openapi/schemas/forum.yaml#/ApiResponseReactionRoster"
     UpdateTopicRequest:
       "$ref": "./openapi/schemas/forum.yaml#/UpdateTopicRequest"
     TopicAction:
@@ -1044,6 +1056,10 @@ components:
       "$ref": "./openapi/schemas/forum.yaml#/ReplyReference"
     CommentList:
       "$ref": "./openapi/schemas/forum.yaml#/CommentList"
+    ReactionState:
+      "$ref": "./openapi/schemas/forum.yaml#/ReactionState"
+    ReactionRoster:
+      "$ref": "./openapi/schemas/forum.yaml#/ReactionRoster"
     CreateTopicRequest:
       "$ref": "./openapi/schemas/forum.yaml#/CreateTopicRequest"
     CreateCommentRequest:

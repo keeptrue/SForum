@@ -486,7 +486,7 @@ func bulkInsertFlatComments(
 	if _, err := pool.Exec(ctx, `
 		UPDATE topics
 		SET comment_count = comment_count + $2,
-		    hot_score = (comment_count + $2) * 5 + view_count,
+		    hot_score = (comment_count + $2) * 5 + view_count + like_count * 3,
 		    last_activity_at = now(),
 		    updated_at = now()
 		WHERE id = $1
@@ -577,7 +577,7 @@ func bulkInsertHotComments(
 	if _, err := pool.Exec(ctx, `
 		UPDATE topics
 		SET comment_count = $2,
-		    hot_score = ($2::bigint) * 5 + view_count,
+		    hot_score = ($2::bigint) * 5 + view_count + like_count * 3,
 		    last_activity_at = now(),
 		    updated_at = now()
 		WHERE id = $1

@@ -42,6 +42,11 @@ func mapForumError(err error) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeInvalidContent)
 	case errors.Is(err, forum.ErrInvalidTopic):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeInvalidTopic)
+	case errors.Is(err, forum.ErrReactionsDisabled):
+		return fiber.NewError(fiber.StatusForbidden, forum.CodeReactionsDisabled)
+	case errors.Is(err, forum.ErrInvalidReactionTarget):
+		// 点赞目标是多态的（topic/comment），不能借用主题的 not-found reason。
+		return fiber.NewError(fiber.StatusNotFound, forum.CodeReactionTargetInvalid)
 	case errors.Is(err, forum.ErrTopicNotFound):
 		return fiber.NewError(fiber.StatusNotFound, forum.CodeTopicNotFound)
 	case errors.Is(err, forum.ErrCommentNotFound):

@@ -3,9 +3,9 @@
   "legacyLargeFiles": {
     "apps/api/app/Http/Controllers/Pages/controller.go": 975,
     "apps/api/app/Models/Extensions/service_package.go": 807,
-    "apps/api/app/Models/Forum/postgres_store_ops.go": 1471,
+    "apps/api/app/Models/Forum/postgres_store_ops.go": 1438,
     "apps/api/app/Models/Forum/service.go": 1074,
-    "apps/api/app/Models/Forum/service_ops.go": 1209,
+    "apps/api/app/Models/Forum/service_ops.go": 1170,
     "apps/api/app/Models/Identity/service.go": 966,
     "apps/api/app/Models/Options/service.go": 1047,
     "apps/api/app/Support/ExtensionManifest/manifest.go": 744,
@@ -16,7 +16,7 @@
     "apps/api/app/Support/Extensions/protocol_v2_client.go": 1003,
     "apps/api/app/Support/Pages/registry.go": 672,
     "apps/api/app/Support/Pages/theme_runtime.go": 890,
-    "apps/web/app/components/forum/SFTopicShowPage.vue": 1137,
+    "apps/web/app/components/forum/SFTopicShowPage.vue": 1127,
     "apps/web/app/composables/admin/useAdminExtensionsManager.ts": 920
   },
   "rootDirectoryAllowlists": [

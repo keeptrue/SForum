@@ -37,7 +37,7 @@ func (s *PostgresStore) ListPublicTopicSearchHits(ctx context.Context, ids []int
 		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
 		  author_attachments.content_type, author_attachments.status,
 		  topics.title, topics.slug, topics.status, topics.is_pinned,
-		  topics.comment_count, topics.view_count, topics.hot_score, `+plainTextPrefixSQL("posts.plain_text")+`,
+		  topics.comment_count, topics.view_count, topics.like_count, topics.hot_score, `+plainTextPrefixSQL("posts.plain_text")+`,
 		  `+effectivePostCurrentRevisionSQL("posts")+`,
 		  `+contentEditedSQL("posts")+`,
 		  topics.created_at, topics.updated_at, topics.last_activity_at,`+lastReplyAuthorSelectSQL()+`

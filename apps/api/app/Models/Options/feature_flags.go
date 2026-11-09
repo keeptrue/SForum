@@ -23,6 +23,8 @@ const (
 	NameFeaturePublicProfiles = "features.public_profiles"
 	// NameFeatureWebhooks 出站 Webhooks 产品面（管理端仍受权限约束）。
 	NameFeatureWebhooks = "features.webhooks"
+	// NameFeatureReactions 点赞（主题/评论）产品面；关闭后写端点 403、前端隐藏控件。
+	NameFeatureReactions = "features.reactions"
 )
 
 // FeatureFlagDefinition 描述宿主目录中的一个产品开关。
@@ -47,6 +49,7 @@ func featureFlagOptionDefinitions() []optionDefinition {
 		{name: NameFeaturePublicProfiles, public: true, managePermission: site},
 		// webhooks 对访客无意义，仅 admin 列表可见。
 		{name: NameFeatureWebhooks, public: false, managePermission: site},
+		{name: NameFeatureReactions, public: true, managePermission: site},
 	}
 }
 
@@ -60,6 +63,7 @@ func FeatureFlagCatalog() []FeatureFlagDefinition {
 		{Name: NameFeatureMentions, Public: true, Default: defaults[NameFeatureMentions], Description: "Mention product surface."},
 		{Name: NameFeaturePublicProfiles, Public: true, Default: defaults[NameFeaturePublicProfiles], Description: "Public profile pages."},
 		{Name: NameFeatureWebhooks, Public: false, Default: defaults[NameFeatureWebhooks], Description: "Outbound webhooks product surface."},
+		{Name: NameFeatureReactions, Public: true, Default: defaults[NameFeatureReactions], Description: "Like reactions on topics and comments."},
 	}
 }
 
@@ -71,6 +75,7 @@ func featureFlagRecommendedDefaults() map[string]string {
 		NameFeatureMentions:       enabledOptionValue(true),
 		NameFeaturePublicProfiles: enabledOptionValue(true),
 		NameFeatureWebhooks:       enabledOptionValue(true),
+		NameFeatureReactions:      enabledOptionValue(true),
 	}
 }
 
@@ -100,6 +105,7 @@ type FeatureFlags struct {
 	Mentions       bool `json:"mentions"`
 	PublicProfiles bool `json:"publicProfiles"`
 	Webhooks       bool `json:"webhooks"`
+	Reactions      bool `json:"reactions"`
 }
 
 // FeatureFlags 读取全部 features.*（含非 public）。
@@ -119,6 +125,7 @@ func featureFlagsFromValues(values map[string]string) FeatureFlags {
 		Mentions:       isEnabledOption(values[NameFeatureMentions]),
 		PublicProfiles: isEnabledOption(values[NameFeaturePublicProfiles]),
 		Webhooks:       isEnabledOption(values[NameFeatureWebhooks]),
+		Reactions:      isEnabledOption(values[NameFeatureReactions]),
 	}
 }
 

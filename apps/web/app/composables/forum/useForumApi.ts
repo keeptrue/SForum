@@ -27,6 +27,7 @@ import {
   forumTopicExtensionActionRequestPath
 } from '~/utils/forum/forumTaxonomy'
 import type { ForumCommentRevisionState } from '~/utils/forum/commentLiveDecision'
+import type { ForumReactionRoster, ForumReactionState } from '~/utils/forum/forumReaction'
 
 export function useForumApi() {
   const { request } = useApiClient()
@@ -176,6 +177,31 @@ function getCommentEditSource(commentId: number) {
     return request<ForumTopicAction>(`/topics/${topicId}/${action}`, { method: 'POST' })
   }
 
+  // 点赞：四个切换端点 + 两个公开名单端点。
+  function likeTopic(topicId: number) {
+    return request<ForumReactionState>(`/topics/${topicId}/like`, { method: 'POST' })
+  }
+
+  function unlikeTopic(topicId: number) {
+    return request<ForumReactionState>(`/topics/${topicId}/like`, { method: 'DELETE' })
+  }
+
+  function likeComment(commentId: number) {
+    return request<ForumReactionState>(`/comments/${commentId}/like`, { method: 'POST' })
+  }
+
+  function unlikeComment(commentId: number) {
+    return request<ForumReactionState>(`/comments/${commentId}/like`, { method: 'DELETE' })
+  }
+
+  function listTopicLikes(topicId: number, limit = 20, offset = 0) {
+    return request<ForumReactionRoster>(`/topics/${topicId}/likes?limit=${limit}&offset=${offset}`, serverReadOptions)
+  }
+
+  function listCommentLikes(commentId: number, limit = 20, offset = 0) {
+    return request<ForumReactionRoster>(`/comments/${commentId}/likes?limit=${limit}&offset=${offset}`, serverReadOptions)
+  }
+
   function applyTopicExtensionAction(topicId: number, action: ForumTopicExtensionAction) {
     const input = forumTopicExtensionActionRequest(action, topicId)
     if (!input) {
@@ -239,6 +265,12 @@ function getCommentEditSource(commentId: number) {
     deleteTopic,
     applyTopicAction,
     applyTopicExtensionAction,
+    likeTopic,
+    unlikeTopic,
+    likeComment,
+    unlikeComment,
+    listTopicLikes,
+    listCommentLikes,
     applyCommentExtensionAction,
     listComposerToolbarActions,
     applyComposerToolbarAction

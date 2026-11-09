@@ -27,7 +27,9 @@ type Controller struct {
 	referenceSelector *forum.ReferenceSelector
 	taxonomy          *forum.TaxonomyService
 	// citations 是 AI 依据读取的聚焦协作者（D11：不往 forum.Service 上加方法）。
-	citations       *forum.CitationService
+	citations *forum.CitationService
+	// reactions 是点赞域的聚焦协作者；未装配时写/名单端点 503。
+	reactions       *forum.ReactionService
 	searchService   SearchService
 	reindexer       ReindexService
 	searchProviders SearchProviderAdmin
@@ -137,6 +139,18 @@ type SearchProviderItem struct {
 }
 
 // WithSearchProviderAdmin 注入搜索提供商运营选择。
+// WithReactions 装配点赞协作者，并把同一个读取面接到公开读服务上。
+func (h *Controller) WithReactions(reactions *forum.ReactionService) *Controller {
+	if h == nil {
+		return h
+	}
+	h.reactions = reactions
+	if h.publicReads != nil {
+		h.publicReads = h.publicReads.WithReactions(reactions)
+	}
+	return h
+}
+
 func (h *Controller) WithSearchProviderAdmin(admin SearchProviderAdmin) *Controller {
 	if h != nil {
 		h.searchProviders = admin
@@ -416,6 +430,10 @@ func (h *Controller) topic(c fiber.Ctx) error {
 	}
 	if topic.ProtectedContent {
 		setProtectedContentResponse(c)
+	} else if viewer.ID > 0 {
+		// likedByMe 是 per-viewer 字段：登录访客的详情响应必须私有，
+		// 否则共享缓存/反向代理会把 A 的点赞状态串给 B。
+		setViewerScopedResponse(c)
 	}
 	// D3：公开详情 GET 成功后计浏览（Redis 去重+增量）；不阻断响应。
 	h.service.RecordTopicView(c.Context(), topic.ID, h.topicVisitorKey(c))
@@ -439,6 +457,8 @@ func (h *Controller) topicBySlug(c fiber.Ctx) error {
 	}
 	if topic.ProtectedContent {
 		setProtectedContentResponse(c)
+	} else if viewer.ID > 0 {
+		setViewerScopedResponse(c)
 	}
 	h.service.RecordTopicView(c.Context(), topic.ID, h.topicVisitorKey(c))
 	return apphttp.OK(c, topic)

@@ -940,7 +940,9 @@ func TestControllerAdminContentReadPermissions(t *testing.T) {
 	}
 }
 
-func newForumTestApp() (*fiber.App, *authsession.Manager, *controllerForumStore) {
+// newForumTestApp 构造论坛 HTTP 测试 app。可选 configure 在路由注册前拿到
+// controller，用于装配可选协作者（如点赞服务）；不传时行为与原先一致。
+func newForumTestApp(configure ...func(*Controller)) (*fiber.App, *authsession.Manager, *controllerForumStore) {
 	manager := authsession.NewManager(session.NewStore(), authsession.Config{HashSecret: "test-secret"})
 	users := controllerForumActors{actors: map[int64]identity.Actor{
 		1: {ID: 1, Status: identity.UserStatusActive, Permissions: map[string]bool{
@@ -982,6 +984,11 @@ func newForumTestApp() (*fiber.App, *authsession.Manager, *controllerForumStore)
 	}}
 	store := &controllerForumStore{}
 	controller := NewController(forum.NewService(forum.ServiceConfig{Store: store, Settings: store, Publisher: nil}), users, manager)
+	for _, option := range configure {
+		if option != nil {
+			option(controller)
+		}
+	}
 	loginProvider := forumRouteProviderFunc(func(api fiber.Router) {
 		api.Post("/test-login/:id", func(c fiber.Ctx) error {
 			userID, err := strconv.ParseInt(c.Params("id"), 10, 64)
@@ -1073,6 +1080,9 @@ type controllerForumStore struct {
 	commentEditSource    forum.EditableContentSource
 	referenceInput       forum.ReferenceSelectorInput
 	protectedSource      string
+	// topicErr / commentErr 让 HTTP 用例模拟「目标不存在/不可见」的服务层返回。
+	topicErr   error
+	commentErr error
 	// 分类/分组列表的公开 vs 后台口径记录，以及删除路径的调用记录与可注入错误。
 	listCategoriesIncludeHidden bool
 	listGroupsIncludeHidden     bool
@@ -1223,7 +1233,10 @@ func (s *controllerForumStore) ListAllTopicIDs(context.Context) ([]int64, error)
 	return []int64{10}, nil
 }
 
-func (s *controllerForumStore) GetTopic(context.Context, int64) (forum.TopicDetail, error) {
+func (s *controllerForumStore) GetTopic(_ context.Context, _ int64) (forum.TopicDetail, error) {
+	if s.topicErr != nil {
+		return forum.TopicDetail{}, s.topicErr
+	}
 	content := forum.PublicRenderedContent{}
 	if s.protectedSource != "" {
 		content = forum.PublicRenderedContent{HTMLContent: "<p>stored public fallback</p>", PlainText: "public Protected content unavailable", Excerpt: "public Protected content unavailable", RenderVersion: forum.RenderVersionEditorDocument}
@@ -1303,6 +1316,9 @@ func (s *controllerForumStore) CreateComment(_ context.Context, input forum.Crea
 }
 
 func (s *controllerForumStore) GetCommentSummary(context.Context, int64) (forum.CommentSummary, error) {
+	if s.commentErr != nil {
+		return forum.CommentSummary{}, s.commentErr
+	}
 	return forum.CommentSummary{ID: 20, TopicID: 10, AuthorUserID: 1, Status: forum.CommentStatusActive, CurrentRevision: 1, CreatedAt: time.Now().UTC()}, nil
 }
 

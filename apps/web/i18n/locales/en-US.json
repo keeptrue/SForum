@@ -131,6 +131,7 @@
     "body": {
       "reply": "Related topic: {target}",
       "mention": "Related topic: {target}",
+      "reaction": "Related content: {target}",
       "moderation_pending": "Content awaiting review: {target}",
       "moderation_approved": "Related content: {target}",
       "moderation_rejected": "Related content: {target}",
@@ -170,6 +171,7 @@
     "types": {
       "reply": "Someone replied to your content",
       "mention": "Someone mentioned you",
+      "reaction": "Someone liked your content",
       "moderation_pending": "New content is awaiting review",
       "moderation_approved": "Your content was approved",
       "moderation_rejected": "Your content was rejected",
@@ -247,6 +249,7 @@
       "latestTitle": "Latest discussions",
       "subtitle": "See what the community is discussing",
       "replyCount": "{count} replies",
+      "likeCount": "{count} likes",
       "topicCountMeta": "{count} topics",
       "topicCountMetaApprox": "About {count} topics",
       "views": "views",
@@ -5528,7 +5531,8 @@
         "features.attachments": "Attachments",
         "features.mentions": "Mentions",
         "features.public_profiles": "Public profiles",
-        "features.webhooks": "Outbound webhooks"
+        "features.webhooks": "Outbound webhooks",
+        "features.reactions": "Likes"
       },
       "flagsHelp": {
         "features.search": "Controls the public search product surface.",
@@ -5536,7 +5540,8 @@
         "features.attachments": "Controls attachment upload product surface.",
         "features.mentions": "Controls {'@'}mention product surface.",
         "features.public_profiles": "Controls public user profile pages.",
-        "features.webhooks": "Controls outbound webhooks product surface (not public on web-options)."
+        "features.webhooks": "Controls outbound webhooks product surface (not public on web-options).",
+        "features.reactions": "Like reactions on topics and comments; disabling hides the controls and rejects writes with 403."
       }
     },
     "entityMeta": {
@@ -5756,6 +5761,23 @@
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "guidelines": "Guidelines"
+  },
+  "forum": {
+    "reaction": {
+      "like": "Like",
+      "unlike": "Remove like",
+      "roster": "Who liked this",
+      "empty": "No likes yet",
+      "failed": "Could not update the like. Try again.",
+      "liked": "Liked",
+      "unliked": "Like removed",
+      "rosterAria": "View the {count} people who liked this",
+      "rosterTotal": "{count} total",
+      "loadMore": "Load more",
+      "you": "(you)",
+      "rosterFailed": "Could not load the list",
+      "retry": "Retry"
+    }
   },
   "topicDetail": {
     "metaDescription": "View topic details and join the discussion.",

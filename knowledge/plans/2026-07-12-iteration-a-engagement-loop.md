@@ -1,7 +1,10 @@
 # Iteration A — Engagement Loop Checklist
 
-Status: **ready** — product checklist still open (view-count increment, likes,
-bookmarks); moderation lock/pin/hide already shipped  
+Status: **in progress** — Workstream 1 (view count) shipped; Workstream 2
+(likes) landed on 2026-10-29 (see `../sessions/2026-10-28-content-reactions.md`:
+migration applied, HostQuery + PG integration green, browser QA passed on flat,
+switch-off evidence collected, final gate 9 PASS + `test.sh --fast` green);
+Workstream 3 (bookmarks) not started  
 Date: 2026-07-12  
 Last status pass: 2026-07-21 knowledge cleanup  
 Goal: turn “can read/post” into “can operate a living community” without
@@ -31,7 +34,7 @@ These are **already implemented**. Iteration A only polishes gaps.
 | Permissions | **Done** | `topic.lock`, `topic.pin`, `topic.edit_any`, `topic.delete_any`, author edit via `post.edit_own` |
 | `topics.view_count` column + read display | **Schema + UI Done** | migration + list/detail JSON + `SFHomeTopicRow` |
 | View count **increment** | **Missing** | no Redis counter / write path |
-| Likes / reactions | **Missing** | no tables, APIs, or UI binding |
+| Likes / reactions | **Landed (2026-10-29)** | `content_reactions` + `topics/comments.like_count` + 6 routes + `SFReactionControl`/`SFTopicReactionBar`; HostQuery `sforum.core.public_reactions.list`; migration applied in dev; PG integration + web 1837 green; browser QA passed (flat; tree unreachable); switch-off evidence collected; final gate green |
 | Bookmarks / favorites | **Missing** | only extension contribution demo uses bookmark icon |
 
 ## Out Of Scope For Iteration A

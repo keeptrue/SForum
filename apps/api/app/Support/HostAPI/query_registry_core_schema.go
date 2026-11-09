@@ -125,6 +125,18 @@ func queryRegistryCoreResultSchemaProperties(definition protocolV2QueryDefinitio
 			"icon":        schemaStringOrNull(),
 			"icon_color":  schemaStringOrNull(),
 		}
+	case QueryPublicReactionSchemaID:
+		// 点赞关系面只有「谁赞了哪个可见目标」，不含 reaction 以外的行为字段。
+		properties = map[string]any{
+			"id":           schemaString(),
+			"target_type":  schemaString(),
+			"target_id":    schemaString(),
+			"reaction":     schemaString(),
+			"user_id":      schemaString(),
+			"username":     schemaString(),
+			"display_name": schemaString(),
+			"created_at":   schemaString(),
+		}
 	case QuerySelfEmailSchemaID:
 		// 只暴露展示形态的 email、布尔验证位与更新时间；email_lower 是唯一性/
 		// 登录匹配列，永远不进 schema。属性数必须与 Host 字段数严格相等。

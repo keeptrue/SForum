@@ -151,11 +151,11 @@ func (s *PostgresStore) CreateComment(ctx context.Context, input CreateCommentRe
 		}
 	}
 	if input.Status == CommentStatusActive {
-		// hot_score = comment_count*5 + view_count；+1 评论 → +5。
+		// hot_score = comment_count*5 + view_count + like_count*3；+1 评论 → +5。
 		if _, err := tx.Exec(ctx, `
 			UPDATE topics
 			SET comment_count = comment_count + 1,
-			    hot_score = (comment_count + 1) * 5 + view_count,
+			    hot_score = `+TopicHotScoreSQL("(comment_count + 1)", "like_count")+`,
 			    last_activity_at = now(),
 			    updated_at = now()
 			WHERE id = $1
@@ -340,7 +340,7 @@ func (s *PostgresStore) updateCommentLegacy(ctx context.Context, input UpdateCom
 			if _, err := tx.Exec(ctx, `
 				UPDATE topics
 				SET comment_count = GREATEST(comment_count - 1, 0),
-				    hot_score = GREATEST(comment_count - 1, 0) * 5 + view_count,
+				    hot_score = `+TopicHotScoreSQL("GREATEST(comment_count - 1, 0)", "like_count")+`,
 				    updated_at = now()
 				WHERE id = $1
 			`, topicID); err != nil {
@@ -430,7 +430,7 @@ func (s *PostgresStore) DeleteComment(ctx context.Context, commentID int64) (Com
 		if _, err := tx.Exec(ctx, `
 			UPDATE topics
 			SET comment_count = GREATEST(comment_count - 1, 0),
-			    hot_score = GREATEST(comment_count - 1, 0) * 5 + view_count,
+			    hot_score = `+TopicHotScoreSQL("GREATEST(comment_count - 1, 0)", "like_count")+`,
 			    updated_at = now()
 			WHERE id = $1
 		`, topicID); err != nil {
@@ -945,44 +945,6 @@ func lastReplyAuthorSelectSQL() string {
 	`
 }
 
-func topicSummarySQL() string {
-	// plain_text 前缀供读路径派生 excerpt（列已删除，避免列表拉全量正文）。
-	// hot_score 供 M5 keyset 编码（json:"-"，不暴露公开 JSON）。
-	return `
-		SELECT topics.id, topics.category_id, categories.slug, categories.name,
-		  topics.author_user_id, users.username, users.display_name, users.email,
-		  author_profiles.avatar_attachment_id,
-		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
-		  author_attachments.content_type, author_attachments.status,
-		  topics.title, topics.slug, topics.status, topics.is_pinned,
-		  topics.comment_count, topics.view_count, topics.hot_score, ` + plainTextPrefixSQL("posts.plain_text") + `,
-		  ` + effectivePostCurrentRevisionSQL("posts") + `,
-		  ` + contentEditedSQL("posts") + `,
-		  topics.created_at, topics.updated_at, topics.last_activity_at,` + lastReplyAuthorSelectSQL() + `
-		FROM topics
-		JOIN categories ON categories.id = topics.category_id
-		JOIN posts ON posts.id = topics.content_id
-		LEFT JOIN users ON users.id = topics.author_user_id
-		LEFT JOIN user_profiles author_profiles ON author_profiles.user_id = users.id
-		LEFT JOIN attachments author_attachments ON author_attachments.id = author_profiles.avatar_attachment_id
-		` + lastReplyAuthorJoinSQL()
-}
-
-// topicListOrderBy：置顶始终优先，再按运营默认排序。
-// latest=创建时间；active=最后活跃（可走 topics_category_activity_idx / topics_public_activity_idx）；
-// hot=topics.hot_score（M2 列 + topics_*_hot_idx）。
-func topicListOrderBy(sort string) string {
-	switch strings.TrimSpace(strings.ToLower(sort)) {
-	case "latest":
-		return `ORDER BY topics.is_pinned DESC, topics.created_at DESC, topics.id DESC`
-	case "hot":
-		// 与 topics_public_hot_idx / topics_category_hot_idx 对齐（is_pinned, hot_score, id）。
-		return `ORDER BY topics.is_pinned DESC, topics.hot_score DESC, topics.id DESC`
-	default: // active — 与 topics_category_activity_idx (category_id, is_pinned DESC, last_activity_at DESC, id DESC) 对齐
-		return `ORDER BY topics.is_pinned DESC, topics.last_activity_at DESC, topics.id DESC`
-	}
-}
-
 func topicDetailSQL() string {
 	// 详情 SELECT：只取公开正文投影 + 作者头像；excerpt 在 scan 时从 plain 派生。
 	// ContentEdited 基于有效 currentRevision > 1；混合迁移期只在当前行上用 revision 索引计数。
@@ -994,7 +956,7 @@ func topicDetailSQL() string {
 		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
 		  author_attachments.content_type, author_attachments.status,
 		  topics.title, topics.slug, topics.status, topics.is_pinned,
-		  topics.comment_count, topics.view_count,
+		  topics.comment_count, topics.view_count, topics.like_count,
 		  ` + effectivePostCurrentRevisionSQL("posts") + `,
 		  ` + contentEditedSQL("posts") + `,
 		  ` + contentEditedAtSQL("posts") + `,
@@ -1029,6 +991,7 @@ func scanTopicSummary(row RowScanner) (TopicSummary, error) {
 		&topic.IsPinned,
 		&topic.CommentCount,
 		&topic.ViewCount,
+		&topic.LikeCount,
 		&topic.HotScore,
 		&plainPrefix,
 		&topic.CurrentRevision,
@@ -1143,6 +1106,7 @@ func scanTopicSummaryWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (To
 		&topic.IsPinned,
 		&topic.CommentCount,
 		&topic.ViewCount,
+		&topic.LikeCount,
 		&topic.HotScore,
 		&plainPrefix,
 		&topic.CurrentRevision,
@@ -1203,6 +1167,7 @@ func scanTopicDetail(row RowScanner) (TopicDetail, error) {
 		&detail.IsPinned,
 		&detail.CommentCount,
 		&detail.ViewCount,
+		&detail.LikeCount,
 		&detail.CurrentRevision,
 		&detail.ContentEdited,
 		&detail.EditedAt,
@@ -1259,6 +1224,7 @@ func scanTopicDetailWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Top
 		&detail.IsPinned,
 		&detail.CommentCount,
 		&detail.ViewCount,
+		&detail.LikeCount,
 		&detail.CurrentRevision,
 		&detail.ContentEdited,
 		&detail.EditedAt,
@@ -1305,7 +1271,7 @@ func commentSelectSQL() string {
 		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
 		  author_attachments.content_type, author_attachments.status,
 		  comments.parent_comment_id, COALESCE(comments.root_comment_id, comments.id),
-		  comments.path_key, comments.depth, comments.reply_count, comments.status,
+		  comments.path_key, comments.depth, comments.reply_count, comments.like_count, comments.status,
 		  posts.id, posts.html_content, posts.plain_text, posts.render_version,
 		  parent_comments.id,
 		  CASE WHEN parent_comments.status = 'deleted' THEN '' ELSE ` + plainTextPrefixSQL("parent_posts.plain_text") + ` END,
@@ -1396,6 +1362,7 @@ func scanCommentWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Comment
 		&comment.PathKey,
 		&comment.Depth,
 		&comment.ReplyCount,
+		&comment.LikeCount,
 		&comment.Status,
 		&comment.Content.ID,
 		&comment.Content.HTMLContent,

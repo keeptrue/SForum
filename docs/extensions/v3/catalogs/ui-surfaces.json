@@ -2993,6 +2993,36 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sf_reaction_control",
+    "contractVersion": "sforum.component.shared.sf_reaction_control@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFReactionControl.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_reaction_roster",
+    "contractVersion": "sforum.component.shared.sf_reaction_roster@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFReactionRoster.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_reaction_stack",
+    "contractVersion": "sforum.component.shared.sf_reaction_stack@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFReactionStack.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfrecovery_confirm_page",
     "contractVersion": "sforum.component.shared.sfrecovery_confirm_page@1",
     "kind": "component",
@@ -3501,6 +3531,16 @@
     "contractVersion": "sforum.component.shared.sftopic_progress_rail@1",
     "kind": "component",
     "source": "apps/web/app/components/forum/SFTopicProgressRail.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_topic_reaction_bar",
+    "contractVersion": "sforum.component.shared.sf_topic_reaction_bar@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFTopicReactionBar.vue",
     "owners": [
       "public"
     ],

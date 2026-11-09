@@ -1,5 +1,8 @@
 import type { AvatarView } from '~/composables/profile/useProfileApi'
 import { userDisplayName } from '~/utils/forum/userDisplay'
+import type { ForumContentInput, ForumRenderedContent } from './forumTaxonomyContent'
+
+export * from './forumTaxonomyContent'
 
 export type ForumTagCreationMode = 'controlled' | 'review' | 'open'
 export type ForumTagStatus = 'active' | 'pending' | 'disabled'
@@ -128,6 +131,7 @@ export type ForumTopicSummary = {
   isPinned: boolean
   commentCount: number
   viewCount: number
+  likeCount: number
   tags?: ForumTopicTagSummary[]
   excerpt: string
   createdAt: string
@@ -137,52 +141,10 @@ export type ForumTopicSummary = {
   edited?: boolean
 }
 
-export type ForumRenderedContent = {
-  id: number
-  htmlContent: string
-  plainText: string
-  excerpt: string
-  renderVersion: string
-}
-
-export type ForumEditableContentSource = {
-  rawContent: string
-  sourceFormat: 'markdown' | 'html' | 'editor-document'
-  editorType: string
-  editorVersion: string
-  contentHash: string
-  attachmentIds: number[]
-  currentRevision: number
-}
-
-export type ForumProtectedRenderedContent = ForumRenderedContent
-  & Pick<ForumEditableContentSource, 'rawContent' | 'sourceFormat' | 'editorType' | 'editorVersion' | 'contentHash'>
-
-/**
- * 将 API 保存格式还原为 Tiptap 可接受的初始内容。
- * editor-document 必须按 JSON 文档加载，不能作为 Markdown 字符串显示或回存。
- */
-export function forumEditorInitialContent(
-  content: Pick<ForumEditableContentSource, 'rawContent' | 'sourceFormat'>
-): string | Record<string, unknown> {
-  if (content.sourceFormat !== 'editor-document') {
-    return content.rawContent
-  }
-
-  try {
-    const parsed = JSON.parse(content.rawContent)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>
-    }
-  } catch {
-    // 非法历史数据保留原文，避免静默清空；服务端正常数据不会走到这里。
-  }
-
-  return content.rawContent
-}
-
 export type ForumTopicDetail = ForumTopicSummary & {
   content: ForumRenderedContent
+  likedByMe?: boolean
+  likedBy?: ForumUserSummary[] // 点赞头像预览：自己优先、其余最早，最多 3 个
   /** 当前已接受修订的提交时间；仅在编辑标记开启且主题已编辑时返回。 */
   editedAt?: string
   /** 主题正文贡献者（作者 + 编辑/恢复 actor），作者优先，最多 5 个 */
@@ -290,6 +252,10 @@ export type ForumComment = {
   pathKey: string
   depth: number
   replyCount: number
+  likeCount: number
+  /** 请求级字段：仅登录访客且已赞时为 true，永不缓存。 */
+  likedByMe?: boolean
+  likedBy?: ForumUserSummary[] // 点赞头像预览：自己优先、其余最早，最多 3 个
   status: ForumCommentStatus
   content: ForumRenderedContent
   replyTo?: ForumReplyReference
@@ -323,40 +289,6 @@ export type ForumTopicAction = {
   topicId: number
   status: ForumTopicStatus
   isPinned: boolean
-}
-
-// 编辑器提交给后端的正文输入。
-// markdown/html：经典路径；editor-document：native Tiptap JSON 经 Host Accept 管线。
-export type ForumContentInput = {
-  rawContent: string
-  sourceFormat?: 'markdown' | 'html' | 'editor-document'
-  editorType?: string
-  editorVersion?: string
-  attachmentIds?: number[]
-}
-
-/** 从 SFEditor payload 构造 Host 可验收的正文输入（优先 editor-document）。 */
-export function forumContentFromEditorPayload(payload: {
-  markdown?: string
-  native?: unknown
-  text?: string
-  attachmentIds?: number[]
-}): ForumContentInput {
-  if (payload.native && typeof payload.native === 'object') {
-    return {
-      rawContent: JSON.stringify(payload.native),
-      sourceFormat: 'editor-document',
-      editorType: 'tiptap',
-      editorVersion: 'sf-editor-v1',
-      attachmentIds: payload.attachmentIds || []
-    }
-  }
-  return {
-    rawContent: payload.markdown || payload.text || '',
-    sourceFormat: 'markdown',
-    editorType: 'tiptap',
-    editorVersion: 'sf-editor-v1'
-  }
 }
 
 // 更新主题输入，所有字段可选；未提供即不修改。
@@ -685,9 +617,7 @@ export function isForumTagSlug(value: string) {
 // 帖子 URL 形态枚举。与 useWebOptions 的 TopicUrlMode 保持一致；
 // 此处独立声明以保持 forumTaxonomy 为纯工具模块（不依赖 Nuxt auto-import）。
 export type TopicUrlMode = 'id_slug' | 'id' | 'slug'
-export type TopicPathLookup =
-  | { kind: 'id', topicId: number }
-  | { kind: 'slug', slug: string }
+export type TopicPathLookup = { kind: 'id', topicId: number } | { kind: 'slug', slug: string }
 
 // previewTopicSlug 在前端预览标题对应的 slug（与后端 slugify 主逻辑对齐：
 // 转小写、非 [a-z0-9-] 字符替换为 -、首尾去 -）。仅用于编辑保存后跳转的预期路径；

@@ -199,7 +199,17 @@ const pillBase =
         </span>
 
         <span
-          class="sf-home-topic-row__reply-badge ml-auto inline-flex h-[22px] min-w-[26px] shrink-0 items-center justify-center rounded-full border border-[var(--sf-public-border-strong)] bg-[var(--sf-public-surface-muted)] px-2 text-[11px] font-bold tabular-nums text-[var(--sf-public-text-secondary)]"
+          v-if="topic.likeCount > 0"
+          class="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-[var(--sf-public-text-secondary)]"
+          :aria-label="t('home.feed.likeCount', { count: topic.likeCount })"
+        >
+          <UIcon name="i-lucide-heart" class="size-3.5" aria-hidden="true" />
+          {{ topic.likeCount }}
+        </span>
+
+        <span
+          class="sf-home-topic-row__reply-badge inline-flex h-[22px] min-w-[26px] shrink-0 items-center justify-center rounded-full border border-[var(--sf-public-border-strong)] bg-[var(--sf-public-surface-muted)] px-2 text-[11px] font-bold tabular-nums text-[var(--sf-public-text-secondary)]"
+          :class="topic.likeCount > 0 ? '' : 'ml-auto'"
           :aria-label="t('home.feed.replyCount', { count: topic.commentCount })"
         >
           {{ topic.commentCount }}

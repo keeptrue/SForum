@@ -2960,8 +2960,8 @@ func TestServiceListCommentRepliesBlocksMissingComment(t *testing.T) {
 }
 
 // TestServiceListCommentRepliesBlocksHiddenTopic 验证回复路径兜底：
-// 父评论存在但其所属主题不可见时返回 ErrTopicNotFound，
-// 避免通过枚举 commentID 读取隐藏主题的回复。
+// 父评论存在但其所属主题不可见时按「评论不存在」返回（与点赞路径同码），
+// 避免 comment_not_found / topic_not_found 的差异被用来枚举隐藏主题的评论 ID。
 func TestServiceListCommentRepliesBlocksHiddenTopic(t *testing.T) {
 	store := newServiceFakeStore()
 	store.commentSummary = CommentSummary{ID: 42, TopicID: 10, Status: CommentStatusActive}
@@ -2969,8 +2969,8 @@ func TestServiceListCommentRepliesBlocksHiddenTopic(t *testing.T) {
 	service := NewService(ServiceConfig{Store: store})
 
 	_, err := service.ListCommentReplies(context.Background(), 42)
-	if !errors.Is(err, ErrTopicNotFound) {
-		t.Fatalf("expected ErrTopicNotFound, got %v", err)
+	if !errors.Is(err, ErrCommentNotFound) {
+		t.Fatalf("expected ErrCommentNotFound, got %v", err)
 	}
 	if store.listCommentRepliesCalled {
 		t.Fatal("expected store.ListCommentReplies NOT to be called for hidden topic")

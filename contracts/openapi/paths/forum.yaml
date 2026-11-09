@@ -1724,3 +1724,148 @@ topicCommentStream:
         description: 评论实时连接数已达上限（forum.comment_stream_limited）。
       '503':
         description: 宿主未装配评论修订源（forum.comment_stream_unavailable）。
+topicLike:
+  post:
+    summary: Like a topic as the authenticated member
+    description: >
+      Idempotent: liking an already liked topic keeps one reaction row and does
+      not double count. Requires an active account and the site feature flag
+      `features.reactions`; otherwise `403 forum.reactions_disabled`.
+    operationId: likeTopic
+    parameters:
+    - "$ref": "../components/parameters.yaml#/TopicID"
+    responses:
+      '200':
+        description: Current reaction state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseReactionState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+  delete:
+    summary: Remove the authenticated member's like from a topic
+    operationId: unlikeTopic
+    parameters:
+    - "$ref": "../components/parameters.yaml#/TopicID"
+    responses:
+      '200':
+        description: Current reaction state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseReactionState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+topicLikes:
+  get:
+    summary: List members who liked a topic
+    description: Public read with the same visibility and guest-read rules as the topic detail.
+    operationId: listTopicLikes
+    parameters:
+    - "$ref": "../components/parameters.yaml#/TopicID"
+    - name: limit
+      in: query
+      description: Page size (default 20, maximum 50).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+    - name: offset
+      in: query
+      description: Offset (maximum 1000).
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 1000
+    responses:
+      '200':
+        description: Recent likers, newest first.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseReactionRoster"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+commentLike:
+  post:
+    summary: Like a comment as the authenticated member
+    operationId: likeComment
+    parameters:
+    - "$ref": "../components/parameters.yaml#/CommentID"
+    responses:
+      '200':
+        description: Current reaction state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseReactionState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+  delete:
+    summary: Remove the authenticated member's like from a comment
+    operationId: unlikeComment
+    parameters:
+    - "$ref": "../components/parameters.yaml#/CommentID"
+    responses:
+      '200':
+        description: Current reaction state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseReactionState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+commentLikes:
+  get:
+    summary: List members who liked a comment
+    operationId: listCommentLikes
+    parameters:
+    - "$ref": "../components/parameters.yaml#/CommentID"
+    - name: limit
+      in: query
+      description: Page size (default 20, maximum 50).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+    - name: offset
+      in: query
+      description: Offset (maximum 1000).
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 1000
+    responses:
+      '200':
+        description: Recent likers, newest first.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseReactionRoster"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"

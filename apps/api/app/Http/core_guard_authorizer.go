@@ -722,6 +722,10 @@ func forumReadPolicyRoute(routeID string) bool {
 		// AI 依据是评论的附属事实（零引用时是空列表），与回复列表同 guest-read
 		// 策略：主体仍是那条评论，可见性由评论所在主题裁决。
 		"core.route.forum.list_comment_citations",
+		// 点赞名单是主题/评论的附属事实（零点赞时是空名单），与 citations/replies
+		// 同构：主体仍是目标内容，可见性由内容所在主题裁决。
+		"core.route.forum.topic_likes",
+		"core.route.forum.comment_likes",
 		// 评论区实时信号（修订状态 + SSE）与评论列表同 guest-read 策略；
 		// 载荷只有修订事实，正文与权限仍由 comments 路由裁决。
 		"core.route.forum.topic_comment_revision",

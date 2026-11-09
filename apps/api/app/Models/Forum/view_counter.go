@@ -42,17 +42,6 @@ type ViewCountApplier interface {
 	ApplyViewCountDeltas(ctx context.Context, deltas map[int64]int64) (int, error)
 }
 
-// ComputeHotScore 产品公式：comment*5 + view（无时间衰减）。
-func ComputeHotScore(commentCount, viewCount int64) int64 {
-	if commentCount < 0 {
-		commentCount = 0
-	}
-	if viewCount < 0 {
-		viewCount = 0
-	}
-	return commentCount*5 + viewCount
-}
-
 // HashVisitorKey 压缩访客标识，避免 Redis key 过长。
 func HashVisitorKey(visitorKey string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(visitorKey)))

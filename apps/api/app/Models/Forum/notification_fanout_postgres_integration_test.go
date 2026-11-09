@@ -11,10 +11,11 @@ import (
 var errNotificationFanoutFixture = errors.New("notification fanout failed")
 
 type recordingNotificationWriter struct {
-	topics   []TopicNotificationInput
-	comments []CommentNotificationInput
-	pending  []PendingReviewNotificationInput
-	err      error
+	topics    []TopicNotificationInput
+	comments  []CommentNotificationInput
+	pending   []PendingReviewNotificationInput
+	reactions []ReactionNotificationInput
+	err       error
 }
 
 func (w *recordingNotificationWriter) NotifyTopicTx(_ context.Context, _ pgx.Tx, input TopicNotificationInput) error {
@@ -29,6 +30,11 @@ func (w *recordingNotificationWriter) NotifyCommentTx(_ context.Context, _ pgx.T
 
 func (w *recordingNotificationWriter) NotifyPendingReviewTx(_ context.Context, _ pgx.Tx, input PendingReviewNotificationInput) error {
 	w.pending = append(w.pending, input)
+	return w.err
+}
+
+func (w *recordingNotificationWriter) NotifyReactionTx(_ context.Context, _ pgx.Tx, input ReactionNotificationInput) error {
+	w.reactions = append(w.reactions, input)
 	return w.err
 }
 

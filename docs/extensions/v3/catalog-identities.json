@@ -2280,6 +2280,42 @@
       "contractVersion": "sforum.route.extensions.query_catalog@1",
       "method": "GET",
       "path": "/api/v1/admin/extensions/query-catalog"
+    },
+    {
+      "id": "core.route.forum.like_topic",
+      "contractVersion": "sforum.route.forum.like_topic@1",
+      "method": "POST",
+      "path": "/api/v1/topics/:topicID/like"
+    },
+    {
+      "id": "core.route.forum.unlike_topic",
+      "contractVersion": "sforum.route.forum.unlike_topic@1",
+      "method": "DELETE",
+      "path": "/api/v1/topics/:topicID/like"
+    },
+    {
+      "id": "core.route.forum.topic_likes",
+      "contractVersion": "sforum.route.forum.topic_likes@1",
+      "method": "GET",
+      "path": "/api/v1/topics/:topicID/likes"
+    },
+    {
+      "id": "core.route.forum.like_comment",
+      "contractVersion": "sforum.route.forum.like_comment@1",
+      "method": "POST",
+      "path": "/api/v1/comments/:commentID/like"
+    },
+    {
+      "id": "core.route.forum.unlike_comment",
+      "contractVersion": "sforum.route.forum.unlike_comment@1",
+      "method": "DELETE",
+      "path": "/api/v1/comments/:commentID/like"
+    },
+    {
+      "id": "core.route.forum.comment_likes",
+      "contractVersion": "sforum.route.forum.comment_likes@1",
+      "method": "GET",
+      "path": "/api/v1/comments/:commentID/likes"
     }
   ],
   "ui": [
@@ -5967,6 +6003,46 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/identity/users/SFAdminUserTable.vue"
+    },
+    {
+      "id": "core.component.shared.sf_reaction_control",
+      "contractVersion": "sforum.component.shared.sf_reaction_control@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFReactionControl.vue"
+    },
+    {
+      "id": "core.component.shared.sf_reaction_roster",
+      "contractVersion": "sforum.component.shared.sf_reaction_roster@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFReactionRoster.vue"
+    },
+    {
+      "id": "core.component.shared.sf_reaction_stack",
+      "contractVersion": "sforum.component.shared.sf_reaction_stack@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFReactionStack.vue"
+    },
+    {
+      "id": "core.component.shared.sf_topic_reaction_bar",
+      "contractVersion": "sforum.component.shared.sf_topic_reaction_bar@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFTopicReactionBar.vue"
     }
   ]
 }

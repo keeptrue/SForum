@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { forumAvatarToneClass } from '~/utils/forum/forumListPresentation'
 
-/** sm/md/lg 通用；list 为话题列表等密集行（36px） */
-type AvatarSize = 'list' | 'sm' | 'md' | 'lg'
+/** sm/md/lg 通用；list 为话题列表等密集行（36px）；xs/2xs 供动作行内的头像组 */
+type AvatarSize = '2xs' | 'xs' | 'list' | 'sm' | 'md' | 'lg'
 type AvatarShape = 'circle' | 'square'
 type AvatarStatus = 'online' | 'idle' | 'offline'
 type AvatarLoading = 'eager' | 'lazy'
@@ -34,6 +34,8 @@ const props = withDefaults(defineProps<{
 
 // NuxtImg width/height 像素预设（list 与视觉 size-9 对齐）
 const sizePixels: Record<AvatarSize, number> = {
+  '2xs': 18,
+  xs: 24,
   list: 36,
   sm: 48,
   md: 96,
@@ -41,6 +43,8 @@ const sizePixels: Record<AvatarSize, number> = {
 }
 
 const sizeClass: Record<AvatarSize, string> = {
+  '2xs': 'size-[18px] text-[9px]',
+  xs: 'size-[24px] text-[11px]',
   list: 'size-9 text-[13px]',
   sm: 'size-8 text-[0.72rem]',
   md: 'size-10 text-[0.85rem]',

@@ -344,12 +344,15 @@ func installPostgresQueryFixture(t *testing.T, ctx context.Context, pool *pgxpoo
 		`CREATE TABLE extension_versions (id BIGSERIAL PRIMARY KEY, extension_id TEXT NOT NULL, version TEXT NOT NULL, package_digest TEXT NOT NULL, manifest JSONB NOT NULL)`,
 		`CREATE TABLE extensions (id TEXT PRIMARY KEY, type TEXT NOT NULL, status TEXT NOT NULL, source TEXT NOT NULL, is_system BOOLEAN NOT NULL, active_version_id BIGINT NOT NULL)`,
 		`CREATE TABLE extension_trust_grants (id BIGSERIAL PRIMARY KEY, extension_id TEXT NOT NULL, extension_version TEXT NOT NULL, package_digest TEXT NOT NULL, action TEXT NOT NULL, impact_document JSONB NOT NULL, revoked_at TIMESTAMPTZ)`,
-		`CREATE TABLE raw_users (id BIGINT, username TEXT, display_name TEXT, email TEXT, password_hash TEXT, locale TEXT, is_admin BOOLEAN, token TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)`,
+		`CREATE TABLE raw_users (id BIGINT, username TEXT, display_name TEXT, email TEXT, password_hash TEXT, locale TEXT, is_admin BOOLEAN, token TEXT, status TEXT NOT NULL DEFAULT 'active', created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)`,
 		`CREATE VIEW safe_users AS SELECT id, username, display_name, created_at, updated_at FROM raw_users`,
 		`CREATE TABLE forum_topics (id BIGINT, category_id BIGINT, category_slug TEXT, author_user_id BIGINT, title TEXT, slug TEXT, status TEXT, is_pinned BOOLEAN, comment_count BIGINT, view_count BIGINT, last_activity_at TIMESTAMPTZ, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, html_content TEXT, plain_text TEXT, source_format TEXT, render_version TEXT, content_hash TEXT)`,
 		`CREATE TABLE raw_attachments (id BIGINT, public_id TEXT, owner_user_id BIGINT, original_name TEXT, content_type TEXT, extension TEXT, size_bytes BIGINT, sha256 TEXT, image_width INTEGER, image_height INTEGER, reference_count BIGINT, provider TEXT, object_key TEXT, storage_key TEXT, quarantine_reason TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)`,
 		`CREATE VIEW public_attachment_metadata AS SELECT id, public_id, owner_user_id, original_name, content_type, extension, size_bytes, sha256, image_width, image_height, reference_count, created_at, updated_at FROM raw_attachments`,
-		`INSERT INTO raw_users VALUES (1, 'alice', 'Alice', 'private@example.test', 'secret-hash', 'zh-CN', true, 'secret-token', now(), now()), (2, 'bob', 'Bob', 'bob@example.test', 'bob-hash', 'en-US', false, 'bob-token', now(), now())`,
+		`INSERT INTO raw_users VALUES
+			(1, 'alice', 'Alice', 'private@example.test', 'secret-hash', 'zh-CN', true, 'secret-token', 'active', now(), now()),
+			(2, 'bob', 'Bob', 'bob@example.test', 'bob-hash', 'en-US', false, 'bob-token', 'active', now(), now()),
+			(3, 'carol', 'Carol', 'carol@example.test', 'carol-hash', 'zh-CN', false, 'carol-token', 'disabled', now(), now())`,
 		`INSERT INTO forum_topics VALUES (1, 1, 'general', 1, 'topic one', 'one', 'published', false, 0, 1, now() - interval '2 hours', now(), now(), '<p>one</p>', 'one', 'html', '1', 'h1'), (2, 1, 'general', 1, 'topic two', 'two', 'published', false, 0, 2, now() - interval '1 hour', now(), now(), '<p>two</p>', 'two', 'html', '1', 'h2'), (3, 1, 'general', 1, 'topic three', 'three', 'published', false, 0, 3, now(), now(), now(), '<p>three</p>', 'three', 'html', '1', 'h3')`,
 		`INSERT INTO raw_attachments VALUES (1, 'public-1', 1, 'image.png', 'image/png', 'png', 42, 'abc', 10, 20, 1, 's3', 'private/object', 'storage-key', 'private-note', now(), now())`,
 		`CREATE VIEW forum_comments AS SELECT * FROM (VALUES
@@ -367,6 +370,18 @@ func installPostgresQueryFixture(t *testing.T, ctx context.Context, pool *pgxpoo
 			(42, 'consent-a', 'Consent A', 'a.consent@example.test', 'a.consent@example.test', 'active', now(), now(), now()),
 			(43, 'consent-b', 'Consent B', 'b.consent@example.test', 'b.consent@example.test', 'active', NULL, now(), now()),
 			(44, 'consent-off', 'Consent Off', 'off.consent@example.test', 'off.consent@example.test', 'disabled', now(), now(), now())`,
+		// 点赞关系面：fixture 视图只做「目标存在 + actor 活跃」的存在性过滤；
+		// 真实迁移的可见性谓词（status IN active/locked、deleted_at IS NULL、
+		// categories.visibility='public'）由 database/migrations 的结构测试逐字固定。
+		`CREATE TABLE raw_reactions (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, target_type TEXT NOT NULL, target_id BIGINT NOT NULL, reaction TEXT NOT NULL DEFAULT 'like', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
+		`CREATE VIEW forum_reactions AS SELECT reactions.id, reactions.target_type, reactions.target_id, reactions.reaction, reactions.created_at, users.id AS user_id, users.username, users.display_name FROM raw_reactions AS reactions JOIN raw_users AS users ON users.id = reactions.user_id WHERE users.status = 'active' AND ((reactions.target_type = 'topic' AND EXISTS (SELECT 1 FROM forum_topics WHERE forum_topics.id = reactions.target_id)) OR (reactions.target_type = 'comment' AND EXISTS (SELECT 1 FROM forum_comments WHERE forum_comments.id = reactions.target_id))) OFFSET 0`,
+		`INSERT INTO raw_reactions (id, user_id, target_type, target_id, reaction, created_at) VALUES
+			(1, 1, 'topic', 1, 'like', now() - interval '2 hours'),
+			(2, 2, 'topic', 1, 'like', now() - interval '1 hour'),
+			(3, 1, 'topic', 99, 'like', now()),
+			(4, 3, 'topic', 1, 'like', now()),
+			(5, 1, 'comment', 1, 'like', now() - interval '30 minutes'),
+			(6, 1, 'comment', 99, 'like', now())`,
 	}
 	for _, statement := range statements {
 		if _, err := pool.Exec(ctx, statement); err != nil {

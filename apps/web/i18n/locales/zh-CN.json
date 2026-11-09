@@ -171,6 +171,7 @@
     "body": {
       "reply": "关联主题：{target}",
       "mention": "关联主题：{target}",
+      "reaction": "关联内容：{target}",
       "moderation_pending": "待审核内容：{target}",
       "moderation_approved": "关联内容：{target}",
       "moderation_rejected": "关联内容：{target}",
@@ -210,6 +211,7 @@
     "types": {
       "reply": "有人回复了你的内容",
       "mention": "有人在内容中提到了你",
+      "reaction": "有人赞了你的内容",
       "moderation_pending": "有新内容等待审核",
       "moderation_approved": "你的内容已通过审核",
       "moderation_rejected": "你的内容未通过审核",
@@ -287,6 +289,7 @@
       "latestTitle": "最新讨论",
       "subtitle": "看看社区里正在发生什么",
       "replyCount": "{count} 回复",
+      "likeCount": "{count} 人点赞",
       "topicCountMeta": "{count} 个主题",
       "topicCountMetaApprox": "约 {count} 个主题",
       "views": "浏览",
@@ -5568,7 +5571,8 @@
         "features.attachments": "附件上传",
         "features.mentions": "提及",
         "features.public_profiles": "公开资料页",
-        "features.webhooks": "出站 Webhooks"
+        "features.webhooks": "出站 Webhooks",
+        "features.reactions": "点赞"
       },
       "flagsHelp": {
         "features.search": "控制公开搜索入口与搜索产品面。",
@@ -5576,7 +5580,8 @@
         "features.attachments": "控制附件上传产品面。",
         "features.mentions": "控制 {'@'} 提及产品面。",
         "features.public_profiles": "控制公开用户资料页。",
-        "features.webhooks": "控制出站 Webhooks 产品面（不出现在公开 web-options）。"
+        "features.webhooks": "控制出站 Webhooks 产品面（不出现在公开 web-options）。",
+        "features.reactions": "主题与评论的点赞产品面；关闭后写端点 403、前端隐藏控件。"
       }
     },
     "entityMeta": {
@@ -5796,6 +5801,23 @@
     "terms": "服务条款",
     "privacy": "隐私政策",
     "guidelines": "社区指南"
+  },
+  "forum": {
+    "reaction": {
+      "like": "点赞",
+      "unlike": "取消点赞",
+      "roster": "谁赞了",
+      "empty": "还没有人点赞",
+      "failed": "点赞失败，请稍后重试",
+      "liked": "已点赞",
+      "unliked": "已取消点赞",
+      "rosterAria": "查看点赞名单，共 {count} 人",
+      "rosterTotal": "共 {count} 人",
+      "loadMore": "加载更多",
+      "you": "（你）",
+      "rosterFailed": "名单加载失败",
+      "retry": "重试"
+    }
   },
   "topicDetail": {
     "metaDescription": "查看社区话题详情并参与讨论。",

@@ -33,6 +33,7 @@ export type NotificationDateGroup<T> = {
 const notificationIcons: Record<NotificationItem['type'], string> = {
   reply: 'i-tabler-message-reply',
   mention: 'i-tabler-at',
+  reaction: 'i-tabler-heart',
   moderation_pending: 'i-tabler-shield-exclamation',
   moderation_approved: 'i-tabler-shield-check',
   moderation_rejected: 'i-tabler-shield-x',
@@ -46,6 +47,7 @@ export const notificationFilters: NotificationFilter[] = [
   'unread',
   'reply',
   'mention',
+  'reaction',
   'moderation_pending',
   'moderation_approved',
   'moderation_rejected',

@@ -61,6 +61,8 @@ Rules: async + filter is rejected; async requires fail_open; mutableFields only 
 | `attachment.before_upload` | validate | 2000 | fail_closed | `actorUserId`, `contentType`, `sizeBytes`, `filename` | — |
 | `attachment.uploaded` | observe | 5000 | fail_open | `attachmentId`, `publicId`, `ownerUserId`, `provider`, `contentType`, `sizeBytes` | — |
 | `entity_meta.updated` | observe | 5000 | fail_open | `entityType`, `entityId`, `fieldKeys`, `actorUserId` | — |
+| `reaction.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
+| `reaction.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
 
 ## Manifest declaration fields
 

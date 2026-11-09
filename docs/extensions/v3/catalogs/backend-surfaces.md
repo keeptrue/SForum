@@ -31,6 +31,8 @@
 - `attachment.before_upload`
 - `attachment.uploaded`
 - `entity_meta.updated`
+- `reaction.created`
+- `reaction.removed`
 
 ## contributionPoints
 

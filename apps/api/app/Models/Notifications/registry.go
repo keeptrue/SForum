@@ -439,6 +439,7 @@ func coreTypeDescriptors() map[string]TypeDescriptor {
 		{TypeModerationApproved, "moderation", "i-lucide-circle-check"},
 		{TypeModerationRejected, "moderation", "i-lucide-circle-x"},
 		{TypeAdminTest, "system", "i-lucide-bell"},
+		{TypeReaction, "engagement", "i-lucide-heart"},
 	}
 	result := make(map[string]TypeDescriptor, len(values))
 	for _, value := range values {

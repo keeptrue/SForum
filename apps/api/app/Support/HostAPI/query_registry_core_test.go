@@ -117,6 +117,13 @@ func TestQueryRegistryCoreCatalogSealsPublicationsBindingsAndSchemas(t *testing.
 			ResultSchema:     QuerySafeUserAvatarSchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		},
+		QueryPublicReactionsList: {
+			HostQueryID: QueryPublicReactionsList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_reactions.list", ContractVersion: "core.query.public_reactions.list@1",
+			Entity: "core.query.public_reaction", PlanVersion: "core.query.public_reactions.list.plan@1",
+			ResultSchema:     QueryPublicReactionSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
 		QueryPublicCategoriesList: {
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,
 			QueryID: "core.query.public_categories.list", ContractVersion: "core.query.public_categories.list@1",

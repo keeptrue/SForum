@@ -8,6 +8,13 @@ approval, or rejection.
 
 ## Notification Platform V2
 
+**点赞通知（2026-10-28 落地，2026-10-29 验证完成）**：新增核心类型 `reaction`
+（category `engagement`；曾误落 `plugin_unknown`，已修正），站内默认开、邮件/推送
+默认关；`Outbox.NotifyReactionTx` 与评论通知同事务，自赞跳过、去重键
+`reaction:{type}:{id}:{actor}`（取消后再赞不重复）。邮件模板键 `forum.reaction`。
+PG 集成覆盖自赞不投影与取消再赞只 1 条；浏览器 UI 未单独断言（API + DB 证据
+充分）；未做真实投递验证。最终门禁 9 项 PASS、`test.sh --fast` 三线 exit 0。
+
 **原生推送设备注册（2026-10-02）**：Core 新增 `push_devices` 注册表与自服务端点
 `GET/POST /api/v1/push/devices`、`DELETE /api/v1/push/devices/{deviceId}`：令牌按
 `(platform, token_hash)` 唯一，重复注册刷新并改绑到当前账号，同 `deviceId` 的旧令牌

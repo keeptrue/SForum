@@ -405,6 +405,13 @@ export const useWebOptions = () => {
     return options.value[name] ?? fallbackOptions[name] ?? fallback
   }
 
+  // 产品开关：与后端 features.* 同名词。未加载时按推荐默认（开）处理，
+  // 避免首屏把按钮藏起来、水合后再出现。
+  function featureEnabled(name: string, fallback = true) {
+    const value = webOption(name, fallback ? enabledOption : disabledOption).trim().toLowerCase()
+    return value === enabledOption || value === 'true' || value === '1'
+  }
+
   const siteName = computed(() => webOption('site.name', 'SForum'))
   const siteUrl = computed(() => webOption('site.url', 'http://127.0.0.1:3000'))
   const siteDomain = computed(() => normalizeSiteDomain(options.value['site.domain']) || siteDomainFromUrl(siteUrl.value))
@@ -434,6 +441,7 @@ export const useWebOptions = () => {
     'en-US': webOption('footer.copyright.en-US', fallbackOptions['footer.copyright.en-US'])
   }))
   const footerLinks = computed(() => parseFooterLinks(webOption('footer.links', fallbackOptions['footer.links'])))
+  const reactionsEnabled = computed(() => featureEnabled('features.reactions'))
   const humanVerificationProvider = computed(() => {
     const provider = webOption('human_verification.provider', 'disabled').trim().toLowerCase()
     return provider === 'altcha' ? 'altcha' : 'disabled'
@@ -513,6 +521,8 @@ export const useWebOptions = () => {
     footerCopyright,
     footerLinks,
     humanVerificationProvider,
+    reactionsEnabled,
+    featureEnabled,
     humanVerificationScenarioSettings,
     altchaWidgetSettings,
     loginRiskAlways,

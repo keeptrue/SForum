@@ -6,6 +6,17 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 互动第一刀：点赞（主题 + 评论）
+
+- Status: **landed（可提交，2026-10-29）**。迁移已在 dev 库应用；领域层、读模型、
+  6 条路由、通知、功能开关、前端控件与列表计数落地；稳定视图 + HostQuery
+  `sforum.core.public_reactions.list` 已交付；后端 5 包一次性 PG 集成与 web
+  1837 用例全绿；浏览器 QA 通过（flat；tree 不可达记为产品缺口）；开关关闭证据
+  已采集；最终门禁 9 项 PASS + `test.sh --fast` 三线 exit 0。
+- Handoff：`sessions/2026-10-28-content-reactions.md`；决策：
+  `decisions/2026-10-28-content-reactions.md`；计划：
+  `plans/2026-10-28-content-reactions-likes.md`（父计划
+  `plans/2026-07-12-iteration-a-engagement-loop.md`）。
 ### 升级探针噪音（v3.0.21 → v3.0.23 的 8 条 wget 报错）
 
 - Status: **landed（2026-10-28）**。生产机在线更新时备用槽冷启动，槽内探针按 2 秒
@@ -716,6 +727,27 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **点赞头像组预览 likedBy（2026-11-09，最新）**：主题/评论读模型新增
+  `likedBy`（≤3，自己优先 + 其余最早），20/页「谁赞了」名单（最近优先）；
+  预览在缓存之后装饰、永不进缓存、查询失败 fail-open；一条批次 SQL 复用
+  `content_reactions_roster_idx`（无新迁移）；前端 `SFReactionStack` /
+  `SFReactionRoster` / 重写的 `SFReactionControl`（218 行）+ `SFAvatar` `xs/2xs`
+  档位 + `SFAvatarGroup` `decorative`。门禁：go build / 隔离 PG 测试 / `bun test`
+  1872 / typecheck / 架构守卫 / OpenAPI refs 全绿；补两条 V3 组件身份
+  （`sf_reaction_stack` / `sf_reaction_roster`）后
+  `test.sh --fast` 三线全绿 + `validate-v3-p0-catalogs` 386 routes / 353 UI
+  surfaces / 99 traceability rows。浏览器 QA 桌面 + 390 通过（含 25 赞分页与
+  加载中 `aria-busy`）。见
+  `sessions/2026-11-09-likes-avatar-stack.md`、
+  `decisions/2026-11-09-reaction-preview-ordering.md`。
+- **互动第一刀：点赞（2026-10-28，最新）**：`content_reactions` + 计数列 +
+  `TopicHotScoreSQL` 单一公式；`likedByMe` 请求级装饰不进缓存；
+  `ReactionService` 聚焦协作者；`features.reactions` 开关；前端
+  `SFReactionControl` / `SFTopicReactionBar`；稳定视图 + HostQuery
+  `sforum.core.public_reactions.list`；迁移已在 dev 库应用；后端 5 包 PG 集成 +
+  web 1837 用例 + typecheck + 架构/catalog/OpenAPI 全绿；浏览器 QA 通过（flat），
+  tree 不可达记为产品缺口；开关关闭证据已采集；最终门禁 9 项 PASS +
+  `test.sh --fast` 三线 exit 0。见 `sessions/2026-10-28-content-reactions.md`。
 - **Security 门禁转绿与 v3.0.23 发布（2026-10-28，最新）**：`golang.org/x/net` 从
   v0.60.0 抬到 v0.62.0，清掉两条可达漏洞（GO-2026-6866 / GO-2026-6860，命中
   `ThemeCompiler` 与 `EditorDocument` 的 html 解析）；连带 crypto/sync/text 抬版。

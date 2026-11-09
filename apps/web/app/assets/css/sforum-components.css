@@ -8,6 +8,8 @@
   --sf-accent-soft: #e6f4f1;
   --sf-accent-soft-border: #b7ded8;
   --sf-accent-dark: #2dd4bf;
+  /* 深色下 --sf-danger 对比度不足（2.55:1），错误文字改用这一档（5.96:1） */
+  --sf-danger-dark: #f87171;
   --sf-accent-rgb: 15 118 110;
   --sf-accent-focus: rgb(15 118 110 / 0.18);
   --sf-surface: #f7f8fa;

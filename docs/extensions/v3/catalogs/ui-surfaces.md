@@ -297,6 +297,9 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfpublic_page_header` | `sforum.component.shared.sfpublic_page_header@1` | component | `public` | — | `apps/web/app/components/public/SFPublicPageHeader.vue` | P9 Component Registry |
 | `core.component.shared.sf_public_schema_view` | `sforum.component.shared.sf_public_schema_view@1` | component | `public` | — | `apps/web/app/components/extensions/public/SFPublicSchemaView.vue` | P9 Component Registry |
 | `core.component.forum.sf_public_sidebar_content` | `sforum.component.forum.sf_public_sidebar_content@1` | component | `public` | — | `apps/web/app/components/forum/navigation/SFPublicSidebarContent.vue` | P9 Component Registry |
+| `core.component.shared.sf_reaction_control` | `sforum.component.shared.sf_reaction_control@1` | component | `public` | — | `apps/web/app/components/forum/SFReactionControl.vue` | P9 Component Registry |
+| `core.component.shared.sf_reaction_roster` | `sforum.component.shared.sf_reaction_roster@1` | component | `public` | — | `apps/web/app/components/forum/SFReactionRoster.vue` | P9 Component Registry |
+| `core.component.shared.sf_reaction_stack` | `sforum.component.shared.sf_reaction_stack@1` | component | `public` | — | `apps/web/app/components/forum/SFReactionStack.vue` | P9 Component Registry |
 | `core.component.shared.sfrecovery_confirm_page` | `sforum.component.shared.sfrecovery_confirm_page@1` | component | `public` | — | `apps/web/app/components/identity/SFRecoveryConfirmPage.vue` | P9 Component Registry |
 | `core.component.shared.sfrecovery_request_page` | `sforum.component.shared.sfrecovery_request_page@1` | component | `public` | — | `apps/web/app/components/identity/SFRecoveryRequestPage.vue` | P9 Component Registry |
 | `core.component.shared.sfrecovery_shell` | `sforum.component.shared.sfrecovery_shell@1` | component | `public` | — | `apps/web/app/components/identity/recovery/SFRecoveryShell.vue` | P9 Component Registry |
@@ -348,6 +351,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sftopic_heading` | `sforum.component.shared.sftopic_heading@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicHeading.vue` | P9 Component Registry |
 | `core.component.shared.sf_topic_mobile_info_drawer` | `sforum.component.shared.sf_topic_mobile_info_drawer@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicMobileInfoDrawer.vue` | P9 Component Registry |
 | `core.component.shared.sftopic_progress_rail` | `sforum.component.shared.sftopic_progress_rail@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicProgressRail.vue` | P9 Component Registry |
+| `core.component.shared.sf_topic_reaction_bar` | `sforum.component.shared.sf_topic_reaction_bar@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicReactionBar.vue` | P9 Component Registry |
 | `core.component.shared.sf_topic_reply_composer` | `sforum.component.shared.sf_topic_reply_composer@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicReplyComposer.vue` | P9 Component Registry |
 | `core.component.shared.sf_topic_reply_page` | `sforum.component.shared.sf_topic_reply_page@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicReplyPage.vue` | P9 Component Registry |
 | `core.component.shared.sftopic_show_page` | `sforum.component.shared.sftopic_show_page@1` | component | `public` | — | `apps/web/app/components/forum/SFTopicShowPage.vue` | P9 Component Registry |

@@ -338,7 +338,7 @@ func TestProductionLifecycleStackPublishesSealedCoreQueryCatalog(t *testing.T) {
 	}
 	publication, found := stack.QueryRegistry.SnapshotPublication(hostapi.QueryRegistryCoreExtensionID)
 	// 稳定目录条数 tripwire：新增 stable query 必须显式抬这个数（与目录密封摘要互为双保险）。
-	coreQueryCount := 10 + len(hostapi.ShortcodeProjectionQueryIDs())
+	coreQueryCount := 11 + len(hostapi.ShortcodeProjectionQueryIDs())
 	if !found || publication.Artifact != artifact || len(publication.Queries) != coreQueryCount {
 		t.Fatalf("core publication = %#v found=%t", publication, found)
 	}
@@ -439,7 +439,7 @@ func assertProductionLifecycleCoreQueryPreserved(
 ) {
 	t.Helper()
 	publication, found := stack.QueryRegistry.SnapshotPublication(hostapi.QueryRegistryCoreExtensionID)
-	if !found || publication.Artifact != wantArtifact || len(publication.Queries) != 10+len(hostapi.ShortcodeProjectionQueryIDs()) {
+	if !found || publication.Artifact != wantArtifact || len(publication.Queries) != 11+len(hostapi.ShortcodeProjectionQueryIDs()) {
 		t.Fatalf("core query publication after restore = %#v found=%t want=%#v", publication, found, wantArtifact)
 	}
 	if stack.QueryCoreCatalog.Artifact() != wantArtifact {

@@ -305,7 +305,7 @@ func (s *PostgresStore) listRecentTopics(ctx context.Context, userID int64, limi
 		SELECT topics.id, topics.category_id, categories.slug, categories.name,
 		  topics.author_user_id, users.username, users.display_name,
 		  topics.title, topics.slug, topics.status, topics.is_pinned,
-		  topics.comment_count, topics.view_count, topics.hot_score, left(posts.plain_text, 2000),
+		  topics.comment_count, topics.view_count, topics.like_count, topics.hot_score, left(posts.plain_text, 2000),
 		  `+forumCurrentRevisionSQL("posts")+`,
 		  (`+forumCurrentRevisionSQL("posts")+`) > 1,
 		  topics.created_at, topics.updated_at, topics.last_activity_at

@@ -56,3 +56,10 @@ func setProtectedContentResponse(c fiber.Ctx) {
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
 	c.Vary(fiber.HeaderCookie, fiber.HeaderAuthorization, fiber.HeaderAcceptLanguage)
 }
+
+// setViewerScopedResponse 标记「响应体含当前访客派生字段」（例如 likedByMe）。
+// 只补 Vary: Cookie，不改状态码；缓存控制仍由 private, no-store 承担。
+func setViewerScopedResponse(c fiber.Ctx) {
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	c.Vary(fiber.HeaderCookie)
+}

@@ -44,6 +44,13 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Post("/topics/:topicID/pin", h.pinTopic)
 	api.Post("/topics/:topicID/unpin", h.unpinTopic)
 	api.Get("/topics/:topicID/comments", h.comments)
+	// 点赞：4 个切换端点要求登录；名单端点与公开读同口径。
+	api.Post("/topics/:topicID/like", h.likeTopic)
+	api.Delete("/topics/:topicID/like", h.unlikeTopic)
+	api.Get("/topics/:topicID/likes", h.topicLikes)
+	api.Post("/comments/:commentID/like", h.likeComment)
+	api.Delete("/comments/:commentID/like", h.unlikeComment)
+	api.Get("/comments/:commentID/likes", h.commentLikes)
 	// 评论区实时信号：修订状态供对账/轮询降级，stream 是 SSE 变更流（只推修订号，不推正文）。
 	api.Get("/topics/:topicID/comments/revision", h.topicCommentRevision)
 	api.Get("/topics/:topicID/comments/stream", h.topicCommentStream)

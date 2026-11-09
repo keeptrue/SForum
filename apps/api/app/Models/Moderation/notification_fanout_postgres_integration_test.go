@@ -492,6 +492,9 @@ func (f *notificationPGFixture) assertCommentStatus(t *testing.T, commentID int6
 	}
 }
 
+// notificationFanoutSchemaSQL 逐表镜像迁移。topics.like_count / comments.like_count
+// 来自 202610280001_content_reactions.sql（第 31-32 行）：审核通过评论、举报下架
+// 评论都要重算 hot_score，公式里的 like_count 必须真实存在。
 const notificationFanoutSchemaSQL = `
 CREATE TABLE users (
   id BIGSERIAL PRIMARY KEY,
@@ -552,6 +555,7 @@ CREATE TABLE topics (
   moderation_triggers JSONB NOT NULL DEFAULT '[]',
   comment_count BIGINT NOT NULL DEFAULT 0,
   view_count BIGINT NOT NULL DEFAULT 0,
+  like_count BIGINT NOT NULL DEFAULT 0,
   hot_score BIGINT NOT NULL DEFAULT 0,
   last_activity_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -563,6 +567,7 @@ CREATE TABLE comments (
   author_user_id BIGINT REFERENCES users(id),
   parent_comment_id BIGINT REFERENCES comments(id),
   reply_count BIGINT NOT NULL DEFAULT 0,
+  like_count BIGINT NOT NULL DEFAULT 0,
   status TEXT NOT NULL,
   moderation_triggers JSONB NOT NULL DEFAULT '[]',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

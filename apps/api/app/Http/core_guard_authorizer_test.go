@@ -157,6 +157,9 @@ func TestProductionForumReadGuardPartitionsCatalogByProvablePolicy(t *testing.T)
 		"core.route.forum.comment_page":                {method: "GET"},
 		// AI 依据读取面：评论的附属事实，与回复列表同 guest-read 策略。
 		"core.route.forum.list_comment_citations": {method: "GET"},
+		// 点赞名单：主题/评论的附属事实，与回复列表同 guest-read 策略。
+		"core.route.forum.topic_likes":   {method: "GET"},
+		"core.route.forum.comment_likes": {method: "GET"},
 		// 评论区实时信号：修订端点与 SSE 都按评论列表的 guest-read 策略裁决。
 		"core.route.forum.topic_comment_revision": {method: "GET"},
 		"core.route.forum.topic_comment_stream":   {method: "GET"},
@@ -260,8 +263,9 @@ func TestProductionForumReadPolicyClosesDynamicCatalogRoutes(t *testing.T) {
 		}
 		policy.guestRead = "public"
 	}
-	if covered != 14 {
-		t.Fatalf("dynamic forum read routes = %d, want 14", covered)
+	// 16 = 既有 14 条公开读路由 + 本轮新增的 topic_likes / comment_likes。
+	if covered != 16 {
+		t.Fatalf("dynamic forum read routes = %d, want 16", covered)
 	}
 }
 

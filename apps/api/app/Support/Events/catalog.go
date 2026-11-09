@@ -33,6 +33,10 @@ const (
 	AttachmentUploaded     = "attachment.uploaded"
 	// EntityMetaUpdated F4.4：实体自定义字段值变更后发出（observe，不阻断写路径）。
 	EntityMetaUpdated = "entity_meta.updated"
+	// ReactionCreated / ReactionRemoved：点赞关系变更后发出（observe）。
+	// 这是徽章类插件将来唯一需要的数据源，payload 只含公开安全字段。
+	ReactionCreated = "reaction.created"
+	ReactionRemoved = "reaction.removed"
 )
 
 // 目录约定（F1.3）：
@@ -90,6 +94,8 @@ var definitions = []Definition{
 	),
 	observe(AttachmentUploaded, "Emitted after attachment metadata is committed.", []string{"attachmentId", "publicId", "ownerUserId", "provider", "contentType", "sizeBytes"}),
 	observe(EntityMetaUpdated, "Emitted after entity custom field values are written or cleared.", []string{"entityType", "entityId", "fieldKeys", "actorUserId"}),
+	observe(ReactionCreated, "Emitted after a like is committed on a visible topic or comment.", []string{"targetType", "targetId", "reaction", "actorUserId"}),
+	observe(ReactionRemoved, "Emitted after a like is removed from a visible topic or comment.", []string{"targetType", "targetId", "reaction", "actorUserId"}),
 }
 
 func topicObservePayload(extra ...string) []string {

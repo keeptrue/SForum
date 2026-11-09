@@ -38,8 +38,10 @@ func NewForumProviderWithOptionsAndEvents(store forum.Store, optionsService *opt
 		Publisher:       publisher,
 		TopicEventLinks: NewForumTopicEventLinkResolver(optionsService),
 	})
+	controller := forumcontroller.NewController(service, users, sessions)
+	attachForumReactions(controller, service, optionsService)
 	return &ForumProvider{
-		controller: forumcontroller.NewController(service, users, sessions),
+		controller: controller,
 		service:    service,
 	}
 }
@@ -88,10 +90,27 @@ func NewForumProviderWithPublicContributions(store forum.Store, optionsService *
 		TrustPolicy:       trustPolicy,
 		TopicEventLinks:   NewForumTopicEventLinkResolver(optionsService),
 	})
+	controller := forumcontroller.NewControllerWithSearch(service, searchService, reindexer, users, sessions)
+	attachForumReactions(controller, service, optionsService)
 	return &ForumProvider{
-		controller: forumcontroller.NewControllerWithSearch(service, searchService, reindexer, users, sessions),
+		controller: controller,
 		service:    service,
 	}
+}
+
+// attachForumReactions 装配点赞协作者。
+//
+// optionsService 为 nil 时不注入 FeatureGate：把 nil *Service 塞进非空接口会让
+// 「开关关闭」变成 panic，而不是默认开启。
+func attachForumReactions(controller *forumcontroller.Controller, service *forum.Service, optionsService *options.Service) {
+	if controller == nil || service == nil {
+		return
+	}
+	reactions := forum.NewReactionService(service)
+	if optionsService != nil {
+		reactions.WithFeatureGate(optionsService)
+	}
+	controller.WithReactions(reactions)
 }
 
 // WithIdempotency 为发帖/评论写路径启用 Idempotency-Key（F3.2）。

@@ -250,7 +250,7 @@ func (s *PostgresStore) UpdateComment(ctx context.Context, input UpdateCommentRe
 					return Comment{}, fmt.Errorf("decrement parent replies: %w", err)
 				}
 			}
-			if _, err := tx.Exec(ctx, `UPDATE topics SET comment_count = GREATEST(comment_count - 1, 0), hot_score = GREATEST(comment_count - 1, 0) * 5 + view_count, updated_at = now() WHERE id = $1`, state.topicID); err != nil {
+			if _, err := tx.Exec(ctx, `UPDATE topics SET comment_count = GREATEST(comment_count - 1, 0), hot_score = `+TopicHotScoreSQL("GREATEST(comment_count - 1, 0)", "like_count")+`, updated_at = now() WHERE id = $1`, state.topicID); err != nil {
 				return Comment{}, fmt.Errorf("decrement topic comments: %w", err)
 			}
 			if _, err := tx.Exec(ctx, `UPDATE categories SET comment_count = GREATEST(comment_count - 1, 0), updated_at = now() WHERE id = (SELECT category_id FROM topics WHERE id = $1)`, state.topicID); err != nil {

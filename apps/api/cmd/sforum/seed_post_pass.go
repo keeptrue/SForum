@@ -40,7 +40,7 @@ func newSeedPostPass(pool *pgxpool.Pool) seedPostPass {
 }
 
 // ApplyTopicPresentation 按 id 批量写入 view_count / is_pinned，并同步 hot_score。
-// hot_score 公式与 forum.ComputeHotScore 保持一致：comment_count*5 + view_count。
+// hot_score 公式的唯一权威是 forum.TopicHotScoreSQL：comment_count*5 + view_count + like_count*3。
 func (p seedPostgresPostPass) ApplyTopicPresentation(ctx context.Context, topics []seedTopicPresentation) error {
 	if len(topics) == 0 {
 		return nil
@@ -56,7 +56,7 @@ func (p seedPostgresPostPass) ApplyTopicPresentation(ctx context.Context, topics
 	if _, err := p.pool.Exec(ctx, `
 		UPDATE topics AS t
 		SET view_count = u.views,
-		    hot_score = (t.comment_count * 5) + u.views,
+		    hot_score = (t.comment_count * 5) + u.views + (t.like_count * 3),
 		    is_pinned = u.pinned,
 		    updated_at = now()
 		FROM unnest($1::bigint[], $2::bigint[], $3::boolean[]) AS u(id, views, pinned)

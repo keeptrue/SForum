@@ -104,6 +104,14 @@
       "tagline": "在论坛后台浏览应用商城，选中扩展交给宿主安装",
       "glyph": "building-store",
       "slug": "keeptrue/sforum-app-store"
+    },
+    {
+      "package": "../sforum-related-discussions/plugins/sforum.related-topics",
+      "kind": "external",
+      "title": "相关讨论",
+      "tagline": "读完正文，接着读同一话题的旧帖",
+      "glyph": "topology-star-3",
+      "slug": "keeptrue/sforum-related-discussions"
     }
   ],
   "repos": [

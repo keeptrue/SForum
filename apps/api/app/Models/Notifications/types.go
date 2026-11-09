@@ -16,6 +16,8 @@ const (
 	TypeModerationApproved = "moderation_approved"
 	TypeModerationRejected = "moderation_rejected"
 	TypeAdminTest          = "admin_test"
+	// TypeReaction 是点赞通知（engagement 类）；站内默认开，邮件/推送默认关。
+	TypeReaction = "reaction"
 
 	// 邮件投递状态对齐 outbox 共享词表（F3.1）。
 	DeliveryQueued  = outbox.StatusQueued
@@ -114,6 +116,11 @@ func categoryForType(typ string) string {
 		return "moderation"
 	case TypeAdminTest:
 		return "system"
+	case TypeReaction:
+		// 与 coreTypeDescriptors / 202610280001_content_reactions.sql 的
+		// category='engagement' 保持一致；漏掉会让点赞通知落到 plugin_unknown，
+		// 按 category 过滤的收件箱就会归错类。
+		return "engagement"
 	default:
 		return "plugin_unknown"
 	}

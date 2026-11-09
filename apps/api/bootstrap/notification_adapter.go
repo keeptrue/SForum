@@ -75,6 +75,10 @@ func (a forumNotificationAdapter) NotifyTopicTx(ctx context.Context, tx pgx.Tx, 
 	return a.outbox.NotifyTopicTx(ctx, tx, notifications.TopicEvent{TopicID: input.TopicID, ActorUserID: input.ActorUserID, MentionedUsernames: input.MentionedUsernames})
 }
 
+func (a forumNotificationAdapter) NotifyReactionTx(ctx context.Context, tx pgx.Tx, input forum.ReactionNotificationInput) error {
+	return a.outbox.NotifyReactionTx(ctx, tx, notifications.ReactionEvent{TargetType: input.TargetType, TargetID: input.TargetID, TopicID: input.TopicID, ActorUserID: input.ActorUserID, RecipientUserID: input.RecipientUserID})
+}
+
 func (a forumNotificationAdapter) NotifyPendingReviewTx(ctx context.Context, tx pgx.Tx, input forum.PendingReviewNotificationInput) error {
 	return a.outbox.NotifyPendingReviewTx(ctx, tx, notifications.PendingReviewEvent{TargetType: input.TargetType, TargetID: input.TargetID, TopicID: input.TopicID, AuthorUserID: input.AuthorUserID, Revision: input.Revision, Title: input.Title})
 }

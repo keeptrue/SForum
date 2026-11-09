@@ -7,6 +7,21 @@ accepted revisions, lifecycle states, public read models, and forum policy.
 
 ## Current Status
 
+- **点赞（2026-10-28 落地，2026-10-29 补齐，2026-11-09 补头像组预览）：** `content_reactions` 单 like、
+  多态目标、计数反规范化到 `topics.like_count` / `comments.like_count`；`hot_score`
+  收敛为 `TopicHotScoreSQL` 一处公式（评论/浏览/点赞三信号，评论点赞不计入）。
+  读模型新增 `likeCount`、请求级 `likedByMe` 与点赞者头像组预览 `likedBy`
+  （两者都只在 `PublicReadService` 缓存之后装饰，永不进缓存）。`ReactionService` 是聚焦协作者，未增长 `Service` 接收者方法。开关
+  `features.reactions` 默认开，关闭时 6 条路由 403；写端点复用全局写限流
+  （默认 30 次/分/IP）+ CSRF。迁移已在 dev 库应用（goose `202610280001`），稳定
+  视图 `sforum_core_v1.forum_reactions` 与 HostQuery
+  `sforum.core.public_reactions.list` 均已交付并有允许/拒绝测试。细节、残留与
+  计数对账 SQL 见下方 Reactions 段、`../sessions/2026-10-28-content-reactions.md`
+  与 `../decisions/2026-10-28-content-reactions.md`。浏览器 QA 通过（flat）；
+  tree 不可达，见下方产品缺口；开关关闭证据已采集
+  （`storage/qa/reactions-flag-evidence.txt`）。头像组预览的口径、缓存边界与
+  两处排序差异见 `../sessions/2026-11-09-likes-avatar-stack.md` 与
+  `../decisions/2026-11-09-reaction-preview-ordering.md`。
 - Core taxonomy, topic/comment creation and lifecycle, public/admin UI, runtime
   settings, moderation integration, search projection, and million-scale read
   path M0-M7 are implemented.
@@ -675,6 +690,116 @@ viewer identity, nor authorized output.
   configuration.
 - `ForumSettings.ExternalInterstitial` / `TrustedDomains` are part of the forum
   settings contract (admin DTO, route guard, OpenAPI, forum reading tab).
+
+## Reactions (Likes) — 2026-10-28
+
+- 数据面：`content_reactions`（唯一约束 `(user_id, target_type, target_id, reaction)`，
+  `target_type ∈ {topic, comment}`，`reaction='like'`）；计数列
+  `topics.like_count` / `comments.like_count`；稳定视图
+  `sforum_core_v1.forum_reactions`（`security_barrier` / `security_invoker`，无 PII）
+  + HostQuery `sforum.core.public_reactions.list`（结果 schema
+  `sforum.core.public_reaction`）。
+- 写路径：`ReactionService` → `PostgresStore.ApplyReaction`
+  （`ON CONFLICT ... DO NOTHING`），同事务写计数、热门分、通知投影；事件
+  `reaction.created` / `reaction.removed` 提交后发出，fail-open。
+- 读路径：计数来自列；`likedByMe` 在 `PublicReadService` 缓存之后按请求装饰
+  （递归子评论，最多两次批量查询）。
+- 评论点赞位置：控件在评论 footer 动作行 `.sf-comment__actions` 首位（不在头部
+  `.sf-comment__floor-actions`）；动作行 `v-if` 为
+  `actions.length || (comment && reactionsEnabled)`；`.72` 透明度只下沉给文字
+  按钮，点赞计数保持不透明。
+- 残留（详见 `../decisions/2026-10-28-content-reactions.md` 的 Known tradeoffs）：
+  硬删用户后 `like_count` 偏高（CASCADE 只删关系行）；`roster.Total` 只算 active
+  用户，可能小于计数；可见性校验与写入不同事务（TOCTOU，最多一条孤立关系行）；
+  未验证邮箱也可点赞并触发通知；名单读无独立限速；`forum_reactions` 无
+  `topic_id`，评论点赞不能按主题聚合。
+- 产品缺口：默认主题只有 flat 评论视图（`SFTopicShowPage.vue:148` 硬编码
+  `ref<'flat'>('flat')`，`SFCommentStreamControls` 全仓无引用）；tree 由服务端
+  `ListComments(tree)` 覆盖，本切片不加切换 UI。
+- QA：功能与视觉证据见 `storage/qa/reactions-qa-report.md` 与
+  `storage/qa/2026-10-29-visual-responsive-audit.md`；四项视觉待修与三项 token
+  债务见 handoff。
+- 计数对账（运营者手动执行，非定时任务）：
+
+```sql
+-- 先按关系表重算计数，再按统一公式重算 hot_score。
+UPDATE topics t
+SET like_count = counts.n,
+    hot_score = t.comment_count * 5 + t.view_count + counts.n * 3
+FROM (
+  SELECT t2.id AS topic_id, COUNT(r.id) AS n
+  FROM topics t2
+  LEFT JOIN content_reactions r
+    ON r.target_type = 'topic' AND r.target_id = t2.id AND r.reaction = 'like'
+  GROUP BY t2.id
+) counts
+WHERE counts.topic_id = t.id AND t.like_count <> counts.n;
+
+UPDATE comments c
+SET like_count = counts.n
+FROM (
+  SELECT c2.id AS comment_id, COUNT(r.id) AS n
+  FROM comments c2
+  LEFT JOIN content_reactions r
+    ON r.target_type = 'comment' AND r.target_id = c2.id AND r.reaction = 'like'
+  GROUP BY c2.id
+) counts
+WHERE counts.comment_id = c.id AND c.like_count <> counts.n;
+```
+
+### 点赞者头像组预览（likedBy，2026-11-09）
+
+- 形状：`TopicDetail.likedBy` 与 `Comment.likedBy`（含嵌套子评论）为
+  `[]UserSummary`，**最多 3 个**，`ReactionPreviewLimit = 3`；无点赞的目标不出现在
+  store 返回的 map 里，字段 `omitempty`，所以匿名响应不会出现空数组。
+- 排序（预览）：**当前访客自己优先，其余按 `created_at` / `id` 最早在前**。理由：
+  头像组是「我参与过这条内容」的即时反馈，自己不在最前面就看不出来；剩余位置用
+  最早者表达「最早支持这条内容的人」。匿名（`$3 = 0`）时 `(r.user_id = $3)` 对
+  所有行恒为假，自然退化为纯最早优先。
+- 排序（名单 `GET /topics/{id}/likes`、`GET /comments/{id}/likes`）：**最近优先**
+  （`created_at DESC, id DESC`）。理由：20 条一页的「谁赞了」是活跃度视图，最新
+  参与者更相关；而 `OFFSET` 分页在「最近优先」下新赞会插到第 0 页，客户端按
+  `id` 去重兜住重复（`forumReactionRosterMerge`）。
+- 缓存边界：预览与 `likedByMe` 都**在缓存之后**装饰。`CachedStore.GetTopic` /
+  `ListComments` 只用 actor 无关的值为键落缓存（JSON 序列化发生在装饰之前），
+  返回的是值拷贝，装饰就地改副本不会回写。`CachedStore.ReactionPreviews` 是纯
+  转发（`ReactionPreviewStore` 窄接口），**不缓存**；登录访客的响应带
+  `Cache-Control: private, no-store` + `Vary: Cookie`，匿名响应保持可公共缓存
+  （匿名预览与访客无关，由 `$3 = 0` 决定）。
+- fail-open：`ReactionService.decoratePreviews` 查询失败只 `slog.WarnContext` 并
+  返回，公开读仍是 200；`PublicReadService.decorateTopic/decorateComments` 忽略
+  装饰错误。代价是「预览查询失败」时头像组为空、只剩 `+N`，而不是 5xx。
+- SQL：`PostgresStore.ReactionPreviews` 一条语句批次取主题 + 评论
+  （`ROW_NUMBER() OVER (PARTITION BY target_id ORDER BY (user_id = $3) DESC,
+  created_at, id) <= $5`），JOIN `users` 时过滤 `status = 'active'`，因此非活跃
+  用户既不占位也不被展示。复用既有 `content_reactions_roster_idx`
+  `(target_type, target_id, reaction, created_at DESC, id DESC)`，**没有新迁移**；
+  由于排序首键是计算表达式，每个 target 仍需一次小排序（当前每目标 ≤3 行，可接受）。
+- 前端：`SFReactionStack`（纯展示，首屏零请求，`total = 0` 不渲染，`count > 0`
+  且 `likedBy` 为空时只画 `+N`）、`SFReactionRoster`（弹层内容，20/页，按 id
+  去重，`hasMore = false` 或 `offset >= 1000` 收起「加载更多」，错误内联 + 重试）、
+  `SFReactionControl`（心形 + 头像组触发器 + 弹层，乐观切换后以服务端真值回填）。
+  头像全部装饰化：`SFAvatarGroup` 传 `decorative`，组 `aria-hidden="true"`、
+  头像 `alt=""`；可读名只出现在触发器 `aria-label`（`forum.reaction.rosterAria`，
+  含人数）与 `aria-haspopup="dialog"` 上。尺寸阶梯（单调）：
+  `2xs 18 < xs 24 < sm 32 < list 36 < md 40`。
+- 主题动作行（实测）：`xs`（24px）+ `max=3` + 重叠 `-6px`，3 头像 + chip 时组宽
+  **60px**、chip **24×24**、控件总宽约 **132px**；触发器 `min-height: 40px`
+  —— 24px 头像后内容只有 28px，`box-sizing: border-box` 下取 38 会把动作行从
+  **59px 压到 57px**，故取 40；动作行高 59px，头像与心形中心对齐。
+  评论行动作行仍用 `2xs`（18px）+ `max=2` + `chip=false`（计数就在心形旁，chip 是
+  重复信息）；弹层名单行内头像同步 `xs`（24px），行高仍 32px；
+  `≤479px` 时头像组降到 2 个并隐藏 chip。
+- 「加载更多」的加载态：可见性只由 `hasMore && offset < ROSTER_OFFSET_CAP(1000)`
+  决定，**加载中按钮保持挂载**，`loading` 只负责 `disabled` / `aria-busy` / spinner
+  （否则焦点掉 `body`、弹层高度跳 32px）。`total` 走
+  `forumReactionRosterTotal`：首页取服务端真值，追加页只增不减 —— 服务端在
+  `offset` 越界时回 `total=0`，不能把已知人数抹掉。
+- 焦点：加载中**不用原生 `disabled`**（浏览器会在两帧后异步移除焦点），改用
+  `aria-disabled="true"` + `loadMore()` 内 `forumReactionRosterCanLoadMore` guard
+  （连按 Enter 只发一次请求），样式挂在 `.sf-roster__more[aria-disabled='true']`。
+  实测键盘 Enter 触发后焦点留在按钮上，`aria-busy="true"`、spinner 可见、弹层
+  高度不跳；末页按钮移除后焦点自然回落到 `body`（该步无可避免）。
 
 ## Next Steps
 

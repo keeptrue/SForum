@@ -31,10 +31,17 @@ type PendingReviewNotificationInput struct {
 	Revision                        int64
 }
 
+type ReactionNotificationInput struct {
+	TargetType                   string
+	TargetID, TopicID            int64
+	ActorUserID, RecipientUserID int64
+}
+
 type NotificationWriter interface {
 	NotifyCommentTx(context.Context, pgx.Tx, CommentNotificationInput) error
 	NotifyTopicTx(context.Context, pgx.Tx, TopicNotificationInput) error
 	NotifyPendingReviewTx(context.Context, pgx.Tx, PendingReviewNotificationInput) error
+	NotifyReactionTx(context.Context, pgx.Tx, ReactionNotificationInput) error
 }
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {

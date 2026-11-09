@@ -21,6 +21,8 @@ const (
 	QuerySafeUserByUsername         = "sforum.core.safe_user.by_username"
 	QuerySafeUsersBatch             = "sforum.core.safe_users.batch"
 	QueryPublicCategoriesList       = "sforum.core.public_categories.list"
+	// QueryPublicReactionsList 是点赞关系的公开读面（谁赞了哪个可见目标）。
+	QueryPublicReactionsList = "sforum.core.public_reactions.list"
 	// QuerySelfEmail 只由 host 签发的 actor 委派驱动执行；actorless 稳定入口
 	// 一律拒绝（见 consent_query_definitions.go）。
 	QuerySelfEmail                   = "sforum.core.identity.self_email"
@@ -32,6 +34,7 @@ const (
 	QueryPublicCommentResultSchemaID = "sforum.core.public_comment"
 	QuerySafeUserAvatarSchemaID      = "sforum.core.safe_user_avatar"
 	QueryPublicCategorySchemaID      = "sforum.core.public_category"
+	QueryPublicReactionSchemaID      = "sforum.core.public_reaction"
 	QuerySelfEmailSchemaID           = "sforum.core.self_email"
 	QueryStableCoreResultSchemaV1    = "1"
 	QueryInt64ParameterSchemaID      = "sforum.core.query.int64"
@@ -130,7 +133,7 @@ func isStableProtocolV2QueryID(queryID string) bool {
 	switch strings.TrimSpace(queryID) {
 	case QuerySafeUserByID, QueryPublicTopicsList, QueryPublicTopicByID, QueryPublicAttachmentByPublicID,
 		QuerySiteStats, QueryPublicCommentsList, QuerySafeUserByUsername, QuerySafeUsersBatch, QueryPublicCategoriesList,
-		QuerySelfEmail:
+		QueryPublicReactionsList, QuerySelfEmail:
 		return true
 	default:
 		return false
