@@ -18,6 +18,9 @@ const (
 	TypeAdminTest          = "admin_test"
 	// TypeReaction 是点赞通知（engagement 类）；站内默认开，邮件/推送默认关。
 	TypeReaction = "reaction"
+	// TypeBookmarkReminder 是收藏提醒（engagement 类）：用户主动设定的计划动作，
+	// 站内与邮件默认开、web_push 默认关（与 202611100001_content_bookmarks.sql 一致）。
+	TypeBookmarkReminder = "bookmark_reminder"
 
 	// 邮件投递状态对齐 outbox 共享词表（F3.1）。
 	DeliveryQueued  = outbox.StatusQueued
@@ -116,10 +119,9 @@ func categoryForType(typ string) string {
 		return "moderation"
 	case TypeAdminTest:
 		return "system"
-	case TypeReaction:
-		// 与 coreTypeDescriptors / 202610280001_content_reactions.sql 的
-		// category='engagement' 保持一致；漏掉会让点赞通知落到 plugin_unknown，
-		// 按 category 过滤的收件箱就会归错类。
+	case TypeReaction, TypeBookmarkReminder:
+		// 与 coreTypeDescriptors / 迁移里的 category='engagement' 保持一致；
+		// 漏掉会让通知落到 plugin_unknown，按 category 过滤的收件箱就会归错类。
 		return "engagement"
 	default:
 		return "plugin_unknown"

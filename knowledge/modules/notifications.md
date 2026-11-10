@@ -15,6 +15,16 @@ approval, or rejection.
 PG 集成覆盖自赞不投影与取消再赞只 1 条；浏览器 UI 未单独断言（API + DB 证据
 充分）；未做真实投递验证。最终门禁 9 项 PASS、`test.sh --fast` 三线 exit 0。
 
+**收藏提醒通知（2026-11-10 落地并实机验证）**：新增核心类型 `bookmark_reminder`
+（category `engagement`，图标 `i-lucide-bell-ring`），**站内与邮件默认开**、推送默认
+关——这是唯一一处邮件默认开的类型，因为提醒是用户自己预约的，投不到等于功能失效。
+邮件模板键 `forum.bookmark_reminder`（中英双语），去重键 `bookmark_reminder:{bookmarkID}`
+（每条收藏的每次提醒只投影一次）。投影与 `reminded_at` 抢占在同一事务：通知失败整条
+回滚、下一轮重扫，不会出现「标了已提醒却没发」。目标已不可见的到期行只写
+`reminded_at`、不产生通知（否则每轮重扫）。实机证据：worker 日志
+`claimed=2 notified=1`、`notifications` 行 + `mail_deliveries status=sent`、Mailpit
+实收「[SForum] 收藏提醒」，见 `storage/qa/bookmarks-reminder-evidence.txt`。
+
 **原生推送设备注册（2026-10-02）**：Core 新增 `push_devices` 注册表与自服务端点
 `GET/POST /api/v1/push/devices`、`DELETE /api/v1/push/devices/{deviceId}`：令牌按
 `(platform, token_hash)` 唯一，重复注册刷新并改绑到当前账号，同 `deviceId` 的旧令牌

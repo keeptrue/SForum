@@ -39,7 +39,7 @@ func NewForumProviderWithOptionsAndEvents(store forum.Store, optionsService *opt
 		TopicEventLinks: NewForumTopicEventLinkResolver(optionsService),
 	})
 	controller := forumcontroller.NewController(service, users, sessions)
-	attachForumReactions(controller, service, optionsService)
+	attachForumEngagement(controller, service, optionsService)
 	return &ForumProvider{
 		controller: controller,
 		service:    service,
@@ -91,7 +91,7 @@ func NewForumProviderWithPublicContributions(store forum.Store, optionsService *
 		TopicEventLinks:   NewForumTopicEventLinkResolver(optionsService),
 	})
 	controller := forumcontroller.NewControllerWithSearch(service, searchService, reindexer, users, sessions)
-	attachForumReactions(controller, service, optionsService)
+	attachForumEngagement(controller, service, optionsService)
 	return &ForumProvider{
 		controller: controller,
 		service:    service,

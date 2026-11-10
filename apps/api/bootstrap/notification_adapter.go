@@ -79,6 +79,18 @@ func (a forumNotificationAdapter) NotifyReactionTx(ctx context.Context, tx pgx.T
 	return a.outbox.NotifyReactionTx(ctx, tx, notifications.ReactionEvent{TargetType: input.TargetType, TargetID: input.TargetID, TopicID: input.TopicID, ActorUserID: input.ActorUserID, RecipientUserID: input.RecipientUserID})
 }
 
+// NotifyBookmarkReminderTx 让同一个 adapter 兼作收藏提醒投影入口（可选接口，
+// 不塞进 forum.NotificationWriter，避免为一个新能力改所有既有 fake 的签名）。
+func (a forumNotificationAdapter) NotifyBookmarkReminderTx(ctx context.Context, tx pgx.Tx, input forum.BookmarkReminderNotificationInput) error {
+	return a.outbox.NotifyBookmarkReminderTx(ctx, tx, notifications.BookmarkReminderEvent{
+		BookmarkID:      input.BookmarkID,
+		RecipientUserID: input.RecipientUserID,
+		TargetType:      input.TargetType,
+		TargetID:        input.TargetID,
+		TopicID:         input.TopicID,
+	})
+}
+
 func (a forumNotificationAdapter) NotifyPendingReviewTx(ctx context.Context, tx pgx.Tx, input forum.PendingReviewNotificationInput) error {
 	return a.outbox.NotifyPendingReviewTx(ctx, tx, notifications.PendingReviewEvent{TargetType: input.TargetType, TargetID: input.TargetID, TopicID: input.TopicID, AuthorUserID: input.AuthorUserID, Revision: input.Revision, Title: input.Title})
 }

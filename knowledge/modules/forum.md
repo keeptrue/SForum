@@ -801,6 +801,90 @@ WHERE counts.comment_id = c.id AND c.like_count <> counts.n;
   实测键盘 Enter 触发后焦点留在按钮上，`aria-busy="true"`、spinner 可见、弹层
   高度不跳；末页按钮移除后焦点自然回落到 `body`（该步无可避免）。
 
+## Bookmarks (收藏) — 2026-11-10
+
+- 数据面：`content_bookmarks`（唯一约束 `(user_id, target_type, target_id)`，
+  `target_type ∈ {topic, comment}`，`visibility ∈ {private, public}` 默认 `private`）；
+  计数列 `topics.public_bookmark_count` / `comments.public_bookmark_count`
+  （只统计 `visibility='public'`，服务层同事务维护）；提醒列 `remind_at` /
+  `reminded_at` 属于行主私有计划数据；稳定视图 `sforum_core_v1.forum_bookmarks`
+  只输出公开行，不输出提醒列。迁移
+  `apps/api/database/migrations/202611100001_content_bookmarks.sql`
+  （`+sforum OnlineSafe`，带 `lock_timeout`/`statement_timeout`）。
+- 周期任务：`forum.bookmark_reminders`（`Interval: time.Minute`，队列 maintenance），
+  注册点在 `apps/api/bootstrap/worker.go` 的 `coreScheduleConstructors`
+  （经 `registerForumBookmarkRemindersWorker` 一次装好 worker + schedule）；
+  目标不可见的行只写 `reminded_at`、不发通知，日志体现为
+  `claimed` 与 `notified` 的差额。
+- 产品开关：`features.bookmarks`（`web_options`，默认 `enabled`）。关闭后 6 条路由
+  （PUT/DELETE topics|comments bookmark、`GET /profile/bookmarks`、
+  `GET /profiles/{username}/bookmarks`）全部 403。注意 Options 有 30s 进程内缓存，
+  切库后要等一个 TTL 才生效。
+- QA 证据：`storage/qa/bookmarks-flag-evidence.txt`（开关 200/403 实测）、
+  `storage/qa/bookmarks-reminder-evidence.txt`（提醒链路）、
+  `storage/qa/bookmarks-backup/`（回滚前快照）。
+- 计数对账（运营者手动执行，非定时任务）：
+
+```sql
+-- 公开收藏计数按关系表重算。只算 visibility='public' 的行，
+-- 与读路径 `topics.public_bookmark_count` / `comments.public_bookmark_count` 同口径。
+UPDATE topics t
+SET public_bookmark_count = counts.n
+FROM (
+  SELECT t2.id AS topic_id, COUNT(b.id) AS n
+  FROM topics t2
+  LEFT JOIN content_bookmarks b
+    ON b.target_type = 'topic' AND b.target_id = t2.id AND b.visibility = 'public'
+  GROUP BY t2.id
+) counts
+WHERE counts.topic_id = t.id AND t.public_bookmark_count <> counts.n;
+
+UPDATE comments c
+SET public_bookmark_count = counts.n
+FROM (
+  SELECT c2.id AS comment_id, COUNT(b.id) AS n
+  FROM comments c2
+  LEFT JOIN content_bookmarks b
+    ON b.target_type = 'comment' AND b.target_id = c2.id AND b.visibility = 'public'
+  GROUP BY c2.id
+) counts
+WHERE counts.comment_id = c.id AND c.public_bookmark_count <> counts.n;
+```
+
+- 只查差异（不写库，先看再决定）：
+
+```sql
+SELECT 'topic' AS target, t.id, t.public_bookmark_count AS stored, COUNT(b.id) AS actual
+FROM topics t
+LEFT JOIN content_bookmarks b
+  ON b.target_type = 'topic' AND b.target_id = t.id AND b.visibility = 'public'
+GROUP BY t.id, t.public_bookmark_count
+HAVING t.public_bookmark_count <> COUNT(b.id)
+UNION ALL
+SELECT 'comment', c.id, c.public_bookmark_count, COUNT(b.id)
+FROM comments c
+LEFT JOIN content_bookmarks b
+  ON b.target_type = 'comment' AND b.target_id = c.id AND b.visibility = 'public'
+GROUP BY c.id, c.public_bookmark_count
+HAVING c.public_bookmark_count <> COUNT(b.id);
+```
+
+- 路由（6 条）：`PUT|DELETE /topics/{id}/bookmark`、`PUT|DELETE /comments/{id}/bookmark`
+  在 Forum 控制器；`GET /profile/bookmarks`、`GET /profiles/{username}/bookmarks`
+  在 Profile 控制器。`PUT` 是全量状态写入：`visibility`、`remindAt`、`clearReminder`
+  三态（同时给 `remindAt` 与 `clearReminder` → 422 conflict）；`DELETE` 不读 body。
+- 提醒列 owner-only，三层闸：列表 SQL 在 `includePrivate=false` 时用
+  `CASE WHEN $4` 把两列置 NULL；store 组装 entry 时再清一次；`ForumBookmarkLister`
+  适配器在 `viewerID != ownerUserID` 时第三次清空。删掉层 3 会让测试变红，层 1/2
+  互相遮蔽（行为被锁、层分不出来），终审已记录为已知性质。
+- 提醒时间窗口：晚于 `now - 60s`、早于 `now + 730d`；单用户未到期上限 200（软上限，
+  同事务计数但不串行化，并发可略超，注释里写明这是取舍）。
+- 计数只在 store 单事务内维护（行写入 + 计数 delta 同一 `pgx.Tx`，已存在行走
+  `SELECT ... FOR UPDATE` 后取 delta），service 只表达意图。
+- `hot_score` 不吸收收藏：公式仍是评论 + 浏览 + 主题点赞。
+- 决策：`../decisions/2026-11-10-content-bookmarks.md`；会话：
+  `../sessions/2026-11-10-content-bookmarks.md`。
+
 ## Next Steps
 
 1. Keep comment composer behavior consolidated in

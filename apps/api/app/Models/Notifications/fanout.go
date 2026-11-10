@@ -31,6 +31,18 @@ type TopicEvent struct {
 
 // ReactionEvent 是一次点赞的收件人视角：目标作者收到「X 赞了你的内容」。
 // RecipientUserID 为 0 或等于 ActorUserID 时不写投影（自赞不打扰）。
+// BookmarkReminderEvent 是一次到期的收藏提醒。
+//
+// 与 reaction 的差别：收件人就是收藏行主（没有 actor），去重键锚在收藏行 ID 上，
+// 因此同一行只会产生一条提醒投影，即使 job 被重试。
+type BookmarkReminderEvent struct {
+	BookmarkID      int64
+	RecipientUserID int64
+	TargetType      string
+	TargetID        int64
+	TopicID         int64
+}
+
 type ReactionEvent struct {
 	TargetType      string
 	TargetID        int64
@@ -323,6 +335,46 @@ func (o *Outbox) NotifyTopicTx(ctx context.Context, tx pgx.Tx, event TopicEvent)
 		}
 	}
 	return nil
+}
+
+// NotifyBookmarkReminderTx writes the reminder projection for a claimed bookmark.
+//
+// 调用方（Forum 的到期扫描）已经在同一事务里把 reminded_at 写掉，所以这里失败
+// 会让整条提醒回滚、下一轮重扫——不会出现「标了已提醒但没发」。
+func (o *Outbox) NotifyBookmarkReminderTx(ctx context.Context, tx pgx.Tx, event BookmarkReminderEvent) error {
+	if event.RecipientUserID <= 0 || event.BookmarkID <= 0 {
+		return nil
+	}
+	brand := resolveMailBrand(ctx, o.brandResolver)
+	var email, locale, name string
+	err := tx.QueryRow(ctx, `SELECT email, locale, display_name FROM users WHERE id=$1 AND status='active'`, event.RecipientUserID).Scan(&email, &locale, &name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load bookmark reminder recipient: %w", err)
+	}
+	payload, _ := json.Marshal(mailTemplateData(map[string]any{
+		"bookmarkId":    event.BookmarkID,
+		"topicId":       event.TopicID,
+		"targetType":    event.TargetType,
+		"targetId":      event.TargetID,
+		"locale":        resolveMailLocale(ctx, locale, o.localeResolver),
+		"recipientName": name,
+	}, brand))
+	dedupe := fmt.Sprintf("bookmark_reminder:%d", event.BookmarkID)
+	return o.CreateProjectionsTx(ctx, tx, CreateBundleInput{
+		Notification: CreateInput{
+			RecipientUserID: event.RecipientUserID,
+			Type:            TypeBookmarkReminder,
+			TargetType:      event.TargetType,
+			TargetID:        event.TargetID,
+			Payload:         payload,
+			DedupeKey:       dedupe,
+		},
+		Delivery: CreateDeliveryInput{Recipient: email, TemplateKey: "forum." + TypeBookmarkReminder, TemplateData: payload, IdempotencyKey: dedupe},
+		Channels: coreDeliveryChannels(),
+	})
 }
 
 func mailTemplateData(data map[string]any, brand MailBrand) map[string]any {

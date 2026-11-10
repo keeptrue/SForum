@@ -211,6 +211,10 @@ function routePolicy(route) {
   if (/^\/api\/v1\/(topics|comments)\/:[a-zA-Z]+ID\/likes$/.test(path) && method === 'GET') {
     return ['public', 'forum public read policy; visibility rechecked by service']
   }
+  // 收藏：写端点是登录 + 目标可见性（服务层复核），与点赞同口径。
+  if (/^\/api\/v1\/(topics|comments)\/:[a-zA-Z]+ID\/bookmark$/.test(path) && (method === 'PUT' || method === 'DELETE')) {
+    return ['login', 'active actor bookmark policy; visibility rechecked by service']
+  }
   if (path === '/api/v1/topics' && method === 'POST') return ['permission', 'topic.create plus forum publication policy']
   if (/\/topics\/:topicID\/(hide|restore)$/.test(path)) return ['permission', 'topic.delete_any plus state policy']
   if (/\/topics\/:topicID\/(lock|unlock)$/.test(path)) return ['permission', 'topic.lock or allowed author close policy']
@@ -311,6 +315,7 @@ const reviewedGuardPolicies = new Map([
   ['current active actor; token/session ownership', { kind: 'contextual', evaluatorId: 'core.guard.identity.self_credentials' }],
   ['current active author ownership', { kind: 'contextual', evaluatorId: 'core.guard.forum.author_review' }],
   ['active actor like/unlike policy; visibility rechecked by service', { kind: 'login' }],
+  ['active actor bookmark policy; visibility rechecked by service', { kind: 'login' }],
   ['current actor device ownership; ownership rechecked by service', { kind: 'login' }],
   ['current recipient ownership', { kind: 'contextual', evaluatorId: 'core.guard.notifications.recipient' }],
   ['active package containment, digest, MIME, and path policy', { kind: 'contextual', evaluatorId: 'core.guard.pages.theme_asset' }],

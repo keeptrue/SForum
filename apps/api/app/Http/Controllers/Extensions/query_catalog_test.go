@@ -65,10 +65,10 @@ func TestQueryCatalogHTTPReturnsSealedCatalogForViewers(t *testing.T) {
 				t.Fatal(err)
 			}
 			data := envelope.Data
-			// 10 条 stable（含 1 条 consent-gated）+ 7 条 shortcode 投影 = 密封目录全量；
+			// 11 条 stable（含 1 条 consent-gated）+ 7 条 shortcode 投影 = 密封目录全量；
 			// 摘要必须与目录一致。
 			if data.ExtensionID != hostapi.QueryRegistryCoreExtensionID ||
-				data.Total != 11+len(hostapi.ShortcodeProjectionQueryIDs()) || data.Total != len(data.Queries) {
+				data.Total != 12+len(hostapi.ShortcodeProjectionQueryIDs()) || data.Total != len(data.Queries) {
 				t.Fatalf("catalog = %#v", data)
 			}
 			if data.CostMaximum != 500 || data.ArtifactDigest == "" {

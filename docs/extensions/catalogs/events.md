@@ -46,6 +46,8 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `entity_meta.updated` | observe | 5000 | fail_open | `entityType`, `entityId`, `fieldKeys`, `actorUserId` | — |
 | `reaction.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
 | `reaction.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
+| `bookmark.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `visibility`, `actorUserId` | — |
+| `bookmark.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `visibility`, `actorUserId` | — |
 
 ### Descriptions
 
@@ -164,4 +166,12 @@ Emitted after a like is committed on a visible topic or comment.
 #### `reaction.removed`
 
 Emitted after a like is removed from a visible topic or comment.
+
+#### `bookmark.created`
+
+Emitted after a bookmark is committed on a visible topic or comment.
+
+#### `bookmark.removed`
+
+Emitted after a bookmark is removed from a visible topic or comment.
 

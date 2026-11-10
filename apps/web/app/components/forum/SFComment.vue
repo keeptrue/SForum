@@ -1,5 +1,6 @@
 <script lang="ts">
 import SFReactionControl from '~/components/forum/SFReactionControl.vue'
+import SFBookmarkControl from '~/components/forum/SFBookmarkControl.vue'
 // provide/inject key 与 renderer 类型：父页面 provide 一个"按 comment 渲染内联编辑器"的函数，
 // 评论列表通过 inject 在评论原位渲染编辑器/回复框。
 // 用字符串 key 方便父页面直接 provide，无需 import Symbol。详情页本地定义相同字符串即可。
@@ -94,7 +95,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { reactionsEnabled } = useWebOptions()
+const { reactionsEnabled, bookmarksEnabled } = useWebOptions()
 
 // 后端已用 bluemonday sanitize，前端可直接 v-html 渲染。
 const showHtml = computed(() => Boolean(props.htmlContent))
@@ -441,7 +442,7 @@ const InlineEditorHost = () => {
         <InlineEditorHost v-if="injectedEditorRenderer" />
         <slot v-else name="editor" :comment="commentNode" />
 
-        <div v-if="actions.length || (comment && reactionsEnabled)" class="sf-comment__actions">
+        <div v-if="actions.length || (comment && (reactionsEnabled || bookmarksEnabled))" class="sf-comment__actions">
           <SFReactionControl
             v-if="comment"
             target-type="comment"
@@ -454,6 +455,14 @@ const InlineEditorHost = () => {
             stack-size="2xs"
             :max="2"
             :chip="false"
+          />
+          <SFBookmarkControl
+            v-if="comment"
+            target-type="comment"
+            :target-id="comment.id"
+            :bookmarked="comment.bookmarkedByMe === true"
+            :enabled="bookmarksEnabled"
+            size="sm"
           />
           <button
             v-for="actionItem in actions"

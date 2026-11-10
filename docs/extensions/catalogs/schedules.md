@@ -30,6 +30,7 @@ Authoring/catalog only — no honest callable transport from the plugin process.
 | `attachments.reconcile_compression` | `attachments.reconcile_compression` | maintenance | 1m | attachments | true | 补偿附件图片压缩任务入队失败并继续待处理任务 |
 | `audit.cleanup_events` | `audit.cleanup_events` | maintenance | 1d | audit | true | 清理超过保留期的审计日志（默认 90 天） |
 | `forum.auto_lock_idle` | `forum.auto_lock_idle` | maintenance | 1d | forum | true | 按站点 autoLockIdleDays 锁定闲置主题（0 关闭时 job 空跑） |
+| `forum.bookmark_reminders` | `forum.bookmark_reminders` | maintenance | 1m | forum | true | 扫描到期的收藏提醒并写入站内/邮件通知（每轮最多 200 条） |
 | `forum.flush_view_counts` | `forum.flush_view_counts` | maintenance | 45s | forum | true | 将 Redis 主题浏览增量刷入 PG view_count/hot_score（D3） |
 | `search.reconcile` | `search.reconcile` | maintenance | 15m | search | true | 核对并修复当前搜索 provider 的缺失、过期和幽灵文档 |
 | `extensions.finalize_uninstall_cleanup` | `extensions.finalize_uninstall_cleanup` | maintenance | 5m | extensions | true | 收敛卸载后仍未完成的宿主物理清理（pending tombstone 自动重放） |

@@ -34,15 +34,17 @@ describe('default theme profile page B1 contract', () => {
 
   test('renders only real public profile/activity concepts', () => {
     const page = source('../../app/components/profile/SFProfileShowPage.vue')
+    // 活动流渲染已抽到 tab 内容组件：页面只留 tab 编排，时间线契约跟着组件走。
+    const feed = source('../../app/components/profile/SFProfileFeedTab.vue')
     const rail = source('../../app/components/profile/SFProfileRightRail.vue')
     const apiTypes = source('../../app/composables/profile/useProfileApi.ts')
     const css = source('../../app/assets/css/sforum-profile.css')
 
     expect(apiTypes).toContain('activities: ProfileActivity[]')
-    expect(page).toContain('groupProfileActivitiesByDate')
-    expect(page).toContain("activity.kind === 'topic'")
-    expect(page).toContain("activity.kind === 'topic' ?")
-    expect(page).toContain(": 'i-lucide-message-circle-reply'")
+    expect(feed).toContain('groupProfileActivitiesByDate')
+    expect(feed).toContain("activity.kind === 'topic'")
+    expect(feed).toContain("activity.kind === 'topic' ?")
+    expect(feed).toContain(": 'i-lucide-message-circle-reply'")
     expect(page).toContain('profile.topicCount')
     expect(page).toContain('profile.commentCount')
     expect(page).toContain('profile.value?.recentTopics')
@@ -90,16 +92,18 @@ describe('default theme profile page B1 contract', () => {
 
   test('loads profile activities through paginated API with load-more', () => {
     const page = source('../../app/components/profile/SFProfileShowPage.vue')
+    const feed = source('../../app/components/profile/SFProfileFeedTab.vue')
     const api = source('../../app/composables/profile/useProfileApi.ts')
     const css = source('../../app/assets/css/sforum-profile.css')
 
     expect(api).toContain('listPublicActivities')
     expect(api).toContain('/activities')
     expect(api).toContain('hasMore: boolean')
+    // SSR 首屏取数留在页面，分页状态与「加载更多」在 useProfileActivityFeeds。
     expect(page).toContain('listPublicActivities')
     expect(page).toContain('loadMoreActivities')
     expect(page).toContain('showLoadMore')
-    expect(page).toContain("t('profile.timeline.loadMore')")
+    expect(feed).toContain("t('profile.timeline.loadMore')")
     expect(css).toContain('.sf-profile-load-more')
   })
 })

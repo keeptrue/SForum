@@ -90,7 +90,7 @@ describe('reaction mount points', () => {
   test('comment footer action bar mounts the control as its first child', () => {
     const file = comment()
     expect(file).toContain("import SFReactionControl from '~/components/forum/SFReactionControl.vue'")
-    expect(file).toContain('const { reactionsEnabled } = useWebOptions()')
+    expect(file).toMatch(/const \{[^}]*\breactionsEnabled\b[^}]*\} = useWebOptions\(\)/)
     expect(file).toContain('target-type="comment"')
     expect(file).toContain(':target-id="comment.id"')
     expect(file).toContain(':count="comment.likeCount"')
@@ -117,7 +117,7 @@ describe('reaction mount points', () => {
     expect(page).toContain(':reactions-enabled="reactionsEnabled"')
     expect(page).toContain('@change="applyReactionChange"')
     expect(page).toContain("import { useTopicReaction } from '~/composables/forum/useTopicReaction'")
-    expect(page).toContain('const { applyReactionChange } = useTopicReaction(topic)')
+    expect(page).toMatch(/const \{[^}]*\bapplyReactionChange\b[^}]*\} = useTopicReaction\(topic\)/)
   })
 })
 

@@ -50,7 +50,7 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const { openForumImageViewer } = useForumImageViewer()
 const localePath = useLocalePath()
-const { seoSettings, webOption, reactionsEnabled } = useWebOptions()
+const { seoSettings, webOption, reactionsEnabled, bookmarksEnabled } = useWebOptions()
 // 当前帖子 URL 形态：决定 catch-all 解析方式与规范化目标。
 const topicUrlMode = computed(() => seoSettings.value.topicUrlMode)
 const { publishedTime, updatedTime, commentMeta } = useForumContentTime()
@@ -294,7 +294,7 @@ if (import.meta.server) {
   await Promise.all([commentsAsync, categoryGroupsAsync])
 }
 const { data: topic, error: topicError } = topicResult
-const { applyReactionChange } = useTopicReaction(topic)
+const { applyReactionChange, applyBookmarkChange } = useTopicReaction(topic)
 const { data: commentData, pending: commentsPending, error: commentsError, refresh: refreshComments } = commentsAsync
 const showReplyEditor = computed(() => Boolean(topic.value && topic.value.status !== 'locked' && can(FORUM_PERMISSIONS.postCreate)))
 const { data: categoryGroups, pending: categoriesPending } = categoryGroupsAsync
@@ -907,8 +907,8 @@ async function shareTopic() {
                     <!-- 正文（后端已 sanitize）；v-highlight 高亮代码块，SFMentionContent 负责 @提及 链接化与预览 -->
                     <SFMentionContent v-highlight class="sforum-topic-page__prose sf-prose" data-sforum-image-gallery="topic" data-selection-quote-source="topic" :html="sanitizeHtml(topic.content.htmlContent)" />
 
-                    <SFTopicReactionBar :topic-id="topic.id" :like-count="topic.likeCount" :liked-by-me="topic.likedByMe === true"
-                      :liked-by="topic.likedBy" :show-reply="showReplyEditor" :reactions-enabled="reactionsEnabled" @share="shareTopic" @reply="startTopLevelReply" @change="applyReactionChange" />
+                    <SFTopicReactionBar :topic-id="topic.id" :like-count="topic.likeCount" :liked-by-me="topic.likedByMe === true" :bookmarked="topic.bookmarkedByMe === true"
+                      :liked-by="topic.likedBy" :show-reply="showReplyEditor" :reactions-enabled="reactionsEnabled" :bookmarks-enabled="bookmarksEnabled" @share="shareTopic" @reply="startTopLevelReply" @change="applyReactionChange" @bookmark="applyBookmarkChange" />
 
                     <SFAlert
                       v-if="showActionError"

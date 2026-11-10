@@ -13,6 +13,9 @@ type PublicReadService struct {
 	shortcodes *publicShortcodeRenderer
 	// reactions 可选：为登录访客补 likedByMe。装饰发生在缓存之后，永不进缓存。
 	reactions ReactionReader
+	// bookmarks 可选：为登录访客补 bookmarkedByMe。与 reactions 同一契约：
+	// 缓存之后、请求级、fail-open。
+	bookmarks BookmarkReader
 }
 
 func NewPublicReadService(service *Service) *PublicReadService {
@@ -27,19 +30,38 @@ func (s *PublicReadService) WithReactions(reader ReactionReader) *PublicReadServ
 	return s
 }
 
+// WithBookmarks 注入收藏装饰器；nil 时读模型不含 bookmarkedByMe。
+func (s *PublicReadService) WithBookmarks(reader BookmarkReader) *PublicReadService {
+	if s != nil {
+		s.bookmarks = reader
+	}
+	return s
+}
+
 func (s *PublicReadService) decorateTopic(ctx context.Context, viewer identity.Actor, topic *TopicDetail) {
-	if s == nil || s.reactions == nil || topic == nil {
+	if s == nil || topic == nil {
 		return
 	}
-	// 装饰失败必须 fail-open：点赞状态是增强面，不能把公开读打成 500。
-	_ = s.reactions.DecorateTopic(ctx, viewer, topic)
+	// 装饰失败必须 fail-open：点赞/收藏状态是增强面，不能把公开读打成 500。
+	// 两件事各自独立、互不短路：一个失败不影响另一个的补齐。
+	if s.reactions != nil {
+		_ = s.reactions.DecorateTopic(ctx, viewer, topic)
+	}
+	if s.bookmarks != nil {
+		_ = s.bookmarks.DecorateTopic(ctx, viewer, topic)
+	}
 }
 
 func (s *PublicReadService) decorateComments(ctx context.Context, viewer identity.Actor, comments []Comment) {
-	if s == nil || s.reactions == nil || len(comments) == 0 {
+	if s == nil || len(comments) == 0 {
 		return
 	}
-	_ = s.reactions.DecorateComments(ctx, viewer, comments)
+	if s.reactions != nil {
+		_ = s.reactions.DecorateComments(ctx, viewer, comments)
+	}
+	if s.bookmarks != nil {
+		_ = s.bookmarks.DecorateComments(ctx, viewer, comments)
+	}
 }
 
 func (s *PublicReadService) WithShortcodeDispatcher(dispatcher PublicShortcodeDispatcher) *PublicReadService {

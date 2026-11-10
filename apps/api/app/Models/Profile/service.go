@@ -20,6 +20,7 @@ type Service struct {
 	avatarOptions  AvatarOptionResolver
 	profileTabs    ProfileTabProvider
 	nicknames      NicknameEditor
+	bookmarks      BookmarkLister
 }
 
 const (

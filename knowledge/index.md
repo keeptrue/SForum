@@ -6,6 +6,20 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 互动第二刀：收藏（主题 + 评论，公开/私密 + 提醒）
+
+- Status: **landed（可提交，2026-11-10）**。`content_bookmarks` 多态关系 + 只统计
+  公开收藏的计数列 + 6 条路由 + `forum.bookmark_reminders` 周期任务与
+  `bookmark_reminder` 通知（邮件默认开）+ 稳定视图 `sforum_core_v1.forum_bookmarks`
+  与 HostQuery `core.query.public_bookmarks.list` + `features.bookmarks` 开关；资料页
+  新增第 4 个内置 tab「收藏」。迁移 up/down 实机可逆，开关 6 条路由 403/200 实测，
+  提醒链路站内 + Mailpit 实收，计数对账 0 差异。三轮独立审查：首轮 8 项返工（含
+  「提醒清不掉」功能缺陷）、二轮 1 项阻断（他人视角泄露行主提醒时间）、终审 10 项
+  全 PASS。
+- Handoff：`sessions/2026-11-10-content-bookmarks.md`；决策：
+  `decisions/2026-11-10-content-bookmarks.md`；计划：
+  `plans/2026-07-12-iteration-a-engagement-loop.md`（Iteration A 就此收口）。
+
 ### 互动第一刀：点赞（主题 + 评论）
 
 - Status: **landed（可提交，2026-10-29）**。迁移已在 dev 库应用；领域层、读模型、
@@ -727,7 +741,19 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **点赞头像组预览 likedBy（2026-11-09，最新）**：主题/评论读模型新增
+- **收藏（主题 + 评论 + 提醒，2026-11-10，最新）**：`content_bookmarks` 多态关系、
+  每条可公开/私密（默认私密）、只统计公开收藏的计数列、`PUT` 全量状态写入
+  （`visibility` / `remindAt` / `clearReminder` 三态）、`GET /profile/bookmarks` 与
+  `GET /profiles/{username}/bookmarks` 视角分叉；提醒列 owner-only 三层闸（SQL CASE +
+  store 兜底 + 适配器），提醒任务 `forum.bookmark_reminders` 每 60s 抢占式扫描、
+  目标不可见只写 `reminded_at` 不发通知；`bookmarkedByMe` 缓存之后装饰永不进缓存。
+  前端 `SFBookmarkControl` / `SFProfileBookmarkTab`，资料页第 4 个 tab，`SFProfileShowPage`
+  722→500 行（抽出 `SFProfileFeedTab` + `useProfileActivityFeeds`）。三轮独立审查、
+  迁移 up/down、开关 403/200、Mailpit 实收、对账 0 差异均有证据；全量
+  `test.sh --fast` 三线 PASS（`bun test` 1944 / V3 目录 392 routes / 356 UI surfaces）。
+  见 `sessions/2026-11-10-content-bookmarks.md`、
+  `decisions/2026-11-10-content-bookmarks.md`。
+- **点赞头像组预览 likedBy（2026-11-09）**：主题/评论读模型新增
   `likedBy`（≤3，自己优先 + 其余最早），20/页「谁赞了」名单（最近优先）；
   预览在缓存之后装饰、永不进缓存、查询失败 fail-open；一条批次 SQL 复用
   `content_reactions_roster_idx`（无新迁移）；前端 `SFReactionStack` /

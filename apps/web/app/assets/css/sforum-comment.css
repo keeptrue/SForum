@@ -407,6 +407,12 @@
   margin-top: 0.5rem;
 }
 
+/* 收藏控件并入同一动作行：继承行的中性色与强调色，不引入第二套配色 */
+.sf-comment__actions .sf-bookmark {
+  --sf-public-muted: var(--sf-fg-tertiary);
+  --sf-public-accent: var(--sf-accent);
+}
+
 /* 评论点赞并入 footer 动作行：同字号、同中性色，计数不被行的透明度压暗 */
 .sf-comment__actions .sf-reaction {
   --sf-public-muted: var(--sf-fg-tertiary);

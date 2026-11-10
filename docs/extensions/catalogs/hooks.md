@@ -63,6 +63,8 @@ Rules: async + filter is rejected; async requires fail_open; mutableFields only 
 | `entity_meta.updated` | observe | 5000 | fail_open | `entityType`, `entityId`, `fieldKeys`, `actorUserId` | — |
 | `reaction.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
 | `reaction.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
+| `bookmark.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `visibility`, `actorUserId` | — |
+| `bookmark.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `visibility`, `actorUserId` | — |
 
 ## Manifest declaration fields
 

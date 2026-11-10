@@ -223,6 +223,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfavatar` | `sforum.component.shared.sfavatar@1` | component | `public`, `admin` | — | `apps/web/app/components/SFAvatar.vue` | P7/P9 Admin and Component Registries |
 | `core.component.shared.sfavatar_group` | `sforum.component.shared.sfavatar_group@1` | component | `public` | — | `apps/web/app/components/SFAvatarGroup.vue` | P9 Component Registry |
 | `core.component.shared.sfbadge` | `sforum.component.shared.sfbadge@1` | component | `public`, `admin` | — | `apps/web/app/components/SFBadge.vue` | P7/P9 Admin and Component Registries |
+| `core.component.shared.sfbookmark_control` | `sforum.component.shared.sfbookmark_control@1` | component | `public` | — | `apps/web/app/components/forum/SFBookmarkControl.vue` | P9 Component Registry |
 | `core.component.shared.sfbutton` | `sforum.component.shared.sfbutton@1` | component | `public`, `admin` | — | `apps/web/app/components/SFButton.vue` | P7/P9 Admin and Component Registries |
 | `core.component.shared.sfcard` | `sforum.component.shared.sfcard@1` | component | `public`, `admin` | — | `apps/web/app/components/SFCard.vue` | P7/P9 Admin and Component Registries |
 | `core.component.shared.sfcategory_index_page` | `sforum.component.shared.sfcategory_index_page@1` | component | `public` | — | `apps/web/app/components/forum/SFCategoryIndexPage.vue` | P9 Component Registry |
@@ -282,6 +283,8 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfpersonal_access_tokens_page` | `sforum.component.shared.sfpersonal_access_tokens_page@1` | component | `public` | — | `apps/web/app/components/settings/SFPersonalAccessTokensPage.vue` | P9 Component Registry |
 | `core.component.shared.sf_plugin_page_body_island` | `sforum.component.shared.sf_plugin_page_body_island@1` | component | `public` | — | `apps/web/app/components/extensions/public/SFPluginPageBodyIsland.vue` | P9 Component Registry |
 | `core.component.shared.sfprivacy_page` | `sforum.component.shared.sfprivacy_page@1` | component | `public` | — | `apps/web/app/components/legal/SFPrivacyPage.vue` | P9 Component Registry |
+| `core.component.shared.sfprofile_bookmark_tab` | `sforum.component.shared.sfprofile_bookmark_tab@1` | component | `public` | — | `apps/web/app/components/profile/SFProfileBookmarkTab.vue` | P9 Component Registry |
+| `core.component.shared.sfprofile_feed_tab` | `sforum.component.shared.sfprofile_feed_tab@1` | component | `public` | — | `apps/web/app/components/profile/SFProfileFeedTab.vue` | P9 Component Registry |
 | `core.component.shared.sfprofile_nickname_field` | `sforum.component.shared.sfprofile_nickname_field@1` | component | `public` | — | `apps/web/app/components/settings/SFProfileNicknameField.vue` | P9 Component Registry |
 | `core.component.shared.sfprofile_right_rail` | `sforum.component.shared.sfprofile_right_rail@1` | component | `public` | — | `apps/web/app/components/profile/SFProfileRightRail.vue` | P9 Component Registry |
 | `core.component.shared.sfprofile_settings_page` | `sforum.component.shared.sfprofile_settings_page@1` | component | `public` | — | `apps/web/app/components/settings/SFProfileSettingsPage.vue` | P9 Component Registry |

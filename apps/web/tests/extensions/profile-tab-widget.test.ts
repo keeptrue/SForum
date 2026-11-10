@@ -24,6 +24,7 @@ import type { ProfileExtensionTab, PublicProfile } from '../../app/composables/p
 const messages: Record<string, string> = {
   'profile.tabs.topics': '主题',
   'profile.tabs.replies': '回复',
+  'profile.tabs.bookmarks': '收藏',
   'profile.tabs.about': '关于',
   'profile.tabs.ariaLabel': '个人主页分区'
 }
@@ -33,6 +34,8 @@ function t(key: string) {
 }
 
 const locale = testVue.ref('zh-CN')
+// 收藏开关：默认开，个别用例关掉以证明 tab 不渲染。
+const bookmarksEnabled = testVue.ref(true)
 
 function makeProfile(extensionTabs?: ProfileExtensionTab[]): PublicProfile {
   return {
@@ -103,6 +106,11 @@ const slotRender = testVue.defineComponent({
     return () => testVue.h('div', slots.default ? slots.default() : [])
   }
 })
+// 收藏面板桩：带 marker，才能证明「切到收藏真的挂载 / 关闭开关真的卸载」。
+const BookmarkTabStub = testVue.defineComponent({
+  name: 'SFProfileBookmarkTab',
+  render: () => testVue.h('div', { 'data-testid': 'profile-bookmarks-panel' })
+})
 const SkeletonStub = testVue.defineComponent({
   props: { lines: { type: Number, default: 3 } },
   render: () => testVue.h('div', { 'data-testid': 'profile-skeleton' })
@@ -137,7 +145,10 @@ const bindings: Record<string, unknown> = {
   useI18n: () => ({ t, locale }),
   useLocalePath: () => (path: string) => path,
   useToast: () => ({ add: () => {} }),
-  useWebOptions: () => ({ seoSettings: testVue.ref({ topicUrlMode: 'id_slug' }) }),
+  useWebOptions: () => ({
+    seoSettings: testVue.ref({ topicUrlMode: 'id_slug' }),
+    bookmarksEnabled
+  }),
   useSiteDateTime: () => ({
     format: (value: string) => value,
     formatDateOnly: (value: string) => value,
@@ -173,7 +184,35 @@ const bindings: Record<string, unknown> = {
   extensionTabLabel,
   profileWidgetTabValue,
   profileWidgetTabs,
+  // 活动流已抽到 useProfileActivityFeeds + SFProfileFeedTab：本用例只关心 tab 栏与
+  // widget 挂载，数据侧给空实现，渲染侧仍编译真实 SFC。
+  PROFILE_ACTIVITY_PER_PAGE: 20,
+  profileActivityKindForTab: (tab: string) => (tab === 'topics' ? 'topic' : tab === 'replies' ? 'comment' : null),
+  useProfileActivityFeeds: () => ({
+    activeFeed: testVue.computed(() => ({ items: [], page: 0, hasMore: false, loaded: true })),
+    switchingTab: testVue.ref(false),
+    loadingMore: testVue.ref(false),
+    showLoadMore: testVue.computed(() => false),
+    categoryParticipationCount: testVue.computed(() => 0),
+    ensureFeedLoaded: async () => {},
+    loadMoreActivities: async () => {}
+  }),
+  // 收藏 tab 的数据层同样由页面导入；本用例只关心 tab 栏，给空实现。
+  useProfileBookmarks: () => ({
+    items: testVue.ref([]),
+    sortedItems: testVue.computed(() => []),
+    total: testVue.ref(0),
+    hasMore: testVue.ref(false),
+    loaded: testVue.ref(false),
+    loading: testVue.ref(false),
+    loadingMore: testVue.ref(false),
+    failed: testVue.ref(false),
+    ensureLoaded: async () => {},
+    loadMore: async () => {},
+    retry: async () => {}
+  }),
   // 页面显式导入的组件（右栏挂真组件，其余只占位）
+  SFProfileBookmarkTab: BookmarkTabStub,
   SFHomeNavigation: nullRender,
   SFResponsivePublicSidebar: slotRender,
   SFPublicMobileUserMenu: nullRender,
@@ -181,6 +220,7 @@ const bindings: Record<string, unknown> = {
 }
 
 const railPath = fileURLToPath(new URL('../../app/components/profile/SFProfileRightRail.vue', import.meta.url))
+const feedTabPath = fileURLToPath(new URL('../../app/components/profile/SFProfileFeedTab.vue', import.meta.url))
 const pagePath = fileURLToPath(new URL('../../app/components/profile/SFProfileShowPage.vue', import.meta.url))
 
 /**
@@ -206,6 +246,8 @@ writeFileSync(compiledPagePath, pageSourceForCompile(pagePath))
 
 const ProfileRightRail = await compileVueSfc(railPath, 'profile-right-rail', bindings)
 bindings.SFProfileRightRail = ProfileRightRail
+const ProfileFeedTab = await compileVueSfc(feedTabPath, 'profile-feed-tab', bindings)
+bindings.SFProfileFeedTab = ProfileFeedTab
 const ProfileShowPage = await compileVueSfc(compiledPagePath, 'profile-show', bindings)
 rmSync(compiledPagePath, { force: true })
 
@@ -246,6 +288,7 @@ beforeEach(() => {
   widgetMounts = []
   widgetAlive = 0
   locale.value = 'zh-CN'
+  bookmarksEnabled.value = true
 })
 
 describe('profile extension tab label resolution', () => {
@@ -311,15 +354,47 @@ describe('profile widget tab selection', () => {
 })
 
 describe('profile page dynamic tabs', () => {
-  test('renders only the three built-in tabs when no widget tab is contributed', async () => {
+  test('renders only the four built-in tabs when no widget tab is contributed', async () => {
     const wrapper = await mountPage(makeProfile([
       { extensionId: 'demo', id: 'link', order: 1, kind: 'hostLink', url: '/docs', label: { 'zh-CN': '文档' } }
     ]))
 
-    expect(tabText(wrapper)).toEqual(['主题 3', '回复 2', '关于'])
+    expect(tabText(wrapper)).toEqual(['主题 3', '回复 2', '收藏', '关于'])
     expect(wrapper.find('[data-testid="profile-widget-stub"]').exists()).toBe(false)
     expect(widgetMounts).toEqual([])
     wrapper.unmount()
+  })
+
+  test('drops the bookmarks tab when the feature flag is off and falls back to topics', async () => {
+    bookmarksEnabled.value = false
+    const wrapper = await mountPage(makeProfile())
+    try {
+      // 关闭态：tab 栏里根本没有「收藏」，点不出 403 面板
+      expect(tabText(wrapper)).toEqual(['主题 3', '回复 2', '关于'])
+      expect(wrapper.findAll('.sf-profile-tab').some(node => (node.text() || '').includes('收藏'))).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+
+    // 打开态先切到收藏，再关闭开关：activeTab 必须回落到 topics，而不是停在已消失的 tab 上。
+    bookmarksEnabled.value = true
+    const reopened = await mountPage(makeProfile())
+    try {
+      await tabByLabel(reopened, '收藏')!.trigger('click')
+      await flushPromises()
+      // 先证明面板真的开了，否则「关闭后消失」这条断言可能是空过。
+      expect(reopened.find('[data-testid="profile-bookmarks-panel"]').exists()).toBe(true)
+
+      bookmarksEnabled.value = false
+      await flushPromises()
+
+      expect(tabText(reopened)).toEqual(['主题 3', '回复 2', '关于'])
+      const active = reopened.findAll('.sf-profile-tab').find(node => node.classes().includes('is-active'))
+      expect((active?.text() || '').trim()).toBe('主题 3')
+      expect(reopened.find('[data-testid="profile-bookmarks-panel"]').exists()).toBe(false)
+    } finally {
+      reopened.unmount()
+    }
   })
 
   test('appends widget tabs after 关于 and mounts L2 only after the tab is selected', async () => {
@@ -329,7 +404,7 @@ describe('profile page dynamic tabs', () => {
       widgetTab('guestbook', 10, 'demo.guestbook', '留言板')
     ]))
 
-    expect(tabText(wrapper)).toEqual(['主题 3', '回复 2', '关于', '留言板', '作品集'])
+    expect(tabText(wrapper)).toEqual(['主题 3', '回复 2', '收藏', '关于', '留言板', '作品集'])
     // 懒挂载：tab 已存在但未选中时不创建 L2 挂载点
     expect(widgetMounts).toEqual([])
     expect(wrapper.find('[data-testid="profile-widget-stub"]').exists()).toBe(false)

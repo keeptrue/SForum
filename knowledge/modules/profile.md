@@ -21,7 +21,9 @@ Member public profiles and current-user profile settings.
   `location`, `website_url` text; `avatar_attachment_id` nullable reference to
   `attachments(id)` set null on delete; `created_at`/`updated_at`.
 - Sparse by design: no background images, custom code, birthday, phone,
-  follow counts, or gamification fields.
+  follow counts, or gamification fields. `user_profiles` remains sparse after
+  bookmarks shipped — the public bookmarks tab reads `content_bookmarks`
+  through a `BookmarkLister` interface and adds no profile column.
 - `ExtensionProfileTabProvider` (`app/Providers/profile_contributions.go`)
   resolves `forum.profile.tabs` for a viewer: tabs with an empty
   `payload.permission` are public, the rest require `viewer.Can(permission)`.
@@ -71,6 +73,24 @@ Member public profiles and current-user profile settings.
 
 Profile update is login-required and current-user only; no admin profile
 editor in V1.
+
+### Bookmarks（收藏 tab，2026-11-10）
+
+- `GET /api/v1/profiles/{username}/bookmarks` 与 `GET /api/v1/profile/bookmarks`
+  返回同一形状（`ProfileBookmarkPage`：`items` + `page`/`perPage`/`total`）。
+  视角决定数据面，服务端裁剪，前端不负责过滤：
+  - 他人/匿名：只出 `visibility='public'`，且条目里 `remindAt`/`remindedAt`
+    **必须为空**（行主的提醒是私有调度数据）；
+  - 本人：含私密条目，带 `visibility` 供 UI 加锁标记，提醒两列保留。
+- 缓存头按视角分裂：他人/匿名 `public, max-age=30` + `Vary: Cookie`；本人
+  `private, no-store` + `Vary(Cookie, Authorization, Accept-Language)`。
+- 资料页第 4 个内置 tab 为「收藏」，顺序 主题 / 回复 / 收藏 / 关于；受
+  `features.bookmarks` 控制，关闭时 tab 根本不进 `profileTabs`，激活态回落到
+  「主题」。提醒 chip 只在本人视角渲染（模板与 tooltip 双保险）。
+- 后端通过最小接口 `BookmarkLister` 注入，Forum 不认识 Profile、Profile 不写
+  收藏 SQL；适配器在 `app/Providers/forum_bookmarks.go`。
+- 数据口径、隐私三层闸与残余见 `modules/forum.md` 的 Bookmarks 段与
+  `decisions/2026-11-10-content-bookmarks.md`。
 
 ### Nickname（昵称）
 

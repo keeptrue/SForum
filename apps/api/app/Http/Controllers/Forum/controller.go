@@ -29,7 +29,9 @@ type Controller struct {
 	// citations 是 AI 依据读取的聚焦协作者（D11：不往 forum.Service 上加方法）。
 	citations *forum.CitationService
 	// reactions 是点赞域的聚焦协作者；未装配时写/名单端点 503。
-	reactions       *forum.ReactionService
+	reactions *forum.ReactionService
+	// bookmarks 是收藏域的聚焦协作者；未装配时写端点 503。
+	bookmarks       *forum.BookmarkService
 	searchService   SearchService
 	reindexer       ReindexService
 	searchProviders SearchProviderAdmin
@@ -149,6 +151,27 @@ func (h *Controller) WithReactions(reactions *forum.ReactionService) *Controller
 		h.publicReads = h.publicReads.WithReactions(reactions)
 	}
 	return h
+}
+
+// WithBookmarks 装配收藏协作者，并把同一个读取面接到公开读服务上。
+func (h *Controller) WithBookmarks(bookmarks *forum.BookmarkService) *Controller {
+	if h == nil {
+		return h
+	}
+	h.bookmarks = bookmarks
+	if h.publicReads != nil {
+		h.publicReads = h.publicReads.WithBookmarks(bookmarks)
+	}
+	return h
+}
+
+// BookmarkService 暴露已装配的收藏协作者（bootstrap 用它接 Profile 的最小接口）。
+// 未装配时返回 nil，调用方据此降级为空名单。
+func (h *Controller) BookmarkService() *forum.BookmarkService {
+	if h == nil {
+		return nil
+	}
+	return h.bookmarks
 }
 
 func (h *Controller) WithSearchProviderAdmin(admin SearchProviderAdmin) *Controller {

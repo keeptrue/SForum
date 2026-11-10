@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ForumUserSummary } from '~/utils/forum/forumTaxonomy'
 import SFReactionControl from '~/components/forum/SFReactionControl.vue'
+import SFBookmarkControl from '~/components/forum/SFBookmarkControl.vue'
+import type { BookmarkState } from '~/composables/forum/useBookmark'
 /**
  * 主题正文下方的动作行：分享 / 回复 / 点赞。
  *
@@ -15,17 +17,22 @@ const props = withDefaults(defineProps<{
   likedBy?: ForumUserSummary[]
   showReply?: boolean
   reactionsEnabled?: boolean
+  bookmarked?: boolean
+  bookmarksEnabled?: boolean
 }>(), {
   likedByMe: false,
   likedBy: () => [],
   showReply: false,
-  reactionsEnabled: true
+  reactionsEnabled: true,
+  bookmarked: false,
+  bookmarksEnabled: true
 })
 
 const emit = defineEmits<{
   share: []
   reply: []
   change: [liked: boolean, count: number, likedBy: ForumUserSummary[]]
+  bookmark: [state: BookmarkState]
 }>()
 
 const { t } = useI18n()
@@ -55,6 +62,14 @@ const { t } = useI18n()
       :enabled="props.reactionsEnabled"
       size="md"
       @change="(liked, count, likedBy) => emit('change', liked, count, likedBy)"
+    />
+    <SFBookmarkControl
+      target-type="topic"
+      :target-id="props.topicId"
+      :bookmarked="props.bookmarked"
+      :enabled="props.bookmarksEnabled"
+      size="md"
+      @change="state => emit('bookmark', state)"
     />
   </div>
 </template>

@@ -156,6 +156,7 @@ func newProfileTestAppWithEditor(policy profileForumReadPolicy, editor profile.N
 type profileTestOptions struct {
 	editor    profile.NicknameEditor
 	tabs      profile.ProfileTabProvider
+	bookmarks profile.BookmarkLister
 	actors    map[int64]identity.Actor
 	actorsErr error
 }
@@ -180,6 +181,9 @@ func newProfileTestAppWithOptions(policy profileForumReadPolicy, opts profileTes
 	}
 	if opts.tabs != nil {
 		service.WithProfileTabs(opts.tabs)
+	}
+	if opts.bookmarks != nil {
+		service.WithBookmarkLister(opts.bookmarks)
 	}
 	controller := NewController(service, users, manager, policy)
 	loginProvider := profileRouteProviderFunc(func(api fiber.Router) {
@@ -295,6 +299,8 @@ type profileRouteProviderFunc func(api fiber.Router)
 func (f profileRouteProviderFunc) RegisterRoutes(api fiber.Router) { f(api) }
 
 type profileFakeStore struct {
+	// lookupErr 让用户名解析失败（不存在/已删除）走既有 not-found 路径。
+	lookupErr          error
 	user               profile.UserProfileSummary
 	profile            profile.Profile
 	stats              profile.ProfileStats
@@ -326,6 +332,9 @@ func (s *profileFakeStore) GetAvatarAttachment(context.Context, int64) (profile.
 
 func (s *profileFakeStore) GetUserSummaryByUsername(context.Context, string) (profile.UserProfileSummary, error) {
 	s.publicProfileCalls++
+	if s.lookupErr != nil {
+		return profile.UserProfileSummary{}, s.lookupErr
+	}
 	return s.user, nil
 }
 

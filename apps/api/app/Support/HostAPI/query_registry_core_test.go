@@ -124,6 +124,13 @@ func TestQueryRegistryCoreCatalogSealsPublicationsBindingsAndSchemas(t *testing.
 			ResultSchema:     QueryPublicReactionSchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		},
+		QueryPublicBookmarksList: {
+			HostQueryID: QueryPublicBookmarksList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_bookmarks.list", ContractVersion: "core.query.public_bookmarks.list@1",
+			Entity: "core.query.public_bookmark", PlanVersion: "core.query.public_bookmarks.list.plan@1",
+			ResultSchema:     QueryPublicBookmarkSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
 		QueryPublicCategoriesList: {
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,
 			QueryID: "core.query.public_categories.list", ContractVersion: "core.query.public_categories.list@1",

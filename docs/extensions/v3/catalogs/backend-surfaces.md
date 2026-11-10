@@ -33,6 +33,8 @@
 - `entity_meta.updated`
 - `reaction.created`
 - `reaction.removed`
+- `bookmark.created`
+- `bookmark.removed`
 
 ## contributionPoints
 
@@ -65,6 +67,7 @@
 - `attachments.reconcile_compression`
 - `audit.cleanup_events`
 - `forum.auto_lock_idle`
+- `forum.bookmark_reminders`
 - `forum.flush_view_counts`
 - `search.reconcile`
 - `extensions.finalize_uninstall_cleanup`

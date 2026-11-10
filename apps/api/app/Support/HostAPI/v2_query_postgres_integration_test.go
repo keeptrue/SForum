@@ -375,6 +375,16 @@ func installPostgresQueryFixture(t *testing.T, ctx context.Context, pool *pgxpoo
 		// categories.visibility='public'）由 database/migrations 的结构测试逐字固定。
 		`CREATE TABLE raw_reactions (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, target_type TEXT NOT NULL, target_id BIGINT NOT NULL, reaction TEXT NOT NULL DEFAULT 'like', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
 		`CREATE VIEW forum_reactions AS SELECT reactions.id, reactions.target_type, reactions.target_id, reactions.reaction, reactions.created_at, users.id AS user_id, users.username, users.display_name FROM raw_reactions AS reactions JOIN raw_users AS users ON users.id = reactions.user_id WHERE users.status = 'active' AND ((reactions.target_type = 'topic' AND EXISTS (SELECT 1 FROM forum_topics WHERE forum_topics.id = reactions.target_id)) OR (reactions.target_type = 'comment' AND EXISTS (SELECT 1 FROM forum_comments WHERE forum_comments.id = reactions.target_id))) OFFSET 0`,
+		// 收藏关系面：与点赞同一姿态，fixture 视图只做「目标存在 + actor 活跃 +
+		// 公开可见性」的最小过滤；真实迁移的谓词与 remind_at 不外泄由
+		// database/migrations 的结构测试逐字固定。
+		`CREATE TABLE raw_bookmarks (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, target_type TEXT NOT NULL, target_id BIGINT NOT NULL, visibility TEXT NOT NULL DEFAULT 'private', remind_at TIMESTAMPTZ, reminded_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`,
+		`CREATE VIEW forum_bookmarks AS SELECT bookmarks.id, bookmarks.target_type, bookmarks.target_id, bookmarks.visibility, bookmarks.created_at, bookmarks.updated_at, users.id AS user_id, users.username, users.display_name FROM raw_bookmarks AS bookmarks JOIN raw_users AS users ON users.id = bookmarks.user_id WHERE bookmarks.visibility = 'public' AND users.status = 'active' AND ((bookmarks.target_type = 'topic' AND EXISTS (SELECT 1 FROM forum_topics WHERE forum_topics.id = bookmarks.target_id)) OR (bookmarks.target_type = 'comment' AND EXISTS (SELECT 1 FROM forum_comments WHERE forum_comments.id = bookmarks.target_id))) OFFSET 0`,
+		`INSERT INTO raw_bookmarks (id, user_id, target_type, target_id, visibility, remind_at, created_at, updated_at) VALUES
+			(1, 1, 'topic', 1, 'public', now() + interval '1 day', now() - interval '2 hours', now()),
+			(2, 2, 'topic', 1, 'public', NULL, now() - interval '1 hour', now()),
+			(3, 1, 'topic', 2, 'private', now(), now(), now()),
+			(4, 3, 'topic', 1, 'public', NULL, now(), now())`,
 		`INSERT INTO raw_reactions (id, user_id, target_type, target_id, reaction, created_at) VALUES
 			(1, 1, 'topic', 1, 'like', now() - interval '2 hours'),
 			(2, 2, 'topic', 1, 'like', now() - interval '1 hour'),
@@ -594,4 +604,39 @@ func (consentIntegrationCapabilities) AuthorizeProtocolV2QueryCapability(
 	string,
 ) error {
 	return nil
+}
+
+// TestPostgresProtocolV2QueryRuntimePublicBookmarksOnlySeesPublicRows 固定收藏
+// 读面的可见性口径：视图只出 visibility='public' 的行，私密收藏与提醒字段
+// （remind_at / reminded_at）永不出现在结果里。
+func TestPostgresProtocolV2QueryRuntimePublicBookmarksOnlySeesPublicRows(t *testing.T) {
+	h := newPostgresQueryHarness(t)
+	ctx := ContextWithProtocolV2RuntimeIdentity(h.ctx, h.identity)
+
+	request := &hostv2.QueryRequest{
+		Context: testProtocolV2RequestContext(), QueryId: QueryPublicBookmarksList, PlanVersion: QueryStableCorePlanVersion,
+		Filters: []*hostv2.QueryFilter{
+			{Field: "target_type", Operator: "eq", Value: queryParameter(t, QueryTextParameterSchemaID, "topic")},
+			{Field: "target_id", Operator: "eq", Value: queryParameter(t, QueryInt64ParameterSchemaID, "1")},
+		},
+	}
+	response := h.engine.execute(ctx, request)
+	if response.GetError() != nil {
+		t.Fatalf("bookmarks response = %#v", response.GetError())
+	}
+	// topic 1 上共 3 行公开收藏（user 3 已禁用、user 1 的 topic 2 收藏是私密）。
+	if len(response.GetRows()) != 2 {
+		t.Fatalf("public bookmark rows = %d, want 2 (%#v)", len(response.GetRows()), response.GetRows())
+	}
+	for _, row := range response.GetRows() {
+		values := row.GetValue().AsMap()
+		if values["visibility"] != "public" {
+			t.Fatalf("non-public bookmark leaked: %#v", values)
+		}
+		for _, forbidden := range []string{"remind_at", "reminded_at", "email"} {
+			if _, ok := values[forbidden]; ok {
+				t.Fatalf("bookmark query exposed %q: %#v", forbidden, values)
+			}
+		}
+	}
 }

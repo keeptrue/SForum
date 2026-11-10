@@ -57,8 +57,9 @@ func TestServiceSchedulesReturnsCoreCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("schedules: %v", err)
 	}
-	if len(items) != 8 {
-		t.Fatalf("expected 8 core schedules, got %d", len(items))
+	// 9 = 8 + forum.bookmark_reminders（到期收藏提醒，60s / maintenance）。
+	if len(items) != 9 {
+		t.Fatalf("expected 9 core schedules, got %d", len(items))
 	}
 	ids := map[string]bool{}
 	for _, item := range items {
@@ -81,6 +82,7 @@ func TestServiceSchedulesReturnsCoreCatalog(t *testing.T) {
 		"audit.cleanup_events",
 		"forum.auto_lock_idle",
 		"forum.flush_view_counts",
+		supportjobs.ScheduleForumBookmarkReminders,
 		"search.reconcile",
 	} {
 		if !ids[id] {

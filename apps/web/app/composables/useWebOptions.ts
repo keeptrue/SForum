@@ -442,6 +442,7 @@ export const useWebOptions = () => {
   }))
   const footerLinks = computed(() => parseFooterLinks(webOption('footer.links', fallbackOptions['footer.links'])))
   const reactionsEnabled = computed(() => featureEnabled('features.reactions'))
+  const bookmarksEnabled = computed(() => featureEnabled('features.bookmarks'))
   const humanVerificationProvider = computed(() => {
     const provider = webOption('human_verification.provider', 'disabled').trim().toLowerCase()
     return provider === 'altcha' ? 'altcha' : 'disabled'
@@ -522,6 +523,7 @@ export const useWebOptions = () => {
     footerLinks,
     humanVerificationProvider,
     reactionsEnabled,
+    bookmarksEnabled,
     featureEnabled,
     humanVerificationScenarioSettings,
     altchaWidgetSettings,

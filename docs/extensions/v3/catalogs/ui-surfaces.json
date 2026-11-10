@@ -2247,6 +2247,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.shared.sfbookmark_control",
+    "contractVersion": "sforum.component.shared.sfbookmark_control@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFBookmarkControl.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfbutton",
     "contractVersion": "sforum.component.shared.sfbutton@1",
     "kind": "component",
@@ -2836,6 +2846,26 @@
     "contractVersion": "sforum.component.shared.sfprivacy_page@1",
     "kind": "component",
     "source": "apps/web/app/components/legal/SFPrivacyPage.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfprofile_bookmark_tab",
+    "contractVersion": "sforum.component.shared.sfprofile_bookmark_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/profile/SFProfileBookmarkTab.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfprofile_feed_tab",
+    "contractVersion": "sforum.component.shared.sfprofile_feed_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/profile/SFProfileFeedTab.vue",
     "owners": [
       "public"
     ],

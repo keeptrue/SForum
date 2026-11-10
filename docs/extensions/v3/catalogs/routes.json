@@ -1982,7 +1982,7 @@
     "handler": "adminCategories",
     "method": "GET",
     "path": "/api/v1/admin/forum/categories",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:80",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:85",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2000,7 +2000,7 @@
     "handler": "adminCreateCategory",
     "method": "POST",
     "path": "/api/v1/admin/forum/categories",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:81",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:86",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2018,7 +2018,7 @@
     "handler": "adminDeleteCategory",
     "method": "DELETE",
     "path": "/api/v1/admin/forum/categories/:categoryID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:83",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:88",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2036,7 +2036,7 @@
     "handler": "adminUpdateCategory",
     "method": "PATCH",
     "path": "/api/v1/admin/forum/categories/:categoryID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:82",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:87",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2054,7 +2054,7 @@
     "handler": "adminCategoryGroups",
     "method": "GET",
     "path": "/api/v1/admin/forum/category-groups",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:76",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:81",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2072,7 +2072,7 @@
     "handler": "adminCreateCategoryGroup",
     "method": "POST",
     "path": "/api/v1/admin/forum/category-groups",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:77",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:82",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2090,7 +2090,7 @@
     "handler": "adminDeleteCategoryGroup",
     "method": "DELETE",
     "path": "/api/v1/admin/forum/category-groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:79",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:84",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2108,7 +2108,7 @@
     "handler": "adminUpdateCategoryGroup",
     "method": "PATCH",
     "path": "/api/v1/admin/forum/category-groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:78",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:83",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2126,7 +2126,7 @@
     "handler": "adminContentComments",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/comments",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:92",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:97",
     "access": "permission",
     "policy": "post.edit_any or post.revision.view_any",
     "guard": {
@@ -2145,7 +2145,7 @@
     "handler": "adminContentComment",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/comments/:commentID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:93",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:98",
     "access": "permission",
     "policy": "post.edit_any or post.revision.view_any",
     "guard": {
@@ -2164,7 +2164,7 @@
     "handler": "adminContentTopics",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/topics",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:90",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:95",
     "access": "permission",
     "policy": "topic.edit_any or topic.revision.view_any",
     "guard": {
@@ -2183,7 +2183,7 @@
     "handler": "adminContentTopic",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/topics/:topicID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:91",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:96",
     "access": "permission",
     "policy": "topic.edit_any or topic.revision.view_any",
     "guard": {
@@ -2202,7 +2202,7 @@
     "handler": "adminSelectSearchProvider",
     "method": "PUT",
     "path": "/api/v1/admin/forum/search/provider",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:95",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:100",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2220,7 +2220,7 @@
     "handler": "adminResetSearchProvider",
     "method": "POST",
     "path": "/api/v1/admin/forum/search/provider/reset",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:96",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:101",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2238,7 +2238,7 @@
     "handler": "adminListSearchProviders",
     "method": "GET",
     "path": "/api/v1/admin/forum/search/providers",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:94",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:99",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2256,7 +2256,7 @@
     "handler": "adminReindexStatus",
     "method": "GET",
     "path": "/api/v1/admin/forum/search/reindex",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:98",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:103",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2274,7 +2274,7 @@
     "handler": "adminReindexSearch",
     "method": "POST",
     "path": "/api/v1/admin/forum/search/reindex",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:97",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:102",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2292,7 +2292,7 @@
     "handler": "adminReindexRuns",
     "method": "GET",
     "path": "/api/v1/admin/forum/search/reindex/runs",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:99",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:104",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2310,7 +2310,7 @@
     "handler": "adminSettings",
     "method": "GET",
     "path": "/api/v1/admin/forum/settings",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:87",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:92",
     "access": "permission",
     "policy": "category.manage, tag.manage, or forum.settings.manage; field owner recheck",
     "guard": {
@@ -2330,7 +2330,7 @@
     "handler": "adminUpdateSettings",
     "method": "PUT",
     "path": "/api/v1/admin/forum/settings",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:88",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:93",
     "access": "permission",
     "policy": "category.manage, tag.manage, or forum.settings.manage; field owner recheck",
     "guard": {
@@ -2350,7 +2350,7 @@
     "handler": "adminResetSettings",
     "method": "POST",
     "path": "/api/v1/admin/forum/settings/reset",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:89",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:94",
     "access": "permission",
     "policy": "category.manage, tag.manage, or forum.settings.manage; field owner recheck",
     "guard": {
@@ -2370,7 +2370,7 @@
     "handler": "adminTags",
     "method": "GET",
     "path": "/api/v1/admin/forum/tags",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:84",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:89",
     "access": "permission",
     "policy": "tag.manage",
     "guard": {
@@ -2388,7 +2388,7 @@
     "handler": "adminCreateTag",
     "method": "POST",
     "path": "/api/v1/admin/forum/tags",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:85",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:90",
     "access": "permission",
     "policy": "tag.manage",
     "guard": {
@@ -2406,7 +2406,7 @@
     "handler": "adminUpdateTag",
     "method": "PATCH",
     "path": "/api/v1/admin/forum/tags/:tagID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:86",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:91",
     "access": "permission",
     "policy": "tag.manage",
     "guard": {
@@ -4481,7 +4481,7 @@
     "handler": "deleteComment",
     "method": "DELETE",
     "path": "/api/v1/comments/:commentID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:73",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:78",
     "access": "permission",
     "policy": "post edit/delete own or any policy",
     "guard": {
@@ -4502,7 +4502,7 @@
     "handler": "updateComment",
     "method": "PATCH",
     "path": "/api/v1/comments/:commentID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:72",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:77",
     "access": "permission",
     "policy": "post edit/delete own or any policy",
     "guard": {
@@ -4517,13 +4517,45 @@
     }
   },
   {
+    "id": "core.route.forum.unbookmark_comment",
+    "contractVersion": "sforum.route.forum.unbookmark_comment@1",
+    "module": "forum",
+    "handler": "unbookmarkComment",
+    "method": "DELETE",
+    "path": "/api/v1/comments/:commentID/bookmark",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:55",
+    "access": "login",
+    "policy": "active actor bookmark policy; visibility rechecked by service",
+    "guard": {
+      "kind": "login",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.forum.bookmark_comment",
+    "contractVersion": "sforum.route.forum.bookmark_comment@1",
+    "module": "forum",
+    "handler": "bookmarkComment",
+    "method": "PUT",
+    "path": "/api/v1/comments/:commentID/bookmark",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:54",
+    "access": "login",
+    "policy": "active actor bookmark policy; visibility rechecked by service",
+    "guard": {
+      "kind": "login",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.forum.list_comment_citations",
     "contractVersion": "sforum.route.forum.list_comment_citations@1",
     "module": "forum",
     "handler": "commentCitations",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/citations",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:66",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:71",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -4539,7 +4571,7 @@
     "handler": "commentEditSource",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/edit-source",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:71",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:76",
     "access": "permission",
     "policy": "post.edit_own or post.edit_any",
     "guard": {
@@ -4558,7 +4590,7 @@
     "handler": "unlikeComment",
     "method": "DELETE",
     "path": "/api/v1/comments/:commentID/like",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:52",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:57",
     "access": "login",
     "policy": "active actor like/unlike policy; visibility rechecked by service",
     "guard": {
@@ -4574,7 +4606,7 @@
     "handler": "likeComment",
     "method": "POST",
     "path": "/api/v1/comments/:commentID/like",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:51",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:56",
     "access": "login",
     "policy": "active actor like/unlike policy; visibility rechecked by service",
     "guard": {
@@ -4590,7 +4622,7 @@
     "handler": "commentLikes",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/likes",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:53",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:58",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -4606,7 +4638,7 @@
     "handler": "replies",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/replies",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:64",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:69",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -4622,7 +4654,7 @@
     "handler": "commentRevisions",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/revisions",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:67",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:72",
     "access": "permission",
     "policy": "post.revision.view_any",
     "guard": {
@@ -4640,7 +4672,7 @@
     "handler": "commentRevision",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/revisions/:revisionNo",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:68",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:73",
     "access": "permission",
     "policy": "post.revision.view_any",
     "guard": {
@@ -4658,7 +4690,7 @@
     "handler": "redactCommentRevision",
     "method": "POST",
     "path": "/api/v1/comments/:commentID/revisions/:revisionNo/redact",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:70",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:75",
     "access": "super_admin",
     "policy": "super_admin revision redaction policy",
     "guard": {
@@ -4674,7 +4706,7 @@
     "handler": "restoreCommentRevision",
     "method": "POST",
     "path": "/api/v1/comments/:commentID/revisions/:revisionNo/restore",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:69",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:74",
     "access": "permission",
     "policy": "post.revision.view_any plus post.edit_any",
     "guard": {
@@ -5329,7 +5361,7 @@
     "handler": "myProfile",
     "method": "GET",
     "path": "/api/v1/profile",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go:13",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -5345,7 +5377,7 @@
     "handler": "updateMyProfile",
     "method": "PUT",
     "path": "/api/v1/profile",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:12",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go:16",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -5361,7 +5393,7 @@
     "handler": "deleteAvatar",
     "method": "DELETE",
     "path": "/api/v1/profile/avatar",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go:20",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -5377,6 +5409,22 @@
     "handler": "uploadAvatar",
     "method": "POST",
     "path": "/api/v1/profile/avatar",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go:19",
+    "access": "login",
+    "policy": "current active actor; attachment.upload for avatar upload",
+    "guard": {
+      "kind": "contextual",
+      "permissions": [],
+      "evaluatorId": "core.guard.profile.self"
+    }
+  },
+  {
+    "id": "core.route.profile.my_bookmarks",
+    "contractVersion": "sforum.route.profile.my_bookmarks@1",
+    "module": "profile",
+    "handler": "myBookmarks",
+    "method": "GET",
+    "path": "/api/v1/profile/bookmarks",
     "source": "apps/api/app/Http/Controllers/Profile/routes.go:15",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
@@ -5393,7 +5441,7 @@
     "handler": "nicknameAvailability",
     "method": "GET",
     "path": "/api/v1/profile/nickname/availability",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go:18",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -5458,6 +5506,22 @@
     "method": "GET",
     "path": "/api/v1/profiles/:username/activities",
     "source": "apps/api/app/Http/Controllers/Profile/routes.go:9",
+    "access": "public",
+    "policy": "public read contract",
+    "guard": {
+      "kind": "public",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.profile.public_bookmarks",
+    "contractVersion": "sforum.route.profile.public_bookmarks@1",
+    "module": "profile",
+    "handler": "publicBookmarks",
+    "method": "GET",
+    "path": "/api/v1/profiles/:username/bookmarks",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go:11",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -5923,6 +5987,38 @@
     }
   },
   {
+    "id": "core.route.forum.unbookmark_topic",
+    "contractVersion": "sforum.route.forum.unbookmark_topic@1",
+    "module": "forum",
+    "handler": "unbookmarkTopic",
+    "method": "DELETE",
+    "path": "/api/v1/topics/:topicID/bookmark",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:53",
+    "access": "login",
+    "policy": "active actor bookmark policy; visibility rechecked by service",
+    "guard": {
+      "kind": "login",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.forum.bookmark_topic",
+    "contractVersion": "sforum.route.forum.bookmark_topic@1",
+    "module": "forum",
+    "handler": "bookmarkTopic",
+    "method": "PUT",
+    "path": "/api/v1/topics/:topicID/bookmark",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:52",
+    "access": "login",
+    "policy": "active actor bookmark policy; visibility rechecked by service",
+    "guard": {
+      "kind": "login",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.forum.comments",
     "contractVersion": "sforum.route.forum.comments@1",
     "module": "forum",
@@ -5945,7 +6041,7 @@
     "handler": "createComment",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/comments",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:62",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:67",
     "access": "permission",
     "policy": "post.create plus topic/publication policy",
     "guard": {
@@ -5963,7 +6059,7 @@
     "handler": "commentPage",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments/:commentID/page",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:58",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:63",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5979,7 +6075,7 @@
     "handler": "topicCommentRevision",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments/revision",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:55",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:60",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5995,7 +6091,7 @@
     "handler": "topicCommentStream",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments/stream",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:56",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go:61",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {

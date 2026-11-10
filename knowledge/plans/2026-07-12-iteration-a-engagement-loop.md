@@ -1,10 +1,14 @@
 # Iteration A — Engagement Loop Checklist
 
-Status: **in progress** — Workstream 1 (view count) shipped; Workstream 2
+Status: **completed** — Workstream 1 (view count) shipped; Workstream 2
 (likes) landed on 2026-10-29 (see `../sessions/2026-10-28-content-reactions.md`:
 migration applied, HostQuery + PG integration green, browser QA passed on flat,
 switch-off evidence collected, final gate 9 PASS + `test.sh --fast` green);
-Workstream 3 (bookmarks) not started  
+Workstream 3 (bookmarks) landed on 2026-11-10 with a larger scope than drafted
+here — per-bookmark public/private visibility, public-only counters, due-date
+reminders with delivery, and a public profile tab (see
+`../sessions/2026-11-10-content-bookmarks.md` and
+`../decisions/2026-11-10-content-bookmarks.md`).
 Date: 2026-07-12  
 Last status pass: 2026-07-21 knowledge cleanup  
 Goal: turn “can read/post” into “can operate a living community” without
@@ -35,7 +39,7 @@ These are **already implemented**. Iteration A only polishes gaps.
 | `topics.view_count` column + read display | **Schema + UI Done** | migration + list/detail JSON + `SFHomeTopicRow` |
 | View count **increment** | **Missing** | no Redis counter / write path |
 | Likes / reactions | **Landed (2026-10-29)** | `content_reactions` + `topics/comments.like_count` + 6 routes + `SFReactionControl`/`SFTopicReactionBar`; HostQuery `sforum.core.public_reactions.list`; migration applied in dev; PG integration + web 1837 green; browser QA passed (flat; tree unreachable); switch-off evidence collected; final gate green |
-| Bookmarks / favorites | **Missing** | only extension contribution demo uses bookmark icon |
+| Bookmarks / favorites | **Landed (2026-11-10)** | `content_bookmarks` + `topics/comments.public_bookmark_count` + 6 routes + `SFBookmarkControl` / `SFProfileBookmarkTab`; `forum.bookmark_reminders` 周期任务与 `bookmark_reminder` 通知（邮件默认开）；稳定视图 `sforum_core_v1.forum_bookmarks` + HostQuery `core.query.public_bookmarks.list`; `features.bookmarks` 开关; 迁移 up/down 实机可逆; 提醒链路 Mailpit 实收; 三轮独立审查（含一处隐私泄露已修） |
 
 ## Out Of Scope For Iteration A
 
@@ -254,6 +258,16 @@ stable under double-click; anonymous gets 401.
 
 ## Workstream 3 — Bookmarks (Favorites)
 
+> **Landed 2026-11-10 with a different, larger design than drafted below.** The
+> operator asked for comment targets, a per-bookmark public/private switch, a
+> public profile tab, and due-date reminders. The shipped shape is therefore
+> `content_bookmarks` (polymorphic, with `visibility` / `remind_at` /
+> `reminded_at`), `public_bookmark_count`, `PUT`/`DELETE` on both target types,
+> and two list endpoints under the profile controller — not `topic_bookmarks`
+> with `POST /me/bookmarks`. Read
+> `../decisions/2026-11-10-content-bookmarks.md` for the accepted design; the
+> draft below is kept only as history.
+
 ### Design decisions (recommended defaults)
 
 | Decision | Recommendation | Why |
@@ -376,15 +390,16 @@ If time-boxed to a shorter slice, ship in this cut order:
 
 ## Definition Of Done (Iteration A)
 
-- [ ] Unique topic views eventually persist to `topics.view_count`
-- [ ] Logged-in like/unlike for topics **and** comments (or documented cut)
-- [ ] Logged-in topic bookmarks + list page
-- [ ] Existing lifecycle actions still green in tests
-- [ ] OpenAPI refs validate
-- [ ] `go test` for touched packages green
-- [ ] Frontend typecheck or targeted tests for new helpers
-- [ ] Toasts + i18n for user-facing mutations
-- [ ] Module note + session handoff updated
+- [x] Unique topic views eventually persist to `topics.view_count`
+- [x] Logged-in like/unlike for topics **and** comments (or documented cut)
+- [x] Logged-in bookmarks for topics **and** comments, plus a profile list page
+      (expanded on 2026-11-10: visibility switch, public-only counts, reminders)
+- [x] Existing lifecycle actions still green in tests
+- [x] OpenAPI refs validate
+- [x] `go test` for touched packages green
+- [x] Frontend typecheck or targeted tests for new helpers
+- [x] Toasts + i18n for user-facing mutations
+- [x] Module note + session handoff updated
 
 ## Non-Goals Reminder
 

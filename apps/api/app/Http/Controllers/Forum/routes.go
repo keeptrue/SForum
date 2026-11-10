@@ -48,6 +48,11 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Post("/topics/:topicID/like", h.likeTopic)
 	api.Delete("/topics/:topicID/like", h.unlikeTopic)
 	api.Get("/topics/:topicID/likes", h.topicLikes)
+	// 收藏：4 个切换端点要求登录；可见性/提醒在请求体里（可选）。
+	api.Put("/topics/:topicID/bookmark", h.bookmarkTopic)
+	api.Delete("/topics/:topicID/bookmark", h.unbookmarkTopic)
+	api.Put("/comments/:commentID/bookmark", h.bookmarkComment)
+	api.Delete("/comments/:commentID/bookmark", h.unbookmarkComment)
 	api.Post("/comments/:commentID/like", h.likeComment)
 	api.Delete("/comments/:commentID/like", h.unlikeComment)
 	api.Get("/comments/:commentID/likes", h.commentLikes)

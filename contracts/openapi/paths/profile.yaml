@@ -76,6 +76,94 @@ profileActivitiesByUsername:
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+profileBookmarksByUsername:
+  get:
+    summary: List a member's bookmarks
+    operationId: listProfileBookmarks
+    description: |
+      Paginated bookmark list for a member profile page, using shallow `page` /
+      `perPage` OFFSET pagination. Other viewers only receive `visibility:
+      public` rows; the member's own request (authenticated viewer matching the
+      profile) also receives private rows. Responses for the owner are
+      `Cache-Control: private, no-store`; public views are short-cached and
+      `Vary: Cookie`.
+    parameters:
+    - name: username
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Member username.
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 1
+    - name: perPage
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    responses:
+      '200':
+        description: Paginated bookmark list.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/profile.yaml#/ApiResponseProfileBookmarkPage"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+myBookmarks:
+  get:
+    summary: List the current user's bookmarks
+    operationId: listMyBookmarks
+    description: |
+      The authenticated member's own bookmark list, including private rows.
+      Always `Cache-Control: private, no-store`. Answers `403
+      forum.bookmarks_disabled` when the site feature flag `features.bookmarks`
+      is off.
+    parameters:
+    - name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 1
+    - name: perPage
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+    responses:
+      '200':
+        description: Paginated bookmark list.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/profile.yaml#/ApiResponseProfileBookmarkPage"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 myProfile:
   get:
     summary: Read the current user's editable profile

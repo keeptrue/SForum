@@ -72,6 +72,8 @@ type Comment struct {
 	// LikedBy 是点赞者头像组预览：最多 3 个，自己优先、其余最早；只在读路径
 	// 装饰（CachedStore 之后），永不进缓存或持久层。
 	LikedBy []UserSummary `json:"likedBy,omitempty"`
+	// BookmarkedByMe 只在有登录访客时按请求填充，永不进入缓存或持久层。
+	BookmarkedByMe bool `json:"bookmarkedByMe,omitempty"`
 	// Edited 评论是否曾被编辑（showCommentEditMark 开启时填充）。
 	Edited bool `json:"edited,omitempty"`
 	// EditedAt 是当前已接受修订的提交时间；仅在编辑标记设置开启时对外保留。

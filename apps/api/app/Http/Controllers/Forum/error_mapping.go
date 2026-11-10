@@ -44,6 +44,19 @@ func mapForumError(err error) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeInvalidTopic)
 	case errors.Is(err, forum.ErrReactionsDisabled):
 		return fiber.NewError(fiber.StatusForbidden, forum.CodeReactionsDisabled)
+	case errors.Is(err, forum.ErrBookmarksDisabled):
+		return fiber.NewError(fiber.StatusForbidden, forum.CodeBookmarksDisabled)
+	case errors.Is(err, forum.ErrBookmarkReminderConflict):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeBookmarkReminderConflict)
+	case errors.Is(err, forum.ErrBookmarkReminderInPast):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeBookmarkReminderInPast)
+	case errors.Is(err, forum.ErrBookmarkReminderTooFar):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeBookmarkReminderTooFar)
+	case errors.Is(err, forum.ErrBookmarkReminderLimit):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeBookmarkReminderLimit)
+	case errors.Is(err, forum.ErrInvalidBookmarkTarget):
+		// 收藏目标同样是多态的（topic/comment），不能借用主题的 not-found reason。
+		return fiber.NewError(fiber.StatusNotFound, forum.CodeBookmarkTargetInvalid)
 	case errors.Is(err, forum.ErrInvalidReactionTarget):
 		// 点赞目标是多态的（topic/comment），不能借用主题的 not-found reason。
 		return fiber.NewError(fiber.StatusNotFound, forum.CodeReactionTargetInvalid)

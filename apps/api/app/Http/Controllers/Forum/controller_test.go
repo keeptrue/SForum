@@ -981,6 +981,8 @@ func newForumTestApp(configure ...func(*Controller)) (*fiber.App, *authsession.M
 		8: {ID: 8, Status: identity.UserStatusActive, Permissions: map[string]bool{
 			identity.PermissionAdminAccess: true,
 		}},
+		// 封禁账号：写路由必须 403，且不得触达 store。
+		forumBannedActorID: {ID: forumBannedActorID, Status: identity.UserStatusBanned, Permissions: map[string]bool{}},
 	}}
 	store := &controllerForumStore{}
 	controller := NewController(forum.NewService(forum.ServiceConfig{Store: store, Settings: store, Publisher: nil}), users, manager)

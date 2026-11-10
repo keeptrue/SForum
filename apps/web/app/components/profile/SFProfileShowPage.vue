@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
-import { useProfileApi } from '~/composables/profile/useProfileApi'
+import { useProfileApi, type ProfileActivityKind, type ProfileActivityPage } from '~/composables/profile/useProfileApi'
 import { useProfileShowData } from '~/composables/profile/useProfileShowData'
+import { useProfileBookmarks } from '~/composables/profile/useProfileBookmarks'
+import {
+  PROFILE_ACTIVITY_PER_PAGE,
+  profileActivityKindForTab,
+  useProfileActivityFeeds
+} from '~/composables/profile/useProfileActivityFeeds'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useForumApi } from '~/composables/forum/useForumApi'
+import SFProfileBookmarkTab from '~/components/profile/SFProfileBookmarkTab.vue'
+import SFProfileFeedTab from '~/components/profile/SFProfileFeedTab.vue'
 import SFProfileRightRail from '~/components/profile/SFProfileRightRail.vue'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
 import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsivePublicSidebar.vue'
@@ -14,6 +22,7 @@ import { usePublicSidebarDrawer } from '~/composables/navigation/usePublicSideba
 /**
  * 宿主 body 岛：forum.profile.show。主题 L1 挂载；路由页仅 outlet + fail-closed 回退。
  * 布局对齐 demo B1：intro + 分区 tab（主题 / 回复 / 关于 + 扩展 widget tab）+ 分日时间线。
+ * 活动流的取数与渲染在 `useProfileActivityFeeds` + `SFProfileFeedTab`，这里只管 tab 编排。
  */
 
 import {
@@ -21,17 +30,7 @@ import {
   type ForumCategoryGroup
 } from '~/utils/forum/forumTaxonomy'
 import { userDisplayName } from '~/utils/forum/userDisplay'
-import { apiErrorMessage } from '~/composables/useApiClient'
-import type {
-  ProfileActivity,
-  ProfileActivityKind,
-  ProfileActivityPage
-} from '~/composables/profile/useProfileApi'
-import {
-  groupProfileActivitiesByDate,
-  profileActivityLink,
-  profileHasPublicDetails
-} from '~/utils/profile/profileActivity'
+import { profileHasPublicDetails } from '~/utils/profile/profileActivity'
 import {
   extensionTabLabel,
   profileWidgetTabValue,
@@ -51,22 +50,13 @@ type ProfileTabOption = {
   count?: number
 }
 
-type ActivityFeedState = {
-  items: ProfileActivity[]
-  page: number
-  hasMore: boolean
-  loaded: boolean
-}
-
-const ACTIVITY_PER_PAGE = 20
-
 const route = useRoute()
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const toast = useToast()
-const { seoSettings } = useWebOptions()
-const topicUrlMode = computed(() => seoSettings.value.topicUrlMode)
-const { format, formatDateOnly, settings: dateTimeSettings } = useSiteDateTime()
+const { formatDateOnly } = useSiteDateTime()
+// 收藏开关与控件同一口径：关闭时 tab 本身不出现，而不是点进去吃 403。
+const { bookmarksEnabled } = useWebOptions()
 const profileApi = useProfileApi()
 const forumApi = useForumApi()
 const { user: authUser } = useAuthSession()
@@ -77,15 +67,6 @@ const { closeDrawer: closeMobileMenu } = usePublicSidebarDrawer()
 const username = computed(() => String(route.params.username ?? ''))
 const renderedAt = useState<number>(`forum-profile-rendered-at-${username.value}`, () => Date.now())
 const activeTab = ref<ProfileTab>('topics')
-const loadingMore = ref(false)
-const switchingTab = ref(false)
-
-function emptyFeed(): ActivityFeedState {
-  return { items: [], page: 0, hasMore: false, loaded: false }
-}
-
-const topicFeed = ref<ActivityFeedState>(emptyFeed())
-const replyFeed = ref<ActivityFeedState>(emptyFeed())
 
 // 路由壳是唯一取数点（见 useProfileShowData）：这里 inject 同一份 refs，
 // 既不会重复请求，也不会和壳的 options 产生 dev 警告。
@@ -108,7 +89,7 @@ const { data: initialTopicPage } = await useAsyncData(
       return await profileApi.listPublicActivities(username.value, {
         kind: 'topic',
         page: 1,
-        perPage: ACTIVITY_PER_PAGE
+        perPage: PROFILE_ACTIVITY_PER_PAGE
       })
     } catch {
       // 资料可展示时活动失败不阻断整页；客户端可再试。
@@ -117,15 +98,6 @@ const { data: initialTopicPage } = await useAsyncData(
   },
   { default: () => null as ProfileActivityPage | null }
 )
-
-if (initialTopicPage.value) {
-  topicFeed.value = {
-    items: [...initialTopicPage.value.items],
-    page: initialTopicPage.value.page,
-    hasMore: initialTopicPage.value.hasMore,
-    loaded: true
-  }
-}
 
 useSForumSeo(computed(() => ({
   type: 'profile',
@@ -146,6 +118,40 @@ const navTotalTopics = computed(() => navCategories.value.reduce((sum, category)
 const hasPublicDetails = computed(() => profileHasPublicDetails(profile.value))
 const recentTopics = computed(() => profile.value?.recentTopics || [])
 
+// 两条活动流常驻：切 tab 只换 activeFeed，已加载的流不重复请求。
+const {
+  activeFeed,
+  switchingTab,
+  loadingMore,
+  showLoadMore,
+  categoryParticipationCount,
+  ensureFeedLoaded,
+  loadMoreActivities
+} = useProfileActivityFeeds(username, {
+  activeTab,
+  initialTopicPage: initialTopicPage.value,
+  recentTopics: () => recentTopics.value
+})
+
+const activeFeedKind = computed<ProfileActivityKind>(
+  () => profileActivityKindForTab(activeTab.value) ?? 'topic'
+)
+
+// 收藏 tab：只在激活时取数，切走保留结果（与活动流同一缓存口径）。
+const isBookmarksTab = computed(() => activeTab.value === 'bookmarks')
+const {
+  sortedItems: bookmarkItems,
+  loading: bookmarksLoading,
+  loadingMore: bookmarksLoadingMore,
+  hasMore: bookmarksHasMore,
+  failed: bookmarksFailed,
+  loadMore: loadMoreBookmarks,
+  retry: retryBookmarks
+} = useProfileBookmarks(username, {
+  active: () => isBookmarksTab.value,
+  self: () => isSelf.value
+})
+
 const widgetTabs = computed(() => profileWidgetTabs(profile.value?.extensionTabs))
 
 const profileTabs = computed<ProfileTabOption[]>(() => [
@@ -159,6 +165,8 @@ const profileTabs = computed<ProfileTabOption[]>(() => [
     label: t('profile.tabs.replies'),
     count: profile.value?.commentCount ?? 0
   },
+  // 开关关闭时该 tab 根本不存在；activeTab 停在 bookmarks 时由下面的 watch 兜底回 topics。
+  ...(bookmarksEnabled.value ? [{ value: 'bookmarks', label: t('profile.tabs.bookmarks') }] : []),
   {
     value: 'about',
     label: t('profile.tabs.about')
@@ -192,52 +200,6 @@ watch(profileTabs, (tabs) => {
   }
 })
 
-const activeFeed = computed(() => {
-  if (activeTab.value === 'replies') {
-    return replyFeed.value
-  }
-  if (activeTab.value === 'topics') {
-    return topicFeed.value
-  }
-  return emptyFeed()
-})
-
-const panelActivities = computed(() => activeFeed.value.items)
-
-const activityGroups = computed(() => groupProfileActivitiesByDate(panelActivities.value, {
-  settings: dateTimeSettings.value,
-  locale: String(locale.value || 'zh-CN'),
-  topicUrlMode: topicUrlMode.value,
-  labels: {
-    today: t('profile.timeline.today'),
-    yesterday: t('profile.timeline.yesterday')
-  },
-  now: new Date(renderedAt.value)
-}))
-
-const showLoadMore = computed(() => {
-  // 「关于」和扩展 widget 面板都没有分页，只有两条活动流会有下一页。
-  if (!activityKindForTab(activeTab.value)) {
-    return false
-  }
-  return activeFeed.value.loaded && activeFeed.value.hasMore
-})
-
-const categoryParticipationCount = computed(() => {
-  const slugs = new Set<string>()
-  for (const activity of [...topicFeed.value.items, ...replyFeed.value.items]) {
-    if (activity.topic.categorySlug) {
-      slugs.add(activity.topic.categorySlug)
-    }
-  }
-  for (const topic of recentTopics.value) {
-    if (topic.categorySlug) {
-      slugs.add(topic.categorySlug)
-    }
-  }
-  return slugs.size
-})
-
 const websiteHost = computed(() => {
   const raw = profile.value?.profile.websiteUrl?.trim() || ''
   if (!raw) {
@@ -253,115 +215,6 @@ const websiteHref = computed(() => {
 
 function formatDate(value: string) {
   return formatDateOnly(value)
-}
-
-function formatDateTime(value: string) {
-  return format(value)
-}
-
-function activityTo(activity: ProfileActivity) {
-  return localePath(profileActivityLink(activity, topicUrlMode.value))
-}
-
-function activityKindForTab(tab: ProfileTab): ProfileActivityKind | null {
-  if (tab === 'topics') {
-    return 'topic'
-  }
-  if (tab === 'replies') {
-    return 'comment'
-  }
-  return null
-}
-
-function feedRefForKind(kind: ProfileActivityKind) {
-  return kind === 'comment' ? replyFeed : topicFeed
-}
-
-async function ensureFeedLoaded(tab: ProfileTab) {
-  const kind = activityKindForTab(tab)
-  if (!kind || !username.value) {
-    return
-  }
-  const feed = feedRefForKind(kind)
-  if (feed.value.loaded) {
-    return
-  }
-  switchingTab.value = true
-  try {
-    const page = await profileApi.listPublicActivities(username.value, {
-      kind,
-      page: 1,
-      perPage: ACTIVITY_PER_PAGE
-    })
-    feed.value = {
-      items: [...page.items],
-      page: page.page,
-      hasMore: page.hasMore,
-      loaded: true
-    }
-  } catch (error) {
-    toast.add({
-      color: 'error',
-      icon: 'i-lucide-alert-triangle',
-      title: apiErrorMessage(error) || t('profile.timeline.loadFailed')
-    })
-  } finally {
-    switchingTab.value = false
-  }
-}
-
-// SSR 初始活动拉取失败（initialTopicPage catch → null）时 loaded 保持 false，
-// 默认 Topics tab 会静默显示"暂无动态"。客户端挂载后重试一次，
-// 再失败则走 ensureFeedLoaded 的 toast 提示，而不是无声吞掉错误。
-onMounted(() => {
-  if (!topicFeed.value.loaded) {
-    void ensureFeedLoaded('topics')
-  }
-})
-
-async function loadMoreActivities() {
-  const kind = activityKindForTab(activeTab.value)
-  if (!kind || !username.value || loadingMore.value) {
-    return
-  }
-  const feed = feedRefForKind(kind)
-  if (!feed.value.hasMore) {
-    return
-  }
-  loadingMore.value = true
-  try {
-    const nextPage = feed.value.page + 1
-    const page = await profileApi.listPublicActivities(username.value, {
-      kind,
-      page: nextPage,
-      perPage: ACTIVITY_PER_PAGE
-    })
-    const seen = new Set(
-      feed.value.items.map(item => `${item.kind}:${item.commentId || item.topic.id}:${item.createdAt}`)
-    )
-    const appended = page.items.filter((item) => {
-      const key = `${item.kind}:${item.commentId || item.topic.id}:${item.createdAt}`
-      if (seen.has(key)) {
-        return false
-      }
-      seen.add(key)
-      return true
-    })
-    feed.value = {
-      items: [...feed.value.items, ...appended],
-      page: page.page,
-      hasMore: page.hasMore,
-      loaded: true
-    }
-  } catch (error) {
-    toast.add({
-      color: 'error',
-      icon: 'i-lucide-alert-triangle',
-      title: apiErrorMessage(error) || t('profile.timeline.loadMoreFailed')
-    })
-  } finally {
-    loadingMore.value = false
-  }
 }
 
 function closeMobileDrawers() {
@@ -561,6 +414,19 @@ async function shareProfile() {
             </section>
           </template>
 
+          <template v-else-if="activeTab === 'bookmarks'">
+            <SFProfileBookmarkTab
+              :items="bookmarkItems"
+              :self="isSelf"
+              :loading="bookmarksLoading"
+              :loading-more="bookmarksLoadingMore"
+              :has-more="bookmarksHasMore"
+              :failed="bookmarksFailed"
+              @load-more="loadMoreBookmarks"
+              @retry="retryBookmarks"
+            />
+          </template>
+
           <template v-else-if="activeWidgetTab">
             <!-- 扩展 widget tab：宿主只提供挂载点。SSR 骨架、失败隔离、退避重试和重试按钮
                  全部由 SFExtensionWidget 自己承担，这里不再叠一层错误 UI。
@@ -577,107 +443,19 @@ async function shareProfile() {
           </template>
 
           <template v-else>
-            <div class="sf-profile-summary" aria-label="profile statistics">
-              <div class="sf-profile-summary__item">
-                <strong>{{ profile.topicCount }}</strong>
-                <span>{{ t('profile.topicCount') }}</span>
-              </div>
-              <div class="sf-profile-summary__item">
-                <strong>{{ profile.commentCount }}</strong>
-                <span>{{ t('profile.commentCount') }}</span>
-              </div>
-              <div class="sf-profile-summary__item">
-                <strong>{{ categoryParticipationCount }}</strong>
-                <span>{{ t('profile.categoryCount') }}</span>
-              </div>
-            </div>
-
-            <section class="sf-profile-section-head">
-              <div>
-                <h2>
-                  {{ activeTab === 'replies' ? t('profile.timeline.repliesTitle') : t('profile.timeline.title') }}
-                </h2>
-                <p>
-                  {{ activeTab === 'replies' ? t('profile.timeline.repliesDescription') : t('profile.timeline.description') }}
-                </p>
-              </div>
-            </section>
-
-            <div v-if="switchingTab && !activityGroups.length" class="sf-profile-loading">
-              <SFSkeleton :lines="4" />
-            </div>
-
-            <div v-else-if="activityGroups.length" class="sf-profile-timeline">
-              <section v-for="group in activityGroups" :key="group.key" class="sf-profile-activity-day">
-                <header class="sf-profile-activity-day__head">
-                  <h3>{{ group.label }}</h3>
-                  <time :datetime="group.key">{{ group.dateLabel }}</time>
-                </header>
-                <div class="sf-profile-activity-day__events">
-                  <NuxtLink
-                    v-for="activity in group.items"
-                    :key="`${activity.kind}:${activity.commentId || activity.topic.id}:${activity.createdAt}`"
-                    :to="activityTo(activity)"
-                    class="sf-profile-activity"
-                    :class="`sf-profile-activity--${activity.kind}`"
-                  >
-                    <span class="sf-profile-activity__icon" aria-hidden="true">
-                      <UIcon
-                        :name="activity.kind === 'topic' ? 'i-lucide-square-pen' : 'i-lucide-message-circle-reply'"
-                        class="size-4"
-                      />
-                    </span>
-                    <span class="sf-profile-activity__body">
-                      <span class="sf-profile-activity__type">
-                        {{ activity.kind === 'topic' ? t('profile.timeline.topicAction') : t('profile.timeline.commentAction') }}
-                      </span>
-                      <strong>{{ activity.topic.title }}</strong>
-                      <span v-if="activity.excerpt" class="sf-profile-activity__excerpt">{{ activity.excerpt }}</span>
-                      <span class="sf-profile-activity__meta">
-                        {{ activity.topic.categoryName }}
-                        <template v-if="activity.kind === 'topic'">
-                          · {{ t('profile.timeline.replyCount', { count: activity.topic.commentCount }) }}
-                        </template>
-                        <template v-else-if="activity.commentId">
-                          · #{{ activity.commentId }}
-                        </template>
-                      </span>
-                    </span>
-                    <time class="sf-profile-activity__time" :datetime="activity.createdAt">
-                      {{ activity.timeLabel || formatDateTime(activity.createdAt) }}
-                    </time>
-                  </NuxtLink>
-                </div>
-              </section>
-
-              <div v-if="showLoadMore" class="sf-profile-load-more">
-                <button
-                  type="button"
-                  class="sf-button sf-button--ghost sf-button--md sf-profile-load-more__button"
-                  :disabled="loadingMore"
-                  :aria-busy="loadingMore ? 'true' : undefined"
-                  @click="loadMoreActivities"
-                >
-                  <UIcon
-                    :name="loadingMore ? 'i-lucide-loader-2' : 'i-lucide-chevrons-down'"
-                    class="size-4"
-                    :class="{ 'sf-profile-load-more__spinner': loadingMore }"
-                    aria-hidden="true"
-                  />
-                  {{ loadingMore ? t('profile.timeline.loadingMore') : t('profile.timeline.loadMore') }}
-                </button>
-              </div>
-            </div>
-
-            <div v-else class="sf-profile-empty">
-              <UIcon name="i-lucide-message-square-off" class="size-7" aria-hidden="true" />
-              <strong>
-                {{ activeTab === 'replies' ? t('profile.timeline.emptyRepliesTitle') : t('profile.timeline.emptyTitle') }}
-              </strong>
-              <span>
-                {{ activeTab === 'replies' ? t('profile.timeline.emptyRepliesDescription') : t('profile.timeline.emptyDescription') }}
-              </span>
-            </div>
+            <!-- 主题 / 回复活动流：状态与取数在 useProfileActivityFeeds，渲染在 SFProfileFeedTab。 -->
+            <SFProfileFeedTab
+              :kind="activeFeedKind"
+              :items="activeFeed.items"
+              :topic-count="profile.topicCount"
+              :comment-count="profile.commentCount"
+              :category-count="categoryParticipationCount"
+              :switching="switchingTab"
+              :loading-more="loadingMore"
+              :show-load-more="showLoadMore"
+              :rendered-at="renderedAt"
+              @load-more="loadMoreActivities"
+            />
           </template>
 
           <SFRegionOutlet page="forum.profile.show" region="content_after" />

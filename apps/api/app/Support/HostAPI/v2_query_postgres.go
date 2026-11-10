@@ -601,6 +601,37 @@ func stableCoreProtocolV2QueryDefinitions() []protocolV2QueryDefinition {
 			},
 		},
 		{
+			ID: QueryPublicBookmarksList, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicBookmarkSchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			From: "sforum_core_v1.forum_bookmarks AS stable",
+			Fields: []protocolV2QueryField{
+				{Name: "id", Expression: "stable.id"},
+				{Name: "target_type", Expression: "stable.target_type"},
+				{Name: "target_id", Expression: "stable.target_id"},
+				{Name: "visibility", Expression: "stable.visibility"},
+				{Name: "user_id", Expression: "stable.user_id"},
+				{Name: "username", Expression: "stable.username"},
+				{Name: "display_name", Expression: "stable.display_name"},
+				{Name: "created_at", Expression: "stable.created_at"},
+				{Name: "updated_at", Expression: "stable.updated_at"},
+			},
+			Filters: []protocolV2QueryFilterDefinition{
+				{Field: "target_type", Operator: "eq", Expression: "stable.target_type", SchemaID: QueryTextParameterSchemaID, Kind: "text"},
+				{Field: "target_id", Operator: "eq", Expression: "stable.target_id", SchemaID: QueryInt64ParameterSchemaID, Kind: "int64"},
+				{Field: "user_id", Operator: "eq", Expression: "stable.user_id", SchemaID: QueryInt64ParameterSchemaID, Kind: "int64"},
+			},
+			RequiredFilters: []string{"target_type", "target_id"},
+			Sorts: []protocolV2QuerySortDefinition{
+				{Field: "created_at", Expression: "stable.created_at"},
+				{Field: "id", Expression: "stable.id"},
+			},
+			// 与公开名单一致：最近的收藏在前。
+			DefaultSorts: []protocolV2QuerySort{
+				{Field: "created_at", Expression: "stable.created_at", Descending: true},
+				{Field: "id", Expression: "stable.id", Descending: true},
+			},
+		},
+		{
 			ID: QueryPublicCategoriesList, PlanVersion: QueryStableCorePlanVersion,
 			ResultSchemaID: QueryPublicCategorySchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
 			From: "sforum_core_v1.public_categories AS stable", Fields: categoryFields,

@@ -1,11 +1,13 @@
 import type { Ref } from 'vue'
 import type { ForumUserSummary } from '~/utils/forum/forumTaxonomy'
 import { forumReactionApplyToTopic } from '~/utils/forum/forumReaction'
+import type { BookmarkState } from '~/composables/forum/useBookmark'
 
 type ReactableTopic = {
   likeCount: number
   likedByMe?: boolean
   likedBy?: ForumUserSummary[]
+  bookmarkedByMe?: boolean
 }
 
 /**
@@ -20,5 +22,12 @@ export function useTopicReaction(topic: Ref<ReactableTopic | null>) {
     }
   }
 
-  return { applyReactionChange }
+  /** 收藏控件 settle 后回写主题：父层重渲染不能把书签态弹回服务端初值。 */
+  function applyBookmarkChange(state: BookmarkState) {
+    if (topic.value) {
+      topic.value.bookmarkedByMe = state.bookmarked
+    }
+  }
+
+  return { applyReactionChange, applyBookmarkChange }
 }

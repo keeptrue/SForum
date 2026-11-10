@@ -123,6 +123,8 @@ paths:
     "$ref": "./openapi/paths/forum.yaml#/topicLike"
   "/topics/{topicID}/likes":
     "$ref": "./openapi/paths/forum.yaml#/topicLikes"
+  "/topics/{topicID}/bookmark":
+    "$ref": "./openapi/paths/forum.yaml#/topicBookmark"
   "/topics/{topicID}/comments/revision":
     "$ref": "./openapi/paths/forum.yaml#/topicCommentRevision"
   "/topics/{topicID}/comments/stream":
@@ -135,6 +137,8 @@ paths:
     "$ref": "./openapi/paths/forum.yaml#/commentLike"
   "/comments/{commentID}/likes":
     "$ref": "./openapi/paths/forum.yaml#/commentLikes"
+  "/comments/{commentID}/bookmark":
+    "$ref": "./openapi/paths/forum.yaml#/commentBookmark"
   "/comments/{commentID}/citations":
     "$ref": "./openapi/paths/forum.yaml#/commentCitations"
   "/comments/{commentID}/revisions":
@@ -155,8 +159,12 @@ paths:
     "$ref": "./openapi/paths/profile.yaml#/profileByUsername"
   "/profiles/{username}/activities":
     "$ref": "./openapi/paths/profile.yaml#/profileActivitiesByUsername"
+  "/profiles/{username}/bookmarks":
+    "$ref": "./openapi/paths/profile.yaml#/profileBookmarksByUsername"
   "/profile":
     "$ref": "./openapi/paths/profile.yaml#/myProfile"
+  "/profile/bookmarks":
+    "$ref": "./openapi/paths/profile.yaml#/myBookmarks"
   "/profile/nickname/availability":
     "$ref": "./openapi/paths/profile.yaml#/profileNicknameAvailability"
   "/profile/avatar":

@@ -2316,6 +2316,42 @@
       "contractVersion": "sforum.route.forum.comment_likes@1",
       "method": "GET",
       "path": "/api/v1/comments/:commentID/likes"
+    },
+    {
+      "id": "core.route.forum.bookmark_topic",
+      "contractVersion": "sforum.route.forum.bookmark_topic@1",
+      "method": "PUT",
+      "path": "/api/v1/topics/:topicID/bookmark"
+    },
+    {
+      "id": "core.route.forum.unbookmark_topic",
+      "contractVersion": "sforum.route.forum.unbookmark_topic@1",
+      "method": "DELETE",
+      "path": "/api/v1/topics/:topicID/bookmark"
+    },
+    {
+      "id": "core.route.forum.bookmark_comment",
+      "contractVersion": "sforum.route.forum.bookmark_comment@1",
+      "method": "PUT",
+      "path": "/api/v1/comments/:commentID/bookmark"
+    },
+    {
+      "id": "core.route.forum.unbookmark_comment",
+      "contractVersion": "sforum.route.forum.unbookmark_comment@1",
+      "method": "DELETE",
+      "path": "/api/v1/comments/:commentID/bookmark"
+    },
+    {
+      "id": "core.route.profile.my_bookmarks",
+      "contractVersion": "sforum.route.profile.my_bookmarks@1",
+      "method": "GET",
+      "path": "/api/v1/profile/bookmarks"
+    },
+    {
+      "id": "core.route.profile.public_bookmarks",
+      "contractVersion": "sforum.route.profile.public_bookmarks@1",
+      "method": "GET",
+      "path": "/api/v1/profiles/:username/bookmarks"
     }
   ],
   "ui": [
@@ -6043,6 +6079,36 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/forum/SFTopicReactionBar.vue"
+    },
+    {
+      "id": "core.component.shared.sfbookmark_control",
+      "contractVersion": "sforum.component.shared.sfbookmark_control@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFBookmarkControl.vue"
+    },
+    {
+      "id": "core.component.shared.sfprofile_bookmark_tab",
+      "contractVersion": "sforum.component.shared.sfprofile_bookmark_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFProfileBookmarkTab.vue"
+    },
+    {
+      "id": "core.component.shared.sfprofile_feed_tab",
+      "contractVersion": "sforum.component.shared.sfprofile_feed_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFProfileFeedTab.vue"
     }
   ]
 }

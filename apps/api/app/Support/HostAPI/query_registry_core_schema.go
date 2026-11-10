@@ -137,6 +137,20 @@ func queryRegistryCoreResultSchemaProperties(definition protocolV2QueryDefinitio
 			"display_name": schemaString(),
 			"created_at":   schemaString(),
 		}
+	case QueryPublicBookmarkSchemaID:
+		// 收藏公开读面：只含公开行（visibility 恒为 public），不含 remind_at /
+		// reminded_at——提醒是行主私有计划数据，视图本身就不输出。
+		properties = map[string]any{
+			"id":           schemaString(),
+			"target_type":  schemaString(),
+			"target_id":    schemaString(),
+			"visibility":   schemaString(),
+			"user_id":      schemaString(),
+			"username":     schemaString(),
+			"display_name": schemaString(),
+			"created_at":   schemaString(),
+			"updated_at":   schemaString(),
+		}
 	case QuerySelfEmailSchemaID:
 		// 只暴露展示形态的 email、布尔验证位与更新时间；email_lower 是唯一性/
 		// 登录匹配列，永远不进 schema。属性数必须与 Host 字段数严格相等。

@@ -209,6 +209,9 @@ func mapProfileError(err error) error {
 		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, profile.CodeNicknameInvalid, nicknameInvalid.Fields)
 	case errors.As(err, &nicknameCooldown):
 		return apphttp.NewErrorWithRetryAt(fiber.StatusUnprocessableEntity, profile.CodeNicknameCooldown, nicknameCooldown.RetryAt)
+	case errors.Is(err, forum.ErrBookmarksDisabled):
+		// 收藏是产品开关面：关闭时名单端点与写端点同一口径。
+		return fiber.NewError(fiber.StatusForbidden, forum.CodeBookmarksDisabled)
 	case errors.Is(err, profile.ErrProfileNotFound):
 		return fiber.NewError(fiber.StatusNotFound, profile.CodeProfileNotFound)
 	case errors.Is(err, profile.ErrProfileInvalid):

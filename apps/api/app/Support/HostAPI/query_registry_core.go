@@ -390,6 +390,14 @@ func queryRegistryCoreMappingFor(definition protocolV2QueryDefinition) (queryReg
 			ResultSchema:     QueryPublicReactionSchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		}
+	case QueryPublicBookmarksList:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicBookmarksList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_bookmarks.list", ContractVersion: "core.query.public_bookmarks.list@1",
+			Entity: "core.query.public_bookmark", PlanVersion: "core.query.public_bookmarks.list.plan@1",
+			ResultSchema:     QueryPublicBookmarkSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		}
 	case QueryPublicCategoriesList:
 		mapping = queryRegistryCoreMapping{
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,

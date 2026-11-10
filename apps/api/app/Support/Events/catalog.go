@@ -37,6 +37,10 @@ const (
 	// 这是徽章类插件将来唯一需要的数据源，payload 只含公开安全字段。
 	ReactionCreated = "reaction.created"
 	ReactionRemoved = "reaction.removed"
+	// BookmarkCreated / BookmarkRemoved：收藏关系变更后发出（observe）。
+	// 与 reaction 同姿态：payload 只含公开安全字段，私密收藏不外泄内容摘要。
+	BookmarkCreated = "bookmark.created"
+	BookmarkRemoved = "bookmark.removed"
 )
 
 // 目录约定（F1.3）：
@@ -96,6 +100,8 @@ var definitions = []Definition{
 	observe(EntityMetaUpdated, "Emitted after entity custom field values are written or cleared.", []string{"entityType", "entityId", "fieldKeys", "actorUserId"}),
 	observe(ReactionCreated, "Emitted after a like is committed on a visible topic or comment.", []string{"targetType", "targetId", "reaction", "actorUserId"}),
 	observe(ReactionRemoved, "Emitted after a like is removed from a visible topic or comment.", []string{"targetType", "targetId", "reaction", "actorUserId"}),
+	observe(BookmarkCreated, "Emitted after a bookmark is committed on a visible topic or comment.", []string{"targetType", "targetId", "visibility", "actorUserId"}),
+	observe(BookmarkRemoved, "Emitted after a bookmark is removed from a visible topic or comment.", []string{"targetType", "targetId", "visibility", "actorUserId"}),
 }
 
 func topicObservePayload(extra ...string) []string {

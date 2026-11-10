@@ -394,7 +394,10 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		avatarAttachmentService,
 		optionsService,
 		providers.NewExtensionProfileTabProvider(extensionService),
-	).WithNicknameEditor(nicknameService)
+	).WithNicknameEditor(nicknameService).
+		// 收藏名单：Profile 只认最小接口 BookmarkLister，实现在 Forum 侧；
+		// 适配器留在装配层，Forum 与 Profile 之间没有直接 import。
+		WithBookmarkLister(providers.NewForumBookmarkLister(forumProvider.BookmarkService()))
 	moderationReadModels, _ := forumCachedStore.(moderation.DecisionReadModelInvalidator)
 	moderationProvider := providers.NewModerationWorkbenchProviderWithIndexer(moderationStore, forumStore, identityStore, authSessions, searchIndexer, moderationReadModels)
 	// AI 网关：默认关闭，未启用前不产生任何出站调用。密钥只以 Secret Store

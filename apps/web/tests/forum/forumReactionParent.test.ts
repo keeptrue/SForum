@@ -13,8 +13,15 @@ const ReactionControlStub = defineComponent({
   template: '<button data-testid="like" @click="$emit(\'change\', true, 5)">like</button>'
 })
 
+// 动作行同时挂收藏控件；本用例不覆盖收藏，给一个不渲染的桩。
+const BookmarkControlStub = defineComponent({
+  name: 'SFBookmarkControl',
+  template: '<span data-testid="bookmark" />'
+})
+
 const TopicReactionBar = await compileVueSfc(barPath, 'topic-reaction-bar', {
   SFReactionControl: ReactionControlStub,
+  SFBookmarkControl: BookmarkControlStub,
   useI18n: () => ({ t: (key: string) => key })
 })
 

@@ -321,6 +321,8 @@ type TopicDetail struct {
 	// LikedBy 是点赞者头像组预览：最多 3 个，自己优先、其余最早；只在读路径
 	// 装饰（CachedStore 之后），永不进缓存或持久层。
 	LikedBy []UserSummary `json:"likedBy,omitempty"`
+	// BookmarkedByMe 只在有登录访客时按请求填充，永不进入缓存或持久层。
+	BookmarkedByMe bool `json:"bookmarkedByMe,omitempty"`
 	// EditedAt 是当前已接受修订的提交时间；仅在编辑标记设置开启时对外保留。
 	EditedAt *time.Time `json:"editedAt,omitempty"`
 	// UpdateApplied 仅供写路径抑制 no-op 的事件、缓存和索引副作用，不进入 API。

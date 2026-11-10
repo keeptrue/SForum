@@ -1195,6 +1195,12 @@ TopicDetail:
       likedByMe:
         type: boolean
         description: Request-scoped; true only when the authenticated viewer already liked this topic. Never cached.
+      bookmarkedByMe:
+        type: boolean
+        description: |
+          Request-scoped; true only when the authenticated viewer currently
+          bookmarks this topic (public or private). Decorated after the cache
+          layer, never cached.
       likedBy:
         type: array
         description: |
@@ -1684,6 +1690,12 @@ Comment:
     likedByMe:
       type: boolean
       description: Request-scoped; true only when the authenticated viewer already liked this comment. Never cached.
+    bookmarkedByMe:
+      type: boolean
+      description: |
+        Request-scoped; true only when the authenticated viewer currently
+        bookmarks this comment (public or private). Decorated after the cache
+        layer, never cached.
     likedBy:
       type: array
       description: |
@@ -2402,3 +2414,184 @@ ApiResponseReactionRoster:
       type: string
     data:
       "$ref": "#/ReactionRoster"
+
+BookmarkState:
+  type: object
+  required:
+  - targetType
+  - targetId
+  - visibility
+  - bookmarked
+  - publicBookmarkCount
+  properties:
+    targetType:
+      type: string
+      enum: [topic, comment]
+    targetId:
+      type: integer
+      format: int64
+    visibility:
+      type: string
+      enum: [private, public]
+      description: Effective visibility of the bookmark after the toggle.
+    bookmarked:
+      type: boolean
+      description: True when the authenticated member currently holds this bookmark.
+    publicBookmarkCount:
+      type: integer
+      format: int64
+      description: >
+        Authoritative public bookmark count for the target after the toggle.
+        Private bookmarks never contribute; the count only moves on
+        private→public, public→private and public-delete transitions.
+    remindAt:
+      type: string
+      format: date-time
+      description: Reminder time currently stored on the bookmark, when one is set.
+    remindedAt:
+      type: string
+      format: date-time
+      description: |
+        When the reminder was actually delivered. `remindAt` without
+        `remindedAt` means "scheduled"; both present means "already sent".
+
+UpsertBookmarkRequest:
+  type: object
+  properties:
+    visibility:
+      type: string
+      enum: [private, public]
+      description: >
+        Target visibility. Omitted means "keep the current value" (a new
+        bookmark defaults to `private`).
+    remindAt:
+      type: string
+      format: date-time
+      description: >
+        Optional reminder time (RFC3339). Must be later than now (60s clock
+        skew tolerated) and at most 2 years ahead. Setting it also clears any
+        previous delivery mark. Removal ignores it.
+    clearReminder:
+      type: boolean
+      description: |
+        Reminder clearing is a three-state field:
+        `clearReminder: true` clears both `remindAt` and the delivery mark;
+        `remindAt` sets (or replaces) the reminder; omitting both keeps the
+        stored value unchanged. Sending both is a `422
+        forum.bookmark_reminder_conflict` — the API never guesses which one
+        wins, because silently dropping either makes the client show a saved
+        value that did not change.
+
+BookmarkListItem:
+  type: object
+  required:
+  - targetType
+  - targetId
+  - visibility
+  - createdAt
+  properties:
+    targetType:
+      type: string
+      enum: [topic, comment]
+    targetId:
+      type: integer
+      format: int64
+    visibility:
+      type: string
+      enum: [private, public]
+      description: >
+        `private` rows appear only in the owner's own list. Other viewers and
+        the stable core view never see them.
+    createdAt:
+      type: string
+      format: date-time
+    remindAt:
+      type: string
+      format: date-time
+      description: Reminder time; owner-only (never present in another viewer's list).
+    remindedAt:
+      type: string
+      format: date-time
+      description: Delivery time of the reminder; owner-only.
+    topic:
+      "$ref": "#/TopicSummary"
+      description: Present when the target topic still exists and is readable.
+    comment:
+      "$ref": "#/BookmarkCommentRef"
+      description: Present when the target comment still exists and is readable.
+
+BookmarkCommentRef:
+  type: object
+  required:
+  - id
+  - topicId
+  - authorUserId
+  - status
+  - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+    topicId:
+      type: integer
+      format: int64
+    authorUserId:
+      type: integer
+      format: int64
+    depth:
+      type: integer
+      description: Reply depth in the comment tree.
+    status:
+      type: string
+      description: Comment lifecycle status (`active` for readable comments).
+    currentRevision:
+      type: integer
+      format: int64
+    createdAt:
+      type: string
+      format: date-time
+
+BookmarkList:
+  type: object
+  required:
+  - items
+  - total
+  - hasMore
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/BookmarkListItem"
+    total:
+      type: integer
+      format: int64
+    hasMore:
+      type: boolean
+
+ApiResponseBookmarkState:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BookmarkState"
+
+ApiResponseBookmarkList:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BookmarkList"

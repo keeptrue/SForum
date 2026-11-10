@@ -398,6 +398,38 @@ ActivityPage:
     kind:
       type: string
       enum: [topic, comment]
+ProfileBookmarkPage:
+  type: object
+  required:
+  - items
+  - total
+  - hasMore
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "../schemas/forum.yaml#/BookmarkListItem"
+    total:
+      type: integer
+      format: int64
+      description: >
+        Total rows visible to this viewer: the owner sees private plus public
+        rows, everyone else only public rows on still-visible targets.
+    hasMore:
+      type: boolean
+ApiResponseProfileBookmarkPage:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/ProfileBookmarkPage"
 ApiResponseActivityPage:
   type: object
   required:

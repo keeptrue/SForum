@@ -86,7 +86,7 @@ func renderMailTemplate(key string, data map[string]string) (subject, text, html
 			action, note = "开始逛逛", fmt.Sprintf("收到这封邮件是因为你刚刚注册了 %s。", siteName)
 			list = []string{"补充头像和个人简介", "从感兴趣的分类开始浏览", "阅读社区规范，了解讨论边界"}
 		}
-	case "forum.reply", "forum.mention", "forum.reaction", "forum.moderation_pending", "forum.moderation_approved", "forum.moderation_rejected":
+	case "forum.reply", "forum.mention", "forum.reaction", "forum.bookmark_reminder", "forum.moderation_pending", "forum.moderation_approved", "forum.moderation_rejected":
 		return renderForumTemplate(key, data, english, siteName, name, brand)
 	default:
 		if english {
@@ -114,6 +114,8 @@ func renderForumTemplate(key string, data map[string]string, english bool, siteN
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] You were mentioned", siteName), "Mention", "You were mentioned in a discussion", fmt.Sprintf("%s, someone mentioned you in a post.", name)
 		case "forum.reaction":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] New like", siteName), "Reaction", "Someone liked your post", fmt.Sprintf("%s, someone liked your content.", name)
+		case "forum.bookmark_reminder":
+			subject, eyebrow, title, intro = fmt.Sprintf("[%s] Bookmark reminder", siteName), "Bookmark reminder", "You asked to be reminded about this", fmt.Sprintf("%s, this is the reminder you set for a bookmarked discussion.", name)
 		case "forum.moderation_pending":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] Content awaiting review", siteName), "Moderation queue", "New content needs review", fmt.Sprintf("%s, new content has entered the moderation queue.", name)
 			action = "Open moderation queue"
@@ -135,6 +137,8 @@ func renderForumTemplate(key string, data map[string]string, english bool, siteN
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 你被提及了", siteName), "提及", "有人在讨论中提到了你", fmt.Sprintf("%s，有人在内容中提到了你。", name)
 		case "forum.reaction":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 收到新点赞", siteName), "点赞", "有人赞了你的内容", fmt.Sprintf("%s，有人赞了你的内容。", name)
+		case "forum.bookmark_reminder":
+			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 收藏提醒", siteName), "收藏提醒", "你设定的提醒时间到了", fmt.Sprintf("%s，这是你为收藏的讨论设定的提醒。", name)
 		case "forum.moderation_pending":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 有新内容等待审核", siteName), "审核队列", "有新内容需要处理", fmt.Sprintf("%s，审核队列中出现了新的待处理内容。", name)
 			action = "打开审核队列"

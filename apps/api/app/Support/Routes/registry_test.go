@@ -500,7 +500,8 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	// 378 = 377 + core.route.extensions.finalize_uninstall_cleanup（卸载清理免键收尾）。
 	// 379 = 378 + core.route.identity.create_user（后台新增用户）。
 	// 386 = 380 + 六个点赞路由（主题/评论的 like 与 likes 名单）。
-	if len(catalog) != 386 {
+	// 392 = 386 + 六个收藏路由（主题/评论的 bookmark 与取消收藏）。
+	if len(catalog) != 392 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

@@ -1869,3 +1869,127 @@ commentLikes:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+topicBookmark:
+  put:
+    summary: Bookmark a topic as the authenticated member
+    description: >
+      Idempotent: bookmarking an already bookmarked topic keeps one row and does
+      not double count. The optional body carries the visibility (default
+      `private`) and an optional reminder time. Requires an active account and
+      the site feature flag `features.bookmarks`; otherwise
+      `403 forum.bookmarks_disabled`. Targets that are not publicly visible
+      answer `404 forum.bookmark_target_invalid`.
+    operationId: bookmarkTopic
+    parameters:
+    - "$ref": "../components/parameters.yaml#/TopicID"
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/forum.yaml#/UpsertBookmarkRequest"
+    responses:
+      '200':
+        description: Current bookmark state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseBookmarkState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        description: |
+          Invalid bookmark body or reminder request. Reason codes:
+          `forum.bookmark_body_invalid` (malformed JSON/time),
+          `forum.bookmark_reminder_conflict` (both `remindAt` and
+          `clearReminder`), `forum.bookmark_reminder_in_past` (earlier than now
+          beyond the 60s skew), `forum.bookmark_reminder_too_far` (more than 2
+          years ahead), `forum.bookmark_reminder_limit` (200 pending reminders
+          already scheduled for this member).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+  delete:
+    summary: Remove the authenticated member's bookmark from a topic
+    description: >
+      Idempotent: removing a bookmark that does not exist is a no-op that returns
+      the current state.
+    operationId: unbookmarkTopic
+    parameters:
+    - "$ref": "../components/parameters.yaml#/TopicID"
+    responses:
+      '200':
+        description: Current bookmark state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseBookmarkState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+commentBookmark:
+  put:
+    summary: Bookmark a comment as the authenticated member
+    description: >
+      Same semantics as `PUT /topics/{topicID}/bookmark`: idempotent, optional
+      visibility and reminder time, `403 forum.bookmarks_disabled` when the
+      feature flag is off, `404 forum.bookmark_target_invalid` when the comment
+      or its topic is not publicly visible.
+    operationId: bookmarkComment
+    parameters:
+    - "$ref": "../components/parameters.yaml#/CommentID"
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/forum.yaml#/UpsertBookmarkRequest"
+    responses:
+      '200':
+        description: Current bookmark state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseBookmarkState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        description: |
+          Invalid bookmark body or reminder request. Reason codes:
+          `forum.bookmark_body_invalid`, `forum.bookmark_reminder_conflict`,
+          `forum.bookmark_reminder_in_past`, `forum.bookmark_reminder_too_far`,
+          `forum.bookmark_reminder_limit`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+  delete:
+    summary: Remove the authenticated member's bookmark from a comment
+    operationId: unbookmarkComment
+    parameters:
+    - "$ref": "../components/parameters.yaml#/CommentID"
+    responses:
+      '200':
+        description: Current bookmark state after the toggle.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/forum.yaml#/ApiResponseBookmarkState"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"

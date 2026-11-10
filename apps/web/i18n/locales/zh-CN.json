@@ -6314,6 +6314,84 @@
     "titleHintWithLimit": "标题 {min}–{max} 字。",
     "bodyHintWithLimit": "正文最多 {max} 字。"
   },
+  "bookmark": {
+    "action": {
+      "add": "收藏",
+      "remove": "取消收藏"
+    },
+    "saved": "已收藏",
+    "removed": "已取消收藏",
+    "saveFailed": "收藏失败，请稍后重试",
+    "removeFailed": "取消收藏失败，请稍后重试",
+    "loginRequired": "登录后才能收藏",
+    "controlLabel": "收藏设置",
+    "visibility": {
+      "label": "可见性",
+      "private": "私密",
+      "public": "公开",
+      "privateHint": "仅自己可见",
+      "publicHint": "其他人可以在你的主页看到这条收藏",
+      "updated": "可见性已更新",
+      "updateFailed": "可见性更新失败"
+    },
+    "remind": {
+      "label": "提醒",
+      "none": "不提醒",
+      "clear": "清除提醒",
+      "custom": "自定义时间",
+      "customLabel": "提醒时间",
+      "preset": {
+        "day1": "1 天后",
+        "day3": "3 天后",
+        "week1": "1 周后"
+      },
+      "saved": "提醒已设置",
+      "cleared": "提醒已清除",
+      "saveFailed": "提醒设置失败，请稍后重试",
+      "at": "提醒：{time}",
+      "relative": {
+        "due": "已到期",
+        "today": "今天",
+        "tomorrow": "明天",
+        "inDays": "还有 {days} 天"
+      },
+      "status": {
+        "pending": "将提醒",
+        "done": "已提醒"
+      }
+    },
+    "target": {
+      "topic": "主题",
+      "comment": "评论"
+    },
+    "privateBadge": "私密",
+    "empty": {
+      "selfTitle": "还没有收藏",
+      "selfDescription": "在主题或评论上点收藏，之后就能在这里快速找到。",
+      "publicTitle": "还没有公开收藏",
+      "publicDescription": "这位成员还没有公开分享任何收藏。",
+      "cta": "去首页看看"
+    },
+    "error": {
+      "forbidden": "登录后才能收藏，或没有权限执行该操作",
+      "inPast": "提醒时间要晚于当前时间 1 分钟",
+      "tooFar": "提醒时间不能超过 2 年",
+      "limit": "提醒次数已达上限，请稍后再试",
+      "notFound": "收藏内容不存在或已被删除",
+      "rateLimited": "操作过于频繁，请稍后再试",
+      "unavailable": "收藏功能暂不可用",
+      "unknown": "操作失败，请稍后重试"
+    },
+    "profileTab": {
+      "title": "收藏",
+      "description": "按收藏时间排序的主题与评论。",
+      "privateNotice": "只有你自己能看到私密收藏。",
+      "loadMore": "加载更多收藏",
+      "loadingMore": "正在加载…",
+      "loadFailed": "收藏列表加载失败",
+      "emptyHint": "收藏会出现在这里。"
+    }
+  },
   "profile": {
     "metaDescription": "查看社区成员的公开资料。",
     "notFound": {
@@ -6351,6 +6429,7 @@
       "ariaLabel": "个人主页分区",
       "topics": "主题",
       "replies": "回复",
+      "bookmarks": "收藏",
       "about": "关于"
     },
     "timeline": {

@@ -25,6 +25,8 @@ const (
 	NameFeatureWebhooks = "features.webhooks"
 	// NameFeatureReactions 点赞（主题/评论）产品面；关闭后写端点 403、前端隐藏控件。
 	NameFeatureReactions = "features.reactions"
+	// NameFeatureBookmarks 收藏（主题/评论）产品面；关闭后写端点与名单端点 403。
+	NameFeatureBookmarks = "features.bookmarks"
 )
 
 // FeatureFlagDefinition 描述宿主目录中的一个产品开关。
@@ -50,6 +52,7 @@ func featureFlagOptionDefinitions() []optionDefinition {
 		// webhooks 对访客无意义，仅 admin 列表可见。
 		{name: NameFeatureWebhooks, public: false, managePermission: site},
 		{name: NameFeatureReactions, public: true, managePermission: site},
+		{name: NameFeatureBookmarks, public: true, managePermission: site},
 	}
 }
 
@@ -64,6 +67,7 @@ func FeatureFlagCatalog() []FeatureFlagDefinition {
 		{Name: NameFeaturePublicProfiles, Public: true, Default: defaults[NameFeaturePublicProfiles], Description: "Public profile pages."},
 		{Name: NameFeatureWebhooks, Public: false, Default: defaults[NameFeatureWebhooks], Description: "Outbound webhooks product surface."},
 		{Name: NameFeatureReactions, Public: true, Default: defaults[NameFeatureReactions], Description: "Like reactions on topics and comments."},
+		{Name: NameFeatureBookmarks, Public: true, Default: defaults[NameFeatureBookmarks], Description: "Bookmarks on topics and comments."},
 	}
 }
 
@@ -76,6 +80,7 @@ func featureFlagRecommendedDefaults() map[string]string {
 		NameFeaturePublicProfiles: enabledOptionValue(true),
 		NameFeatureWebhooks:       enabledOptionValue(true),
 		NameFeatureReactions:      enabledOptionValue(true),
+		NameFeatureBookmarks:      enabledOptionValue(true),
 	}
 }
 
@@ -106,6 +111,7 @@ type FeatureFlags struct {
 	PublicProfiles bool `json:"publicProfiles"`
 	Webhooks       bool `json:"webhooks"`
 	Reactions      bool `json:"reactions"`
+	Bookmarks      bool `json:"bookmarks"`
 }
 
 // FeatureFlags 读取全部 features.*（含非 public）。
@@ -126,6 +132,7 @@ func featureFlagsFromValues(values map[string]string) FeatureFlags {
 		PublicProfiles: isEnabledOption(values[NameFeaturePublicProfiles]),
 		Webhooks:       isEnabledOption(values[NameFeatureWebhooks]),
 		Reactions:      isEnabledOption(values[NameFeatureReactions]),
+		Bookmarks:      isEnabledOption(values[NameFeatureBookmarks]),
 	}
 }
 

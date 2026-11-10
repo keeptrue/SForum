@@ -29,7 +29,6 @@ import (
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
-	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	jobsmodel "github.com/keeptrue/sforum/apps/api/app/Models/Jobs"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
@@ -817,6 +816,8 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 			},
 		),
 	}
+	// 收藏提醒：worker 注册 + schedule 条目都在这里一次装好（见 worker_forum_jobs.go）。
+	bookmarkReminderEnqueuer := registerForumBookmarkRemindersWorker(registry, coreScheduleConstructors, wrapEnabled, cfg, pool, logger)
 	applyUninstallCleanupSweepRegistration(registry, coreScheduleConstructors, wrapEnabled, deps)
 	scheduleRegistry, err := supportjobs.NewCoreScheduleRegistry(coreScheduleConstructors)
 	if err != nil {
@@ -853,6 +854,7 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	}
 	searchReconciler.WithDispatcher(supportjobs.NewDispatcher(client))
 	pluginJobEnqueuer.Dispatcher = supportjobs.NewDispatcher(client)
+	bookmarkReminderEnqueuer.Bind(supportjobs.NewDispatcher(client))
 	if err := pluginSchedules.BindPeriodicPublisher(
 		supportjobs.NewPluginSchedulePeriodicPublisher(client.PeriodicJobs()),
 	); err != nil {
@@ -930,43 +932,6 @@ func registerIdentityCleanupWorker(registry *supportjobs.Registry, cfg config.Co
 			Logger: logger,
 		})
 		return nil
-	})
-}
-
-// registerForumAutoLockWorker 注册闲置主题自动锁帖 worker。
-// idle days 每次执行时从 web_options 读取；0 或缺失时 job 空跑。
-func registerForumAutoLockWorker(registry *supportjobs.Registry, cfg config.Config, pool *pgxpool.Pool, logger *slog.Logger) {
-	optionStore := options.NewPostgresStore(pool)
-	optionsService := options.NewServiceWithDefaults(optionStore, optionsDefaultsFromConfig(cfg))
-	forumStore := forum.NewPostgresStore(pool)
-
-	registry.Add(func(workers *river.Workers) error {
-		return river.AddWorkerSafely[forumjobs.AutoLockIdleArgs](workers, &forumjobs.AutoLockIdleWorker{
-			Locker: forumStore,
-			IdleDays: func(ctx context.Context) (int, error) {
-				raw, err := optionsService.WebOption(ctx, options.NameForumTopicsAutoLockIdleDays)
-				if err != nil {
-					return 0, err
-				}
-				if days, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && days > 0 {
-					return days, nil
-				}
-				return 0, nil
-			},
-			Logger: logger,
-		})
-	})
-}
-
-// registerForumFlushViewCountsWorker 注册浏览量刷盘（D3 / M2）。
-// redisClient 为 nil 时仍注册 worker，但 Drain 空跑（嵌入路径应注入 shared Redis）。
-func registerForumFlushViewCountsWorker(registry *supportjobs.Registry, pool *pgxpool.Pool, redisClient *redis.Client, logger *slog.Logger) {
-	forumStore := forum.NewPostgresStore(pool)
-	counter := forum.NewRedisTopicViewCounter(redisClient).WithLogger(logger)
-	forumjobs.RegisterFlushViewCounts(registry, &forumjobs.FlushViewCountsWorker{
-		Drainer: counter,
-		Store:   forumStore,
-		Logger:  logger,
 	})
 }
 

@@ -6274,6 +6274,84 @@
     "titleHintWithLimit": "Title length: {min}–{max} characters.",
     "bodyHintWithLimit": "Body up to {max} characters."
   },
+  "bookmark": {
+    "action": {
+      "add": "Bookmark",
+      "remove": "Remove bookmark"
+    },
+    "saved": "Bookmarked",
+    "removed": "Bookmark removed",
+    "saveFailed": "Could not save the bookmark. Try again.",
+    "removeFailed": "Could not remove the bookmark. Try again.",
+    "loginRequired": "Sign in to bookmark",
+    "controlLabel": "Bookmark settings",
+    "visibility": {
+      "label": "Visibility",
+      "private": "Private",
+      "public": "Public",
+      "privateHint": "Only you can see it",
+      "publicHint": "Others can see this bookmark on your profile",
+      "updated": "Visibility updated",
+      "updateFailed": "Could not update visibility"
+    },
+    "remind": {
+      "label": "Reminder",
+      "none": "No reminder",
+      "clear": "Clear reminder",
+      "custom": "Custom time",
+      "customLabel": "Remind me at",
+      "preset": {
+        "day1": "In 1 day",
+        "day3": "In 3 days",
+        "week1": "In 1 week"
+      },
+      "saved": "Reminder set",
+      "cleared": "Reminder cleared",
+      "saveFailed": "Could not set the reminder. Try again.",
+      "at": "Reminder: {time}",
+      "relative": {
+        "due": "Due now",
+        "today": "Today",
+        "tomorrow": "Tomorrow",
+        "inDays": "In {days} days"
+      },
+      "status": {
+        "pending": "Scheduled",
+        "done": "Reminded"
+      }
+    },
+    "target": {
+      "topic": "Topic",
+      "comment": "Comment"
+    },
+    "privateBadge": "Private",
+    "empty": {
+      "selfTitle": "No bookmarks yet",
+      "selfDescription": "Bookmark a topic or comment and it will show up here.",
+      "publicTitle": "No public bookmarks",
+      "publicDescription": "This member has not shared any bookmarks publicly.",
+      "cta": "Browse the forum"
+    },
+    "error": {
+      "forbidden": "Sign in to bookmark, or you do not have permission for this action",
+      "inPast": "Pick a reminder at least a minute from now",
+      "tooFar": "Reminders can be at most two years away",
+      "limit": "You have reached the reminder limit. Try again later.",
+      "notFound": "This bookmark no longer exists",
+      "rateLimited": "Too many actions. Try again shortly.",
+      "unavailable": "Bookmarks are currently unavailable",
+      "unknown": "Something went wrong. Try again."
+    },
+    "profileTab": {
+      "title": "Bookmarks",
+      "description": "Topics and comments ordered by when they were bookmarked.",
+      "privateNotice": "Only you can see your private bookmarks.",
+      "loadMore": "Load more bookmarks",
+      "loadingMore": "Loading…",
+      "loadFailed": "Could not load bookmarks",
+      "emptyHint": "Bookmarks will appear here."
+    }
+  },
   "profile": {
     "metaDescription": "View a community member's public profile.",
     "notFound": {
@@ -6311,6 +6389,7 @@
       "ariaLabel": "Profile sections",
       "topics": "Topics",
       "replies": "Replies",
+      "bookmarks": "Bookmarks",
       "about": "About"
     },
     "timeline": {

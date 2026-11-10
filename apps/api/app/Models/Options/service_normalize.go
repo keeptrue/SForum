@@ -186,7 +186,7 @@ func normalizeOptionValue(name string, value string) (string, bool) {
 		return normalizeForumTagCreationMode(value)
 	case NameForumTagPublicPages:
 		return normalizeEnabledOption(value)
-	case NameFeatureSearch, NameFeatureRegistration, NameFeatureAttachments, NameFeatureMentions, NameFeaturePublicProfiles, NameFeatureWebhooks, NameFeatureReactions:
+	case NameFeatureSearch, NameFeatureRegistration, NameFeatureAttachments, NameFeatureMentions, NameFeaturePublicProfiles, NameFeatureWebhooks, NameFeatureReactions, NameFeatureBookmarks:
 		// F4.5：产品开关仅接受 enabled/disabled。
 		return normalizeEnabledOption(value)
 	case NamePagesRegistryEnabled, NameThemesRuntimeL0Enabled, NameThemesRuntimeL1Enabled:

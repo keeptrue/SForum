@@ -144,6 +144,8 @@ export type ForumTopicSummary = {
 export type ForumTopicDetail = ForumTopicSummary & {
   content: ForumRenderedContent
   likedByMe?: boolean
+  /** 当前访客是否已收藏；仅登录访客填充，永不缓存。 */
+  bookmarkedByMe?: boolean
   likedBy?: ForumUserSummary[] // 点赞头像预览：自己优先、其余最早，最多 3 个
   /** 当前已接受修订的提交时间；仅在编辑标记开启且主题已编辑时返回。 */
   editedAt?: string
@@ -255,6 +257,8 @@ export type ForumComment = {
   likeCount: number
   /** 请求级字段：仅登录访客且已赞时为 true，永不缓存。 */
   likedByMe?: boolean
+  /** 请求级字段：仅登录访客且已收藏时为 true，永不缓存。 */
+  bookmarkedByMe?: boolean
   likedBy?: ForumUserSummary[] // 点赞头像预览：自己优先、其余最早，最多 3 个
   status: ForumCommentStatus
   content: ForumRenderedContent

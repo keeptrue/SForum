@@ -53,7 +53,7 @@ in this directory. Completed, cancelled, and superseded plans live under
 | `2026-07-27-github-social-login-builtin-plugin.md` | **active** -- R1-R7 remediation complete; independent re-review requested, do not declare closure |
 | `2026-07-27-external-auth-core-plugin-review-remediation.md` | **active** -- R1-R7 remediation complete; independent re-review requested |
 | `2026-07-27-configurable-public-navigation-platform.md` | **active** -- M0-M6 complete; M7 lifecycle, recovery, documentation, and final release gate is next |
-| `2026-07-12-iteration-a-engagement-loop.md` | **in progress** -- Workstream 1 shipped; Workstream 2 (likes) landed via `2026-10-28-content-reactions-likes.md` (switch-off evidence collected; final gate green); bookmarks not started |
+| `2026-07-12-iteration-a-engagement-loop.md` | **completed（2026-11-10，待归档）** -- Workstream 1 浏览数、Workstream 2 点赞（`2026-10-28-content-reactions-likes.md`）、Workstream 3 收藏全部落地；收藏按运营者要求扩到评论目标 + 公开/私密开关 + 只统计公开计数 + 到期提醒 + 公开 profile tab，见 `decisions/2026-11-10-content-bookmarks.md` 与 `sessions/2026-11-10-content-bookmarks.md` |
 | `2026-07-12-admin-settings-richness.md` | **blueprint** -- later settings waves |
 | `2026-07-12-development-directions.md` | **blueprint** -- strategy context; verify against newer V3 decisions |
 | `2026-07-12-extension-surface-density.md` | **active (partial)** -- remaining product surface density |

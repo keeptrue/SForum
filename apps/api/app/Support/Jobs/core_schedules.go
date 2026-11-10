@@ -15,6 +15,8 @@ const (
 	ScheduleAuditCleanupEvents = "audit.cleanup_events"
 	// ScheduleForumAutoLockIdle 按站点 autoLockIdleDays 锁定闲置主题。
 	ScheduleForumAutoLockIdle = "forum.auto_lock_idle"
+	// ScheduleForumBookmarkReminders 扫描到期收藏提醒并发出通知（每分钟）。
+	ScheduleForumBookmarkReminders = "forum.bookmark_reminders"
 	// ScheduleForumFlushViewCounts 将 Redis 浏览增量刷入 topics.view_count / hot_score。
 	ScheduleForumFlushViewCounts = "forum.flush_view_counts"
 	// ScheduleSearchReconcile 增量修复当前搜索 provider 的漏建、过期和幽灵文档。
@@ -76,6 +78,16 @@ func CoreScheduleDefinitions() []ScheduleDefinition {
 			Owner:       "forum",
 			Enabled:     true,
 			Description: "按站点 autoLockIdleDays 锁定闲置主题（0 关闭时 job 空跑）",
+			RunOnStart:  false,
+		},
+		{
+			ID:          ScheduleForumBookmarkReminders,
+			JobKind:     ScheduleForumBookmarkReminders,
+			Queue:       QueueMaintenance,
+			Interval:    time.Minute,
+			Owner:       "forum",
+			Enabled:     true,
+			Description: "扫描到期的收藏提醒并写入站内/邮件通知（每轮最多 200 条）",
 			RunOnStart:  false,
 		},
 		{

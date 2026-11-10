@@ -23,6 +23,9 @@ const (
 	QueryPublicCategoriesList       = "sforum.core.public_categories.list"
 	// QueryPublicReactionsList 是点赞关系的公开读面（谁赞了哪个可见目标）。
 	QueryPublicReactionsList = "sforum.core.public_reactions.list"
+	// QueryPublicBookmarksList 是公开收藏关系的读面。视图只含 visibility='public'
+	// 的行，私密收藏与提醒字段永不出现。
+	QueryPublicBookmarksList = "sforum.core.public_bookmarks.list"
 	// QuerySelfEmail 只由 host 签发的 actor 委派驱动执行；actorless 稳定入口
 	// 一律拒绝（见 consent_query_definitions.go）。
 	QuerySelfEmail                   = "sforum.core.identity.self_email"
@@ -35,6 +38,7 @@ const (
 	QuerySafeUserAvatarSchemaID      = "sforum.core.safe_user_avatar"
 	QueryPublicCategorySchemaID      = "sforum.core.public_category"
 	QueryPublicReactionSchemaID      = "sforum.core.public_reaction"
+	QueryPublicBookmarkSchemaID      = "sforum.core.public_bookmark"
 	QuerySelfEmailSchemaID           = "sforum.core.self_email"
 	QueryStableCoreResultSchemaV1    = "1"
 	QueryInt64ParameterSchemaID      = "sforum.core.query.int64"
@@ -133,7 +137,7 @@ func isStableProtocolV2QueryID(queryID string) bool {
 	switch strings.TrimSpace(queryID) {
 	case QuerySafeUserByID, QueryPublicTopicsList, QueryPublicTopicByID, QueryPublicAttachmentByPublicID,
 		QuerySiteStats, QueryPublicCommentsList, QuerySafeUserByUsername, QuerySafeUsersBatch, QueryPublicCategoriesList,
-		QueryPublicReactionsList, QuerySelfEmail:
+		QueryPublicReactionsList, QueryPublicBookmarksList, QuerySelfEmail:
 		return true
 	default:
 		return false

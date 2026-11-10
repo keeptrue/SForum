@@ -27,6 +27,9 @@ func TestCoreScheduleRegistryBuildsCorePeriodics(t *testing.T) {
 		ScheduleForumFlushViewCounts: func() (river.JobArgs, *river.InsertOpts) {
 			return stubArgs{kind: ScheduleForumFlushViewCounts}, nil
 		},
+		ScheduleForumBookmarkReminders: func() (river.JobArgs, *river.InsertOpts) {
+			return stubArgs{kind: ScheduleForumBookmarkReminders}, nil
+		},
 		ScheduleSearchReconcile: func() (river.JobArgs, *river.InsertOpts) {
 			return stubArgs{kind: ScheduleSearchReconcile}, nil
 		},
@@ -37,15 +40,15 @@ func TestCoreScheduleRegistryBuildsCorePeriodics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("registry: %v", err)
 	}
-	if reg.Len() != 8 {
-		t.Fatalf("expected 8 core schedules, got %d", reg.Len())
+	if reg.Len() != 9 {
+		t.Fatalf("expected 9 core schedules, got %d", reg.Len())
 	}
 	jobs, err := reg.BuildPeriodicJobs()
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	if len(jobs) != 8 {
-		t.Fatalf("expected 8 river periodics, got %d", len(jobs))
+	if len(jobs) != 9 {
+		t.Fatalf("expected 9 river periodics, got %d", len(jobs))
 	}
 
 	// 元数据完整性：daily、owner 明确
@@ -113,7 +116,7 @@ func TestCoreScheduleRegistryWithoutConstructorsIsCatalogOnly(t *testing.T) {
 	if len(jobs) != 0 {
 		t.Fatalf("catalog-only should not build periodics, got %d", len(jobs))
 	}
-	if len(reg.Views()) != 8 {
+	if len(reg.Views()) != 9 {
 		t.Fatalf("views=%d", len(reg.Views()))
 	}
 }

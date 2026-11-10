@@ -24,6 +24,14 @@ func NewProfileProvider(store profile.Store, users identity.ActorStore, sessions
 	}
 }
 
+// WithBookmarkLister 注入收藏名单读取面（Forum 实现，经 providers 适配）。
+func (p *ProfileProvider) WithBookmarkLister(lister profile.BookmarkLister) *ProfileProvider {
+	if p != nil && p.service != nil {
+		p.service.WithBookmarkLister(lister)
+	}
+	return p
+}
+
 // WithNicknameEditor 注入昵称服务（Identity 实现）。不注入时昵称只读，
 // 带 displayName 的 PUT 会被拒绝。
 func (p *ProfileProvider) WithNicknameEditor(editor profile.NicknameEditor) *ProfileProvider {
