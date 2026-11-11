@@ -80,16 +80,7 @@ func (s *PostgresStore) ListTopics(ctx context.Context, input TopicListInput) (T
 		WITH page AS (
 		`+pageSQL+`
 		)
-		SELECT topics.id, topics.category_id, categories.slug, categories.name,
-		  topics.author_user_id, users.username, users.display_name, users.email,
-		  author_profiles.avatar_attachment_id,
-		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
-		  author_attachments.content_type, author_attachments.status,
-		  topics.title, topics.slug, topics.status, topics.is_pinned,
-		  topics.comment_count, topics.view_count, topics.like_count, topics.hot_score, `+plainTextPrefixSQL("posts.plain_text")+`,
-		  `+effectivePostCurrentRevisionSQL("posts")+`,
-		  `+contentEditedSQL("posts")+`,
-		  topics.created_at, topics.updated_at, topics.last_activity_at,`+lastReplyAuthorSelectSQL()+`
+		SELECT `+topicSummaryColumns()+`
 		FROM page
 		JOIN topics ON topics.id = page.id
 		JOIN categories ON categories.id = topics.category_id
@@ -97,7 +88,7 @@ func (s *PostgresStore) ListTopics(ctx context.Context, input TopicListInput) (T
 		LEFT JOIN users ON users.id = topics.author_user_id
 		LEFT JOIN user_profiles author_profiles ON author_profiles.user_id = users.id
 		LEFT JOIN attachments author_attachments ON author_attachments.id = author_profiles.avatar_attachment_id
-		`+lastReplyAuthorJoinSQL()+`
+		`+lastReplyAuthorJoinSQL()+topBadgeJoinSQL()+`
 		`+topicListOrderBy(sort)+`
 	`, args...)
 	if err != nil {

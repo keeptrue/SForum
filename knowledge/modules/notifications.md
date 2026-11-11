@@ -92,6 +92,17 @@ The executable reference fixture is
 uninstalled, stale-artifact, or cross-namespace callers cannot emit; historical
 rows retain versioned structured payload and use Host fallback presentation.
 
+**徽章授予通知（2026-11-10 落地）**：新增核心类型 `badge_granted`（category
+`engagement`，图标 `i-lucide-award`），站内默认开、邮件/推送默认关（与 reaction 同
+姿态），邮件模板键 `forum.badge_granted`（中英齐全——默认关闭不等于可以不写，用户
+打开邮件通道后无模板会静默失败）。去重键 `badge_granted:{userBadgeID}`，与授予行
+一对一，重复评估不会重复通知（`ON CONFLICT DO NOTHING` 未插入行时根本不发）。
+
+**语义与互动通知相反的一处**：管理员给自己授予徽章**会**发通知。自赞跳过是因为
+那是互动噪音；徽章是公开荣誉，自己给自己发一枚运营徽章也需要留下通知记录。
+三种授予来源（规则自动 / 管理员手动 / 批量重算）在 `user_badges` 里可区分，见
+`modules/badges.md` 的判别式表。
+
 ## Persistence and Delivery
 
 - `notifications` remains recipient-owned and adds category/payload version plus

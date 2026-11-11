@@ -131,6 +131,27 @@ func TestQueryRegistryCoreCatalogSealsPublicationsBindingsAndSchemas(t *testing.
 			ResultSchema:     QueryPublicBookmarkSchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		},
+		QueryPublicBadgesList: {
+			HostQueryID: QueryPublicBadgesList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_badges.list", ContractVersion: "core.query.public_badges.list@1",
+			Entity: "core.query.public_badge", PlanVersion: "core.query.public_badges.list.plan@1",
+			ResultSchema:     QueryPublicBadgeSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
+		QueryPublicUserBadgesList: {
+			HostQueryID: QueryPublicUserBadgesList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_badges.list", ContractVersion: "core.query.public_user_badges.list@1",
+			Entity: "core.query.public_user_badge", PlanVersion: "core.query.public_user_badges.list.plan@1",
+			ResultSchema:     QueryPublicUserBadgeSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
+		QueryPublicUserActivityList: {
+			HostQueryID: QueryPublicUserActivityList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_activity.list", ContractVersion: "core.query.public_user_activity.list@1",
+			Entity: "core.query.public_user_activity", PlanVersion: "core.query.public_user_activity.list.plan@1",
+			ResultSchema:     QueryPublicUserActivitySchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
 		QueryPublicCategoriesList: {
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,
 			QueryID: "core.query.public_categories.list", ContractVersion: "core.query.public_categories.list@1",

@@ -2,11 +2,22 @@ package forum
 
 import "strings"
 
-func topicSummarySQL() string {
-	// plain_text 前缀供读路径派生 excerpt（列已删除，避免列表拉全量正文）。
-	// hot_score 供 M5 keyset 编码（json:"-"，不暴露公开 JSON）。
+// topicSummaryColumns 是主题摘要的唯一列清单。
+//
+// 为什么必须只有一份：scanTopicSummaryWithAvatar 是位置扫描，谁手写第二份列清单，
+// 谁就会在下次加列时静默错位或直接 500（"number of field descriptions must equal
+// number of destinations"）。目前有三个 SELECT 复用它：
+//   - topicSummarySQL()（单行读取，FROM topics）
+//   - list_topics.go 的首页分页（FROM page CTE）
+//   - search_live.go 的搜索结果（FROM topics + ANY($1)）
+//
+// 三者的 FROM/JOIN 确实不同，但**列清单必须相同**。
+//
+// 任何新增列都要同时改 scanTopicSummaryWithAvatar 与
+// TestTopicSummaryColumnsStayAlignedWithScanner 的列数断言。
+func topicSummaryColumns() string {
 	return `
-		SELECT topics.id, topics.category_id, categories.slug, categories.name,
+		topics.id, topics.category_id, categories.slug, categories.name,
 		  topics.author_user_id, users.username, users.display_name, users.email,
 		  author_profiles.avatar_attachment_id,
 		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
@@ -15,14 +26,22 @@ func topicSummarySQL() string {
 		  topics.comment_count, topics.view_count, topics.like_count, topics.hot_score, ` + plainTextPrefixSQL("posts.plain_text") + `,
 		  ` + effectivePostCurrentRevisionSQL("posts") + `,
 		  ` + contentEditedSQL("posts") + `,
-		  topics.created_at, topics.updated_at, topics.last_activity_at,` + lastReplyAuthorSelectSQL() + `
+		  topics.created_at, topics.updated_at, topics.last_activity_at,` + lastReplyAuthorSelectSQL() + `,
+		  ` + topBadgeSelectSQL()
+}
+
+func topicSummarySQL() string {
+	// plain_text 前缀供读路径派生 excerpt（列已删除，避免列表拉全量正文）。
+	// hot_score 供 M5 keyset 编码（json:"-"，不暴露公开 JSON）。
+	return `
+		SELECT ` + topicSummaryColumns() + `
 		FROM topics
 		JOIN categories ON categories.id = topics.category_id
 		JOIN posts ON posts.id = topics.content_id
 		LEFT JOIN users ON users.id = topics.author_user_id
 		LEFT JOIN user_profiles author_profiles ON author_profiles.user_id = users.id
 		LEFT JOIN attachments author_attachments ON author_attachments.id = author_profiles.avatar_attachment_id
-		` + lastReplyAuthorJoinSQL()
+		` + lastReplyAuthorJoinSQL() + topBadgeJoinSQL()
 }
 
 // topicListOrderBy：置顶始终优先，再按运营默认排序。

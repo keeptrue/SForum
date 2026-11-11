@@ -26,6 +26,14 @@ const (
 	// QueryPublicBookmarksList 是公开收藏关系的读面。视图只含 visibility='public'
 	// 的行，私密收藏与提醒字段永不出现。
 	QueryPublicBookmarksList = "sforum.core.public_bookmarks.list"
+	// QueryPublicBadgesList 是启用中徽章目录的公开读面（forum_badges 视图）。
+	QueryPublicBadgesList = "sforum.core.public_badges.list"
+	// QueryPublicUserBadgesList 是徽章授予关系的公开读面：只含 active 用户 × 启用徽章，
+	// granted_by / grant_reason 永不出现。
+	QueryPublicUserBadgesList = "sforum.core.public_user_badges.list"
+	// QueryPublicUserActivityList 是用户活动统计的公开读面。阅读类指标未采集，
+	// 视图不输出，查询也不声明它们。
+	QueryPublicUserActivityList = "sforum.core.public_user_activity.list"
 	// QuerySelfEmail 只由 host 签发的 actor 委派驱动执行；actorless 稳定入口
 	// 一律拒绝（见 consent_query_definitions.go）。
 	QuerySelfEmail                   = "sforum.core.identity.self_email"
@@ -39,6 +47,9 @@ const (
 	QueryPublicCategorySchemaID      = "sforum.core.public_category"
 	QueryPublicReactionSchemaID      = "sforum.core.public_reaction"
 	QueryPublicBookmarkSchemaID      = "sforum.core.public_bookmark"
+	QueryPublicBadgeSchemaID         = "sforum.core.public_badge"
+	QueryPublicUserBadgeSchemaID     = "sforum.core.public_user_badge"
+	QueryPublicUserActivitySchemaID  = "sforum.core.public_user_activity"
 	QuerySelfEmailSchemaID           = "sforum.core.self_email"
 	QueryStableCoreResultSchemaV1    = "1"
 	QueryInt64ParameterSchemaID      = "sforum.core.query.int64"
@@ -137,7 +148,8 @@ func isStableProtocolV2QueryID(queryID string) bool {
 	switch strings.TrimSpace(queryID) {
 	case QuerySafeUserByID, QueryPublicTopicsList, QueryPublicTopicByID, QueryPublicAttachmentByPublicID,
 		QuerySiteStats, QueryPublicCommentsList, QuerySafeUserByUsername, QuerySafeUsersBatch, QueryPublicCategoriesList,
-		QueryPublicReactionsList, QueryPublicBookmarksList, QuerySelfEmail:
+		QueryPublicReactionsList, QueryPublicBookmarksList, QuerySelfEmail,
+		QueryPublicBadgesList, QueryPublicUserBadgesList, QueryPublicUserActivityList:
 		return true
 	default:
 		return false

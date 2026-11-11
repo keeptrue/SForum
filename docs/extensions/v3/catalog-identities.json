@@ -2352,6 +2352,108 @@
       "contractVersion": "sforum.route.profile.public_bookmarks@1",
       "method": "GET",
       "path": "/api/v1/profiles/:username/bookmarks"
+    },
+    {
+      "id": "core.route.badges.admin_list_badges",
+      "contractVersion": "sforum.route.badges.admin_list_badges@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges"
+    },
+    {
+      "id": "core.route.badges.admin_create_badge",
+      "contractVersion": "sforum.route.badges.admin_create_badge@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges"
+    },
+    {
+      "id": "core.route.badges.admin_update_badge",
+      "contractVersion": "sforum.route.badges.admin_update_badge@1",
+      "method": "PATCH",
+      "path": "/api/v1/admin/badges/:badgeID"
+    },
+    {
+      "id": "core.route.badges.admin_delete_badge",
+      "contractVersion": "sforum.route.badges.admin_delete_badge@1",
+      "method": "DELETE",
+      "path": "/api/v1/admin/badges/:badgeID"
+    },
+    {
+      "id": "core.route.badges.admin_list_badge_groups",
+      "contractVersion": "sforum.route.badges.admin_list_badge_groups@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/groups"
+    },
+    {
+      "id": "core.route.badges.admin_create_badge_group",
+      "contractVersion": "sforum.route.badges.admin_create_badge_group@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges/groups"
+    },
+    {
+      "id": "core.route.badges.admin_update_badge_group",
+      "contractVersion": "sforum.route.badges.admin_update_badge_group@1",
+      "method": "PATCH",
+      "path": "/api/v1/admin/badges/groups/:groupID"
+    },
+    {
+      "id": "core.route.badges.admin_delete_badge_group",
+      "contractVersion": "sforum.route.badges.admin_delete_badge_group@1",
+      "method": "DELETE",
+      "path": "/api/v1/admin/badges/groups/:groupID"
+    },
+    {
+      "id": "core.route.badges.admin_list_badge_grants",
+      "contractVersion": "sforum.route.badges.admin_list_badge_grants@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/:badgeID/grants"
+    },
+    {
+      "id": "core.route.badges.admin_create_badge_grant",
+      "contractVersion": "sforum.route.badges.admin_create_badge_grant@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges/:badgeID/grants"
+    },
+    {
+      "id": "core.route.badges.admin_delete_badge_grant",
+      "contractVersion": "sforum.route.badges.admin_delete_badge_grant@1",
+      "method": "DELETE",
+      "path": "/api/v1/admin/badges/:badgeID/grants/:userID"
+    },
+    {
+      "id": "core.route.badges.admin_recompute_badges",
+      "contractVersion": "sforum.route.badges.admin_recompute_badges@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges/recompute"
+    },
+    {
+      "id": "core.route.badges.public_profile_badges",
+      "contractVersion": "sforum.route.badges.public_profile_badges@1",
+      "method": "GET",
+      "path": "/api/v1/profiles/:username/badges"
+    },
+    {
+      "id": "core.route.trust_levels.get_public_trust_levels",
+      "contractVersion": "sforum.route.trust_levels.get_public_trust_levels@1",
+      "method": "GET",
+      "path": "/api/v1/trust-levels"
+    },
+    {
+      "id": "core.route.trust_levels.admin_get_trust_levels",
+      "contractVersion": "sforum.route.trust_levels.admin_get_trust_levels@1",
+      "method": "GET",
+      "path": "/api/v1/admin/trust-levels"
+    },
+    {
+      "id": "core.route.trust_levels.admin_update_trust_levels",
+      "contractVersion": "sforum.route.trust_levels.admin_update_trust_levels@1",
+      "method": "PUT",
+      "path": "/api/v1/admin/trust-levels"
+    },
+    {
+      "id": "core.route.trust_levels.admin_restore_trust_level_defaults",
+      "contractVersion": "sforum.route.trust_levels.admin_restore_trust_level_defaults@1",
+      "method": "POST",
+      "path": "/api/v1/admin/trust-levels/restore-defaults"
     }
   ],
   "ui": [
@@ -3344,6 +3446,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminSiteVerificationTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_levels_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_levels_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue"
     },
     {
       "id": "core.component.page.admin",
@@ -6109,6 +6221,96 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/profile/SFProfileFeedTab.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_table",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_table@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTable.vue"
+    },
+    {
+      "id": "core.component.public.s_f_badge_chip",
+      "contractVersion": "sforum.component.public.s_f_badge_chip@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFBadgeChip.vue"
+    },
+    {
+      "id": "core.component.public.s_f_profile_badge_tab",
+      "contractVersion": "sforum.component.public.s_f_profile_badge_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFProfileBadgeTab.vue"
+    },
+    {
+      "id": "core.component.public.s_f_trust_level_card",
+      "contractVersion": "sforum.component.public.s_f_trust_level_card@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFTrustLevelCard.vue"
+    },
+    {
+      "id": "core.component.page.admin.badges",
+      "contractVersion": "sforum.component.page.admin.badges@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/badges.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_edit_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_edit_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeEditDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_grant_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_grant_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeGrantDialog.vue"
+    },
+    {
+      "id": "core.component.public.s_f_topic_author_block",
+      "contractVersion": "sforum.component.public.s_f_topic_author_block@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFTopicAuthorBlock.vue"
+    },
+    {
+      "id": "core.component.public.s_f_comment_author_row",
+      "contractVersion": "sforum.component.public.s_f_comment_author_row@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFCommentAuthorRow.vue"
     }
   ]
 }

@@ -34,8 +34,17 @@ func (s *PostgresStore) ApplyBookmark(ctx context.Context, input BookmarkApplyIn
 	if err != nil {
 		return BookmarkState{}, err
 	}
+	// 计划 D4：收藏/取消收藏是关系行增删，bookmark_count 跟着回退；
+	// 只改可见性（私密 ↔ 公开）不改变关系行，relationDelta=0 自然 no-op。
+	if err := bumpUserActivityTx(ctx, tx, input.ActorUserID, activityMetricBookmarkCount, int64(applied.relationDelta)); err != nil {
+		return BookmarkState{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return BookmarkState{}, fmt.Errorf("commit bookmark: %w", err)
+	}
+	// D2：收藏/取消后触发评估（收藏家徽章依赖 bookmark_count）。
+	if applied.relationDelta != 0 {
+		s.enqueueBadgeEvaluation(ctx, input.ActorUserID)
 	}
 	return BookmarkState{
 		TargetType:          input.TargetType,
@@ -51,10 +60,14 @@ func (s *PostgresStore) ApplyBookmark(ctx context.Context, input BookmarkApplyIn
 // bookmarkApplyOutcome 是一次行写入对计数的影响与最终行状态。
 type bookmarkApplyOutcome struct {
 	// delta 是 public_bookmark_count 的增量（+1/-1/0）。
-	delta      int
-	visibility string
-	remindAt   *time.Time
-	remindedAt *time.Time
+	delta int
+	// relationDelta 是「收藏关系行」的增量（+1/-1/0），与可见性无关：
+	// 新建私密收藏 delta=0 但 relationDelta=1，改成公开 delta=+1 而 relationDelta=0。
+	// user_activity.bookmark_count 记的是「收藏过多少条」，必须用 relationDelta。
+	relationDelta int
+	visibility    string
+	remindAt      *time.Time
+	remindedAt    *time.Time
 }
 
 // applyBookmarkRow 写/删收藏行。
@@ -94,7 +107,7 @@ func applyBookmarkRow(ctx context.Context, tx pgx.Tx, input BookmarkApplyInput) 
 		if visibility == BookmarkVisibilityPublic {
 			delta = 1
 		}
-		return bookmarkApplyOutcome{delta: delta, visibility: visibility, remindAt: input.RemindAt}, nil
+		return bookmarkApplyOutcome{delta: delta, relationDelta: 1, visibility: visibility, remindAt: input.RemindAt}, nil
 	}
 	var (
 		deletedVisibility string
@@ -116,7 +129,7 @@ func applyBookmarkRow(ctx context.Context, tx pgx.Tx, input BookmarkApplyInput) 
 	if deletedVisibility == BookmarkVisibilityPublic {
 		delta = -1
 	}
-	return bookmarkApplyOutcome{delta: delta, visibility: deletedVisibility}, nil
+	return bookmarkApplyOutcome{delta: delta, relationDelta: -1, visibility: deletedVisibility}, nil
 }
 
 // ensureBookmarkReminderCapacity 在同一事务里数该用户未到期提醒。

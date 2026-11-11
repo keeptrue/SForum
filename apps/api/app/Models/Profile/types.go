@@ -77,9 +77,20 @@ type PublicProfile struct {
 	// Nickname 只在自助端点（GET/PUT /profile）填充：公开资料页不需要暴露
 	// 「还能不能改名」这类账号状态。
 	Nickname *NicknameState `json:"nickname,omitempty"`
+	// TrustLevel 是**他人视角**的等级展示：只有 level + levelSlug。
+	//
+	// 刻意不带 progress / bottleneck：瓶颈可能落在 like_given_count / bookmark_count，
+	// 而这两个计数是刻意不公开的窥探面（D1）。开关关闭或等级未解析时为 nil。
+	TrustLevel *PublicTrustLevel `json:"trustLevel,omitempty"`
 	// PreviousDisplayNames 仅在运营开启 profile.nickname.history_public 时出现，
 	// 最多一条；它属于公开资料页，因此不会出现在自助响应里。
 	PreviousDisplayNames []string `json:"previousDisplayNames,omitempty"`
+}
+
+// PublicTrustLevel 是资料页等级卡的载荷。
+type PublicTrustLevel struct {
+	Level     int    `json:"level"`
+	LevelSlug string `json:"levelSlug"`
 }
 
 // ProfileActivity 是公开个人主页的主题/回复时间线条目。

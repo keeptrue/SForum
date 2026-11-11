@@ -10,6 +10,7 @@ import (
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
@@ -21,6 +22,23 @@ type Service struct {
 	profileTabs    ProfileTabProvider
 	nicknames      NicknameEditor
 	bookmarks      BookmarkLister
+	trustLevels    TrustLevelReader
+}
+
+// TrustLevelReader 读某个用户的信任等级（装配层用 identity store 实现）。
+//
+// 只返回数字与是否已解析：资料页是**他人视角**，不得携带任何行为计数。
+type TrustLevelReader interface {
+	TrustLevelFor(ctx context.Context, userID int64) (int, bool, error)
+}
+
+// WithTrustLevelReader 注入信任等级读取（链式可选）。未注入时资料页不带等级卡，
+// 与信任等级上线之前逐字节等价。
+func (s *Service) WithTrustLevelReader(reader TrustLevelReader) *Service {
+	if s != nil {
+		s.trustLevels = reader
+	}
+	return s
 }
 
 const (
@@ -117,6 +135,7 @@ func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string
 		return PublicProfile{}, err
 	}
 	profile = s.decorateProfile(ctx, user, profile)
+	trustLevel := s.publicTrustLevel(ctx, user.UserID)
 	tabs, err := s.listProfileTabs(ctx, viewer)
 	if err != nil {
 		return PublicProfile{}, err
@@ -132,6 +151,7 @@ func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string
 		Activities:    activities,
 		JoinedAt:      user.JoinedAt,
 		ExtensionTabs: tabs,
+		TrustLevel:    trustLevel,
 	}
 	// 曾用名是可选公开面：运营没打开时这里什么都不返回，公开页也不会多一行。
 	if s.nicknames != nil {
@@ -611,3 +631,18 @@ func isValidWebsiteURL(value string) bool {
 
 // 保留 forum 包引用，避免未来扩展公开资料时的引用丢失（近期主题等依赖 forum 类型）。
 var _ = forum.TopicSummary{}
+
+// publicTrustLevel 返回**他人视角**的等级：只有 level + levelSlug。
+//
+// 未注入读取器、产品开关关闭或等级未解析时返回 nil（资料页不渲染等级卡），
+// 与信任等级上线之前逐字节等价。
+func (s *Service) publicTrustLevel(ctx context.Context, userID int64) *PublicTrustLevel {
+	if s == nil || s.trustLevels == nil || userID <= 0 {
+		return nil
+	}
+	level, resolved, err := s.trustLevels.TrustLevelFor(ctx, userID)
+	if err != nil || !resolved {
+		return nil
+	}
+	return &PublicTrustLevel{Level: level, LevelSlug: trustlevels.Level(level).Slug()}
+}

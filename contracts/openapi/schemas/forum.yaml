@@ -1183,6 +1183,13 @@ TopicSummary:
     edited:
       type: boolean
       description: True only when showTopicEditMark is enabled and the topic has a persisted content revision; clients must not infer this from timestamps.
+    topBadge:
+      "$ref": "./badges.yaml#/BadgeRef"
+      description: |
+        Highest-tier badge the author holds, denormalized from
+        `users.top_badge_id`. Actor-agnostic: identical for every viewer, so it
+        may be served from the topic cache (up to one TTL of staleness after a
+        grant). Absent when the author holds no badge or badges are disabled.
 TopicDetail:
   allOf:
   - "$ref": "#/TopicSummary"
@@ -1732,6 +1739,13 @@ Comment:
       type: string
       format: date-time
       description: Commit time of the current accepted revision. Present only when the comment edit mark is enabled and the comment has been edited.
+    topBadge:
+      "$ref": "./badges.yaml#/BadgeRef"
+      description: |
+        Highest-tier badge the comment author holds, denormalized from
+        `users.top_badge_id`. Actor-agnostic, so it may be served from the
+        comment cache (up to one TTL of staleness after a grant). Absent when
+        the author holds no badge or badges are disabled.
 ReplyReference:
   type: object
   required:

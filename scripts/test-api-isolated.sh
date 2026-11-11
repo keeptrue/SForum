@@ -186,7 +186,9 @@ run_shard() {
   done
   echo "shard ${index}/${total}: ${#selected[@]} 个包，-p ${shard_parallel}"
   provision_cluster
-  go test -p "$shard_parallel" "${forwarded[@]}" "${selected[@]}"
+  # -count=1 必须在透传参数**之前**：默认的测试缓存会让「上一版的绿」冒充这一版的绿，
+  # 而本脚本的输出常被当作证据（M8 验收、基线、变异对照）。调用方仍可自行覆盖。
+  go test -count=1 -p "$shard_parallel" "${forwarded[@]}" "${selected[@]}"
 }
 
 run_shards() {
@@ -254,8 +256,9 @@ case "$mode" in
       run_shards "$shards"
     else
       # 显式包路径（含 -run 定位）保持单次调用，不分片。
+      # -count=1 同上：证据脚本不允许返回缓存结果。
       provision_cluster
-      go test -p "$shard_parallel" "${passthrough[@]}"
+      go test -count=1 -p "$shard_parallel" "${passthrough[@]}"
     fi
     if [[ "$mode" == "with-compat" ]]; then
       echo 'Running V3 P12 compatibility farm (required cells; skip/missing fail)...'

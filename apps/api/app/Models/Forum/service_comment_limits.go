@@ -19,13 +19,9 @@ func (s *Service) enforceCommentCreateLimitsForActor(ctx context.Context, actor 
 	now := time.Now().UTC()
 	cooldown := settings.CommentCooldownSeconds
 	daily := settings.DailyCommentLimit
-	if trust := s.trustForActor(ctx, actor); trust.active {
-		if trust.commentCooldown > 0 && (cooldown <= 0 || trust.commentCooldown > cooldown) {
-			cooldown = trust.commentCooldown
-		}
-		if trust.dailyComment > 0 && (daily <= 0 || trust.dailyComment < daily) {
-			daily = trust.dailyComment
-		}
+	if trust := limitsForActor(ctx, s.trust, actor); trust.active {
+		cooldown = resolveLimit(cooldown, trust.commentCooldown, trust.overrideCommentCooldown)
+		daily = resolveLimit(daily, trust.dailyComment, trust.overrideDailyComment)
 	}
 	if cooldown > 0 {
 		lastAt, ok, err := s.store.LatestAuthorCommentCreatedAt(ctx, actor.ID)
@@ -48,8 +44,13 @@ func (s *Service) enforceCommentCreateLimitsForActor(ctx context.Context, actor 
 	return nil
 }
 
-// trustLimits 是 forum 侧缓存的新人策略快照；由 SettingsResolver 扩展或 options 注入。
-// 当前从 ForumSettings 之外的 resolver 可选接口读取，缺省不启用新人限制。
+// trustLimits 是信任阶梯在 forum 侧的快照。
+//
+// 两种来源共用这个形状（D2：不许并存两套动态阶梯）：
+//   - TL0 / 未解析（开关关、读失败）走「新人阶梯」：tighten* 语义是**更严者生效**，
+//     即只能比站点默认更紧，永远不能放宽；
+//   - TL1+ 走「分档限额」：override* 是**显式覆盖**（nil = 继承站点默认），
+//     0 有语义（免冷却），所以必须与 tighten 分开表达。
 type trustLimits struct {
 	active          bool
 	topicCooldown   int
@@ -57,7 +58,22 @@ type trustLimits struct {
 	dailyTopic      int
 	dailyComment    int
 	forbidLinks     bool
-	forbidAttach    bool
+	// forbidAttach 保留字段：options 里有 trust.new_user.forbid_attachments，
+	// 但全仓没有任何执行点（D20 登记为 residual，本刀不接线）。
+	forbidAttach bool
+
+	overrideTopicCooldown   *int
+	overrideCommentCooldown *int
+	overrideDailyTopic      *int
+	overrideDailyComment    *int
+}
+
+// TrustLevelLimits 是一档等级的限额覆盖；nil 字段表示继承站点默认。
+type TrustLevelLimits struct {
+	TopicCooldownSeconds   *int
+	CommentCooldownSeconds *int
+	DailyTopicLimit        *int
+	DailyCommentLimit      *int
 }
 
 // TrustPolicyResolver 可选：由 options 适配器实现，向 forum 注入新人阶梯。
@@ -68,4 +84,7 @@ type TrustPolicyResolver interface {
 	NewUserDailyTopicLimit(ctx context.Context) (int, error)
 	NewUserDailyCommentLimit(ctx context.Context) (int, error)
 	NewUserForbidOutboundLinks(ctx context.Context) (bool, error)
+	// LevelLimits 返回某档等级的限额覆盖（trust.levels 里的 levels[].limits）。
+	// 未配置/产品面关闭时返回零值（全部继承站点默认）。
+	LevelLimits(ctx context.Context, level int) (TrustLevelLimits, error)
 }

@@ -134,6 +134,12 @@ function routePolicy(route) {
   if (path.startsWith('/api/v1/admin/attachment-upload-policies/')) return ['permission', 'attachment.upload_policy.manage']
   if (path.startsWith('/api/v1/admin/attachment-settings') || path.startsWith('/api/v1/admin/attachment-compression-settings') || path.startsWith('/api/v1/admin/attachment-storage-instances') || path === '/api/v1/admin/attachments/compression-stats') return ['permission', 'attachment.settings.manage']
   if (path.startsWith('/api/v1/admin/attachments')) return ['permission', 'attachment.manage']
+  // 徽章：读 badge.view、写 badge.manage。公开的资料页徽章墙走 /api/v1/profiles/ 的 public 分支。
+  if (path.startsWith('/api/v1/admin/badges')) return ['permission', method === 'GET' ? 'badge.view' : 'badge.manage']
+  // 信任等级：公开目录与本人进度；后台读 admin.access、写 trust.manage。
+  // 产品开关 features.trust_levels 关闭时四条路由一律 404（本刀之前它们不存在）。
+  if (path === '/api/v1/trust-levels') return ['public', 'trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled']
+  if (path.startsWith('/api/v1/admin/trust-levels')) return ['permission', method === 'GET' ? 'admin.access' : 'trust.manage']
   if (path.startsWith('/api/v1/admin/database')) return ['permission', 'database.manage']
   if (path.startsWith('/api/v1/admin/entity-meta')) return ['permission', 'entity_meta.manage or settings.manage']
   if (path.startsWith('/api/v1/admin/forum/search')) return ['permission', 'search.manage']
@@ -250,6 +256,9 @@ const reviewedGuardPolicies = new Map([
   ['admin.access', { kind: 'permission_any', permissions: ['admin.access'] }],
   ['ai.manage', { kind: 'permission_any', permissions: ['ai.manage'] }],
   ['attachment.manage', { kind: 'permission_any', permissions: ['attachment.manage'] }],
+  ['badge.view', { kind: 'permission_any', permissions: ['badge.view'] }],
+  ['badge.manage', { kind: 'permission_any', permissions: ['badge.manage'] }],
+  ['trust.manage', { kind: 'permission_any', permissions: ['trust.manage'] }],
   ['attachment.upload_policy.manage', { kind: 'permission_any', permissions: ['attachment.upload_policy.manage'] }],
   ['attachment.settings.manage', { kind: 'permission_any', permissions: ['attachment.settings.manage'] }],
   ['category.manage', { kind: 'permission_any', permissions: ['category.manage'] }],
@@ -282,6 +291,7 @@ const reviewedGuardPolicies = new Map([
   ['super_admin revision redaction policy', { kind: 'super_admin' }],
   ['host liveness/readiness; non-overridable recovery prerequisite', { kind: 'public' }],
   ['public read contract', { kind: 'public' }],
+  ['trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled', { kind: 'public' }],
   ['exact public frontend artifact trust, digest, and live runtime policy', { kind: 'public' }],
   ['current browser session', { kind: 'login' }],
   ['current active actor; visibility-filtered composer references', { kind: 'login' }],

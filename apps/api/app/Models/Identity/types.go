@@ -215,6 +215,20 @@ type Actor struct {
 	CreatedAt time.Time
 	// Kind 区分人类与机器人账号。零值按人类处理。
 	Kind UserKind
+	// TrustLevel 是装载时解析出的信任等级（0..4）。
+	// 只有在 TrustLevelResolved 为真时才有意义；零值等级本身不代表「已解析」。
+	TrustLevel int
+	// TrustLevelResolved 表示等级已由信任等级域解析（产品开关开 + 统计读取成功）。
+	//
+	// 零值 false 是刻意设计（T2）：测试、插件桥、CLI、bot 直接构造的 Actor 全部
+	// 走这条路径——Can() 不含已挣得来源，Forum 限额回落到本刀之前的年龄两态。
+	// 不要把它改成「默认 TL0 已解析」，那会同时改掉几十个构造点的行为。
+	TrustLevelResolved bool
+	// Earned 是「只因为信任等级才有」的权限键（earned ∖ static ∖ denied）。
+	//
+	// 它**不参与裁决**：Can 读的是 Permissions（D13 装载期合并），这里只用于
+	// Actor.GrantSource 解释来源。零值 nil = 没有已挣得权限，与信任等级上线前一致。
+	Earned map[string]bool
 }
 
 type PostSummary struct {
@@ -236,6 +250,18 @@ type CurrentUser struct {
 	Permissions         []string              `json:"permissions"`
 	// CreatedAt 注册时间；不强制暴露给所有前端，但 Actor 构建需要。
 	CreatedAt time.Time `json:"-"`
+	// Kind 是账号类型（human / bot）。与 CreatedAt 同姿态：不强制暴露给前端，
+	// 但信任等级解析需要它（bot 不进等级判定，D25/D29）。
+	Kind UserKind `json:"-"`
+	// TrustLevel 是装载时解析出的信任等级（0..4），供资料页/进度条展示。
+	// trustLevelResolved 为假（产品关闭或统计读失败）时它恒为 0，前端应隐藏等级卡。
+	TrustLevel int `json:"trustLevel"`
+	// trustLevelResolved 表示等级确实解析过；零值 false = 未解析（D7）。
+	trustLevelResolved bool
+	// earned 是只由信任等级带来的权限键（解释来源用，不参与裁决）。
+	earned map[string]bool
+	// denied 是显式 deny 的键（含没有任何静态授予的键），只在装载期用于合并（D28）。
+	denied map[string]bool
 	// CurrentTokenVersion binds a successful credential proof to the authority
 	// revision that existed when the credential row was read.
 	CurrentTokenVersion int64 `json:"-"`

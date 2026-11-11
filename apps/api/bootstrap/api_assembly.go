@@ -7,7 +7,6 @@ import (
 
 	redisstorage "github.com/gofiber/storage/redis/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
 	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
@@ -23,6 +22,7 @@ import (
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
 	"github.com/keeptrue/sforum/apps/api/config"
+	"github.com/redis/go-redis/v9"
 )
 
 // Production API 分阶段装配（NewAPI 见 app.go 薄封装）。
@@ -81,6 +81,8 @@ type apiCoreStack struct {
 	siteChromeProvider           *providers.SiteChromeProvider
 	stopPluginRuntimeCoordinator func()
 	webhooksProvider             *providers.WebhooksProvider
+	badgesProvider               *providers.BadgesProvider
+	trustLevelsProvider          *providers.TrustLevelsProvider
 }
 
 // apiStartupPoolCloseTimeout 是启动失败路径关池的兜底上限。

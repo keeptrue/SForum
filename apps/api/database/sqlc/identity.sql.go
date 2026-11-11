@@ -417,29 +417,37 @@ candidate_permission_keys AS (
   UNION
   SELECT key FROM allowed_permission_keys
 )
-SELECT candidate_permission_keys.key
+SELECT candidate_permission_keys.key,
+       NOT EXISTS (
+         SELECT 1
+         FROM denied_permission_keys
+         WHERE denied_permission_keys.key = candidate_permission_keys.key
+       ) AS effective
 FROM candidate_permission_keys
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM denied_permission_keys
-  WHERE denied_permission_keys.key = candidate_permission_keys.key
-)
-ORDER BY candidate_permission_keys.key
+UNION
+SELECT denied_permission_keys.key, FALSE AS effective
+FROM denied_permission_keys
+ORDER BY 1
 `
 
-func (q *Queries) ListUserPermissions(ctx context.Context, userID int64) ([]string, error) {
+type ListUserPermissionsRow struct {
+	Key       string
+	Effective bool
+}
+
+func (q *Queries) ListUserPermissions(ctx context.Context, userID int64) ([]ListUserPermissionsRow, error) {
 	rows, err := q.db.Query(ctx, listUserPermissions, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []ListUserPermissionsRow
 	for rows.Next() {
-		var key string
-		if err := rows.Scan(&key); err != nil {
+		var i ListUserPermissionsRow
+		if err := rows.Scan(&i.Key, &i.Effective); err != nil {
 			return nil, err
 		}
-		items = append(items, key)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

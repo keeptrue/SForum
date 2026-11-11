@@ -75,6 +75,7 @@ func TestSeedRoleTemplatesPermissionPacks(t *testing.T) {
 		PermissionPostRevisionViewAny,
 		PermissionPostDeleteAny,
 		PermissionUserBan,
+		PermissionBadgeView,
 	} {
 		if !slices.Contains(moderator.PermissionKeys, key) {
 			t.Fatalf("moderator missing %s", key)
@@ -111,6 +112,8 @@ func TestSeedRoleTemplatesPermissionPacks(t *testing.T) {
 		PermissionAttachmentManage,
 		PermissionAttachmentSettings,
 		PermissionAttachmentUploadPolicyManage,
+		PermissionBadgeView,
+		PermissionBadgeManage,
 	} {
 		if !slices.Contains(operator.PermissionKeys, key) {
 			t.Fatalf("operator missing %s", key)
@@ -249,6 +252,8 @@ func TestSeedPermissionsCoverCurrentAdminAndForumSurfaces(t *testing.T) {
 		PermissionUserBan,
 		PermissionCategoryManage,
 		PermissionTagManage,
+		PermissionBadgeView,
+		PermissionBadgeManage,
 		PermissionTopicCreate,
 		PermissionTopicEditOwn,
 		PermissionTopicEditAny,
@@ -289,6 +294,7 @@ func TestSeedPermissionsCoverCurrentAdminAndForumSurfaces(t *testing.T) {
 		PermissionEntityMetaManage,
 		PermissionIdentityProviderManage,
 		PermissionAIManage,
+		PermissionTrustManage,
 	}
 
 	found := map[string]SeedPermission{}

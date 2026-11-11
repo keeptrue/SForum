@@ -223,11 +223,12 @@ func authorizeIdentityUserFieldPermission(
 	tx pgx.Tx,
 	actorUserID int64,
 	permission string,
+	trust TrustLevelSource,
 ) error {
 	if permission == "" {
 		return ErrIdentityUserFieldPermissionDenied
 	}
-	actor, err := LoadEffectiveActorTx(ctx, tx, actorUserID)
+	actor, err := LoadEffectiveActorTx(ctx, tx, actorUserID, trust)
 	if errors.Is(err, ErrActorInactive) {
 		return ErrIdentityUserFieldPermissionDenied
 	}

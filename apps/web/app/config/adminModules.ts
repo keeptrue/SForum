@@ -221,6 +221,14 @@ export const adminPageDefinitions = [
     requiredPermissions: ['tag.manage']
   },
   {
+    // 只读管理员也能进页面看列表：写操作（编辑/授予/重算）另行按 badge.manage 收口。
+    id: '/badges',
+    labelKey: 'admin.nav.badges',
+    icon: 'i-lucide-award',
+    componentName: 'AdminBadges',
+    requiredPermissions: ['badge.view']
+  },
+  {
     id: '/forum/settings',
     labelKey: 'admin.nav.forumSettings',
     icon: 'i-lucide-sliders-horizontal',
@@ -444,6 +452,7 @@ export const adminSidebarNavigation = [
         { type: 'page', pageId: '/moderation' },
         { type: 'page', pageId: '/forum/categories' },
         { type: 'page', pageId: '/forum/tags' },
+        { type: 'page', pageId: '/badges' },
         { type: 'page', pageId: '/forum/settings' },
         { type: 'page', pageId: '/forum/content' }
       ]

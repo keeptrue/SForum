@@ -14,7 +14,7 @@ import (
 )
 
 func TestProtocolV2AttachmentExtensionClaimCommandContract(t *testing.T) {
-	definition := newProtocolV2AttachmentExtensionClaimCommandDefinition(nil)
+	definition := newProtocolV2AttachmentExtensionClaimCommandDefinition(nil, nil)
 	if definition.ActorMode != protocolV2CommandActorDelegated {
 		t.Fatalf("actor mode = %q", definition.ActorMode)
 	}
@@ -99,7 +99,7 @@ func TestProtocolV2AttachmentExtensionReleaseRequiresExactlyOneScope(t *testing.
 }
 
 func TestProtocolV2AttachmentExtensionListClampsAndProjects(t *testing.T) {
-	definition := newProtocolV2AttachmentExtensionListCommandDefinition(nil)
+	definition := newProtocolV2AttachmentExtensionListCommandDefinition(nil, nil)
 	request := protocolV2AttachmentExtensionListRequest(t, map[string]any{"page": 2, "perPage": 100000})
 	plan, err := definition.Preview(context.Background(), request)
 	if err != nil {

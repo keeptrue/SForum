@@ -27,6 +27,7 @@ func TestBindPostgresProtocolV2CommandRuntimePublishesDelegatedCatalog(t *testin
 		attachments.NewService(attachments.NewPostgresStore(pool), nil),
 		extensionreference.NewStore(pool),
 		nil,
+		nil,
 	)
 	if err != nil {
 		t.Fatal(err)

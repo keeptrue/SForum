@@ -885,6 +885,27 @@ HAVING c.public_bookmark_count <> COUNT(b.id);
 - 决策：`../decisions/2026-11-10-content-bookmarks.md`；会话：
   `../sessions/2026-11-10-content-bookmarks.md`。
 
+## Badges And Activity Counters — 2026-11-10
+
+徽章与用户活动统计是一个**独立数据域**（`app/Models/Badges/`，模块笔记
+`badges.md`），Forum 只消费它：
+
+- **读模型**：`TopicSummary` / `TopicDetail` / `Comment` 各加 `topBadge`
+  （`*BadgeRef`，四字段：`slug` / `name` / `tier` / `icon`）。数据源是
+  `users.top_badge_id` 的单列 JOIN，一次查询覆盖整页，无 N+1、无 `DISTINCT ON`。
+- **装饰位置**：`BadgeReader` 由 Forum 定义接口、Badges 实现、bootstrap 注入。
+  徽章 **actor 无关**，所以装饰结果**可以进 `CachedStore`**——这一点与
+  `likedByMe` / `bookmarkedByMe` 相反（那两个必须在缓存之后逐请求装饰、永不进缓存）。
+- **写路径 hook**：创建主题/评论、点赞/取消、收藏/取消都在**既有事务内**同步累加
+  `user_activity` 的对应列，事务提交后入队 `badges.evaluate_user`。统计不异步，
+  因为异步漂移对 `topic_count` / `comment_count` 没有真值可对账。
+- **NULL 路径**：`BadgeRef` 四个字段全部可能为 NULL（LEFT JOIN 未匹配），扫描必须用
+  `sql.NullString` 接再转，且必须有「用户没有徽章」的用例——本地数据都有徽章时这条
+  路径测不出来。
+- **列清单只有一份**：`topicSummaryColumns` 同时供 `topic_summary_sql.go`、
+  `list_topics.go` hydrate、`search_live.go` 使用。本刀在这里踩过一次 P0（抄了三份
+  列清单、两处漏列导致首页全站 500），细节见计划 §12 T1–T5。
+
 ## Next Steps
 
 1. Keep comment composer behavior consolidated in

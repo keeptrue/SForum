@@ -15,6 +15,10 @@ const protectedSideEffectMarker = "M8_SIDE_EFFECT_SECRET_MARKER_93D6E1"
 
 type protectedLinkTrustPolicy struct{}
 
+func (protectedLinkTrustPolicy) LevelLimits(context.Context, int) (TrustLevelLimits, error) {
+	return TrustLevelLimits{}, nil
+}
+
 func (protectedLinkTrustPolicy) NewUserTrustDays(context.Context) (int, error) { return 7, nil }
 func (protectedLinkTrustPolicy) NewUserTopicCooldownSeconds(context.Context) (int, error) {
 	return 0, nil

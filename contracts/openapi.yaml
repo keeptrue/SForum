@@ -694,6 +694,28 @@ paths:
     "$ref": "./openapi/paths/extensions.yaml#/publicExtensionPackageAsset"
   "/extensions/{id}/{pluginPath}":
     "$ref": "./openapi/paths/extensions.yaml#/extensionPluginRoute"
+  "/profiles/{username}/badges":
+    "$ref": "./openapi/paths/badges.yaml#/profileBadgesByUsername"
+  /trust-levels:
+    "$ref": "./openapi/paths/trust_levels.yaml#/trustLevels"
+  /admin/trust-levels:
+    "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevels"
+  /admin/trust-levels/restore-defaults:
+    "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelsRestoreDefaults"
+  "/admin/badges":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadges"
+  "/admin/badges/{badgeID}":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeByID"
+  "/admin/badges/groups":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeGroups"
+  "/admin/badges/groups/{groupID}":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeGroupByID"
+  "/admin/badges/{badgeID}/grants":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrants"
+  "/admin/badges/{badgeID}/grants/{userID}":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantByUser"
+  "/admin/badges/recompute":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgesRecompute"
 components:
   securitySchemes:
     cookieAuth:
@@ -1114,3 +1136,73 @@ components:
       "$ref": "./openapi/schemas/identity.yaml#/UserRolesInput"
     UserPermissionOverridesInput:
       "$ref": "./openapi/schemas/identity.yaml#/UserPermissionOverridesInput"
+    BadgeTier:
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelDefinition"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRequirements"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelLimits"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelBottleneck"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelViewer"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelCatalog"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelAdmin"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConfigInput"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelCatalog"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelAdmin"
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeTier"
+    BadgeGrantMode:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantMode"
+    BadgeMetric:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeMetric"
+    Badge:
+      "$ref": "./openapi/schemas/badges.yaml#/Badge"
+    BadgeGroup:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGroup"
+    BadgeRef:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeRef"
+    BadgeGrantRecord:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantRecord"
+    BadgeGrantList:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantList"
+    ProfileBadgeItem:
+      "$ref": "./openapi/schemas/badges.yaml#/ProfileBadgeItem"
+    ProfileBadgeGroup:
+      "$ref": "./openapi/schemas/badges.yaml#/ProfileBadgeGroup"
+    ProfileBadges:
+      "$ref": "./openapi/schemas/badges.yaml#/ProfileBadges"
+    BadgeCreateInput:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeCreateInput"
+    BadgeUpdateInput:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeUpdateInput"
+    BadgeGroupCreateInput:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGroupCreateInput"
+    BadgeGroupUpdateInput:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGroupUpdateInput"
+    BadgeGrantInput:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantInput"
+    BadgeDeleteResult:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeDeleteResult"
+    BadgeGrantResult:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantResult"
+    BadgeRevokeResult:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeRevokeResult"
+    BadgeRecomputeResult:
+      "$ref": "./openapi/schemas/badges.yaml#/BadgeRecomputeResult"
+    ApiResponseBadge:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadge"
+    ApiResponseBadgeList:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeList"
+    ApiResponseBadgeGroup:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeGroup"
+    ApiResponseBadgeGroupList:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeGroupList"
+    ApiResponseProfileBadges:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseProfileBadges"
+    ApiResponseBadgeGrantList:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeGrantList"
+    ApiResponseBadgeGrantResult:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeGrantResult"
+    ApiResponseBadgeRevokeResult:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeRevokeResult"
+    ApiResponseBadgeDeleteResult:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeDeleteResult"
+    ApiResponseBadgeRecomputeResult:
+      "$ref": "./openapi/schemas/badges.yaml#/ApiResponseBadgeRecomputeResult"

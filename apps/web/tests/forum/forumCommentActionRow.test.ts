@@ -65,6 +65,8 @@ const SFComment = await compileVueSfc(commentPath, 'sf-comment-action-row', {
   SFMentionContent: Stub,
   SFCommentAIActivity: Stub,
   SFUserIdentityName: Stub,
+  SFBadgeChip: Stub,
+  SFCommentAuthorRow: Stub,
   SFCommentUserPreview: Stub,
   SFComment: Stub
 })

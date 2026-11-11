@@ -248,6 +248,9 @@ type UserSummary struct {
 	Username    string      `json:"username"`
 	DisplayName string      `json:"displayName"`
 	Avatar      avatar.View `json:"avatar"`
+	// TopBadge 是该作者的最高级徽章（gold > silver > bronze）。
+	// nil 表示没有徽章或徽章已停用；由 Badges 包经 BadgeReader 批量补齐。
+	TopBadge *BadgeRef `json:"topBadge,omitempty"`
 }
 
 type TopicListInput struct {
@@ -290,12 +293,15 @@ type TopicSummary struct {
 	Author       *UserSummary `json:"author,omitempty"`
 	// LastReplyAuthor 最近一条 active 评论作者；无评论时与 Author 相同（列表「最近回复」列）。
 	LastReplyAuthor *UserSummary `json:"lastReplyAuthor,omitempty"`
-	Title           string       `json:"title"`
-	Slug            string       `json:"slug"`
-	Status          string       `json:"status"`
-	IsPinned        bool         `json:"isPinned"`
-	CommentCount    int64        `json:"commentCount"`
-	ViewCount       int64        `json:"viewCount"`
+	// TopBadge 是主题作者的最高级徽章（与 Author.TopBadge 同值）。
+	// 列表卡片的 chip 贴在作者旁，但详情页也需要不展开 author 就能取到，故两处都出。
+	TopBadge     *BadgeRef `json:"topBadge,omitempty"`
+	Title        string    `json:"title"`
+	Slug         string    `json:"slug"`
+	Status       string    `json:"status"`
+	IsPinned     bool      `json:"isPinned"`
+	CommentCount int64     `json:"commentCount"`
+	ViewCount    int64     `json:"viewCount"`
 	// LikeCount 是反规范化的点赞数；列表与详情共用。
 	LikeCount int64 `json:"likeCount"`
 	// HotScore 仅服务端 keyset 编码使用，不序列化到公开 JSON。

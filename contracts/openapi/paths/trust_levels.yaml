@@ -1,0 +1,102 @@
+trustLevels:
+  get:
+    summary: List trust level definitions and viewer progress
+    operationId: listTrustLevels
+    description: |
+      公开等级目录：五档定义（`levelSlug`）与每档 `requirements`（snake_case 指标名），
+      外加 `newUserDays`（「最多当多久新成员」的上限闸）。
+
+      **不包含 `limits`**：限流参数（冷却秒数、日限额）只在后台读面出现。公开它等于
+      把「系统怎么限制你」交给想绕过它的人——与不公开给赞/收藏数是同一类判断。
+
+      `viewer` 字段**只对本人**返回（等级 + 下一档 + 瓶颈指标）。他人视角只有
+      `level` / `levelSlug`：`like_given_count` 与 `bookmark_count` 是刻意不公开的
+      计数，不得出现在任何他人视角的响应里。
+
+      `features.trust_levels` 关闭时本端点返回 **404**（本刀之前它不存在）。
+    responses:
+      '200':
+        description: Trust level catalog.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/ApiResponseTrustLevelCatalog"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+adminTrustLevels:
+  get:
+    summary: Read the trust level configuration
+    operationId: getAdminTrustLevels
+    description: |
+      后台读面：整份 `trust.levels` 配置（`config` 是 JSON 字符串）、解析后的等级目录、
+      可勾选的权限白名单（`eligiblePermissions`）与推荐默认值（`recommendedConfig`）。
+
+      读权限复用 `admin.access`（刻意不造 `trust.view`：可达性依赖 `admin.access`
+      的读权限是死权限）。`features.trust_levels` 关闭时返回 404。
+    responses:
+      '200':
+        description: Trust level configuration.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/ApiResponseTrustLevelAdmin"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+  put:
+    summary: Update the trust level configuration
+    operationId: updateAdminTrustLevels
+    description: |
+      请求体的 `config` 就是 `trust.levels` 的 **Config 形状**（`schemaVersion` +
+      `levels[]`），与存储格式完全相同：未知字段被 `DisallowUnknownFields` 拒绝，
+      不存在「PUT 的 DTO 比 Config 宽松」的第二个形状。
+
+      `levels[].limits` 与 `levels[].earnable` **必须显式出现**（可写 `null` = 全继承 /
+      `[]` = 空集，但不能省略）：省略即 422。这条由 `DecodeConfig` 的指针化强制——
+      字段类型是 `*LevelLimits` / `*[]string`，省略后是 nil，直接返回 `ErrInvalidConfig`。
+      写权限 `trust.manage`。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/trust_levels.yaml#/TrustLevelConfigInput"
+    responses:
+      '200':
+        description: Updated configuration (same shape as the admin read).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/ApiResponseTrustLevelAdmin"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminTrustLevelsRestoreDefaults:
+  post:
+    summary: Restore recommended trust level defaults
+    operationId: restoreAdminTrustLevelDefaults
+    description: |
+      写回内置推荐值（阈值、分档限额全继承、earnable 空集）。**不影响用户已获得的
+      内容**，也不改变任何用户的当前等级——等级是派生值，下一次请求即按新阈值计算。
+      写权限 `trust.manage`；`features.trust_levels` 关闭时返回 404。
+    responses:
+      '200':
+        description: Restored configuration (same shape as the admin read).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/ApiResponseTrustLevelAdmin"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"

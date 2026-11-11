@@ -13,6 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
 	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
@@ -28,6 +30,9 @@ const (
 // the same transaction as domain writes. It has no command catalog of its own.
 type PostgresProtocolV2CommandBackend struct {
 	pool *pgxpool.Pool
+	// trustLevels 与 identity.PostgresStore 共用同一个来源：插件命令授权与 HTTP
+	// 授权必须看到同一份已挣得权限，否则同一个人在两个路径得到两个答案（D22）。
+	trustLevels identity.TrustLevelSource
 }
 
 // PostgresProtocolV2HostCommandBackend adds the legacy manifest/trust authority
@@ -40,6 +45,14 @@ type PostgresProtocolV2HostCommandBackend struct {
 
 func NewPostgresProtocolV2CommandBackend(pool *pgxpool.Pool) *PostgresProtocolV2CommandBackend {
 	return &PostgresProtocolV2CommandBackend{pool: pool}
+}
+
+// WithTrustLevelSource 注入信任等级来源（装配层调用，与 identity store 同一实例）。
+func (b *PostgresProtocolV2CommandBackend) WithTrustLevelSource(source identity.TrustLevelSource) *PostgresProtocolV2CommandBackend {
+	if b != nil {
+		b.trustLevels = source
+	}
+	return b
 }
 
 func NewPostgresProtocolV2HostCommandBackend(pool *pgxpool.Pool) *PostgresProtocolV2HostCommandBackend {

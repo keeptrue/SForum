@@ -443,6 +443,9 @@ export const useWebOptions = () => {
   const footerLinks = computed(() => parseFooterLinks(webOption('footer.links', fallbackOptions['footer.links'])))
   const reactionsEnabled = computed(() => featureEnabled('features.reactions'))
   const bookmarksEnabled = computed(() => featureEnabled('features.bookmarks'))
+  const badgesEnabled = computed(() => featureEnabled('features.badges'))
+  // 信任等级：关闭时资料页整卡不渲染（规范 §1.6），后台阈值 tab 仍可读（写入由 API 裁决）。
+  const trustLevelsEnabled = computed(() => featureEnabled('features.trust_levels'))
   const humanVerificationProvider = computed(() => {
     const provider = webOption('human_verification.provider', 'disabled').trim().toLowerCase()
     return provider === 'altcha' ? 'altcha' : 'disabled'
@@ -524,6 +527,8 @@ export const useWebOptions = () => {
     humanVerificationProvider,
     reactionsEnabled,
     bookmarksEnabled,
+    badgesEnabled,
+    trustLevelsEnabled,
     featureEnabled,
     humanVerificationScenarioSettings,
     altchaWidgetSettings,

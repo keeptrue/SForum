@@ -3474,6 +3474,12 @@
           }
         }
       },
+      "trust": {
+        "manage": {
+          "label": "管理信任等级",
+          "description": "调整信任等级阈值、每档限额与已挣得能力映射，并恢复推荐默认。"
+        }
+      },
       "category": {
         "manage": {
           "label": "管理版块",
@@ -4209,6 +4215,7 @@
         "accountSecurity": "账号安全",
         "registration": "注册与用户名",
         "newcomers": "新人限制",
+        "trustLevels": "信任等级",
         "maintenance": "维护模式",
         "verification": "验证码",
         "updates": "版本更新",
@@ -4537,6 +4544,30 @@
       "siteTagline": "站点副标题",
       "siteTaglinePlaceholder": "例如：一个友好的技术社区",
       "siteTaglineHint": "显示在导航与登录页附近；可留空。不等于 SEO 描述。",
+      "trustLevels": {
+        "title": "信任等级阈值",
+        "description": "五档阈值按累计行为判定，保存后即时生效；阈值为 0 表示该指标不参与该档判定。",
+        "tl0Hint": "TL0 由「新人限制」页决定，此处只读。",
+        "restoreDefaults": "恢复推荐默认",
+        "restoreHint": "恢复默认只重置五档的阈值与限额。用户的等级会按新阈值重新判定；已获得的徽章与已发布的内容不受影响。",
+        "zeroUnlimited": "0 表示该指标不参与本档判定。",
+        "resetChanges": "已重置信任等级阈值更改",
+        "level": {
+          "newcomer": "新用户",
+          "member": "正式用户",
+          "resident": "常驻用户",
+          "veteran": "资深用户",
+          "leader": "领袖"
+        },
+        "metric": {
+          "topicCount": "主题数",
+          "commentCount": "回复数",
+          "likeReceived": "获赞数",
+          "likeGiven": "点赞数",
+          "bookmarkCount": "收藏数",
+          "daysVisited": "访问天数"
+        }
+      },
       "adminEmail": "管理邮箱",
       "adminEmailPlaceholder": "例如：ops{'@'}example.com",
       "adminEmailHint": "站点运营联系邮箱，用于系统通知与对外联系。不是发信 SMTP 地址，也不会出现在公开 API。",
@@ -6392,7 +6423,61 @@
       "emptyHint": "收藏会出现在这里。"
     }
   },
+  "badges": {
+    "tier": {
+      "gold": "金牌",
+      "silver": "银牌",
+      "bronze": "铜牌"
+    },
+    "chip": {
+      "ariaLabel": "{tier}徽章：{name}",
+      "ariaLabelLink": "{tier}徽章：{name}，查看资料页徽章"
+    },
+    "card": {
+      "ariaLabel": "{tier}徽章：{name}，获得于 {date}",
+      "ariaLabelUngranted": "{tier}徽章：{name}，未获得，进度 {current}/{threshold}",
+      "ariaLabelNotEarned": "{tier}徽章：{name}，未获得",
+      "earnedOn": "获得于 {date}",
+      "notEarned": "未获得",
+      "progress": "{current} / {threshold}"
+    },
+    "group": {
+      "count": "{earned} / {total}"
+    },
+    "empty": "还没有获得徽章",
+    "loadFailed": "徽章加载失败。",
+    "retry": "重试"
+  },
   "profile": {
+    "trustLevel": {
+      "title": "信任等级",
+      "name": {
+        "newcomer": "新用户",
+        "member": "正式用户",
+        "resident": "常驻用户",
+        "veteran": "资深用户",
+        "leader": "领袖"
+      },
+      "code": "TL{level}",
+      "nextHint": "再获 {count} 个{metric}可升到「{next}」",
+      "maxed": "已达最高等级",
+      "earned": "已获得",
+      "notEarned": "尚未获得",
+      "ariaLabel": "信任等级 {name}，{state}",
+      "progress": {
+        "ariaLabel": "信任等级进度：{current} → {next}",
+        "valueText": "{metric} {current} / {threshold}",
+        "text": "{current} / {threshold}"
+      },
+      "metric": {
+        "topicCount": "主题",
+        "commentCount": "回复",
+        "likeReceived": "获赞",
+        "likeGiven": "点赞",
+        "bookmarkCount": "收藏",
+        "daysVisited": "访问天数"
+      }
+    },
     "metaDescription": "查看社区成员的公开资料。",
     "notFound": {
       "title": "用户不存在",
@@ -6401,6 +6486,8 @@
     "topicCount": "主题",
     "commentCount": "回复",
     "categoryCount": "参与类别",
+    "likeReceivedCount": "获赞",
+    "daysVisited": "访问天数",
     "publicDetails": "公开资料",
     "publicDetailsEmpty": "这位成员还没有补充公开资料。",
     "memberInfo": "成员信息",
@@ -6430,6 +6517,7 @@
       "topics": "主题",
       "replies": "回复",
       "bookmarks": "收藏",
+      "badges": "徽章",
       "about": "关于"
     },
     "timeline": {

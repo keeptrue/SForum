@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 // 同意式读取（consent-gated）的生产门控装配。

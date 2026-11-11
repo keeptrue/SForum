@@ -3434,6 +3434,12 @@
           }
         }
       },
+      "trust": {
+        "manage": {
+          "label": "Manage trust levels",
+          "description": "Update trust level thresholds, per-level limits, and earned capability mappings, and restore recommended defaults."
+        }
+      },
       "category": {
         "manage": {
           "label": "Manage categories",
@@ -4169,6 +4175,7 @@
         "accountSecurity": "Account security",
         "registration": "Registration",
         "newcomers": "Newcomers",
+        "trustLevels": "Trust levels",
         "maintenance": "Maintenance",
         "verification": "Verification",
         "updates": "Updates",
@@ -4497,6 +4504,30 @@
       "siteTagline": "Tagline",
       "siteTaglinePlaceholder": "For example: A friendly technical community",
       "siteTaglineHint": "Shown near the navbar and login page. Leave blank if unused. Not the same as SEO description.",
+      "trustLevels": {
+        "title": "Trust level thresholds",
+        "description": "Thresholds are evaluated from cumulative activity and apply immediately after saving. A zero threshold means that metric does not participate for that level.",
+        "tl0Hint": "TL0 is governed by the Newcomers tab and is read-only here.",
+        "restoreDefaults": "Restore recommended defaults",
+        "restoreHint": "Restoring defaults resets only the thresholds and limits for the five levels. Users' levels are re-evaluated against the new thresholds; earned badges and published content are unaffected.",
+        "zeroUnlimited": "0 means this metric does not participate for this level.",
+        "resetChanges": "Trust level threshold changes were reset",
+        "level": {
+          "newcomer": "Newcomer",
+          "member": "Member",
+          "resident": "Resident",
+          "veteran": "Veteran",
+          "leader": "Leader"
+        },
+        "metric": {
+          "topicCount": "Topics",
+          "commentCount": "Replies",
+          "likeReceived": "Likes received",
+          "likeGiven": "Likes given",
+          "bookmarkCount": "Bookmarks",
+          "daysVisited": "Days visited"
+        }
+      },
       "adminEmail": "Administration email",
       "adminEmailPlaceholder": "For example: ops{'@'}example.com",
       "adminEmailHint": "Operator contact email for system notices. Not the SMTP From address, and not exposed on public APIs.",
@@ -6352,7 +6383,61 @@
       "emptyHint": "Bookmarks will appear here."
     }
   },
+  "badges": {
+    "tier": {
+      "gold": "Gold",
+      "silver": "Silver",
+      "bronze": "Bronze"
+    },
+    "chip": {
+      "ariaLabel": "{tier} badge: {name}",
+      "ariaLabelLink": "{tier} badge: {name}, view profile badges"
+    },
+    "card": {
+      "ariaLabel": "{tier} badge: {name}, earned on {date}",
+      "ariaLabelUngranted": "{tier} badge: {name}, not earned, progress {current}/{threshold}",
+      "ariaLabelNotEarned": "{tier} badge: {name}, not earned",
+      "earnedOn": "Earned on {date}",
+      "notEarned": "Not earned",
+      "progress": "{current} / {threshold}"
+    },
+    "group": {
+      "count": "{earned} / {total}"
+    },
+    "empty": "No badges yet",
+    "loadFailed": "Failed to load badges.",
+    "retry": "Retry"
+  },
   "profile": {
+    "trustLevel": {
+      "title": "Trust level",
+      "name": {
+        "newcomer": "Newcomer",
+        "member": "Member",
+        "resident": "Resident",
+        "veteran": "Veteran",
+        "leader": "Leader"
+      },
+      "code": "TL{level}",
+      "nextHint": "Earn {count} more {metric} to reach {next}",
+      "maxed": "Highest level reached",
+      "earned": "earned",
+      "notEarned": "not earned",
+      "ariaLabel": "Trust level {name}, {state}",
+      "progress": {
+        "ariaLabel": "Trust level progress: {current} → {next}",
+        "valueText": "{metric} {current} / {threshold}",
+        "text": "{current} / {threshold}"
+      },
+      "metric": {
+        "topicCount": "topics",
+        "commentCount": "replies",
+        "likeReceived": "likes received",
+        "likeGiven": "likes given",
+        "bookmarkCount": "bookmarks",
+        "daysVisited": "days visited"
+      }
+    },
     "metaDescription": "View a community member's public profile.",
     "notFound": {
       "title": "User not found",
@@ -6361,6 +6446,8 @@
     "topicCount": "Topics",
     "commentCount": "Replies",
     "categoryCount": "Categories",
+    "likeReceivedCount": "Likes received",
+    "daysVisited": "Days visited",
     "publicDetails": "Public profile",
     "publicDetailsEmpty": "This member has not added public profile details yet.",
     "memberInfo": "Member info",
@@ -6390,6 +6477,7 @@
       "topics": "Topics",
       "replies": "Replies",
       "bookmarks": "Bookmarks",
+      "badges": "Badges",
       "about": "About"
     },
     "timeline": {

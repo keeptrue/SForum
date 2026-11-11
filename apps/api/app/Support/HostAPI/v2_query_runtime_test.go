@@ -263,18 +263,18 @@ func TestParseProtocolV2QueryInt64ListContract(t *testing.T) {
 		oversized = append(oversized, strconv.Itoa(id))
 	}
 	invalid := map[string]string{
-		"empty":       "[]",
-		"unsorted":    "[9,1]",
-		"duplicate":   "[1,1]",
-		"zero":        "[0]",
-		"negative":    "[-1]",
-		"space":       "[1, 5]",
-		"trailing":    "[1]x",
-		"not-json":    "1,2",
-		"object":      `{"1":1}`,
-		"non-int64":   `["a"]`,
+		"empty":         "[]",
+		"unsorted":      "[9,1]",
+		"duplicate":     "[1,1]",
+		"zero":          "[0]",
+		"negative":      "[-1]",
+		"space":         "[1, 5]",
+		"trailing":      "[1]x",
+		"not-json":      "1,2",
+		"object":        `{"1":1}`,
+		"non-int64":     `["a"]`,
 		"not-canonical": "[01]",
-		"over-max":    "[" + strings.Join(oversized, ",") + "]",
+		"over-max":      "[" + strings.Join(oversized, ",") + "]",
 	}
 	for name, value := range invalid {
 		if _, err := parseProtocolV2QueryInt64List(value); err == nil {

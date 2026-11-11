@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/riverqueue/river"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/riverqueue/river"
 )
 
 // PluginJobKind 是 River 上的宿主统一 job kind；真实插件 kind 放在 payload 内。

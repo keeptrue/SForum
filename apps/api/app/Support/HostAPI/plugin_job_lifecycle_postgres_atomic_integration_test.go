@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
-	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
 func TestPostgresPluginJobLifecycleReplacementLedgerAndCancelAreAtomic(t *testing.T) {

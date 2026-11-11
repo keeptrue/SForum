@@ -6,6 +6,40 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 互动第四刀：信任等级（Discourse Trust Levels）
+
+- Status: **in progress（M1–M4 已落地含公开面；M5 进行中；M8 已出最终表：124 行 ok 75 / 未实现 49 / FAIL 0）**。
+  在既有 RBAC 之上叠一层按累计行为自动升降的能力层：TL 在**装载期**合并进
+  `Actor.Permissions`（`Can()` 零改动，D13），装载公式
+  `effective = Expand(static) ∪ (earned ∖ denied)`（D14）；现有「新人信任阶梯」
+  （`trustForActor`，七项 `trust.new_user*`）收编为 TL0。本刀不新增表、不新增列。
+  **默认 earnable = ∅**，权限解锁是运营开启的框架能力，不是开箱行为。
+  M1/M2 已落地并**已装配**（`bootstrap/api_assembly_domains.go:321`）、`features.trust_levels`
+  五处注册已齐、M3 已收编新人阶梯（等级与限额均生效）；M4 公开面已落地（catalog 409 = 405 +
+  4 条信任等级路由、OpenAPI path 文件在、公开响应不含 `limits`）；仅资料页等级卡数据源仍恒
+  `null`（M5）。施工细节与中间态看 handoff。
+- Handoff：`sessions/2026-11-10-trust-levels.md`；模块：`modules/trust-levels.md`；
+  计划：`plans/2026-11-10-trust-levels.md`（§3 决断 D1–D26、§10 陷阱 T1–T19）；
+  统计地基：`modules/badges.md`。
+- **动工前先读 handoff 的「计划 ≠ 代码」三条**：`LoadActor` 实测 4 次基线查询（计划写 2，
+  且 `created_at`/`kind` 已合并进装载期，TL 再加 1 次 activity 读 → 4→5）、deny 的真实位置在
+  `database/queries/identity.sql`（计划指错函数）、`.Can(` 非测试调用点 **256**（命令：
+  `rg -o "\.Can\(" -g '*.go' -g '!*_test.go' | wc -l`；含测试 280）。deny 复活已由 D14 裁决
+  且 D28 已修，不再是未决项。
+
+### 互动第三刀：徽章 + 用户活动统计
+
+- Status: **landed（M8 已通过，2026-11-10）**。五张表（`user_activity` /
+  `user_visits` / `badge_groups` / `badges` / `user_badges`）+ `users.top_badge_id`；
+  独立包 `app/Models/Badges/`；13 条路由（1 公开 + 12 后台）；`badges.evaluate_user`
+  job 与「重算」批量补授予两条路径；三个稳定视图 + HostQuery；`features.badges`
+  开关 + `badge.view` / `badge.manage`；资料页第 5 个 tab 与帖子旁 chip；OpenAPI
+  8 个 path item / 13 个 operation。M8：84 条后端断言 0 FAIL、16 条浏览器结构断言
+  全过。**统计层是信任等级的地基**，下一刀只需做「阈值 → 能力」映射。
+- Handoff：`sessions/2026-11-10-badges.md`；决策：
+  `decisions/2026-11-10-badges-and-user-activity.md`；模块：`modules/badges.md`；
+  计划：`plans/2026-11-10-badges-and-user-activity.md`（§11 决断、§12 陷阱 T1–T12）。
+
 ### 互动第二刀：收藏（主题 + 评论，公开/私密 + 提醒）
 
 - Status: **landed（可提交，2026-11-10）**。`content_bookmarks` 多态关系 + 只统计
@@ -741,6 +775,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **徽章 + 用户活动统计（2026-11-10，最新）**：`user_activity` 独立表承载六项计数
+  （关系行三项可精确重算，`topic_count`/`comment_count` 是事件累计、软删后不回退），
+  `user_visits` 由 Redis SETNX 挡库后同步写；徽章 actor 无关所以进 `CachedStore`
+  （与 `likedByMe`/`bookmarkedByMe` 相反，代价是帖子旁 20–30s 延迟）；`top_badge_id`
+  反规范化承担三个失真窗口；授予三来源可按 `granted_by`/`grant_reason` 精确区分；
+  `Recompute` 用一条批量 SQL 补授予 + 修 top_badge，返回 `{granted, refreshed}`。
+  M8 通过（84 断言 0 FAIL）。本刀修掉的两个 P0（首页 500、后台无权限）根因都是
+  「同一份东西存在多个副本」。见 `sessions/2026-11-10-badges.md`、
+  `decisions/2026-11-10-badges-and-user-activity.md`、`modules/badges.md`。
 - **收藏（主题 + 评论 + 提醒，2026-11-10，最新）**：`content_bookmarks` 多态关系、
   每条可公开/私密（默认私密）、只统计公开收藏的计数列、`PUT` 全量状态写入
   （`visibility` / `remindAt` / `clearReminder` 三态）、`GET /profile/bookmarks` 与

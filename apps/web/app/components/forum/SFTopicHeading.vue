@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ForumTopicDetail, ForumTopicExtensionBadge } from '~/utils/forum/forumTaxonomy'
 import { forumTopicExtensionLabel } from '~/utils/forum/forumTaxonomy'
+import SFTopicAuthorBlock from '~/components/forum/SFTopicAuthorBlock.vue'
 
 type TopicHeadingTag = {
   id: number
@@ -74,14 +75,13 @@ function badgeHref(badge: ForumTopicExtensionBadge) {
     </div>
 
     <div class="sf-topic-heading__byline">
-      <NuxtLink v-if="authorTo" :to="authorTo" class="sf-topic-heading__author">
-        <SFAvatar :name="authorName" :avatar="topic.author?.avatar" size="sm" loading="eager" />
-        <span>{{ authorName }}</span>
-      </NuxtLink>
-      <span v-else class="sf-topic-heading__author">
-        <SFAvatar :name="authorName" :avatar="topic.author?.avatar" size="sm" loading="eager" />
-        <span>{{ authorName }}</span>
-      </span>
+      <SFTopicAuthorBlock
+        class="sf-topic-heading__author"
+        :author="topic.author"
+        :name="authorName"
+        :to="authorTo"
+        :top-badge="topic.topBadge || null"
+      />
 
       <time :datetime="topic.createdAt">{{ publishedLabel }}</time>
       <span v-if="topic.edited" class="sf-topic-heading__state">

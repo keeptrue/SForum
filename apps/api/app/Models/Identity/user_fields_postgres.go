@@ -25,6 +25,16 @@ type PostgresIdentityUserFieldValueStore struct {
 	pool      *pgxpool.Pool
 	registry  *identityregistry.Registry
 	digestKey []byte
+	// trustLevels 与 identity.PostgresStore 共用同一个来源（D22）。
+	trustLevels TrustLevelSource
+}
+
+// WithTrustLevelSource 注入信任等级来源；未注入时事务路径的行为与本刀之前一致。
+func (s *PostgresIdentityUserFieldValueStore) WithTrustLevelSource(source TrustLevelSource) *PostgresIdentityUserFieldValueStore {
+	if s != nil {
+		s.trustLevels = source
+	}
+	return s
 }
 
 type IdentityUserFieldPrivacyTxStore interface {
@@ -198,7 +208,7 @@ func (s *PostgresIdentityUserFieldValueStore) Get(
 		err = lockIdentityUserFieldUsers(ctx, tx, input.ActorUserID, input.UserID)
 	}
 	if err == nil {
-		err = authorizeIdentityUserFieldPermission(ctx, tx, input.ActorUserID, field.ReadPermission)
+		err = authorizeIdentityUserFieldPermission(ctx, tx, input.ActorUserID, field.ReadPermission, s.trustLevels)
 	}
 	var stored storedIdentityUserFieldValue
 	if err == nil {

@@ -163,23 +163,26 @@ describe('bookmark mount points', () => {
 describe('profile bookmarks tab', () => {
   test('sits between 回复 and 关于 in the built-in tab order', () => {
     const page = profilePage()
-    const topics = page.indexOf("value: 'topics'")
-    const replies = page.indexOf("value: 'replies'")
-    const bookmarks = page.indexOf("value: 'bookmarks'")
-    const about = page.indexOf("value: 'about'")
+    const tabs = source('app/utils/profile/profileTabs.ts')
+    const topics = tabs.indexOf("value: 'topics'")
+    const replies = tabs.indexOf("value: 'replies'")
+    const bookmarks = tabs.indexOf("value: 'bookmarks'")
+    const about = tabs.indexOf("value: 'about'")
     expect(topics).toBeGreaterThan(-1)
     expect(replies).toBeGreaterThan(topics)
     expect(bookmarks).toBeGreaterThan(replies)
     expect(about).toBeGreaterThan(bookmarks)
-    expect(page).toContain("label: t('profile.tabs.bookmarks')")
+    expect(tabs).toContain("t('profile.tabs.bookmarks')")
   })
 
   test('the bookmarks tab only exists while features.bookmarks is on', () => {
     const page = profilePage()
-    expect(page).toContain('const { bookmarksEnabled } = useWebOptions()')
-    expect(page).toContain("...(bookmarksEnabled.value ? [{ value: 'bookmarks'")
-    // 开关翻掉后 tab 从 profileTabs 消失，既有 watch 兜底把 activeTab 拉回 topics。
-    expect(page).toContain('if (!tabs.some(tab => tab.value === activeTab.value))')
+    expect(page).toContain('bookmarksEnabled, badgesEnabled } = useWebOptions()')
+    expect(source('app/utils/profile/profileTabs.ts')).toContain('input.bookmarksEnabled ?')
+    // 开关翻掉后 tab 从 profileTabs 消失：回落与 query 纠正已抽到 useProfileTabQuery，
+    // 页面只负责把当前 tab 值喂给 resetTabIfMissing。
+    expect(page).toContain('resetTabIfMissing(tabs.map(tab => tab.value))')
+    expect(source('app/composables/profile/useProfileTabQuery.ts')).toContain('activeTab.value = defaultTab')
   })
 
   test('renders the tab panel with self/public scope and a retry path', () => {

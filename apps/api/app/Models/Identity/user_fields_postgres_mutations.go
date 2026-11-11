@@ -39,7 +39,7 @@ func (s *PostgresIdentityUserFieldValueStore) setPreparedTx(
 	if err := lockIdentityUserFieldUsers(ctx, tx, input.actorUserID, input.userID); err != nil {
 		return IdentityUserFieldValueMutation{}, nil, fingerprint, err
 	}
-	if err := authorizeIdentityUserFieldPermission(ctx, tx, input.actorUserID, field.WritePermission); err != nil {
+	if err := authorizeIdentityUserFieldPermission(ctx, tx, input.actorUserID, field.WritePermission, s.trustLevels); err != nil {
 		return IdentityUserFieldValueMutation{}, nil, fingerprint, err
 	}
 	claim := identityregistry.UserFieldSchemaClaim{
@@ -190,7 +190,7 @@ func (s *PostgresIdentityUserFieldValueStore) erasePreparedTx(
 	if err := lockIdentityUserFieldUsers(ctx, tx, input.actorUserID, input.userID); err != nil {
 		return IdentityUserFieldValueMutation{}, nil, fingerprint, err
 	}
-	if err := authorizeIdentityUserFieldPermission(ctx, tx, input.actorUserID, field.WritePermission); err != nil {
+	if err := authorizeIdentityUserFieldPermission(ctx, tx, input.actorUserID, field.WritePermission, s.trustLevels); err != nil {
 		return IdentityUserFieldValueMutation{}, nil, fingerprint, err
 	}
 	claim := identityregistry.UserFieldSchemaClaim{

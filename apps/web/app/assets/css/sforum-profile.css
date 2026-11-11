@@ -701,3 +701,20 @@
     text-align: left;
   }
 }
+
+/* 5 项统计条（主题 / 回复 / 分类 / 获赞 / 访问天数）。
+   必须留在文件末尾：`.sf-profile-summary` 在 680 断点里有一条同权重的 3 列规则，
+   写在它前面会被按源码顺序覆盖回 3 列——症状是桌面正常、390 错。 */
+.sf-profile-summary--quint {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 767px) {
+  .sf-profile-summary--quint {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sf-profile-summary--quint .sf-profile-summary__item:last-child {
+    grid-column: span 2;
+  }
+}

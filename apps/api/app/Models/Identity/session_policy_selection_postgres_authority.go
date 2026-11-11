@@ -201,8 +201,8 @@ func lockExactIdentitySessionPolicyProvider(
 	return tip, nil
 }
 
-func authorizeIdentitySessionPolicyActor(ctx context.Context, tx pgx.Tx, actorUserID int64) error {
-	actor, err := LoadEffectiveActorTx(ctx, tx, actorUserID)
+func authorizeIdentitySessionPolicyActor(ctx context.Context, tx pgx.Tx, actorUserID int64, trust TrustLevelSource) error {
+	actor, err := LoadEffectiveActorTx(ctx, tx, actorUserID, trust)
 	if errors.Is(err, ErrActorInactive) {
 		return ErrIdentitySessionPolicyPermissionDenied
 	}

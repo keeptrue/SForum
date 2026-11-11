@@ -67,14 +67,21 @@ candidate_permission_keys AS (
   UNION
   SELECT key FROM allowed_permission_keys
 )
-SELECT candidate_permission_keys.key
+-- 候选集 + 是否生效一起返回：deny 的判定仍然只在这里做一次，装载期据此
+-- 实现「effective = Expand(static) ∪ (earned ∖ denied)」（计划 D14）。
+-- 候选集 + 是否生效，**外加**被 deny 但没有任何静态授予的键（D28）。
+-- 少了第二段，deny 一个「谁都没授予过的键」就看不见，信任等级挣得它时 deny 被绕过。
+SELECT candidate_permission_keys.key,
+       NOT EXISTS (
+         SELECT 1
+         FROM denied_permission_keys
+         WHERE denied_permission_keys.key = candidate_permission_keys.key
+       ) AS effective
 FROM candidate_permission_keys
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM denied_permission_keys
-  WHERE denied_permission_keys.key = candidate_permission_keys.key
-)
-ORDER BY candidate_permission_keys.key;
+UNION
+SELECT denied_permission_keys.key, FALSE AS effective
+FROM denied_permission_keys
+ORDER BY 1;
 
 -- name: ListPermissions :many
 SELECT key, module, description

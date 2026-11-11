@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { PublicProfile } from '~/composables/profile/useProfileApi'
+import SFTrustLevelCard from '~/components/profile/SFTrustLevelCard.vue'
+import type { TrustLevelView } from '~/composables/profile/useTrustLevel'
 import { forumTopicPath, type ForumTopicSummary } from '~/utils/forum/forumTaxonomy'
 import { extensionTabLabel } from '~/utils/profile/profileExtensionTab'
 import { safeUrl } from '~/utils/sfUrl'
@@ -9,6 +11,8 @@ const props = defineProps<{
   displayName: string
   hasPublicDetails: boolean
   recentTopics: ForumTopicSummary[]
+  /** 公开等级（M4）；为 null 时整卡不渲染，不留占位。 */
+  trustLevel?: TrustLevelView | null
   drawer?: boolean
 }>()
 
@@ -65,6 +69,9 @@ function extensionTabTo(tab: NonNullable<PublicProfile['extensionTabs']>[number]
         </div>
       </div>
     </section>
+
+    <!-- 等级是身份元数据，不是 tab 内容：放右栏让每个 tab 下都可见。 -->
+    <SFTrustLevelCard v-if="props.trustLevel" :level="props.trustLevel.level" :metrics="props.trustLevel.metrics" />
 
     <section class="sf-profile-side-section">
       <header class="sf-profile-side-section__head">

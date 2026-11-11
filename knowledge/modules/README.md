@@ -22,6 +22,8 @@ implementing or debugging.
 | `localization.md` | i18n rules, locales, language packs |
 | `ai.md` | AI gateway contracts, credentials, admin console |
 | `extensions.md` | Plugins/themes, Manifest V3, trust, Host registries |
+| `badges.md` | Badge definitions/grants, per-user activity counters, `top_badge_id` |
+| `trust-levels.md` | Activity-derived trust tiers on top of RBAC (planned; not shipped) |
 
 ## Note structure
 

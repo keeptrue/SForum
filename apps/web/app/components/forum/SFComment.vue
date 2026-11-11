@@ -12,7 +12,7 @@ export const COMMENT_EDITOR_RENDERER_KEY = 'sforum-comment-editor-renderer'
 import SFCommentUserPreview from '~/components/forum/SFCommentUserPreview.vue'
 import SFMentionContent from '~/components/forum/SFMentionContent.vue'
 import SFCommentAIActivity from '~/components/forum/SFCommentAIActivity.vue'
-import SFUserIdentityName from '~/components/forum/SFUserIdentityName.vue'
+import SFCommentAuthorRow from '~/components/forum/SFCommentAuthorRow.vue'
 import {
   forumAuthorName,
   type ForumComment,
@@ -128,7 +128,6 @@ const branchVisible = computed(() => !branchPresentation.value.collapsible || br
 const userPreviewId = `sf-comment-user-preview-${useId()}`
 const userPreviewOpen = ref(false)
 const avatarPreviewTrigger = ref<HTMLElement | null>(null)
-const authorPreviewTrigger = ref<HTMLElement | null>(null)
 const userPreviewCard = ref<HTMLElement | null>(null)
 const lastPreviewTrigger = ref<HTMLElement | null>(null)
 const previewUsername = computed(() => props.comment?.author?.username?.trim() || '')
@@ -184,7 +183,8 @@ function onDocumentPointerDown(event: PointerEvent) {
   if (
     userPreviewCard.value?.contains(target)
     || avatarPreviewTrigger.value?.contains(target)
-    || authorPreviewTrigger.value?.contains(target)
+    // 作者行是独立组件，用它的稳定 class 判定「点在触发按钮内」，不跨组件拿 DOM 节点。
+    || (target instanceof Element && Boolean(target.closest('.sf-comment__author-trigger')))
   ) {
     return
   }
@@ -319,32 +319,19 @@ const InlineEditorHost = () => {
       <SFAvatar v-else :name="author" :avatar="avatar" size="sm" />
       <div class="sf-comment__body">
         <header class="sf-comment__header">
-          <button
-            v-if="canPreviewUser"
-            ref="authorPreviewTrigger"
-            type="button"
-            class="sf-comment__author sf-comment__author-trigger"
-            aria-haspopup="dialog"
-            :aria-expanded="userPreviewOpen"
-            :aria-controls="userPreviewOpen ? userPreviewId : undefined"
-            @click.capture="toggleUserPreviewCapture"
-            @click="toggleUserPreview"
-          >
-            <SFUserIdentityName
-              :user="{ username: previewUsername, displayName: comment?.author?.displayName }"
-              :to="authorLink"
-              :fallback="author"
-            >
-              <template v-if="isOpAuthor" #name-suffix>
-                <span class="sf-comment__op-badge">{{ t('topicDetail.opBadge') }}</span>
-              </template>
-            </SFUserIdentityName>
-          </button>
-          <NuxtLink v-else-if="authorLink" :to="authorLink" class="sf-comment__author">
-            {{ author }}
-          </NuxtLink>
-          <span v-else class="sf-comment__author">{{ author }}</span>
-          <span v-if="isOpAuthor && !canPreviewUser" class="sf-comment__op-badge">{{ t('topicDetail.opBadge') }}</span>
+          <SFCommentAuthorRow
+            :author="author"
+            :author-link="authorLink"
+            :username="previewUsername"
+            :display-name="comment?.author?.displayName || ''"
+            :top-badge="comment?.topBadge || null"
+            :is-op-author="isOpAuthor"
+            :interactive="canPreviewUser"
+            :preview-open="userPreviewOpen"
+            :preview-id="userPreviewId"
+            @preview-capture="toggleUserPreviewCapture"
+            @preview-toggle="toggleUserPreview"
+          />
           <!-- 时间与楼层合并为头部右侧的 meta 组；楼层保留 .sf-comment__floor 类与 #N 文本供进度条读取 -->
           <span v-if="meta || (comment && displayFloorLabel) || secondaryActions.length" class="sf-comment__meta-group">
             <span v-if="meta" class="sf-comment__meta">{{ meta }}</span>

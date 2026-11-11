@@ -268,3 +268,90 @@ func TestStableCoreViewsBookmarksMigrationMirrorsForumVisibilityPredicates(t *te
 		t.Fatal("content bookmarks Down does not drop forum_bookmarks")
 	}
 }
+
+const stableCoreViewsBadgesMigration = "202611100002_badges_and_user_activity.sql"
+
+// TestStableCoreViewsBadgesMigrationFiltersByUserStatusAndBadgeEnabled 把徽章与
+// 用户活动纳入稳定视图清单。
+//
+// 与点赞/收藏不同，这个数据域刻意不参与内容可见性：徽章是用户身份，统计是用户
+// 维度计数，只按 users.status = 'active' 与 badges.enabled 过滤。因此这里除了核对
+// 安全视图修饰符，还要反向断言视图里没有出现 forum_topics / forum_comments 那套
+// 「什么算公开」的谓词——插件读面不允许出现第二套可见性规则。
+//
+// 已知取舍（不要为它改视图）：阅读类指标（posts_read_count / read_time_seconds）
+// 在 v1 不采集，视图不输出它们；输出 0 会让调用方误以为是真实读数。
+func TestStableCoreViewsBadgesMigrationFiltersByUserStatusAndBadgeEnabled(t *testing.T) {
+	body, err := fs.ReadFile(Files(), stableCoreViewsBadgesMigration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.SplitN(string(body), "-- +goose Down", 2)
+	if len(parts) != 2 {
+		t.Fatal("badges migration has no Down section")
+	}
+	up := strings.Join(strings.Fields(parts[0]), " ")
+
+	views := map[string][]string{
+		"forum_badges": {
+			// 规则列是插件重建「获得条件」的唯一来源；阅读指标仍然不输出。
+			"badges.grant_mode, badges.metric, badges.threshold",
+			"WHERE badges.enabled OFFSET 0",
+		},
+		"forum_user_badges": {
+			"AND users.status = 'active'",
+			"AND badges.enabled OFFSET 0",
+		},
+		"forum_user_activity": {
+			"AND users.status = 'active' OFFSET 0",
+		},
+	}
+	for view, clauses := range views {
+		marker := "CREATE OR REPLACE VIEW sforum_core_v1." + view
+		if !strings.Contains(up, marker+" WITH (security_barrier = true, security_invoker = false) AS") {
+			t.Fatalf("stable core view %s is not declared with security_barrier/security_invoker", view)
+		}
+		// 每个视图都必须带 COMMENT，说明它为什么这么过滤。
+		if !strings.Contains(up, "COMMENT ON VIEW sforum_core_v1."+view+" IS") {
+			t.Fatalf("stable core view %s has no COMMENT ON VIEW", view)
+		}
+		start := strings.Index(up, marker)
+		rest := up[start:]
+		end := strings.Index(rest, "OFFSET 0")
+		if end < 0 {
+			t.Fatalf("stable core view %s has no OFFSET 0", view)
+		}
+		// 切片包含 OFFSET 0 本身，便于逐字核对谓词与 OFFSET 的相对位置。
+		viewBody := rest[:end+len("OFFSET 0")]
+		for _, clause := range clauses {
+			if !strings.Contains(viewBody, clause) {
+				t.Fatalf("stable core view %s missing %q", view, clause)
+			}
+		}
+		// 列清单里不允许出现隐私列与未采集的阅读指标。
+		for _, forbidden := range []string{
+			"email", "current_token_version", "granted_by", "grant_reason",
+			"posts_read_count", "read_time_seconds", "ip_address",
+		} {
+			if strings.Contains(viewBody, forbidden) {
+				t.Fatalf("stable core view %s must not output %q", view, forbidden)
+			}
+		}
+		// 徽章/统计不参与内容可见性：不允许把主题/分类/评论谓词搬进来。
+		for _, forbidden := range []string{
+			"topics.status", "topics.deleted_at", "categories.visibility",
+			"comments.status", "comments.deleted_at",
+		} {
+			if strings.Contains(viewBody, forbidden) {
+				t.Fatalf("stable core view %s must not re-declare content visibility %q", view, forbidden)
+			}
+		}
+	}
+
+	down := strings.Join(strings.Fields(parts[1]), " ")
+	for _, view := range []string{"forum_user_activity", "forum_user_badges", "forum_badges"} {
+		if !strings.Contains(down, "DROP VIEW IF EXISTS sforum_core_v1."+view) {
+			t.Fatalf("badges Down does not drop %s", view)
+		}
+	}
+}

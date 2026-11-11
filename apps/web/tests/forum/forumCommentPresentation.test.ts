@@ -22,6 +22,11 @@ const commentComponent = () => readFileSync(
   new URL('../../app/components/forum/SFComment.vue', import.meta.url),
   'utf8'
 )
+// 作者身份行（昵称 + 楼主标 + 徽章 chip）已抽成独立组件。
+const commentAuthorRow = () => readFileSync(
+  new URL('../../app/components/forum/SFCommentAuthorRow.vue', import.meta.url),
+  'utf8'
+)
 const commentCss = () => readFileSync(
   new URL('../../app/assets/css/sforum-comment.css', import.meta.url),
   'utf8'
@@ -256,7 +261,7 @@ describe('SFComment responsive CSS contract', () => {
 
 describe('SFComment identity layout contract', () => {
   test('stacks @username under the display name', () => {
-    const source = commentComponent()
+    const source = commentAuthorRow()
     const styles = commentCss()
     const identityTag = source.match(/<SFUserIdentityName\b[\s\S]*?>/)?.[0]
 
@@ -269,11 +274,11 @@ describe('SFComment identity layout contract', () => {
   })
 
   test('keeps the OP badge on the name line instead of after the wider handle', () => {
-    const source = commentComponent()
+    const source = commentAuthorRow()
 
     // 徽标经 name-suffix 插槽渲染在昵称行；否则它会被更长的 @username 顶到远处。
     expect(source).toContain('#name-suffix')
-    expect(source).toContain('isOpAuthor && !canPreviewUser')
+    expect(source).toContain('props.isOpAuthor && !props.interactive')
   })
 
   test('left aligns the two-line identity inside the trigger button', () => {

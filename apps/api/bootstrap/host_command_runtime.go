@@ -231,6 +231,7 @@ func bindPostgresProtocolV2CommandRuntime(
 	attachmentService *attachments.Service,
 	extensionReferences *extensionreference.Store,
 	identityAuthority identity.IdentityAuthorityMutationGate,
+	trustLevels identity.TrustLevelSource,
 ) (protocolV2CommandRuntimeDeferred, error) {
 	deferred := protocolV2CommandRuntimeDeferred{
 		Events: &deferredEventPublisher{},
@@ -253,6 +254,7 @@ func bindPostgresProtocolV2CommandRuntime(
 		IdentityAuthority:    identityAuthority,
 		Events:               deferred.Events,
 		AI:                   deferred.AI,
+		TrustLevels:          trustLevels,
 	})
 	if err != nil {
 		return deferred, fmt.Errorf("create Host Command runtime: %w", err)
@@ -274,7 +276,7 @@ func postgresProtocolV2CommandRuntimeBinder(
 	return func(gateway *hostapi.Gateway) error {
 		_, err := bindPostgresProtocolV2CommandRuntime(
 			gateway, pool, jobs, moderationStore,
-			attachmentStore, attachmentService, extensionReferences, nil,
+			attachmentStore, attachmentService, extensionReferences, nil, nil,
 		)
 		return err
 	}

@@ -398,6 +398,30 @@ func queryRegistryCoreMappingFor(definition protocolV2QueryDefinition) (queryReg
 			ResultSchema:     QueryPublicBookmarkSchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		}
+	case QueryPublicBadgesList:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicBadgesList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_badges.list", ContractVersion: "core.query.public_badges.list@1",
+			Entity: "core.query.public_badge", PlanVersion: "core.query.public_badges.list.plan@1",
+			ResultSchema:     QueryPublicBadgeSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		}
+	case QueryPublicUserBadgesList:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicUserBadgesList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_badges.list", ContractVersion: "core.query.public_user_badges.list@1",
+			Entity: "core.query.public_user_badge", PlanVersion: "core.query.public_user_badges.list.plan@1",
+			ResultSchema:     QueryPublicUserBadgeSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		}
+	case QueryPublicUserActivityList:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicUserActivityList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_activity.list", ContractVersion: "core.query.public_user_activity.list@1",
+			Entity: "core.query.public_user_activity", PlanVersion: "core.query.public_user_activity.list.plan@1",
+			ResultSchema:     QueryPublicUserActivitySchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		}
 	case QueryPublicCategoriesList:
 		mapping = queryRegistryCoreMapping{
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,

@@ -2,6 +2,9 @@
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import { useProfileApi, type ProfileActivityKind, type ProfileActivityPage } from '~/composables/profile/useProfileApi'
 import { useProfileShowData } from '~/composables/profile/useProfileShowData'
+import { useProfileTabQuery } from '~/composables/profile/useProfileTabQuery'
+import { useProfileBadges } from '~/composables/profile/useProfileBadges'
+import { useTrustLevel } from '~/composables/profile/useTrustLevel'
 import { useProfileBookmarks } from '~/composables/profile/useProfileBookmarks'
 import {
   PROFILE_ACTIVITY_PER_PAGE,
@@ -12,6 +15,7 @@ import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePer
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useForumApi } from '~/composables/forum/useForumApi'
 import SFProfileBookmarkTab from '~/components/profile/SFProfileBookmarkTab.vue'
+import SFProfileBadgeTab from '~/components/profile/SFProfileBadgeTab.vue'
 import SFProfileFeedTab from '~/components/profile/SFProfileFeedTab.vue'
 import SFProfileRightRail from '~/components/profile/SFProfileRightRail.vue'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
@@ -31,6 +35,7 @@ import {
 } from '~/utils/forum/forumTaxonomy'
 import { userDisplayName } from '~/utils/forum/userDisplay'
 import { profileHasPublicDetails } from '~/utils/profile/profileActivity'
+import { buildProfileTabs, type ProfileTabOption } from '~/utils/profile/profileTabs'
 import {
   extensionTabLabel,
   profileWidgetTabValue,
@@ -38,25 +43,13 @@ import {
 } from '~/utils/profile/profileExtensionTab'
 import { safeUrl } from '~/utils/sfUrl'
 
-/**
- * 内置分区与扩展贡献的 widget tab 共用一条栏，值域不能再收窄成字面量联合：
- * 内置值仍是 'topics' | 'replies' | 'about'，扩展值是 `${extensionId}:${id}`。
- */
-type ProfileTab = string
-
-type ProfileTabOption = {
-  value: ProfileTab
-  label: string
-  count?: number
-}
-
 const route = useRoute()
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const toast = useToast()
 const { formatDateOnly } = useSiteDateTime()
 // 收藏开关与控件同一口径：关闭时 tab 本身不出现，而不是点进去吃 403。
-const { bookmarksEnabled } = useWebOptions()
+const { bookmarksEnabled, badgesEnabled } = useWebOptions()
 const profileApi = useProfileApi()
 const forumApi = useForumApi()
 const { user: authUser } = useAuthSession()
@@ -66,7 +59,8 @@ const { closeDrawer: closeMobileMenu } = usePublicSidebarDrawer()
 
 const username = computed(() => String(route.params.username ?? ''))
 const renderedAt = useState<number>(`forum-profile-rendered-at-${username.value}`, () => Date.now())
-const activeTab = ref<ProfileTab>('topics')
+// tab 状态与 `?tab=` 的同步全在 useProfileTabQuery：本页只消费 activeTab。
+const { activeTab, syncTabQuery, resetTabIfMissing } = useProfileTabQuery()
 
 // 路由壳是唯一取数点（见 useProfileShowData）：这里 inject 同一份 refs，
 // 既不会重复请求，也不会和壳的 options 产生 dev 警告。
@@ -112,6 +106,8 @@ useSForumSeo(computed(() => ({
 
 const displayName = computed(() => userDisplayName(profile.value, username.value))
 const isSelf = computed(() => Boolean(profile.value && authUser.value?.id === profile.value.userId))
+// 等级卡数据：他人视角只有 profile.trustLevel；本人额外读 /trust-levels 的 viewer 拿进度。
+const { trustLevel } = useTrustLevel(computed(() => profile.value?.trustLevel), () => isSelf.value)
 const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
 const navCategories = computed(() => categoryGroups.value.flatMap(group => group.categories || []))
 const navTotalTopics = computed(() => navCategories.value.reduce((sum, category) => sum + category.topicCount, 0))
@@ -152,35 +148,28 @@ const {
   self: () => isSelf.value
 })
 
-const widgetTabs = computed(() => profileWidgetTabs(profile.value?.extensionTabs))
+// 徽章墙：只在激活时取数，切走保留结果（与收藏/活动流同一缓存口径）。
+const isBadgesTab = computed(() => activeTab.value === 'badges')
+const {
+  groups: badgeGroups,
+  loading: badgesLoading,
+  failed: badgesFailed,
+  retry: retryBadges
+} = useProfileBadges(username, { active: () => isBadgesTab.value })
 
-const profileTabs = computed<ProfileTabOption[]>(() => [
-  {
-    value: 'topics',
-    label: t('profile.tabs.topics'),
-    count: profile.value?.topicCount ?? 0
-  },
-  {
-    value: 'replies',
-    label: t('profile.tabs.replies'),
-    count: profile.value?.commentCount ?? 0
-  },
-  // 开关关闭时该 tab 根本不存在；activeTab 停在 bookmarks 时由下面的 watch 兜底回 topics。
-  ...(bookmarksEnabled.value ? [{ value: 'bookmarks', label: t('profile.tabs.bookmarks') }] : []),
-  {
-    value: 'about',
-    label: t('profile.tabs.about')
-  },
-  // 内置三项位置保持稳定；扩展 widget tab 一律排在「关于」之后，按 order 再按 id 定序。
-  ...widgetTabs.value.map(tab => ({
-    value: profileWidgetTabValue(tab),
-    label: extensionTabLabel(tab, String(locale.value))
-  }))
-])
+const profileTabs = computed<ProfileTabOption[]>(() => buildProfileTabs({
+  t,
+  locale: String(locale.value),
+  topicCount: profile.value?.topicCount ?? 0,
+  commentCount: profile.value?.commentCount ?? 0,
+  bookmarksEnabled: bookmarksEnabled.value,
+  badgesEnabled: badgesEnabled.value,
+  extensionTabs: profile.value?.extensionTabs
+}))
 
-const activeWidgetTab = computed(() => widgetTabs.value.find(
-  tab => profileWidgetTabValue(tab) === activeTab.value
-))
+// 激活的是哪个扩展 widget：直接按 profile 求值，不额外留一个只被用一次的 computed。
+const activeWidgetTab = computed(() => profileWidgetTabs(profile.value?.extensionTabs)
+  .find(tab => profileWidgetTabValue(tab) === activeTab.value))
 
 const activeWidgetTabLabel = computed(() => activeWidgetTab.value
   ? extensionTabLabel(activeWidgetTab.value, String(locale.value))
@@ -194,11 +183,7 @@ const widgetComponentProps = computed<Record<string, unknown>>(() => ({
 }))
 
 // 扩展被禁用/升级后 widget tab 会消失；激活态留在已不存在的 tab 上会静默渲染成空时间线。
-watch(profileTabs, (tabs) => {
-  if (!tabs.some(tab => tab.value === activeTab.value)) {
-    activeTab.value = 'topics'
-  }
-})
+watch(profileTabs, tabs => resetTabIfMissing(tabs.map(tab => tab.value)))
 
 const websiteHost = computed(() => {
   const raw = profile.value?.profile.websiteUrl?.trim() || ''
@@ -222,8 +207,9 @@ function closeMobileDrawers() {
   mobileInfoOpen.value = false
 }
 
-async function selectTab(tab: ProfileTab) {
+async function selectTab(tab: string) {
   activeTab.value = tab
+  syncTabQuery(tab)
   if (tab === 'topics' || tab === 'replies') {
     await ensureFeedLoaded(tab)
   }
@@ -427,6 +413,15 @@ async function shareProfile() {
             />
           </template>
 
+          <template v-else-if="activeTab === 'badges'">
+            <SFProfileBadgeTab
+              :groups="badgeGroups"
+              :loading="badgesLoading"
+              :failed="badgesFailed"
+              @retry="retryBadges"
+            />
+          </template>
+
           <template v-else-if="activeWidgetTab">
             <!-- 扩展 widget tab：宿主只提供挂载点。SSR 骨架、失败隔离、退避重试和重试按钮
                  全部由 SFExtensionWidget 自己承担，这里不再叠一层错误 UI。
@@ -450,6 +445,8 @@ async function shareProfile() {
               :topic-count="profile.topicCount"
               :comment-count="profile.commentCount"
               :category-count="categoryParticipationCount"
+              :like-received-count="profile.likeReceivedCount ?? 0"
+              :days-visited="profile.daysVisited ?? 0"
               :switching="switchingTab"
               :loading-more="loadingMore"
               :show-load-more="showLoadMore"
@@ -467,6 +464,7 @@ async function shareProfile() {
             :display-name="displayName"
             :has-public-details="hasPublicDetails"
             :recent-topics="recentTopics"
+            :trust-level="trustLevel"
           />
           <SFRegionOutlet page="forum.profile.show" region="sidebar" />
         </aside>
@@ -493,6 +491,7 @@ async function shareProfile() {
         :display-name="displayName"
         :has-public-details="hasPublicDetails"
         :recent-topics="recentTopics"
+        :trust-level="trustLevel"
         drawer
       />
     </aside>

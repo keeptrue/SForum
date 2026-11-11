@@ -1,0 +1,436 @@
+# Badge and user-activity contract.
+#
+# Every operation in this file is gated by the `features.badges` feature flag.
+# When the flag is off, all of them fail with `403` and reason
+# `forum.badges_disabled` — including the read paths, because the whole badge
+# product surface is hidden (the user-activity counters are NOT part of this
+# flag; they keep collecting and keep rendering on the profile page).
+#
+# Permission keys: `badge.view` for reads, `badge.manage` for every write.
+# Both are enforced in the domain layer (`AdminService` takes an
+# `identity.Actor` on every method), not only by the route guard.
+# A `badge.view` holder that calls a write endpoint gets `403` with reason
+# `permission.denied`, not `forum.badges_disabled`; the two cases are
+# distinguished by `data.reason`.
+profileBadgesByUsername:
+  get:
+    summary: List a member's badges grouped by badge group
+    operationId: publicProfileBadges
+    description: |
+      Public badge tab for a member profile. Anonymous access is allowed: the
+      response is identical for every viewer because badges are actor-agnostic
+      (no `grantedByMe`-style fields).
+
+      Groups are ordered by `position` ascending, then inside a group by tier
+      weight `gold > silver > bronze`, then by badge `position` ascending, then
+      by `grantedAt` descending.
+
+      Entries are flat (`slug` / `name` / `tier` / `icon` / `position` /
+      `earned`) with conditional keys: an earned entry carries `grantedAt` and
+      no progress keys; an unearned automatic entry carries `current` and
+      `threshold` and no `grantedAt`; an unearned manual entry carries neither.
+      `current: 0` is emitted, not omitted.
+
+      Fails with `403` reason `forum.badges_disabled` when `features.badges` is
+      off, and `404` reason `forum.badge_not_found` when the username does not
+      resolve to an active member.
+    parameters:
+    - name: username
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Member username.
+    responses:
+      '200':
+        description: Badge groups with earned and in-progress entries.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseProfileBadges"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+adminBadges:
+  get:
+    summary: List badge definitions for admin management
+    operationId: adminListBadges
+    description: |
+      Requires `badge.view`. Returns disabled badges too, so operators can
+      re-enable or delete them; the public surface filters on `enabled`.
+
+      Each row carries its rule (`grantMode` / `metric` / `threshold`) and the
+      number of users currently holding it. Fails with `403` reason
+      `forum.badges_disabled` when `features.badges` is off.
+    responses:
+      '200':
+        description: Badge definitions with group and grant counts.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+  post:
+    summary: Create a badge definition
+    operationId: adminCreateBadge
+    description: |
+      Requires `badge.manage`. Rule validation is authoritative on the server:
+
+      - `grantMode: automatic` requires `metric` and `threshold > 0`.
+      - `grantMode: manual` requires both `metric` and `threshold` to be absent.
+      - `tier` must be one of `bronze` / `silver` / `gold`.
+      - `icon` must start with `i-lucide-` or `i-tabler-`.
+
+      Violations return `422` reason `forum.badge_rule_invalid`; a duplicate
+      slug returns `409` reason `forum.badge_slug_taken`.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeCreateInput"
+    responses:
+      '201':
+        description: Badge created.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadge"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgeByID:
+  patch:
+    summary: Update a badge definition
+    operationId: adminUpdateBadge
+    description: |
+      Requires `badge.manage`. Partial update: omitted fields keep their current
+      value. Sending a rule change re-validates the whole rule, and a threshold
+      change does **not** retroactively grant badges to users already above the
+      new threshold — that requires an explicit recompute.
+
+      Disabling a badge keeps existing grants but triggers a `top_badge_id`
+      recompute for affected users, so the badge stops rendering next to posts.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeUpdateInput"
+    responses:
+      '200':
+        description: Badge updated.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadge"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+  delete:
+    summary: Delete a badge definition
+    operationId: adminDeleteBadge
+    description: |
+      Requires `badge.manage`. Deletes the definition and cascades every
+      `user_badges` row for it; `users.top_badge_id` is set to NULL by the
+      foreign key, then recomputed for affected users.
+
+      Fails with `404` reason `forum.badge_not_found` when the badge is gone.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeID"
+    responses:
+      '200':
+        description: Badge deleted.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDeleteResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+adminBadgeGroups:
+  get:
+    summary: List badge groups for admin management
+    operationId: adminListBadgeGroups
+    description: Requires `badge.view`. Groups order the public profile tab by
+      `position`.
+    responses:
+      '200':
+        description: Badge groups.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeGroupList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+  post:
+    summary: Create a badge group
+    operationId: adminCreateBadgeGroup
+    description: |
+      Requires `badge.manage`. A duplicate `key` returns `409` reason
+      `forum.badge_slug_taken` (the group key shares the slug uniqueness rule).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeGroupCreateInput"
+    responses:
+      '201':
+        description: Badge group created.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeGroup"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgeGroupByID:
+  patch:
+    summary: Update a badge group
+    operationId: adminUpdateBadgeGroup
+    description: |
+      Requires `badge.manage`. Partial update, matching the badge PATCH: the
+      handler reads the current group and merges only the keys present in the
+      body, so `{"position": 3}` alone moves the group without touching its
+      name or description. Renaming a group does not touch badges already
+      assigned to it.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeGroupID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeGroupUpdateInput"
+    responses:
+      '200':
+        description: Badge group updated.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeGroup"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+  delete:
+    summary: Delete a badge group
+    operationId: adminDeleteBadgeGroup
+    description: |
+      Requires `badge.manage`. Badges in the group are kept: the foreign key is
+      `ON DELETE SET NULL`, so they become ungrouped rather than disappearing.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeGroupID"
+    responses:
+      '200':
+        description: Badge group deleted.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDeleteResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+adminBadgeGrants:
+  get:
+    summary: List grant records for a badge
+    operationId: adminListBadgeGrants
+    description: |
+      Requires `badge.view`. Newest grants first. Records include the actor that
+      granted the badge (`grantedBy`) and the free-form `grantReason`; this is
+      an admin-only surface and is never exposed on the public profile.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeID"
+    - name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Row offset; the grants list uses OFFSET pagination.
+    - name: perPage
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    responses:
+      '200':
+        description: Paginated grant records.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeGrantList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+  post:
+    summary: Grant a badge to a user
+    operationId: adminCreateBadgeGrant
+    description: |
+      Requires `badge.manage`. Only `grantMode: manual` badges can be granted by
+      hand; an automatic badge returns `422` reason `forum.badge_manual_only`
+      because the rule would immediately grant or withhold it again.
+
+      **Not idempotent.** A grant for a user who already holds the badge is an
+      error, not a silent no-op: `409` reason `forum.badge_already_granted`
+      (the insert is `ON CONFLICT DO NOTHING`, and an empty `RETURNING` is
+      reported as a conflict). Clients must treat 409 as "already granted" and
+      show it as such rather than retrying.
+
+      A successful grant writes an in-app notification and recomputes the
+      recipient's `top_badge_id`; granting a badge to yourself still notifies,
+      because badges are public honors rather than interaction noise.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeGrantInput"
+    responses:
+      '200':
+        description: Badge granted.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeGrantResult"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgeGrantByUser:
+  delete:
+    summary: Revoke a granted badge from a user
+    operationId: adminDeleteBadgeGrant
+    description: |
+      Requires `badge.manage`. Revoking recomputes the user's `top_badge_id`,
+      which may fall back to a lower-tier badge or to NULL.
+
+      **Idempotent, asymmetric with grant.** Revoking a grant that does not
+      exist returns `200` with `{"revoked": false}`: the request succeeded, but
+      no row was deleted. `revoked` reports the deletion, not the request
+      outcome — a client must not show `false` as an error, and must not show
+      `true` unless a row really went away. (Contrast with grant, which returns
+      `409` when the user already holds the badge.)
+
+      Automatic badges cannot be revoked by hand: `422` reason
+      `forum.badge_manual_only`. Disable the rule instead.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeID"
+    - "$ref": "../components/parameters.yaml#/BadgeGrantUserID"
+    responses:
+      '200':
+        description: Grant revoked.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeRevokeResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgesRecompute:
+  post:
+    summary: Recompute automatic badges for every user
+    operationId: adminRecomputeBadges
+    description: |
+      Requires `badge.manage`. Full sweep in two passes:
+
+      1. back-fill missing automatic grants by matching every user's activity
+         row against all enabled automatic rules (one set-based insert, not a
+         per-user loop);
+      2. repair `top_badge_id` for every user whose stored value is stale.
+
+      This is the only retroactive path. Rule edits — including lowering a
+      threshold — deliberately do not grant anything by themselves, so an
+      operator who changes a threshold must run this endpoint afterwards.
+
+      Idempotent: an already-correct community returns `granted: 0` and
+      `refreshed: 0`. Grants created here are tagged `grantReason: "recompute"`
+      with a null `grantedBy`, which distinguishes them from rule-time grants
+      and operator grants in the grant records.
+
+      Statistics columns are not repaired by this endpoint; reconciling drifted
+      counters is a documented SQL procedure in the badge module note, not an
+      API.
+    responses:
+      '200':
+        description: Recompute finished.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeRecomputeResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

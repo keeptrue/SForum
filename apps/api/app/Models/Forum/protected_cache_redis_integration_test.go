@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
 	contentregistry "github.com/keeptrue/sforum/apps/api/app/Support/ContentRegistry"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestProtectedShortcodeRedisCachesOnlyActorIndependentBase(t *testing.T) {

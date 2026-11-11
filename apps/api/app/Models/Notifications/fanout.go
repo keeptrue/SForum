@@ -383,3 +383,79 @@ func mailTemplateData(data map[string]any, brand MailBrand) map[string]any {
 	}
 	return data
 }
+
+// BadgeGrantedEvent 是一次徽章授予（自动或手动）。
+//
+// 刻意没有「自己给自己」的抑制：徽章是公开荣誉，不是互动噪音。
+// 与 ReactionEvent 的语义相反——那边自赞要静默，这边自授要通知。
+type BadgeGrantedEvent struct {
+	RecipientUserID int64
+	BadgeSlug       string
+	BadgeName       string
+	// GrantedByUserID 为 0 表示系统自动授予（规则命中）。
+	GrantedByUserID int64
+}
+
+// NotifyBadgeGranted 在 job 里调用（没有现成事务）：自己开一个。
+func (o *Outbox) NotifyBadgeGranted(ctx context.Context, event BadgeGrantedEvent) error {
+	tx, err := o.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin badge notification: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+	if err := o.NotifyBadgeGrantedTx(ctx, tx, event); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit badge notification: %w", err)
+	}
+	return nil
+}
+
+// NotifyBadgeGrantedTx 写一条徽章授予投影。
+//
+// 幂等靠 dedupeKey = badge:{slug}：同一用户同一徽章只会有一条通知，
+// 重复评估不会刷屏。授予被收回后再授予也不会重复（徽章是终局荣誉）。
+func (o *Outbox) NotifyBadgeGrantedTx(ctx context.Context, tx pgx.Tx, event BadgeGrantedEvent) error {
+	if event.RecipientUserID <= 0 || event.BadgeSlug == "" {
+		return nil
+	}
+	brand := resolveMailBrand(ctx, o.brandResolver)
+	var email, locale, name string
+	err := tx.QueryRow(ctx, `SELECT email, locale, display_name FROM users WHERE id=$1 AND status='active'`, event.RecipientUserID).Scan(&email, &locale, &name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// 用户不存在或已停用：不写通知（与 reaction 同一姿态）。
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load badge notification recipient: %w", err)
+	}
+	payload, _ := json.Marshal(mailTemplateData(map[string]any{
+		"badgeSlug":     event.BadgeSlug,
+		"badgeName":     event.BadgeName,
+		"locale":        resolveMailLocale(ctx, locale, o.localeResolver),
+		"recipientName": name,
+	}, brand))
+	// dedupe 只看 slug：同一用户同一徽章终身只通知一次；手动收回后重新授予不再通知
+	// （有意为之，徽章是终局荣誉）。改成按授予事件去重会牵动 GrantAutomatic 的签名，
+	// 而那会把「授予是否新建」与「通知去重键」耦合在一起。
+	dedupe := fmt.Sprintf("badge:%s", event.BadgeSlug)
+	var actor *int64
+	if event.GrantedByUserID > 0 {
+		value := event.GrantedByUserID
+		actor = &value
+	}
+	return o.CreateProjectionsTx(ctx, tx, CreateBundleInput{
+		Notification: CreateInput{
+			RecipientUserID: event.RecipientUserID,
+			Type:            TypeBadgeGranted,
+			ActorUserID:     actor,
+			Payload:         payload,
+			DedupeKey:       dedupe,
+		},
+		Delivery: CreateDeliveryInput{Recipient: email, TemplateKey: "forum." + TypeBadgeGranted, TemplateData: payload, IdempotencyKey: dedupe},
+		Channels: coreDeliveryChannels(),
+	})
+}

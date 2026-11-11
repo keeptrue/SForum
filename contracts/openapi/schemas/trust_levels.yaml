@@ -1,0 +1,152 @@
+TrustLevelRequirements:
+  type: object
+  description: |
+    达到某档所需的最小行为量（AND 语义，0 表示该项不设门槛）。字段名与
+    `trust.levels` 的 JSON 完全一致（snake_case）；i18n 的 metric 键是 camelCase，
+    两套命名不得混用。
+  properties:
+    days_visited:
+      type: integer
+      format: int64
+    topic_count:
+      type: integer
+      format: int64
+    comment_count:
+      type: integer
+      format: int64
+    like_received_count:
+      type: integer
+      format: int64
+    like_given_count:
+      type: integer
+      format: int64
+    bookmark_count:
+      type: integer
+      format: int64
+
+TrustLevelLimits:
+  type: object
+  description: |
+    某档的发言限额覆盖。`null` 表示继承站点默认；`0` 有语义（例如免冷却），
+    因此 `null` 与 `0` 绝不能混用。
+  properties:
+    topicCooldownSeconds:
+      type: integer
+      nullable: true
+    commentCooldownSeconds:
+      type: integer
+      nullable: true
+    dailyTopicLimit:
+      type: integer
+      nullable: true
+    dailyCommentLimit:
+      type: integer
+      nullable: true
+
+TrustLevelDefinition:
+  type: object
+  required: [level, levelSlug, requirements, earnable]
+  properties:
+    level:
+      type: integer
+    levelSlug:
+      type: string
+      description: "稳定标识：newcomer / member / resident / veteran / leader。刻意不叫 slug——TL1 的标识是 member，与角色 key 同字符串。"
+    requirements:
+      "$ref": "#/TrustLevelRequirements"
+    limits:
+      allOf:
+        - "$ref": "#/TrustLevelLimits"
+      description: |
+        只在**后台读面**出现（运营需要它来配）。公开目录不下发限流参数：公开「某档
+        冷却 60 秒、日限额 10 帖」等于把限流参数交给想绕过它的人。
+        写入时该字段**必须显式出现**（可写 `null` = 全继承），省略即 422。
+    earnable:
+      type: array
+      description: 该档**恰好**解锁的既有权限键（不含更低档）。
+      items:
+        type: string
+
+TrustLevelBottleneck:
+  type: object
+  required: [metric, current, threshold]
+  properties:
+    metric:
+      type: string
+    current:
+      type: integer
+      format: int64
+    threshold:
+      type: integer
+      format: int64
+
+TrustLevelViewer:
+  type: object
+  description: 只对本人返回；他人视角只有 level / levelSlug。
+  required: [level, levelSlug]
+  properties:
+    level:
+      type: integer
+    levelSlug:
+      type: string
+    nextLevel:
+      type: integer
+    bottleneck:
+      "$ref": "#/TrustLevelBottleneck"
+
+TrustLevelCatalog:
+  type: object
+  required: [levels, newUserDays]
+  properties:
+    levels:
+      type: array
+      items:
+        "$ref": "#/TrustLevelDefinition"
+    newUserDays:
+      type: integer
+      description: "「最多当多久新成员」的上限闸，来自既有 trust.new_user_days。"
+    viewer:
+      "$ref": "#/TrustLevelViewer"
+
+ApiResponseTrustLevelCatalog:
+  type: object
+  properties:
+    data:
+      "$ref": "#/TrustLevelCatalog"
+
+TrustLevelAdmin:
+  type: object
+  required: [config, levels, eligiblePermissions, recommendedConfig]
+  properties:
+    config:
+      type: string
+      description: 当前 trust.levels 的 JSON 字符串（Config 形状）。
+    levels:
+      type: array
+      items:
+        "$ref": "#/TrustLevelDefinition"
+    eligiblePermissions:
+      type: array
+      description: 后台可勾选的权限键正白名单（只有七个内容创建/管理自己内容的键）。
+      items:
+        type: string
+    recommendedConfig:
+      type: string
+      description: 内置推荐值的 JSON 字符串（恢复默认写回它）。
+
+ApiResponseTrustLevelAdmin:
+  type: object
+  properties:
+    data:
+      "$ref": "#/TrustLevelAdmin"
+
+TrustLevelConfigInput:
+  type: object
+  required: [config]
+  properties:
+    config:
+      type: string
+      description: |
+        trust.levels 的 Config 形状 JSON 字符串：`{"schemaVersion":1,"levels":[...]}`，
+        每档含 `levelSlug` / `requirements` / `limits` / `earnable`。
+        `limits` 与 `earnable` 必须显式出现（可写 null / []），省略即 422。

@@ -27,6 +27,12 @@ const (
 	NameFeatureReactions = "features.reactions"
 	// NameFeatureBookmarks 收藏（主题/评论）产品面；关闭后写端点与名单端点 403。
 	NameFeatureBookmarks = "features.bookmarks"
+	// NameFeatureBadges 徽章产品面；关闭后徽章端点 403、前端隐藏徽章 UI，
+	// 但活动统计的采集与资料页统计数字不受影响（统计与徽章是两层）。
+	NameFeatureBadges = "features.badges"
+	// NameFeatureTrustLevels 信任等级产品面；关闭后已挣得集合恒为空、限额回落到
+	// 本刀之前的年龄两态（D9 的 F 组判据）。
+	NameFeatureTrustLevels = "features.trust_levels"
 )
 
 // FeatureFlagDefinition 描述宿主目录中的一个产品开关。
@@ -53,6 +59,8 @@ func featureFlagOptionDefinitions() []optionDefinition {
 		{name: NameFeatureWebhooks, public: false, managePermission: site},
 		{name: NameFeatureReactions, public: true, managePermission: site},
 		{name: NameFeatureBookmarks, public: true, managePermission: site},
+		{name: NameFeatureBadges, public: true, managePermission: site},
+		{name: NameFeatureTrustLevels, public: true, managePermission: site},
 	}
 }
 
@@ -68,6 +76,10 @@ func FeatureFlagCatalog() []FeatureFlagDefinition {
 		{Name: NameFeatureWebhooks, Public: false, Default: defaults[NameFeatureWebhooks], Description: "Outbound webhooks product surface."},
 		{Name: NameFeatureReactions, Public: true, Default: defaults[NameFeatureReactions], Description: "Like reactions on topics and comments."},
 		{Name: NameFeatureBookmarks, Public: true, Default: defaults[NameFeatureBookmarks], Description: "Bookmarks on topics and comments."},
+		// features.badges 之前漏了这条（常量在、目录里没有），D16 顺手补齐：
+		// 补齐不改变运行时行为，只是让后台开关目录与实现一致。
+		{Name: NameFeatureBadges, Public: true, Default: defaults[NameFeatureBadges], Description: "Badges, grants, and profile badge walls."},
+		{Name: NameFeatureTrustLevels, Public: true, Default: defaults[NameFeatureTrustLevels], Description: "Trust levels: derived levels, per-level limits, and earned capability mappings."},
 	}
 }
 
@@ -81,6 +93,8 @@ func featureFlagRecommendedDefaults() map[string]string {
 		NameFeatureWebhooks:       enabledOptionValue(true),
 		NameFeatureReactions:      enabledOptionValue(true),
 		NameFeatureBookmarks:      enabledOptionValue(true),
+		NameFeatureBadges:         enabledOptionValue(true),
+		NameFeatureTrustLevels:    enabledOptionValue(true),
 	}
 }
 
@@ -112,6 +126,8 @@ type FeatureFlags struct {
 	Webhooks       bool `json:"webhooks"`
 	Reactions      bool `json:"reactions"`
 	Bookmarks      bool `json:"bookmarks"`
+	Badges         bool `json:"badges"`
+	TrustLevels    bool `json:"trustLevels"`
 }
 
 // FeatureFlags 读取全部 features.*（含非 public）。
@@ -133,6 +149,8 @@ func featureFlagsFromValues(values map[string]string) FeatureFlags {
 		Webhooks:       isEnabledOption(values[NameFeatureWebhooks]),
 		Reactions:      isEnabledOption(values[NameFeatureReactions]),
 		Bookmarks:      isEnabledOption(values[NameFeatureBookmarks]),
+		Badges:         isEnabledOption(values[NameFeatureBadges]),
+		TrustLevels:    isEnabledOption(values[NameFeatureTrustLevels]),
 	}
 }
 

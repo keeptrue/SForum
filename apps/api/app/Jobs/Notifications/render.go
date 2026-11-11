@@ -86,7 +86,7 @@ func renderMailTemplate(key string, data map[string]string) (subject, text, html
 			action, note = "开始逛逛", fmt.Sprintf("收到这封邮件是因为你刚刚注册了 %s。", siteName)
 			list = []string{"补充头像和个人简介", "从感兴趣的分类开始浏览", "阅读社区规范，了解讨论边界"}
 		}
-	case "forum.reply", "forum.mention", "forum.reaction", "forum.bookmark_reminder", "forum.moderation_pending", "forum.moderation_approved", "forum.moderation_rejected":
+	case "forum.reply", "forum.mention", "forum.reaction", "forum.bookmark_reminder", "forum.badge_granted", "forum.moderation_pending", "forum.moderation_approved", "forum.moderation_rejected":
 		return renderForumTemplate(key, data, english, siteName, name, brand)
 	default:
 		if english {
@@ -116,6 +116,10 @@ func renderForumTemplate(key string, data map[string]string, english bool, siteN
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] New like", siteName), "Reaction", "Someone liked your post", fmt.Sprintf("%s, someone liked your content.", name)
 		case "forum.bookmark_reminder":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] Bookmark reminder", siteName), "Bookmark reminder", "You asked to be reminded about this", fmt.Sprintf("%s, this is the reminder you set for a bookmarked discussion.", name)
+		case "forum.badge_granted":
+			// 邮件通道默认关，但模板必须存在：用户一旦打开通道，缺模板就是无模板投递。
+			subject, eyebrow, title, intro = fmt.Sprintf("[%s] You earned a badge", siteName), "Badge", "You earned a new badge", fmt.Sprintf("%s, you have been awarded the %s badge.", name, data["badgeName"])
+			action = "View your badges"
 		case "forum.moderation_pending":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] Content awaiting review", siteName), "Moderation queue", "New content needs review", fmt.Sprintf("%s, new content has entered the moderation queue.", name)
 			action = "Open moderation queue"
@@ -139,6 +143,10 @@ func renderForumTemplate(key string, data map[string]string, english bool, siteN
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 收到新点赞", siteName), "点赞", "有人赞了你的内容", fmt.Sprintf("%s，有人赞了你的内容。", name)
 		case "forum.bookmark_reminder":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 收藏提醒", siteName), "收藏提醒", "你设定的提醒时间到了", fmt.Sprintf("%s，这是你为收藏的讨论设定的提醒。", name)
+		case "forum.badge_granted":
+			// 邮件通道默认关，但模板必须存在：用户一旦打开通道，缺模板就是无模板投递。
+			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 你获得了新徽章", siteName), "徽章", "你获得了新徽章", fmt.Sprintf("%s，你获得了「%s」徽章。", name, data["badgeName"])
+			action = "查看我的徽章"
 		case "forum.moderation_pending":
 			subject, eyebrow, title, intro = fmt.Sprintf("[%s] 有新内容等待审核", siteName), "审核队列", "有新内容需要处理", fmt.Sprintf("%s，审核队列中出现了新的待处理内容。", name)
 			action = "打开审核队列"

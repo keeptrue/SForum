@@ -34,6 +34,16 @@ func (p *ProfileProvider) WithBookmarkLister(lister profile.BookmarkLister) *Pro
 
 // WithNicknameEditor 注入昵称服务（Identity 实现）。不注入时昵称只读，
 // 带 displayName 的 PUT 会被拒绝。
+// WithTrustLevelReader 注入信任等级读取（公开资料页等级卡）。
+//
+// 未注入时资料页不带等级卡，与信任等级上线之前逐字节等价。
+func (p *ProfileProvider) WithTrustLevelReader(reader profile.TrustLevelReader) *ProfileProvider {
+	if p != nil && p.service != nil {
+		p.service.WithTrustLevelReader(reader)
+	}
+	return p
+}
+
 func (p *ProfileProvider) WithNicknameEditor(editor profile.NicknameEditor) *ProfileProvider {
 	if p != nil && p.service != nil {
 		p.service.WithNicknameEditor(editor)

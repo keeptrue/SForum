@@ -90,119 +90,6 @@ func (s *PostgresStore) GetTopicForAction(ctx context.Context, topicID int64) (T
 	return topic, nil
 }
 
-func (s *PostgresStore) CreateComment(ctx context.Context, input CreateCommentRecord) (Comment, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return Comment{}, fmt.Errorf("begin create comment: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	var categoryID int64
-	var status string
-	if err := tx.QueryRow(ctx, `
-		SELECT category_id, status
-		FROM topics
-		WHERE id = $1
-		FOR UPDATE
-	`, input.TopicID).Scan(&categoryID, &status); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return Comment{}, ErrTopicNotFound
-		}
-		return Comment{}, fmt.Errorf("lock topic for comment: %w", err)
-	}
-	if status != TopicStatusActive {
-		return Comment{}, ErrTopicClosed
-	}
-
-	content, err := insertPost(ctx, tx, input.AuthorUserID, input.Content)
-	if err != nil {
-		return Comment{}, err
-	}
-
-	triggerSnapshot, err := json.Marshal(input.ModerationTriggers)
-	if err != nil {
-		return Comment{}, fmt.Errorf("encode comment moderation triggers: %w", err)
-	}
-	var commentID int64
-	if err := tx.QueryRow(ctx, `
-		INSERT INTO comments (topic_id, content_id, author_user_id, parent_comment_id, status, moderation_triggers, ip_address)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id
-	`, input.TopicID, content.ID, input.AuthorUserID, input.ParentID, input.Status, triggerSnapshot, input.IPAddress).Scan(&commentID); err != nil {
-		return Comment{}, fmt.Errorf("insert comment: %w", err)
-	}
-	position := CommentPositionForInsert(commentID, input.Parent)
-	if _, err := tx.Exec(ctx, `
-		UPDATE comments
-		SET root_comment_id = $2, path_key = $3, depth = $4, updated_at = now()
-		WHERE id = $1
-	`, commentID, position.RootCommentID, position.PathKey, position.Depth); err != nil {
-		return Comment{}, fmt.Errorf("update comment position: %w", err)
-	}
-	if input.Status == CommentStatusActive && input.ParentID != nil {
-		if _, err := tx.Exec(ctx, `
-			UPDATE comments
-			SET reply_count = reply_count + 1, updated_at = now()
-			WHERE id = $1
-		`, *input.ParentID); err != nil {
-			return Comment{}, fmt.Errorf("update parent reply count: %w", err)
-		}
-	}
-	if input.Status == CommentStatusActive {
-		// hot_score = comment_count*5 + view_count + like_count*3；+1 评论 → +5。
-		if _, err := tx.Exec(ctx, `
-			UPDATE topics
-			SET comment_count = comment_count + 1,
-			    hot_score = `+TopicHotScoreSQL("(comment_count + 1)", "like_count")+`,
-			    last_activity_at = now(),
-			    updated_at = now()
-			WHERE id = $1
-		`, input.TopicID); err != nil {
-			return Comment{}, fmt.Errorf("update topic comment count: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `
-			UPDATE categories
-			SET comment_count = comment_count + 1, updated_at = now()
-			WHERE id = $1
-		`, categoryID); err != nil {
-			return Comment{}, fmt.Errorf("update category comment count: %w", err)
-		}
-	}
-	if err := replaceForumAttachmentReferences(ctx, tx, "comment", commentID, input.AuthorUserID, input.AttachmentIDs); err != nil {
-		return Comment{}, err
-	}
-	if _, err := insertAcceptedPostRevision(ctx, tx, AcceptedRevisionSnapshotInput{
-		PostID:           content.ID,
-		RevisionNo:       1,
-		ActorUserID:      input.AuthorUserID,
-		Operation:        RevisionOperationCreate,
-		Origin:           RevisionOriginSelf,
-		ChangedFields:    []string{"attachments", "content"},
-		AttachmentIDs:    input.AttachmentIDs,
-		SnapshotComplete: true,
-		Content:          content,
-	}); err != nil {
-		return Comment{}, err
-	}
-	if err := setPostCurrentRevision(ctx, tx, content.ID, 1); err != nil {
-		return Comment{}, err
-	}
-
-	comment, err := getCommentByID(ctx, tx, commentID, s.avatarBuilder)
-	if err != nil {
-		return Comment{}, err
-	}
-	if err := s.notifyCreatedCommentTx(ctx, tx, input, commentID); err != nil {
-		return Comment{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Comment{}, fmt.Errorf("commit create comment: %w", err)
-	}
-	return comment, nil
-}
-
 func (s *PostgresStore) GetCommentSummary(ctx context.Context, commentID int64) (CommentSummary, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT comments.id, comments.topic_id, comments.author_user_id, comments.parent_comment_id, COALESCE(comments.root_comment_id, comments.id), comments.path_key, comments.depth, comments.status, comments.created_at, posts.current_revision
@@ -695,66 +582,6 @@ type pgconnTag interface {
 	RowsAffected() int64
 }
 
-func insertPost(ctx context.Context, tx pgx.Tx, userID int64, content RenderedContent) (RenderedContent, error) {
-	// excerpt 不落库，由读路径从 plain_text 按运营配置截断派生。
-	err := tx.QueryRow(ctx, `
-		INSERT INTO posts (
-		  raw_content, html_content, plain_text, source_format,
-		  editor_type, editor_version, render_version, content_hash,
-		  created_by_user_id, updated_by_user_id
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-		RETURNING id, created_at, updated_at
-	`, content.RawContent, content.HTMLContent, content.PlainText,
-		content.SourceFormat, content.EditorType, content.EditorVersion, content.RenderVersion,
-		content.ContentHash, userID).Scan(&content.ID, new(time.Time), new(time.Time))
-	if err != nil {
-		return RenderedContent{}, fmt.Errorf("insert shared post content: %w", err)
-	}
-	return content, nil
-}
-
-func updatePost(ctx context.Context, tx pgx.Tx, postID int64, editorUserID int64, content RenderedContent) error {
-	_, err := tx.Exec(ctx, `
-		UPDATE posts
-		SET raw_content = $2,
-		    html_content = $3,
-		    plain_text = $4,
-		    source_format = $5,
-		    editor_type = $6,
-		    editor_version = $7,
-		    render_version = $8,
-		    content_hash = $9,
-		    updated_by_user_id = $10,
-		    updated_at = now()
-		WHERE id = $1
-	`, postID, content.RawContent, content.HTMLContent, content.PlainText,
-		content.SourceFormat, content.EditorType, content.EditorVersion, content.RenderVersion,
-		content.ContentHash, editorUserID)
-	if err != nil {
-		return fmt.Errorf("update shared post content: %w", err)
-	}
-	return nil
-}
-
-func createPostRevision(ctx context.Context, tx pgx.Tx, postID int64, editorUserID int64) error {
-	// revision 只保留源文与渲染元数据，html/plain/excerpt 不重复快照。
-	_, err := tx.Exec(ctx, `
-		INSERT INTO post_revisions (
-		  post_id, superseded_by_user_id, raw_content,
-		  source_format, editor_type, editor_version, render_version, content_hash
-		)
-		SELECT id, $2, raw_content,
-		  source_format, editor_type, editor_version, render_version, content_hash
-		FROM posts
-		WHERE id = $1
-	`, postID, editorUserID)
-	if err != nil {
-		return fmt.Errorf("create post revision: %w", err)
-	}
-	return nil
-}
-
 // RowScanner 是行扫描抽象，供 store 内部及跨模型复用（如 Profile 复用主题摘要扫描）。
 type RowScanner interface {
 	Scan(dest ...any) error
@@ -961,13 +788,14 @@ func topicDetailSQL() string {
 		  ` + contentEditedSQL("posts") + `,
 		  ` + contentEditedAtSQL("posts") + `,
 		  topics.created_at, topics.updated_at, topics.last_activity_at,
-		  posts.id, posts.html_content, posts.plain_text, posts.render_version
+		  posts.id, posts.html_content, posts.plain_text, posts.render_version,
+		  ` + topBadgeSelectSQL() + `
 		FROM topics
 		JOIN categories ON categories.id = topics.category_id
 		JOIN posts ON posts.id = topics.content_id
 		LEFT JOIN users ON users.id = topics.author_user_id
 		LEFT JOIN user_profiles author_profiles ON author_profiles.user_id = users.id
-		LEFT JOIN attachments author_attachments ON author_attachments.id = author_profiles.avatar_attachment_id
+		LEFT JOIN attachments author_attachments ON author_attachments.id = author_profiles.avatar_attachment_id` + topBadgeJoinSQL() + `
 	`
 }
 
@@ -1085,6 +913,7 @@ func scanTopicSummaryWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (To
 	var lastReplyAttachmentContentType sql.NullString
 	var lastReplyAttachmentStatus sql.NullString
 	var plainPrefix string
+	var badgeSlug, badgeName, badgeTier, badgeIcon sql.NullString
 	if err := row.Scan(
 		&topic.ID,
 		&topic.CategoryID,
@@ -1124,10 +953,15 @@ func scanTopicSummaryWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (To
 		&lastReplyAttachmentOwnerID,
 		&lastReplyAttachmentContentType,
 		&lastReplyAttachmentStatus,
+		&badgeSlug,
+		&badgeName,
+		&badgeTier,
+		&badgeIcon,
 	); err != nil {
 		return TopicSummary{}, err
 	}
 	topic.Excerpt = ExcerptFromPlain(plainPrefix, defaultExcerptRuneLimit)
+	topic.TopBadge = badgeRefFromNulls(badgeSlug, badgeName, badgeTier, badgeIcon)
 	if authorID.Valid {
 		topic.AuthorUserID = authorID.Int64
 		topic.Author = userSummaryWithAvatar(builder, authorID, username, displayName, email, avatarAttachmentID, attachmentID, attachmentPublicID, attachmentOwnerID, attachmentContentType, attachmentStatus)
@@ -1153,6 +987,7 @@ func scanTopicDetail(row RowScanner) (TopicDetail, error) {
 	var authorID sql.NullInt64
 	var username sql.NullString
 	var displayName sql.NullString
+	var badgeSlug, badgeName, badgeTier, badgeIcon sql.NullString
 	if err := row.Scan(
 		&detail.ID,
 		&detail.CategoryID,
@@ -1178,12 +1013,17 @@ func scanTopicDetail(row RowScanner) (TopicDetail, error) {
 		&detail.Content.HTMLContent,
 		&detail.Content.PlainText,
 		&detail.Content.RenderVersion,
+		&badgeSlug,
+		&badgeName,
+		&badgeTier,
+		&badgeIcon,
 	); err != nil {
 		return TopicDetail{}, err
 	}
 	// excerpt 从 plain_text 派生，详情与 content 字段共用同一摘要。
 	detail.Content.Excerpt = ExcerptFromPlain(detail.Content.PlainText, defaultExcerptRuneLimit)
 	detail.Excerpt = detail.Content.Excerpt
+	detail.TopBadge = badgeRefFromNulls(badgeSlug, badgeName, badgeTier, badgeIcon)
 	if authorID.Valid {
 		detail.AuthorUserID = authorID.Int64
 		detail.Author = userSummaryWithAvatar(nil, authorID, username, displayName, sql.NullString{}, sql.NullInt64{}, sql.NullInt64{}, sql.NullString{}, sql.NullInt64{}, sql.NullString{}, sql.NullString{})
@@ -1203,6 +1043,7 @@ func scanTopicDetailWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Top
 	var attachmentOwnerID sql.NullInt64
 	var attachmentContentType sql.NullString
 	var attachmentStatus sql.NullString
+	var badgeSlug, badgeName, badgeTier, badgeIcon sql.NullString
 	if err := row.Scan(
 		&detail.ID,
 		&detail.CategoryID,
@@ -1235,11 +1076,16 @@ func scanTopicDetailWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Top
 		&detail.Content.HTMLContent,
 		&detail.Content.PlainText,
 		&detail.Content.RenderVersion,
+		&badgeSlug,
+		&badgeName,
+		&badgeTier,
+		&badgeIcon,
 	); err != nil {
 		return TopicDetail{}, err
 	}
 	detail.Content.Excerpt = ExcerptFromPlain(detail.Content.PlainText, defaultExcerptRuneLimit)
 	detail.Excerpt = detail.Content.Excerpt
+	detail.TopBadge = badgeRefFromNulls(badgeSlug, badgeName, badgeTier, badgeIcon)
 	if authorID.Valid {
 		detail.AuthorUserID = authorID.Int64
 		detail.Author = userSummaryWithAvatar(builder, authorID, username, displayName, email, avatarAttachmentID, attachmentID, attachmentPublicID, attachmentOwnerID, attachmentContentType, attachmentStatus)
@@ -1261,154 +1107,6 @@ func scanCommentSummary(row RowScanner) (CommentSummary, error) {
 		summary.ParentID = &parentID.Int64
 	}
 	return summary, nil
-}
-
-func commentSelectSQL() string {
-	return `
-		SELECT comments.id, comments.topic_id, comments.author_user_id,
-		  users.username, users.display_name, users.email,
-		  author_profiles.avatar_attachment_id,
-		  author_attachments.id, author_attachments.public_id, author_attachments.owner_user_id,
-		  author_attachments.content_type, author_attachments.status,
-		  comments.parent_comment_id, COALESCE(comments.root_comment_id, comments.id),
-		  comments.path_key, comments.depth, comments.reply_count, comments.like_count, comments.status,
-		  posts.id, posts.html_content, posts.plain_text, posts.render_version,
-		  parent_comments.id,
-		  CASE WHEN parent_comments.status = 'deleted' THEN '' ELSE ` + plainTextPrefixSQL("parent_posts.plain_text") + ` END,
-		  parent_comments.depth,
-		  parent_users.id, parent_users.username, parent_users.display_name, parent_users.email,
-		  parent_profiles.avatar_attachment_id,
-		  parent_attachments.id, parent_attachments.public_id, parent_attachments.owner_user_id,
-		  parent_attachments.content_type, parent_attachments.status,
-		  ` + effectivePostCurrentRevisionSQL("posts") + `,
-		  ` + contentEditedSQL("posts") + `,
-		  ` + contentEditedAtSQL("posts") + `,
-		  comments.created_at, comments.updated_at
-		FROM comments
-		JOIN posts ON posts.id = comments.content_id
-		LEFT JOIN users ON users.id = comments.author_user_id
-		LEFT JOIN user_profiles author_profiles ON author_profiles.user_id = users.id
-		LEFT JOIN attachments author_attachments ON author_attachments.id = author_profiles.avatar_attachment_id
-		LEFT JOIN comments parent_comments ON parent_comments.id = comments.parent_comment_id
-		LEFT JOIN posts parent_posts ON parent_posts.id = parent_comments.content_id
-		LEFT JOIN users parent_users ON parent_users.id = parent_comments.author_user_id
-		LEFT JOIN user_profiles parent_profiles ON parent_profiles.user_id = parent_users.id
-		LEFT JOIN attachments parent_attachments ON parent_attachments.id = parent_profiles.avatar_attachment_id
-	`
-}
-
-func getCommentByID(ctx context.Context, q interface {
-	QueryRow(context.Context, string, ...any) pgx.Row
-}, commentID int64, builder *avatar.ViewBuilder) (Comment, error) {
-	row := q.QueryRow(ctx, commentSelectSQL()+`
-		WHERE comments.id = $1
-	`, commentID)
-	comment, err := scanCommentWithAvatar(row, builder)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Comment{}, ErrCommentNotFound
-	}
-	if err != nil {
-		return Comment{}, fmt.Errorf("get comment: %w", err)
-	}
-	return comment, nil
-}
-
-func scanComment(row RowScanner) (Comment, error) {
-	return scanCommentWithAvatar(row, nil)
-}
-
-func scanCommentWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Comment, error) {
-	var comment Comment
-	var authorID sql.NullInt64
-	var username sql.NullString
-	var displayName sql.NullString
-	var email sql.NullString
-	var avatarAttachmentID sql.NullInt64
-	var attachmentID sql.NullInt64
-	var attachmentPublicID sql.NullString
-	var attachmentOwnerID sql.NullInt64
-	var attachmentContentType sql.NullString
-	var attachmentStatus sql.NullString
-	var parentID sql.NullInt64
-	var parentCommentID sql.NullInt64
-	var parentPlainPrefix sql.NullString
-	var parentDepth sql.NullInt64
-	var parentAuthorID sql.NullInt64
-	var parentUsername sql.NullString
-	var parentDisplayName sql.NullString
-	var parentEmail sql.NullString
-	var parentAvatarAttachmentID sql.NullInt64
-	var parentAttachmentID sql.NullInt64
-	var parentAttachmentPublicID sql.NullString
-	var parentAttachmentOwnerID sql.NullInt64
-	var parentAttachmentContentType sql.NullString
-	var parentAttachmentStatus sql.NullString
-
-	if err := row.Scan(
-		&comment.ID,
-		&comment.TopicID,
-		&authorID,
-		&username,
-		&displayName,
-		&email,
-		&avatarAttachmentID,
-		&attachmentID,
-		&attachmentPublicID,
-		&attachmentOwnerID,
-		&attachmentContentType,
-		&attachmentStatus,
-		&parentID,
-		&comment.RootCommentID,
-		&comment.PathKey,
-		&comment.Depth,
-		&comment.ReplyCount,
-		&comment.LikeCount,
-		&comment.Status,
-		&comment.Content.ID,
-		&comment.Content.HTMLContent,
-		&comment.Content.PlainText,
-		&comment.Content.RenderVersion,
-		&parentCommentID,
-		&parentPlainPrefix,
-		&parentDepth,
-		&parentAuthorID,
-		&parentUsername,
-		&parentDisplayName,
-		&parentEmail,
-		&parentAvatarAttachmentID,
-		&parentAttachmentID,
-		&parentAttachmentPublicID,
-		&parentAttachmentOwnerID,
-		&parentAttachmentContentType,
-		&parentAttachmentStatus,
-		&comment.CurrentRevision,
-		&comment.ContentEdited,
-		&comment.EditedAt,
-		&comment.CreatedAt,
-		&comment.UpdatedAt,
-	); err != nil {
-		return Comment{}, err
-	}
-	comment.Content.Excerpt = ExcerptFromPlain(comment.Content.PlainText, defaultExcerptRuneLimit)
-	if authorID.Valid {
-		comment.AuthorUserID = authorID.Int64
-		comment.Author = userSummaryWithAvatar(builder, authorID, username, displayName, email, avatarAttachmentID, attachmentID, attachmentPublicID, attachmentOwnerID, attachmentContentType, attachmentStatus)
-	}
-	if parentID.Valid {
-		comment.ParentID = &parentID.Int64
-	}
-	if parentCommentID.Valid {
-		replyTo := &ReplyReference{
-			ID:      parentCommentID.Int64,
-			Excerpt: ExcerptFromPlain(parentPlainPrefix.String, defaultExcerptRuneLimit),
-			Depth:   int(parentDepth.Int64),
-		}
-		if parentAuthorID.Valid {
-			replyTo.Author = userSummaryWithAvatar(builder, parentAuthorID, parentUsername, parentDisplayName, parentEmail, parentAvatarAttachmentID, parentAttachmentID, parentAttachmentPublicID, parentAttachmentOwnerID, parentAttachmentContentType, parentAttachmentStatus)
-		}
-		comment.ReplyTo = replyTo
-	}
-	return comment, nil
 }
 
 func buildCommentTree(items []Comment) []Comment {

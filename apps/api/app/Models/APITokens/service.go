@@ -183,6 +183,19 @@ func RestrictActor(actor identity.Actor, scopes []string) identity.Actor {
 	}
 	actor.RoleKeys = roleKeys
 	actor.Permissions = allowed
+	// Earned 不参与裁决（Can 读的是 Permissions，D13），但它会通过 GrantSource（D30 改名，原 CapabilitySource）
+	// 解释「这个能力从哪来」，而 Actor 的字段是可被令牌消费者直接读到的。
+	// 只裁 Permissions 不裁 Earned，解释层就会报出实际不生效的键（D26）：
+	// 同一个 allowed 集合过滤两者，GrantSource 与 Can() 才保持严格同构。
+	if actor.Earned != nil {
+		earned := make(map[string]bool, len(actor.Earned))
+		for key := range actor.Earned {
+			if allowed[key] {
+				earned[key] = true
+			}
+		}
+		actor.Earned = earned
+	}
 	return actor
 }
 

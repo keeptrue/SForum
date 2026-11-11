@@ -8,6 +8,7 @@ import SFAdminSiteClientTab from '~/components/admin/settings/site/tabs/SFAdminS
 import SFAdminSiteMaintenanceTab from '~/components/admin/settings/site/tabs/SFAdminSiteMaintenanceTab.vue'
 import SFAdminSiteNewcomersTab from '~/components/admin/settings/site/tabs/SFAdminSiteNewcomersTab.vue'
 import SFAdminSiteRegistrationTab from '~/components/admin/settings/site/tabs/SFAdminSiteRegistrationTab.vue'
+import SFAdminTrustLevelsTab from '~/components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue'
 import SFAdminSiteUpdatesTab from '~/components/admin/settings/site/tabs/SFAdminSiteUpdatesTab.vue'
 import SFAdminSiteVerificationTab from '~/components/admin/settings/site/tabs/SFAdminSiteVerificationTab.vue'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
@@ -21,14 +22,14 @@ defineOptions({
   name: 'AdminSettings'
 })
 
-type SettingsTab = 'basic' | 'accountSecurity' | 'registration' | 'newcomers' | 'maintenance' | 'client' | 'verification' | 'updates'
+type SettingsTab = 'basic' | 'accountSecurity' | 'registration' | 'newcomers' | 'trustLevels' | 'maintenance' | 'client' | 'verification' | 'updates'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const { options, fetchAdminEnvelope } = useWebOptions()
 const adminPage = useAdminPage('/settings')
-const validTabs: SettingsTab[] = ['basic', 'accountSecurity', 'registration', 'newcomers', 'maintenance', 'client', 'verification', 'updates']
+const validTabs: SettingsTab[] = ['basic', 'accountSecurity', 'registration', 'newcomers', 'trustLevels', 'maintenance', 'client', 'verification', 'updates']
 const activeTab = ref<SettingsTab>(normalizeTab(route.query.tab))
 
 const tabs = computed(() => [
@@ -36,6 +37,7 @@ const tabs = computed(() => [
   { id: 'accountSecurity', label: t('admin.settings.tabs.accountSecurity'), icon: 'i-lucide-shield' },
   { id: 'registration', label: t('admin.settings.tabs.registration'), icon: 'i-lucide-user-plus' },
   { id: 'newcomers', label: t('admin.settings.tabs.newcomers'), icon: 'i-lucide-sprout' },
+  { id: 'trustLevels', label: t('admin.settings.tabs.trustLevels'), icon: 'i-lucide-gauge' },
   { id: 'maintenance', label: t('admin.settings.tabs.maintenance'), icon: 'i-lucide-construction' },
   { id: 'client', label: t('admin.settings.tabs.client'), icon: 'i-lucide-smartphone' },
   { id: 'verification', label: t('admin.settings.tabs.verification'), icon: 'i-lucide-shield-check' },
@@ -46,6 +48,7 @@ const tabComponents: Record<SettingsTab, Component> = {
   accountSecurity: SFAdminSiteAccountSecurityTab,
   registration: SFAdminSiteRegistrationTab,
   newcomers: SFAdminSiteNewcomersTab,
+  trustLevels: SFAdminTrustLevelsTab,
   maintenance: SFAdminSiteMaintenanceTab,
   client: SFAdminSiteClientTab,
   verification: SFAdminSiteVerificationTab,

@@ -684,6 +684,222 @@
     }
   },
   {
+    "id": "core.route.badges.admin_list_badges",
+    "contractVersion": "sforum.route.badges.admin_list_badges@1",
+    "module": "badges",
+    "handler": "adminListBadges",
+    "method": "GET",
+    "path": "/api/v1/admin/badges",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:68",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_create_badge",
+    "contractVersion": "sforum.route.badges.admin_create_badge@1",
+    "module": "badges",
+    "handler": "adminCreateBadge",
+    "method": "POST",
+    "path": "/api/v1/admin/badges",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:69",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_delete_badge",
+    "contractVersion": "sforum.route.badges.admin_delete_badge@1",
+    "module": "badges",
+    "handler": "adminDeleteBadge",
+    "method": "DELETE",
+    "path": "/api/v1/admin/badges/:badgeID",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:71",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_update_badge",
+    "contractVersion": "sforum.route.badges.admin_update_badge@1",
+    "module": "badges",
+    "handler": "adminUpdateBadge",
+    "method": "PATCH",
+    "path": "/api/v1/admin/badges/:badgeID",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:70",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_list_badge_grants",
+    "contractVersion": "sforum.route.badges.admin_list_badge_grants@1",
+    "module": "badges",
+    "handler": "adminListBadgeGrants",
+    "method": "GET",
+    "path": "/api/v1/admin/badges/:badgeID/grants",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:76",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_create_badge_grant",
+    "contractVersion": "sforum.route.badges.admin_create_badge_grant@1",
+    "module": "badges",
+    "handler": "adminCreateBadgeGrant",
+    "method": "POST",
+    "path": "/api/v1/admin/badges/:badgeID/grants",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:77",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_delete_badge_grant",
+    "contractVersion": "sforum.route.badges.admin_delete_badge_grant@1",
+    "module": "badges",
+    "handler": "adminDeleteBadgeGrant",
+    "method": "DELETE",
+    "path": "/api/v1/admin/badges/:badgeID/grants/:userID",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:78",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_list_badge_groups",
+    "contractVersion": "sforum.route.badges.admin_list_badge_groups@1",
+    "module": "badges",
+    "handler": "adminListBadgeGroups",
+    "method": "GET",
+    "path": "/api/v1/admin/badges/groups",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:72",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_create_badge_group",
+    "contractVersion": "sforum.route.badges.admin_create_badge_group@1",
+    "module": "badges",
+    "handler": "adminCreateBadgeGroup",
+    "method": "POST",
+    "path": "/api/v1/admin/badges/groups",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:73",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_delete_badge_group",
+    "contractVersion": "sforum.route.badges.admin_delete_badge_group@1",
+    "module": "badges",
+    "handler": "adminDeleteBadgeGroup",
+    "method": "DELETE",
+    "path": "/api/v1/admin/badges/groups/:groupID",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:75",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_update_badge_group",
+    "contractVersion": "sforum.route.badges.admin_update_badge_group@1",
+    "module": "badges",
+    "handler": "adminUpdateBadgeGroup",
+    "method": "PATCH",
+    "path": "/api/v1/admin/badges/groups/:groupID",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:74",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_recompute_badges",
+    "contractVersion": "sforum.route.badges.admin_recompute_badges@1",
+    "module": "badges",
+    "handler": "adminRecomputeBadges",
+    "method": "POST",
+    "path": "/api/v1/admin/badges/recompute",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:79",
+    "access": "permission",
+    "policy": "badge.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.database.list_tables",
     "contractVersion": "sforum.route.database.list_tables@1",
     "module": "database",
@@ -3719,6 +3935,60 @@
     }
   },
   {
+    "id": "core.route.trust_levels.admin_get_trust_levels",
+    "contractVersion": "sforum.route.trust_levels.admin_get_trust_levels@1",
+    "module": "trust_levels",
+    "handler": "getAdmin",
+    "method": "GET",
+    "path": "/api/v1/admin/trust-levels",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:73",
+    "access": "permission",
+    "policy": "admin.access",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "admin.access"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.trust_levels.admin_update_trust_levels",
+    "contractVersion": "sforum.route.trust_levels.admin_update_trust_levels@1",
+    "module": "trust_levels",
+    "handler": "updateAdmin",
+    "method": "PUT",
+    "path": "/api/v1/admin/trust-levels",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:74",
+    "access": "permission",
+    "policy": "trust.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "trust.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.trust_levels.admin_restore_trust_level_defaults",
+    "contractVersion": "sforum.route.trust_levels.admin_restore_trust_level_defaults@1",
+    "module": "trust_levels",
+    "handler": "restoreDefaults",
+    "method": "POST",
+    "path": "/api/v1/admin/trust-levels/restore-defaults",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:75",
+    "access": "permission",
+    "policy": "trust.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "trust.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.options.list_admin",
     "contractVersion": "sforum.route.options.list_admin@1",
     "module": "options",
@@ -5515,6 +5785,22 @@
     }
   },
   {
+    "id": "core.route.badges.public_profile_badges",
+    "contractVersion": "sforum.route.badges.public_profile_badges@1",
+    "module": "badges",
+    "handler": "publicProfileBadges",
+    "method": "GET",
+    "path": "/api/v1/profiles/:username/badges",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:65",
+    "access": "public",
+    "policy": "public read contract",
+    "guard": {
+      "kind": "public",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.profile.public_bookmarks",
     "contractVersion": "sforum.route.profile.public_bookmarks@1",
     "module": "profile",
@@ -6376,6 +6662,22 @@
       "kind": "contextual",
       "permissions": [],
       "evaluatorId": "core.guard.forum.read"
+    }
+  },
+  {
+    "id": "core.route.trust_levels.get_public_trust_levels",
+    "contractVersion": "sforum.route.trust_levels.get_public_trust_levels@1",
+    "module": "trust_levels",
+    "handler": "getPublic",
+    "method": "GET",
+    "path": "/api/v1/trust-levels",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:72",
+    "access": "public",
+    "policy": "trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled",
+    "guard": {
+      "kind": "public",
+      "permissions": [],
+      "evaluatorId": ""
     }
   },
   {

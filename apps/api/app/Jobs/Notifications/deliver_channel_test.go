@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/riverqueue/river"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
+	"github.com/riverqueue/river"
 )
 
 func TestDeliverChannelWorkerSkipsUnavailableSubscription(t *testing.T) {

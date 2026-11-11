@@ -581,7 +581,7 @@ func (s *Service) CreateTopic(ctx context.Context, actor identity.Actor, input C
 		return TopicDetail{}, err
 	}
 	// 新人禁止外链：内容含 http(s):// 时拒绝。
-	if trust := s.trustForActor(ctx, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
+	if trust := limitsForActor(ctx, s.trust, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
 		return TopicDetail{}, ErrOutboundLinkForbidden
 	}
 	categorySlug := strings.TrimSpace(input.CategorySlug)
@@ -749,7 +749,7 @@ func (s *Service) UpdateTopic(ctx context.Context, actor identity.Actor, input U
 			return TopicDetail{}, err
 		}
 		// 与创建路径一致：作者编辑外链等仍受新人信任阶梯限制。
-		if trust := s.trustForActor(ctx, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
+		if trust := limitsForActor(ctx, s.trust, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
 			return TopicDetail{}, ErrOutboundLinkForbidden
 		}
 		content, err := renderContentWithContext(s, ctx, *input.Content, settings.ExcerptRuneLimit, "topic")
@@ -983,7 +983,7 @@ func (s *Service) CreateComment(ctx context.Context, actor identity.Actor, input
 	if err := s.enforceCommentCreateLimitsForActor(ctx, actor, settings); err != nil {
 		return Comment{}, err
 	}
-	if trust := s.trustForActor(ctx, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
+	if trust := limitsForActor(ctx, s.trust, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
 		return Comment{}, ErrOutboundLinkForbidden
 	}
 	var parent *CommentSummary

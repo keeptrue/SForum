@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/riverqueue/river"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/riverqueue/river"
 )
 
 type pluginScheduleJobEnqueuerStub struct {

@@ -11,6 +11,9 @@ import (
 )
 
 type PostgresStore struct {
+	// badgeEvaluation 可选：写路径提交后触发徽章评估（计划 D2），nil 时跳过。
+	badgeEvaluation BadgeEvaluationEnqueuer
+
 	pool          *pgxpool.Pool
 	avatarBuilder *avatar.ViewBuilder
 	notifications NotificationWriter
@@ -46,6 +49,14 @@ type NotificationWriter interface {
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return NewPostgresStoreWithAvatar(pool, nil)
+}
+
+// WithBadgeEvaluation 注入徽章评估入队器；nil 时写路径不触发评估。
+func (s *PostgresStore) WithBadgeEvaluation(enqueuer BadgeEvaluationEnqueuer) *PostgresStore {
+	if s != nil {
+		s.badgeEvaluation = enqueuer
+	}
+	return s
 }
 
 func (s *PostgresStore) WithCommentNotifications(writer NotificationWriter) *PostgresStore {

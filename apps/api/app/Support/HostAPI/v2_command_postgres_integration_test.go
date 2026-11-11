@@ -443,7 +443,11 @@ func installPostgresCommandPrerequisites(t *testing.T, ctx context.Context, pool
 		)`,
 		`CREATE TABLE users (
 			id BIGINT PRIMARY KEY,
-			status TEXT NOT NULL
+			status TEXT NOT NULL,
+			-- kind 是 LoadEffectiveActorTx 读的列（信任等级用它区分人类/机器人）。
+			-- 这是 T6/T7 的复现：fixture 是第二份 schema，主 schema 加列时它会静默落后，
+			-- 症状是「column kind does not exist」这种与改动毫不相关的红。
+			kind TEXT NOT NULL DEFAULT 'human'
 		)`,
 		`CREATE TABLE roles (
 			id BIGINT PRIMARY KEY,

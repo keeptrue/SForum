@@ -53,8 +53,10 @@ describe('unified avatar rendering contract', () => {
     expect(topicCss).toContain('.sf-topic-heading__author > span:not(.sf-avatar)')
     expect(topicCss).not.toMatch(/\.sf-topic-heading__author > span\s*\{/)
     // 详情页标题 / 评论 / 侧卡同样只走 SFAvatar + AvatarView
-    expect(topicHeading).toContain('<SFAvatar')
-    expect(topicHeading).toContain(':avatar="topic.author?.avatar"')
+    const authorBlock = source('../../app/components/forum/SFTopicAuthorBlock.vue')
+    expect(topicHeading).toContain('<SFTopicAuthorBlock')
+    expect(authorBlock).toContain('<SFAvatar')
+    expect(authorBlock).toContain(':avatar="author?.avatar"')
     expect(topicPage).toContain(':avatar="comment.author?.avatar"')
     expect(topicPage).toContain('<SFTopicSideCard')
     const sideCard = source('../../app/components/forum/SFTopicSideCard.vue')

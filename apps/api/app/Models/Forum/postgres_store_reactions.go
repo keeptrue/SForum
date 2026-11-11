@@ -36,6 +36,19 @@ func (s *PostgresStore) ApplyReaction(ctx context.Context, input ApplyReactionRe
 	if err != nil {
 		return ReactionState{}, err
 	}
+	// 用户活动统计（计划 D3/D4）：
+	//   - 只有真的增删了关系行（applied）才计数，幂等重放不重复累加；
+	//   - 自赞返回 0,0，两个 like 计数都不动（内容行 like_count 已照常更新，那是热度）；
+	//   - 取消点赞是关系行被删除，两个计数一起回退。
+	if applied && input.Reaction == ReactionLike {
+		received, given := activityDeltaForReaction(input.ActorUserID, input.RecipientUserID, input.Add)
+		if err := bumpUserActivityTx(ctx, tx, input.RecipientUserID, activityMetricLikeReceivedCount, received); err != nil {
+			return ReactionState{}, err
+		}
+		if err := bumpUserActivityTx(ctx, tx, input.ActorUserID, activityMetricLikeGivenCount, given); err != nil {
+			return ReactionState{}, err
+		}
+	}
 	if applied && input.Add && input.RecipientUserID > 0 && input.RecipientUserID != input.ActorUserID {
 		if err := s.notifyReactionTx(ctx, tx, input); err != nil {
 			return ReactionState{}, err
@@ -43,6 +56,11 @@ func (s *PostgresStore) ApplyReaction(ctx context.Context, input ApplyReactionRe
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return ReactionState{}, fmt.Errorf("commit reaction: %w", err)
+	}
+	// D2：目标作者与操作者各评估一次（同一次入队会被 river 的 ByArgs 去重合并）。
+	if applied {
+		s.enqueueBadgeEvaluation(ctx, input.RecipientUserID)
+		s.enqueueBadgeEvaluation(ctx, input.ActorUserID)
 	}
 	return ReactionState{
 		TargetType: input.TargetType,

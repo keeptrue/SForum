@@ -64,11 +64,12 @@ func loadAuthorizedAdminActorTx(
 	pair UserAuthorityPairLock,
 	actorUserID int64,
 	permission string,
+	trust TrustLevelSource,
 ) (Actor, error) {
 	if !pair.ActorExists {
 		return Actor{}, ErrPermissionDenied
 	}
-	actor, err := LoadEffectiveActorTx(ctx, tx, actorUserID)
+	actor, err := LoadEffectiveActorTx(ctx, tx, actorUserID, trust)
 	if errors.Is(err, ErrActorInactive) {
 		return Actor{}, ErrPermissionDenied
 	}
@@ -109,17 +110,18 @@ func userHasAssignedRoleTx(ctx context.Context, tx pgx.Tx, userID int64, roleKey
 // LoadEffectiveActorTx resolves current Host RBAC inside the caller's
 // transaction. Consumers must not authorize from a session or preflight copy
 // when the protected effect is committed later in this transaction.
-func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64) (Actor, error) {
+func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust TrustLevelSource) (Actor, error) {
 	if ctx == nil || tx == nil || userID <= 0 {
 		return Actor{}, ErrActorInactive
 	}
 	actor := Actor{ID: userID, Permissions: make(map[string]bool)}
+	var kindRaw string
 	if err := tx.QueryRow(ctx, `
-		SELECT status
+		SELECT status, kind
 		FROM users
 		WHERE id = $1
 		FOR SHARE
-	`, userID).Scan(&actor.Status); err != nil {
+	`, userID).Scan(&actor.Status, &kindRaw); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Actor{}, ErrActorInactive
 		}
@@ -127,6 +129,10 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64) (Actor, 
 	}
 	if !actor.IsActive() {
 		return Actor{}, ErrActorInactive
+	}
+	actor.Kind = UserKindHuman
+	if ValidUserKind(UserKind(kindRaw)) {
+		actor.Kind = UserKind(kindRaw)
 	}
 
 	roleRows, err := tx.Query(ctx, `
@@ -189,6 +195,7 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64) (Actor, 
 	if err != nil {
 		return Actor{}, fmt.Errorf("load effective actor permission overrides: %w", err)
 	}
+	denied := make(map[string]bool)
 	for overrideRows.Next() {
 		var permission, effect string
 		if err := overrideRows.Scan(&permission, &effect); err != nil {
@@ -199,6 +206,7 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64) (Actor, 
 			actor.Permissions[permission] = true
 		} else if effect == "deny" {
 			delete(actor.Permissions, permission)
+			denied[permission] = true
 		}
 	}
 	if err := overrideRows.Err(); err != nil {
@@ -206,5 +214,25 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64) (Actor, 
 		return Actor{}, fmt.Errorf("iterate effective actor permission overrides: %w", err)
 	}
 	overrideRows.Close()
+
+	// 信任等级已挣得来源：与 LoadActor 走同一套合并与同一套失败姿态（D22）。
+	//
+	// 注意这里**不做**父→子展开——那是这个 loader 的既有缺口（extension.manage
+	// 持有者在插件命令路径今天就被误拒），修它会改变既有授权行为，超出本刀范围。
+	// 因此跨 loader 的一致性只保证「earned 键集合相等」，不保证完整有效集相等。
+	if level, granted, ok := resolveTrustGrants(ctx, userID, actor.Kind, actor.CreatedAt, trust); ok {
+		actor.TrustLevel = level
+		actor.TrustLevelResolved = true
+		for _, key := range granted {
+			if key == "" || denied[key] || actor.Permissions[key] {
+				continue
+			}
+			actor.Permissions[key] = true
+			if actor.Earned == nil {
+				actor.Earned = make(map[string]bool)
+			}
+			actor.Earned[key] = true
+		}
+	}
 	return actor, nil
 }

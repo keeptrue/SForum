@@ -54,6 +54,19 @@ var messages = map[string]map[string]string{
 		"site.maintenance":                               "站点维护中，请稍后再访问。",
 		"service.not_ready":                              "服务尚未就绪，请稍后重试。",
 		"route.probe_invalid":                            "路由探测请求无效。",
+		// 跨域修复：徽章那刀（2026-11-10 badges-and-user-activity）漏了这六个
+		// 错误码的双语文案，导致 TestAPIErrorCodesHaveLocalizedMessages 长期红。
+		// 由信任等级这一刀补上（纯增量、零行为变更）。徽章域下次动 i18n 时请连它
+		// 一起核——那一刀的 84 条断言不覆盖 i18n，全绿推不出可用。
+		"forum.badge_not_found":                          "徽章不存在。",
+		"forum.badge_slug_taken":                         "该徽章标识已被占用，请换一个。",
+		"forum.badge_already_granted":                    "该用户已拥有此徽章。",
+		"forum.badge_manual_only":                        "自动徽章不能手动收回，请停用规则。",
+		"forum.badge_rule_invalid":                       "徽章规则无效：请检查指标与阈值的组合。",
+		"forum.badges_disabled":                          "徽章功能未启用。",
+		"trust_levels.not_found":                         "信任等级功能未启用。",
+		"trust_levels.invalid_config":                    "信任等级配置无效：每档必须给出 requirements、limits 与 earnable；未知字段会被拒绝。",
+		"trust_levels.encode_failed":                     "信任等级配置无法编码，请检查阈值与限额后重试。",
 		"forum.outbound_link_forbidden":                  "新用户暂不可发布外链，请稍后再试或联系管理员。",
 		"forum.mentions_limit":                           "单次提及人数超过站点限制。",
 		"forum.guest_login_required":                     "请先登录后再浏览内容。",
@@ -396,6 +409,18 @@ var messages = map[string]map[string]string{
 		"internal_error":                                "服务器暂时不可用，请稍后再试。",
 	},
 	"en-US": {
+		// Cross-domain fix: the badges workstream (2026-11-10) missed the bilingual
+		// copy for these six codes, leaving TestAPIErrorCodesHaveLocalizedMessages red.
+		// Added by the trust-levels change (additive only, no behavior change).
+		"forum.badge_not_found":                          "This badge does not exist.",
+		"forum.badge_slug_taken":                         "That badge slug is already taken; choose another.",
+		"forum.badge_already_granted":                    "This user already holds that badge.",
+		"forum.badge_manual_only":                        "Automatic badges cannot be revoked manually; disable the rule instead.",
+		"forum.badge_rule_invalid":                       "Invalid badge rule: check the metric and threshold combination.",
+		"forum.badges_disabled":                          "Badges are not enabled.",
+		"trust_levels.not_found":                         "Trust levels are not enabled.",
+		"trust_levels.invalid_config":                    "Invalid trust level configuration: each level needs requirements, limits, and earnable; unknown fields are rejected.",
+		"trust_levels.encode_failed":                     "The trust level configuration could not be encoded. Check thresholds and limits and try again.",
 		"ok":                         "OK",
 		"auth.required":              "Please sign in first.",
 		"auth.invalid_credentials":   "Login failed: check your username/email and password, or register first if you do not have an account.",

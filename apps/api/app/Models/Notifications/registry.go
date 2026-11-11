@@ -441,6 +441,7 @@ func coreTypeDescriptors() map[string]TypeDescriptor {
 		{TypeAdminTest, "system", "i-lucide-bell"},
 		{TypeReaction, "engagement", "i-lucide-heart"},
 		{TypeBookmarkReminder, "engagement", "i-lucide-bookmark"},
+		{TypeBadgeGranted, "engagement", "i-lucide-award"},
 	}
 	result := make(map[string]TypeDescriptor, len(values))
 	for _, value := range values {

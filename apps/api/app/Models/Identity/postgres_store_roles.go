@@ -3,6 +3,8 @@ package identity
 import (
 	"context"
 	"fmt"
+	"slices"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -213,9 +215,51 @@ func (s *PostgresStore) RecordLoginAudit(ctx context.Context, input LoginAudit) 
 }
 
 func (s *PostgresStore) loadCurrentUserAccess(ctx context.Context, current *CurrentUser) error {
-	return loadCurrentUserAccess(ctx, s.queries, current)
+	if err := loadCurrentUserAccess(ctx, s.queries, current); err != nil {
+		return err
+	}
+	return s.applyTrustLevel(ctx, current)
 }
 
+// applyTrustLevel 在装载期把信任等级并进有效权限集（D13/D23/D29）。
+//
+// created_at 与 kind 一次读出，正好也是新人阶梯与 bot 判据需要的两列：全请求只读
+// 一次（R7），不让 LoadActor 再发一条重复查询。
+func (s *PostgresStore) applyTrustLevel(ctx context.Context, current *CurrentUser) error {
+	if s == nil || current == nil {
+		return nil
+	}
+	// 这一行是全请求**唯一**的 users 行读取（R7）：created_at 供新人阶梯与账龄闸，
+	// kind 供 bot 判据与等级判定。LoadActor 不再重复查。
+	var createdAt time.Time
+	var kindRaw string
+	if err := s.pool.QueryRow(ctx, `SELECT created_at, kind FROM users WHERE id = $1`, current.ID).
+		Scan(&createdAt, &kindRaw); err != nil {
+		// 读失败：保持未解析（D7），不阻断请求。
+		return nil
+	}
+	current.CreatedAt = createdAt
+	if ValidUserKind(UserKind(kindRaw)) {
+		current.Kind = UserKind(kindRaw)
+	} else {
+		current.Kind = UserKindHuman
+	}
+	if s.trustLevels == nil {
+		return nil
+	}
+	level, earned, ok := resolveTrustGrants(ctx, current.ID, current.Kind, current.CreatedAt, s.trustLevels)
+	if !ok {
+		return nil
+	}
+	current.TrustLevel = level
+	current.trustLevelResolved = true
+	current.earned = mergeEarnedPermissions(current, earned)
+	return nil
+}
+
+// postgresTxStore 的路径不合并已挣得来源：事务内的装载用于注册/改密等身份写流程，
+// 那些流程里的账号要么刚创建（TL0，无已挣得），要么与等级无关。保持 nil 让这条
+// 路径的行为与本刀之前逐字节一致。
 func (s *postgresTxStore) LoadCurrentUserAccess(ctx context.Context, current *CurrentUser) error {
 	return loadCurrentUserAccess(ctx, s.queries, current)
 }
@@ -225,9 +269,16 @@ func (s *PostgresStore) loadAdminUserAccess(ctx context.Context, detail *AdminUs
 	if err != nil {
 		return err
 	}
-	permissions, err := s.queries.ListUserPermissions(ctx, detail.ID)
+	decisions, err := s.queries.ListUserPermissions(ctx, detail.ID)
 	if err != nil {
 		return fmt.Errorf("list admin user permissions: %w", err)
+	}
+	// 后台详情展示的是「生效中的权限」：候选集里被 deny 的行不进去。
+	permissions := make([]string, 0, len(decisions))
+	for _, decision := range decisions {
+		if decision.Effective {
+			permissions = append(permissions, decision.Key)
+		}
 	}
 	overrides, err := s.listPermissionOverrides(ctx, detail.ID)
 	if err != nil {
@@ -243,26 +294,77 @@ func (s *PostgresStore) loadAdminUserAccess(ctx context.Context, detail *AdminUs
 	return nil
 }
 
+// loadCurrentUserAccess 是 Actor.Permissions 与 CurrentUser.Permissions 的**唯一**
+// 物化点（D13）。信任等级的已挣得授予在这里合并，所以 Can() 一个字节都不用改，
+// 后端裁决与下发前端的 can() 自动一致。
 func loadCurrentUserAccess(ctx context.Context, queries *store.Queries, current *CurrentUser) error {
 	roleKeys, err := queries.ListUserRoleKeys(ctx, current.ID)
 	if err != nil {
 		return fmt.Errorf("list current user roles: %w", err)
 	}
-	permissions, err := queries.ListUserPermissions(ctx, current.ID)
+	decisions, err := queries.ListUserPermissions(ctx, current.ID)
 	if err != nil {
 		return fmt.Errorf("list current user permissions: %w", err)
 	}
 	if roleKeys == nil {
 		roleKeys = []string{}
 	}
-	if permissions == nil {
-		permissions = []string{}
-	}
 	current.RoleKeys = roleKeys
-	// 会话有效权限展开父→子，前端 can('settings.mail.manage') 在旧 settings.manage 下也成立。
-	current.Permissions = ExpandEffectivePermissions(permissions)
+	// 静态路径保持本刀之前的语义：父→子展开，deny 已在 SQL 里排除。
+	current.Permissions = ExpandEffectivePermissions(effectivePermissionKeys(decisions))
+	current.denied = deniedPermissionKeys(decisions)
 	return nil
 }
+
+// effectivePermissionKeys 返回候选集里生效的键（deny 的键不在其中）。
+func effectivePermissionKeys(decisions []store.ListUserPermissionsRow) []string {
+	keys := make([]string, 0, len(decisions))
+	for _, decision := range decisions {
+		if decision.Effective {
+			keys = append(keys, decision.Key)
+		}
+	}
+	return keys
+}
+
+// deniedPermissionKeys 返回被显式 deny 的键——**包括没有任何静态授予的键**（D28）。
+func deniedPermissionKeys(decisions []store.ListUserPermissionsRow) map[string]bool {
+	denied := make(map[string]bool, len(decisions))
+	for _, decision := range decisions {
+		if !decision.Effective {
+			denied[decision.Key] = true
+		}
+	}
+	return denied
+}
+
+// mergeEarnedPermissions 实现 D23 的合并：有效集 ∪= earned ∖ static ∖ denied，
+// 并返回 earned 独占键（只用于解释来源，不参与裁决）。
+func mergeEarnedPermissions(current *CurrentUser, earned []string) map[string]bool {
+	if current == nil || len(earned) == 0 {
+		return nil
+	}
+	present := make(map[string]bool, len(current.Permissions))
+	for _, key := range current.Permissions {
+		present[key] = true
+	}
+	var earnedOnly map[string]bool
+	for _, key := range earned {
+		if key == "" || current.denied[key] || present[key] {
+			continue
+		}
+		present[key] = true
+		current.Permissions = append(current.Permissions, key)
+		if earnedOnly == nil {
+			earnedOnly = make(map[string]bool)
+		}
+		earnedOnly[key] = true
+	}
+	slices.Sort(current.Permissions)
+	return earnedOnly
+}
+
+
 
 func (s *PostgresStore) listAssignedUserRoleKeys(ctx context.Context, userID int64) ([]string, error) {
 	rows, err := s.pool.Query(ctx, `

@@ -10,7 +10,14 @@ import (
 )
 
 // fakeTrustPolicy 是新人信任阶梯的最小假实现：只关心「是否禁止外链」。
-type fakeTrustPolicy struct{ forbidLinks bool }
+type fakeTrustPolicy struct {
+	forbidLinks bool
+	levelLimits map[int]TrustLevelLimits
+}
+
+func (f fakeTrustPolicy) LevelLimits(_ context.Context, level int) (TrustLevelLimits, error) {
+	return f.levelLimits[level], nil
+}
 
 func (f fakeTrustPolicy) NewUserTrustDays(context.Context) (int, error) { return 30, nil }
 func (f fakeTrustPolicy) NewUserTopicCooldownSeconds(context.Context) (int, error) {

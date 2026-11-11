@@ -68,15 +68,15 @@ type protocolV2AttachmentExtensionListInput struct {
 }
 
 // newProtocolV2AttachmentExtensionCommandDefinitions 返回 claim/release/list 三条定义。
-func newProtocolV2AttachmentExtensionCommandDefinitions(runtime ProtocolV2AttachmentExtensionRuntime) []protocolV2CommandDefinition {
+func newProtocolV2AttachmentExtensionCommandDefinitions(runtime ProtocolV2AttachmentExtensionRuntime, trust identity.TrustLevelSource) []protocolV2CommandDefinition {
 	return []protocolV2CommandDefinition{
-		newProtocolV2AttachmentExtensionClaimCommandDefinition(runtime),
-		newProtocolV2AttachmentExtensionReleaseCommandDefinition(runtime),
-		newProtocolV2AttachmentExtensionListCommandDefinition(runtime),
+		newProtocolV2AttachmentExtensionClaimCommandDefinition(runtime, trust),
+		newProtocolV2AttachmentExtensionReleaseCommandDefinition(runtime, trust),
+		newProtocolV2AttachmentExtensionListCommandDefinition(runtime, trust),
 	}
 }
 
-func newProtocolV2AttachmentExtensionClaimCommandDefinition(runtime ProtocolV2AttachmentExtensionRuntime) protocolV2CommandDefinition {
+func newProtocolV2AttachmentExtensionClaimCommandDefinition(runtime ProtocolV2AttachmentExtensionRuntime, trust identity.TrustLevelSource) protocolV2CommandDefinition {
 	definition := protocolV2CommandDefinition{
 		ID: CommandAttachmentExtensionClaimID, Version: CommandAttachmentExtensionClaimVersion,
 		InputSchemaID: CommandAttachmentExtensionClaimInputSchema, InputSchemaVersion: CommandAttachmentExtensionSchemaVersion,
@@ -110,7 +110,7 @@ func newProtocolV2AttachmentExtensionClaimCommandDefinition(runtime ProtocolV2At
 			return nil, invalidProtocolV2CommandActorDelegation()
 		}
 		// 归属判定需要 actor 的实时权限，只能在这里从数据库重载。
-		actor, err := loadProtocolV2CommandActor(ctx, tx, actorUserID)
+		actor, err := loadProtocolV2CommandActor(ctx, tx, actorUserID, trust)
 		if err != nil {
 			return nil, protocolV2AttachmentExtensionCommandError(err)
 		}
@@ -168,7 +168,7 @@ func newProtocolV2AttachmentExtensionClaimCommandDefinition(runtime ProtocolV2At
 	return definition
 }
 
-func newProtocolV2AttachmentExtensionReleaseCommandDefinition(runtime ProtocolV2AttachmentExtensionRuntime) protocolV2CommandDefinition {
+func newProtocolV2AttachmentExtensionReleaseCommandDefinition(runtime ProtocolV2AttachmentExtensionRuntime, trust identity.TrustLevelSource) protocolV2CommandDefinition {
 	definition := protocolV2CommandDefinition{
 		ID: CommandAttachmentExtensionReleaseID, Version: CommandAttachmentExtensionReleaseVersion,
 		InputSchemaID: CommandAttachmentExtensionReleaseInputSchema, InputSchemaVersion: CommandAttachmentExtensionSchemaVersion,
@@ -219,7 +219,7 @@ func newProtocolV2AttachmentExtensionReleaseCommandDefinition(runtime ProtocolV2
 	return definition
 }
 
-func newProtocolV2AttachmentExtensionListCommandDefinition(runtime ProtocolV2AttachmentExtensionRuntime) protocolV2CommandDefinition {
+func newProtocolV2AttachmentExtensionListCommandDefinition(runtime ProtocolV2AttachmentExtensionRuntime, trust identity.TrustLevelSource) protocolV2CommandDefinition {
 	definition := protocolV2CommandDefinition{
 		ID: CommandAttachmentExtensionListID, Version: CommandAttachmentExtensionListVersion,
 		InputSchemaID: CommandAttachmentExtensionListInputSchema, InputSchemaVersion: CommandAttachmentExtensionSchemaVersion,

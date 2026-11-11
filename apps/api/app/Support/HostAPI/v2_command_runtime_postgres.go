@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
@@ -28,6 +29,9 @@ type PostgresProtocolV2CommandRuntimeConfig struct {
 	// AI 是插件发起补全的宿主网关。同样为 nil 时报告不可用：让插件悄悄退回
 	// 自建出站就等于把成本重新放回账外。
 	AI ProtocolV2AIGateway
+	// TrustLevels 是信任等级来源（与 identity store 同一实例）。nil 时插件命令
+	// 授权看不到已挣得权限——装配层必须注入，否则「HTTP 放行、插件 403」（D22）。
+	TrustLevels identity.TrustLevelSource
 }
 
 // NewPostgresProtocolV2CommandRuntime publishes the complete immutable domain
@@ -59,9 +63,9 @@ func NewPostgresProtocolV2CommandRuntime(config PostgresProtocolV2CommandRuntime
 		newProtocolV2AICompleteCommandDefinition(config.AI),
 	}
 	definitions = append(definitions,
-		newProtocolV2AttachmentExtensionCommandDefinitions(config.AttachmentExtensions)...)
+		newProtocolV2AttachmentExtensionCommandDefinitions(config.AttachmentExtensions, config.TrustLevels)...)
 	engine, err := newProtocolV2CommandEngineWithInvalidationJobs(
-		NewPostgresProtocolV2HostCommandBackend(config.Pool),
+		NewPostgresProtocolV2HostCommandBackend(config.Pool).WithTrustLevelSource(config.TrustLevels),
 		config.ActorDelegations,
 		config.Jobs,
 		definitions...,

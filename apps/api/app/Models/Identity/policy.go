@@ -30,6 +30,10 @@ func (a Actor) Can(permission string) bool {
 		return false
 	}
 	// 细粒度子权限可通过旧父权限继承（settings.manage → settings.mail.manage 等）。
+	//
+	// 信任等级的已挣得来源不在这里合并：它在装载期并进 Permissions
+	// （postgres_store_roles.go 的 applyTrustLevel，D13），所以这个函数零改动，
+	// 也不存在「先命中 Permissions == nil 早退」的坑（T13）。
 	return hasExpandedPermission(a.Permissions, permission)
 }
 

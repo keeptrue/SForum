@@ -182,6 +182,7 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 	commandDeferred, err := bindPostgresProtocolV2CommandRuntime(
 		hostAPIGateway, pool, jobDispatcher, moderationStore,
 		attachmentStore, attachmentService, extensionReferences, identityAuthorityGate,
+		infrastructure.trustLevelSource,
 	)
 	if err != nil {
 		if stopErr := supportjobs.Stop(ctx, jobClient); stopErr != nil {
@@ -472,6 +473,7 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 	if err != nil {
 		return nil, fmt.Errorf("create identity user-field value store: %w", err)
 	}
+	userFieldValueStore.WithTrustLevelSource(infrastructure.trustLevelSource)
 	hostAPIService.BindUsers(identityUserAdapter{store: identityStore, fields: userFieldValueStore})
 	aiToolRefresh := &aiToolRefreshHook{}
 	runtimeState, err := restoreAPIExtensionPlatform(ctx, cfg, logger, apiExtensionRestoreInput{

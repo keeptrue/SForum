@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/rivertype"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	hostv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/host/v2"
 	protocolv2 "github.com/keeptrue/sforum/apps/api/sdk/plugin/v2/gen/sforum/protocol/v2"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
 type testPluginJobAdmission struct {

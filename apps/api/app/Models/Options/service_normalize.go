@@ -182,11 +182,16 @@ func normalizeOptionValue(name string, value string) (string, bool) {
 		return normalizeMailResendOption(name, value)
 	case NameForumDefaultCategorySlug:
 		return normalizeForumSlug(value)
+	case NameTrustLevels:
+		// 单键 JSON 策略有自己的归一化器。**必须**独立成一个 case：混在社区策略组里
+		// 会落到 normalizeCommunityPolicyOption 的 default，返回 ("", false)，
+		// 于是合法 JSON 也被判非法 → options.Update 返回 ErrInvalidOption → 静默 422。
+		return normalizeTrustLevelsOption(value)
 	case NameForumTagCreationMode:
 		return normalizeForumTagCreationMode(value)
 	case NameForumTagPublicPages:
 		return normalizeEnabledOption(value)
-	case NameFeatureSearch, NameFeatureRegistration, NameFeatureAttachments, NameFeatureMentions, NameFeaturePublicProfiles, NameFeatureWebhooks, NameFeatureReactions, NameFeatureBookmarks:
+	case NameFeatureSearch, NameFeatureRegistration, NameFeatureAttachments, NameFeatureMentions, NameFeaturePublicProfiles, NameFeatureWebhooks, NameFeatureReactions, NameFeatureBookmarks, NameFeatureBadges, NameFeatureTrustLevels:
 		// F4.5：产品开关仅接受 enabled/disabled。
 		return normalizeEnabledOption(value)
 	case NamePagesRegistryEnabled, NameThemesRuntimeL0Enabled, NameThemesRuntimeL1Enabled:

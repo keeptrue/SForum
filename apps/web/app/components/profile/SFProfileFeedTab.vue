@@ -16,6 +16,10 @@ const props = defineProps<{
   topicCount: number
   commentCount: number
   categoryCount: number
+  /** 累计获赞（user_activity 快照，与主题数的实时 COUNT 语义不同）。 */
+  likeReceivedCount?: number
+  /** 累计访问天数（user_activity 快照）。 */
+  daysVisited?: number
   /** 切 tab 后首屏取数中；与空列表同时成立才显示骨架。 */
   switching: boolean
   loadingMore: boolean
@@ -53,7 +57,7 @@ function activityTo(activity: ProfileActivity) {
 </script>
 
 <template>
-  <div class="sf-profile-summary" aria-label="profile statistics">
+  <div class="sf-profile-summary sf-profile-summary--quint" aria-label="profile statistics">
     <div class="sf-profile-summary__item">
       <strong>{{ topicCount }}</strong>
       <span>{{ t('profile.topicCount') }}</span>
@@ -65,6 +69,14 @@ function activityTo(activity: ProfileActivity) {
     <div class="sf-profile-summary__item">
       <strong>{{ categoryCount }}</strong>
       <span>{{ t('profile.categoryCount') }}</span>
+    </div>
+    <div class="sf-profile-summary__item">
+      <strong>{{ likeReceivedCount ?? 0 }}</strong>
+      <span>{{ t('profile.likeReceivedCount') }}</span>
+    </div>
+    <div class="sf-profile-summary__item">
+      <strong>{{ daysVisited ?? 0 }}</strong>
+      <span>{{ t('profile.daysVisited') }}</span>
     </div>
   </div>
 

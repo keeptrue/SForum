@@ -22,7 +22,11 @@ const (
 	PermissionUserBan                = "user.ban"
 	PermissionCategoryManage         = "category.manage"
 	PermissionTagManage              = "tag.manage"
-	PermissionTopicCreate            = "topic.create"
+	// PermissionBadgeView 只读徽章目录与授予记录（后台徽章页的列表视图）。
+	PermissionBadgeView = "badge.view"
+	// PermissionBadgeManage 徽章 CRUD、手动授予/收回与全量重算。
+	PermissionBadgeManage = "badge.manage"
+	PermissionTopicCreate = "topic.create"
 	// PermissionTopicEditOwn 作者编辑自己的主题（与回复的 post.edit_own 分离）。
 	PermissionTopicEditOwn         = "topic.edit_own"
 	PermissionTopicEditAny         = "topic.edit_any"
@@ -75,6 +79,9 @@ const (
 	// 配额与预算、失败姿态与自动裁决开关，以及用量与执行 trace 的查看。
 	// 注：provider 密钥值本身只存在于 Secret Store，本权限不含读取明文。
 	PermissionAIManage = "ai.manage"
+	// PermissionTrustManage 管理信任等级阈值策略（后台写）。刻意没有对应的
+	// trust.view：可达性依赖 admin.access 的读权限是死权限（D9）。
+	PermissionTrustManage = "trust.manage"
 )
 
 type SeedPermission struct {
@@ -92,6 +99,8 @@ var SeedPermissions = []SeedPermission{
 	{Key: PermissionUserBan, Module: "identity", Description: "Ban users from participating."},
 	{Key: PermissionCategoryManage, Module: "forum", Description: "Create and update categories."},
 	{Key: PermissionTagManage, Module: "forum", Description: "Create, approve, disable, and manage tags."},
+	{Key: PermissionBadgeView, Module: "forum", Description: "View badges and badge grants."},
+	{Key: PermissionBadgeManage, Module: "forum", Description: "Create, update, disable, and delete badges; grant and revoke manual badges; recompute top badges."},
 	{Key: PermissionTopicCreate, Module: "forum", Description: "Create topics."},
 	{Key: PermissionTopicEditOwn, Module: "forum", Description: "Edit own topics."},
 	{Key: PermissionTopicEditAny, Module: "forum", Description: "Edit any topic."},
@@ -132,6 +141,7 @@ var SeedPermissions = []SeedPermission{
 	{Key: PermissionEntityMetaManage, Module: "admin", Description: "Manage entity custom field definitions and admin-visible meta values."},
 	{Key: PermissionIdentityProviderManage, Module: "identity", Description: "Activate, order, probe, and reset Host-owned external auth providers (login/registration/link). Executable trust remains super_admin-only."},
 	{Key: PermissionAIManage, Module: "ai", Description: "Manage the AI gateway: provider profiles, base URLs, credential references, quotas, budgets, failure posture, and usage audit."},
+	{Key: PermissionTrustManage, Module: "identity", Description: "Update trust level thresholds, per-level limits, and earned capability mappings."},
 }
 
 // SeedRoleTemplate 是内置角色模板的源码权威定义。
@@ -174,6 +184,8 @@ var SeedRoleTemplates = []SeedRoleTemplate{
 			PermissionPostRevisionViewAny,
 			PermissionPostDeleteAny,
 			PermissionUserBan,
+			// 只读：版主能看徽章目录与授予记录，不能改规则或手动授予。
+			PermissionBadgeView,
 		},
 	},
 	{
@@ -200,6 +212,9 @@ var SeedRoleTemplates = []SeedRoleTemplate{
 			PermissionEntityMetaManage,
 			// 外部登录 provider 的 Host-owned 激活/探测/重置；executable trust 仍 super_admin-only。
 			PermissionIdentityProviderManage,
+			// 徽章是运营资产：站点运营可配置规则并手动授予。
+			PermissionBadgeView,
+			PermissionBadgeManage,
 		},
 	},
 	{

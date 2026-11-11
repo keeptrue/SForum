@@ -13,6 +13,7 @@ For contributors, see [Development](../development/README.md).
 | [Account & security](./account-security.md) | Email verification, passwords, sessions, PATs, external logins, appearance and notification settings |
 | [Admin control panel](./admin.md) | Users/roles/permissions, forum & taxonomy, moderation, attachments, mail, SEO, webhooks, updates & jobs |
 | [Forum day-to-day](./forum.md) | Taxonomy, posting, moderation |
+| [Trust levels](./trust-levels.md) | Seven newcomer-limit keys (tunable today), five tiers (planned), restoring defaults |
 | [Shortcodes](./shortcodes.md) | Built-in syntax, legacy compatibility, protected content and search/cache/SEO exclusion |
 | [Rich content](./rich-content.md) | Diagrams, charts, formulas: syntax, limits, fallbacks, CSP, AI behavior |
 | [Notifications](./notifications.md) | Inbox, preferences, Web Push, operator policy |

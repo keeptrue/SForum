@@ -178,6 +178,42 @@ func TestRestrictActorScopeWithoutCurrentPermissionDenied(t *testing.T) {
 	}
 }
 
+func TestRestrictActorDropsOutOfScopeEarned(t *testing.T) {
+	// D26：Earned 不参与裁决（Can 读 Permissions），但它会通过 GrantSource 解释来源，
+	// 而 Actor 的字段对令牌消费者是可见的。只裁 Permissions 不裁 Earned，
+	// 消费者就会展示「已解锁」而实际调用 403 —— 解释层与裁决层分叉。
+	actor := identity.Actor{
+		ID: 4, Status: identity.UserStatusActive,
+		Permissions: map[string]bool{
+			identity.PermissionTopicCreate:      true,
+			identity.PermissionAttachmentUpload: true,
+		},
+		TrustLevel: 2, TrustLevelResolved: true,
+		Earned: map[string]bool{
+			identity.PermissionTopicCreate:      true,
+			identity.PermissionAttachmentUpload: true,
+		},
+	}
+	restricted := RestrictActor(actor, []string{identity.PermissionTopicCreate})
+
+	if !restricted.Earned[identity.PermissionTopicCreate] {
+		t.Fatal("scope 内的已挣得键必须保留，否则来源解释会退化成 static")
+	}
+	if restricted.Earned[identity.PermissionAttachmentUpload] {
+		t.Fatal("超出 scope 的已挣得键必须被裁掉（D26）")
+	}
+	if got := restricted.GrantSource(identity.PermissionAttachmentUpload); got != identity.PermissionOriginNone {
+		t.Fatalf("超 scope 键的来源必须是 none，实际 %q：解释层与裁决层分叉", got)
+	}
+	if got := restricted.GrantSource(identity.PermissionTopicCreate); got != identity.PermissionOriginEarned {
+		t.Fatalf("scope 内的已挣得键来源应为 earned，实际 %q", got)
+	}
+	// RestrictActor 按值传参，但 map 是引用：必须新建 map，不能就地删调用方的键。
+	if !actor.Earned[identity.PermissionAttachmentUpload] {
+		t.Fatal("RestrictActor 不得就地改写调用方的 Earned map")
+	}
+}
+
 func TestRejectScopeUserLacks(t *testing.T) {
 	svc := NewService(&memStore{byPublic: map[string]Record{}, byID: map[int64]Record{}}, nil)
 	actor := identity.Actor{ID: 1, Status: identity.UserStatusActive, Permissions: map[string]bool{identity.PermissionPostCreate: true}}

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
+	"github.com/redis/go-redis/v9"
 )
 
 func TestHostRedisCacheBackendIntegration(t *testing.T) {

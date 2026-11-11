@@ -151,6 +151,49 @@ func queryRegistryCoreResultSchemaProperties(definition protocolV2QueryDefinitio
 			"created_at":   schemaString(),
 			"updated_at":   schemaString(),
 		}
+	case QueryPublicBadgeSchemaID:
+		// 徽章目录：含 grant_mode / metric / threshold，插件要只靠稳定数据面重建
+		// 「目录 + 获得条件」。metric 与 threshold 对手动徽章为 NULL。
+		properties = map[string]any{
+			"id":          schemaString(),
+			"slug":        schemaString(),
+			"name":        schemaString(),
+			"description": schemaString(),
+			"group_key":   schemaStringOrNull(),
+			"tier":        schemaString(),
+			"icon":        schemaString(),
+			"position":    schemaNumber(),
+			"grant_mode":  schemaString(),
+			"metric":      schemaStringOrNull(),
+			"threshold":   schemaStringOrNull(),
+		}
+	case QueryPublicUserBadgeSchemaID:
+		// 授予关系面：只有 active 用户 × 启用徽章。granted_by / grant_reason
+		// 是审计数据，视图不输出，schema 也不声明。
+		properties = map[string]any{
+			"id":           schemaString(),
+			"user_id":      schemaString(),
+			"badge_id":     schemaString(),
+			"granted_at":   schemaString(),
+			"username":     schemaString(),
+			"display_name": schemaString(),
+			"slug":         schemaString(),
+			"tier":         schemaString(),
+		}
+	case QueryPublicUserActivitySchemaID:
+		// 活动统计面：刻意不含 posts_read_count / read_time_seconds——
+		// v1 不采集，输出 0 会让调用方误以为是真实读数。
+		properties = map[string]any{
+			"user_id":             schemaString(),
+			"username":            schemaString(),
+			"display_name":        schemaString(),
+			"topic_count":         schemaString(),
+			"comment_count":       schemaString(),
+			"like_received_count": schemaString(),
+			"like_given_count":    schemaString(),
+			"bookmark_count":      schemaString(),
+			"days_visited":        schemaString(),
+		}
 	case QuerySelfEmailSchemaID:
 		// 只暴露展示形态的 email、布尔验证位与更新时间；email_lower 是唯一性/
 		// 登录匹配列，永远不进 schema。属性数必须与 Host 字段数严格相等。

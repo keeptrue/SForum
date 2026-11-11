@@ -339,7 +339,7 @@ func (s *Service) UpdateComment(ctx context.Context, actor identity.Actor, input
 	if err := validateCommentContent(input.Content.RawContent, settings); err != nil {
 		return Comment{}, err
 	}
-	if trust := s.trustForActor(ctx, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
+	if trust := limitsForActor(ctx, s.trust, actor); trust.active && trust.forbidLinks && containsOutboundLink(input.Content.RawContent) {
 		return Comment{}, ErrOutboundLinkForbidden
 	}
 	content, err := renderContentWithContext(s, ctx, input.Content, settings.ExcerptRuneLimit, "comment")
@@ -477,13 +477,9 @@ func (s *Service) enforceTopicCreateLimitsForActor(ctx context.Context, actor id
 	now := time.Now().UTC()
 	cooldown := settings.TopicCooldownSeconds
 	daily := settings.DailyTopicLimit
-	if trust := s.trustForActor(ctx, actor); trust.active {
-		if trust.topicCooldown > 0 && (cooldown <= 0 || trust.topicCooldown > cooldown) {
-			cooldown = trust.topicCooldown
-		}
-		if trust.dailyTopic > 0 && (daily <= 0 || trust.dailyTopic < daily) {
-			daily = trust.dailyTopic
-		}
+	if trust := limitsForActor(ctx, s.trust, actor); trust.active {
+		cooldown = resolveLimit(cooldown, trust.topicCooldown, trust.overrideTopicCooldown)
+		daily = resolveLimit(daily, trust.dailyTopic, trust.overrideDailyTopic)
 	}
 	if cooldown > 0 {
 		lastAt, ok, err := s.store.LatestAuthorTopicCreatedAt(ctx, actor.ID)
@@ -508,43 +504,6 @@ func (s *Service) enforceTopicCreateLimitsForActor(ctx context.Context, actor id
 
 func (s *Service) enforceCommentCreateLimits(ctx context.Context, authorUserID int64, settings ForumSettings) error {
 	return s.enforceCommentCreateLimitsForActor(ctx, identity.Actor{ID: authorUserID}, settings)
-}
-
-func (s *Service) trustForActor(ctx context.Context, actor identity.Actor) trustLimits {
-	// 未注入信任策略或无注册时间时不限制。
-	if s.trust == nil || actor.CreatedAt.IsZero() {
-		return trustLimits{}
-	}
-	// 机器人不进入新人信任阶梯：它没有登录凭据、发言由 AI 配额与审核闸门约束，
-	// 而「新人禁止外链」会让它无法引用站内内容——那正是回复工具存在的意义。
-	// 这条规则来自 AI 辅助平台计划 M3（Bot Identity）的既有决定。
-	if actor.Kind.IsBot() {
-		return trustLimits{}
-	}
-	days, err := s.trust.NewUserTrustDays(ctx)
-	if err != nil || days <= 0 {
-		return trustLimits{}
-	}
-	if time.Since(actor.CreatedAt) > time.Duration(days)*24*time.Hour {
-		return trustLimits{}
-	}
-	// super_admin / 具备管理权限的用户跳过新人限制。
-	if actor.Can(identity.PermissionSettingsManage) || actor.Can(identity.PermissionTopicEditAny) {
-		return trustLimits{}
-	}
-	topicCooldown, _ := s.trust.NewUserTopicCooldownSeconds(ctx)
-	commentCooldown, _ := s.trust.NewUserCommentCooldownSeconds(ctx)
-	dailyTopic, _ := s.trust.NewUserDailyTopicLimit(ctx)
-	dailyComment, _ := s.trust.NewUserDailyCommentLimit(ctx)
-	forbidLinks, _ := s.trust.NewUserForbidOutboundLinks(ctx)
-	return trustLimits{
-		active:          true,
-		topicCooldown:   topicCooldown,
-		commentCooldown: commentCooldown,
-		dailyTopic:      dailyTopic,
-		dailyComment:    dailyComment,
-		forbidLinks:     forbidLinks,
-	}
 }
 
 var outboundLinkPattern = regexp.MustCompile(`(?i)https?://`)

@@ -123,6 +123,8 @@ export type ForumTopicSummary = {
   categoryName: string
   authorUserId: number
   author?: ForumUserSummary
+  /** 作者的最高级徽章（M3 读模型；未获得/功能关闭时不出现）。 */
+  topBadge?: import('~/utils/forum/forumBadge').ForumBadgeRef
   /** 最近 active 评论作者；无评论时与 author 相同 */
   lastReplyAuthor?: ForumUserSummary
   title: string
@@ -249,6 +251,8 @@ export type ForumComment = {
   topicId: number
   authorUserId: number
   author?: ForumUserSummary
+  /** 作者的最高级徽章（M3 读模型；未获得/功能关闭时不出现）。 */
+  topBadge?: import('~/utils/forum/forumBadge').ForumBadgeRef
   parentId?: number | null
   rootCommentId: number
   pathKey: string

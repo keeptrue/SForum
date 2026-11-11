@@ -71,9 +71,11 @@ describe('default theme profile page B1 contract', () => {
     const css = source('../../app/assets/css/sforum-profile.css')
 
     expect(page).toContain('sf-profile-tabs')
-    expect(page).toContain("t('profile.tabs.topics')")
-    expect(page).toContain("t('profile.tabs.replies')")
-    expect(page).toContain("t('profile.tabs.about')")
+    // tab 文案与顺序在 buildProfileTabs（页面只消费），契约跟着搬。
+    const tabs = source('../../app/utils/profile/profileTabs.ts')
+    expect(tabs).toContain("t('profile.tabs.topics')")
+    expect(tabs).toContain("t('profile.tabs.replies')")
+    expect(tabs).toContain("t('profile.tabs.about')")
     expect(page).toContain("activeTab === 'about'")
     expect(page).toContain('profile.profile.location')
     expect(page).toContain('websiteHref')

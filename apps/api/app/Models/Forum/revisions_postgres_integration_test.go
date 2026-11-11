@@ -715,6 +715,7 @@ CREATE TABLE users (
   email_lower TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
+  top_badge_id BIGINT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -733,6 +734,39 @@ CREATE TABLE attachments (
 CREATE TABLE user_profiles (
   user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   avatar_attachment_id BIGINT REFERENCES attachments(id) ON DELETE SET NULL
+);
+
+-- 徽章定义（读路径 LEFT JOIN badges top_badge）：只保留读模型用到的列。
+CREATE TABLE badges (
+  id BIGSERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  icon TEXT NOT NULL DEFAULT 'i-lucide-award',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- 用户活动统计（写路径 hook）：真实迁移里的非负约束在这里省略，
+-- fixture 只关心「写入是否落在同一事务、列是否存在」。
+CREATE TABLE user_activity (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  topic_count BIGINT NOT NULL DEFAULT 0,
+  comment_count BIGINT NOT NULL DEFAULT 0,
+  like_received_count BIGINT NOT NULL DEFAULT 0,
+  like_given_count BIGINT NOT NULL DEFAULT 0,
+  bookmark_count BIGINT NOT NULL DEFAULT 0,
+  days_visited INTEGER NOT NULL DEFAULT 0,
+  posts_read_count BIGINT NOT NULL DEFAULT 0,
+  read_time_seconds BIGINT NOT NULL DEFAULT 0,
+  last_visited_on DATE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE user_visits (
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  visited_on DATE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, visited_on)
 );
 
 CREATE TABLE categories (

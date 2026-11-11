@@ -42,6 +42,16 @@ type Controller struct {
 	emailVerification EmailVerificationGate
 	// commentLive 可选：注入后启用评论区修订端点与 SSE 实时信号。
 	commentLive *forum.CommentLiveService
+	// visitRecorder 可选：注入后记录登录用户的每日访问（徽章 days_visited 的唯一来源）。
+	visitRecorder UserVisitRecorder
+}
+
+// UserVisitRecorder 记录登录用户的每日访问。
+//
+// 实现必须是 fail-open 的：Record 不返回错误，失败只记日志。
+// 访问采集是徽章成就的输入，不能因为它让公开详情请求失败。
+type UserVisitRecorder interface {
+	Record(ctx context.Context, userID int64)
 }
 
 type EmailVerificationGate interface {
@@ -187,6 +197,24 @@ func (h *Controller) WithViewRecorder(recorder forum.TopicViewRecorder) *Control
 		h.service.WithViewRecorder(recorder)
 	}
 	return h
+}
+
+// WithUserVisitRecorder 注入每日访问采集（徽章 days_visited）。
+// 未装配时详情 GET 跳过采集，不影响任何其它行为。
+func (h *Controller) WithUserVisitRecorder(recorder UserVisitRecorder) *Controller {
+	if h != nil {
+		h.visitRecorder = recorder
+	}
+	return h
+}
+
+// recordUserVisit 在公开详情 GET 成功后记录登录用户的访问；匿名直接跳过。
+// 与 RecordTopicView 同一位置、同一姿态：放在响应组装之后、不阻断响应。
+func (h *Controller) recordUserVisit(ctx context.Context, userID int64) {
+	if h == nil || h.visitRecorder == nil || userID <= 0 {
+		return
+	}
+	h.visitRecorder.Record(ctx, userID)
 }
 
 // WithIdempotency 启用选定写路由的 Idempotency-Key 去重。
@@ -460,6 +488,8 @@ func (h *Controller) topic(c fiber.Ctx) error {
 	}
 	// D3：公开详情 GET 成功后计浏览（Redis 去重+增量）；不阻断响应。
 	h.service.RecordTopicView(c.Context(), topic.ID, h.topicVisitorKey(c))
+	// 徽章 days_visited：登录访客每日一次，匿名跳过，失败只记日志。
+	h.recordUserVisit(c.Context(), viewer.ID)
 	return apphttp.OK(c, topic)
 }
 
@@ -484,6 +514,8 @@ func (h *Controller) topicBySlug(c fiber.Ctx) error {
 		setViewerScopedResponse(c)
 	}
 	h.service.RecordTopicView(c.Context(), topic.ID, h.topicVisitorKey(c))
+	// 徽章 days_visited：登录访客每日一次，匿名跳过，失败只记日志。
+	h.recordUserVisit(c.Context(), viewer.ID)
 	return apphttp.OK(c, topic)
 }
 

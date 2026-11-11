@@ -78,6 +78,8 @@ func communityPolicyOptionDefinitions() []optionDefinition {
 		{name: NameTrustNewUserDailyCommentLimit, public: true, managePermission: forum},
 		{name: NameTrustNewUserForbidOutboundLinks, public: true, managePermission: forum},
 		{name: NameTrustNewUserForbidAttachments, public: true, managePermission: forum},
+		// 信任等级阈值策略：单键 JSON（D19）。public 是因为前端要显示「还差 N 个赞」。
+		{name: NameTrustLevels, public: true, managePermission: identity.PermissionTrustManage},
 		// 维护模式：public，前台可展示横幅/拦截写操作提示。
 		{name: NameSiteMaintenanceEnabled, public: true, managePermission: site},
 		{name: NameSiteMaintenanceMessage, public: true, managePermission: site},
@@ -118,6 +120,7 @@ func communityPolicyRecommendedDefaults() map[string]string {
 		NameTrustNewUserDailyCommentLimit:                 "30",
 		NameTrustNewUserForbidOutboundLinks:               enabledOptionValue(true),
 		NameTrustNewUserForbidAttachments:                 enabledOptionValue(false),
+		NameTrustLevels:                                   trustLevelOptionDefault(),
 		NameSiteMaintenanceEnabled:                        enabledOptionValue(false),
 		NameSiteMaintenanceMessage:                        "",
 		NameForumGuestRead:                                "public",
@@ -335,6 +338,9 @@ func isValidCommunityPolicyOptions(values map[string]string) bool {
 		return false
 	}
 	if _, ok := normalizeTrustedDomainList(values[NameForumLinksTrustedDomains]); !ok {
+		return false
+	}
+	if _, ok := normalizeTrustLevelsOption(values[NameTrustLevels]); !ok {
 		return false
 	}
 	return true

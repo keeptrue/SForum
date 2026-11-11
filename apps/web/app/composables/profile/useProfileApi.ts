@@ -82,6 +82,10 @@ export type PublicProfile = {
   profile: ProfileData
   topicCount: number
   commentCount: number
+  /** 累计获赞数（user_activity 快照）；与主题数不是同一数据源，不要合并。 */
+  likeReceivedCount?: number
+  /** 累计访问天数（user_activity 快照）。 */
+  daysVisited?: number
   recentTopics: import('~/utils/forum/forumTaxonomy').ForumTopicSummary[]
   activities: ProfileActivity[]
   joinedAt: string
@@ -90,6 +94,11 @@ export type PublicProfile = {
   nickname?: NicknameState
   /** 公开主页可选展示的最近一条曾用名。 */
   previousDisplayNames?: string[]
+  /**
+   * 他人视角的等级展示：只有 `level` + `levelSlug`，没有 progress/bottleneck。
+   * 开关关闭或等级未解析时后端省略该字段（`omitempty`）。
+   */
+  trustLevel?: import('~/composables/profile/useTrustLevel').PublicTrustLevel | null
 }
 
 export type NicknameState = {

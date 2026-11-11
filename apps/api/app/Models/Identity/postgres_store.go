@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -26,6 +25,9 @@ type PostgresStore struct {
 	// pluginSessionState 是装配层注入的插件命名空间会话状态擦除钩子；
 	// 未注入时撤销/踢出/改密全部照常，只是不主动擦除那些字节。见 plugin_session_state.go。
 	pluginSessionState PluginSessionStateInvalidator
+	// trustLevels 是装配层注入的信任等级来源。未注入时 Actor 保持「未解析」，
+	// 与信任等级上线之前逐字节等价（测试、CLI、部分装配路径走这条）。
+	trustLevels TrustLevelSource
 }
 
 // IdentityAuthorityMutationGate keeps user-row authority writers outside the
@@ -58,6 +60,18 @@ func NewPostgresStoreWithAvatar(pool *pgxpool.Pool, avatarOptions avatar.OptionR
 func (s *PostgresStore) WithAuthorityMutationGate(gate IdentityAuthorityMutationGate) *PostgresStore {
 	if s != nil {
 		s.authorityMutationGate = gate
+	}
+	return s
+}
+
+// WithTrustLevelSource binds the trust level source used by loadCurrentUserAccess.
+//
+// Bootstrap calls this before the HTTP server starts. Leaving it nil keeps every
+// Actor "unresolved": no earned permissions and legacy age-based forum limits,
+// which is exactly the pre-trust-level behavior tests and CLIs rely on.
+func (s *PostgresStore) WithTrustLevelSource(source TrustLevelSource) *PostgresStore {
+	if s != nil {
+		s.trustLevels = source
 	}
 	return s
 }
@@ -383,27 +397,24 @@ func (s *PostgresStore) LoadActor(ctx context.Context, userID int64) (Actor, err
 		return Actor{}, err
 	}
 
+	// current.Permissions 已经在 loadCurrentUserAccess 里合并过已挣得来源（D13），
+	// Actor 直接复用同一份集合，不重新计算。
 	permissions := make(map[string]bool, len(current.Permissions))
 	for _, key := range current.Permissions {
 		permissions[key] = true
 	}
-	// 注册时间供新人信任阶梯，kind 供机器人语义判断；两者一起读。
-	// 失败时保留零值：CreatedAt 零值跳过新人限制，Kind 零值按人类处理，
-	// 都不会因为一次读取失败而改变既有语义。
-	var createdAt time.Time
-	var kindRaw string
-	_ = s.pool.QueryRow(ctx, `SELECT created_at, kind FROM users WHERE id = $1`, userID).Scan(&createdAt, &kindRaw)
-	kind := UserKindHuman
-	if ValidUserKind(UserKind(kindRaw)) {
-		kind = UserKind(kindRaw)
-	}
+	// created_at / kind 已在 loadCurrentUserAccess（applyTrustLevel）里读过一次并写进
+	// current，这里不再查第二遍（R7：G 组基线 4→5，不是 4→6）。
 	return Actor{
-		ID:          userID,
-		Status:      current.Status,
-		RoleKeys:    current.RoleKeys,
-		Permissions: permissions,
-		CreatedAt:   createdAt,
-		Kind:        kind,
+		ID:                 userID,
+		Status:             current.Status,
+		RoleKeys:           current.RoleKeys,
+		Permissions:        permissions,
+		CreatedAt:          current.CreatedAt,
+		Kind:               current.Kind,
+		TrustLevel:         current.TrustLevel,
+		TrustLevelResolved: current.trustLevelResolved,
+		Earned:             current.earned,
 	}, nil
 }
 

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/riverqueue/river/rivertype"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
+	"github.com/riverqueue/river/rivertype"
 )
 
 const lifecycleTestExtensionID = "sforum.lifecycle-test"

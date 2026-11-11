@@ -632,6 +632,94 @@ func stableCoreProtocolV2QueryDefinitions() []protocolV2QueryDefinition {
 			},
 		},
 		{
+			ID: QueryPublicBadgesList, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicBadgeSchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			From: "sforum_core_v1.forum_badges AS stable",
+			Fields: []protocolV2QueryField{
+				{Name: "id", Expression: "stable.id"},
+				{Name: "slug", Expression: "stable.slug"},
+				{Name: "name", Expression: "stable.name"},
+				{Name: "description", Expression: "stable.description"},
+				{Name: "group_key", Expression: "stable.group_key"},
+				{Name: "tier", Expression: "stable.tier"},
+				{Name: "icon", Expression: "stable.icon"},
+				{Name: "position", Expression: "stable.position"},
+				// 规则三列：插件要只靠稳定数据面重建「目录 + 获得条件」。
+				{Name: "grant_mode", Expression: "stable.grant_mode"},
+				{Name: "metric", Expression: "stable.metric"},
+				{Name: "threshold", Expression: "stable.threshold"},
+			},
+			Filters: []protocolV2QueryFilterDefinition{
+				{Field: "slug", Operator: "eq", Expression: "stable.slug", SchemaID: QueryTextParameterSchemaID, Kind: "text"},
+				{Field: "tier", Operator: "eq", Expression: "stable.tier", SchemaID: QueryTextParameterSchemaID, Kind: "text"},
+				{Field: "group_key", Operator: "eq", Expression: "stable.group_key", SchemaID: QueryTextParameterSchemaID, Kind: "text"},
+			},
+			// 目录是全公开的，没有必填过滤。
+			Sorts: []protocolV2QuerySortDefinition{
+				{Field: "position", Expression: "stable.position"},
+				{Field: "id", Expression: "stable.id"},
+			},
+			DefaultSorts: []protocolV2QuerySort{
+				{Field: "position", Expression: "stable.position"},
+				{Field: "id", Expression: "stable.id"},
+			},
+		},
+		{
+			ID: QueryPublicUserBadgesList, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicUserBadgeSchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			From: "sforum_core_v1.forum_user_badges AS stable",
+			Fields: []protocolV2QueryField{
+				{Name: "id", Expression: "stable.id"},
+				{Name: "user_id", Expression: "stable.user_id"},
+				{Name: "badge_id", Expression: "stable.badge_id"},
+				{Name: "granted_at", Expression: "stable.granted_at"},
+				{Name: "username", Expression: "stable.username"},
+				{Name: "display_name", Expression: "stable.display_name"},
+				{Name: "slug", Expression: "stable.slug"},
+				{Name: "tier", Expression: "stable.tier"},
+			},
+			Filters: []protocolV2QueryFilterDefinition{
+				{Field: "user_id", Operator: "eq", Expression: "stable.user_id", SchemaID: QueryInt64ParameterSchemaID, Kind: "int64"},
+				{Field: "badge_id", Operator: "eq", Expression: "stable.badge_id", SchemaID: QueryInt64ParameterSchemaID, Kind: "int64"},
+			},
+			// 授予关系按用户读：没有 user_id 就是全站枚举，必须拒绝。
+			RequiredFilters: []string{"user_id"},
+			Sorts: []protocolV2QuerySortDefinition{
+				{Field: "granted_at", Expression: "stable.granted_at"},
+				{Field: "id", Expression: "stable.id"},
+			},
+			DefaultSorts: []protocolV2QuerySort{
+				{Field: "granted_at", Expression: "stable.granted_at", Descending: true},
+				{Field: "id", Expression: "stable.id", Descending: true},
+			},
+		},
+		{
+			ID: QueryPublicUserActivityList, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicUserActivitySchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			From: "sforum_core_v1.forum_user_activity AS stable",
+			Fields: []protocolV2QueryField{
+				{Name: "user_id", Expression: "stable.user_id"},
+				{Name: "username", Expression: "stable.username"},
+				{Name: "display_name", Expression: "stable.display_name"},
+				{Name: "topic_count", Expression: "stable.topic_count"},
+				{Name: "comment_count", Expression: "stable.comment_count"},
+				{Name: "like_received_count", Expression: "stable.like_received_count"},
+				{Name: "like_given_count", Expression: "stable.like_given_count"},
+				{Name: "bookmark_count", Expression: "stable.bookmark_count"},
+				{Name: "days_visited", Expression: "stable.days_visited"},
+			},
+			Filters: []protocolV2QueryFilterDefinition{
+				{Field: "user_id", Operator: "eq", Expression: "stable.user_id", SchemaID: QueryInt64ParameterSchemaID, Kind: "int64"},
+			},
+			RequiredFilters: []string{"user_id"},
+			Sorts: []protocolV2QuerySortDefinition{
+				{Field: "user_id", Expression: "stable.user_id"},
+			},
+			DefaultSorts: []protocolV2QuerySort{
+				{Field: "user_id", Expression: "stable.user_id"},
+			},
+		},
+		{
 			ID: QueryPublicCategoriesList, PlanVersion: QueryStableCorePlanVersion,
 			ResultSchemaID: QueryPublicCategorySchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
 			From: "sforum_core_v1.public_categories AS stable", Fields: categoryFields,

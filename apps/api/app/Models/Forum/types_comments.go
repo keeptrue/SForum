@@ -47,10 +47,12 @@ type CommentList struct {
 }
 
 type Comment struct {
-	ID            int64                 `json:"id"`
-	TopicID       int64                 `json:"topicId"`
-	AuthorUserID  int64                 `json:"authorUserId"`
-	Author        *UserSummary          `json:"author,omitempty"`
+	ID           int64        `json:"id"`
+	TopicID      int64        `json:"topicId"`
+	AuthorUserID int64        `json:"authorUserId"`
+	Author       *UserSummary `json:"author,omitempty"`
+	// TopBadge 是评论作者的最高级徽章（与 Author.TopBadge 同值）。
+	TopBadge      *BadgeRef             `json:"topBadge,omitempty"`
 	ParentID      *int64                `json:"parentId,omitempty"`
 	RootCommentID int64                 `json:"rootCommentId"`
 	PathKey       string                `json:"pathKey"`

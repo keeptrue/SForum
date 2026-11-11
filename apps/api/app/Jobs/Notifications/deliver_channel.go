@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/riverqueue/river"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
+	"github.com/riverqueue/river"
 )
 
 const (

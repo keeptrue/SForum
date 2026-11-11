@@ -200,6 +200,36 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.s_f_admin_badge_edit_dialog",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_edit_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeEditDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_grant_dialog",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_grant_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeGrantDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_table",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_table@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeTable.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_brand_asset_field",
     "contractVersion": "sforum.component.admin.sfadmin_brand_asset_field@1",
     "kind": "component",
@@ -940,6 +970,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sfadmin_trust_levels_tab",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_levels_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sf_admin_user_account_section",
     "contractVersion": "sforum.component.admin.sf_admin_user_account_section@1",
     "kind": "component",
@@ -1219,6 +1259,17 @@
     "kind": "page",
     "route": "/admin/attachments/settings",
     "source": "apps/web/app/pages/admin/attachments/settings.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7 Admin Surface Registry"
+  },
+  {
+    "id": "core.component.page.admin.badges",
+    "contractVersion": "sforum.component.page.admin.badges@1",
+    "kind": "page",
+    "route": "/admin/badges",
+    "source": "apps/web/app/pages/admin/badges.vue",
     "owners": [
       "admin"
     ],
@@ -2247,6 +2298,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.public.s_f_badge_chip",
+    "contractVersion": "sforum.component.public.s_f_badge_chip@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFBadgeChip.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfbookmark_control",
     "contractVersion": "sforum.component.shared.sfbookmark_control@1",
     "kind": "component",
@@ -2333,6 +2394,16 @@
     "contractVersion": "sforum.component.shared.sfcomment_citations@1",
     "kind": "component",
     "source": "apps/web/app/components/forum/SFCommentAIActivity.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.public.s_f_comment_author_row",
+    "contractVersion": "sforum.component.public.s_f_comment_author_row@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFCommentAuthorRow.vue",
     "owners": [
       "public"
     ],
@@ -2846,6 +2917,16 @@
     "contractVersion": "sforum.component.shared.sfprivacy_page@1",
     "kind": "component",
     "source": "apps/web/app/components/legal/SFPrivacyPage.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.public.s_f_profile_badge_tab",
+    "contractVersion": "sforum.component.public.s_f_profile_badge_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/profile/SFProfileBadgeTab.vue",
     "owners": [
       "public"
     ],
@@ -3467,6 +3548,16 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.public.s_f_topic_author_block",
+    "contractVersion": "sforum.component.public.s_f_topic_author_block@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFTopicAuthorBlock.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sftopic_comment_composer_drawer",
     "contractVersion": "sforum.component.shared.sftopic_comment_composer_drawer@1",
     "kind": "component",
@@ -3611,6 +3702,16 @@
     "contractVersion": "sforum.component.shared.sftopic_side_card@1",
     "kind": "component",
     "source": "apps/web/app/components/forum/SFTopicSideCard.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.public.s_f_trust_level_card",
+    "contractVersion": "sforum.component.public.s_f_trust_level_card@1",
+    "kind": "component",
+    "source": "apps/web/app/components/profile/SFTrustLevelCard.vue",
     "owners": [
       "public"
     ],

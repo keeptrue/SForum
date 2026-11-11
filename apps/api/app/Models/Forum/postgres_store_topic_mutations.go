@@ -111,9 +111,15 @@ func (s *PostgresStore) CreateTopic(ctx context.Context, input CreateTopicRecord
 			}
 		}
 	}
+	// 计划 D4：topic_count 记「你发过多少个主题」，创建即计数；软删不回退。
+	if err := bumpUserActivityTx(ctx, tx, input.AuthorUserID, activityMetricTopicCount, 1); err != nil {
+		return TopicDetail{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return TopicDetail{}, fmt.Errorf("commit create topic: %w", err)
 	}
+	// D2：提交后触发一次自动徽章评估（fail-open）。
+	s.enqueueBadgeEvaluation(ctx, input.AuthorUserID)
 	return topic, nil
 }
 

@@ -10,6 +10,7 @@ import (
 
 	forumcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Forum"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
@@ -175,6 +176,14 @@ func (p *ForumProvider) WithViewRecorder(recorder forum.TopicViewRecorder) *Foru
 	return p
 }
 
+// WithUserVisitRecorder 注入每日访问采集（徽章 days_visited）；nil 跳过采集。
+func (p *ForumProvider) WithUserVisitRecorder(recorder forumcontroller.UserVisitRecorder) *ForumProvider {
+	if p != nil && p.controller != nil {
+		p.controller.WithUserVisitRecorder(recorder)
+	}
+	return p
+}
+
 // WithCommentLive 注入评论区实时信号（修订端点 + SSE）；nil 时两个端点返回 503。
 func (p *ForumProvider) WithCommentLive(live *forum.CommentLiveService) *ForumProvider {
 	if p != nil && p.controller != nil {
@@ -255,6 +264,35 @@ func (a TrustPolicyAdapter) NewUserForbidOutboundLinks(ctx context.Context) (boo
 		return false, err
 	}
 	return policy.ForbidOutboundLinks, nil
+}
+
+// LevelLimits 把 trust.levels 单键 JSON 里的分档限额适配成 forum 的窄形状。
+//
+// 产品面关闭或解码失败时返回零值（全部继承站点默认）：限额不是权限，读不到配置
+// 时既不该锁死人，也不该放宽。
+func (a TrustPolicyAdapter) LevelLimits(ctx context.Context, level int) (forum.TrustLevelLimits, error) {
+	if a.options == nil {
+		return forum.TrustLevelLimits{}, nil
+	}
+	flags, err := a.options.FeatureFlags(ctx)
+	if err != nil || !flags.TrustLevels {
+		return forum.TrustLevelLimits{}, nil
+	}
+	raw, err := a.options.WebOption(ctx, options.NameTrustLevels)
+	if err != nil {
+		return forum.TrustLevelLimits{}, nil
+	}
+	policy, err := trustlevels.DecodeConfig(raw)
+	if err != nil {
+		return forum.TrustLevelLimits{}, nil
+	}
+	limits := policy.LimitsFor(trustlevels.Level(level))
+	return forum.TrustLevelLimits{
+		TopicCooldownSeconds:   limits.TopicCooldownSeconds,
+		CommentCooldownSeconds: limits.CommentCooldownSeconds,
+		DailyTopicLimit:        limits.DailyTopicLimit,
+		DailyCommentLimit:      limits.DailyCommentLimit,
+	}, nil
 }
 
 type ModerationPublicationResolver interface {

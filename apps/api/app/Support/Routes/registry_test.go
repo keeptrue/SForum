@@ -501,7 +501,9 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	// 379 = 378 + core.route.identity.create_user（后台新增用户）。
 	// 386 = 380 + 六个点赞路由（主题/评论的 like 与 likes 名单）。
 	// 392 = 386 + 六个收藏路由（主题/评论的 bookmark 与取消收藏）。
-	if len(catalog) != 392 {
+	// 405 = 392 + 十三个徽章路由（1 公开 + 12 后台）。
+	// 409 = 405 + 四条信任等级路由（1 公开 + 3 后台）。
+	if len(catalog) != 409 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

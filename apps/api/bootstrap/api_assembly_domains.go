@@ -16,6 +16,7 @@ import (
 	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
 	adminoverview "github.com/keeptrue/sforum/apps/api/app/Models/AdminOverview"
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
@@ -312,6 +313,20 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	).WithRequiredReplayCipher(requiredReplayCipher)
 	// D3：公开详情浏览计数（与 worker 刷盘共用同一 Redis）。
 	topicViewCounter := forum.NewRedisTopicViewCounter(sharedRedisClient).WithLogger(logger)
+	// 徽章统计层：写路径的 hook 在 Forum 事务内自己累加（见 forum/activity_hooks.go），
+	// 这里装配的是读/采集侧——每日访问采集依赖 Redis SETNX 去重 + user_visits 落库。
+	badgeActivityStore := badges.NewPostgresActivityStore(pool)
+	// 信任等级来源必须与 identity store 共享同一实例：HTTP 与插件命令两条路径
+	// 看到同一份已挣得权限（D22）。
+	identityStore.WithTrustLevelSource(infrastructure.trustLevelSource)
+	trustLevelsProvider := providers.NewTrustLevelsProvider(
+		optionsService, infrastructure.trustLevelResolver, identityStore, authSessions,
+	)
+	// 徽章评估入队器：写路径（Forum 事务提交后、访问采集成功写入后）fail-open 触发。
+	badgeEvaluationEnqueuer := newBadgeEvaluationEnqueuer(jobDispatcher, logger)
+	forumStore.WithBadgeEvaluation(badgeEvaluationEnqueuer)
+	userVisitRecorder := badges.NewVisitRecorder(badgeActivityStore, sharedRedisClient, logger).
+		WithEvaluationEnqueuer(badgeEvaluationEnqueuer)
 	contentProtocolRuntime, err := extensionsruntime.NewContentRegistryProtocolRuntime(lifecycleStack.RuntimeManager)
 	if err != nil {
 		return nil, fmt.Errorf("create Content Registry Protocol V2 runtime: %w", err)
@@ -371,6 +386,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		}).WithSearchProviderAdmin(searchProviderAdminAdapter{registry: searchProviders}).
 		WithEmailVerificationGate(emailVerificationService).
 		WithViewRecorder(topicViewCounter).
+		WithUserVisitRecorder(userVisitRecorder).
 		WithCommentLive(commentLive).
 		// B4 的公开读面（D12/D17）：不接这一行时 GET /comments/{id}/citations
 		// 恒返回空列表（仍过可见性判定，不成为枚举豁免口）。适配器在
@@ -397,7 +413,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	).WithNicknameEditor(nicknameService).
 		// 收藏名单：Profile 只认最小接口 BookmarkLister，实现在 Forum 侧；
 		// 适配器留在装配层，Forum 与 Profile 之间没有直接 import。
-		WithBookmarkLister(providers.NewForumBookmarkLister(forumProvider.BookmarkService()))
+		WithBookmarkLister(providers.NewForumBookmarkLister(forumProvider.BookmarkService())).
+		// 公开资料页等级卡：他人视角只有 level + levelSlug（不带任何行为计数）。
+		WithTrustLevelReader(identityStore)
 	moderationReadModels, _ := forumCachedStore.(moderation.DecisionReadModelInvalidator)
 	moderationProvider := providers.NewModerationWorkbenchProviderWithIndexer(moderationStore, forumStore, identityStore, authSessions, searchIndexer, moderationReadModels)
 	// AI 网关：默认关闭，未启用前不产生任何出站调用。密钥只以 Secret Store
@@ -526,6 +544,14 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	})
 	pageProfileService := profile.NewServiceWithAvatar(profileStore, avatarAttachmentService, optionsService).
 		WithProfileTabs(providers.NewExtensionProfileTabProvider(extensionService))
+	// 徽章：公开资料页徽章墙 + 后台 12 条。读 badge.view / 写 badge.manage 由生成的
+	// route catalog 守卫声明；features.badges 关闭时由 controller 返回 forum.badges_disabled。
+	badgesStore := badges.NewPostgresStore(pool)
+	badgesService := badges.NewService(badgesStore, badgeActivityStore)
+	badgesAdmin := badges.NewAdminService(badgesStore)
+	badgesProvider := providers.NewBadgesProvider(
+		badgesService, badgesAdmin, optionsService, identityStore, authSessions, pageProfileService,
+	)
 	// AI 只读工具：登记表归 Core，白名单归用途（forum.reply 自己声明）。工具只
 	// 复用上面这些公开读取路径，因此「机器人能读到什么」与访客一致。
 	aiToolRegistry, err := aitools.NewBuiltinRegistry(aitools.Deps{
@@ -789,5 +815,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		siteChromeProvider:           siteChromeProvider,
 		stopPluginRuntimeCoordinator: stopPluginRuntimeCoordinator,
 		webhooksProvider:             webhooksProvider,
+		badgesProvider:               badgesProvider,
+		trustLevelsProvider:          trustLevelsProvider,
 	}, nil
 }

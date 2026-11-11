@@ -8,6 +8,7 @@ in this directory. Completed, cancelled, and superseded plans live under
 
 | Status | Meaning |
 | --- | --- |
+| `2026-11-10-badges-and-user-activity.md` | **landed（M8 已通过，2026-11-10，待收口）** -- 徽章 + 用户活动统计：五张表 + `users.top_badge_id`；独立包 `Models/Badges`（不塞 Forum，Forum 定义 `BadgeReader` 由它实现）；统计同步写事务内（异步漂移对 `topic_count` 无真值可对账）；徽章进 `CachedStore`（actor 无关）；`badges.evaluate_user` job + `Recompute` 批量补授予；13 条路由 + 三个稳定视图/HostQuery + `features.badges` + `badge.view`/`badge.manage`（权限校验在领域层）；资料页第 5 个 tab + 帖子旁 chip + 后台管理页。M8：84 断言 0 FAIL、16 条浏览器断言全过；迁移可逆由 `verify-migration-reversible.sh` 覆盖。**§12 T1–T12 是动手前必读的陷阱清单**。见 `sessions/2026-11-10-badges.md` |
 | `draft` | Written for design review; **do not implement** until it becomes `ready` |
 | `active` | Work is in progress; read before implementing |
 | `ready` | Approved checklist; work may start |

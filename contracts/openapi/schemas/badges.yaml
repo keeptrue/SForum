@@ -1,0 +1,625 @@
+# Badge contract schemas.
+#
+# These mirror the HTTP wire shapes produced by
+# `apps/api/app/Http/Controllers/Badges/dto.go` and `controller.go` — NOT the
+# domain structs in `app/Models/Badges/types.go`. The two differ on purpose:
+# the domain nests (`UserBadge.Badge`, `UserBadge.Progress`) while the profile
+# endpoint flattens each entry so the client renders one row per badge.
+#
+# Rule for future edits: change this file only after reading the DTO. A field
+# that the DTO does not emit must not appear here, even if the domain struct has
+# it (for example `groupKey` exists on `badges.Badge` but `adminBadgeResponse`
+# does not emit it).
+BadgeTier:
+  type: string
+  enum:
+  - bronze
+  - silver
+  - gold
+BadgeGrantMode:
+  type: string
+  enum:
+  - automatic
+  - manual
+BadgeMetric:
+  type: string
+  enum:
+  - topic_count
+  - comment_count
+  - like_received_count
+  - like_given_count
+  - bookmark_count
+  - days_visited
+Badge:
+  type: object
+  description: |
+    Admin-facing badge definition (`adminBadgeResponse`). Carries operator state
+    (`enabled`), the rule, and the aggregate `grantedCount`; none of that is
+    exposed on the public profile surface.
+  required:
+  - id
+  - slug
+  - name
+  - description
+  - tier
+  - icon
+  - grantMode
+  - enabled
+  - position
+  - grantedCount
+  - createdAt
+  - updatedAt
+  properties:
+    id:
+      type: integer
+      format: int64
+    slug:
+      type: string
+      description: Stable identifier, unique across badges.
+    name:
+      type: string
+    description:
+      type: string
+    groupId:
+      type: [integer, "null"]
+      format: int64
+      description: Badge group id; null when ungrouped or the group was deleted.
+    groupName:
+      type: [string, "null"]
+      description: Badge group name; null when ungrouped.
+    tier:
+      "$ref": "#/BadgeTier"
+    icon:
+      type: string
+      description: Icon library name, `i-lucide-*` or `i-tabler-*`.
+    grantMode:
+      "$ref": "#/BadgeGrantMode"
+    metric:
+      oneOf:
+      - "$ref": "#/BadgeMetric"
+      - type: "null"
+      description: Activity column the rule reads; null for manual badges.
+    threshold:
+      type: [integer, "null"]
+      format: int64
+      description: Rule threshold; null for manual badges. Always > 0 when set.
+    enabled:
+      type: boolean
+      description: Disabled badges keep their grants but stop rendering.
+    position:
+      type: integer
+      description: Tie-breaker inside a group when tiers are equal.
+    grantedCount:
+      type: integer
+      format: int64
+      description: |
+        Number of users currently holding the badge, produced by the admin list
+        query. Admin surface only; never sent to the public profile endpoint.
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+BadgeGroup:
+  type: object
+  description: Admin-facing badge group (`adminBadgeGroupResponse`).
+  required:
+  - id
+  - key
+  - name
+  - description
+  - position
+  - badgeCount
+  - createdAt
+  - updatedAt
+  properties:
+    id:
+      type: integer
+      format: int64
+    key:
+      type: string
+      description: Stable group key, unique.
+    name:
+      type: string
+    description:
+      type: string
+    position:
+      type: integer
+      description: Ascending order of group sections on the profile tab.
+    badgeCount:
+      type: integer
+      format: int64
+      description: Number of badges assigned to the group.
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+ProfileBadgeItem:
+  type: object
+  description: |
+    One cell on the profile badge wall (`profileBadgeItem`), flattened on
+    purpose: the client renders one row per badge, so there is no nested badge
+    object and no progress object.
+
+    Conditional keys, matching the DTO exactly:
+    - `earned: true` → `grantedAt` present; `current` / `threshold` absent.
+    - `earned: false` and the badge is automatic with a threshold → `current`
+      and `threshold` present; `grantedAt` absent.
+    - `earned: false` and the badge is manual → none of the three keys.
+    `current: 0` is a valid value and is emitted, not omitted.
+  required:
+  - slug
+  - name
+  - tier
+  - icon
+  - position
+  - earned
+  properties:
+    slug:
+      type: string
+    name:
+      type: string
+    tier:
+      "$ref": "#/BadgeTier"
+    icon:
+      type: string
+    position:
+      type: integer
+    earned:
+      type: boolean
+    current:
+      type: integer
+      format: int64
+      description: Current activity value for an unearned automatic badge.
+    threshold:
+      type: integer
+      format: int64
+      description: Value that grants the badge; always greater than `current`.
+    grantedAt:
+      type: string
+      format: date-time
+      description: Grant timestamp; only present when `earned` is true.
+ProfileBadgeGroup:
+  type: object
+  description: |
+    Group section on the profile badge wall (`profileBadgeGroup`). The group
+    name appears here once; entries do not repeat it. There is no `description`
+    on the wire even though the domain section carries one.
+  required:
+  - key
+  - name
+  - position
+  - badges
+  properties:
+    key:
+      type: string
+    name:
+      type: string
+    position:
+      type: integer
+    badges:
+      type: array
+      items:
+        "$ref": "#/ProfileBadgeItem"
+ProfileBadges:
+  type: object
+  description: |
+    Whole profile badge tab (`profileBadgesResponse`). Groups are ordered by
+    `position`; entries inside a group are ordered by tier weight
+    (gold > silver > bronze), then badge `position`, then `grantedAt`
+    descending.
+  required:
+  - groups
+  properties:
+    groups:
+      type: array
+      items:
+        "$ref": "#/ProfileBadgeGroup"
+BadgeRef:
+  type: object
+  description: |
+    Compact badge reference embedded next to a post or comment author
+    (`topBadge`, see `forum.yaml`). Actor-agnostic: the same value is served to
+    every viewer and may therefore be cached with the post payload. These four
+    fields are everything a 12px chip renders.
+  required:
+  - slug
+  - name
+  - tier
+  - icon
+  properties:
+    slug:
+      type: string
+    name:
+      type: string
+    tier:
+      "$ref": "#/BadgeTier"
+    icon:
+      type: string
+BadgeGrantRecord:
+  type: object
+  description: |
+    Admin-facing grant record (`badges.BadgeGrantRecord`). There is no `id`
+    column on the wire; `(userId, badgeId)` identifies the row.
+  required:
+  - userId
+  - username
+  - displayName
+  - badgeId
+  - badgeSlug
+  - grantedAt
+  - grantedBy
+  - grantReason
+  properties:
+    userId:
+      type: integer
+      format: int64
+    username:
+      type: string
+    displayName:
+      type: string
+    badgeId:
+      type: integer
+      format: int64
+    badgeSlug:
+      type: string
+    grantedAt:
+      type: string
+      format: date-time
+    grantedBy:
+      type: [integer, "null"]
+      format: int64
+      description: Actor user id; null when the actor was hard-deleted.
+    grantReason:
+      type: string
+      description: Free-form operator note; admin surface only.
+BadgeGrantList:
+  type: object
+  required:
+  - items
+  - total
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/BadgeGrantRecord"
+    total:
+      type: integer
+      format: int64
+BadgeCreateInput:
+  type: object
+  description: |
+    Create body (`badgeBody`). Every field is technically optional on the wire
+    because create and update share one struct; the server fills
+    `enabled: true` and `icon: i-lucide-award` when omitted. The four fields
+    below are nevertheless required for a successful create — omitting one
+    fails domain validation with `422 forum.badge_rule_invalid`.
+  required:
+  - slug
+  - name
+  - tier
+  - grantMode
+  properties:
+    slug:
+      type: string
+      description: Lowercase kebab-case identifier; unique.
+    name:
+      type: string
+    description:
+      type: string
+    groupId:
+      type: [integer, "null"]
+      format: int64
+    tier:
+      "$ref": "#/BadgeTier"
+    icon:
+      type: string
+      description: Must start with `i-lucide-` or `i-tabler-`.
+    grantMode:
+      "$ref": "#/BadgeGrantMode"
+    metric:
+      oneOf:
+      - "$ref": "#/BadgeMetric"
+      - type: "null"
+    threshold:
+      type: [integer, "null"]
+      format: int64
+    enabled:
+      type: boolean
+    position:
+      type: integer
+BadgeUpdateInput:
+  type: object
+  description: |
+    Partial update (`badgeBody` merged onto the stored badge). Every field is
+    optional; omitted fields keep their current value, so `{"enabled": false}`
+    alone is a valid request.
+
+    `groupId`, `metric` and `threshold` are tri-state: the key being absent
+    means "leave unchanged", while an explicit `null` means "clear it".
+    Sending `{"metric": null}` on an automatic badge fails validation, because
+    an automatic badge must keep a rule.
+
+    Switching `grantMode` to `manual` clears `metric` and `threshold` server
+    side, so a follow-up edit that switches back to `automatic` must resend the
+    rule.
+  properties:
+    slug:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    groupId:
+      type: [integer, "null"]
+      format: int64
+      description: Absent = unchanged; `null` = ungroup.
+    tier:
+      "$ref": "#/BadgeTier"
+    icon:
+      type: string
+    grantMode:
+      "$ref": "#/BadgeGrantMode"
+    metric:
+      oneOf:
+      - "$ref": "#/BadgeMetric"
+      - type: "null"
+      description: Absent = unchanged; `null` = clear the rule metric.
+    threshold:
+      type: [integer, "null"]
+      format: int64
+      description: Absent = unchanged; `null` = clear the rule threshold.
+    enabled:
+      type: boolean
+    position:
+      type: integer
+BadgeGroupCreateInput:
+  type: object
+  description: |
+    Group create body (`badgeGroupBody`). Fields are non-pointer: an omitted
+    `description` or `position` becomes `""` / `0`, not "keep current".
+  required:
+  - key
+  - name
+  properties:
+    key:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    position:
+      type: integer
+BadgeGroupUpdateInput:
+  type: object
+  description: |
+    Partial update, same shape as the badge PATCH: the handler reads the current
+    group, then merges only the keys that are present. Omitting `description`
+    keeps the stored description; it does not clear it.
+  properties:
+    key:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    position:
+      type: integer
+BadgeGrantInput:
+  type: object
+  description: |
+    Grant body (`badgeGrantBody`). Supply `userId`, or `username` to resolve the
+    recipient by profile username; an unknown username returns
+    `404 forum.badge_not_found`.
+  properties:
+    userId:
+      type: integer
+      format: int64
+    username:
+      type: string
+      description: Alternative to `userId`; resolved through the public profile lookup.
+    reason:
+      type: string
+      description: Operator note stored on the grant record.
+BadgeDeleteResult:
+  type: object
+  required:
+  - deleted
+  properties:
+    deleted:
+      type: boolean
+      description: Always true on success.
+BadgeGrantResult:
+  type: object
+  required:
+  - granted
+  properties:
+    granted:
+      type: boolean
+      description: Always true on success.
+BadgeRevokeResult:
+  type: object
+  required:
+  - revoked
+  properties:
+    revoked:
+      type: boolean
+      description: |
+        Whether a row was actually deleted — **not** "the request succeeded".
+        `true` means a `user_badges` row was removed; `false` means the user did
+        not hold the badge. Both are `200`, because DELETE stays idempotent, so
+        a client must not render `false` as a failure.
+BadgeRecomputeResult:
+  type: object
+  description: |
+    Outcome of a full sweep. Two independent counters, because the sweep does
+    two things: it back-fills missing automatic grants from the current rules,
+    then repairs `top_badge_id`.
+  required:
+  - granted
+  - refreshed
+  properties:
+    granted:
+      type: integer
+      format: int64
+      description: |
+        `user_badges` rows inserted by the rule sweep (`GrantFromRules`).
+        Those rows carry `grantedBy: null` and `grantReason: "recompute"`,
+        which is how a recompute grant is distinguishable from a rule-time
+        grant (null / empty reason) and an operator grant (actor + reason).
+        Running the sweep again on an already-correct community returns 0.
+    refreshed:
+      type: integer
+      format: int64
+      description: |
+        Users whose `top_badge_id` actually changed. Users already pointing at
+        the correct badge are not counted, so a no-op sweep returns 0 here too.
+ApiResponseBadge:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/Badge"
+ApiResponseBadgeList:
+  type: object
+  description: Admin list envelope; `data.items` is the row array.
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/Badge"
+ApiResponseBadgeGroup:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeGroup"
+ApiResponseBadgeGroupList:
+  type: object
+  description: Admin list envelope; `data.items` is the row array.
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      type: object
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            "$ref": "#/BadgeGroup"
+ApiResponseProfileBadges:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/ProfileBadges"
+ApiResponseBadgeGrantList:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeGrantList"
+ApiResponseBadgeGrantResult:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeGrantResult"
+ApiResponseBadgeRevokeResult:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeRevokeResult"
+ApiResponseBadgeDeleteResult:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeDeleteResult"
+ApiResponseBadgeRecomputeResult:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeRecomputeResult"

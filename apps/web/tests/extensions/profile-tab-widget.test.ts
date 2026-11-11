@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { compileVueSfc, flushPromises, mount, testVue } from '../helpers/vueSfc'
+import { buildProfileTabs } from '../../app/utils/profile/profileTabs'
 import {
   extensionTabLabel,
   profileWidgetTabValue,
@@ -111,6 +112,10 @@ const BookmarkTabStub = testVue.defineComponent({
   name: 'SFProfileBookmarkTab',
   render: () => testVue.h('div', { 'data-testid': 'profile-bookmarks-panel' })
 })
+const BadgeTabStub = testVue.defineComponent({
+  name: 'SFProfileBadgeTab',
+  render: () => testVue.h('div', { 'data-testid': 'profile-badges-panel' })
+})
 const SkeletonStub = testVue.defineComponent({
   props: { lines: { type: Number, default: 3 } },
   render: () => testVue.h('div', { 'data-testid': 'profile-skeleton' })
@@ -147,7 +152,27 @@ const bindings: Record<string, unknown> = {
   useToast: () => ({ add: () => {} }),
   useWebOptions: () => ({
     seoSettings: testVue.ref({ topicUrlMode: 'id_slug' }),
-    bookmarksEnabled
+    bookmarksEnabled,
+    badgesEnabled: testVue.ref(false),
+    trustLevelsEnabled: testVue.ref(false)
+  }),
+  // 公开等级：M4 端点未落地，这里与生产实现一致给 null（卡片整块不渲染）。
+  useTrustLevel: () => ({ trustLevel: testVue.ref(null) }),
+  // 徽章墙数据层：本用例只关心 tab 栏，取数给空实现。
+  useProfileBadges: () => ({
+    groups: testVue.ref([]),
+    loading: testVue.ref(false),
+    failed: testVue.ref(false),
+    ensureLoaded: async () => {},
+    retry: async () => {}
+  }),
+  buildProfileTabs,
+  SFProfileBadgeTab: BadgeTabStub,
+  // 右栏等级卡：本用例 trustLevel 恒为 null，卡片不会真的渲染，只需要名字可解析。
+  SFTrustLevelCard: testVue.defineComponent({
+    name: 'SFTrustLevelCard',
+    props: { level: { type: Number, default: 0 }, metrics: { type: Array, default: () => [] } },
+    render: () => null
   }),
   useSiteDateTime: () => ({
     format: (value: string) => value,
@@ -167,6 +192,21 @@ const bindings: Record<string, unknown> = {
   FORUM_PERMISSIONS: { topicCreate: 'forum.topic.create' },
   useForumApi: () => ({ listCategoryGroups: async () => [] }),
   useProfileApi: () => profileApi,
+  // tab 与 `?tab=` 的同步已抽到 useProfileTabQuery：本用例只关心 tab 栏渲染，
+  // 这里给一个共享 activeTab 的替身（回落行为与真实实现一致，URL 写入由
+  // tests/forum/profileTabQuery.test.ts 覆盖）。
+  useProfileTabQuery: () => {
+    const activeTab = testVue.ref('topics')
+    return {
+      activeTab,
+      syncTabQuery: () => {},
+      resetTabIfMissing: (available: string[]) => {
+        if (!available.includes(activeTab.value)) {
+          activeTab.value = 'topics'
+        }
+      }
+    }
+  },
   // 路由壳是唯一取数点；测试里等价于「已 provide 的那份 refs」。
   useProfileShowData: async () => ({
     profile: testVue.ref(state.profile),

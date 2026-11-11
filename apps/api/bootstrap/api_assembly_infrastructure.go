@@ -19,7 +19,9 @@ import (
 	database "github.com/keeptrue/sforum/apps/api/app/Models/Database"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
@@ -54,6 +56,10 @@ type apiInfrastructure struct {
 	humanVerifier         *humanverify.RuntimeService
 	authSessions          *authsession.Manager
 	identityStore         *identity.PostgresStore
+	// trustLevelSource 是信任等级的唯一来源（bootstrap/trust_levels_wiring.go）。
+	trustLevelSource identity.TrustLevelSource
+	// trustLevelResolver 是同一个实例的具体类型：HTTP 面要读 activity 算「还差多少」。
+	trustLevelResolver *trustlevels.Resolver
 	sessionPolicyRenewal  *sessionPolicyRenewalGate
 	identityAuthorityGate *deferredIdentityAuthorityMutationGate
 	adminOverviewStore    *adminoverview.PostgresStore
@@ -224,6 +230,8 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 	})
 	avatarOptions := avatarOptionsAdapter{options: optionsService}
 	identityStore := identity.NewPostgresStoreWithAvatar(pool, avatarOptions)
+	// 信任等级来源只在这里构造一次（M8 断言：全仓唯一 NewResolver 调用点）。
+	trustLevelResolver := newTrustLevelSource(optionsService, badges.NewPostgresActivityStore(pool))
 	// Session policy renewal gate is bound after the lifecycle stack publishes
 	// the Identity Registry and Session Policy Store. Until then renew is a
 	// Core-equivalent no-op; revocation never uses this gate.
@@ -290,6 +298,8 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 		humanVerifier:         humanVerifier,
 		authSessions:          authSessions,
 		identityStore:         identityStore,
+		trustLevelResolver:    trustLevelResolver,
+		trustLevelSource:      trustLevelResolver,
 		sessionPolicyRenewal:  sessionPolicyRenewal,
 		identityAuthorityGate: identityAuthorityGate,
 		adminOverviewStore:    adminOverviewStore,

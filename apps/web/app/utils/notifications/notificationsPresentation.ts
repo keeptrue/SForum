@@ -34,6 +34,8 @@ const notificationIcons: Record<NotificationItem['type'], string> = {
   reply: 'i-tabler-message-reply',
   mention: 'i-tabler-at',
   reaction: 'i-tabler-heart',
+  // 徽章授予：用奖章图标，与点赞/回复区分开——它是荣誉不是互动。
+  badge_granted: 'i-tabler-award',
   moderation_pending: 'i-tabler-shield-exclamation',
   moderation_approved: 'i-tabler-shield-check',
   moderation_rejected: 'i-tabler-shield-x',
@@ -48,6 +50,7 @@ export const notificationFilters: NotificationFilter[] = [
   'reply',
   'mention',
   'reaction',
+  'badge_granted',
   'moderation_pending',
   'moderation_approved',
   'moderation_rejected',

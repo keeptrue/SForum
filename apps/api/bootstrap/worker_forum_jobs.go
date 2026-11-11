@@ -115,6 +115,8 @@ func registerForumBookmarkRemindersWorker(
 	// 并额外实现了 BookmarkReminderNotifier（提醒投影）。
 	forumStore := forum.NewPostgresStore(pool).WithCommentNotifications(forumNotificationAdapter{outbox: outbox})
 	forumjobs.RegisterBookmarkReminders(registry, forumStore, logger)
+	// 徽章评估 worker 与收藏提醒共用同一个 outbox：通知出口只有一套装配。
+	registerBadgesEvaluateUserWorker(registry, pool, outbox, logger)
 	coreScheduleConstructors[supportjobs.ScheduleForumBookmarkReminders] = wrapEnabled(
 		supportjobs.ScheduleForumBookmarkReminders,
 		func() (river.JobArgs, *river.InsertOpts) {

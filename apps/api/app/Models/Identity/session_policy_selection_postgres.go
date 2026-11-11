@@ -23,6 +23,16 @@ type PostgresIdentitySessionPolicyStore struct {
 	registry              *identityregistry.Registry
 	effectGate            identitySessionPolicyEffectGate
 	effectConnectionSlots chan struct{}
+	// trustLevels 与 identity.PostgresStore 共用同一个来源（D22）。
+	trustLevels TrustLevelSource
+}
+
+// WithTrustLevelSource 注入信任等级来源；未注入时事务路径的行为与本刀之前一致。
+func (s *PostgresIdentitySessionPolicyStore) WithTrustLevelSource(source TrustLevelSource) *PostgresIdentitySessionPolicyStore {
+	if s != nil {
+		s.trustLevels = source
+	}
+	return s
 }
 
 var _ IdentitySessionPolicyStore = (*PostgresIdentitySessionPolicyStore)(nil)
@@ -234,7 +244,7 @@ func (s *PostgresIdentitySessionPolicyStore) selectOnce(
 	}
 	// Registry authority always precedes actor and selection locks. Lifecycle
 	// invalidation follows the same order, preventing upgrade/select deadlocks.
-	if err := authorizeIdentitySessionPolicyActor(ctx, tx, input.actorUserID); err != nil {
+	if err := authorizeIdentitySessionPolicyActor(ctx, tx, input.actorUserID, s.trustLevels); err != nil {
 		return IdentitySessionPolicyMutation{}, mapIdentitySessionPolicyStoreError(err)
 	}
 	liveEvidence := identitySessionPolicyEvidenceForProvider(claim.provider, tip.revision)
@@ -361,7 +371,7 @@ func (s *PostgresIdentitySessionPolicyStore) resetOnce(
 		return IdentitySessionPolicyMutation{}, mapIdentitySessionPolicyStoreError(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
-	if err := authorizeIdentitySessionPolicyActor(ctx, tx, input.actorUserID); err != nil {
+	if err := authorizeIdentitySessionPolicyActor(ctx, tx, input.actorUserID, s.trustLevels); err != nil {
 		return IdentitySessionPolicyMutation{}, mapIdentitySessionPolicyStoreError(err)
 	}
 	if err := lockIdentitySessionPolicySelection(ctx, tx); err != nil {

@@ -68,6 +68,23 @@
     "exporter": false
   },
   {
+    "id": "core.admin.page.badges",
+    "source": "apps/web/app/pages/admin/badges.vue",
+    "navigation": true,
+    "dashboard": false,
+    "list": true,
+    "columns": false,
+    "filters": false,
+    "rowActions": false,
+    "bulkActions": false,
+    "forms": true,
+    "notices": true,
+    "editorPanels": false,
+    "detailRegions": false,
+    "importer": true,
+    "exporter": false
+  },
+  {
     "id": "core.admin.page.database",
     "source": "apps/web/app/pages/admin/database.vue",
     "navigation": true,

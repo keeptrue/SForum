@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/riverqueue/river"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
+	"github.com/riverqueue/river"
 )
 
 type DeliverMailArgs struct {

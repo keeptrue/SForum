@@ -27,7 +27,7 @@ func (b *PostgresProtocolV2CommandBackend) AuthorizeActorDelegation(
 		!protocolV2SHA256Hex(fingerprint) {
 		return 0, invalidProtocolV2CommandActorDelegation()
 	}
-	actor, err := loadProtocolV2CommandActor(ctx, tx, delegation.ActorUserID)
+	actor, err := loadProtocolV2CommandActor(ctx, tx, delegation.ActorUserID, b.trustLevels)
 	if err != nil {
 		return 0, err
 	}
@@ -92,8 +92,8 @@ func (b *PostgresProtocolV2CommandBackend) AuthorizeActorDelegation(
 	return actor.ID, nil
 }
 
-func loadProtocolV2CommandActor(ctx context.Context, tx pgx.Tx, userID int64) (identity.Actor, error) {
-	actor, err := identity.LoadEffectiveActorTx(ctx, tx, userID)
+func loadProtocolV2CommandActor(ctx context.Context, tx pgx.Tx, userID int64, trust identity.TrustLevelSource) (identity.Actor, error) {
+	actor, err := identity.LoadEffectiveActorTx(ctx, tx, userID, trust)
 	if errors.Is(err, identity.ErrActorInactive) {
 		return identity.Actor{}, inactiveProtocolV2CommandActor()
 	}

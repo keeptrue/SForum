@@ -35,8 +35,8 @@ const (
 	ShortcodeProjectionContractVersion = "1"
 	ShortcodeProjectionSchemaVersion   = "1"
 
-	shortcodeProjectionActorSQLToken       = "{{sforum_actor_user_id}}"
-	shortcodeProjectionActorPolicy         = "sforum.shortcode.actor_decision"
+	shortcodeProjectionActorSQLToken = "{{sforum_actor_user_id}}"
+	shortcodeProjectionActorPolicy   = "sforum.shortcode.actor_decision"
 )
 
 var ErrShortcodeProjectionActorUnavailable = errors.New("hostapi: shortcode projection actor is unavailable")

@@ -144,3 +144,27 @@ DatabaseTable:
   schema:
     type: string
   description: Database table name.
+BadgeID:
+  name: badgeID
+  in: path
+  required: true
+  schema:
+    type: integer
+    format: int64
+  description: Numeric badge definition id.
+BadgeGroupID:
+  name: groupID
+  in: path
+  required: true
+  schema:
+    type: integer
+    format: int64
+  description: Numeric badge group id.
+BadgeGrantUserID:
+  name: userID
+  in: path
+  required: true
+  schema:
+    type: integer
+    format: int64
+  description: Numeric user id of the badge recipient.

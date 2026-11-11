@@ -129,7 +129,7 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 	queryCacheOwnership := newQueryResultCacheStageHandoff(core.queryResultCache, logger)
 	defer queryCacheOwnership.CloseUnlessHandedOff()
 	app := httpserver.NewApp(cfg, logger, httpserver.Dependencies{
-		RouteProviders:  []httpserver.RouteProvider{core.identityProvider, core.notificationsProvider, core.mailProvider, core.adminOverviewProvider, core.systemUpdatesProvider, core.forumProvider, core.profileProvider, core.moderationProvider, core.optionsProvider, core.siteChromeProvider, core.attachmentsProvider, core.seoProvider, core.databaseProvider, core.jobsProvider, core.extensionsProvider, core.webhooksProvider, core.entityMetaProvider, core.pagesProvider, core.aiProvider},
+		RouteProviders:  []httpserver.RouteProvider{core.identityProvider, core.notificationsProvider, core.mailProvider, core.adminOverviewProvider, core.systemUpdatesProvider, core.forumProvider, core.profileProvider, core.moderationProvider, core.optionsProvider, core.siteChromeProvider, core.attachmentsProvider, core.seoProvider, core.databaseProvider, core.jobsProvider, core.extensionsProvider, core.webhooksProvider, core.badgesProvider, core.trustLevelsProvider, core.entityMetaProvider, core.pagesProvider, core.aiProvider},
 		RoutePlans:      core.lifecycleStack.RouteProviders,
 		RouteDispatcher: core.routeDispatcher,
 		RouteActors: func(c fiber.Ctx) (identity.Actor, error) {

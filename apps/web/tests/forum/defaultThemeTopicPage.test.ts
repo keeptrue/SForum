@@ -35,7 +35,10 @@ describe('default theme V32 topic page contract', () => {
     expect(themeTemplate).toContain("'forum.component.topic_show': SFTopicShowPage")
     expect(themeTemplate).not.toContain("import('./forum/SFTopicShowPage.vue')")
     expect(avatar).toContain("loading: 'lazy'")
-    expect(heading).toContain('loading="eager"')
+    // 主题页作者头像必须 eager：作者块默认 avatarLoading='eager'，且不出现 lazy。
+    const authorBlock = sourceFile('../../app/components/forum/SFTopicAuthorBlock.vue')
+    expect(authorBlock).toContain("avatarLoading: 'eager'")
+    expect(authorBlock).toContain(':loading="avatarLoading"')
     expect(comment).not.toContain('loading="eager"')
   })
 
