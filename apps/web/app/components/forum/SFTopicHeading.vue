@@ -81,7 +81,6 @@ function badgeHref(badge: ForumTopicExtensionBadge) {
         :name="authorName"
         :to="authorTo"
         :top-badge="topic.topBadge || null"
-        :trust-level="topic.authorTrustLevel || null"
       />
 
       <time :datetime="topic.createdAt">{{ publishedLabel }}</time>

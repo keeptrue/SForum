@@ -6229,7 +6229,6 @@
     "publishedAt": "Published {time}",
     "updatedAt": "Updated {time}",
     "opBadge": "OP",
-    "trustBadge": "Trust level {level}",
     "userPreview": {
       "open": "Preview {name}'s profile",
       "ariaLabel": "Profile preview for {name}",

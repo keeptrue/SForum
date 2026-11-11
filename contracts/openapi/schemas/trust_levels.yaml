@@ -56,55 +56,6 @@ TrustLevelName:
     en:
       type: string
 
-TrustTierColor:
-  type: string
-  description: |
-    档位识别色 token（9 值）。取值域是**唯一**一份声明：后台读面的 `colorChoices`、
-    公开/后台档位定义的 `color`、论坛作者徽章的 `authorTrustLevel.color` 全部引用它。
-    顺序（见 `colorChoices`）即默认色序：`colorChoices[n]` 属于 rank n（n 从 0 起）。
-    颜色与站点主题 accent 解耦，不接受自由 hex。
-  enum:
-    - slate
-    - teal
-    - emerald
-    - sky
-    - indigo
-    - violet
-    - fuchsia
-    - rose
-    - amber
-
-AuthorTrustLevel:
-  type: object
-  description: |
-    作者信任等级的**只读派生**投影（论坛列表/详情/评论共用）。等级不是数据库列，
-    而是按 `user_activity` 六项 + `users.created_at` 用当前 `trust.levels` 策略算出来的；
-    同一份结果与后台读面走同一个 `Policy.ColorOf`，因此颜色不会两处不一致。
-
-    隐私边界：本结构只有三项。**不含**进度、瓶颈指标与任何行为计数——
-    `like_given_count` / `bookmark_count` 是刻意不公开的窥探面（D1）。
-
-    缺席语义：`features.trust_levels` 关闭、批量装载失败、作者行已删或该用户还没有
-    统计行时，字段**整体缺席**（不是 null、不是 `level: 0` 的占位）。客户端据此
-    不渲染徽章，而不是渲染一个「看起来像新成员」的错误等级。
-  required: [level, levelSlug, color]
-  properties:
-    level:
-      type: integer
-      description: |
-        序号（rank）。`0` = TL0（新成员），上界由站点当前 active 档数决定（最多 TL8）。
-        只用于 `TL{n}` 展示与比较，**不是**身份。
-    levelSlug:
-      type: string
-      description: |
-        档位的**稳定身份 id**：`newcomer` / `member` / `resident` / `veteran` /
-        `leader` / `tier_<seq>`。与 `TrustLevelDefinition.levelSlug` 同一取值域；
-        刻意不叫 `slug`——TL1 的标识是 `member`，与角色 key 同字符串。
-    color:
-      allOf:
-        - "$ref": "#/TrustTierColor"
-      description: 有效色：显式覆盖优先，否则按 rank 取默认色序（TL0 = slate）。
-
 TrustLevelDefinition:
   type: object
   required: [level, levelSlug, displayName, icon, color, requirements, earnable, retired, editable]
@@ -139,8 +90,16 @@ TrustLevelDefinition:
         「跟随位次」是服务端的解析结果，不是客户端的判断分支——本字段永远不下发空值。
         写入时 `trust.levels` 的 `tiers[].color` 可以省略或写空串表示自动，
         合法取值见 `colorChoices`；不在白名单内即 422（`color_not_whitelisted`）。
-      allOf:
-        - "$ref": "#/TrustTierColor"
+      enum:
+        - slate
+        - teal
+        - emerald
+        - sky
+        - indigo
+        - violet
+        - fuchsia
+        - rose
+        - amber
     requirements:
       "$ref": "#/TrustLevelRequirements"
     limits:
@@ -299,7 +258,8 @@ TrustLevelAdmin:
       minItems: 9
       maxItems: 9
       items:
-        "$ref": "#/TrustTierColor"
+        type: string
+        enum: [slate, teal, emerald, sky, indigo, violet, fuchsia, rose, amber]
     namePool:
       "$ref": "#/TrustLevelNamePool"
     tierLimits:

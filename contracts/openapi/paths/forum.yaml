@@ -160,9 +160,6 @@ topics:
       **优先级：非空 `after` 优先于 `page`（page 被忽略）。** 深翻页 / infinite scroll 应使用
       `after` + 响应 `hasMore` / `nextCursor`，避免大 OFFSET。置顶参与 keyset 第一排序维
       （`is_pinned DESC`，再 sort 列，再 id），算法稳定可测。
-
-      **作者信任等级：** 每行可选 `authorTrustLevel`（按整页作者 id 一次批量装载，
-      失败或 `features.trust_levels` 关闭时整体缺席，不影响 200）。
     parameters:
     - name: page
       in: query
@@ -868,8 +865,6 @@ topicByID:
       Redis INCR 增量 + 周期 River 刷盘，**禁止**每请求 `UPDATE topics.view_count`。
       Redis 不可用时跳过计数，仍返回 200。列表/搜索/sitemap/管理端不计。
       无公开 `POST /view`；客户端一次导航应只请求一次详情。
-
-      **作者信任等级：** `authorTrustLevel` 为只读派生字段；关闭/装载失败时缺席，仍返回 200。
     parameters:
     - "$ref": "../components/parameters.yaml#/TopicID"
     responses:
@@ -1274,8 +1269,6 @@ topicComments:
       **排序：** view=flat 是时间流，按 `created_at ASC, id ASC` 返回；新评论恒在列表末尾
       （最底楼），既有评论的位置不因他人回复而改变，回复关系由每行的 `replyTo` 引用表达。
       view=tree 仍按 `path_key` 返回父子结构。
-
-      **作者信任等级：** 每行可选 `authorTrustLevel`，整页作者一次批量装载；关闭/失败时缺席。
 
       **分页（M5）：** view=flat 支持 keyset `after`（created_at + id）。
       **优先级：非空 `after` 优先于 `page`。** 响应含 `hasMore` / `nextCursor`。

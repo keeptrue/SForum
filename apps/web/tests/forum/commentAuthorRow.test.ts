@@ -26,20 +26,11 @@ const NuxtLinkStub = defineComponent({
 })
 
 const rowPath = fileURLToPath(new URL('../../app/components/forum/SFCommentAuthorRow.vue', import.meta.url))
-// 信任等级徽章在 `tests/forum/trustTierBadge.test.ts` 里单独挂真组件；这里只要占位，
-// 且只在给了 `trustLevel` 时才落地 —— 保证本文件的既有断言（楼主标 + chip）不被新增节点干扰。
-const TrustBadgeStub = defineComponent({
-  name: 'SFTrustTierBadge',
-  props: { trustLevel: { type: Object, default: null }, size: { type: String, default: 'row' } },
-  template: '<span v-if="trustLevel" data-testid="tl-badge" />'
-})
-
 const SFCommentAuthorRow = await compileVueSfc(rowPath, 'sf-comment-author-row', {
   computed,
   useI18n: () => ({ t: (key: string) => (key === 'topicDetail.opBadge' ? '楼主' : key) }),
   SFUserIdentityName: IdentityStub,
-  SFBadgeChip: ChipStub,
-  SFTrustTierBadge: TrustBadgeStub
+  SFBadgeChip: ChipStub
 })
 
 function mountRow(props: Record<string, unknown>) {

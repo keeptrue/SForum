@@ -10,9 +10,9 @@ import (
 
 	forumcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Forum"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
-	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
@@ -115,17 +115,6 @@ func attachForumReactions(controller *forumcontroller.Controller, service *forum
 }
 
 // WithIdempotency 为发帖/评论写路径启用 Idempotency-Key（F3.2）。
-// WithAuthorTrustLevels 注入论坛读面的作者等级来源（批量）。
-//
-// 注入到 Service 上：PublicReadService 与控制器共享同一个 *Service 指针，所以
-// 装饰器立刻生效，不需要再改控制器构造签名。
-func (p *ForumProvider) WithAuthorTrustLevels(source forum.AuthorTrustLevelSource) *ForumProvider {
-	if p != nil && p.controller != nil {
-		p.controller.WithAuthorTrustLevels(source)
-	}
-	return p
-}
-
 func (p *ForumProvider) WithIdempotency(store *idempotency.Store) *ForumProvider {
 	if p != nil && p.controller != nil {
 		p.controller.WithIdempotency(store)

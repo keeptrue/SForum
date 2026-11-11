@@ -11,7 +11,6 @@ import {
   forumCategoryChipToneClass,
   forumListBadgeToneClass
 } from '~/utils/forum/forumListPresentation'
-import SFTrustTierBadge from '~/components/forum/SFTrustTierBadge.vue'
 
 const props = defineProps<{
   topic: ForumTopicSummary
@@ -145,8 +144,6 @@ const pillBase =
             {{ authorName }}
           </NuxtLink>
           <span v-else class="truncate">{{ authorName }}</span>
-          <!-- 信任等级：只读装饰，紧跟在作者名之后（规格 9.1「昵称 → TL」） -->
-          <SFTrustTierBadge :trust-level="topic.authorTrustLevel || null" size="row" />
           <template v-if="hasReplies">
             <span class="sf-home-topic-row__meta-arrow inline-flex shrink-0 items-center text-[var(--sf-public-text-muted)]" aria-hidden="true">
               <UIcon name="i-lucide-arrow-left" class="size-3" />

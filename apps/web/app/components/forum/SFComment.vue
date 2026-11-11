@@ -325,7 +325,6 @@ const InlineEditorHost = () => {
             :username="previewUsername"
             :display-name="comment?.author?.displayName || ''"
             :top-badge="comment?.topBadge || null"
-            :trust-level="comment?.authorTrustLevel || null"
             :is-op-author="isOpAuthor"
             :interactive="canPreviewUser"
             :preview-open="userPreviewOpen"

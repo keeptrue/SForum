@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { ForumBadgeRef } from '~/utils/forum/forumBadge'
-import type { ForumAuthorTrustLevel } from '~/utils/forum/forumTaxonomy'
 import { userDisplayName, type ForumUserRef } from '~/utils/forum/userDisplay'
 import SFBadgeChip from '~/components/forum/SFBadgeChip.vue'
-import SFTrustTierBadge from '~/components/forum/SFTrustTierBadge.vue'
 
 /**
  * 作者块：头像 + 昵称 + 最高级徽章 chip，主题标题行与评论行共用。
@@ -18,15 +16,12 @@ const props = withDefaults(defineProps<{
   name?: string
   to?: string
   topBadge?: ForumBadgeRef | null
-  /** 作者信任等级（请求级装饰；缺席时不渲染徽章）。 */
-  trustLevel?: ForumAuthorTrustLevel | null
   size?: 'xs' | 'sm'
   avatarLoading?: 'eager' | 'lazy'
 }>(), {
   name: '',
   to: undefined,
   topBadge: null,
-  trustLevel: null,
   size: 'sm',
   avatarLoading: 'eager'
 })
@@ -44,8 +39,6 @@ const displayName = computed(() => props.name?.trim() || userDisplayName(props.a
       <SFAvatar :name="displayName" :avatar="author?.avatar" :size="size" :loading="avatarLoading" />
       <span class="sf-topic-author__name">{{ displayName }}</span>
     </span>
-    <!-- 规格 9.1：昵称 → TL → 奖励 chip（本处无楼主标） -->
-    <SFTrustTierBadge :trust-level="trustLevel" size="author" />
     <SFBadgeChip v-if="topBadge" :badge="topBadge" :username="author?.username || null" />
   </span>
 </template>

@@ -16,15 +16,15 @@ import (
 	adminoverview "github.com/keeptrue/sforum/apps/api/app/Models/AdminOverview"
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
-	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	database "github.com/keeptrue/sforum/apps/api/app/Models/Database"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
+	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
-	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
@@ -60,8 +60,6 @@ type apiInfrastructure struct {
 	trustLevelSource identity.TrustLevelSource
 	// trustLevelResolver 是同一个实例的具体类型：HTTP 面要读 activity 算「还差多少」。
 	trustLevelResolver *trustlevels.Resolver
-	// trustLevelBatch 是论坛读面的批量来源（按作者 id 一次算一页）。
-	trustLevelBatch       *trustlevels.BatchResolver
 	sessionPolicyRenewal  *sessionPolicyRenewalGate
 	identityAuthorityGate *deferredIdentityAuthorityMutationGate
 	adminOverviewStore    *adminoverview.PostgresStore
@@ -234,8 +232,6 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 	identityStore := identity.NewPostgresStoreWithAvatar(pool, avatarOptions)
 	// 信任等级来源只在这里构造一次（M8 断言：全仓唯一 NewResolver 调用点）。
 	trustLevelResolver := newTrustLevelSource(optionsService, badges.NewPostgresActivityStore(pool))
-	// 批量来源：论坛读面按作者 id 一次性算等级（同一份 Policy，避免与本人视角分叉）。
-	trustLevelBatch := newTrustLevelBatchResolver(optionsService, badges.NewPostgresActivityStore(pool), identityStore)
 	// Session policy renewal gate is bound after the lifecycle stack publishes
 	// the Identity Registry and Session Policy Store. Until then renew is a
 	// Core-equivalent no-op; revocation never uses this gate.
@@ -304,7 +300,6 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 		identityStore:         identityStore,
 		trustLevelResolver:    trustLevelResolver,
 		trustLevelSource:      trustLevelResolver,
-		trustLevelBatch:       trustLevelBatch,
 		sessionPolicyRenewal:  sessionPolicyRenewal,
 		identityAuthorityGate: identityAuthorityGate,
 		adminOverviewStore:    adminOverviewStore,
