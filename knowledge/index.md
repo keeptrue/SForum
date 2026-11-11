@@ -13,7 +13,8 @@ load archived sessions or completed plans as current context.
   `Actor.Permissions`（`Can()` 零改动，D13），装载公式
   `effective = Expand(static) ∪ (earned ∖ denied)`（D14）；现有「新人信任阶梯」
   （`trustForActor`，七项 `trust.new_user*`）收编为 TL0。本刀不新增表、不新增列。
-  **默认 earnable = ∅**，权限解锁是运营开启的框架能力，不是开箱行为。
+  **默认 earnable = ∅**，权限解锁是运营开启的框架能力；**D34 例外**：两个基线键由装载期减法门在
+  TL0 扣下、TL1 起恢复（开箱即生效，不进 earnable，见 `decisions/2026-11-11-trust-level-baseline-narrowing.md`）。
   M1/M2 已落地并**已装配**（`bootstrap/api_assembly_domains.go:321`）、`features.trust_levels`
   五处注册已齐、M3 已收编新人阶梯（等级与限额均生效）；M4 公开面已落地（catalog 409 = 405 +
   4 条信任等级路由、OpenAPI path 文件在、公开响应不含 `limits`）。施工细节与中间态看 handoff。

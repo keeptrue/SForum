@@ -8,12 +8,16 @@
 > card are all implemented and wired: **saving thresholds immediately changes tier
 > evaluation and per-tier limits**. Earned capability unlocking is off by default and
 > must be configured per tier by the operator — see "Turning on earned capabilities".
+> **Two more keys are gated by the system baseline**: off at TL0 and on from TL1 on a
+> default install — see "Two keys are level-gated".
 
 ## In one sentence
 
 Role permissions answer "what did an admin grant you"; trust levels answer "how
 much have you done here". The latter only unlocks permissions that **already
-exist** — it never invents new capabilities and never takes away what a role gave.
+exist** — it never invents new capabilities. **The one subtraction**: during TL0 the
+system withholds two baseline keys (create topics, upload attachments) and restores
+them from TL1 on — no role is edited; see "Two keys are level-gated".
 
 ## What it is not
 
@@ -57,14 +61,19 @@ restriction), so there is **no observable limit difference** between TL1 and TL4
 today. "Higher tiers skip cooldowns" is not true in this codebase and is not
 written here.
 
-## No permissions are unlocked by default
+## Two keys are level-gated; nothing else unlocks by default
 
-**On a default install, no tier unlocks any permission.** This has to be said first,
-otherwise readers assume "active enough and I can post".
+Keep two different things apart:
 
-The default value of trust levels is three things: **tiered limits, tier display,
-and progress hints**. Permission unlocking is a framework capability, empty by
-default, configured explicitly by the operator.
+- **Earned capability unlocking (earnable) is an empty set by default**: every tier's
+  unlock list is empty and must be filled in per tier by the operator. That has not changed.
+- **System baseline gating**: `topic.create` (create topics) and `attachment.upload`
+  (upload attachments) are **not decided by earnable** — a code-level baseline constant
+  decides them. On a default install **TL0 does not have these two keys and TL1 and above
+  do**, and the admin cannot turn them off.
+
+So on a default install tiers affect **three things**: **tiered limits, tier display, and
+whether these 2 baseline keys are available**.
 
 The unlockable set is a **positive whitelist of exactly 7 content-creation
 permissions**: create topics, reply, upload attachments, edit your own topic, edit
@@ -76,6 +85,25 @@ moderation, management permissions, settings permissions, extension permissions,
 admin access. The reason is not conservatism: those capabilities carry privilege
 without matching audit, so handing them out via "earn enough likes" would create
 actions nobody can trace.
+
+### The two baseline-gated keys (on by default)
+
+| Key | What it does | TL0 | TL1 and above |
+| --- | --- | --- | --- |
+| `topic.create` | Create new topics | no | yes |
+| `attachment.upload` | Upload attachments (**avatar uploads use this key too**) | no | yes |
+
+- **Why TL0 lacks them**: these are things "full members" do; TL0 keeps replying and
+  editing/deleting its own content.
+- **How to get them back**: reach the TL1 threshold (numbers are whatever the trust level
+  page shows right now), or pass the newcomer trust window — once it expires a user is at
+  least TL1.
+- **Ticking in the admin cannot change them**: they are system constants, not part of the
+  earnable list; the page shows them as level-gated with no checkbox.
+- **Nothing is withheld while the flag is off**: turning `features.trust_levels` off
+  disables the baseline gate entirely, so all seven keys are present, exactly as before.
+- **Avatars**: changing an avatar and uploading an attachment share one key, so a TL0 user
+  cannot change their avatar either; it comes back from TL1.
 
 ## What you can tune today: newcomer limits (seven keys)
 
@@ -123,20 +151,22 @@ evaluation and posting limits are one chain, no longer split in two — raising 
 threshold demotes users below it, lowering it promotes users who now qualify.
 
 **Earned capability unlocking lives on the same page and is off by default.** See
-the next section — the set is empty by default, so on a default install nobody gains
-extra permissions from activity.
+the next section — the list is empty by default, so **ticking** changes nobody's
+capability on a default install. Keep them apart: tiers still change the two TL0 baseline
+keys through the baseline gate (previous section), and that has nothing to do with ticking.
 
 ## Turning on earned capabilities
 
 Path: **Admin → Settings → the "Trust levels" tab** (the same page as the
 thresholds), where you tick unlockable permission keys per tier.
 
-**Empty by default is the normal state.** On a default install no tier unlocks any
-permission; tiers only affect limits and display. The default `member` role already
-holds all 7 unlockable keys, so turning the list on without touching roles changes
-nobody's capability — to see an effect you must also remove that key from the role
-(that is role management, not this page). The unlockable range and the "can never be
-unlocked" boundary are in "No permissions are unlocked by default".
+**Empty by default is the normal state.** On a default install every tier's earnable
+list is empty; the only default capability effect of tiers is the baseline gate from the
+previous section (TL0 loses two keys). The default `member` role already holds all 7
+unlockable keys, so **turning the list on without touching roles** changes nobody's
+capability **through ticking** — to see a ticking effect you must also remove that key
+from the role (that is role management, not this page). The unlockable range and the
+"can never be unlocked" boundary are in the previous section.
 
 Three things you must know:
 
@@ -145,8 +175,9 @@ Three things you must know:
 as well. Read the list as "what this tier **adds**", not "what this tier has"; to give
 something to the top tier only, tick it there only.
 
-**2. TL0 does not participate.** TL0 behaviour comes from the seven newcomer-limit
-keys; the unlock list has no effect on TL0.
+**2. TL0 does not participate in earnable.** TL0 behaviour comes from the seven
+newcomer-limit keys; the unlock list has no effect on TL0. TL0 is still affected by the
+baseline gate (it lacks two keys) — the two are not the same thing.
 
 **3. All-zero thresholds mean "everyone qualifies".** A tier is reached only when
 **all** its metrics are met, and `0` means that metric does not participate. Setting
@@ -179,6 +210,10 @@ overrides. It deliberately does **not** include capabilities earned by trust lev
 on an actual request. Do not use an admin screenshot as evidence that "he had no
 permission, so how did he post".
 
+**Known gap, stated plainly**: the user detail does not reflect the baseline deduction
+either, so a TL0 user's detail page still shows that they can create topics while the
+actual request is denied. Trust the request, not the detail page.
+
 **Why is a moderator not limited as a newcomer?** See the three exempt kinds above:
 accounts holding `settings.manage` or `topic.edit_any` are excluded.
 
@@ -190,9 +225,10 @@ deleted.
 is on and the user is still inside the trust window. Either wait for the window to
 end or turn that key off.
 
-**Will trust levels invalidate my existing role permissions?** No. They can only
-**add** capability, never remove it; role grants and user-level deny overrides keep
-their current semantics.
+**Will trust levels invalidate my existing role permissions?** Mostly no, with one
+exception. They only **add** capability, never remove it; the one subtraction is the TL0
+baseline gate (create topics, upload attachments), restored from TL1 on. Role grants and
+user-level deny overrides keep their current semantics.
 
 **Can a high tier unlock "edit other people's posts"?** No. That family can never be
 earned and the admin cannot select it; those capabilities carry privilege without

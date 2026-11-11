@@ -182,10 +182,18 @@ D23），后者专供 `GrantSource()` 解释来源、**不参与裁决**。
 进 earnable 会撞 D6。**所以「TL2 解锁发帖」在默认安装里不存在**——权限解锁是运营在
 后台开启的框架能力，不是开箱行为。
 
+> **已被 D34 修正（2026-11-11，Z3-b″）**：上一段最后半句「不是开箱行为」在**权限集合**层面
+> 已不成立——`topic.create` / `attachment.upload` 两个基线键由**装载期减法门**在 TL0 扣下、
+> TL1 起恢复，默认安装即生效。`earnable` 默认空集这一半仍然为真（D17 不动）。
+> 机制、四条不扣与已知缺口见文末「D34 增量」。
+
 | TL | 名称（slug，D10 修订版） | 默认解锁 | 默认限额 |
 | --- | --- | --- | --- |
 | 0 | 新用户 `newcomer` | ∅ | 沿用 `trust.new_user*` 七键现值 |
 | 1–4 | 正式用户 / 常驻用户 / 资深用户 / 领袖 | ∅（运营可配） | 站点默认，不叠加额外限制 |
+
+> 本表的「默认解锁」列只描述 **earnable**。D34 之后，TL0 的**有效权限集合** = `member` 基线
+> 7 键 − 基线门 2 键 = 5 键；TL1+ = 7 键。两者不要混为一谈。
 
 > 计划 §5 的表仍写着初稿名（新成员 / 成员 / …），**以 D10 为准**（全档带「用户」、与
 > 角色词族零字面重叠）。计划 §5 与 D10 的这处不一致已报给 lead，等计划侧回填。
@@ -194,7 +202,8 @@ D23），后者专供 `GrantSource()` 解释来源、**不参与裁决**。
 `forum.topics.cooldown_seconds`、`forum.topics.daily_limit`、
 `forum.comments.cooldown_seconds`、`forum.comments.daily_limit`），所以「TL3 免冷却 /
 TL4 日限额放宽」这类文案在本仓库是假的，**已从计划与文档里删掉**。默认安装只有
-TL0 与 TL1+ 之间有差异——这是事实，照实写。
+TL0 与 TL1+ 之间有差异——这是事实，照实写。**D34 之后差异不止限额**：TL0 还少两个基线键
+（见文末「D34 增量」）。
 
 两条结构约束：D15 —— earnable 与 `legacyPermissionChildren` 的**父键**必须零交集
 （否则 earned 会隐式展开出一串子权限）；D16 —— `features.trust_levels` 要进 5 处
@@ -359,6 +368,8 @@ registry 条目的映射是死行。
 4. **默认 earnable = ∅**，所以「TL2 解锁发帖」在默认安装里不存在。权限解锁是运营开启的框架
    能力（D17 要求必须有编辑入口，否则机制是死代码）。裁决见
    `../decisions/2026-11-11-trust-level-earnable.md`（D33：走 A 路补编辑器，默认空集不变）。
+   **D34 补充**：「TL1 解锁发帖」这件事在默认安装里**存在**，但它走基线门、不走进 earnable——
+   所以别把本条的「不存在」推广成「等级默认不影响权限」。
 5. **TL1–TL4 默认限额 = 站点默认**（D27：`null` = 继承，全档默认继承）。站点默认冷却与日限额
    都是 `0`，所以默认安装只有 TL0 与 TL1+ 之间有差异。
 6. **`LoadActor` 的查询基线是 4 次**（主查询 + 角色 + 权限 + `created_at`/`kind` 合并读），
@@ -533,9 +544,51 @@ SFORUM_TL_TEST_LOG=/tmp/iso.log ./scripts/verify-trust-levels-acceptance.sh
 全记成 PASS。判据：**矩阵是唯一编号源，脚本按矩阵 ID 落盘，矩阵有而脚本没有的显式标「未实现」**
 ——省略会让人以为覆盖了。与「自证式断言不算断言」是同一条链：**没有执行证据的绿，不是绿。**
 
+## D34 增量（2026-11-11，基线收窄 Z3-b″）
+
+裁决：`../decisions/2026-11-11-trust-level-baseline-narrowing.md`；计划
+`../plans/2026-11-11-trust-levels-baseline-narrowing.md`（§1 死锁、§4-bis 裁决）；
+验收 `../reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`（N 组 16 条）。
+代码提交 `185be5701`，文档提交 `69f455a42`。
+
+**机制**（三句话）：
+
+1. `TrustLevels/baseline_grants.go:23` 的 `BaselineGrants()` 是**代码常量**（两个键：
+   `topic.create` / `attachment.upload`），**不进** `DefaultPolicy().Earnable`，后台不可配。
+2. 装载期 `Identity/trust_level_grants.go` 的 `applyTrustGrants`（`:35`）→ `deductBaselineGrants`
+   （`:58`）在等级已解析且低于 TL1 时从 `Permissions` 扣除；`mergeEarnedKeys`（`:78`）仍在同处合并 earned。
+   **合并点只有一个**：`LoadActor` 与 `LoadEffectiveActorTx` 都走它。
+3. **四条不扣**：开关关闭 / 等级未解析 / bot（`Kind.IsBot()`）/ 该键在
+   `user_permission_overrides` 里是 `effect='allow'`（运营手动放开不被静默推翻）。
+   第四条在事务装载里另有一份 `allowed` 集合（同批 override 行，不额外查库）。
+
+**读面字段**：`GET /admin/trust-levels` 新增 `baselinePermissions`（`Http/Controllers/TrustLevels/dto.go:75`，
+字段 `Baseline`）。它与 `eligiblePermissions` 同级、语义相反：后者是「允许被等级授予的白名单」（仍 7 键），
+前者是「TL0 会被扣掉的基线键」。字面集合由 `TestAdminBaselinePermissionsLiteral` 钉住。
+前端据此把这两列渲染成**静态门控标记**（无勾选框，不可取消），其余 5 键才是可勾选。
+
+**双 loader 一致性修复**：`Identity/actor_postgres_tx.go` 的 `LoadEffectiveActorTx` 原先只
+`SELECT status, kind`，`actor.CreatedAt` 全程未赋值 → 账龄被当成无限长 → 插件命令路径**永远不低于 TL1**。
+本刀补读 `created_at` 并 `Scan(&actor.CreatedAt)`。修复前同一 TL0 用户在 HTTP 路径 5 键、事务路径 7 键。
+
+**已知缺口（照实登记，别当成已修）**：
+
+1. **后台用户详情仍把被扣的键算作生效**：详情页展示角色与用户级覆盖，不反映装载期减法，
+   所以 TL0 用户详情仍显示「能发主题」而实际请求被拒。以实际请求为准。
+2. **L5 / L8 两条路径不合并 earned**（`postgresTxStore.LoadCurrentUserAccess` 注释自认；CLI 无
+   `WithTrustLevelSource`），本刀下表现为 fail-open（TL0 多键），不是挡人。清单见
+   `storage/qa/trust-levels-z3/inventory-loaders.md`。
+3. **`trust.new_user.forbid_attachments` 仍是死配置**（D20 未修）：减法门实现了它想表达的**行为**，
+   但那条 option 本身依旧无消费者。别把本刀记成 D20 的修复。
+4. **父→子继承缺口（residual 3）不变**：事务装载不做父→子展开，本刀只补了 `CreatedAt`。
+
 ## Important Paths
 
 - 计划：`knowledge/plans/2026-11-10-trust-levels.md`
+- 本刀：`knowledge/plans/2026-11-11-trust-levels-baseline-narrowing.md`、
+  `knowledge/decisions/2026-11-11-trust-level-baseline-narrowing.md`
+- 基线门：`apps/api/app/Models/TrustLevels/baseline_grants.go`、
+  `apps/api/app/Models/Identity/trust_level_grants.go`
 - 统计地基（已 landed）：`apps/api/app/Models/Badges/`、`../modules/badges.md`
 - 裁决点：`apps/api/app/Models/Identity/policy.go`（`Can`）、
   `permission_compat.go`（父→子继承）
