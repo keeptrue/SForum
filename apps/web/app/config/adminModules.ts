@@ -441,7 +441,8 @@ export const adminSidebarNavigation = [
       children: [
         { type: 'page', pageId: '/users' },
         { type: 'page', pageId: '/roles' },
-        { type: 'page', pageId: '/permissions' }
+        { type: 'page', pageId: '/permissions' },
+        { type: 'page', pageId: '/badges' }
       ]
     },
     {
@@ -452,7 +453,6 @@ export const adminSidebarNavigation = [
         { type: 'page', pageId: '/moderation' },
         { type: 'page', pageId: '/forum/categories' },
         { type: 'page', pageId: '/forum/tags' },
-        { type: 'page', pageId: '/badges' },
         { type: 'page', pageId: '/forum/settings' },
         { type: 'page', pageId: '/forum/content' }
       ]

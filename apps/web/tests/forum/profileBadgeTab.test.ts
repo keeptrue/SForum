@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computed, defineComponent } from 'vue'
+import { computed, defineComponent, h } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
@@ -43,11 +43,35 @@ const UIconStub = defineComponent({
   template: '<i :data-icon="name" />'
 })
 
+/** 真锚点 + 记录点击目标：用来断言「点击后去 /badges」，而不是只断言 href 存在。 */
+const navigations: string[] = []
+const NuxtLinkStub = defineComponent({
+  name: 'NuxtLink',
+  props: { to: { type: [String, Object], default: '' } },
+  setup(props, { slots }) {
+    const href = typeof props.to === 'string' ? props.to : (props.to as { path?: string }).path
+    return () => h('a', {
+      href,
+      onClick: (event: Event) => {
+        event.preventDefault()
+        navigations.push(String(href))
+      }
+    }, slots.default?.())
+  }
+})
+
+const EmptyStateStub = defineComponent({
+  name: 'SFEmptyState',
+  props: { title: { type: String, default: '' }, description: { type: String, default: '' } },
+  template: '<div class="sf-empty-state-stub"><span class="sf-empty-state-stub__title">{{ title }}</span><span class="sf-empty-state-stub__description">{{ description }}</span></div>'
+})
+
 const tabPath = fileURLToPath(new URL('../../app/components/profile/SFProfileBadgeTab.vue', import.meta.url))
 const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   computed,
   useI18n: () => ({ t }),
   useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),
+  useLocalePath: () => (path: string) => path,
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
   forumBadgeTier,
@@ -59,7 +83,7 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
 function mountTab(props: Record<string, unknown>) {
   return mount(SFProfileBadgeTab, {
     props,
-    global: { components: { UIcon: UIconStub } }
+    global: { components: { UIcon: UIconStub, NuxtLink: NuxtLinkStub, SFEmptyState: EmptyStateStub } }
   })
 }
 
@@ -159,6 +183,118 @@ describe('SFProfileBadgeTab', () => {
     try {
       expect(wrapper.findAll('.sf-profile-badge-card--skeleton')).toHaveLength(3)
       expect(wrapper.find('.sf-badge-group').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('links to the public catalog from the profile tab (B-27)', async () => {
+    navigations.length = 0
+    const wrapper = mountTab({ groups })
+    try {
+      const link = wrapper.get('.sf-profile-badges__more-link')
+      // 真锚点，不是 @click 改 location。
+      expect(link.element.tagName).toBe('A')
+      expect(link.attributes('href')).toBe('/badges')
+      // 文案已本地化（不是裸键）。
+      expect(link.text()).toBe('查看全部徽章')
+
+      await link.trigger('click')
+      expect(navigations).toEqual(['/badges'])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})
+
+/**
+ * catalog 变体（`/badges`）：只差 designer 规范 §10 的七处。
+ * 这里钉的是「差在哪儿」——排序口径、组计数、勾章、空态文案、骨架数量、失败态语义。
+ */
+const catalogGroups = [
+  {
+    key: 'content',
+    name: '内容',
+    position: 1,
+    badges: [
+      { slug: 'bronze-first', name: '初次发帖', tier: 'bronze' as const, icon: '', position: 2, earned: false },
+      { slug: 'gold-writer', name: '笔耕不辍', tier: 'gold' as const, icon: '', position: 1, earned: true, grantedAt: '2026-11-01T08:00:00Z' }
+    ]
+  }
+]
+
+describe('SFProfileBadgeTab · catalog variant', () => {
+  test('sorts entries by position instead of tier weight', () => {
+    const wrapper = mountTab({ groups: catalogGroups, variant: 'catalog' })
+    try {
+      const slugs = wrapper.findAll('.sf-profile-badge-card').map(node => node.attributes('data-badge-slug'))
+      expect(slugs).toEqual(['gold-writer', 'bronze-first'])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('labels the section with the catalog title and counts only totals', () => {
+    const wrapper = mountTab({ groups: catalogGroups, variant: 'catalog' })
+    try {
+      expect(wrapper.get('section.sf-profile-badges').attributes('aria-label')).toBe('徽章目录')
+      expect(wrapper.get('.sf-badge-group__count').text()).toBe('2 枚')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('earned catalog cards say earned instead of a blank grant date', () => {
+    const wrapper = mountTab({ groups: catalogGroups, variant: 'catalog' })
+    try {
+      const earned = wrapper.get('[data-badge-slug="gold-writer"]')
+      // wire 上没有 grantedAt：不能复用「获得于 {date}」模板，否则会读成「获得于 」。
+      expect(earned.attributes('aria-label')).toBe('金牌徽章：笔耕不辍，已获得')
+      expect(earned.text()).toContain('已获得')
+      expect(earned.text()).not.toContain('获得于')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('earned cards get a check seal and no catalog card gets a progress bar', () => {
+    const wrapper = mountTab({ groups: catalogGroups, variant: 'catalog' })
+    try {
+      expect(wrapper.get('[data-badge-slug="gold-writer"] .sf-profile-badge-card__seal').exists()).toBe(true)
+      expect(wrapper.find('[data-badge-slug="bronze-first"] .sf-profile-badge-card__seal').exists()).toBe(false)
+      expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('empty state uses the catalog copy instead of the profile copy', () => {
+    const wrapper = mountTab({ groups: [], variant: 'catalog' })
+    try {
+      expect(wrapper.get('.sf-empty-state-stub__title').text()).toBe('还没有徽章')
+      expect(wrapper.get('.sf-empty-state-stub__description').text()).toBe('站点还没有配置任何启用中的徽章。')
+      expect(wrapper.text()).not.toContain('还没有获得徽章')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('loading renders eight skeletons and hides the profile entry link', () => {
+    const wrapper = mountTab({ groups: catalogGroups, loading: true, variant: 'catalog' })
+    try {
+      expect(wrapper.findAll('.sf-profile-badge-card--skeleton')).toHaveLength(8)
+      expect(wrapper.find('.sf-profile-badges__more-link').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('failed state is an alert with a retry control', async () => {
+    const wrapper = mountTab({ groups: [], failed: true, variant: 'catalog' })
+    try {
+      expect(wrapper.get('.sf-profile-badges__state').attributes('role')).toBe('alert')
+      await wrapper.get('.sf-profile-badges__retry').trigger('click')
+      expect(wrapper.emitted('retry')).toHaveLength(1)
     } finally {
       wrapper.unmount()
     }

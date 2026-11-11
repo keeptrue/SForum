@@ -223,7 +223,6 @@ describe('admin forum helpers', () => {
       '/moderation',
       '/forum/categories',
       '/forum/tags',
-      '/badges',
       '/forum/settings',
       '/forum/content'
     ])

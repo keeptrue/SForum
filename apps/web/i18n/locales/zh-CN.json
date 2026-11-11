@@ -1141,6 +1141,7 @@
       "forum": "论坛管理",
       "forumCategories": "版块分类",
       "forumTags": "标签管理",
+    "badges": "徽章",
       "forumSettings": "论坛设置",
       "forumContent": "内容管理",
       "system": "系统配置",
@@ -6593,7 +6594,21 @@
     },
     "empty": "还没有获得徽章",
     "loadFailed": "徽章加载失败。",
-    "retry": "重试"
+    "retry": "重试",
+    "catalog": {
+      "title": "徽章目录",
+      "description": "站内所有可获得的徽章，按分组列出。",
+      "headerCount": "枚徽章",
+      "groupTotal": "{total} 枚",
+      "anonymousHint": "登录后可以看到你已获得哪些徽章。",
+      "emptyTitle": "还没有徽章",
+      "emptyDescription": "站点还没有配置任何启用中的徽章。",
+      "viewAll": "查看全部徽章",
+      "earned": "已获得",
+      "ariaLabelEarned": "{tier}徽章：{name}，已获得",
+      "ungrouped": "未分组",
+      "truncated": "徽章较多，列表已截断，只显示前面的一部分。"
+    }
   },
   "profile": {
     "trustLevel": {

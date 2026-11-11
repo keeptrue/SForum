@@ -1093,6 +1093,7 @@
       "forum": "Forum",
       "forumCategories": "Categories",
       "forumTags": "Tags",
+    "badges": "Badges",
       "forumSettings": "Forum settings",
       "forumContent": "Content management",
       "system": "System",
@@ -6553,7 +6554,21 @@
     },
     "empty": "No badges yet",
     "loadFailed": "Failed to load badges.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "catalog": {
+      "title": "Badge catalog",
+      "description": "Every badge available on this site, grouped by category.",
+      "headerCount": "badges",
+      "groupTotal": "{total}",
+      "anonymousHint": "Sign in to see which badges you have earned.",
+      "emptyTitle": "No badges yet",
+      "emptyDescription": "This site has not published any badges yet.",
+      "viewAll": "View all badges",
+      "earned": "Earned",
+      "ariaLabelEarned": "{tier} badge: {name}, earned",
+      "ungrouped": "Ungrouped",
+      "truncated": "The badge list is truncated; only the first badges are shown."
+    }
   },
   "profile": {
     "trustLevel": {

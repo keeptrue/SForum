@@ -1,8 +1,14 @@
 <script setup lang="ts">
 /**
- * 资料页「徽章」tab 的内容区：按分组分区，组内 tier 降序。
+ * 徽章墙内容区，两个消费者共用同一份实现：
  *
- * 纯展示：取数在 useProfileBadges，这里只渲染已获 / 未获两种状态与进度。
+ * - `variant="profile"`（默认）：资料页「徽章」tab，组内按 tier 降序，取数在 useProfileBadges。
+ * - `variant="catalog"`：`/badges` 公共目录，组内按 position 升序，取数在 useBadgesCatalog。
+ *
+ * public catalog 是第二消费者；出现第三个消费者时必须把卡片抽成
+ * `components/forum/badges/SFBadgeCard.vue`。现在不抽是为了不制造第二份实现，不是为了省事。
+ *
+ * 纯展示：取数在调用方，这里只渲染已获 / 未获两种状态与进度。
  * 已获卡与未获卡共用同一 DOM，只靠 `data-earned` 切换视觉，避免两套结构漂移。
  */
 import {
@@ -16,29 +22,43 @@ import {
   type ProfileBadgeGroup
 } from '~/utils/forum/forumBadge'
 
+type BadgeTabVariant = 'profile' | 'catalog'
+
 const props = withDefaults(defineProps<{
   groups: ProfileBadgeGroup[]
   loading?: boolean
   failed?: boolean
+  variant?: BadgeTabVariant
 }>(), {
   loading: false,
-  failed: false
+  failed: false,
+  variant: 'profile'
 })
 
 const emit = defineEmits<{ retry: [] }>()
 
 const { t } = useI18n()
 const { formatDateOnly } = useSiteDateTime()
+const localePath = useLocalePath()
 
-const sortedGroups = computed(() => sortProfileBadgeGroups(props.groups).map(group => ({
-  key: group.key,
-  name: group.name,
-  badges: sortProfileBadgeEntries(group.badges),
-  earned: group.badges.filter(badge => badge.earned).length,
-  total: group.badges.length
-})))
+const isCatalog = computed(() => props.variant === 'catalog')
+
+const sortedGroups = computed(() => sortProfileBadgeGroups(props.groups).map((group) => {
+  // 目录页是「管理员编排的清单」，所见即 position；资料页是「我的荣誉」，按 tier 降序。
+  const badges = isCatalog.value
+    ? [...group.badges].sort((left, right) => left.position - right.position)
+    : sortProfileBadgeEntries(group.badges)
+  return {
+    key: group.key,
+    name: group.name,
+    badges,
+    earned: group.badges.filter(badge => badge.earned).length,
+    total: group.badges.length
+  }
+}))
 
 const hasAny = computed(() => sortedGroups.value.some(group => group.total > 0))
+const skeletonCount = computed(() => (isCatalog.value ? 8 : 3))
 
 function tierName(badge: ProfileBadgeEntry) {
   return t(`badges.tier.${forumBadgeTier(badge.tier)}`)
@@ -54,6 +74,11 @@ function progressText(badge: ProfileBadgeEntry) {
 
 function cardLabel(badge: ProfileBadgeEntry) {
   if (badge.earned) {
+    // catalog 的 wire 上没有 grantedAt（D37 的公开面白名单），所以不能复用带日期的模板，
+    // 否则会读成「获得于 」（日期为空）。
+    if (isCatalog.value) {
+      return t('badges.catalog.ariaLabelEarned', { tier: tierName(badge), name: badge.name })
+    }
     return t('badges.card.ariaLabel', {
       tier: tierName(badge),
       name: badge.name,
@@ -74,17 +99,46 @@ function cardLabel(badge: ProfileBadgeEntry) {
 </script>
 
 <template>
-  <section class="sf-profile-badges" :aria-label="t('profile.tabs.badges')">
-    <div v-if="props.loading" class="sf-badge-grid" aria-hidden="true">
-      <div v-for="index in 3" :key="index" class="sf-profile-badge-card sf-profile-badge-card--skeleton" />
+  <section
+    class="sf-profile-badges"
+    :class="`sf-profile-badges--${props.variant}`"
+    :aria-label="isCatalog ? t('badges.catalog.title') : t('profile.tabs.badges')"
+  >
+    <div
+      v-if="props.loading"
+      class="sf-badge-grid"
+      :aria-busy="isCatalog ? 'true' : undefined"
+      aria-hidden="true"
+    >
+      <div
+        v-for="index in skeletonCount"
+        :key="index"
+        class="sf-profile-badge-card sf-profile-badge-card--skeleton"
+      />
     </div>
 
-    <p v-else-if="props.failed" class="sf-profile-badges__state">
+    <p
+      v-else-if="props.failed"
+      class="sf-profile-badges__state"
+      :role="isCatalog ? 'alert' : undefined"
+    >
       {{ t('badges.loadFailed') }}
       <button type="button" class="sf-profile-badges__retry" @click="emit('retry')">
+        <UIcon
+          v-if="isCatalog"
+          name="i-lucide-refresh-cw"
+          class="sf-profile-badges__retry-icon"
+          aria-hidden="true"
+        />
         {{ t('badges.retry') }}
       </button>
     </p>
+
+    <SFEmptyState
+      v-else-if="!hasAny && isCatalog"
+      :title="t('badges.catalog.emptyTitle')"
+      :description="t('badges.catalog.emptyDescription')"
+    />
 
     <p v-else-if="!hasAny" class="sf-profile-badges__state">{{ t('badges.empty') }}</p>
 
@@ -93,7 +147,9 @@ function cardLabel(badge: ProfileBadgeEntry) {
         <h2 class="sf-badge-group__title">
           <span class="sf-badge-group__name">{{ group.name }}</span>
           <span class="sf-badge-group__count">
-            {{ t('badges.group.count', { earned: group.earned, total: group.total }) }}
+            {{ isCatalog
+              ? t('badges.catalog.groupTotal', { total: group.total })
+              : t('badges.group.count', { earned: group.earned, total: group.total }) }}
           </span>
         </h2>
 
@@ -110,6 +166,10 @@ function cardLabel(badge: ProfileBadgeEntry) {
           >
             <span class="sf-profile-badge-card__icon" aria-hidden="true">
               <UIcon :name="badge.icon || forumBadgeTierIcon(badge.tier)" class="sf-profile-badge-card__glyph" />
+              <!-- 目录页的「已获得」勾章：形状线索，去色后仍与未获得可辨。 -->
+              <span v-if="isCatalog && badge.earned" class="sf-profile-badge-card__seal">
+                <UIcon name="i-lucide-check" class="sf-profile-badge-card__seal-glyph" />
+              </span>
             </span>
 
             <div class="sf-profile-badge-card__body">
@@ -119,7 +179,7 @@ function cardLabel(badge: ProfileBadgeEntry) {
                 <template v-if="badge.earned">
                   <span aria-hidden="true">·</span>
                   <span class="sf-profile-badge-card__date">
-                    {{ t('badges.card.earnedOn', { date: earnedDate(badge) }) }}
+                    {{ isCatalog ? t('badges.catalog.earned') : t('badges.card.earnedOn', { date: earnedDate(badge) }) }}
                   </span>
                 </template>
                 <template v-else>
@@ -149,6 +209,13 @@ function cardLabel(badge: ProfileBadgeEntry) {
         </div>
       </section>
     </template>
+
+    <!-- 目录页的站内入口：资料页是唯一能发现徽章的地方，没有这条链就没有入口。 -->
+    <div v-if="!isCatalog" class="sf-profile-badges__more">
+      <NuxtLink :to="localePath('/badges')" class="sf-profile-badges__more-link">
+        {{ t('badges.catalog.viewAll') }}
+      </NuxtLink>
+    </div>
   </section>
 </template>
 
@@ -164,10 +231,43 @@ function cardLabel(badge: ProfileBadgeEntry) {
 }
 
 .sf-profile-badges__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 8px;
   color: var(--sf-accent);
   font-size: 13px;
   text-decoration: underline;
+}
+
+.sf-profile-badges__retry:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 2px;
+}
+
+.sf-profile-badges__retry-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.sf-profile-badges__more {
+  margin-top: 20px;
+}
+
+.sf-profile-badges__more-link {
+  color: var(--sf-accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sf-profile-badges__more-link:hover {
+  text-decoration: underline;
+}
+
+.sf-profile-badges__more-link:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 2px;
 }
 
 .sf-badge-group + .sf-badge-group {
@@ -189,7 +289,15 @@ function cardLabel(badge: ProfileBadgeEntry) {
   line-height: 1.3;
 }
 
+.sf-badge-group__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sf-badge-group__count {
+  flex: 0 0 auto;
   margin-left: auto;
   color: var(--sf-fg-tertiary);
   font-size: 12px;
@@ -253,6 +361,7 @@ function cardLabel(badge: ProfileBadgeEntry) {
 }
 
 .sf-profile-badge-card__icon {
+  position: relative;
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
@@ -268,6 +377,26 @@ function cardLabel(badge: ProfileBadgeEntry) {
 .sf-profile-badge-card__glyph {
   width: 18px;
   height: 18px;
+}
+
+/* 勾章绝对定位，不参与布局：有无勾章不改变卡片高度。 */
+.sf-profile-badge-card__seal {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--sf-accent);
+  color: var(--sf-public-surface);
+}
+
+.sf-profile-badge-card__seal-glyph {
+  width: 8px;
+  height: 8px;
 }
 
 .sf-profile-badge-card__body {
@@ -368,8 +497,14 @@ function cardLabel(badge: ProfileBadgeEntry) {
   --sf-badge-card-ring: color-mix(in srgb, var(--sf-accent-dark) 38%, transparent);
 }
 
-.sf-profile-badge-card:hover {
+/* hover 反馈只属于资料页；目录页卡片不可点击，边框变色是假承诺。 */
+.sf-profile-badges--profile .sf-profile-badge-card:hover {
   border-color: var(--sf-public-border-strong);
+}
+
+/* 目录页：虚线只表示「未获得」，tier 不改 border-style。 */
+.sf-profile-badges--catalog .sf-profile-badge-card[data-earned="false"] {
+  border-style: dashed;
 }
 
 .sf-profile-badge-card--skeleton {

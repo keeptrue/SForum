@@ -15,6 +15,7 @@ describe('SFPageOutlet catalog wiring', () => {
     ['app/pages/categories/index.vue', 'forum.category.index'],
     ['app/pages/c/[categorySlug].vue', 'forum.category.show'],
     ['app/pages/tags/index.vue', 'forum.tag.index'],
+    ['app/pages/badges/index.vue', 'forum.badge.index'],
     ['app/pages/tags/[tagSlug].vue', 'forum.tag.show'],
     ['app/pages/t/[...path].vue', 'forum.topic.show'],
     ['app/pages/topics/new.vue', 'forum.topic.create'],

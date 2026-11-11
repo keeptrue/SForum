@@ -54,6 +54,7 @@ const islandComponents: Record<string, Component> = {
   'forum.component.category_index': defineAsyncComponent(() => import('./forum/SFCategoryIndexPage.vue')),
   'forum.component.category_show': defineAsyncComponent(() => import('./forum/SFCategoryShowPage.vue')),
   'forum.component.tag_index': defineAsyncComponent(() => import('./forum/SFTagIndexPage.vue')),
+  'forum.component.badge_index': defineAsyncComponent(() => import('./forum/badges/SFBadgeCatalogPage.vue')),
   'forum.component.tag_show': defineAsyncComponent(() => import('./forum/SFTagShowPage.vue')),
   // 帖子详情是高频核心阅读路径，避免主题岛自身再制造一层异步导航边界。
   'forum.component.topic_show': SFTopicShowPage,
@@ -100,6 +101,7 @@ const legacyIslandBindings = {
   'sf-category-index-page': { componentId: 'forum.component.category_index' },
   'sf-category-show-page': { componentId: 'forum.component.category_show' },
   'sf-tag-index-page': { componentId: 'forum.component.tag_index' },
+  'sf-badge-index-page': { componentId: 'forum.component.badge_index' },
   'sf-tag-show-page': { componentId: 'forum.component.tag_show' },
   'sf-topic-show-page': { componentId: 'forum.component.topic_show' },
   'sf-profile-page': { componentId: 'forum.component.profile_show' },
