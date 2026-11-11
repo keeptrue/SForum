@@ -1,10 +1,13 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { routeMethodIdentity } from '../scripts/v3-catalog/route-method-identity.mjs'
 
-const root = process.cwd()
+// 自定位到仓库根：不能依赖调用者的 cwd，否则 `cd apps/api && node ../../tests/...`
+// 会让 runGenerator 的 cwd 指到 apps/api，子进程解析出 apps/api/scripts/... 而 MODULE_NOT_FOUND。
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)

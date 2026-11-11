@@ -66,6 +66,18 @@ const EmptyStateStub = defineComponent({
   template: '<div class="sf-empty-state-stub"><span class="sf-empty-state-stub__title">{{ title }}</span><span class="sf-empty-state-stub__description">{{ description }}</span></div>'
 })
 
+// 单张卡已抽成独立 SFC（组件拆分的装配线，不是行为变更）；这里把它编译好喂给容器。
+const badgeCardPath = fileURLToPath(new URL('../../app/components/forum/badges/SFBadgeCard.vue', import.meta.url))
+const SFBadgeCard = await compileVueSfc(badgeCardPath, 'sf-badge-card', {
+  computed,
+  useI18n: () => ({ t }),
+  useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),
+  forumBadgeHasProgress,
+  forumBadgeProgressPercent,
+  forumBadgeTier,
+  forumBadgeTierIcon
+})
+
 const tabPath = fileURLToPath(new URL('../../app/components/profile/SFProfileBadgeTab.vue', import.meta.url))
 const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   computed,
@@ -77,7 +89,8 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   forumBadgeTier,
   forumBadgeTierIcon,
   sortProfileBadgeEntries,
-  sortProfileBadgeGroups
+  sortProfileBadgeGroups,
+  SFBadgeCard
 })
 
 function mountTab(props: Record<string, unknown>) {
