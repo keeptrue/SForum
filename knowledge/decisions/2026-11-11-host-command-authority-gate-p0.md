@@ -7,10 +7,10 @@ Status: **accepted（已修复，`57a3de5ad`）**
 
 ## 缺陷
 
-基线把装配写成一行链式调用：
+基线把装配写成一行链式调用（`v2_command_runtime_postgres.go:68`，`f63ad2cf9` 的原文）：
 
 ```go
-// f63ad2cf9 的写法（已修，勿恢复）
+// f63ad2cf9 的写法（已修，勿恢复；行号见 `git show 57a3de5ad` 的 hunk）
 NewPostgresProtocolV2HostCommandBackend(pool).WithTrustLevelSource(src)
 ```
 
@@ -58,7 +58,7 @@ NewPostgresProtocolV2HostCommandBackend(pool).WithTrustLevelSource(src)
 1. **让错误写法写不出来**：在 wrapper 上重新声明返回 **wrapper** 的 `WithTrustLevelSource`
    （`v2_command_postgres.go:75`）。链式调用从此只能得到 wrapper——
    「记住别这么写」变成「这么写不出来」。
-2. **装配点显式两步**（`v2_command_runtime_postgres.go:66-73`），并留注释说明为什么不做链式：
+2. **装配点显式两步**（`v2_command_runtime_postgres.go:67-73`：注释 67-69、两步 70-71、入引擎 72-73），并留注释说明为什么不做链式：
    读代码的人不必自己推理方法提升。
 3. **两条 tripwire + 一条语义守卫**：
    - `TestPostgresCommandRuntimeKeepsHostCommandAuthorityBackend`——类型快照，装配返回的必须是 wrapper；

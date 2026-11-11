@@ -15,9 +15,8 @@ Status: **已提交 `57a3de5ad`**，`./scripts/test.sh --fast` **三线 exit 0**
 - **M10 编辑器**：`apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelEarnableMatrix.vue`
   （TL1–TL4 × 白名单；TL0 整行 disabled）。白名单唯一来源 = 后台读面 `eligiblePermissions`，
   请求失败 → **不可编辑 + 错误条，绝不回落空矩阵**；`earnable: []` 原样带回（`?? []` 不能改 `?? null`）。
-- **M11 收口**：证据按矩阵 ID 落 `storage/qa/trust-levels/{A…K}/`，脚本
-  `scripts/verify-trust-levels-acceptance.sh` 按 ID 命名。新增 `Models/Identity/permission_origin_test.go`
-  与 `Models/TrustLevels/level_purity_test.go`（纯度：fake store 调用计数 == 0）。
+- **M11 收口**：证据按矩阵 ID 落 `storage/qa/trust-levels/{A…K}/`（脚本按 ID 命名）；新增
+  `permission_origin_test.go` 与 `level_purity_test.go`（纯度：fake store 调用计数 == 0）。
 - **M12 两条 dev 库的账**：`apps/api/app/Http/options_error.go` 成为 `MapOptionsError` 唯一真源
   （Options / TrustLevels 共用）+ AST tripwire。**有意变更**：写库失败 422 → **500
   `options.store_failure`**；422 只剩 `options.invalid_value` / `options.invalid_value_set`。
