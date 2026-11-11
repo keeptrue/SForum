@@ -6,7 +6,8 @@ import {
   activeRankOf,
   activeTierCount,
   addTier,
-  retireTier
+  retireTier,
+  setTierColor
 } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import {
   recommendedTrustLevelsForm,
@@ -20,6 +21,7 @@ import {
   trustLevelName
 } from '~/composables/profile/useTrustLevel'
 import { TRUST_LEVEL_TIER_MAX } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
+import { defaultTierColorName, tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 import { compileVueSfc, mount } from '../../helpers/vueSfc'
 
 /**
@@ -78,7 +80,9 @@ async function compileOverview(permissions: string[] = []) {
     trustLevelIconOf,
     trustLevelLadder,
     trustLevelName,
-    TRUST_LEVEL_TIER_MAX
+    TRUST_LEVEL_TIER_MAX,
+    tierAccentStyle,
+    tierColorOf
   })
 }
 
@@ -206,6 +210,48 @@ describe('overview: N-tier ladder', () => {
     expect(badges[0]!.text()).toBe(t('admin.forum.trustLevels.overview.ladder.earnable', { count: 2 }))
     // 0 项不渲染徽章：写「新增解锁 0 项」等于给每档各加一条噪声。
     expect(wrapper.find('[data-sf-trust-levels-ladder] li[data-level="3"] [data-sf-trust-levels-earnable-count]').exists()).toBe(false)
+  })
+
+  test('TL1 的档位色不会被旧「强度阶梯」吃掉：行根取该档色、图标 step=1，配置 rose 后生效', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = await mountOverview({ form })
+    const tl1 = wrapper.find('[data-sf-trust-levels-ladder] li[data-level="1"]')
+    // 行根就是色源：TL1 默认 teal，不是站点 accent、也不是中性灰。
+    expect(tl1.attributes('style')).toContain(`--tl-accent: var(--sf-tl-${defaultTierColorName(1)})`)
+    // 形状轴仍单调：TL1 是 step 1（34% 环无底），由共享块渲染。
+    const mark = tl1.get('.sf-tl-mark')
+    expect(mark.attributes('data-step')).toBe('1')
+
+    // rank 1 的配置色不是死配置：给 TL1 配 rose，行根必须跟着变。
+    const colored = setTierColor(form.tiers, form.tiers[0]!.id, 'rose')
+    const overridden = await mountOverview({ form: { tiers: colored } })
+    expect(overridden.find('[data-sf-trust-levels-ladder] li[data-level="1"]').attributes('style'))
+      .toContain('--tl-accent: var(--sf-tl-rose)')
+  })
+
+  test('每一行把档位色落在行根的内联 --tl-accent 上，图标块用共享 .sf-tl-mark 接住', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = await mountOverview({ form })
+    const rows = wrapper.findAll('[data-sf-trust-levels-ladder] li')
+    // 色源只有行根一处：TL0 = slate，其余按 active 位次取默认色（不是站点 accent）。
+    expect(rows.map(row => row.attributes('style')))
+      .toEqual(rows.map((_row, level) => `--tl-accent: var(--sf-tl-${defaultTierColorName(level)});`))
+    // 图标块自己不许声明 --tl-accent：那是祖先内联值被遮蔽的病根。
+    for (const row of rows) {
+      expect(row.find('.sf-tl-mark').exists()).toBe(true)
+    }
+    expect(readFileSync(
+      new URL('../../../app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelsOverviewTab.vue', import.meta.url),
+      'utf8'
+    )).not.toContain('--tl-accent: var(--sf-accent)')
+
+    // 运营给 TL2 配 rose → 只有那一行变；TL0 恒 slate。
+    const colored = setTierColor(form.tiers, form.tiers[1]!.id, 'rose')
+    const overridden = await mountOverview({ form: { tiers: colored } })
+    const tl2 = overridden.find('[data-sf-trust-levels-ladder] li[data-level="2"]')
+    expect(tl2.attributes('style')).toContain('--tl-accent: var(--sf-tl-rose)')
+    expect(overridden.find('[data-sf-trust-levels-ladder] li[data-level="0"]').attributes('style'))
+      .toContain('--tl-accent: var(--sf-tl-slate)')
   })
 })
 

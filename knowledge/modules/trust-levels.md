@@ -27,7 +27,7 @@
 | **开关五处已注册** | `Options/feature_flags.go:35`（常量）/ `:63`（definitions）/ `:82`（catalog）/ `:97`（推荐默认）/ `:130`（结构体字段）+ `:153`（读取）；归一化分支在 `service_normalize.go`；前端已消费（`useWebOptions.ts`） |
 | **M3 已落地** | `Forum/service_trust_limits.go:23` `limitsForActor`（**不是** `service_ops.go:514`——那是调用点）、`:101` `resolveLimit`、`:63` `newUserLimits`、`:83` `levelLimits`；适配器 `Providers/forum.go:273` `TrustPolicyAdapter.LevelLimits` |
 | 阈值配置 | `Options/trust_level_options.go`：单键 `trust.levels`，**schema v2**（`ConfigSchemaVersion = 2`，`tiers[]` + 不可变 `id` + `retired`，D-N2）；`DecodeConfig` 同时接受 v1/v2（v1 在内存升级）、`EncodeConfig` 只写 v2（D-N5）；`DefaultPolicy()` 已与 PM 定稿表逐值一致（复核见 `reports/2026-11-10-trust-levels-doc-audit.md` C1） |
-| 后台页（2026-11-11 提为独立页） | 页面 `/control-panel/forum/trust-levels`（论坛管理 → 信任等级），页内**五** tab：`overview`（缺省，zh「等级总览」）/ `tiers`（zh「档位管理」）/ `thresholds`（zh「门槛设置」）/ `limits`（zh「发言限额」，2026-11-11 追加）/ `earnable`（zh「能力解锁」），**已全部落地**（`tabIds` = `pages/admin/forum/trust-levels.vue:96`；四 tab 是 N 档改造期的形态，`limits` 见 `../decisions/2026-11-11-trust-level-limits-editor.md`；下表 `n8-mobile-tabs tab=4` 是**加第五个 tab 之前**的证据，tab 数已变；`tiers` 的浏览器表现已验（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`：`n8-mobile-cards` layout=cards rows=7、`n8-mobile-no-overflow` 390/390、`n8-mobile-tabs` tab=4；截图 `20261111-181057-qa-n5-desktop-tiers-tab.png`））（2026-11-11 收尾实测：`trust-levels.vue` 315 行，`normalizeTab` 回落 `overview`；冻结稿 `../reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6 有浏览器证据）。文件：`pages/admin/forum/trust-levels.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableMatrix.vue`、`composables/admin/forum/trustLevels/useTrustLevelsForm.ts` + `useTrustLevelEarnableMatrix.ts` + `useTrustLevelsAdminPage.ts`。**整页一次保存**（单键 `trust.levels`）。旧入口 `/control-panel/settings?tab=trustLevels` 重定向到新页，设置页的四处 tab 登记已删。裁决见 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代本文件 D 组 #18）。白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
+| 后台页（2026-11-11 提为独立页） | 页面 `/control-panel/forum/trust-levels`（**用户/权限 → 信任等级**，徽章之后；2026-11-11 D-C7 从「论坛管理」归位，只搬菜单，页面 id/路由/身份不变），页内**五** tab：`overview`（缺省，zh「等级总览」）/ `tiers`（zh「档位管理」）/ `thresholds`（zh「门槛设置」）/ `limits`（zh「发言限额」，2026-11-11 追加）/ `earnable`（zh「能力解锁」），**已全部落地**（`tabIds` = `pages/admin/forum/trust-levels.vue:96`；四 tab 是 N 档改造期的形态，`limits` 见 `../decisions/2026-11-11-trust-level-limits-editor.md`；下表 `n8-mobile-tabs tab=4` 是**加第五个 tab 之前**的证据，tab 数已变；`tiers` 的浏览器表现已验（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`：`n8-mobile-cards` layout=cards rows=7、`n8-mobile-no-overflow` 390/390、`n8-mobile-tabs` tab=4；截图 `20261111-181057-qa-n5-desktop-tiers-tab.png`））（2026-11-11 收尾实测：`trust-levels.vue` 315 行，`normalizeTab` 回落 `overview`；冻结稿 `../reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6 有浏览器证据）。文件：`pages/admin/forum/trust-levels.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableMatrix.vue`、`composables/admin/forum/trustLevels/useTrustLevelsForm.ts` + `useTrustLevelEarnableMatrix.ts` + `useTrustLevelsAdminPage.ts`。**整页一次保存**（单键 `trust.levels`）。旧入口 `/control-panel/settings?tab=trustLevels` 重定向到新页，设置页的四处 tab 登记已删。裁决见 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代本文件 D 组 #18）。白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
 | 公开面已落地（M4） | 4 条路由进 catalog（`core_catalog_gen.go` 计数 409 = 405 + 1 公开 + 3 后台）、OpenAPI `contracts/openapi/paths/trust_levels.yaml` 在、`Http/Controllers/TrustLevels/controller_test.go` 在。**公开响应不含 `limits`**（`dto.go`：`Limits` 带 `omitempty`，注释写明「只在后台读面出现」——公开「某档冷却 60 秒」等于泄露限流参数） |
 | 资料页等级卡已接线（M5 收口） | `useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`；`SFProfileShowPage.vue:110` 传 `computed(() => profile.value?.trustLevel)`，`SFProfileRightRail.vue:74` 消费（2026-11-11 09:21 复核） |
 | M6–M8 未完成 | 验收断言、性能实测、独立验收（M13 收尾中，见 `../sessions/2026-11-11-trust-levels-closing.md`） |
@@ -211,6 +211,19 @@
 - **渲染单点**：`--sf-tl-<token>`（`assets/css/sforum-trust-colors.css`，`:root`/`.dark` 各一套）
   → `tierAccentStyle` 落成 `--tl-accent`（`utils/profile/trustLevelColors.ts:68-78`）；
   后台档位行与资料页 `SFTrustLevelCard` 共用，不与站点主题的 5 套 accent 联动。
+- **渲染面共用共享块 `.sf-tl-mark`（D-C6，2026-11-11）**：五个后台分区（总览阶梯 / 档位管理 /
+  门槛设置 / 发言限额 / 能力解锁）与资料页卡一律挂在 `assets/css/sforum-trust-colors.css` 的
+  `.sf-tl-mark` 上，色相只认**行根内联** `--tl-accent`；共享块内**禁止**声明 `--tl-accent`
+  （自定义属性在更深一层声明会遮蔽祖先内联值 —— 这正是改动前「配了色也只显示站点主色」的病根）。
+  淡底 = `color-mix(in srgb, var(--tl-accent) var(--tl-accent-tint), var(--sf-card))`，
+  `--tl-accent-tint` 默认 12%、停用档 6%/8%（暗），**不再用 `--sf-accent-soft`**。
+  形状轴仍在（`data-step` 1 = 34% 环 + **透明底** + 档位色字形 / 2 = 1px 34% 环 + 12% 淡底 /
+  3 = 2px 55% 环 + 12% 淡底 / 4 = 实心反色字；TL1 也有色，2026-11-11 回归修复见下），
+  仅 `data-step` 从资料页卡根移到图标块上。
+  **回归教训**：step1 曾照抄旧「强度阶梯」写 `color: var(--sf-fg-secondary)`，把 rank 1 的档位色
+  整个吃掉（给 TL1 配色无效，其余档正常）——「同一档在档位管理是 teal、其余五面是中性灰」就是它的指纹。
+  规则不随产品语义重写时不会报错，只会让配置项静默失效。裁决见 `../decisions/2026-11-11-trust-level-color-render-unification.md`；
+  改色端到端证据（六面同变 + 已回滚）见 `storage/qa/trust-level-color-unify/REPORT.md`。
 
 ### 删除与墓碑（D-C2 / D-C3，**本刀新增**）
 

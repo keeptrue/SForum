@@ -13,6 +13,7 @@ import {
   type AdminForumCategoryPayload,
   type AdminForumTaxonomyDeleteTarget
 } from '~/utils/admin/adminForum'
+import { taxonomyColorInputValue, taxonomyIconColor } from '~/utils/forum/forumTaxonomy'
 import type { ForumCategory, ForumCategoryGroup } from '~/utils/forum/forumTaxonomy'
 
 definePageMeta({
@@ -72,14 +73,6 @@ const defaultCategoryIcon = 'i-lucide-folder-open'
 
 function categoryPreviewIcon(category: Pick<ForumCategory, 'icon'> | AdminForumCategoryPayload) {
   return category.icon || defaultCategoryIcon
-}
-
-function taxonomyPreviewColor(value: string) {
-  return value || 'var(--sf-accent)'
-}
-
-function colorInputValue(value: string) {
-  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#0f766e'
 }
 
 function setCategoryColor(event: Event) {
@@ -429,7 +422,7 @@ function errorToast(error: unknown, fallback: string) {
                     <UIcon
                       :name="categoryPreviewIcon(category)"
                       class="size-4 shrink-0"
-                      :style="{ color: taxonomyPreviewColor(category.iconColor) }"
+                      :style="{ color: taxonomyIconColor(category.iconColor) }"
                       aria-hidden="true"
                     />
                     <span class="truncate">{{ category.name }}</span>
@@ -613,7 +606,7 @@ function errorToast(error: unknown, fallback: string) {
               <div class="grid gap-2">
                 <div class="flex items-center gap-2">
                   <input
-                    :value="colorInputValue(categoryForm.iconColor)"
+                    :value="taxonomyColorInputValue(categoryForm.iconColor)"
                     type="color"
                     class="h-10 w-12 rounded-md border border-slate-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-950"
                     :aria-label="t('admin.forum.visual.iconColor')"
@@ -623,7 +616,7 @@ function errorToast(error: unknown, fallback: string) {
                 </div>
                 <div class="flex items-center justify-between gap-2">
                   <span class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
-                    <UIcon :name="categoryPreviewIcon(categoryForm)" class="size-4" :style="{ color: taxonomyPreviewColor(categoryForm.iconColor) }" />
+                    <UIcon :name="categoryPreviewIcon(categoryForm)" class="size-4" :style="{ color: taxonomyIconColor(categoryForm.iconColor) }" />
                     {{ categoryForm.iconColor || t('admin.forum.visual.defaultAccent') }}
                   </span>
                   <UButton type="button" size="xs" color="neutral" variant="ghost" leading-icon="i-lucide-x" @click="clearCategoryColor">

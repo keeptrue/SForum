@@ -104,7 +104,6 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
     class="sf-profile-side-section sf-trust-level-card"
     :style="accentStyle"
     :data-level="String(levelValue)"
-    :data-step="String(Math.min(4, levelValue))"
     :data-earned="earned ? 'true' : 'false'"
     :aria-label="rootLabel"
   >
@@ -114,7 +113,8 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
     </header>
 
     <div class="sf-trust-level-card__main">
-      <span class="sf-trust-level-card__icon" aria-hidden="true">
+      <!-- 形状轴（data-step）属于图标块自己：与后台四分区共用 .sf-tl-mark 的阶梯几何。 -->
+      <span class="sf-trust-level-card__icon sf-tl-mark" :data-step="String(Math.min(4, levelValue))" aria-hidden="true">
         <UIcon :name="icon" class="sf-trust-level-card__glyph" />
       </span>
       <div class="sf-trust-level-card__text">
@@ -155,18 +155,14 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
 /* 卡面锁 --sf-card：12 个日间预设下 --sf-surface 与页面底只差 2~3 个明度级，卡片边界会消失。
    外边距保持 0，间距由 .sf-profile-side-section 既有规则提供。 */
 .sf-profile-side-section.sf-trust-level-card {
-  --tl-accent: var(--sf-accent);
+  /* 兜底只给「没有内联 --tl-accent」时用；真正色相来自 :style="accentStyle"（D-C6）。 */
+  --tl-accent: var(--sf-tl-slate);
 
   margin: 0;
   padding: 14px;
   border: 1px solid var(--sf-border);
   border-radius: 12px;
   background: var(--sf-card);
-}
-
-/* --sf-accent-dark 是按 accent 主题分别定义的，暗色必须走 token，禁止写死亮色 accent。 */
-.dark .sf-trust-level-card {
-  --tl-accent: var(--sf-accent-dark);
 }
 
 .sf-trust-level-card__code {
@@ -184,16 +180,10 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
 }
 
 .sf-trust-level-card__icon {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
+  --sf-tl-mark-radius: 9px;
+
   width: 28px;
   height: 28px;
-  border: 1px solid var(--sf-border);
-  border-radius: 9px;
-  background: transparent;
-  color: var(--sf-fg-tertiary);
 }
 
 .sf-trust-level-card__glyph {
@@ -201,33 +191,9 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
   height: 16px;
 }
 
-/* 五档阶梯建在「填充强度 + 环线权重」两轴上，两轴同向递增；未达成态不用 opacity。 */
+/* TL0 是虚拟档：虚线表达「未入门」；阶梯填充/环线全部由 .sf-tl-mark 按 data-step 给。 */
 .sf-trust-level-card[data-level="0"] .sf-trust-level-card__icon {
   border-style: dashed;
-}
-
-.sf-trust-level-card[data-step="1"] .sf-trust-level-card__icon {
-  color: var(--sf-fg-secondary);
-}
-
-.sf-trust-level-card[data-step="2"] .sf-trust-level-card__icon {
-  border-color: color-mix(in srgb, var(--tl-accent) 34%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--tl-accent);
-}
-
-/* 唯一的 2px 档：accent-soft 与 accent 的明度差会被背景色吃掉，纯几何差异任何预设都成立。 */
-.sf-trust-level-card[data-step="3"] .sf-trust-level-card__icon {
-  border: 2px solid color-mix(in srgb, var(--tl-accent) 55%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--tl-accent);
-}
-
-/* 整站唯一的实心 accent 方块。 */
-.sf-trust-level-card[data-step="4"] .sf-trust-level-card__icon {
-  border-color: var(--tl-accent);
-  background: var(--tl-accent);
-  color: var(--sf-card);
 }
 
 .sf-trust-level-card__text {

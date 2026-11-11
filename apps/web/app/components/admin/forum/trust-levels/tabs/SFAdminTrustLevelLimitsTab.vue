@@ -22,6 +22,7 @@ import {
   type TrustLevelLimitMode
 } from '~/composables/admin/forum/trustLevels/useTrustLevelLimits'
 import { trustLevelIconOf, trustLevelName } from '~/composables/profile/useTrustLevel'
+import { tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 import type { TrustLevelSaveError } from '~/composables/admin/forum/trustLevels/useTrustLevelSaveErrors'
 import SFAdminTrustLevelFieldErrors from '~/components/admin/forum/trust-levels/SFAdminTrustLevelFieldErrors.vue'
 
@@ -51,6 +52,11 @@ function tierLabel(tier: TierForm) {
 
 function tierIcon(tier: TierForm) {
   return trustLevelIconOf(tier, rankOf(tier) ?? props.form.tiers.indexOf(tier))
+}
+
+/** 行根的 `--tl-accent`：停用档没有 rank，按数组位置取色（与 tierIcon 同一口径）。 */
+function accentStyle(tier: TierForm) {
+  return tierAccentStyle(tierColorOf(tier, rankOf(tier) ?? props.form.tiers.indexOf(tier)))
 }
 
 function isInherit(tier: TierForm) {
@@ -100,6 +106,7 @@ function onLimitCommit(tier: TierForm, key: TrustLevelLimitKey, event: Event) {
       v-for="tier in form.tiers"
       :key="tier.id"
       class="sf-trust-limits-row"
+      :style="accentStyle(tier)"
       :data-sf-limits-tier="tier.id"
       :data-tier-id="tier.id"
       :data-retired="tier.retired ? 'true' : 'false'"
@@ -107,7 +114,7 @@ function onLimitCommit(tier: TierForm, key: TrustLevelLimitKey, event: Event) {
     >
       <legend class="sf-trust-limits-row__legend">
         <span
-          class="sf-trust-limits-row__icon"
+          class="sf-trust-limits-row__icon sf-tl-mark"
           :data-level="String(rankOf(tier) ?? 0)"
           :data-step="String(Math.min(4, rankOf(tier) ?? 0))"
           aria-hidden="true"
@@ -194,47 +201,18 @@ function onLimitCommit(tier: TierForm, key: TrustLevelLimitKey, event: Event) {
   padding: 0;
 }
 
-/* 24×24 与门槛设置同尺寸：后台行密度优先。 */
+/* 24×24 与门槛设置同尺寸：后台行密度优先。几何与配色走共享 .sf-tl-mark，
+   本分区只保留尺寸与字形大小（色相来自 fieldset 根上的内联 --tl-accent）。 */
 .sf-trust-limits-row__icon {
-  --tl-accent: var(--sf-accent);
-
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
   width: 24px;
-  height: 24px;
-  border: 1px solid var(--sf-border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sf-fg-tertiary);
-}
+  --sf-tl-mark-radius: 8px;
 
-.dark .sf-trust-limits-row__icon {
-  --tl-accent: var(--sf-accent-dark);
+  height: 24px;
 }
 
 .sf-trust-limits-row__glyph {
   width: 14px;
   height: 14px;
-}
-
-.sf-trust-limits-row__icon[data-step="2"] {
-  border-color: color-mix(in srgb, var(--tl-accent) 34%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--tl-accent);
-}
-
-.sf-trust-limits-row__icon[data-step="3"] {
-  border: 2px solid color-mix(in srgb, var(--tl-accent) 55%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--tl-accent);
-}
-
-.sf-trust-limits-row__icon[data-step="4"] {
-  border-color: var(--tl-accent);
-  background: var(--tl-accent);
-  color: var(--sf-card);
 }
 
 /* 停用档位：虚线边框表达「保留但不参与判定」。 */

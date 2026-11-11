@@ -7,6 +7,7 @@ import {
   forumTagStatusChoices,
   type AdminForumTagPayload
 } from '~/utils/admin/adminForum'
+import { taxonomyColorInputValue, taxonomyIconColor } from '~/utils/forum/forumTaxonomy'
 import type { ForumTag, ForumTagStatus } from '~/utils/forum/forumTaxonomy'
 
 definePageMeta({
@@ -58,14 +59,6 @@ function defaultCreateStatus(): ForumTagStatus {
 
 function tagPreviewIcon(tag: Pick<ForumTag, 'icon'> | AdminForumTagPayload) {
   return tag.icon || defaultTagIcon
-}
-
-function taxonomyPreviewColor(value: string) {
-  return value || 'var(--sf-accent)'
-}
-
-function colorInputValue(value: string) {
-  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#0f766e'
 }
 
 function setTagColor(event: Event) {
@@ -255,7 +248,7 @@ function errorToast(error: unknown, fallback: string) {
                 <UIcon
                   :name="tagPreviewIcon(tag)"
                   class="size-4 shrink-0"
-                  :style="{ color: taxonomyPreviewColor(tag.iconColor) }"
+                  :style="{ color: taxonomyIconColor(tag.iconColor) }"
                   aria-hidden="true"
                 />
                 <span class="truncate">#{{ tag.name }}</span>
@@ -372,7 +365,7 @@ function errorToast(error: unknown, fallback: string) {
               <div class="grid gap-2">
                 <div class="flex items-center gap-2">
                   <input
-                    :value="colorInputValue(form.iconColor)"
+                    :value="taxonomyColorInputValue(form.iconColor)"
                     type="color"
                     class="h-10 w-12 rounded-md border border-slate-200 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-950"
                     :aria-label="t('admin.forum.visual.iconColor')"
@@ -382,7 +375,7 @@ function errorToast(error: unknown, fallback: string) {
                 </div>
                 <div class="flex items-center justify-between gap-2">
                   <span class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400">
-                    <UIcon :name="tagPreviewIcon(form)" class="size-4" :style="{ color: taxonomyPreviewColor(form.iconColor) }" />
+                    <UIcon :name="tagPreviewIcon(form)" class="size-4" :style="{ color: taxonomyIconColor(form.iconColor) }" />
                     {{ form.iconColor || t('admin.forum.visual.defaultAccent') }}
                   </span>
                   <UButton type="button" size="xs" color="neutral" variant="ghost" leading-icon="i-lucide-x" @click="clearTagColor">

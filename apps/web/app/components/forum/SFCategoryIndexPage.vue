@@ -24,6 +24,7 @@ import {
 } from '~/utils/forum/forumCategoryDirectory'
 import {
   forumCategoryPath,
+  taxonomyIconColor,
   type ForumCategory,
   type ForumCategoryGroup
 } from '~/utils/forum/forumTaxonomy'
@@ -141,7 +142,7 @@ function categoryTo(category: ForumCategory) {
 }
 
 function categoryAccent(category: ForumCategory) {
-  return category.iconColor?.trim() || 'var(--sf-accent)'
+  return taxonomyIconColor(category.iconColor)
 }
 
 function categoryIconName(category: ForumCategory) {

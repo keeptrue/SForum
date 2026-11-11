@@ -94,10 +94,10 @@ const METRIC_SUFFIXES = [
   'bookmark_count'
 ]
 
-function forumFolder() {
+function userPermissionFolder() {
   return adminSidebarNavigation
     .flat()
-    .find((entry): entry is AdminNavigationFolderEntry => entry.type === 'folder' && entry.labelKey === 'admin.nav.forum')
+    .find((entry): entry is AdminNavigationFolderEntry => entry.type === 'folder' && entry.labelKey === 'admin.nav.userPermission')
 }
 
 describe('standalone page registration (admin registry + shell)', () => {
@@ -112,15 +112,14 @@ describe('standalone page registration (admin registry + shell)', () => {
     expect(definition?.componentName).toBe('AdminForumTrustLevels')
   })
 
-  test('sits under the forum folder, right after forum settings and before content', () => {
-    const children = forumFolder()?.children.map(entry => (entry.type === 'page' ? entry.pageId : '')) ?? []
+  test('sits under the user & permission folder, right after badges', () => {
+    const children = userPermissionFolder()?.children.map(entry => (entry.type === 'page' ? entry.pageId : '')) ?? []
     expect(children).toEqual([
-      '/moderation',
-      '/forum/categories',
-      '/forum/tags',
-      '/forum/settings',
-      '/forum/trust-levels',
-      '/forum/content'
+      '/users',
+      '/roles',
+      '/permissions',
+      '/badges',
+      '/forum/trust-levels'
     ])
     // 恰好一处入口：同一个页面在侧栏出现两次，运营会以为是两份配置。
     const occurrences = adminSidebarNavigation

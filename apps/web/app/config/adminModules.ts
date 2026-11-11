@@ -451,7 +451,8 @@ export const adminSidebarNavigation = [
         { type: 'page', pageId: '/users' },
         { type: 'page', pageId: '/roles' },
         { type: 'page', pageId: '/permissions' },
-        { type: 'page', pageId: '/badges' }
+        { type: 'page', pageId: '/badges' },
+        { type: 'page', pageId: '/forum/trust-levels' }
       ]
     },
     {
@@ -463,7 +464,6 @@ export const adminSidebarNavigation = [
         { type: 'page', pageId: '/forum/categories' },
         { type: 'page', pageId: '/forum/tags' },
         { type: 'page', pageId: '/forum/settings' },
-        { type: 'page', pageId: '/forum/trust-levels' },
         { type: 'page', pageId: '/forum/content' }
       ]
     },

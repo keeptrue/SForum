@@ -2,7 +2,7 @@
 /**
  * 分类选择器：触发器与下拉均展示管理端 icon + iconColor（原生 select 无法着色）。
  */
-import type { ForumCategory } from '~/utils/forum/forumTaxonomy'
+import { taxonomyIconColor, type ForumCategory } from '~/utils/forum/forumTaxonomy'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -50,7 +50,7 @@ function categoryIconColor(category: ForumCategory | null) {
   if (!category) {
     return 'var(--sf-public-text-muted)'
   }
-  return category.iconColor?.trim() || 'var(--sf-accent)'
+  return taxonomyIconColor(category.iconColor)
 }
 
 function categoryIconName(category: ForumCategory | null) {

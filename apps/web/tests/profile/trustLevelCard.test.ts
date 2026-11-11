@@ -387,6 +387,39 @@ describe('tier color reaches the card accent (D-C1)', () => {
     expect(tierAccentStyle(tierColorOf(ladder[2], 2))).toEqual({ '--tl-accent': `var(--sf-tl-${defaultTierColorName(2)})` })
   })
 
+  test('the icon block owns the shape axis and keeps the site accent out of the card', () => {
+    const source = readFileSync(cardPath, 'utf8')
+    // 形状轴（data-step）已从卡根移到图标块：与后台四分区共用 .sf-tl-mark 的阶梯几何。
+    const card = mountCard(2)
+    try {
+      expect(card.find('.sf-trust-level-card').attributes('data-step')).toBeUndefined()
+      const icon = card.get('.sf-trust-level-card__icon')
+      expect(icon.classes()).toContain('sf-tl-mark')
+      expect(icon.attributes('data-step')).toBe('2')
+    } finally {
+      card.unmount()
+    }
+    // 站点色软底不许再出现在档位图形里（TL2/3 曾经用它，结果一页全是同一个色）。
+    expect(source).not.toContain('--sf-accent-soft')
+    expect(source).not.toContain('var(--sf-accent)')
+    // 兜底是 slate token，不是站点 accent；真实色相仍来自内联 tierAccentStyle。
+    expect(source).toContain('--tl-accent: var(--sf-tl-slate);')
+  })
+
+  test('level 1 keeps the tier color on the card root and the shape on the icon', () => {
+    const wrapper = mountCard(1)
+    try {
+      // rank 1 同样吃自己的档位色（默认 teal），不给「第一档不着色」留后门。
+      expect(wrapper.get('.sf-trust-level-card').attributes('style'))
+        .toContain(`--tl-accent: var(--sf-tl-${defaultTierColorName(1)})`)
+      const icon = wrapper.get('.sf-trust-level-card__icon')
+      expect(icon.classes()).toContain('sf-tl-mark')
+      expect(icon.attributes('data-step')).toBe('1')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   test('progress fill and earned rungs follow the tier accent instead of the site accent', () => {
     const wrapper = mountCard(1, [{ key: 'daysVisited', current: 1, threshold: 4 }])
     // 同一条卡面上「等级」与「进度」必须同色相：写死 --sf-accent 会让两者分家。

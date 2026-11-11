@@ -24,6 +24,7 @@ import {
   type TrustLevelTier
 } from '~/composables/profile/useTrustLevel'
 import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
+import { tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 
 const props = defineProps<{
   form: TrustLevelsForm
@@ -194,12 +195,14 @@ function earnableCount(level: number) {
           v-for="(row, level) in ladder"
           :key="row.id"
           class="min-w-0 py-3 first:pt-0 last:pb-0"
+          :style="tierAccentStyle(tierColorOf(row, level))"
           :data-level="String(level)"
           :data-metrics="String(thresholdItems(level).length)"
+          :data-retired="row.retired ? 'true' : 'false'"
         >
           <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <div class="flex min-w-0 items-center gap-2">
-              <span class="sf-trust-levels-ladder__icon" :data-level="String(level)" :data-step="String(Math.min(4, level))" aria-hidden="true">
+              <span class="sf-trust-levels-ladder__icon sf-tl-mark" :data-level="String(level)" :data-step="String(Math.min(4, level))" aria-hidden="true">
                 <UIcon :name="levelIcon(level)" class="size-3.5" />
               </span>
               <strong class="text-sm font-semibold">{{ levelLabel(level) }}</strong>
@@ -298,50 +301,18 @@ function earnableCount(level: number) {
 </template>
 
 <style scoped>
-/* 五档图标阶梯：环线/填充沿用视觉规范 §2.2，与 thresholds 行的 24px 版本同源，这里 20px。 */
+/* 图标块几何走共享 .sf-tl-mark（assets/css/sforum-trust-colors.css）：这里只保留本分区的尺寸。
+   色相来自 li 上的内联 --tl-accent —— 不要在 span 上再声明它，那会遮蔽祖先值（D-C6）。 */
 .sf-trust-levels-ladder__icon {
-  --tl-accent: var(--sf-accent);
-
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
   width: 20px;
+  --sf-tl-mark-radius: 7px;
+
   height: 20px;
-  border: 1px solid var(--sf-border);
-  border-radius: 7px;
-  background: transparent;
-  color: var(--sf-fg-tertiary);
 }
 
-.dark .sf-trust-levels-ladder__icon {
-  --tl-accent: var(--sf-accent-dark);
-}
-
+/* TL0 是虚拟档：虚线表达「未入门」，与档位色的实线/粗环区分开。 */
 .sf-trust-levels-ladder__icon[data-level="0"] {
   border-style: dashed;
-}
-
-.sf-trust-levels-ladder__icon[data-step="1"] {
-  color: var(--sf-fg-secondary);
-}
-
-.sf-trust-levels-ladder__icon[data-step="2"] {
-  border-color: color-mix(in srgb, var(--tl-accent) 34%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--tl-accent);
-}
-
-.sf-trust-levels-ladder__icon[data-step="3"] {
-  border: 2px solid color-mix(in srgb, var(--tl-accent) 55%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--tl-accent);
-}
-
-.sf-trust-levels-ladder__icon[data-step="4"] {
-  border-color: var(--tl-accent);
-  background: var(--tl-accent);
-  color: var(--sf-card);
 }
 
 /* 长指标摘要不撑破 390 窄屏（spec §7.2 第 5 条）。 */

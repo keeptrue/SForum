@@ -185,13 +185,20 @@ describe('admin forum helpers', () => {
     expect(categoriesPage).toContain('icon: categoryForm.icon.trim()')
     expect(categoriesPage).toContain('iconColor: categoryForm.iconColor.trim()')
     expect(categoriesPage).toContain('categoryPreviewIcon(category)')
-    expect(categoriesPage).toContain('taxonomyPreviewColor(category.iconColor)')
+    // 变更 C：图标色/输入色只有一个实现（utils/forum/forumTaxonomy），页面不再抄一份。
+    expect(categoriesPage).toContain('taxonomyIconColor(category.iconColor)')
+    expect(categoriesPage).toContain('taxonomyColorInputValue(categoryForm.iconColor)')
+    expect(categoriesPage).not.toContain('function taxonomyPreviewColor')
+    expect(categoriesPage).not.toContain('function colorInputValue')
 
     expect(tagsPage).toContain('LazySFIconPicker')
     expect(tagsPage).toContain('icon: form.icon.trim()')
     expect(tagsPage).toContain('iconColor: form.iconColor.trim()')
     expect(tagsPage).toContain('tagPreviewIcon(tag)')
-    expect(tagsPage).toContain('taxonomyPreviewColor(tag.iconColor)')
+    expect(tagsPage).toContain('taxonomyIconColor(tag.iconColor)')
+    expect(tagsPage).toContain('taxonomyColorInputValue(form.iconColor)')
+    expect(tagsPage).not.toContain('function taxonomyPreviewColor')
+    expect(tagsPage).not.toContain('function colorInputValue')
 
     expect(zhCN.admin.forum.visual).toMatchObject({
       icon: '图标',
@@ -214,7 +221,7 @@ describe('admin forum helpers', () => {
     expect(settings?.permissionMode).toBe('any')
   })
 
-  test('adds forum category, tag, settings, trust-levels, and content pages to the sidebar folder', () => {
+  test('adds forum category, tag, settings, and content pages to the sidebar folder', () => {
     const forumFolder = adminSidebarNavigation
       .flat()
       .find((entry): entry is AdminNavigationFolderEntry => entry.type === 'folder' && entry.labelKey === 'admin.nav.forum')
@@ -224,9 +231,28 @@ describe('admin forum helpers', () => {
       '/forum/categories',
       '/forum/tags',
       '/forum/settings',
-      // 信任等级已从 settings?tab=trustLevels 提为独立页：排在论坛设置之后、内容管理之前。
-      '/forum/trust-levels',
       '/forum/content'
     ])
+  })
+
+  test('keeps trust levels under the user & permission folder, right after badges, with a single entry', () => {
+    const userPermissionFolder = adminSidebarNavigation
+      .flat()
+      .find((entry): entry is AdminNavigationFolderEntry => entry.type === 'folder' && entry.labelKey === 'admin.nav.userPermission')
+
+    // 信任等级的主体是用户信任度：与徽章同轴挂在「用户与权限」下，排在徽章之后。
+    expect(userPermissionFolder?.children.map((entry) => entry.type === 'page' ? entry.pageId : '')).toEqual([
+      '/users',
+      '/roles',
+      '/permissions',
+      '/badges',
+      '/forum/trust-levels'
+    ])
+
+    const trustLevelFolders = adminSidebarNavigation
+      .flat()
+      .filter((entry): entry is AdminNavigationFolderEntry => entry.type === 'folder'
+        && entry.children.some((child) => child.type === 'page' && child.pageId === '/forum/trust-levels'))
+    expect(trustLevelFolders.map((folder) => folder.labelKey)).toEqual(['admin.nav.userPermission'])
   })
 })

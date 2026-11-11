@@ -190,12 +190,25 @@ section.sf-profile-side-section.sf-trust-level-card   [data-level][data-earned]
 | 3 | `2px solid color-mix(in srgb, var(--sf-accent) 55%, transparent)` | `var(--sf-accent-soft)` | `var(--sf-accent)` |
 | 4 | `1px solid var(--sf-accent)` | `var(--sf-accent)`（实心） | `var(--sf-card)`（反色） |
 
+> **step 1 一行已被 D-C6 取代（2026-11-11，表体保留为历史结论）**：TL1 不再是「`--sf-border` 环 +
+> `var(--sf-fg-secondary)` 字形」的中性态，而是**档位色 34% 环（`color-mix(--tl-accent 34%, --sf-border)`）
+> + 透明底 + 档位色字形**。原因：色相改按档位派生后，step 1 的中性规则会把 rank 1 的档位色整个吃掉
+> （给 TL1 配任何色都无效，其余档正常）。阶梯强度仍由「环 → 淡底 → 粗环 → 实心」表达，色相从第一档起就在。
+
 - **TL3 与 TL2 的区分靠环线 2px**（唯一 2px 档）。这条是刻意的：`accent-soft` 在 12 个日间预设下
   与 `accent` 的明度差会被背景色吃掉一部分，2px 环线是纯几何差异，任何预设、任何缩放下都成立。
 - **TL4 是唯一的实心档**。整站没有第二个「实心 accent 方块」，所以最高档一眼可辨。
 - **档位名与副文案永远是 `var(--sf-fg)` / `var(--sf-fg-secondary)`**，色相只上图标容器，
   永不承担文字可读性（沿用徽章规范 §1.3 第 1 条）。
 - 未达成态**不用 `opacity`** 降级：TL0 的降级靠「虚线环 + 无填充 + tertiary 图标」三处实现。
+
+> **2026-11-11 标注（D-C6，本节的色相来源已被取代，形状梯度仍生效）**：上表 `var(--sf-accent)` /
+> `var(--sf-accent-soft)` 一列**不再作为档位色来源**——现在色相按档位派生
+> （`tierColorOf` → 行根内联 `--tl-accent` → 共享 `.sf-tl-mark`），淡底改为
+> `color-mix(in srgb, var(--tl-accent) 12%, var(--sf-card))`。**环线权重（1px / 2px / 实心）与
+> TL0 虚线仍是现行契约**，「档位名与副文案永不上色」「未达成态不用 opacity」同样不变。
+> 原表保留为 2026-11-10 的历史结论，不追改；裁决见
+> `../decisions/2026-11-11-trust-level-color-render-unification.md`。
 
 ### 2.3 暗色
 

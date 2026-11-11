@@ -292,7 +292,7 @@ assert(
 )
 assert(forumFolder.children?.some(entry => entry.pageId === '/moderation'), 'Forum folder should contain the moderation page')
 assert(
-  forumFolder.children?.map(entry => entry.pageId).join(',') === '/moderation,/forum/categories,/forum/tags,/forum/settings,/forum/trust-levels,/forum/content',
+  forumFolder.children?.map(entry => entry.pageId).join(',') === '/moderation,/forum/categories,/forum/tags,/forum/settings,/forum/content',
   'Forum folder should keep the approved submenu order'
 )
 // 徽章的主体是用户（授予关系 / user_activity / top_badge_id），不是论坛内容或论坛设置：
@@ -300,7 +300,7 @@ assert(
 const userPermissionFolder = firstSidebarGroup.find(entry => entry.type === 'folder' && entry.labelKey === 'admin.nav.userPermission')
 assert(userPermissionFolder, 'Admin sidebar should keep a user & permission folder')
 assert(
-  userPermissionFolder.children?.map(entry => entry.pageId).join(',') === '/users,/roles,/permissions,/badges',
+  userPermissionFolder.children?.map(entry => entry.pageId).join(',') === '/users,/roles,/permissions,/badges,/forum/trust-levels',
   'User & permission folder should keep the approved submenu order'
 )
 assert(
@@ -310,6 +310,15 @@ assert(
 assert(
   firstSidebarGroup.filter(entry => entry.type === 'folder' && entry.children?.some(child => child.pageId === '/badges')).length === 1,
   'Badges should appear in exactly one sidebar folder'
+)
+// 信任等级调的是用户的信任度，不是论坛版块/设置：与徽章同口径挂在「用户与权限」文件夹。
+assert(
+  !forumFolder.children?.some(entry => entry.pageId === '/forum/trust-levels'),
+  'Trust levels should live under the user & permission folder, not the forum folder'
+)
+assert(
+  firstSidebarGroup.filter(entry => entry.type === 'folder' && entry.children?.some(child => child.pageId === '/forum/trust-levels')).length === 1,
+  'Trust levels should appear in exactly one sidebar folder'
 )
 const systemFolder = firstSidebarGroup.find(entry => entry.type === 'folder' && entry.labelKey === 'admin.nav.system')
 assert(systemFolder, 'Admin sidebar should keep a system folder')

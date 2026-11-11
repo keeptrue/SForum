@@ -21,6 +21,7 @@ import {
   type TrustLevelWhitelistState
 } from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
 import { trustLevelIconOf, trustLevelName } from '~/composables/profile/useTrustLevel'
+import { tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 import { compileVueSfc, mount } from '../../helpers/vueSfc'
 
 /**
@@ -103,7 +104,9 @@ const SFAdminTrustLevelEarnableRow = await compileVueSfc(rowPath, 'sf-trust-earn
   useI18n: i18n,
   usePermissionText: () => ({ permissionLabel }),
   trustLevelIconOf,
-  trustLevelName
+  trustLevelName,
+  tierAccentStyle,
+  tierColorOf
 })
 
 const matrixPath = fileURLToPath(

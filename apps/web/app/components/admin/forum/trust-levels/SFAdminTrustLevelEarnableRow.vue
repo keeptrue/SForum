@@ -12,6 +12,7 @@
 import { type TierForm } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import { usePermissionText } from '~/composables/identity/usePermissionText'
 import { trustLevelIconOf, trustLevelName } from '~/composables/profile/useTrustLevel'
+import { tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 
 const props = defineProps<{
   tier: TierForm
@@ -70,6 +71,7 @@ const tierIcon = computed(() => trustLevelIconOf(props.tier, props.rank))
 <template>
   <fieldset
     class="sf-trust-earnable__row"
+    :style="tierAccentStyle(tierColorOf(tier, rank))"
     :data-level="String(rank)"
     :data-step="String(Math.min(4, rank))"
     :data-tier-id="tier.id"
@@ -77,7 +79,7 @@ const tierIcon = computed(() => trustLevelIconOf(props.tier, props.rank))
     :data-layout="layout"
   >
     <legend class="sf-trust-earnable__legend">
-      <span class="sf-trust-earnable__icon" :data-level="String(rank)" :data-step="String(Math.min(4, rank))" aria-hidden="true">
+      <span class="sf-trust-earnable__icon sf-tl-mark" :data-level="String(rank)" :data-step="String(Math.min(4, rank))" aria-hidden="true">
         <UIcon :name="tierIcon" class="sf-trust-earnable__glyph" />
       </span>
       <span class="sf-trust-earnable__name">{{ levelName }}</span>
@@ -144,39 +146,12 @@ const tierIcon = computed(() => trustLevelIconOf(props.tier, props.rank))
   padding: 0;
 }
 
+/* 几何与配色走共享 .sf-tl-mark：本分区只保留尺寸（色相来自 fieldset 根上的内联 --tl-accent）。 */
 .sf-trust-earnable__icon {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
   width: 24px;
+  --sf-tl-mark-radius: 8px;
+
   height: 24px;
-  border: 1px solid var(--sf-border);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--sf-fg-tertiary);
-}
-
-.sf-trust-earnable__icon[data-step="1"] {
-  color: var(--sf-fg-secondary);
-}
-
-.sf-trust-earnable__icon[data-step="2"] {
-  border-color: color-mix(in srgb, var(--sf-accent) 34%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--sf-accent);
-}
-
-.sf-trust-earnable__icon[data-step="3"] {
-  border: 2px solid color-mix(in srgb, var(--sf-accent) 55%, transparent);
-  background: var(--sf-accent-soft);
-  color: var(--sf-accent);
-}
-
-.sf-trust-earnable__icon[data-step="4"] {
-  border-color: var(--sf-accent);
-  background: var(--sf-accent);
-  color: var(--sf-card);
 }
 
 .sf-trust-earnable__glyph {

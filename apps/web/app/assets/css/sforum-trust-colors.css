@@ -34,3 +34,75 @@
   --sf-tl-rose: #f472b6;
   --sf-tl-amber: #fbbf24;
 }
+
+/*
+ * 档位图形（图标块）的共享几何。色相只有一个来源：**祖先元素**内联的 `--tl-accent`
+ * （由 `tierAccentStyle(tierColorOf(tier, rank))` 注入，见 `utils/profile/trustLevelColors.ts`）。
+ *
+ * 这里**绝不能**写 `.sf-tl-mark { --tl-accent: … }`：自定义属性声明在更深一层会遮蔽祖先的内联值，
+ * 后台四个分区曾经就各自在图标 span 上写 `--tl-accent: var(--sf-accent)`，于是不论档位配了什么色，
+ * 图标块永远显示站点色。兜底只能用 `var(--tl-accent, var(--sf-tl-slate))` 的 fallback 形式。
+ *
+ * 形状是第二轴（与色相独立，色相从第一档起就在）：data-step
+ * 1 = 34% 环无底 / 2 = 34% 环 + 淡底 / 3 = 2px 55% 环 + 淡底 / 4 = 实心反色字。
+ * **别把 step 1 写回中性色**：旧「强度阶梯」给「没有档位色、只靠深浅区分」的图形设计过一条
+ * `.sf-tl-mark[data-step="1"] { color: var(--sf-fg-secondary) }`，它会让 rank 1 的配置色静默失效
+ * （TL1 配任何颜色都渲染成灰，且只在这一档上出错）。
+ * 淡底一律用 `color-mix(… var(--tl-accent-tint), var(--sf-card))`，不再用 `--sf-accent-soft`
+ * （站点色不随档位变化，一页排开就分不出层级）。`--tl-accent-tint` 与 TierRow 现有口径一致。
+ */
+.sf-tl-mark {
+  --tl-accent-tint: 12%;
+
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--sf-border);
+  /* 各分区尺寸不同（20/24/28px），圆角由使用方用变量给，避免依赖 scoped 与全局的层叠顺序。 */
+  border-radius: var(--sf-tl-mark-radius, 8px);
+  background: transparent;
+  color: var(--sf-fg-tertiary);
+}
+
+/* 旧浏览器没有 color-mix：停在基础中性态（可读、无色），不写无意义的三段渐变。 */
+@supports (color: color-mix(in srgb, red, blue)) {
+  /*
+   * rank 1 也必须有档位色。这里曾经是 `color: var(--sf-fg-secondary)`（旧「强度阶梯」的遗留：
+   * 那套阶梯给「没有档位色、只靠深浅区分」的图形用，第一档故意不着色），结果 TL1 配什么色都被吃掉。
+   * 现在阶梯靠「环 → 淡底 → 粗环 → 实心」表达强度，色相从第一档起就在：
+   * step1 34% 环无底 / step2 34% 环 + 淡底 / step3 2px 55% 环 + 淡底 / step4 实心反色字。
+   */
+  .sf-tl-mark[data-step="1"] {
+    border-color: color-mix(in srgb, var(--tl-accent, var(--sf-tl-slate)) 34%, var(--sf-border));
+    background: transparent;
+    color: var(--tl-accent, var(--sf-tl-slate));
+  }
+
+  .sf-tl-mark[data-step="2"] {
+    border-color: color-mix(in srgb, var(--tl-accent, var(--sf-tl-slate)) 34%, transparent);
+    background: color-mix(in srgb, var(--tl-accent, var(--sf-tl-slate)) var(--tl-accent-tint), var(--sf-card));
+    color: var(--tl-accent, var(--sf-tl-slate));
+  }
+
+  .sf-tl-mark[data-step="3"] {
+    border: 2px solid color-mix(in srgb, var(--tl-accent, var(--sf-tl-slate)) 55%, transparent);
+    background: color-mix(in srgb, var(--tl-accent, var(--sf-tl-slate)) var(--tl-accent-tint), var(--sf-card));
+    color: var(--tl-accent, var(--sf-tl-slate));
+  }
+
+  .sf-tl-mark[data-step="4"] {
+    border-color: var(--tl-accent, var(--sf-tl-slate));
+    background: var(--tl-accent, var(--sf-tl-slate));
+    color: var(--sf-card);
+  }
+}
+
+/* 停用档位：图形留色但降强度（45%/6%，暗色 55%/8%），与 .sf-tier-row 现有口径一致。 */
+[data-retired="true"] .sf-tl-mark {
+  --tl-accent-tint: 6%;
+}
+
+.dark [data-retired="true"] .sf-tl-mark {
+  --tl-accent-tint: 8%;
+}

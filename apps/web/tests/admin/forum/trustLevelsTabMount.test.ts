@@ -149,7 +149,9 @@ const SFAdminTrustLevelEarnableRow = await compileVueSfc(rowPath, 'sf-trust-earn
   useI18n: i18n,
   usePermissionText: () => ({ permissionLabel }),
   trustLevelIconOf,
-  trustLevelName
+  trustLevelName,
+  tierAccentStyle,
+  tierColorOf
 })
 
 const matrixPath = fileURLToPath(
@@ -188,6 +190,8 @@ const SFAdminTrustLevelThresholdsTab = await compileVueSfc(thresholdsPath, 'sf-t
   activeRankOf,
   trustLevelIconOf,
   trustLevelName,
+  tierAccentStyle,
+  tierColorOf,
   useI18n: i18n
 })
 
@@ -253,6 +257,8 @@ const SFAdminTrustLevelLimitsTab = await compileVueSfc(limitsTabPath, 'sf-trust-
   toLimitsForm,
   TRUST_LEVEL_LIMIT_KEYS,
   blockNonIntegerKey,
+  tierAccentStyle,
+  tierColorOf,
   SFAdminTrustLevelFieldErrors
 })
 
@@ -733,6 +739,24 @@ describe('tiers partition (档位管理)', () => {
     expect(overridden[0]!.attributes('style')).toContain('var(--sf-tl-rose)')
     expect(overridden[1]!.attributes('style')).toContain(`var(--sf-tl-${defaultTierColorName(2)})`)
     expect(tierAccentStyle(tierColorOf(colored[0], 1))).toEqual({ '--tl-accent': 'var(--sf-tl-rose)' })
+  })
+
+  test('thresholds / limits / earnable 的行根与 tiers 行根一样带同一份 --tl-accent', () => {
+    const form = recommendedTrustLevelsForm()
+    const expected = [1, 2, 3, 4].map(rank => `--tl-accent: var(--sf-tl-${defaultTierColorName(rank)});`)
+
+    const thresholds = mountThresholds({ form }).findAll('fieldset')
+    expect(thresholds.map(row => row.attributes('style'))).toEqual(expected)
+    expect(thresholds.every(row => row.find('.sf-tl-mark').exists())).toBe(true)
+
+    const limits = mountLimits({ form }).findAll('[data-sf-limits-tier]')
+    expect(limits.map(row => row.attributes('style'))).toEqual(expected)
+    expect(limits.every(row => row.find('.sf-tl-mark').exists())).toBe(true)
+
+    const earnable = mountEarnable({ form }).findAll('.sf-trust-earnable__row')
+    expect(earnable.length).toBe(form.tiers.length)
+    expect(earnable.map(row => row.attributes('style'))).toEqual(expected)
+    expect(earnable.every(row => row.find('.sf-tl-mark').exists())).toBe(true)
   })
 
   test('a retired tier carries a permanent withdrawn-unlocks badge instead of a toast', () => {

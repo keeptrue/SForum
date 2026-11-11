@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { forumCategoryPath, type ForumCategory } from '~/utils/forum/forumTaxonomy'
+import { forumCategoryPath, taxonomyIconColor, type ForumCategory } from '~/utils/forum/forumTaxonomy'
 import { limitDynamicNavigationItems } from '~/utils/navigation/publicNavigation'
 
 const props = withDefaults(defineProps<{
@@ -39,7 +39,7 @@ function categoryTo(slug: string) {
 }
 
 function categoryIconColor(category: ForumCategory) {
-  return category.iconColor?.trim() || 'var(--sf-accent)'
+  return taxonomyIconColor(category.iconColor)
 }
 
 function categoryIconName(category: ForumCategory) {

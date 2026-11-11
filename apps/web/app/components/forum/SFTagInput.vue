@@ -5,6 +5,7 @@
 import {
   isForumTagSlug,
   normalizeForumTagSlugInput,
+  taxonomyIconColor,
   type ForumTag
 } from '~/utils/forum/forumTaxonomy'
 
@@ -81,7 +82,7 @@ const suggestions = computed(() => {
 })
 
 function tagIconColor(tag: ForumTag | undefined) {
-  return tag?.iconColor?.trim() || 'var(--sf-accent)'
+  return taxonomyIconColor(tag?.iconColor)
 }
 
 function tagIconName(tag: ForumTag | undefined) {

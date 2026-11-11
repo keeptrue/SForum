@@ -533,6 +533,17 @@ export function buildForumSearchQuery(filters: ForumTopicSearchFilters) {
   return query
 }
 
+/** 分类/标签图标色：管理端覆盖色优先，未配置时回落站点主色。管理台与公开页共用这一份。 */
+export function taxonomyIconColor(value?: string | null): string {
+  return String(value ?? '').trim() || 'var(--sf-accent)'
+}
+
+/** 颜色选择器的输入值：只接受 `#rrggbb`，空值/旧值/写坏的格式一律回推荐色。 */
+export function taxonomyColorInputValue(value?: string | null): string {
+  const raw = String(value ?? '').trim()
+  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : '#0f766e'
+}
+
 export function forumCategoryPath(slug: string) {
   return `/c/${encodeURIComponent(slug)}`
 }

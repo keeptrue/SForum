@@ -811,6 +811,27 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **信任等级：档位色单源渲染 + 后台 IA 归位（2026-11-11，最新）**：五个后台分区与资料页卡收敛到共享
+  `.sf-tl-mark`，色相只认**行根内联** `--tl-accent`（`tierColorOf` → `tierAccentStyle`），删掉六处子层
+  `--tl-accent: var(--sf-accent)` / `--sf-accent-dark` 遮蔽声明与 `--sf-accent-soft` 淡底；形状梯度
+  （1px / 2px / 实心 / TL0 虚线）保留。分类/标签图标色收敛到 `utils/forum/forumTaxonomy.ts` 的
+  `taxonomyIconColor` / `taxonomyColorInputValue`（一份实现）。后台 IA：`/forum/trust-levels` 从
+  「论坛管理」移到「用户/权限」（徽章之后），页面 id / 路由 / V3 身份 / API 全不变。
+  **改色端到端已验**：TL1/TL2 设 `rose`（并临时把 TL2 门槛降到 TL1 同值以造出 level-2 命中）→
+  总览阶梯 / 档位管理 / 门槛设置 / 发言限额 / 能力解锁 / 资料页卡六面同变 `rgb(190,24,93)`
+  （暗色 `rgb(244,114,182)`，390 宽无溢出），随后回滚原始 config：`GET /admin/trust-levels` 逐字段相等、
+  `web_options` 里 `"color"` 键计数 0、`resident.days_visited` 回 15、公开读面回默认色序。
+  命令门：`bun test tests/{admin,profile,forum}` 1358 pass / `bun test` 全量 2269 pass（均 0 fail）、
+  `typecheck` 0、架构门禁 0、admin 目录门 0。
+  决策 D-C6 / D-C7（含病根「更深一层的自定义属性声明会遮蔽祖先内联值」）见
+  `decisions/2026-11-11-trust-level-color-render-unification.md`；证据 `storage/qa/trust-level-color-unify/REPORT.md`；
+  handoff `sessions/2026-11-11-trust-level-color-and-ia.md`。残余：分类详情页无图标元素、
+  话题列表分类 chip 哈希硬编码（需给 `ForumTopicSummary` 加字段）、标签色无公开载体渲染、
+  后台页 SSR 首屏闪推荐默认色（非本刀）。
+  **复核回归（TL1，已修）**：用户复核发现 `.sf-tl-mark[data-step="1"]` 仍带旧「强度阶梯」的中性规则，
+  把 rank 1 的档位色整个吃掉（指纹：同一档在档位管理是 teal、其余五面中性灰）；已改为
+  `color-mix(--tl-accent 34%, --sf-border)` 环 + 透明底 + 档位色字形，浏览器复测 TL1 字形 `rgb(15, 118, 110)`。
+  这条与「子层声明遮蔽祖先」同类：**陈旧的设计规则会让配置项静默失效**。
 - **信任等级：分档发言限额编辑器 + 徽章「做过又撤回」（2026-11-11，最新）**：
   后台补第 5 个分区 `limits`（zh「发言限额」，`da1d01683`）——`limits` 三态与后端输入一一对应
   （`null` 全继承 / 对象逐字段、子字段 `null` 仍继承 / `0` = 不限额），`trustLevelsPayload` 未改、
