@@ -8,7 +8,7 @@ load archived sessions or completed plans as current context.
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
-- Status: **in progress（M1–M4 已落地含公开面；M5 进行中；M8 已出最终表：124 行 ok 75 / 未实现 49 / FAIL 0）**。
+- Status: **in progress（M1–M4 已落地含公开面；M5 进行中；M8 最终表 124 行 ok 75 / 未实现 49 / FAIL 0；提交历史：`f63ad2cf9`（代码）+ 紧随其后的 docs 提交（证据升级））**。
   在既有 RBAC 之上叠一层按累计行为自动升降的能力层：TL 在**装载期**合并进
   `Actor.Permissions`（`Can()` 零改动，D13），装载公式
   `effective = Expand(static) ∪ (earned ∖ denied)`（D14）；现有「新人信任阶梯」

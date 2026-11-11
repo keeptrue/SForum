@@ -86,6 +86,13 @@ snake_case、`ThresholdOptionKey` 死函数已删。
 
    结论（D1/D13 的「`Can()` 零改动」）不变。
 
+## 提交
+
+已提交 **`f63ad2cf9`**（「interaction: badges + user activity, trust levels」，269 文件）。
+提交时工作树干净。文档回填（证据升级、`ThresholdOptionKey` 措辞、验收小节）作为**紧随其后的
+独立 docs 提交**落库——不并进代码提交，因为纯文档改动不影响构建，分开更清楚。提交信息里的 M8 数字（124 条矩阵条目 / 0 FAIL / ok 75 / 未实现 49）与
+`reports/2026-11-10-trust-levels-m8-final-status.md` 一致，已核对。
+
 ## Decisions
 
 本刀未新增决策——计划的 D1–D21 是唯一决策来源。第二轮由 lead 裁决的条目已回填：

@@ -49,7 +49,9 @@ Project memory for future sessions and contributors.
   can re-run it and see the claim re-open if someone reverts the fix.
 - **Zero-hit claims have an upgrade obligation.** A fresh "observed at time T" claim
   must be upgraded to commit-level evidence once it lands (`git log -S"<symbol>"
-  --oneline` names the introducing and the removing commit). Until then, `git log -S`
+  --oneline` plus `git grep "<symbol>" <rev> -- '*.go'`). Only version history can
+  distinguish the three cases that prose keeps conflating: **never existed**, **existed
+  and was removed**, **existed only in an uncommitted worktree**. Until then, `git log -S`
   is empty evidence — it can only adjudicate committed history — so an observation is
   the only legal form, not a weaker one. Left un-upgraded, even a rigorous
   observation becomes hearsay within a release or two. The two rules form one chain:

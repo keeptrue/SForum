@@ -436,8 +436,12 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 15. ~~`types.go` 注释称 options 键后缀为 `trust.level.<n>.<metric>`~~ —— 已改：注释明写该方案
     作废；`ThresholdOptionKey` 只用于**表单字段名与契约字段名**，不是 options 键。
 16. ~~`types.go` 的 `NameKey()` 是无人消费的死生成器~~ —— 已删，**三个死生成器全部清掉**：
-    `NameKey()` / `DescriptionKey()` / `ThresholdOptionKey()`（`rg` 在 `apps/api`、`apps/web`
-    均零命中），`registry_test.go` 里那条自证式断言也一并删除。
+    `NameKey()` / `DescriptionKey()` / `ThresholdOptionKey()`。
+    `ThresholdOptionKey` 的准确说法（提交级证据，`f63ad2cf9` 之后可断言）：
+    **它从未进入任何提交的 Go 代码，仅存在于本刀的工作树（`policy.go:65`）并被删除；当前
+    仓库中该字符串只出现在 `knowledge/` 的记录里。**
+    验证命令：`git grep -c "ThresholdOptionKey" HEAD -- '*.go'` → 零命中；
+    `git log -S"ThresholdOptionKey"` → 只有 `f63ad2cf9` 这一次提交，且命中文件全在 `knowledge/`。
     **纪律：自证式断言不算断言**（计划 §14 第 4 条）——断言自己的前缀证明不了任何事；
     判据是**有生成器 ≠ 有契约，看消费者不看函数**。
 
@@ -489,6 +493,13 @@ SFORUM_TL_TEST_LOG=/tmp/iso.log ./scripts/verify-trust-levels-acceptance.sh
 > 第 1 步的 `-v` 不是排版偏好，而是 A-3 判据的**输入前提**：那条硬断言守的不是「断言是否
 > 正确」，是「**断言是否真的执行过**」。本刀它当场抓到过一次——`-v` 被当成包选择传入，
 > `=== RUN` 计数 0，看起来全绿实则一条没跑。
+
+**证据升级（首次提交后必须做，`knowledge/README.md` 有同款约定）**：提交前的存在性结论是
+**观察级**（`grep` 只证明「此刻没有」）；首次提交后必须回填**提交级**
+（`git log -S` + `git grep … HEAD`），因为只有版本历史能区分三种情况：
+**从未存在** / **曾经存在且已删** / **只存在于未提交的工作树**。
+本刀的 `ThresholdOptionKey` 正是第三种——提交前说「零调用者、已删」是观察级，说「从未存在」
+是错的，提交后才能给出唯一正确的说法（见「已作废结论」C 组 16）。
 
 **方法学收获（比上面任何一条都耐用）**：验收矩阵与验收脚本之间也需要一条契约。本刀出现过
 「矩阵 30 个测试名里 29 个不存在」，而 `go test -run` 匹配不到时**退出码是 0**，脚本会把它们
