@@ -394,7 +394,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithCitationReader(providers.NewForumCitationReader(pool)).
 		// 工具调用记录与依据共用同一个端点与同一次可见性判定；公开投影在适配器
 		// 里就已经丢掉 resultDigest（工具结果片段可能包含读者不可见的内容）。
-		WithToolCallReader(providers.NewForumToolCallReader(pool))
+		WithToolCallReader(providers.NewForumToolCallReader(pool)).
+		// 作者信任等级：批量来源（同一份 Policy），关闭/失败时读面自动不发字段。
+		WithAuthorTrustLevels(forumAuthorTrustLevelSource{batch: infrastructure.trustLevelBatch})
 	// 头像与附件管理共用带存储候选目录的服务实例。
 	avatarAttachmentService := attachmentService
 	// 昵称服务：策略来自运行时选项，改名后回写站内搜索文档里的作者昵称。
@@ -646,7 +648,12 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	// 导航检查器复用 SiteChrome 内部 trace ring，保证合成与审计同源。
 	extensionsProvider.WithNavigationInspector(pageSiteChromeService.NavigationInspector())
 	corePageViews := pageviewmodels.NewCorePageViewModelSource(pageviewmodels.CorePageViewModelDependencies{
-		Forum: forum.NewPublicReadService(pageForumService).WithShortcodeDispatcher(forumShortcodes), Profiles: pageProfileService, Notifications: notificationStore, NotificationTargets: notificationTargets,
+		Forum: forum.NewPublicReadService(pageForumService).
+			WithShortcodeDispatcher(forumShortcodes).
+			// Page Registry 与 JSON 读面共用同一份等级来源：主题页与 API 不能对
+			// 同一个作者给出两种等级。
+			WithAuthorTrustLevels(forumAuthorTrustLevelSource{batch: infrastructure.trustLevelBatch}),
+		Profiles: pageProfileService, Notifications: notificationStore, NotificationTargets: notificationTargets,
 		Moderation: pageModerationService, Options: optionsService, Registration: pageIdentityService,
 		Sessions: identityStore, SiteChrome: pageSiteChromeService, Search: searchService,
 		// 公开徽章目录页的数据源：目录本体 actor 无关，earned 每请求合并。

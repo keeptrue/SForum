@@ -1190,6 +1190,14 @@ TopicSummary:
         `users.top_badge_id`. Actor-agnostic: identical for every viewer, so it
         may be served from the topic cache (up to one TTL of staleness after a
         grant). Absent when the author holds no badge or badges are disabled.
+    authorTrustLevel:
+      "$ref": "./trust_levels.yaml#/AuthorTrustLevel"
+      description: |
+        Trust level of the **topic author** (level / levelSlug / color), derived on
+        the read path from the current `trust.levels` policy. Actor-agnostic, but never
+        cached: it changes when the operator edits thresholds. Absent when trust levels
+        are disabled, the batch load fails, or the author has no activity row —
+        clients must render no badge rather than infer TL0.
 TopicDetail:
   allOf:
   - "$ref": "#/TopicSummary"
@@ -1746,6 +1754,13 @@ Comment:
         `users.top_badge_id`. Actor-agnostic, so it may be served from the
         comment cache (up to one TTL of staleness after a grant). Absent when
         the author holds no badge or badges are disabled.
+    authorTrustLevel:
+      "$ref": "./trust_levels.yaml#/AuthorTrustLevel"
+      description: |
+        Trust level of the **comment author** (level / levelSlug / color), derived on
+        the read path. Absent when trust levels are disabled, the batch load fails, or
+        the author has no activity row — clients must render no badge rather than
+        infer TL0.
 ReplyReference:
   type: object
   required:

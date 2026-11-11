@@ -52,16 +52,19 @@ type Comment struct {
 	AuthorUserID int64        `json:"authorUserId"`
 	Author       *UserSummary `json:"author,omitempty"`
 	// TopBadge 是评论作者的最高级徽章（与 Author.TopBadge 同值）。
-	TopBadge      *BadgeRef             `json:"topBadge,omitempty"`
-	ParentID      *int64                `json:"parentId,omitempty"`
-	RootCommentID int64                 `json:"rootCommentId"`
-	PathKey       string                `json:"pathKey"`
-	Depth         int                   `json:"depth"`
-	ReplyCount    int64                 `json:"replyCount"`
-	Status        string                `json:"status"`
-	Content       PublicRenderedContent `json:"content"`
-	ReplyTo       *ReplyReference       `json:"replyTo,omitempty"`
-	Children      []Comment             `json:"children,omitempty"`
+	TopBadge *BadgeRef `json:"topBadge,omitempty"`
+	// AuthorTrustLevel 是**评论作者**的信任等级（level/levelSlug/color）。
+	// 只读派生、actor 无关；features.trust_levels 关闭或装载失败时省略。
+	AuthorTrustLevel *AuthorTrustLevel     `json:"authorTrustLevel,omitempty"`
+	ParentID         *int64                `json:"parentId,omitempty"`
+	RootCommentID    int64                 `json:"rootCommentId"`
+	PathKey          string                `json:"pathKey"`
+	Depth            int                   `json:"depth"`
+	ReplyCount       int64                 `json:"replyCount"`
+	Status           string                `json:"status"`
+	Content          PublicRenderedContent `json:"content"`
+	ReplyTo          *ReplyReference       `json:"replyTo,omitempty"`
+	Children         []Comment             `json:"children,omitempty"`
 	// HasMoreChildren tree 视图下子孙被 treeDescendantsPerRoot 截断时为 true；更多走 ListCommentReplies。
 	HasMoreChildren bool      `json:"hasMoreChildren,omitempty"`
 	CreatedAt       time.Time `json:"createdAt"`

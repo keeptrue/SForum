@@ -295,13 +295,16 @@ type TopicSummary struct {
 	LastReplyAuthor *UserSummary `json:"lastReplyAuthor,omitempty"`
 	// TopBadge 是主题作者的最高级徽章（与 Author.TopBadge 同值）。
 	// 列表卡片的 chip 贴在作者旁，但详情页也需要不展开 author 就能取到，故两处都出。
-	TopBadge     *BadgeRef `json:"topBadge,omitempty"`
-	Title        string    `json:"title"`
-	Slug         string    `json:"slug"`
-	Status       string    `json:"status"`
-	IsPinned     bool      `json:"isPinned"`
-	CommentCount int64     `json:"commentCount"`
-	ViewCount    int64     `json:"viewCount"`
+	TopBadge *BadgeRef `json:"topBadge,omitempty"`
+	// AuthorTrustLevel 是**主题作者**的信任等级（level/levelSlug/color）。
+	// 只读派生、actor 无关；features.trust_levels 关闭或装载失败时省略。
+	AuthorTrustLevel *AuthorTrustLevel `json:"authorTrustLevel,omitempty"`
+	Title            string            `json:"title"`
+	Slug             string            `json:"slug"`
+	Status           string            `json:"status"`
+	IsPinned         bool              `json:"isPinned"`
+	CommentCount     int64             `json:"commentCount"`
+	ViewCount        int64             `json:"viewCount"`
 	// LikeCount 是反规范化的点赞数；列表与详情共用。
 	LikeCount int64 `json:"likeCount"`
 	// HotScore 仅服务端 keyset 编码使用，不序列化到公开 JSON。

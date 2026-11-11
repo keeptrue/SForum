@@ -5,6 +5,7 @@ import (
 	"time"
 
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
@@ -95,3 +96,94 @@ var _ identity.TrustLevelSource = (*trustlevels.Resolver)(nil)
 func trustLevelClock(now time.Time) func() time.Time {
 	return func() time.Time { return now }
 }
+
+// trustLevelBatchActivityReader 把 Badges 的批量读入口转成 TrustLevels 的窄接口。
+//
+// 与单数版同理：按名字引用 ActivityCounters 的字段，统计层改名时这里直接编译失败。
+type trustLevelBatchActivityReader struct {
+	store *badges.PostgresActivityStore
+}
+
+func (r trustLevelBatchActivityReader) ActivitiesFor(ctx context.Context, userIDs []int64) (map[int64]trustlevels.Activity, error) {
+	if r.store == nil {
+		return map[int64]trustlevels.Activity{}, nil
+	}
+	counters, err := r.store.GetCountersMany(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	activities := make(map[int64]trustlevels.Activity, len(counters))
+	for id, item := range counters {
+		activities[id] = trustlevels.Activity{
+			TopicCount:        item.TopicCount,
+			CommentCount:      item.CommentCount,
+			LikeReceivedCount: item.LikeReceivedCount,
+			LikeGivenCount:    item.LikeGivenCount,
+			BookmarkCount:     item.BookmarkCount,
+			DaysVisited:       item.DaysVisited,
+		}
+	}
+	return activities, nil
+}
+
+// trustLevelAccountReader 把 Identity 的 users 批量读入口转成 TrustLevels 的窄接口。
+type trustLevelAccountReader struct {
+	store *identity.PostgresStore
+}
+
+func (r trustLevelAccountReader) UserAccounts(ctx context.Context, userIDs []int64) (map[int64]trustlevels.UserAccount, error) {
+	if r.store == nil {
+		return map[int64]trustlevels.UserAccount{}, nil
+	}
+	accounts, err := r.store.UserAccounts(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]trustlevels.UserAccount, len(accounts))
+	for id, account := range accounts {
+		out[id] = trustlevels.UserAccount{CreatedAt: account.CreatedAt, Kind: account.Kind}
+	}
+	return out, nil
+}
+
+// newTrustLevelBatchResolver 构造论坛读面的批量等级来源（唯一调用点）。
+func newTrustLevelBatchResolver(
+	optionsService *options.Service,
+	activity *badges.PostgresActivityStore,
+	users *identity.PostgresStore,
+) *trustlevels.BatchResolver {
+	return trustlevels.NewBatchResolver(
+		trustLevelBatchActivityReader{store: activity},
+		trustLevelAccountReader{store: users},
+		trustLevelPolicySource{options: optionsService},
+	)
+}
+
+// forumAuthorTrustLevelSource 是 Forum 与 TrustLevels 之间的唯一转换点。
+//
+// Forum 不 import TrustLevels、TrustLevels 不 import Forum：两边各有一份读模型，
+// 由装配层（本文件）贴上。失败原样上抛，Forum 侧 fail-open 成「不带等级」。
+type forumAuthorTrustLevelSource struct {
+	batch *trustlevels.BatchResolver
+}
+
+func (s forumAuthorTrustLevelSource) AuthorTrustLevels(ctx context.Context, userIDs []int64) (map[int64]forum.AuthorTrustLevel, error) {
+	if s.batch == nil {
+		return nil, nil
+	}
+	levels, err := s.batch.AuthorLevels(ctx, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]forum.AuthorTrustLevel, len(levels))
+	for id, level := range levels {
+		out[id] = forum.AuthorTrustLevel{
+			Level:     int(level.Level),
+			LevelSlug: level.LevelSlug,
+			Color:     level.Color,
+		}
+	}
+	return out, nil
+}
+
+var _ forum.AuthorTrustLevelSource = forumAuthorTrustLevelSource{}

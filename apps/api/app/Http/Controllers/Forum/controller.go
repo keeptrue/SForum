@@ -164,6 +164,14 @@ func (h *Controller) WithReactions(reactions *forum.ReactionService) *Controller
 }
 
 // WithBookmarks 装配收藏协作者，并把同一个读取面接到公开读服务上。
+// WithAuthorTrustLevels 把作者等级来源接到公开读面上（批量，失败 fail-open）。
+func (h *Controller) WithAuthorTrustLevels(source forum.AuthorTrustLevelSource) *Controller {
+	if h != nil && h.publicReads != nil {
+		h.publicReads = h.publicReads.WithAuthorTrustLevels(source)
+	}
+	return h
+}
+
 func (h *Controller) WithBookmarks(bookmarks *forum.BookmarkService) *Controller {
 	if h == nil {
 		return h
@@ -389,7 +397,7 @@ func (h *Controller) topics(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	list, err := h.service.ListTopics(c.Context(), forum.TopicListInput{
+	list, err := h.publicReads.ListTopics(c.Context(), forum.TopicListInput{
 		Page:    queryInt(c, "page"),
 		PerPage: queryInt(c, "perPage"),
 		// M5：after 优先于 page（service/store 忽略 page when after set）
