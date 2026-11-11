@@ -5267,6 +5267,7 @@
         "tabs": {
           "label": "信任等级分区",
           "thresholds": "门槛设置",
+          "limits": "发言限额",
           "earnable": "能力解锁",
           "overview": "等级总览",
           "tiers": "档位管理"
@@ -5516,6 +5517,24 @@
           },
           "confirm": "恢复默认",
           "cancel": "取消"
+        },
+        "limits": {
+          "title": "发言限额",
+          "description": "按档覆盖站点默认的冷却与每日上限。留空的字段继续继承站点默认，填 0 表示不限制。",
+          "hint": "四个限额逐字段覆盖：留空 = 继承站点默认（输入框为空），填 0 = 不限制 / 免冷却。两者不是一回事。",
+          "inherit": "继承站点默认",
+          "inheritBadge": "跟随站点默认",
+          "customBadge": "逐档覆盖",
+          "inheritNote": "该档完全跟随站点默认，四个限额都不单独设置。",
+          "inheritPlaceholder": "继承",
+          "zeroHint": "留空 = 继续继承站点默认；0 = 不限制 / 免冷却。",
+          "tl0Hint": "TL0 的发言限制由「新人限制」页决定，不在档位列表里，此处只读。",
+          "fields": {
+            "topicCooldownSeconds": "发主题冷却（秒）",
+            "commentCooldownSeconds": "回复冷却（秒）",
+            "dailyTopicLimit": "每日主题上限",
+            "dailyCommentLimit": "每日回复上限"
+          }
         },
         "colors": {
           "auto": "按位次自动",

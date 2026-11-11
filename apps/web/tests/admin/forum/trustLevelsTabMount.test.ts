@@ -8,6 +8,14 @@ import {
   isBaselineKey
 } from '~/composables/admin/forum/trustLevels/useTrustLevelEarnableMatrix'
 import {
+  limitsModeOf,
+  parseLimitInput,
+  setLimitsMode,
+  setLimitValue,
+  toLimitsForm,
+  TRUST_LEVEL_LIMIT_KEYS
+} from '~/composables/admin/forum/trustLevels/useTrustLevelLimits'
+import {
   activeRankOf,
   activeTierCount,
   addTier,
@@ -107,6 +115,12 @@ const UInputStub = {
   emits: ['update:modelValue'],
   template: '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)" />'
 }
+const USwitchStub = {
+  name: 'USwitch',
+  props: { modelValue: { type: Boolean, default: false }, disabled: { type: Boolean, default: false } },
+  emits: ['update:modelValue'],
+  template: '<button type="button" role="switch" :aria-checked="String(modelValue)" :disabled="disabled" @click="$emit(\'update:modelValue\', !modelValue)" />'
+}
 const UCheckboxStub = {
   name: 'UCheckbox',
   props: { modelValue: { type: Boolean, default: false }, disabled: { type: Boolean, default: false } },
@@ -121,7 +135,8 @@ const globalComponents = {
   UBadge: UBadgeStub,
   UFormField: UFormFieldStub,
   UInput: UInputStub,
-  UCheckbox: UCheckboxStub
+  UCheckbox: UCheckboxStub,
+  USwitch: USwitchStub
 }
 
 const i18n = () => ({ t, te, locale: ref('zh-CN') })
@@ -222,6 +237,23 @@ const SFAdminTrustLevelTierRow = await compileVueSfc(tierRowPath, 'sf-trust-tier
   SFAdminTrustLevelActionButton,
   SFAdminTrustLevelIconPicker,
   SFAdminTrustLevelColorPicker
+})
+
+const limitsTabPath = fileURLToPath(
+  new URL('../../../app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue', import.meta.url)
+)
+const SFAdminTrustLevelLimitsTab = await compileVueSfc(limitsTabPath, 'sf-trust-levels-limits', {
+  computed,
+  useI18n: i18n,
+  activeRankOf,
+  trustLevelName,
+  trustLevelIconOf,
+  limitsModeOf,
+  parseLimitInput,
+  toLimitsForm,
+  TRUST_LEVEL_LIMIT_KEYS,
+  blockNonIntegerKey,
+  SFAdminTrustLevelFieldErrors
 })
 
 const tiersTabPath = fileURLToPath(
@@ -863,5 +895,127 @@ describe('field-level save errors (P2)', () => {
       .toContain('格式不被接受')
     // 前端还没跟上的新 code：回落后端 reason，不显示 [key]。
     expect(saveErrorText({ ...withCode, reasonCode: 'brand_new_code' }, translate, known)).toBe('名称过长')
+  })
+})
+
+function mountLimits(options: {
+  form?: TrustLevelsForm
+  canManage?: boolean
+  saveErrors?: Record<string, TrustLevelSaveError[]>
+} = {}) {
+  return mount(SFAdminTrustLevelLimitsTab, {
+    props: {
+      form: options.form ?? recommendedTrustLevelsForm(),
+      canManage: options.canManage ?? true,
+      saveErrors: options.saveErrors ?? {}
+    },
+    global: { components: globalComponents }
+  })
+}
+
+describe('limits partition (发言限额)', () => {
+  test('one fieldset per tier, each with exactly the four limit inputs', () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = mountLimits({ form })
+    const rows = wrapper.findAll('[data-sf-limits-tier]')
+    expect(rows).toHaveLength(form.tiers.length)
+    expect(rows.map(row => row.attributes('data-tier-id'))).toEqual(form.tiers.map(tier => tier.id))
+    for (const [index, row] of rows.entries()) {
+      const inputs = row.findAll('[data-sf-limit-input]')
+      expect(inputs).toHaveLength(4)
+      expect(inputs.map(input => input.attributes('data-sf-limit-input')))
+        .toEqual(TRUST_LEVEL_LIMIT_KEYS.map(key => `${form.tiers[index]!.id}.${key}`))
+    }
+  })
+
+  test('inherit mode disables all four inputs and says the tier follows the site defaults', () => {
+    const form = recommendedTrustLevelsForm()
+    expect(limitsModeOf(form.tiers[0]!.limits)).toBe('inherit')
+    const wrapper = mountLimits({ form })
+    const row = wrapper.find(`[data-sf-limits-tier="${form.tiers[0]!.id}"]`)
+    expect(row.attributes('data-limits-mode')).toBe('inherit')
+    for (const input of row.findAll('input')) {
+      expect(input.attributes('disabled')).toBeDefined()
+    }
+    expect(row.find('[data-sf-limits-inherit-note]').text()).toBe(t('admin.forum.trustLevels.limits.inheritNote'))
+    expect(row.find('[data-sf-limits-mode-state]').text()).toBe(t('admin.forum.trustLevels.limits.inheritBadge'))
+    // 开启状态下开关按的是「继承」语义。
+    expect(row.find('[data-sf-limits-mode]').attributes('aria-checked')).toBe('true')
+  })
+
+  test('turning the switch off emits the custom intent; 0 is emitted as 0, not as inherit', async () => {
+    const form = recommendedTrustLevelsForm()
+    const id = form.tiers[0]!.id
+    const wrapper = mountLimits({ form })
+    await wrapper.find(`[data-sf-limits-mode="${id}"]`).trigger('click')
+    expect(wrapper.emitted('mode')?.[0]).toEqual([id, 'custom'])
+
+    // 继承态下输入是禁用的（parent 还没切模式，props 未变），所以换成 custom 形态再验 0 的透传：
+    const customForm = { tiers: setLimitsMode(form.tiers, id, 'custom') }
+    const editable = mountLimits({ form: customForm })
+    const input = editable.find(`[data-sf-limit-input="${id}.dailyTopicLimit"]`)
+    expect(input.attributes('disabled')).toBeUndefined()
+    await input.setValue('0')
+    // 传出去的是字符串 "0"（纯函数 `parseLimitInput` 才会把它与空串区分开）。
+    expect(editable.emitted('limit')?.[0]).toEqual([id, 'dailyTopicLimit', '0'])
+  })
+
+  test('a custom tier enables the inputs and shows the zero hint instead of the inherit note', () => {
+    const form = recommendedTrustLevelsForm()
+    const id = form.tiers[1]!.id
+    const custom = setLimitValue(setLimitsMode(form.tiers, id, 'custom'), id, 'dailyTopicLimit', 0)
+    const wrapper = mountLimits({ form: { tiers: custom } })
+    const row = wrapper.find(`[data-sf-limits-tier="${id}"]`)
+    expect(row.attributes('data-limits-mode')).toBe('custom')
+    expect(row.find('[data-sf-limits-inherit-note]').exists()).toBe(false)
+    expect(row.find('[data-sf-limits-zero-hint]').text()).toBe(t('admin.forum.trustLevels.limits.zeroHint'))
+    const inputs = row.findAll('input')
+    for (const input of inputs) expect(input.attributes('disabled')).toBeUndefined()
+    // 0 显示成 "0"，没配的字段显示为空串（= 继承），两者在 UI 上可区分。
+    expect(row.find(`[data-sf-limit-input="${id}.dailyTopicLimit"]`).element.value).toBe('0')
+    expect(row.find(`[data-sf-limit-input="${id}.dailyCommentLimit"]`).element.value).toBe('')
+  })
+
+  test('a retired tier stays editable (soft retire keeps the configuration)', () => {
+    const form = recommendedTrustLevelsForm()
+    const id = form.tiers[1]!.id
+    const retired = retireTier(form.tiers, id)
+    const custom = setLimitsMode(retired, id, 'custom')
+    const row = mountLimits({ form: { tiers: custom } }).find(`[data-sf-limits-tier="${id}"]`)
+    expect(row.attributes('data-retired')).toBe('true')
+    expect(row.find('[data-sf-limits-mode]').attributes('disabled')).toBeUndefined()
+    for (const input of row.findAll('input')) expect(input.attributes('disabled')).toBeUndefined()
+  })
+
+  test('pasting an invalid value bounces back to the stored one instead of being silently kept', async () => {
+    const form = recommendedTrustLevelsForm()
+    const id = form.tiers[0]!.id
+    const custom = setLimitValue(setLimitsMode(form.tiers, id, 'custom'), id, 'dailyTopicLimit', 7)
+    const wrapper = mountLimits({ form: { tiers: custom } })
+    const input = wrapper.find(`[data-sf-limit-input="${id}.dailyTopicLimit"]`)
+    const element = input.element as HTMLInputElement
+
+    // 模拟粘贴：`blockNonIntegerKey` 拦不到（不是 keydown），值先进 DOM，再触发 change。
+    await input.setValue('1.5')
+    await input.trigger('change')
+    // 纯函数 fail-closed 后 prop 没变，组件必须显式回弹，否则运营以为存进去了。
+    expect(element.value).toBe('7')
+
+    // 超输入护栏同样回弹。
+    await input.setValue('999999999')
+    await input.trigger('blur')
+    expect(element.value).toBe('7')
+
+    // 合法值（含 0 与空串）照常提交。
+    await input.setValue('0')
+    await input.trigger('change')
+    const emitted = wrapper.emitted('limit') ?? []
+    expect(emitted[emitted.length - 1]).toEqual([id, 'dailyTopicLimit', '0'])
+  })
+
+  test('a read-only viewer gets a disabled switch and disabled inputs', () => {
+    const wrapper = mountLimits({ canManage: false })
+    expect(wrapper.find('[data-sf-limits-mode]').attributes('disabled')).toBeDefined()
+    for (const input of wrapper.findAll('input')) expect(input.attributes('disabled')).toBeDefined()
   })
 })

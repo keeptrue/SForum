@@ -34,6 +34,12 @@ import {
   type TierForm
 } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import {
+  setLimitValue as setLimitValueIn,
+  setLimitsMode as setLimitsModeIn,
+  type TrustLevelLimitKey,
+  type TrustLevelLimitMode
+} from '~/composables/admin/forum/trustLevels/useTrustLevelLimits'
+import {
   useTrustLevelTierIntents,
   type TrustLevelDeleteRequest,
   type TrustLevelRetireRequest
@@ -279,6 +285,20 @@ export function useTrustLevelsAdminPage() {
 
   /* ────────────────────────── 阈值 / 解锁 / 保存 ────────────────────────── */
 
+  /* ────────────────────────── 分档限额（D-N11） ────────────────────────── */
+
+  /**
+   * 限额是**三态**（继承 `null` / 逐字段覆盖对象 / `0` = 不限额），写入只能经这两个动作：
+   * 组件只发意图，表单归本编排层，保存入口仍只有 footer 一个（D-N10）。
+   */
+  function setLimitsMode(tierId: string, mode: TrustLevelLimitMode) {
+    applyTiers(tiers => setLimitsModeIn(tiers, tierId, mode))
+  }
+
+  function setLimit(tierId: string, key: TrustLevelLimitKey, value: string | number | null) {
+    applyTiers(tiers => setLimitValueIn(tiers, tierId, key, value))
+  }
+
   function setThreshold(tierId: string, suffix: string, value: string | number) {
     if (!canManage.value) return
     form.value = { tiers: setTierRequirement(form.value.tiers, tierId, suffix, value) }
@@ -512,8 +532,10 @@ export function useTrustLevelsAdminPage() {
     requestDelete,
     confirmDelete,
     cancelDelete,
-    // 阈值 / 解锁 / 保存
+    // 阈值 / 限额 / 解锁 / 保存
     setThreshold,
+    setLimitsMode,
+    setLimit,
     toggleEarnable,
     save,
     resetChanges,

@@ -382,10 +382,10 @@ describe('page shell: tab wiring and states that must not leak a form', () => {
     return panel.slice(start, next < 0 ? undefined : next)
   }
 
-  test('lists all four partitions, tiers included', () => {
+  test('lists all five partitions, tiers and limits included', () => {
     // tab 列表是页面态的一部分：少了 tiers，档位管理就没有入口（只能靠 URL 猜）。
-    expect(shell).toContain("const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'earnable']")
-    for (const tab of ['overview', 'tiers', 'thresholds', 'earnable']) {
+    expect(shell).toContain("const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'limits', 'earnable']")
+    for (const tab of ['overview', 'tiers', 'thresholds', 'limits', 'earnable']) {
       // 文案键必须在 locale 里存在，否则 tab 会渲染成裸键。
       expect(t(`admin.forum.trustLevels.tabs.${tab}`)).toBeTruthy()
       // tab 标签由 `tabIds` 逐项取键（`tabs` computed 里的 `${id}`），不是各写一遍。
@@ -399,6 +399,7 @@ describe('page shell: tab wiring and states that must not leak a form', () => {
       ['overview', 'SFAdminTrustLevelsOverviewTab', `v-if="activeTab === 'overview'"`],
       ['tiers', 'SFAdminTrustLevelTiersTab', `v-else-if="activeTab === 'tiers'"`],
       ['thresholds', 'SFAdminTrustLevelThresholdsTab', `v-else-if="activeTab === 'thresholds'"`],
+      ['limits', 'SFAdminTrustLevelLimitsTab', `v-else-if="activeTab === 'limits'"`],
       ['earnable', 'SFAdminTrustLevelEarnableTab', 'v-else']
     ]
     for (const [, tag, directive] of branches) {
@@ -406,8 +407,8 @@ describe('page shell: tab wiring and states that must not leak a form', () => {
     }
     // 最后一个分支是兜底 v-else：它不能再带条件，否则会漏一个 tab。
     expect(panelBranch('SFAdminTrustLevelEarnableTab')).not.toContain('v-else-if')
-    // 四个分区、四个分支：多一个或少一个都意味着某个 tab 没有面板。
-    expect(panel.match(/<SFAdminTrustLevel\w+Tab/g) ?? []).toHaveLength(4)
+    // 五个分区、五个分支：多一个或少一个都意味着某个 tab 没有面板。
+    expect(panel.match(/<SFAdminTrustLevel\w+Tab/g) ?? []).toHaveLength(5)
     expect(panel).toContain(':data-tab="activeTab"')
   })
 

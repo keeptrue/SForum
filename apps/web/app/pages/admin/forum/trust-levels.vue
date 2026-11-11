@@ -3,6 +3,7 @@ import SFAdminFixedTabNav from '~/components/admin/settings/shared/SFAdminFixedT
 import SFAdminTrustLevelTierConfirmDialog from '~/components/admin/forum/trust-levels/SFAdminTrustLevelTierConfirmDialog.vue'
 import SFAdminFormFooter from '~/components/admin/SFAdminFormFooter.vue'
 import SFAdminTrustLevelEarnableTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableTab.vue'
+import SFAdminTrustLevelLimitsTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue'
 import SFAdminTrustLevelTiersTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelTiersTab.vue'
 import SFAdminTrustLevelThresholdsTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue'
 import SFAdminTrustLevelsOverviewTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelsOverviewTab.vue'
@@ -34,7 +35,7 @@ defineOptions({
   name: 'AdminForumTrustLevels'
 })
 
-type TrustLevelsTab = 'overview' | 'tiers' | 'thresholds' | 'earnable'
+type TrustLevelsTab = 'overview' | 'tiers' | 'thresholds' | 'limits' | 'earnable'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -79,6 +80,8 @@ const {
   confirmStructureSave,
   cancelStructureConfirm,
   setThreshold,
+  setLimitsMode,
+  setLimit,
   toggleEarnable,
   save,
   resetChanges,
@@ -90,7 +93,7 @@ const {
   savedRequirements
 } = useTrustLevelsAdminPage()
 
-const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'earnable']
+const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'limits', 'earnable']
 /** 恢复默认会覆盖的五类内容（与文案一一对应，顺序即严重性）。 */
 const restoreLossItems = ['tiers', 'thresholds', 'limits', 'earnable', 'appearance'] as const
 const activeTab = ref<TrustLevelsTab>(normalizeTab(route.query.tab))
@@ -99,6 +102,7 @@ const tabIcons: Record<TrustLevelsTab, string> = {
   overview: 'i-lucide-list',
   tiers: 'i-lucide-layers',
   thresholds: 'i-lucide-gauge',
+  limits: 'i-lucide-timer',
   earnable: 'i-lucide-key-round'
 }
 /** 卡头取键：分区名与说明来自 §15.1 的固定表，不跟 tab 标签混用（thresholds 的 h3 用 `title`）。 */
@@ -106,12 +110,14 @@ const panelTitleKey: Record<TrustLevelsTab, string> = {
   overview: 'admin.forum.trustLevels.overview.title',
   tiers: 'admin.forum.trustLevels.tiers.title',
   thresholds: 'admin.forum.trustLevels.title',
+  limits: 'admin.forum.trustLevels.limits.title',
   earnable: 'admin.forum.trustLevels.earnable.title'
 }
 const panelDescriptionKey: Record<TrustLevelsTab, string> = {
   overview: 'admin.forum.trustLevels.sections.overview.description',
   tiers: 'admin.forum.trustLevels.sections.tiers.description',
   thresholds: 'admin.forum.trustLevels.sections.thresholds.description',
+  limits: 'admin.forum.trustLevels.limits.description',
   earnable: 'admin.forum.trustLevels.sections.earnable.description'
 }
 const panelTitle = computed(() => t(panelTitleKey[activeTab.value]))
@@ -528,6 +534,15 @@ function setActiveTab(value: string) {
                 :restoring="restoring"
                 @threshold="setThreshold"
                 @restore="restoreThresholds"
+              />
+              <SFAdminTrustLevelLimitsTab
+                v-else-if="activeTab === 'limits'"
+                key="limits"
+                :form="form"
+                :can-manage="canManage"
+                :save-errors="saveErrorBuckets.byTierId"
+                @mode="setLimitsMode"
+                @limit="setLimit"
               />
               <SFAdminTrustLevelEarnableTab
                 v-else

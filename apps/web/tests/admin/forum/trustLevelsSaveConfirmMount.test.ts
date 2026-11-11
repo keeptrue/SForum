@@ -272,7 +272,8 @@ async function mountPage(tab: 'tiers' | 'thresholds') {
     SFAdminTrustLevelTiersTab: TiersStub,
     SFAdminTrustLevelTierConfirmDialog,
     SFAdminTrustLevelThresholdsTab: ThresholdsStub,
-    SFAdminTrustLevelEarnableTab: EmptyStub
+    SFAdminTrustLevelEarnableTab: EmptyStub,
+    SFAdminTrustLevelLimitsTab: EmptyStub
   })
   const wrapper = mount(Page, {
     global: {

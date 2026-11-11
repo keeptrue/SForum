@@ -5227,6 +5227,7 @@
         "tabs": {
           "label": "Trust level sections",
           "thresholds": "Thresholds",
+          "limits": "Posting limits",
           "earnable": "Capability unlocks",
           "overview": "Overview",
           "tiers": "Tiers"
@@ -5476,6 +5477,24 @@
           },
           "confirm": "Restore defaults",
           "cancel": "Cancel"
+        },
+        "limits": {
+          "title": "Posting limits",
+          "description": "Override the site defaults for cooldowns and daily caps, per tier. An empty field keeps inheriting the site default; 0 means unlimited.",
+          "hint": "Each limit is overridden field by field: leave it empty to inherit the site default, or enter 0 to mean unlimited / no cooldown. Those are different things.",
+          "inherit": "Inherit site defaults",
+          "inheritBadge": "Following site defaults",
+          "customBadge": "Overridden per tier",
+          "inheritNote": "This tier follows the site defaults entirely; none of the four limits is set here.",
+          "inheritPlaceholder": "Inherit",
+          "zeroHint": "Leave empty to keep inheriting the site default; 0 means unlimited / no cooldown.",
+          "tl0Hint": "TL0 posting limits come from the Newcomer limits page; TL0 is not part of the tier list, so it is read-only here.",
+          "fields": {
+            "topicCooldownSeconds": "Topic cooldown (seconds)",
+            "commentCooldownSeconds": "Comment cooldown (seconds)",
+            "dailyTopicLimit": "Daily topic limit",
+            "dailyCommentLimit": "Daily comment limit"
+          }
         },
         "colors": {
           "auto": "Automatic by position",

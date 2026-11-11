@@ -130,14 +130,14 @@ describe('standalone page registration (admin registry + shell)', () => {
     expect(occurrences).toHaveLength(1)
   })
 
-  test('the page shell registers itself by page id and owns the four-tab slot set', () => {
+  test('the page shell registers itself by page id and owns the five-partition slot set', () => {
     expect(page).toContain("useAdminPage('/forum/trust-levels')")
     expect(page).toContain("name: 'AdminForumTrustLevels'")
     // 五件套：联合类型 / tabIds / tabs 计算 / tab 图标 / 面板派发。
-    expect(page).toContain("type TrustLevelsTab = 'overview' | 'tiers' | 'thresholds' | 'earnable'")
-    expect(page).toContain("const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'earnable']")
+    expect(page).toContain("type TrustLevelsTab = 'overview' | 'tiers' | 'thresholds' | 'limits' | 'earnable'")
+    expect(page).toContain("const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'limits', 'earnable']")
     expect(page).toContain('t(`admin.forum.trustLevels.tabs.${id}`)')
-    expect(page).toMatch(/const tabIcons: Record<TrustLevelsTab, string> = \{[\s\S]*?overview: 'i-lucide-list'[\s\S]*?tiers: 'i-lucide-layers'[\s\S]*?thresholds: 'i-lucide-gauge'[\s\S]*?earnable: 'i-lucide-key-round'[\s\S]*?\}/)
+    expect(page).toMatch(/const tabIcons: Record<TrustLevelsTab, string> = \{[\s\S]*?overview: 'i-lucide-list'[\s\S]*?tiers: 'i-lucide-layers'[\s\S]*?thresholds: 'i-lucide-gauge'[\s\S]*?limits: 'i-lucide-timer'[\s\S]*?earnable: 'i-lucide-key-round'[\s\S]*?\}/)
     // 卡头键：每个 tab 都有 title / description 两个映射项，漏一个就是 undefined。
     expect(page).toMatch(/const panelTitleKey: Record<TrustLevelsTab, string> = \{[\s\S]*?tiers: 'admin\.forum\.trustLevels\.tiers\.title'/)
     expect(page).toMatch(/const panelDescriptionKey: Record<TrustLevelsTab, string> = \{[\s\S]*?tiers: 'admin\.forum\.trustLevels\.sections\.tiers\.description'/)
@@ -145,6 +145,7 @@ describe('standalone page registration (admin registry + shell)', () => {
     expect(page).toContain("v-if=\"activeTab === 'overview'\"")
     expect(page).toContain("v-else-if=\"activeTab === 'tiers'\"")
     expect(page).toContain("v-else-if=\"activeTab === 'thresholds'\"")
+    expect(page).toContain("v-else-if=\"activeTab === 'limits'\"")
     expect(page).toMatch(/<SFAdminTrustLevelEarnableTab\s+v-else/)
     // 默认 tab 仍是 overview。
     expect(page).toMatch(/normalizeTab\(value\)[\s\S]*?: 'overview'/)
