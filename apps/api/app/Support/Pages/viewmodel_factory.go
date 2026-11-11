@@ -79,6 +79,10 @@ func BuildCorePageViewModel(request CorePageViewModelRequest) (any, error) {
 		model := valueOrZero(request.Data.TagShow)
 		model.Base = base
 		return model, nil
+	case "forum.badge.index":
+		model := valueOrZero(request.Data.BadgeIndex)
+		model.Base = base
+		return model, nil
 	case "forum.topic.show":
 		model := valueOrZero(request.Data.TopicDetail)
 		model.Base = base

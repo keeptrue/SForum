@@ -208,6 +208,37 @@ type TagIndexPageViewModel struct {
 	List PageListView      `json:"list"`
 }
 
+// BadgeCatalogItemView 是公开徽章目录里的一枚徽章。
+//
+// 字段集是公开面的白名单：不含 threshold / metric（阈值是运营调参，公开即不可撤回），
+// 也不含 enabled / grantedCount / 时间戳。Earned 是查看者相关字段，由页面装配时
+// 每请求合并，不进任何共享缓存。
+type BadgeCatalogItemView struct {
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	Tier        string `json:"tier"`
+	Group       string `json:"group"`
+	Earned      bool   `json:"earned"`
+}
+
+// BadgeCatalogGroupView 是目录的一个分组外壳；空分组不会出现。
+type BadgeCatalogGroupView struct {
+	Key    string                `json:"key"`
+	Name   string                `json:"name"`
+	Badges []BadgeCatalogItemView `json:"badges"`
+}
+
+// BadgeIndexPageViewModel 是 /badges 公共目录页的载荷。
+//
+// Truncated 在顶层：截断是整份目录的属性，不是某个分组的属性。
+type BadgeIndexPageViewModel struct {
+	Base      PageViewModelBase       `json:"base"`
+	Groups    []BadgeCatalogGroupView `json:"groups"`
+	Truncated bool                    `json:"truncated"`
+}
+
 type TagShowPageViewModel struct {
 	Base PageViewModelBase `json:"base"`
 	Tag  TaxonomyLinkView  `json:"tag"`

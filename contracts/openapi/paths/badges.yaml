@@ -434,3 +434,50 @@ adminBadgesRecompute:
         "$ref": "../components/responses.yaml#/Forbidden"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+publicBadgeCatalog:
+  get:
+    summary: List the public badge catalog with the viewer's earned marks
+    operationId: publicCatalog
+    description: |
+      Public badge catalog: every **enabled** badge in the site, grouped, with
+      `earned` marking whether the current viewer holds it. Anonymous access is
+      allowed and every entry is then `earned: false`.
+
+      This is deliberately not the profile badge tab: the profile answers "what
+      does this member have", the catalog answers "what exists and which of them
+      do I have". Ungranted badges are included — a catalog of only-earned
+      badges is a second profile tab.
+
+      Sorting: `badge_groups.position ASC`, then `badges.position ASC`, then
+      `badges.id ASC`. The `id` tiebreaker is required: two badges with the same
+      `position` must not drift between requests.
+
+      No pagination. The server caps the catalog at **500** badges and reports
+      `truncated: true` when there are more; `truncated` is top-level because it
+      describes the whole response.
+
+      Field whitelist: `slug` / `name` / `description` / `icon` / `tier` /
+      `group` / `earned` (plus top-level `truncated`). `threshold` and `metric`
+      are **never** exposed here: thresholds are operator tuning, and publishing
+      them cannot be taken back. Operators who want them public write them into
+      `description`. The plugin-facing `sforum_core_v1.forum_badges` view does
+      expose `threshold`; that is a plugin data surface, not this HTTP surface.
+
+      Cache contract: because `earned` is viewer-scoped, the response carries
+      `Cache-Control: private, no-store`. A shared cache must never reuse one
+      viewer's response for another.
+
+      Fails with `403` reason `forum.badges_disabled` when `features.badges` is
+      off — the same code as every other badge route.
+    responses:
+      '200':
+        description: Badge catalog grouped by badge group.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponsePublicBadgeCatalog"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

@@ -11,6 +11,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
@@ -231,6 +232,7 @@ func TestCorePageViewModelSourcePopulatesEveryCatalogContract(t *testing.T) {
 		"system.not_found":             {"/missing", nil, nil, reflect.TypeOf(themecompiler.ErrorPageViewModel{})},
 		"system.rate_limited":          {"/rate-limited", nil, nil, reflect.TypeOf(themecompiler.ErrorPageViewModel{})},
 		"system.server_error":          {"/server-error", nil, nil, reflect.TypeOf(themecompiler.ErrorPageViewModel{})},
+		"forum.badge.index":            {"/badges", nil, nil, reflect.TypeOf(themecompiler.BadgeIndexPageViewModel{})},
 		"site.outbound":                {"/outbound", nil, nil, reflect.TypeOf(themecompiler.OutboundPageViewModel{})},
 		"dev.components":               {"/components", nil, nil, reflect.TypeOf(themecompiler.DevelopmentComponentsPageViewModel{})},
 	}
@@ -454,6 +456,7 @@ func newTestSource(forumReader *sourceForum, optionReader sourceOptions) *CorePa
 	return NewCorePageViewModelSource(CorePageViewModelDependencies{
 		Forum: forumReader, Profiles: sourceProfiles{}, Notifications: sourceNotifications{}, Moderation: sourceModeration{},
 		Options: optionReader, Registration: sourceRegistration{}, Sessions: sourceSessions{}, SiteChrome: sourceChrome{}, Search: sourceSearch{},
+		Badges: sourceBadges{},
 	})
 }
 
@@ -483,4 +486,28 @@ func sourceProfile() profile.PublicProfile {
 		Profile:    profile.Profile{UserID: 8, Bio: "<b>plain bio</b>"},
 		TopicCount: 1, CommentCount: 2, RecentTopics: []forum.TopicSummary{sourceTopic().TopicSummary}, JoinedAt: sourceTestNow,
 	}
+}
+
+// sourceBadges 是公开徽章目录的假读口：固定两组三枚（1 枚已获得）。
+//
+// 目录本体与 earned 分成两个方法，与 CoreBadgeViewReader 的契约一致；
+// 页面装配若把 earned 合并进目录结构，这里的调用计数会变。
+type sourceBadges struct{}
+
+func (sourceBadges) PublicCatalog(context.Context) (badges.PublicCatalog, error) {
+	return badges.PublicCatalog{
+		Groups: []badges.PublicCatalogGroup{
+			{Key: "starter", Name: "Starter", Badges: []badges.PublicCatalogEntry{
+				{Slug: "first-post", Name: "First post", Icon: "i-lucide-award", Tier: badges.TierBronze, GroupKey: "starter", GroupName: "Starter"},
+				{Slug: "ten-posts", Name: "Ten posts", Icon: "i-lucide-award", Tier: badges.TierSilver, GroupKey: "starter", GroupName: "Starter"},
+			}},
+			{Key: "", Name: "", Badges: []badges.PublicCatalogEntry{
+				{Slug: "manual", Name: "Manual", Icon: "i-lucide-award", Tier: badges.TierGold},
+			}},
+		},
+	}, nil
+}
+
+func (sourceBadges) EarnedBadgeSlugs(context.Context, int64) (map[string]struct{}, error) {
+	return map[string]struct{}{"first-post": {}}, nil
 }

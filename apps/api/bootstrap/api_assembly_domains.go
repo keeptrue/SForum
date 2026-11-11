@@ -649,6 +649,8 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		Forum: forum.NewPublicReadService(pageForumService).WithShortcodeDispatcher(forumShortcodes), Profiles: pageProfileService, Notifications: notificationStore, NotificationTargets: notificationTargets,
 		Moderation: pageModerationService, Options: optionsService, Registration: pageIdentityService,
 		Sessions: identityStore, SiteChrome: pageSiteChromeService, Search: searchService,
+		// 公开徽章目录页的数据源：目录本体 actor 无关，earned 每请求合并。
+		Badges: badgesService,
 	})
 	pagesProvider := providers.NewPagesProviderWithThemes(pageRegistry, identityStore, authSessions, extensionStore).
 		WithAuditor(auditWriter).

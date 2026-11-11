@@ -185,6 +185,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.page.auth.register` | `sforum.component.page.auth.register@1` | page | `public` | `/register` | `apps/web/app/pages/register.vue` | P9 Component Registry |
 | `core.component.page.auth.reset_password` | `sforum.component.page.auth.reset_password@1` | page | `public` | `/reset-password` | `apps/web/app/pages/reset-password.vue` | P9 Component Registry |
 | `core.component.page.dev.components` | `sforum.component.page.dev.components@1` | page | `public` | `/components` | `apps/web/app/pages/components.vue` | P9 Component Registry |
+| `core.component.page.forum.badge.index` | `sforum.component.page.forum.badge.index@1` | page | `public` | `/badges` | `apps/web/app/pages/badges/index.vue` | P9 Component Registry |
 | `core.component.page.forum.category.index` | `sforum.component.page.forum.category.index@1` | page | `public` | `/categories` | `apps/web/app/pages/categories/index.vue` | P9 Component Registry |
 | `core.component.page.forum.category.show` | `sforum.component.page.forum.category.show@1` | page | `public` | `/c/:categorySlug` | `apps/web/app/pages/c/[categorySlug].vue` | P9 Component Registry |
 | `core.component.page.forum.home` | `sforum.component.page.forum.home@1` | page | `public` | `/` | `apps/web/app/pages/index.vue` | P9 Component Registry |
@@ -229,6 +230,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfavatar` | `sforum.component.shared.sfavatar@1` | component | `public`, `admin` | — | `apps/web/app/components/SFAvatar.vue` | P7/P9 Admin and Component Registries |
 | `core.component.shared.sfavatar_group` | `sforum.component.shared.sfavatar_group@1` | component | `public` | — | `apps/web/app/components/SFAvatarGroup.vue` | P9 Component Registry |
 | `core.component.shared.sfbadge` | `sforum.component.shared.sfbadge@1` | component | `public`, `admin` | — | `apps/web/app/components/SFBadge.vue` | P7/P9 Admin and Component Registries |
+| `core.component.shared.sf_badge_catalog_page` | `sforum.component.shared.sf_badge_catalog_page@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue` | P9 Component Registry |
 | `core.component.public.s_f_badge_chip` | `sforum.component.public.s_f_badge_chip@1` | component | `public` | — | `apps/web/app/components/forum/SFBadgeChip.vue` | P9 Component Registry |
 | `core.component.shared.sfbookmark_control` | `sforum.component.shared.sfbookmark_control@1` | component | `public` | — | `apps/web/app/components/forum/SFBookmarkControl.vue` | P9 Component Registry |
 | `core.component.shared.sfbutton` | `sforum.component.shared.sfbutton@1` | component | `public`, `admin` | — | `apps/web/app/components/SFButton.vue` | P7/P9 Admin and Component Registries |

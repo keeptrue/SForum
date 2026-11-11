@@ -14,6 +14,7 @@ Views: `component`, `schema`, `template`. Layouts: `bare`, `site`.
 
 - `sf-account-settings-sidebar`
 - `sf-appearance-settings`
+- `sf-badge-index-page`
 - `sf-category-index-page`
 - `sf-category-show-page`
 - `sf-content-column-footer`
@@ -66,6 +67,7 @@ Views: `component`, `schema`, `template`. Layouts: `bare`, `site`.
 | `forum.category.show` | `/c/:categorySlug` | public | yes | no | component, schema, template | bare, site | content_before, content_after, list_before, list_after |
 | `forum.tag.index` | `/tags` | public | yes | no | component, schema, template | bare, site | content_before, content_after, list_before, list_after, sidebar |
 | `forum.tag.show` | `/tags/:tagSlug` | public | yes | no | component, schema, template | bare, site | content_before, content_after, list_before, list_after, sidebar |
+| `forum.badge.index` | `/badges` | public | yes | no | component, schema, template | bare, site | - |
 | `forum.topic.show` | `/t/:path(.*)` | public | yes | no | component, schema, template | bare, site | content_before, content_after, detail_before, detail_after, comments_before, comments_after, sidebar, sidebar_top, sidebar_bottom |
 | `forum.topic.create` | `/topics/new` | public | yes | no | component, schema, template | bare, site | content_before, content_after |
 | `forum.topic.reply` | `/topics/reply` | public | yes | no | component, schema, template | bare, site | - |

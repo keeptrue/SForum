@@ -27,6 +27,11 @@ type fakeStore struct {
 	// activityCounters 供 GrantFromRules 的假实现使用（真实现读 user_activity 表）。
 	activityCounters map[int64]ActivityCounters
 	lastGrants       []BadgeGrantRecord
+	// catalogErr 让公开目录读失败（B-11 的 fail-closed 判据）。
+	catalogErr error
+	// catalogReads / grantReads 计数用于钉住「匿名不碰 user_badges」。
+	catalogReads int
+	grantReads   int
 }
 
 func newFakeStore() *fakeStore {
@@ -46,6 +51,105 @@ func (f *fakeStore) ListBadges(context.Context) ([]Badge, error) {
 
 func (f *fakeStore) ListGroups(context.Context) ([]BadgeGroup, error) {
 	return append([]BadgeGroup(nil), f.groups...), nil
+}
+
+// ListPublicCatalog 复刻真查询的两条语义：SQL 层过滤 enabled、按
+// (组 position, 组 id, 徽章 position, 徽章 id) 排序。
+//
+// 排序复刻只是为了单测能断言形状；B-04（排序稳定）的**真正判据**是真 Postgres
+// 上的集成测试——假实现自己排序，等于拿被测逻辑证明它自己。
+func (f *fakeStore) ListPublicCatalog(_ context.Context, limit int) ([]PublicCatalogEntry, bool, error) {
+	f.catalogReads++
+	if f.catalogErr != nil {
+		return nil, false, f.catalogErr
+	}
+	groups := make(map[int64]BadgeGroup, len(f.groups))
+	for _, group := range f.groups {
+		groups[group.ID] = group
+	}
+	rows := make([]PublicCatalogEntry, 0, len(f.badges))
+	keys := make([]catalogSortKey, 0, len(f.badges))
+	for _, badge := range f.badges {
+		if !badge.Enabled {
+			continue
+		}
+		key := catalogSortKey{groupPosition: 2147483647, badgePosition: badge.Position, badgeID: badge.ID}
+		var groupKey, groupName string
+		if badge.GroupID != nil {
+			if group, ok := groups[*badge.GroupID]; ok {
+				key.groupPosition = group.Position
+				key.groupID = group.ID
+				groupKey = group.Key
+				groupName = group.Name
+			}
+		}
+		rows = append(rows, PublicCatalogEntry{
+			Slug: badge.Slug, Name: badge.Name, Description: badge.Description,
+			Icon: badge.Icon, Tier: badge.Tier, GroupKey: groupKey, GroupName: groupName,
+		})
+		keys = append(keys, key)
+	}
+	order := make([]int, len(rows))
+	for index := range order {
+		order[index] = index
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		return catalogSortKeyLess(keys[order[i]], keys[order[j]])
+	})
+	items := make([]PublicCatalogEntry, 0, len(rows))
+	for _, index := range order {
+		items = append(items, rows[index])
+	}
+	truncated := len(items) > limit
+	if truncated {
+		items = items[:limit]
+	}
+	return items, truncated, nil
+}
+
+type catalogSortKey struct {
+	groupPosition int
+	groupID       int64
+	badgePosition int
+	badgeID       int64
+}
+
+// catalogSortKeyLess 对应 SQL 的
+// COALESCE(badge_groups.position, 2147483647), badge_groups.id NULLS LAST,
+// badges.position, badges.id。
+func catalogSortKeyLess(left, right catalogSortKey) bool {
+	if left.groupPosition != right.groupPosition {
+		return left.groupPosition < right.groupPosition
+	}
+	if left.groupID != right.groupID {
+		if left.groupID == 0 {
+			return false
+		}
+		if right.groupID == 0 {
+			return true
+		}
+		return left.groupID < right.groupID
+	}
+	if left.badgePosition != right.badgePosition {
+		return left.badgePosition < right.badgePosition
+	}
+	return left.badgeID < right.badgeID
+}
+
+// ListEarnedBadgeSlugs 复刻真查询：只看启用徽章，只给该用户。
+func (f *fakeStore) ListEarnedBadgeSlugs(_ context.Context, userID int64) (map[string]struct{}, error) {
+	f.grantReads++
+	earned := make(map[string]struct{})
+	grants, ok := f.grants[userID]
+	if !ok {
+		return earned, nil
+	}
+	for _, badge := range f.badges {
+		if _, granted := grants[badge.ID]; granted && badge.Enabled {
+			earned[badge.Slug] = struct{}{}
+		}
+	}
+	return earned, nil
 }
 
 func (f *fakeStore) GetBadge(_ context.Context, badgeID int64) (Badge, error) {

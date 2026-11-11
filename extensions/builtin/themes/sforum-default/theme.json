@@ -44,6 +44,13 @@
       "contract": "sforum.page.tag_show@1"
     },
     {
+      "id": "sforum.default-theme.badge_index",
+      "action": "replace",
+      "target": "forum.badge.index",
+      "template": "templates/badges.html",
+      "contract": "sforum.page.badge_index@1"
+    },
+    {
       "id": "sforum.default-theme.topic_show",
       "action": "replace",
       "target": "forum.topic.show",

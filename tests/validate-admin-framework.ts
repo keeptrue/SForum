@@ -291,8 +291,24 @@ assert(
 )
 assert(forumFolder.children?.some(entry => entry.pageId === '/moderation'), 'Forum folder should contain the moderation page')
 assert(
-  forumFolder.children?.map(entry => entry.pageId).join(',') === '/moderation,/forum/categories,/forum/tags,/badges,/forum/settings,/forum/content',
+  forumFolder.children?.map(entry => entry.pageId).join(',') === '/moderation,/forum/categories,/forum/tags,/forum/settings,/forum/content',
   'Forum folder should keep the approved submenu order'
+)
+// 徽章的主体是用户（授予关系 / user_activity / top_badge_id），不是论坛内容或论坛设置：
+// 后台 IA 把它挂在「用户与权限」文件夹里，与 users / roles / permissions 同轴。
+const userPermissionFolder = firstSidebarGroup.find(entry => entry.type === 'folder' && entry.labelKey === 'admin.nav.userPermission')
+assert(userPermissionFolder, 'Admin sidebar should keep a user & permission folder')
+assert(
+  userPermissionFolder.children?.map(entry => entry.pageId).join(',') === '/users,/roles,/permissions,/badges',
+  'User & permission folder should keep the approved submenu order'
+)
+assert(
+  !forumFolder.children?.some(entry => entry.pageId === '/badges'),
+  'Badges should live under the user & permission folder, not the forum folder'
+)
+assert(
+  firstSidebarGroup.filter(entry => entry.type === 'folder' && entry.children?.some(child => child.pageId === '/badges')).length === 1,
+  'Badges should appear in exactly one sidebar folder'
 )
 const systemFolder = firstSidebarGroup.find(entry => entry.type === 'folder' && entry.labelKey === 'admin.nav.system')
 assert(systemFolder, 'Admin sidebar should keep a system folder')

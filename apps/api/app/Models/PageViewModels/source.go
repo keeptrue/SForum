@@ -85,6 +85,7 @@ type CorePageViewModelDependencies struct {
 	Sessions            CoreSessionViewReader
 	SiteChrome          CoreSiteChromeViewReader
 	Search              CoreSearchViewReader
+	Badges              CoreBadgeViewReader
 }
 
 // CorePageViewModelInput contains normalized Host routing state plus the
@@ -131,6 +132,8 @@ func (s *CorePageViewModelSource) Populate(ctx context.Context, input CorePageVi
 		err = s.populateTagIndex(ctx, &request, input)
 	case "forum.tag.show":
 		err = s.populateTagShow(ctx, &request, input)
+	case "forum.badge.index":
+		err = s.populateBadges(ctx, &request, input.Actor)
 	case "forum.topic.show":
 		err = s.populateTopicDetail(ctx, &request, input)
 	case "forum.topic.create":

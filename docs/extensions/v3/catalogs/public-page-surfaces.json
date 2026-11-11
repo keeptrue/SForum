@@ -12,6 +12,7 @@
   "hostIslands": [
     "sf-account-settings-sidebar",
     "sf-appearance-settings",
+    "sf-badge-index-page",
     "sf-category-index-page",
     "sf-category-show-page",
     "sf-content-column-footer",
@@ -267,6 +268,27 @@
         "list_after",
         "sidebar"
       ]
+    },
+    {
+      "id": "forum.badge.index",
+      "pathPattern": "/badges",
+      "access": "public",
+      "contractVersion": "sforum.page.badge_index@1",
+      "coreComponent": "pages/badges/index",
+      "replaceable": true,
+      "virtual": false,
+      "requiresFeatures": [],
+      "notes": "",
+      "views": [
+        "component",
+        "schema",
+        "template"
+      ],
+      "layouts": [
+        "bare",
+        "site"
+      ],
+      "regions": []
     },
     {
       "id": "forum.topic.show",

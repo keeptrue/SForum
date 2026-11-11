@@ -2432,6 +2432,12 @@
       "path": "/api/v1/profiles/:username/badges"
     },
     {
+      "id": "core.route.badges.public_catalog",
+      "contractVersion": "sforum.route.badges.public_catalog@1",
+      "method": "GET",
+      "path": "/api/v1/badges"
+    },
+    {
       "id": "core.route.trust_levels.get_public_trust_levels",
       "contractVersion": "sforum.route.trust_levels.get_public_trust_levels@1",
       "method": "GET",
@@ -2466,6 +2472,16 @@
       ],
       "state": "retired",
       "source": "apps/web/app/components/profile/SFBadgeWall.vue"
+    },
+    {
+      "id": "core.component.shared.sf_badge_catalog_page",
+      "contractVersion": "sforum.component.shared.sf_badge_catalog_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue"
     },
     {
       "id": "core.component.page.badges.username",
@@ -4016,6 +4032,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/components.vue"
+    },
+    {
+      "id": "core.component.page.forum.badge.index",
+      "contractVersion": "sforum.component.page.forum.badge.index@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/badges/index.vue"
     },
     {
       "id": "core.component.page.forum.category.index",

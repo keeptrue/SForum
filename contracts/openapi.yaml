@@ -696,6 +696,8 @@ paths:
     "$ref": "./openapi/paths/extensions.yaml#/extensionPluginRoute"
   "/profiles/{username}/badges":
     "$ref": "./openapi/paths/badges.yaml#/profileBadgesByUsername"
+  /badges:
+    "$ref": "./openapi/paths/badges.yaml#/publicBadgeCatalog"
   /trust-levels:
     "$ref": "./openapi/paths/trust_levels.yaml#/trustLevels"
   /admin/trust-levels:

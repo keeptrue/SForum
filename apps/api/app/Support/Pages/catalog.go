@@ -131,6 +131,10 @@ var coreCatalog = []PageDefinition{
 	{ID: "forum.category.show", PathPattern: "/c/:categorySlug", Access: AccessPublic, ContractVersion: "sforum.page.category_show@1", CoreComponent: "pages/c/[categorySlug]", Replaceable: true},
 	{ID: "forum.tag.index", PathPattern: "/tags", Access: AccessPublic, ContractVersion: "sforum.page.tag_index@1", CoreComponent: "pages/tags/index", Replaceable: true, Notes: "gated by forum.tags.public_pages"},
 	{ID: "forum.tag.show", PathPattern: "/tags/:tagSlug", Access: AccessPublic, ContractVersion: "sforum.page.tag_show@1", CoreComponent: "pages/tags/[tagSlug]", Replaceable: true, Notes: "gated by forum.tags.public_pages"},
+	// 公开徽章目录：全部启用徽章 + 查看者自己的 earned。必须写成**一整行**——
+	// scripts/v3-catalog/generate.mjs 用逐行正则解析本段，拆行会让 public-page-surfaces.json
+	// 与源码「一致地错」，--check 仍绿（B-30）。
+	{ID: "forum.badge.index", PathPattern: "/badges", Access: AccessPublic, ContractVersion: "sforum.page.badge_index@1", CoreComponent: "pages/badges/index", Replaceable: true, RequiresFeatures: []string{"features.badges"}},
 	{ID: "forum.topic.show", PathPattern: "/t/:path(.*)", Access: AccessPublic, ContractVersion: "sforum.page.topic_show@1", CoreComponent: "pages/t/[...path]", Replaceable: true, Notes: "seo.topic_url_mode"},
 	{ID: "forum.topic.create", PathPattern: "/topics/new", Access: AccessLogin, ContractVersion: "sforum.page.topic_create@1", CoreComponent: "pages/topics/new", Replaceable: true},
 	// 高级回复：完整编辑器独立页；query topic / parent 由 Host 岛读取。

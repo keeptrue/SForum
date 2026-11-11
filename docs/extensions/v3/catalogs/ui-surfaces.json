@@ -1836,6 +1836,17 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.page.forum.badge.index",
+    "contractVersion": "sforum.component.page.forum.badge.index@1",
+    "kind": "page",
+    "route": "/badges",
+    "source": "apps/web/app/pages/badges/index.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.page.forum.category.index",
     "contractVersion": "sforum.component.page.forum.category.index@1",
     "kind": "page",
@@ -2306,6 +2317,16 @@
       "admin"
     ],
     "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.shared.sf_badge_catalog_page",
+    "contractVersion": "sforum.component.shared.sf_badge_catalog_page@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
   },
   {
     "id": "core.component.public.s_f_badge_chip",

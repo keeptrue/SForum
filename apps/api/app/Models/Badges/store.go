@@ -20,6 +20,8 @@ type CatalogReader interface {
 	ListGroups(ctx context.Context) ([]BadgeGroup, error)
 	GetBadge(ctx context.Context, badgeID int64) (Badge, error)
 	GetBadgeBySlug(ctx context.Context, slug string) (Badge, error)
+	// ListPublicCatalog 返回公开目录的一页（limit+1 探测截断）；签名里没有 actor。
+	ListPublicCatalog(ctx context.Context, limit int) ([]PublicCatalogEntry, bool, error)
 }
 
 // CatalogWriter 维护徽章目录与分组（admin 面）。
@@ -41,6 +43,9 @@ type GrantReader interface {
 	ListEnabledAutomaticBadges(ctx context.Context) ([]Badge, error)
 	// AffectedUserIDs 返回持有该徽章的用户（停用/规则变更后要重算 top_badge_id）。
 	AffectedUserIDs(ctx context.Context, badgeID int64) ([]int64, error)
+	// ListEarnedBadgeSlugs 是唯一吃 userID 的目录读：只给查看者装饰 earned，
+	// 结果永不进入 actor 无关载荷或共享缓存。
+	ListEarnedBadgeSlugs(ctx context.Context, userID int64) (map[string]struct{}, error)
 }
 
 // GrantWriter 写授予关系并维护 users.top_badge_id。

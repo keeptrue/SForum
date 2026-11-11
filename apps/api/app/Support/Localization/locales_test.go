@@ -148,6 +148,39 @@ func TestAPIErrorCodesHaveLocalizedMessages(t *testing.T) {
 	}
 }
 
+// TestAPIErrorCodesAreLocalizedInEveryLocale 断言每个错误码在 zh-CN 与 en-US
+// **两份目录里都有文案**，且不依赖 DefaultLocale 回退。
+//
+// 为什么不能只靠上面那条：Message 在目标语言缺键时会回退到 zh-CN，所以
+// 「只加 zh、忘了 en」的码在 Message("en-US", code) 里拿到的是一句中文——
+// 既不等于 key，也不是空串，上面那条测试照样绿。徽章那一刀的真实事故正是
+// 六码全缺（两份都缺），上面那条能抓到；但「只缺 en」这类半成品抓不到。
+// 本测试直接查目录，不经回退。
+func TestAPIErrorCodesAreLocalizedInEveryLocale(t *testing.T) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	apiRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "../../.."))
+	codes := collectAPIErrorCodes(t, apiRoot)
+
+	var missing []string
+	for _, code := range codes {
+		for _, locale := range []string{"zh-CN", "en-US"} {
+			if _, found := lookupMessage(trustedRuntimeMessages, locale, code); found {
+				continue
+			}
+			if _, found := messages[locale][code]; found {
+				continue
+			}
+			missing = append(missing, locale+":"+code)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("API error codes missing localization in a specific locale (fallback to zh-CN hides this): %s", strings.Join(missing, ", "))
+	}
+}
+
 var apiErrorCodeLiteral = regexp.MustCompile(`^[a-z][a-z0-9]*(?:\.[a-z0-9_]+)+$`)
 
 func collectAPIErrorCodes(t *testing.T, apiRoot string) []string {

@@ -503,7 +503,9 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	// 392 = 386 + 六个收藏路由（主题/评论的 bookmark 与取消收藏）。
 	// 405 = 392 + 十三个徽章路由（1 公开 + 12 后台）。
 	// 409 = 405 + 四条信任等级路由（1 公开 + 3 后台）。
-	if len(catalog) != 409 {
+	// 410 = 409 + core.route.badges.public_catalog（公开徽章目录：目录本体 actor 无关，
+	// earned 只给查看者本人，故是 public guard 而不是 badge.view）。
+	if len(catalog) != 410 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

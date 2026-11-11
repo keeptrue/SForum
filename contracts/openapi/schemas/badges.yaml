@@ -623,3 +623,92 @@ ApiResponseBadgeRecomputeResult:
       type: string
     data:
       "$ref": "#/BadgeRecomputeResult"
+
+# --- Public badge catalog (/api/v1/badges) ---
+#
+# 键集合是白名单，与 `publicBadgeCatalogResponse` / `publicBadgeCatalogItem`
+# （app/Http/Controllers/Badges/dto.go）逐字对应。刻意不出现 `threshold` / `metric`：
+# 阈值是运营调参，公开即不可撤回；想公开的运营写进 `description`。
+# 也不出现 `enabled` / `grantedCount` / `createdAt` / `updatedAt` / `id`。
+PublicBadgeCatalog:
+  type: object
+  description: |
+    公开徽章目录：全部启用徽章按分组排列，`earned` 标记查看者自己是否已获得。
+
+    `truncated` 在顶层而不是分组级——截断是整份响应的属性。服务端硬上限 500 条。
+  required:
+  - groups
+  - truncated
+  properties:
+    groups:
+      type: array
+      items:
+        "$ref": "#/PublicBadgeCatalogGroup"
+    truncated:
+      type: boolean
+PublicBadgeCatalogGroup:
+  type: object
+  description: |
+    目录分组外壳。只输出含至少一个启用徽章的分组（空组省略）。
+
+    `key` 为空串表示「未分组」；`name` 可能为空串，展示文案由前端 i18n 决定
+    （后端不硬编码「未分组」，否则 en-US 站点会收到中文）。
+  required:
+  - key
+  - name
+  - badges
+  properties:
+    key:
+      type: string
+    name:
+      type: string
+    badges:
+      type: array
+      items:
+        "$ref": "#/PublicBadgeCatalogEntry"
+PublicBadgeCatalogEntry:
+  type: object
+  description: |
+    目录里的一枚徽章。`group` 是所属分组的 key（未分组为空串），让条目自描述。
+
+    排序（组间与组内同一套规则）：`badge_groups.position ASC, badges.position ASC,
+    badges.id ASC`——`id` 是 tiebreaker，position 相同也不会漂。
+  required:
+  - slug
+  - name
+  - description
+  - icon
+  - tier
+  - group
+  - earned
+  properties:
+    slug:
+      type: string
+    name:
+      type: string
+    description:
+      type: string
+    icon:
+      type: string
+    tier:
+      "$ref": "#/BadgeTier"
+    group:
+      type: string
+    earned:
+      type: boolean
+      description: |
+        查看者是否已获得。**这是查看者相关字段**，因此整个响应禁止共享缓存
+        （`Cache-Control: private, no-store`）；匿名请求恒为 `false`。
+ApiResponsePublicBadgeCatalog:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/PublicBadgeCatalog"

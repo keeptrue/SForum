@@ -12,6 +12,7 @@ type CorePageViewModelData struct {
 	CategoryShow          *themecompiler.CategoryShowPageViewModel
 	TagIndex              *themecompiler.TagIndexPageViewModel
 	TagShow               *themecompiler.TagShowPageViewModel
+	BadgeIndex            *themecompiler.BadgeIndexPageViewModel
 	TopicDetail           *themecompiler.TopicDetailPageViewModel
 	TopicCreate           *themecompiler.TopicCreatePageViewModel
 	TopicReply            *themecompiler.TopicReplyPageViewModel

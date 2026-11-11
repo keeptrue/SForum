@@ -36,17 +36,38 @@ type UserLookup interface {
 	PublicProfileUserID(ctx context.Context, username string) (int64, error)
 }
 
+// BadgeCatalogReader 是公开徽章目录的窄读口（*badges.Service 满足它）。
+//
+// 两个方法刻意分开：PublicCatalog 签名里没有 actor，EarnedBadgeSlugs 是唯一
+// 吃 userID 的读。HTTP 层只依赖这两条，测试才能注入「3 条 / 读库失败」这类形状。
+type BadgeCatalogReader interface {
+	PublicCatalog(ctx context.Context) (badges.PublicCatalog, error)
+	EarnedBadgeSlugs(ctx context.Context, userID int64) (map[string]struct{}, error)
+}
+
 type Controller struct {
 	service  *badges.Service
+	catalog  BadgeCatalogReader
 	admin    *badges.AdminService
 	gate     BadgeFeatureGate
 	users    identity.ActorStore
 	sessions *authsession.Manager
 	lookup   UserLookup
+	// loadActor 是可选主体解析的测试缝；生产装配留空，走 apphttp.OptionalActor。
+	loadActor func(c fiber.Ctx) (identity.Actor, error)
 }
 
 func NewController(service *badges.Service, admin *badges.AdminService, gate BadgeFeatureGate, users identity.ActorStore, sessions *authsession.Manager) *Controller {
-	return &Controller{service: service, admin: admin, gate: gate, users: users, sessions: sessions}
+	return &Controller{service: service, catalog: service, admin: admin, gate: gate, users: users, sessions: sessions}
+}
+
+// WithActorLoader 注入可选主体解析器（测试用）。只影响公开读的 viewer 判定，
+// 后台端点仍走 authsession 的强制解析。
+func (h *Controller) WithActorLoader(loader func(c fiber.Ctx) (identity.Actor, error)) *Controller {
+	if h != nil {
+		h.loadActor = loader
+	}
+	return h
 }
 
 // WithUserLookup 注入用户名解析器（资料页需要 username → userID）。
@@ -62,6 +83,7 @@ func (h *Controller) WithUserLookup(lookup UserLookup) *Controller {
 // 函数名即路由 ID 的来源（生成器从 handler 名反推 core.route.badges.<snake>），
 // 所以名字必须与 contracts/openapi/paths/badges.yaml 的 operationId 一致。
 func (h *Controller) RegisterRoutes(api fiber.Router) {
+	api.Get("/badges", h.publicCatalog)
 	api.Get("/profiles/:username/badges", h.publicProfileBadges)
 
 	admin := api.Group("/admin/badges")
@@ -125,6 +147,54 @@ func (h *Controller) publicProfileBadges(c fiber.Ctx) error {
 	// 徽章对所有人相同（actor 无关），可被共享缓存；资料页私有数据不在这个响应里。
 	setPublicCacheable(c)
 	return apphttp.OK(c, toProfileBadges(sections))
+}
+
+// publicCatalog 是公开徽章目录（GET /badges）。
+//
+// 与资料页徽章墙的语义差异是本函数存在的理由：资料页回答「他有什么」，
+// 目录回答「站内有什么、我拿到了哪些」——所以这里返回**全部启用徽章**，
+// 用 earned 标记查看者自己的获得情况。
+//
+// 也正因为响应含查看者的 earned，缓存头必须是 private（见 setViewerScopedNoStore）。
+func (h *Controller) publicCatalog(c fiber.Ctx) error {
+	if err := h.requireFeature(c.Context()); err != nil {
+		return err
+	}
+	reader := h.catalog
+	if reader == nil {
+		reader = h.service
+	}
+	catalog, err := reader.PublicCatalog(c.Context())
+	if err != nil {
+		// 读库失败必须上抛（500）。当成空目录返回等于告诉运营「站内没有徽章」，
+		// 而那正是公开面最不该撒的谎。
+		return mapBadgeError(err)
+	}
+	var earned map[string]struct{}
+	if actor, ok := h.viewer(c); ok {
+		earned, err = reader.EarnedBadgeSlugs(c.Context(), actor.ID)
+		if err != nil {
+			return mapBadgeError(err)
+		}
+	}
+	setViewerScopedNoStore(c)
+	return apphttp.OK(c, toPublicCatalog(catalog, earned))
+}
+
+// viewer 解析可选登录主体。匿名、会话失效、坏 token 一律按匿名处理：
+// 公开读不该因为一个过期 cookie 变成 401（与 TrustLevels 公开面同口径）。
+func (h *Controller) viewer(c fiber.Ctx) (identity.Actor, bool) {
+	load := h.loadActor
+	if load == nil {
+		load = func(c fiber.Ctx) (identity.Actor, error) {
+			return apphttp.OptionalActor(c, h.sessions, h.users)
+		}
+	}
+	actor, err := load(c)
+	if err != nil || actor.ID <= 0 {
+		return identity.Actor{}, false
+	}
+	return actor, true
 }
 
 func (h *Controller) resolveProfileUser(ctx context.Context, username string) (int64, error) {
@@ -637,8 +707,21 @@ func queryInt(c fiber.Ctx, name string) int {
 }
 
 // setPublicCacheable：徽章墙 actor 无关，可被共享缓存；只对公开端点生效。
+//
+// 只对**被查看者**的徽章成立（响应里没有查看者字段）。含查看者 earned 的
+// /badges 必须用 setViewerScopedNoStore，不能复用本函数——见那边的注释。
 func setPublicCacheable(c fiber.Ctx) {
 	c.Set(fiber.HeaderCacheControl, "public, max-age=30")
+}
+
+// setViewerScopedNoStore：响应含查看者自己的 earned，同一个 URL 对不同人不同体。
+//
+// 这与 setPublicCacheable 的 "public, max-age=30" 是互斥的语义：public 是写给
+// 共享缓存（CDN / 反向代理）看的，一旦用上，A 的 earned 会被投给 B。
+// 本控制器也没有 Vary 兜底（RegisterRoutes 不设 Vary），所以不能靠它补救。
+// private + no-store 的取舍：目录是低频读，宁可每次回源，也不赌缓存键正确。
+func setViewerScopedNoStore(c fiber.Ctx) {
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
 }
 
 // setAdminNoStore：后台端点含运营状态与审计字段，禁止任何缓存。

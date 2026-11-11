@@ -56,6 +56,7 @@ func newCorePageViewModelRegistry() (*PageViewModelRegistry, error) {
 		coreViewModel("forum.category.show", "sforum.page.category_show@1", ViewModelList, CategoryShowPageViewModel{}),
 		coreViewModel("forum.tag.index", "sforum.page.tag_index@1", ViewModelList, TagIndexPageViewModel{}),
 		coreViewModel("forum.tag.show", "sforum.page.tag_show@1", ViewModelList, TagShowPageViewModel{}),
+		coreViewModel("forum.badge.index", "sforum.page.badge_index@1", ViewModelList, BadgeIndexPageViewModel{}),
 		coreViewModel("forum.topic.show", "sforum.page.topic_show@1", ViewModelDetail, TopicDetailPageViewModel{}),
 		coreViewModel("forum.topic.create", "sforum.page.topic_create@1", ViewModelCreate, TopicCreatePageViewModel{}),
 		coreViewModel("forum.topic.reply", "sforum.page.topic_reply@1", ViewModelCreate, TopicReplyPageViewModel{}),
@@ -196,6 +197,8 @@ func pageViewModelBase(value any) (PageViewModelBase, bool) {
 	case TagIndexPageViewModel:
 		return model.Base, true
 	case TagShowPageViewModel:
+		return model.Base, true
+	case BadgeIndexPageViewModel:
 		return model.Base, true
 	case TopicDetailPageViewModel:
 		return model.Base, true

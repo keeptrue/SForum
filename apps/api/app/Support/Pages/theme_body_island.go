@@ -16,6 +16,7 @@ func productionThemeIslandBindings() map[string]themecompiler.IslandBinding {
 		"sf-category-show-page":         {ComponentID: "forum.component.category_show"},
 		"sf-tag-index-page":             {ComponentID: "forum.component.tag_index"},
 		"sf-tag-show-page":              {ComponentID: "forum.component.tag_show"},
+		"sf-badge-index-page":           {ComponentID: "forum.component.badge_index"},
 		"sf-topic-show-page":            {ComponentID: "forum.component.topic_show"},
 		"sf-profile-page":               {ComponentID: "forum.component.profile_show"},
 		"sf-notifications-page":         {ComponentID: "forum.component.notifications"},
@@ -89,6 +90,8 @@ func RequiredThemeBodyIslandTag(pageID string) string {
 		return "sf-tag-index-page"
 	case "forum.tag.show":
 		return "sf-tag-show-page"
+	case "forum.badge.index":
+		return "sf-badge-index-page"
 	case "forum.topic.show":
 		return "sf-topic-show-page"
 	case "forum.topic.create":

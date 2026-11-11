@@ -135,6 +135,9 @@ function routePolicy(route) {
   if (path.startsWith('/api/v1/admin/attachment-settings') || path.startsWith('/api/v1/admin/attachment-compression-settings') || path.startsWith('/api/v1/admin/attachment-storage-instances') || path === '/api/v1/admin/attachments/compression-stats') return ['permission', 'attachment.settings.manage']
   if (path.startsWith('/api/v1/admin/attachments')) return ['permission', 'attachment.manage']
   // 徽章：读 badge.view、写 badge.manage。公开的资料页徽章墙走 /api/v1/profiles/ 的 public 分支。
+  // 公开目录 /api/v1/badges：目录本体 actor 无关，earned 只给查看者本人（响应头 private）。
+  // features.badges 关闭时 403 forum.badges_disabled，与其余十三条徽章路由同口径。
+  if (path === '/api/v1/badges') return ['public', 'badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled']
   if (path.startsWith('/api/v1/admin/badges')) return ['permission', method === 'GET' ? 'badge.view' : 'badge.manage']
   // 信任等级：公开目录与本人进度；后台读 admin.access、写 trust.manage。
   // 产品开关 features.trust_levels 关闭时四条路由一律 404（本刀之前它们不存在）。
@@ -292,6 +295,7 @@ const reviewedGuardPolicies = new Map([
   ['host liveness/readiness; non-overridable recovery prerequisite', { kind: 'public' }],
   ['public read contract', { kind: 'public' }],
   ['trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled', { kind: 'public' }],
+  ['badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled', { kind: 'public' }],
   ['exact public frontend artifact trust, digest, and live runtime policy', { kind: 'public' }],
   ['current browser session', { kind: 'login' }],
   ['current active actor; visibility-filtered composer references', { kind: 'login' }],

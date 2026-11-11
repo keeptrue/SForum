@@ -58,6 +58,12 @@
       "path": "templates/tag-show.html"
     },
     {
+      "digest": "2f8898091f5c69e28c8fce0eea96ebba88bac37bedc44392d2950f398ceb4b55",
+      "id": "sforum.default-theme.file.template.badges",
+      "kind": "template",
+      "path": "templates/badges.html"
+    },
+    {
       "digest": "3e5e65da41dcd2ed1421a87484365ce1bd7fe15bcc5934041dbc447ebe8a96bc",
       "id": "sforum.default-theme.file.template.topic-show",
       "kind": "template",
@@ -287,6 +293,15 @@
       "path": "templates/tag-show.html",
       "themeOverrideKey": "sforum.default-theme.tag_show",
       "viewModelSchema": "sforum.page.tag_show@1"
+    },
+    {
+      "action": "add",
+      "contractVersion": "sforum.default-theme.template.badges@1",
+      "digest": "2f8898091f5c69e28c8fce0eea96ebba88bac37bedc44392d2950f398ceb4b55",
+      "id": "sforum.default-theme.template.badges",
+      "path": "templates/badges.html",
+      "themeOverrideKey": "sforum.default-theme.badge_index",
+      "viewModelSchema": "sforum.page.badge_index@1"
     },
     {
       "action": "add",
