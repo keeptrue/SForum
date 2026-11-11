@@ -574,9 +574,25 @@
       },
       "confirmDeleteBody": "This cannot be undone. Grants of this badge are deleted and the top badge on user profiles is cleared.",
       "confirmDeleteTitle": "Confirm delete",
+      "confirmDeleteTopBadgeHint": "After deletion the badge disappears from profiles and posts; remaining badges only show again after the next recompute.",
       "create": "New badge",
       "disabled": "Badges are turned off. Turn them on under Settings → Feature flags to manage them.",
       "empty": "No badges yet.",
+      "filters": {
+        "all": "All",
+        "allGroups": "All groups",
+        "clear": "Clear filters",
+        "disabled": "Disabled",
+        "enabled": "Enabled",
+        "enabledState": "Enabled state",
+        "grantMode": "Grant mode",
+        "group": "Group",
+        "noMatch": "No badges match the current filters.",
+        "search": "Search badges",
+        "searchPlaceholder": "Search name, slug, or description",
+        "tier": "Tier",
+        "ungrouped": "Ungrouped"
+      },
       "forbidden": "You do not have permission to view the badge admin.",
       "form": {
         "createTitle": "New badge",
@@ -608,8 +624,76 @@
         "automatic": "Automatic",
         "manual": "Manual"
       },
+      "grants": {
+        "badge": "Select badge",
+        "badgePlaceholder": "Pick a badge to see its grant history",
+        "caption": "Grant history",
+        "columns": {
+          "grantedAt": "Granted at",
+          "reason": "Reason",
+          "source": "Source",
+          "user": "User"
+        },
+        "empty": "This badge has no grant records yet.",
+        "grant": "Grant",
+        "loadFailed": "Grant records could not be loaded.",
+        "nextPage": "Next page",
+        "prevPage": "Previous page",
+        "revoke": "Revoke",
+        "revokeConfirm": "Click again to confirm revocation",
+        "revokeHint": "Revoking removes this manual grant and refreshes the user's top badge.",
+        "revokeLabel": "Revoke this badge from {name}",
+        "source": {
+          "automatic": "Rule",
+          "manual": "Manual",
+          "recompute": "Recompute"
+        },
+        "toast": {
+          "notRevoked": "{name} did not hold this badge.",
+          "revokeFailed": "The badge could not be revoked. Try again in a moment.",
+          "revoked": "Revoked this badge from {name}."
+        },
+        "total": "{count} records in total"
+      },
+      "groups": {
+        "caption": "Badge groups",
+        "columns": {
+          "badgeCount": "Badges",
+          "key": "Key",
+          "name": "Name",
+          "position": "Order"
+        },
+        "confirmDeleteBody": "This cannot be undone. The group is empty and will be removed.",
+        "confirmDeleteBodyWithBadges": "This group holds {count} badges; they become ungrouped after deletion, but the badges themselves are kept.",
+        "confirmDeleteTitle": "Click again to confirm deletion",
+        "create": "New group",
+        "delete": "Delete",
+        "deleteLabel": "Delete group {name}",
+        "edit": "Edit",
+        "editLabel": "Edit group {name}",
+        "empty": "No groups yet.",
+        "emptyGuide": "Groups organize badges into profile page sections. Create a group first, then assign badges to it in the badge editor.",
+        "form": {
+          "createTitle": "New group",
+          "description": "Description",
+          "editTitle": "Edit group",
+          "key": "Key",
+          "keyHint": "Lowercase letters, digits, and hyphens only; underscores and spaces become hyphens. The field is locked while editing.",
+          "name": "Name",
+          "position": "Order"
+        },
+        "listHint": "Groups decide the section order of the profile badge wall.",
+        "toast": {
+          "created": "Group created.",
+          "deleteFailed": "The group could not be deleted. Try again in a moment.",
+          "deleted": "Group deleted.",
+          "saveFailed": "The group could not be saved. Try again in a moment.",
+          "updated": "Group updated."
+        }
+      },
       "intro": "Manage the badge catalog and grant rules. Automatic badges are evaluated from activity metrics; manual badges are granted by an admin.",
       "loadFailed": "Badges could not be loaded.",
+      "metaTitle": "Badge management",
       "metrics": {
         "bookmark_count": "Bookmarks",
         "comment_count": "Replies",
@@ -626,11 +710,29 @@
         "metricThreshold": "Granted when {metric} reaches {threshold}",
         "none": "No rule (manual)"
       },
+      "sort": {
+        "activeAsc": "Sorted by {column} ascending; click to switch to descending",
+        "activeDesc": "Sorted by {column} descending; click to switch to ascending",
+        "inactive": "Click to sort by {column}"
+      },
+      "stats": {
+        "automatic": "{count} automatic",
+        "badges": "{total} badges",
+        "enabled": "{count} enabled",
+        "granted": "{count} granted"
+      },
+      "tabs": {
+        "badges": "Badges",
+        "grants": "Grant history",
+        "groups": "Groups",
+        "label": "Badge management sections"
+      },
       "title": "Badges",
       "toast": {
         "created": "Badge created.",
         "deleteFailed": "The badge could not be deleted. Try again in a moment.",
         "deleted": "Badge deleted.",
+        "deletedRecomputeHint": "Run a recompute afterwards to restore the badge display next to posts.",
         "disabled": "Badge turned off.",
         "enabled": "Badge turned on.",
         "granted": "Badge granted to the user.",
@@ -639,8 +741,7 @@
         "recomputeStarted": "Recomputing badge grants.",
         "saveFailed": "The badge could not be saved. Try again in a moment.",
         "updated": "Badge updated."
-      },
-      "toolbar": "All badges"
+      }
     },
     "shell": {
       "brand": "SForum",

@@ -148,7 +148,15 @@ async function removeBadge() {
   errorMessage.value = ''
   try {
     await request(`/admin/badges/${props.badge.id}`, { method: 'DELETE' })
-    toast.add({ title: t('admin.badges.toast.deleted'), color: 'success', icon: 'i-lucide-trash-2', duration: 5000 })
+    // 删除把 top_badge_id 置空（外键 SET NULL）且不会自动挑次高级：提示重算，
+    // 否则用户帖子旁的徽章 chip 会消失到下一次评估/重算（失真窗口 #2）。
+    toast.add({
+      title: t('admin.badges.toast.deleted'),
+      description: t('admin.badges.toast.deletedRecomputeHint'),
+      color: 'success',
+      icon: 'i-lucide-trash-2',
+      duration: 5000
+    })
     emit('saved')
     close()
   } catch (error) {
@@ -231,6 +239,10 @@ async function removeBadge() {
           <p v-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
           <p v-if="confirmDelete" class="text-sm text-red-600 dark:text-red-400">
             {{ t('admin.badges.confirmDeleteBody') }}
+          </p>
+          <!-- 两步确认第二步追加失真提示：删除清空 top_badge_id，chip 消失到重算为止。 -->
+          <p v-if="confirmDelete" class="text-sm text-amber-600 dark:text-amber-400">
+            {{ t('admin.badges.confirmDeleteTopBadgeHint') }}
           </p>
         </div>
 

@@ -1,20 +1,36 @@
 <script setup lang="ts">
+/**
+ * 徽章后台页壳：只承担 tab 选择、?tab= query 同步与顶部编排。
+ *
+ * 表格行动作（启停/编辑/授予）在 badges tab、分组 CRUD 在 groups tab、
+ * 授予记录与收回在 grants tab；壳层持有唯一数据层实例（store）下发给三个
+ * tab，保证任意 tab 的写动作刷新后其它 tab 立即看到同一份状态。
+ *
+ * 三态顶部告警（功能关闭 / 无权限 / 加载失败）与 toolbar 的统计、刷新、重算
+ * 属于页面级编排，按 settings/index.vue 的几何契约留在壳层。
+ */
+import type { Component } from 'vue'
+import SFAdminFixedTabNav from '~/components/admin/settings/shared/SFAdminFixedTabNav.vue'
+import SFAdminBadgesBadgesTab from '~/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue'
+import SFAdminBadgesGroupsTab from '~/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue'
+import SFAdminBadgesGrantsTab from '~/components/admin/badges/tabs/SFAdminBadgesGrantsTab.vue'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { useAdminBadges } from '~/composables/admin/badges/useAdminBadges'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
-import { toAdminBadgeInput, type AdminBadgeRow } from '~/utils/admin/adminBadges'
-import SFAdminBadgeTable from '~/components/admin/badges/SFAdminBadgeTable.vue'
-import SFAdminBadgeEditDialog from '~/components/admin/badges/SFAdminBadgeEditDialog.vue'
-import SFAdminBadgeGrantDialog from '~/components/admin/badges/SFAdminBadgeGrantDialog.vue'
 
 definePageMeta({
   middleware: 'admin',
   layout: 'admin'
 })
+
 defineOptions({
   name: 'AdminBadges'
 })
 
+type BadgesTab = 'badges' | 'groups' | 'grants'
+
+const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const adminPage = useAdminPage('/badges')
 const { can } = useAuthSession()
@@ -23,73 +39,90 @@ const toast = useToast()
 // 读用 badge.view（只读管理员也能看列表），写用 badge.manage：重算/编辑/授予都归后者。
 const canManage = computed(() => can('badge.manage'))
 
-const {
-  badges,
-  groups,
-  pending,
-  failed,
-  blocked,
-  load,
-  updateBadge,
-  recompute
-} = useAdminBadges()
+const store = useAdminBadges()
 
-const editOpen = ref(false)
-const grantOpen = ref(false)
-const editing = ref<AdminBadgeRow | null>(null)
-const granting = ref<AdminBadgeRow | null>(null)
-const recomputing = ref(false)
-const confirmRecompute = ref(false)
-const togglePendingId = ref<number | null>(null)
+const validTabs: BadgesTab[] = ['badges', 'groups', 'grants']
+const activeTab = ref<BadgesTab>(normalizeTab(route.query.tab))
 
-onMounted(() => {
-  void load()
+// 放在 tabs 之前：tabs 的每一项都读 blockedActive.value，声明晚于引用只是靠 computed
+// 惰性求值侥幸不炸，谁加个 immediate 或在 setup 里读 tabs.value 就是 TDZ。
+const blockedActive = computed(() => store.blocked.value !== '')
+
+const tabs = computed(() => [
+  { id: 'badges', label: t('admin.badges.tabs.badges'), icon: 'i-lucide-medal', disabled: blockedActive.value },
+  { id: 'groups', label: t('admin.badges.tabs.groups'), icon: 'i-lucide-folder-open', disabled: blockedActive.value },
+  { id: 'grants', label: t('admin.badges.tabs.grants'), icon: 'i-lucide-scroll-text', disabled: blockedActive.value }
+])
+
+const tabComponents: Record<BadgesTab, Component> = {
+  badges: SFAdminBadgesBadgesTab,
+  groups: SFAdminBadgesGroupsTab,
+  grants: SFAdminBadgesGrantsTab
+}
+const activeComponent = computed(() => tabComponents[activeTab.value])
+
+// 统计紧凑数字全部从列表响应推导，不接新路由：总数 / 启用 / 自动 / 累计授予。
+const stats = computed(() => {
+  const list = store.badges.value
+  return {
+    total: list.length,
+    enabled: list.filter(badge => badge.enabled).length,
+    automatic: list.filter(badge => badge.grantMode === 'automatic').length,
+    granted: list.reduce((sum, badge) => sum + badge.grantedCount, 0)
+  }
 })
 
-function openCreate() {
-  editing.value = null
-  editOpen.value = true
-}
+// 功能关闭 / 加载失败时列表恒为空：渲染成「0 枚徽章」等于把「没数据」说成「数据是 0」。
+const statsVisible = computed(() => !blockedActive.value && !store.failed.value)
 
-function openEdit(badge: AdminBadgeRow) {
-  editing.value = badge
-  editOpen.value = true
-}
-
-function openGrant(badge: AdminBadgeRow) {
-  granting.value = badge
-  grantOpen.value = true
-}
-
-async function toggleEnabled(badge: AdminBadgeRow) {
-  if (!canManage.value || togglePendingId.value !== null) return
-  togglePendingId.value = badge.id
-  try {
-    await updateBadge(badge.id, toAdminBadgeInput({
-      slug: badge.slug,
-      name: badge.name,
-      description: badge.description,
-      groupId: badge.groupId ?? null,
-      tier: badge.tier,
-      icon: badge.icon,
-      grantMode: badge.grantMode,
-      metric: badge.metric ?? null,
-      threshold: badge.threshold ?? null,
-      enabled: !badge.enabled,
-      position: badge.position
-    }))
-    toast.add({
-      title: badge.enabled ? t('admin.badges.toast.disabled') : t('admin.badges.toast.enabled'),
-      color: 'success',
-      icon: 'i-lucide-check',
-      duration: 5000
+// 每个分区只收到自己声明过的 props：统一传会让未声明的 props 变成 fallthrough attr
+// （grants 分区不声明 groups/pending，DOM 里会落下 groups="[object Object]"）。
+const tabProps = computed(() => activeTab.value === 'grants'
+  ? { store, badges: store.badges.value, canManage: canManage.value }
+  : {
+      store,
+      badges: store.badges.value,
+      groups: store.groups.value,
+      pending: store.pending.value,
+      canManage: canManage.value
     })
-  } catch {
-    toast.add({ title: t('admin.badges.toast.saveFailed'), color: 'error', icon: 'i-lucide-triangle-alert', duration: 0 })
-  } finally {
-    togglePendingId.value = null
-  }
+
+const recomputing = ref(false)
+const confirmRecompute = ref(false)
+
+onMounted(() => {
+  void store.load()
+})
+
+watch(() => route.query.tab, (tab) => {
+  const normalized = normalizeTab(tab)
+  if (normalized !== activeTab.value) activeTab.value = normalized
+})
+
+watch(activeTab, async (tab) => {
+  if (route.query.tab === tab) return
+  await router.replace({ query: { ...route.query, tab } })
+})
+
+useSeoMeta({
+  title: t('admin.badges.metaTitle')
+})
+
+function normalizeTab(value: unknown): BadgesTab {
+  const candidate = Array.isArray(value) ? value[0] : value
+  return typeof candidate === 'string' && validTabs.includes(candidate as BadgesTab)
+    ? candidate as BadgesTab
+    : 'badges'
 }
+
+function setActiveTab(value: string) {
+  activeTab.value = normalizeTab(value)
+}
+
+/** 重算按钮的可读名：两态（待确认 / 已确认）都必须有 aria-label 与 title。 */
+const recomputeLabel = computed(() =>
+  confirmRecompute.value ? t('admin.badges.recompute.confirm') : t('admin.badges.recompute.action')
+)
 
 async function runRecompute() {
   if (!canManage.value || recomputing.value) return
@@ -99,7 +132,7 @@ async function runRecompute() {
   }
   recomputing.value = true
   try {
-    const changed = await recompute()
+    const changed = await store.recompute()
     toast.add({
       title: t('admin.badges.toast.recomputeStarted'),
       description: changed > 0 ? t('admin.badges.toast.recomputeChanged', { count: changed }) : undefined,
@@ -118,29 +151,40 @@ async function runRecompute() {
 
 <template>
   <div>
-    <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h1 class="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-zinc-100">
-          <UIcon :name="adminPage.icon" class="size-5 text-[var(--sf-accent)] dark:text-[var(--sf-accent-dark)]" aria-hidden="true" />
-          {{ t('admin.badges.title') }}
-        </h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-zinc-400">{{ t('admin.badges.intro') }}</p>
-      </div>
-      <UButton v-if="canManage" color="primary" icon="i-lucide-plus" class="self-start" @click="openCreate">
-        {{ t('admin.badges.create') }}
-      </UButton>
+    <div class="mb-4">
+      <h2 class="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-zinc-100">
+        <UIcon :name="adminPage.icon" class="size-5 text-[var(--sf-accent)] dark:text-[var(--sf-accent-dark)]" aria-hidden="true" />
+        {{ t('admin.badges.title') }}
+      </h2>
     </div>
 
     <UDashboardToolbar class="mb-6 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
       <template #left>
-        <div class="flex min-w-0 items-center gap-2 text-sm">
-          <UIcon name="i-lucide-award" class="size-4 shrink-0" aria-hidden="true" />
-          <span class="truncate">{{ t('admin.badges.toolbar') }}</span>
+        <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <template v-if="statsVisible">
+            <span class="whitespace-nowrap">{{ t('admin.badges.stats.badges', { total: stats.total }) }}</span>
+            <span aria-hidden="true">·</span>
+            <span class="whitespace-nowrap">{{ t('admin.badges.stats.enabled', { count: stats.enabled }) }}</span>
+            <span aria-hidden="true">·</span>
+            <span class="whitespace-nowrap">{{ t('admin.badges.stats.automatic', { count: stats.automatic }) }}</span>
+            <span aria-hidden="true">·</span>
+            <span class="whitespace-nowrap">{{ t('admin.badges.stats.granted', { count: stats.granted }) }}</span>
+          </template>
+          <span v-else class="text-slate-400 dark:text-zinc-500">—</span>
         </div>
       </template>
+      <!-- 窄屏只留图标：文字进 hidden sm:inline，aria-label / title 两态都保留可读名。 -->
       <template #right>
-        <UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" :loading="pending" @click="load">
-          {{ t('admin.badges.refresh') }}
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-refresh-cw"
+          :loading="store.pending.value"
+          :aria-label="t('admin.badges.refresh')"
+          :title="t('admin.badges.refresh')"
+          @click="store.load"
+        >
+          <span class="hidden sm:inline">{{ t('admin.badges.refresh') }}</span>
         </UButton>
         <UButton
           v-if="canManage"
@@ -148,15 +192,17 @@ async function runRecompute() {
           variant="outline"
           icon="i-lucide-refresh-ccw-dot"
           :loading="recomputing"
+          :aria-label="recomputeLabel"
+          :title="recomputeLabel"
           @click="runRecompute"
         >
-          {{ confirmRecompute ? t('admin.badges.recompute.confirm') : t('admin.badges.recompute.action') }}
+          <span class="hidden sm:inline">{{ recomputeLabel }}</span>
         </UButton>
       </template>
     </UDashboardToolbar>
 
     <UAlert
-      v-if="blocked === 'disabled'"
+      v-if="store.blocked.value === 'disabled'"
       color="warning"
       variant="soft"
       icon="i-lucide-power-off"
@@ -164,7 +210,7 @@ async function runRecompute() {
       :description="t('admin.badges.disabled')"
     />
     <UAlert
-      v-else-if="blocked === 'forbidden'"
+      v-else-if="store.blocked.value === 'forbidden'"
       color="error"
       variant="soft"
       icon="i-lucide-shield-off"
@@ -172,7 +218,7 @@ async function runRecompute() {
       :description="t('admin.badges.forbidden')"
     />
     <UAlert
-      v-else-if="failed"
+      v-else-if="store.failed.value"
       color="error"
       variant="soft"
       icon="i-lucide-triangle-alert"
@@ -180,16 +226,20 @@ async function runRecompute() {
       :description="t('admin.badges.loadFailed')"
     />
 
-    <SFAdminBadgeTable
-      :badges="badges"
-      :pending="pending"
-      :can-manage="canManage"
-      @edit="openEdit"
-      @grant="openGrant"
-      @toggle="toggleEnabled"
-    />
-
-    <SFAdminBadgeEditDialog v-model:open="editOpen" :groups="groups" :badge="editing" @saved="load" />
-    <SFAdminBadgeGrantDialog v-model:open="grantOpen" :badge="granting" @saved="load" />
+    <div class="flex flex-col gap-4">
+      <SFAdminFixedTabNav
+        :items="tabs"
+        :model-value="activeTab"
+        :ariaLabel="t('admin.badges.tabs.label')"
+        @update:model-value="setActiveTab"
+      />
+      <KeepAlive>
+        <component
+          :is="activeComponent"
+          :key="activeTab"
+          v-bind="tabProps"
+        />
+      </KeepAlive>
+    </div>
   </div>
 </template>

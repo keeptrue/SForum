@@ -5,7 +5,7 @@
  * 纯展示 + 事件上抛：CRUD、授予、重算都在页面与 useAdminBadges 里，表格不持有状态。
  * tier 列不允许只用颜色表达级别，所以固定是「图标 + tier 名」，色只染图标。
  */
-import { adminBadgeMetricLabel, adminBadgeRule, type AdminBadgeRow } from '~/utils/admin/adminBadges'
+import { adminBadgeMetricLabel, adminBadgeRule, type AdminBadgeRow, type AdminBadgeSortDir, type AdminBadgeSortKey } from '~/utils/admin/adminBadges'
 import { forumBadgeTier, forumBadgeTierIcon } from '~/utils/forum/forumBadge'
 
 const props = withDefaults(defineProps<{
@@ -13,15 +13,21 @@ const props = withDefaults(defineProps<{
   pending?: boolean
   /** 只有 badge.manage 才渲染操作按钮；无权限时列仍保留表头。 */
   canManage?: boolean
+  /** 当前排序键；'' 表示保持后端默认次序（分组 position → 徽章 position）。 */
+  sortKey?: AdminBadgeSortKey | ''
+  sortDir?: AdminBadgeSortDir
 }>(), {
   pending: false,
-  canManage: false
+  canManage: false,
+  sortKey: '',
+  sortDir: 'asc'
 })
 
 const emit = defineEmits<{
   edit: [badge: AdminBadgeRow]
   grant: [badge: AdminBadgeRow]
   toggle: [badge: AdminBadgeRow]
+  sort: [key: AdminBadgeSortKey]
 }>()
 
 const { t, te } = useI18n()
@@ -39,6 +45,7 @@ const columns = computed(() => [
   {
     id: 'name',
     header: t('admin.badges.columns.name'),
+    sortable: true,
     meta: { class: { th: 'min-w-[180px]', td: 'min-w-[180px]' } }
   },
   {
@@ -49,6 +56,7 @@ const columns = computed(() => [
   {
     id: 'tier',
     header: t('admin.badges.columns.tier'),
+    sortable: true,
     meta: { class: { th: 'w-[88px]', td: 'w-[88px]' } }
   },
   {
@@ -64,6 +72,7 @@ const columns = computed(() => [
   {
     id: 'grantedCount',
     header: t('admin.badges.columns.grantedCount'),
+    sortable: true,
     meta: { class: { th: `w-[96px] text-right ${HIDDEN_SM}`, td: `w-[96px] text-right ${HIDDEN_SM}` } }
   },
   {
@@ -89,6 +98,27 @@ function tierLabel(badge: AdminBadgeRow) {
 function ruleOf(badge: AdminBadgeRow) {
   return adminBadgeRule(badge)
 }
+
+/** 可排序列头的图标与 aria 态由父层 query 驱动；表格本身不感知 URL。 */
+function sortState(id: string): { active: boolean, dir: AdminBadgeSortDir | '' } {
+  if (props.sortKey !== id) return { active: false, dir: '' }
+  return { active: true, dir: props.sortDir }
+}
+
+function sortIcon(id: string): string {
+  const state = sortState(id)
+  if (!state.active) return 'i-lucide-chevrons-up-down'
+  return state.dir === 'asc' ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'
+}
+
+function sortAria(id: string): string {
+  const label = t(`admin.badges.columns.${id}`)
+  const state = sortState(id)
+  if (!state.active) return t('admin.badges.sort.inactive', { column: label })
+  return state.dir === 'asc'
+    ? t('admin.badges.sort.activeAsc', { column: label })
+    : t('admin.badges.sort.activeDesc', { column: label })
+}
 </script>
 
 <template>
@@ -111,6 +141,20 @@ function ruleOf(badge: AdminBadgeRow) {
       </span>
     </template>
 
+    <template #name-header="{ column }">
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        class="-ml-2 font-semibold"
+        :icon="sortIcon('name')"
+        :aria-label="sortAria('name')"
+        @click="emit('sort', 'name')"
+      >
+        {{ t('admin.badges.columns.name') }}
+      </UButton>
+    </template>
+
     <template #name-cell="{ row }">
       <div class="min-w-0">
         <div class="truncate font-semibold text-slate-900 dark:text-white">{{ row.original.name }}</div>
@@ -120,6 +164,20 @@ function ruleOf(badge: AdminBadgeRow) {
 
     <template #group-cell="{ row }">
       <span class="text-sm text-slate-600 dark:text-zinc-300">{{ row.original.groupName || '—' }}</span>
+    </template>
+
+    <template #tier-header="{ column }">
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        class="-ml-2 font-semibold"
+        :icon="sortIcon('tier')"
+        :aria-label="sortAria('tier')"
+        @click="emit('sort', 'tier')"
+      >
+        {{ t('admin.badges.columns.tier') }}
+      </UButton>
     </template>
 
     <template #tier-cell="{ row }">
@@ -145,6 +203,20 @@ function ruleOf(badge: AdminBadgeRow) {
         }}
       </span>
       <span v-else class="text-sm text-slate-400 dark:text-zinc-500">{{ t('admin.badges.rule.none') }}</span>
+    </template>
+
+    <template #grantedCount-header="{ column }">
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        class="-ml-1 font-semibold"
+        :icon="sortIcon('grantedCount')"
+        :aria-label="sortAria('grantedCount')"
+        @click="emit('sort', 'grantedCount')"
+      >
+        {{ t('admin.badges.columns.grantedCount') }}
+      </UButton>
     </template>
 
     <template #grantedCount-cell="{ row }">

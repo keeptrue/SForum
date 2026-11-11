@@ -91,7 +91,9 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 `200 {"revoked": false}`（幂等，`revoked` 表示「确实删了一行」而非「请求成功」）。
 
 自动徽章不可手动收回（`422 forum.badge_manual_only`）：规则下一次评估就会重新
-授予，收回只是短暂假象。要撤销效果就停用规则。
+授予，收回只是短暂假象。要撤销效果就停用规则。所以后台「授予记录」tab **只给手动
+来源行渲染收回按钮**（`grantRevocable` = `grantedBy` 非空），自动/重算行连入口都没有；
+`revoked: false` 走单独 toast 分支（「本来未持有」），既不算成功也不算失败。
 
 ## `top_badge_id` 失真窗口
 
@@ -100,8 +102,11 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 1. **授予后缓存延迟**：帖子旁 chip 最多 **20–30s** 后才出现（topicDetail 30s /
    comments 20s）。资料页不走 Forum 缓存，≤10s 可见。两个时限不同，别用同一窗口判。
 2. **删除最高级徽章后变 NULL**：`ON DELETE SET NULL` 只置空，不会自动挑次高级，
-   所以即使该用户还有其它徽章，帖子旁 chip 也会消失到下一次评估/重算。后台删除前
-   应提示「该用户还有 N 个徽章，删除后需重算才恢复显示」。
+   所以即使该用户还有其它徽章，帖子旁 chip 也会消失到下一次评估/重算。后台提示已落地：
+   编辑弹窗两步确认的**第二步**追加失真说明（`admin.badges.confirmDeleteTopBadgeHint`），
+   删除成功 toast 追加 `admin.badges.toast.deletedRecomputeHint`。文案只说「需重算才恢复」，
+   **不做「该用户还有 N 个徽章」的计数**——弹窗手里只有这一枚徽章的 `grantedCount`，
+   拿不到「某用户还剩几个」，硬算等于为一次删除多打一条按用户的查询。
 3. **停用徽章要触发重算**：`enabled=false` 后已授予行保留但不再展示；`AdminService`
    在 `enabled` / `tier` / `position` 变化时对受影响用户重算 `top_badge_id`（改名
    换图标不重算，因为不影响「谁被选中」）。
@@ -154,6 +159,92 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
   只是目录，不是运行时守卫——M8 首轮就是靠这条发现了「纯 member 能建徽章」的 P0。
 - `badge.view` 单独存在是**死权限**：可达性前提是 `admin.access`。只给
   `badge.view` 不给后台入口权限，用户进不去后台。
+
+## 管理台徽章页（`/control-panel/badges`，三分区）
+
+页面是**三个固定分区**（`badges` / `groups` / `grants`），tab 选择在 URL query `?tab=`：
+非法值回落 `badges`，`route.query.tab` 与 `activeTab` 双向同步。这是 Core 自有后台页，
+几何按 `pages/admin/settings/index.vue` 的契约走（紧凑 `text-xl` 标题 + 一个
+`UDashboardToolbar` + `SFAdminFixedTabNav` + 单个 `flex flex-col gap-4` 内容列），
+不另起第二套 tab 系统。
+
+- **壳 `pages/admin/badges.vue` 只承担编排**：tab 选择 / query 同步、三态顶部告警
+  （`features.badges` 关闭 / 无权限 / 加载失败）、toolbar。行动作全部在分区组件里。
+  `blocked` 非空时三个 tab 一起禁用（`disabled: blockedActive` → `SFAdminFixedTabNav`
+  的 `:disabled="item.disabled"`）；**加载失败态不禁用**，留着刷新重试。
+- **唯一数据层实例在壳里**：`useAdminBadges()` 只调一次，`store` 下发三个分区，任一
+  分区写动作后 `load()` 刷新的是同一份状态。别在分区里再调一次 `useAdminBadges()`——
+  那会得到第二份列表。
+- **两套状态不要混成一套**：模板是 `<KeepAlive>` 包
+  `<component :is="activeComponent" :key="activeTab">`，`KeepAlive` 保留的是**组件实例级
+  局部状态**，**只举三个代表**：grants 的选中徽章与页码、groups 的表单草稿、badges 的
+  编辑弹窗开关。这里**不列全量 ref 清单**——实例内 ref 是实现细节，改一行就过期。
+  **筛选与排序不是 `KeepAlive` 的功劳**：七个 query 键都从 `route.query` 计算，切 tab
+  回来靠 URL 还原，删掉 `KeepAlive` 它们也还在。前两条（grants 选中徽章、groups 表单
+  草稿）**已浏览器实测保留**（`sessions/2026-11-12-badges-admin-selectitem-fix.md`）；
+  页码保留因真实数据单徽章最多 12 条授予（`PER_PAGE = 20`，分页器不渲染）暂无法实测，
+  它与选中徽章同属同一实例的 ref，按同一机制保留。
+- **toolbar 右槽窄屏收成图标**：两个 `UButton` 的可见文字包在
+  `<span class="hidden sm:inline">` 里，`aria-label` / `title` 恒在（重算按钮的两态
+  「重算授予 / 确认重算」都要有），这是 admin settings 契约对窄屏命令的原文要求。
+  左槽统计保持 `whitespace-nowrap` 并允许换行，390 宽下不溢出。
+- **toolbar 左槽是统计**（总数 / 启用 / 自动 / 累计授予），四项全部从列表响应推导，
+  **不接新路由、不加统计端点**；右槽是刷新与重算。重算 toast 的 `{count}` 是
+  `granted + refreshed`（新插入行数 + `top_badge_id` 实际变化人数），不是 `granted` 单值。
+- **`badges` 分区**：目录表 + 筛选（`q` / `group` / `tier` / `grantMode` / `enabled`）+
+  排序（`name` / `tier` / `grantedCount`），筛选与排序**全部进 URL query，共七键**：
+  `q` / `group` / `tier` / `grantMode` / `enabled` / `sort` / `dir`（七个键由
+  `SFAdminBadgesBadgesTab.vue` 的 `FILTER_KEYS` 常量单源约束，页面级还有一个 `tab`），
+  刷新与分享都能还原。`group=none` 表示未分组。**读侧有白名单归一**：`group` 只认
+  `/^\d+$/` 或 `'none'`，`tier` / `grantMode` / `enabled` 各自只认枚举值，其余一律归
+  `''`（不筛选）——URL 是能手改的输入面，`?group=all` 这种写侧永不产生的值不能被当成
+  分组 id 去比对，否则一条不剩落 noMatch、`badgeFiltersActive` 还会误报有筛选。空态分两种：筛出 0 条走
+  「无匹配 + 清除筛选」，本来就没有徽章才显示 `admin.badges.intro`——**intro 不再是
+  页头说明**，页头只有标题。
+- **`groups` 分区**：分组 CRUD（`POST` / `PATCH` / `DELETE /admin/badges/groups[/:id]`）。
+  删除是行内两步确认，`badgeCount > 0` 的组在确认文案里带数量；删除不拒绝有徽章的组，
+  组内徽章由外键 `SET NULL` 落成未分组。
+- **`grants` 分区**：先选徽章再懒加载 `GET /admin/badges/:id/grants`（`perPage` 20 分页，
+  返回 `{ items, total }`），来源列用三来源判别式着色；收回是行内两步确认（不弹窗），
+  只对手动来源行渲染（见上一节的收回语义）。
+- **`top_badge_id` 失真提示在删除弹窗里**（见失真窗口 2），不在页面上做常驻横幅。
+
+## 已知陷阱：`SelectItem` 不接受空字符串 value
+
+**症状**：打开 `/control-panel/badges` 控制台报
+`A <SelectItem /> must have a value prop that is not an empty string.`，紧跟
+`[Vue warn] Unhandled error during execution of component update at <SelectContent>`。
+四个筛选下拉一渲染就抛，且**一个 item 抛错会污染整个 `SelectContent` 的 update**，
+所以现象看起来是「下拉全坏」，不是「某一项坏」。
+
+**根因**：`badges` 分区四个筛选 `USelect` 的 items 首项曾写成 `value: ''`
+（「全部 / 全部分组」）。Reka 的 `SelectItem` 在 setup 里直接
+`if (props.value === '') throw`（reka-ui 2.9.10 `dist/Select/SelectItem.js:89`）——
+空串是**保留给「清空 / placeholder」的 model-value 语义**，不能当 item 值。这与
+Nuxt UI 的 `USelect` 无关，是 Reka 的硬约束。
+
+**修法**：哨兵值只活在组件里。`SFAdminBadgesBadgesTab.vue` 内
+`const ALL_FILTER = 'all'`；`filterSelectModel(value) = value || ALL_FILTER` 供
+`:model-value`，`onFilterSelect(key, event)` 在写回前把 `ALL_FILTER` 翻成 `''`。
+**URL query 契约完全不变**：空值仍是「不筛选」，`applyQuery` 继续按空值 delete key，
+所以 URL 里永远不会出现 `group=all` 这种垃圾参数；`group=none`（未分组）是真实
+筛选值，不被哨兵吃掉。
+
+**不要做的事**：不要为了省事把 `ALL_FILTER` 写进 query，也不要在
+`utils/admin/adminBadges.ts` 的 `filterBadges` 里加 `'all'` 分支——那会把 UI 哨兵
+泄漏进数据契约，深链和外部调用都会带上无意义值。
+
+**回归锚点**：`apps/web/tests/admin/adminBadgesTabs.test.ts` 的
+`never feeds an empty string to a filter SelectItem` 断言源码不含 `value: ''`，
+并钉住四个 `filterSelectModel(...)` / `onFilterSelect(...)` 绑定——防止有人加回空串。
+
+**同类核查（结论：其余两处合法，不要动）**：`SFAdminBadgeEditDialog.vue` 的分组下拉用
+`value: null`（「—」= 无分组）——Reka 只拦空串，`null` 走 `valueComparator` 的
+`isEqual` 分支；浏览器实测「新建徽章 → 分组选『—』→ 保存」落成未分组（分组列显示
+`—`），回写正常，无需 sentinel 映射。**这依赖 reka 的实现细节（`props.value === ''`
+的严格比较 + `isEqual` 兜底），升级 reka-ui / Nuxt UI 时把「null 分组回写」这条回归
+一次**；若哪天它开始拒 `null`，再换成显式 sentinel（如 `'none' ↔ null` 映射）。`SFAdminBadgesGrantsTab.vue` 用 `undefined`
+作为 `:model-value` 是**未选择 → 显示 placeholder** 的正当用法，与 item 值无关。
 
 ## Extension Surface
 
@@ -259,6 +350,12 @@ WHERE NOT EXISTS (
     补键来源有两类：徽章视觉规范原文（tier 名、chip/card 的 aria 模板、`group.count`），
     以及徽章测试里钉死的期望字符串（`empty` / `loadFailed` / `retry`）——**后者不是规范
     原文**，看到别当成设计定稿。
+    **现状（2026-11-11 后台三分区改造后）**：后台 `admin.badges.*` 已由
+    `apps/web/tests/admin/adminBadgesI18n.test.ts` **双向**断言兜住——引用键必须都在两份
+    locale 里，locale 里的键也必须都被引用（`missing` 与 `extra` 同时必须为空，外加 zh/en
+    键集合相等）。动态拼接的前缀走 `DYNAMIC_ENUMERATIONS`（`grantMode.` / `metrics.` /
+    `columns.`），所以新增 `tabs.*` / `stats.*` / `filters.*` / `sort.*` / `grants.*` /
+    `groups.*` 时它会先红，不必人工核对。
 12. **路由计数 tripwire 停在 392，而 catalog 已是 405。** 本刀加了 13 条徽章路由（1 公开 +
     12 后台），但 `apps/api/app/Support/Routes/registry_test.go` 的计数断言没跟着更新——392
     是收藏那刀的数字。信任等级那刀才把它改成 405（现在 409 = 405 + 四条信任等级路由）。
@@ -306,6 +403,12 @@ WHERE NOT EXISTS (
   `dto.go` 是 wire 形状的唯一来源，改契约前先读它）
 - 装配：`apps/api/bootstrap/badges_wiring.go`（`badges.evaluate_user` worker 注册）、
   `apps/api/app/Providers/badges.go`
-- 前端：`components/profile/SFProfileBadgeTab.vue`、`components/forum/SFBadgeChip.vue`、
-  `pages/admin/badges.vue` + `components/admin/badges/`、`composables/admin/badges/useAdminBadges.ts`
+- 前端（论坛面）：`components/profile/SFProfileBadgeTab.vue`、`components/forum/SFBadgeChip.vue`
+- 前端（后台徽章页）：壳 `pages/admin/badges.vue`；三个分区
+  `components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue` /
+  `SFAdminBadgesGroupsTab.vue` / `SFAdminBadgesGrantsTab.vue`；共享
+  `components/admin/badges/SFAdminBadge{Table,EditDialog,GrantDialog}.vue`；
+  数据层 `composables/admin/badges/useAdminBadges.ts` + 纯函数
+  `utils/admin/adminBadges.ts`（`grantSourceOf` / `grantRevocable` / `filterBadges` /
+  `sortBadges` / `validateBadgeGroupForm`）
 - 契约：`contracts/openapi/paths/badges.yaml`、`contracts/openapi/schemas/badges.yaml`

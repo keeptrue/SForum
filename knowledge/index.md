@@ -811,7 +811,14 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **信任等级：档位色单源渲染 + 后台 IA 归位（2026-11-11，最新）**：五个后台分区与资料页卡收敛到共享
+- **徽章管理页：SelectItem 空串崩溃修复（2026-11-12，最新）**：`/control-panel/badges`
+  四个筛选 `USelect` 的 items 首项原为 `value: ''`，触发 Reka
+  `A <SelectItem /> must have a value prop that is not an empty string` 并污染整个
+  `SelectContent` 的 update。改为组件内哨兵 `ALL_FILTER = 'all'` +
+  `filterSelectModel` / `onFilterSelect` 两个助手，URL query 契约不变（空值仍
+  delete key，`group=none` 不受影响）。`null` 分组（EditDialog「—」）实测合法，未改。
+  详见 `sessions/2026-11-12-badges-admin-selectitem-fix.md`。
+- **信任等级：档位色单源渲染 + 后台 IA 归位（2026-11-11）**：五个后台分区与资料页卡收敛到共享
   `.sf-tl-mark`，色相只认**行根内联** `--tl-accent`（`tierColorOf` → `tierAccentStyle`），删掉六处子层
   `--tl-accent: var(--sf-accent)` / `--sf-accent-dark` 遮蔽声明与 `--sf-accent-soft` 淡底；形状梯度
   （1px / 2px / 实心 / TL0 虚线）保留。分类/标签图标色收敛到 `utils/forum/forumTaxonomy.ts` 的

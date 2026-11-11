@@ -22,6 +22,50 @@ export interface AdminBadgeRow {
 }
 
 /**
+ * 分组创建/更新请求体：字段名与后端 `badgeGroupBody`（Badges/controller.go）逐字一致。
+ * PATCH 是 merge 语义，四个字段都可选提交。
+ */
+export type AdminBadgeGroupInput = {
+  key: string
+  name: string
+  description: string
+  position: number
+}
+
+/**
+ * 后台授予记录行：字段名与后端 `BadgeGrantRecord`（Models/Badges/types.go）json tag 逐字一致。
+ * 该类型由 controller 直接透传（不经过 dto.go 的 admin 映射），改字段名前先读 types.go。
+ */
+export interface AdminBadgeGrantRow {
+  userId: number
+  username: string
+  displayName: string
+  badgeId: number
+  badgeSlug: string
+  grantedAt: string
+  grantedBy: number | null
+  grantReason: string
+}
+
+/** 授予来源三态，判别式与 knowledge/modules/badges.md「三来源判别式」一致。 */
+export type AdminBadgeGrantSource = 'manual' | 'recompute' | 'automatic'
+
+/**
+ * 来源判别式：`grantedBy` 非空 = 管理员手动；`grantReason === 'recompute'` = 批量重算补授；
+ * 其余（grantedBy 为空 + 无理由）= 规则自动授予。
+ */
+export function grantSourceOf(row: Pick<AdminBadgeGrantRow, 'grantedBy' | 'grantReason'>): AdminBadgeGrantSource {
+  if (row.grantedBy !== null && row.grantedBy !== undefined) return 'manual'
+  if (row.grantReason === 'recompute') return 'recompute'
+  return 'automatic'
+}
+
+/** 只有手动授予行才允许收回：自动/重算来源收回会 422 forum.badge_manual_only。 */
+export function grantRevocable(row: AdminBadgeGrantRow): boolean {
+  return grantSourceOf(row) === 'manual'
+}
+
+/**
  * 规则列口径：手动徽章、或规则字段不全时返回 null，由调用方渲染占位符。
  * 不在这里编造 `metric ≥ 0` 这类看起来有、实际不存在的规则。
  */
@@ -107,4 +151,82 @@ export function toAdminBadgeInput(form: {
     enabled: form.enabled,
     position: form.position
   }
+}
+
+/** 徽章 tab 的筛选状态；空串表示「不过滤」。字段名与 URL query 键一致。 */
+export interface AdminBadgeFilters {
+  q: string
+  /** 分组 id 的字符串形式；'' = 全部分组，'none' = 未分组。 */
+  group: string
+  tier: string
+  grantMode: string
+  /** 'true' | 'false' | ''（全部）。 */
+  enabled: string
+}
+
+export const EMPTY_BADGE_FILTERS: AdminBadgeFilters = {
+  q: '',
+  group: '',
+  tier: '',
+  grantMode: '',
+  enabled: ''
+}
+
+/** 筛选是否真的在起作用：区分「列表本来就空」与「筛选把结果筛空了」。 */
+export function badgeFiltersActive(filters: AdminBadgeFilters): boolean {
+  return filters.q.trim() !== '' || filters.group !== '' || filters.tier !== ''
+    || filters.grantMode !== '' || filters.enabled !== ''
+}
+
+/** tier 排序权重与后端 topBadgeOrderSQL 同口径：gold > silver > bronze。 */
+const TIER_SORT_WEIGHT: Record<string, number> = { gold: 3, silver: 2, bronze: 1 }
+
+/** 按筛选条件过滤徽章列表；q 同时匹配名称、slug 与说明（大小写不敏感）。 */
+export function filterBadges(badges: AdminBadgeRow[], filters: AdminBadgeFilters): AdminBadgeRow[] {
+  const q = filters.q.trim().toLowerCase()
+  return badges.filter((badge) => {
+    if (q && !`${badge.name} ${badge.slug} ${badge.description}`.toLowerCase().includes(q)) return false
+    if (filters.group === 'none' && badge.groupId !== null) return false
+    if (filters.group !== '' && filters.group !== 'none' && String(badge.groupId) !== filters.group) return false
+    if (filters.tier !== '' && badge.tier !== filters.tier) return false
+    if (filters.grantMode !== '' && badge.grantMode !== filters.grantMode) return false
+    if (filters.enabled === 'true' && !badge.enabled) return false
+    if (filters.enabled === 'false' && badge.enabled) return false
+    return true
+  })
+}
+
+export type AdminBadgeSortKey = 'name' | 'tier' | 'grantedCount'
+export type AdminBadgeSortDir = 'asc' | 'desc'
+
+/** 可排序列集合：表格列头的排序按钮与 URL query 白名单共用这份枚举。 */
+export const BADGE_SORT_KEYS: readonly AdminBadgeSortKey[] = ['name', 'tier', 'grantedCount']
+
+/**
+ * 排序为稳定排序（同键保持后端原有次序）：后端列表已按分组 position → 徽章 position
+ * 排好，前端排序只在其上重排，不越权重排分组。
+ */
+export function sortBadges(
+  badges: AdminBadgeRow[],
+  key: AdminBadgeSortKey | '',
+  dir: AdminBadgeSortDir
+): AdminBadgeRow[] {
+  if (!key) return badges
+  const factor = dir === 'desc' ? -1 : 1
+  const tierWeight = (tier: string) => TIER_SORT_WEIGHT[tier] ?? 0
+  return [...badges].sort((left, right) => {
+    if (key === 'tier') return (tierWeight(left.tier) - tierWeight(right.tier)) * factor
+    if (key === 'grantedCount') return (left.grantedCount - right.grantedCount) * factor
+    return left.name.localeCompare(right.name) * factor
+  })
+}
+
+/** 分组表单校验：错误码由 tab 组件翻译成文案。 */
+export function validateBadgeGroupForm(form: Pick<AdminBadgeGroupInput, 'key' | 'name'>): {
+  key?: 'required', name?: 'required'
+} {
+  const errors: { key?: 'required', name?: 'required' } = {}
+  if (!form.key.trim()) errors.key = 'required'
+  if (!form.name.trim()) errors.name = 'required'
+  return errors
 }

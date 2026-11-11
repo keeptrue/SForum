@@ -70,7 +70,9 @@ function referencedBadgeKeys(): { literal: Set<string>, prefixes: Set<string> } 
 
 // 动态前缀的枚举来源：`grantMode.` 来自 EditDialog 的 `['automatic','manual']`，
 // `metrics.` 来自 `BADGE_METRIC_OPTIONS`（单一来源，不在这里另抄一份）。
+// `columns.` 来自 SFAdminBadgeTable 的 sortAria（列头排序 aria 按列 id 拼键）。
 const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
+  'admin.badges.columns': ['actions', 'enabled', 'grantMode', 'grantedCount', 'group', 'name', 'rule', 'tier'],
   'admin.badges.grantMode': ['automatic', 'manual'],
   'admin.badges.metrics': BADGE_METRIC_OPTIONS
 }

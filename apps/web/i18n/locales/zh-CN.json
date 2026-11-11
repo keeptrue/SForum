@@ -614,9 +614,25 @@
       },
       "confirmDeleteBody": "删除后无法恢复。已授予该徽章的记录会一并删除，用户资料页的最高徽章也会被清空。",
       "confirmDeleteTitle": "确认删除",
+      "confirmDeleteTopBadgeHint": "删除后徽章会从用户资料与帖子旁消失，其余徽章的展示要等下一次重算才会恢复。",
       "create": "新建徽章",
       "disabled": "徽章功能已关闭。请在「站点设置 → 产品开关」中开启后再管理。",
       "empty": "还没有徽章。",
+      "filters": {
+        "all": "全部",
+        "allGroups": "全部分组",
+        "clear": "清除筛选",
+        "disabled": "停用",
+        "enabled": "启用",
+        "enabledState": "启用状态",
+        "grantMode": "授予方式",
+        "group": "分组",
+        "noMatch": "没有符合筛选条件的徽章。",
+        "search": "搜索徽章",
+        "searchPlaceholder": "搜索名称、标识或说明",
+        "tier": "等级",
+        "ungrouped": "未分组"
+      },
       "forbidden": "你没有查看徽章后台的权限。",
       "form": {
         "createTitle": "新建徽章",
@@ -648,8 +664,76 @@
         "automatic": "自动",
         "manual": "手动"
       },
+      "grants": {
+        "badge": "选择徽章",
+        "badgePlaceholder": "先选择一枚徽章查看授予记录",
+        "caption": "授予记录",
+        "columns": {
+          "grantedAt": "授予时间",
+          "reason": "理由",
+          "source": "来源",
+          "user": "用户"
+        },
+        "empty": "这枚徽章还没有授予记录。",
+        "grant": "授予",
+        "loadFailed": "授予记录加载失败。",
+        "nextPage": "下一页",
+        "prevPage": "上一页",
+        "revoke": "收回",
+        "revokeConfirm": "再次点击确认收回",
+        "revokeHint": "收回会移除该用户的手动授予，并同步刷新他的最高徽章。",
+        "revokeLabel": "收回 {name} 的这枚徽章",
+        "source": {
+          "automatic": "规则自动",
+          "manual": "手动授予",
+          "recompute": "批量重算"
+        },
+        "toast": {
+          "notRevoked": "{name} 本来未持有这枚徽章。",
+          "revokeFailed": "收回失败，请稍后重试。",
+          "revoked": "已收回 {name} 的这枚徽章。"
+        },
+        "total": "共 {count} 条记录"
+      },
+      "groups": {
+        "caption": "徽章分组",
+        "columns": {
+          "badgeCount": "徽章数",
+          "key": "标识",
+          "name": "名称",
+          "position": "排序"
+        },
+        "confirmDeleteBody": "删除后无法恢复。这个分组是空的，会直接移除。",
+        "confirmDeleteBodyWithBadges": "该分组下有 {count} 枚徽章，删除后它们会变为未分组，徽章本身不受影响。",
+        "confirmDeleteTitle": "再次点击确认删除",
+        "create": "新建分组",
+        "delete": "删除",
+        "deleteLabel": "删除分组 {name}",
+        "edit": "编辑",
+        "editLabel": "编辑分组 {name}",
+        "empty": "还没有分组。",
+        "emptyGuide": "分组用于把徽章组织成资料页徽章墙上的分区。可以先创建分组，再在徽章编辑里归类。",
+        "form": {
+          "createTitle": "新建分组",
+          "description": "说明",
+          "editTitle": "编辑分组",
+          "key": "标识",
+          "keyHint": "只保留小写字母、数字与连字符；下划线与空格会转成连字符。编辑时该字段锁定。",
+          "name": "名称",
+          "position": "排序"
+        },
+        "listHint": "分组决定资料页徽章墙的分区顺序。",
+        "toast": {
+          "created": "分组已创建。",
+          "deleteFailed": "分组删除失败，请稍后重试。",
+          "deleted": "分组已删除。",
+          "saveFailed": "分组保存失败，请稍后重试。",
+          "updated": "分组已更新。"
+        }
+      },
       "intro": "管理徽章目录与授予规则。自动徽章按活跃度指标判定，手动徽章由管理员授予。",
       "loadFailed": "徽章列表加载失败。",
+      "metaTitle": "徽章管理",
       "metrics": {
         "bookmark_count": "收藏数",
         "comment_count": "回复数",
@@ -666,11 +750,29 @@
         "metricThreshold": "{metric} 达到 {threshold} 时授予",
         "none": "无规则（手动授予）"
       },
+      "sort": {
+        "activeAsc": "已按{column}升序排列，点击切换为降序",
+        "activeDesc": "已按{column}降序排列，点击切换为升序",
+        "inactive": "点击按{column}排序"
+      },
+      "stats": {
+        "automatic": "{count} 自动",
+        "badges": "{total} 枚徽章",
+        "enabled": "{count} 启用",
+        "granted": "{count} 授予"
+      },
+      "tabs": {
+        "badges": "徽章",
+        "grants": "授予记录",
+        "groups": "分组",
+        "label": "徽章管理分区"
+      },
       "title": "徽章",
       "toast": {
         "created": "徽章已创建。",
         "deleteFailed": "徽章删除失败，请稍后重试。",
         "deleted": "徽章已删除。",
+        "deletedRecomputeHint": "如需恢复用户帖子旁的徽章展示，请稍后执行一次重算。",
         "disabled": "徽章已停用。",
         "enabled": "徽章已启用。",
         "granted": "徽章已授予该用户。",
@@ -679,8 +781,7 @@
         "recomputeStarted": "已开始重算徽章授予。",
         "saveFailed": "徽章保存失败，请稍后重试。",
         "updated": "徽章已更新。"
-      },
-      "toolbar": "全部徽章"
+      }
     },
     "shell": {
       "brand": "SForum",
