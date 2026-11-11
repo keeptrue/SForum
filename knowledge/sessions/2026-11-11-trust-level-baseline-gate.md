@@ -40,8 +40,17 @@ TL1 起两者都有。**D34-b（机制）**：不采用「收窄角色行 + 由 
 
 ## Next
 
-1. **`LoadEffectiveActorTx` 不展开父→子继承**：插件命令路径**今天就在误拒** `extension.manage`
-   持有者（不是将来时）。与本刀刚修的双 loader 一致性同一面，趁热改最省。
+1. **`LoadEffectiveActorTx` 返回的 `Permissions` 是未展开集合** —— 但**「今天就在误拒」这条说法
+   本会话已被证伪，别当缺陷传下去**。判据（实测，2026-11-11T12:5x，`-overlay` 虚拟测试，
+   共享树 0 改动）：只持 `extension.manage` 的 actor 调 `Can("extension.plugin.manage" /
+   "extension.theme.manage" / "extension.view")` **全部通过**，对照组（空权限）全部被拒。
+   机制：`Actor.Can` → `hasExpandedPermission`（`Identity/permission_compat.go:57`）→
+   `legacyPermissionChildren`（`:18-22` 有 `extension.manage` → 三个子键）。
+   三个 tx-loader 消费者（`session_policy_selection_postgres_authority.go`、
+   `user_fields_postgres_authority.go:238`、`v2_command_actor_postgres.go:35`）**都用 `Can()`**。
+   ⇒ 真正的残留只是「谁若直接读 `Actor.Permissions[key]` 而不走 `Can()`，会看到未展开集合」，
+   那是**潜在陷阱**，不是现行缺陷。`actor_postgres_tx.go` 里那句注释因此也不准确，
+   改注释即可，不值得开一刀。
 2. **`/badges` 公共目录页**：Page Registry 全套（catalog / route shell / ViewModel / Host island /
    主题模板 / 完整性测试），独立一刀。
 3. **注册响应绕过减法门（M-02）**：修它要把 trust source 接进 `LoadCurrentUserAccess`（L5），
