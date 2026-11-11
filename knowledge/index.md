@@ -26,7 +26,7 @@ load archived sessions or completed plans as current context.
   `overview`（缺省）/ `thresholds` / `earnable` 全部落地，整页一次保存，门控 `trust.manage`；
   旧 `?tab=trustLevels` 重定向。决策
   `decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代模块 note 的 D#18 与视觉规范
-  §0 第 23 行，含「实施期教训 L1–L3」）；分档限额编辑器本轮不做。浏览器证据在
+  §0 第 23 行，含「实施期教训 L1–L3」）；分档限额编辑器当时本轮不做（2026-11-11 已由 `da1d01683` 补上第 5 个 tab）。浏览器证据在
   `reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6。
 - Handoff：`sessions/2026-11-11-trust-levels-admin-page.md`（hot；收尾刀
   `sessions/2026-11-11-trust-levels-closing.md`，上一刀已归档到
@@ -811,7 +811,22 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **信任等级：档位颜色（9 色）+ 删除墓碑（2026-11-11，最新，landed）**：N 档刀的色彩与减档补齐。
+- **信任等级：分档发言限额编辑器 + 徽章「做过又撤回」（2026-11-11，最新）**：
+  后台补第 5 个分区 `limits`（zh「发言限额」，`da1d01683`）——`limits` 三态与后端输入一一对应
+  （`null` 全继承 / 对象逐字段、子字段 `null` 仍继承 / `0` = 不限额），`trustLevelsPayload` 未改、
+  省略形态前端永不写；纯函数层 `useTrustLevelLimits.ts` + 面板 `SFAdminTrustLevelLimitsTab.vue`，
+  粘贴/失焦显式回弹，改限额不触发结构确认（不改变谁落在哪一档）。
+  **同日的论坛等级徽章已按产品口径全部撤回**（`735aeed8c` 载荷 + `4f9f360b8` UI → `46c2f52cb` revert）：
+  等级标识**只在个人中心（资料页）**显示，唯一入口是右栏 `SFTrustLevelCard`；论坛读面不显示、
+  个人中心也不再加新徽章。撤回理由：没有消费者后每个列表/详情/评论页仍固定多 2 条 SQL，
+  契约里「下发但没人用」的字段会误导契约读者。视觉规格报告已补回并标注口径变化
+  （`54f2387f9` / `37a28b67b`，`reports/2026-11-11-trust-level-badge-spec.md`），将来受限面可复用。
+  验收：`bun test` 2265 pass / 0 fail（240 files）、typecheck 0、架构门禁 0、`go build` 0、
+  OpenAPI 3194 refs、Go 隔离套件 141 包 0 FAIL。
+  决策 D-L1..D-L4 见 `decisions/2026-11-11-trust-level-limits-editor.md`；
+  见 `sessions/2026-11-11-trust-limits-and-badges.md`。
+
+- **信任等级：档位颜色（9 色）+ 删除墓碑（2026-11-11，landed）**：N 档刀的色彩与减档补齐。
   `tiers[].color` 是**可选**白名单 token（`slate→teal→emerald→sky→indigo→violet→fuchsia→rose→amber`，
   第 n 项属于 rank n），空 = 跟随位次、解码**不填默认**（填了就把「自动」冻成一次性取值）；
   有效色由 `Policy.ColorOf(rank)` 解析后进读面，后台下发 `colorChoices`。**9 色不是 8**：
@@ -835,7 +850,7 @@ load archived sessions or completed plans as current context.
   （模块 note 的 D#18、视觉规范 §0 第 23 行）。**三条最贵的教训在决策记录「实施期教训」**：
   SSR-first 页面禁止用副作用布尔表达「已加载」（硬加载永久 loading）、
   `type="submit"` 与 `@click` 并存 = 两次 PUT（happy-dom 不实现隐式提交，只有浏览器能坐实）、
-  工具栏「不溢出」要量内层槽位而不是 `body`。分档限额编辑器本轮不做（`null`≠`0`）。
+  工具栏「不溢出」要量内层槽位而不是 `body`。分档限额编辑器当时本轮不做（`null`≠`0`；2026-11-11 已由 `da1d01683` 补上第 5 个 tab）。
   未验证：无 `trust.manage` 账号的 `forbidden` 态只有单测覆盖。见
   `sessions/2026-11-11-trust-levels-admin-page.md`、
   `decisions/2026-11-11-trust-levels-standalone-admin-page.md`、`modules/trust-levels.md`。

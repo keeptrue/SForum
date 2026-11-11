@@ -27,7 +27,7 @@
 | **开关五处已注册** | `Options/feature_flags.go:35`（常量）/ `:63`（definitions）/ `:82`（catalog）/ `:97`（推荐默认）/ `:130`（结构体字段）+ `:153`（读取）；归一化分支在 `service_normalize.go`；前端已消费（`useWebOptions.ts`） |
 | **M3 已落地** | `Forum/service_trust_limits.go:23` `limitsForActor`（**不是** `service_ops.go:514`——那是调用点）、`:101` `resolveLimit`、`:63` `newUserLimits`、`:83` `levelLimits`；适配器 `Providers/forum.go:273` `TrustPolicyAdapter.LevelLimits` |
 | 阈值配置 | `Options/trust_level_options.go`：单键 `trust.levels`，**schema v2**（`ConfigSchemaVersion = 2`，`tiers[]` + 不可变 `id` + `retired`，D-N2）；`DecodeConfig` 同时接受 v1/v2（v1 在内存升级）、`EncodeConfig` 只写 v2（D-N5）；`DefaultPolicy()` 已与 PM 定稿表逐值一致（复核见 `reports/2026-11-10-trust-levels-doc-audit.md` C1） |
-| 后台页（2026-11-11 提为独立页） | 页面 `/control-panel/forum/trust-levels`（论坛管理 → 信任等级），页内**四** tab：`overview`（缺省，zh「等级总览」）/ `tiers`（zh「档位管理」）/ `thresholds`（zh「门槛设置」）/ `earnable`（zh「能力解锁」），**已全部落地**（N 档改造后为四 tab，见 `../plans/2026-11-11-trust-levels-n-tiers.md`；`tiers` 的浏览器表现已验（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`：`n8-mobile-cards` layout=cards rows=7、`n8-mobile-no-overflow` 390/390、`n8-mobile-tabs` tab=4；截图 `20261111-181057-qa-n5-desktop-tiers-tab.png`））（2026-11-11 收尾实测：`trust-levels.vue` 315 行，`normalizeTab` 回落 `overview`；冻结稿 `../reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6 有浏览器证据）。文件：`pages/admin/forum/trust-levels.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableMatrix.vue`、`composables/admin/forum/trustLevels/useTrustLevelsForm.ts` + `useTrustLevelEarnableMatrix.ts` + `useTrustLevelsAdminPage.ts`。**整页一次保存**（单键 `trust.levels`）。旧入口 `/control-panel/settings?tab=trustLevels` 重定向到新页，设置页的四处 tab 登记已删。裁决见 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代本文件 D 组 #18）。白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
+| 后台页（2026-11-11 提为独立页） | 页面 `/control-panel/forum/trust-levels`（论坛管理 → 信任等级），页内**五** tab：`overview`（缺省，zh「等级总览」）/ `tiers`（zh「档位管理」）/ `thresholds`（zh「门槛设置」）/ `limits`（zh「发言限额」，2026-11-11 追加）/ `earnable`（zh「能力解锁」），**已全部落地**（`tabIds` = `pages/admin/forum/trust-levels.vue:96`；四 tab 是 N 档改造期的形态，`limits` 见 `../decisions/2026-11-11-trust-level-limits-editor.md`；下表 `n8-mobile-tabs tab=4` 是**加第五个 tab 之前**的证据，tab 数已变；`tiers` 的浏览器表现已验（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`：`n8-mobile-cards` layout=cards rows=7、`n8-mobile-no-overflow` 390/390、`n8-mobile-tabs` tab=4；截图 `20261111-181057-qa-n5-desktop-tiers-tab.png`））（2026-11-11 收尾实测：`trust-levels.vue` 315 行，`normalizeTab` 回落 `overview`；冻结稿 `../reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6 有浏览器证据）。文件：`pages/admin/forum/trust-levels.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableMatrix.vue`、`composables/admin/forum/trustLevels/useTrustLevelsForm.ts` + `useTrustLevelEarnableMatrix.ts` + `useTrustLevelsAdminPage.ts`。**整页一次保存**（单键 `trust.levels`）。旧入口 `/control-panel/settings?tab=trustLevels` 重定向到新页，设置页的四处 tab 登记已删。裁决见 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代本文件 D 组 #18）。白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
 | 公开面已落地（M4） | 4 条路由进 catalog（`core_catalog_gen.go` 计数 409 = 405 + 1 公开 + 3 后台）、OpenAPI `contracts/openapi/paths/trust_levels.yaml` 在、`Http/Controllers/TrustLevels/controller_test.go` 在。**公开响应不含 `limits`**（`dto.go`：`Limits` 带 `omitempty`，注释写明「只在后台读面出现」——公开「某档冷却 60 秒」等于泄露限流参数） |
 | 资料页等级卡已接线（M5 收口） | `useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`；`SFProfileShowPage.vue:110` 传 `computed(() => profile.value?.trustLevel)`，`SFProfileRightRail.vue:74` 消费（2026-11-11 09:21 复核） |
 | M6–M8 未完成 | 验收断言、性能实测、独立验收（M13 收尾中，见 `../sessions/2026-11-11-trust-levels-closing.md`） |
@@ -229,6 +229,46 @@
   `deleted_tier_id_duplicate` / `deleted_tier_id_present`（配置级）。
   **文案口径**：只有 `color_not_whitelisted` 有专属 i18n 文案（表单可达）；
   三条 `deleted_tier_id_*` 走 config 通用桶，没有专属文案——既有护栏规定 bucket 码不许有专属句。
+
+### 等级标识的展示口径 + 徽章「做过又撤回」（2026-11-11 定稿）
+
+**当前口径（生效中）**：信任等级标识**只在个人中心（资料页）显示**。唯一展示入口是资料页右栏的
+`SFTrustLevelCard`（图标 + 名称 + `TL{n}` 数字 + 进度刻度，已按档位色上色）。论坛读面
+（话题列表 / 详情 / 回复）一律不显示等级；**个人中心也不再加新徽章**——那张卡就是全部。
+不要再给论坛行加徽章，也不要重新引入 `authorTrustLevel` 载荷。
+
+**历史（写下来是防重复劳动，不是待办）**：2026-11-11 当天曾实现过论坛三处内联徽章 + 后端批量载荷，
+同日按产品口径全部撤回（`46c2f52cb` 同时 revert `735aeed8c` 与 `4f9f360b8`）：
+
+- 曾经实现：`components/forum/SFTrustTierBadge.vue`（色点 + `TL{n}` 文字，TL0 用同尺寸 `inset` 空心环）、
+  列表/详情作者块/评论 `#name-suffix` 三处接入、`TrustLevels.BatchResolver`（每页固定 2 条 SQL：
+  `users WHERE id=ANY`、`user_activity WHERE user_id=ANY`）、`Forum.AuthorTrustLevelReader` 聚焦协作者、
+  契约 `TrustTierColor`（9 值 enum）与 `AuthorTrustLevel`。
+- 为什么撤：产品要求等级标识只在个人中心出现，论坛读面不暴露等级；没有消费者之后，那 2 条 SQL
+  仍然加在每个列表/详情/评论页上；契约里留着「下发但没人用」的字段会让下一个读契约的人以为前台有等级标识。
+- 规格仍在：`../reports/2026-11-11-trust-level-badge-spec.md`（`54f2387f9` 补回、`37a28b67b` 在文首标注
+  口径已变）。将来若要在某个**受限面**加等级标识，直接复用那份形态/密度/对比度结论，不要重做。
+- 值得留的结论：「色点 + 数字」全量最差 5.16:1（浅色 teal/parchment）；淡底数字牌在 `parchment` 下
+  teal 仅 4.38:1 被否；TL0 用同尺寸盒子 + `inset 0 0 0 1px` 空心环，避免档位变化引起作者名折行。
+
+### 分档发言限额（D-L1..D-L4，**2026-11-11 新增**）
+
+- **三态 = 后端的三种输入**（`limits` 在 v2 里是必填字段，省略即 422）：
+  `null` = 该档完全继承站点默认；对象 = 逐字段覆盖（对象里某字段为 `null` = 该字段仍继承）；
+  `0` = 不限额 / 免冷却，与「没配」严格区分。前端 `trustLevelsPayload` 只写 `null` 或四键对象，
+  **永不写出省略**（`useTrustLevelsForm.ts:675-708`）。
+- **纯函数层**：`composables/admin/forum/trustLevels/useTrustLevelLimits.ts`（`limitsModeOf` /
+  `toLimitsForm` / `parseLimitInput` / `TRUST_LEVEL_LIMIT_KEYS`），`parseLimitInput` 先 `trim` 判空
+  再走 `/^\d+$/`，空串永不经 `Number()` 变成 `0`；非法值 fail-closed 返回等值副本。
+- **写严读宽**：写侧 `TRUST_LEVEL_LIMIT_MAX`（冷却 30 天 / 每日 100000）只挡手滑；
+  读侧 `normalizeLimits` 的 `boundedLimit` **故意无上限**，只把负数/非有限数收敛成 `null`——
+  读时截断会把服务端已存的更大值静默改小。
+- **粘贴回弹**：`blockNonIntegerKey` 只拦 keydown；`change`/`blur` 时 `onLimitCommit` 用同一套解析复核，
+  非法就显式写回 prop 值（fail-closed 不重渲染，不写回就会在 DOM 里留脏文本）。
+- **不触发结构确认**：`tierStructureChanged` 只比 active id 序列（`useTrustLevelsForm.ts:722-724`），
+  改限额不改变谁落在哪一档。恢复默认的确认清单 `restoreLossItems` 已加 `limits`。
+- 后端零改动：解码/校验（`config.go` 的 `decodeLevelLimits` 三态 + `CodeLimitsMissing`）在 N 档那刀就位。
+  裁决见 `../decisions/2026-11-11-trust-level-limits-editor.md`。
 
 ## Dependency Direction
 
@@ -492,12 +532,12 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 （`Admin module registry points to an unknown page id`）。别按「6 处」记。
 
 **2026-11-11 修订：本刀从「设置页内 tab」改成「独立页 + 页内 tab」，9 处全要，只是
-#1–#4 的目标文件换了。N 档改造在同一 shell 内加到四个 tab（新增 `tiers` 与图标选择器），**不新增 page id**，所以 #9 无新增行、#7 只补两条 active identity（`SFAdminTrustLevelTiersTab.vue`、`SFAdminTrustLevelIconPicker.vue`）。
+#1–#4 的目标文件换了。N 档改造在同一 shell 内加到四 tab（新增 `tiers` 与图标选择器），2026-11-11 又追加 `limits`（现为五 tab），**不新增 page id**，所以 #9 无新增行、#7 只补两条 active identity（`SFAdminTrustLevelTiersTab.vue`、`SFAdminTrustLevelIconPicker.vue`）。
 
 | 形态 | 需要 | 说明 |
 | --- | --- | --- |
 | **设置页内的 tab**（无独立 page id，旧形态，已被取代） | #5–#8 | #1–#4 指 `pages/admin/settings/index.vue`；#9 不适用 |
-| **独立后台页 + 页内 tab**（现形态） | **#1–#9 全部** | #1–#4 指新 shell `pages/admin/forum/trust-levels.vue`；#5 是每个 tab 的组件文件（N 档改造后四个 tab + `SFAdminTrustLevelIconPicker.vue`）；#9 必须有 `/forum/trust-levels` 一行 |
+| **独立后台页 + 页内 tab**（现形态） | **#1–#9 全部** | #1–#4 指新 shell `pages/admin/forum/trust-levels.vue`；#5 是每个 tab 的组件文件（现为五个 tab + `SFAdminTrustLevelIconPicker.vue`）；#9 必须有 `/forum/trust-levels` 一行 |
 | 独立后台页但无 tab | #5–#9 | #1–#4 不适用（没有 tab 数组可登记） |
 
 判据只有一条：`adminModules.ts` 里有没有它的 `id`。有 `id` 就必须同时补
@@ -551,7 +591,7 @@ registry 条目的映射是死行。
 
 
 **已浏览器验证**（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`，21 pass / 1 fail，
-失败项单列在下一段）：四 tab 切换与 `?tab=` 同步（点第 2/3/4 个 tab → `panel=tiers|thresholds|earnable`）、
+失败项单列在下一段）：四 tab 切换与 `?tab=` 同步（点第 2/3/4 个 tab → `panel=tiers|thresholds|earnable`；**当时还没有 `limits` tab，现为五 tab，这一轮的 tab 数证据已过期**）、
 N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢出（390/390）、窄屏工具栏动作
 均带文本或 `aria-label`+`title`、图标选择器键盘可达（`20261111-184200-qa-icon-picker-keyboard.png`）。
 
@@ -727,7 +767,7 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
 18. ~~后台新开独立页 —— 否。需要第二套页头/工具栏，还改 V3 目录计数，收益为零；它是设置页内
     的固定 tab。~~ **已被 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`
     取代（2026-11-11，D-A）**：信任等级现在是独立页 `/control-panel/forum/trust-levels`，
-    页内四 tab（overview / tiers / thresholds / earnable）。旧结论的成本（页头、目录计数）是真实的，
+    页内五 tab（overview / tiers / thresholds / limits / earnable；`limits` 为 2026-11-11 追加）。旧结论的成本（页头、目录计数）是真实的，
     变的是收益判断——前提「只有阈值表单一个可编辑面」在 D33 之后不再成立。同一条被取代的
     还有 `../reports/2026-11-10-trust-level-visual-spec.md` §0 第 23 行的「阈值页是既有 tab
     数组里的一项」。
