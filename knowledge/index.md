@@ -30,6 +30,11 @@ load archived sessions or completed plans as current context.
   `database/queries/identity.sql`（计划指错函数）、`.Can(` 非测试调用点 **256**（命令：
   `rg -o "\.Can\(" -g '*.go' -g '!*_test.go' | wc -l`；含测试 280）。deny 复活已由 D14 裁决
   且 D28 已修，不再是未决项。
+- **D34 基线收窄（进行中，2026-11-11T11:24 裁决）**：默认安装下 TL0 不能开新主题、不能传附件，
+  能回帖能改删自己的内容；机制走减法门（零迁移、不动白名单与关闭语义）。决策
+  `decisions/2026-11-11-trust-level-baseline-narrowing.md`；计划
+  `plans/2026-11-11-trust-levels-baseline-narrowing.md`（§1 死锁、§4-bis 裁决）；验收
+  `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`（N 组 9 条，N-05 待范围）。
 
 ### 互动第三刀：徽章 + 用户活动统计
 
