@@ -18,7 +18,7 @@
 另：`badges.chip.ariaLabelLink` 在 `SFBadgeChip.vue` 里当 `title` 用，而规范写的是「追加到
 `aria-label` 末尾」。实现与规范的这处分歧属徽章域 residual，locale 值按实现填了完整句。
 
-## `admin.settings.trustLevels.restoreHint`（2026-11-10 改口径）
+## 信任等级恢复默认披露 `admin.forum.trustLevels.restoreHint`（2026-11-10 改口径）
 
 **来源：lead 裁决（I-23）修正规范 §3.4 原文，不是照抄。** 原文是「恢复默认只重置五档阈值，
 不会影响用户已获得的等级」——**这句是错的**：等级是派生值（`LevelOf(activity, thresholds)`，
@@ -39,7 +39,12 @@ D1 规定资料页要显示获赞数与访问天数，所以补键而不是删�
 
 命名沿用同组既有键的 `xxxCount` / 裸名词风格（`topicCount` / `commentCount` / `categoryCount`）。
 
-## `profile.trustLevel.*` / `admin.settings.trustLevels.*`
+## `profile.trustLevel.*` / `admin.forum.trustLevels.*`
+
+**2026-11-11 迁族**：信任等级从设置页 tab 提为独立页 `/control-panel/forum/trust-levels`，
+键族由设置页前缀整体搬到 `admin.forum.trustLevels.*`（**键名不变**，只换前缀）；
+设置页那条 tab 标签键已删除，页内分区标签改用 `admin.forum.trustLevels.tabs.*`。
+下文历史记录里写的旧前缀即指这一族。
 
 来源：`knowledge/reports/2026-11-10-trust-level-visual-spec.md` §8.1 / §8.2 原文（D21 终版显示名：
 新用户 / 正式用户 / 常驻用户 / 资深用户 / 领袖）。两处**不在**原表里、经 lead 裁决补入：
@@ -48,11 +53,11 @@ D1 规定资料页要显示获赞数与访问天数，所以补键而不是删�
   而规范禁止裸字符串；先例是 `badges.card.progress`。已折进规范 §8.1。
 - `profile.trustLevel.metric.likeGiven` / `bookmarkCount` 与后台同名两条：规范原表只有 5 个 metric，
   而 Go `TrustLevels.Metrics` 是 6 个；缺这两条会让「点赞 / 收藏」被判成瓶颈时显示裸键。
-- `admin.settings.trustLevels.tl0Hint`：Go `config.go` 明确拒绝 TL0 出现在 `trust.levels` 里
+- `admin.forum.trustLevels.tl0Hint`（迁族前的设置页同名键）：Go `config.go` 明确拒绝 TL0 出现在 `trust.levels` 里
   （TL0 由 `trust.new_user_*` 决定），所以后台第 0 行只读展示，需要一句说明。
   **不是**规范原文。
 
-**已删除**：`profile.trustLevel.metric.accountAge` 与 `admin.settings.trustLevels.metric.accountAge`。
+**已删除**：`profile.trustLevel.metric.accountAge` 与后台同名键（迁族后即 `admin.forum.trustLevels.metric.accountAge`，同样不存在）。
 `account_age_days` 是幻影指标 —— Go `Requirements` 只有 6 个字段（`days_visited` / `topic_count` /
 `comment_count` / `like_received_count` / `like_given_count` / `bookmark_count`），逐档账龄（C7）已作废，
 只保留 `trust.new_user_days` 一个上限闸。保留这两个键会诱导后台写出 `DisallowUnknownFields` 拒绝的 JSON。

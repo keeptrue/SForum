@@ -1141,9 +1141,10 @@
       "forum": "论坛管理",
       "forumCategories": "版块分类",
       "forumTags": "标签管理",
-    "badges": "徽章",
+      "badges": "徽章",
       "forumSettings": "论坛设置",
       "forumContent": "内容管理",
+      "trustLevels": "信任等级",
       "system": "系统配置",
       "operations": "运维管理",
       "userPermission": "用户/权限",
@@ -4321,7 +4322,6 @@
         "accountSecurity": "账号安全",
         "registration": "注册与用户名",
         "newcomers": "新人限制",
-        "trustLevels": "信任等级",
         "maintenance": "维护模式",
         "verification": "验证码",
         "updates": "版本更新",
@@ -4650,72 +4650,6 @@
       "siteTagline": "站点副标题",
       "siteTaglinePlaceholder": "例如：一个友好的技术社区",
       "siteTaglineHint": "显示在导航与登录页附近；可留空。不等于 SEO 描述。",
-      "trustLevels": {
-        "title": "信任等级阈值",
-        "description": "五档阈值按累计行为判定，保存后即时生效；阈值为 0 表示该指标不参与该档判定。",
-        "tl0Hint": "TL0 由「新人限制」页决定，此处只读。",
-        "restoreDefaults": "恢复推荐默认",
-        "restoreHint": "恢复默认只重置五档的阈值。每档限额与能力解锁勾选保持不变；用户的等级会按新阈值重新判定，已获得的徽章与已发布的内容不受影响。",
-        "earnable": {
-          "title": "能力解锁（按档新增）",
-          "baseline": {
-            "title": "勾选只对「用户组里没有该键」的用户生效",
-            "text": "已由默认用户组授予的键，勾选不会改变用户实际拿到的权限，能力来源仍记为「用户组」。要让某个键真正按等级解锁，先在「权限管理」里把它从用户组移除，再回来勾选。",
-            "titleGated": "等级门控键（{keys}）由系统决定",
-            "textGated": "不看这里的勾选：TL0 不生效，TL1 及以上生效，后台无法取消。已存勾选原样保留，当前不产生额外效果。",
-            "keyBadge": "等级门控",
-            "gateTitle": "等级门控：TL0 不生效，TL1 起生效，由系统决定",
-            "gateAria": "{level}：{permission} 由系统门控，TL0 不生效，TL1 及以上生效，不可取消",
-            "keysSeparator": "、"
-          },
-          "note": "勾选某档的权限键，只表示该档新增解锁；该档及以上各档同时获得，不需要在更高档重复勾选。",
-          "count": "新增项 {checked}/{total}",
-          "empty": "当前所有档位都没有新增解锁：能力仍由用户组静态授予决定，这是推荐默认状态，不是错误。勾选任意一项即开始按等级解锁。",
-          "emptyGated": "当前没有可勾的新增项：这是推荐默认状态，不是错误。等级门控键不受这里影响——TL0 不生效，TL1 及以上生效。",
-          "loading": "正在读取可勾选的权限键…",
-          "readOnly": {
-            "title": "当前账号只能查看",
-            "description": "修改信任等级需要「信任等级管理」权限。这里的勾选与保存都已禁用；需要修改请联系有该权限的管理员。"
-          },
-          "aria": {
-            "cell": "{level} 新增解锁：{permission}",
-            "cumulative": "该档及以上各档同时解锁"
-          },
-          "loadFailed": {
-            "title": "可勾选的权限键读取失败",
-            "description": "矩阵已锁定，避免在没有白名单时误改配置。现在保存不会改动能力解锁配置，阈值仍会正常保存。",
-            "reason": "失败原因：{reason}",
-            "retry": "重试",
-            "locked": "矩阵不可用"
-          },
-          "orphan": {
-            "title": "有 {count} 个已存键不在白名单内",
-            "description": "这些键会被后端拒绝，保存时会从对应档位移除：{keys}"
-          }
-        },
-        "disabled": {
-          "title": "信任等级功能已关闭",
-          "description": "功能开关关闭时保存仍会成功，但等级判定与公开接口不会生效（前台返回 404）。要启用请先在站点设置中打开信任等级开关。"
-        },
-
-        "zeroUnlimited": "0 表示该指标不参与本档判定。",
-        "resetChanges": "已重置信任等级阈值更改",
-        "level": {
-          "newcomer": "新用户",
-          "member": "正式用户",
-          "resident": "常驻用户",
-          "veteran": "资深用户",
-          "leader": "领袖"
-        },
-        "metric": {
-          "topicCount": "主题数",
-          "commentCount": "回复数",
-          "likeReceived": "获赞数",
-          "likeGiven": "点赞数",
-          "bookmarkCount": "收藏数",
-          "daysVisited": "访问天数"
-        }
-      },
       "adminEmail": "管理邮箱",
       "adminEmailPlaceholder": "例如：ops{'@'}example.com",
       "adminEmailHint": "站点运营联系邮箱，用于系统通知与对外联系。不是发信 SMTP 地址，也不会出现在公开 API。",
@@ -5314,6 +5248,307 @@
         "trustedDomains": "免中转域名白名单",
         "trustedDomainsHelp": "每行一个域名，可写 example.com 或 example.com:8443（带 http(s):// 与路径也会被自动裁成域名）。命中的域名跳过中转页，链接仍在新标签页打开。",
         "trustedDomainsPlaceholder": "example.com\ngithub.com"
+      },
+      "trustLevels": {
+        "page": {
+          "title": "信任等级",
+          "description": "信任等级按累计行为自动判定。这里配置每档的门槛与各档新增的能力解锁，保存后即时生效。",
+          "loading": "正在读取信任等级配置…",
+          "loadFailedDescription": "页面数据没有读到，下面的表单不可编辑。请重试；持续失败请检查 API 服务与账号权限。",
+          "loadFailedReason": "失败原因：{reason}",
+          "retry": "重试",
+          "forbidden": {
+            "title": "当前账号无法查看信任等级",
+            "description": "信任等级需要「信任等级管理」权限才能查看与修改。请联系站点管理员为你的用户组授予该权限。"
+          },
+          "unsaved": "有未保存的信任等级更改"
+        },
+        "metaTitle": "信任等级",
+        "tabs": {
+          "label": "信任等级分区",
+          "thresholds": "门槛设置",
+          "earnable": "能力解锁",
+          "overview": "等级总览",
+          "tiers": "档位管理"
+        },
+        "sections": {
+          "overview": {
+            "description": "档位如何判定、当前用的是哪套门槛，以及每档新增解锁了什么。"
+          },
+          "thresholds": {
+            "description": "各档阈值按累计行为判定，保存后即时生效。"
+          },
+          "earnable": {
+            "description": "勾选某档新增解锁的权限键；未勾选时能力仍由用户组静态授予。"
+          },
+          "tiers": {
+            "description": "档位的数量、顺序、名称与图标由你定义；数组顺序即判定顺序，停用会保留配置但跳过判定。"
+          }
+        },
+        "recommended": {
+          "title": "推荐配置",
+          "description": "推荐默认是一组按累计行为递增的门槛：位次越靠前的档越宽松、越靠后越严格；能力解锁推荐为空（能力仍由用户组授予），分档限额推荐继承站点默认。具体数值与一键恢复都在「门槛设置」。"
+        },
+        "loadFailed": "信任等级配置读取失败",
+        "title": "信任等级阈值",
+        "tl0Hint": "TL0 由「新人限制」页决定，此处只读。",
+        "restoreDefaults": "恢复推荐默认",
+        "restoreHint": "恢复默认会由服务端把整份档位配置（档位、阈值、限额、能力解锁、名称与图标）重置为推荐默认；用户的等级会按新配置重新判定，已获得的徽章与已发布的内容不受影响。",
+        "earnable": {
+          "title": "能力解锁（按档新增）",
+          "baseline": {
+            "title": "勾选只对「用户组里没有该键」的用户生效",
+            "text": "已由默认用户组授予的键，勾选不会改变用户实际拿到的权限，能力来源仍记为「用户组」。要让某个键真正按等级解锁，先在「权限管理」里把它从用户组移除，再回来勾选。",
+            "titleGated": "等级门控键（{keys}）由系统决定",
+            "textGated": "不看这里的勾选：TL0 不生效，TL1 及以上生效，后台无法取消。已存勾选原样保留，当前不产生额外效果。",
+            "keyBadge": "等级门控",
+            "gateTitle": "等级门控：TL0 不生效，TL1 起生效，由系统决定",
+            "gateAria": "{level}：{permission} 由系统门控，TL0 不生效，TL1 及以上生效，不可取消",
+            "keysSeparator": "、"
+          },
+          "note": "勾选某档的权限键，只表示该档新增解锁；该档及以上各档同时获得，不需要在更高档重复勾选。",
+          "count": "新增项 {checked}/{total}",
+          "empty": "当前所有档位都没有新增解锁：能力仍由用户组静态授予决定，这是推荐默认状态，不是错误。勾选任意一项即开始按等级解锁。",
+          "emptyGated": "当前没有可勾的新增项：这是推荐默认状态，不是错误。等级门控键不受这里影响——TL0 不生效，TL1 及以上生效。",
+          "loading": "正在读取可勾选的权限键…",
+          "readOnly": {
+            "title": "当前账号只能查看",
+            "description": "修改信任等级需要「信任等级管理」权限。这里的勾选与保存都已禁用；需要修改请联系有该权限的管理员。"
+          },
+          "aria": {
+            "cell": "{level} 新增解锁：{permission}",
+            "cumulative": "该档及以上各档同时解锁"
+          },
+          "loadFailed": {
+            "title": "可勾选的权限键读取失败",
+            "description": "矩阵已锁定，避免在没有白名单时误改配置。现在保存不会改动能力解锁配置，阈值仍会正常保存。",
+            "reason": "失败原因：{reason}",
+            "retry": "重试",
+            "locked": "矩阵不可用"
+          },
+          "orphan": {
+            "title": "有 {count} 个已存键不在白名单内",
+            "description": "这些键会被后端拒绝，保存时会从对应档位移除：{keys}"
+          },
+          "featureOff": "功能关闭时读不到可勾选的权限键，能力解锁暂不可编辑；开关打开后会自动加载。"
+        },
+        "disabled": {
+          "title": "信任等级功能已关闭",
+          "description": "功能开关关闭时保存仍会成功，但等级判定与公开接口不会生效（前台返回 404）。要启用请在「产品开关」里打开信任等级。"
+        },
+        "zeroUnlimited": "0 表示该指标不参与本档判定。",
+        "resetChanges": "已重置信任等级更改",
+        "level": {
+          "newcomer": "新用户",
+          "member": "正式用户",
+          "resident": "常驻用户",
+          "veteran": "资深用户",
+          "leader": "领袖"
+        },
+        "metric": {
+          "topicCount": "主题数",
+          "commentCount": "回复数",
+          "likeReceived": "获赞数",
+          "likeGiven": "点赞数",
+          "bookmarkCount": "收藏数",
+          "daysVisited": "访问天数"
+        },
+        "saveScope": "保存会一并提交「门槛设置」与「能力解锁」的所有改动。",
+        "reset": "重置信任等级更改",
+        "overview": {
+          "title": "等级总览",
+          "scope": {
+            "tl0": "TL0「新用户」的判定条件由站点设置里的「新人限制」页决定，本页只读展示。",
+            "levels": "每个启用档位的判定门槛由本页的「门槛设置」决定，保存后即时生效；档位数量与位次在「档位管理」里定义。",
+            "stack": "信任等级只叠加能力，不剥夺用户组已经授予的权限。"
+          },
+          "feature": {
+            "enabled": "功能已开启",
+            "enabledHint": "前台信任等级接口可用，等级会按当前门槛判定。",
+            "disabled": "功能已关闭",
+            "disabledHint": "等级判定与公开接口不会生效（前台返回 404）；本页保存仍会成功。",
+            "openFeatures": "打开产品开关"
+          },
+          "state": {
+            "recommended": "当前为推荐默认门槛",
+            "recommendedHint": "当前所有档位的门槛与推荐默认值逐项一致。",
+            "custom": "当前使用自定义门槛",
+            "customHint": "至少一档的阈值与推荐默认值不同；可在「门槛设置」里逐项核对，或恢复推荐默认。"
+          },
+          "ladder": {
+            "title": "档位阶梯",
+            "metricItem": "{metric} ≥ {value}",
+            "metricsSeparator": "、",
+            "noThresholds": "本档不设门槛：六项阈值均为 0。",
+            "earnable": "新增解锁 {count} 项"
+          },
+          "guide": {
+            "title": "从这里开始",
+            "step1": "先在「档位管理」确认档位数量与位次，再到「门槛设置」核对各档阈值；不确定就保留推荐默认。",
+            "step2": "再在「能力解锁」勾选每档新增解锁的权限键；不勾表示能力仍由用户组静态授予。",
+            "step3": "最后在页面底部保存一次，两处改动会同时提交。"
+          },
+          "jump": {
+            "thresholds": "去设置门槛",
+            "earnable": "去配置能力解锁",
+            "tiers": "去管理档位"
+          },
+          "limitsNote": "分档的发帖/评论冷却与每日上限当前不在此页编辑；保存时会原样保留已存的限额配置。",
+          "tierSummary": "当前启用 {active} 档、停用 {retired} 档（上限 {max} 档）。"
+        },
+        "tiers": {
+          "title": "档位管理",
+          "activeCount": "启用 {count} / {max} 档",
+          "add": "新增一档",
+          "limitHint": "最多 {max} 档，已达上限。",
+          "insertBefore": "在此档前插入一档",
+          "moveUp": "上移一档",
+          "moveDown": "下移一档",
+          "retire": "停用",
+          "restore": "恢复",
+          "retiredBadge": "已停用",
+          "nameZh": "中文名",
+          "nameEn": "English name",
+          "namePlaceholder": "留空则回退内置名称",
+          "namePool": "命名建议",
+          "icon": "图标",
+          "idHint": "档位 id 是稳定身份：插入、排序、改名都不会改变它。",
+          "defaultIconHint": "未选图标时按位次取默认序列：{icons}",
+          "lastTierLocked": "至少保留一档，最后一档不能停用。",
+          "retireConfirm": {
+            "title": "确认停用「{name}」？",
+            "description": "停用是软停用：配置完整保留，但该档不再参与判定与展示。该档新增解锁的能力可能从用户身上撤回，用户等级可能因此下调；按下保存后才会真正生效。",
+            "impact": "可能被撤回的解锁：{keys}",
+            "noImpact": "其它启用档位已覆盖该档的全部解锁，预计不会撤回任何能力。",
+            "confirm": "确认停用",
+            "cancel": "取消"
+          },
+          "singleTier": {
+            "title": "只剩一档：账龄闸不再产生差异",
+            "description": "启用档位只有 1 档时，新人信任期的账龄闸（trust.new_user_days）不再产生任何差别——所有用户要么是 TL0，要么就已经是这一档。想让成长曲线重新有意义，至少再加一档。"
+          },
+          "delete": "删除",
+          "deleteLocked": "先保存这次停用才能删除：删除不可恢复，得先让停用落盘。",
+          "retiredImpact": "已撤回 {count} 项解锁",
+          "tombstones": "已删除的档位 id：{ids}。这些 id 永不复用。",
+          "appearance": "外观",
+          "color": "「{name}」的颜色"
+        },
+        "icons": {
+          "label": "「{name}」的图标"
+        },
+        "iconPicker": {
+          "defaultBadge": "默认",
+          "useDefault": "使用默认图标 {icon}",
+          "noChoices": "后端未下发图标白名单，当前显示默认图标 {icon}。"
+        },
+        "restoreFallback": {
+          "title": "正在使用本地兜底推荐值",
+          "description": "后台读面没有返回 recommendedConfig，本次「恢复默认」用的是内置兜底表，不一定等于后端推荐值。"
+        },
+        "structureConfirm": {
+          "title": "档位结构已改变：保存后所有用户按新阶梯重新判定",
+          "reevaluate": "新增、停用、恢复或调整档位顺序都会改变判定结果，保存后每个人的等级会立刻按新阶梯重算。",
+          "noMigration": "等级是每次请求实时算出来的，没有迁移过程，也不需要等待或补偿。",
+          "confirm": "保存并重新判定",
+          "cancel": "继续编辑"
+        },
+        "errors": {
+          "summary": "保存被拒绝：{count} 处需要修正，详见对应档位。",
+          "pageTitle": "配置没有写入，请修正下列问题",
+          "tierTitle": "这一档有 {count} 处需要修正",
+          "generic": "该字段不合法。",
+          "code": {
+            "tier_count_out_of_range": "启用档位必须是 {min}–{max} 档，当前是 {active} 档。",
+            "id_invalid": "档位 id 不合法（{id}）：只能用字母、数字、下划线和短横线。",
+            "id_reserved_for_tl0": "档位 id「{id}」是 TL0 的保留身份，不能给启用档位使用。",
+            "id_duplicate": "存在重复的档位 id「{id}」：每档的身份必须唯一。",
+            "icon_not_whitelisted": "图标「{icon}」不在服务端白名单内，请从列表中选择。",
+            "name_missing": "{locale} 名称不能为空：至少要有一门语言的名称。",
+            "name_too_long": "{locale}名称超过 {maxLength} 个字符上限。",
+            "requirement_negative": "判定门槛不能为负：{metric} 当前是 {value}。",
+            "requirement_unknown_metric": "存在未知的判定指标「{metric}」：只能使用系统提供的六项。",
+            "limits_missing": "缺少分档限额字段：该键必须显式出现（null 表示继承站点默认）。",
+            "limit_negative": "分档限额不能为负：{key} 当前是 {value}。",
+            "earnable_missing": "缺少能力解锁数组：每档都必须显式给出，空数组也要写。",
+            "earnable_key_empty": "能力解锁里有空字符串：请移除该项或填入权限键。",
+            "earnable_not_whitelisted": "权限「{permission}」不在可授予白名单内，不能按等级解锁。",
+            "color_not_whitelisted": "颜色不在后端白名单内，请从候选色中重新选择。"
+          },
+          "field": {
+            "unknown": "该字段",
+            "schemaVersion": "配置版本",
+            "tiers": "档位列表",
+            "levels": "档位列表",
+            "id": "档位 id",
+            "levelSlug": "档位 id",
+            "name_zh": "中文名",
+            "name_en": "英文名",
+            "icon": "图标",
+            "requirements": "判定门槛",
+            "limits": "分档限额",
+            "limits_topicCooldownSeconds": "发主题冷却",
+            "limits_commentCooldownSeconds": "回复冷却",
+            "limits_dailyTopicLimit": "每日主题上限",
+            "limits_dailyCommentLimit": "每日回复上限",
+            "earnable": "能力解锁",
+            "color": "颜色",
+            "deletedTierIds": "已删除档位 id"
+          },
+          "config": {
+            "main": "信任等级配置无法保存：内容格式不被接受。",
+            "detail": "技术细节：{reason}"
+          },
+          "locale": {
+            "zh": "中文",
+            "en": "英文"
+          }
+        },
+        "restoreConfirm": {
+          "title": "确认恢复推荐默认？",
+          "description": "这会把全站信任等级配置替换为服务端的推荐默认，并立即影响所有用户的等级判定。以下内容会被覆盖：",
+          "items": {
+            "tiers": "档位数量与顺序：自定义档位被移除，已停用的档位也会一并消失",
+            "thresholds": "各档的判定阈值：全部回到推荐值",
+            "limits": "各档的分档限额：全部回到「继承站点默认」",
+            "earnable": "各档新增的能力解锁：全部清空（能力交回用户组授予）",
+            "appearance": "档位的名称与图标：全部回到内置五档的默认名称与图标"
+          },
+          "confirm": "恢复默认",
+          "cancel": "取消"
+        },
+        "colors": {
+          "auto": "按位次自动",
+          "autoBadge": "自动",
+          "autoWith": "按位次自动（当前为 {color}）",
+          "noChoices": "后端未下发颜色白名单，当前按位次自动取 {color}。",
+          "slate": "石板灰",
+          "teal": "青绿",
+          "emerald": "翠绿",
+          "sky": "天蓝",
+          "indigo": "靛蓝",
+          "violet": "紫罗兰",
+          "fuchsia": "洋红",
+          "rose": "玫红",
+          "amber": "琥珀"
+        },
+        "tierDelete": {
+          "title": "永久删除「{name}」？",
+          "description": "删除会把这一档从配置中彻底移除，服务端不会保留它的任何设置。",
+          "irreversible": "这一步不可撤销：要重新拥有同样的档位，只能再新建一档。",
+          "rankSafe": "已停用档位不占位次，删除它不会改变任何人的当前等级。",
+          "idNote": "该档 id 会记入已删除清单，永不复用。",
+          "confirm": "永久删除",
+          "cancel": "取消",
+          "items": {
+            "thresholds": "判定门槛（六个指标）",
+            "limits": "分档限额（冷却与每日上限）",
+            "earnable": "该档新增的能力解锁",
+            "name": "中英文名称",
+            "icon": "图标",
+            "color": "档位颜色"
+          }
+        }
       }
     },
     "form": {
@@ -5365,7 +5600,7 @@
       "ready": "可用",
       "needsSetup": "需要配置",
       "unavailable": "暂不可用",
-      "providerPlaceholder": "选择提供商",
+      "providerPlaceholder": "请选择邮件提供商",
       "providerConfigTitle": "邮件提供商",
       "providerConfigDescription": "选择提供商后，再前往插件设置填写连接参数。",
       "welcomeEnabled": "发送注册欢迎邮件",
@@ -5408,7 +5643,6 @@
       "noProvidersTitle": "暂无可用邮件提供商",
       "noProvidersDescription": "当前没有已启用的邮件投递插件。请先在插件管理中启用提供商（例如内置 SMTP），再回到此页选择。站内通知不受影响。",
       "openPlugins": "前往插件管理",
-      "providerPlaceholder": "请选择邮件提供商",
       "noProvider": "不配置邮件投递",
       "unhealthy": "不可用",
       "reset": "恢复推荐默认值",

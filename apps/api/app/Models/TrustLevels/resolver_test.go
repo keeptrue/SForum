@@ -81,8 +81,8 @@ func TestResolverFailClosed(t *testing.T) {
 // 「不受限额 + 最高等级」的组合。
 func TestResolverSkipsNonHumanAccounts(t *testing.T) {
 	policy := trustlevels.DefaultPolicy()
-	policy.Earnable = trustlevels.Earnable{trustlevels.LevelRegular: {"topic.create"}}
-	activity := activityMeeting(policy, trustlevels.LevelLeader)
+	policy.Earnable = trustlevels.Earnable{trustlevels.Level(2): {"topic.create"}}
+	activity := activityMeeting(policy, policy.LastRank())
 	createdAt := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	resolver := trustlevels.NewResolver(
@@ -100,8 +100,8 @@ func TestResolverSkipsNonHumanAccounts(t *testing.T) {
 	}
 	// 对照组：同样的输入，人类账号必须拿到最高等级（T10：守卫测试要先证明会误报）。
 	level, _, err := resolver.Grants(context.Background(), 7, identity.UserKindHuman, createdAt)
-	if err != nil || level != int(trustlevels.LevelLeader) {
-		t.Fatalf("人类账号 level=%d err=%v，期望 TL4", level, err)
+	if err != nil || level != int(policy.LastRank()) {
+		t.Fatalf("人类账号 level=%d err=%v，期望最高 rank %d", level, err, policy.LastRank())
 	}
 }
 
@@ -109,7 +109,7 @@ func TestResolverSkipsNonHumanAccounts(t *testing.T) {
 func TestResolverGrants(t *testing.T) {
 	policy := trustlevels.DefaultPolicy()
 	policy.Earnable = trustlevels.Earnable{
-		trustlevels.LevelRegular: {"topic.create"},
+		trustlevels.Level(2): {"topic.create"},
 	}
 	now := time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC)
 
@@ -134,10 +134,10 @@ func TestResolverGrants(t *testing.T) {
 		},
 		{
 			// 用策略本身构造「刚好满足 TL4」的活动，阈值改动后测试字面量不会漂。
-			name:      "满活动 + 老账号 = TL4 且解锁配置的键",
+			name:      "满活动 + 老账号 = 最高 rank 且解锁配置的键",
 			createdAt: now.Add(-365 * 24 * time.Hour),
-			activity:  activityMeeting(policy, trustlevels.LevelLeader),
-			wantLevel: 4,
+			activity:  activityMeeting(policy, policy.LastRank()),
+			wantLevel: int(policy.LastRank()),
 			wantKeys:  1,
 		},
 	}

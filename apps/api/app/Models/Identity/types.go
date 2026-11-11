@@ -215,7 +215,9 @@ type Actor struct {
 	CreatedAt time.Time
 	// Kind 区分人类与机器人账号。零值按人类处理。
 	Kind UserKind
-	// TrustLevel 是装载时解析出的信任等级（0..4）。
+	// TrustLevel 是装载时解析出的信任等级，取值就是 **rank**：0 = TL0（新成员），
+	// 上限由信任等级配置里 active 档位的数量决定（1..8 档，所以上界是
+	// 0..policy.LastRank()，**不是固定 4**）。它不落库，也不由 Identity 计算。
 	// 只有在 TrustLevelResolved 为真时才有意义；零值等级本身不代表「已解析」。
 	TrustLevel int
 	// TrustLevelResolved 表示等级已由信任等级域解析（产品开关开 + 统计读取成功）。
@@ -253,7 +255,8 @@ type CurrentUser struct {
 	// Kind 是账号类型（human / bot）。与 CreatedAt 同姿态：不强制暴露给前端，
 	// 但信任等级解析需要它（bot 不进等级判定，D25/D29）。
 	Kind UserKind `json:"-"`
-	// TrustLevel 是装载时解析出的信任等级（0..4），供资料页/进度条展示。
+	// TrustLevel 是装载时解析出的信任等级（同上：rank，0 = TL0，上界随配置变化），
+	// 供资料页/进度条展示。
 	// trustLevelResolved 为假（产品关闭或统计读失败）时它恒为 0，前端应隐藏等级卡。
 	TrustLevel int `json:"trustLevel"`
 	// trustLevelResolved 表示等级确实解析过；零值 false = 未解析（D7）。

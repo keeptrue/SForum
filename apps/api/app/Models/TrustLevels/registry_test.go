@@ -15,22 +15,18 @@ import (
 // 本刀之前行为）天然成立。
 func TestDefaultEarnableIsEmpty(t *testing.T) {
 	policy := trustlevels.DefaultPolicy()
-	if got := policy.Earnable.All(); len(got) != 0 {
+	if got := policy.Earnable.All(policy.LastRank()); len(got) != 0 {
 		t.Fatalf("默认 earnable 必须为空集，得到 %v", got)
 	}
-	for level := trustlevels.LevelNewcomer; level < trustlevels.LevelCount; level++ {
-		if got := policy.Earnable.Grants(level); len(got) != 0 {
-			t.Fatalf("默认 TL%d 解锁了 %v", level, got)
+	for rank := trustlevels.LevelNewcomer; rank <= policy.LastRank(); rank++ {
+		if got := policy.Earnable.Grants(rank); len(got) != 0 {
+			t.Fatalf("默认 TL%d 解锁了 %v", rank, got)
 		}
 	}
 }
 
 // TestEligiblePermissionsIsLiteralWhitelist 是 P0-1 的回归靶子：
 // 白名单必须与**字面**七键集合相等，而不是「用同一个分类谓词自证」。
-//
-// 事故背景：EligiblePermissions 曾经是负面过滤，而分类谓词的后缀表是 ".override"（点），
-// 键名是 user.permission_override（下划线）→ 直接泄漏一个提权键，且旧测试用同一个
-// 谓词断言，等于没测。
 func TestEligiblePermissionsIsLiteralWhitelist(t *testing.T) {
 	want := []string{
 		"topic.create",
@@ -74,7 +70,7 @@ func TestEarnableValidateRejectsDangerousKeys(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			earnable := trustlevels.Earnable{
-				trustlevels.LevelRegular: {testCase.key},
+				trustlevels.Level(2): {testCase.key},
 			}
 			if err := earnable.Validate(); err == nil {
 				t.Fatalf("Validate() 接受了危险键 %q", testCase.key)
@@ -83,7 +79,7 @@ func TestEarnableValidateRejectsDangerousKeys(t *testing.T) {
 	}
 
 	// 反向证明：合法内容键必须通过，否则上面对照组没有意义（T10）。
-	valid := trustlevels.Earnable{trustlevels.LevelRegular: {"topic.create", "attachment.upload"}}
+	valid := trustlevels.Earnable{trustlevels.Level(2): {"topic.create", "attachment.upload"}}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("Validate() 拒绝了合法键：%v", err)
 	}
@@ -95,7 +91,7 @@ func TestEarnableValidateRejectsDangerousKeys(t *testing.T) {
 func TestEarnableValidateCoversWholeCatalog(t *testing.T) {
 	checked := 0
 	for _, permission := range identity.SeedPermissions {
-		earnable := trustlevels.Earnable{trustlevels.LevelRegular: {permission.Key}}
+		earnable := trustlevels.Earnable{trustlevels.Level(2): {permission.Key}}
 		err := earnable.Validate()
 		whitelisted := trustlevels.IsWhitelisted(permission.Key)
 		if whitelisted && err != nil {
@@ -114,22 +110,22 @@ func TestEarnableValidateCoversWholeCatalog(t *testing.T) {
 // TestEarnableGrantsCumulative 锁定「高等级包含低等级」的累计语义。
 func TestEarnableGrantsCumulative(t *testing.T) {
 	earnable := trustlevels.Earnable{
-		trustlevels.LevelMember:  {"post.create"},
-		trustlevels.LevelRegular: {"topic.create"},
+		trustlevels.Level(1): {"post.create"},
+		trustlevels.Level(2): {"topic.create"},
 	}
 	if got := earnable.Grants(trustlevels.LevelNewcomer); got != nil {
 		t.Fatalf("TL0 不应有已挣得，得到 %v", got)
 	}
-	if got := earnable.Grants(trustlevels.LevelMember); !slices.Equal(got, []string{"post.create"}) {
+	if got := earnable.Grants(trustlevels.Level(1)); !slices.Equal(got, []string{"post.create"}) {
 		t.Fatalf("TL1 = %v", got)
 	}
-	if got := earnable.Grants(trustlevels.LevelRegular); !slices.Equal(got, []string{"post.create", "topic.create"}) {
+	if got := earnable.Grants(trustlevels.Level(2)); !slices.Equal(got, []string{"post.create", "topic.create"}) {
 		t.Fatalf("TL2 = %v", got)
 	}
 	if got := earnable.Grants(trustlevels.Level(99)); got != nil {
 		t.Fatalf("越界等级解锁了 %v", got)
 	}
-	if level, ok := earnable.UnlockLevel("topic.create"); !ok || level != trustlevels.LevelRegular {
+	if level, ok := earnable.UnlockLevel("topic.create"); !ok || level != trustlevels.Level(2) {
 		t.Fatalf("UnlockLevel = %v,%v", level, ok)
 	}
 	if !earnable.IsEarnable("post.create") || earnable.IsEarnable("user.ban") {
@@ -137,12 +133,133 @@ func TestEarnableGrantsCumulative(t *testing.T) {
 	}
 }
 
-// TestLevelSlugIsNotRoleKey 锁定 D21 的命名：等级标识不能与角色 key 混用。
-func TestLevelSlugIsNotRoleKey(t *testing.T) {
-	if got := trustlevels.LevelMember.Slug(); got != "member" {
-		t.Fatalf("TL1 的 slug 期望 member，得到 %q", got)
+// TestEarnableAllFollowsLastRank 是「All() 把 TL4 当顶」这个静默坑的回归靶子：
+// 上界必须由调用方（policy.LastRank）给出，第 5–8 档配置的键不能从 All() 里消失。
+func TestEarnableAllFollowsLastRank(t *testing.T) {
+	earnable := trustlevels.Earnable{
+		trustlevels.Level(2): {"post.create"},
+		trustlevels.Level(6): {"topic.create"},
+		trustlevels.Level(8): {"attachment.upload"},
 	}
-	if got := trustlevels.Level(99).Slug(); got != "" {
-		t.Fatalf("越界等级 slug 应为空，得到 %q", got)
+	all := earnable.All(8)
+	if !slices.Contains(all, "topic.create") || !slices.Contains(all, "attachment.upload") {
+		t.Fatalf("All(8) 丢了高档位配置：%v", all)
+	}
+	// 旧行为（写死 TL4）的等价断言：只到 4 时高档位的键确实不可见——这正是要修的病，
+	// 所以断言两边都必须成立，证明上界来源真的起作用。
+	truncated := earnable.All(4)
+	if slices.Contains(truncated, "topic.create") || slices.Contains(truncated, "attachment.upload") {
+		t.Fatalf("All(4) 不应包含第 5 档以上的键：%v", truncated)
+	}
+}
+
+// TestBuiltinTierIDsAreNotRoleKeys 锁定 D21 的命名：等级标识不能与角色 key 混用。
+//
+// 内置档位的 id 与 v1 的 levelSlug 逐字相同，所以存量站点与前端 i18n 都不用改。
+func TestBuiltinTierIDsAreNotRoleKeys(t *testing.T) {
+	policy := trustlevels.DefaultPolicy()
+	if got := policy.TierID(trustlevels.LevelMember); got != "member" {
+		t.Fatalf("TL1 的身份期望 member，得到 %q", got)
+	}
+	if got := trustlevels.BuiltinTierID(trustlevels.LevelNewcomer); got != trustlevels.NewcomerID {
+		t.Fatalf("TL0 的身份 = %q", got)
+	}
+	if got := trustlevels.BuiltinTierID(trustlevels.Level(99)); got != "" {
+		t.Fatalf("越界档位 id 应为空，得到 %q", got)
+	}
+	if got := policy.TierID(trustlevels.Level(99)); got != "" {
+		t.Fatalf("越界 rank 的 TierID 应为空，得到 %q", got)
+	}
+	if !trustlevels.IsBuiltinTierID("leader") || trustlevels.IsBuiltinTierID("tier_6") {
+		t.Fatal("IsBuiltinTierID 判定错误")
+	}
+}
+
+// TestNextTierSeqCountsDeletedTierIDs 是「id 永不复用」在物理删除下的靶子：
+// 4 档内置 + 删过 tier_7，下一个新档必须是 tier_8，而不是回头重用 tier_6。
+func TestNextTierSeqCountsDeletedTierIDs(t *testing.T) {
+	policy, err := trustlevels.DecodeConfig(
+		`{"schemaVersion":2,"tiers":[` + tierJSON("member") + `,` + tierJSON("resident") + `,` +
+			tierJSON("veteran") + `,` + tierJSON("leader") + `],"deletedTierIds":["tier_7"]}`)
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	if got := policy.NextTierSeq(); got != 8 {
+		t.Fatalf("NextTierSeq = %d，期望 8（墓碑 tier_7 必须计入）", got)
+	}
+	// 空墓碑时仍是基准 5 + 1。
+	if got := trustlevels.DefaultPolicy().NextTierSeq(); got != 6 {
+		t.Fatalf("默认策略的 NextTierSeq = %d，期望 6", got)
+	}
+}
+
+// TestColorOfDefaultsAndOverrides 锁定有效色的解析顺序：TL0 默认、空值跟随位次、
+// 显式覆盖优先、越界回退首项。
+func TestColorOfDefaultsAndOverrides(t *testing.T) {
+	policy := trustlevels.DefaultPolicy()
+	cases := []struct {
+		rank trustlevels.Level
+		want string
+	}{
+		{trustlevels.LevelNewcomer, "slate"},
+		{trustlevels.LevelMember, "teal"},
+		{2, "emerald"},
+		{policy.LastRank(), "indigo"},
+		{trustlevels.MaxLevel + 1, "slate"},
+	}
+	for _, testCase := range cases {
+		if got := policy.ColorOf(testCase.rank); got != testCase.want {
+			t.Fatalf("ColorOf(TL%d) = %q，期望 %q", testCase.rank, got, testCase.want)
+		}
+	}
+
+	overridden, err := trustlevels.DecodeConfig(
+		`{"schemaVersion":2,"tiers":[` +
+			`{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","color":"rose","requirements":{},"limits":{},"earnable":[]},` +
+			tierJSON("resident") + `]}`)
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	if got := overridden.ColorOf(trustlevels.LevelMember); got != "rose" {
+		t.Fatalf("显式覆盖没生效：ColorOf(TL1) = %q", got)
+	}
+	// TL2 没配颜色 → 仍按位次取默认色序，而不是继承 TL1 的覆盖。
+	if got := overridden.ColorOf(2); got != "emerald" {
+		t.Fatalf("ColorOf(TL2) = %q，期望默认色序 emerald", got)
+	}
+
+	// 满配 8 档：顶档必须拿到 amber（设计稿的「终点色」），而不是回退成 TL0 的 slate。
+	// DefaultTierColor 负责这条对应关系，ColorOf 只是把它按 rank 取出来。
+	full, err := trustlevels.DecodeConfig(newTiersJSON(trustlevels.MaxTiers))
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	if got := full.LastRank(); got != trustlevels.MaxTiers {
+		t.Fatalf("前置条件失败：满配 LastRank = %d", got)
+	}
+	if got := full.ColorOf(trustlevels.MaxLevel); got != "amber" {
+		t.Fatalf("满配顶档 ColorOf(TL%d) = %q，期望 amber", trustlevels.MaxLevel, got)
+	}
+	if got := trustlevels.DefaultTierColor(trustlevels.MaxLevel); got != "amber" {
+		t.Fatalf("DefaultTierColor(TL%d) = %q，期望 amber", trustlevels.MaxLevel, got)
+	}
+}
+
+// TestDeletedTierIDsDoNotAffectRank 锁定墓碑不参与判定：rank、LastRank、TierID 都不变。
+func TestDeletedTierIDsDoNotAffectRank(t *testing.T) {
+	policy, err := trustlevels.DecodeConfig(
+		`{"schemaVersion":2,"tiers":[` + tierJSON("member") + `,` + tierJSON("resident") + `,` +
+			tierJSON("veteran") + `,` + tierJSON("leader") + `],"deletedTierIds":["tier_6","tier_9"]}`)
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	if got := policy.LastRank(); got != 4 {
+		t.Fatalf("LastRank = %d，期望 4（墓碑不占号）", got)
+	}
+	if id := policy.TierID(trustlevels.LevelMember); id != "member" {
+		t.Fatalf("TierID(TL1) = %q，期望 member", id)
+	}
+	if _, ok := policy.TierAt(5); ok {
+		t.Fatal("TierAt(5) 不该命中：墓碑不是档位")
 	}
 }

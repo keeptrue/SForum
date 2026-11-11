@@ -12,6 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
@@ -21,6 +22,18 @@ import (
 func newTestApp(t *testing.T, controller *Controller) *fiber.App {
 	t.Helper()
 	app := fiber.New(fiber.Config{ErrorHandler: func(c fiber.Ctx, err error) error {
+		// 生产环境的错误信封是 {code, message, data:{reason, details}}；测试里复刻同一
+		// 形状，否则 details 的断言只是在测一份测试专用的形状。
+		var apiErr *apphttp.APIError
+		if errors.As(err, &apiErr) {
+			data := fiber.Map{"reason": apiErr.Reason}
+			if len(apiErr.Details) > 0 {
+				data["details"] = apiErr.Details
+			}
+			return c.Status(apiErr.Status).JSON(fiber.Map{
+				"code": apiErr.Status, "message": apiErr.Reason, "data": data,
+			})
+		}
 		var fiberErr *fiber.Error
 		if errors.As(err, &fiberErr) {
 			return c.Status(fiberErr.Code).JSON(fiber.Map{"message": fiberErr.Message})
@@ -158,11 +171,11 @@ func TestUpdateRejectsInvalidConfig(t *testing.T) {
 		name string
 		body string
 	}{
-		{"未知字段（幻影字段 account_age_days）", `{"config":"{\"schemaVersion\":1,\"levels\":[{\"levelSlug\":\"member\",\"requirements\":{\"account_age_days\":3},\"limits\":{},\"earnable\":[]}]}"}`},
-		{"schemaVersion 不符", `{"config":"{\"schemaVersion\":9,\"levels\":[]}"}`},
-		{"缺少等级", `{"config":"{\"schemaVersion\":1,\"levels\":[]}"}`},
+		{"未知字段（幻影字段 account_age_days）", `{"config":"{\"schemaVersion\":2,\"tiers\":[{\"id\":\"member\",\"name\":{\"zh\":\"甲\",\"en\":\"A\"},\"icon\":\"leaf\",\"requirements\":{\"account_age_days\":3},\"limits\":{},\"earnable\":[]}]}"}`},
+		{"schemaVersion 不符", `{"config":"{\"schemaVersion\":9,\"tiers\":[]}"}`},
+		{"缺少档位", `{"config":"{\"schemaVersion\":2,\"tiers\":[]}"}`},
 		{"body 不是 JSON", `not-json`},
-		{"省略 limits（I-12 的静默清空面）", `{"config":"{\"schemaVersion\":1,\"levels\":[{\"levelSlug\":\"member\",\"requirements\":{},\"earnable\":[]},{\"levelSlug\":\"resident\",\"requirements\":{},\"limits\":{},\"earnable\":[]},{\"levelSlug\":\"veteran\",\"requirements\":{},\"limits\":{},\"earnable\":[]},{\"levelSlug\":\"leader\",\"requirements\":{},\"limits\":{},\"earnable\":[]}]}"}`},
+		{"省略 limits（I-12 的静默清空面）", `{"config":"{\"schemaVersion\":2,\"tiers\":[{\"id\":\"member\",\"name\":{\"zh\":\"甲\",\"en\":\"A\"},\"icon\":\"leaf\",\"requirements\":{},\"earnable\":[]}]}"}`},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -181,7 +194,8 @@ func TestUpdateRejectsInvalidConfig(t *testing.T) {
 	}
 }
 
-// TestPublicPayloadHasNoLimits 断言公开面不下发限流参数（反滥用面）。
+// TestPublicPayloadHasNoLimits 断言公开面不下发限流参数（反滥用面），
+// 同时锁定目录形状：TL0 合成首条 + 每条都有 displayName/icon。
 func TestPublicPayloadHasNoLimits(t *testing.T) {
 	admin := activeActor(identity.PermissionAdminAccess)
 	app := newTestApp(t, NewController(nil, nil, nil, nil).
@@ -198,6 +212,9 @@ func TestPublicPayloadHasNoLimits(t *testing.T) {
 	}
 	if !strings.Contains(body, "levelSlug") || !strings.Contains(body, "requirements") {
 		t.Fatalf("公开响应缺少等级定义：%s", body)
+	}
+	if !strings.Contains(body, "displayName") || !strings.Contains(body, "\"icon\"") {
+		t.Fatalf("公开响应缺少展示字段（自定义档名/图标要靠它下发）：%s", body)
 	}
 
 	// 对照组：后台读面**必须**有限额（运营要配它）。
@@ -408,5 +425,531 @@ func TestAdminBaselinePermissionsLiteral(t *testing.T) {
 	}
 	if second := read(); !slices.Equal(second, got) {
 		t.Fatalf("两次读的顺序不一致：%v vs %v", got, second)
+	}
+}
+
+// TestAdminPayloadCarriesTierEditorMetadata 锁定后台读面的编辑器元数据：
+// 图标白名单、命名池、档数区间、下一个派生序号、TL0 的只读标记。
+//
+// 这些字段是「自定义 N 档」的前端唯一数据源：前端不得自己再抄一份图标/名字/档数。
+func TestAdminPayloadCarriesTierEditorMetadata(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }))
+
+	_, body := doRequest(t, app, fiber.MethodGet, "/api/v1/admin/trust-levels", "")
+	var payload struct {
+		Data struct {
+			Levels []struct {
+				Level       int    `json:"level"`
+				LevelSlug   string `json:"levelSlug"`
+				DisplayName struct {
+					Zh string `json:"zh"`
+					En string `json:"en"`
+				} `json:"displayName"`
+				Icon     string `json:"icon"`
+				Editable bool   `json:"editable"`
+				Retired  bool   `json:"retired"`
+			} `json:"levels"`
+			IconChoices []string `json:"iconChoices"`
+			NamePool    struct {
+				Zh []string `json:"zh"`
+				En []string `json:"en"`
+			} `json:"namePool"`
+			TierLimits struct {
+				Min int `json:"min"`
+				Max int `json:"max"`
+			} `json:"tierLimits"`
+			NextTierSeq int `json:"nextTierSeq"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("响应不是预期 JSON：%v，body=%s", err, body)
+	}
+	data := payload.Data
+
+	// 图标白名单是 16 个，且前五个是历史默认序列（芽/叶/屋/山/冠）。
+	if len(data.IconChoices) != 16 {
+		t.Fatalf("iconChoices 长度 = %d，期望 16", len(data.IconChoices))
+	}
+	wantFirstFive := []string{"sprout", "leaf", "home", "mountain", "crown"}
+	if !slices.Equal(data.IconChoices[:5], wantFirstFive) {
+		t.Fatalf("默认图标序列前五项 = %v，期望 %v", data.IconChoices[:5], wantFirstFive)
+	}
+	// 命名池双语同序同长。
+	if len(data.NamePool.Zh) == 0 || len(data.NamePool.Zh) != len(data.NamePool.En) {
+		t.Fatalf("命名池形状不对：%d/%d", len(data.NamePool.Zh), len(data.NamePool.En))
+	}
+	// 档数区间与下一个派生序号（内置占 1..5，所以第一个新档是 tier_6）。
+	if data.TierLimits.Min != 1 || data.TierLimits.Max != 8 {
+		t.Fatalf("tierLimits = %+v，期望 1..8", data.TierLimits)
+	}
+	if data.NextTierSeq != 6 {
+		t.Fatalf("nextTierSeq = %d，期望 6", data.NextTierSeq)
+	}
+	// 目录：TL0 合成首条且不可编辑，其后是 active 档位（默认 4 档）。
+	if len(data.Levels) != 5 {
+		t.Fatalf("levels 长度 = %d，期望 TL0 + 4 档 = 5", len(data.Levels))
+	}
+	first := data.Levels[0]
+	if first.Level != 0 || first.LevelSlug != trustlevels.NewcomerID || first.Editable || first.Retired {
+		t.Fatalf("首条不是只读的 TL0：%+v", first)
+	}
+	if first.DisplayName.Zh == "" || first.DisplayName.En == "" {
+		t.Fatalf("TL0 缺少双语名：%+v", first.DisplayName)
+	}
+	for index, level := range data.Levels[1:] {
+		if level.Level != index+1 {
+			t.Fatalf("第 %d 条的 level = %d", index+2, level.Level)
+		}
+		if !level.Editable || level.Retired {
+			t.Fatalf("TL%d 应可编辑且未停用：%+v", level.Level, level)
+		}
+		if !slices.Contains(data.IconChoices, level.Icon) {
+			t.Fatalf("TL%d 的图标 %q 不在白名单内", level.Level, level.Icon)
+		}
+		if level.DisplayName.Zh == "" || level.DisplayName.En == "" {
+			t.Fatalf("TL%d 缺少双语名", level.Level)
+		}
+	}
+}
+
+// sixTierPolicy 造一份 6 档策略（内置 4 档 + 2 个新档），用于验证「判顶跟配置走」。
+func sixTierPolicy(t *testing.T) trustlevels.Policy {
+	t.Helper()
+	raw := `{"schemaVersion":2,"tiers":[
+		{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]},
+		{"id":"resident","name":{"zh":"乙","en":"B"},"icon":"home","requirements":{},"limits":{},"earnable":[]},
+		{"id":"veteran","name":{"zh":"丙","en":"C"},"icon":"mountain","requirements":{},"limits":{},"earnable":[]},
+		{"id":"leader","name":{"zh":"丁","en":"D"},"icon":"crown","requirements":{},"limits":{},"earnable":[]},
+		{"id":"","name":{"zh":"戊","en":"E"},"icon":"star","requirements":{},"limits":{},"earnable":[]},
+		{"id":"","name":{"zh":"己","en":"F"},"icon":"sun","requirements":{"topic_count":50},"limits":{},"earnable":[]}]}`
+	policy, err := trustlevels.DecodeConfig(raw)
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	return policy
+}
+
+// fixedActivityReader 与 fixedPolicySource 是控制器层的两缝实现。
+type fixedActivityReader struct{ activity trustlevels.Activity }
+
+func (r fixedActivityReader) ActivityFor(context.Context, int64) (trustlevels.Activity, error) {
+	return r.activity, nil
+}
+
+type fixedPolicySource struct{ policy trustlevels.Policy }
+
+func (s fixedPolicySource) Policy(context.Context) (trustlevels.Policy, error) {
+	return s.policy, nil
+}
+
+// TestViewerProgressUsesLastRank 是「判顶写死 TL4」的回归靶子（controller.go:108）：
+// 6 档策略下第 5 档用户必须拿到 nextLevel 与 bottleneck，而不是被告知「已达最高等级」。
+func TestViewerProgressUsesLastRank(t *testing.T) {
+	policy := sixTierPolicy(t)
+	if policy.LastRank() != 6 {
+		t.Fatalf("前置条件失败：LastRank = %d", policy.LastRank())
+	}
+	resolver := trustlevels.NewResolver(
+		fixedActivityReader{activity: trustlevels.Activity{TopicCount: 10}},
+		fixedPolicySource{policy: policy},
+	)
+	actor := identity.Actor{
+		ID: 7, Status: identity.UserStatusActive,
+		Permissions: map[string]bool{identity.PermissionAdminAccess: true},
+		TrustLevel:  5, TrustLevelResolved: true,
+	}
+	app := newTestApp(t, NewController(nil, resolver, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policy, nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return actor, nil }))
+
+	status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/trust-levels", "")
+	if status != fiber.StatusOK {
+		t.Fatalf("status = %d，body=%s", status, body)
+	}
+	var payload struct {
+		Data struct {
+			Viewer *struct {
+				Level      int    `json:"level"`
+				LevelSlug  string `json:"levelSlug"`
+				NextLevel  int    `json:"nextLevel"`
+				Bottleneck *struct {
+					Metric    string `json:"metric"`
+					Current   int64  `json:"current"`
+					Threshold int64  `json:"threshold"`
+				} `json:"bottleneck"`
+			} `json:"viewer"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("响应不是预期 JSON：%v，body=%s", err, body)
+	}
+	if payload.Data.Viewer == nil {
+		t.Fatalf("没有 viewer 段：%s", body)
+	}
+	viewer := payload.Data.Viewer
+	if viewer.LevelSlug != "tier_6" {
+		t.Fatalf("第 5 档的 levelSlug = %q，期望 tier_6", viewer.LevelSlug)
+	}
+	if viewer.NextLevel != 6 {
+		t.Fatalf("nextLevel = %d，期望 6（6 档站点上第 5 档不是满级）", viewer.NextLevel)
+	}
+	if viewer.Bottleneck == nil || viewer.Bottleneck.Metric != "topic_count" {
+		t.Fatalf("bottleneck = %+v，期望卡在 topic_count", viewer.Bottleneck)
+	}
+}
+
+// configErrorDetail 是 422 明细的 wire 形状（与 dto.go 的 trustLevelConfigError 同形）。
+type configErrorDetail struct {
+	Rank       int            `json:"rank"`
+	TierID     string         `json:"tierId"`
+	Field      string         `json:"field"`
+	ReasonCode string         `json:"reasonCode"`
+	Params     map[string]any `json:"params"`
+	Reason     string         `json:"reason"`
+}
+
+// TestUpdateConfigErrorDetails 是 P2 的回归靶子：422 必须带字段级明细（D-N14）。
+//
+// 三条正例对应验收里的三项失败回落：非法图标 / 缺 limits / id 重复。只断言 422
+// 的测试抓不到这个缺陷——那次「统一一句话」正是这么活下来的。
+func TestUpdateConfigErrorDetails(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error { return nil }))
+
+	type detail = configErrorDetail
+	put := func(t *testing.T, config string) (int, []configErrorDetail, string) {
+		t.Helper()
+		status, body := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels",
+			`{"config":`+mustJSONString(config)+`}`)
+		var payload struct {
+			Message string `json:"message"`
+			Data    struct {
+				Reason  string `json:"reason"`
+				Details struct {
+					Errors []detail `json:"errors"`
+				} `json:"details"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			t.Fatalf("响应不是 JSON：%v，body=%s", err, body)
+		}
+		return status, payload.Data.Details.Errors, payload.Data.Reason
+	}
+
+	// 1) 非法图标：明细必须指到那一档的 icon。
+	badIcon := `{"schemaVersion":2,"tiers":[
+		{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]},
+		{"id":"resident","name":{"zh":"乙","en":"B"},"icon":"home","requirements":{},"limits":{},"earnable":[]},
+		{"id":"veteran","name":{"zh":"丙","en":"C"},"icon":"rocket","requirements":{},"limits":{},"earnable":[]}]}`
+	status, details, reason := put(t, badIcon)
+	t.Logf("非法图标的 422 响应：%s", bodyOf(t, app, badIcon))
+	if status != fiber.StatusUnprocessableEntity {
+		t.Fatalf("status = %d（期望 422）", status)
+	}
+	if reason != CodeInvalidConfig {
+		t.Fatalf("机器码 = %q，期望稳定的 %q", reason, CodeInvalidConfig)
+	}
+	if !hasDetail(details, "veteran", "icon", trustlevels.CodeIconNotWhitelisted) {
+		t.Fatalf("明细里没有 veteran 的 icon（code=icon_not_whitelisted）：%+v", details)
+	}
+	if icon, _ := details[0].Params["icon"].(string); icon != "rocket" {
+		t.Fatalf("params 里没有可插值的 icon：%+v", details[0].Params)
+	}
+
+	// 2) 缺 limits：明细必须指到那一档的 limits（而不是只报「配置无效」）。
+	missingLimits := `{"schemaVersion":2,"tiers":[
+		{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]},
+		{"id":"resident","name":{"zh":"乙","en":"B"},"icon":"home","requirements":{},"earnable":[]}]}`
+	status, details, _ = put(t, missingLimits)
+	if status != fiber.StatusUnprocessableEntity {
+		t.Fatalf("status = %d（期望 422）", status)
+	}
+	if !hasDetail(details, "resident", "limits", trustlevels.CodeLimitsMissing) {
+		t.Fatalf("明细里没有 resident 的 limits（code=limits_missing）：%+v", details)
+	}
+
+	// 3) id 重复：明细必须指出冲突的 id。
+	duplicate := `{"schemaVersion":2,"tiers":[
+		{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]},
+		{"id":"member","name":{"zh":"乙","en":"B"},"icon":"home","requirements":{},"limits":{},"earnable":[]}]}`
+	status, details, _ = put(t, duplicate)
+	if status != fiber.StatusUnprocessableEntity {
+		t.Fatalf("status = %d（期望 422）", status)
+	}
+	found := false
+	for _, item := range details {
+		if item.Field == "id" && item.TierID == "member" && item.ReasonCode == trustlevels.CodeIDDuplicate && item.Reason != "" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("明细里没有指出重复的 id：%+v", details)
+	}
+
+	// 4) 明细有上界：一份全坏的配置不得刷出几百条。
+	many := make([]string, 0, trustlevels.MaxConfigErrorDetails+4)
+	for index := 0; index < trustlevels.MaxConfigErrorDetails+4; index++ {
+		many = append(many, `{"id":"","name":{"zh":"坏","en":"Bad"},"icon":"rocket","requirements":{},"limits":{},"earnable":[]}`)
+	}
+	status, details, _ = put(t, `{"schemaVersion":2,"tiers":[`+strings.Join(many, ",")+`]}`)
+	if status != fiber.StatusUnprocessableEntity {
+		t.Fatalf("status = %d（期望 422）", status)
+	}
+	if len(details) != trustlevels.MaxConfigErrorDetails {
+		t.Fatalf("明细条数 = %d，期望上界 %d", len(details), trustlevels.MaxConfigErrorDetails)
+	}
+}
+
+// bodyOf 复跑一次同样的请求并返回原始响应体（只用于 -v 日志里留一份真实样本）。
+func bodyOf(t *testing.T, app *fiber.App, config string) string {
+	t.Helper()
+	_, body := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels",
+		`{"config":`+mustJSONString(config)+`}`)
+	return body
+}
+
+// hasDetail 断言明细里存在「该档位 + 该字段」的一条。
+// hasDetail 断言存在「该档位 + 该字段 + 该稳定代码」的一条明细。
+func hasDetail(details []configErrorDetail, tierID, field, code string) bool {
+	for _, item := range details {
+		if item.TierID == tierID && item.Field == field && item.ReasonCode == code && item.Reason != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// tierConfigJSON 造一条最小合法 v2 档位（id 传空串 = 新档，序号由服务端派生）。
+// 与 Models/TrustLevels 测试里的同名辅助是不同 package 的两份，互不影响。
+func tierConfigJSON(id string) string {
+	return `{"id":"` + id + `","name":{"zh":"自定义档","en":"Custom"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]}`
+}
+
+// TestPublicCatalogCarriesEffectiveColors 锁定公开目录的 color 契约：
+// 每一条（含合成的 TL0）都带非空有效色，且取值在白名单内。
+//
+// 「恒非空」是关键：它把「跟随位次」解析成具体值，前端不需要再发明一条空值分支。
+func TestPublicCatalogCarriesEffectiveColors(t *testing.T) {
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return identity.Actor{}, nil }))
+
+	status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/trust-levels", "")
+	if status != fiber.StatusOK {
+		t.Fatalf("status = %d（期望 200），body=%s", status, body)
+	}
+	var payload struct {
+		Data struct {
+			Levels []struct {
+				Level int    `json:"level"`
+				Color string `json:"color"`
+			} `json:"levels"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("响应不是预期 JSON：%v，body=%s", err, body)
+	}
+	if len(payload.Data.Levels) != 5 {
+		t.Fatalf("levels 长度 = %d，期望 TL0 + 4 档 = 5", len(payload.Data.Levels))
+	}
+	// 字面量期望，不用 DefaultTierColor 自证：默认策略下 TL0..TL4 就是这套色序，
+	// 写死才能抓住「色板被改错位置/长度」这类回归。
+	wantColors := []string{"slate", "teal", "emerald", "sky", "indigo"}
+	for index, level := range payload.Data.Levels {
+		if level.Color == "" {
+			t.Fatalf("TL%d 的 color 是空串（契约里是 required 且恒非空）", level.Level)
+		}
+		if level.Color != wantColors[index] {
+			t.Fatalf("TL%d 的 color = %q，期望 %q", level.Level, level.Color, wantColors[index])
+		}
+	}
+}
+
+// TestAdminPayloadCarriesColorsAndTombstoneSeq 锁定后台读面的两个新字段：
+// colorChoices 与「计入墓碑的 nextTierSeq」。
+func TestAdminPayloadCarriesColorsAndTombstoneSeq(t *testing.T) {
+	policy, err := trustlevels.DecodeConfig(
+		`{"schemaVersion":2,"tiers":[` + tierConfigJSON("member") + `,` + tierConfigJSON("resident") + `,` +
+			tierConfigJSON("veteran") + `,` + tierConfigJSON("leader") + `],"deletedTierIds":["tier_7"]}`)
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	admin := activeActor(identity.PermissionAdminAccess)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policy, nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }))
+
+	status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/admin/trust-levels", "")
+	if status != fiber.StatusOK {
+		t.Fatalf("status = %d（期望 200），body=%s", status, body)
+	}
+	var payload struct {
+		Data struct {
+			ColorChoices []string `json:"colorChoices"`
+			IconChoices  []string `json:"iconChoices"`
+			NextTierSeq  int      `json:"nextTierSeq"`
+			Levels       []struct {
+				Level int    `json:"level"`
+				Color string `json:"color"`
+			} `json:"levels"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("响应不是预期 JSON：%v，body=%s", err, body)
+	}
+	// 字面量期望：白名单 9 项、顺序即 rank（TL0..TL8），别用 TierColors() 自证。
+	wantColors := []string{"slate", "teal", "emerald", "sky", "indigo", "violet", "fuchsia", "rose", "amber"}
+	if !slices.Equal(payload.Data.ColorChoices, wantColors) {
+		t.Fatalf("colorChoices = %v，期望 %v", payload.Data.ColorChoices, wantColors)
+	}
+	if len(payload.Data.ColorChoices) != 9 {
+		t.Fatalf("colorChoices 长度 = %d，期望 9", len(payload.Data.ColorChoices))
+	}
+	if payload.Data.NextTierSeq != 8 {
+		t.Fatalf("nextTierSeq = %d，期望 8（墓碑 tier_7 计入）", payload.Data.NextTierSeq)
+	}
+	for _, level := range payload.Data.Levels {
+		if level.Color == "" {
+			t.Fatalf("后台读面 TL%d 的 color 是空串", level.Level)
+		}
+	}
+}
+
+// TestUpdateConfigErrorDetailsColorsAndTombstones 覆盖新增四条码的 422 投影：
+// 颜色不在白名单、墓碑不合法/重复/与档位冲突。
+func TestUpdateConfigErrorDetailsColorsAndTombstones(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error { return nil }))
+
+	put := func(t *testing.T, config string) (int, []configErrorDetail) {
+		t.Helper()
+		status, body := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels",
+			`{"config":`+mustJSONString(config)+`}`)
+		var payload struct {
+			Data struct {
+				Details struct {
+					Errors []configErrorDetail `json:"errors"`
+				} `json:"details"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			t.Fatalf("响应不是 JSON：%v，body=%s", err, body)
+		}
+		return status, payload.Data.Details.Errors
+	}
+
+	badColor := `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","color":"neon","requirements":{},"limits":{},"earnable":[]}]}`
+	status, details := put(t, badColor)
+	if status != fiber.StatusUnprocessableEntity {
+		t.Fatalf("非法颜色 status = %d（期望 422）", status)
+	}
+	if !hasDetail(details, "member", "color", trustlevels.CodeColorNotWhitelisted) {
+		t.Fatalf("明细里没有 color_not_whitelisted：%+v", details)
+	}
+
+	cases := map[string]struct {
+		config string
+		code   string
+		tierID string
+	}{
+		"不合法墓碑": {`{"schemaVersion":2,"tiers":[` + tierConfigJSON("member") + `],"deletedTierIds":["tier_x"]}`,
+			trustlevels.CodeDeletedTierIDInvalid, "tier_x"},
+		"重复墓碑": {`{"schemaVersion":2,"tiers":[` + tierConfigJSON("member") + `],"deletedTierIds":["tier_6","tier_6"]}`,
+			trustlevels.CodeDeletedTierIDDuplicate, "tier_6"},
+		"与档位冲突": {`{"schemaVersion":2,"tiers":[` + tierConfigJSON("member") + `],"deletedTierIds":["member"]}`,
+			trustlevels.CodeDeletedTierIDPresent, "member"},
+	}
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			status, details := put(t, testCase.config)
+			if status != fiber.StatusUnprocessableEntity {
+				t.Fatalf("status = %d（期望 422）", status)
+			}
+			if !hasDetail(details, testCase.tierID, "deletedTierIds", testCase.code) {
+				t.Fatalf("明细里没有 %q：%+v", testCase.code, details)
+			}
+		})
+	}
+}
+
+// TestUpdatePayloadCarriesColorMetadataAndKeepsTombstones 覆盖 PUT 的写路径载荷契约：
+// 响应带回 colorChoices / nextTierSeq，写出的 config 保留运营提交的颜色与墓碑。
+//
+// restore-defaults 的接线回归护栏归 controller_restore_test.go（一个行为一个 owner）：
+// 那边专测「领域对、接线错」的形状；这里只管 PUT，不重复断言同一条接线。
+func TestUpdatePayloadCarriesColorMetadataAndKeepsTombstones(t *testing.T) {
+	previous, err := trustlevels.DecodeConfig(
+		`{"schemaVersion":2,"tiers":[` + tierConfigJSON("member") + `,` + tierConfigJSON("resident") + `,` +
+			tierConfigJSON("veteran") + `,` + tierConfigJSON("leader") + `],"deletedTierIds":["tier_6"]}`)
+	if err != nil {
+		t.Fatalf("DecodeConfig: %v", err)
+	}
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	written := ""
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return previous, nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(_ context.Context, _ identity.Actor, value string) error {
+			written = value
+			return nil
+		}))
+
+	submitted := `{"schemaVersion":2,"tiers":[` +
+		`{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","color":"rose","requirements":{},"limits":{},"earnable":[]}` +
+		`],"deletedTierIds":["tier_6"]}`
+	status, response := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels",
+		`{"config":`+mustJSONString(submitted)+`}`)
+	if status != fiber.StatusOK {
+		t.Fatalf("PUT status = %d（期望 200），body=%s", status, response)
+	}
+	var payload struct {
+		Data struct {
+			ColorChoices []string `json:"colorChoices"`
+			NextTierSeq  int      `json:"nextTierSeq"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(response), &payload); err != nil {
+		t.Fatalf("响应不是预期 JSON：%v，body=%s", err, response)
+	}
+	if len(payload.Data.ColorChoices) != 9 {
+		t.Fatalf("colorChoices 长度 = %d，期望 9", len(payload.Data.ColorChoices))
+	}
+	if payload.Data.NextTierSeq < 7 {
+		t.Fatalf("nextTierSeq = %d，期望计入墓碑 tier_6 后 ≥ 7", payload.Data.NextTierSeq)
+	}
+
+	if written == "" {
+		t.Fatal("PUT 没有写回配置")
+	}
+	var savedConfig map[string]any
+	if err := json.Unmarshal([]byte(written), &savedConfig); err != nil {
+		t.Fatalf("写回的不是合法 JSON：%v，%s", err, written)
+	}
+	deleted, ok := savedConfig["deletedTierIds"].([]any)
+	if !ok || len(deleted) != 1 || deleted[0] != "tier_6" {
+		t.Fatalf("PUT 写回的配置丢了墓碑 tier_6：%s", written)
+	}
+	tiers, ok := savedConfig["tiers"].([]any)
+	if !ok || len(tiers) == 0 {
+		t.Fatalf("PUT 写回的配置没有 tiers：%s", written)
+	}
+	if color, ok := tiers[0].(map[string]any)["color"]; !ok || color != "rose" {
+		t.Fatalf("PUT 写回的配置丢了提交的颜色：%s", written)
 	}
 }

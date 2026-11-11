@@ -166,6 +166,8 @@ export default defineNuxtConfig({
     '~/assets/css/sforum-taxonomy.css',
     '~/assets/css/sforum-tags.css',
     '~/assets/css/sforum-profile.css',
+    // 档位配色 token（D-C5）：只定义 --sf-tl-*，必须在资料页/主题 token 之后加载。
+    '~/assets/css/sforum-trust-colors.css',
     // 排序/分段控件基线必须在 home / taxonomy / tags 之后加载（同级声明后置覆盖）
     '~/assets/css/sforum-sort-control.css',
     '~/assets/css/highlight-theme.css',

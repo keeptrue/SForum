@@ -38,7 +38,7 @@ func TestLevelOfIsPure(t *testing.T) {
 	policy := trustlevels.DefaultPolicy()
 	fixedNow := time.Date(2026, 11, 11, 9, 0, 0, 0, time.UTC)
 	createdAt := fixedNow.Add(-days(policy.NewUserDays + 30))
-	activity := activityMeeting(policy, trustlevels.LevelLeader)
+	activity := activityMeeting(policy, policy.LastRank())
 
 	source := &countingTrustSource{activity: activity, policy: policy}
 	resolver := trustlevels.NewResolver(source, source).WithClock(func() time.Time { return fixedNow })
@@ -48,8 +48,8 @@ func TestLevelOfIsPure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Grants 返回错误：%v", err)
 	}
-	if level != int(trustlevels.LevelLeader) {
-		t.Fatalf("满活动的成年账号等级 = TL%d，期望 TL%d", level, trustlevels.LevelLeader)
+	if level != int(policy.LastRank()) {
+		t.Fatalf("满活动的成年账号等级 = TL%d，期望最高 rank TL%d", level, policy.LastRank())
 	}
 	if source.activityCalls != 1 || source.policyCalls != 1 {
 		t.Fatalf("对照组没打到计数器：activity=%d policy=%d", source.activityCalls, source.policyCalls)
@@ -70,8 +70,10 @@ func TestLevelOfIsPure(t *testing.T) {
 
 	// 3. 策略是入参：同一份统计 + 更严的阈值必须掉到地板档。
 	strict := trustlevels.DefaultPolicy()
-	for level := trustlevels.LevelMember; level < trustlevels.LevelCount; level++ {
-		strict.Levels[level] = trustlevels.Requirements{TopicCount: 1 << 30}
+	for rank := trustlevels.LevelMember; rank <= strict.LastRank(); rank++ {
+		if !strict.SetRequirements(rank, trustlevels.Requirements{TopicCount: 1 << 30}) {
+			t.Fatalf("SetRequirements(TL%d) 失败", rank)
+		}
 	}
 	if got := trustlevels.LevelOf(activity, age, strict); got >= first {
 		t.Fatalf("换严策略后 LevelOf = TL%d，仍 ≥ TL%d（策略没被当成输入）", got, first)

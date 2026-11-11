@@ -29,7 +29,10 @@ type TrustLevelSource interface {
 	Grants(ctx context.Context, userID int64, kind UserKind, createdAt time.Time) (level int, earned []string, err error)
 
 	// BaselineGrantsFor 返回该等级装载期必须从有效权限里**扣除**的基线键，
-	// TL1 及以上返回 nil（Z3-b″ 减法门）。
+	// rank ≥ 1 返回 nil（Z3-b″ 减法门）。
+	//
+	// 这里的 1 锚的是 **rank**（TL1 起），不是某个具名档位：运营加档、插档、停档
+	// 都不改变基线门——「一过新人就是成员」是产品口径，与档数无关。
 	//
 	// 键表与「谁是成员」的等级下界都留在 TrustLevels 一侧：identity 不能 import
 	// 本包（D18），放在这里才不会出现第二份白名单和第二份 `LevelMember` 数值。

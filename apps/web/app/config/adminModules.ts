@@ -237,6 +237,15 @@ export const adminPageDefinitions = [
     permissionMode: 'any'
   },
   {
+    // 读与写同权 trust.manage（D-B）：没有该权限时 /admin/web-options 载荷里没有 trust.levels 键，
+    // 回填出的推荐默认值就是假现值，所以页面直接落无权限态，而不是渲染一张假表。
+    id: '/forum/trust-levels',
+    labelKey: 'admin.nav.trustLevels',
+    icon: 'i-lucide-gauge',
+    componentName: 'AdminForumTrustLevels',
+    requiredPermissions: ['trust.manage']
+  },
+  {
     id: '/forum/content',
     labelKey: 'admin.nav.forumContent',
     icon: 'i-lucide-files',
@@ -454,6 +463,7 @@ export const adminSidebarNavigation = [
         { type: 'page', pageId: '/forum/categories' },
         { type: 'page', pageId: '/forum/tags' },
         { type: 'page', pageId: '/forum/settings' },
+        { type: 'page', pageId: '/forum/trust-levels' },
         { type: 'page', pageId: '/forum/content' }
       ]
     },

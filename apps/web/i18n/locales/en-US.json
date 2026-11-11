@@ -1093,9 +1093,10 @@
       "forum": "Forum",
       "forumCategories": "Categories",
       "forumTags": "Tags",
-    "badges": "Badges",
+      "badges": "Badges",
       "forumSettings": "Forum settings",
       "forumContent": "Content management",
+      "trustLevels": "Trust levels",
       "system": "System",
       "operations": "Operations",
       "userPermission": "Users & Permissions",
@@ -4281,7 +4282,6 @@
         "accountSecurity": "Account security",
         "registration": "Registration",
         "newcomers": "Newcomers",
-        "trustLevels": "Trust levels",
         "maintenance": "Maintenance",
         "verification": "Verification",
         "updates": "Updates",
@@ -4610,72 +4610,6 @@
       "siteTagline": "Tagline",
       "siteTaglinePlaceholder": "For example: A friendly technical community",
       "siteTaglineHint": "Shown near the navbar and login page. Leave blank if unused. Not the same as SEO description.",
-      "trustLevels": {
-        "title": "Trust level thresholds",
-        "description": "Thresholds are evaluated from cumulative activity and apply immediately after saving. A zero threshold means that metric does not participate for that level.",
-        "tl0Hint": "TL0 is governed by the Newcomers tab and is read-only here.",
-        "restoreDefaults": "Restore recommended defaults",
-        "restoreHint": "Restoring defaults resets only the five levels' thresholds. Per-level limits and capability unlock checks are left unchanged. Users' levels are re-evaluated against the new thresholds; earned badges and published content are unaffected.",
-        "earnable": {
-          "title": "Capability unlocks (added per level)",
-          "baseline": {
-            "title": "Checks only affect users whose group lacks that key",
-            "text": "If the default group already grants a key, checking it changes nothing users can actually do, and the grant source stays \"group\". To make a key unlock by level, remove it from the group under Permission Management first, then come back and check it.",
-            "titleGated": "Level-gated keys ({keys}) are decided by the system",
-            "textGated": "These ignore the checks here: off at TL0, on from TL1 and above, and they cannot be turned off in the admin. Existing checks are kept as-is and currently add nothing.",
-            "keyBadge": "Level-gated",
-            "gateTitle": "Level-gated: off at TL0, on from TL1, set by the system",
-            "gateAria": "{level}: {permission} is level-gated — off at TL0, on from TL1 and above, cannot be turned off",
-            "keysSeparator": ", "
-          },
-          "note": "A checked key is added at that level only. Every level above it inherits it, so higher levels do not need the same key checked again.",
-          "count": "Added items {checked}/{total}",
-          "empty": "No level adds any unlock yet. Capabilities still come from static group grants; this is the recommended default, not an error. Check any key to start unlocking by level.",
-          "emptyGated": "No level adds any unlock yet. This is the recommended default, not an error. Level-gated keys are unaffected: off at TL0, on from TL1 and above.",
-          "loading": "Loading the eligible permission keys…",
-          "readOnly": {
-            "title": "Your account can view this only",
-            "description": "Changing trust levels requires the trust-level management permission. Checking and saving are disabled here; ask an administrator who holds it to make the change."
-          },
-          "aria": {
-            "cell": "Adds for {level}: {permission}",
-            "cumulative": "Unlocks at this level and above"
-          },
-          "loadFailed": {
-            "title": "Could not load the eligible permission keys",
-            "description": "The matrix is locked so the configuration cannot be edited without the whitelist. Saving now leaves capability unlocks untouched; thresholds still save normally.",
-            "reason": "Reason: {reason}",
-            "retry": "Retry",
-            "locked": "Matrix unavailable"
-          },
-          "orphan": {
-            "title": "{count} stored keys are outside the whitelist",
-            "description": "The backend rejects these keys; saving removes them from their levels: {keys}"
-          }
-        },
-        "disabled": {
-          "title": "Trust levels are turned off",
-          "description": "Saving still succeeds while the feature switch is off, but level evaluation and the public endpoints do not apply (the public API returns 404). Turn the trust levels switch on under site settings to enable it."
-        },
-
-        "zeroUnlimited": "0 means this metric does not participate for this level.",
-        "resetChanges": "Trust level threshold changes were reset",
-        "level": {
-          "newcomer": "Newcomer",
-          "member": "Member",
-          "resident": "Resident",
-          "veteran": "Veteran",
-          "leader": "Leader"
-        },
-        "metric": {
-          "topicCount": "Topics",
-          "commentCount": "Replies",
-          "likeReceived": "Likes received",
-          "likeGiven": "Likes given",
-          "bookmarkCount": "Bookmarks",
-          "daysVisited": "Days visited"
-        }
-      },
       "adminEmail": "Administration email",
       "adminEmailPlaceholder": "For example: ops{'@'}example.com",
       "adminEmailHint": "Operator contact email for system notices. Not the SMTP From address, and not exposed on public APIs.",
@@ -5274,6 +5208,307 @@
         "trustedDomains": "Trusted domains (skip interstitial)",
         "trustedDomainsHelp": "One domain per line, e.g. example.com or example.com:8443 (scheme and path are stripped automatically). Matching domains skip the interstitial; links still open in a new tab.",
         "trustedDomainsPlaceholder": "example.com\ngithub.com"
+      },
+      "trustLevels": {
+        "page": {
+          "title": "Trust levels",
+          "description": "Trust levels are evaluated automatically from cumulative activity. Configure each level's thresholds and the capabilities each level adds; changes apply as soon as you save.",
+          "loading": "Loading trust level configuration…",
+          "loadFailedDescription": "Page data did not load, so the form below is read-only. Retry; if it keeps failing, check the API service and your account permissions.",
+          "loadFailedReason": "Reason: {reason}",
+          "retry": "Retry",
+          "forbidden": {
+            "title": "This account cannot view trust levels",
+            "description": "Trust levels require the trust-level management permission to view and change. Ask a site administrator to grant it to your user group."
+          },
+          "unsaved": "Unsaved trust level changes"
+        },
+        "metaTitle": "Trust levels",
+        "tabs": {
+          "label": "Trust level sections",
+          "thresholds": "Thresholds",
+          "earnable": "Capability unlocks",
+          "overview": "Overview",
+          "tiers": "Tiers"
+        },
+        "sections": {
+          "overview": {
+            "description": "How the tiers are decided, which thresholds are in use, and what each level adds."
+          },
+          "thresholds": {
+            "description": "Thresholds are evaluated from cumulative activity and apply immediately after saving."
+          },
+          "earnable": {
+            "description": "Pick the permission keys each level adds. While nothing is checked, abilities stay granted by user groups."
+          },
+          "tiers": {
+            "description": "Define how many tiers exist, in what order, with which names and icons. Array order is evaluation order; retiring a tier keeps its config but skips it."
+          }
+        },
+        "recommended": {
+          "title": "Recommended configuration",
+          "description": "The recommended defaults are thresholds that rise with cumulative activity: earlier tiers are looser, later tiers stricter. Earnable unlocks default to empty (abilities stay with user groups), and per-tier limits inherit the site defaults. The exact values and the one-click restore live under Thresholds."
+        },
+        "loadFailed": "Could not load the trust level configuration",
+        "title": "Trust level thresholds",
+        "tl0Hint": "TL0 is governed by the Newcomers tab and is read-only here.",
+        "restoreDefaults": "Restore recommended defaults",
+        "restoreHint": "Restoring defaults asks the server to replace the whole tier configuration (tiers, thresholds, limits, earnable unlocks, names and icons) with the recommended default. Users are re-evaluated against it; earned badges and published content are unaffected.",
+        "earnable": {
+          "title": "Capability unlocks (added per level)",
+          "baseline": {
+            "title": "Checks only affect users whose group lacks that key",
+            "text": "If the default group already grants a key, checking it changes nothing users can actually do, and the grant source stays \"group\". To make a key unlock by level, remove it from the group under Permission Management first, then come back and check it.",
+            "titleGated": "Level-gated keys ({keys}) are decided by the system",
+            "textGated": "These ignore the checks here: off at TL0, on from TL1 and above, and they cannot be turned off in the admin. Existing checks are kept as-is and currently add nothing.",
+            "keyBadge": "Level-gated",
+            "gateTitle": "Level-gated: off at TL0, on from TL1, set by the system",
+            "gateAria": "{level}: {permission} is level-gated — off at TL0, on from TL1 and above, cannot be turned off",
+            "keysSeparator": ", "
+          },
+          "note": "A checked key is added at that level only. Every level above it inherits it, so higher levels do not need the same key checked again.",
+          "count": "Added items {checked}/{total}",
+          "empty": "No level adds any unlock yet. Capabilities still come from static group grants; this is the recommended default, not an error. Check any key to start unlocking by level.",
+          "emptyGated": "No level adds any unlock yet. This is the recommended default, not an error. Level-gated keys are unaffected: off at TL0, on from TL1 and above.",
+          "loading": "Loading the eligible permission keys…",
+          "readOnly": {
+            "title": "Your account can view this only",
+            "description": "Changing trust levels requires the trust-level management permission. Checking and saving are disabled here; ask an administrator who holds it to make the change."
+          },
+          "aria": {
+            "cell": "Adds for {level}: {permission}",
+            "cumulative": "Unlocks at this level and above"
+          },
+          "loadFailed": {
+            "title": "Could not load the eligible permission keys",
+            "description": "The matrix is locked so the configuration cannot be edited without the whitelist. Saving now leaves capability unlocks untouched; thresholds still save normally.",
+            "reason": "Reason: {reason}",
+            "retry": "Retry",
+            "locked": "Matrix unavailable"
+          },
+          "orphan": {
+            "title": "{count} stored keys are outside the whitelist",
+            "description": "The backend rejects these keys; saving removes them from their levels: {keys}"
+          },
+          "featureOff": "The permission key list cannot be read while the feature is off, so earnable abilities are not editable here; it loads automatically once the flag is on."
+        },
+        "disabled": {
+          "title": "Trust levels are turned off",
+          "description": "Saving still succeeds while the feature switch is off, but level evaluation and the public endpoints do not apply (the public API returns 404). Turn trust levels on under Feature flags to enable it."
+        },
+        "zeroUnlimited": "0 means this metric does not participate for this level.",
+        "resetChanges": "Trust level changes reset.",
+        "level": {
+          "newcomer": "Newcomer",
+          "member": "Member",
+          "resident": "Resident",
+          "veteran": "Veteran",
+          "leader": "Leader"
+        },
+        "metric": {
+          "topicCount": "Topics",
+          "commentCount": "Replies",
+          "likeReceived": "Likes received",
+          "likeGiven": "Likes given",
+          "bookmarkCount": "Bookmarks",
+          "daysVisited": "Days visited"
+        },
+        "saveScope": "Saving submits every change from both Thresholds and Earnable abilities.",
+        "reset": "Reset trust level changes",
+        "overview": {
+          "title": "Overview",
+          "scope": {
+            "tl0": "Level 0 (Newcomer) is decided by the Newcomer limits page under site settings; this page only displays it.",
+            "levels": "Each active tier's thresholds are decided by Thresholds on this page and apply as soon as you save; the tier count and order are defined under Tiers.",
+            "stack": "Trust levels only add abilities; they never remove permissions already granted by user groups."
+          },
+          "feature": {
+            "enabled": "Enabled",
+            "enabledHint": "The public trust level endpoint is live and levels follow the current thresholds.",
+            "disabled": "Disabled",
+            "disabledHint": "Level checks and the public endpoint stay inactive (404) while the flag is off; saving on this page still succeeds.",
+            "openFeatures": "Open feature flags"
+          },
+          "state": {
+            "recommended": "Using recommended thresholds",
+            "recommendedHint": "Every active tier's thresholds match the recommended defaults item by item.",
+            "custom": "Using custom thresholds",
+            "customHint": "At least one threshold differs from the recommended defaults. Review them in Thresholds, or restore the recommended defaults."
+          },
+          "ladder": {
+            "title": "The tier ladder",
+            "metricItem": "{metric} ≥ {value}",
+            "metricsSeparator": ", ",
+            "noThresholds": "No thresholds on this level: all six values are 0.",
+            "earnable": "New unlocks: {count}"
+          },
+          "guide": {
+            "title": "Start here",
+            "step1": "Confirm the tier count and order under Tiers, then check each tier's thresholds under Thresholds; keep the recommended defaults if unsure.",
+            "step2": "Then pick each level's new unlocks under Earnable abilities. Leaving them unchecked keeps abilities granted by user groups.",
+            "step3": "Finally save once at the bottom of the page; both sections are submitted together."
+          },
+          "jump": {
+            "thresholds": "Go to Thresholds",
+            "earnable": "Go to Earnable abilities",
+            "tiers": "Manage tiers"
+          },
+          "limitsNote": "Per-level posting and comment cooldowns and daily caps are not edited on this page yet; saving keeps the stored limit values as they are.",
+          "tierSummary": "{active} tiers active, {retired} retired (maximum {max})."
+        },
+        "tiers": {
+          "title": "Tier management",
+          "activeCount": "{count} of {max} tiers active",
+          "add": "Add a tier",
+          "limitHint": "Up to {max} tiers; the limit is reached.",
+          "insertBefore": "Insert a tier before this one",
+          "moveUp": "Move up",
+          "moveDown": "Move down",
+          "retire": "Retire",
+          "restore": "Restore",
+          "retiredBadge": "Retired",
+          "nameZh": "Chinese name",
+          "nameEn": "English name",
+          "namePlaceholder": "Leave empty to fall back to the built-in name",
+          "namePool": "Name suggestions",
+          "icon": "Icon",
+          "idHint": "The tier id is a stable identity: inserting, reordering or renaming never changes it.",
+          "defaultIconHint": "Without an explicit icon, the default sequence is used by position: {icons}",
+          "lastTierLocked": "At least one tier must stay active; the last one cannot be retired.",
+          "retireConfirm": {
+            "title": "Retire “{name}”?",
+            "description": "Retiring is soft: the configuration is kept, but the tier no longer takes part in evaluation or display. Capabilities it alone added may be withdrawn from users, which can lower their tier; nothing changes until you save.",
+            "impact": "Capabilities that may be withdrawn: {keys}",
+            "noImpact": "Other active tiers already grant everything this tier adds; no capability is expected to be withdrawn.",
+            "confirm": "Retire tier",
+            "cancel": "Cancel"
+          },
+          "singleTier": {
+            "title": "A single tier: the account-age gate no longer differentiates",
+            "description": "With only one active tier, the new-member account-age gate (trust.new_user_days) makes no difference at all: every user is either TL0 or already that tier. Add at least one more tier to make the progression meaningful again."
+          },
+          "delete": "Delete",
+          "deleteLocked": "Save the retirement first: deletion cannot be undone, so the retirement has to be stored before you delete.",
+          "retiredImpact": "{count} unlocks withdrawn",
+          "tombstones": "Deleted tier ids: {ids}. These ids are never reused.",
+          "appearance": "Appearance",
+          "color": "Color for “{name}”"
+        },
+        "icons": {
+          "label": "Icon for “{name}”"
+        },
+        "iconPicker": {
+          "defaultBadge": "Default",
+          "useDefault": "Use the default icon {icon}",
+          "noChoices": "The server did not send an icon allow-list; showing the default icon {icon}."
+        },
+        "restoreFallback": {
+          "title": "Using the local fallback defaults",
+          "description": "The admin read surface did not return recommendedConfig, so “restore defaults” used the built-in fallback table. It may differ from the server's recommendation."
+        },
+        "structureConfirm": {
+          "title": "Tier structure changed: everyone is re-evaluated on save",
+          "reevaluate": "Adding, retiring, restoring or reordering tiers changes the outcome. Once saved, every user's tier is recomputed against the new ladder.",
+          "noMigration": "Tiers are computed per request, so there is no migration step and nothing to wait for.",
+          "confirm": "Save and re-evaluate",
+          "cancel": "Keep editing"
+        },
+        "errors": {
+          "summary": "Save rejected: {count} field(s) need fixing — see the highlighted tiers.",
+          "pageTitle": "Nothing was saved; fix the problems below",
+          "tierTitle": "{count} problem(s) in this tier",
+          "generic": "This field is not valid.",
+          "code": {
+            "tier_count_out_of_range": "The number of active tiers must be {min}–{max}; it is currently {active}.",
+            "id_invalid": "Tier id is invalid ({id}): use letters, digits, underscores or dashes only.",
+            "id_reserved_for_tl0": "The id “{id}” is reserved for TL0 and cannot be used by an active tier.",
+            "id_duplicate": "Duplicate tier id “{id}”: every tier needs a unique identity.",
+            "icon_not_whitelisted": "The icon “{icon}” is not in the server allow-list; pick one from the list.",
+            "name_missing": "The {locale} name cannot be empty: at least one language is required.",
+            "name_too_long": "The {locale} name exceeds the {maxLength}-character limit.",
+            "requirement_negative": "Thresholds cannot be negative: {metric} is {value}.",
+            "requirement_unknown_metric": "Unknown threshold metric “{metric}”: only the six system metrics are accepted.",
+            "limits_missing": "Per-tier limits are missing: the key must be present (null means inherit the site defaults).",
+            "limit_negative": "Per-tier limits cannot be negative: {key} is {value}.",
+            "earnable_missing": "The earnable array is missing: every tier must send it explicitly, even when empty.",
+            "earnable_key_empty": "The earnable list contains an empty string: remove it or fill in a permission key.",
+            "earnable_not_whitelisted": "The permission “{permission}” is not in the grantable allow-list and cannot be unlocked by tier.",
+            "color_not_whitelisted": "That color is not in the server allow-list; pick one of the offered colors."
+          },
+          "field": {
+            "unknown": "This field",
+            "schemaVersion": "Config version",
+            "tiers": "Tier list",
+            "levels": "Tier list",
+            "id": "Tier id",
+            "levelSlug": "Tier id",
+            "name_zh": "Chinese name",
+            "name_en": "English name",
+            "icon": "Icon",
+            "requirements": "Thresholds",
+            "limits": "Per-tier limits",
+            "limits_topicCooldownSeconds": "Topic cooldown",
+            "limits_commentCooldownSeconds": "Comment cooldown",
+            "limits_dailyTopicLimit": "Daily topic limit",
+            "limits_dailyCommentLimit": "Daily comment limit",
+            "earnable": "Earnable unlocks",
+            "color": "Color",
+            "deletedTierIds": "Deleted tier ids"
+          },
+          "config": {
+            "main": "The trust level configuration could not be saved: the content format was rejected.",
+            "detail": "Technical detail: {reason}"
+          },
+          "locale": {
+            "zh": "Chinese",
+            "en": "English"
+          }
+        },
+        "restoreConfirm": {
+          "title": "Restore the recommended defaults?",
+          "description": "This replaces the site-wide trust level configuration with the server's recommended default and immediately affects every user's tier. Everything below is overwritten:",
+          "items": {
+            "tiers": "Tier count and order: custom tiers are removed, and retired tiers disappear too",
+            "thresholds": "Per-tier thresholds: all reset to the recommended values",
+            "limits": "Per-tier limits: all reset to “inherit the site defaults”",
+            "earnable": "Per-tier earnable unlocks: cleared entirely (capabilities go back to user groups)",
+            "appearance": "Tier names and icons: back to the built-in defaults"
+          },
+          "confirm": "Restore defaults",
+          "cancel": "Cancel"
+        },
+        "colors": {
+          "auto": "Automatic by position",
+          "autoBadge": "Auto",
+          "autoWith": "Automatic by position (currently {color})",
+          "noChoices": "The server did not send a color allow-list; the position default {color} is in use.",
+          "slate": "Slate",
+          "teal": "Teal",
+          "emerald": "Emerald",
+          "sky": "Sky",
+          "indigo": "Indigo",
+          "violet": "Violet",
+          "fuchsia": "Fuchsia",
+          "rose": "Rose",
+          "amber": "Amber"
+        },
+        "tierDelete": {
+          "title": "Permanently delete “{name}”?",
+          "description": "Deleting removes this tier from the configuration entirely; the server keeps none of its settings.",
+          "irreversible": "This cannot be undone: the only way to get the same tier back is to create a new one.",
+          "rankSafe": "A retired tier holds no rank, so deleting it never changes anyone’s current level.",
+          "idNote": "Its id is recorded in the deleted list and is never reused.",
+          "confirm": "Delete permanently",
+          "cancel": "Cancel",
+          "items": {
+            "thresholds": "Evaluation thresholds (all six metrics)",
+            "limits": "Per-tier limits (cooldowns and daily caps)",
+            "earnable": "Capability unlocks this tier added",
+            "name": "Chinese and English names",
+            "icon": "Icon",
+            "color": "Tier color"
+          }
+        }
       }
     },
     "form": {
@@ -5325,7 +5560,7 @@
       "ready": "Ready",
       "needsSetup": "Setup required",
       "unavailable": "Unavailable",
-      "providerPlaceholder": "Select a provider",
+      "providerPlaceholder": "Select a mail provider",
       "providerConfigTitle": "Mail provider",
       "providerConfigDescription": "Choose a provider, then open its plugin settings for connection details.",
       "welcomeEnabled": "Send a registration welcome email",
@@ -5368,7 +5603,6 @@
       "noProvidersTitle": "No mail providers available",
       "noProvidersDescription": "No enabled mail delivery plugins were found. Enable a provider in Plugins (for example the built-in SMTP plugin), then return here to select it. In-app notifications are unaffected.",
       "openPlugins": "Open plugins",
-      "providerPlaceholder": "Select a mail provider",
       "noProvider": "No email delivery",
       "unhealthy": "Unavailable",
       "reset": "Restore recommended default",

@@ -90,14 +90,6 @@ func (r *Resolver) Grants(ctx context.Context, userID int64, kind identity.UserK
 	return int(level), policy.Earnable.Grants(level), nil
 }
 
-// Limits 返回该等级的限额配置；nil 表示沿用站点默认。
-func (p Policy) LimitsFor(level Level) LevelLimits {
-	if !level.Valid() {
-		return LevelLimits{}
-	}
-	return p.Limits[level]
-}
-
 // Activity 返回该用户的行为统计。
 //
 // 只供「本人还差多少」计算使用：`like_given_count` / `bookmark_count` 是刻意不公开
@@ -112,12 +104,16 @@ func (r *Resolver) Activity(ctx context.Context, userID int64) (Activity, error)
 // Progress 返回「离下一档还差什么」：取第一项未达标的指标作为瓶颈。
 //
 // 返回 false 表示已经最高档或指标全达标。只允许对**本人**调用。
+//
+// 最高档的判据是 policy.LastRank()（active 档数）而不是内置的 LevelLeader：
+// 运营删档/加档之后，「已满级」必须跟着配置走，钉死 4 会让 5 档站点永远显示
+// 「还差一点到 TL5」。
 func Progress(activity Activity, level Level, policy Policy) (metric string, current, threshold int64, ok bool) {
-	if !level.Valid() || level >= LevelLeader {
+	if !level.Valid() || level >= policy.LastRank() {
 		return "", 0, 0, false
 	}
 	next := level + 1
-	requirement := policy.Levels[next]
+	requirement := policy.RequirementsOf(next)
 	for _, candidate := range Metrics {
 		want, known := requirement.Value(candidate)
 		if !known || want <= 0 {

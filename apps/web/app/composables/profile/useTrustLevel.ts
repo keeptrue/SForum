@@ -1,30 +1,72 @@
 /**
- * 信任等级公开面（M5）。
+ * 信任等级公开面（M5 + 动态档位 v2）。
  *
- * 数据来源（backend 已落地，契约见 `apps/api/app/Http/Controllers/TrustLevels/dto.go`）：
+ * 数据来源：
  * - **他人视角**：`PublicProfile.trustLevel = { level, levelSlug }`（`Profile/types.go` 的
- *   `PublicTrustLevel`，`omitempty`）。**没有 progress / bottleneck** —— 刻意裁决：瓶颈可能落在
- *   `like_given_count` / `bookmark_count`，而这两个计数不公开（D1）。资料页公开的只有获赞与访问天数。
+ *   `PublicTrustLevel`，`omitempty`）。**没有 progress / bottleneck** —— 刻意裁决（D1）。
  * - **本人视角**：`GET /api/v1/trust-levels` 的 `viewer` 字段（等级 + `nextLevel` + `bottleneck`）。
- *   匿名时该字段不存在；`bottleneck.metric` 是 Go metric 名（snake_case）。
+ * - **档位目录**：同一读面的 `tiers`（v2 存储形状）。档位数、名字、图标由运营定义，
+ *   所以本文件里的五档常量**只剩兜底用途**（读面不可用时的 TL{rank} + 默认图标）。
  *
  * 字段名纪律（D21）：等级相关 JSON 字段统一 `levelSlug`，禁止裸 `slug`。
  */
 
+import { defaultTierColorName, normalizeTierColor } from '~/utils/profile/trustLevelColors'
+
+
+/** 内置五档 slug：**只**作为 i18n 回退键与 v1 存储升级的锚点，不再决定档位数。 */
 export const TRUST_LEVEL_SLUGS = ['newcomer', 'member', 'resident', 'veteran', 'leader'] as const
 export type TrustLevelSlug = typeof TRUST_LEVEL_SLUGS[number]
 
-/** 最高档下标；同时是「没有下一档」的判据。 */
+/** 兜底最高档下标（内置五档 = 4）。真实最高档由目录长度决定，见 `trustLevelLadder`。 */
 export const TRUST_LEVEL_MAX = TRUST_LEVEL_SLUGS.length - 1
 
-/** 档位图标：芽 → 叶 → 屋 → 山 → 冠，一条生长/攀升序列（规范 §2.1 白名单）。 */
-const TRUST_LEVEL_ICONS = [
-  'i-lucide-sprout',
-  'i-lucide-leaf',
-  'i-lucide-house',
-  'i-lucide-mountain-snow',
-  'i-lucide-crown'
+/**
+ * 默认图标序列（按 rank 取，超出循环）。存储里的 `icon` 是**短名**（`"leaf"`，见 v2 契约），
+ * 渲染时补 `i-lucide-` 前缀；未选图标的档位走这条序列（D-N4）。
+ *
+ * **必须与后端 `apps/api/app/Models/TrustLevels/tier_icons.go` 的 `tierIcons` 逐字一致**
+ * （顺序也是语义：前 5 项 = TL0..TL4 的默认图标）。改那边就要改这里 ——
+ * `tests/admin/forum/trustLevelNameFallback.test.ts` 会直接读那个 Go 文件比对，漂移即红。
+ * 这条兜底只在公开目录不可用时生效，所以偏差平时看不见，正是第二份真相最贵的地方。
+ */
+export const DEFAULT_TIER_ICON_NAMES = [
+  'sprout',
+  'leaf',
+  'home',
+  'mountain',
+  'crown',
+  'star',
+  'sun',
+  'moon',
+  'flame',
+  'shield',
+  'gem',
+  'compass',
+  'zap',
+  'anchor',
+  'medal',
+  'trophy'
 ] as const
+
+/** TL0 的虚拟档：不在 `tiers` 数组内，但展示上永远占据 rank 0。 */
+export const TRUST_LEVEL_TL0_ID = 'newcomer'
+
+/** v2 存储的档位形状（与后端 `DisallowUnknownFields` 逐字对齐）。 */
+export type TrustLevelTierName = { zh: string, en: string }
+
+export type TrustLevelTier = {
+  id: string
+  name: TrustLevelTierName
+  /** 短名（`"leaf"`）或 null；未选时按 rank 取默认序列。 */
+  icon: string | null
+  /** 白名单 token（`tier_colors.go`，数量 = 合法 rank 数）；`null`/缺省 = 跟随位次自动（见 `trustLevelColors.ts`）。 */
+  color?: string | null
+  requirements?: Record<string, number>
+  limits?: Record<string, number | null> | null
+  earnable?: string[]
+  retired?: boolean
+}
 
 /**
  * 与 i18n `profile.trustLevel.metric.*` 一一对应；顺序 = Go `TrustLevels.Metrics`。
@@ -63,8 +105,13 @@ export type TrustLevelMetric = {
 
 export type TrustLevelView = {
   level: number
-  /** 后端下发的档位 slug；字段名按 D21 固定为 `levelSlug`。 */
-  levelSlug: TrustLevelSlug
+  /**
+   * 后端下发的档位身份；字段名按 D21 固定为 `levelSlug`。
+   *
+   * **原样透传，不做枚举校验、不做回退映射**：运营自定义的档位 id（`tier_9`）必须原封不动地
+   * 出现在公开面上。本地内置五档数组只在内置回退分支里影响名字与图标，绝不覆盖服务端身份。
+   */
+  levelSlug: string
   /**
    * 下一档的瓶颈指标。
    * - 他人视角：恒为 `[]`（后端不下发瓶颈，见文件头）；
@@ -99,8 +146,161 @@ type ViewerTrustLevel = PublicTrustLevel & {
 
 type TrustLevelsResponse = {
   levels?: unknown
+  tiers?: unknown
+  ladder?: unknown
   newUserDays?: number
   viewer?: ViewerTrustLevel | null
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 兜底档位表（D-N9）
+ *
+ * 推荐默认值的**唯一来源**是后台读面的 `recommendedConfig`；本表只在读面不可用时兜底。
+ * 两边的等值关系由 `tests/admin/forum/trustLevelRecommended.test.ts` 锚定：
+ * 字段漂移会在那条测试里立刻红，而不是等到运营按下「恢复默认」才发现阈值对不上。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Go `DefaultPolicy()` 的 TL1–TL4 判定阈值（与 v1 的 `RECOMMENDED` 同值）。 */
+const FALLBACK_REQUIREMENTS: Array<Record<string, number>> = [
+  { days_visited: 3, topic_count: 0, comment_count: 5, like_received_count: 0, like_given_count: 0, bookmark_count: 0 },
+  { days_visited: 15, topic_count: 2, comment_count: 20, like_received_count: 5, like_given_count: 3, bookmark_count: 0 },
+  { days_visited: 45, topic_count: 8, comment_count: 80, like_received_count: 30, like_given_count: 20, bookmark_count: 5 },
+  { days_visited: 100, topic_count: 25, comment_count: 250, like_received_count: 100, like_given_count: 80, bookmark_count: 20 }
+]
+
+/** 兜底名称：与 i18n `profile.trustLevel.name.*` 同文，供读面不可用时离线展示。 */
+const FALLBACK_NAMES: Array<TrustLevelTierName> = [
+  { zh: '正式用户', en: 'Member' },
+  { zh: '常驻用户', en: 'Resident' },
+  { zh: '资深用户', en: 'Veteran' },
+  { zh: '社区领袖', en: 'Leader' }
+]
+
+/** 兜底档位的图标短名：内置生长序列（芽 → 叶 → 屋 → 山 → 冠）的后四档，与后端前五项一致。 */
+const FALLBACK_ICON_NAMES = ['leaf', 'home', 'mountain', 'crown'] as const
+
+/** 读面不可用时的档位兜底（TL1–TL4；TL0 不在数组内，由 `trustLevelLadder` 补）。 */
+export const FALLBACK_TIERS: TrustLevelTier[] = TRUST_LEVEL_SLUGS.slice(1).map((id, index) => ({
+  id,
+  name: { ...FALLBACK_NAMES[index]! },
+  icon: FALLBACK_ICON_NAMES[index]!,
+  // 兜底也要有颜色：否则目录不可用时阶梯会掉成单色，看起来像「这项功能没做」。
+  color: defaultTierColorName(index + 1),
+  requirements: { ...FALLBACK_REQUIREMENTS[index]! },
+  limits: null,
+  earnable: [],
+  retired: false
+}))
+
+/** TL0 的虚拟档位（rank 0）：名字/图标走内置回退链。 */
+export const TL0_TIER: TrustLevelTier = {
+  id: TRUST_LEVEL_TL0_ID,
+  name: { zh: '', en: '' },
+  icon: DEFAULT_TIER_ICON_NAMES[0],
+  // TL0 固定 slate：它是「未入门」的位置，不该跟某一档抢注意力。
+  color: defaultTierColorName(0),
+  retired: false
+}
+
+/** 默认图标短名（按 rank 循环取）：rank 0 = sprout。 */
+export function defaultTierIconName(rank: number): string {
+  const index = Math.max(0, Math.trunc(Number(rank) || 0))
+  return DEFAULT_TIER_ICON_NAMES[index % DEFAULT_TIER_ICON_NAMES.length]!
+}
+
+/** 短名 / 完整类名 / null → `i-lucide-*` 类名（空串 = 不渲染图标）。 */
+export function tierIconClass(icon: string | null | undefined): string {
+  const raw = typeof icon === 'string' ? icon.trim() : ''
+  if (!raw) return ''
+  // 后端允许直接下发完整类名（历史数据/白名单口径不一）时不要拼成 `i-lucide-i-lucide-x`。
+  return raw.startsWith('i-') ? raw : `i-lucide-${raw}`
+}
+
+/** 档位图标：存储值优先，未选按 rank 取默认序列（D-N4）。 */
+export function trustLevelIconOf(tier: TrustLevelTier | null | undefined, rank: number): string {
+  return tierIconClass(tier?.icon || defaultTierIconName(rank))
+}
+
+/** 内置五档 i18n 回退键：只有 id 命中内置 slug 才成立（D-N3 第三层）。 */
+export function builtinTierI18nKey(id: string): string | null {
+  return (TRUST_LEVEL_SLUGS as readonly string[]).includes(id) ? `profile.trustLevel.name.${id}` : null
+}
+
+/** 存储名（不含 i18n 回退）：命中当前语言优先，另一语言兜次。 */
+export function trustLevelTierName(tier: TrustLevelTier | null | undefined, locale: string): string {
+  if (!tier) return ''
+  const zh = (tier.name?.zh ?? '').trim()
+  const en = (tier.name?.en ?? '').trim()
+  const preferZh = locale.toLowerCase().startsWith('zh')
+  return preferZh ? (zh || en) : (en || zh)
+}
+
+type Translate = (key: string) => string
+
+/**
+ * D-N3 四层回退链：`name[locale]` → `name[另一语言]` → 内置五档 i18n 键（id 命中）→ `TL{rank}`。
+ *
+ * `translate` 缺失时只走第 1、2、4 层：纯函数测试与 SSR 前渲染都可能在 i18n 之外调用，
+ * 但第四层是**确定**的兜底，所以永远有值可渲染。
+ */
+export function trustLevelName(
+  tier: TrustLevelTier | null | undefined,
+  locale: string,
+  rank: number,
+  translate?: Translate
+): string {
+  const stored = trustLevelTierName(tier, locale)
+  if (stored) return stored
+  const key = builtinTierI18nKey(tier?.id ?? '')
+  if (key && translate) {
+    const translated = translate(key)
+    // vue-i18n 未命中时原样返回键；那比 TL{rank} 更像内容，所以要求两者不同。
+    if (translated && translated !== key) return translated
+  }
+  return `TL${Math.max(0, Math.trunc(Number(rank) || 0))}`
+}
+
+/** 目录里的 active 档位（停用 = 软停用：保留配置，判定与 UI 跳过）。 */
+export function activeTiers(tiers: readonly TrustLevelTier[] | null | undefined): TrustLevelTier[] {
+  return (tiers ?? []).filter(tier => !tier.retired)
+}
+
+/**
+ * 展示阶梯：rank 0 = 虚拟 TL0，其后是 active 档位（数组顺序 = 展示顺序）。
+ * 索引即 rank，所以卡片/矩阵都能用 `ladder[level]` 直接取档，不需要另一套映射。
+ */
+export function trustLevelLadder(tiers: readonly TrustLevelTier[] | null | undefined): TrustLevelTier[] {
+  return [TL0_TIER, ...activeTiers(tiers)]
+}
+
+/** 阶梯最高 rank（TL0 单独时返回 0）。 */
+export function trustLevelLadderMax(ladder: readonly TrustLevelTier[]): number {
+  return Math.max(0, ladder.length - 1)
+}
+
+/**
+ * 内置五档的完整阶梯（TL0 + 4 档）：**只**在公开目录不可用时供展示兜底。
+ *
+ * 卡片/矩阵收到的是最终阶梯（含 TL0），不再自己拼 —— 阶梯怎么组成（哪几档 active、
+ * TL0 是合成的）是数据层知识，展示层只负责「收到什么就渲染什么」。
+ */
+export const FALLBACK_LADDER: TrustLevelTier[] = trustLevelLadder(FALLBACK_TIERS)
+
+/** 越界钳制：目录比存档短时钳到最高档，不返回 undefined。 */
+export function ladderTierAt(ladder: readonly TrustLevelTier[], level: number): TrustLevelTier {
+  const index = Math.min(trustLevelLadderMax(ladder), Math.max(0, Math.trunc(Number(level) || 0)))
+  return ladder[index] ?? TL0_TIER
+}
+
+/** 阶梯位置 → 展示名（rank 参与第四层兜底）。 */
+export function ladderTierName(
+  ladder: readonly TrustLevelTier[],
+  level: number,
+  locale: string,
+  translate?: Translate
+): string {
+  const index = Math.min(trustLevelLadderMax(ladder), Math.max(0, Math.trunc(Number(level) || 0)))
+  return trustLevelName(ladder[index], locale, index, translate)
 }
 
 export function trustLevelSlug(level: number): TrustLevelSlug {
@@ -108,9 +308,13 @@ export function trustLevelSlug(level: number): TrustLevelSlug {
   return TRUST_LEVEL_SLUGS[index] as TrustLevelSlug
 }
 
+/**
+ * 内置五档图标（兜底）。动态档位走 `trustLevelIconOf`；
+ * 保留本函数是因为若干既有调用点（阈值/总览行）在目录加载完成前也要有图标可画。
+ */
 export function trustLevelIcon(level: number) {
   const index = Math.min(TRUST_LEVEL_MAX, Math.max(0, Math.trunc(Number(level) || 0)))
-  return TRUST_LEVEL_ICONS[index] as string
+  return tierIconClass(DEFAULT_TIER_ICON_NAMES[index])
 }
 
 /**
@@ -157,13 +361,82 @@ export function trustLevelViewerMetrics(viewer: ViewerTrustLevel | null | undefi
   return [{ key, current, threshold }]
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * 档位目录（公开读面）
+ *
+ * 解析刻意宽容：目录只影响**名字与图标**这两层展示，非法条目丢弃比整块失败更划算
+ * （卡片不能因为一个坏档位就不渲染等级）。四个字段都缺失 → `[]` = 走内置兜底。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+function readTierName(raw: unknown): TrustLevelTierName {
+  const record = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    zh: typeof record.zh === 'string' ? record.zh : '',
+    en: typeof record.en === 'string' ? record.en : ''
+  }
+}
+
+/** 公开读面可能把目录放在 `tiers` / `ladder` / `catalog.tiers`：三处都认，别因位置漂移静默回落。 */
+export function parseTrustLevelCatalog(body: unknown): TrustLevelTier[] | null {
+  if (!body || typeof body !== 'object') return null
+  const record = body as Record<string, unknown>
+  const catalog = (record.catalog && typeof record.catalog === 'object' ? record.catalog : {}) as Record<string, unknown>
+  // wire 上档位数组仍叫 `levels[]`（改名只发生在后端 `payload.go`），所以三处都认。
+  const raw = record.tiers ?? record.levels ?? record.ladder ?? catalog.tiers ?? catalog.levels
+  if (!Array.isArray(raw)) return null
+  const tiers: Array<{ tier: TrustLevelTier, level: number | null }> = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const item = entry as Record<string, unknown>
+    // 身份字段：存储形状叫 `id`，公开 wire 叫 `levelSlug`（与 `level` 并存），两个都认。
+    const rawId = typeof item.id === 'string' ? item.id : (typeof item.levelSlug === 'string' ? item.levelSlug : '')
+    const id = rawId.trim()
+    if (!id || tiers.some(entry => entry.tier.id === id)) continue
+    const rawLevel = Number(item.level)
+    const level = Number.isFinite(rawLevel) && rawLevel >= 0 ? Math.trunc(rawLevel) : null
+    // 公开目录的第一条是服务端合成的 TL0（`level: 0` / `editable: false`）：
+    // 本地 `trustLevelLadder` 会自己补 TL0，所以这里**必须**跳过，否则阶梯开头会出现两条。
+    if (level === 0 || item.editable === false) continue
+    tiers.push({
+      level,
+      tier: {
+        id,
+        // wire 上叫 `displayName`（后台读面与公开读面同形），存储形状叫 `name`：两个都认。
+        name: readTierName(item.displayName ?? item.name),
+        icon: typeof item.icon === 'string' && item.icon.trim() ? item.icon.trim() : null,
+        // 白名单外的值落回 null（= 按位次自动），合法就原样透传：服务端说了算。
+        color: normalizeTierColor(item.color),
+        requirements: (item.requirements && typeof item.requirements === 'object'
+          ? item.requirements
+          : undefined) as Record<string, number> | undefined,
+        limits: (item.limits && typeof item.limits === 'object'
+          ? item.limits
+          : null) as Record<string, number | null> | null,
+        earnable: Array.isArray(item.earnable)
+          ? item.earnable.filter((key): key is string => typeof key === 'string' && key.trim().length > 0)
+          : [],
+        retired: item.retired === true
+      }
+    })
+  }
+  // wire 同时下发 `level`（rank）时按它排序：数组顺序即判定顺序，但不能依赖对方已经排好。
+  const ordered = tiers.every(entry => entry.level !== null)
+    ? [...tiers].sort((a, b) => (a.level! - b.level!))
+    : tiers
+  return ordered.map(entry => entry.tier)
+}
+
+/** 目录稳定 key：SSR 直出、客户端复用同一份 payload（`useAsyncData` 的缓存键）。 */
+export const TRUST_LEVEL_CATALOG_KEY = 'trust-levels-catalog'
+export const TRUST_LEVEL_CATALOG_PATH = '/trust-levels'
+
 /**
  * 资料页等级卡的数据层。
  *
  * - `profile.trustLevel` 决定等级与刻度（他人视角只有这个）；
- * - `isSelf()` 为真时**额外**读 `GET /trust-levels` 的 `viewer` 拿进度。客户端取：
- *   进度是增强信息，服务端渲染先给等级与刻度，避免为它阻塞资料页首屏。
- * - 开关关闭、未解析、请求失败一律回落「无进度」而不是不渲染卡片（卡片本身由 profile 决定）。
+ * - `isSelf()` 为真时**额外**读 `/trust-levels` 的 `viewer` 拿进度；
+ * - 等级目录（名字 / 图标 / 档位数）走 `useAsyncData('trust-levels-catalog')`：
+ *   SSR 直出、失败静默回退（TL{rank} + 默认图标），永不阻塞卡片渲染。
  */
 export function useTrustLevel(
   profileTrustLevel: Ref<PublicTrustLevel | null | undefined>,
@@ -187,6 +460,24 @@ export function useTrustLevel(
     }
   }
 
+  /**
+   * 目录与 viewer 共用同一个读面，但**不共用失败语义**：目录失败只回落展示层，
+   * 所以 `useAsyncData` 的 handler 自己吞掉异常并返回 null（不让 `error` 冒到页面）。
+   */
+  const { data: catalogTiers } = useAsyncData<TrustLevelTier[] | null>(
+    TRUST_LEVEL_CATALOG_KEY,
+    async () => {
+      try {
+        return parseTrustLevelCatalog(await request<unknown>(TRUST_LEVEL_CATALOG_PATH))
+      } catch {
+        return null
+      }
+    },
+    { default: () => null, server: true, lazy: false }
+  )
+
+  const ladder = computed<TrustLevelTier[]>(() => trustLevelLadder(catalogTiers.value ?? FALLBACK_TIERS))
+
   watch(
     () => [Boolean(profileTrustLevel.value), isSelf()] as const,
     ([hasLevel, self]) => {
@@ -199,17 +490,20 @@ export function useTrustLevel(
     if (!trustLevelsEnabled.value) return null
     const base = profileTrustLevel.value
     if (!base || !base.levelSlug) return null
-    const level = Math.min(TRUST_LEVEL_MAX, Math.max(0, Math.trunc(Number(base.level) || 0)))
+    const maxLevel = trustLevelLadderMax(ladder.value)
+    const level = Math.min(maxLevel, Math.max(0, Math.trunc(Number(base.level) || 0)))
     // viewer 只对本人有意义，且必须与资料页等级一致（避免切换账号后读到上一个人的进度）。
     const ownViewer = isSelf() && viewer.value && Math.trunc(Number(viewer.value.level) || 0) === level
       ? viewer.value
       : null
     return {
       level,
-      levelSlug: trustLevelSlug(level),
+      // 服务端说什么就是什么：这里曾经用本地五元素数组按 rank 重算 slug，那会把运营自定义的
+      // 档位 id 静默改写回内置 slug —— 公开面第一个消费者就断了，还不报错。
+      levelSlug: base.levelSlug,
       metrics: trustLevelViewerMetrics(ownViewer)
     }
   })
 
-  return { trustLevel }
+  return { trustLevel, ladder }
 }

@@ -21,7 +21,15 @@ load archived sessions or completed plans as current context.
   （M5 依据，2026-11-11 09:21 实测：`useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`，
   `SFProfileShowPage.vue:110` 传 `profile.value?.trustLevel`；`rg -n "useTrustLevel" apps/web/app`。
   本行按「删过期否定句、不补新肯定句」改，证据留在模块笔记。）
-- Handoff：`sessions/2026-11-11-trust-levels-closing.md`（hot；上一刀 handoff 已归档到
+- **后台配置面已提为独立页（2026-11-11 landed）**：
+  `/control-panel/forum/trust-levels`（论坛管理 → 信任等级），三 tab
+  `overview`（缺省）/ `thresholds` / `earnable` 全部落地，整页一次保存，门控 `trust.manage`；
+  旧 `?tab=trustLevels` 重定向。决策
+  `decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代模块 note 的 D#18 与视觉规范
+  §0 第 23 行，含「实施期教训 L1–L3」）；分档限额编辑器本轮不做。浏览器证据在
+  `reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6。
+- Handoff：`sessions/2026-11-11-trust-levels-admin-page.md`（hot；收尾刀
+  `sessions/2026-11-11-trust-levels-closing.md`，上一刀已归档到
   `sessions/archive/2026-11/`）；模块：`modules/trust-levels.md`；
   计划：`plans/2026-11-10-trust-levels.md`（§3 决断 D1–D32、§10 陷阱 T1–T19）+
   `plans/2026-11-11-trust-levels-closing.md`（M9–M13 收尾、D33）；
@@ -803,6 +811,35 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **信任等级：档位颜色（9 色）+ 删除墓碑（2026-11-11，最新，landed）**：N 档刀的色彩与减档补齐。
+  `tiers[].color` 是**可选**白名单 token（`slate→teal→emerald→sky→indigo→violet→fuchsia→rose→amber`，
+  第 n 项属于 rank n），空 = 跟随位次、解码**不填默认**（填了就把「自动」冻成一次性取值）；
+  有效色由 `Policy.ColorOf(rank)` 解析后进读面，后台下发 `colorChoices`。**9 色不是 8**：
+  `MaxTiers=8` 且 `slate` 被 TL0 占掉，8 色会让满配 TL8 撞回 TL0 同色。删除只对「已保存为停用」的档开放
+  （两步闸门，拒绝「停用未保存→删除→保存」），留顶层 `deletedTierIds` 墓碑且 `NextTierSeq` 计入，
+  保住「id 永不复用」；**恢复默认也保留墓碑**（`RestoreDefaults(previous)`，读失败 fail-open）。
+  颜色走 `--sf-tl-<token>` 单一映射 + `--tl-accent` 注入，与站点主题 accent 解耦。
+  D-N8 同时修订：停用披露从页面级常驻 UAlert 改为「确认 modal + 行内常驻『已撤回 N 项解锁』徽标」。
+  验收：Go 隔离套件 141 包 0 FAIL、web `bun test` 2246 pass、typecheck 0、OpenAPI 3194 refs、架构边界 0。
+  决策 D-C1–D-C5 见 `decisions/2026-11-11-trust-level-tier-color-and-delete.md`；
+  见 `sessions/2026-11-11-trust-level-tiers-color-delete.md`（上一刀 N 档见
+  `decisions/2026-11-11-trust-levels-n-tiers.md` / `sessions/2026-11-11-trust-levels-n-tiers.md`）。
+
+- **信任等级提为独立页（2026-11-11，landed）**：后台配置面从
+  `/control-panel/settings?tab=trustLevels` 提为 `/control-panel/forum/trust-levels`
+  （论坛管理 → 信任等级），三 tab `overview`（缺省）/ `thresholds` / `earnable` 全部落地，
+  **整页一次保存**（单键 `trust.levels` 只产出一条整段 JSON，分 tab 保存等于三个写者互相覆盖）。
+  门控改成 `trust.manage`，理由是旧形态在说谎：`adminOptions` 按 `managePermission` 逐条过滤
+  （`Options/service.go:717`），无 `trust.manage` 的账号载荷里没有 `trust.levels`，而前端
+  `useTrustLevelsForm.ts:368` 把**推荐默认值**当现配置渲染。本刀显式取代两处旧结论
+  （模块 note 的 D#18、视觉规范 §0 第 23 行）。**三条最贵的教训在决策记录「实施期教训」**：
+  SSR-first 页面禁止用副作用布尔表达「已加载」（硬加载永久 loading）、
+  `type="submit"` 与 `@click` 并存 = 两次 PUT（happy-dom 不实现隐式提交，只有浏览器能坐实）、
+  工具栏「不溢出」要量内层槽位而不是 `body`。分档限额编辑器本轮不做（`null`≠`0`）。
+  未验证：无 `trust.manage` 账号的 `forbidden` 态只有单测覆盖。见
+  `sessions/2026-11-11-trust-levels-admin-page.md`、
+  `decisions/2026-11-11-trust-levels-standalone-admin-page.md`、`modules/trust-levels.md`。
+
 - **`/badges` 公共目录页（2026-11-11，最新）**：互动系列收口刀。新增公开读面
   `GET /api/v1/badges`（`core.route.badges.public_catalog`，返回全部 `enabled` 徽章含未获得、
   不含 `threshold`/`metric`、上限 500 + `truncated`），缓存头 `private, no-store`
@@ -815,14 +852,6 @@ load archived sessions or completed plans as current context.
   `sessions/2026-11-11-badges-public-catalog.md`、
   `decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`、
   `reports/2026-11-11-badges-public-catalog-matrix.md`。
-- **信任等级基线门（2026-11-11）**：D34 让「等级解锁能力」第一次在默认安装里可观测——
-  `topic.create`/`attachment.upload` 是**等级门控键**，TL0 没有、TL1 起有，机制是装载期减法门
-  （`member` 角色行与迁移一行未动，零迁移）。顺带修 `LoadEffectiveActorTx` 从未读 `created_at`
-  的缺陷（插件命令路径曾永远不低于 TL1）。本刀首跑门禁红 31 条，根因是手写测试夹具的 `users`
-  表缺列、而哨兵文案指向 store —— 「红在别处」与「我没弄红它」是两个断言，后者要给集合差分。
-  见 `sessions/2026-11-11-trust-level-baseline-gate.md`、
-  `decisions/2026-11-11-trust-level-baseline-narrowing.md`、
-  `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`。
 - **徽章 + 用户活动统计（2026-11-10）**：`user_activity` 独立表承载六项计数
   （关系行三项可精确重算，`topic_count`/`comment_count` 是事件累计、软删后不回退），
   `user_visits` 由 Redis SETNX 挡库后同步写；徽章 actor 无关所以进 `CachedStore`

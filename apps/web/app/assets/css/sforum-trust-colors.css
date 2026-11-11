@@ -1,0 +1,36 @@
+/*
+ * 档位配色 token（D-C5）：9 色 × 明暗两套，唯一取值来源。
+ *
+ * 取值来自小设的对比度核验表（`knowledge/reports/2026-11-11-trust-tier-color-palette.md`）：
+ * 浅色用 600 级会被 4 个主题的卡面吃掉对比度，所以这里是她实测过的替换值，
+ * **不要**改回 Tailwind 600/400 原始色阶。深色底按公开页实测 `#1b201f` 核验（最差一项 indigo 4.63）。
+ *
+ * 9 色而不是 8：`slate` 归虚拟 TL0，active 档最多 8 档，8 色会让满配 TL8 循环回 slate 与 TL0 撞色。
+ * `fuchsia` 插在 `violet` 与 `rose` 之间（当前取值为小设给的候选值，她的「9 色版」核验表落地后按表对一次）。
+ *
+ * 用法：组件只写 `--tl-accent: var(--sf-tl-<token>)`（见 `utils/profile/trustLevelColors.ts`），
+ * 色条的混合比例由组件自己的 `--tl-accent-strength` 控制，色名与强度互不耦合。
+ */
+:root {
+  --sf-tl-slate: #475569;
+  --sf-tl-teal: #0f766e;
+  --sf-tl-emerald: #166534;
+  --sf-tl-sky: #0369a1;
+  --sf-tl-indigo: #4338ca;
+  --sf-tl-violet: #7c3aed;
+  --sf-tl-fuchsia: #a21caf;
+  --sf-tl-rose: #be185d;
+  --sf-tl-amber: #92400e;
+}
+
+.dark {
+  --sf-tl-slate: #94a3b8;
+  --sf-tl-teal: #2dd4bf;
+  --sf-tl-emerald: #4ade80;
+  --sf-tl-sky: #38bdf8;
+  --sf-tl-indigo: #818cf8;
+  --sf-tl-violet: #a78bfa;
+  --sf-tl-fuchsia: #e879f9;
+  --sf-tl-rose: #f472b6;
+  --sf-tl-amber: #fbbf24;
+}

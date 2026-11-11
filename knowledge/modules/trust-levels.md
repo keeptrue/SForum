@@ -26,21 +26,33 @@
 | **装配已落地** | `bootstrap/api_assembly_domains.go:321` `identityStore.WithTrustLevelSource(...)`；`api_assembly_extensions.go:476` 同款注入 user-field store；来源在 `api_assembly_infrastructure.go:59-60` + `bootstrap/trust_levels_wiring.go` |
 | **开关五处已注册** | `Options/feature_flags.go:35`（常量）/ `:63`（definitions）/ `:82`（catalog）/ `:97`（推荐默认）/ `:130`（结构体字段）+ `:153`（读取）；归一化分支在 `service_normalize.go`；前端已消费（`useWebOptions.ts`） |
 | **M3 已落地** | `Forum/service_trust_limits.go:23` `limitsForActor`（**不是** `service_ops.go:514`——那是调用点）、`:101` `resolveLimit`、`:63` `newUserLimits`、`:83` `levelLimits`；适配器 `Providers/forum.go:273` `TrustPolicyAdapter.LevelLimits` |
-| 阈值配置 | `Options/trust_level_options.go`：单键 `trust.levels` + `DecodeConfig` 严格解码；`DefaultPolicy()` 已与 PM 定稿表逐值一致（复核见 `reports/2026-11-10-trust-levels-doc-audit.md` C1） |
-| 后台页 | `pages/admin/settings/index.vue` 的 `trustLevels` tab + `SFAdminTrustLevelsTab.vue` + `useTrustLevelsThresholds.ts`；**earnable 编辑器 = `SFAdminTrustLevelEarnableMatrix.vue`（M10 已落地）**；白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
+| 阈值配置 | `Options/trust_level_options.go`：单键 `trust.levels`，**schema v2**（`ConfigSchemaVersion = 2`，`tiers[]` + 不可变 `id` + `retired`，D-N2）；`DecodeConfig` 同时接受 v1/v2（v1 在内存升级）、`EncodeConfig` 只写 v2（D-N5）；`DefaultPolicy()` 已与 PM 定稿表逐值一致（复核见 `reports/2026-11-10-trust-levels-doc-audit.md` C1） |
+| 后台页（2026-11-11 提为独立页） | 页面 `/control-panel/forum/trust-levels`（论坛管理 → 信任等级），页内**四** tab：`overview`（缺省，zh「等级总览」）/ `tiers`（zh「档位管理」）/ `thresholds`（zh「门槛设置」）/ `earnable`（zh「能力解锁」），**已全部落地**（N 档改造后为四 tab，见 `../plans/2026-11-11-trust-levels-n-tiers.md`；`tiers` 的浏览器表现已验（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`：`n8-mobile-cards` layout=cards rows=7、`n8-mobile-no-overflow` 390/390、`n8-mobile-tabs` tab=4；截图 `20261111-181057-qa-n5-desktop-tiers-tab.png`））（2026-11-11 收尾实测：`trust-levels.vue` 315 行，`normalizeTab` 回落 `overview`；冻结稿 `../reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6 有浏览器证据）。文件：`pages/admin/forum/trust-levels.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue`、`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableMatrix.vue`、`composables/admin/forum/trustLevels/useTrustLevelsForm.ts` + `useTrustLevelEarnableMatrix.ts` + `useTrustLevelsAdminPage.ts`。**整页一次保存**（单键 `trust.levels`）。旧入口 `/control-panel/settings?tab=trustLevels` 重定向到新页，设置页的四处 tab 登记已删。裁决见 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代本文件 D 组 #18）。白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
 | 公开面已落地（M4） | 4 条路由进 catalog（`core_catalog_gen.go` 计数 409 = 405 + 1 公开 + 3 后台）、OpenAPI `contracts/openapi/paths/trust_levels.yaml` 在、`Http/Controllers/TrustLevels/controller_test.go` 在。**公开响应不含 `limits`**（`dto.go`：`Limits` 带 `omitempty`，注释写明「只在后台读面出现」——公开「某档冷却 60 秒」等于泄露限流参数） |
 | 资料页等级卡已接线（M5 收口） | `useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`；`SFProfileShowPage.vue:110` 传 `computed(() => profile.value?.trustLevel)`，`SFProfileRightRail.vue:74` 消费（2026-11-11 09:21 复核） |
 | M6–M8 未完成 | 验收断言、性能实测、独立验收（M13 收尾中，见 `../sessions/2026-11-11-trust-levels-closing.md`） |
 
 配套文档：计划 `../plans/2026-11-10-trust-levels.md`（§3 决断 D1–D32、§10 陷阱 T1–T19、
 §13 修订记录）；统计地基 `../modules/badges.md`；handoff
-`../sessions/2026-11-11-trust-levels-closing.md`（当前 hot）+
+`../sessions/2026-11-11-trust-levels-admin-page.md`（当前 hot，独立页重构）+
+`../sessions/2026-11-11-trust-levels-closing.md`（收尾刀）+
 `../sessions/archive/2026-11/2026-11-10-trust-levels.md`（上一刀，已归档）；作废说法底账
-`../reports/2026-11-10-trust-level-superseded-claims.md`。
+`../reports/2026-11-10-trust-level-superseded-claims.md`；独立页裁决
+`../decisions/2026-11-11-trust-levels-standalone-admin-page.md`。
 
 **纪律**：本文件每写一条实现断言，要么带路径+行号，要么写 `TODO(核实)`。不要因为计划里写了
 就抄；也不要因为「代码里有」就当成「运行时生效」——两者都踩过。**否定句（「没有 X」）必须
 每次对拍重测**，它们是滞后漂移的高发区。
+
+**数字纪律**：本文件只允许出现**不随配置变化**的数 —— `1..8`（档数边界）、`默认 4 个可配置档`（+ TL0 = 默认 5 档）、`6 个指标`、`7 个可解锁键`。任何由固定档数算出来的数（`40`、`4×6`、`5 档 × 6 指标`）都是过期算术，改档数的人会被它误导一次，别写。
+
+**替身纪律（2026-11-11 B2 教训，改 UI 语义时必须遵守）**：既有挂载测试把 `UButton` 桩成原生
+`<button v-bind="$attrs">`，于是「我们的模板 → UButton → 原生 DOM」这一段**从未被真渲染过**——
+谓词绿、桩绿、真实组件没人看。它与 P1（portal 元素的 `offsetParent` 恒 null 导致探针判假）
+同属一类**证据等级错误：绿的不是产品，是我们自己的替身**。
+**纪律：改禁用/隐藏/可访问性这类 UI 语义时，断言必须读最终渲染结果**（原生属性、`:disabled`、
+`aria-*`、`cursor`、以及真实点击行为），不能读谓词函数或测试桩；桩只能证明接线，不能证明
+外观与可交互性。
 
 ## Data Model
 
@@ -66,7 +78,7 @@
 （`service_seo_footer_normalize.go:81`：JSON 值 + 严格解码 + 未知字段拒绝 + schema 版本
 字段）。
 
-> **不要退回「`trust.level.*` 扁平多键」**：四档 × **六指标** + 4×4 限额 = **40** 个值，扁平键要过
+> **不要退回「`trust.level.*` 扁平多键」**：默认 4 个可配置档 × **六指标** + 逐档限额已经数十个值，且档数改成 1..8 之后还会继续变，扁平键要过
 > options 的 5 道注册（types / definitions / defaults / normalize case / `allOptionNames`
 > 派生），且漏第 5 道会**静默丢弃**（T16）。指标是 **6 个不是 7 个**——账龄只保留
 > `trust.new_user_days` 一个上限闸（`Policy.NewUserDays`），没有 `account_age_days` 字段。
@@ -75,10 +87,148 @@
 **阈值默认值的唯一来源是 `TrustLevels/policy.go` 的 `DefaultPolicy()`**，运营可在后台覆盖
 并一键恢复；TL0 不参与判定，由 `trust.new_user*` 七键决定。
 
+### 档位身份与序号（D-N1）
+
+- 每档两个概念：不可变 `id`（`newcomer`…`leader` 或 `tier_<seq>`）与 `rank`（1..N）。
+  `rank` 由 active 档位在 `policy.Tiers` 里的位次派生，**不落字段**；`Policy.LastRank()`
+  只是数 active 档个数（`apps/api/app/Models/TrustLevels/types.go:231-240`）。
+- **可执行判据一：插一档后原档配置不位移。** 由 `tier_identity_test.go` 的
+  `TestInsertTierKeepsFollowingIdentities` 背书；变异验证方式是实现改成「按位次锚定」后
+  该测试必须变红。
+- **可执行判据二：所有编辑动作以 id 为键，不用数组下标。** 同文件另有
+  `TestRanksAreContiguous`（rank 连续）、`TestRankZeroIsOwnedByTL0`（rank 0 归 TL0，
+  档位数组从 TL1 起）、`TestTierIDIsNeverReused`（id 不复用——只有软删除才成立）三条守边界。
+- `id` 生成：`tier_<seq>`，`seq` 解码期派生、不存字段、不接受客户端指定
+  （`tier_icons.go` 的 `tierIDPattern` / `tierSeq`）。**这是「读代码 + 测试背书」的结论，
+  不是运行时观测。**
+
+### v1→v2 兼容（D-N5 + D-N13）
+
+两个方向都要写清，缺一半就会误导下一个回滚的人：
+
+- **升级方向**：`DecodeConfig` 同时接受 `schemaVersion` 1 与 2；v1 在**内存里**升级
+  （id = 原 `levelSlug`、name = 内置双语名、icon = 默认序列）。`EncodeConfig` **只写 v2**。
+  背书：`legacy_config_v1_test.go` 的 `TestLegacyV1UpgradesInMemory` /
+  `TestLegacyV1EncodesAsV2` / `TestLegacyV1EqualsDefaultPolicyDecoded` /
+  `TestLegacyV1EncodeIsStableAcrossSaves`。
+- **写入时机（D-N13）**：库值升级**只发生在运营保存路径**（后台 PUT 与 options 归一化的
+  写路径）；启动、读路径、`DecodeConfig` 一律不写库。读路径写库会造出「没人动过配置、
+  库值却被改了」这种查不出源头的现象。
+- **回滚方向**：旧二进制**解不了 v2**，所以回滚是**两步**——先回退镜像，**再**把
+  `trust.levels` 的值回退到 v1 形状。只换镜像会让站点开机读不到配置并回落到推荐默认。
+- wire 上 `levelSlug` 字段名**保留**，值 = tier id；内置五档 id 不变，存量消费方不断。
+
+### 软停用（D-N8）
+
+- **配置保留在配置 JSON 里**：`policy.Tiers` 含 retired 档（`Retired` 标志），
+  `EncodeConfig` 按 `policy.Tiers` 迭代写出（`config.go:349-367`），所以停用后**往返不丢**。
+  不是存在某张表或某个缓存里——本模块仍然零表。**这一条是读 `EncodeConfig` 可得 + 由
+  `TestEncodeRetiredTierKeepsEarnable` 背书，不是运行时观测。**
+- 判定与展示跳过 retired 档：`LastRank()` 只数 active，`LevelOf` 降序遍历跳过它们（`level.go`）。
+- 撤回语义：停用会撤回该档贡献的 `earnable`（`Grants` 只在 active 档上累加），可能让人降权；
+  保存前有二次确认与常驻披露（D-N8）。背书：`TestRetireThenRestoreKeepsRankAndConfig`。
+- **停用链路已浏览器验证**（`storage/qa/trust-levels-n/20261111-181057-qa-report.json` 的
+  `tiers-retire-confirm` 断言）：点停用弹出二次确认「确认停用「TL2」？…该档新增解锁的能力可能
+  从用户身上撤回，用户等级可能因此下调；按下保存后才会真正生效」，并出现「其它启用档位已覆盖…」
+  的覆盖分支；截图 `20261111-181057-qa-n5-desktop-save-confirm.png`。
+  **已闭环到原生层**（`storage/qa/trust-levels-n/report.md` §9 的 B2 行 + R2 读数）：N=1 时
+  原生 `<button>` 的 `disabled`=true、`btn.disabled`=true、`matches(':disabled')`=true、
+  `aria-disabled="true"`、`title` 带锁定文案、`cursor:not-allowed`、`opacity:0.45`；点它
+  **无确认框、无弹窗、不发请求**。反向 N=2：`disabled`=[false,false]、**`aria-disabled` 属性不存在**
+  （可用时不宣告，比宣告 `"false"` 更稳）、`title`=[null,null]、`cursor:pointer`、锁定与账龄闸
+  文案都不出现。截图 `20261111-190105-qa-regress-r2-n1-retire.png` / `-r2-n2-retire.png`。
+
 > **不要在文档里抄这组数字。** 当前 `DefaultPolicy()` 与 PM 定稿表
 > （`reports/2026-11-10-trust-levels-capability-map.md`）有大量不一致，正在对齐（P0-2）。
 > 对齐完成、且 backend 报过之后，再从代码里读一遍写进文档。**只印代码里能读到的数，
 > 不印「应该会是这样」的数**——数字与代码不一致比没有数字更糟。
+
+### 配置校验错误的文案边界（D-N14 的**显式例外**）
+
+- 口径不变的部分：`Can()` 与整个领域层**不输出面向用户的文案**，i18n 由前端拼
+  （`NameKey()` / `DescriptionKey()` / `ThresholdOptionKey()` 三个死生成器正因这条被删）。
+- **显式例外**：配置校验失败时，`data.details.errors[]` 的每条明细带一个 `reason`
+  （Go 侧中文散文），**仅供兜底**，展示路径以 `reasonCode` + 前端 i18n 为准。下一个人
+  拿「后端不输出文案」来质疑 `reason` 字段存在时，先读 D-N14——这不是回归，是被裁定过的例外。
+- **`reason`「不用于展示」在三处都写明了，缺一处接入方就会读错**：
+  1. 领域层 `FieldError.Reason`（`Models/TrustLevels/config.go`）——注释写明「只用于服务端日志
+     与『没有 i18n 键的旧前端』，**不用于正式展示**」；同结构里 `Code` 才是「明细里唯一参与
+     展示决策的字段」，另有 `Params` 供插值。
+  2. wire 层 `trustLevelConfigError.Reason`（`Http/Controllers/TrustLevels/dto.go:61-82`）
+     ——这一处才是接入方真正会读到的，`ReasonCode` 注释指向 OpenAPI enum 与
+     `ConfigErrorReasonCodes()` 同源。
+  3. 契约层 `TrustLevelConfigErrorDetail.reason` 的属性描述
+     （`contracts/openapi/schemas/trust_levels.yaml`）——「**不用于正式展示**：本仓口径是
+     后端不输出文案、由前端按 `reasonCode` 拼」。
+- 现值（读代码可得）：机器码 `CodeInvalidConfig = "trust_levels.invalid_config"`
+  （`controller.go:20`）、明细上界 `MaxConfigErrorDetails = 8`（`config.go:50`）、
+  枚举 33 条由 `ConfigErrorReasonCodes()` 提供并被 `TestConfigErrorReasonCodesAreStable`
+  用字面量钉住（`config_test.go:410-445`）、与 OpenAPI enum 同序。**枚举条目不在本文件复制**
+  （契约副本会过期），要取值看上面两处。
+- **前端覆盖面护栏已落地**：33 个 code 分成「表单可达的 15 条（逐条 i18n）」与「配置体损坏的
+  18 条（通用桶）」，`apps/web/tests/admin/forum/trustLevels.test.ts:550-603` 断言
+  `BACKEND_CODES` 33 条、`SPECIFIC_ERROR_CODES` 15 条、`CONFIG_BUCKET_ERROR_CODES` 18 条、
+  并集 size 33（不重不漏）；两份 locale 已有对应文案键。后端新增第 34 个 code 会让这条测试红，
+  而不是在 en-US 站点悄悄显示中文。
+  —— 现状是 locale 里还没有 `reasonCode` 文案键。
+- **`reasonCode` / `params` 已落地**：枚举 33 条（`ConfigErrorReasonCodes()`），
+  wire `trustLevelConfigError.ReasonCode` 注释写明「取值域见 OpenAPI enum、与之同源」，
+  `dto.go` 的 `Reason` 注释已改成「**不用于正式展示**」，OpenAPI 对象级描述也已统一成
+  「展示走 `reasonCode` + `params`，`reason` 只作技术细节兜底」——三处口径现已一致。
+
+
+### 恢复推荐默认 = 整份覆盖（D-N15，**本刀引入的语义变更**）
+
+- 现值：恢复默认走服务端整份覆盖（`POST /admin/trust-levels/restore-defaults` →
+  `EncodeConfig(DefaultPolicy())`，路由见 `Http/Controllers/TrustLevels/controller.go:80`），
+  覆盖范围 = 档位数量与顺序、阈值、限额、新增解锁、名称与图标，**已停用档被移除**。
+- **这不是既有行为，是 2026-11-11 这一刀改的**：此前实现是「本地用推荐阈值覆盖表单、限额与
+  解锁不动」，文案也照旧口径写。任何「恢复默认只动阈值」的表述都是过期口径，别照着写文档。
+- **墓碑不在覆盖范围内**：`RestoreDefaults(previous)` 保留「既有墓碑 ∪ 被移除的 `tier_<n>` id」
+  的保序并集（`policy.go:98-130`），内置档位 id 不入墓碑（`NextTierSeq` 基准是 5，内置档不会被复用）。
+  控制器先读 previous 再覆盖，读失败 fail-open 到纯推荐值并 warn（`controller.go:208-231`）；
+  读面 `recommendedConfig()` 仍是纯 `DefaultPolicy()`——推荐值 ≠ 恢复动作。
+  裁决见 `../decisions/2026-11-11-trust-level-tier-color-and-delete.md`（D-C3 补强）。
+- 破坏性动作的配套：恢复前阻塞式确认，确认框逐项列出会丢的五类配置（D-N15 的代价条款）。
+  浏览器证据：`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json` 的
+  `restore-config` 断言（收尾 restore-defaults 200、回读 5 档归一），以及
+  `20261111-183915-qa-save-confirm-structure.png` 一类截图。
+
+### 档位颜色（D-C1 / D-C5，**本刀新增**）
+
+- **白名单 9 色**（`Models/TrustLevels/tier_colors.go:21-31`，顺序 = 默认色序 = rank）：
+  `slate`(TL0) → `teal` → `emerald` → `sky` → `indigo` → `violet` → `fuchsia` → `rose` → `amber`(TL8)。
+  **9 而不是 8**：`MaxTiers = 8` 且 `slate` 被虚拟 TL0 占掉，8 色会让满配 TL8 回退成 `slate`
+  与最低起点同色（功能性缺陷）。取值（明暗两套 hex）与对比度核验见
+  `../reports/2026-11-11-trust-tier-color-palette.md` **§9**（§6 的 8 色块作废）。
+- **`tiers[].color` 是可选属性，空串 = 跟随位次**：解码期**不填默认**（填了就把「自动」冻成
+  一次性取值，`config.go:193-196,484-486`）；有效色由 `Policy.ColorOf(rank)` 解析后下发
+  （`types.go:348-367`、`Http/Controllers/TrustLevels/payload.go:34`），TL0 恒取色序首项。
+  后台读面下发 `colorChoices`（`dto.go:139-141`），前端不得自己抄一份。
+- **表单兜底把颜色置空**：`fallbackTiers()` 的每档 `color: null`（`useTrustLevelsForm.ts:102-107`），
+  只有公开面兜底 `FALLBACK_TIERS` 带默认色——那份颜色服务「目录读不到也要有色」的展示，
+  钉进表单就会在第一次保存时把颜色写死、之后移档不再跟位次走。
+- **渲染单点**：`--sf-tl-<token>`（`assets/css/sforum-trust-colors.css`，`:root`/`.dark` 各一套）
+  → `tierAccentStyle` 落成 `--tl-accent`（`utils/profile/trustLevelColors.ts:68-78`）；
+  后台档位行与资料页 `SFTrustLevelCard` 共用，不与站点主题的 5 套 accent 联动。
+
+### 删除与墓碑（D-C2 / D-C3，**本刀新增**）
+
+- **删除只针对已保存为停用的档**：`canDelete(id) = retired && savedRetiredIds.includes(id)`
+  （`useTrustLevelTierIntents.ts:92-98`），命中后仍需二次确认（墓碑不可恢复）。
+  「停用未保存 → 删除 → 保存」被这条闸门拒绝；删除只移除 retired 项、不改任何 active 位次，
+  所以不触发结构确认（`tierStructureChanged` 只比较 active id 序列，`useTrustLevelsForm.ts:722-724`）。
+- **墓碑 = 顶层 `deletedTierIds`**（`omitempty`，按提交顺序，`config.go:166-182`）。解码期三条判据
+  一律 422、不去重静默接受：`deleted_tier_id_invalid`（语法/身份不合法，含 `newcomer` 保留给 TL0）、
+  `deleted_tier_id_duplicate`、`deleted_tier_id_present`（同一 id 又在 `tiers` 里）；
+  rank 恒 0、`tierId` = 墓碑本身（`config.go:810-856`）。
+- **`NextTierSeq()` 计入墓碑**（`types.go:404-417`），删掉的 `tier_7` 仍占位 → 下一个是 `tier_8`，
+  保住 D-N6「id 永不复用」。前端 `cloneTrustLevelsForm` 不落空墓碑键（空数组 = 没有墓碑）。
+- **新错误码 4 条**（`config.go:81,103-105`，码表总数 33 = 原 29 + 4）：
+  `color_not_whitelisted`（tier 级，rank 可用）、`deleted_tier_id_invalid` /
+  `deleted_tier_id_duplicate` / `deleted_tier_id_present`（配置级）。
+  **文案口径**：只有 `color_not_whitelisted` 有专属 i18n 文案（表单可达）；
+  三条 `deleted_tier_id_*` 走 config 通用桶，没有专属文案——既有护栏规定 bucket 码不许有专属句。
 
 ## Dependency Direction
 
@@ -327,26 +477,28 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 
 | # | 位置 |
 | --- | --- |
-| 1 | 路由 shell 的 tab 联合类型（如 `pages/admin/settings/index.vue` 的 `SettingsTab`） |
+| 1 | 路由 shell 的 tab 联合类型（独立页形态 = `pages/admin/forum/trust-levels.vue` 的 `TrustLevelsTab`） |
 | 2 | 同一文件的 `validTabs` 数组 |
 | 3 | 同一文件的 tab 列表（label + icon） |
 | 4 | 同一文件的 tab → 组件映射 |
-| 5 | 组件文件本身（如 `components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue`） |
+| 5 | 组件文件本身（`components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue` 等） |
 | 6 | 两份 locale 的 i18n 键（`zh-CN.json` / `en-US.json`） |
-| 7 | `docs/extensions/v3/catalog-identities.json` 的 reviewed identity |
+| 7 | `docs/extensions/v3/catalog-identities.json` 的 reviewed identity（页一条 + 每个组件一条） |
 | 8 | 生成产物里的 catalog 条目（由生成器写入，`--check` 会红） |
 | 9 | `tests/validate-admin-framework.ts` 的 `adminPagePathsById` 映射（**新增后台页**才需要，新增 tab 不需要）——漏了是门禁红 |
 
-漏 #1–#4 的后果是**静默回落**（tab 不显示或回落到 `basic`）；漏 #7 的后果是**生成器
+漏 #1–#4 的后果是**静默回落**（tab 不显示或回落到第一个 tab）；漏 #7 的后果是**生成器
 抛错**，比静默温和，但同样挡提交；漏 #9 的后果是静态门禁直接红
 （`Admin module registry points to an unknown page id`）。别按「6 处」记。
 
-**#1–#4 与 #9 按「页面形态」二选一，不是全都要：**
+**2026-11-11 修订：本刀从「设置页内 tab」改成「独立页 + 页内 tab」，9 处全要，只是
+#1–#4 的目标文件换了。N 档改造在同一 shell 内加到四个 tab（新增 `tiers` 与图标选择器），**不新增 page id**，所以 #9 无新增行、#7 只补两条 active identity（`SFAdminTrustLevelTiersTab.vue`、`SFAdminTrustLevelIconPicker.vue`）。
 
-| 形态 | 需要 | 不需要 | 例子 |
-| --- | --- | --- | --- |
-| **设置页内的 tab**（组件，没有独立 page id） | #5–#8 | #1–#4、#9 | 本刀的 `SFAdminTrustLevelsTab.vue` / `SFAdminTrustLevelEarnableMatrix.vue` |
-| **独立后台页**（`adminModules.ts` 里有自己的 `id`，且有对应 `pages/admin/**` 文件） | #5–#9（#1–#4 不适用） | #1–#4 | 徽章的 `pages/admin/badges.vue` + `id: '/badges'` |
+| 形态 | 需要 | 说明 |
+| --- | --- | --- |
+| **设置页内的 tab**（无独立 page id，旧形态，已被取代） | #5–#8 | #1–#4 指 `pages/admin/settings/index.vue`；#9 不适用 |
+| **独立后台页 + 页内 tab**（现形态） | **#1–#9 全部** | #1–#4 指新 shell `pages/admin/forum/trust-levels.vue`；#5 是每个 tab 的组件文件（N 档改造后四个 tab + `SFAdminTrustLevelIconPicker.vue`）；#9 必须有 `/forum/trust-levels` 一行 |
+| 独立后台页但无 tab | #5–#9 | #1–#4 不适用（没有 tab 数组可登记） |
 
 判据只有一条：`adminModules.ts` 里有没有它的 `id`。有 `id` 就必须同时补
 `adminPagePathsById` 一行（否则门禁红），并把 `pages/admin/<id>.vue` 写进
@@ -354,7 +506,83 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 + `useAdminPage('<id>')`。**没有 `id` 的 tab 不要往那张表里加**——加了一张没有对应
 registry 条目的映射是死行。
 
+### 迁移既有组件时：catalog identity 按 `source` 匹配
+
+生成器**不是**按组件名或目录匹配 UI identity，而是按 `source` 路径建索引：
+`scripts/v3-catalog/generate.mjs:705` `const uiMap = reviewedIdentityMap(activeUI, item => item.source, 'active UI sources')`。
+所以移动文件时的规则是硬性的：
+
+1. **必须改 `source`**，否则新路径在 `uiMap` 里查不到 → 生成器抛
+   `new or moved UI surface needs a reviewed stable identity mapping: <source>`
+   （`generate.mjs:802-803`），`--check` 直接红。
+2. **`id` 与 `contractVersion` 一律不动。** 它们只用于唯一性/保留，不参与匹配
+   （`generate.mjs:701-702` 对全部 identity 做 `id` / `contractVersion` 唯一性校验，
+   另有 `retiredUIByID` / tombstones 账本）。改 id 等于**把旧 id 提前退役**，而退役是
+   append-only 墓碑流程，不属于一次文件移动。
+3. `state` 保持 `active`，`kind` / `owners` 不变（漂移会各自抛错：kind 见
+   `generate.mjs:805`，ownership 见 `:808`）；页面身份（`kind: 'page'`）的 `owners` 必须
+   恰好一个（`generate.mjs:730`）。
+
+本刀实际动到的六个 UI identity（2026-11-11 收尾实测，`docs/extensions/v3/catalog-identities.json`）：
+
+| id | 处置 | source（文件名） |
+| --- | --- | --- |
+| `...admin.sfadmin_trust_level_earnable_matrix` | `active`，**只改 source**（文件换目录） | `SFAdminTrustLevelEarnableMatrix.vue` |
+| `...admin.sfadmin_trust_level_earnable_tab` | **新增** `active`（earnable 面板 = frame + 矩阵） | `SFAdminTrustLevelEarnableTab.vue` |
+| `...admin.sfadmin_trust_level_thresholds_tab` | **新增** `active`（旧 tab 拆成只吃 props 的分区组件，文件名也变了） | `SFAdminTrustLevelThresholdsTab.vue` |
+| `...admin.sfadmin_trust_levels_overview_tab` | **新增** `active`（overview 纯展示面板） | `SFAdminTrustLevelsOverviewTab.vue` |
+| `...page.admin.forum.trust_levels` | **新增** `kind: page` / `owners: ["admin"]` | `pages/admin/forum/trust-levels.vue` |
+| `...admin.sfadmin_trust_levels_tab` | **转 `retired`**（旧 `SFAdminTrustLevelsTab.vue` 已删），`id`/`contractVersion` 原样保留、`source` 保留历史路径 | 旧路径 |
+
+**两条处置的分界线**（这是本节真正要传下去的东西）：
+
+- **文件移动（同内容、同职责）→ 只改 `source`**，`id` / `contractVersion` / `state` 全不动。
+  earnable 矩阵就是这一类。
+- **改名或拆分（职责变了）→ 新增 identity，旧 identity 转 `retired`**。阈值 tab 就是这一类：
+  它从「自带表单状态与 footer 的 tab」变成「只吃 props 的分区组件」，不是同一样东西。
+  **不要**把退役当改名用（改 `id` 去复用一条 active 记录），退役走的是 append-only 墓碑账本。
+
+**实测（2026-11-11 16:50 复核）**：`node scripts/v3-catalog/generate.mjs --check` →
+`V3 P0 catalogs are current (18 files).`；新页已进生成产物
+（`docs/extensions/v3/catalogs/admin-surfaces.md:38` 的 `core.admin.page.forum_trust_levels`、
+`ui-surfaces.md:164` 的 `core.component.page.admin.forum.trust_levels`）。
+注意**两套 id 不是同一个东西**：Admin Surface 登记用 `core.admin.page.*`，UI identity 用
+`core.component.page.*`，别互相引用。
+
+
+**已浏览器验证**（`storage/qa/trust-levels-n/20261111-184009-qa-reshoot-main.json`，21 pass / 1 fail，
+失败项单列在下一段）：四 tab 切换与 `?tab=` 同步（点第 2/3/4 个 tab → `panel=tiers|thresholds|earnable`）、
+N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢出（390/390）、窄屏工具栏动作
+均带文本或 `aria-label`+`title`、图标选择器键盘可达（`20261111-184200-qa-icon-picker-keyboard.png`）。
+
+**当时另有一条 FAIL（现已闭环，见下段）**：`save-field-errors` —— 名称超 32 字保存时行内字段
+错误 0 处、页面级错误块 false、无 toast、配置未落库（拒绝本身正确，但**运营看不到提示**）。
+证据是同一份 json；首轮「21 pass / 1 fail」的记录保留，它是「修了两轮」的起点，不是现行缺陷。
+
+**已闭环（2026-11-11 终验）**：最初 `save-field-errors` FAIL 的根因**不在渲染，而在通道**——
+当时保存走通用 `PUT /admin/web-options`，其 422 不回 `details.errors[]`；18:50 之后切到专用
+`PUT /admin/trust-levels` 才带字段级明细。终验 `--phase=main` 实测真实 422 + 行内落点
+（截图 `storage/qa/trust-levels-n/20261111-185340-qa-final-422-inline-error.png`）。
+证据总表 `storage/qa/trust-levels-n/report.md` §9（`--phase=regress` 15/0、`--phase=main` 22/0）。
+**历史保留**：最早的 FAIL 证据 `20261111-184009` 跑在通道切换之前，已作废——不删，是因为
+「修了两轮」本身就是事实。
+
 ## Known Residuals（不要当 bug 修）
+
+> **N 档改造一并修复，不是遗留（别当债捡起来）。** 「TL4 是最高档」的三处残留假设已全部改走
+> `Policy.LastRank()`：`Earnable.All(lastRank)`（`registry.go:81-83`，上界由调用方传入）、
+> 后台 maxed 判据（`Http/Controllers/TrustLevels/controller.go:115`）、Progress 上界
+> （`resolver.go:112`）。
+>
+> **判据在编译期，不在正则**（常量的声明已经从 `types.go` 删掉了）：
+> - `rg -n "LevelLeader\s*(Level)?\s*=" apps/api/app/Models/TrustLevels/types.go` → **零命中**（声明已删）
+> - `cd apps/api && go build ./...` → **exit 0**（没有引用残留：Go 里删掉的标识符一旦被引用就编译不过）
+> - `rg -n "func .*LastRank" apps/api/app/Models/TrustLevels/` → 命中 `types.go` 的 `LastRank`
+>
+> **注释里出现这个字面量是预期的，不构成残留。** `registry.go:79` 与 `resolver.go:108` 记的是
+> 一起真实事故（「这里曾经写死 `Grants(LevelLeader)`，于是 8 档站点上第 5–8 档的键会从
+> `All()` 里静默消失」）。拿正则去逼这两行注释消失，等于为了让门禁变绿而销毁事故史——
+> 与 `EligiblePermissions` 那条「无消费者 ≠ 可删」是同一个道理。
 
 1. **M1–M5 已落地（含公开面与资料页等级卡），M6–M8 未完成。** 别再按「未接线 / 端点不存在」
    理解现状：等级、限额、公开等级接口、资料页等级卡都已生效。
@@ -423,6 +651,10 @@ registry 条目的映射是死行。
     `hostapi.CapabilitySource`（管插件能力集合与 secret 写门禁）撞名，编译能拦但 review 会
     持续误判。看到旧名先确认是不是在说 hostapi 那个。
 
+19. 资料页等级卡的档位名走 `Providers/profile.go` 的 `trustTierCatalog`：options 侧命中进程内 30s TTL 缓存（`Options/service.go:657-698`），但 `DecodeConfig` **没有记忆化**，每次调用整份解码一次。实测（`decode_bench_test.go` / `trust_tier_catalog_bench_test.go`，`-benchmem`）：资料页实际路径 ≈73–81µs / 42.8KB / 126 allocs；其中约 15µs 是既有缓存命中模式，45–60µs 是本次新增的整份解码。开关关闭或等级未解析时一次都不调用。量级可接受、暂不优化；要压的最小改动是按 raw JSON 字符串做一层 30s memo。
+    - 基准源码：`apps/api/app/Models/TrustLevels/decode_bench_test.go`、`apps/api/app/Providers/trust_tier_catalog_bench_test.go`；跑法 `cd apps/api && go test ./app/Models/TrustLevels/ ./app/Providers/ -run '^$' -bench 'BenchmarkDecodeConfig|BenchmarkTrustTierCatalog' -benchmem`。
+    - 基准内断言了 `store.List` 调用数在循环中不变，证明量的是缓存命中态，不是每请求打库。
+
 ## 已作废结论（读旧版规范或旧讨论前先看这里）
 
 这刀计划改了 32 条决策、视觉规范冻了 4 次。**下一个会话最需要的不是终稿，而是「哪些说法
@@ -431,6 +663,11 @@ registry 条目的映射是死行。
 终稿规范：`../reports/2026-11-10-trust-level-visual-spec.md`（第四次冻结：39 键 / 6 指标 /
 8 处登记点）。本节的底账来自 `../reports/2026-11-10-trust-level-superseded-claims.md`
 （designer 整理，20 条）。**清单与终稿规范冲突时以规范为准。**
+
+> **2026-11-11 起，规范本身也有一条不再成立**：§0 第 23 行「阈值页是既有 tab 数组里的
+> 一项，不是新页面」已被 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`
+> 取代（本文件 D 组 #18 同步标注）。规范的其余部分（DOM 契约、几何、断点）继续有效；
+> 独立页的页头几何沿用同一份基线，不需要第二套规范。
 
 ### A. 设计侧自纠（不要照旧版规范实现）
 
@@ -469,7 +706,7 @@ registry 条目的映射是死行。
 
 ### C. Go 侧注释/契约漂移 —— **backend 已修完，本条可删**
 
-14. ~~后端把 TL2 的 slug 写成另一个词~~ —— 已改为 `resident`（复核 `types.go` 的 `nameSlugs`），
+14. ~~后端把 TL2 的 slug 写成另一个词~~ —— 已改为 `resident`（复核方式已变：`types.go` 的 `nameSlugs` 在 N 档改造中删除，改看 `DefaultPolicy()` 的档名与 `tier_icons.go` 的默认图标序列），
     `config.go` 注释同步。旧词已不在仓库里，按 `resident` 检索即可。
 15. ~~`types.go` 注释称 options 键后缀为 `trust.level.<n>.<metric>`~~ —— 已改：注释明写该方案
     作废；`ThresholdOptionKey` 只用于**表单字段名与契约字段名**，不是 options 键。
@@ -487,8 +724,13 @@ registry 条目的映射是死行。
 
 17. 等级卡放进徽章 tab —— 否。等级是身份元数据，徽章只展示不给能力，混放会误导；
     落右栏（每个 tab 可见）。
-18. 后台新开独立页 —— 否。需要第二套页头/工具栏，还改 V3 目录计数，收益为零；它是设置页内
-    的固定 tab。
+18. ~~后台新开独立页 —— 否。需要第二套页头/工具栏，还改 V3 目录计数，收益为零；它是设置页内
+    的固定 tab。~~ **已被 `../decisions/2026-11-11-trust-levels-standalone-admin-page.md`
+    取代（2026-11-11，D-A）**：信任等级现在是独立页 `/control-panel/forum/trust-levels`，
+    页内四 tab（overview / tiers / thresholds / earnable）。旧结论的成本（页头、目录计数）是真实的，
+    变的是收益判断——前提「只有阈值表单一个可编辑面」在 D33 之后不再成立。同一条被取代的
+    还有 `../reports/2026-11-10-trust-level-visual-spec.md` §0 第 23 行的「阈值页是既有 tab
+    数组里的一项」。
 19. 后台画能力解锁勾选矩阵 —— 否。M4 只冻结阈值读写；能力映射未定稿前画矩阵就是第二套真相。
 20. 在「`L<4` 且下一档全阈值 0」时写「已达最高等级」或「继续活跃即可升级」—— 否。前者是错的，
     后者是编的；等 M4 暴露「被上限闸压住」的信号再写 `nextHint`。
@@ -599,5 +841,9 @@ SFORUM_TL_TEST_LOG=/tmp/iso.log ./scripts/verify-trust-levels-acceptance.sh
 - 待收编：`apps/api/app/Models/Forum/service_ops.go`（`trustForActor`）
 - 配置：`apps/api/app/Models/Options/types.go`（`trust.new_user*` 七键）、
   `app/Models/Options/service_normalize.go`
-- 后台 UI：`apps/web/app/components/admin/settings/site/tabs/SFAdminSiteNewcomersTab.vue`
+- 后台 UI：`apps/web/app/pages/admin/forum/trust-levels.vue`（独立页 shell）、
+  `apps/web/app/components/admin/forum/trust-levels/tabs/`（三个分区组件）、
+  `apps/web/app/composables/admin/forum/trustLevels/`（表单 / 矩阵 / 页面编排）；
+  新人限制（TL0 的数值来源）仍在
+  `apps/web/app/components/admin/settings/site/tabs/SFAdminSiteNewcomersTab.vue`
 - 权限奇偶校验：`apps/api/database/migrations/permission_seed_parity_test.go`

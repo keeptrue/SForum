@@ -39,6 +39,7 @@ export const adminSurfacePlacements = [
   { id: "core.component.page.admin.forum.content", contractVersion: "sforum.component.page.admin.forum.content@1", route: "/admin/forum/content" },
   { id: "core.component.page.admin.forum.settings", contractVersion: "sforum.component.page.admin.forum.settings@1", route: "/admin/forum/settings" },
   { id: "core.component.page.admin.forum.tags", contractVersion: "sforum.component.page.admin.forum.tags@1", route: "/admin/forum/tags" },
+  { id: "core.component.page.admin.forum.trust_levels", contractVersion: "sforum.component.page.admin.forum.trust_levels@1", route: "/admin/forum/trust-levels" },
   { id: "core.component.page.admin.jobs", contractVersion: "sforum.component.page.admin.jobs@1", route: "/admin/jobs" },
   { id: "core.component.page.admin.moderation", contractVersion: "sforum.component.page.admin.moderation@1", route: "/admin/moderation" },
   { id: "core.component.page.admin.permissions", contractVersion: "sforum.component.page.admin.permissions@1", route: "/admin/permissions" },

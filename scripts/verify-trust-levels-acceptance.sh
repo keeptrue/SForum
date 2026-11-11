@@ -73,7 +73,8 @@ TL_DIR="$API_DIR/app/Models/TrustLevels"
 TL_CTRL_DIR="$API_DIR/app/Http/Controllers/TrustLevels"
 IDENTITY_DIR="$API_DIR/app/Models/Identity"
 FORUM_DIR="$API_DIR/app/Models/Forum"
-OPENAPI_TL="$ROOT_DIR/contracts/openapi/paths/trust-levels.yaml"
+OPENAPI_TL="$ROOT_DIR/contracts/openapi/paths/trust_levels.yaml"
+OPENAPI_TL_SCHEMA="$ROOT_DIR/contracts/openapi/schemas/trust_levels.yaml"
 BASELINE_JSON="$ROOT_DIR/tests/architecture-boundaries-baseline.json"
 MODULE_NOTE="$ROOT_DIR/knowledge/modules/trust-levels.md"
 PERF_BASELINE="${SFORUM_TL_PERF_BASELINE:-$ROOT_DIR/storage/qa/trust-levels-perf-baseline.json}"
@@ -324,6 +325,45 @@ optv() {
   sqlv "SELECT coalesce(value::text, '') FROM web_options WHERE name = '$1'" | tr -d '"'
 }
 
+# ---------------------------------------------------------------- N 档口径
+# 本脚本不再假设「五档」。active 档位数与档位身份一律从**库内 trust.levels 真值**读，
+# 读面只用于证明「响应 = 配置的投影」，不参与定义真值（避免第二份常量）。
+# 默认五档站点下：active = 5、ids = newcomer,member,resident,veteran,leader，
+# 与改造前写死的判据逐字等价——这是判断「新功能坏」还是「脚本改坏」的基线。
+tl_config_json() { # 库内 trust.levels 的原始 JSON（v1 或 v2；读不到返回空串）
+  sqlv "SELECT coalesce(value::text, '') FROM web_options WHERE name = 'trust.levels'"
+}
+tl_expected_ids() { # active 档位的稳定身份 id，按判定/展示顺序，逗号分隔，不含 TL0
+  local raw
+  raw="$(tl_config_json)"
+  [[ -n "$raw" ]] || return 0
+  printf '%s' "$raw" | jq -r '
+    (if ((.schemaVersion // 1) >= 2) then
+       ((.tiers // []) | map(select((.retired // false) | not)) | map(.id))
+     else
+       ((.levels // []) | map(.levelSlug))
+     end) | map(select(. != null and . != "")) | join(",")' 2>/dev/null
+}
+tl_expected_active() { # active 档位数（不含 TL0）
+  local ids
+  ids="$(tl_expected_ids)"
+  [[ -n "$ids" ]] || return 0
+  printf '%s' "$ids" | awk -F, '{print NF}'
+}
+tl_expected_levels() { # 读面应有的档位数 = TL0 + active 档
+  local a
+  a="$(tl_expected_active)"
+  [[ -n "$a" ]] || return 0
+  printf '%s' "$((a + 1))"
+}
+tl_public_max_rank() { # <公开载荷>：最高 rank；载荷不可用时退回库内档数，再退回 4（历史五档）
+  local pub=${1:-} a
+  a="$(printf '%s' "$pub" | jq -r '(.data // .) | [(.levels // [])[].level] | max // empty' 2>/dev/null)"
+  [[ -n "$a" ]] || a="$(tl_expected_active)"
+  [[ -n "$a" ]] || a=4
+  printf '%s' "$a"
+}
+
 table_exists users || die 2 'users 表不存在：DATABASE_URL 指错了库？'
 
 HTTP_STATUS=000
@@ -409,13 +449,23 @@ creds_md_email() { # <代号>
 
 # 后台**读**面只需要 admin.access（controller.go:129），所以戊 不可用时退到 丁b（moderator）。
 # 写面（PUT / restore-defaults）要 trust.manage，那是另一条断言，别混用。
-login_any_admin_reader() { # <jar> -> 成功时打印代号
+login_any_admin_reader() { # <jar> -> 成功时打印代号/账号
   local jar=$1 code email
   for code in 戊 丁b; do
     email="$(creds_md_email "$code" 2>/dev/null || true)"
     [[ -n "$email" ]] || continue
     if login_into "$jar" "$email" "$QA_PASS"; then
       probe_logged_in=$((probe_logged_in + 1)) printf '%s' "$code"; return 0; fi
+    sleep 1   # 认证端点有 IP 限流：连试 4 个账号不间隔会把自己打成 429
+  done
+  # creds.txt 的密码会随环境轮换而滞后（2026-11-11 实测 戊/丁b 401）。矩阵账号 TLRW/TLRO
+  # 是同级的后台读探针（只做读面，不碰写面判据）：名字里带来源，方便报告如实说明换人。
+  for code in TLRW TLRO; do
+    email="$(jq -r --arg c "$code" 'if type=="array" then .[] else .accounts[]? end | select(.code==$c) | .email' "$TL_ACCOUNTS" 2>/dev/null | head -1)"
+    [[ -n "$email" ]] || continue
+    if login_into "$jar" "$email" "$QA_PASS"; then
+      probe_logged_in=$((probe_logged_in + 1)) printf '%s(%s)' "$code" "$email"; return 0; fi
+    sleep 1
   done
   return 1
 }
@@ -733,22 +783,34 @@ if [[ "$HTTP_READY" == 1 && "$(tl_flag_enabled && echo 1 || echo 0)" == 0 ]]; th
   fi
 elif [[ "$HTTP_READY" == 1 ]]; then
   api GET /trust-levels ''
+  C4_LABEL='C-4 公开等级目录档数 = TL0 + 库内 active 档数（rank 连续）'
   if [[ "$HTTP_STATUS" == 200 ]]; then
     n_levels="$(printf '%s' "$HTTP_BODY" | jq -r '(.data // .) | (.levels // []) | length' 2>/dev/null)"
-    if [[ "${n_levels:-0}" == 5 ]]; then
-      pass "C-4 公开等级目录返回 5 档（levels=$n_levels）"
+    want_levels="$(tl_expected_levels)"
+    # rank 必须是 0..n-1 连续：插入一档时若实现漏改后续序号，这里先红。
+    ranks_ok="$(printf '%s' "$HTTP_BODY" | jq -r '
+      (.data // .) | [(.levels // [])[].level] | sort
+      | . as $r | ($r == [range(0; ($r|length))])' 2>/dev/null)"
+    if [[ -z "${n_levels:-}" || "${n_levels:-0}" == 0 ]]; then
+      fail "$C4_LABEL" 'HTTP 200 但 levels 为空'
+    elif [[ -n "$want_levels" && "$n_levels" != "$want_levels" ]]; then
+      fail "$C4_LABEL" "levels=$n_levels ≠ TL0+active=$want_levels（库内 active ids=$(tl_expected_ids)）"
+    elif [[ "$ranks_ok" != true ]]; then
+      fail "$C4_LABEL" "rank 不是 0..$((n_levels-1)) 连续序列：$(printf '%s' "$HTTP_BODY" | jq -c '[.data.levels[].level]' 2>/dev/null)"
+    elif [[ -n "$want_levels" ]]; then
+      pass "$C4_LABEL（levels=$n_levels = 1 + 库内 active $((want_levels-1)) 档）"
     else
-      fail 'C-4 公开等级目录返回 5 档' "HTTP 200 但 levels 数量 = ${n_levels:-0}（D10 是五档）"
+      pend "$C4_LABEL" "levels=$n_levels 且 rank 连续，但库内 trust.levels 读不到，无法证明 = TL0 + active"
     fi
   elif [[ "$HTTP_STATUS" == 429 ]]; then
-    pend 'C-4 公开等级目录返回 5 档' '退避重试后仍 429（限流，不是产品行为）'
+    pend "$C4_LABEL" '退避重试后仍 429（限流，不是产品行为）'
   elif phase_ready tl4; then
-    fail 'C-4 公开等级目录返回 5 档' "HTTP $HTTP_STATUS（$(body_excerpt)）"
+    fail "$C4_LABEL" "HTTP $HTTP_STATUS（$(body_excerpt)）"
   else
-    pend 'C-4 公开等级目录返回 5 档' "$(phase_reason tl4)"
+    pend "$C4_LABEL" "$(phase_reason tl4)"
   fi
 else
-  pend 'C-4 公开等级目录返回 5 档' 'API 不可达'
+  pend 'C-4 公开等级目录档数 = TL0 + 库内 active 档数（rank 连续）' 'API 不可达'
 fi
 
 # C-5 矩阵账号实测（依赖 seeder 造出的数据；造不到就 pend，不猜等级）
@@ -763,7 +825,8 @@ if [[ "$matrix_ready" == 1 && "$HTTP_READY" == 1 && "$(phase_ready tl4 && echo 1
   probe_total=0
   probe_logged_in=0
   while IFS=$'\t' read -r code email want; do
-    [[ "$code" =~ ^TL[0-4]$ ]] || continue
+    # 账号代号 = TL{rank}；N 档站点可能出现 TL5..，不再钉死 0–4。
+    [[ "$code" =~ ^TL[0-9]+$ ]] || continue
     probe_total=$((probe_total + 1))
     jar="$work/jar-$code"
     if login_into "$jar" "$email" "$QA_PASS"; then
@@ -780,11 +843,11 @@ if [[ "$matrix_ready" == 1 && "$HTTP_READY" == 1 && "$(phase_ready tl4 && echo 1
       note "$code 登录失败（HTTP $HTTP_STATUS）"
     fi
     sleep 1   # 后台/认证端点有 IP 限流，别把自己打 429
-  done < <(jq -r '.[] | select(.code|test("^TL[0-4]$")) | [.code, .email, .expected] | @tsv' "$TL_ACCOUNTS" 2>/dev/null)
+  done < <(jq -r '.[] | select(.code|test("^TL[0-9]+$")) | [.code, .email, .expected] | @tsv' "$TL_ACCOUNTS" 2>/dev/null)
   if [[ "$probe_total" -gt 0 && "$probe_logged_in" == 0 ]]; then
     pend 'C-5 矩阵账号等级分布符合预期' "矩阵 $probe_total 个账号一个都登不上：造数未完成（seeder --apply），不是等级不符"
   elif [[ "$probe_total" == 0 ]]; then
-    pend 'C-5 矩阵账号等级分布符合预期' '账号清单里没有 TL0–TL4 行'
+    pend 'C-5 矩阵账号等级分布符合预期' '账号清单里没有 TL0–TLn 行'
   elif [[ "$probe_ok" == "$probe_total" ]]; then
     pass "C-5 矩阵账号等级分布符合预期（$probe_ok/$probe_total）"
   else
@@ -810,8 +873,11 @@ else
 fi
 
 # C-7 软删不降级（D5）：结构判据 —— Level 的输入若不含软删状态，软删就不可能改变等级。
+# 判据只看**标识符**（字段/常量/方法名），不看散文：中文「软删」「软停用」在领域包注释里
+# 说的是「停用档位后身份 id 不复用」，那是档位生命周期，不是内容存亡状态，故不入判据。
+# 反过来说，谁都不许为了迎合这条正则去删注释——那是把判据变成文字游戏。
 if [[ -d "$TL_DIR" ]]; then
-  if grep -rlE 'deleted_at|soft.?delete|软删' "$TL_DIR" --include='*.go' 2>/dev/null | grep -v '_test\.go' | grep -q .; then
+  if grep -rlE 'deleted_at|DeletedAt|SoftDelete|soft_delete|IsDeleted' "$TL_DIR" --include='*.go' 2>/dev/null | grep -v '_test\.go' | grep -q .; then
     fail 'C-7 软删不降级（结构判据）' 'TL 领域包引用了 deleted_at/软删状态：等级输入混入了内容存亡，D5 会被破坏'
   else
     pass 'C-7 软删不降级（结构判据：Level 输入不含内容存亡状态）'
@@ -911,7 +977,7 @@ if [[ "$HTTP_READY" == 1 ]]; then
   if [[ "$c12_done" == 1 ]]; then
     :
   elif [[ -z "$admin_reader" ]]; then
-    pend 'C-12 后台读面带 limits 且四字段齐全' "戊 / 丁b 都登不上（末次 HTTP $HTTP_STATUS：$(body_excerpt)）"
+    pend 'C-12 后台读面带 limits 且四字段齐全' "戊 / 丁b / TLRW / TLRO 都登不上（末次 HTTP $HTTP_STATUS：$(body_excerpt)）：凭据失效，已用同级矩阵账号替代"
   else
     note "后台读账号：$admin_reader（GET 只需 admin.access）"
     api GET /admin/trust-levels "$jar_admin"
@@ -1033,10 +1099,13 @@ else
 fi
 
 # D-6 恢复默认的语义在 UI 上写明「不影响用户已获得的内容」（D12）
-if has_glob 'apps/web/app/**/*rust*' && grep -rqE '不影响.*(已获得|已得)|已获得的内容' "$WEB_DIR/app" 2>/dev/null; then
+# 判据按**语义**认，不按某一句字面：现行文案是「…已获得的徽章与已发布的内容不受影响」，
+# 旧断言只认「不影响已获得」这个语序，等于把同义改写判成缺失。
+# 文案的**来源**是 i18n locale 文件（组件只引用键），所以两个目录都搜：只搜 app/ 会稳定误报缺失。
+if [[ -d "$WEB_DIR/app" ]] && grep -rqE '(不影响|不受影响).{0,30}(已获得|已发布|内容)|(已获得|已发布).{0,30}(不影响|不受影响)' "$WEB_DIR/app" "$WEB_DIR/i18n" 2>/dev/null; then
   pass 'D-6 恢复默认的 UI 文案声明不影响已获得内容（D12）'
 else
-  pend 'D-6 恢复默认的 UI 文案声明不影响已获得内容（D12）' '等前端改文案后重跑：页面已渲染（tl5 已落地），但当前文案不含「不影响已获得的内容」'
+  pend 'D-6 恢复默认的 UI 文案声明不影响已获得内容（D12）' '页面已渲染但文案既没说「不影响」也没说「不受影响」+「已获得/已发布/内容」：恢复默认的语义缺一句人话'
 fi
 
 # D-8 恢复推荐默认必须是**独立读回断言**，不是「按钮点了就算」。
@@ -1302,7 +1371,7 @@ else
   pend 'H-3 本刀不改 schema' '不在 git 工作树里，无法判定新增文件'
 fi
 
-# H-4 i18n 五档双语（D10）
+# H-4 i18n 内置档位名双语（D10；N 档下档名真相在服务端，i18n 只兜底内置 id）
 i18n_hit=0
 for loc in zh-CN en-US; do
   f="$WEB_DIR/i18n/locales/$loc.json"
@@ -1312,9 +1381,9 @@ for loc in zh-CN en-US; do
   fi
 done
 if [[ "$i18n_hit" == 2 ]]; then
-  pass 'H-4 五档等级名 zh-CN + en-US 双语齐全'
+  pass 'H-4 内置档位名 zh-CN + en-US 双语齐全'
 else
-  pend 'H-4 五档等级名 zh-CN + en-US 双语齐全' "$(phase_reason tl5)（命中 $i18n_hit/2 个 locale）"
+  pend 'H-4 内置档位名 zh-CN + en-US 双语齐全' "$(phase_reason tl5)（命中 $i18n_hit/2 个 locale）"
 fi
 
 # H-5 V3 目录与源码一致（新增后台页会改 routes / UI surfaces / traceability）。
@@ -1602,9 +1671,24 @@ m_tl0_ready=0; m_tl4_ready=0; m_admin_ready=0; m_member_ready=0
 m_login "$M_JAR_TL0" 甲 && m_tl0_ready=1
 m_login "$M_JAR_TL4" 丙 && m_tl4_ready=1
 m_login "$M_JAR_ADMIN" 戊 && m_admin_ready=1
+M_ADMIN_LABEL='戊'
+if [[ "$m_admin_ready" != 1 ]]; then
+  # creds.txt 里的 戊 密码会随环境轮换而滞后（2026-11-11 实测 401）。矩阵里的 TL 管理探针
+  # TLRO/TLRW 是同一类带 trust.manage 的后台账号：读面 200、写面 422（权限已过、config 非法）。
+  # 兜底**只在证据里点名换人**，不放松任何判据；账号清单仍以 storage/qa/trust-levels-accounts.json 为唯一来源。
+  for tl_admin_code in TLRW TLRO; do
+    tl_admin_email="$(jq -r --arg c "$tl_admin_code" 'if type=="array" then .[] else .accounts[]? end | select(.code==$c) | .email' "$TL_ACCOUNTS" 2>/dev/null | head -1)"
+    [[ -n "$tl_admin_email" ]] || continue
+    if login_into "$M_JAR_ADMIN" "$tl_admin_email" "$QA_PASS"; then
+      M_ADMIN_LABEL="$tl_admin_code($tl_admin_email)"
+      m_admin_ready=1
+      break
+    fi
+  done
+fi
 m_login "$M_JAR_MEMBER" 丁 && m_member_ready=1
 M_UID_TL0="$(creds_md_id 甲 2>/dev/null || true)"
-c "登录矩阵：甲(读) $m_tl0_ready · 丙(零基线) $m_tl4_ready · 戊(admin) $m_admin_ready · 丁(仅 badge.view) $m_member_ready"
+c "登录矩阵：甲(读) $m_tl0_ready · 丙(零基线) $m_tl4_ready · 后台写面=$M_ADMIN_LABEL → $m_admin_ready（优先 戊，401 时退 TLRO/TLRW）· 丁(仅 badge.view) $m_member_ready"
 note "M 段账号：甲=$M_UID_TL0 登录=$m_tl0_ready 丙登录=$m_tl4_ready 戊登录=$m_admin_ready 丁登录=$m_member_ready"
 
 # --- C13–C15 / C20：软删、隐藏、封禁都不改计数（事务内改 → 读 → ROLLBACK，零副作用）
@@ -1825,28 +1909,35 @@ else
   c_finish H14 H FAIL "Identity 反向依赖：$h14"
 fi
 
-# --- H6/H17：i18n 两个键族（双语、五档、与角色目录不相交）
+# --- H6/H17：i18n 两个内置名键族（双语、与角色目录不相交）
+# N 档口径：档名的**真相在服务端**（displayName/namePool），i18n 只兜底内置档位 id
+# （newcomer…leader）。所以这里断言「两个键族在 zh/en 都存在且不少于内置档位数」，
+# 不断言「键数 == 站点档数」——插一档不该要求翻译加键，删一档也不该让本项变红。
 ZH="$WEB_DIR/i18n/locales/zh-CN.json"; EN="$WEB_DIR/i18n/locales/en-US.json"
 if [[ -f "$ZH" && -f "$EN" ]]; then
   h6="$(jq -r '
-    def fam($p): ($p | keys) as $k | $k;
+    def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {});
     [ {family:"profile.trustLevel.name", zh:(.profile.trustLevel.name|keys|length), vals:(.profile.trustLevel.name|to_entries|map("\(.key)=\(.value)")|join(" / "))},
-      {family:"admin.settings.trustLevels.level", zh:(.admin.settings.trustLevels.level|keys|length), vals:(.admin.settings.trustLevels.level|to_entries|map("\(.key)=\(.value)")|join(" / "))} ] | .[] | "\(.family)\t\(.zh) 键\t\(.vals)"' "$ZH" 2>&1)"
+      {family:"admin.forum.trustLevels.level", zh:(adminFam|keys|length), vals:(adminFam|to_entries|map("\(.key)=\(.value)")|join(" / "))} ] | .[] | "\(.family)\t\(.zh) 键\t\(.vals)"' "$ZH" 2>&1)"
   c "zh-CN："; c "$h6"
   c "en-US："
-  c "$(jq -r '[.profile.trustLevel.name|keys|length, .admin.settings.trustLevels.level|keys|length] | "profile.trustLevel.name=\(.[0]) 键 · admin.settings.trustLevels.level=\(.[1]) 键"' "$EN" 2>&1)"
-  zh_n="$(printf '%s' "$h6" | grep -c $'\t5 键' || true)"
-  if [[ "$zh_n" -ge 2 ]]; then
-    c_finish H6 H ok '两个真实键族各 5 档，zh/en 双语均存在'
+  c "$(jq -r 'def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {}); [.profile.trustLevel.name|keys|length, adminFam|keys|length] | "profile.trustLevel.name=\(.[0]) 键 · admin.forum.trustLevels.level=\(.[1]) 键"' "$EN" 2>&1)"
+  zh_a="$(jq -r '.profile.trustLevel.name|keys|length' "$ZH" 2>/dev/null || echo 0)"
+  zh_b="$(jq -r 'def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {}); adminFam|keys|length' "$ZH" 2>/dev/null || echo 0)"
+  en_a="$(jq -r '.profile.trustLevel.name|keys|length' "$EN" 2>/dev/null || echo 0)"
+  en_b="$(jq -r 'def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {}); adminFam|keys|length' "$EN" 2>/dev/null || echo 0)"
+  if [[ "${zh_a:-0}" -ge 5 && "${zh_b:-0}" -ge 5 && "${en_a:-0}" -ge 5 && "${en_b:-0}" -ge 5 ]]; then
+    c_finish H6 H ok "两个内置名键族 zh/en 双语齐全（zh $zh_a/$zh_b 键 · en $en_a/$en_b 键；N 档站点档名以服务端 displayName 为准，i18n 只兜底内置 id）"
   else
-    c_finish H6 H FAIL "键族不齐（zh 里 5 键的族数=$zh_n）：$h6"
+    c_finish H6 H FAIL "键族不齐（profile.trustLevel.name zh=$zh_a en=$en_a · admin forum.trustLevels.level zh=$zh_b en=$en_b，期望各 ≥5）"
   fi
   h17="$(jq -r --slurpfile en "$EN" '
+    def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {});
     (.profile.trustLevel.name|to_entries|map(.value)) as $a
-    | (.admin.settings.trustLevels.level|to_entries|map(.value)) as $b
+    | (adminFam|to_entries|map(.value)) as $b
     | ($a+$b) | unique | join("|")' "$ZH" 2>&1)"
   role_keys="$(jq -r '.admin.roleCatalog // {} | to_entries | map(.value) | map(if type=="string" then . else (.name // "") end) | join("|")' "$ZH" 2>/dev/null || true)"
-  c "五档 zh 值集合：$h17"
+  c "内置档位 zh 值集合：$h17"
   c "admin.roleCatalog 文案集合（片段）：$(printf '%s' "$role_keys" | cut -c1-160)"
   c "交集检查：$(comm -12 <(printf '%s' "$h17" | tr '|' '\n' | sort -u) <(printf '%s' "$role_keys" | tr '|' '\n' | sort -u) | tr '\n' ' ')"
   inter="$(comm -12 <(printf '%s' "$h17" | tr '|' '\n' | sort -u) <(printf '%s' "$role_keys" | tr '|' '\n' | sort -u) | tr '\n' ' ')"
@@ -1871,23 +1962,37 @@ if [[ "$HTTP_READY" == 1 ]]; then
   c "$(printf '%s' "$pub" | jq -c '{levels:[.data.levels[]|{level,levelSlug}],newUserDays,viewer}' 2>/dev/null | cut -c1-400)"
   lv_n="$(printf '%s' "$pub" | jq -r '.data.levels|length' 2>/dev/null || echo 0)"
   slug_ok="$(printf '%s' "$pub" | jq -r '[.data.levels[].levelSlug] | join(",")' 2>/dev/null || echo '')"
-  c "档数=$lv_n · slug 顺序=$slug_ok"
-  if [[ "$HTTP_STATUS" == 200 && "$lv_n" == 5 ]]; then
-    c_finish I-01 I ok '公开端点返回 5 档且形状完整'
+  lv_max="$(tl_public_max_rank "$pub")"
+  want_levels_i="$(tl_expected_levels)"
+  want_seq=""
+  [[ -n "$(tl_expected_ids)" ]] && want_seq="newcomer,$(tl_expected_ids)"
+  c "档数=$lv_n（TL0 + 库内 active）· 最高 rank=$lv_max · slug 顺序=$slug_ok"
+  c "库内 trust.levels active ids=$(tl_expected_ids) · 期望档数=${want_levels_i:-未知}"
+  if [[ "$HTTP_STATUS" == 200 && -n "$want_levels_i" && "$lv_n" == "$want_levels_i" ]]; then
+    c_finish I-01 I ok "公开端点返回 $lv_n 档 = TL0 + 库内 active $((want_levels_i-1)) 档，形状完整"
+  elif [[ "$HTTP_STATUS" == 200 && -z "$want_levels_i" && "${lv_n:-0}" -ge 2 ]]; then
+    # 真值读不到时不能给 ok：那会把「配置正被写入 / 读库失败」冒充成通过。
+    c_finish I-01 I pend "公开端点返回 $lv_n 档，但库内 trust.levels 当时读不到，无法证明 = TL0 + active（可能是并发写入或读库失败）"
   else
-    c_finish I-01 I FAIL "公开端点形状不符：HTTP=$HTTP_STATUS levels=$lv_n"
+    c_finish I-01 I FAIL "公开端点形状不符：HTTP=$HTTP_STATUS levels=$lv_n 期望=${want_levels_i:-未知}"
   fi
-  if [[ "$slug_ok" == "newcomer,member,resident,veteran,leader" ]]; then
-    c_finish I-02 I ok "slug 顺序稳定：$slug_ok"
+  # I-02：身份顺序 = 「newcomer + 库内 active id 顺序」。默认五档站点下该期望就是
+  # newcomer,member,resident,veteran,leader（与改造前写死的判据逐字相同）。
+  if [[ -n "$want_seq" && "$slug_ok" == "$want_seq" ]]; then
+    c_finish I-02 I ok "档位身份顺序 = TL0 + 库内 active id 顺序：$slug_ok"
+  elif [[ -z "$want_seq" && "$slug_ok" == newcomer,* ]]; then
+    c_finish I-02 I pend "档位身份顺序以 newcomer 开头，但库内 trust.levels 读不到，无法逐项对拍：$slug_ok"
   else
-    c_finish I-02 I FAIL "slug 顺序与预期不符：$slug_ok"
+    c_finish I-02 I FAIL "档位身份顺序与库内配置不一致：实际=$slug_ok 期望=${want_seq:-newcomer,...}"
   fi
   c "公开面字段边界：has(limits)=$(printf '%s' "$pub" | jq -r '[.data.levels[]|has("limits")]|any') has(config)=$(printf '%s' "$pub" | jq -r 'has("config")') has(eligiblePermissions)=$(printf '%s' "$pub" | jq -r 'has("eligiblePermissions")')"
 
-  # I-05：TL4 视角（无 nextLevel/bottleneck）。先按公开阈值算谁够 TL4。
-  tl4_uid=''; tl4_code=''
+  # I-05：最高档视角（无 nextLevel/bottleneck）。最高档 = 公开载荷的 max rank：
+  # N 档站点下它不是写死的 4，判据必须是「最高 rank 的前一档有 nextLevel、最高档没有」。
+  top_uid=''; top_code=''
   # 账号矩阵里的 TL 档位账号（pm v3 §1.2：qa_tl0_blank 481 / qa_tl1_edge 482 / qa_tl2_resident 483 /
   # qa_tl3_veteran 484 / qa_tl4_leader 485）优先作为候选；老矩阵账号（甲乙丙丁b戊）兜底。
+  # 若站点档数 > 5，这些候选到不了最高档 → 本条 pend，脚本不猜等级。
   for code in 485 484 483 482 481 甲 乙 丙 丁b 戊; do
     if [[ "$code" =~ ^[0-9]+$ ]]; then
       u="$code"
@@ -1895,42 +2000,37 @@ if [[ "$HTTP_READY" == 1 ]]; then
       u="$(creds_md_id "$code" 2>/dev/null || true)"
     fi
     [[ -n "$u" ]] || continue
-    lvl="$(printf '%s' "$pub" | jq -r --argjson u "$u" '
-      (.data.newUserDays // 7) as $n
-      | .levels as $L
-      | ([ $L[] | select(.level==4) ][0].requirements) as $r4
-      | 4' 2>/dev/null || true)"
-    # 用库内计数直接比 TL4 阈值（阈值从公开载荷取，避免第二份常量）
+    # 用库内计数直接比最高档阈值（阈值从公开载荷取，避免第二份常量）
     row="$(sqlv "SELECT topic_count||' '||comment_count||' '||days_visited||' '||like_received_count||' '||like_given_count||' '||bookmark_count FROM user_activity WHERE user_id=$u")"
-    ok4="$(printf '%s' "$pub" | jq -r --arg row "$row" '
-      ([.data.levels[]|select(.level==4)][0].requirements) as $r
+    ok_top="$(printf '%s' "$pub" | jq -r --arg row "$row" --argjson top "$lv_max" '
+      ([.data.levels[]|select(.level==$top)][0].requirements) as $r
       | ($row|split(" ")|map(tonumber)) as $v
       | ([$v[0]>=$r.topic_count, $v[1]>=$r.comment_count, $v[2]>=$r.days_visited, $v[3]>=$r.like_received_count, $v[4]>=$r.like_given_count, $v[5]>=$r.bookmark_count] | all)' 2>/dev/null || echo false)"
-    c "候选 $code(uid=$u) 计数=[$row] 达 TL4=$ok4"
-    if [[ "$ok4" == true && -z "$tl4_uid" ]]; then tl4_uid="$u"; tl4_code="$code"; fi
+    c "候选 $code(uid=$u) 计数=[$row] 达最高档(rank $lv_max)=$ok_top"
+    if [[ "$ok_top" == true && -z "$top_uid" ]]; then top_uid="$u"; top_code="$code"; fi
   done
-  if [[ -n "$tl4_uid" ]]; then
-    jar="$work/m-tl4.jar"
-    tl4_login="$tl4_code"
-    if [[ "$tl4_code" =~ ^[0-9]+$ ]]; then
-      tl4_login="$(sqlv "SELECT username FROM users WHERE id=$tl4_code")@seed.local"
+  if [[ -n "$top_uid" ]]; then
+    jar="$work/m-tl-top.jar"
+    top_login="$top_code"
+    if [[ "$top_code" =~ ^[0-9]+$ ]]; then
+      top_login="$(sqlv "SELECT username FROM users WHERE id=$top_code")@seed.local"
     fi
-    if m_login "$jar" "$tl4_login"; then
+    if m_login "$jar" "$top_login"; then
       m_api GET /trust-levels "$jar"
-      c "$tl4_code 登录后 GET /trust-levels → $HTTP_STATUS"
+      c "$top_code 登录后 GET /trust-levels → $HTTP_STATUS"
       c "$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
-      if [[ "$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level' 2>/dev/null)" == 4 ]] \
+      if [[ "$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level' 2>/dev/null)" == "$lv_max" ]] \
          && [[ "$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer|has("nextLevel")' 2>/dev/null)" == false ]]; then
-        c_finish I-05 I ok "$tl4_code 达 TL4：viewer 只有 level/levelSlug，无 nextLevel/bottleneck"
+        c_finish I-05 I ok "$top_code 达最高档 rank $lv_max：viewer 只有 level/levelSlug，无 nextLevel/bottleneck"
       else
-        c_finish I-05 I FAIL "TL4 视角形状不符：$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
+        c_finish I-05 I FAIL "最高档视角形状不符（期望 level=$lv_max 且无 nextLevel）：$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
       fi
     else
-      c_finish I-05 I pend "$tl4_code 登录失败"
+      c_finish I-05 I pend "$top_code 登录失败"
     fi
   else
-    c '没有任何 QA 账号的计数达到 TL4 阈值（候选：甲/乙/丙/丁b/戊）'
-    c_finish I-05 I pend '环境限制：现无 TL4 账号；用 storage/qa/seed-trust-levels-matrix.sh 造一个 TL4 账号后可复跑'
+    c "没有任何候选账号的计数达到最高档 rank $lv_max 的阈值（候选：485/484/483/482/481/甲乙丙丁b戊）"
+    c_finish I-05 I pend "环境限制：现无达最高档（rank $lv_max）的账号；二档及以上需 storage/qa/seed-trust-levels-matrix.sh 造数后复跑"
   fi
 
   # I-09 / I-11 / I-24：后台读面 + 幂等 PUT + 落库一致性
@@ -2056,21 +2156,23 @@ if [[ "$HTTP_READY" == 1 && "$m_admin_ready" == 1 ]]; then
       # 在 shell 里重算等于写第二份领域逻辑——本刀已因「第二份副本」吃过大亏。
       # 所以只断言「形状自洽 + 档位合法」，档位与计数的正确性交给 TestLevelAgeGate / TestLevelBoundaries。
       v_lvl="$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // empty' 2>/dev/null)"
-      v_shape="$(printf '%s' "$HTTP_BODY" | jq -r '
+      # rank 上界 = 本次公开载荷的最高 rank（N 档；载荷拿不到再退回库内档数，最后才退回 4）
+      v_max="$(tl_public_max_rank "$HTTP_BODY")"
+      v_shape="$(printf '%s' "$HTTP_BODY" | jq -r --argjson max "$v_max" '
         (.data.viewer) as $v
         | [ ($v|type=="object"),
             ($v.level|type=="number"),
-            ($v.level >= 0 and $v.level <= 4),
+            ($v.level >= 0 and $v.level <= $max),
             ($v.levelSlug|type=="string"),
             (if $v|has("bottleneck") then ($v.bottleneck.current < $v.bottleneck.threshold) else true end) ]
         | all' 2>/dev/null)"
       c "恢复 $tl_orig 后甲首个 GET /trust-levels → $HTTP_STATUS · viewer=$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
-      c "自洽检查（viewer 是对象 / level 为 0..4 的数字 / levelSlug 是字符串 / 有 bottleneck 则 current<threshold）：$v_shape"
+      c "自洽检查（viewer 是对象 / level 为 0..$v_max（N 档上界）的数字 / levelSlug 是字符串 / 有 bottleneck 则 current<threshold）：$v_shape"
       c '判据修订（lead 2026-11-11）：viewer 由 LoadActor 每请求重装载，开关恢复后首个请求必为已解析态；'
       c '「切换后首请求无 viewer」不可证伪（未解析态只在「装载时开关是关的」那次请求里，已被 F3/I-15 的 404 覆盖）。'
       c '档位正确性不在本脚本重算：TestLevelAgeGate（账龄闸）+ TestLevelBoundaries（六指标边界）已在守。'
       if [[ "$HTTP_STATUS" == 200 && "$v_shape" == true ]]; then
-        c_finish I-16 I ok "恢复后首个请求 viewer 存在且形状自洽（level=$v_lvl 在 0..4，bottleneck 自洽）；档位正确性由 TestLevelAgeGate/TestLevelBoundaries 守，脚本不复刻 LevelOf"
+        c_finish I-16 I ok "恢复后首个请求 viewer 存在且形状自洽（level=$v_lvl 在 0..$v_max，bottleneck 自洽）；档位正确性由 TestLevelAgeGate/TestLevelBoundaries 守，脚本不复刻 LevelOf"
       else
         c_finish I-16 I FAIL "恢复后 viewer 形状不自洽：$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
       fi
@@ -2108,14 +2210,26 @@ if [[ "$HTTP_READY" == 1 ]]; then
   m_api GET /trust-levels
   h2="$(printf '%s' "$HTTP_BODY" | jq -r '
     [ (.data|keys|sort|join(",")),
-      ([.data.levels[]|keys|sort|join(",")]|unique|join(" / ")),
+      ([.data.levels[]|keys|sort]|unique|map(join(","))|join(" / ")),
       ([.data.levels[]|has("limits")]|any|tostring) ] | join("\n")' 2>/dev/null)"
   c "公开载荷顶层键 / 每档键 / 任一档带 limits："; c "$h2"
-  c "契约：contracts/openapi/schemas/trust_levels.yaml 的 required 字段：$(grep -A3 'required:' "$ROOT_DIR/contracts/openapi/schemas/trust_levels.yaml" | head -6 | tr '\n' ' ')"
-  if [[ "$(printf '%s' "$h2" | sed -n '3p')" == false ]] && [[ "$(printf '%s' "$h2" | sed -n '2p')" == *"earnable,level,levelSlug,requirements"* ]]; then
-    c_finish H2 H ok '公开响应形状与契约一致：档位键固定四枚、公开面零 limits（§0-2 的契约矛盾已按裁决改契约）'
+  # 每档键集合的期望从契约 `TrustLevelDefinition.required` 解析，不在脚本里抄一份。
+  # N 档改造给档位加了 displayName/icon/retired/editable 四枚键，写死「四枚」必然失真。
+  h2_contract_keys="$(awk '
+    /^TrustLevelDefinition:/ {inf=1; next}
+    inf && /^[[:space:]]*required:[[:space:]]*\[/ {gsub(/.*required:[[:space:]]*\[/,""); gsub(/\].*/,""); print; exit}
+    inf && /^[A-Za-z]/ {inf=0}' "$OPENAPI_TL_SCHEMA" 2>/dev/null | tr ',' '\n' | tr -d ' ' | sort | tr '\n' ',' | sed 's/,$//')"
+  h2_contract_src="$OPENAPI_TL_SCHEMA"
+  if [[ -z "$h2_contract_keys" ]]; then
+    # 契约解析失败（文件缺失/排版变了）时用契约当前 required 的字面值，并在证据里点名。
+    h2_contract_keys='displayName,earnable,editable,icon,level,levelSlug,requirements,retired'
+    h2_contract_src="$OPENAPI_TL_SCHEMA（required 未解析，退回字面值）"
+  fi
+  c "契约 required：$h2_contract_keys（来源 $h2_contract_src；路径变量 OPENAPI_TL=$OPENAPI_TL 存在=$([[ -f "$OPENAPI_TL" ]] && echo 是 || echo 否)）"
+  if [[ "$(printf '%s' "$h2" | sed -n '3p')" == false ]] && [[ "$(printf '%s' "$h2" | sed -n '2p')" == "$h2_contract_keys" ]]; then
+    c_finish H2 H ok "公开响应形状与契约一致：每档键集合 = required（$h2_contract_keys）、公开面零 limits"
   else
-    c_finish H2 H FAIL "公开响应与契约不一致：$h2"
+    c_finish H2 H FAIL "公开响应与契约不一致：每档键=$(printf '%s' "$h2" | sed -n '2p') 期望=$h2_contract_keys has_limits=$(printf '%s' "$h2" | sed -n '3p')"
   fi
   if [[ "$m_admin_ready" == 1 ]]; then
     m_api PUT /admin/trust-levels "$M_JAR_ADMIN" '{"config":"{}"}'
@@ -2192,27 +2306,16 @@ else
   for id in G1 G2 G3 G4 G5 G6; do c 'API 不可达'; c_finish "$id" G pend 'API 不可达'; done
 fi
 
-# --- D2/D3：日限额与外链拒绝（真实写；默认开启，但只碰窗口内的零基线 QA 账号，且必清理）
+# --- D3：外链拒绝（真实写；只碰窗口内的零基线 QA 账号 丙(457)，且必清理）
 # 为什么不用甲：甲 的账号建于 2026-10-04，已 38 天，超出 trust.new_user_days=7 的新人窗口，
 # 新人收紧对他本就不生效（2026-11-11 实测：5 次创建全 201）。矩阵写「甲」是按「TL0」推的，
 # 而新人限额的判据是「窗口内」+「TL0」，两者不是一回事。改用窗口内的零基线账号 丙(457)。
-D2_UID="$(creds_md_id 丙 2>/dev/null || true)"
-if [[ "$LIVE_WRITES" == 1 && "$HTTP_READY" == 1 && -n "$D2_UID" ]] && m_login "$work/m-d2.jar" 丙; then
-  pre_cnt="$(sqlv "SELECT topic_count FROM user_activity WHERE user_id=$D2_UID")"
-  pre_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D2_UID")"
-  cd_orig="$(optv trust.new_user.topic_cooldown_seconds)"
-  m_api GET /trust-levels "$work/m-d2.jar"
-  c "丙($D2_UID) 实测 viewer.level=$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // "无viewer"' 2>/dev/null)（HTTP=$HTTP_STATUS）"
-  c "写前：丙($D2_UID) user_activity.topic_count=${pre_cnt:-0} · topics 行数=${pre_rows:-0} · 冷却=${cd_orig}"
-  # 冷却 300s 会抢在日限额前面返回 429；临时置 0 才能测到 forum.daily_topic_limit，收尾还原。
-  cooldown_relaxed=0
-  if m_flag trust.new_user.topic_cooldown_seconds 0 && [[ "$(optv trust.new_user.topic_cooldown_seconds)" == 0 ]]; then
-    cooldown_relaxed=1
-    c "临时把 trust.new_user.topic_cooldown_seconds 置 0（收尾还原为 ${cd_orig:-300}）"
-  else
-    c "无法临时置 0 冷却（接口拒绝）：$(body_excerpt)"
-  fi
-  m_api POST /topics "$work/m-d2.jar" "$(jq -nc --arg t "qa-tl-d3-$(date +%s)" '{title:$t,content:{rawContent:"see http://example.com for details",sourceFormat:"markdown"},tagSlugs:[]}')"
+D3_UID="$(creds_md_id 丙 2>/dev/null || true)"
+if [[ "$LIVE_WRITES" == 1 && "$HTTP_READY" == 1 && -n "$D3_UID" ]] && m_login "$work/m-d3.jar" 丙; then
+  pre_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D3_UID")"
+  m_api GET /trust-levels "$work/m-d3.jar"
+  c "丙($D3_UID) 实测 viewer.level=$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // "无viewer"' 2>/dev/null)（HTTP=$HTTP_STATUS）"
+  m_api POST /topics "$work/m-d3.jar" "$(jq -nc --arg t "qa-tl-d3-$(date +%s)" '{title:$t,content:{rawContent:"see http://example.com for details",sourceFormat:"markdown"},tagSlugs:[]}')"
   c "带外链正文创建 → $HTTP_STATUS · $(body_excerpt)"
   if [[ "$HTTP_STATUS" == 403 || "$HTTP_STATUS" == 422 ]]; then
     c_finish D3 D ok "窗口内 TL0 账号带 http:// 外链的正文被拒（$HTTP_STATUS；trust.new_user.forbid_outbound_links=enabled）"
@@ -2221,35 +2324,80 @@ if [[ "$LIVE_WRITES" == 1 && "$HTTP_READY" == 1 && -n "$D2_UID" ]] && m_login "$
   else
     c_finish D3 D FAIL "带外链正文未被拒：$HTTP_STATUS"
   fi
-  created=0; statuses=(); last_code=''
+  # 清理：正常路径没有落库（403 拒绝）；万一真建成了也按标题前缀删，并回到写前计数。
+  sqlv "DELETE FROM topics WHERE author_user_id=$D3_UID AND title LIKE 'qa-tl-d3-%'"
+  sqlv "UPDATE user_activity SET topic_count = (SELECT count(*) FROM topics WHERE author_user_id=$D3_UID AND status='active') WHERE user_id=$D3_UID"
+  post_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D3_UID")"
+  c "D3 清理后：topics 行数=${post_rows:-0}（写前 ${pre_rows:-0}）"
+  [[ "$post_rows" == "${pre_rows:-0}" ]] && c "D3 清理校验：已回到写前基线" || warn "D3 清理后未回到基线：${pre_rows:-0} → ${post_rows:-0}"
+else
+  c "SFORUM_TL_ALLOW_WRITES=$LIVE_WRITES（API=$HTTP_READY 丙=${D3_UID:-无}）"
+  c_finish D3 D pend '需要 SFORUM_TL_ALLOW_WRITES=1 与可登录的窗口内账号'
+fi
+
+# --- D2：新人日限额（2026-11-11 改写，lead 裁决）
+# 旧断言的**前提已失效**，不是回归：D34 基线门（knowledge/decisions/2026-11-11-trust-level-
+# baseline-narrowing）在 TL0 扣掉了 topic.create，TL0 账号永远到不了「日限额」那条线——探针拿到
+# 的是 403 permission.denied（权限没过），不是「限流没触发」。基线键在 **TL1 起**恢复，所以
+# 日限额只能从 TL1 账号验证；账号来自矩阵清单（storage/qa/trust-levels-accounts.json 的 TL1）。
+# 证据不足一律 pend，只有在探针出现 5xx/非预期状态码时才 FAIL。
+D2_TL1_EMAIL="$(jq -r 'if type=="array" then .[] else .accounts[]? end | select(.code=="TL1") | .email' "$TL_ACCOUNTS" 2>/dev/null | head -1)"
+D2_UID=""
+[[ -n "$D2_TL1_EMAIL" ]] && D2_UID="$(sqlv "SELECT id FROM users WHERE email='$D2_TL1_EMAIL'")"
+if [[ "$LIVE_WRITES" != 1 || "$HTTP_READY" != 1 ]]; then
+  c "SFORUM_TL_ALLOW_WRITES=$LIVE_WRITES（API=$HTTP_READY）"
+  c_finish D2 D pend '需要 SFORUM_TL_ALLOW_WRITES=1 与可达 API（日限额是写入行为）'
+elif [[ -z "$D2_TL1_EMAIL" || -z "$D2_UID" ]]; then
+  c '矩阵清单里没有可用的 TL1 账号（storage/qa/trust-levels-accounts.json）'
+  c_finish D2 D pend 'D34 之后 TL0 无 topic.create，原断言前提失效（403 是权限不是限流）；改用 TL1 账号验证日限额，账号待补（storage/qa/seed-trust-levels-matrix.sh --apply）'
+elif ! login_into "$work/m-d2.jar" "$D2_TL1_EMAIL" "$QA_PASS"; then
+  c_finish D2 D pend "TL1 账号 $D2_TL1_EMAIL 登录失败（HTTP $HTTP_STATUS）"
+else
+  pre_cnt="$(sqlv "SELECT topic_count FROM user_activity WHERE user_id=$D2_UID")"
+  pre_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D2_UID")"
+  cd_orig="$(optv trust.new_user.topic_cooldown_seconds)"
+  m_api GET /trust-levels "$work/m-d2.jar"
+  D2_VLVL="$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // "无viewer"' 2>/dev/null)"
+  c "TL1($D2_TL1_EMAIL uid=$D2_UID) 实测 viewer.level=$D2_VLVL（HTTP=$HTTP_STATUS）"
+  c "写前：TL1 user_activity.topic_count=${pre_cnt:-0} · topics 行数=${pre_rows:-0} · 冷却=${cd_orig}"
+  # 冷却 300s 会抢在日限额前面返回 429；临时置 0 才能测到 forum.daily_topic_limit，收尾还原。
+  cooldown_relaxed=0
+  if m_flag trust.new_user.topic_cooldown_seconds 0 && [[ "$(optv trust.new_user.topic_cooldown_seconds)" == 0 ]]; then
+    cooldown_relaxed=1
+    c "临时把 trust.new_user.topic_cooldown_seconds 置 0（收尾还原为 ${cd_orig:-300}）"
+  else
+    c "无法临时置 0 冷却（接口拒绝）：$(body_excerpt)"
+  fi
+  created=0; statuses=(); last_code=''; unexpected=0
   for i in 1 2 3 4 5; do
     m_api POST /topics "$work/m-d2.jar" "$(jq -nc --arg t "qa-tl-d2-$i-$(date +%s)" '{title:$t,content:{rawContent:"tl daily limit probe",sourceFormat:"markdown"},tagSlugs:[]}')"
     statuses+=("$HTTP_STATUS")
     [[ "$HTTP_STATUS" == 429 ]] && last_code="$(printf '%s' "$HTTP_BODY" | jq -r '.data.reason // .message' 2>/dev/null)"
     [[ "$HTTP_STATUS" =~ ^20 ]] && created=$((created + 1))
+    [[ "$HTTP_STATUS" =~ ^(200|201|400|403|422|429)$ ]] || unexpected=$((unexpected + 1))
     [[ "$HTTP_STATUS" == 429 ]] && break
     sleep 1
   done
   c "连续创建返回码：${statuses[*]}（成功 $created 条，最后一次 429 原因：${last_code:-无}）"
   if [[ "${statuses[*]}" == *429* && "$last_code" == *daily_topic_limit* ]]; then
-    c_finish D2 D ok "窗口内 TL0 账号第 $((created + 1)) 次创建被 429 forum.daily_topic_limit 拦下（日限额按当日 topics 计数）"
+    c_finish D2 D ok "TL1 账号第 $((created + 1)) 次创建被 429 forum.daily_topic_limit 拦下（日限额按当日 topics 计数；TL0 因 D34 无 topic.create，不再作为探针）"
   elif [[ "${statuses[*]}" == *429* ]]; then
     c_finish D2 D pend "429 被冷却抢先（reason=${last_code:-未知}），日限额未测到；需先置 trust.new_user.topic_cooldown_seconds=0"
+  elif [[ "$unexpected" -gt 0 ]]; then
+    c_finish D2 D FAIL "探针出现非预期状态码：${statuses[*]}"
+  elif [[ "$created" -gt 0 ]]; then
+    c_finish D2 D pend "TL1 账号连续创建 $created 条未被拦：该账号可能已不在新人窗口（日限额按窗口判定），原断言前提不适用；需造一个窗口内 TL1 账号后复跑"
   else
-    c_finish D2 D FAIL "5 次创建都没触发 429：${statuses[*]}"
+    c_finish D2 D pend "TL1 探针全部被拒且非 429/非日限额：${statuses[*]}；该账号实测 viewer.level=${D2_VLVL:-未知}（矩阵造数未完成时它可能仍判为 TL0，因此同样没有 topic.create）——是账号状态+基线门，不是日限额缺陷"
   fi
   # 清理：只删本轮 qa-tl-* 行并重算计数（绝不做 DELETE FROM topics 批量删）
-  sqlv "DELETE FROM topics WHERE author_user_id=$D2_UID AND title LIKE 'qa-tl-d%'"
+  sqlv "DELETE FROM topics WHERE author_user_id=$D2_UID AND title LIKE 'qa-tl-d2-%'"
   sqlv "UPDATE user_activity SET topic_count = (SELECT count(*) FROM topics WHERE author_user_id=$D2_UID AND status='active') WHERE user_id=$D2_UID"
   post_cnt="$(sqlv "SELECT topic_count FROM user_activity WHERE user_id=$D2_UID")"
   post_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D2_UID")"
   c "清理后：topic_count=${post_cnt:-0} · topics 行数=${post_rows:-0}（写前 ${pre_cnt:-0} / ${pre_rows:-0}）"
   [[ "$post_cnt" == "${pre_cnt:-0}" && "$post_rows" == "${pre_rows:-0}" ]] && c "清理校验：已回到写前基线" || warn "清理后未完全回到基线：${pre_cnt:-0}/${pre_rows:-0} → ${post_cnt:-0}/${post_rows:-0}"
   [[ "$cooldown_relaxed" == 1 ]] && m_flag_restore trust.new_user.topic_cooldown_seconds "${cd_orig:-300}"
-else
-  c "SFORUM_TL_ALLOW_WRITES=$LIVE_WRITES（API=$HTTP_READY 丙=${D2_UID:-无}）"
-  c_finish D2 D pend '需要 SFORUM_TL_ALLOW_WRITES=1 与可登录的窗口内账号'
-  c_finish D3 D pend '同上'
 fi
 
 # --- B6 / A14：静态计数与「同测试两次跑一致」

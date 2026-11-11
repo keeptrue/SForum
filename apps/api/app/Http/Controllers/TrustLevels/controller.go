@@ -13,6 +13,12 @@ import (
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
+// CodeInvalidConfig 是配置解码失败的**唯一**机器码（D-N14）。
+//
+// 前端与契约为它分流；字段级明细放在同一个响应的 details.errors 里，不按档位变码——
+// 一变码，前端的「配置无效」处理就得先枚举全部码，等于把校验细节搬进前端。
+const CodeInvalidConfig = "trust_levels.invalid_config"
+
 // Controller 是信任等级的 HTTP 面（公开 1 条 + 后台 3 条）。
 //
 // 产品开关语义（D9）：`features.trust_levels` 关闭时四条路由**一律 404**——本刀之前
@@ -101,26 +107,40 @@ func (h *Controller) viewerPayload(ctx context.Context, actor identity.Actor) *v
 	if !actor.TrustLevelResolved {
 		return nil
 	}
+	rank := trustlevels.Level(actor.TrustLevel)
+	policy, err := h.policy(ctx)
 	viewer := &viewerTrustLevel{
 		Level:     actor.TrustLevel,
-		LevelSlug: trustlevels.Level(actor.TrustLevel).Slug(),
+		LevelSlug: viewerLevelSlug(policy, rank),
 	}
-	if actor.TrustLevel >= int(trustlevels.LevelLeader) || h.resolver == nil {
+	if err != nil || h.resolver == nil {
+		return viewer
+	}
+	// 「已满级」的判据跟着配置走（LastRank），不是内置的 TL4：运营删档/加档之后
+	// 钉死 4 会让 5 档站点永远显示「还差一点到 TL5」。
+	if rank >= policy.LastRank() {
 		return viewer
 	}
 	activity, err := h.resolver.Activity(ctx, actor.ID)
 	if err != nil {
 		return viewer
 	}
-	policy, err := h.policy(ctx)
-	if err != nil {
-		return viewer
-	}
-	if metric, current, threshold, ok := trustlevels.Progress(activity, trustlevels.Level(actor.TrustLevel), policy); ok {
+	if metric, current, threshold, ok := trustlevels.Progress(activity, rank, policy); ok {
 		viewer.NextLevel = actor.TrustLevel + 1
 		viewer.Bottleneck = &trustLevelBottleneck{Metric: metric, Current: current, Threshold: threshold}
 	}
 	return viewer
+}
+
+// viewerLevelSlug 把 rank 折成契约里的 levelSlug（= 档位身份 id）。
+//
+// 策略读不到时回落到内置 id：配置暂时坏掉不应该让等级卡的标识变成空串，
+// 那会把「配置错误」伪装成「这个人没有等级」。
+func viewerLevelSlug(policy trustlevels.Policy, rank trustlevels.Level) string {
+	if id := policy.TierID(rank); id != "" {
+		return id
+	}
+	return trustlevels.BuiltinTierID(rank)
 }
 
 // ---- 后台面 ----
@@ -138,11 +158,16 @@ func (h *Controller) getAdmin(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "trust_levels.encode_failed")
 	}
 	return apphttp.OK(c, adminPayload{
-		Config:      encoded,
-		Levels:      buildAdminPayload(policy).Levels,
-		Eligible:    nonNilStrings(trustlevels.EligiblePermissions()),
-		Baseline:    nonNilStrings(trustlevels.BaselineGrants()),
-		Recommended: recommendedConfig(),
+		Config:       encoded,
+		Levels:       buildAdminPayload(policy).Levels,
+		Eligible:     nonNilStrings(trustlevels.EligiblePermissions()),
+		Baseline:     nonNilStrings(trustlevels.BaselineGrants()),
+		Recommended:  recommendedConfig(),
+		IconChoices:  nonNilStrings(trustlevels.TierIcons()),
+		ColorChoices: nonNilStrings(trustlevels.TierColors()),
+		NamePool:     toTrustLevelNamePool(trustlevels.TierNamePool()),
+		TierLimits:   tierCountBounds{Min: trustlevels.MinTiers, Max: trustlevels.MaxTiers},
+		NextTierSeq:  policy.NextTierSeq(),
 	})
 }
 
@@ -164,7 +189,8 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 	// 不存在「PUT 的 DTO 比 Config 宽松」的第二个形状。
 	policy, err := trustlevels.DecodeConfig(request.Config)
 	if err != nil {
-		return fiber.NewError(fiber.StatusUnprocessableEntity, "trust_levels.invalid_config")
+		// 传输层只做投影，不重新判断业务规则：明细来自领域层的 *ConfigErrors。
+		return configErrorResponse(c, err)
 	}
 	encoded, err := trustlevels.EncodeConfig(policy)
 	if err != nil {
@@ -184,7 +210,20 @@ func (h *Controller) restoreDefaults(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if err := h.save(c.Context(), actor, recommendedConfig()); err != nil {
+	// 读当前策略只为拿墓碑：恢复默认是整份覆盖（D-N15），但被删掉的档位 id 必须
+	// 留下来，否则这个按钮会悄悄打破同一份契约里的「id 永不复用」。
+	// 读不出来时退回纯推荐值：配置已经坏掉的站点更需要「恢复默认」可用。
+	previous, err := h.policy(c.Context())
+	if err != nil {
+		slog.WarnContext(c.Context(), "trust_levels restore defaults: read previous policy failed",
+			"userId", actor.ID, "error", err)
+		previous = trustlevels.Policy{}
+	}
+	encoded, err := trustlevels.EncodeConfig(trustlevels.RestoreDefaults(previous))
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "trust_levels.encode_failed")
+	}
+	if err := h.save(c.Context(), actor, encoded); err != nil {
 		slog.WarnContext(c.Context(), "trust_levels restore defaults failed", "userId", actor.ID, "error", err)
 		return apphttp.MapOptionsError(err)
 	}
@@ -276,6 +315,31 @@ func (h *Controller) save(ctx context.Context, actor identity.Actor, value strin
 		Value: value,
 	})
 	return err
+}
+
+// configErrorResponse 把解码错误投影成 422：机器码不变，明细变细（D-N14）。
+//
+// 明细可能为空（结构化错误之外的兜底），那种情况回落到旧的「只给统一码」行为——
+// 前端不能因为一条没有明细的错误就崩掉。
+func configErrorResponse(c fiber.Ctx, err error) error {
+	details := trustlevels.ConfigErrorDetails(err)
+	if len(details) == 0 {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, CodeInvalidConfig)
+	}
+	projected := make([]trustLevelConfigError, 0, len(details))
+	for _, detail := range details {
+		projected = append(projected, trustLevelConfigError{
+			Rank:       int(detail.Rank),
+			TierID:     detail.TierID,
+			Field:      detail.Field,
+			ReasonCode: detail.Code,
+			Params:     detail.Params,
+			Reason:     detail.Reason,
+		})
+	}
+	return apphttp.NewErrorWithDetails(fiber.StatusUnprocessableEntity, CodeInvalidConfig, map[string]any{
+		"errors": projected,
+	})
 }
 
 func recommendedConfig() string {

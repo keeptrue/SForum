@@ -23,6 +23,7 @@ type Service struct {
 	nicknames      NicknameEditor
 	bookmarks      BookmarkLister
 	trustLevels    TrustLevelReader
+	trustTiers     TrustTierCatalog
 	activityCounts ActivityCountersReader
 }
 
@@ -31,6 +32,21 @@ type Service struct {
 // 只返回数字与是否已解析：资料页是**他人视角**，不得携带任何行为计数。
 type TrustLevelReader interface {
 	TrustLevelFor(ctx context.Context, userID int64) (int, bool, error)
+}
+
+// TrustTierCatalog 给出某 rank 的档位身份（id + 双语显示名）。
+//
+// 装配层用 trust.levels 单键实现它（见 providers 的适配器）。它与 TrustLevelReader
+// 分开的原因是职责不同：后者回答「这个人是几级」，前者回答「这一级叫什么、用什么
+// id」。没有目录时资料页仍能给出内置 id，只是拿不到运营自定义的名字。
+type TrustTierCatalog interface {
+	TierIdentity(ctx context.Context, rank int) (TierIdentity, bool)
+}
+
+// TierIdentity 是一档的对外身份。
+type TierIdentity struct {
+	ID   string
+	Name trustlevels.LocalizedName
 }
 
 // ActivityCountersReader 读公开资料页的两个行为计数（获赞 / 访问天数）。
@@ -58,6 +74,16 @@ func (s *Service) WithActivityCounters(reader ActivityCountersReader) *Service {
 func (s *Service) WithTrustLevelReader(reader TrustLevelReader) *Service {
 	if s != nil {
 		s.trustLevels = reader
+	}
+	return s
+}
+
+// WithTrustTierCatalog 注入档位身份目录（链式可选）。
+//
+// 未注入时资料页退回内置 id / 不输出 displayName，与本次改造之前逐字节等价。
+func (s *Service) WithTrustTierCatalog(catalog TrustTierCatalog) *Service {
+	if s != nil {
+		s.trustTiers = catalog
 	}
 	return s
 }
@@ -664,7 +690,10 @@ func isValidWebsiteURL(value string) bool {
 // 保留 forum 包引用，避免未来扩展公开资料时的引用丢失（近期主题等依赖 forum 类型）。
 var _ = forum.TopicSummary{}
 
-// publicTrustLevel 返回**他人视角**的等级：只有 level + levelSlug。
+// publicTrustLevel 返回**他人视角**的等级：level + levelSlug + displayName。
+//
+// displayName 只有**当前档**的名字：阶梯、阈值、限额一个都不出 Profile 层
+// （TierIdentity 只带 ID + Name，Policy 的其余字段在适配器里就被丢弃）。
 //
 // 未注入读取器、产品开关关闭或等级未解析时返回 nil（资料页不渲染等级卡），
 // 与信任等级上线之前逐字节等价。
@@ -676,5 +705,15 @@ func (s *Service) publicTrustLevel(ctx context.Context, userID int64) *PublicTru
 	if err != nil || !resolved {
 		return nil
 	}
-	return &PublicTrustLevel{Level: level, LevelSlug: trustlevels.Level(level).Slug()}
+	// 先写内置 id：目录未注入或策略读失败时，levelSlug 仍然是一个可用的稳定标识
+	// （内置档位的 id 与 v1 的 levelSlug 逐字相同，所以对外契约不变）。
+	result := &PublicTrustLevel{Level: level, LevelSlug: trustlevels.BuiltinTierID(trustlevels.Level(level))}
+	if s.trustTiers != nil {
+		if tierIdentity, ok := s.trustTiers.TierIdentity(ctx, level); ok {
+			result.LevelSlug = tierIdentity.ID
+			name := tierIdentity.Name
+			result.DisplayName = &name
+		}
+	}
+	return result
 }

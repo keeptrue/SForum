@@ -107,7 +107,7 @@ useSForumSeo(computed(() => ({
 const displayName = computed(() => userDisplayName(profile.value, username.value))
 const isSelf = computed(() => Boolean(profile.value && authUser.value?.id === profile.value.userId))
 // 等级卡数据：他人视角只有 profile.trustLevel；本人额外读 /trust-levels 的 viewer 拿进度。
-const { trustLevel } = useTrustLevel(computed(() => profile.value?.trustLevel), () => isSelf.value)
+const { trustLevel, ladder: trustLevelLadder } = useTrustLevel(computed(() => profile.value?.trustLevel), () => isSelf.value)
 const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
 const navCategories = computed(() => categoryGroups.value.flatMap(group => group.categories || []))
 const navTotalTopics = computed(() => navCategories.value.reduce((sum, category) => sum + category.topicCount, 0))
@@ -465,6 +465,7 @@ async function shareProfile() {
             :has-public-details="hasPublicDetails"
             :recent-topics="recentTopics"
             :trust-level="trustLevel"
+            :trust-level-ladder="trustLevelLadder"
           />
           <SFRegionOutlet page="forum.profile.show" region="sidebar" />
         </aside>
@@ -492,6 +493,7 @@ async function shareProfile() {
         :has-public-details="hasPublicDetails"
         :recent-topics="recentTopics"
         :trust-level="trustLevel"
+        :trust-level-ladder="trustLevelLadder"
         drawer
       />
     </aside>

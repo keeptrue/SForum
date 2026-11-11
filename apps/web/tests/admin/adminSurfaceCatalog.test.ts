@@ -23,7 +23,8 @@ describe('admin surface placement catalog', () => {
     // 49 = 46 + core.component.page.admin.extensions.install（安装扩展页）+ query/route catalog。
     // 2026-10-24：应用商城三页（store / store.plugins / store.themes）随死代码清算删除。
     // 2026-11-10：+ core.component.page.admin.badges（徽章管理页）。
-    expect(adminSurfacePlacements.length).toBe(49)
+    // 2026-11-11：+ core.component.page.admin.forum.trust_levels（信任等级独立页，属预期 +1）。
+    expect(adminSurfacePlacements.length).toBe(50)
     expect(adminSurfacePlacements).toContainEqual({
       id: 'core.component.page.admin.extensions.install',
       contractVersion: 'sforum.component.page.admin.extensions.install@1',
@@ -38,6 +39,11 @@ describe('admin surface placement catalog', () => {
       id: 'core.component.page.admin.extensions.route.catalog',
       contractVersion: 'sforum.component.page.admin.extensions.route.catalog@1',
       route: '/admin/extensions/route-catalog'
+    })
+    expect(adminSurfacePlacements).toContainEqual({
+      id: 'core.component.page.admin.forum.trust_levels',
+      contractVersion: 'sforum.component.page.admin.forum.trust_levels@1',
+      route: '/admin/forum/trust-levels'
     })
     expect(adminSurfacePlacements).toContainEqual({
       id: 'core.component.page.admin.users',

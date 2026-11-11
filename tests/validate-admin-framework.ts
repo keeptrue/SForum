@@ -176,6 +176,7 @@ const adminPagePathsById: Record<string, string> = {
   '/badges': 'apps/web/app/pages/admin/badges.vue',
   '/forum/settings': 'apps/web/app/pages/admin/forum/settings.vue',
   '/forum/content': 'apps/web/app/pages/admin/forum/content.vue',
+  '/forum/trust-levels': 'apps/web/app/pages/admin/forum/trust-levels.vue',
   '/extensions': 'apps/web/app/pages/admin/extensions/index.vue',
   '/extensions/install': 'apps/web/app/pages/admin/extensions/install.vue',
   '/extensions/plugins': 'apps/web/app/pages/admin/extensions/plugins.vue',
@@ -291,7 +292,7 @@ assert(
 )
 assert(forumFolder.children?.some(entry => entry.pageId === '/moderation'), 'Forum folder should contain the moderation page')
 assert(
-  forumFolder.children?.map(entry => entry.pageId).join(',') === '/moderation,/forum/categories,/forum/tags,/forum/settings,/forum/content',
+  forumFolder.children?.map(entry => entry.pageId).join(',') === '/moderation,/forum/categories,/forum/tags,/forum/settings,/forum/trust-levels,/forum/content',
   'Forum folder should keep the approved submenu order'
 )
 // 徽章的主体是用户（授予关系 / user_activity / top_badge_id），不是论坛内容或论坛设置：

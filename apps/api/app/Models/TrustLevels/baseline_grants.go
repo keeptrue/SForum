@@ -24,9 +24,13 @@ func BaselineGrants() []string {
 	return slices.Clone(baselineGrants)
 }
 
-// BaselineGrantsFor 返回该等级装载期**应被扣除**的基线键；TL1 及以上返回 nil。
+// BaselineGrantsFor 返回该 rank 装载期**应被扣除**的基线键；rank ≥ 1（任一 active
+// 档位）返回 nil。
 //
-// 等级下界放在这里而不是 identity 里：identity 不能 import 本包（D18），
+// 判据只看 rank，不看「是不是某个具名档位」：TL1 起就算成员这条产品口径与档位
+// 数量无关——加档、删档、停用都不该改变基线门。
+//
+// 下界放在这里而不是 identity 里：identity 不能 import 本包（D18），
 // 让 identity 自己写一个 `level < 1` 就是把 `LevelMember` 的数值抄成第二份。
 // 装载器只负责「照单扣除」，不解释「谁是成员」。
 func (r *Resolver) BaselineGrantsFor(level int) []string {

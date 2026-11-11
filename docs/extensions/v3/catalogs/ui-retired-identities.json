@@ -72,6 +72,10 @@
     {
       "id": "core.component.page.admin.extensions.store.themes",
       "contractVersion": "sforum.component.page.admin.extensions.store.themes@1"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_levels_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_levels_tab@1"
     }
   ]
 }

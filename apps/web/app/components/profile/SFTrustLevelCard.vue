@@ -7,33 +7,57 @@
  * 改名先改规范。刻度条是 `aria-hidden` 的装饰冗余，信息由档位名 + TL 编号 + aria 承载。
  */
 import {
-  TRUST_LEVEL_MAX,
-  TRUST_LEVEL_SLUGS,
-  trustLevelIcon,
+  FALLBACK_LADDER,
+  trustLevelIconOf,
+  trustLevelLadderMax,
+  trustLevelName,
   trustLevelProgress,
-  trustLevelSlug,
-  type TrustLevelMetric
+  type TrustLevelMetric,
+  type TrustLevelTier
 } from '~/composables/profile/useTrustLevel'
+import { tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 
 const props = withDefaults(defineProps<{
   level: number
   metrics?: TrustLevelMetric[]
+  /**
+   * **最终**档位阶梯：rank 0 = TL0，其后 active 档位（由 `useTrustLevel` 组装，见 `FALLBACK_LADDER`）。
+   *
+   * 卡片「收到什么就渲染什么」：这里**不再**补 TL0、也不再过滤，否则页面给一份含 TL0 的阶梯
+   * 就会被拼成两条 TL0，整张卡错位一档。不传时名字/图标走内置回退，但**不渲染刻度**。
+   */
+  ladder?: TrustLevelTier[]
 }>(), {
-  metrics: () => []
+  metrics: () => [],
+  ladder: () => []
 })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
-const levelValue = computed(() => Math.min(TRUST_LEVEL_MAX, Math.max(0, Math.trunc(Number(props.level) || 0))))
+/** 收到的阶梯（含 TL0）；空 = 目录不可用，此时只渲染名字/图标/进度，不画刻度。 */
+const rungsSource = computed(() => props.ladder ?? [])
+const hasLadder = computed(() => rungsSource.value.length > 0)
+/** 名字/图标的兜底来源：与刻度共用同一套解析，只是刻度不渲染。 */
+const displayLadder = computed(() => (hasLadder.value ? rungsSource.value : FALLBACK_LADDER))
+const maxLevel = computed(() => trustLevelLadderMax(displayLadder.value))
+const levelValue = computed(() => Math.min(maxLevel.value, Math.max(0, Math.trunc(Number(props.level) || 0))))
 const earned = computed(() => levelValue.value >= 1)
-const name = computed(() => t(`profile.trustLevel.name.${trustLevelSlug(levelValue.value)}`))
-const nextName = computed(() => t(`profile.trustLevel.name.${trustLevelSlug(levelValue.value + 1)}`))
-const icon = computed(() => trustLevelIcon(levelValue.value))
+const currentTier = computed(() => displayLadder.value[levelValue.value] ?? null)
+const nextTier = computed(() => displayLadder.value[levelValue.value + 1] ?? null)
+const name = computed(() => trustLevelName(currentTier.value, locale.value, levelValue.value, t))
+const nextName = computed(() => trustLevelName(nextTier.value, locale.value, levelValue.value + 1, t))
+const icon = computed(() => trustLevelIconOf(currentTier.value, levelValue.value))
+/**
+ * 档位色（D-C1）：`--tl-accent` 由**当前档**派生（TL0 = slate），
+ * 阶梯（图标 / 进度条 / 最高档实心块）都跟着它走。内联变量在明暗两套里都成立，
+ * 因为 `--sf-tl-*` 自己在 `.dark` 下换色（见 `sforum-trust-colors.css`）。
+ */
+const accentStyle = computed(() => tierAccentStyle(tierColorOf(currentTier.value, levelValue.value)))
 
-// TL4 没有下一档 → 由 `__maxed` 取代进度块。
-// level<4 但下一档所有 threshold 都是 0（实际只会是「新人期上限闸压住等级」）→ 什么都不渲染：
+// 最高档没有下一档 → 由 `__maxed` 取代进度块（最高档按 active 档数算，不是写死的 4）。
+// level < 最高档但下一档所有 threshold 都是 0（实际只会是「新人期上限闸压住等级」）→ 什么都不渲染：
 // 那种状态不是「已达最高等级」，也不猜原因（规范 §1.4-2 + lead 裁决）。
-const bar = computed(() => (levelValue.value >= TRUST_LEVEL_MAX ? null : trustLevelProgress(props.metrics)))
+const bar = computed(() => (levelValue.value >= maxLevel.value ? null : trustLevelProgress(props.metrics)))
 const hint = computed(() => {
   const progress = bar.value
   if (!progress) return ''
@@ -66,18 +90,21 @@ const rootLabel = computed(() => t('profile.trustLevel.ariaLabel', {
   name: name.value,
   state: earned.value ? t('profile.trustLevel.earned') : t('profile.trustLevel.notEarned')
 }))
-// 五格固定渲染，顺序 0→4；`data-earned` 只回答「走过几档」，不标记当前档。
-const rungs = computed(() => TRUST_LEVEL_SLUGS.map((slug, level) => ({
-  slug,
+// 刻度：**只**按收到的阶梯画（含 TL0），不补、不改序；`data-earned` 只回答「走过几档」。
+const rungs = computed(() => rungsSource.value.map((tier, level) => ({
+  id: tier.id,
   level,
   earned: level <= levelValue.value
 })))
+const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, minmax(0, 1fr))`)
 </script>
 
 <template>
   <section
     class="sf-profile-side-section sf-trust-level-card"
+    :style="accentStyle"
     :data-level="String(levelValue)"
+    :data-step="String(Math.min(4, levelValue))"
     :data-earned="earned ? 'true' : 'false'"
     :aria-label="rootLabel"
   >
@@ -110,12 +137,12 @@ const rungs = computed(() => TRUST_LEVEL_SLUGS.map((slug, level) => ({
       </div>
       <span class="sf-trust-level-card__progress-text">{{ progressText }}</span>
     </div>
-    <p v-else-if="levelValue >= TRUST_LEVEL_MAX" class="sf-trust-level-card__maxed">{{ t('profile.trustLevel.maxed') }}</p>
+    <p v-else-if="levelValue >= maxLevel" class="sf-trust-level-card__maxed">{{ t('profile.trustLevel.maxed') }}</p>
 
-    <ol class="sf-trust-level-card__rungs" aria-hidden="true">
+    <ol v-if="rungs.length > 0" class="sf-trust-level-card__rungs" aria-hidden="true" :style="{ gridTemplateColumns: rungColumns }">
       <li
         v-for="rung in rungs"
-        :key="rung.slug"
+        :key="rung.id"
         class="sf-trust-level-card__rung"
         :data-level="String(rung.level)"
         :data-earned="rung.earned ? 'true' : 'false'"
@@ -179,25 +206,25 @@ const rungs = computed(() => TRUST_LEVEL_SLUGS.map((slug, level) => ({
   border-style: dashed;
 }
 
-.sf-trust-level-card[data-level="1"] .sf-trust-level-card__icon {
+.sf-trust-level-card[data-step="1"] .sf-trust-level-card__icon {
   color: var(--sf-fg-secondary);
 }
 
-.sf-trust-level-card[data-level="2"] .sf-trust-level-card__icon {
+.sf-trust-level-card[data-step="2"] .sf-trust-level-card__icon {
   border-color: color-mix(in srgb, var(--tl-accent) 34%, transparent);
   background: var(--sf-accent-soft);
   color: var(--tl-accent);
 }
 
 /* 唯一的 2px 档：accent-soft 与 accent 的明度差会被背景色吃掉，纯几何差异任何预设都成立。 */
-.sf-trust-level-card[data-level="3"] .sf-trust-level-card__icon {
+.sf-trust-level-card[data-step="3"] .sf-trust-level-card__icon {
   border: 2px solid color-mix(in srgb, var(--tl-accent) 55%, transparent);
   background: var(--sf-accent-soft);
   color: var(--tl-accent);
 }
 
 /* 整站唯一的实心 accent 方块。 */
-.sf-trust-level-card[data-level="4"] .sf-trust-level-card__icon {
+.sf-trust-level-card[data-step="4"] .sf-trust-level-card__icon {
   border-color: var(--tl-accent);
   background: var(--tl-accent);
   color: var(--sf-card);
@@ -249,15 +276,12 @@ const rungs = computed(() => TRUST_LEVEL_SLUGS.map((slug, level) => ({
   background: var(--sf-muted);
 }
 
+/* 进度条跟档位色走（不再写死站点 accent）：同一条卡面上「等级」与「进度」必须是同一个色相。 */
 .sf-trust-level-card__fill {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--sf-accent);
-}
-
-.dark .sf-trust-level-card__fill {
-  background: var(--sf-accent-dark);
+  background: var(--tl-accent);
 }
 
 .sf-trust-level-card__progress-text {
@@ -276,7 +300,7 @@ const rungs = computed(() => TRUST_LEVEL_SLUGS.map((slug, level) => ({
 
 .sf-trust-level-card__rungs {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--sf-rungs, 5), minmax(0, 1fr));
   gap: 3px;
   margin: 8px 0 0;
   padding: 0;
@@ -290,11 +314,7 @@ const rungs = computed(() => TRUST_LEVEL_SLUGS.map((slug, level) => ({
 }
 
 .sf-trust-level-card__rung[data-earned="true"] {
-  background: var(--sf-accent);
-}
-
-.dark .sf-trust-level-card__rung[data-earned="true"] {
-  background: var(--sf-accent-dark);
+  background: var(--tl-accent);
 }
 
 /* 不用 --sf-muted：paper / parchment 下 muted 与卡面几乎同色，刻度会消失。 */

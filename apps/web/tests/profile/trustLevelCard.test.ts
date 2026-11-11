@@ -1,22 +1,30 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
-import { computed, defineComponent } from 'vue'
+import { computed, defineComponent, ref } from 'vue'
 import { fileURLToPath } from 'node:url'
 import {
-  TRUST_LEVEL_MAX,
-  TRUST_LEVEL_SLUGS,
-  trustLevelIcon,
+  FALLBACK_LADDER,
+  TL0_TIER,
+  parseTrustLevelCatalog,
+  trustLevelIconOf,
+  trustLevelLadder,
+  trustLevelLadderMax,
+  trustLevelName,
   trustLevelProgress,
-  trustLevelSlug,
-  type TrustLevelMetric
+  type TrustLevelMetric,
+  type TrustLevelTier
 } from '~/composables/profile/useTrustLevel'
+import { defaultTierColorName, tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 
 /**
- * 资料页等级卡的冻结 DOM 契约（M8 按这些断言）：
- * 根 `data-level` / `data-earned`（TL0 显式 false）、五个刻度、进度条六件套
- * （`aria-valuemax` 是阈值不是 100、`aria-valuenow` clamp、`aria-valuetext` 人话、
- * `aria-label` 不含数字），TL4 页面 progressbar 计数为 0。
+ * 资料页等级卡的冻结 DOM 契约（M8 按这些断言），N 档版：
+ * 根 `data-level` / `data-earned`（TL0 显式 false）、**每档一格刻度**（TL0 + active 档数）、
+ * 进度条六件套（`aria-valuemax` 是阈值不是 100、`aria-valuenow` clamp、`aria-valuetext` 人话、
+ * `aria-label` 不含数字）。
+ *
+ * 最高档**按阶梯长度算**（`trustLevelLadderMax`），不是写死的 TL4：
+ * 运营把档位加到 7 / 8 档后，「已达最高等级」必须跟着新最高档走，刻度也必须多出格子。
  *
  * 文案取自真实 zh-CN locale，避免测试自造期望值；键缺失会直接报错。
  */
@@ -46,20 +54,57 @@ const UIconStub = defineComponent({
 const cardPath = fileURLToPath(new URL('../../app/components/profile/SFTrustLevelCard.vue', import.meta.url))
 const SFTrustLevelCard = await compileVueSfc(cardPath, 'sf-trust-level-card', {
   computed,
-  useI18n: () => ({ t }),
-  TRUST_LEVEL_MAX,
-  TRUST_LEVEL_SLUGS,
-  trustLevelIcon,
+  useI18n: () => ({ t, locale: ref('zh-CN') }),
+  // 卡片不再自己拼阶梯：这些绑定就是它脚本里**允许**依赖的全部。
+  FALLBACK_LADDER,
+  trustLevelIconOf,
+  trustLevelLadderMax,
+  trustLevelName,
   trustLevelProgress,
-  trustLevelSlug
+  tierAccentStyle,
+  tierColorOf
 })
 
-function mountCard(level: number, metrics: TrustLevelMetric[] = []) {
+/**
+ * `ladder` 现在是**最终**阶梯（rank 0 = TL0），由 `useTrustLevel` 组装。
+ * 默认真实接缝里页面给的就是这一份，所以测试默认也传它 —— 传原始 `tiers[]` 会漏掉整条缝。
+ */
+function mountCard(
+  level: number,
+  metrics: TrustLevelMetric[] = [],
+  ladder: TrustLevelTier[] = FALLBACK_LADDER
+) {
   return mount(SFTrustLevelCard, {
-    props: { level, metrics },
+    props: { level, metrics, ladder },
     global: { components: { UIcon: UIconStub } }
   })
 }
+
+function mountCardWithoutLadder(level: number, metrics: TrustLevelMetric[] = []) {
+  return mount(SFTrustLevelCard, { props: { level, metrics }, global: { components: { UIcon: UIconStub } } })
+}
+
+/**
+ * 运营自定义的**最终**阶梯：TL0 + N 个 active 档（与 `useTrustLevel` 交给卡片的形状一致）。
+ * 用 `tier-<n>` 这类非内置 id，正是为了让「名字按 rank 回退」这条也顺带被走到。
+ */
+function ladderWith(activeCount: number): TrustLevelTier[] {
+  return [
+    TL0_TIER,
+    ...Array.from({ length: activeCount }, (_, index) => ({
+      id: `tier-${index + 1}`,
+      name: { zh: `第 ${index + 1} 档`, en: `Tier ${index + 1}` },
+      icon: null,
+      requirements: {},
+      limits: null,
+      earnable: [],
+      retired: false
+    }))
+  ]
+}
+
+/** 内置五档阶梯（兜底目录）的最高 rank：测试里算出来，不写字面量 4。 */
+const TOP_OF_FALLBACK = trustLevelLadderMax(FALLBACK_LADDER)
 
 /** 常驻（TL2）→ 资深（TL3）的瓶颈：获赞 48/60 最小。6 个 metric 与 Go `Metrics` 同集合。 */
 const residentMetrics: TrustLevelMetric[] = [
@@ -72,7 +117,7 @@ const residentMetrics: TrustLevelMetric[] = [
 ]
 
 describe('SFTrustLevelCard', () => {
-  test('renders the frozen level/earned attributes and five fixed rungs', () => {
+  test('renders the frozen level/earned attributes and one rung per ladder entry', () => {
     const wrapper = mountCard(2, residentMetrics)
     try {
       const card = wrapper.get('.sf-trust-level-card')
@@ -83,10 +128,13 @@ describe('SFTrustLevelCard', () => {
       expect(wrapper.get('.sf-trust-level-card__code').text()).toBe('TL2')
       expect(wrapper.get('.sf-trust-level-card__name').text()).toBe('常驻用户')
 
+      // 兜底阶梯 = TL0 + 4 档：刻度数 = 阶梯长度，不是另一套常量。
       const rungs = wrapper.findAll('.sf-trust-level-card__rung')
-      expect(rungs.length).toBe(5)
-      expect(rungs.map(rung => rung.attributes('data-level'))).toEqual(['0', '1', '2', '3', '4'])
-      expect(rungs.map(rung => rung.attributes('data-earned'))).toEqual(['true', 'true', 'true', 'false', 'false'])
+      expect(rungs.length).toBe(TOP_OF_FALLBACK + 1)
+      expect(rungs.map(rung => rung.attributes('data-level')))
+        .toEqual(Array.from({ length: TOP_OF_FALLBACK + 1 }, (_, level) => String(level)))
+      expect(rungs.map(rung => rung.attributes('data-earned')))
+        .toEqual(['true', 'true', 'true', 'false', 'false'])
     } finally {
       wrapper.unmount()
     }
@@ -104,7 +152,7 @@ describe('SFTrustLevelCard', () => {
       expect(wrapper.get('.sf-trust-level-card__name').text()).toBe('新用户')
       // 只有第 0 格已走过。
       expect(wrapper.findAll('.sf-trust-level-card__rung').map(rung => rung.attributes('data-earned')))
-        .toEqual(['true', 'false', 'false', 'false', 'false'])
+        .toEqual(['true', ...Array.from({ length: TOP_OF_FALLBACK }, () => 'false')])
       // TL0 有下一档，进度条必须照常渲染。
       expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
     } finally {
@@ -163,15 +211,18 @@ describe('SFTrustLevelCard', () => {
     }
   })
 
-  test('TL4 renders no progressbar at all and shows the maxed line', () => {
-    const wrapper = mountCard(4, residentMetrics)
+  test('the highest rung renders no progressbar at all and shows the maxed line', () => {
+    // 最高档 = 阶梯长度 - 1：这里用兜底目录算出来，而不是写死 TL4。
+    const top = TOP_OF_FALLBACK
+    const wrapper = mountCard(top, residentMetrics)
     try {
       expect(wrapper.findAll('[role="progressbar"]').length).toBe(0)
-      expect(wrapper.get('.sf-trust-level-card').attributes('data-level')).toBe('4')
+      expect(wrapper.get('.sf-trust-level-card').attributes('data-level')).toBe(String(top))
+      expect(wrapper.get('.sf-trust-level-card__code').text()).toBe(`TL${top}`)
       expect(wrapper.get('.sf-trust-level-card__maxed').text()).toBe('已达最高等级')
       expect(wrapper.find('.sf-trust-level-card__hint').exists()).toBe(false)
       expect(wrapper.findAll('.sf-trust-level-card__rung').map(rung => rung.attributes('data-earned')))
-        .toEqual(['true', 'true', 'true', 'true', 'true'])
+        .toEqual(Array.from({ length: top + 1 }, () => 'true'))
     } finally {
       wrapper.unmount()
     }
@@ -187,16 +238,17 @@ describe('SFTrustLevelCard', () => {
       expect(wrapper.findAll('[role="progressbar"]').length).toBe(0)
       expect(wrapper.find('.sf-trust-level-card__maxed').exists()).toBe(false)
       expect(wrapper.find('.sf-trust-level-card__hint').exists()).toBe(false)
-      // 等级名与五格刻度照常。
+      // 等级名与刻度照常。
       expect(wrapper.get('.sf-trust-level-card__name').text()).toBe('常驻用户')
-      expect(wrapper.findAll('.sf-trust-level-card__rung').length).toBe(5)
+      expect(wrapper.findAll('.sf-trust-level-card__rung').length).toBe(TOP_OF_FALLBACK + 1)
     } finally {
       wrapper.unmount()
     }
   })
 
   test('tier icons come from the frozen lucide ladder, never emoji', () => {
-    const expected = ['i-lucide-sprout', 'i-lucide-leaf', 'i-lucide-house', 'i-lucide-mountain-snow', 'i-lucide-crown']
+    // 与后端 `tier_icons.go` 的前五项一致（芽 → 叶 → 屋 → 山 → 冠）。
+    const expected = ['i-lucide-sprout', 'i-lucide-leaf', 'i-lucide-home', 'i-lucide-mountain', 'i-lucide-crown']
     for (const [level, icon] of expected.entries()) {
       const wrapper = mountCard(level, residentMetrics)
       try {
@@ -206,5 +258,141 @@ describe('SFTrustLevelCard', () => {
         wrapper.unmount()
       }
     }
+  })
+
+  test('clamps a level beyond the ladder instead of overflowing the rungs', () => {
+    const wrapper = mountCard(99, residentMetrics, ladderWith(3))
+    try {
+      expect(wrapper.get('.sf-trust-level-card').attributes('data-level')).toBe('3')
+      expect(wrapper.get('.sf-trust-level-card__maxed').exists()).toBe(true)
+      expect(wrapper.findAll('.sf-trust-level-card__rung')).toHaveLength(4)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('renders one rung per ladder entry, including 7 and 8 active tiers', () => {
+    for (const activeCount of [4, 7, 8]) {
+      const ladder = ladderWith(activeCount)
+      const wrapper = mountCard(activeCount, residentMetrics, ladder)
+      try {
+        const rungs = wrapper.findAll('.sf-trust-level-card__rung')
+        // TL0 + 每档一格：档数变了刻度必须跟着变，不能停在 5 格。
+        expect(rungs).toHaveLength(activeCount + 1)
+        expect(rungs.map(rung => rung.attributes('data-level')))
+          .toEqual(Array.from({ length: activeCount + 1 }, (_, level) => String(level)))
+        expect(rungs.map(rung => rung.attributes('data-earned')))
+          .toEqual(Array.from({ length: activeCount + 1 }, (_, level) => String(level <= activeCount)))
+        // 最高档按 active 档数算：7 / 8 档时 TL4 只是中间格。
+        expect(wrapper.get('.sf-trust-level-card').attributes('data-level')).toBe(String(activeCount))
+        expect(wrapper.get('.sf-trust-level-card__code').text()).toBe(`TL${activeCount}`)
+        expect(wrapper.get('.sf-trust-level-card__name').text()).toBe(`第 ${activeCount} 档`)
+        expect(wrapper.findAll('[role="progressbar"]')).toHaveLength(0)
+        expect(wrapper.get('.sf-trust-level-card__maxed').text()).toBe(t('profile.trustLevel.maxed'))
+      } finally {
+        wrapper.unmount()
+      }
+    }
+  })
+
+  test('renders exactly the ladder it receives: no re-composition, no duplicate TL0', () => {
+    // 真实接缝：公开读面下发的 levels[] 里已经有一条合成 TL0，`useTrustLevel` 组装成
+    // 「TL0 + active 档」交给卡片。卡片曾经再拼一次 TL0，导致整卡错位一档（P1 回归）。
+    const catalog = parseTrustLevelCatalog({
+      levels: [
+        { level: 0, levelSlug: 'newcomer', displayName: { zh: '新用户', en: 'Newcomer' }, icon: 'sprout', editable: false },
+        { level: 1, levelSlug: 'member', displayName: { zh: '正式用户', en: 'Member' }, icon: 'leaf', editable: true },
+        { level: 2, levelSlug: 'resident', displayName: { zh: '常驻用户', en: 'Resident' }, icon: 'home', editable: true }
+      ]
+    })
+    const ladder = trustLevelLadder(catalog)
+    expect(ladder.filter(tier => tier.id === TL0_TIER.id)).toHaveLength(1)
+
+    const wrapper = mountCard(1, residentMetrics, ladder)
+    try {
+      const rungs = wrapper.findAll('.sf-trust-level-card__rung')
+      expect(rungs).toHaveLength(ladder.length)
+      // data-level 与档位名一一对应：TL1 必须是「正式用户」而不是 TL0 的名字。
+      expect(wrapper.get('.sf-trust-level-card').attributes('data-level')).toBe('1')
+      expect(wrapper.get('.sf-trust-level-card__code').text()).toBe('TL1')
+      expect(wrapper.get('.sf-trust-level-card__name').text()).toBe('正式用户')
+      expect(wrapper.get('[data-testid="card-icon"]').attributes('data-icon')).toBe('i-lucide-leaf')
+      // 最高档随阶梯长度走（这里 2），不是内置五档的 4。
+      expect(mountCard(2, residentMetrics, ladder).get('.sf-trust-level-card__maxed').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('without a ladder it renders no rungs at all, but keeps name, icon and progress', () => {
+    const wrapper = mountCardWithoutLadder(2, residentMetrics)
+    try {
+      expect(wrapper.findAll('.sf-trust-level-card__rung')).toHaveLength(0)
+      // 名字/图标仍走内置回退（展示兜底，不改写任何身份）。
+      expect(wrapper.get('.sf-trust-level-card__name').text()).toBe('常驻用户')
+      expect(wrapper.get('[data-testid="card-icon"]').attributes('data-icon')).toBe('i-lucide-home')
+      expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the card source never composes a ladder itself (seam guard)', () => {
+    const source = readFileSync(cardPath, 'utf8')
+    // 阶梯的组成只有一个所有者（useTrustLevel）。卡片再调一次就会把 TL0 拼成两条。
+    expect(source).not.toContain('trustLevelLadder(')
+    expect(source).toContain('ladder: () => []')
+  })
+
+  test('offers progress toward the next rung below a 7 or 8 tier top', () => {
+    for (const activeCount of [7, 8]) {
+      const ladder = ladderWith(activeCount)
+      const level = activeCount - 1
+      const wrapper = mountCard(level, residentMetrics, ladder)
+      try {
+        const track = wrapper.get('[role="progressbar"]')
+        expect(track.attributes('aria-label')).toBe(t('profile.trustLevel.progress.ariaLabel', {
+          current: `第 ${level} 档`,
+          next: `第 ${activeCount} 档`
+        }))
+        expect(track.attributes('aria-valuemax')).toBe('60')
+        // 下一档名称来自阶梯，不是「资深用户」这类内置文案。
+        expect(wrapper.get('.sf-trust-level-card__hint').text()).toBe(t('profile.trustLevel.nextHint', {
+          count: 12,
+          metric: t('profile.trustLevel.metric.likeReceived'),
+          next: `第 ${activeCount} 档`
+        }))
+        expect(wrapper.find('.sf-trust-level-card__maxed').exists()).toBe(false)
+        expect(wrapper.findAll('.sf-trust-level-card__rung')).toHaveLength(activeCount + 1)
+      } finally {
+        wrapper.unmount()
+      }
+    }
+  })
+})
+
+describe('tier color reaches the card accent (D-C1)', () => {
+  test('the card root carries the current tier color as --tl-accent', () => {
+    // TL0 固定 slate：未入门的位置不跟某一档抢注意力。
+    expect(mountCard(0).attributes('style')).toContain(`--tl-accent: var(--sf-tl-${defaultTierColorName(0)})`)
+
+    const ladder = trustLevelLadder([
+      { id: 'member', name: { zh: '正式用户', en: 'Member' }, icon: 'leaf', color: 'rose', retired: false },
+      { id: 'resident', name: { zh: '常驻', en: 'Resident' }, icon: 'home', color: null, retired: false }
+    ])
+    // 存储色优先。
+    expect(mountCard(1, [], ladder).attributes('style')).toContain('--tl-accent: var(--sf-tl-rose)')
+    // 未配色 → 按位次默认（rank 2 = emerald），不是站点 accent。
+    expect(mountCard(2, [], ladder).attributes('style')).toContain(`--tl-accent: var(--sf-tl-${defaultTierColorName(2)})`)
+    expect(tierAccentStyle(tierColorOf(ladder[2], 2))).toEqual({ '--tl-accent': `var(--sf-tl-${defaultTierColorName(2)})` })
+  })
+
+  test('progress fill and earned rungs follow the tier accent instead of the site accent', () => {
+    const wrapper = mountCard(1, [{ key: 'daysVisited', current: 1, threshold: 4 }])
+    // 同一条卡面上「等级」与「进度」必须同色相：写死 --sf-accent 会让两者分家。
+    const source = readFileSync(new URL('../../app/components/profile/SFTrustLevelCard.vue', import.meta.url), 'utf8')
+    expect(source).toContain('background: var(--tl-accent);')
+    expect(source).not.toContain('background: var(--sf-accent);')
+    expect(wrapper.find('.sf-trust-level-card__fill').exists()).toBe(true)
   })
 })

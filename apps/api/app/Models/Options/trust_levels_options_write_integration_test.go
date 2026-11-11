@@ -79,6 +79,51 @@ func TestUpdateTrustLevelsPersistsNormalizedConfig(t *testing.T) {
 	}
 }
 
+// TestReadPathDoesNotUpgradeStoredConfig 守住 D-N13：v1→v2 只允许发生在**写路径**。
+//
+// 做法是绕过 Update 直接把 v1 值塞进库（模拟「本版本上线前就存在的存量配置」），
+// 然后用全新 service 读两次并真的解码一次，最后断言库值仍是 v1 原文。
+// 读路径一旦顺手回写，「谁先读谁决定数据形状」，灰度与回滚都无法预测。
+func TestReadPathDoesNotUpgradeStoredConfig(t *testing.T) {
+	_, pool, _ := newTrustLevelsWriteFixture(t)
+	ctx := context.Background()
+
+	legacy := `{"schemaVersion":1,"levels":[
+		{"levelSlug":"member","requirements":{"days_visited":3,"comment_count":5},"limits":{},"earnable":[]},
+		{"levelSlug":"resident","requirements":{"topic_count":2},"limits":{},"earnable":[]},
+		{"levelSlug":"veteran","requirements":{"like_received_count":30},"limits":{},"earnable":[]},
+		{"levelSlug":"leader","requirements":{"bookmark_count":20},"limits":{},"earnable":[]}]}`
+	if _, err := pool.Exec(ctx, `UPDATE web_options SET value = $1 WHERE name = $2`, legacy, NameTrustLevels); err != nil {
+		t.Fatalf("seed legacy value: %v", err)
+	}
+
+	for attempt := 0; attempt < 2; attempt++ {
+		// 每次都用全新 service：绕开任何内存缓存，逼它走真实读路径。
+		fresh := NewServiceWithDefaults(NewPostgresStore(pool), Defaults{})
+		raw, err := fresh.WebOption(ctx, NameTrustLevels)
+		if err != nil {
+			t.Fatalf("第 %d 次读失败：%v", attempt+1, err)
+		}
+		// 读路径返回的是内存里归一化后的形状（v2），这没问题；要证明的是它**没写库**。
+		if _, err := trustlevels.DecodeConfig(raw); err != nil {
+			t.Fatalf("第 %d 次解码失败：%v", attempt+1, err)
+		}
+	}
+
+	// 必须直查原始列：InternalValues / WebOption 都会在内存里归一化，
+	// 用它们看不出库里到底被写成了什么（这正是这条断言要防的误判）。
+	var stored string
+	if err := pool.QueryRow(ctx, `SELECT value FROM web_options WHERE name = $1`, NameTrustLevels).Scan(&stored); err != nil {
+		t.Fatalf("读原始列: %v", err)
+	}
+	if stored != legacy {
+		t.Fatalf("读路径改写了库里的存量 v1 值（D-N13：只允许写路径升级）：\n got=%s\nwant=%s", stored, legacy)
+	}
+	if !strings.Contains(stored, `"schemaVersion":1`) {
+		t.Fatal("库里的值已经不是 v1 了")
+	}
+}
+
 // TestRestoreDefaultsPersistsRecommendedConfig 覆盖「推荐默认值本身能存进去」。
 //
 // 这是 D-8 最刺眼的地方：失败发生在解码之后、写库之前，与内容无关，

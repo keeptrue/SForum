@@ -214,7 +214,7 @@ describe('admin forum helpers', () => {
     expect(settings?.permissionMode).toBe('any')
   })
 
-  test('adds forum category, tag, settings, and content pages to the sidebar folder', () => {
+  test('adds forum category, tag, settings, trust-levels, and content pages to the sidebar folder', () => {
     const forumFolder = adminSidebarNavigation
       .flat()
       .find((entry): entry is AdminNavigationFolderEntry => entry.type === 'folder' && entry.labelKey === 'admin.nav.forum')
@@ -224,6 +224,8 @@ describe('admin forum helpers', () => {
       '/forum/categories',
       '/forum/tags',
       '/forum/settings',
+      // 信任等级已从 settings?tab=trustLevels 提为独立页：排在论坛设置之后、内容管理之前。
+      '/forum/trust-levels',
       '/forum/content'
     ])
   })

@@ -8,6 +8,12 @@ export const { mount, flushPromises } = await import('@vue/test-utils')
 
 export async function compileVueSfc(path: string, id = 'test-sfc', bindings: Record<string, unknown> = {}) {
   const parsed = parse(await Bun.file(path).text(), { filename: path })
+  // `parse()` 的模板/标签错误与 `template.errors` 是两条独立通道：只查后者会漏掉
+  // 「多了一段残留标签」这类 SFC（当时 bun 全绿，dev 里却 500 到动态 import 失败）。
+  if (parsed.errors.length > 0) {
+    const first = parsed.errors[0] as { message?: string, loc?: { start?: { line?: number } } }
+    throw new Error(`SFC parse error in ${path}:${first?.loc?.start?.line ?? '?'} :: ${first?.message ?? first}`)
+  }
   const script = compileScript(parsed.descriptor, { id })
   const template = compileTemplate({
     source: parsed.descriptor.template?.content || '',

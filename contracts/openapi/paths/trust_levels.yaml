@@ -3,7 +3,8 @@ trustLevels:
     summary: List trust level definitions and viewer progress
     operationId: listTrustLevels
     description: |
-      公开等级目录：五档定义（`levelSlug`）与每档 `requirements`（snake_case 指标名），
+      公开等级目录：**TL0 + 当前启用的每个档位**（`level` = rank、`levelSlug` = 稳定身份 id、
+      `displayName`/`icon` 为运营可改的展示字段）与每档 `requirements`（snake_case 指标名），
       外加 `newUserDays`（「最多当多久新成员」的上限闸）。
 
       **不包含 `limits`**：限流参数（冷却秒数、日限额）只在后台读面出现。公开它等于
@@ -50,13 +51,14 @@ adminTrustLevels:
     summary: Update the trust level configuration
     operationId: updateAdminTrustLevels
     description: |
-      请求体的 `config` 就是 `trust.levels` 的 **Config 形状**（`schemaVersion` +
-      `levels[]`），与存储格式完全相同：未知字段被 `DisallowUnknownFields` 拒绝，
+      请求体的 `config` 就是 `trust.levels` 的 **Config 形状**（v2：`schemaVersion` + `tiers[]`；
+      v1 的 `levels[]` 形状仍被接受并在内存里升级），与存储格式完全相同：未知字段被 `DisallowUnknownFields` 拒绝，
       不存在「PUT 的 DTO 比 Config 宽松」的第二个形状。
 
-      `levels[].limits` 与 `levels[].earnable` **必须显式出现**（可写 `null` = 全继承 /
-      `[]` = 空集，但不能省略）：省略即 422。这条由 `DecodeConfig` 的指针化强制——
-      字段类型是 `*LevelLimits` / `*[]string`，省略后是 nil，直接返回 `ErrInvalidConfig`。
+      `tiers[].limits` 与 `tiers[].earnable` **必须显式出现**（可写 `null` = 全继承 /
+      `[]` = 空集，但不能省略）：省略即 422。这条由 `DecodeConfig` 的原始 JSON 判定强制——
+      字段类型是 `json.RawMessage`，省略时 `len(raw) == 0` 直接返回 `ErrInvalidConfig`，
+      `null` 则被解释成「全继承 / 空集」；不是靠指针 nil 区分。
       写权限 `trust.manage`。
     requestBody:
       required: true
@@ -78,7 +80,14 @@ adminTrustLevels:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
-        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: |
+          配置不合法。`data.reason` 恒为 `trust_levels.invalid_config`（机器码稳定，
+          前端按它分流，不随档位变化），`data.details.errors` 给出字段级明细
+          （最多 8 条）：哪一档（`rank`/`tierId`）、哪个字段（`field`）、为什么（`reason`）。
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/TrustLevelConfigValidationError"
 adminTrustLevelsRestoreDefaults:
   post:
     summary: Restore recommended trust level defaults
@@ -88,6 +97,10 @@ adminTrustLevelsRestoreDefaults:
       内容**，也不改变任何用户的当前等级——等级是派生值，下一次请求即按新阈值计算。
       本端点只写配置项：默认安装下 TL0 的基线扣除是装载期代码常量，不属于可恢复配置，
       不受本端点影响。
+
+      **删除墓碑（`deletedTierIds`）会保留**：恢复默认是整份覆盖，但被删掉的
+      `tier_<n>` id 会带进新配置，因此 `nextTierSeq` 不会回落、id 永不复用
+      （内置四档 id 不必留墓碑：`nextTierSeq` 的基准已覆盖它们）。
       写权限 `trust.manage`；`features.trust_levels` 关闭时返回 404。
     responses:
       '200':

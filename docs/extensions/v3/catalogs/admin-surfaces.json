@@ -527,6 +527,23 @@
     "exporter": false
   },
   {
+    "id": "core.admin.page.forum_trust_levels",
+    "source": "apps/web/app/pages/admin/forum/trust-levels.vue",
+    "navigation": true,
+    "dashboard": false,
+    "list": true,
+    "columns": false,
+    "filters": false,
+    "rowActions": true,
+    "bulkActions": false,
+    "forms": true,
+    "notices": true,
+    "editorPanels": false,
+    "detailRegions": true,
+    "importer": true,
+    "exporter": false
+  },
+  {
     "id": "core.admin.page.dashboard",
     "source": "apps/web/app/pages/admin/index.vue",
     "navigation": true,

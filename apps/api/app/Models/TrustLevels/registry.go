@@ -8,7 +8,10 @@ import (
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
-// Earnable 是「等级 → 解锁的既有权限键」映射。
+// Earnable 是「rank → 恰好解锁的既有权限键」映射（键是 rank，TL1 起）。
+//
+// 键用 rank 而不是身份 id：已挣得集合每次装载都要重算，rank 是判定结果，直接用
+// 它查表最省一次 id→rank 的折算；retired 档位不进这张表（判定跳过）。
 //
 // 默认是**空集**（D17）：`SeedMemberPermissions` 已经给了默认成员全部非管理内容键，
 // 所以「TL2 解锁 topic.create」对默认安装是零行为变化的假功能。运营在后台按档
@@ -70,14 +73,18 @@ func (e Earnable) Grants(level Level) []string {
 	return out
 }
 
-// All 返回全部已配置的可挣得键（去重、稳定顺序），供结构断言使用。
-func (e Earnable) All() []string {
-	return e.Grants(LevelLeader)
+// All 返回**到 lastRank 为止**全部已配置的可挣得键（去重、稳定顺序），供结构断言
+// 与后台汇总使用。
+//
+// 上界必须由调用方传 policy.LastRank()：这里曾经写死 Grants(LevelLeader)，于是 8 档
+// 站点上第 5–8 档配的键会从 All() 里静默消失——不报错，只是后台和断言都看不见它们。
+func (e Earnable) All(lastRank Level) []string {
+	return e.Grants(lastRank)
 }
 
 // IsEarnable 报告某权限键是否被配置为可挣得。
 func (e Earnable) IsEarnable(permission string) bool {
-	for level := LevelMember; level < LevelCount; level++ {
+	for level := LevelMember; level <= MaxLevel; level++ {
 		if slices.Contains(e[level], permission) {
 			return true
 		}
@@ -87,7 +94,7 @@ func (e Earnable) IsEarnable(permission string) bool {
 
 // UnlockLevel 返回某权限键首次被解锁的等级。
 func (e Earnable) UnlockLevel(permission string) (Level, bool) {
-	for level := LevelMember; level < LevelCount; level++ {
+	for level := LevelMember; level <= MaxLevel; level++ {
 		if slices.Contains(e[level], permission) {
 			return level, true
 		}
@@ -101,10 +108,10 @@ func (e Earnable) UnlockLevel(permission string) (Level, bool) {
 // 判据是**正白名单**（D24），不是「不是管理类就行」：后者挡不住 post.edit_any 这类
 // 有特权、无审计的键。
 func (e Earnable) Validate() error {
-	for level := LevelMember; level < LevelCount; level++ {
+	for level := LevelMember; level <= MaxLevel; level++ {
 		for _, key := range e[level] {
 			if key == "" {
-				return fmt.Errorf("trustlevels: 等级 %s 的可挣得权限键为空", level.Slug())
+				return fmt.Errorf("trustlevels: rank TL%d 的可挣得权限键为空", level)
 			}
 			if !IsWhitelisted(key) {
 				return fmt.Errorf("trustlevels: %q 不在可挣得白名单内", key)

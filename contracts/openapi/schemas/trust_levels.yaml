@@ -43,15 +43,63 @@ TrustLevelLimits:
       type: integer
       nullable: true
 
+TrustLevelName:
+  type: object
+  description: |
+    档位的双语显示名。两种语言都必填（缺一种会在另一个 locale 显示空档名，
+    那种缺失只有切语言才发现得了），单语长度上限 32 个字符。
+    这是**运营可改的文案**，不是 i18n 键：i18n 只兜底内置五档。
+  required: [zh, en]
+  properties:
+    zh:
+      type: string
+    en:
+      type: string
+
 TrustLevelDefinition:
   type: object
-  required: [level, levelSlug, requirements, earnable]
+  required: [level, levelSlug, displayName, icon, color, requirements, earnable, retired, editable]
   properties:
     level:
       type: integer
+      description: |
+        序号（rank）。`level = 0` 恒为 TL0（新成员，由 `trust.new_user_*` 决定），
+        `level = n` 表示当前配置里的第 n 个**启用**档位（停用档位不占号）。
+        只用于判定与 `TL{n}` 展示，**不是**身份。
     levelSlug:
       type: string
-      description: "稳定标识：newcomer / member / resident / veteran / leader。刻意不叫 slug——TL1 的标识是 member，与角色 key 同字符串。"
+      description: |
+        档位的**稳定身份 id**：`newcomer` / `member` / `resident` / `veteran` /
+        `leader` / `tier_<seq>`。后台编辑动作以它为键；运营改名、插入档位、停用档位
+        都不会改写它。内置五档的 id 与历史 `levelSlug` 逐字相同。
+        刻意不叫 `slug`——TL1 的标识是 `member`，与角色 key 同字符串。
+    displayName:
+      "$ref": "#/TrustLevelName"
+    icon:
+      type: string
+      description: |
+        lucide 图标名，必在管理员读面的 `iconChoices` 白名单内（16 个）。
+        未选时按 rank 取默认序列：`sprout`/`leaf`/`home`/`mountain`/`crown`/…
+        （前五项就是历史五档的在用图标，所以存量站点观感不变）。
+    color:
+      type: string
+      description: |
+        **有效色**（恒非空，TL0 也有）：配置里有显式覆盖时取覆盖值，否则按位次取
+        默认色序：`colorChoices[n]` 属于 rank `n`（n 从 0 起），所以 TL0 =
+        `colorChoices[0]` = `slate`，TL8 = `colorChoices[8]` = `amber`。
+        「跟随位次」是服务端的解析结果，不是客户端的判断分支——本字段永远不下发空值。
+        写入时 `trust.levels` 的 `tiers[].color` 可以省略或写空串表示自动，
+        合法取值见 `colorChoices`；不在白名单内即 422（`color_not_whitelisted`）。
+      enum:
+        - slate
+        - teal
+        - emerald
+        - sky
+        - indigo
+        - violet
+        - fuchsia
+        - rose
+        - amber
     requirements:
       "$ref": "#/TrustLevelRequirements"
     limits:
@@ -61,6 +109,7 @@ TrustLevelDefinition:
         只在**后台读面**出现（运营需要它来配）。公开目录不下发限流参数：公开「某档
         冷却 60 秒、日限额 10 帖」等于把限流参数交给想绕过它的人。
         写入时该字段**必须显式出现**（可写 `null` = 全继承），省略即 422。
+        TL0 没有对应档位，因此该项不出现。
     earnable:
       type: array
       description: |
@@ -69,6 +118,42 @@ TrustLevelDefinition:
         （代码常量，不进本字段），因此「本字段全为空」不等于「各档权限集合相等」。
       items:
         type: string
+    retired:
+      type: boolean
+      description: |
+        软停用标记。目录里恒为 `false`——停用档位既不进判定也不进目录，只保留在
+        `trust.levels` 的 `config` 里（配置全量保留，恢复后回到原 rank）。
+    editable:
+      type: boolean
+      description: |
+        该条是否对应 `trust.levels` 里可编辑的档位。TL0 恒为 `false`：它的阈值/限额
+        由 `trust.new_user_*` 七键与基线门决定，`trust.levels` 里没有它的位置。
+
+TrustLevelNamePool:
+  type: object
+  description: |
+    命名池：**编辑辅助**，不是存储字段。运营可以完全无视它自己写名字；
+    `zh` 与 `en` 一一对应、同序。增删命名池不影响任何存量配置。
+  required: [zh, en]
+  properties:
+    zh:
+      type: array
+      items:
+        type: string
+    en:
+      type: array
+      items:
+        type: string
+
+TrustLevelCountBounds:
+  type: object
+  description: 启用档位数的合法区间（至少 1 档、最多 8 档；停用档位不计数）。
+  required: [min, max]
+  properties:
+    min:
+      type: integer
+    max:
+      type: integer
 
 TrustLevelBottleneck:
   type: object
@@ -85,7 +170,7 @@ TrustLevelBottleneck:
 
 TrustLevelViewer:
   type: object
-  description: 只对本人返回；他人视角只有 level / levelSlug。
+  description: 只对本人返回；他人视角只有 level / levelSlug / displayName。
   required: [level, levelSlug]
   properties:
     level:
@@ -103,6 +188,9 @@ TrustLevelCatalog:
   properties:
     levels:
       type: array
+      description: |
+        档位目录：第一条恒为合成的 TL0（`level: 0`、`editable: false`），其后按 rank
+        升序排列启用档位。停用档位不出现在这里。
       items:
         "$ref": "#/TrustLevelDefinition"
     newUserDays:
@@ -119,13 +207,14 @@ ApiResponseTrustLevelCatalog:
 
 TrustLevelAdmin:
   type: object
-  required: [config, levels, eligiblePermissions, baselinePermissions, recommendedConfig]
+  required: [config, levels, eligiblePermissions, baselinePermissions, recommendedConfig, iconChoices, colorChoices, namePool, tierLimits, nextTierSeq]
   properties:
     config:
       type: string
-      description: 当前 trust.levels 的 JSON 字符串（Config 形状）。
+      description: 当前 trust.levels 的 JSON 字符串（**v2 形状**：`schemaVersion` + `tiers[]`）。
     levels:
       type: array
+      description: 与公开目录同形的档位列表（带 `limits`，运营需要它来配）。
       items:
         "$ref": "#/TrustLevelDefinition"
     baselinePermissions:
@@ -147,7 +236,41 @@ TrustLevelAdmin:
         type: string
     recommendedConfig:
       type: string
-      description: 内置推荐值的 JSON 字符串（恢复默认写回它）。
+      description: 内置推荐值的 JSON 字符串（**v2 形状**；恢复默认写回它）。
+    iconChoices:
+      type: array
+      description: |
+        服务端接受的图标白名单（16 个 lucide 图标名）。顺序即 UI 展示顺序，
+        前五项同时是默认图标序列（芽/叶/屋/山/冠）。前端不得自己再抄一份：
+        抄了就会在服务端升级时变成「UI 里有、保存时 422」。
+      items:
+        type: string
+    colorChoices:
+      type: array
+      description: |
+        服务端接受的颜色白名单（9 项）。**顺序即默认色序，且与 rank 一一对应**：
+        `colorChoices[n]` 属于 rank `n`（n 从 0 起），因此 TL0 = `slate`、
+        TL1 = `teal`、…、TL8 = `amber`。可配置档位最多 8 个（TL1..TL8），加上 TL0
+        正好 9 个合法 rank，所以色板必须正好 9 项——少一项就会让满配站点的顶档
+        回退到首项、与 TL0 同色。
+        前端同时用它做下拉选项与「跟随位次」的预览，不得自己再抄一份。颜色是档位
+        识别色，与站点主题的 accent 解耦；不接受自由 hex。
+      minItems: 9
+      maxItems: 9
+      items:
+        type: string
+        enum: [slate, teal, emerald, sky, indigo, violet, fuchsia, rose, amber]
+    namePool:
+      "$ref": "#/TrustLevelNamePool"
+    tierLimits:
+      "$ref": "#/TrustLevelCountBounds"
+    nextTierSeq:
+      type: integer
+      description: |
+        下一个新档 id 的序号：新档 id = `tier_<seq>`，
+        `seq = max(所有档位的数字后缀, deletedTierIds 里的数字后缀, 5) + 1`。
+        前端新建档位时**不得自己编 id**，这里下发的序号只用于显示「将创建 tier_<n>」，
+        最终 id 由服务端在解码期派生（软停用与删除墓碑都计入，所以 id 永不复用）。
 
 ApiResponseTrustLevelAdmin:
   type: object
@@ -162,6 +285,153 @@ TrustLevelConfigInput:
     config:
       type: string
       description: |
-        trust.levels 的 Config 形状 JSON 字符串：`{"schemaVersion":1,"levels":[...]}`，
-        每档含 `levelSlug` / `requirements` / `limits` / `earnable`。
-        `limits` 与 `earnable` 必须显式出现（可写 null / []），省略即 422。
+        `trust.levels` 的 Config 形状 JSON 字符串，当前版本是 **v2**：
+
+        ```json
+        {"schemaVersion":2,"tiers":[
+          {"id":"member","name":{"zh":"正式用户","en":"Member"},"icon":"leaf","color":"teal",
+           "requirements":{...},"limits":null,"earnable":[],"retired":false}],
+         "deletedTierIds":["tier_9"]}
+        ```
+
+        数组顺序 = 判定与展示顺序，rank 由「启用档位在数组中的位次」派生（TL1 起），
+        不落字段；TL0 不在 `tiers` 里。`id` 省略/空串表示新档（序号由服务端派生），
+        已存在的档位必须原样回传，否则等于换身份。
+        `limits` 与 `earnable` 必须显式出现（可写 `null` / `[]`），省略即 422。
+        `tiers[].color` **可选**：省略或空串 = 跟随位次自动（不落存储），非空值必须在
+        `colorChoices` 内。`deletedTierIds` **可选**：运营真正删除的档位 id（按提交顺序），
+        会抬高 `nextTierSeq` 使 id 永不复用；与 `tiers[].id` 冲突、重复、或不合法均 422。
+        两个新字段都 omitempty，所以「没用过颜色/没删过档」的配置与引入前逐字节相同。
+        **v1 形状仍被接受**（`{"schemaVersion":1,"levels":[...]}`）：解码时在内存里
+        升级为 v2，保存时写回 v2。旧版本二进制无法解码 v2，所以回滚需要同时回退该值。
+
+TrustLevelConfigErrorDetail:
+  type: object
+  description: |
+    一条字段级错误明细（D-N14）。接入方按 `rank`/`tierId` 定位到哪一档、按 `field`
+    定位到哪一格输入。
+
+    三句话说完展示口径：
+    1. **展示路径是 `reasonCode` + `params`**：前端按 `reasonCode` 拼 i18n 文案，
+       用 `params` 插值；`reason` 只在某个 `reasonCode` 还没有对应文案时，作为技术
+       细节兜底显示。
+    2. `reason` **不是**稳定的、**不是**可枚举的，服务端可随时改措辞（它随服务端语言
+       变化），**不得**用作主提示文案。
+    3. 明细**最多 8 条**，顺序即解码顺序（运营修前几条即可）；`details` 可缺席，
+       缺席即「只有统一机器码 `trust_levels.invalid_config`」，前端需容错。
+  required: [rank, tierId, field, reasonCode, reason]
+  properties:
+    rank:
+      type: integer
+      description: |
+        出错的档位序号（TL1 起）。`0` 表示无法定位到具体档位：全局字段
+        （`schemaVersion` / 形状混用）、JSON 语法错误，或出错的是一条停用档位
+        （停用档位不占 rank，改用 `tierId` 定位）。
+    tierId:
+      type: string
+      description: |
+        出错的档位身份 id；新档（id 由服务端派生）或全局错误时为空串。
+        已存在的档位一定能保持原 id，所以前端可以用它直接命中那一行。
+    field:
+      type: string
+      description: |
+        稳定的字段路径，取值域固定为：
+        `schemaVersion` / `tiers` / `levels` / `id` / `levelSlug` /
+        `name.zh` / `name.en` / `icon` / `color` / `requirements.<metric>` /
+        `limits` / `limits.<limitKey>` / `earnable` / `deletedTierIds`；空串表示无法归因到字段
+        （例如整份 JSON 语法错误）。
+    reasonCode:
+      type: string
+      description: |
+        **稳定且可枚举**的机器码：前端按它拼 i18n 文案（`reasonCode → i18n`，
+        取不到文案再退回 `reason`）。取值域与后端 `trustlevels.ConfigErrorReasonCodes()`
+        同源，增删必须同批改这里、后端常量表与前端 locale；改名等于破坏兼容。
+      enum:
+        - schema_version_unsupported
+        - schema_shape_invalid
+        - json_syntax_invalid
+        - json_type_mismatch
+        - unknown_field
+        - config_unparseable
+        - tail_content
+        - tier_count_out_of_range
+        - id_invalid
+        - id_reserved_for_tl0
+        - id_duplicate
+        - id_derivation_conflict
+        - icon_not_whitelisted
+        - color_not_whitelisted
+        - name_missing
+        - name_too_long
+        - requirement_negative
+        - requirement_unknown_metric
+        - limits_missing
+        - limits_unparseable
+        - limit_negative
+        - earnable_missing
+        - earnable_unparseable
+        - earnable_key_empty
+        - earnable_not_whitelisted
+        - earnable_invalid
+        - level_unknown
+        - level_reserved_for_tl0
+        - level_duplicate
+        - level_legacy_missing
+        - deleted_tier_id_invalid
+        - deleted_tier_id_duplicate
+        - deleted_tier_id_present
+    params:
+      type: object
+      description: |
+        i18n 插值参数，键名也是契约。按 `reasonCode` 取用：
+        `icon_not_whitelisted` → `icon`；`color_not_whitelisted` → `color`；
+        `name_missing` / `name_too_long` →
+        `locale`（zh/en，`name_too_long` 另有 `maxLength`）；`requirement_negative` /
+        `requirement_unknown_metric` → `metric`（`requirement_negative` 另有 `value`）；
+        `limit_negative` → `key` + `value`；`earnable_not_whitelisted` → `permission`；
+        `id_invalid` / `id_duplicate` / `id_reserved_for_tl0` / `id_derivation_conflict` /
+        `deleted_tier_id_invalid` / `deleted_tier_id_duplicate` / `deleted_tier_id_present`
+        → `id`；`level_unknown` / `level_reserved_for_tl0` / `level_duplicate` →
+        `levelSlug`；`level_legacy_missing` → `level`；
+        `tier_count_out_of_range` → `active` + `min` + `max`。
+      additionalProperties: true
+    reason:
+      type: string
+      description: |
+        人读兜底（后端散文，随服务端语言）。**不用于正式展示**：本仓口径是后端不输出
+        文案、由前端按 `reasonCode` 拼。这里保留它只为服务端日志与「没有该 reasonCode
+        文案的旧前端」不退化成空白。
+
+TrustLevelConfigValidationError:
+  type: object
+  description: |
+    `PUT /admin/trust-levels` 的 422 响应。机器可判的码**恒为**
+    `trust_levels.invalid_config`（前端按它分流，不随档位变化），字段级明细放在
+    `data.details.errors`。
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+      example: 422
+    message:
+      type: string
+    data:
+      type: object
+      required: [reason, details]
+      properties:
+        reason:
+          type: string
+          example: trust_levels.invalid_config
+        details:
+          type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              description: |
+                字段级明细，按解码顺序给出；**最多 8 条**（上界避免一份全坏的配置
+                把响应刷成几百条，运营修前几条即可）。明细为空时本字段不出现
+                （结构化错误之外的兜底），前端需容错。
+              maxItems: 8
+              items:
+                "$ref": "#/TrustLevelConfigErrorDetail"

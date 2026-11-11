@@ -7,6 +7,7 @@ import (
 
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
@@ -82,7 +83,8 @@ type PublicProfile struct {
 	// Nickname 只在自助端点（GET/PUT /profile）填充：公开资料页不需要暴露
 	// 「还能不能改名」这类账号状态。
 	Nickname *NicknameState `json:"nickname,omitempty"`
-	// TrustLevel 是**他人视角**的等级展示：只有 level + levelSlug。
+	// TrustLevel 是**他人视角**的等级展示：只有 level + levelSlug + displayName
+	// （当前档的名字，不是整条阶梯，也不带任何阈值/限额）。
 	//
 	// 刻意不带 progress / bottleneck：瓶颈可能落在 like_given_count / bookmark_count，
 	// 而这两个计数是刻意不公开的窥探面（D1）。开关关闭或等级未解析时为 nil。
@@ -101,9 +103,14 @@ type PublicActivityCounters struct {
 }
 
 // PublicTrustLevel 是资料页等级卡的载荷。
+//
+// LevelSlug 是档位的**身份 id**（newcomer / member / … / tier_<seq>），不是序号：
+// 运营改名、插档、停用都不会改写它（D-N1）。DisplayName 是运营可改的双语名；
+// 策略读不到时省略（前端退回用 levelSlug 查静态文案）。
 type PublicTrustLevel struct {
-	Level     int    `json:"level"`
-	LevelSlug string `json:"levelSlug"`
+	Level       int                        `json:"level"`
+	LevelSlug   string                     `json:"levelSlug"`
+	DisplayName *trustlevels.LocalizedName `json:"displayName,omitempty"`
 }
 
 // ProfileActivity 是公开个人主页的主题/回复时间线条目。

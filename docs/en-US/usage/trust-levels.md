@@ -2,12 +2,13 @@
 
 [← Usage](./README.md)
 
-> **Status: live (verified 2026-11-11).** The five-tier evaluation, the threshold
-> policy, the load-time merge, the product flag, the admin threshold tab
-> ("Settings → Trust levels"), the public level query endpoint, and the profile level
-> card are all implemented and wired: **saving thresholds immediately changes tier
-> evaluation and per-tier limits**. Earned capability unlocking is off by default and
-> must be configured per tier by the operator — see "Turning on earned capabilities".
+> **Status: live (verified 2026-11-11).** The tier ladder (1–8 tiers, 5 by default), the
+> threshold policy, the load-time merge, the product flag, the admin page
+> ("Forum → Trust levels", with the Overview / Tiers / Thresholds / Capability unlocks
+> tabs), the public level query endpoint, and the profile level card are all implemented
+> and wired: **saving immediately changes tier evaluation and per-tier limits**. Earned
+> capability unlocking is off by default and must be configured per tier by the operator
+> — see "Turning on earned capabilities".
 > **Two more keys are gated by the system baseline**: off at TL0 and on from TL1 on a
 > default install — see "Two keys are level-gated".
 
@@ -29,9 +30,14 @@ them from TL1 on — no role is edited; see "Two keys are level-gated".
 - **Not an approval workflow.** No nominations, no manual promotion. Pure rules,
   pure computation.
 
-## The five tiers
+## The ladder: 1–8 tiers, 5 by default
 
-| Tier | Name | Role |
+**TL0 is fixed.** It is the newcomer tier: it is not listed under Tiers and cannot be
+renamed or retired. Everything from TL1 up is configurable; a default install enables 4
+of them (5 tiers in total), and you can add or remove tiers as long as the total stays
+between 1 and 8.
+
+| Tier | Default name | Role |
 | --- | --- | --- |
 | TL0 | Newcomer | Just signed up; identical to today's newcomer limits |
 | TL1 | Member | Past the trust window |
@@ -39,12 +45,16 @@ them from TL1 on — no role is edited; see "Two keys are level-gated".
 | TL3 | Veteran | Long-term contributor |
 | TL4 | Leader | Core of the community |
 
+The table shows a **default install**. Tiers can be added, inserted, retired, renamed and
+given new icons — see "Adding, reducing, and reordering tiers" and "Naming tiers and
+choosing icons".
+
 ### Default thresholds
 
-A tier is reached only when **all** its metrics are met; `0` means that metric does
-not participate in that tier.
+A tier is reached only when **all** its metrics are met; `0` means this metric does
+not participate for this level.
 
-**The actual numbers are whatever Settings → Trust levels shows right now.** That page
+**The actual numbers are whatever Admin → Forum → Trust levels shows right now.** That page
 has a "Restore recommended defaults" button — click it to see the built-in values.
 This page does not copy the numbers: thresholds are configurable, a copy here will
 eventually diverge from what the site uses, and nobody notices the divergence.
@@ -57,53 +67,64 @@ TL1 — enough activity leaves TL0 early, but never skips past TL1. That window 
 same value as the newcomer trust window.
 
 **About limits**: site-default posting cooldowns and daily caps are `0` (no extra
-restriction), so there is **no observable limit difference** between TL1 and TL4
-today. "Higher tiers skip cooldowns" is not true in this codebase and is not
+restriction), so there is **no observable limit difference** between TL1 and the tiers
+above it today. "Higher tiers skip cooldowns" is not true in this codebase and is not
 written here.
 
-## Two keys are level-gated; nothing else unlocks by default
+## Adding, reducing, and reordering tiers
 
-Keep two different things apart:
+Path: **Admin → Forum → Trust levels → the "Tiers" tab**. The page shows
+"{count} of {max} tiers active"; `{max}` is 8, so the number of tiers must stay between
+1 and 8.
 
-- **Earned capability unlocking (earnable) is an empty set by default**: every tier's
-  unlock list is empty and must be filled in per tier by the operator. That has not changed.
-- **System baseline gating**: `topic.create` (create topics) and `attachment.upload`
-  (upload attachments) are **not decided by earnable** — a code-level baseline constant
-  decides them. On a default install **TL0 does not have these two keys and TL1 and above
-  do**, and the admin cannot turn them off.
+- **Adding**: click **"Add a tier"** to append one, or **"Insert a tier before this one"**
+  to place it in the middle; **"Move up"** / **"Move down"** reorder afterwards.
+- **Defaults of a new tier**: thresholds start at `0` (`0` means this metric does not
+  participate for this level); limits are left empty to inherit the site defaults; the unlock
+  list starts empty.
+- **Inserting never changes what existing tiers already have configured.** Thresholds,
+  limits and unlock choices follow the tier itself, not its position: after you insert a
+  tier in front of one, that tier is still the same tier — only its number changed (the
+  TL numbers shift with it).
+- **Reducing the number of tiers is not deleting a tier.** There is no hard delete; you
+  retire a tier instead — see the next section.
+- **After saving, everyone is evaluated against the new ladder.** Levels are recomputed on
+  every request, so inserting or retiring a tier needs no data migration, no backfill and
+  nothing to wait for.
 
-So on a default install tiers affect **three things**: **tiered limits, tier display, and
-whether these 2 baseline keys are available**.
+## Retiring and restoring tiers
 
-The unlockable set is a **positive whitelist of exactly 7 content-creation
-permissions**: create topics, reply, upload attachments, edit your own topic, edit
-your own reply, delete your own topic, delete your own reply.
+- **Retiring is soft**: click **"Retire"** on a tier and it shows as **"Retired"**. Its
+  thresholds, limits and unlock choices are **kept as they are**; evaluation and display
+  skip it; **"Restore"** puts it back in its original position.
+- **Retiring can take capabilities away.** The confirmation before saving is
+  **"Retire “{name}”?"** and lists **"Capabilities that may be withdrawn: {keys}"** — that
+  is what the tier contributes and what may be withdrawn from users. **If other active
+  tiers already grant everything this tier adds, the dialog says "no capability is
+  expected to be withdrawn"**, so it is only a change of order and nobody loses anything.
+- **The last tier cannot be retired.** The page states "At least one tier must stay active;
+  the last one cannot be retired", and the **"Retire" button is disabled** — you are not
+  told only after saving.
+- With only one tier left, the newcomer trust window no longer makes any difference (there
+  is only one tier to reach), and the admin page says so.
+- Retiring and restoring only edit the form: **nothing is written until you save** with the
+  page footer.
 
-**These can never be unlocked** (the admin cannot even select them): editing or
-deleting **other people's** content (`*_any`), pinning, locking, banning users,
-moderation, management permissions, settings permissions, extension permissions,
-admin access. The reason is not conservatism: those capabilities carry privilege
-without matching audit, so handing them out via "earn enough likes" would create
-actions nobody can trace.
+## Naming tiers and choosing icons
 
-### The two baseline-gated keys (on by default)
-
-| Key | What it does | TL0 | TL1 and above |
-| --- | --- | --- | --- |
-| `topic.create` | Create new topics | no | yes |
-| `attachment.upload` | Upload attachments (**avatar uploads use this key too**) | no | yes |
-
-- **Why TL0 lacks them**: these are things "full members" do; TL0 keeps replying and
-  editing/deleting its own content.
-- **How to get them back**: reach the TL1 threshold (numbers are whatever the trust level
-  page shows right now), or pass the newcomer trust window — once it expires a user is at
-  least TL1.
-- **Ticking in the admin cannot change them**: they are system constants, not part of the
-  earnable list; the page shows them as level-gated with no checkbox.
-- **Nothing is withheld while the flag is off**: turning `features.trust_levels` off
-  disables the baseline gate entirely, so all seven keys are present, exactly as before.
-- **Avatars**: changing an avatar and uploading an attachment share one key, so a TL0 user
-  cannot change their avatar either; it comes back from TL1.
+- Every tier has two names, **"Chinese name"** and **"English name"**, both free text.
+  **What you type is what is stored.** **"Name suggestions"** only fills a suggested name
+  in; you can still edit it or clear it afterwards.
+- **Display fallback**: the current language's name → the other language's name → the
+  built-in default name (built-in tiers only) → `TL{number}`. If the English name is empty,
+  the English site shows the Chinese name, and the admin page tells you.
+- **Icons**: click **"Icon"** and pick from the allow-list the admin page offers. If you
+  pick none, the default sequence applies by position — the page states "Without an
+  explicit icon, the default sequence is used by position: {icons}" and lists the actual
+  sequence. This page does not copy that list (it would drift); read it off the page. On a
+  default site the first three are sprout, leaf and house.
+- Renaming a tier or changing its icon **does not trigger re-evaluation and does not change
+  any permission**: name and icon are presentation, not identity.
 
 ## What you can tune today: newcomer limits (seven keys)
 
@@ -141,10 +162,11 @@ and caps still apply.
 
 ## Adjusting tier thresholds
 
-Path: **Admin → Settings → the "Trust levels" tab** (title "Trust level
-thresholds"). Five tiers × six metrics (days visited, topics, replies, likes
-received, likes given, bookmarks); `0` means that metric does not participate in
-that tier.
+Path: **Admin → Forum → Trust levels → the "Thresholds" tab**. One column per tier × six
+metrics (days visited, topics, replies, likes received, likes given, bookmarks); `0` means
+that metric does not participate in that tier. The number of columns follows the tiers
+defined under Tiers. TL0 is read-only here; the page states: "TL0 is governed by the
+Newcomers tab and is read-only here."
 
 **Saving takes effect immediately: both tiers and limits are recomputed.** Tier
 evaluation and posting limits are one chain, no longer split in two — raising a
@@ -157,8 +179,8 @@ keys through the baseline gate (previous section), and that has nothing to do wi
 
 ## Turning on earned capabilities
 
-Path: **Admin → Settings → the "Trust levels" tab** (the same page as the
-thresholds), where you tick unlockable permission keys per tier.
+Path: **Admin → Forum → Trust levels → the "Capability unlocks" tab** (the same
+page as the thresholds), where you tick unlockable permission keys per tier.
 
 **Empty by default is the normal state.** On a default install every tier's earnable
 list is empty; the only default capability effect of tiers is the baseline gate from the
@@ -171,9 +193,10 @@ from the role (that is role management, not this page). The unlockable range and
 Three things you must know:
 
 **1. Ticking is cumulative.** Ticking a key for one tier unlocks it for that tier
-**and every tier above it**. Ticking "create topics" for TL2 gives it to TL3 and TL4
-as well. Read the list as "what this tier **adds**", not "what this tier has"; to give
-something to the top tier only, tick it there only.
+**and every tier above it**. Ticking "create topics" for the second tier gives it to the
+third tier and above as well (the example uses default numbering; the numbers shift as
+tiers are added or retired). Read the list as "what this tier **adds**", not "what this
+tier has"; to give something to the top tier only, tick it there only.
 
 **2. TL0 does not participate in earnable.** TL0 behaviour comes from the seven
 newcomer-limit keys; the unlock list has no effect on TL0. TL0 is still affected by the
@@ -192,10 +215,20 @@ next request load; the tier itself does not drop because of it.
 
 ## Restoring defaults
 
-**Tier thresholds (usable today):** click **"Restore recommended defaults"** to fill
-the five tiers back to the values in the table above. A permanent line on the page
-states: "Restoring defaults only resets the five tier thresholds and does not affect
-tiers users have already earned." You still have to click Save.
+**Restore recommended defaults replaces the whole tier configuration — it is not a
+threshold-only reset.** Clicking **"Restore recommended defaults"** asks the server to
+replace the entire tier configuration with the recommended default: the number and order
+of tiers, every tier's thresholds, per-tier limits, the capabilities each tier adds, tier
+names and icons — all of it, and **retired tiers are removed**. A permanent line on the
+page states: "Restoring defaults asks the server to replace the whole tier configuration
+(tiers, thresholds, limits, earnable unlocks, names and icons) with the recommended
+default. Users are re-evaluated against it; earned badges and published content are
+unaffected."
+
+This is a **destructive action**: a **blocking confirmation** appears first and lists,
+item by item, what will be lost (the same five categories); once confirmed it takes effect
+immediately and every user is re-evaluated against the new ladder. To change a single
+thing, edit it in its own tab and save — do not use restore defaults.
 
 **Newcomer limits:** click **"Restore newcomer defaults"**; after confirmation the
 form is filled with the recommended values and you still have to click **Save** —
@@ -227,7 +260,8 @@ end or turn that key off.
 
 **Will trust levels invalidate my existing role permissions?** Mostly no, with one
 exception. They only **add** capability, never remove it; the one subtraction is the TL0
-baseline gate (create topics, upload attachments), restored from TL1 on. Role grants and
+baseline gate (create topics, upload attachments), restored from TL1 on — and retiring a
+tier withdraws the unlockable capabilities that tier contributed. Role grants and
 user-level deny overrides keep their current semantics.
 
 **Can a high tier unlock "edit other people's posts"?** No. That family can never be

@@ -3,11 +3,14 @@ package providers
 import (
 	"github.com/gofiber/fiber/v3"
 
+	"context"
 	profilecontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Profile"
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
+
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 )
 
@@ -16,8 +19,37 @@ type ProfileProvider struct {
 	service    *profile.Service
 }
 
+// trustTierCatalog 从 trust.levels 单键解出档位身份（id + 双语名）。
+//
+// 适配器留在 providers 层：Profile 只认最小接口 TrustTierCatalog，不知道配置存在哪、
+// 也不知道它是怎么编码的。解码失败返回 false（资料页退回内置 id），不报错——
+// 资料页不该因为等级配置写坏而整页失败。
+type trustTierCatalog struct {
+	options *options.Service
+}
+
+func (c trustTierCatalog) TierIdentity(ctx context.Context, rank int) (profile.TierIdentity, bool) {
+	if c.options == nil {
+		return profile.TierIdentity{}, false
+	}
+	raw, err := c.options.WebOption(ctx, options.NameTrustLevels)
+	if err != nil {
+		return profile.TierIdentity{}, false
+	}
+	policy, err := trustlevels.DecodeConfig(raw)
+	if err != nil {
+		return profile.TierIdentity{}, false
+	}
+	level := trustlevels.Level(rank)
+	id := policy.TierID(level)
+	if id == "" {
+		return profile.TierIdentity{}, false
+	}
+	return profile.TierIdentity{ID: id, Name: policy.DisplayNameOf(level)}, true
+}
+
 func NewProfileProvider(store profile.Store, users identity.ActorStore, sessions *authsession.Manager, optionsService *options.Service) *ProfileProvider {
-	service := profile.NewService(store)
+	service := profile.NewService(store).WithTrustTierCatalog(trustTierCatalog{options: optionsService})
 	return &ProfileProvider{
 		controller: profilecontroller.NewController(service, users, sessions, optionsService),
 		service:    service,
@@ -68,7 +100,8 @@ func NewProfileProviderWithAvatar(store profile.Store, users identity.ActorStore
 
 // NewProfileProviderWithAvatarAndTabs 注入公开资料扩展 tabs（F4.3）。
 func NewProfileProviderWithAvatarAndTabs(store profile.Store, users identity.ActorStore, sessions *authsession.Manager, uploader *attachments.Service, optionsService *options.Service, tabs profile.ProfileTabProvider) *ProfileProvider {
-	service := profile.NewServiceWithAvatar(store, uploader, optionsService)
+	service := profile.NewServiceWithAvatar(store, uploader, optionsService).
+		WithTrustTierCatalog(trustTierCatalog{options: optionsService})
 	if tabs != nil {
 		service.WithProfileTabs(tabs)
 	}

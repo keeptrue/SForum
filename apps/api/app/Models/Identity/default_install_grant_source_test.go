@@ -32,7 +32,7 @@ func TestGrantSourceIsStaticForDefaultInstallWhitelistKeys(t *testing.T) {
 
 	// 前提：默认策略的 earnable 是空集。前提不成立时下面的 static 断言会失去意义
 	// （可能是被别的来源先命中），所以先把它钉住。
-	for level := trustlevels.LevelNewcomer; level < trustlevels.LevelCount; level++ {
+	for level := trustlevels.LevelNewcomer; level <= policy.LastRank(); level++ {
 		if grants := policy.Earnable.Grants(level); len(grants) != 0 {
 			t.Fatalf("默认策略在 TL%d 已有已挣得键 %v：默认安装前提不成立", level, grants)
 		}

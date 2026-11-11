@@ -33,6 +33,11 @@ func trustLevelOptionDefault() string {
 //
 // 解码失败返回 false，上游保留旧值——与其它 option 的「非法值不生效」语义一致。
 // 注意这里**不**做部分修正：坏配置必须整体拒绝，否则运营会看到「保存成功但某档没生效」。
+//
+// 这是 v1→v2 的**唯一**升级入口（D-N13）：存量值是 v1，运营保存一次就落成 v2。
+// 读路径（WebOption / trustlevels.DecodeConfig）绝不回写库值——否则「谁先读谁决定
+// 数据形状」，灰度与回滚都无法预测。将来要加别的写路径，必须复用这个归一化函数，
+// 不要各自写一份 EncodeConfig。
 func normalizeTrustLevelsOption(value string) (string, bool) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
