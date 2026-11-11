@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { computed } from 'vue'
 import { fileURLToPath } from 'node:url'
-import { earnableMatrixState, earnableOrphanText } from '~/composables/admin/settings/useTrustLevelEarnableMatrix'
+import { earnableMatrixState, earnableOrphanText, isBaselineKey } from '~/composables/admin/settings/useTrustLevelEarnableMatrix'
 import {
   earnableKeys,
   recommendedTrustLevelsForm,
@@ -53,7 +53,10 @@ const WHITELIST = [
   'post.delete_own'
 ]
 
-const ready = (keys: string[] = WHITELIST): TrustLevelWhitelistState => ({ status: 'ready', keys, error: null })
+const ready = (
+  keys: string[] = WHITELIST,
+  baselineKeys: string[] = []
+): TrustLevelWhitelistState => ({ status: 'ready', keys, baselineKeys, error: null })
 
 const UIconStub = { name: 'UIcon', props: { name: { type: String, default: '' } }, template: '<i :data-icon="name" />' }
 const UAlertStub = {
@@ -85,6 +88,7 @@ const SFAdminTrustLevelEarnableMatrix = await compileVueSfc(matrixPath, 'sf-trus
   earnableKeys,
   earnableMatrixState,
   earnableOrphanText,
+  isBaselineKey,
   TRUST_LEVEL_ROWS
 })
 
@@ -159,9 +163,10 @@ describe('earnable matrix rendering', () => {
     // 不讲这条，等于告诉运营「勾了 TL2 就能让 TL2 用户发帖」——那是假话。
     const baseline = mountMatrix().find('[data-sf-earnable-baseline]')
     expect(baseline.exists()).toBe(true)
-    expect(baseline.text()).toContain('默认安装下这是空操作')
+    // 兜底文案只断言单键机制，不再断言「人人都有」（designer 规范 §3.2）。
+    expect(baseline.text()).toContain('勾选只对「用户组里没有该键」的用户生效')
     expect(baseline.text()).toContain('默认用户组')
-    expect(baseline.text()).toContain('只对')
+    expect(baseline.text()).not.toContain('所有人都有')
     // 白名单由 API 下发，写死数字就是第二份副本（T22）。
     expect(baseline.text()).not.toMatch(/7 个键|七个键|seven keys/)
     // 严重性通道留给 error（白名单失败）与 warning（残留键）：它不是 alert。
@@ -196,10 +201,18 @@ describe('earnable matrix rendering', () => {
   })
 
   test('derives the count denominator from the whitelist, never a hardcoded 28', () => {
-    // 分母 = 白名单长度 × 4（TL1–TL4）；TL0 不计入（算进 TL0 会得 35，那是错的）。
+    // 分母 = 可操作键数 × 4（TL1–TL4）；TL0 不计入（算进 TL0 会得 35，那是错的）。
     expect(mountMatrix().find('[data-sf-earnable-count]').text()).toBe('新增项 0/28')
     expect(mountMatrix({ whitelist: ready(WHITELIST.slice(0, 3)) }).find('[data-sf-earnable-count]').text())
       .toBe('新增项 0/12')
+  })
+
+  test('keeps gate keys out of the operable denominator (they have no control to click)', () => {
+    // 7 键里 2 个门控 ⇒ 5×4 = 20。分子同样只数可操作键。
+    const form = recommendedTrustLevelsForm()
+    form.earnable['2'] = ['topic.create', 'post.create']
+    const wrapper = mountMatrix({ form, whitelist: ready(WHITELIST, ['topic.create', 'attachment.upload']) })
+    expect(wrapper.find('[data-sf-earnable-count]').text()).toBe('新增项 1/20')
   })
 
   test('counts checked keys per level without copying them to higher levels', () => {
@@ -227,8 +240,86 @@ describe('earnable matrix rendering', () => {
   })
 })
 
+describe('system baseline gate markers (D34 / Z3-b″)', () => {
+  const GATED = ['topic.create', 'attachment.upload']
+  const GATE_TITLE = '等级门控：TL0 不生效，TL1 起生效，由系统决定'
+
+  test('replaces the checkbox with a static gate marker on every level, TL0 included', () => {
+    const wrapper = mountMatrix({ whitelist: ready(WHITELIST, GATED) })
+    // 2 个门控键 × 5 档 = 10 个标记；勾选框 = 5 个可操作键 × 5 档 = 25。
+    expect(wrapper.findAll('[data-sf-earnable-gate]')).toHaveLength(2 * 5)
+    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(5 * 5)
+    for (const row of wrapper.findAll('fieldset')) {
+      expect(row.findAll('[role="checkbox"]')).toHaveLength(5)
+      expect(row.findAll('[data-sf-earnable-gate]')).toHaveLength(2)
+    }
+  })
+
+  test('marks the gate as an image with title, aria-label and no tab stop', () => {
+    const wrapper = mountMatrix({ whitelist: ready(WHITELIST, GATED) })
+    const markers = wrapper.findAll('[data-sf-earnable-gate]')
+    for (const marker of markers) {
+      expect(marker.attributes('role')).toBe('img')
+      expect(marker.attributes('title')).toBe(GATE_TITLE)
+      // 语义必须含「不可取消」：门控不是运营能关掉的选项。
+      expect(marker.attributes('aria-label')).toContain('不可取消')
+      expect(marker.attributes('tabindex')).toBeUndefined()
+    }
+    // 文案是 i18n 解析后的真值，不是 key 名。
+    expect(markers[0]!.attributes('aria-label')).not.toContain('gateAria')
+    expect(markers[0]!.attributes('aria-label')).toContain('发布主题')
+  })
+
+  test('puts a 等级门控 badge in the column header instead of a second sentence', () => {
+    const wrapper = mountMatrix({ whitelist: ready(WHITELIST, GATED) })
+    const badges = wrapper.findAll('[data-sf-earnable-gate-badge]')
+    expect(badges).toHaveLength(2)
+    expect(badges[0]!.text()).toContain('等级门控')
+    expect(badges[0]!.text()).not.toContain('keyBadge')
+    expect(badges[0]!.attributes('title')).toBe(GATE_TITLE)
+  })
+
+  test('keeps the TL0 row read-only for the remaining checkboxes, markers still visible', () => {
+    const wrapper = mountMatrix({ whitelist: ready(WHITELIST, GATED) })
+    const tl0 = wrapper.find('fieldset[data-level="0"]')
+    expect(tl0.attributes('aria-disabled')).toBe('true')
+    const boxes = tl0.findAll('[role="checkbox"]')
+    expect(boxes).toHaveLength(5)
+    for (const box of boxes) expect(box.attributes('disabled')).toBeDefined()
+    expect(tl0.findAll('[data-sf-earnable-gate]')).toHaveLength(2)
+  })
+
+  test('rewrites the note and drops the false "everyone has them" claim', () => {
+    const wrapper = mountMatrix({ whitelist: ready(WHITELIST, GATED) })
+    const baseline = wrapper.find('[data-sf-earnable-baseline]').text()
+    expect(baseline).toContain('等级门控键（发布主题、上传附件）由系统决定')
+    expect(baseline).toContain('TL1 及以上生效')
+    expect(baseline).toContain('后台无法取消')
+    // 旧口径两句都必须消失：它们在 TL0 上为假（§3.2 / §3.3）。
+    expect(baseline).not.toContain('所有人都有')
+    expect(baseline).not.toContain('默认空集')
+    expect(wrapper.find('[data-sf-earnable-empty]').text()).toContain('TL0 不生效，TL1 及以上生效')
+  })
+
+  test('red state: with the field missing there are zero markers and the 2 keys revert to checkboxes', () => {
+    const wrapper = mountMatrix()
+    expect(wrapper.findAll('[data-sf-earnable-gate]')).toHaveLength(0)
+    expect(wrapper.findAll('[data-sf-earnable-gate-badge]')).toHaveLength(0)
+    // 7 个键全部退回勾选框：字段掉了，UI 会少一句本该在的披露，这个测试必须红。
+    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(5 * 7)
+    const baseline = wrapper.find('[data-sf-earnable-baseline]').text()
+    expect(baseline).toContain('勾选只对「用户组里没有该键」的用户生效')
+    expect(baseline).not.toContain('等级门控')
+  })
+
+  test('excludes gate keys from the operable-count denominator: 5×4 = 20, not 7×4', () => {
+    const wrapper = mountMatrix({ whitelist: ready(WHITELIST, GATED) })
+    expect(wrapper.find('[data-sf-earnable-count]').text()).toBe('新增项 0/20')
+  })
+})
+
 describe('earnable matrix failure state (T22)', () => {
-  const failed: TrustLevelWhitelistState = { status: 'failed', keys: [], error: 'forbidden' }
+  const failed: TrustLevelWhitelistState = { status: 'failed', keys: [], baselineKeys: [], error: 'forbidden' }
 
   test('renders the error alert plus a locked placeholder and no matrix at all', () => {
     const wrapper = mountMatrix({ whitelist: failed })

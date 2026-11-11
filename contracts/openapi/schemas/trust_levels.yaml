@@ -63,7 +63,10 @@ TrustLevelDefinition:
         写入时该字段**必须显式出现**（可写 `null` = 全继承），省略即 422。
     earnable:
       type: array
-      description: 该档**恰好**解锁的既有权限键（不含更低档）。
+      description: |
+        该档**恰好**解锁的既有权限键（不含更低档）。
+        本字段只表达**运营配置**的解锁：默认安装下 TL0 的两键扣除来自装载期基线门
+        （代码常量，不进本字段），因此「本字段全为空」不等于「各档权限集合相等」。
       items:
         type: string
 
@@ -116,7 +119,7 @@ ApiResponseTrustLevelCatalog:
 
 TrustLevelAdmin:
   type: object
-  required: [config, levels, eligiblePermissions, recommendedConfig]
+  required: [config, levels, eligiblePermissions, baselinePermissions, recommendedConfig]
   properties:
     config:
       type: string
@@ -125,6 +128,15 @@ TrustLevelAdmin:
       type: array
       items:
         "$ref": "#/TrustLevelDefinition"
+    baselinePermissions:
+      type: array
+      description: |
+        系统基线门的键（Z3-b″）：默认安装下 TL0 必须被扣掉、TL1 起自动生效。
+        与 eligiblePermissions 同级但语义相反——后者是「允许被等级授予的白名单」，
+        本字段是「TL0 会被扣掉的基线键」。运营不可编辑，只用于后台说明与
+        「系统基线」标注；前端缺字段时应静默不渲染基线话术。
+      items:
+        type: string
     eligiblePermissions:
       type: array
       description: |

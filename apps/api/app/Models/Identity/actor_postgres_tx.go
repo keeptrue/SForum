@@ -117,11 +117,11 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust Tr
 	actor := Actor{ID: userID, Permissions: make(map[string]bool)}
 	var kindRaw string
 	if err := tx.QueryRow(ctx, `
-		SELECT status, kind
+		SELECT status, kind, created_at
 		FROM users
 		WHERE id = $1
 		FOR SHARE
-	`, userID).Scan(&actor.Status, &kindRaw); err != nil {
+	`, userID).Scan(&actor.Status, &kindRaw, &actor.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Actor{}, ErrActorInactive
 		}
@@ -196,6 +196,9 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust Tr
 		return Actor{}, fmt.Errorf("load effective actor permission overrides: %w", err)
 	}
 	denied := make(map[string]bool)
+	// allowed 与 denied 同源：同一批 override 行，多记一份 allow 键给减法门豁免用
+	// （Z3-b″ 第 4 条）。这里不额外查库，行本来就要读。
+	allowed := make(map[string]bool)
 	for overrideRows.Next() {
 		var permission, effect string
 		if err := overrideRows.Scan(&permission, &effect); err != nil {
@@ -204,6 +207,7 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust Tr
 		}
 		if effect == "allow" {
 			actor.Permissions[permission] = true
+			allowed[permission] = true
 		} else if effect == "deny" {
 			delete(actor.Permissions, permission)
 			denied[permission] = true
@@ -215,24 +219,20 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust Tr
 	}
 	overrideRows.Close()
 
-	// 信任等级已挣得来源：与 LoadActor 走同一套合并与同一套失败姿态（D22）。
+	// 信任等级已挣得来源与基线扣减：与 LoadActor 走同一处实现（applyTrustGrants），
+	// 同一套失败姿态（D22）。
+	//
+	// created_at 必须在这里读出来（本刀修复）：它同时喂账龄闸与新人阶梯，漏读会让
+	// 事务路径的每个账号都被当成「账龄无限长」→ 永远不低于 TL1 → 与 HTTP 路径
+	// 对同一个 TL0 用户给出两个答案。
 	//
 	// 注意这里**不做**父→子展开——那是这个 loader 的既有缺口（extension.manage
 	// 持有者在插件命令路径今天就被误拒），修它会改变既有授权行为，超出本刀范围。
-	// 因此跨 loader 的一致性只保证「earned 键集合相等」，不保证完整有效集相等。
+	// 因此跨 loader 的一致性只保证「权限键集合相等」，不保证完整有效集相等。
 	if level, granted, ok := resolveTrustGrants(ctx, userID, actor.Kind, actor.CreatedAt, trust); ok {
 		actor.TrustLevel = level
 		actor.TrustLevelResolved = true
-		for _, key := range granted {
-			if key == "" || denied[key] || actor.Permissions[key] {
-				continue
-			}
-			actor.Permissions[key] = true
-			if actor.Earned == nil {
-				actor.Earned = make(map[string]bool)
-			}
-			actor.Earned[key] = true
-		}
+		_, actor.Earned = applyActorTrustGrants(trust, &actor, level, granted, allowed, denied)
 	}
 	return actor, nil
 }

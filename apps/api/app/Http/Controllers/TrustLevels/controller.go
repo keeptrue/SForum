@@ -141,6 +141,7 @@ func (h *Controller) getAdmin(c fiber.Ctx) error {
 		Config:      encoded,
 		Levels:      buildAdminPayload(policy).Levels,
 		Eligible:    nonNilStrings(trustlevels.EligiblePermissions()),
+		Baseline:    nonNilStrings(trustlevels.BaselineGrants()),
 		Recommended: recommendedConfig(),
 	})
 }

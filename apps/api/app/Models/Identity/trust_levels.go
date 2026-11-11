@@ -27,6 +27,14 @@ type TrustLevelSource interface {
 	// kind 与 createdAt 由装载方传入：两者都来自 identity 已经读过的那一行 users，
 	// 再让实现自己查一遍就是同一请求读两次（R7）。
 	Grants(ctx context.Context, userID int64, kind UserKind, createdAt time.Time) (level int, earned []string, err error)
+
+	// BaselineGrantsFor 返回该等级装载期必须从有效权限里**扣除**的基线键，
+	// TL1 及以上返回 nil（Z3-b″ 减法门）。
+	//
+	// 键表与「谁是成员」的等级下界都留在 TrustLevels 一侧：identity 不能 import
+	// 本包（D18），放在这里才不会出现第二份白名单和第二份 `LevelMember` 数值。
+	// 装载器只负责照单扣除，并叠加「未解析 / bot / 显式 allow」三条不扣判据。
+	BaselineGrantsFor(level int) []string
 }
 
 // resolveTrustGrants 是两个装载器（LoadActor 的池路径与 LoadEffectiveActorTx 的

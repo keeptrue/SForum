@@ -5,6 +5,7 @@ import {
   earnableKeys,
   earnableWhitelistForSave,
   idleTrustLevelWhitelist,
+  parseBaselinePermissions,
   parseEligiblePermissions,
   readTrustLevelsConfig,
   recommendedTrustLevelsForm,
@@ -340,19 +341,53 @@ describe('earnable whitelist data source', () => {
   test('separates request failure, malformed response, and a genuinely empty whitelist', () => {
     // 1) 空集合 = ready + []：后端明确说「没有可勾的键」，这是事实不是错误。
     expect(resolveTrustLevelWhitelist({ ok: true, body: { eligiblePermissions: [] } }))
-      .toEqual({ status: 'ready', keys: [], error: null })
+      .toEqual({ status: 'ready', keys: [], baselineKeys: [], error: null })
     // 2) 形状不对 = failed + invalid_response：不许冒充空集合（T22）。
     expect(resolveTrustLevelWhitelist({ ok: true, body: { levels: [] } }))
-      .toEqual({ status: 'failed', keys: [], error: 'invalid_response' })
+      .toEqual({ status: 'failed', keys: [], baselineKeys: [], error: 'invalid_response' })
     // 3) 请求失败带后端 reason；没有 reason 时给稳定兜底码。
     expect(resolveTrustLevelWhitelist({
       ok: false,
       error: { code: 403, message: 'forbidden', data: { reason: 'forbidden' } }
-    })).toEqual({ status: 'failed', keys: [], error: 'forbidden' })
+    })).toEqual({ status: 'failed', keys: [], baselineKeys: [], error: 'forbidden' })
     expect(resolveTrustLevelWhitelist({ ok: false, error: new Error('network') }))
-      .toEqual({ status: 'failed', keys: [], error: 'request_failed' })
+      .toEqual({ status: 'failed', keys: [], baselineKeys: [], error: 'request_failed' })
     // 4) 初始态既不是 failed 也不是 ready：组件不能据此画空矩阵。
-    expect(idleTrustLevelWhitelist()).toEqual({ status: 'idle', keys: [], error: null })
+    expect(idleTrustLevelWhitelist()).toEqual({ status: 'idle', keys: [], baselineKeys: [], error: null })
+  })
+})
+
+describe('system baseline keys (D34 / Z3-b″)', () => {
+  test('reads baseline keys from the admin read field, never from a frontend copy', () => {
+    const body = {
+      eligiblePermissions: WHITELIST,
+      baselinePermissions: ['topic.create', 'attachment.upload']
+    }
+    expect(resolveTrustLevelWhitelist({ ok: true, body })).toEqual({
+      status: 'ready',
+      keys: WHITELIST,
+      baselineKeys: ['topic.create', 'attachment.upload'],
+      error: null
+    })
+    // 后端没下发该字段：baselineKeys 为空 = 「无可披露的基线」，不是「基线为空集」的断言。
+    expect(resolveTrustLevelWhitelist({ ok: true, body: { eligiblePermissions: WHITELIST } }))
+      .toEqual({ status: 'ready', keys: WHITELIST, baselineKeys: [], error: null })
+  })
+
+  test('drops baseline keys that are malformed or outside the whitelist instead of failing the read', () => {
+    // 基线只是附加标注：它脏了不该让运营看不到矩阵（与白名单「形状非法即失败」相反）。
+    for (const raw of [undefined, null, 'topic.create', {}, 7]) {
+      expect(parseBaselinePermissions(raw, WHITELIST)).toEqual([])
+    }
+    expect(parseBaselinePermissions(['topic.create', 'user.ban', '', 7, 'topic.create'], WHITELIST))
+      .toEqual(['topic.create'])
+  })
+
+  test('keeps zero baseline-key literals in the production composable', () => {
+    // 第二份副本防线：基线键只允许来自后端响应，源码里出现字面量就说明有人在写死真相。
+    for (const key of ['topic.create', 'attachment.upload']) {
+      expect(composable).not.toContain(`'${key}'`)
+    }
   })
 })
 
@@ -460,10 +495,10 @@ describe('earnable payload contract', () => {
     const form = recommendedTrustLevelsForm()
     form.earnable['2'] = ['topic.create']
     const cases: Array<[TrustLevelWhitelistState, string[]]> = [
-      [{ status: 'idle', keys: [], error: null }, ['topic.create']],
-      [{ status: 'loading', keys: [], error: null }, ['topic.create']],
-      [{ status: 'failed', keys: [], error: 'forbidden' }, ['topic.create']],
-      [{ status: 'ready', keys: ['post.create'], error: null }, []]
+      [{ status: 'idle', keys: [], baselineKeys: [], error: null }, ['topic.create']],
+      [{ status: 'loading', keys: [], baselineKeys: [], error: null }, ['topic.create']],
+      [{ status: 'failed', keys: [], baselineKeys: [], error: 'forbidden' }, ['topic.create']],
+      [{ status: 'ready', keys: ['post.create'], baselineKeys: [], error: null }, []]
     ]
     for (const [state, expected] of cases) {
       const decoded = JSON.parse(trustLevelsPayload(form, earnableWhitelistForSave(state))[0]!.value) as {
@@ -471,6 +506,29 @@ describe('earnable payload contract', () => {
       }
       expect(decoded.levels[1]!.earnable).toEqual(expected)
     }
+  })
+
+  test('writes gate-key history back untouched: no control does not mean drop the value', () => {
+    // S2 门控键在 UI 里没有勾选框，但存量配置必须逐字节回写——否则每次保存都会静默
+    // 改写运营的历史配置（designer 规范 §6.5，本仓「静默/两份」失败类的新入口）。
+    const form = recommendedTrustLevelsForm()
+    form.earnable['2'] = ['topic.create', 'post.create']
+    const state: TrustLevelWhitelistState = {
+      status: 'ready',
+      keys: WHITELIST,
+      baselineKeys: ['topic.create', 'attachment.upload'],
+      error: null
+    }
+    const decoded = JSON.parse(trustLevelsPayload(form, earnableWhitelistForSave(state))[0]!.value) as {
+      levels: Array<Record<string, unknown>>
+    }
+    expect(decoded.levels[1]!.earnable).toEqual(['topic.create', 'post.create'])
+    // 再走一次「勾选一个可操作键」的路径：门控键的存量值仍然在。
+    const toggled = toggleEarnableKey(form, 2, 'post.edit_own', WHITELIST)
+    const again = JSON.parse(trustLevelsPayload(toggled, earnableWhitelistForSave(state))[0]!.value) as {
+      levels: Array<Record<string, unknown>>
+    }
+    expect(again.levels[1]!.earnable).toEqual(['topic.create', 'post.create', 'post.edit_own'])
   })
 
   test('still emits earnable for a level the form forgot', () => {

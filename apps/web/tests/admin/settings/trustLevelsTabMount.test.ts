@@ -6,7 +6,7 @@ import {
   adminOptionMap,
   useAdminOptionTab
 } from '~/composables/admin/settings/useAdminOptionTab'
-import { earnableMatrixState, earnableOrphanText } from '~/composables/admin/settings/useTrustLevelEarnableMatrix'
+import { earnableMatrixState, earnableOrphanText, isBaselineKey } from '~/composables/admin/settings/useTrustLevelEarnableMatrix'
 import {
   blockNonIntegerKey,
   cloneTrustLevelsForm,
@@ -106,6 +106,7 @@ const SFAdminTrustLevelEarnableMatrix = await compileVueSfc(matrixPath, 'sf-trus
   earnableKeys,
   earnableMatrixState,
   earnableOrphanText,
+  isBaselineKey,
   TRUST_LEVEL_ROWS
 })
 

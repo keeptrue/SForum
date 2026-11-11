@@ -45,7 +45,7 @@ func TestMergeEarnedPermissionsHonoursDeny(t *testing.T) {
 	current := &CurrentUser{ID: 7, Permissions: []string{"post.create"}}
 	current.denied = deniedPermissionKeys(decisions)
 
-	earned := mergeEarnedPermissions(current, []string{"topic.create", "attachment.upload"})
+	_, earned := applyCurrentUserTrustGrants(nil, current, 0, []string{"topic.create", "attachment.upload"}, nil)
 
 	if slices.Contains(current.Permissions, "topic.create") {
 		t.Fatal("被 deny 的 topic.create 被已挣得集合复活了")
@@ -74,7 +74,7 @@ func TestMergeEarnedPermissionsHonoursDeny(t *testing.T) {
 func TestMergeEarnedPermissionsSkipsStaticKeys(t *testing.T) {
 	current := &CurrentUser{ID: 7, Permissions: []string{"topic.create"}}
 	current.denied = map[string]bool{}
-	earned := mergeEarnedPermissions(current, []string{"topic.create"})
+	_, earned := applyCurrentUserTrustGrants(nil, current, 0, []string{"topic.create"}, nil)
 	if earned != nil {
 		t.Fatalf("静态已授予的键被记成 earned：%v", earned)
 	}

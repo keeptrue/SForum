@@ -3,7 +3,7 @@ package identity
 import (
 	"context"
 	"fmt"
-	"slices"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -253,8 +253,38 @@ func (s *PostgresStore) applyTrustLevel(ctx context.Context, current *CurrentUse
 	}
 	current.TrustLevel = level
 	current.trustLevelResolved = true
-	current.earned = mergeEarnedPermissions(current, earned)
+	// Z3-b″ 减法门：扣减与已挣得合并都在 applyCurrentUserTrustGrants 里，
+	// 与事务路径共用同一份实现。allow 覆盖只在门真的会生效时才多读一次。
+	_, current.earned = applyCurrentUserTrustGrants(s.trustLevels, current, level, earned,
+		s.baselineAllowOverrides(ctx, current.ID, level, current.Kind))
 	return nil
+}
+
+// baselineAllowOverrides 返回该用户的显式 allow 覆盖键，供减法门豁免（§4-bis 第 4 条）。
+//
+// 为什么必须单独读一次：`ListUserPermissions` 的行只有 {key, effective}，拿不到
+// 「这个键生效是因为角色授予还是 allow 覆盖」，而给它加列要跑 `sqlc generate`
+// （本仓不可安全运行，residual 4）。
+//
+// 为什么不是每条请求都读：门只在「已解析 + 未到 TL1 + 非 bot」时生效，其余路径
+// 直接返回 nil，查询次数与本刀之前逐字相同（G 组预算不变）。
+//
+// 失败姿态 fail-open：读不到就当作「没有 allow 覆盖」，即**不扣**。宁可 TL0 多留
+// 一个键，不可因为一次查询失败把整批新用户的发言权限挡掉（§4-bis 的失败方向）。
+func (s *PostgresStore) baselineAllowOverrides(ctx context.Context, userID int64, level int, kind UserKind) map[string]bool {
+	if !needsBaselineDeduction(s.trustLevels, level, kind) {
+		return nil
+	}
+	overrides, err := s.listPermissionOverrides(ctx, userID)
+	if err != nil {
+		slog.Warn("identity: load allow overrides for baseline deduction failed", "userId", userID, "error", err)
+		return nil
+	}
+	allow := make(map[string]bool, len(overrides.Allow))
+	for _, key := range overrides.Allow {
+		allow[key] = true
+	}
+	return allow
 }
 
 // postgresTxStore 的路径不合并已挣得来源：事务内的装载用于注册/改密等身份写流程，
@@ -338,31 +368,9 @@ func deniedPermissionKeys(decisions []store.ListUserPermissionsRow) map[string]b
 	return denied
 }
 
-// mergeEarnedPermissions 实现 D23 的合并：有效集 ∪= earned ∖ static ∖ denied，
-// 并返回 earned 独占键（只用于解释来源，不参与裁决）。
-func mergeEarnedPermissions(current *CurrentUser, earned []string) map[string]bool {
-	if current == nil || len(earned) == 0 {
-		return nil
-	}
-	present := make(map[string]bool, len(current.Permissions))
-	for _, key := range current.Permissions {
-		present[key] = true
-	}
-	var earnedOnly map[string]bool
-	for _, key := range earned {
-		if key == "" || current.denied[key] || present[key] {
-			continue
-		}
-		present[key] = true
-		current.Permissions = append(current.Permissions, key)
-		if earnedOnly == nil {
-			earnedOnly = make(map[string]bool)
-		}
-		earnedOnly[key] = true
-	}
-	slices.Sort(current.Permissions)
-	return earnedOnly
-}
+// 合并实现已收进 trust_level_grants.go 的 mergeEarnedKeys（D23）：这里原本有一份
+// 独立的合并循环，减法门（Z3-b″）要在同一个地方扣键，两处并存就是本仓反复出现的
+// 「两份」。CurrentUser 形态的入口现在是 applyCurrentUserTrustGrants。
 
 
 

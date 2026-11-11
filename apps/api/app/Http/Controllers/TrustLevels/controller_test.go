@@ -359,3 +359,54 @@ func TestUpdateAdminStoreFailureIsServerError(t *testing.T) {
 		t.Fatalf("写库失败仍被报成输入错误（422 语义）：%s", body)
 	}
 }
+
+// TestAdminBaselinePermissionsLiteral 钉住 Z3-b″ 的读面字段 baselinePermissions。
+//
+// 三层断言：
+//  1. **字面集合相等**：两个键写死在测试里，不用 BaselineGrants() 反推自己
+//     （拿实现给自己出题等于没断言）。
+//  2. **顺序等于 BaselineGrants()**：顺序的权威在那个常量里，控制器若排序或走
+//     map 迭代会在这里红。
+//  3. **永远下发且不是 null**：省略会让人误判（earnable 的三态教训）。
+func TestAdminBaselinePermissionsLiteral(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }))
+
+	wantSet := []string{"attachment.upload", "topic.create"}
+
+	read := func() []string {
+		t.Helper()
+		status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/admin/trust-levels", "")
+		if status != fiber.StatusOK {
+			t.Fatalf("后台读 status = %d，body=%s", status, body)
+		}
+		if strings.Contains(body, `"baselinePermissions":null`) {
+			t.Fatalf("baselinePermissions 是 null（应永远下发数组）：%s", body)
+		}
+		var payload struct {
+			Data struct {
+				Baseline []string `json:"baselinePermissions"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			t.Fatalf("响应不是预期 JSON：%v，body=%s", err, body)
+		}
+		return payload.Data.Baseline
+	}
+
+	got := read()
+	gotSorted := slices.Clone(got)
+	slices.Sort(gotSorted)
+	if !slices.Equal(gotSorted, wantSet) {
+		t.Fatalf("baselinePermissions 集合 = %v，期望 %v", gotSorted, wantSet)
+	}
+	if wantOrder := trustlevels.BaselineGrants(); !slices.Equal(got, wantOrder) {
+		t.Fatalf("baselinePermissions 顺序 = %v，期望与 BaselineGrants() 同序 %v", got, wantOrder)
+	}
+	if second := read(); !slices.Equal(second, got) {
+		t.Fatalf("两次读的顺序不一致：%v vs %v", got, second)
+	}
+}

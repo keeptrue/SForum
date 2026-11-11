@@ -277,9 +277,11 @@ func newP7JoinedSessionHarness(t *testing.T, flow p7JoinedSessionFlow) *p7Joined
 func installP7JoinedIdentitySchema(t *testing.T, fixture *identityPersistencePGFixture) {
 	t.Helper()
 	_, err := fixture.pool.Exec(fixture.ctx, `
+		-- IF NOT EXISTS：基础 schema 现在自带 created_at（真实 users 表的第一列之一），
+		-- 无条件 ADD 会撞 duplicate column。生产迁移里同类语句也都带 IF NOT EXISTS。
 		ALTER TABLE users
-		  ADD COLUMN is_initial_super_admin BOOLEAN NOT NULL DEFAULT FALSE,
-		  ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT transaction_timestamp(),
+		  ADD COLUMN IF NOT EXISTS is_initial_super_admin BOOLEAN NOT NULL DEFAULT FALSE,
+		  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT transaction_timestamp(),
 		  ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT transaction_timestamp();
 		CREATE TABLE user_credentials (
 		  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

@@ -173,12 +173,20 @@ export type TrustLevelWhitelistState = {
    * 那是把失败当空（T22）。
    */
   keys: string[]
+  /**
+   * 系统基线键：默认安装下由等级直接门控（TL0 不生效、TL1 起生效）的白名单子集。
+   *
+   * 唯一来源是后台读面的 `baselinePermissions`（见 `apps/web/TODO-trust-level-baseline-field.md`）。
+   * 后端不下发该字段时是 `[]` —— 含义是「无可披露的基线键」，**不是**「基线键为空集」的断言：
+   * 组件只在非空时才展示标注与相关文案，绝不把两个键写死在组件里（那是第二份副本）。
+   */
+  baselineKeys: string[]
   /** `failed` 的原因：后端 `reason`，或 `invalid_response` / `request_failed`。 */
   error: string | null
 }
 
 export function idleTrustLevelWhitelist(): TrustLevelWhitelistState {
-  return { status: 'idle', keys: [], error: null }
+  return { status: 'idle', keys: [], baselineKeys: [], error: null }
 }
 
 /**
@@ -197,6 +205,27 @@ export function parseEligiblePermissions(raw: unknown): string[] | null {
   return keys
 }
 
+/**
+ * 解析 `baselinePermissions`（系统基线键）。
+ *
+ * 与 `parseEligiblePermissions` 的关键差别：这里**宽容**。
+ * 白名单是矩阵的唯一渲染来源，形状非法必须整块失败（T22：空矩阵 = 谎）；
+ * 而基线键只是**附加标注**，它缺失或带脏值不该让运营看不到矩阵，也不该让 UI
+ * 说出没有依据的话。所以：非数组 / 非字符串 / 不在白名单内的条目一律丢弃，
+ * 结果是「可披露的基线键」，可能是空。
+ */
+export function parseBaselinePermissions(raw: unknown, eligible: readonly string[]): string[] {
+  if (!Array.isArray(raw)) return []
+  const allowed = new Set(eligible)
+  const keys: string[] = []
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || entry.trim().length === 0) continue
+    if (!allowed.has(entry) || keys.includes(entry)) continue
+    keys.push(entry)
+  }
+  return keys
+}
+
 export type TrustLevelAdminReadOutcome =
   | { ok: true, body: unknown }
   | { ok: false, error: unknown }
@@ -208,12 +237,12 @@ export type TrustLevelAdminReadOutcome =
  */
 export function resolveTrustLevelWhitelist(outcome: TrustLevelAdminReadOutcome): TrustLevelWhitelistState {
   if (!outcome.ok) {
-    return { status: 'failed', keys: [], error: apiErrorReason(outcome.error) || 'request_failed' }
+    return { status: 'failed', keys: [], baselineKeys: [], error: apiErrorReason(outcome.error) || 'request_failed' }
   }
   const body = (outcome.body && typeof outcome.body === 'object' ? outcome.body : {}) as Record<string, unknown>
   const keys = parseEligiblePermissions(body.eligiblePermissions)
-  if (!keys) return { status: 'failed', keys: [], error: 'invalid_response' }
-  return { status: 'ready', keys, error: null }
+  if (!keys) return { status: 'failed', keys: [], baselineKeys: [], error: 'invalid_response' }
+  return { status: 'ready', keys, baselineKeys: parseBaselinePermissions(body.baselinePermissions, keys), error: null }
 }
 
 /** 白名单净化：丢掉白名单外的键、去重，并按白名单顺序排列。 */
@@ -426,7 +455,7 @@ export function useTrustLevelEarnableWhitelist(
   const pending = computed(() => state.value.status === 'loading')
 
   async function load(): Promise<TrustLevelWhitelistState> {
-    state.value = { status: 'loading', keys: [], error: null }
+    state.value = { status: 'loading', keys: [], baselineKeys: [], error: null }
     let outcome: TrustLevelAdminReadOutcome
     try {
       outcome = { ok: true, body: await request<unknown>(TRUST_LEVEL_ADMIN_READ_PATH) }

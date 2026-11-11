@@ -206,6 +206,12 @@ func seedIdentityPersistenceTestBaseTables(ctx context.Context, db *sql.DB) erro
 			email_verified_at TIMESTAMPTZ,
 			status TEXT NOT NULL DEFAULT 'active'
 			  CHECK (status IN ('active', 'disabled', 'banned')),
+			-- created_at 是真实 users 表的第一列之一，LoadEffectiveActorTx 与
+			-- applyTrustLevel 都读它（账龄闸）。手写 schema 漏掉它不会「静默降级」：
+			-- 查询直接报 column does not exist，症状是 31 条无关测试一起红，
+			-- 且哨兵文案指向 ErrIdentitySessionPolicyStoreUnavailable（错误指向 A、
+			-- 原因在 B）。守卫见 identity_persistence_actor_columns_guard_test.go。
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 			current_token_version BIGINT NOT NULL DEFAULT 0,
 			kind TEXT NOT NULL DEFAULT 'human'
 			  CHECK (kind IN ('human', 'bot'))

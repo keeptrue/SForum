@@ -19,6 +19,9 @@ func (s silentTrustSource) Grants(context.Context, int64, UserKind, time.Time) (
 	return 0, nil, s.err
 }
 
+// BaselineGrantsFor 恒空：这个 fake 只验证关闭/失败时的静默姿态，不涉及减法门。
+func (s silentTrustSource) BaselineGrantsFor(int) []string { return nil }
+
 // TestResolveTrustGrantsDisabledIsSilent 锁定 D9/F 组：关闭态必须静默。
 //
 // 关闭态如果写了 warn，每个已认证请求就是一条日志——线上等于日志洪水，而且运营会

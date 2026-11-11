@@ -444,10 +444,14 @@ func installPostgresCommandPrerequisites(t *testing.T, ctx context.Context, pool
 		`CREATE TABLE users (
 			id BIGINT PRIMARY KEY,
 			status TEXT NOT NULL,
-			-- kind 是 LoadEffectiveActorTx 读的列（信任等级用它区分人类/机器人）。
+			-- kind 与 created_at 都是 LoadEffectiveActorTx 读的列（信任等级用 kind
+			-- 区分人类/机器人、用 created_at 判账龄）。
 			-- 这是 T6/T7 的复现：fixture 是第二份 schema，主 schema 加列时它会静默落后，
 			-- 症状是「column kind does not exist」这种与改动毫不相关的红。
-			kind TEXT NOT NULL DEFAULT 'human'
+			-- 2026-11-11 同一处又踩了一次（created_at）：三条 v2 委派命令测试红在
+			-- 「delegated commit = …Error:…」，与夹具缺列毫无字面关联。
+			kind TEXT NOT NULL DEFAULT 'human',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 		)`,
 		`CREATE TABLE roles (
 			id BIGINT PRIMARY KEY,

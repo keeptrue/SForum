@@ -23,7 +23,7 @@
  * `useTrustLevelEarnableMatrix.ts`**（纯函数、可单测）。再拆只能拆成两个互相传 props 的组件，
  * 那会让「一个矩阵」变成两份契约，比长文件更糟，所以不拆。
  */
-import { earnableOrphanText, earnableMatrixState } from '~/composables/admin/settings/useTrustLevelEarnableMatrix'
+import { earnableOrphanText, earnableMatrixState, isBaselineKey } from '~/composables/admin/settings/useTrustLevelEarnableMatrix'
 import type { TrustLevelWhitelistState, TrustLevelsForm } from '~/composables/admin/settings/useTrustLevelsThresholds'
 import { earnableKeys, TRUST_LEVEL_ROWS } from '~/composables/admin/settings/useTrustLevelsThresholds'
 import { usePermissionText } from '~/composables/identity/usePermissionText'
@@ -49,6 +49,15 @@ const state = computed(() => earnableMatrixState({
   canManage: props.canManage
 }))
 const orphanText = computed(() => earnableOrphanText(state.value.orphans))
+/**
+ * 系统基线键（默认安装下 TL0 不生效、TL1 起生效）——**只来自后端**，组件零字面量。
+ * 空数组 = 后端没下发（或没有可披露的基线），此时所有基线标注与相关文案都不渲染：
+ * 没有依据的话不说，比说错强。
+ */
+const hasBaselineKeys = computed(() => state.value.baselineKeys.length > 0)
+const baselineKeyText = computed(() =>
+  state.value.baselineKeys.map(key => keyLabel(key)).join(t('admin.settings.trustLevels.earnable.baseline.keysSeparator'))
+)
 
 function levelLabel(level: number) {
   return t(`admin.settings.trustLevels.level.${trustLevelSlug(level)}`)
@@ -62,9 +71,20 @@ function isChecked(level: number, key: string) {
   return earnableKeys(props.form, level).includes(key)
 }
 
-/** 三元组顺序固定：档位 → 语义（新增解锁）→ 键名（规范 §7.1）。 */
+/** 三元组顺序固定：档位 → 语义（新增解锁）→ 键名（规范 §7.1）。门控键没有勾选框，语义在标记上。 */
 function cellLabel(level: number, key: string) {
   return t('admin.settings.trustLevels.earnable.aria.cell', {
+    level: levelLabel(level),
+    permission: keyLabel(key)
+  })
+}
+
+/** 门控标记/列头 badge 的 `title`（原生 title，不用浮层组件）。 */
+const gateTitle = computed(() => t('admin.settings.trustLevels.earnable.baseline.gateTitle'))
+
+/** 门控标记的 `aria-label`：档位 + 键名 + 「不可取消」，一句话说全。 */
+function gateLabel(level: number, key: string) {
+  return t('admin.settings.trustLevels.earnable.baseline.gateAria', {
     level: levelLabel(level),
     permission: keyLabel(key)
   })
@@ -98,15 +118,22 @@ function toggle(level: number, key: string) {
 
     <!--
       ① 基线说明（前提）：无条件常驻，不依赖白名单数据，所以 loading / failed 下照常渲染。
-      默认安装下这 7 个键已在默认用户组里 ⇒ 勾选是空操作、GrantSource 恒 static。
+      字段在 → 走 gated 分支（说明哪几个键由系统门控）；字段不在 → 走兜底分支，
+      只断言单键机制（组里已有 ⇒ 勾选无效），不断言「人人都有」（规范 §3.2）。
       不用 UAlert / 不用 warning 色：严重性通道留给白名单失败（error）与残留键（warning）。
     -->
     <div class="sf-trust-earnable__baseline" data-sf-earnable-baseline>
       <p class="sf-trust-earnable__baseline-title">
-        <UIcon name="i-lucide-info" class="sf-trust-earnable__baseline-icon" aria-hidden="true" />
-        <span>{{ t('admin.settings.trustLevels.earnable.baseline.title') }}</span>
+        <UIcon name="i-tabler-info-circle" class="sf-trust-earnable__baseline-icon" aria-hidden="true" />
+        <span>{{ hasBaselineKeys
+          ? t('admin.settings.trustLevels.earnable.baseline.titleGated', { keys: baselineKeyText })
+          : t('admin.settings.trustLevels.earnable.baseline.title') }}</span>
       </p>
-      <p class="sf-trust-earnable__baseline-text">{{ t('admin.settings.trustLevels.earnable.baseline.text') }}</p>
+      <p class="sf-trust-earnable__baseline-text">
+        {{ hasBaselineKeys
+          ? t('admin.settings.trustLevels.earnable.baseline.textGated', { keys: baselineKeyText })
+          : t('admin.settings.trustLevels.earnable.baseline.text') }}
+      </p>
     </div>
 
     <!-- ② 机制说明（累积语义）：必须在按下勾选**之前**读得到（T21 / 规范 §3.1）。失败态不渲染。 -->
@@ -120,7 +147,7 @@ function toggle(level: number, key: string) {
       class="sf-trust-earnable__alert"
       color="neutral"
       variant="soft"
-      icon="i-lucide-lock"
+      icon="i-tabler-lock"
       :title="t('admin.settings.trustLevels.earnable.readOnly.title')"
       :description="t('admin.settings.trustLevels.earnable.readOnly.description')"
       data-sf-earnable-readonly
@@ -135,7 +162,7 @@ function toggle(level: number, key: string) {
         class="sf-trust-earnable__alert"
         color="error"
         variant="soft"
-        icon="i-lucide-triangle-alert"
+        icon="i-tabler-alert-triangle"
         :title="t('admin.settings.trustLevels.earnable.loadFailed.title')"
         data-sf-earnable-error
       >
@@ -150,7 +177,7 @@ function toggle(level: number, key: string) {
             size="xs"
             color="neutral"
             variant="outline"
-            leading-icon="i-lucide-refresh-cw"
+            leading-icon="i-tabler-refresh"
             type="button"
             data-sf-earnable-retry
             @click="emit('retry')"
@@ -160,7 +187,7 @@ function toggle(level: number, key: string) {
         </template>
       </UAlert>
       <div class="sf-trust-earnable__locked" data-sf-earnable-locked>
-        <UIcon name="i-lucide-lock" class="sf-trust-earnable__locked-icon" aria-hidden="true" />
+        <UIcon name="i-tabler-lock" class="sf-trust-earnable__locked-icon" aria-hidden="true" />
         <span>{{ t('admin.settings.trustLevels.earnable.loadFailed.locked') }}</span>
       </div>
     </template>
@@ -174,6 +201,16 @@ function toggle(level: number, key: string) {
       <!-- 表头：≥1280 显示（表头与单元格共用同一列模板，天然对齐）；窄屏 display:none。 -->
       <div class="sf-trust-earnable__columns" aria-hidden="true">
         <span v-for="key in state.keys" :key="`head-${key}`" class="sf-trust-earnable__column">
+          <span
+            v-if="isBaselineKey(state, key)"
+            class="sf-trust-earnable__column-gate"
+            data-sf-earnable-gate-badge
+            :title="gateTitle"
+            :aria-label="gateTitle"
+          >
+            <UIcon name="i-tabler-shield-lock" class="sf-trust-earnable__gate-glyph" aria-hidden="true" />
+            <span>{{ t('admin.settings.trustLevels.earnable.baseline.keyBadge') }}</span>
+          </span>
           <span class="sf-trust-earnable__column-name">{{ keyLabel(key) }}</span>
           <span class="sf-trust-earnable__column-key">{{ key }}</span>
         </span>
@@ -205,7 +242,23 @@ function toggle(level: number, key: string) {
           :data-span-three="state.spanThree ? 'true' : 'false'"
         >
           <div v-for="key in state.keys" :key="`${level}-${key}`" class="sf-trust-earnable__cell">
+            <!--
+              S2 等级门控键：**这里没有控件**。它在任何档位都不产生效果（TL0 被 Grants() 判空、
+              TL1+ 由基线直接给），留一个点了永远没用的勾选框才是谎（规范 §2.2）。
+              标记不进 tab 序，语义由 aria-label + title 双备承担（§5）。
+            -->
+            <span
+              v-if="isBaselineKey(state, key)"
+              class="sf-trust-earnable__gate"
+              role="img"
+              data-sf-earnable-gate
+              :title="gateTitle"
+              :aria-label="gateLabel(level, key)"
+            >
+              <UIcon name="i-tabler-shield-lock" class="sf-trust-earnable__gate-glyph" aria-hidden="true" />
+            </span>
             <UCheckbox
+              v-else
               :model-value="isChecked(level, key)"
               :disabled="level === 0 || !state.editable"
               :aria-disabled="level === 0 || !state.editable ? 'true' : 'false'"
@@ -213,16 +266,22 @@ function toggle(level: number, key: string) {
               aria-describedby="sf-trust-earnable-note"
               @update:model-value="toggle(level, key)"
             />
-            <!-- 窄屏格内展示名：可读名称仍来自 aria-label，这里只是视觉补充。 -->
-            <span class="sf-trust-earnable__cell-name" aria-hidden="true">{{ keyLabel(key) }}</span>
+            <!-- 窄屏格内展示名：可读名称仍来自 aria-label，这里只是视觉补充。门控语义只由标记承担。 -->
+            <span class="sf-trust-earnable__cell-text" aria-hidden="true">
+              <span class="sf-trust-earnable__cell-name">{{ keyLabel(key) }}</span>
+            </span>
           </div>
         </div>
       </fieldset>
 
       <!-- 空态：出厂状态（推荐默认 earnable = ∅），不是错误。矩阵照常渲染。 -->
       <p v-if="state.checkedCount === 0" class="sf-trust-earnable__empty" data-sf-earnable-empty>
-        <UIcon name="i-lucide-info" class="sf-trust-earnable__empty-icon" aria-hidden="true" />
-        <span>{{ t('admin.settings.trustLevels.earnable.empty') }}</span>
+        <UIcon name="i-tabler-info-circle" class="sf-trust-earnable__empty-icon" aria-hidden="true" />
+        <span>
+          {{ hasBaselineKeys
+            ? t('admin.settings.trustLevels.earnable.emptyGated', { keys: baselineKeyText })
+            : t('admin.settings.trustLevels.earnable.empty') }}
+        </span>
       </p>
 
       <!-- 白名单外残留：保存会移除，只披露不提供「保留」（后端必拒）。 -->
@@ -231,7 +290,7 @@ function toggle(level: number, key: string) {
         class="sf-trust-earnable__alert"
         color="warning"
         variant="soft"
-        icon="i-lucide-triangle-alert"
+        icon="i-tabler-alert-triangle"
         :title="t('admin.settings.trustLevels.earnable.orphan.title', { count: state.orphans.length })"
         :description="t('admin.settings.trustLevels.earnable.orphan.description', { keys: orphanText })"
         data-sf-earnable-orphans
@@ -377,6 +436,24 @@ function toggle(level: number, key: string) {
   line-height: 16px;
 }
 
+/* 列头门控 badge（仅 ≥1280）：图标 + 「等级门控」，常驻不靠 hover（规范 §2.3）。 */
+.sf-trust-earnable__column-gate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sf-fg-tertiary, var(--color-slate-500));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.sf-trust-earnable__gate-glyph {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+}
+
 .sf-trust-earnable__column-key {
   color: var(--sf-fg-tertiary, var(--color-slate-500));
   font-family: var(--font-mono, ui-monospace, monospace);
@@ -496,6 +573,33 @@ function toggle(level: number, key: string) {
   padding: 6px 8px;
 }
 
+/*
+  S2 门控标记：与勾选框**同槽位同 footprint**（16×16），不聚焦、不点击。
+  刻意不加灰罩/opacity/锁形罩层——那会读成「这一格被禁用」，真相是「这一格不由你配置」（规范 §1）。
+*/
+.sf-trust-earnable__gate {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--sf-fg-tertiary, var(--color-slate-500));
+}
+
+.sf-trust-earnable__gate .sf-trust-earnable__gate-glyph {
+  width: 14px;
+  height: 14px;
+}
+
+/* 格内文字栈：名字 + 门控标注。min-width:0 让长键名在 390px 下换行而不是撑破列。 */
+.sf-trust-earnable__cell-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .sf-trust-earnable__cell-name {
   color: inherit;
   font-size: 12px;
@@ -547,7 +651,7 @@ function toggle(level: number, key: string) {
     gap: 0;
   }
 
-  .sf-trust-earnable__cell-name {
+  .sf-trust-earnable__cell-text {
     display: none;
   }
 }

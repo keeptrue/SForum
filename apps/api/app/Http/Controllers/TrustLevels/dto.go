@@ -69,5 +69,9 @@ type adminPayload struct {
 	Config      string            `json:"config"`
 	Levels      []levelDefinition `json:"levels"`
 	Eligible    []string          `json:"eligiblePermissions"`
+	// Baseline 是「系统基线门」的键（Z3-b″）：默认安装下 TL0 必须被扣掉、
+	// TL1 起自动生效的那几个键。与 Eligible 同级但语义相反——
+	// Eligible 回答「允许被等级授予什么」，Baseline 回答「TL0 会被扣掉什么」。
+	Baseline    []string          `json:"baselinePermissions"`
 	Recommended string            `json:"recommendedConfig"`
 }

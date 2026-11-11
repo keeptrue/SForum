@@ -86,6 +86,8 @@ adminTrustLevelsRestoreDefaults:
     description: |
       写回内置推荐值（阈值、分档限额全继承、earnable 空集）。**不影响用户已获得的
       内容**，也不改变任何用户的当前等级——等级是派生值，下一次请求即按新阈值计算。
+      本端点只写配置项：默认安装下 TL0 的基线扣除是装载期代码常量，不属于可恢复配置，
+      不受本端点影响。
       写权限 `trust.manage`；`features.trust_levels` 关闭时返回 404。
     responses:
       '200':

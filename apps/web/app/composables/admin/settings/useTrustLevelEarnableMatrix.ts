@@ -25,6 +25,13 @@ export type TrustLevelEarnableMatrixState = {
   failed: boolean
   /** 仅在 ready 时非空；failed 时同样是 `[]`，所以禁止用长度判断「没有可勾的键」。 */
   keys: string[]
+  /**
+   * 系统基线键（白名单子集）：默认安装下 TL0 不生效、TL1 起生效。
+   * 只来自后端 `baselinePermissions`，**非空才展示标注**；空 = 无可披露的基线，不是「没有基线」的断言。
+   */
+  baselineKeys: string[]
+  /** 可操作键 = 白名单 − 系统基线键。S2 没有控件，所以它不进分母也不进分子（规范 §6.2）。 */
+  operableKeys: string[]
   /** 只有「白名单就绪 + 有写权限」才允许勾选。 */
   editable: boolean
   columnCount: number
@@ -35,9 +42,12 @@ export type TrustLevelEarnableMatrixState = {
    */
   spanTwo: boolean
   spanThree: boolean
-  /** 已勾选格数（TL1–TL4）。 */
+  /** 已勾选格数（TL1–TL4，只算可操作键；门控键没有控件）。 */
   checkedCount: number
-  /** 计数徽标分母 = 白名单长度 × 4；TL0 不计入（算进去会得 35，那是错的）。 */
+  /**
+   * 计数徽标分母 = **可操作键数** × 4；TL0 不计入（算进去会得 35，那是错的）。
+   * 门控键不计入：7 键里有 2 个是系统门控 ⇒ 5×4 = 20，不是 28。
+   */
   totalCells: number
   /** 已存配置里不在白名单内的键，按档位升序、档内保持存储顺序。 */
   orphans: TrustLevelEarnableOrphan[]
@@ -50,12 +60,16 @@ export function earnableMatrixState(input: {
 }): TrustLevelEarnableMatrixState {
   const ready = input.whitelist.status === 'ready'
   const keys = ready ? input.whitelist.keys : []
+  const baselineKeys = ready ? input.whitelist.baselineKeys : []
+  const operableKeys = keys.filter(key => !baselineKeys.includes(key))
   const columnCount = keys.length
   const orphans: TrustLevelEarnableOrphan[] = []
   let checkedCount = 0
   for (const level of TRUST_LEVEL_EDITABLE_LEVELS) {
     const stored = earnableKeys(input.form, level)
-    checkedCount += stored.length
+    // 门控键的存量勾选**原样保留在表单里**（保存时逐字节回写），但不计入「新增项」：
+    // 它不是运营能改的项，算进分子会让 3/20 这种数字指向一个没有控件的格子。
+    checkedCount += stored.filter(key => !baselineKeys.includes(key)).length
     if (!ready) continue
     for (const key of unknownEarnableKeys(stored, keys)) orphans.push({ level, key })
   }
@@ -63,14 +77,26 @@ export function earnableMatrixState(input: {
     ready,
     failed: input.whitelist.status === 'failed',
     keys,
+    baselineKeys,
+    operableKeys,
     editable: ready && input.canManage,
     columnCount,
     spanTwo: columnCount % 2 === 1,
     spanThree: columnCount % 3 === 1,
     checkedCount,
-    totalCells: TRUST_LEVEL_EDITABLE_LEVELS.length * columnCount,
+    totalCells: TRUST_LEVEL_EDITABLE_LEVELS.length * operableKeys.length,
     orphans
   }
+}
+
+/**
+ * 某键是否是系统基线键（TL0 不生效、TL1 起生效）。
+ *
+ * 判定只读 `baselineKeys`：组件里出现键名字面量就是把「哪两个键」变成第二份副本，
+ * 后端换基线时 UI 会继续给旧键贴标签。
+ */
+export function isBaselineKey(state: TrustLevelEarnableMatrixState, key: string): boolean {
+  return state.baselineKeys.includes(key)
 }
 
 /** 残留键的人话串：`TL2 · user.ban`，档位升序、档内按存储顺序（规范 §5.3）。 */

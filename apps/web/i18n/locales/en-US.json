@@ -4618,12 +4618,19 @@
         "earnable": {
           "title": "Capability unlocks (added per level)",
           "baseline": {
-            "title": "No-op on a default install",
-            "text": "On a default install these keys are already granted by the default group, so every user has them: checking any level changes nothing they can actually do, and the grant source stays \"group\" rather than \"level\". Checks only affect users whose group does not include that key. To make level unlocks real, remove the key from the group under Permission Management first, then come back and check it."
+            "title": "Checks only affect users whose group lacks that key",
+            "text": "If the default group already grants a key, checking it changes nothing users can actually do, and the grant source stays \"group\". To make a key unlock by level, remove it from the group under Permission Management first, then come back and check it.",
+            "titleGated": "Level-gated keys ({keys}) are decided by the system",
+            "textGated": "These ignore the checks here: off at TL0, on from TL1 and above, and they cannot be turned off in the admin. Existing checks are kept as-is and currently add nothing.",
+            "keyBadge": "Level-gated",
+            "gateTitle": "Level-gated: off at TL0, on from TL1, set by the system",
+            "gateAria": "{level}: {permission} is level-gated — off at TL0, on from TL1 and above, cannot be turned off",
+            "keysSeparator": ", "
           },
           "note": "A checked key is added at that level only. Every level above it inherits it, so higher levels do not need the same key checked again.",
           "count": "Added items {checked}/{total}",
           "empty": "No level adds any unlock yet. Capabilities still come from static group grants; this is the recommended default, not an error. Check any key to start unlocking by level.",
+          "emptyGated": "No level adds any unlock yet. This is the recommended default, not an error. Level-gated keys are unaffected: off at TL0, on from TL1 and above.",
           "loading": "Loading the eligible permission keys…",
           "readOnly": {
             "title": "Your account can view this only",
