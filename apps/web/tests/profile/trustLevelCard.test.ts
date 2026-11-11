@@ -396,14 +396,18 @@ describe('tier color reaches the card accent (D-C1)', () => {
       const icon = card.get('.sf-trust-level-card__icon')
       expect(icon.classes()).toContain('sf-tl-mark')
       expect(icon.attributes('data-step')).toBe('2')
+      // 自定义 hex 档的色相全靠这条属性 + 全局 `[data-sf-tl-accent]` 规则：漏了属性就没有颜色。
+      expect(card.get('.sf-trust-level-card').attributes('data-sf-tl-accent')).toBeDefined()
     } finally {
       card.unmount()
     }
     // 站点色软底不许再出现在档位图形里（TL2/3 曾经用它，结果一页全是同一个色）。
     expect(source).not.toContain('--sf-accent-soft')
     expect(source).not.toContain('var(--sf-accent)')
-    // 兜底是 slate token，不是站点 accent；真实色相仍来自内联 tierAccentStyle。
-    expect(source).toContain('--tl-accent: var(--sf-tl-slate);')
+    // 卡面**不再**声明 `--tl-accent`：`.sf-profile-side-section.sf-trust-level-card` 的特异度是 0,2,0，
+    // 会压过全局 `[data-sf-tl-accent]`（0,1,0）—— 自定义 hex 档会被静默打回 slate，
+    // 而普通 token 档照常工作，于是这个 bug 只在配了自定义色的站点上出现。
+    expect(source).not.toMatch(/--tl-accent\s*:/)
   })
 
   test('level 1 keeps the tier color on the card root and the shape on the icon', () => {

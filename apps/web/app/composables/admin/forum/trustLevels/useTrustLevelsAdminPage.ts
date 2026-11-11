@@ -247,15 +247,18 @@ export function useTrustLevelsAdminPage() {
     applyTiers(tiers => renameTierIn(tiers, id, target, value))
   }
 
+  /**
+   * 图标：白名单只是**渲染候选**，不是写入闸门。
+   * 图标选择器是 lucide + tabler 全量目录，候选之外的合法全名同样要能落进表单；
+   * 保存期风险由 `setTierIcon` 的形状校验（全名语法 ∪ 16 默认短名）承担。
+   */
   function setIcon(id: string, icon: string | null) {
-    const choices = (whitelistState.value.iconChoices ?? []).map(choice => choice.value)
-    applyTiers(tiers => setTierIconIn(tiers, id, icon, choices))
+    applyTiers(tiers => setTierIconIn(tiers, id, icon))
   }
 
-  /** 颜色：白名单来自后端 `colorChoices`；读面没给时选择器不编造候选（见组件）。 */
+  /** 颜色：合法值 = 推荐 token ∪ 自定义 `#rrggbb`（见 `isTierColorValue`），推荐色板不是闸门。 */
   function setColor(id: string, color: string | null) {
-    const choices = (whitelistState.value.colorChoices ?? []).map(choice => choice.value)
-    applyTiers(tiers => setTierColorIn(tiers, id, color, choices))
+    applyTiers(tiers => setTierColorIn(tiers, id, color))
   }
 
   /* ────────────────────────── 停用 / 删除（D-N8 / D-C2） ────────────────────────── */

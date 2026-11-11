@@ -509,7 +509,6 @@ function setActiveTab(value: string) {
                 :can-add="canAdd"
                 :can-retire="canRetire"
                 :name-pool="whitelistState.namePool"
-                :icon-choices="whitelistState.iconChoices"
                 :color-choices="whitelistState.colorChoices"
                 :saved-retired-ids="savedRetiredIds"
                 :deleted-tier-ids="form.deletedTierIds ?? []"

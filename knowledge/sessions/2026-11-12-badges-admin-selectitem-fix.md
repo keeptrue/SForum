@@ -126,6 +126,33 @@ setDeviceMetricsOverride` 是**按 CDP 会话**生效，断开即失效，量尺
   push，浏览器后退也回不到上一个 tab，所以目前没有可达路径；仅当 URL 被外部改写时才可能
   出现残留。要不要在 tab 切换时强制关弹窗是新需求，本轮不改。
 
+## 同日追加：内容区由一张 `UCard` 承载
+
+三个分区的正文原来直接铺在页面灰底上（tab nav 下面是筛选栏 + 裸表格），是全仓 Core 自有
+后台页里唯一没有承载容器的。补法与 `pages/admin/permissions.vue` 同款：
+
+- `pages/admin/badges.vue`：`<UCard class="border-slate-200 dark:border-zinc-800 bg-white
+  dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">` 包住 `<KeepAlive>`；**卡在
+  `KeepAlive` 外**，切 tab 只换卡内组件、卡片本身不重建（DOM 探针计数连续，实测未重建）。
+  nav 留在卡外，与 `forum/trust-levels.vue` 同构。
+- **不写 `#header`**：分区名已由 `SFAdminFixedTabNav` 承担，加卡头会多出第三个标题层级；
+  permissions 同样无卡头。**不写 `:ui` 覆盖**，用默认 body padding（实测 24px / 窄屏 16px）。
+- `SFAdminBadgeTable.vue` 的 `max-h` 由 `calc(100vh-20rem)` 调到 `calc(100vh-24rem)`
+  （只改数值，`sticky` 未动）。原因按几何算：卡 top=351（1920×1080），卡内 24+24 padding
+  + 筛选行约 56 + 表 760（20rem）= 864 > 视口剩余 729 —— 行数顶到上限就必然溢出；
+  24rem（696）刚好把卡新增的约 50px 让回来。**未先复现双滚动条**（dev 库当时 0 徽章，
+  没有行数能顶到上限），裁决：算式为准。
+- **已知残留（接受，不再收紧）**：长表时页面仍有轻微外层滚动。不往 28rem 走——
+  1440×900 笔记本会把表格压到 7 行，得不偿失。
+- **nav 与卡之间 32px 间隙是既有几何**（父容器 `gap-4` 16 + `SFAdminFixedTabNav` 根节点
+  自带 `mb-4` 16），加卡前就在，属几何契约层，本次不动。
+
+实测（CDP `Emulation.setDeviceMetricsOverride`，独立标签页，真实 12 徽章数据）：1920×1080
+与 390×844 下卡与 nav / toolbar 的左右边界偏差 **0px**，`scrollWidth-clientWidth = 0`
+（无横向溢出），三 tab 内容都在卡内，表头 `sticky` 生效。测试侧只在
+`tests/admin/adminBadgesTabs.test.ts` 的 `badges shell` describe 加了一条
+`expect(shellSource).toContain('<UCard')` 结构锚点，原有断言未改。
+
 ## Next
 
 - 浏览器侧独立复现本轮修复仍缺一环：验收用的是 YG 手动起的 dev server 上已有的

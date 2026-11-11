@@ -25,9 +25,15 @@ import {
 } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import {
   TIER_COLOR_TOKENS,
+  TIER_MIN_DARK_CONTRAST,
   defaultTierColorName,
+  isTierCustomColor,
+  normalizeTierColor,
+  tierAccentContrast,
+  tierAccentPreview,
   tierAccentStyle,
-  tierColorOf
+  tierColorOf,
+  tierColorVar
 } from '~/utils/profile/trustLevelColors'
 import {
   blockNonIntegerKey,
@@ -128,8 +134,41 @@ const UCheckboxStub = {
   template: '<button type="button" role="checkbox" :aria-checked="String(modelValue)" :disabled="disabled" @click="$emit(\'update:modelValue\', !modelValue)" />'
 }
 
+/**
+ * `UModal` 桩：真实实现负责焦点陷阱与 Esc，这里只保留**本组件依赖的契约**——
+ * `open` 为真时渲染默认插槽（dialog 用 `#content` 提供内容）、关掉时什么都不渲染。
+ * 焦点回到触发按钮是 UModal 的职责，不在被测组件里，所以这里只断言 `aria-haspopup="dialog"`。
+ */
+const UModalStub = {
+  name: 'UModal',
+  props: { open: { type: Boolean, default: false } },
+  emits: ['update:open'],
+  template: '<div v-if="open" data-testid="umodal"><slot name="content" /></div>'
+}
+/**
+ * `SFIconPicker` 桩（共享组件，lucide + tabler 全量目录有它自己的用例）：
+ * 这里只验「选中值原样以全名发出去」以及「自定义输入逃生口必须是关的」
+ * （它会放过 `i-fa-*`，而后端只认 lucide/tabler，放到弹窗里就是保存 422）。
+ */
+const LazySFIconPickerStub = {
+  name: 'LazySFIconPicker',
+  props: {
+    modelValue: { type: String, default: '' },
+    label: { type: String, default: '' },
+    hint: { type: String, default: '' },
+    showCustomInput: { type: Boolean, default: true },
+    disabled: { type: Boolean, default: false }
+  },
+  emits: ['update:modelValue'],
+  template: `<div data-testid="icon-picker" :data-custom-input="String(showCustomInput)" :data-value="modelValue">
+    <button type="button" v-for="name in ['i-tabler-crown', 'i-lucide-leaf']" :key="name" :data-sf-stub-icon="name" @click="$emit('update:modelValue', name)">{{ name }}</button>
+  </div>`
+}
+
 const globalComponents = {
   UIcon: UIconStub,
+  UModal: UModalStub,
+  LazySFIconPicker: LazySFIconPickerStub,
   UAlert: UAlertStub,
   UButton: UButtonStub,
   UBadge: UBadgeStub,
@@ -203,22 +242,44 @@ const SFAdminTrustLevelEarnableTab = await compileVueSfc(earnableTabPath, 'sf-tr
   useI18n: i18n
 })
 
-const iconPickerPath = fileURLToPath(
-  new URL('../../../app/components/admin/forum/trust-levels/SFAdminTrustLevelIconPicker.vue', import.meta.url)
+const previewPath = fileURLToPath(
+  new URL('../../../app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearancePreview.vue', import.meta.url)
 )
-const SFAdminTrustLevelIconPicker = await compileVueSfc(iconPickerPath, 'sf-trust-tier-icon-picker', {
+const SFAdminTrustLevelAppearancePreview = await compileVueSfc(previewPath, 'sf-trust-tier-appearance-preview', {
   computed,
   useI18n: i18n,
-  tierIconClass
+  tierAccentPreview
 })
 
-const colorPickerPath = fileURLToPath(
-  new URL('../../../app/components/admin/forum/trust-levels/SFAdminTrustLevelColorPicker.vue', import.meta.url)
+const colorFieldPath = fileURLToPath(
+  new URL('../../../app/components/admin/forum/trust-levels/SFAdminTrustLevelColorField.vue', import.meta.url)
 )
-const SFAdminTrustLevelColorPicker = await compileVueSfc(colorPickerPath, 'sf-trust-tier-color-picker', {
+// 注意：ColorField 自己 `import { computed, onMounted, ref, useId, watch } from 'vue'`，
+// compileVueSfc 会把它们改写成从注入的 Vue 解构 —— 这里再注入同名参数会触发
+// 「Cannot declare a lexical variable twice」。只注入它从其它模块引的东西。
+const SFAdminTrustLevelColorField = await compileVueSfc(colorFieldPath, 'sf-trust-tier-color-field', {
+  useI18n: i18n,
+  TIER_MIN_DARK_CONTRAST,
+  isTierCustomColor,
+  normalizeTierColor,
+  tierAccentContrast,
+  tierColorVar
+})
+
+const appearanceDialogPath = fileURLToPath(
+  new URL('../../../app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearanceDialog.vue', import.meta.url)
+)
+const SFAdminTrustLevelAppearanceDialog = await compileVueSfc(appearanceDialogPath, 'sf-trust-tier-appearance-dialog', {
   computed,
   useI18n: i18n,
-  tierColorVar: (token: string) => `var(--sf-tl-${token})`
+  defaultTierIconName,
+  tierIconClass,
+  trustLevelName,
+  defaultTierColorName,
+  isTierCustomColor,
+  normalizeTierColor,
+  SFAdminTrustLevelAppearancePreview,
+  SFAdminTrustLevelColorField
 })
 
 const actionButtonPath = fileURLToPath(
@@ -238,9 +299,7 @@ const SFAdminTrustLevelTierRow = await compileVueSfc(tierRowPath, 'sf-trust-tier
   defaultTierColorName,
   TRUST_LEVEL_TIER_NAME_MAX,
   SFAdminTrustLevelFieldErrors,
-  SFAdminTrustLevelActionButton,
-  SFAdminTrustLevelIconPicker,
-  SFAdminTrustLevelColorPicker
+  SFAdminTrustLevelActionButton
 })
 
 const limitsTabPath = fileURLToPath(
@@ -280,8 +339,7 @@ const SFAdminTrustLevelTiersTab = await compileVueSfc(tiersTabPath, 'sf-trust-le
   defaultTierColorName,
   tierAccentStyle,
   tierColorOf,
-  SFAdminTrustLevelIconPicker,
-  SFAdminTrustLevelColorPicker,
+  SFAdminTrustLevelAppearanceDialog,
   SFAdminTrustLevelFieldErrors,
   SFAdminTrustLevelActionButton,
   SFAdminTrustLevelTierRow
@@ -535,7 +593,6 @@ function mountTiers(options: {
   canAdd?: boolean
   canRetire?: boolean
   saveErrors?: Record<string, TrustLevelSaveError[]>
-  iconChoices?: Array<{ value: string, label: string }>
   colorChoices?: Array<{ value: string, label: string }>
   savedRetiredIds?: string[]
   deletedTierIds?: string[]
@@ -547,7 +604,6 @@ function mountTiers(options: {
       canAdd: options.canAdd ?? true,
       canRetire: options.canRetire ?? true,
       namePool: [{ zh: '种子用户', en: 'Seed' }],
-      iconChoices: options.iconChoices ?? [{ value: 'leaf', label: 'Leaf' }, { value: 'crown', label: 'Crown' }],
       colorChoices: options.colorChoices ?? TIER_COLOR_TOKENS.map(value => ({ value, label: value })),
       savedRetiredIds: options.savedRetiredIds ?? [],
       deletedTierIds: options.deletedTierIds ?? [],
@@ -675,55 +731,143 @@ describe('tiers partition (档位管理)', () => {
     expect(mountTiers().find('[data-sf-tier-single-disclosure]').exists()).toBe(false)
   })
 
-  test('the appearance panel hosts the icon and color pickers as keyboard-reachable radio groups', async () => {
+  test('the appearance toggle opens exactly one dialog instead of an inline panel', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = mountTiers({ form })
+    const id = form.tiers[0]!.id
+    const toggle = wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`)
+
+    // 行内面板已删除：开关只发意图，编辑在 tab 层唯一的 dialog 里（每行一个实例 = N 套焦点目标）。
+    expect(wrapper.find('[data-sf-tier-appearance]').exists()).toBe(false)
+    expect(toggle.attributes('aria-haspopup')).toBe('dialog')
+    // `aria-expanded` 是折叠区的语义，弹窗没有它 —— 留着会让读屏 announce 一个不存在的展开态。
+    expect(toggle.attributes('aria-expanded')).toBeUndefined()
+
+    await toggle.trigger('click')
+    const dialogs = wrapper.findAll('[data-sf-tl-appearance-dialog]')
+    expect(dialogs).toHaveLength(1)
+    expect(dialogs[0]!.attributes('role')).toBe('dialog')
+    expect(dialogs[0]!.attributes('aria-modal')).toBe('true')
+    // aria-labelledby 必须指向真实存在的标题节点，否则等于没名字。
+    const labelledBy = dialogs[0]!.attributes('aria-labelledby')!
+    expect(wrapper.find(`[id="${labelledBy}"]`).exists()).toBe(true)
+
+    // 换一行只换编辑目标，不叠第二个 dialog。
+    await wrapper.find(`[data-sf-tier-appearance-toggle="${form.tiers[1]!.id}"]`).trigger('click')
+    expect(wrapper.findAll('[data-sf-tl-appearance-dialog]')).toHaveLength(1)
+  })
+
+  test('the dialog previews both page modes, lists the server palette and offers a custom hex', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = mountTiers({ form })
+    await wrapper.find(`[data-sf-tier-appearance-toggle="${form.tiers[0]!.id}"]`).trigger('click')
+
+    // 双底预览：两张卡各带自己的 scope，组件里没有「当前是否暗色」的判断。
+    const cards = wrapper.findAll('[data-sf-tl-preview-card]')
+    expect(cards.map(card => card.attributes('data-sf-tl-scope'))).toEqual(['light', 'dark'])
+
+    // 9 个推荐色逐项来自后端 colorChoices，不多不少（前端不自己抄一份色表）。
+    const swatches = wrapper.findAll('[data-sf-color-choice]')
+    expect(swatches.map(input => input.attributes('data-sf-color-choice'))).toEqual([...TIER_COLOR_TOKENS])
+    expect(wrapper.find('[data-sf-color-picker-grid]').exists()).toBe(true)
+    // 「按位次自动」是独立 chip，不是第 10 个色块（10 块在 390 上会折成 9+1，孤块会被读成另一种颜色）。
+    expect(wrapper.find('[data-sf-color-picker-auto]').exists()).toBe(true)
+
+    // 自定义入口：原生取色器 + hex 文本框 + 应用。
+    expect(wrapper.find('[data-sf-color-custom-picker]').exists()).toBe(true)
+    expect(wrapper.find('[data-sf-color-hex-input]').exists()).toBe(true)
+    // 空草稿时「应用」不可用：不许把空值写进表单。
+    expect(wrapper.find('[data-sf-color-apply]').attributes('disabled')).toBeDefined()
+  })
+
+  test('a recommended color, the auto chip, and a custom hex each emit one intent', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = mountTiers({ form })
+    const id = form.tiers[2]!.id
+    await wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`).trigger('click')
+
+    await wrapper.find('[data-sf-color-choice="rose"]').trigger('change')
+    expect(wrapper.emitted('setColor')?.[0]).toEqual([id, 'rose'])
+
+    // 「按位次自动」= 明确的 null（选完能退回自动，而不是回不去）。
+    await wrapper.find('[data-sf-color-picker-auto]').trigger('change')
+    expect(wrapper.emitted('setColor')?.[1]).toEqual([id, null])
+
+    // 自定义色：大写输入、小写落表单（后端 hex 一律小写存储）。
+    const hexInput = wrapper.find('[data-sf-color-hex-input]')
+    await hexInput.setValue('#7C3AED')
+    expect(wrapper.find('[data-sf-color-invalid]').exists()).toBe(false)
+    await wrapper.find('[data-sf-color-apply]').trigger('click')
+    expect(wrapper.emitted('setColor')?.[2]).toEqual([id, '#7c3aed'])
+  })
+
+  test('an invalid hex is refused in place and never reaches the form', async () => {
     const form = recommendedTrustLevelsForm()
     const wrapper = mountTiers({ form })
     const id = form.tiers[0]!.id
     await wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`).trigger('click')
 
-    // 图标 + 颜色两组同屏出现，各自一个 group（一次只展开一个档位的面板）。
-    expect(wrapper.findAll('[role="radiogroup"]')).toHaveLength(2)
-    expect(wrapper.find('[data-sf-tier-appearance]').exists()).toBe(true)
+    await wrapper.find('[data-sf-color-hex-input]').setValue('#12')
+    // 字段级错误就地显示（Toast 不适合「还没提交的输入错误」），且应用按钮不可用。
+    expect(wrapper.find('[data-sf-color-invalid]').text()).toBe(t('admin.forum.trustLevels.appearanceDialog.colorInvalidHex'))
+    expect(wrapper.find('[data-sf-color-apply]').attributes('disabled')).toBeDefined()
+    await wrapper.find('[data-sf-color-apply]').trigger('click')
+    expect(wrapper.emitted('setColor')).toBeUndefined()
 
-    const iconRadios = wrapper.findAll('[data-sf-icon-picker-grid] input[type="radio"]')
-    // 白名单两项 + 「默认」一项。
-    expect(iconRadios).toHaveLength(3)
-    await iconRadios[1]!.trigger('change')
-    expect(wrapper.emitted('setIcon')?.[0]).toEqual([id, 'leaf'])
-
-    // 颜色候选逐项来自后端白名单，不多不少（前端不自己抄一份色表）。
-    const colorRadios = wrapper.findAll('[data-sf-color-picker-grid] input[type="radio"]')
-    expect(colorRadios).toHaveLength(TIER_COLOR_TOKENS.length + 1)
-    expect(wrapper.findAll('[data-sf-color-choice]').map(input => input.attributes('data-sf-color-choice')))
-      .toEqual([...TIER_COLOR_TOKENS])
-    await wrapper.find('[data-sf-color-choice="rose"]').trigger('change')
-    expect(wrapper.emitted('setColor')?.[0]).toEqual([id, 'rose'])
-    // 「按位次自动」也是一项：能明确退回自动，而不是选完就回不去。
-    await wrapper.find('[data-sf-color-picker-auto]').trigger('change')
-    expect(wrapper.emitted('setColor')?.[1]).toEqual([id, null])
-
-    // radio 的 `name` 必须是确定性的（SSR 与 CSR 各算一次要一模一样）：
-    // 曾经用 Math.random() 生成，服务端/客户端两次渲染的名字不同 → 水合 mismatch。
-    // 这里锚定「同组同名 + 格式稳定 + 与图标组不同」这三个可观察契约。
-    const names = new Set(colorRadios.map(radio => radio.attributes('name')))
-    expect(names.size).toBe(1)
-    expect([...names][0]).toMatch(/^sf-trust-tier-color-.+/)
-    expect([...names][0]).not.toBe(iconRadios[0]!.attributes('name'))
+    // 对比度提示只是提示：极深的品牌色在深色页面上会糊，仍然允许应用。
+    await wrapper.find('[data-sf-color-hex-input]').setValue('#111827')
+    expect(wrapper.find('[data-sf-color-low-contrast]').exists()).toBe(true)
+    await wrapper.find('[data-sf-color-apply]').trigger('click')
+    expect(wrapper.emitted('setColor')?.[0]).toEqual([id, '#111827'])
   })
 
-  test('an empty color whitelist degrades to a hint and never fabricates candidates', async () => {
+  test('the icon picker emits the full host name and keeps the custom-input escape hatch closed', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = mountTiers({ form })
+    const id = form.tiers[1]!.id
+    await wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`).trigger('click')
+
+    // 自定义输入会放过 `i-fa-*`，而后端只认 lucide/tabler —— 放开就是保存 422。
+    const picker = wrapper.find('[data-testid="icon-picker"]')
+    expect(picker.attributes('data-custom-input')).toBe('false')
+    // 选中的是 `i-collection-name` 全名：存短名会在渲染层被补成 i-lucide-*，tabler 图标就丢了。
+    await wrapper.find('[data-sf-stub-icon="i-tabler-crown"]').trigger('click')
+    expect(wrapper.emitted('setIcon')?.[0]).toEqual([id, 'i-tabler-crown'])
+  })
+
+  test('done only closes the dialog; reset sends both appearance intents back to automatic', async () => {
+    const form = recommendedTrustLevelsForm()
+    const wrapper = mountTiers({ form })
+    const id = form.tiers[0]!.id
+    await wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`).trigger('click')
+
+    await wrapper.find('[data-sf-appearance-done]').trigger('click')
+    // 「完成」不保存、不写表单：外观改动早就进了表单，保存仍归页面级 footer。
+    expect(wrapper.emitted('setColor')).toBeUndefined()
+    expect(wrapper.emitted('setIcon')).toBeUndefined()
+    expect(wrapper.find('[data-sf-tl-appearance-dialog]').exists()).toBe(false)
+
+    await wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`).trigger('click')
+    await wrapper.find('[data-sf-appearance-reset]').trigger('click')
+    expect(wrapper.emitted('setIcon')?.[0]).toEqual([id, null])
+    expect(wrapper.emitted('setColor')?.[0]).toEqual([id, null])
+  })
+
+  test('an empty color palette explains itself while the custom hex stays usable', async () => {
     const form = recommendedTrustLevelsForm()
     const wrapper = mountTiers({ form, colorChoices: [] })
     const id = form.tiers[0]!.id
     await wrapper.find(`[data-sf-tier-appearance-toggle="${id}"]`).trigger('click')
 
-    // 后端没下发白名单 → 只有一句说明，没有编造的候选，也没有空的 radiogroup。
+    // 后端没下发推荐色 → 只说明「没有候选」，不编造色块，也不画空 radiogroup。
     expect(wrapper.find('[data-sf-color-picker-empty]').exists()).toBe(true)
     expect(wrapper.find('[data-sf-color-picker-grid]').exists()).toBe(false)
     expect(wrapper.findAll('[data-sf-color-choice]')).toHaveLength(0)
-    expect(wrapper.findAll('[data-sf-color-picker-grid] input[type="radio"]')).toHaveLength(0)
-    // 「当前有效色」仍然可见：运营不至于看到一片空白。
-    expect(wrapper.find('[data-sf-color-picker-current]').text()).not.toBe('')
+    // 但自定义色仍然可用（它不是候选表，是用户输入值）。
+    expect(wrapper.find('[data-sf-color-hex-input]').exists()).toBe(true)
+    await wrapper.find('[data-sf-color-hex-input]').setValue('#0f766e')
+    await wrapper.find('[data-sf-color-apply]').trigger('click')
+    expect(wrapper.emitted('setColor')?.[0]).toEqual([id, '#0f766e'])
   })
 
   test('renders the effective tier color as --tl-accent, and the default sequence by rank', () => {
@@ -732,6 +876,8 @@ describe('tiers partition (档位管理)', () => {
     // 未配色 → 按 active 位次取默认色（TL1 = teal …）。
     const styles = rows.map(row => (row.attributes('style') ?? '').replace(/\s+/g, ''))
     expect(styles).toEqual([1, 2, 3, 4].map(rank => `--tl-accent:var(--sf-tl-${defaultTierColorName(rank)});`))
+    // 自定义 hex 档靠全局规则把 --tl-accent-light/-dark 落成 --tl-accent：属性必须与 style 同元素。
+    expect(rows.every(row => row.attributes('data-sf-tl-accent') !== undefined)).toBe(true)
 
     // 单档覆盖色优先，且只动那一档。
     const colored = setTierColor(form.tiers, form.tiers[0]!.id, 'rose')
@@ -748,15 +894,18 @@ describe('tiers partition (档位管理)', () => {
     const thresholds = mountThresholds({ form }).findAll('fieldset')
     expect(thresholds.map(row => row.attributes('style'))).toEqual(expected)
     expect(thresholds.every(row => row.find('.sf-tl-mark').exists())).toBe(true)
+    expect(thresholds.every(row => row.attributes('data-sf-tl-accent') !== undefined)).toBe(true)
 
     const limits = mountLimits({ form }).findAll('[data-sf-limits-tier]')
     expect(limits.map(row => row.attributes('style'))).toEqual(expected)
     expect(limits.every(row => row.find('.sf-tl-mark').exists())).toBe(true)
+    expect(limits.every(row => row.attributes('data-sf-tl-accent') !== undefined)).toBe(true)
 
     const earnable = mountEarnable({ form }).findAll('.sf-trust-earnable__row')
     expect(earnable.length).toBe(form.tiers.length)
     expect(earnable.map(row => row.attributes('style'))).toEqual(expected)
     expect(earnable.every(row => row.find('.sf-tl-mark').exists())).toBe(true)
+    expect(earnable.every(row => row.attributes('data-sf-tl-accent') !== undefined)).toBe(true)
   })
 
   test('a retired tier carries a permanent withdrawn-unlocks badge instead of a toast', () => {

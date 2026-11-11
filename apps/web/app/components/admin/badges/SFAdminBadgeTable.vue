@@ -129,7 +129,7 @@ function sortAria(id: string): string {
     :empty="t('admin.badges.empty')"
     :caption="t('admin.badges.title')"
     sticky
-    class="max-h-[calc(100vh-20rem)]"
+    class="max-h-[calc(100vh-24rem)]"
   >
     <template #icon-cell="{ row }">
       <span class="sf-admin-badge-icon" :data-tier="tierOf(row.original)">

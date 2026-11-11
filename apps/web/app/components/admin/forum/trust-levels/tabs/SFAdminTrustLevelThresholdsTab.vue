@@ -112,6 +112,7 @@ function thresholdValue(tier: TierForm, suffix: string) {
       v-for="tier in form.tiers"
       :key="tier.id"
       class="sf-trust-threshold-row mt-3.5 border-t border-slate-200 pt-3.5 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800"
+      data-sf-tl-accent
       :style="accentStyle(tier)"
       :data-tier-id="tier.id"
       :data-retired="tier.retired ? 'true' : 'false'"

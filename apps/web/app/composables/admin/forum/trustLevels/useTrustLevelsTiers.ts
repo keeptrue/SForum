@@ -1,10 +1,12 @@
 import {
+  DEFAULT_TIER_ICON_NAMES,
   TRUST_LEVEL_METRIC_KEYS,
   TRUST_LEVEL_METRIC_SUFFIX_BY_KEY,
   type TrustLevelTier,
   type TrustLevelTierName
 } from '~/composables/profile/useTrustLevel'
-import { TIER_COLOR_TOKENS, normalizeTierColor } from '~/utils/profile/trustLevelColors'
+import { HOST_ICON_NAME_PATTERN } from '~/utils/iconPicker'
+import { isTierColorValue, normalizeTierColor } from '~/utils/profile/trustLevelColors'
 
 /**
  * 动态档位的**纯函数**编辑层（无 Vue、无 i18n、无 DOM）。
@@ -251,14 +253,17 @@ export function renameTier(
 }
 
 /**
- * 选图标：`choices` 是后端白名单（D-N4）。传了白名单而图标不在其中 → 拒绝（等值副本），
- * 因为写一个后端不认的图标名等于保存 422。`null` = 清空（回落到 rank 默认序列）。
+ * 选图标（D-N4）：闸门是**形状**，不是一份候选清单。
+ *
+ * 后端接受两种合法取值：16 个默认短名（`tierIcons`），或 `i-(lucide|tabler)-<name>` 全名。
+ * 图标选择器是 lucide + tabler 全量目录，运营能选到的名字**不可能**等于那份 16 项白名单；
+ * 拿白名单当闸门只会把合法选择静默丢掉，而保存 422 的风险早已由形状校验覆盖。
+ * `null` = 清空（回落到 rank 默认序列）。
  */
 export function setTierIcon(
   tiers: readonly TierForm[],
   id: string,
-  icon: string | null,
-  choices?: readonly string[]
+  icon: string | null
 ): TierForm[] {
   const next = cloneTiers(tiers)
   const tier = next.find(entry => entry.id === id)
@@ -267,22 +272,26 @@ export function setTierIcon(
     tier.icon = null
     return next
   }
-  if (choices && choices.length > 0 && !choices.includes(icon)) return next
-  tier.icon = icon
+  const name = icon.trim()
+  if (!name) return next
+  if (!HOST_ICON_NAME_PATTERN.test(name) && !(DEFAULT_TIER_ICON_NAMES as readonly string[]).includes(name)) {
+    return next
+  }
+  tier.icon = name
   return next
 }
 
 /**
- * 选颜色（D-C1）：`choices` 是后端白名单（`colorChoices`）。
+ * 选颜色（D-C1）：合法值 = 推荐 token ∪ 自定义 `#rrggbb`（后端已放宽到同一取值域）。
  *
- * `null` = 回到「按位次自动」（合法，且是默认值）；白名单外的值一律拒绝（等值副本），
- * 因为写一个后端不认的色名等于保存 422 —— 与 `setTierIcon` 同一口径。
+ * `null` = 回到「按位次自动」（合法，且是默认值）；形状不合法的值一律拒绝（等值副本），
+ * 因为写一个后端不认的色值等于保存 422 —— 与 `setTierIcon` 同一口径。
+ * 推荐色板只是**渲染候选**，不是闸门：候选之外的 hex 也必须能落进表单。
  */
 export function setTierColor(
   tiers: readonly TierForm[],
   id: string,
-  color: string | null,
-  choices: readonly string[] = TIER_COLOR_TOKENS
+  color: string | null
 ): TierForm[] {
   const next = cloneTiers(tiers)
   const tier = next.find(entry => entry.id === id)
@@ -291,10 +300,8 @@ export function setTierColor(
     tier.color = null
     return next
   }
-  const normalized = normalizeTierColor(color)
-  if (!normalized) return next
-  if (choices.length > 0 && !choices.includes(normalized)) return next
-  tier.color = normalized
+  if (!isTierColorValue(color.trim())) return next
+  tier.color = normalizeTierColor(color)
   return next
 }
 

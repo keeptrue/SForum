@@ -230,6 +230,36 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sfadmin_badges_badges_tab",
+    "contractVersion": "sforum.component.admin.sfadmin_badges_badges_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_badges_grants_tab",
+    "contractVersion": "sforum.component.admin.sfadmin_badges_grants_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGrantsTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_badges_groups_tab",
+    "contractVersion": "sforum.component.admin.sfadmin_badges_groups_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_brand_asset_field",
     "contractVersion": "sforum.component.admin.sfadmin_brand_asset_field@1",
     "kind": "component",
@@ -980,6 +1010,36 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sfadmin_trust_level_appearance_dialog",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearanceDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_trust_level_appearance_preview",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_preview@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearancePreview.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_trust_level_color_field",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_color_field@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelColorField.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_trust_level_earnable_matrix",
     "contractVersion": "sforum.component.admin.sfadmin_trust_level_earnable_matrix@1",
     "kind": "component",
@@ -1020,10 +1080,10 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
-    "id": "core.component.admin.sfadmin_trust_level_icon_picker",
-    "contractVersion": "sforum.component.admin.sfadmin_trust_level_icon_picker@1",
+    "id": "core.component.admin.sfadmin_trust_level_limits_tab",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_limits_tab@1",
     "kind": "component",
-    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelIconPicker.vue",
+    "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue",
     "owners": [
       "admin"
     ],
@@ -1034,6 +1094,26 @@
     "contractVersion": "sforum.component.admin.sfadmin_trust_level_thresholds_tab@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_trust_level_tier_confirm_dialog",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_confirm_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierConfirmDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_trust_level_tier_row",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_row@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierRow.vue",
     "owners": [
       "admin"
     ],

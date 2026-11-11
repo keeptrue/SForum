@@ -102,6 +102,7 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
 <template>
   <section
     class="sf-profile-side-section sf-trust-level-card"
+    data-sf-tl-accent
     :style="accentStyle"
     :data-level="String(levelValue)"
     :data-earned="earned ? 'true' : 'false'"
@@ -155,9 +156,9 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
 /* 卡面锁 --sf-card：12 个日间预设下 --sf-surface 与页面底只差 2~3 个明度级，卡片边界会消失。
    外边距保持 0，间距由 .sf-profile-side-section 既有规则提供。 */
 .sf-profile-side-section.sf-trust-level-card {
-  /* 兜底只给「没有内联 --tl-accent」时用；真正色相来自 :style="accentStyle"（D-C6）。 */
-  --tl-accent: var(--sf-tl-slate);
-
+  /* 不在这里声明 --tl-accent：真正色相来自 :style="accentStyle"（D-C6）。
+     自定义 hex 档靠全局 [data-sf-tl-accent] 把 --tl-accent-light/-dark 落成 --tl-accent，
+     而这条选择器的特异度（0,2,0）高于那条属性规则 —— 声明在这里会把 hex 档静默打回 slate。 */
   margin: 0;
   padding: 14px;
   border: 1px solid var(--sf-border);

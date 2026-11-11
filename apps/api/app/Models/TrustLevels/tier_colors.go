@@ -1,16 +1,24 @@
 package trustlevels
 
-import "slices"
+import (
+	"regexp"
+	"slices"
+)
 
-// 本文件是档位**颜色**的唯一来源：白名单 + 默认色序（与 tier_icons.go 同构）。
+// 本文件是档位**颜色**的唯一来源：取值规则 + 默认色序（与 tier_icons.go 同构）。
+//
+// tierColors 是**默认色序**，同时是后台推荐下拉的选项集（9 个语义色 token）。
+// 它不再是唯一的合法取值：运营还可以写入 `#rrggbb` 形式的自定义色（见
+// customColorPattern）。
 //
 // 色相语义与站点主题（`data-sforum-theme` 的 5 套 accent）**解耦**：档位颜色只表达
 // 「这一档的识别色」，不参与任何主题变量推导——换主题不该让档位颜色跟着漂，反过来
 // 改档位颜色也不该影响站点的强调色。
 //
-// 白名单固定 9 色，**不接受自由 hex**：颜色值会进 class / CSS 变量名，前端要靠它
-// 静态可枚举才能做树摇与 Tailwind 扫描；敞开接受任意字符串等于把渲染形状交给配置，
-// 而且运营填错时只会得到一个「类存在但样式不存在」的透明档位。
+// 自定义色受格式约束（6 位 hex、小写），不敞开接受任意字符串；是为了把「配置里
+// 出现根本不是颜色的值」挡在保存期。颜色值不再被要求静态可枚举：token 名仍由前端
+// 映射为 class / CSS 变量，而 hex 自定义色直接落进内联 CSS 变量，明暗两套显示由
+// 前端 CSS 从同一色值派生，服务端不需要（也不应该）替主题做明暗适配。
 //
 // **9 项 = rank 0..8 一一对应**：TL0 占掉 slate，而可配置档位最多 8 个（MaxTiers），
 // 所以合法 rank 上界是 TL8；色板必须正好覆盖到 TL8，否则满配站点会撞色
@@ -30,7 +38,10 @@ var tierColors = []string{
 	"amber",
 }
 
-// TierColors 返回颜色白名单（副本）。调用方不得原地修改。
+// customColorPattern 是自定义色的语法：`#rrggbb`（校验与存储前统一转小写）。
+var customColorPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+
+// TierColors 返回颜色推荐序列（副本）。调用方不得原地修改。
 //
 // 后台读面把它作为 `colorChoices` 下发；前端不得自己再抄一份——抄了就会在服务端
 // 调整白名单时变成「UI 里能选、保存时 422」。
@@ -38,9 +49,12 @@ func TierColors() []string {
 	return slices.Clone(tierColors)
 }
 
-// IsTierColor 报告颜色名是否在白名单内。
+// IsTierColor 报告颜色值是否合法：9 个默认 token 之一，或小写 `#rrggbb`。
 func IsTierColor(name string) bool {
-	return slices.Contains(tierColors, name)
+	if slices.Contains(tierColors, name) {
+		return true
+	}
+	return customColorPattern.MatchString(name)
 }
 
 // DefaultTierColor 返回该 rank 的默认颜色；超出默认色序时返回白名单首项。

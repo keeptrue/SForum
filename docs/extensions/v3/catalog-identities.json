@@ -3540,7 +3540,7 @@
       "owners": [
         "admin"
       ],
-      "state": "active",
+      "state": "retired",
       "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelIconPicker.vue"
     },
     {
@@ -6447,6 +6447,96 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/forum/SFCommentAuthorRow.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_appearance_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearanceDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_appearance_preview",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_preview@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearancePreview.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_color_field",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_color_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelColorField.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_tier_row",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_row@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierRow.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_tier_confirm_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_confirm_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierConfirmDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_limits_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_limits_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_badges_badges_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_badges_badges_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_badges_grants_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_badges_grants_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGrantsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_badges_groups_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_badges_groups_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue"
     }
   ]
 }

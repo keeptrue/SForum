@@ -34,7 +34,7 @@ import (
 //
 // 拒绝时带回**字段级明细**（D-N14）：机器可判的码仍是一个（ErrInvalidConfig），
 // 但每条错误都结构化地带 rank / tierId / field / reasonCode / params，HTTP 层投影成
-// 数组下发。运营看到「第 3 档的图标不在白名单」才自救得了；只看到「配置无效」等于没提示。
+// 数组下发。运营看到「第 3 档的图标不合法」才自救得了；只看到「配置无效」等于没提示。
 //
 // **文案纪律**：本包不输出可展示文案。每条明细给一个稳定且可枚举的 reasonCode，
 // 由前端拼 i18n；reason 只是人读兜底（日志、没有 i18n 键的旧前端），不用于展示。
@@ -479,13 +479,15 @@ func decodeV2(tierConfigs []TierConfig, deletedTierIDs []string) (Policy, error)
 		} else if !IsTierIcon(icon) {
 			collector.add(CodeIconNotWhitelisted, wouldBeRank, id, "icon",
 				map[string]any{"icon": icon},
-				fmt.Sprintf("档位 %q 的 icon %q 不在白名单内（可选 %d 个 lucide 图标）", id, icon, len(tierIcons)))
+				fmt.Sprintf("档位 %q 的 icon %q 不合法（16 个默认短名，或 i-lucide-* / i-tabler-* 全名）", id, icon))
 		}
-		// 颜色：空串是合法值（= 跟随位次自动），**不填默认**；非空必须在白名单内。
-		if tierConfig.Color != "" && !IsTierColor(tierConfig.Color) {
+		// 颜色：空串是合法值（= 跟随位次自动），**不填默认**；非空必须是默认 token
+		// 或 #rrggbb。hex 先归一化（去空白 + 转小写）再校验与存储，让落库值确定。
+		color := strings.ToLower(strings.TrimSpace(tierConfig.Color))
+		if color != "" && !IsTierColor(color) {
 			collector.add(CodeColorNotWhitelisted, wouldBeRank, id, "color",
 				map[string]any{"color": tierConfig.Color},
-				fmt.Sprintf("档位 %q 的 color %q 不在白名单内（可选 %d 个颜色）", id, tierConfig.Color, len(tierColors)))
+				fmt.Sprintf("档位 %q 的 color %q 不合法（9 个默认 token，或 #rrggbb 六位 hex）", id, tierConfig.Color))
 		}
 		validateTierNameInto(collector, wouldBeRank, id, tierConfig.Name)
 		validateRequirementsInto(collector, wouldBeRank, id, tierConfig.Requirements)
@@ -517,7 +519,7 @@ func decodeV2(tierConfigs []TierConfig, deletedTierIDs []string) (Policy, error)
 			ID:           id,
 			Name:         tierConfig.Name,
 			Icon:         icon,
-			Color:        tierConfig.Color,
+			Color:        color,
 			Requirements: tierConfig.Requirements,
 			Limits:       limits,
 			Earnable:     earnable,

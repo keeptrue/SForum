@@ -71,6 +71,7 @@ const tierIcon = computed(() => trustLevelIconOf(props.tier, props.rank))
 <template>
   <fieldset
     class="sf-trust-earnable__row"
+    data-sf-tl-accent
     :style="tierAccentStyle(tierColorOf(tier, rank))"
     :data-level="String(rank)"
     :data-step="String(Math.min(4, rank))"

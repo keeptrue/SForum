@@ -8,31 +8,94 @@
  * 9 色而不是 8：`slate` 归虚拟 TL0，active 档最多 8 档，8 色会让满配 TL8 循环回 slate 与 TL0 撞色。
  * `fuchsia` 插在 `violet` 与 `rose` 之间（当前取值为小设给的候选值，她的「9 色版」核验表落地后按表对一次）。
  *
+ * 三层结构：
+ * 1. `:root` 里 18 个字面量（`--sf-tl-<token>-light` / `-dark`）—— 全文件只出现这一次，是唯一真值；
+ * 2. `:root, [data-sf-tl-scope="light"]` 把 token 映射到 light 字面量；
+ * 3. `.dark` 与 `[data-sf-tl-scope="dark"]` 映射到 dark 字面量。
+ *
+ * 为什么要 `data-sf-tl-scope`：页面级配色只有一套（html 上的 `.dark`），但「外观设置」弹窗里
+ * 要把**同一个色**并排画在明底卡与暗底卡上。卡片自己声明 `data-sf-tl-scope` 后，
+ * 元素自身的声明胜过从 `html.dark` 继承来的值 —— 于是暗色后台里的「浅色页面」预览卡
+ * 拿到的是真正的浅色，而不是同一套暗色（否则两张卡一起变暗，预览就是在撒谎）。
+ * 页面级仍然只走 `:root` / `.dark`，scope 只给「同页并排两套模式」用。
+ *
  * 用法：组件只写 `--tl-accent: var(--sf-tl-<token>)`（见 `utils/profile/trustLevelColors.ts`），
  * 色条的混合比例由组件自己的 `--tl-accent-strength` 控制，色名与强度互不耦合。
  */
 :root {
-  --sf-tl-slate: #475569;
-  --sf-tl-teal: #0f766e;
-  --sf-tl-emerald: #166534;
-  --sf-tl-sky: #0369a1;
-  --sf-tl-indigo: #4338ca;
-  --sf-tl-violet: #7c3aed;
-  --sf-tl-fuchsia: #a21caf;
-  --sf-tl-rose: #be185d;
-  --sf-tl-amber: #92400e;
+  --sf-tl-slate-light: #475569;
+  --sf-tl-teal-light: #0f766e;
+  --sf-tl-emerald-light: #166534;
+  --sf-tl-sky-light: #0369a1;
+  --sf-tl-indigo-light: #4338ca;
+  --sf-tl-violet-light: #7c3aed;
+  --sf-tl-fuchsia-light: #a21caf;
+  --sf-tl-rose-light: #be185d;
+  --sf-tl-amber-light: #92400e;
+
+  --sf-tl-slate-dark: #94a3b8;
+  --sf-tl-teal-dark: #2dd4bf;
+  --sf-tl-emerald-dark: #4ade80;
+  --sf-tl-sky-dark: #38bdf8;
+  --sf-tl-indigo-dark: #818cf8;
+  --sf-tl-violet-dark: #a78bfa;
+  --sf-tl-fuchsia-dark: #e879f9;
+  --sf-tl-rose-dark: #f472b6;
+  --sf-tl-amber-dark: #fbbf24;
+}
+
+:root,
+[data-sf-tl-scope="light"] {
+  --sf-tl-slate: var(--sf-tl-slate-light);
+  --sf-tl-teal: var(--sf-tl-teal-light);
+  --sf-tl-emerald: var(--sf-tl-emerald-light);
+  --sf-tl-sky: var(--sf-tl-sky-light);
+  --sf-tl-indigo: var(--sf-tl-indigo-light);
+  --sf-tl-violet: var(--sf-tl-violet-light);
+  --sf-tl-fuchsia: var(--sf-tl-fuchsia-light);
+  --sf-tl-rose: var(--sf-tl-rose-light);
+  --sf-tl-amber: var(--sf-tl-amber-light);
 }
 
 .dark {
-  --sf-tl-slate: #94a3b8;
-  --sf-tl-teal: #2dd4bf;
-  --sf-tl-emerald: #4ade80;
-  --sf-tl-sky: #38bdf8;
-  --sf-tl-indigo: #818cf8;
-  --sf-tl-violet: #a78bfa;
-  --sf-tl-fuchsia: #e879f9;
-  --sf-tl-rose: #f472b6;
-  --sf-tl-amber: #fbbf24;
+  --sf-tl-slate: var(--sf-tl-slate-dark);
+  --sf-tl-teal: var(--sf-tl-teal-dark);
+  --sf-tl-emerald: var(--sf-tl-emerald-dark);
+  --sf-tl-sky: var(--sf-tl-sky-dark);
+  --sf-tl-indigo: var(--sf-tl-indigo-dark);
+  --sf-tl-violet: var(--sf-tl-violet-dark);
+  --sf-tl-fuchsia: var(--sf-tl-fuchsia-dark);
+  --sf-tl-rose: var(--sf-tl-rose-dark);
+  --sf-tl-amber: var(--sf-tl-amber-dark);
+}
+
+[data-sf-tl-scope="dark"] {
+  --sf-tl-slate: var(--sf-tl-slate-dark);
+  --sf-tl-teal: var(--sf-tl-teal-dark);
+  --sf-tl-emerald: var(--sf-tl-emerald-dark);
+  --sf-tl-sky: var(--sf-tl-sky-dark);
+  --sf-tl-indigo: var(--sf-tl-indigo-dark);
+  --sf-tl-violet: var(--sf-tl-violet-dark);
+  --sf-tl-fuchsia: var(--sf-tl-fuchsia-dark);
+  --sf-tl-rose: var(--sf-tl-rose-dark);
+  --sf-tl-amber: var(--sf-tl-amber-dark);
+}
+
+/*
+ * 自定义 hex：`--tl-accent` 只能装一个值，而明暗两套页面需要不同的合成结果。
+ * 所以 hex 档**只内联** `--tl-accent-light` / `--tl-accent-dark`（见 `tierAccentStyle`），
+ * 由这两条规则按当前配色挑一个落成 `--tl-accent`。
+ *
+ * token 档仍内联 `--tl-accent` —— 内联声明优先级高于这里的选择器，所以不受影响。
+ * 不把 hex 内联成 `--tl-accent: <hex>` 的原因是：那样深色后台里会显示未提亮的原色，
+ * 与运营在「深色页面」预览卡上看到的样子不一致（`color-mix(… 74%, white)` 就是为此存在的）。
+ */
+[data-sf-tl-accent] {
+  --tl-accent: var(--tl-accent-light, var(--sf-tl-slate));
+}
+
+.dark [data-sf-tl-accent] {
+  --tl-accent: var(--tl-accent-dark, var(--tl-accent-light, var(--sf-tl-slate)));
 }
 
 /*

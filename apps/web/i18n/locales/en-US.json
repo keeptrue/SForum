@@ -5499,11 +5499,6 @@
         "icons": {
           "label": "Icon for “{name}”"
         },
-        "iconPicker": {
-          "defaultBadge": "Default",
-          "useDefault": "Use the default icon {icon}",
-          "noChoices": "The server did not send an icon allow-list; showing the default icon {icon}."
-        },
         "restoreFallback": {
           "title": "Using the local fallback defaults",
           "description": "The admin read surface did not return recommendedConfig, so “restore defaults” used the built-in fallback table. It may differ from the server's recommendation."
@@ -5525,7 +5520,7 @@
             "id_invalid": "Tier id is invalid ({id}): use letters, digits, underscores or dashes only.",
             "id_reserved_for_tl0": "The id “{id}” is reserved for TL0 and cannot be used by an active tier.",
             "id_duplicate": "Duplicate tier id “{id}”: every tier needs a unique identity.",
-            "icon_not_whitelisted": "The icon “{icon}” is not in the server allow-list; pick one from the list.",
+            "icon_not_whitelisted": "The icon “{icon}” is not a valid icon name: pick one from the icon library or use a default icon.",
             "name_missing": "The {locale} name cannot be empty: at least one language is required.",
             "name_too_long": "The {locale} name exceeds the {maxLength}-character limit.",
             "requirement_negative": "Thresholds cannot be negative: {metric} is {value}.",
@@ -5535,7 +5530,7 @@
             "earnable_missing": "The earnable array is missing: every tier must send it explicitly, even when empty.",
             "earnable_key_empty": "The earnable list contains an empty string: remove it or fill in a permission key.",
             "earnable_not_whitelisted": "The permission “{permission}” is not in the grantable allow-list and cannot be unlocked by tier.",
-            "color_not_whitelisted": "That color is not in the server allow-list; pick one of the offered colors."
+            "color_not_whitelisted": "The color “{color}” is not available: choose a recommended color or enter a #RRGGBB value."
           },
           "field": {
             "unknown": "This field",
@@ -5611,6 +5606,24 @@
           "fuchsia": "Fuchsia",
           "rose": "Rose",
           "amber": "Amber"
+        },
+        "appearanceDialog": {
+          "title": "Appearance",
+          "subtitle": "This only changes how the tier looks on the page. It does not change who can reach it.",
+          "previewLight": "Light page",
+          "previewDark": "Dark page",
+          "iconTitle": "Icon",
+          "iconHint": "Pick the icon that best represents this tier. Leave it empty to use the default.",
+          "iconReset": "Use default icon",
+          "colorTitle": "Color",
+          "colorRecommended": "Recommended colors",
+          "colorCustom": "Custom color",
+          "colorCustomHint": "Want a different color? Click the swatch on the left, or type a value like #7C3AED.",
+          "colorInvalidHex": "That is not a valid color. Use a six-digit value like #7C3AED.",
+          "colorApply": "Apply",
+          "colorLowContrast": "This color will be hard to see on the dark page. Try a lighter one.",
+          "footerReset": "Reset appearance",
+          "footerDone": "Done"
         },
         "tierDelete": {
           "title": "Permanently delete “{name}”?",

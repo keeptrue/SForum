@@ -225,6 +225,38 @@
   规则不随产品语义重写时不会报错，只会让配置项静默失效。裁决见 `../decisions/2026-11-11-trust-level-color-render-unification.md`；
   改色端到端证据（六面同变 + 已回滚）见 `storage/qa/trust-level-color-unify/REPORT.md`。
 
+### 档位外观编辑：Modal + 全量图标 + 可选自定义色（D-A1..D-A7，**2026-11-12 新增**）
+
+裁决见 `../decisions/2026-11-12-trust-level-appearance-modal-and-custom-color.md`，
+几何与对比度核验见 `../reports/2026-11-12-trust-level-appearance-modal-spec.md`。
+
+- **入口从行内面板改成 `UModal`**：`SFAdminTrustLevelAppearanceDialog.vue`（桌面 `sm:max-w-2xl`、
+  `max-height:min(86dvh,720px)`、body 唯一滚动区、footer 吸底），由 `SFAdminTrustLevelTiersTab.vue`
+  的 `appearanceTierId` 挂**唯一**实例；行只发 `appearance` 意图（`aria-haspopup="dialog"`）。
+  旧的 `SFAdminTrustLevelIconPicker.vue` / `SFAdminTrustLevelColorPicker.vue` **已删除**。
+- **图标 = 16 短名（默认序列）∪ `i-(lucide|tabler)-<name>` 全名**：`tier_icons.go` 的
+  `hostIconPattern`；前端 `normalizeIcon` **不再剥** `i-lucide-` 前缀（剥了会得到白名单外短名，
+  保存 422）；`setTierIcon` 闸门是形状校验，不再是 `choices.includes`。
+  真实约束是「必须能被 `@nuxt/icon` serverBundle 解析」（`nuxt.config.ts:185-192`），不是静态可枚举。
+- **颜色 = 9 token（推荐色板 + 默认色序）∪ 小写 `#rrggbb`**：`IsTierColor` = 白名单 ∪
+  `^#[0-9a-f]{6}$`，`config.go` 落库前 `ToLower(TrimSpace())`。**D-C1 的其余语义不变**：
+  color 仍可选、空 = 跟随位次、解码期不填默认、`colorChoices` 顺序仍是默认色序。
+- **自定义色的明暗派生全在 CSS**：`sforum-trust-colors.css` 现在是 18 个字面量
+  （`--sf-tl-<token>-light|-dark`）+ 三层映射（`:root, [data-sf-tl-scope="light"]` / `.dark` /
+  `[data-sf-tl-scope="dark"]`）。hex 的**页面级**渲染由 `tierAccentStyle` 返回
+  `--tl-accent-light/-dark` 两级源值，`--tl-accent` 由 `[data-sf-tl-accent]` 与
+  `.dark [data-sf-tl-accent]` 算出——自定义色**不能**内联 `--tl-accent`（内联优先于 `.dark`）。
+  token 路径仍内联 `--tl-accent`，存量配置零行为变更。
+- **6 个落点必须带 `data-sf-tl-accent`**：TierRow / EarnableRow / ThresholdsTab / LimitsTab /
+  OverviewTab / `SFTrustLevelCard`。漏一处只影响自定义 hex（token 不受影响），用遍历 SFC 的护栏兜住。
+  `SFTrustLevelCard` 卡面原来的 `--tl-accent: var(--sf-tl-slate)` 兜底**已删**（0,2,0 特异度会压过
+  全局规则，把 hex 档打回 slate）。
+- **modal 内两条反馈口径**：格式非法 → 「应用」禁用 + 字段级错误（不发意图）；深色卡面对比度
+  < 3:1 → 只提示不阻断（`appearanceDialog.colorLowContrast`）。预览双底卡固定底色
+  `#ffffff` / `#1b201f` + `data-sf-tl-scope`，与页面模式解耦。
+- **落盘仍只有一个入口**：modal 即时写表单草稿，「完成」只关闭，「恢复默认外观」= `setIcon(null)+setColor(null)`。
+- **错误码名未改**：`icon_not_whitelisted` / `color_not_whitelisted` 只改文案（稳定标识符）。
+
 ### 删除与墓碑（D-C2 / D-C3，**本刀新增**）
 
 - **删除只针对已保存为停用的档**：`canDelete(id) = retired && savedRetiredIds.includes(id)`
@@ -546,11 +578,12 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 
 **2026-11-11 修订：本刀从「设置页内 tab」改成「独立页 + 页内 tab」，9 处全要，只是
 #1–#4 的目标文件换了。N 档改造在同一 shell 内加到四 tab（新增 `tiers` 与图标选择器），2026-11-11 又追加 `limits`（现为五 tab），**不新增 page id**，所以 #9 无新增行、#7 只补两条 active identity（`SFAdminTrustLevelTiersTab.vue`、`SFAdminTrustLevelIconPicker.vue`）。
+**2026-11-12 修订**：外观选择器拆成 `SFAdminTrustLevelAppearanceDialog.vue` / `SFAdminTrustLevelAppearancePreview.vue` / `SFAdminTrustLevelColorField.vue`，旧的 `SFAdminTrustLevelIconPicker.vue` / `SFAdminTrustLevelColorPicker.vue` 已删除，所以 #7 现在是「新增 3 条 active identity + 2 条迁到 retired 清单」并重生成 `core_catalog_gen.go`。
 
 | 形态 | 需要 | 说明 |
 | --- | --- | --- |
 | **设置页内的 tab**（无独立 page id，旧形态，已被取代） | #5–#8 | #1–#4 指 `pages/admin/settings/index.vue`；#9 不适用 |
-| **独立后台页 + 页内 tab**（现形态） | **#1–#9 全部** | #1–#4 指新 shell `pages/admin/forum/trust-levels.vue`；#5 是每个 tab 的组件文件（现为五个 tab + `SFAdminTrustLevelIconPicker.vue`）；#9 必须有 `/forum/trust-levels` 一行 |
+| **独立后台页 + 页内 tab**（现形态） | **#1–#9 全部** | #1–#4 指新 shell `pages/admin/forum/trust-levels.vue`；#5 是每个 tab 的组件文件（现为五个 tab + `SFAdminTrustLevelAppearanceDialog.vue` / `AppearancePreview` / `ColorField`）；#9 必须有 `/forum/trust-levels` 一行 |
 | 独立后台页但无 tab | #5–#9 | #1–#4 不适用（没有 tab 数组可登记） |
 
 判据只有一条：`adminModules.ts` 里有没有它的 `id`。有 `id` 就必须同时补

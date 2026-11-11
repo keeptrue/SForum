@@ -233,13 +233,20 @@ async function runRecompute() {
         :ariaLabel="t('admin.badges.tabs.label')"
         @update:model-value="setActiveTab"
       />
-      <KeepAlive>
-        <component
-          :is="activeComponent"
-          :key="activeTab"
-          v-bind="tabProps"
-        />
-      </KeepAlive>
+      <!--
+        内容区承载容器：与 pages/admin/permissions.vue 同款。卡片在 KeepAlive 外，
+        切 tab 只换内部组件，卡片本身不重建（不闪）；不写 #header，分区名由
+        SFAdminFixedTabNav 承担，加卡头会多出第三个标题层级。
+      -->
+      <UCard class="border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
+        <KeepAlive>
+          <component
+            :is="activeComponent"
+            :key="activeTab"
+            v-bind="tabProps"
+          />
+        </KeepAlive>
+      </UCard>
     </div>
   </div>
 </template>

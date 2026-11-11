@@ -78,9 +78,11 @@ TrustLevelDefinition:
     icon:
       type: string
       description: |
-        lucide 图标名，必在管理员读面的 `iconChoices` 白名单内（16 个）。
+        图标名：16 个默认短名之一（见管理员读面的 `iconChoices`），或
+        `i-(lucide|tabler)-<name>` 形式的全名（名字段为小写字母数字与连字符）。
         未选时按 rank 取默认序列：`sprout`/`leaf`/`home`/`mountain`/`crown`/…
         （前五项就是历史五档的在用图标，所以存量站点观感不变）。
+        非法取值即 422（`icon_not_whitelisted`）。
     color:
       type: string
       description: |
@@ -89,17 +91,22 @@ TrustLevelDefinition:
         `colorChoices[0]` = `slate`，TL8 = `colorChoices[8]` = `amber`。
         「跟随位次」是服务端的解析结果，不是客户端的判断分支——本字段永远不下发空值。
         写入时 `trust.levels` 的 `tiers[].color` 可以省略或写空串表示自动，
-        合法取值见 `colorChoices`；不在白名单内即 422（`color_not_whitelisted`）。
-      enum:
-        - slate
-        - teal
-        - emerald
-        - sky
-        - indigo
-        - violet
-        - fuchsia
-        - rose
-        - amber
+        合法取值为 `colorChoices` 中的 9 个 token，或 `#rrggbb` 六位 hex（存储前
+        统一转小写）；两者之外即 422（`color_not_whitelisted`）。
+      oneOf:
+        - type: string
+          enum:
+            - slate
+            - teal
+            - emerald
+            - sky
+            - indigo
+            - violet
+            - fuchsia
+            - rose
+            - amber
+        - type: string
+          pattern: "^#[0-9a-f]{6}$"
     requirements:
       "$ref": "#/TrustLevelRequirements"
     limits:
@@ -240,21 +247,25 @@ TrustLevelAdmin:
     iconChoices:
       type: array
       description: |
-        服务端接受的图标白名单（16 个 lucide 图标名）。顺序即 UI 展示顺序，
-        前五项同时是默认图标序列（芽/叶/屋/山/冠）。前端不得自己再抄一份：
+        默认图标序列 + 后台推荐选项（16 个 lucide 图标短名）。顺序即 UI 展示顺序，
+        前五项同时是默认图标序列（芽/叶/屋/山/冠）。它**不是**服务端唯一的合法取值：
+        运营还可写入 `i-(lucide|tabler)-<name>` 全名（能被 @nuxt/icon serverBundle
+        解析即可）。本列表只作为推荐下拉下发；前端不得自己再抄一份：
         抄了就会在服务端升级时变成「UI 里有、保存时 422」。
       items:
         type: string
     colorChoices:
       type: array
       description: |
-        服务端接受的颜色白名单（9 项）。**顺序即默认色序，且与 rank 一一对应**：
+        默认色序 + 后台推荐选项（9 项）。**顺序即默认色序，且与 rank 一一对应**：
         `colorChoices[n]` 属于 rank `n`（n 从 0 起），因此 TL0 = `slate`、
         TL1 = `teal`、…、TL8 = `amber`。可配置档位最多 8 个（TL1..TL8），加上 TL0
         正好 9 个合法 rank，所以色板必须正好 9 项——少一项就会让满配站点的顶档
         回退到首项、与 TL0 同色。
-        前端同时用它做下拉选项与「跟随位次」的预览，不得自己再抄一份。颜色是档位
-        识别色，与站点主题的 accent 解耦；不接受自由 hex。
+        它**不是**服务端唯一的合法取值：运营还可写入 `#rrggbb` 六位 hex（存储前
+        统一转小写）。本列表只作为推荐下拉与「跟随位次」预览下发，前端不得自己再抄
+        一份。颜色是档位识别色，与站点主题的 accent 解耦；hex 自定义色的明暗适配由
+        前端 CSS 从同一色值派生。
       minItems: 9
       maxItems: 9
       items:
@@ -298,8 +309,8 @@ TrustLevelConfigInput:
         不落字段；TL0 不在 `tiers` 里。`id` 省略/空串表示新档（序号由服务端派生），
         已存在的档位必须原样回传，否则等于换身份。
         `limits` 与 `earnable` 必须显式出现（可写 `null` / `[]`），省略即 422。
-        `tiers[].color` **可选**：省略或空串 = 跟随位次自动（不落存储），非空值必须在
-        `colorChoices` 内。`deletedTierIds` **可选**：运营真正删除的档位 id（按提交顺序），
+        `tiers[].color` **可选**：省略或空串 = 跟随位次自动（不落存储），非空值必须是
+        `colorChoices` 中的 9 个 token，或 `#rrggbb` 六位 hex（落库前统一转小写）。`deletedTierIds` **可选**：运营真正删除的档位 id（按提交顺序），
         会抬高 `nextTierSeq` 使 id 永不复用；与 `tiers[].id` 冲突、重复、或不合法均 422。
         两个新字段都 omitempty，所以「没用过颜色/没删过档」的配置与引入前逐字节相同。
         **v1 形状仍被接受**（`{"schemaVersion":1,"levels":[...]}`）：解码时在内存里

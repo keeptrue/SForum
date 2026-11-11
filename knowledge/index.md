@@ -28,6 +28,13 @@ load archived sessions or completed plans as current context.
   `decisions/2026-11-11-trust-levels-standalone-admin-page.md`（取代模块 note 的 D#18 与视觉规范
   §0 第 23 行，含「实施期教训 L1–L3」）；分档限额编辑器当时本轮不做（2026-11-11 已由 `da1d01683` 补上第 5 个 tab）。浏览器证据在
   `reports/2026-11-11-trust-levels-admin-page-spec.md` §14.6。
+- **外观编辑（2026-11-12 landed）**：档位「外观」从行内面板改为 modal，图标走共享 `SFIconPicker`
+  （lucide + tabler 全量，存 `i-<collection>-<name>` 全名，16 短名仍是默认序列），颜色 = 9 token 推荐色板
+  ∪ 自定义 `#rrggbb`（深色变体由 CSS `color-mix` 派生，modal 内明/暗双底预览 + 低对比只提示不阻断）。
+  决策 `decisions/2026-11-12-trust-level-appearance-modal-and-custom-color.md`（D-A1..A7，取代 D-C1 的
+  「自由 hex 被否」一条）；handoff `sessions/2026-11-12-trust-level-appearance-modal.md`；
+  设计源 `reports/2026-11-12-trust-level-appearance-modal-spec.md`。门禁六项全绿 + v3 目录 `--check` exit 0。
+  **回滚风险**：旧 API 二进制读到 hex / 全名图标会 422，回滚需同时回退配置值。
 - Handoff：`sessions/2026-11-11-trust-levels-admin-page.md`（hot；收尾刀
   `sessions/2026-11-11-trust-levels-closing.md`，上一刀已归档到
   `sessions/archive/2026-11/`）；模块：`modules/trust-levels.md`；
@@ -811,13 +818,18 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章管理页：SelectItem 空串崩溃修复（2026-11-12，最新）**：`/control-panel/badges`
+- **徽章管理页：SelectItem 空串崩溃修复 + 内容区补 Card（2026-11-12，最新）**：`/control-panel/badges`
   四个筛选 `USelect` 的 items 首项原为 `value: ''`，触发 Reka
   `A <SelectItem /> must have a value prop that is not an empty string` 并污染整个
   `SelectContent` 的 update。改为组件内哨兵 `ALL_FILTER = 'all'` +
   `filterSelectModel` / `onFilterSelect` 两个助手，URL query 契约不变（空值仍
   delete key，`group=none` 不受影响）。`null` 分组（EditDialog「—」）实测合法，未改。
-  详见 `sessions/2026-11-12-badges-admin-selectitem-fix.md`。
+  同日补内容区承载容器：三个分区正文原来直接铺在页面灰底上，现在 `<KeepAlive>` 外包一张
+  `UCard`（与 `permissions.vue` 同款，无卡头、默认 body padding，卡在 KeepAlive 外、nav 在
+  卡外），`SFAdminBadgeTable` 的 `max-h` 随之 `20rem → 24rem`（sticky 未动）；已知残留是长表
+  仍有轻微外层滚动，nav 与卡 32px 间隙属既有几何不动。实测 1920×1080 / 390×844 卡与
+  nav、toolbar 左右边界偏差 0px、无横向溢出。详见
+  `sessions/2026-11-12-badges-admin-selectitem-fix.md`。
 - **信任等级：档位色单源渲染 + 后台 IA 归位（2026-11-11）**：五个后台分区与资料页卡收敛到共享
   `.sf-tl-mark`，色相只认**行根内联** `--tl-accent`（`tierColorOf` → `tierAccentStyle`），删掉六处子层
   `--tl-accent: var(--sf-accent)` / `--sf-accent-dark` 遮蔽声明与 `--sf-accent-soft` 淡底；形状梯度

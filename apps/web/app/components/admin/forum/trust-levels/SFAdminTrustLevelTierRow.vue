@@ -10,22 +10,16 @@
  * 1. **只有意图，没有状态**：行不持有表单、不调接口；每个按钮只 emit 一个意图 id + 参数。
  * 2. **停用/删除的可用性由父级算好传进来**（`canRetireNow` / `canDelete`）：
  *    「最后一档不能停用」与「已保存为停用才能删」的判据都依赖整个列表，不能在这一行里猜。
- * 3. **外观面板的开关状态也归父级**（`appearanceOpen`）：一次只展开一个面板，
- *    状态散到每行就会变成多套焦点目标，键盘用户会迷失。
+ * 3. **外观编辑不在行内**：调色板按钮只发 `appearance` 意图，编辑本身由 tab 层唯一的
+ *    `SFAdminTrustLevelAppearanceDialog` 承担 —— 行内展开会把相邻档位顶出视口，
+ *    而图标全量目录与明暗双底预览在行宽里都放不下。
  */
-import type { TrustLevelColorChoice, TrustLevelIconChoice, TrustLevelNameSuggestion } from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
-import {
-  defaultTierIconName,
-  trustLevelIconOf,
-  trustLevelName
-} from '~/composables/profile/useTrustLevel'
-import { defaultTierColorName } from '~/utils/profile/trustLevelColors'
+import type { TrustLevelNameSuggestion } from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
+import { trustLevelIconOf, trustLevelName } from '~/composables/profile/useTrustLevel'
 import { TRUST_LEVEL_TIER_NAME_MAX, type TierForm } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import type { TrustLevelSaveError } from '~/composables/admin/forum/trustLevels/useTrustLevelSaveErrors'
 import SFAdminTrustLevelFieldErrors from '~/components/admin/forum/trust-levels/SFAdminTrustLevelFieldErrors.vue'
 import SFAdminTrustLevelActionButton from '~/components/admin/forum/trust-levels/SFAdminTrustLevelActionButton.vue'
-import SFAdminTrustLevelIconPicker from '~/components/admin/forum/trust-levels/SFAdminTrustLevelIconPicker.vue'
-import SFAdminTrustLevelColorPicker from '~/components/admin/forum/trust-levels/SFAdminTrustLevelColorPicker.vue'
 
 const props = withDefaults(defineProps<{
   tier: TierForm
@@ -40,17 +34,13 @@ const props = withDefaults(defineProps<{
   canRetireNow: boolean
   /** 外部算好的删除闸门：该档已保存为停用。 */
   canDelete: boolean
-  appearanceOpen: boolean
   /** 行根的 `--tl-accent`（父级按有效色算好，行不重复一份配色逻辑）。 */
   accentStyle: Record<string, string>
   namePool: TrustLevelNameSuggestion[]
-  iconChoices: TrustLevelIconChoice[]
-  colorChoices: TrustLevelColorChoice[]
   saveErrors: TrustLevelSaveError[]
   /** 该档停用/删除会撤回的解锁数量（父级按整个列表算，行只负责渲染）。 */
   retiredImpactCount: number
 }>(), {
-  colorChoices: () => [],
   saveErrors: () => [],
   retiredImpactCount: 0
 })
@@ -64,7 +54,7 @@ const emit = defineEmits<{
   retire: [id: string]
   restore: [id: string]
   delete: [id: string]
-  toggleAppearance: [id: string]
+  appearance: [id: string]
 }>()
 
 const { t, locale } = useI18n()
@@ -75,8 +65,6 @@ const preferZh = computed(() => locale.value.toLowerCase().startsWith('zh'))
 const fallbackRank = computed(() => props.rank ?? props.index)
 const name = computed(() => trustLevelName(props.tier, locale.value, props.rank ?? props.index + 1, t))
 const icon = computed(() => trustLevelIconOf(props.tier, fallbackRank.value))
-const defaultIcon = computed(() => defaultTierIconName(fallbackRank.value))
-const defaultColor = computed(() => defaultTierColorName(fallbackRank.value))
 const deleteLocked = computed(() => t('admin.forum.trustLevels.tiers.deleteLocked'))
 
 function onNameInput(value: string | number, target: 'zh' | 'en') {
@@ -94,6 +82,7 @@ function applySuggestion(suggestion: TrustLevelNameSuggestion) {
   <li
     class="sf-tier-row"
     :style="accentStyle"
+    data-sf-tl-accent
     :data-sf-tier-row="tier.id"
     :data-tier-id="tier.id"
     :data-retired="tier.retired ? 'true' : 'false'"
@@ -150,9 +139,9 @@ function applySuggestion(suggestion: TrustLevelNameSuggestion) {
           :label="t('admin.forum.trustLevels.tiers.appearance')"
           :title="t('admin.forum.trustLevels.tiers.appearance')"
           :disabled="!canManage"
-          :aria-expanded="appearanceOpen ? 'true' : 'false'"
+          aria-haspopup="dialog"
           :data-sf-tier-appearance-toggle="tier.id"
-          @click="emit('toggleAppearance', tier.id)"
+          @click="emit('appearance', tier.id)"
         />
         <SFAdminTrustLevelActionButton
           v-if="tier.retired"
@@ -231,26 +220,6 @@ function applySuggestion(suggestion: TrustLevelNameSuggestion) {
       >
         {{ preferZh ? (suggestion.zh || suggestion.en) : (suggestion.en || suggestion.zh) }}
       </UButton>
-    </div>
-
-    <!-- 外观：图标与颜色同屏（颜色默认就有，图标默认也有；这里只做覆盖）。 -->
-    <div v-if="appearanceOpen" class="sf-tier-row__appearance" data-sf-tier-appearance>
-      <SFAdminTrustLevelIconPicker
-        :model-value="tier.icon"
-        :choices="iconChoices"
-        :label="t('admin.forum.trustLevels.icons.label', { name })"
-        :default-icon="defaultIcon"
-        :disabled="!canManage"
-        @update:model-value="(value: string | null) => emit('setIcon', tier.id, value)"
-      />
-      <SFAdminTrustLevelColorPicker
-        :model-value="tier.color"
-        :choices="colorChoices"
-        :label="t('admin.forum.trustLevels.tiers.color', { name })"
-        :default-color="defaultColor"
-        :disabled="!canManage"
-        @update:model-value="(value: string | null) => emit('setColor', tier.id, value)"
-      />
     </div>
   </li>
 </template>
@@ -384,20 +353,5 @@ function applySuggestion(suggestion: TrustLevelNameSuggestion) {
 .sf-tier-row__pool-label {
   color: var(--sf-fg-tertiary);
   font-size: 11px;
-}
-
-.sf-tier-row__appearance {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--sf-border);
-}
-
-@media (min-width: 640px) {
-  .sf-tier-row__appearance {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 </style>

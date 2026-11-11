@@ -29,7 +29,11 @@ import {
   tierAccentStyle,
   tierColorOf
 } from '~/utils/profile/trustLevelColors'
-import { fallbackTiers } from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
+import {
+  fallbackTiers,
+  recommendedTrustLevelsForm,
+  trustLevelsPayload
+} from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
 
 /**
  * 动态档位的编辑层：插入/停用/排序/边界/锚定。
@@ -221,14 +225,22 @@ describe('names and icons', () => {
     expect(renamed[0]!.name.en.length).toBe(40)
   })
 
-  test('setting an icon is refused unless it is in the server allow-list', () => {
+  test('setting an icon is gated by shape, not by the recommendation list', () => {
     const list = tiers()
     const id = list[0]!.id
-    expect(setTierIcon(list, id, 'house', ['house', 'crown'])[0]!.icon).toBe('house')
-    expect(setTierIcon(list, id, 'rocket', ['house', 'crown'])).toEqual(list)
-    // null = 清空，回落 rank 默认序列；没有白名单（后端未下发）时放行。
+    // 全名（`i-<collection>-<name>`）是合法取值：图标选择器用 lucide + tabler 全量目录，
+    // 拿 16 项推荐表当闸门只会把运营的真实选择静默丢掉（存进去还会被后端接受）。
+    expect(setTierIcon(list, id, 'i-tabler-crown')[0]!.icon).toBe('i-tabler-crown')
+    // 16 个默认短名仍可直接写入（历史数据 / 默认序列）。
+    expect(setTierIcon(list, id, 'leaf')[0]!.icon).toBe('leaf')
+    // 未知集合、缺 collection、空白：等值副本，不写坏配置（后端会以 422 拒掉）。
+    expect(setTierIcon(list, id, 'i-fa-rocket')).toEqual(list)
+    expect(setTierIcon(list, id, 'rocket')).toEqual(list)
+    expect(setTierIcon(list, id, '   ')).toEqual(list)
+    // 归一化只 trim：剥掉 `i-lucide-` 前缀会得到不在白名单里的短名（arrow-up 之类）→ 保存 422。
+    expect(setTierIcon(list, id, '  i-lucide-arrow-up  ')[0]!.icon).toBe('i-lucide-arrow-up')
+    // null = 清空，回落 rank 默认序列。
     expect(setTierIcon(list, id, null)[0]!.icon).toBeNull()
-    expect(setTierIcon(list, id, 'rocket')[0]!.icon).toBe('rocket')
   })
 
   test('threshold writes clamp to non-negative integers', () => {
@@ -286,16 +298,21 @@ describe('tier colors (D-C1)', () => {
     expect(tierColorOf(null, 0)).toBe('slate')
   })
 
-  test('setTierColor keeps the whitelist gate and returns an equal copy on rejection', () => {
+  test('setTierColor gates on shape (token or hex) and returns an equal copy on rejection', () => {
     const list = tiers()
     const id = list[0]!.id
     expect(setTierColor(list, id, 'violet')[0]!.color).toBe('violet')
-    // 白名单外（含后端新增但前端未知的色名）→ 等值副本，不写坏配置。
-    const rejected = setTierColor(list, id, 'chartreuse')
-    expect(rejected[0]!.color).toBeNull()
-    expect(rejected).not.toBe(list)
-    // 传入后端白名单时不认表外的值。
-    expect(setTierColor(list, id, 'violet', ['teal'])[0]!.color).toBeNull()
+    // 自定义 hex：大小写归一后落表单（后端也是小写存储，两处必须一致）。
+    expect(setTierColor(list, id, '#7C3AED')[0]!.color).toBe('#7c3aed')
+    expect(setTierColor(list, id, '#7c3aed')[0]!.color).toBe('#7c3aed')
+    // 推荐色板只是渲染候选，**不是闸门**：候选之外的合法 hex 也必须能落进表单。
+    expect(setTierColor(list, id, '#0F766E')[0]!.color).toBe('#0f766e')
+    // 形状不合法 → 等值副本，不写坏配置。
+    for (const bad of ['chartreuse', 'red', '#fff', '#7c3aed00', 'rgb(0,0,0)']) {
+      const rejected = setTierColor(list, id, bad)
+      expect(rejected[0]!.color).toBeNull()
+      expect(rejected).not.toBe(list)
+    }
     // null = 回到「按位次自动」。
     expect(setTierColor(setTierColor(list, id, 'violet'), id, null)[0]!.color).toBeNull()
     // 不存在的 id 也是等值副本，不抛错。
@@ -353,5 +370,45 @@ describe('tier deletion (D-C2 / D-C3)', () => {
     let shared = withEarnable(tiers(), 1, ['topic.create'])
     shared = withEarnable(shared, 2, ['topic.create'])
     expect(retiredTierImpactKeys(shared, shared[1]!.id)).toEqual([])
+  })
+})
+
+describe('appearance round-trip through the payload', () => {
+  const configOf = (payload: Array<{ name: string, value: string }>) => {
+    expect(payload).toHaveLength(1)
+    return JSON.parse(payload[0]!.value) as {
+      tiers: Array<{ id: string, icon?: string, color?: string }>
+    }
+  }
+
+  test('a host icon full name survives serialisation verbatim (never stripped to a short name)', () => {
+    const form = recommendedTrustLevelsForm()
+    const tiersWithIcon = setTierIcon(form.tiers, form.tiers[0]!.id, 'i-tabler-crown')
+    const config = configOf(trustLevelsPayload({ tiers: tiersWithIcon }))
+    // 剥前缀会写出 `crown`… 不，`i-tabler-crown` → `crown` 恰好也在 16 项里，
+    // 所以这里用 tabler 独有的多段名：剥完既不在白名单、也丢掉了集合语义。
+    const withSegmented = setTierIcon(form.tiers, form.tiers[0]!.id, 'i-tabler-device-desktop')
+    expect(configOf(trustLevelsPayload({ tiers: withSegmented })).tiers[0]!.icon).toBe('i-tabler-device-desktop')
+    expect(config.tiers[0]!.icon).toBe('i-tabler-crown')
+  })
+
+  test('a custom hex is serialised lowercase and an automatic color omits the key', () => {
+    const form = recommendedTrustLevelsForm()
+    const id = form.tiers[0]!.id
+    const custom = configOf(trustLevelsPayload({ tiers: setTierColor(form.tiers, id, '#7C3AED') }))
+    expect(custom.tiers[0]!.color).toBe('#7c3aed')
+
+    // 未配置 = 省略键（后端 omitempty + 空串语义是「跟随位次」），不能写成空串。
+    const auto = configOf(trustLevelsPayload({ tiers: setTierColor(form.tiers, id, null) }))
+    expect(auto.tiers[0]!.color).toBeUndefined()
+  })
+
+  test('an unset icon falls back to the rank default instead of an empty string', () => {
+    const form = recommendedTrustLevelsForm()
+    const cleared = setTierIcon(form.tiers, form.tiers[0]!.id, null)
+    const config = configOf(trustLevelsPayload({ tiers: cleared }))
+    // 空串在 UI 上是「没有图标」，后端契约里 icon 是 required。
+    expect(config.tiers[0]!.icon).toBeTruthy()
+    expect(config.tiers[0]!.icon).not.toBe('')
   })
 })

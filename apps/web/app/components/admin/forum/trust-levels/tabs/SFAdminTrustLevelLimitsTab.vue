@@ -106,6 +106,7 @@ function onLimitCommit(tier: TierForm, key: TrustLevelLimitKey, event: Event) {
       v-for="tier in form.tiers"
       :key="tier.id"
       class="sf-trust-limits-row"
+      data-sf-tl-accent
       :style="accentStyle(tier)"
       :data-sf-limits-tier="tier.id"
       :data-tier-id="tier.id"

@@ -166,7 +166,9 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 非法值回落 `badges`，`route.query.tab` 与 `activeTab` 双向同步。这是 Core 自有后台页，
 几何按 `pages/admin/settings/index.vue` 的契约走（紧凑 `text-xl` 标题 + 一个
 `UDashboardToolbar` + `SFAdminFixedTabNav` + 单个 `flex flex-col gap-4` 内容列），
-不另起第二套 tab 系统。
+不另起第二套 tab 系统。内容区由一张 `UCard` 承载（与 `pages/admin/permissions.vue`
+同款，默认 body padding，不写 `#header`），卡片在 `KeepAlive` 外、tab nav 在卡外——
+切 tab 只换卡内组件，卡片不重建。
 
 - **壳 `pages/admin/badges.vue` 只承担编排**：tab 选择 / query 同步、三态顶部告警
   （`features.badges` 关闭 / 无权限 / 加载失败）、toolbar。行动作全部在分区组件里。

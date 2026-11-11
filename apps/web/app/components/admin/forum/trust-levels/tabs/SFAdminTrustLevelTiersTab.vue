@@ -14,8 +14,10 @@
  *    （常驻条会被滚出视口，等于没披露）。
  * 4. **每档默认就有颜色**（D-C1）：`--tl-accent` 由位次派生，运营可单档覆盖；
  *    已停用档常驻「已撤回 N 项解锁」徽标（不是 Toast —— 它是状态，不是一次事件的回声）。
+ * 5. **外观编辑只有一个入口**：行只发 `appearance` 意图，本组件在 tab 层挂**唯一**一个
+ *    `SFAdminTrustLevelAppearanceDialog` —— 每行一个 dialog 实例就是 N 套 id/焦点目标。
  */
-import type { TrustLevelColorChoice, TrustLevelIconChoice, TrustLevelNameSuggestion } from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
+import type { TrustLevelColorChoice, TrustLevelNameSuggestion } from '~/composables/admin/forum/trustLevels/useTrustLevelsForm'
 import { DEFAULT_TIER_ICON_NAMES } from '~/composables/profile/useTrustLevel'
 import { tierAccentStyle, tierColorOf } from '~/utils/profile/trustLevelColors'
 import {
@@ -26,6 +28,7 @@ import {
 } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import type { TrustLevelSaveError } from '~/composables/admin/forum/trustLevels/useTrustLevelSaveErrors'
 import SFAdminTrustLevelActionButton from '~/components/admin/forum/trust-levels/SFAdminTrustLevelActionButton.vue'
+import SFAdminTrustLevelAppearanceDialog from '~/components/admin/forum/trust-levels/SFAdminTrustLevelAppearanceDialog.vue'
 import SFAdminTrustLevelTierRow from '~/components/admin/forum/trust-levels/SFAdminTrustLevelTierRow.vue'
 
 const props = withDefaults(defineProps<{
@@ -34,8 +37,7 @@ const props = withDefaults(defineProps<{
   canAdd: boolean
   canRetire: boolean
   namePool: TrustLevelNameSuggestion[]
-  iconChoices: TrustLevelIconChoice[]
-  /** 颜色白名单（D-C1）：空 = 后端未下发 → 颜色选择器不编造候选。 */
+  /** 推荐色板（D-C1）：外观弹窗的候选色；空 = 后端未下发 → 不编造候选（自定义色仍可用）。 */
   colorChoices?: TrustLevelColorChoice[]
   /** **已保存**的停用档 id：只有它命中时才允许删除（删除两步闸门，D-C2）。 */
   savedRetiredIds?: string[]
@@ -72,8 +74,17 @@ const atLimit = computed(() => activeCount.value >= TRUST_LEVEL_TIER_MAX)
 const canRetireNow = computed(() => props.canRetire && activeCount.value > 1)
 const lastTierLocked = computed(() => t('admin.forum.trustLevels.tiers.lastTierLocked'))
 const limitHint = computed(() => t('admin.forum.trustLevels.tiers.limitHint', { max: TRUST_LEVEL_TIER_MAX }))
-/** 一次只展开一个「外观」面板（图标 + 颜色同屏）：多于一个就是两套焦点目标，键盘用户会迷失。 */
-const appearanceFor = ref<string | null>(null)
+/** 外观编辑目标（tab 层唯一 dialog）：`null` = 关闭。 */
+const appearanceTierId = ref<string | null>(null)
+const appearanceTier = computed(() => props.tiers.find(tier => tier.id === appearanceTierId.value) ?? null)
+/** 弹窗取色/默认图标的位次：停用档按数组位置（它不参与判定，外观只是「长什么样」）。 */
+const appearanceRank = computed(() => {
+  const tier = appearanceTier.value
+  if (!tier) return 0
+  return tier.retired
+    ? props.tiers.indexOf(tier)
+    : (activeRankOf(props.tiers, tier.id) ?? props.tiers.indexOf(tier))
+})
 /** 默认图标序列只是展示参考（未选图标时 rank 决定用哪个）。 */
 const defaultIconPreview = computed(() => DEFAULT_TIER_ICON_NAMES.slice(0, TRUST_LEVEL_TIER_MAX))
 
@@ -103,8 +114,12 @@ function tierRetiredImpact(tier: TierForm) {
   return retiredTierImpactKeys(props.tiers, tier.id).length
 }
 
-function toggleAppearance(id: string) {
-  appearanceFor.value = appearanceFor.value === id ? null : id
+function openAppearance(id: string) {
+  appearanceTierId.value = id
+}
+
+function closeAppearance() {
+  appearanceTierId.value = null
 }
 </script>
 
@@ -156,11 +171,8 @@ function toggleAppearance(id: string) {
         :can-add="canAdd"
         :can-retire-now="canRetireNow"
         :can-delete="isDeleteUnlocked(tier.id)"
-        :appearance-open="appearanceFor === tier.id"
         :accent-style="tierAccent(tier)"
         :name-pool="namePool"
-        :icon-choices="iconChoices"
-        :color-choices="colorChoices"
         :save-errors="saveErrors?.[tier.id] ?? []"
         :retired-impact-count="tierRetiredImpact(tier)"
         @insert="emit('insert', $event)"
@@ -171,9 +183,21 @@ function toggleAppearance(id: string) {
         @retire="emit('retire', $event)"
         @restore="emit('restore', $event)"
         @delete="emit('delete', $event)"
-        @toggle-appearance="toggleAppearance"
+        @appearance="openAppearance"
       />
     </ol>
+
+    <!-- 外观编辑：整个 tab 只有这一个实例（行里只发意图）。 -->
+    <SFAdminTrustLevelAppearanceDialog
+      :open="appearanceTier !== null"
+      :tier="appearanceTier"
+      :rank="appearanceRank"
+      :can-manage="canManage"
+      :color-choices="colorChoices"
+      @update:open="(value: boolean) => { if (!value) closeAppearance() }"
+      @set-icon="(id: string, icon: string | null) => emit('setIcon', id, icon)"
+      @set-color="(id: string, color: string | null) => emit('setColor', id, color)"
+    />
 
     <!-- 最后一档不能停用的理由：常驻、非 Toast，就在列表下方。 -->
     <p v-if="activeCount === 1" class="text-xs text-muted" data-sf-tier-last-locked>

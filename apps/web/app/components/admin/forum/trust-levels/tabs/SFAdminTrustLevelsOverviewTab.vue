@@ -195,6 +195,7 @@ function earnableCount(level: number) {
           v-for="(row, level) in ladder"
           :key="row.id"
           class="min-w-0 py-3 first:pt-0 last:pb-0"
+          data-sf-tl-accent
           :style="tierAccentStyle(tierColorOf(row, level))"
           :data-level="String(level)"
           :data-metrics="String(thresholdItems(level).length)"

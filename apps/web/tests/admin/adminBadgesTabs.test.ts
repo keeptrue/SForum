@@ -50,6 +50,11 @@ describe('badges shell (pages/admin/badges.vue)', () => {
     expect(shellSource).not.toContain('admin.badges.intro')
   })
 
+  test('wraps the tab content in a UCard container', () => {
+    // 内容区必须有承载容器（与 permissions.vue 同款），tab nav 留在卡外。
+    expect(shellSource).toContain('<UCard')
+  })
+
   test('normalizes ?tab= with the same fallback pattern as settings', () => {
     expect(shellSource).toContain('normalizeTab(route.query.tab)')
     expect(shellSource).toContain("validTabs.includes(candidate as BadgesTab)")

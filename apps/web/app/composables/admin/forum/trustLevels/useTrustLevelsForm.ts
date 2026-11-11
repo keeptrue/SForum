@@ -191,8 +191,10 @@ function normalizeIcon(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (!trimmed) return null
-  // 存储口径是短名；历史数据可能带 `i-lucide-` 前缀，读入时归一，避免写出时两种形态混存。
-  return trimmed.startsWith('i-lucide-') ? trimmed.slice('i-lucide-'.length) : trimmed
+  // 存储口径是**两种合法形态**：16 个默认短名（`leaf`），或 `i-(lucide|tabler)-<name>` 全名。
+  // 这里绝不能把 `i-lucide-` 前缀剥掉 —— 剥完得到的短名不在后端 16 项白名单里（`arrow-up` 等），
+  // 界面能选、保存必 422。归一化只做 trim，形态由后端 `IsTierIcon` 判定。
+  return trimmed
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -207,7 +209,7 @@ function normalizeIcon(raw: unknown): string | null {
 /** 后台读面路径（`useApiClient` 自己补 `/api/v1` 前缀，这里不写绝对地址）。 */
 export const TRUST_LEVEL_ADMIN_READ_PATH = '/admin/trust-levels'
 
-/** 图标选择器的一项：`value` 是存储短名，`label` 是运营看到的人话（后端可只发 value）。 */
+/** 图标白名单的一项：`value` 是存储取值的原样（短名或 `i-<collection>-<name>` 全名），`label` 是运营看到的人话。 */
 export type TrustLevelIconChoice = { value: string, label: string }
 
 /** 命名池的一项：编辑辅助，**不是**存储字段（D-N3：存储只有 `name{zh,en}`）。 */

@@ -5539,11 +5539,6 @@
         "icons": {
           "label": "「{name}」的图标"
         },
-        "iconPicker": {
-          "defaultBadge": "默认",
-          "useDefault": "使用默认图标 {icon}",
-          "noChoices": "后端未下发图标白名单，当前显示默认图标 {icon}。"
-        },
         "restoreFallback": {
           "title": "正在使用本地兜底推荐值",
           "description": "后台读面没有返回 recommendedConfig，本次「恢复默认」用的是内置兜底表，不一定等于后端推荐值。"
@@ -5565,7 +5560,7 @@
             "id_invalid": "档位 id 不合法（{id}）：只能用字母、数字、下划线和短横线。",
             "id_reserved_for_tl0": "档位 id「{id}」是 TL0 的保留身份，不能给启用档位使用。",
             "id_duplicate": "存在重复的档位 id「{id}」：每档的身份必须唯一。",
-            "icon_not_whitelisted": "图标「{icon}」不在服务端白名单内，请从列表中选择。",
+            "icon_not_whitelisted": "图标「{icon}」不是可用的图标名：请从图标库里选一个，或使用默认图标。",
             "name_missing": "{locale} 名称不能为空：至少要有一门语言的名称。",
             "name_too_long": "{locale}名称超过 {maxLength} 个字符上限。",
             "requirement_negative": "判定门槛不能为负：{metric} 当前是 {value}。",
@@ -5575,7 +5570,7 @@
             "earnable_missing": "缺少能力解锁数组：每档都必须显式给出，空数组也要写。",
             "earnable_key_empty": "能力解锁里有空字符串：请移除该项或填入权限键。",
             "earnable_not_whitelisted": "权限「{permission}」不在可授予白名单内，不能按等级解锁。",
-            "color_not_whitelisted": "颜色不在后端白名单内，请从候选色中重新选择。"
+            "color_not_whitelisted": "颜色「{color}」不可用：请从推荐颜色里选一个，或填 #RRGGBB 形式的色值。"
           },
           "field": {
             "unknown": "该字段",
@@ -5651,6 +5646,24 @@
           "fuchsia": "洋红",
           "rose": "玫红",
           "amber": "琥珀"
+        },
+        "appearanceDialog": {
+          "title": "外观设置",
+          "subtitle": "这里改的是这一档在页面上长什么样，不会改变谁能升到这一档。",
+          "previewLight": "浅色页面",
+          "previewDark": "深色页面",
+          "iconTitle": "图标",
+          "iconHint": "挑一个最能代表这一档的图标。不选就用默认的。",
+          "iconReset": "用回默认图标",
+          "colorTitle": "颜色",
+          "colorRecommended": "推荐颜色",
+          "colorCustom": "自定义颜色",
+          "colorCustomHint": "想用别的颜色？点左边的色块挑一个，或者直接填 #RRGGBB。",
+          "colorInvalidHex": "颜色格式不对，请填成 #7C3AED 这样的六位色值。",
+          "colorApply": "应用",
+          "colorLowContrast": "这个颜色在深色页面上会有点看不清，建议换亮一点的。",
+          "footerReset": "恢复默认外观",
+          "footerDone": "完成"
         },
         "tierDelete": {
           "title": "永久删除「{name}」？",
