@@ -77,8 +77,8 @@ function recordAppliedPermission(permission: Omit<AppliedRolePermission, 'sequen
 </script>
 
 <template>
-  <div class="flex w-full min-w-0 flex-col gap-4">
-    <header>
+  <div class="w-full min-w-0">
+    <header class="mb-4 flex flex-col gap-1">
       <h2 class="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-zinc-100">
         <UIcon :name="adminPage.icon" class="size-5 text-[var(--sf-accent)] dark:text-[var(--sf-accent-dark)]" />
         {{ t('admin.roles.title') }}
@@ -86,7 +86,7 @@ function recordAppliedPermission(permission: Omit<AppliedRolePermission, 'sequen
       <p class="text-sm text-slate-500 dark:text-zinc-400">{{ t('admin.roles.intro') }}</p>
     </header>
 
-    <UDashboardToolbar class="overflow-x-hidden rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+    <UDashboardToolbar class="mb-6 overflow-x-hidden rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
       <template #left>
         <UInput
           v-if="activeTab === 'groups'"
@@ -141,25 +141,27 @@ function recordAppliedPermission(permission: Omit<AppliedRolePermission, 'sequen
       </template>
     </UDashboardToolbar>
 
-    <SFAdminFixedTabNav
-      :items="tabs"
-      :model-value="activeTab"
-      :ariaLabel="t('admin.roles.tabs.label')"
-      @update:model-value="setActiveTab"
-    />
+    <div class="flex w-full min-w-0 flex-col gap-4">
+      <SFAdminFixedTabNav
+        :items="tabs"
+        :model-value="activeTab"
+        :ariaLabel="t('admin.roles.tabs.label')"
+        @update:model-value="setActiveTab"
+      />
 
-    <KeepAlive>
-      <SFAdminRoleGroupsTab
-        v-if="activeTab === 'groups'"
-        ref="activePanelRef"
-        :search="search"
-        :applied-permission="appliedPermission"
-      />
-      <SFAdminRoleApprovalsTab
-        v-else
-        ref="activePanelRef"
-        @permission-applied="recordAppliedPermission"
-      />
-    </KeepAlive>
+      <KeepAlive>
+        <SFAdminRoleGroupsTab
+          v-if="activeTab === 'groups'"
+          ref="activePanelRef"
+          :search="search"
+          :applied-permission="appliedPermission"
+        />
+        <SFAdminRoleApprovalsTab
+          v-else
+          ref="activePanelRef"
+          @permission-applied="recordAppliedPermission"
+        />
+      </KeepAlive>
+    </div>
   </div>
 </template>

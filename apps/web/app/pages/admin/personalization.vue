@@ -88,18 +88,21 @@ async function refreshActive() {
 </script>
 
 <template>
-  <div class="flex w-full min-w-0 flex-col gap-4">
-    <div><h2 class="flex items-center gap-2 text-xl font-bold"><UIcon :name="adminPage.icon" class="size-5 text-[var(--sf-accent)]" />{{ t('admin.personalization.title') }}</h2><p class="text-sm text-muted">{{ t('admin.personalization.intro') }}</p></div>
-    <UDashboardToolbar class="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900">
+  <div class="w-full min-w-0">
+    <div class="mb-4 flex flex-col gap-1"><h2 class="flex items-center gap-2 text-xl font-bold"><UIcon :name="adminPage.icon" class="size-5 text-[var(--sf-accent)]" />{{ t('admin.personalization.title') }}</h2><p class="text-sm text-muted">{{ t('admin.personalization.intro') }}</p></div>
+    <UDashboardToolbar class="mb-6 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900">
       <template #left><div class="flex items-center gap-2 text-sm"><UIcon name="i-lucide-swatch-book" class="size-4" /><span>{{ t('admin.personalization.toolbar') }}</span></div></template>
       <template #right><UButton color="neutral" variant="outline" leading-icon="i-lucide-refresh-cw" :loading="toolbarPending" @click="refreshActive">{{ t('admin.personalization.refresh') }}</UButton></template>
     </UDashboardToolbar>
-    <UAlert v-if="canManageSiteChrome" color="primary" variant="soft" icon="i-lucide-sparkles" :title="t('admin.siteChrome.recommendedTitle')" :description="t('admin.siteChrome.recommendedBody')" />
-    <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-triangle-alert" :title="t('admin.personalization.loadFailed')" />
-    <SFAdminFixedTabNav v-if="tabs.length" :items="tabs" :model-value="activeTab" :ariaLabel="t('admin.personalization.tabs.label')" @update:model-value="setActiveTab" />
-    <KeepAlive v-if="tabs.length">
-      <component :is="activeComponent" :key="activeTab" ref="childRef" :items="adminOptions || []" @saved="applySavedOptions" />
-    </KeepAlive>
-    <UAlert v-else color="warning" variant="soft" icon="i-lucide-lock" :title="t('admin.personalization.noAccessTitle')" :description="t('admin.personalization.noAccessBody')" />
+
+    <div class="flex w-full min-w-0 flex-col gap-4">
+      <UAlert v-if="canManageSiteChrome" color="primary" variant="soft" icon="i-lucide-sparkles" :title="t('admin.siteChrome.recommendedTitle')" :description="t('admin.siteChrome.recommendedBody')" />
+      <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-triangle-alert" :title="t('admin.personalization.loadFailed')" />
+      <SFAdminFixedTabNav v-if="tabs.length" :items="tabs" :model-value="activeTab" :ariaLabel="t('admin.personalization.tabs.label')" @update:model-value="setActiveTab" />
+      <KeepAlive v-if="tabs.length">
+        <component :is="activeComponent" :key="activeTab" ref="childRef" :items="adminOptions || []" @saved="applySavedOptions" />
+      </KeepAlive>
+      <UAlert v-else color="warning" variant="soft" icon="i-lucide-lock" :title="t('admin.personalization.noAccessTitle')" :description="t('admin.personalization.noAccessBody')" />
+    </div>
   </div>
 </template>
