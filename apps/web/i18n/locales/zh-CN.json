@@ -587,6 +587,101 @@
     }
   },
   "admin": {
+    "badges": {
+      "actions": {
+        "cancel": "取消",
+        "delete": "删除",
+        "disable": "停用",
+        "disableLabel": "停用徽章 {name}",
+        "edit": "编辑",
+        "editLabel": "编辑徽章 {name}",
+        "enable": "启用",
+        "enableLabel": "启用徽章 {name}",
+        "grant": "授予",
+        "grantLabel": "授予徽章 {name}",
+        "save": "保存",
+        "toggleLabel": "切换徽章 {name} 的启用状态"
+      },
+      "columns": {
+        "actions": "操作",
+        "enabled": "启用",
+        "grantMode": "授予方式",
+        "grantedCount": "已授予",
+        "group": "分组",
+        "name": "名称",
+        "rule": "规则",
+        "tier": "等级"
+      },
+      "confirmDeleteBody": "删除后无法恢复。已授予该徽章的记录会一并删除，用户资料页的最高徽章也会被清空。",
+      "confirmDeleteTitle": "确认删除",
+      "create": "新建徽章",
+      "disabled": "徽章功能已关闭。请在「站点设置 → 产品开关」中开启后再管理。",
+      "empty": "还没有徽章。",
+      "forbidden": "你没有查看徽章后台的权限。",
+      "form": {
+        "createTitle": "新建徽章",
+        "description": "说明",
+        "editTitle": "编辑徽章",
+        "enabled": "启用",
+        "grantMode": "授予方式",
+        "group": "分组",
+        "icon": "图标",
+        "metric": "指标",
+        "name": "名称",
+        "saveFailed": "徽章保存失败，请稍后重试。",
+        "slug": "标识",
+        "slugHint": "只保留小写字母、数字与连字符；下划线与空格会转成连字符。编辑时该字段锁定。",
+        "threshold": "阈值",
+        "tier": "等级"
+      },
+      "grant": {
+        "automaticNotGrantable": "自动徽章按规则判定，不能手动授予。",
+        "failed": "徽章授予失败，请稍后重试。",
+        "reason": "授予理由",
+        "reasonPlaceholder": "可选，例如：活动奖励",
+        "submit": "授予",
+        "title": "授予徽章",
+        "user": "用户",
+        "userPlaceholder": "用户名"
+      },
+      "grantMode": {
+        "automatic": "自动",
+        "manual": "手动"
+      },
+      "intro": "管理徽章目录与授予规则。自动徽章按活跃度指标判定，手动徽章由管理员授予。",
+      "loadFailed": "徽章列表加载失败。",
+      "metrics": {
+        "bookmark_count": "收藏数",
+        "comment_count": "回复数",
+        "days_visited": "访问天数",
+        "like_received_count": "获赞数",
+        "topic_count": "主题数"
+      },
+      "recompute": {
+        "action": "重算授予",
+        "confirm": "确认重算"
+      },
+      "refresh": "刷新",
+      "rule": {
+        "metricThreshold": "{metric} 达到 {threshold} 时授予",
+        "none": "无规则（手动授予）"
+      },
+      "title": "徽章",
+      "toast": {
+        "created": "徽章已创建。",
+        "deleteFailed": "徽章删除失败，请稍后重试。",
+        "deleted": "徽章已删除。",
+        "disabled": "徽章已停用。",
+        "enabled": "徽章已启用。",
+        "granted": "徽章已授予该用户。",
+        "recomputeChanged": "本次影响 {count} 个用户。",
+        "recomputeFailed": "徽章重算失败，请稍后重试。",
+        "recomputeStarted": "已开始重算徽章授予。",
+        "saveFailed": "徽章保存失败，请稍后重试。",
+        "updated": "徽章已更新。"
+      },
+      "toolbar": "全部徽章"
+    },
     "shell": {
       "brand": "SForum",
       "section": "控制台",
@@ -3492,6 +3587,16 @@
           "description": "创建、审批、禁用标签，并配置标签策略。"
         }
       },
+      "badge": {
+        "view": {
+          "label": "查看徽章",
+          "description": "查看徽章目录与授予记录（后台徽章页的只读视图）。后台入口本身仍要求「访问后台」权限：单给这一项不会让人进入后台。"
+        },
+        "manage": {
+          "label": "管理徽章",
+          "description": "创建、修改、停用与删除徽章；创建、修改与删除徽章分组；手动授予与收回徽章；执行全量重算。不含只读浏览，需要同时授予「查看徽章」才能看到徽章页。"
+        }
+      },
       "topic": {
         "create": {
           "label": "发布主题",
@@ -4549,7 +4654,42 @@
         "description": "五档阈值按累计行为判定，保存后即时生效；阈值为 0 表示该指标不参与该档判定。",
         "tl0Hint": "TL0 由「新人限制」页决定，此处只读。",
         "restoreDefaults": "恢复推荐默认",
-        "restoreHint": "恢复默认只重置五档的阈值与限额。用户的等级会按新阈值重新判定；已获得的徽章与已发布的内容不受影响。",
+        "restoreHint": "恢复默认只重置五档的阈值。每档限额与能力解锁勾选保持不变；用户的等级会按新阈值重新判定，已获得的徽章与已发布的内容不受影响。",
+        "earnable": {
+          "title": "能力解锁（按档新增）",
+          "baseline": {
+            "title": "默认安装下这是空操作",
+            "text": "默认安装下，这些权限键已经由默认用户组授予，所有人都有：此时勾选任何档位，用户实际拿到的权限都不变，能力来源仍记为「用户组」而不是「等级」。勾选只对「用户组里没有这个键」的用户生效。要让等级解锁真正起作用，先在「权限管理」里把该键从用户组移除，再回来勾选。"
+          },
+          "note": "勾选某档的权限键，只表示该档新增解锁；该档及以上各档同时获得，不需要在更高档重复勾选。",
+          "count": "新增项 {checked}/{total}",
+          "empty": "当前所有档位都没有新增解锁：能力仍由用户组静态授予决定，这是推荐默认状态，不是错误。勾选任意一项即开始按等级解锁。",
+          "loading": "正在读取可勾选的权限键…",
+          "readOnly": {
+            "title": "当前账号只能查看",
+            "description": "修改信任等级需要「信任等级管理」权限。这里的勾选与保存都已禁用；需要修改请联系有该权限的管理员。"
+          },
+          "aria": {
+            "cell": "{level} 新增解锁：{permission}",
+            "cumulative": "该档及以上各档同时解锁"
+          },
+          "loadFailed": {
+            "title": "可勾选的权限键读取失败",
+            "description": "矩阵已锁定，避免在没有白名单时误改配置。现在保存不会改动能力解锁配置，阈值仍会正常保存。",
+            "reason": "失败原因：{reason}",
+            "retry": "重试",
+            "locked": "矩阵不可用"
+          },
+          "orphan": {
+            "title": "有 {count} 个已存键不在白名单内",
+            "description": "这些键会被后端拒绝，保存时会从对应档位移除：{keys}"
+          }
+        },
+        "disabled": {
+          "title": "信任等级功能已关闭",
+          "description": "功能开关关闭时保存仍会成功，但等级判定与公开接口不会生效（前台返回 404）。要启用请先在站点设置中打开信任等级开关。"
+        },
+
         "zeroUnlimited": "0 表示该指标不参与本档判定。",
         "resetChanges": "已重置信任等级阈值更改",
         "level": {

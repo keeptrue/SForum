@@ -44,6 +44,17 @@ func (p *ProfileProvider) WithTrustLevelReader(reader profile.TrustLevelReader) 
 	return p
 }
 
+// WithActivityCounters 注入公开行为计数（获赞 / 访问天数）。
+//
+// 适配器留在装配层：Profile 只认最小接口，Badges 的 SQL 不在 Profile 里复制。
+// 未注入时两个计数为 0，与本次接线之前逐字节等价。
+func (p *ProfileProvider) WithActivityCounters(reader profile.ActivityCountersReader) *ProfileProvider {
+	if p != nil && p.service != nil {
+		p.service.WithActivityCounters(reader)
+	}
+	return p
+}
+
 func (p *ProfileProvider) WithNicknameEditor(editor profile.NicknameEditor) *ProfileProvider {
 	if p != nil && p.service != nil {
 		p.service.WithNicknameEditor(editor)

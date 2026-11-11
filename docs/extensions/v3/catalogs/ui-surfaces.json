@@ -970,6 +970,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sfadmin_trust_level_earnable_matrix",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_earnable_matrix@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelEarnableMatrix.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_trust_levels_tab",
     "contractVersion": "sforum.component.admin.sfadmin_trust_levels_tab@1",
     "kind": "component",

@@ -1,7 +1,6 @@
 package optionscontroller
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -47,7 +46,7 @@ func (h *Controller) listPublic(c fiber.Ctx) error {
 func (h *Controller) getPublic(c fiber.Ctx) error {
 	option, err := h.service.Get(c.Context(), c.Params("name"))
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, option)
 }
@@ -60,7 +59,7 @@ func (h *Controller) listAdmin(c fiber.Ctx) error {
 
 	options, err := h.service.ListAdmin(c.Context(), actor)
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, options)
 }
@@ -81,7 +80,7 @@ func (h *Controller) update(c fiber.Ctx) error {
 		Value: req.Value,
 	})
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, option)
 }
@@ -104,7 +103,7 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 
 	updated, err := h.service.UpdateMany(c.Context(), actor, inputs)
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, updated)
 }
@@ -116,7 +115,7 @@ func (h *Controller) listFeatures(c fiber.Ctx) error {
 	}
 	items, err := h.service.ListFeatureFlagsAdmin(c.Context(), actor)
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, map[string]any{
 		"items":   items,
@@ -146,7 +145,7 @@ func (h *Controller) updateFeatures(c fiber.Ctx) error {
 	}
 	updated, err := h.service.UpdateMany(c.Context(), actor, inputs)
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, updated)
 }
@@ -158,7 +157,7 @@ func (h *Controller) restoreFeatureDefaults(c fiber.Ctx) error {
 	}
 	updated, err := h.service.RestoreFeatureFlagDefaults(c.Context(), actor)
 	if err != nil {
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return apphttp.OK(c, updated)
 }
@@ -169,15 +168,4 @@ func (h *Controller) sessionUserID(c fiber.Ctx) (int64, bool, error) {
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
 	return apphttp.LoadActor(c, h.sessions, h.users)
-}
-
-func mapOptionsError(err error) error {
-	switch {
-	case errors.Is(err, identity.ErrPermissionDenied):
-		return fiber.NewError(fiber.StatusForbidden, "permission.denied")
-	case errors.Is(err, options.ErrInvalidOption):
-		return fiber.NewError(fiber.StatusUnprocessableEntity, options.CodeInvalid)
-	default:
-		return err
-	}
 }

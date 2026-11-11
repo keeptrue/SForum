@@ -77,6 +77,8 @@ Can(perm) = super_admin 绕过
 **不做 `trust.view`**：可达性依赖 `admin.access` 的读权限是死权限（`badge.view` 的
 教训），后台读页复用 `admin.access`。
 
+> 订正（2026-11-11）：本条的前提「`badge.view` 是死权限」已被实测推翻（`core_catalog_gen.go:44` 守卫 + `adminModules.ts:229` 侧栏），见 `modules/trust-levels.md` 与 `reports/2026-11-11-trust-level-earnable-audit.md` §6。结论不变：不做 `trust.view`。
+
 ### D10 五档命名
 
 TL0 新成员 / TL1 成员 / TL2 常驻 / TL3 资深 / TL4 领袖，zh-CN + en-US 双语，

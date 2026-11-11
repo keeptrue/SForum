@@ -2,12 +2,12 @@
 
 [← Usage](./README.md)
 
-> **Status: live (verified 2026-11-10).** The five-tier evaluation, the threshold
-> policy, the load-time merge, the product flag, and the admin threshold tab
-> ("Settings → Trust levels") are all implemented and wired: **saving thresholds
-> immediately changes tier evaluation and per-tier limits**. Only the public surface
-> level query endpoint is live too; the **only** thing still missing is the profile
-> level card (its data source is not connected). See "Not shipped yet" at the end.
+> **Status: live (verified 2026-11-11).** The five-tier evaluation, the threshold
+> policy, the load-time merge, the product flag, the admin threshold tab
+> ("Settings → Trust levels"), the public level query endpoint, and the profile level
+> card are all implemented and wired: **saving thresholds immediately changes tier
+> evaluation and per-tier limits**. Earned capability unlocking is off by default and
+> must be configured per tier by the operator — see "Turning on earned capabilities".
 
 ## In one sentence
 
@@ -122,10 +122,42 @@ that tier.
 evaluation and posting limits are one chain, no longer split in two — raising a
 threshold demotes users below it, lowering it promotes users who now qualify.
 
-**The unlock-set editor is not available yet.** Threshold read/write was frozen
-first and the unlock-set API shape is not final, so the admin currently offers no
-permission checklist; the set is empty by default, meaning nobody gains extra
-permissions from activity.
+**Earned capability unlocking lives on the same page and is off by default.** See
+the next section — the set is empty by default, so on a default install nobody gains
+extra permissions from activity.
+
+## Turning on earned capabilities
+
+Path: **Admin → Settings → the "Trust levels" tab** (the same page as the
+thresholds), where you tick unlockable permission keys per tier.
+
+**Empty by default is the normal state.** On a default install no tier unlocks any
+permission; tiers only affect limits and display. The default `member` role already
+holds all 7 unlockable keys, so turning the list on without touching roles changes
+nobody's capability — to see an effect you must also remove that key from the role
+(that is role management, not this page). The unlockable range and the "can never be
+unlocked" boundary are in "No permissions are unlocked by default".
+
+Three things you must know:
+
+**1. Ticking is cumulative.** Ticking a key for one tier unlocks it for that tier
+**and every tier above it**. Ticking "create topics" for TL2 gives it to TL3 and TL4
+as well. Read the list as "what this tier **adds**", not "what this tier has"; to give
+something to the top tier only, tick it there only.
+
+**2. TL0 does not participate.** TL0 behaviour comes from the seven newcomer-limit
+keys; the unlock list has no effect on TL0.
+
+**3. All-zero thresholds mean "everyone qualifies".** A tier is reached only when
+**all** its metrics are met, and `0` means that metric does not participate. Setting
+every metric of a tier to `0` means **every user satisfies that tier** — zero-activity
+accounts land in it directly and receive every capability that tier has accumulated.
+That is a structural consequence, not a bug: `0` means "not evaluated", not "this tier
+is disabled". (The account-age gate still applies: accounts inside the newcomer trust
+window reach at most TL1.)
+
+Saving takes effect immediately. Unticking a key removes that earned capability at the
+next request load; the tier itself does not drop because of it.
 
 ## Restoring defaults
 
@@ -166,19 +198,18 @@ their current semantics.
 earned and the admin cannot select it; those capabilities carry privilege without
 matching audit.
 
-## Not shipped yet
+## Outward-facing behavior
 
-- **Profile level card**: the component is mounted in the right rail, but its data
-  source is not connected, so **no card is visible** today.
-
-Two outward-facing behaviors worth knowing:
+Two things worth knowing:
 
 - **The level query endpoint does not return limits.** The public response carries the
   tier and metric progress only, never per-tier cooldowns or daily caps — publishing
   those would hand rate-limit parameters to everyone. Limits appear only on the admin
   read surface.
-- Admin thresholds, the public level endpoint, and per-tier limits are all live; the
-  missing card does not affect them.
+- **The profile level card shows other people the tier only.** On someone else's
+  profile you see their tier, not progress or bottleneck: the bottleneck may sit on
+  "likes given" or "bookmarks", and neither count is public. The progress bar appears
+  only on your own profile.
 
 ## Related
 

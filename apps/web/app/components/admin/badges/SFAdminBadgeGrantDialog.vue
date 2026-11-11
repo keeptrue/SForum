@@ -82,7 +82,7 @@ async function submit() {
           <UFormField :label="t('admin.badges.grant.reason')" :error="fieldErrors.reason?.[0]">
             <UTextarea v-model="reason" :rows="2" class="w-full" :placeholder="t('admin.badges.grant.reasonPlaceholder')" />
           </UFormField>
-          <p v-if="!manual" class="text-sm text-amber-600 dark:text-amber-400">{{ t('admin.badges.grant.alreadyGranted') }}</p>
+          <p v-if="!manual" class="text-sm text-amber-600 dark:text-amber-400">{{ t('admin.badges.grant.automaticNotGrantable') }}</p>
           <p v-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
         </div>
 

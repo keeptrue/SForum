@@ -10,8 +10,8 @@ import (
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
-	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
@@ -23,6 +23,7 @@ type Service struct {
 	nicknames      NicknameEditor
 	bookmarks      BookmarkLister
 	trustLevels    TrustLevelReader
+	activityCounts ActivityCountersReader
 }
 
 // TrustLevelReader 读某个用户的信任等级（装配层用 identity store 实现）。
@@ -30,6 +31,26 @@ type Service struct {
 // 只返回数字与是否已解析：资料页是**他人视角**，不得携带任何行为计数。
 type TrustLevelReader interface {
 	TrustLevelFor(ctx context.Context, userID int64) (int, bool, error)
+}
+
+// ActivityCountersReader 读公开资料页的两个行为计数（获赞 / 访问天数）。
+//
+// 只允许这两个计数：like_given_count 与 bookmark_count 是刻意不公开的窥探面（D1），
+// 任何对**他人**的响应都不得包含它们。实现由装配层提供并复用 badges 的活动统计
+// 读入口，Profile 不写第二份 SQL。
+type ActivityCountersReader interface {
+	PublicActivityCountersFor(ctx context.Context, userID int64) (PublicActivityCounters, error)
+}
+
+// WithActivityCounters 注入公开行为计数来源（链式可选）。
+//
+// 未注入时两个计数保持 0，与本次接线之前逐字节等价——装配层漏接会表现为
+// 「资料页恒显示 0 获赞」，所以 bootstrap 的两处装配都有对应测试。
+func (s *Service) WithActivityCounters(reader ActivityCountersReader) *Service {
+	if s != nil {
+		s.activityCounts = reader
+	}
+	return s
 }
 
 // WithTrustLevelReader 注入信任等级读取（链式可选）。未注入时资料页不带等级卡，
@@ -126,6 +147,15 @@ func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string
 	if err != nil {
 		return PublicProfile{}, err
 	}
+	// 公开行为计数与 stats 同源同姿态：读失败就整页失败。宁可报错也不返回 0，
+	// 「恒显示 0 获赞」看起来像真的，比缺字段更难被发现（K-04 的原始症状）。
+	counters := PublicActivityCounters{}
+	if s.activityCounts != nil {
+		counters, err = s.activityCounts.PublicActivityCountersFor(ctx, user.UserID)
+		if err != nil {
+			return PublicProfile{}, err
+		}
+	}
 	recent, err := s.store.ListRecentTopics(ctx, user.UserID, 5)
 	if err != nil {
 		return PublicProfile{}, err
@@ -141,17 +171,19 @@ func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string
 		return PublicProfile{}, err
 	}
 	view := PublicProfile{
-		UserID:        user.UserID,
-		Username:      user.Username,
-		DisplayName:   user.DisplayName,
-		Profile:       profile,
-		TopicCount:    stats.TopicCount,
-		CommentCount:  stats.CommentCount,
-		RecentTopics:  recent,
-		Activities:    activities,
-		JoinedAt:      user.JoinedAt,
-		ExtensionTabs: tabs,
-		TrustLevel:    trustLevel,
+		UserID:            user.UserID,
+		Username:          user.Username,
+		DisplayName:       user.DisplayName,
+		Profile:           profile,
+		TopicCount:        stats.TopicCount,
+		CommentCount:      stats.CommentCount,
+		LikeReceivedCount: counters.LikeReceivedCount,
+		DaysVisited:       counters.DaysVisited,
+		RecentTopics:      recent,
+		Activities:        activities,
+		JoinedAt:          user.JoinedAt,
+		ExtensionTabs:     tabs,
+		TrustLevel:        trustLevel,
 	}
 	// 曾用名是可选公开面：运营没打开时这里什么都不返回，公开页也不会多一行。
 	if s.nicknames != nil {

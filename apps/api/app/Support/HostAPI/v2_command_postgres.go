@@ -61,6 +61,25 @@ func NewPostgresProtocolV2HostCommandBackend(pool *pgxpool.Pool) *PostgresProtoc
 	}
 }
 
+// WithTrustLevelSource 在 **wrapper 上重新声明**，并返回 wrapper 本身。
+//
+// 这不是重复代码，是结构约束：`WithTrustLevelSource` 同时定义在被嵌入的
+// PostgresProtocolV2CommandBackend 上、返回中性类型。Go 的方法提升会让
+//
+//	NewPostgresProtocolV2HostCommandBackend(pool).WithTrustLevelSource(src)
+//
+// 返回**中性 backend**，于是 newProtocolV2CommandEngineWithInvalidationJobs 拿到的是
+// 不做 host_commands 授权检查的那个实现 —— 闸门静默失效（f63ad2cf9 引入的 P0：
+// 任何已启用扩展都能执行权益等域命令）。重新声明后链式写法只能得到 wrapper，
+// 「记住别这么写」变成「这么写不出来」。
+func (b *PostgresProtocolV2HostCommandBackend) WithTrustLevelSource(source identity.TrustLevelSource) *PostgresProtocolV2HostCommandBackend {
+	if b == nil {
+		return nil
+	}
+	b.PostgresProtocolV2CommandBackend.WithTrustLevelSource(source)
+	return b
+}
+
 func (b *PostgresProtocolV2CommandBackend) Begin(ctx context.Context) (pgx.Tx, error) {
 	if b == nil || b.pool == nil || ctx == nil {
 		return nil, errors.New("hostapi: PostgreSQL command backend is unavailable")

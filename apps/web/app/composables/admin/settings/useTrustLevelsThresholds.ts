@@ -1,3 +1,5 @@
+import { computed, ref } from 'vue'
+import { apiErrorReason, useApiClient } from '~/composables/useApiClient'
 import type { AdminWebOption } from '~/composables/useWebOptions'
 import {
   TRUST_LEVEL_METRIC_KEYS,
@@ -75,7 +77,7 @@ export type TrustLevelLimits = {
 
 export type TrustLevelRequirements = Record<string, number>
 
-/** 表单模型：阈值可编辑；limits / earnable 本刀不提供编辑器，但要原样带回。 */
+/** 表单模型：阈值与 earnable 可编辑；limits 本刀不提供编辑器，但要原样带回。 */
 export type TrustLevelsForm = {
   requirements: Record<string, TrustLevelRequirements>
   limits: Record<string, TrustLevelLimits>
@@ -147,6 +149,132 @@ function normalizeLimits(raw: unknown): TrustLevelLimits {
 function normalizeEarnable(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   return raw.filter((key): key is string => typeof key === 'string' && key.trim().length > 0)
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * earnable 白名单
+ *
+ * 唯一真相是 Go 的 `earnableWhitelist`（`app/Models/TrustLevels/registry.go`），
+ * 前端唯一的数据源是后台读面 `GET /admin/trust-levels` 的 `eligiblePermissions`。
+ * 这里**不许**出现那七个权限键的字面量：硬编码一份就是第二份副本，两份迟早漂移，
+ * 而漂移的表现是「UI 能勾、保存 422」——最贵的那种 bug。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 后台读面路径（`useApiClient` 自己补 `/api/v1` 前缀，这里不写绝对地址）。 */
+export const TRUST_LEVEL_ADMIN_READ_PATH = '/admin/trust-levels'
+
+export type TrustLevelWhitelistStatus = 'idle' | 'loading' | 'ready' | 'failed'
+
+export type TrustLevelWhitelistState = {
+  status: TrustLevelWhitelistStatus
+  /**
+   * 仅在 `status === 'ready'` 时有意义。
+   * `failed` 时同样是 `[]` —— 所以**禁止**用「keys 为空」判断「没有可勾的键」，
+   * 那是把失败当空（T22）。
+   */
+  keys: string[]
+  /** `failed` 的原因：后端 `reason`，或 `invalid_response` / `request_failed`。 */
+  error: string | null
+}
+
+export function idleTrustLevelWhitelist(): TrustLevelWhitelistState {
+  return { status: 'idle', keys: [], error: null }
+}
+
+/**
+ * 解析 `eligiblePermissions`。
+ *
+ * 返回值刻意三态：**非法形状 → `null`**、空数组 → `[]`、正常 → 键数组（去重、保序）。
+ * 顺序即 UI 展示顺序（J-02），所以不做排序，只去重。
+ */
+export function parseEligiblePermissions(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null
+  const keys: string[] = []
+  for (const entry of raw) {
+    if (typeof entry !== 'string' || entry.trim().length === 0) return null
+    if (!keys.includes(entry)) keys.push(entry)
+  }
+  return keys
+}
+
+export type TrustLevelAdminReadOutcome =
+  | { ok: true, body: unknown }
+  | { ok: false, error: unknown }
+
+/**
+ * 把一次读面收敛成状态。四态互不冒充：
+ * 请求失败（`failed` + reason）、响应形状非法（`failed` + `invalid_response`）、
+ * 白名单真的为空（`ready` + `[]`）、正常（`ready` + 键）。
+ */
+export function resolveTrustLevelWhitelist(outcome: TrustLevelAdminReadOutcome): TrustLevelWhitelistState {
+  if (!outcome.ok) {
+    return { status: 'failed', keys: [], error: apiErrorReason(outcome.error) || 'request_failed' }
+  }
+  const body = (outcome.body && typeof outcome.body === 'object' ? outcome.body : {}) as Record<string, unknown>
+  const keys = parseEligiblePermissions(body.eligiblePermissions)
+  if (!keys) return { status: 'failed', keys: [], error: 'invalid_response' }
+  return { status: 'ready', keys, error: null }
+}
+
+/** 白名单净化：丢掉白名单外的键、去重，并按白名单顺序排列。 */
+export function sanitizeEarnableKeys(keys: readonly string[], whitelist: readonly string[]): string[] {
+  const selected = new Set(keys)
+  return whitelist.filter(key => selected.has(key))
+}
+
+/** 白名单外（或已失效）的键：UI 用它披露「保存会移除这些键」，而不是静默丢数据。 */
+export function unknownEarnableKeys(keys: readonly string[], whitelist: readonly string[]): string[] {
+  const allowed = new Set(whitelist)
+  return [...new Set(keys.filter(key => !allowed.has(key)))]
+}
+
+/** 某档的 earnable 键。`noUncheckedIndexedAccess` 下模板里双下标会 TS2532，统一走这里。 */
+export function earnableKeys(form: TrustLevelsForm, level: number): string[] {
+  return form.earnable[String(level)] ?? []
+}
+
+/**
+ * 切换「某档**新增**某键」——纯函数，返回新表单，不改入参。
+ *
+ * 累积语义由后端 `Earnable.Grants()` 负责（勾 TL2 = TL2 及以上全部解锁），
+ * 这里**只**记该档新增，绝不把低档已勾的键复制到高档——复制会造出第二套语义。
+ * 非可编辑档（TL0）与白名单外的键一律拒绝：返回等值副本，不报错（fail-closed）。
+ */
+export function toggleEarnableKey(
+  form: TrustLevelsForm,
+  level: number,
+  key: string,
+  whitelist: readonly string[]
+): TrustLevelsForm {
+  const next = cloneTrustLevelsForm(form)
+  if (!(TRUST_LEVEL_EDITABLE_LEVELS as readonly number[]).includes(level)) return next
+  if (!whitelist.includes(key)) return next
+  const levelKey = String(level)
+  const current = next.earnable[levelKey] ?? []
+  const toggled = current.includes(key) ? current.filter(entry => entry !== key) : [...current, key]
+  next.earnable[levelKey] = sanitizeEarnableKeys(toggled, whitelist)
+  return next
+}
+
+/** 整表净化：每档的键都保留（`[]` 也保留），只清掉白名单外的键。 */
+export function sanitizeEarnableForm(form: TrustLevelsForm, whitelist: readonly string[]): TrustLevelsForm {
+  const next = cloneTrustLevelsForm(form)
+  for (const level of TRUST_LEVEL_EDITABLE_LEVELS) {
+    const levelKey = String(level)
+    next.earnable[levelKey] = sanitizeEarnableKeys(next.earnable[levelKey] ?? [], whitelist)
+  }
+  return next
+}
+
+/**
+ * 保存时该不该带白名单：**只有 `ready` 才带**。
+ *
+ * `idle` / `loading` / `failed` 一律返回 `undefined` = 走 `trustLevelsPayload` 的「原样带回」，
+ * 因为此时我们并不知道哪些键合法。把「读不到白名单」当成「白名单为空」会在保存时
+ * 静默清空运营已配好的能力解锁——那是一次没有报错的数据丢失。
+ */
+export function earnableWhitelistForSave(state: TrustLevelWhitelistState): readonly string[] | undefined {
+  return state.status === 'ready' ? state.keys : undefined
 }
 
 /**
@@ -239,19 +367,30 @@ export function readTrustLevelsConfig(map: Record<string, AdminWebOption>): Trus
 /**
  * 序列化为 `saveMany` 的载荷：单键 JSON、`schemaVersion`、`levels` 数组、TL1–TL4。
  * 形状以 `apps/api/app/Models/TrustLevels/config.go` 为准；那边改字段名时只改本函数。
+ *
+ * 传了 `whitelist` 就先按白名单净化（白名单外的键不发出去——后端会拒，前端不该发）。
+ * 不传 = 原样带回：白名单没读到时我们无法判断哪些键合法，此时**不许**凭空丢弃已存配置。
+ *
+ * T23：`earnable` **必须每档都出现**且是数组。
+ * `[]` = 该档无新增（合法）；省略 = `DecodeConfig` 直接 422（`len(RawMessage)==0`）。
+ * `null` 后端也当空集，但前端不写 `null`——形态越少，往返越不会漂。
  */
-export function trustLevelsPayload(form: TrustLevelsForm): Array<{ name: string, value: string }> {
+export function trustLevelsPayload(
+  form: TrustLevelsForm,
+  whitelist?: readonly string[]
+): Array<{ name: string, value: string }> {
   const levels = TRUST_LEVEL_EDITABLE_LEVELS.map(level => {
     const key = String(level)
     const requirements: Record<string, number> = {}
     for (const metric of TRUST_LEVEL_THRESHOLD_METRICS) {
       requirements[metric.suffix] = form.requirements[key]?.[metric.suffix] ?? 0
     }
+    const stored = form.earnable[key] ?? []
     return {
       levelSlug: TRUST_LEVEL_SLUGS[level],
       requirements,
       limits: form.limits[key] ?? { ...EMPTY_LIMITS },
-      earnable: form.earnable[key] ?? []
+      earnable: whitelist ? sanitizeEarnableKeys(stored, whitelist) : stored
     }
   })
   return [{
@@ -264,4 +403,39 @@ export function trustLevelsPayload(form: TrustLevelsForm): Array<{ name: string,
 export function blockNonIntegerKey(event: KeyboardEvent) {
   const allowed = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End']
   if (!allowed.includes(event.key) && !event.metaKey && !event.ctrlKey && !/^\d$/.test(event.key)) event.preventDefault()
+}
+
+/**
+ * 后台白名单读面（M10）。
+ *
+ * 失败**不**回落成空矩阵：`state.status === 'failed'` 时矩阵必须整块不可编辑 + 常驻错误条，
+ * 因为空矩阵在运营眼里等于「后端说没有可勾的键」，那是谎（T22）。
+ * 组件侧用 `isEditable` 决定能否勾选、`state.error` 决定错误条文案、`state.keys` 决定列。
+ */
+export function useTrustLevelEarnableWhitelist(
+  /**
+   * 传输层注入点（只给测试用）：不传就走 `useApiClient()`。
+   * 测试要断言的是「开关关闭时一次请求都不发」，那只能数真实请求次数，
+   * 不能靠替换整个状态机（那是让测试断言自己的实现）。
+   */
+  requestOverride?: (path: string) => Promise<unknown>
+) {
+  const request = requestOverride ?? useApiClient().request
+  const state = ref<TrustLevelWhitelistState>(idleTrustLevelWhitelist())
+  const isEditable = computed(() => state.value.status === 'ready')
+  const pending = computed(() => state.value.status === 'loading')
+
+  async function load(): Promise<TrustLevelWhitelistState> {
+    state.value = { status: 'loading', keys: [], error: null }
+    let outcome: TrustLevelAdminReadOutcome
+    try {
+      outcome = { ok: true, body: await request<unknown>(TRUST_LEVEL_ADMIN_READ_PATH) }
+    } catch (error) {
+      outcome = { ok: false, error }
+    }
+    state.value = resolveTrustLevelWhitelist(outcome)
+    return state.value
+  }
+
+  return { state, isEditable, pending, load }
 }

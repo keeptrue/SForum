@@ -337,13 +337,17 @@ func TestProductionLifecycleStackPublishesSealedCoreQueryCatalog(t *testing.T) {
 		t.Fatalf("core artifact = %#v", artifact)
 	}
 	publication, found := stack.QueryRegistry.SnapshotPublication(hostapi.QueryRegistryCoreExtensionID)
-	// 稳定目录条数 tripwire：新增 stable query 必须显式抬这个数（与目录密封摘要互为双保险）。
-	coreQueryCount := 12 + len(hostapi.ShortcodeProjectionQueryIDs())
-	if !found || publication.Artifact != artifact || len(publication.Queries) != coreQueryCount {
+	// 稳定目录 tripwire：期望是字面集合（sealedCoreQueryCatalogIDs，与
+	// Controllers/Extensions/query_catalog_test.go 的清单同源，改一处必须改另一处），
+	// 与目录密封摘要互为双保险。新增 stable query 必须同批改那份清单。
+	// 先判存在与制品，再交给 assertSealedCoreQueryCatalogIDs：那条里点名徽章在前、
+	// 总数在后。若把总数比较写回这个 if，删掉一条徽章查询时总数会先红，点名句永远不可达。
+	if !found || publication.Artifact != artifact {
 		t.Fatalf("core publication = %#v found=%t", publication, found)
 	}
+	assertSealedCoreQueryCatalogIDs(t, publicationQueryIDs(publication.Queries))
 	snapshot := stack.QueryRegistry.Snapshot()
-	if snapshot.Revision == 0 || snapshot.SafeMode || len(snapshot.Publications) != 1 || len(snapshot.Queries) != coreQueryCount {
+	if snapshot.Revision == 0 || snapshot.SafeMode || len(snapshot.Publications) != 1 || len(snapshot.Queries) != len(sealedCoreQueryCatalogIDs) {
 		t.Fatalf("startup query snapshot = %#v", snapshot)
 	}
 
@@ -440,9 +444,10 @@ func assertProductionLifecycleCoreQueryPreserved(
 ) {
 	t.Helper()
 	publication, found := stack.QueryRegistry.SnapshotPublication(hostapi.QueryRegistryCoreExtensionID)
-	if !found || publication.Artifact != wantArtifact || len(publication.Queries) != 12+len(hostapi.ShortcodeProjectionQueryIDs()) {
+	if !found || publication.Artifact != wantArtifact {
 		t.Fatalf("core query publication after restore = %#v found=%t want=%#v", publication, found, wantArtifact)
 	}
+	assertSealedCoreQueryCatalogIDs(t, publicationQueryIDs(publication.Queries))
 	if stack.QueryCoreCatalog.Artifact() != wantArtifact {
 		t.Fatalf("stack catalog artifact drifted after restore: %#v", stack.QueryCoreCatalog.Artifact())
 	}

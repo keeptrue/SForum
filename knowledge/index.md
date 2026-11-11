@@ -8,7 +8,7 @@ load archived sessions or completed plans as current context.
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
-- Status: **in progress（M1–M4 已落地含公开面；M5 进行中；M8 最终表 124 行 ok 75 / 未实现 49 / FAIL 0；提交历史：`f63ad2cf9`（代码）+ 紧随其后的 docs 提交（证据升级））**。
+- Status: **in progress（M1–M4 已落地含公开面；M5 资料页等级卡已接线（2026-11-11 09:21 实测，见下）；M9–M13 收尾进行中（M10 earnable 编辑器已落地）；M8 最终表 124 行 ok 75 / 未实现 49 / FAIL 0；提交历史：`f63ad2cf9`（代码）+ 紧随其后的 docs 提交（证据升级））**。
   在既有 RBAC 之上叠一层按累计行为自动升降的能力层：TL 在**装载期**合并进
   `Actor.Permissions`（`Can()` 零改动，D13），装载公式
   `effective = Expand(static) ∪ (earned ∖ denied)`（D14）；现有「新人信任阶梯」
@@ -16,10 +16,14 @@ load archived sessions or completed plans as current context.
   **默认 earnable = ∅**，权限解锁是运营开启的框架能力，不是开箱行为。
   M1/M2 已落地并**已装配**（`bootstrap/api_assembly_domains.go:321`）、`features.trust_levels`
   五处注册已齐、M3 已收编新人阶梯（等级与限额均生效）；M4 公开面已落地（catalog 409 = 405 +
-  4 条信任等级路由、OpenAPI path 文件在、公开响应不含 `limits`）；仅资料页等级卡数据源仍恒
-  `null`（M5）。施工细节与中间态看 handoff。
-- Handoff：`sessions/2026-11-10-trust-levels.md`；模块：`modules/trust-levels.md`；
-  计划：`plans/2026-11-10-trust-levels.md`（§3 决断 D1–D26、§10 陷阱 T1–T19）；
+  4 条信任等级路由、OpenAPI path 文件在、公开响应不含 `limits`）。施工细节与中间态看 handoff。
+  （M5 依据，2026-11-11 09:21 实测：`useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`，
+  `SFProfileShowPage.vue:110` 传 `profile.value?.trustLevel`；`rg -n "useTrustLevel" apps/web/app`。
+  本行按「删过期否定句、不补新肯定句」改，证据留在模块笔记。）
+- Handoff：`sessions/2026-11-11-trust-levels-closing.md`（hot；上一刀 handoff 已归档到
+  `sessions/archive/2026-11/`）；模块：`modules/trust-levels.md`；
+  计划：`plans/2026-11-10-trust-levels.md`（§3 决断 D1–D32、§10 陷阱 T1–T19）+
+  `plans/2026-11-11-trust-levels-closing.md`（M9–M13 收尾、D33）；
   统计地基：`modules/badges.md`。
 - **动工前先读 handoff 的「计划 ≠ 代码」三条**：`LoadActor` 实测 4 次基线查询（计划写 2，
   且 `created_at`/`kind` 已合并进装载期，TL 再加 1 次 activity 读 → 4→5）、deny 的真实位置在

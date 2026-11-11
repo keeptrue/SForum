@@ -3941,7 +3941,7 @@
     "handler": "getAdmin",
     "method": "GET",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:73",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:72",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -3959,7 +3959,7 @@
     "handler": "updateAdmin",
     "method": "PUT",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:74",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:73",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -3977,7 +3977,7 @@
     "handler": "restoreDefaults",
     "method": "POST",
     "path": "/api/v1/admin/trust-levels/restore-defaults",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:75",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:74",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -6671,7 +6671,7 @@
     "handler": "getPublic",
     "method": "GET",
     "path": "/api/v1/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:72",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:71",
     "access": "public",
     "policy": "trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled",
     "guard": {

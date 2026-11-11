@@ -2,7 +2,6 @@ package trustlevelscontroller
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -154,6 +153,9 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 		return err
 	}
 	var request adminUpdateRequest
+	// 分工：请求体绑定失败属于传输层（JSON 坏、字段类型不符），这里就地回 422
+	// `validation.invalid`；它**不经过** apphttp.MapOptionsError，因为那条路上没有
+	// options 领域错误可映射。领域错误（含写库失败）一律走 MapOptionsError。
 	if err := c.Bind().Body(&request); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "validation.invalid")
 	}
@@ -168,9 +170,10 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "trust_levels.encode_failed")
 	}
 	if err := h.save(c.Context(), actor, encoded); err != nil {
-		// 诊断用：422 把三类原因压成一个码，这里保留原始 err。
+		// 原始 err 只进日志，不进行响应：apphttp.MapOptionsError 负责把
+		// 输入错误（422）与写库失败（500）分开，运维看状态码就知道该改配置还是查库。
 		slog.WarnContext(c.Context(), "trust_levels save failed", "userId", actor.ID, "error", err)
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return h.getAdmin(c)
 }
@@ -182,7 +185,7 @@ func (h *Controller) restoreDefaults(c fiber.Ctx) error {
 	}
 	if err := h.save(c.Context(), actor, recommendedConfig()); err != nil {
 		slog.WarnContext(c.Context(), "trust_levels restore defaults failed", "userId", actor.ID, "error", err)
-		return mapOptionsError(err)
+		return apphttp.MapOptionsError(err)
 	}
 	return h.getAdmin(c)
 }
@@ -280,22 +283,4 @@ func recommendedConfig() string {
 		return ""
 	}
 	return encoded
-}
-
-// mapOptionsError 把 options 层的错误压成 HTTP 状态。
-//
-// 注意：**422 `validation.invalid` 不等于「校验失败」**。options.Update 里任何非权限
-// 错误（归一化、isValidValueSet(merged)、store 写入）都会落到这一条，所以排查时
-// 必须看原始 err（save 处已打日志），不能只看状态码。
-//
-// 已知缺陷（residual，本刀不修）：
-//   - 若将来要区分，应给 ErrInvalidOption 单独一个 reason（如 `options.invalid_value`），
-//     而不是全部映射到 `validation.invalid`；
-//   - store 写入失败是**服务端错误**，应当是 500。现在它伪装成客户端参数错误，
-//     运维会去改参数而不是查库。
-func mapOptionsError(err error) error {
-	if errors.Is(err, identity.ErrPermissionDenied) {
-		return fiber.NewError(fiber.StatusForbidden, "permission.denied")
-	}
-	return fiber.NewError(fiber.StatusUnprocessableEntity, "validation.invalid")
 }

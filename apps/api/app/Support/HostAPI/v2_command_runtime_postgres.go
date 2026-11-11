@@ -64,8 +64,13 @@ func NewPostgresProtocolV2CommandRuntime(config PostgresProtocolV2CommandRuntime
 	}
 	definitions = append(definitions,
 		newProtocolV2AttachmentExtensionCommandDefinitions(config.AttachmentExtensions, config.TrustLevels)...)
+	// 两步写死：wrapper 必须原样进引擎。链式调用曾经在这里把 wrapper 换成中性
+	// backend，host_commands 授权闸门因此静默失效（f63ad2cf9 的 P0）。wrapper 上的
+	// WithTrustLevelSource 现在返回 wrapper，但这里仍写显式两步，读的人不必推理方法提升。
+	hostBackend := NewPostgresProtocolV2HostCommandBackend(config.Pool)
+	hostBackend.PostgresProtocolV2CommandBackend.WithTrustLevelSource(config.TrustLevels)
 	engine, err := newProtocolV2CommandEngineWithInvalidationJobs(
-		NewPostgresProtocolV2HostCommandBackend(config.Pool).WithTrustLevelSource(config.TrustLevels),
+		hostBackend,
 		config.ActorDelegations,
 		config.Jobs,
 		definitions...,

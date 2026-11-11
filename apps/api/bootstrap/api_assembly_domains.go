@@ -415,7 +415,10 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		// 适配器留在装配层，Forum 与 Profile 之间没有直接 import。
 		WithBookmarkLister(providers.NewForumBookmarkLister(forumProvider.BookmarkService())).
 		// 公开资料页等级卡：他人视角只有 level + levelSlug（不带任何行为计数）。
-		WithTrustLevelReader(identityStore)
+		WithTrustLevelReader(identityStore).
+		// 公开行为计数（获赞 / 访问天数）：复用 badges 的 user_activity 读入口，
+		// Profile 侧不写第二份 SQL。漏接会表现为「资料页恒显示 0 获赞」。
+		WithActivityCounters(profileActivityCounters{store: badgeActivityStore})
 	moderationReadModels, _ := forumCachedStore.(moderation.DecisionReadModelInvalidator)
 	moderationProvider := providers.NewModerationWorkbenchProviderWithIndexer(moderationStore, forumStore, identityStore, authSessions, searchIndexer, moderationReadModels)
 	// AI 网关：默认关闭，未启用前不产生任何出站调用。密钥只以 Secret Store
@@ -543,7 +546,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		TopicEventLinks: providers.NewForumTopicEventLinkResolver(optionsService),
 	})
 	pageProfileService := profile.NewServiceWithAvatar(profileStore, avatarAttachmentService, optionsService).
-		WithProfileTabs(providers.NewExtensionProfileTabProvider(extensionService))
+		WithProfileTabs(providers.NewExtensionProfileTabProvider(extensionService)).
+		// 主题渲染的资料页与 JSON 端点取同一份计数，否则两个入口会给出两套数字。
+		WithActivityCounters(profileActivityCounters{store: badgeActivityStore})
 	// 徽章：公开资料页徽章墙 + 后台 12 条。读 badge.view / 写 badge.manage 由生成的
 	// route catalog 守卫声明；features.badges 关闭时由 controller 返回 forum.badges_disabled。
 	badgesStore := badges.NewPostgresStore(pool)

@@ -63,15 +63,20 @@ type Profile struct {
 
 // PublicProfile 是公开资料页聚合：用户摘要 + 资料 + 统计 + 近期公开主题。
 type PublicProfile struct {
-	UserID       int64                `json:"userId"`
-	Username     string               `json:"username"`
-	DisplayName  string               `json:"displayName"`
-	Profile      Profile              `json:"profile"`
-	TopicCount   int64                `json:"topicCount"`
-	CommentCount int64                `json:"commentCount"`
-	RecentTopics []forum.TopicSummary `json:"recentTopics"`
-	Activities   []ProfileActivity    `json:"activities"`
-	JoinedAt     time.Time            `json:"joinedAt"`
+	UserID       int64   `json:"userId"`
+	Username     string  `json:"username"`
+	DisplayName  string  `json:"displayName"`
+	Profile      Profile `json:"profile"`
+	TopicCount   int64   `json:"topicCount"`
+	CommentCount int64   `json:"commentCount"`
+	// LikeReceivedCount / DaysVisited 是**公开安全**的两个行为计数：
+	// D1 只禁 like_given_count 与 bookmark_count（窥探面），获赞与访问天数本就是
+	// 资料页要展示的社交事实。数据源是 user_activity，由装配层复用 badges 读入口。
+	LikeReceivedCount int64                `json:"likeReceivedCount"`
+	DaysVisited       int64                `json:"daysVisited"`
+	RecentTopics      []forum.TopicSummary `json:"recentTopics"`
+	Activities        []ProfileActivity    `json:"activities"`
+	JoinedAt          time.Time            `json:"joinedAt"`
 	// ExtensionTabs 来自 forum.profile.tabs 贡献（F4.3）；宿主渲染，无插件 HTML。
 	ExtensionTabs []ProfileExtensionTab `json:"extensionTabs,omitempty"`
 	// Nickname 只在自助端点（GET/PUT /profile）填充：公开资料页不需要暴露
@@ -85,6 +90,14 @@ type PublicProfile struct {
 	// PreviousDisplayNames 仅在运营开启 profile.nickname.history_public 时出现，
 	// 最多一条；它属于公开资料页，因此不会出现在自助响应里。
 	PreviousDisplayNames []string `json:"previousDisplayNames,omitempty"`
+}
+
+// PublicActivityCounters 是公开资料页允许展示的两个行为计数。
+//
+// 刻意只有两个字段：多一个 like_given_count 就破了 D1 的窥探面边界。
+type PublicActivityCounters struct {
+	LikeReceivedCount int64
+	DaysVisited       int64
 }
 
 // PublicTrustLevel 是资料页等级卡的载荷。

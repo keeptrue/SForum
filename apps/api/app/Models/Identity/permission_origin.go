@@ -44,7 +44,13 @@ func (a Actor) GrantSource(permission string) PermissionOrigin {
 		// 这个分支**可达**，而且是 earned 来源的唯一出口：已挣得键在装载期被并进
 		// Permissions，所以它也满足 hasExpandedPermission；只有它在 Earned 里时才说明
 		// 「没有静态授予，是靠等级挣到的」。删掉它会退化成所有能力都报 static。
-		// 可达性由 trust_levels_merge_test.go 的「已挣得独占」用例证明（删掉即红）。
+		// 可达性有两处证据，**不要**因为「看着不可达」删掉这个内层 if：
+		//   - permission_origin_test.go 的 TestGrantSourceLiteralOrigin
+		//     用例「等级挣得（Earned 独占）→ earned」：Permissions 与 Earned 同时含该键
+		//     （装载期不变量的真实形状），删掉内层 if 它会红；
+		//   - trust_levels_merge_test.go 的「已挣得独占」用例（Can 侧同构）。
+		// 另外 TestGrantSourceIsStaticForDefaultInstallWhitelistKeys 证明默认安装下
+		// 这条分支**不**命中（七键都是 static），两个方向都有断言。
 		if a.Earned[permission] {
 			return PermissionOriginEarned
 		}

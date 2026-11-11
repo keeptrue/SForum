@@ -2,6 +2,7 @@ package options
 
 import (
 	"errors"
+	"fmt"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
@@ -261,9 +262,27 @@ const (
 	NameNotificationModerationEmail = "notification.moderation.email"
 
 	CodeInvalid = "options.invalid"
+	// CodeInvalidValue 表示「值本身不合法」：没通过该键的归一化（格式/范围/类型）。
+	// 运营的修复动作是改这个值。
+	CodeInvalidValue = "options.invalid_value"
+	// CodeInvalidValueSet 表示「单值都合法，但与其余选项/枚举约束冲突」
+	// （isValidValueSet 拒绝，例如默认语言不在受支持语言列表内）。
+	// 运营的修复动作是对照另一项设置，而不是重填这一项。
+	CodeInvalidValueSet = "options.invalid_value_set"
+	// CodeStoreFailure 表示写库失败。它不是用户输入错误，HTTP 层必须回 500。
+	CodeStoreFailure = "options.store_failure"
 )
 
-var ErrInvalidOption = errors.New("options: invalid option")
+var (
+	ErrInvalidOption = errors.New("options: invalid option")
+	// ErrInvalidOptionValue 是 ErrInvalidOption 的细分：归一化失败。
+	// 仍然 wrap ErrInvalidOption，既有调用方的 errors.Is 判定不变。
+	ErrInvalidOptionValue = fmt.Errorf("%w: value failed normalization", ErrInvalidOption)
+	// ErrInvalidOptionSet 是 ErrInvalidOption 的细分：跨字段/枚举一致性拒绝。
+	ErrInvalidOptionSet = fmt.Errorf("%w: value set rejected", ErrInvalidOption)
+	// ErrStoreFailure 是写库失败（服务端错误，不是输入错误）。
+	ErrStoreFailure = errors.New("options: store failure")
+)
 
 type Option struct {
 	Name  string `json:"name"`

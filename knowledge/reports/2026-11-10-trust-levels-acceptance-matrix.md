@@ -2,7 +2,7 @@
 
 Source: `reports/2026-11-10-trust-levels-capability-map.md` §6 + lead 的 M4 端点清单
 Owner: pm（阿策）
-Status: **第二版（2026-11-10）**。第一版「怎么验」列写了 30 个**不存在的测试名**（小审实测：`-run` 匹配不到时退出码 0、输出 `ok`，等于 29 条永远绿）。本版所有测试名来自 `go test -list '.*'` 实测清单，并新增**证据规则**（§1.4）与**对照表**（§7）。124 条不变。
+Status: **第二版（2026-11-10）**。**2026-11-11 修订：I-16 判据不可满足，已改为 I-16a/I-16b（见 v3 §11 与本文件 §3 I 组后的留档），其余 123 条不变。** 第一版「怎么验」列写了 30 个**不存在的测试名**（小审实测：`-run` 匹配不到时退出码 0、输出 `ok`，等于 29 条永远绿）。本版所有测试名来自 `go test -list '.*'` 实测清单，并新增**证据规则**（§1.4）与**对照表**（§7）。总数仍 124 条（I-16 拆分后内部为 a/b 两条断言，ID 不增）。
 
 ---
 
@@ -263,12 +263,20 @@ for spec in "GET /trust-levels" "GET /admin/trust-levels" \
 | I-13 | ops | `POST …/restore-defaults` → 200 且回推荐值 | `I/I-13.json` |
 | I-14 | ops | `T: ^TestFeatureDisabledReturns404OnEveryRoute$ @ Controllers`（四条全枚举）+ §2.3 的 curl 循环 | `I/I-14-closed-404.txt` |
 | I-15 | ops | 404 body code 全为 `trust_levels.not_found` | `I/I-15.txt` |
-| I-16 | ops | 关→开切换后首个 GET：`has("viewer")==false` | `I/I-16.txt` |
+| **I-16（已修订 2026-11-11，见 v3 §11）** | ops | 原判据「关→开后首个 GET 无 `viewer`」**不可满足**（`LoadActor` 是请求级，恢复后首个请求必然已解析）。改为两条正面断言：**I-16a** 关闭期间任何请求无 `viewer`（引用 F3/I-15）；**I-16b** 恢复后首请求 `viewer` 在、`level ∈ {0..4}`、`bottleneck` 若存在则 `current < threshold`（**不在 shell 里重算档位**：等级 = 六项计数 + 账龄两段式，见 v3 §1.4） → 完整判据见 `2026-11-11-trust-levels-acceptance-matrix-v3.md` §11 | `I/I-16a.txt` + `I/I-16b.json` |
 | I-17/I-18 | ops | 匿名 admin GET → 401；普通 member → 403 `admin.access_required` | `I/I-17.txt` |
 | I-19/I-20 | ops | `newUserDays` == `trust.new_user_days`（改 14 → 重启 → 复读） | `I/I-19.txt` / `I/I-20.txt` |
 | I-21 | ops | `eligiblePermissions` 恰 7 键且不含 `trust.manage`（`TestEligiblePermissionsIsLiteralWhitelist` 佐证） | `I/I-21.json` |
 | I-22/I-23 | rev | 浏览器：restoreDefaults 只回填不自动保存；390×844 无横向溢出 | `I/I-22.png` / `I/I-23-390x844.png` |
 | I-24 | ops | PUT 后 `Q "SELECT value FROM options WHERE name='trust.levels'"` 与响应 `config` 逐字节相同（DB 依赖，需 isolated 或 dev 库） | `I/I-24.txt` |
+
+> **I-16 修订留档（2026-11-11）**：原判据与判据依据如下，**不再执行**，仅作历史证据。
+>
+> `I-16` ｜ ops ｜ 关→开切换后首个 GET：`has("viewer")==false` ｜ `I/I-16.txt`
+>
+> 错因：`viewer` 由 `apphttp.LoadActor` **每请求**装载（`auth_user.go:47`），开关恢复后首个请求即已解析态；
+> 「未解析」只存在于「装载时开关是关的」那个请求里，而那个请求已被 F3/I-15 的 404 覆盖。
+> jq 的 `.data` 层是对的——**错的是期望值，不是信封**。新判据见 v3 §11（I-16a / I-16b）。
 
 ---
 

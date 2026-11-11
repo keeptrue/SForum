@@ -102,7 +102,7 @@ async function runRecompute() {
     const changed = await recompute()
     toast.add({
       title: t('admin.badges.toast.recomputeStarted'),
-      description: changed > 0 ? String(changed) : undefined,
+      description: changed > 0 ? t('admin.badges.toast.recomputeChanged', { count: changed }) : undefined,
       color: 'success',
       icon: 'i-lucide-refresh-cw',
       duration: 5000

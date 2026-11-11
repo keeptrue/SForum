@@ -127,7 +127,10 @@ TrustLevelAdmin:
         "$ref": "#/TrustLevelDefinition"
     eligiblePermissions:
       type: array
-      description: 后台可勾选的权限键正白名单（只有七个内容创建/管理自己内容的键）。
+      description: |
+        后台可勾选的权限键正白名单（只有七个内容创建/管理自己内容的键）。
+        **顺序即 UI 展示顺序**（后台勾选矩阵按此顺序渲染），七键固定：增删必须同批改
+        前端矩阵、OpenAPI 与本字段的形状测试，不得在别处硬编码第二份副本。
       items:
         type: string
     recommendedConfig:

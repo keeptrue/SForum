@@ -547,6 +547,101 @@
     }
   },
   "admin": {
+    "badges": {
+      "actions": {
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "disable": "Disable",
+        "disableLabel": "Disable badge {name}",
+        "edit": "Edit",
+        "editLabel": "Edit badge {name}",
+        "enable": "Enable",
+        "enableLabel": "Enable badge {name}",
+        "grant": "Grant",
+        "grantLabel": "Grant badge {name}",
+        "save": "Save",
+        "toggleLabel": "Toggle badge {name} on or off"
+      },
+      "columns": {
+        "actions": "Actions",
+        "enabled": "Enabled",
+        "grantMode": "Grant mode",
+        "grantedCount": "Granted",
+        "group": "Group",
+        "name": "Name",
+        "rule": "Rule",
+        "tier": "Tier"
+      },
+      "confirmDeleteBody": "This cannot be undone. Grants of this badge are deleted and the top badge on user profiles is cleared.",
+      "confirmDeleteTitle": "Confirm delete",
+      "create": "New badge",
+      "disabled": "Badges are turned off. Turn them on under Settings → Feature flags to manage them.",
+      "empty": "No badges yet.",
+      "forbidden": "You do not have permission to view the badge admin.",
+      "form": {
+        "createTitle": "New badge",
+        "description": "Description",
+        "editTitle": "Edit badge",
+        "enabled": "Enabled",
+        "grantMode": "Grant mode",
+        "group": "Group",
+        "icon": "Icon",
+        "metric": "Metric",
+        "name": "Name",
+        "saveFailed": "The badge could not be saved. Try again in a moment.",
+        "slug": "Slug",
+        "slugHint": "Lowercase letters, digits, and hyphens only; underscores and spaces become hyphens. The field is locked while editing.",
+        "threshold": "Threshold",
+        "tier": "Tier"
+      },
+      "grant": {
+        "automaticNotGrantable": "Automatic badges are granted by rules and cannot be granted manually.",
+        "failed": "The badge could not be granted. Try again in a moment.",
+        "reason": "Reason",
+        "reasonPlaceholder": "Optional, e.g. event reward",
+        "submit": "Grant",
+        "title": "Grant badge",
+        "user": "User",
+        "userPlaceholder": "Username"
+      },
+      "grantMode": {
+        "automatic": "Automatic",
+        "manual": "Manual"
+      },
+      "intro": "Manage the badge catalog and grant rules. Automatic badges are evaluated from activity metrics; manual badges are granted by an admin.",
+      "loadFailed": "Badges could not be loaded.",
+      "metrics": {
+        "bookmark_count": "Bookmarks",
+        "comment_count": "Replies",
+        "days_visited": "Days visited",
+        "like_received_count": "Likes received",
+        "topic_count": "Topics"
+      },
+      "recompute": {
+        "action": "Recompute grants",
+        "confirm": "Confirm recompute"
+      },
+      "refresh": "Refresh",
+      "rule": {
+        "metricThreshold": "Granted when {metric} reaches {threshold}",
+        "none": "No rule (manual)"
+      },
+      "title": "Badges",
+      "toast": {
+        "created": "Badge created.",
+        "deleteFailed": "The badge could not be deleted. Try again in a moment.",
+        "deleted": "Badge deleted.",
+        "disabled": "Badge turned off.",
+        "enabled": "Badge turned on.",
+        "granted": "Badge granted to the user.",
+        "recomputeChanged": "{count} user(s) affected.",
+        "recomputeFailed": "Badges could not be recomputed. Try again in a moment.",
+        "recomputeStarted": "Recomputing badge grants.",
+        "saveFailed": "The badge could not be saved. Try again in a moment.",
+        "updated": "Badge updated."
+      },
+      "toolbar": "All badges"
+    },
     "shell": {
       "brand": "SForum",
       "section": "Control panel",
@@ -3452,6 +3547,16 @@
           "description": "Create, approve, disable tags, and manage tag policy."
         }
       },
+      "badge": {
+        "view": {
+          "label": "View badges",
+          "description": "View the badge catalog and grant records (the read-only view of the admin badges page). The admin area itself still requires the admin access permission, so this permission alone does not open it."
+        },
+        "manage": {
+          "label": "Manage badges",
+          "description": "Create, update, disable, and delete badges; create, update, and delete badge groups; grant and revoke manual badges; recompute top badges. It does not include the read-only view, so grant View badges as well to see the badges page."
+        }
+      },
       "topic": {
         "create": {
           "label": "Create topics",
@@ -4509,7 +4614,42 @@
         "description": "Thresholds are evaluated from cumulative activity and apply immediately after saving. A zero threshold means that metric does not participate for that level.",
         "tl0Hint": "TL0 is governed by the Newcomers tab and is read-only here.",
         "restoreDefaults": "Restore recommended defaults",
-        "restoreHint": "Restoring defaults resets only the thresholds and limits for the five levels. Users' levels are re-evaluated against the new thresholds; earned badges and published content are unaffected.",
+        "restoreHint": "Restoring defaults resets only the five levels' thresholds. Per-level limits and capability unlock checks are left unchanged. Users' levels are re-evaluated against the new thresholds; earned badges and published content are unaffected.",
+        "earnable": {
+          "title": "Capability unlocks (added per level)",
+          "baseline": {
+            "title": "No-op on a default install",
+            "text": "On a default install these keys are already granted by the default group, so every user has them: checking any level changes nothing they can actually do, and the grant source stays \"group\" rather than \"level\". Checks only affect users whose group does not include that key. To make level unlocks real, remove the key from the group under Permission Management first, then come back and check it."
+          },
+          "note": "A checked key is added at that level only. Every level above it inherits it, so higher levels do not need the same key checked again.",
+          "count": "Added items {checked}/{total}",
+          "empty": "No level adds any unlock yet. Capabilities still come from static group grants; this is the recommended default, not an error. Check any key to start unlocking by level.",
+          "loading": "Loading the eligible permission keys…",
+          "readOnly": {
+            "title": "Your account can view this only",
+            "description": "Changing trust levels requires the trust-level management permission. Checking and saving are disabled here; ask an administrator who holds it to make the change."
+          },
+          "aria": {
+            "cell": "Adds for {level}: {permission}",
+            "cumulative": "Unlocks at this level and above"
+          },
+          "loadFailed": {
+            "title": "Could not load the eligible permission keys",
+            "description": "The matrix is locked so the configuration cannot be edited without the whitelist. Saving now leaves capability unlocks untouched; thresholds still save normally.",
+            "reason": "Reason: {reason}",
+            "retry": "Retry",
+            "locked": "Matrix unavailable"
+          },
+          "orphan": {
+            "title": "{count} stored keys are outside the whitelist",
+            "description": "The backend rejects these keys; saving removes them from their levels: {keys}"
+          }
+        },
+        "disabled": {
+          "title": "Trust levels are turned off",
+          "description": "Saving still succeeds while the feature switch is off, but level evaluation and the public endpoints do not apply (the public API returns 404). Turn the trust levels switch on under site settings to enable it."
+        },
+
         "zeroUnlimited": "0 means this metric does not participate for this level.",
         "resetChanges": "Trust level threshold changes were reset",
         "level": {

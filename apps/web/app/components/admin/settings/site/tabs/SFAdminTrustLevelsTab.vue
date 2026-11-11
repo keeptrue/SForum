@@ -17,35 +17,80 @@
  */
 import type { AdminWebOption } from '~/composables/useWebOptions'
 import SFAdminFormFooter from '~/components/admin/SFAdminFormFooter.vue'
+import SFAdminTrustLevelEarnableMatrix from '~/components/admin/settings/site/tabs/SFAdminTrustLevelEarnableMatrix.vue'
 import { adminOptionMap, useAdminOptionTab } from '~/composables/admin/settings/useAdminOptionTab'
 import {
   blockNonIntegerKey,
   cloneTrustLevelsForm,
+  earnableWhitelistForSave,
   normalizeTrustLevelsForm,
   readTrustLevelsConfig,
   recommendedTrustLevelsForm,
   TRUST_LEVEL_EDITABLE_LEVELS,
   TRUST_LEVEL_ROWS,
   TRUST_LEVEL_THRESHOLD_METRICS,
+  toggleEarnableKey,
   trustLevelsPayload,
+  useTrustLevelEarnableWhitelist,
   type TrustLevelsForm
 } from '~/composables/admin/settings/useTrustLevelsThresholds'
+import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { trustLevelIcon, trustLevelSlug } from '~/composables/profile/useTrustLevel'
+import { normalizeEnabledOption } from '~/composables/useWebOptions'
 import { useSettingsSection } from '~/composables/settings/useSettingsSection'
 
 const props = defineProps<{ items: AdminWebOption[] }>()
 const emit = defineEmits<{ saved: [items: AdminWebOption[]] }>()
 const { t } = useI18n()
+const { can } = useAuthSession()
 const toast = useToast()
 const section = useSettingsSection()
 const { saveOptions } = useAdminOptionTab(items => emit('saved', items))
 const map = computed(() => adminOptionMap(props.items))
+/**
+ * 写权限是 `trust.manage`。只有 `admin.access` 的账号（moderator / tech_admin）能进这个 tab、
+ * 能读、能编辑，**保存才 403** —— 所以这里必须提前禁用，不能让运营白填一遍。
+ */
+const canManage = computed(() => can('trust.manage'))
+/**
+ * R1：`PUT /admin/web-options` 不查 feature flag（只校 `trust.manage`），
+ * 所以关闭 `features.trust_levels` 后保存照样成功、前台却 404。这里只做提示，不改后端行为。
+ * 值取自本页已有的 admin options，复用 `normalizeEnabledOption`，不另写一套开关解析。
+ */
+const trustLevelsEnabled = computed(() => {
+  const raw = map.value['features.trust_levels']?.value
+  return raw === undefined ? true : normalizeEnabledOption(raw, true)
+})
 
 const initial = ref<TrustLevelsForm>(recommendedTrustLevelsForm())
 const form = ref<TrustLevelsForm>(recommendedTrustLevelsForm())
 const hasChanges = computed(() => JSON.stringify(form.value) !== JSON.stringify(initial.value))
 
 watch(() => props.items, resetFromItems, { immediate: true })
+
+/**
+ * 白名单（矩阵的可勾集合）与表单状态**分开存**：
+ * 阈值回填绝不等这个请求——多一个往返就多一次「表单卡住」的机会，而阈值编辑与白名单无关。
+ * 唯一数据源是后台读面的 `eligiblePermissions`（前端零硬编码，T22）。
+ */
+const { state: whitelistState, load: loadWhitelist } = useTrustLevelEarnableWhitelist()
+
+/**
+ * 开关关闭时**不发**这个请求（`status` 停在 idle）。
+ * 后端 `requireAdmin` 先判开关，关掉时 `/admin/trust-levels` 必然 404 —— 发了只会多一条
+ * 与「功能已关闭」重复的错误条。同一原因只允许一条 alert：关闭态由顶部那条说清。
+ * 这也与 D31「开关必须在调用 resolver 之前短路」同一条理由：关掉的功能不花查询。
+ */
+function maybeLoadWhitelist() {
+  if (!trustLevelsEnabled.value) return
+  void loadWhitelist()
+}
+
+onMounted(maybeLoadWhitelist)
+// 保存后 items 变了：表单照旧回填，白名单顺带刷新（权限目录可能随版本变化）。
+watch(() => props.items, maybeLoadWhitelist)
+// 开关在本页被打开时补读一次：否则矩阵会停在 idle（既不是失败也不是就绪）。
+watch(trustLevelsEnabled, enabled => { if (enabled) void loadWhitelist() })
 
 function resetFromItems() {
   const config = readTrustLevelsConfig(map.value)
@@ -54,14 +99,23 @@ function resetFromItems() {
 }
 
 async function save() {
+  // 没有写权限时按钮已禁用；这里再挡一次，避免 Enter 提交绕过。
+  if (!canManage.value) return
   await section.runSave({
     successTitle: t('admin.settings.saved'),
     failureTitle: t('admin.settings.saveFailed'),
     prepare: () => {
       form.value = normalizeTrustLevelsForm(form.value)
     },
-    save: () => saveOptions(trustLevelsPayload(form.value))
+    // 白名单只在 ready 时传给载荷层：读不到就原样带回已存配置，绝不当成「白名单为空」清空它。
+    save: () => saveOptions(trustLevelsPayload(form.value, earnableWhitelistForSave(whitelistState.value)))
   })
+}
+
+/** 矩阵只发意图，表单归本组件所有：切完的键按白名单序落在该档，不跨档复制（Permissions 语义）。 */
+function toggleEarnable(level: number, key: string) {
+  if (!canManage.value || whitelistState.value.status !== 'ready') return
+  form.value = toggleEarnableKey(form.value, level, key, whitelistState.value.keys)
 }
 
 function resetChanges() {
@@ -120,6 +174,20 @@ function setThreshold(level: number, suffix: string, value: string | number) {
       </template>
 
       <div class="space-y-5">
+        <!--
+          R1：功能开关关闭时后端 PUT 不拦（只校 trust.manage），保存会成功但前台 404、等级不生效。
+          这里只做提示，不改后端行为（改行为是另一刀）。
+        -->
+        <UAlert
+          v-if="!trustLevelsEnabled"
+          color="warning"
+          variant="soft"
+          icon="i-lucide-power-off"
+          :title="t('admin.settings.trustLevels.disabled.title')"
+          :description="t('admin.settings.trustLevels.disabled.description')"
+          data-sf-trust-levels-disabled
+        />
+
         <!-- D12 唯一披露点：runRestore 无确认框，这句必须常驻，不能改成 Toast。 -->
         <div class="flex flex-wrap items-start justify-between gap-3">
           <UAlert color="neutral" variant="soft" icon="i-lucide-info" :title="t('admin.settings.trustLevels.restoreHint')" class="flex-1" />
@@ -179,18 +247,20 @@ function setThreshold(level: number, suffix: string, value: string | number) {
 
         <p class="text-xs text-muted">{{ t('admin.settings.trustLevels.zeroUnlimited') }}</p>
 
-        <!--
-          D17 的 earnable 编辑入口留位：能力解锁集合的 API 形状未定稿（M4 只冻结阈值读写），
-          这里刻意不画勾选矩阵 —— 画了就是与后端能力映射表并列的第二套真相。
-          后端契约到位后，在本行下方插入 `<SFAdminTrustLevelsEarnable />`（每档一组复选框，
-          数据源为 `trust.levels.levels[].earnable`，几何沿用同一 UCard body）。
-          注意：即使没有编辑器，保存也必须把已存在的 `earnable` 原样带回（见 trustLevelsPayload）。
-        -->
+        <SFAdminTrustLevelEarnableMatrix
+          v-if="trustLevelsEnabled"
+          :form="form"
+          :whitelist="whitelistState"
+          :can-manage="canManage"
+          @toggle="toggleEarnable"
+          @retry="loadWhitelist"
+        />
       </div>
 
       <template #footer>
         <SFAdminFormFooter
           :saving="section.saving.value"
+          :disabled="!canManage"
           :show-unsaved-alert="hasChanges"
           :submit-text="t('admin.settings.save')"
           @reset="resetChanges"

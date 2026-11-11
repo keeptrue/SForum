@@ -69,6 +69,8 @@ PublicProfile:
   - profile
   - topicCount
   - commentCount
+  - likeReceivedCount
+  - daysVisited
   - recentTopics
   - activities
   - joinedAt
@@ -88,6 +90,17 @@ PublicProfile:
     commentCount:
       type: integer
       format: int64
+    likeReceivedCount:
+      type: integer
+      format: int64
+      description: |
+        获赞数（user_activity.like_received_count）。公开安全：D1 只禁 like_given_count 与
+        bookmark_count 这两个窥探面。始终出现在响应里（不省略、不为 null）。
+    daysVisited:
+      type: integer
+      format: int64
+      description: |
+        访问天数（user_activity.days_visited，同日只计一次）。公开安全，始终出现在响应里。
     recentTopics:
       type: array
       items:

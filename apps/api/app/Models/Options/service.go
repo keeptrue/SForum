@@ -505,7 +505,7 @@ func (s *Service) UpdateMany(ctx context.Context, actor identity.Actor, inputs [
 
 		value, ok := normalizeOptionValue(name, input.Value)
 		if !ok {
-			return nil, ErrInvalidOption
+			return nil, ErrInvalidOptionValue
 		}
 		if name == NameSiteURL && value == "" {
 			merged[name] = s.defaults[NameSiteURL]
@@ -516,7 +516,7 @@ func (s *Service) UpdateMany(ctx context.Context, actor identity.Actor, inputs [
 	}
 
 	if !isValidValueSet(merged) {
-		return nil, ErrInvalidOption
+		return nil, ErrInvalidOptionSet
 	}
 
 	storedInputs := make([]UpdateInput, 0, len(pending))
@@ -542,12 +542,12 @@ func (s *Service) UpdateMany(ctx context.Context, actor identity.Actor, inputs [
 	// preserving the existing behavior of ordinary option stores.
 	if batchStore, ok := s.store.(BatchUpsertStore); ok {
 		if _, err := batchStore.UpsertMany(ctx, storedInputs); err != nil {
-			return nil, err
+			return nil, storeFailure(err)
 		}
 	} else {
 		for _, input := range storedInputs {
 			if _, err := s.store.Upsert(ctx, input); err != nil {
-				return nil, err
+				return nil, storeFailure(err)
 			}
 		}
 	}

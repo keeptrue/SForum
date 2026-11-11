@@ -13,8 +13,8 @@
 
 ## Current Status
 
-**M1–M4 已落地（M4 含公开面）；M5 进行中（资料页等级卡数据源未接）；M6–M8 未完成。**
-（2026-11-10 全量对拍复核，逐条在真实代码上验证。）
+**M1–M5 已落地（M5 = 资料页等级卡，2026-11-11 09:21 复核）；M6–M8 未完成；M9–M13 收尾进行中（M10 earnable 编辑器已落地，2026-11-11 09:40 实测组件在树）。**
+（2026-11-10 全量对拍复核 + 2026-11-11 09:21 对拍 M5 收口，逐条在真实代码上验证。）
 
 | 结论 | 证据 |
 | --- | --- |
@@ -27,14 +27,15 @@
 | **开关五处已注册** | `Options/feature_flags.go:35`（常量）/ `:63`（definitions）/ `:82`（catalog）/ `:97`（推荐默认）/ `:130`（结构体字段）+ `:153`（读取）；归一化分支在 `service_normalize.go`；前端已消费（`useWebOptions.ts`） |
 | **M3 已落地** | `Forum/service_trust_limits.go:23` `limitsForActor`（**不是** `service_ops.go:514`——那是调用点）、`:101` `resolveLimit`、`:63` `newUserLimits`、`:83` `levelLimits`；适配器 `Providers/forum.go:273` `TrustPolicyAdapter.LevelLimits` |
 | 阈值配置 | `Options/trust_level_options.go`：单键 `trust.levels` + `DecodeConfig` 严格解码；`DefaultPolicy()` 已与 PM 定稿表逐值一致（复核见 `reports/2026-11-10-trust-levels-doc-audit.md` C1） |
-| 后台页 | `pages/admin/settings/index.vue` 的 `trustLevels` tab + `SFAdminTrustLevelsTab.vue` + `useTrustLevelsThresholds.ts`；**earnable 无编辑器**（值原样带回，M4/M5 再补） |
+| 后台页 | `pages/admin/settings/index.vue` 的 `trustLevels` tab + `SFAdminTrustLevelsTab.vue` + `useTrustLevelsThresholds.ts`；**earnable 编辑器 = `SFAdminTrustLevelEarnableMatrix.vue`（M10 已落地）**；白名单来自后台读面 `eligiblePermissions`（前端零硬编码），`?? []` 兜底不能改成 `?? null` |
 | 公开面已落地（M4） | 4 条路由进 catalog（`core_catalog_gen.go` 计数 409 = 405 + 1 公开 + 3 后台）、OpenAPI `contracts/openapi/paths/trust_levels.yaml` 在、`Http/Controllers/TrustLevels/controller_test.go` 在。**公开响应不含 `limits`**（`dto.go`：`Limits` 带 `omitempty`，注释写明「只在后台读面出现」——公开「某档冷却 60 秒」等于泄露限流参数） |
-| 资料页等级卡未接 | 组件已在 `SFProfileRightRail.vue` 挂载，但 `useTrustLevel.ts` 的数据源仍是 `() => null`，所以现在看不到（M5 待办） |
-| M5–M8 未完成 | 前端展示接线、验收断言、性能实测、独立验收 |
+| 资料页等级卡已接线（M5 收口） | `useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`；`SFProfileShowPage.vue:110` 传 `computed(() => profile.value?.trustLevel)`，`SFProfileRightRail.vue:74` 消费（2026-11-11 09:21 复核） |
+| M6–M8 未完成 | 验收断言、性能实测、独立验收（M13 收尾中，见 `../sessions/2026-11-11-trust-levels-closing.md`） |
 
 配套文档：计划 `../plans/2026-11-10-trust-levels.md`（§3 决断 D1–D32、§10 陷阱 T1–T19、
 §13 修订记录）；统计地基 `../modules/badges.md`；handoff
-`../sessions/2026-11-10-trust-levels.md`；作废说法底账
+`../sessions/2026-11-11-trust-levels-closing.md`（当前 hot）+
+`../sessions/archive/2026-11/2026-11-10-trust-levels.md`（上一刀，已归档）；作废说法底账
 `../reports/2026-11-10-trust-level-superseded-claims.md`。
 
 **纪律**：本文件每写一条实现断言，要么带路径+行号，要么写 `TODO(核实)`。不要因为计划里写了
@@ -281,8 +282,19 @@ rg -o "\.Can\(" -g '*.go' | wc -l                    # 280（含测试）
 super_admin + Down 回收）、前端 `apps/web/app/config/roleTemplates.ts:69`。
 奇偶校验 `TestEverySeededPermissionReachesTheDatabase` 覆盖「seeds 有、迁移没有」。
 
-**不做 `trust.view`**（D9）：上一刀的教训是 `badge.view` 成了死权限（可达性依赖
-`admin.access`），后台读页复用 `admin.access` + 只读展示。
+**不做 `trust.view`**（D9）：后台读面复用 `admin.access` + 只读展示。论证**不是**
+「`badge.view` 是死权限」——那条前提已被 2026-11-11 实测推翻（见下），现行论证是：
+`trust.manage` 已经有**四道门**（页面 `admin.access` / 侧栏 `settings.site.manage` /
+读 `admin.access` / 写 `trust.manage`，证据 `core_catalog_gen.go:231-233` +
+`adminModules.ts:111-116`），再补一个 `trust.view` 只会造出**第五个权限位**，而读面本来
+就被 `admin.access` 覆盖；新增一个权限位的成本（seeds + 迁移 + 权限目录 + 前端登记点 +
+可达性审计）大于收益。
+
+> **订正（2026-11-11 09:30）**：父计划 §6 用「`badge.view` 是死权限」来论证
+> 「权限可达性有前提」，该前提**不成立**：`badge.view` 在 `core_catalog_gen.go:44` 有守卫、
+> 在 `adminModules.ts:229` 被侧栏消费（本文件作者 09:28 复核同款结论）。
+> **结论保留**（不做 `trust.view`），论证链按上一段重写。父计划作为历史证据**不改**；
+> 详见 researcher 审计 §6。顺带提醒：`badge.view` 是活权限，别在别处再当反例用。
 
 ## Extension Surface
 
@@ -298,7 +310,7 @@ super_admin + Down 回收）、前端 `apps/web/app/config/roleTemplates.ts:69`�
 明确**不做**（计划 §9）：等级专属徽章联动、等级影响搜索权重/排序、
 `trust_level` 反规范化列与后台重算按钮、阅读类指标、提名/晋升审批。
 
-## 登记点：新增后台 tab 或公开组件是 **8 处**，不是 6 处
+## 登记点：新增后台 tab 或公开组件是 **9 处**，不是 6 处
 
 V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件在
 `docs/extensions/v3/catalog-identities.json` 有 reviewed identity，**缺失时直接抛错**
@@ -314,24 +326,39 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 | 6 | 两份 locale 的 i18n 键（`zh-CN.json` / `en-US.json`） |
 | 7 | `docs/extensions/v3/catalog-identities.json` 的 reviewed identity |
 | 8 | 生成产物里的 catalog 条目（由生成器写入，`--check` 会红） |
+| 9 | `tests/validate-admin-framework.ts` 的 `adminPagePathsById` 映射（**新增后台页**才需要，新增 tab 不需要）——漏了是门禁红 |
 
 漏 #1–#4 的后果是**静默回落**（tab 不显示或回落到 `basic`）；漏 #7 的后果是**生成器
-抛错**，比静默温和，但同样挡提交。别按「6 处」记。
+抛错**，比静默温和，但同样挡提交；漏 #9 的后果是静态门禁直接红
+（`Admin module registry points to an unknown page id`）。别按「6 处」记。
+
+**#1–#4 与 #9 按「页面形态」二选一，不是全都要：**
+
+| 形态 | 需要 | 不需要 | 例子 |
+| --- | --- | --- | --- |
+| **设置页内的 tab**（组件，没有独立 page id） | #5–#8 | #1–#4、#9 | 本刀的 `SFAdminTrustLevelsTab.vue` / `SFAdminTrustLevelEarnableMatrix.vue` |
+| **独立后台页**（`adminModules.ts` 里有自己的 `id`，且有对应 `pages/admin/**` 文件） | #5–#9（#1–#4 不适用） | #1–#4 | 徽章的 `pages/admin/badges.vue` + `id: '/badges'` |
+
+判据只有一条：`adminModules.ts` 里有没有它的 `id`。有 `id` 就必须同时补
+`adminPagePathsById` 一行（否则门禁红），并把 `pages/admin/<id>.vue` 写进
+`definePageMeta({ layout: 'admin' })` + `defineOptions({ name: '<componentName>' })`
++ `useAdminPage('<id>')`。**没有 `id` 的 tab 不要往那张表里加**——加了一张没有对应
+registry 条目的映射是死行。
 
 ## Known Residuals（不要当 bug 修）
 
-1. **M1–M4 已落地（含公开面），M5 进行中，M6–M8 未完成。** 别再按「未接线 / 端点不存在」
-   理解现状：等级与限额都已生效，公开等级接口已有路由。唯一还「看起来能用其实不能用」的是
-   资料页等级卡——组件在，数据源恒 `null`（见残留 17）。
+1. **M1–M5 已落地（含公开面与资料页等级卡），M6–M8 未完成。** 别再按「未接线 / 端点不存在」
+   理解现状：等级、限额、公开等级接口、资料页等级卡都已生效。
 2. **父键展开出的子键被 deny 后会被加回**（既有怪癖，本刀不修）。deny 一个由父权限展开出来
    的子键（持有父键时），`ListUserPermissions` 把它标成不生效，但
    `ExpandEffectivePermissions` 随后按父键重新加回。修它会改变既有静态语义，另开一刀。
 3. **`trust.new_user.forbid_attachments` 是死配置，运营勾了无效。** 值会存、后台会显示、
    `Options.TrustPolicy.ForbidAttachments` 也读出来，但**没有消费者**：`limitsForActor` 只读
    `forbid_links`。D20 裁决本刀不接线（接线是运行时行为变更，会破坏 F 组基线）。
-   这是第二个 `badge.view`，别在文档里写成生效的开关。
+   别在文档里写成生效的开关（「存下来但没人读」是这类配置的共同形状）。
 4. **默认 earnable = ∅**，所以「TL2 解锁发帖」在默认安装里不存在。权限解锁是运营开启的框架
-   能力（D17 要求必须有编辑入口，否则机制是死代码）。
+   能力（D17 要求必须有编辑入口，否则机制是死代码）。裁决见
+   `../decisions/2026-11-11-trust-level-earnable.md`（D33：走 A 路补编辑器，默认空集不变）。
 5. **TL1–TL4 默认限额 = 站点默认**（D27：`null` = 继承，全档默认继承）。站点默认冷却与日限额
    都是 `0`，所以默认安装只有 TL0 与 TL1+ 之间有差异。
 6. **`LoadActor` 的查询基线是 4 次**（主查询 + 角色 + 权限 + `created_at`/`kind` 合并读），
@@ -378,9 +405,9 @@ V3 目录的生成器 `scripts/v3-catalog/generate.mjs` 要求每个新增组件
 16. **限额已改为显式存储（D27）**：哨兵是 JSON `null`（`*int` + nil），**不是 0**——0 在限额里
     有语义（免冷却）。编码/解码两侧都要有 null 往返测试，否则后台表单会把 null 丢成 0，那是
     一次静默策略变更。
-17. **资料页等级卡是唯一还「看起来能用其实不能用」的地方**：组件已挂在右栏
-    （`SFProfileRightRail.vue`），但 `useTrustLevel.ts` 的数据源仍恒 `null`，属 M5 待办。
-    公开等级接口与后台阈值页都已可用。
+17. ~~资料页等级卡的数据源恒 `null`（M5 待办）~~ **已收口**：2026-11-11 09:21 实测
+    `useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`，`SFProfileShowPage.vue:110`
+    已传 `profile.value?.trustLevel`。**编号保留**，避免下文与计划 §5-T20 的「残留 17」引用断链。
 18. **`GrantSource` / `PermissionOrigin` 是改名后的名字**（D30）：旧名 `CapabilitySource` 与
     `hostapi.CapabilitySource`（管插件能力集合与 secret 写门禁）撞名，编译能拦但 review 会
     持续误判。看到旧名先确认是不是在说 hostapi 那个。

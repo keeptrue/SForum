@@ -34,6 +34,23 @@ export function adminBadgeRule(
   return { metric: badge.metric, threshold: badge.threshold }
 }
 
+/**
+ * 规则列的指标文案。
+ *
+ * 直接把 `rule.metric` 塞进插值会渲染出 `topic_count 达到 5 时授予` —— 后端枚举值不是人话。
+ * 优先用 `admin.badges.metrics.<slug>`；缺键才回落原始 slug（保留信息，不静默变成空字符串）。
+ * 做成独立函数是为了能被断言：组件里内联三元表达式只能靠读代码相信它。
+ */
+export function adminBadgeMetricLabel(
+  metric: string | undefined,
+  translate: (key: string) => string,
+  has: (key: string) => boolean
+): string {
+  if (!metric) return ''
+  const key = `admin.badges.metrics.${metric}`
+  return has(key) ? translate(key) : metric
+}
+
 /** 后台可选图标白名单（规范 §4.4）：只允许 Tabler / Lucide，禁止 emoji 与手写 SVG。 */
 export const BADGE_ICON_CHOICES: readonly string[] = [
   'i-lucide-medal',

@@ -3458,6 +3458,16 @@
       "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_trust_level_earnable_matrix",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_earnable_matrix@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelEarnableMatrix.vue"
+    },
+    {
       "id": "core.component.page.admin",
       "contractVersion": "sforum.component.page.admin@1",
       "kind": "page",

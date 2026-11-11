@@ -5,7 +5,7 @@
  * 纯展示 + 事件上抛：CRUD、授予、重算都在页面与 useAdminBadges 里，表格不持有状态。
  * tier 列不允许只用颜色表达级别，所以固定是「图标 + tier 名」，色只染图标。
  */
-import { adminBadgeRule, type AdminBadgeRow } from '~/utils/admin/adminBadges'
+import { adminBadgeMetricLabel, adminBadgeRule, type AdminBadgeRow } from '~/utils/admin/adminBadges'
 import { forumBadgeTier, forumBadgeTierIcon } from '~/utils/forum/forumBadge'
 
 const props = withDefaults(defineProps<{
@@ -24,7 +24,7 @@ const emit = defineEmits<{
   toggle: [badge: AdminBadgeRow]
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 // 断点口径（规范 §4.3）：≤640 收「分组 / 授予方式 / 已授予」，≤1023 再收「规则」。
 const HIDDEN_SM = 'hidden sm:table-cell'
@@ -139,7 +139,7 @@ function ruleOf(badge: AdminBadgeRow) {
       <span v-if="ruleOf(row.original)" class="tabular-nums text-sm text-slate-600 dark:text-zinc-300">
         {{
           t('admin.badges.rule.metricThreshold', {
-            metric: ruleOf(row.original)?.metric,
+            metric: adminBadgeMetricLabel(ruleOf(row.original)?.metric, t, te),
             threshold: ruleOf(row.original)?.threshold
           })
         }}

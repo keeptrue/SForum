@@ -598,3 +598,34 @@ func assertPostgresDomainAttachmentStatus(t *testing.T, h *postgresDomainCommand
 		t.Fatalf("attachment %d status = %s, want %s", attachmentID, got, status)
 	}
 }
+
+// TestPostgresProtocolV2EntitlementCommandDeniesExtensionWithoutHostCommandsGrant 是
+// f63ad2cf9 那个 P0 的语义守卫：只声明 own_schema 的扩展（没有 host_commands）执行
+// sforum.entitlements.mutate 必须被拒，且不得留下任何权益事实或回执。
+//
+// 为什么这条比类型快照重要：类型断言只能证明「装配看起来对」，这条证明「拒绝真的发生」。
+// entitlements.mutate 是 actorless service 命令且没有 RequiredCapability，原来唯一挡它
+// 的就是 host_commands 闸门——闸门静默失效时它会直接提交（CommittedRevision=1）。
+func TestPostgresProtocolV2EntitlementCommandDeniesExtensionWithoutHostCommandsGrant(t *testing.T) {
+	h := newPostgresDomainCommandHarness(t)
+	spec := postgresDomainCommandSpec{
+		ID: CommandEntitlementsMutateID, Version: CommandEntitlementsMutateVersion,
+		InputSchema: CommandEntitlementsMutationInputSchemaID, SchemaVersion: CommandEntitlementsMutationSchemaVersion,
+	}
+	validFrom := time.Now().UTC().Add(-time.Minute).Format(time.RFC3339Nano)
+	subject := "denied-authority-subject"
+	const key = "entitlement-authority-denied"
+
+	request := h.request(t, h.deniedIdentity, spec, key, postgresDomainEntitlementInput(subject, validFrom), "", 0)
+	result, err := h.execute(h.deniedIdentity, request)
+	assertPostgresDomainCommandResult(t, result, err, hostv2.CommandState_COMMAND_STATE_REJECTED, "host.command_authority_denied")
+	assertPostgresDomainEntitlement(t, h, subject, 0)
+	assertPostgresDomainCommandEvidence(t, h, key, 0, 0)
+
+	// 对照组：同一命令由持有 host_commands 的扩展执行必须成功。没有这一半，
+	// 「一律拒绝」也会让上面那条绿——那就是假守卫。
+	allowedRequest := h.request(t, h.identity, spec, key+"-allowed", postgresDomainEntitlementInput(subject, validFrom), "", 0)
+	allowed, err := h.execute(h.identity, allowedRequest)
+	assertPostgresDomainCommandResult(t, allowed, err, hostv2.CommandState_COMMAND_STATE_COMMITTED, "")
+	assertPostgresDomainEntitlement(t, h, subject, 1)
+}

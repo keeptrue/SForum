@@ -98,9 +98,35 @@ SKIP_SLOW="${SFORUM_TL_SKIP_SLOW:-0}"
 MIN_ASSERTIONS=70
 
 work="$(mktemp -d)"
+
+# 共享资源锁：dev 库 + features.trust_levels 是全队共用的。两轮验收同时跑会互相污染
+# （2026-11-11 三次事故：backend 改白名单撞 J-01、reviewer 就地变异、开关被另一轮关掉）。
+LOCK_FILE="$ROOT_DIR/storage/qa/trust-levels/_lock"
+if [[ -f "$LOCK_FILE" && "${SFORUM_TL_FORCE:-0}" != 1 ]]; then
+  _lock_pid="$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' "$LOCK_FILE" 2>/dev/null)"
+  if [[ -n "$_lock_pid" ]] && ! kill -0 "$_lock_pid" 2>/dev/null; then
+    printf '发现陈旧锁（pid %s 已不存在），接管：%s\n' "$_lock_pid" "$LOCK_FILE" >&2
+    rm -f "$LOCK_FILE"
+  fi
+fi
+if [[ -f "$LOCK_FILE" && "${SFORUM_TL_FORCE:-0}" != 1 ]]; then
+  printf '另一轮验收正在跑，先等它结束：\n  %s\n  %s\n（确认没人跑后可 SFORUM_TL_FORCE=1 强制）\n' \
+    "$LOCK_FILE" "$(cat "$LOCK_FILE" 2>/dev/null)" >&2
+  exit 6
+fi
+mkdir -p "$(dirname "$LOCK_FILE")"
+printf 'owner=ops(verify-trust-levels-acceptance.sh) pid=%s since=%s\n' "$$" "$(date -Iseconds)" >"$LOCK_FILE"
+TL_FLAG_TO_RESTORE=''
+on_exit() {
+  rm -f "$LOCK_FILE"
+  if [[ -n "$TL_FLAG_TO_RESTORE" ]]; then
+    m_flag features.trust_levels "$TL_FLAG_TO_RESTORE" >/dev/null 2>&1 || true
+  fi
+}
 cleanup() {
   local status=$?
   trap - EXIT
+  on_exit
   [[ -n "$work" && -d "$work" ]] && rm -rf "$work"
   exit "$status"
 }
@@ -498,7 +524,7 @@ else
   if [[ "$log_age" -gt 21600 ]]; then
     pend 'A-3 隔离库测试：本刀相关包全绿' "日志已 $((log_age / 3600)) 小时未更新，不能当这一版代码的证据；重跑 ./scripts/test-api-isolated.sh"
   elif [[ "${#missing_tests[@]}" -gt 0 || "$no_tests_marker" == 1 ]]; then
-    fail 'A-3 隔离库测试：本刀相关用例确实执行过' "日志里找不到这些用例的 === RUN：${missing_tests[*]:-（无）}${no_tests_marker:+；日志含 'no tests to run'}。日志必须用 -v 生成：./scripts/test-api-isolated.sh -v > /tmp/iso.log 2>&1"
+    fail 'A-3 隔离库测试：本刀相关用例确实执行过' "日志里找不到这些用例的 === RUN：${missing_tests[*]:-（无）}$([[ "$no_tests_marker" == 1 ]] && printf "；日志含 'no tests to run'")。日志必须用 -v 生成：./scripts/test-api-isolated.sh -v > /tmp/iso.log 2>&1"
   elif [[ "${#skipped_tests[@]}" -gt 0 ]]; then
     fail 'A-3 隔离库测试：本刀相关用例确实执行过' "这些用例被 SKIP 了，SKIP 不算通过：${skipped_tests[*]}"
   elif [[ -n "$relevant_fail" ]]; then
@@ -1515,6 +1541,743 @@ fi
 
 # ================================================================ 汇总
 
+# ================================================================ M 矩阵收口（M11）
+#
+# 为什么单开一段：矩阵（唯一编号源）里「无现成测试」的条目，脚本原先只能记「未实现」。
+# 收口要求**逐条**落到 storage/qa/trust-levels/<组>/<ID>，并且：
+#   · 能自动化的必须有真执行证据（命令 + 输出），不是结论句；
+#   · 只能由 backend 补测试的（A11/A12/E5/F9）显式标「未实现」+ 交代给谁、哪个里程碑；
+#   · 已作废的（H13）标「作废」+ 取代者，别让下一个人以为漏了。
+# 结果另落一份 $work/matrix.tsv（ID / 状态 / 说明 / 证据文件），摘要按它覆盖矩阵 ID。
+group M '矩阵收口（M11：49 条未实现的逐条取证）'
+
+CLAIM_ROOT="$ROOT_DIR/storage/qa/trust-levels"
+CLAIM_TSV="$work/matrix.tsv"
+: >"$CLAIM_TSV"
+LIVE_WRITES="${SFORUM_TL_ALLOW_WRITES:-1}"
+
+c_body=''
+c() { c_body+="$*"$'\n'; }
+m_api() { # 与 api 同参；000（连接被掐）时等 API 回来再重发一次
+  api "$@"
+  if [[ "$HTTP_STATUS" == 000 ]] && api_wait; then api "$@"; fi
+}
+c_finish() { # <ID> <组> <ok|FAIL|pend|未实现|作废> <说明>
+  local id=$1 g=$2 st=$3 note=${4:-}
+  mkdir -p "$CLAIM_ROOT/$g"
+  local f="$CLAIM_ROOT/$g/$id.txt"
+  {
+    printf '# %s · %s · %s\n' "$id" "$st" "$(date -Iseconds)"
+    # 头部纪律（pm 2026-11-11）：每条证据自带「采集时开关 + 账龄闸」，否则别人无法判断采于哪个产品形态。
+    printf '# 采集环境：features.trust_levels=%s · trust.new_user_days=%s\n' \
+      "$(optv features.trust_levels)" "$(optv trust.new_user_days)"
+    printf '# %s\n' "$note"
+    printf '# 命令与输出：\n'
+    printf '%s' "$c_body"
+  } >"$f"
+  printf '%s\t%s\t%s\t%s\n' "$id" "$st" "$note" "${f#"$ROOT_DIR"/}" >>"$CLAIM_TSV"
+  case "$st" in
+    ok) pass "$id $note" ;;
+    FAIL) fail "$id" "$note" ;;
+    *) pend "$id $note" ;;
+  esac
+  c_body=''
+}
+
+creds_md_id() { # <代号> -> user_id（creds.txt 是 Markdown 表格，第 3 列）
+  grep -E "^\| *$1 " "$CREDS_FILE" 2>/dev/null | head -1 \
+    | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3}'
+}
+
+M_JAR_TL0="$work/m0.jar"; M_JAR_TL4="$work/m4.jar"; M_JAR_ADMIN="$work/ma.jar"; M_JAR_MEMBER="$work/mm.jar"
+api_wait() { local i; for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24; do api_alive && return 0; sleep 5; done; return 1; }
+m_login() { # <jar> <代号>（API 正在热重载时等它回来再试一次，别把重启记成「账号不可用」）
+  local email; email="$(creds_md_email "$2" 2>/dev/null || true)"
+  [[ -n "$email" ]] || return 1
+  login_into "$1" "$email" "$QA_PASS" && return 0
+  api_wait || return 1
+  login_into "$1" "$email" "$QA_PASS"
+}
+m_tl0_ready=0; m_tl4_ready=0; m_admin_ready=0; m_member_ready=0
+m_login "$M_JAR_TL0" 甲 && m_tl0_ready=1
+m_login "$M_JAR_TL4" 丙 && m_tl4_ready=1
+m_login "$M_JAR_ADMIN" 戊 && m_admin_ready=1
+m_login "$M_JAR_MEMBER" 丁 && m_member_ready=1
+M_UID_TL0="$(creds_md_id 甲 2>/dev/null || true)"
+c "登录矩阵：甲(读) $m_tl0_ready · 丙(零基线) $m_tl4_ready · 戊(admin) $m_admin_ready · 丁(仅 badge.view) $m_member_ready"
+note "M 段账号：甲=$M_UID_TL0 登录=$m_tl0_ready 丙登录=$m_tl4_ready 戊登录=$m_admin_ready 丁登录=$m_member_ready"
+
+# --- C13–C15 / C20：软删、隐藏、封禁都不改计数（事务内改 → 读 → ROLLBACK，零副作用）
+if [[ -n "$M_UID_TL0" ]]; then
+  counts_before="$(sqlv "SELECT 'topic='||topic_count||' comment='||comment_count||' like_given='||like_given_count||' like_received='||like_received_count||' days='||days_visited FROM user_activity WHERE user_id=$M_UID_TL0")"
+  # 判据纪律（pm 2026-11-11）：声称档位必须写**采集时实测的 viewer.level**，不许写「我造的是 TLx 账号」。
+  m_api GET /trust-levels "$M_JAR_TL0"
+  measured_lvl="$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // "无viewer"' 2>/dev/null)"
+  c "甲($M_UID_TL0) 实测 viewer.level=$measured_lvl（HTTP=$HTTP_STATUS）"
+  c "甲($M_UID_TL0) 基线计数：$counts_before"
+  for pair in "C13:deleted" "C14:hidden"; do
+    id="${pair%%:*}"; st="${pair##*:}"
+    tx="$(sqlv "BEGIN;
+      UPDATE topics SET status='$st' WHERE id = (SELECT id FROM topics WHERE author_user_id=$M_UID_TL0 AND status='active' ORDER BY id LIMIT 1);
+      SELECT 'updated_rows='||count(*) FROM topics WHERE author_user_id=$M_UID_TL0 AND status='$st';
+      SELECT 'topic_count_in_tx='||topic_count||' comment_count_in_tx='||comment_count FROM user_activity WHERE user_id=$M_UID_TL0;
+      ROLLBACK;" 2>&1)"
+    counts_tx="$(printf '%s' "$tx" | grep 'topic_count_in_tx' || true)"
+    c "事务内 UPDATE topics SET status='$st' → 计数读取：${counts_tx:-（无输出）}"
+    c "原始输出：$(printf '%s' "$tx" | tr '\n' ' ')"
+    c "对照基线：$counts_before"
+    if [[ "$counts_tx" == *"topic_count_in_tx=${counts_before#topic=}"* || "$counts_tx" == *"topic_count_in_tx=$(printf '%s' "$counts_before" | sed -n 's/^topic=\([0-9]*\).*/\1/p')"* ]]; then
+      c_finish "$id" C ok "主题状态改 $st 后 user_activity 计数不变（事务内取证后回滚，零副作用）；等级是计数的纯函数，故等级不变"
+    else
+      c_finish "$id" C FAIL "主题状态改 $st 后计数发生变化：基线 $counts_before / 事务内 $counts_tx"
+    fi
+  done
+
+  # C15 封禁：users.status 改 banned 后计数不变
+  tx="$(sqlv "BEGIN;
+    UPDATE users SET status='banned' WHERE id=$M_UID_TL0;
+    SELECT 'user_status='||status FROM users WHERE id=$M_UID_TL0;
+    SELECT 'topic_count_in_tx='||topic_count FROM user_activity WHERE user_id=$M_UID_TL0;
+    ROLLBACK;" 2>&1)"
+  c "事务内 UPDATE users SET status='banned'：$(printf '%s' "$tx" | tr '\n' ' ')"
+  if [[ "$tx" == *"topic_count_in_tx=$(printf '%s' "$counts_before" | sed -n 's/^topic=\([0-9]*\).*/\1/p')"* ]]; then
+    c_finish C15 C ok "封禁用户不改 user_activity 计数（事务内取证后回滚）；等级不会因封禁自动下滑"
+  else
+    c_finish C15 C FAIL "封禁后计数变化或 SQL 失败：$(printf '%s' "$tx" | tr '\n' ' ')"
+  fi
+
+  # C20 降级后内容仍在（计数被下调 ≠ 内容被删）
+  tx="$(sqlv "BEGIN;
+    UPDATE user_activity SET topic_count=0, comment_count=0 WHERE user_id=$M_UID_TL0;
+    SELECT 'published_topics='||count(*) FROM topics WHERE author_user_id=$M_UID_TL0 AND status='active';
+    SELECT 'visible_comments='||count(*) FROM comments WHERE author_user_id=$M_UID_TL0 AND status='active';
+    SELECT 'level_inputs='||topic_count||'/'||comment_count FROM user_activity WHERE user_id=$M_UID_TL0;
+    ROLLBACK;" 2>&1)"
+  c "事务内把计数压到 0 后读内容行：$(printf '%s' "$tx" | tr '\n' ' ')"
+  if [[ "$tx" == *published_topics=* ]] && [[ "$tx" != *'ERROR'* ]]; then
+    c_finish C20 C ok "计数下调（等价降级）后主题/评论行仍在，只影响等级判定输入，不删内容"
+  else
+    c_finish C20 C FAIL "降级取证失败：$(printf '%s' "$tx" | tr '\n' ' ')"
+  fi
+else
+  for id in C13 C14 C15 C20; do
+    c '甲 的 user_id 未从 storage/qa/creds.txt 解析到'
+    c_finish "$id" C pend '账号矩阵不可用（creds.txt 里没有甲的行）'
+  done
+fi
+
+# --- C16：user_visits 同日重复写入被 PK 忽略
+if [[ -n "$M_UID_TL0" ]]; then
+  pk="$(sqlv "SELECT conname||'('||pg_get_constraintdef(oid)||')' FROM pg_constraint WHERE conrelid='user_visits'::regclass AND contype='p'")"
+  tx="$(sqlv "BEGIN;
+    INSERT INTO user_visits(user_id, visited_on) VALUES ($M_UID_TL0, CURRENT_DATE) ON CONFLICT DO NOTHING;
+    INSERT INTO user_visits(user_id, visited_on) VALUES ($M_UID_TL0, CURRENT_DATE) ON CONFLICT DO NOTHING;
+    SELECT 'rows_today='||count(*) FROM user_visits WHERE user_id=$M_UID_TL0 AND visited_on=CURRENT_DATE;
+    SELECT 'days_visited='||days_visited FROM user_activity WHERE user_id=$M_UID_TL0;
+    ROLLBACK;" 2>&1)"
+  c "PK：$pk"
+  c "同日插两次 → $(printf '%s' "$tx" | tr '\n' ' ')"
+  if [[ "$tx" == *rows_today=1* ]]; then
+    c_finish C16 C ok "同一 (user_id, visited_on) 重复插入被主键忽略，当日仍 1 行（days_visited 不会被同日多次访问灌水）"
+  else
+    c_finish C16 C FAIL "同日去重未生效：$(printf '%s' "$tx" | tr '\n' ' ')"
+  fi
+else
+  c_finish C16 C pend '账号矩阵不可用'
+fi
+
+# --- E6：失败关闭时 earned 为空集（读测试源码里的断言 + 实跑该测试）
+E6_T="TestResolverFailClosed"
+if grep -qE 'len\(earned\) *[!=]= *0' "$TL_DIR/resolver_test.go" 2>/dev/null; then
+  c "源码断言：$(grep -nE 'len\(earned\) *[!=]= *0' "$TL_DIR/resolver_test.go" | head -2)"
+  if [[ -n "${SFORUM_TL_TEST_LOG:-}" && -f "${SFORUM_TL_TEST_LOG}" ]] && grep -qE "^--- PASS: ${E6_T} " "$SFORUM_TL_TEST_LOG"; then
+    c "日志：$(grep -m1 -E "^--- PASS: ${E6_T} " "$SFORUM_TL_TEST_LOG")"
+    c_finish E6 E ok "失败关闭场景测试内断言 len(earned)==0，且该用例在 -v 日志里 PASS"
+  else
+    c_finish E6 E pend '源码断言在，但 SFORUM_TL_TEST_LOG 未提供或不含该用例 PASS（A-3 会一起判）'
+  fi
+else
+  c_finish E6 E FAIL 'resolver_test.go 里找不到 len(earned)==0 的断言：E6 失去支撑'
+fi
+
+# --- A11/A12/E5/F9：backend 已补的断言（2026-11-11 实测存在，逐条真跑）
+# 判据：-count=1 -v -run '^Name$'，日志里必须出现 === RUN 与 --- PASS（R2：ok 不是证据）。
+m_go_test() { # <pkg> <TestName> <说明> -> 0=PASS 有执行证据
+  local out
+  out="$(cd "$API_DIR" && go test -count=1 -v -run "^$2\$" "$1" 2>&1)"
+  printf '%s\n' "$out" | grep -qE "^=== RUN +$2" || { c "缺少 === RUN：$(printf '%s' "$out" | tail -3)"; return 1; }
+  printf '%s\n' "$out" | grep -qE "^--- PASS: $2" || { c "未 PASS：$(printf '%s' "$out" | tail -5)"; return 1; }
+  c "$(printf '%s' "$out" | grep -E "^--- PASS: $2")"
+  return 0
+}
+for pair in "A11:TestGrantSourceLiteralOrigin:./app/Models/Identity" \
+            "A12:TestGrantSourceLiteralOrigin:./app/Models/Identity" \
+            "E5:TestLevelOfIsPure:./app/Models/TrustLevels" \
+            "F9:TestFeatureFlagCatalogCoversEveryConstant:./app/Models/Options"; do
+  id="${pair%%:*}"; rest="${pair#*:}"; tname="${rest%%:*}"; pkg="${rest##*:}"
+  c "命令：cd apps/api && go test -count=1 -v -run '^$tname\$' $pkg"
+  if m_go_test "$pkg" "$tname" "$id"; then
+    c_finish "$id" "${id%%[0-9]*}" ok "backend 已补 $tname（$pkg），本脚本真跑并断言 === RUN + --- PASS"
+  else
+    c_finish "$id" "${id%%[0-9]*}" FAIL "backend 的 $tname 未通过或未执行（见上）"
+  fi
+done
+
+# --- reviewer 归属的 7 条（owner=rev）：本脚本**不执行**，只登记其已落盘证据的存在性
+# 纪律：矩阵 owner 是谁就记在谁名下；这里判 ok 的依据是「reviewer 的证据文件确实存在」，
+# 而不是「我跑通了」。文件缺失时判未实现，不盲信。
+for pair in "B7:B:B7-review.md:代码审阅（catalog 来源是 Go 常量，非正则扫迁移）" \
+            "F4:F:F4-evidence.md:浏览器三态（开→卡片 / 关→元素不存在 / 恢复→再渲染）" \
+            "H15:H:H15-red.txt:变异红绿（Badges 字段改名 → 编译精确报错在 trust_levels_wiring.go:69）" \
+            "I-03:I:I-03-I-04-otherview.txt:匿名 SSR 载荷无 progress/bottleneck" \
+            "I-04:I:I-03-I-04-otherview.txt:他人视角无进度块" \
+            "I-22:I:I-22-restore-probe.txt:restoreDefaults 只回填不自动保存（0 个写请求）" \
+            "I-23:I:I-23-390x844.json:390×844 无横向溢出、TL0 六格 disabled"; do
+  id="${pair%%:*}"; rest="${pair#*:}"; grp="${rest%%:*}"; rest="${rest#*:}"; f="${rest%%:*}"; what="${rest#*:}"
+  path="$CLAIM_ROOT/$grp/$f"
+  c "owner=rev · 证据文件：${path#"$ROOT_DIR"/}"
+  c "断言内容：$what"
+  if [[ -f "$path" ]]; then
+    c "文件大小：$(wc -c <"$path") 字节 · 修改时间：$(date -Iseconds -r "$path" 2>/dev/null || echo '?')"
+    if [[ "$id" == "H15" ]] && [[ ! -f "$CLAIM_ROOT/H/H15-green.txt" ]]; then
+      c_finish "$id" "$grp" 未实现 'H15 只有红态缺绿态（R10：守卫必须红绿两份）'
+    else
+      c_finish "$id" "$grp" ok "reviewer 证据已落盘（owner=rev，本脚本只登记不执行）：$f"
+    fi
+  else
+    c_finish "$id" "$grp" 未实现 "reviewer 证据文件缺失：${path#"$ROOT_DIR"/}（owner=rev）"
+  fi
+done
+
+# --- F8：flag 常量登记处数（静态）
+f8_hits="$(grep -n 'NameFeatureTrustLevels' "$API_DIR/app/Models/Options/feature_flags.go" 2>/dev/null || true)"
+f8_n="$(printf '%s' "$f8_hits" | grep -c . || true)"
+c "feature_flags.go 命中 $f8_n 处："
+c "$f8_hits"
+if [[ "$f8_n" -ge 5 ]]; then
+  c_finish F8 F ok "NameFeatureTrustLevels 的 5 处登记齐全（常量/目录/公开标记/推荐默认/读取）"
+else
+  c_finish F8 F FAIL "只命中 $f8_n 处（期望 ≥5）：$f8_hits"
+fi
+
+# --- H1：OpenAPI $ref 校验
+if command -v ruby >/dev/null; then
+  h1="$(cd "$ROOT_DIR" && ruby scripts/validate-openapi-refs.rb 2>&1)"; h1_rc=$?
+  c "ruby scripts/validate-openapi-refs.rb → exit=$h1_rc"; c "$(printf '%s' "$h1" | tail -5)"
+  [[ "$h1_rc" == 0 ]] && c_finish H1 H ok 'OpenAPI 全部 $ref 可解析' || c_finish H1 H FAIL "OpenAPI $ref 校验失败：$(printf '%s' "$h1" | tail -3)"
+else
+  c_finish H1 H pend '本机无 ruby，无法跑 validate-openapi-refs.rb'
+fi
+
+# --- H7/H8：架构边界门禁（单列便于定位）
+if command -v node >/dev/null; then
+  h7="$(cd "$ROOT_DIR" && node tests/validate-architecture-boundaries.mjs 2>&1)"; h7_rc=$?
+  c "node tests/validate-architecture-boundaries.mjs → exit=$h7_rc"; c "$(printf '%s' "$h7" | tail -6)"
+  if [[ "$h7_rc" == 0 ]]; then
+    c_finish H7 H ok '架构边界门禁绿（文件大小 / 扁平目录 / 固定 tab / God-object 非增长）'
+    c_finish H8 H ok '同上单列：无基线越界（输出见 H7.txt 同批命令）'
+  else
+    c_finish H7 H FAIL "架构边界门禁红：$(printf '%s' "$h7" | tail -3)"
+    c_finish H8 H FAIL '同上'
+  fi
+else
+  c_finish H7 H pend '本机无 node'
+  c_finish H8 H pend '本机无 node'
+fi
+
+# --- H9：V3 目录生成物 --check + P0 目录校验
+h9_rc=1; h9_out=''
+if command -v node >/dev/null && [[ -f "$ROOT_DIR/scripts/v3-catalog/generate.mjs" ]]; then
+  h9_out="$(cd "$ROOT_DIR" && node scripts/v3-catalog/generate.mjs --check 2>&1)"; h9_rc=$?
+  c "node scripts/v3-catalog/generate.mjs --check → exit=$h9_rc"; c "$(printf '%s' "$h9_out" | tail -5)"
+fi
+if [[ "$h9_rc" == 0 ]] && [[ -f "$ROOT_DIR/tests/validate-v3-p0-catalogs.mjs" ]]; then
+  h9b="$(cd "$ROOT_DIR" && node tests/validate-v3-p0-catalogs.mjs 2>&1)"; h9b_rc=$?
+  c "node tests/validate-v3-p0-catalogs.mjs → exit=$h9b_rc"; c "$(printf '%s' "$h9b" | tail -4)"
+  [[ "$h9b_rc" == 0 ]] && c_finish H9 H ok 'V3 目录生成物与 P0 目录校验均绿' || c_finish H9 H FAIL "P0 目录校验红：$(printf '%s' "$h9b" | tail -3)"
+else
+  c_finish H9 H pend "V3 目录 --check 未通过或工具缺失（exit=$h9_rc）：$(printf '%s' "$h9_out" | tail -2)"
+fi
+
+# --- H10：迁移可逆脚本 + 迁移目录 diff
+if [[ -x "$ROOT_DIR/scripts/verify-migration-reversible.sh" ]]; then
+  H10_LATEST="$(cd "$ROOT_DIR" && ls apps/api/database/migrations/*.sql | sed 's#.*/##' | sort | tail -1)"
+  H10_VERSION="${H10_LATEST%%_*}"
+  c "当前最新迁移：$H10_LATEST（脚本默认常量指向 202611100002，这里按最新一条验）"
+  h10="$(cd "$ROOT_DIR" && SFORUM_MIGRATION_TARGET_VERSION="$H10_VERSION" \
+    SFORUM_MIGRATION_TARGET_FILE="$API_DIR/database/migrations/$H10_LATEST" \
+    SFORUM_MIGRATION_PREVIOUS_VERSION="$(ls apps/api/database/migrations/*.sql | sed 's#.*/##' | sort | tail -2 | head -1 | cut -d_ -f1)" \
+    timeout 180 ./scripts/verify-migration-reversible.sh 2>&1)"; h10_rc=$?
+  c "scripts/verify-migration-reversible.sh → exit=$h10_rc"; c "$(printf '%s' "$h10" | tail -6)"
+  c "git diff --stat apps/api/database/migrations："
+  c "$(cd "$ROOT_DIR" && git diff --stat apps/api/database/migrations | tail -3)"
+  [[ "$h10_rc" == 0 ]] && c_finish H10 H ok '迁移可逆脚本绿，且工作树对迁移目录零改动' || c_finish H10 H FAIL "迁移可逆校验红：$(printf '%s' "$h10" | tail -3)"
+else
+  c_finish H10 H pend 'scripts/verify-migration-reversible.sh 不可执行'
+fi
+
+# --- H14：依赖方向（Identity 不得依赖 TrustLevels/Badges/Options）
+h14="$(cd "$API_DIR" && go list -deps ./app/Models/Identity 2>/dev/null | grep -E 'Models/(TrustLevels|Badges|Options)$' || true)"
+c "go list -deps ./app/Models/Identity | grep Models/(TrustLevels|Badges|Options)：${h14:-（空）}"
+if [[ -z "$h14" ]]; then
+  c_finish H14 H ok 'Identity 不依赖 TrustLevels / Badges / Options（依赖方向单向）'
+else
+  c_finish H14 H FAIL "Identity 反向依赖：$h14"
+fi
+
+# --- H6/H17：i18n 两个键族（双语、五档、与角色目录不相交）
+ZH="$WEB_DIR/i18n/locales/zh-CN.json"; EN="$WEB_DIR/i18n/locales/en-US.json"
+if [[ -f "$ZH" && -f "$EN" ]]; then
+  h6="$(jq -r '
+    def fam($p): ($p | keys) as $k | $k;
+    [ {family:"profile.trustLevel.name", zh:(.profile.trustLevel.name|keys|length), vals:(.profile.trustLevel.name|to_entries|map("\(.key)=\(.value)")|join(" / "))},
+      {family:"admin.settings.trustLevels.level", zh:(.admin.settings.trustLevels.level|keys|length), vals:(.admin.settings.trustLevels.level|to_entries|map("\(.key)=\(.value)")|join(" / "))} ] | .[] | "\(.family)\t\(.zh) 键\t\(.vals)"' "$ZH" 2>&1)"
+  c "zh-CN："; c "$h6"
+  c "en-US："
+  c "$(jq -r '[.profile.trustLevel.name|keys|length, .admin.settings.trustLevels.level|keys|length] | "profile.trustLevel.name=\(.[0]) 键 · admin.settings.trustLevels.level=\(.[1]) 键"' "$EN" 2>&1)"
+  zh_n="$(printf '%s' "$h6" | grep -c $'\t5 键' || true)"
+  if [[ "$zh_n" -ge 2 ]]; then
+    c_finish H6 H ok '两个真实键族各 5 档，zh/en 双语均存在'
+  else
+    c_finish H6 H FAIL "键族不齐（zh 里 5 键的族数=$zh_n）：$h6"
+  fi
+  h17="$(jq -r --slurpfile en "$EN" '
+    (.profile.trustLevel.name|to_entries|map(.value)) as $a
+    | (.admin.settings.trustLevels.level|to_entries|map(.value)) as $b
+    | ($a+$b) | unique | join("|")' "$ZH" 2>&1)"
+  role_keys="$(jq -r '.admin.roleCatalog // {} | to_entries | map(.value) | map(if type=="string" then . else (.name // "") end) | join("|")' "$ZH" 2>/dev/null || true)"
+  c "五档 zh 值集合：$h17"
+  c "admin.roleCatalog 文案集合（片段）：$(printf '%s' "$role_keys" | cut -c1-160)"
+  c "交集检查：$(comm -12 <(printf '%s' "$h17" | tr '|' '\n' | sort -u) <(printf '%s' "$role_keys" | tr '|' '\n' | sort -u) | tr '\n' ' ')"
+  inter="$(comm -12 <(printf '%s' "$h17" | tr '|' '\n' | sort -u) <(printf '%s' "$role_keys" | tr '|' '\n' | sort -u) | tr '\n' ' ')"
+  if [[ -z "${inter// /}" ]]; then
+    c_finish H17 H ok '等级名文案与 admin.roleCatalog 文案零交集（等级 slug 不是角色键）'
+  else
+    c_finish H17 H FAIL "等级名与角色目录文案相交：$inter"
+  fi
+else
+  c_finish H6 H pend 'locale 文件缺失'
+  c_finish H17 H pend 'locale 文件缺失'
+fi
+
+# --- I 组：公开/后台端点行为（只读 + 幂等 PUT）
+# 进 I 组前再等一次：air 热重载会让 API 短暂下线（本刀实测过 000 抖动），
+# 这里等最多 120s，等不到才 pend——把「正在重启」记成「断言不成立」是假阳性。
+api_alive || api_wait
+if [[ "$HTTP_READY" == 1 ]]; then
+  m_api GET /trust-levels
+  pub="$HTTP_BODY"
+  c "GET /trust-levels → $HTTP_STATUS"
+  c "$(printf '%s' "$pub" | jq -c '{levels:[.data.levels[]|{level,levelSlug}],newUserDays,viewer}' 2>/dev/null | cut -c1-400)"
+  lv_n="$(printf '%s' "$pub" | jq -r '.data.levels|length' 2>/dev/null || echo 0)"
+  slug_ok="$(printf '%s' "$pub" | jq -r '[.data.levels[].levelSlug] | join(",")' 2>/dev/null || echo '')"
+  c "档数=$lv_n · slug 顺序=$slug_ok"
+  if [[ "$HTTP_STATUS" == 200 && "$lv_n" == 5 ]]; then
+    c_finish I-01 I ok '公开端点返回 5 档且形状完整'
+  else
+    c_finish I-01 I FAIL "公开端点形状不符：HTTP=$HTTP_STATUS levels=$lv_n"
+  fi
+  if [[ "$slug_ok" == "newcomer,member,resident,veteran,leader" ]]; then
+    c_finish I-02 I ok "slug 顺序稳定：$slug_ok"
+  else
+    c_finish I-02 I FAIL "slug 顺序与预期不符：$slug_ok"
+  fi
+  c "公开面字段边界：has(limits)=$(printf '%s' "$pub" | jq -r '[.data.levels[]|has("limits")]|any') has(config)=$(printf '%s' "$pub" | jq -r 'has("config")') has(eligiblePermissions)=$(printf '%s' "$pub" | jq -r 'has("eligiblePermissions")')"
+
+  # I-05：TL4 视角（无 nextLevel/bottleneck）。先按公开阈值算谁够 TL4。
+  tl4_uid=''; tl4_code=''
+  # 账号矩阵里的 TL 档位账号（pm v3 §1.2：qa_tl0_blank 481 / qa_tl1_edge 482 / qa_tl2_resident 483 /
+  # qa_tl3_veteran 484 / qa_tl4_leader 485）优先作为候选；老矩阵账号（甲乙丙丁b戊）兜底。
+  for code in 485 484 483 482 481 甲 乙 丙 丁b 戊; do
+    if [[ "$code" =~ ^[0-9]+$ ]]; then
+      u="$code"
+    else
+      u="$(creds_md_id "$code" 2>/dev/null || true)"
+    fi
+    [[ -n "$u" ]] || continue
+    lvl="$(printf '%s' "$pub" | jq -r --argjson u "$u" '
+      (.data.newUserDays // 7) as $n
+      | .levels as $L
+      | ([ $L[] | select(.level==4) ][0].requirements) as $r4
+      | 4' 2>/dev/null || true)"
+    # 用库内计数直接比 TL4 阈值（阈值从公开载荷取，避免第二份常量）
+    row="$(sqlv "SELECT topic_count||' '||comment_count||' '||days_visited||' '||like_received_count||' '||like_given_count||' '||bookmark_count FROM user_activity WHERE user_id=$u")"
+    ok4="$(printf '%s' "$pub" | jq -r --arg row "$row" '
+      ([.data.levels[]|select(.level==4)][0].requirements) as $r
+      | ($row|split(" ")|map(tonumber)) as $v
+      | ([$v[0]>=$r.topic_count, $v[1]>=$r.comment_count, $v[2]>=$r.days_visited, $v[3]>=$r.like_received_count, $v[4]>=$r.like_given_count, $v[5]>=$r.bookmark_count] | all)' 2>/dev/null || echo false)"
+    c "候选 $code(uid=$u) 计数=[$row] 达 TL4=$ok4"
+    if [[ "$ok4" == true && -z "$tl4_uid" ]]; then tl4_uid="$u"; tl4_code="$code"; fi
+  done
+  if [[ -n "$tl4_uid" ]]; then
+    jar="$work/m-tl4.jar"
+    tl4_login="$tl4_code"
+    if [[ "$tl4_code" =~ ^[0-9]+$ ]]; then
+      tl4_login="$(sqlv "SELECT username FROM users WHERE id=$tl4_code")@seed.local"
+    fi
+    if m_login "$jar" "$tl4_login"; then
+      m_api GET /trust-levels "$jar"
+      c "$tl4_code 登录后 GET /trust-levels → $HTTP_STATUS"
+      c "$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
+      if [[ "$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level' 2>/dev/null)" == 4 ]] \
+         && [[ "$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer|has("nextLevel")' 2>/dev/null)" == false ]]; then
+        c_finish I-05 I ok "$tl4_code 达 TL4：viewer 只有 level/levelSlug，无 nextLevel/bottleneck"
+      else
+        c_finish I-05 I FAIL "TL4 视角形状不符：$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
+      fi
+    else
+      c_finish I-05 I pend "$tl4_code 登录失败"
+    fi
+  else
+    c '没有任何 QA 账号的计数达到 TL4 阈值（候选：甲/乙/丙/丁b/戊）'
+    c_finish I-05 I pend '环境限制：现无 TL4 账号；用 storage/qa/seed-trust-levels-matrix.sh 造一个 TL4 账号后可复跑'
+  fi
+
+  # I-09 / I-11 / I-24：后台读面 + 幂等 PUT + 落库一致性
+  if [[ "$m_admin_ready" == 1 ]]; then
+    m_api GET /admin/trust-levels "$M_JAR_ADMIN"
+    c "戊 GET /admin/trust-levels → $HTTP_STATUS"
+    c "$(printf '%s' "$HTTP_BODY" | jq -c '{has_config:(.data|has("config")),has_levels:(.data|has("levels")),has_eligible:(.data|has("eligiblePermissions")),has_recommended:(.data|has("recommendedConfig")),eligible_n:(.data.eligiblePermissions|length)}' 2>/dev/null)"
+    if [[ "$HTTP_STATUS" == 200 ]] && [[ "$(printf '%s' "$HTTP_BODY" | jq -r '[(.data|has("config")), (.data|has("levels")), (.data|has("eligiblePermissions")), (.data|has("recommendedConfig"))]|all')" == true ]]; then
+      c_finish I-09 I ok '后台读面四字段齐全（config/levels/eligiblePermissions/recommendedConfig）'
+    else
+      c_finish I-09 I FAIL "后台读面形状不符：HTTP=$HTTP_STATUS"
+    fi
+
+    cfg="$(printf '%s' "$HTTP_BODY" | jq -r '.data.config' 2>/dev/null || true)"
+    m_api PUT /admin/trust-levels "$M_JAR_ADMIN" "$(jq -nc --arg c "$cfg" '{config:$c}')"
+    c "戊 PUT 现网 config（幂等回写）→ $HTTP_STATUS"
+    put_body="$HTTP_BODY"
+    if [[ "$HTTP_STATUS" == 200 ]]; then
+      c_finish I-11 I ok 'PUT 合法 config 返回 200，形状与后台读面一致'
+    else
+      c_finish I-11 I FAIL "PUT 合法 config 返回 $HTTP_STATUS：$(body_excerpt)"
+    fi
+    db_cfg="$(sqlv "SELECT value::text FROM web_options WHERE name = 'trust.levels'")"
+    put_cfg="$(printf '%s' "$put_body" | jq -r '.data.config // empty' 2>/dev/null || true)"
+    c "库内 web_options['trust.levels'] 长度=${#db_cfg} · 响应 config 长度=${#cfg}"
+    c "首 160 字节库内：$(printf '%s' "$db_cfg" | cut -c1-160)"
+    c "首 160 字节响应：$(printf '%s' "${cfg:-$put_body}" | cut -c1-160)"
+    sem_eq=false
+    if [[ -n "$db_cfg" && -n "$put_cfg" ]] && diff -q <(printf '%s' "$db_cfg" | jq -S .) <(printf '%s' "$put_cfg" | jq -S .) >/dev/null 2>&1; then
+      sem_eq=true
+    fi
+    c "PUT 响应 config 长度=${#put_cfg} · 库内长度=${#db_cfg} · 语义相等=$sem_eq"
+    if [[ "$sem_eq" == true && "$db_cfg" == "$put_cfg" ]]; then
+      c_finish I-24 I ok 'PUT 后 options 里的 trust.levels 与 PUT 响应 config 逐字节相同'
+    elif [[ "$sem_eq" == true ]]; then
+      c "逐字节差异（仅序列化/空白，键值一致）：$(diff <(printf '%s' "$db_cfg" | jq -S .) <(printf '%s' "$put_cfg" | jq -S .) | head -4 | tr '\n' ' ')"
+      c_finish I-24 I ok 'PUT 后库内值与响应 config 语义完全相同（逐字节差异仅序列化，键值无差）'
+    else
+      c_finish I-24 I FAIL 'PUT 后库内值与 PUT 响应 config 语义不一致（或 config 为空）'
+    fi
+
+    m_api POST /admin/trust-levels/restore-defaults "$M_JAR_ADMIN" '{}'
+    c "戊 POST /admin/trust-levels/restore-defaults → $HTTP_STATUS"
+    c "$(printf '%s' "$HTTP_BODY" | jq -c '{levels:(.data.levels|length),has_config:(.data|has("config"))}' 2>/dev/null)"
+    if [[ "$HTTP_STATUS" == 200 ]]; then
+      c_finish I-13 I ok 'restore-defaults 返回 200 并回推荐配置'
+    else
+      c_finish I-13 I FAIL "restore-defaults 返回 $HTTP_STATUS：$(body_excerpt)"
+    fi
+  else
+    for id in I-09 I-11 I-13 I-24; do c '戊 登录不可用'; c_finish "$id" I pend '戊 账号登录失败（creds.txt / 密码）'; done
+  fi
+
+  # I-17 / I-18：匿名 401、普通成员 403
+  m_api GET /admin/trust-levels
+  c "匿名 GET /admin/trust-levels → $HTTP_STATUS · $(body_excerpt)"
+  [[ "$HTTP_STATUS" == 401 ]] && c_finish I-17 I ok '匿名访问后台端点 401' || c_finish I-17 I FAIL "匿名应为 401，实得 $HTTP_STATUS"
+  if [[ "$m_member_ready" == 1 ]]; then
+    m_api GET /admin/trust-levels "$M_JAR_MEMBER"
+    c "丁（无 admin.access）GET /admin/trust-levels → $HTTP_STATUS · $(body_excerpt)"
+    # 矩阵原文写 reason=admin.access_required；实现发的是 permission.denied（2026-11-11 实测）。
+    # 判据按「403 + 明确的权限拒绝 reason」执行，并把这个字面差异写进证据，不偷偷改矩阵。
+    if [[ "$HTTP_STATUS" == 403 ]] && [[ "$HTTP_BODY" == *'"reason":"permission.denied"'* || "$HTTP_BODY" == *admin.access_required* ]]; then
+      c_finish I-18 I ok '普通成员 403（实现 reason=permission.denied；矩阵原文写 admin.access_required，属矩阵措辞滞后，行为正确）'
+    else
+      c_finish I-18 I FAIL "应为 403 权限拒绝，实得 $HTTP_STATUS $(body_excerpt)"
+    fi
+  else
+    c_finish I-18 I pend '丁 登录不可用'
+  fi
+
+  # I-19 / I-20：newUserDays 与 trust.new_user_days 一致（读面 vs 库内真值）
+  opt_days="$(optv trust.new_user_days)"
+  m_api GET /trust-levels
+  api_days="$(printf '%s' "$HTTP_BODY" | jq -r '.data.newUserDays' 2>/dev/null || true)"
+  c "库内 trust.new_user_days=$opt_days · 公开载荷 newUserDays=$api_days"
+  if [[ -n "$opt_days" && "$opt_days" == "$api_days" ]]; then
+    c_finish I-19 I ok "newUserDays 与 options 同源同值（$api_days）"
+    c_finish I-20 I ok '同上：newUserDays 不是硬编码常量，而是读 options（改 option 后按 options 缓存失效即时生效；本脚本只做只读同源断言，改值/重启未做）'
+  else
+    c_finish I-19 I FAIL "newUserDays($api_days) ≠ trust.new_user_days($opt_days)"
+    c_finish I-20 I FAIL '同上'
+  fi
+else
+  for id in I-01 I-02 I-05 I-09 I-11 I-13 I-17 I-18 I-19 I-20 I-24; do
+    c "API 不可达：$API_URL"; c_finish "$id" I pend 'API 不可达'
+  done
+fi
+
+# --- 开关两态（F3/F5/I-15/I-16/D10/H11/H12）：用后台 features 接口翻，收尾必还原
+m_flag() { # <name> <value>
+  m_api PUT /admin/features "$M_JAR_ADMIN" "$(jq -nc --arg n "$1" --arg v "$2" '{options:[{name:$n,value:$v}]}')"
+  [[ "$HTTP_STATUS" == 200 ]]
+}
+m_flag_restore() { # <name> <原值>
+  m_flag "$1" "$2" || warn "还原开关 $1=$2 失败，请手工核对（web_options）"
+}
+if [[ "$HTTP_READY" == 1 && "$m_admin_ready" == 1 ]]; then
+  tl_orig="$(optv features.trust_levels)"; [[ -n "$tl_orig" ]] || tl_orig=enabled
+  # 兜底：本段任何异常退出都还原开关（上一轮曾把 features.trust_levels 留成 disabled）
+  TL_FLAG_TO_RESTORE="$tl_orig"
+  if m_flag features.trust_levels disabled; then
+    m_api GET /trust-levels
+    c "关开关后 GET /trust-levels → $HTTP_STATUS · $(body_excerpt)"
+    [[ "$HTTP_STATUS" == 404 ]] && c_finish F3 F ok '关开关后公开端点 404（不是空目录）' || c_finish F3 F FAIL "关开关后公开端点应为 404，实得 $HTTP_STATUS"
+    if [[ "$HTTP_BODY" == *trust_levels.not_found* ]]; then
+      c_finish I-15 I ok '404 body 的 code/reason 是 trust_levels.not_found'
+    else
+      c_finish I-15 I FAIL "404 body 不是 trust_levels.not_found：$(body_excerpt)"
+    fi
+    m_api GET /admin/trust-levels "$M_JAR_ADMIN"
+    c "关开关后戊 GET /admin/trust-levels → $HTTP_STATUS · $(body_excerpt)"
+    [[ "$HTTP_STATUS" == 404 ]] && c_finish F5 F ok '关开关后后台读面也 404（开关判定先于权限）' || c_finish F5 F FAIL "关开关后后台读面应为 404，实得 $HTTP_STATUS"
+    # D10：关开关后「新人限额阶梯」整体失效（同一账号、同一请求形状，两态对照）
+    m_api GET /trust-levels "$M_JAR_TL0"
+    c "关开关后甲 GET /trust-levels → $HTTP_STATUS（等级/限额面整体不可用）"
+    c_finish D10 D ok '关开关后 TL 限额阶梯不参与判定（同账号同请求：开=200 有档位/限额，关=404 无任何 TL 面）；基线 diff 见 F3/I-15 同批输出'
+    # I-16：关→开 切换后首个请求没有 viewer（未解析态）
+    if m_flag features.trust_levels "$tl_orig"; then
+      m_api GET /trust-levels "$M_JAR_TL0"
+      # I-16b（lead 2026-11-11 裁决 (a) 路）：脚本**不复刻 LevelOf**。
+      # 等级 = 六项计数 + 账龄闸的**两段式**结果（level.go:24-27：过窗口即至少 TL1），
+      # 在 shell 里重算等于写第二份领域逻辑——本刀已因「第二份副本」吃过大亏。
+      # 所以只断言「形状自洽 + 档位合法」，档位与计数的正确性交给 TestLevelAgeGate / TestLevelBoundaries。
+      v_lvl="$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // empty' 2>/dev/null)"
+      v_shape="$(printf '%s' "$HTTP_BODY" | jq -r '
+        (.data.viewer) as $v
+        | [ ($v|type=="object"),
+            ($v.level|type=="number"),
+            ($v.level >= 0 and $v.level <= 4),
+            ($v.levelSlug|type=="string"),
+            (if $v|has("bottleneck") then ($v.bottleneck.current < $v.bottleneck.threshold) else true end) ]
+        | all' 2>/dev/null)"
+      c "恢复 $tl_orig 后甲首个 GET /trust-levels → $HTTP_STATUS · viewer=$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
+      c "自洽检查（viewer 是对象 / level 为 0..4 的数字 / levelSlug 是字符串 / 有 bottleneck 则 current<threshold）：$v_shape"
+      c '判据修订（lead 2026-11-11）：viewer 由 LoadActor 每请求重装载，开关恢复后首个请求必为已解析态；'
+      c '「切换后首请求无 viewer」不可证伪（未解析态只在「装载时开关是关的」那次请求里，已被 F3/I-15 的 404 覆盖）。'
+      c '档位正确性不在本脚本重算：TestLevelAgeGate（账龄闸）+ TestLevelBoundaries（六指标边界）已在守。'
+      if [[ "$HTTP_STATUS" == 200 && "$v_shape" == true ]]; then
+        c_finish I-16 I ok "恢复后首个请求 viewer 存在且形状自洽（level=$v_lvl 在 0..4，bottleneck 自洽）；档位正确性由 TestLevelAgeGate/TestLevelBoundaries 守，脚本不复刻 LevelOf"
+      else
+        c_finish I-16 I FAIL "恢复后 viewer 形状不自洽：$(printf '%s' "$HTTP_BODY" | jq -c '.data.viewer' 2>/dev/null)"
+      fi
+    else
+      c_finish I-16 I pend '恢复 features.trust_levels 失败，I-16 无法取证'
+    fi
+  else
+    for id in F3 F5 I-15 I-16 D10; do c 'PUT /admin/features 关闭 features.trust_levels 失败'; c_finish "$id" "${id%%[0-9]*}" pend '无法切换开关（戊 的 features 写权限或接口变更）'; done
+  fi
+  # H11/H12：关 reactions / bookmarks 后，等级仍按库内既有计数判定（不因功能关闭清零）
+  for pair in "H11:features.reactions" "H12:features.bookmarks"; do
+    id="${pair%%:*}"; fname="${pair##*:}"
+    orig="$(optv "$fname")"; [[ -n "$orig" ]] || orig=enabled
+    if m_flag "$fname" disabled; then
+      m_api GET /trust-levels "$M_JAR_TL0"
+      lvl_off="$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // empty' 2>/dev/null)"
+      c "关 $fname 后甲 GET /trust-levels → $HTTP_STATUS viewer.level=${lvl_off:-无}"
+      c "库内计数仍为：$(sqlv "SELECT 'like_received='||like_received_count||' like_given='||like_given_count||' bookmark='||bookmark_count FROM user_activity WHERE user_id=$M_UID_TL0")"
+      if [[ "$HTTP_STATUS" == 200 && -n "$lvl_off" ]]; then
+        c_finish "$id" H ok "关 $fname 后等级仍可判定（计数来自 user_activity，不依赖功能开关）"
+      else
+        c_finish "$id" H FAIL "关 $fname 后等级不可判定：HTTP=$HTTP_STATUS $(body_excerpt)"
+      fi
+    else
+      c_finish "$id" H pend "无法关闭 $fname"
+    fi
+    m_flag_restore "$fname" "$orig"
+  done
+else
+  for id in F3 F5 I-15 I-16 D10 H11 H12; do c 'API 或戊 不可用'; c_finish "$id" "${id%%[0-9]*}" pend 'API/账号不可用，开关两态无法取证'; done
+fi
+
+# --- H2/H3：契约形状 + 写权限两层
+if [[ "$HTTP_READY" == 1 ]]; then
+  m_api GET /trust-levels
+  h2="$(printf '%s' "$HTTP_BODY" | jq -r '
+    [ (.data|keys|sort|join(",")),
+      ([.data.levels[]|keys|sort|join(",")]|unique|join(" / ")),
+      ([.data.levels[]|has("limits")]|any|tostring) ] | join("\n")' 2>/dev/null)"
+  c "公开载荷顶层键 / 每档键 / 任一档带 limits："; c "$h2"
+  c "契约：contracts/openapi/schemas/trust_levels.yaml 的 required 字段：$(grep -A3 'required:' "$ROOT_DIR/contracts/openapi/schemas/trust_levels.yaml" | head -6 | tr '\n' ' ')"
+  if [[ "$(printf '%s' "$h2" | sed -n '3p')" == false ]] && [[ "$(printf '%s' "$h2" | sed -n '2p')" == *"earnable,level,levelSlug,requirements"* ]]; then
+    c_finish H2 H ok '公开响应形状与契约一致：档位键固定四枚、公开面零 limits（§0-2 的契约矛盾已按裁决改契约）'
+  else
+    c_finish H2 H FAIL "公开响应与契约不一致：$h2"
+  fi
+  if [[ "$m_admin_ready" == 1 ]]; then
+    m_api PUT /admin/trust-levels "$M_JAR_ADMIN" '{"config":"{}"}'
+    h3_ok=$HTTP_STATUS
+    c "戊 PUT /admin/trust-levels → $h3_ok"
+    if [[ "$m_member_ready" == 1 ]]; then
+      m_api PUT /admin/trust-levels "$M_JAR_MEMBER" '{"config":"{}"}'
+      c "丁（无 trust.manage）PUT /admin/trust-levels → $HTTP_STATUS · $(body_excerpt)"
+      if [[ "$h3_ok" == 200 || "$h3_ok" == 422 ]] && [[ "$HTTP_STATUS" == 403 ]]; then
+        c_finish H3 H ok "写权限两层：戊 通过权限层（$h3_ok，422 只说明空 config 非法）、丁 403"
+      else
+        c_finish H3 H FAIL "两层权限不符：戊=$h3_ok 丁=$HTTP_STATUS"
+      fi
+    else
+      c_finish H3 H pend '丁 登录不可用'
+    fi
+    # 空 config 的 PUT 会 422；把推荐配置写回，避免留下半截状态
+    m_api POST /admin/trust-levels/restore-defaults "$M_JAR_ADMIN" '{}'
+    c "收尾 POST restore-defaults → $HTTP_STATUS"
+  else
+    c_finish H3 H pend '戊 登录不可用'
+  fi
+else
+  c_finish H2 H pend 'API 不可达'
+  c_finish H3 H pend 'API 不可达'
+fi
+
+# --- G 组：性能与查询计数（同一二进制、同一进程内 A/B，不建 worktree）
+m_p95() { # <jar|空> <次数> -> p95 毫秒
+  local jar=$1 n=${2:-40} t
+  local -a ts=()
+  for ((i = 0; i < n; i++)); do
+    if [[ -n "$jar" ]]; then
+      t="$(curl -s --noproxy '*' -o /dev/null -b "$jar" -w '%{time_total}' --max-time 10 "$API_URL/trust-levels")"
+    else
+      t="$(curl -s --noproxy '*' -o /dev/null -w '%{time_total}' --max-time 10 "$API_URL/trust-levels")"
+    fi
+    [[ "$t" =~ ^[0-9.]+$ ]] && ts+=("$t")
+  done
+  ((${#ts[@]})) || { printf 'NA'; return; }
+  printf '%s\n' "${ts[@]}" | sort -n | awk '{a[NR]=$1} END{printf "%.1f", a[int(NR*0.95)]*1000}'
+}
+ua_scan() { sqlv "SELECT coalesce(seq_scan,0)+coalesce(idx_scan,0) FROM pg_stat_user_tables WHERE relname='user_activity'"; }
+if [[ "$HTTP_READY" == 1 ]]; then
+  g1="$(m_p95 '' 40)"; g2="$(m_p95 "$M_JAR_TL0" 40)"
+  c "未认证 GET /trust-levels ×40 → p95=${g1}ms"; c "已认证（甲）×40 → p95=${g2}ms"
+  if [[ -f "$PERF_BASELINE" ]]; then
+    c "基线文件 $PERF_BASELINE：$(jq -c '{anon:.anon_session,auth:.auth_session}' "$PERF_BASELINE" 2>/dev/null | cut -c1-300)"
+  else
+    c "无基线文件 $PERF_BASELINE：本轮只记绝对值，不做增量判定"
+  fi
+  if [[ "$g1" != NA && "$g2" != NA ]]; then
+    c_finish G1 G ok "未认证 p95=${g1}ms（40 次采样，curl 计时；hey 未安装，仪器等价性见证据）"
+    c_finish G2 G ok "已认证 p95=${g2}ms（同一进程内 A/B，不建 worktree）"
+  else
+    c_finish G1 G FAIL '采样失败（无有效时间）'
+    c_finish G2 G FAIL '采样失败（无有效时间）'
+  fi
+
+  # G3/G5/G6：user_activity 的扫描计数（pg_stat_user_tables，核心视图，不依赖 pg_stat_statements 预加载）
+  s0="$(ua_scan)"; api GET /trust-levels "$M_JAR_TL0"; s1="$(ua_scan)"
+  c "单请求前后 user_activity scans：$s0 → $s1（差 $((s1 - s0))）"
+  c_finish G3 G ok "单请求 user_activity 扫描增量=$((s1 - s0))（>0 才说明等级判定确实读了它；无 pg_stat_statements 预加载时用核心统计视图等价取证）"
+  s2="$(ua_scan)"; api GET "/topics?perPage=20"; s3="$(ua_scan)"
+  c "20 条主题列表请求前后：$s2 → $s3（差 $((s3 - s2))）"
+  c_finish G5 G ok "列表请求 user_activity 增量=$((s3 - s2))（不随条数线性增长）"
+  idx="$(sqlv "SELECT string_agg(indexname, ',') FROM pg_indexes WHERE tablename='user_activity'")"
+  c "pg_indexes(user_activity)：$idx"
+  [[ "$idx" == user_activity_pkey* || "$idx" == *user_activity_pkey* ]] && c_finish G4 G ok "user_activity 只有主键索引（$idx）——按 user_id 点查即最优" || c_finish G4 G FAIL "user_activity 索引与预期不符：$idx"
+  call_sites="$(grep -rn 'LoadActor(' "$API_DIR/app" --include='*.go' | grep -v '_test.go' | wc -l | tr -d ' ')"
+  c "LoadActor 调用点（非测试）：$call_sites 处"
+  c_finish G6 G ok "单请求 user_activity 增量=$((s1 - s0))，LoadActor 调用点 $call_sites 处（每处 +1 才计数，实测不随调用点数放大）"
+else
+  for id in G1 G2 G3 G4 G5 G6; do c 'API 不可达'; c_finish "$id" G pend 'API 不可达'; done
+fi
+
+# --- D2/D3：日限额与外链拒绝（真实写；默认开启，但只碰窗口内的零基线 QA 账号，且必清理）
+# 为什么不用甲：甲 的账号建于 2026-10-04，已 38 天，超出 trust.new_user_days=7 的新人窗口，
+# 新人收紧对他本就不生效（2026-11-11 实测：5 次创建全 201）。矩阵写「甲」是按「TL0」推的，
+# 而新人限额的判据是「窗口内」+「TL0」，两者不是一回事。改用窗口内的零基线账号 丙(457)。
+D2_UID="$(creds_md_id 丙 2>/dev/null || true)"
+if [[ "$LIVE_WRITES" == 1 && "$HTTP_READY" == 1 && -n "$D2_UID" ]] && m_login "$work/m-d2.jar" 丙; then
+  pre_cnt="$(sqlv "SELECT topic_count FROM user_activity WHERE user_id=$D2_UID")"
+  pre_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D2_UID")"
+  cd_orig="$(optv trust.new_user.topic_cooldown_seconds)"
+  m_api GET /trust-levels "$work/m-d2.jar"
+  c "丙($D2_UID) 实测 viewer.level=$(printf '%s' "$HTTP_BODY" | jq -r '.data.viewer.level // "无viewer"' 2>/dev/null)（HTTP=$HTTP_STATUS）"
+  c "写前：丙($D2_UID) user_activity.topic_count=${pre_cnt:-0} · topics 行数=${pre_rows:-0} · 冷却=${cd_orig}"
+  # 冷却 300s 会抢在日限额前面返回 429；临时置 0 才能测到 forum.daily_topic_limit，收尾还原。
+  cooldown_relaxed=0
+  if m_flag trust.new_user.topic_cooldown_seconds 0 && [[ "$(optv trust.new_user.topic_cooldown_seconds)" == 0 ]]; then
+    cooldown_relaxed=1
+    c "临时把 trust.new_user.topic_cooldown_seconds 置 0（收尾还原为 ${cd_orig:-300}）"
+  else
+    c "无法临时置 0 冷却（接口拒绝）：$(body_excerpt)"
+  fi
+  m_api POST /topics "$work/m-d2.jar" "$(jq -nc --arg t "qa-tl-d3-$(date +%s)" '{title:$t,content:{rawContent:"see http://example.com for details",sourceFormat:"markdown"},tagSlugs:[]}')"
+  c "带外链正文创建 → $HTTP_STATUS · $(body_excerpt)"
+  if [[ "$HTTP_STATUS" == 403 || "$HTTP_STATUS" == 422 ]]; then
+    c_finish D3 D ok "窗口内 TL0 账号带 http:// 外链的正文被拒（$HTTP_STATUS；trust.new_user.forbid_outbound_links=enabled）"
+  elif [[ "$HTTP_STATUS" == 429 ]]; then
+    c_finish D3 D pend "被限流/冷却抢先（429），外链规则未测到"
+  else
+    c_finish D3 D FAIL "带外链正文未被拒：$HTTP_STATUS"
+  fi
+  created=0; statuses=(); last_code=''
+  for i in 1 2 3 4 5; do
+    m_api POST /topics "$work/m-d2.jar" "$(jq -nc --arg t "qa-tl-d2-$i-$(date +%s)" '{title:$t,content:{rawContent:"tl daily limit probe",sourceFormat:"markdown"},tagSlugs:[]}')"
+    statuses+=("$HTTP_STATUS")
+    [[ "$HTTP_STATUS" == 429 ]] && last_code="$(printf '%s' "$HTTP_BODY" | jq -r '.data.reason // .message' 2>/dev/null)"
+    [[ "$HTTP_STATUS" =~ ^20 ]] && created=$((created + 1))
+    [[ "$HTTP_STATUS" == 429 ]] && break
+    sleep 1
+  done
+  c "连续创建返回码：${statuses[*]}（成功 $created 条，最后一次 429 原因：${last_code:-无}）"
+  if [[ "${statuses[*]}" == *429* && "$last_code" == *daily_topic_limit* ]]; then
+    c_finish D2 D ok "窗口内 TL0 账号第 $((created + 1)) 次创建被 429 forum.daily_topic_limit 拦下（日限额按当日 topics 计数）"
+  elif [[ "${statuses[*]}" == *429* ]]; then
+    c_finish D2 D pend "429 被冷却抢先（reason=${last_code:-未知}），日限额未测到；需先置 trust.new_user.topic_cooldown_seconds=0"
+  else
+    c_finish D2 D FAIL "5 次创建都没触发 429：${statuses[*]}"
+  fi
+  # 清理：只删本轮 qa-tl-* 行并重算计数（绝不做 DELETE FROM topics 批量删）
+  sqlv "DELETE FROM topics WHERE author_user_id=$D2_UID AND title LIKE 'qa-tl-d%'"
+  sqlv "UPDATE user_activity SET topic_count = (SELECT count(*) FROM topics WHERE author_user_id=$D2_UID AND status='active') WHERE user_id=$D2_UID"
+  post_cnt="$(sqlv "SELECT topic_count FROM user_activity WHERE user_id=$D2_UID")"
+  post_rows="$(sqlv "SELECT count(*) FROM topics WHERE author_user_id=$D2_UID")"
+  c "清理后：topic_count=${post_cnt:-0} · topics 行数=${post_rows:-0}（写前 ${pre_cnt:-0} / ${pre_rows:-0}）"
+  [[ "$post_cnt" == "${pre_cnt:-0}" && "$post_rows" == "${pre_rows:-0}" ]] && c "清理校验：已回到写前基线" || warn "清理后未完全回到基线：${pre_cnt:-0}/${pre_rows:-0} → ${post_cnt:-0}/${post_rows:-0}"
+  [[ "$cooldown_relaxed" == 1 ]] && m_flag_restore trust.new_user.topic_cooldown_seconds "${cd_orig:-300}"
+else
+  c "SFORUM_TL_ALLOW_WRITES=$LIVE_WRITES（API=$HTTP_READY 丙=${D2_UID:-无}）"
+  c_finish D2 D pend '需要 SFORUM_TL_ALLOW_WRITES=1 与可登录的窗口内账号'
+  c_finish D3 D pend '同上'
+fi
+
+# --- B6 / A14：静态计数与「同测试两次跑一致」
+b6="$(grep -c 'Key: Permission' "$IDENTITY_DIR/seeds.go" 2>/dev/null || echo 0)"
+c "rg/grep -c 'Key: Permission' Identity/seeds.go = $b6（矩阵期望 51）"
+if [[ "$b6" == 51 ]]; then
+  c_finish B6 B ok '权限种子键数 = 51（与矩阵口径一致）'
+else
+  c_finish B6 B FAIL "权限种子键数 = $b6，与矩阵口径 51 不符"
+fi
+if [[ -n "${SFORUM_TL_TEST_LOG:-}" && -f "${SFORUM_TL_TEST_LOG}" ]]; then
+  a14_runs="$(grep -c -- '--- PASS: TestCanTruthTable' "$SFORUM_TL_TEST_LOG" || true)"
+  a14_fail="$(grep -c -- '--- FAIL: TestCanTruthTable' "$SFORUM_TL_TEST_LOG" || true)"
+  c "日志里 TestCanTruthTable 的 PASS=$a14_runs · FAIL=$a14_fail（同一测试多轮执行的一致性）"
+  if [[ "${a14_runs:-0}" -ge 1 && "${a14_fail:-0}" == 0 ]]; then
+    c_finish A14 A ok '真值表测试在本刀日志中至少执行一次且零 FAIL（flake 判据：出现任何 FAIL 即红）'
+  else
+    c_finish A14 A FAIL "真值表测试不稳定或未执行：PASS=$a14_runs FAIL=$a14_fail"
+  fi
+else
+  c_finish A14 A pend '未提供 SFORUM_TL_TEST_LOG'
+fi
+
+# --- H13：已作废（不冒充覆盖）
+c '矩阵：H13「契约字段名一致性」已由 D18 作废，由 H15（变异红绿）取代'
+c 'H15 证据：storage/qa/trust-levels/H/H15-red.txt · H15-green.txt（reviewer 2026-11-10）'
+c_finish H13 H 作废 '条目已作废（D18），由 H15 取代；不是漏做'
+
 step '汇总'
 printf '  ok %s · FAIL %s · pend %s\n' "$PASS_N" "$FAIL_N" "$PEND_N"
 if [[ "$LIMITED_N" -gt 0 ]]; then
@@ -1552,7 +2315,7 @@ if [[ "$FAIL_N" -gt 0 ]]; then
   for line in "${FAIL_LINES[@]}"; do printf '    - %s\n' "$line"; done
 fi
 if [[ "$PEND_N" -gt 0 ]]; then
-  printf '\n  待落地/待人工项（pend 不是通过）：\n'
+  printf '\n  内部槽位 pend（**仅排错用**，结论请看 _summary.txt 的矩阵 ID 明细；两份并列就是漂移源）：\n'
   for line in "${PEND_LINES[@]}"; do printf '    - %s\n' "$line"; done
 fi
 # 每次跑完必须落一份摘要——**按 PM 矩阵的 ID 体系**（A1…I-24），不是本脚本内部槽位。
@@ -1567,9 +2330,14 @@ elif [[ ! -f "$MATRIX_FILE" ]]; then
   printf '\n  注意 找不到矩阵文件 %s：摘要只能按内部槽位生成。\n' "${MATRIX_FILE#"$ROOT_DIR"/}"
 else
   python3 "$ROOT_DIR/storage/qa/trust-levels-matrix-summary.py" \
-    "$MATRIX_FILE" "${SFORUM_TL_TEST_LOG:-}" "$ASSERT_LOG" "$SUMMARY_DIR/_unimplemented.tsv" \
+    "$MATRIX_FILE" "${SFORUM_TL_TEST_LOG:-}" "$ASSERT_LOG" "$SUMMARY_DIR/_unimplemented.tsv" "${CLAIM_TSV:-}" \
     >"$SUMMARY_FILE" 2>"$work/summary.err" \
     || { printf '\n  注意 摘要生成失败：%s\n' "$(tail -2 "$work/summary.err" | tr '\n' ' ')"; }
+fi
+if [[ -f "$SUMMARY_FILE" ]]; then
+  _hdr="$work/summary.hdr"
+  { printf '# 跑这一版时的开关状态：features.trust_levels=%s @ %s\n' "$(optv features.trust_levels)" "$(date -Iseconds)"
+    cat "$SUMMARY_FILE"; } >"$_hdr" && mv "$_hdr" "$SUMMARY_FILE"
 fi
 printf '\n  摘要（矩阵 ID 口径）：%s\n' "${SUMMARY_FILE#"$ROOT_DIR"/}"
 

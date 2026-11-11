@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 )
 
@@ -255,5 +258,104 @@ func TestPayloadArraysAreNeverNull(t *testing.T) {
 	}
 	if strings.Contains(adminBody, `"recommendedConfig":null`) {
 		t.Fatalf("recommendedConfig 是 null：%s", adminBody)
+	}
+}
+
+// TestAdminEligiblePermissionsLiteral 是 M9 的白名单形状测试（J-01/J-02）。
+//
+// 两层断言刻意分开，因为它们是两件不同的事：
+//
+//  1. **字面集合相等**：七个键是字面量，不用 trustlevels.EarnableWhitelist() 反推。
+//     用实现给自己出题等于没断言——白名单混进 user.ban 时两边会一起变绿。
+//     注意别拿 SeedMemberPermissions 的顺序当期望：seeds.go 与白名单**顺序不同**
+//     （seeds 是 topic.create → topic.edit_own → … → attachment.upload），
+//     那是两个独立的字面量清单，断言它们同序必红。
+//  2. **顺序等于白名单顺序**：白名单顺序是 UI 展示序的唯一权威（前端按数组顺序渲染
+//     勾选矩阵），控制器若排序或走 map 迭代就会在这里红。
+func TestAdminEligiblePermissionsLiteral(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }))
+
+	// 字面量，按字典序写（比较前会排序，写序不影响断言，但便于人读）。
+	wantSet := []string{
+		"attachment.upload",
+		"post.create",
+		"post.delete_own",
+		"post.edit_own",
+		"topic.create",
+		"topic.delete_own",
+		"topic.edit_own",
+	}
+
+	read := func() []string {
+		t.Helper()
+		status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/admin/trust-levels", "")
+		if status != fiber.StatusOK {
+			t.Fatalf("后台读 status = %d，body=%s", status, body)
+		}
+		var payload struct {
+			Data struct {
+				Eligible []string `json:"eligiblePermissions"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			t.Fatalf("响应不是预期 JSON：%v，body=%s", err, body)
+		}
+		return payload.Data.Eligible
+	}
+
+	got := read()
+	if len(got) != 7 {
+		t.Fatalf("eligiblePermissions 长度 = %d，期望 7：%v", len(got), got)
+	}
+
+	// 断言 1：集合相等（不看顺序）。
+	gotSorted := slices.Clone(got)
+	slices.Sort(gotSorted)
+	if !slices.Equal(gotSorted, wantSet) {
+		t.Fatalf("eligiblePermissions 集合 = %v，期望 %v", gotSorted, wantSet)
+	}
+
+	// 断言 2：顺序等于白名单顺序（UI 展示序的权威），且两次读之间稳定。
+	wantOrder := trustlevels.EarnableWhitelist()
+	if !slices.Equal(got, wantOrder) {
+		t.Fatalf("eligiblePermissions 顺序 = %v，期望与白名单同序 %v", got, wantOrder)
+	}
+	second := read()
+	if !slices.Equal(second, got) {
+		t.Fatalf("两次读的顺序不一致：%v vs %v", got, second)
+	}
+}
+
+// TestUpdateAdminStoreFailureIsServerError 锁定 M12-a 在**这条路径上**的行为变化：
+// `PUT /admin/trust-levels` 的写库失败现在回 500 `options.store_failure`。
+//
+// 这是本刀唯一有意改变的 HTTP 状态码：之前它回 422 `validation.invalid`，
+// 等于告诉运营「你的配置写错了」——那是在说谎，运营会去改一份本来就正确的配置，
+// 而真正的问题是库。
+func TestUpdateAdminStoreFailureIsServerError(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(func(context.Context) (bool, error) { return true, nil }).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error {
+			return fmt.Errorf("%w: %w", options.ErrStoreFailure, errors.New("connection refused"))
+		}))
+
+	validConfig := mustEncode(t, trustlevels.DefaultPolicy())
+	status, body := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels",
+		`{"config":`+mustJSONString(validConfig)+`}`)
+	if status != fiber.StatusInternalServerError {
+		t.Fatalf("写库失败 status = %d（期望 500），body=%s", status, body)
+	}
+	if !strings.Contains(body, "options.store_failure") {
+		t.Fatalf("reason 不是 options.store_failure：%s", body)
+	}
+	if strings.Contains(body, "validation.invalid") {
+		t.Fatalf("写库失败仍被报成输入错误（422 语义）：%s", body)
 	}
 }
