@@ -116,6 +116,17 @@ export type ForumTopicTagSummary = {
   status: ForumTagStatus
 }
 
+/**
+ * 作者信任等级（请求级装饰，不缓存）：`{ level, levelSlug, color }`。
+ * 整体缺席表示「本次读不到」——功能关闭、装载失败、作者没有 activity 行、机器人账号。
+ * 前端**只渲染，不计算、不再查接口**（徽章是只读装饰）。
+ */
+export type ForumAuthorTrustLevel = {
+  level: number
+  levelSlug: string
+  color: string
+}
+
 export type ForumTopicSummary = {
   id: number
   categoryId: number
@@ -125,6 +136,8 @@ export type ForumTopicSummary = {
   author?: ForumUserSummary
   /** 作者的最高级徽章（M3 读模型；未获得/功能关闭时不出现）。 */
   topBadge?: import('~/utils/forum/forumBadge').ForumBadgeRef
+  /** 作者信任等级（请求级装饰；字段缺席时不渲染徽章）。 */
+  authorTrustLevel?: ForumAuthorTrustLevel | null
   /** 最近 active 评论作者；无评论时与 author 相同 */
   lastReplyAuthor?: ForumUserSummary
   title: string
@@ -253,6 +266,8 @@ export type ForumComment = {
   author?: ForumUserSummary
   /** 作者的最高级徽章（M3 读模型；未获得/功能关闭时不出现）。 */
   topBadge?: import('~/utils/forum/forumBadge').ForumBadgeRef
+  /** 作者信任等级（请求级装饰；字段缺席时不渲染徽章）。 */
+  authorTrustLevel?: ForumAuthorTrustLevel | null
   parentId?: number | null
   rootCommentId: number
   pathKey: string

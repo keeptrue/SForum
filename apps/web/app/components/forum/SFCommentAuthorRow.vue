@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { ForumBadgeRef } from '~/utils/forum/forumBadge'
+import type { ForumAuthorTrustLevel } from '~/utils/forum/forumTaxonomy'
 import SFBadgeChip from '~/components/forum/SFBadgeChip.vue'
 import SFUserIdentityName from '~/components/forum/SFUserIdentityName.vue'
+import SFTrustTierBadge from '~/components/forum/SFTrustTierBadge.vue'
 
 /**
  * 评论作者身份行：预览触发按钮（或链接 / 纯文本）+ 昵称 + 楼主标 + 最高级徽章 chip。
@@ -19,6 +21,8 @@ const props = withDefaults(defineProps<{
   username?: string
   displayName?: string
   topBadge?: ForumBadgeRef | null
+  /** 作者信任等级（请求级装饰；缺席时不渲染徽章）。 */
+  trustLevel?: ForumAuthorTrustLevel | null
   isOpAuthor?: boolean
   /** 有可预览身份时才渲染成按钮（与父层 canPreviewUser 同义）。 */
   interactive?: boolean
@@ -29,6 +33,7 @@ const props = withDefaults(defineProps<{
   username: '',
   displayName: '',
   topBadge: null,
+  trustLevel: null,
   isOpAuthor: false,
   interactive: false,
   previewOpen: false,
@@ -60,6 +65,8 @@ const { t } = useI18n()
     >
       <template #name-suffix>
         <span v-if="props.isOpAuthor" class="sf-comment__op-badge">{{ t('topicDetail.opBadge') }}</span>
+        <!-- 规格 9.1：昵称 → 楼主标 → TL → 奖励 chip；楼主标与 chip 的既有位置不变 -->
+        <SFTrustTierBadge :trust-level="props.trustLevel" size="row" />
         <SFBadgeChip v-if="props.topBadge" :badge="props.topBadge" />
       </template>
     </SFUserIdentityName>
@@ -71,4 +78,6 @@ const { t } = useI18n()
   <span v-if="props.isOpAuthor && !props.interactive" class="sf-comment__op-badge">
     {{ t('topicDetail.opBadge') }}
   </span>
+  <!-- 非交互分支（无可预览身份）保持同一顺序：楼主标 → TL，避免同一作者两处不一致 -->
+  <SFTrustTierBadge v-if="!props.interactive" :trust-level="props.trustLevel" size="row" />
 </template>

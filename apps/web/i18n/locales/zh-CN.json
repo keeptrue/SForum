@@ -6269,6 +6269,7 @@
     "publishedAt": "发布于 {time}",
     "updatedAt": "更新于 {time}",
     "opBadge": "楼主",
+    "trustBadge": "信任等级 {level}",
     "userPreview": {
       "open": "预览 {name} 的资料",
       "ariaLabel": "{name} 的用户资料预览",
