@@ -113,18 +113,40 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 
 ## Cache Semantics
 
-徽章是 **actor 无关**的（同一个作者的徽章对所有访客一样），所以它可以进
-`CachedStore`，与主题/评论载荷一起缓存。
+**先说结论，避免下面这句被读成「Badges 有 CachedStore 包装」：**
 
-这与 `likedByMe` / `bookmarkedByMe` **相反**：那两个是 viewer 相关的，必须在
-`PublicReadService` 缓存之后逐请求装饰、永不进缓存。照 reactions 的做法抄成
-「每请求重算徽章」是错的——那会让列表页每个作者都多一次查询。
+| 对象 | 有没有缓存 | 事实 |
+| --- | --- | --- |
+| `Badges` 的 store | **没有** | `bootstrap/api_assembly_domains.go:554` 是裸 `badges.NewPostgresStore(pool)`，**无任何装饰器**；`CachedStore` 全仓只存在于 `app/Models/Forum`（`cached_store.go:28` 定义、`:75` 构造函数 `NewCachedStore`） |
+| 徽章在**读模型**里的形态 | **有** | 帖子/评论载荷里的 `BadgeRef`（`app/Models/Badges/types.go:158-163`）随主题/评论进 `CachedStore`。它只有 `slug`/`name`/`tier`/`icon` 四个字段，**actor 无关**（同一个作者的徽章对所有访客一样） |
+| 公开目录端点 `GET /api/v1/badges` | **明确不缓存** | 响应含**查看者自己的** `earned`，头是 `private, no-store`（`Badges/controller.go:723` 的 `setViewerScopedNoStore`） |
+
+**`BadgeRef` 可以进缓存**，因为它 actor 无关；这与 `likedByMe` / `bookmarkedByMe`
+**相反**：那两个是 viewer 相关的，必须在 `PublicReadService` 缓存之后逐请求装饰、永不进缓存。
+照 reactions 的做法抄成「每请求重算徽章」是错的——那会让列表页每个作者都多一次查询。
 
 代价是授予后最多一个 TTL 的延迟（见上一节）。可接受，因为徽章不是时效性信息。
 
+### 为什么 `/api/v1/badges` **禁止**复用 `setPublicCacheable`
+
+`setPublicCacheable`（`Badges/controller.go:713`）写 `public, max-age=30`，注释理由是
+「徽章墙 actor 无关」——那对**资料页**端点成立（返回**被查看者**的 earned，同一 URL 对所有人相同）。
+`/api/v1/badges` 返回的是**查看者自己**的 earned，同一 URL 对不同人内容不同：
+一旦写 `public`，共享缓存会把 A 的 earned 投给 B。所以它必须走
+`setViewerScopedNoStore`（`:723`，`private, no-store`）。
+
+**不要靠 `Vary` 补救**：该控制器的路由注册**不设 `Vary`**（`RegisterRoutes` 里零命中；
+运行时响应里那条 `Vary: Cookie, Accept-Encoding` 来自中间件，不由控制器保证覆盖 earned 维度）。
+选 `no-store` 而不是只写 `private`：目录是低频读，宁可每次回源，也不赌缓存键正确。
+
+> 这条同时是**第六条「幻影」**的现场（前五条：`account_age_days`、`roles.*`、`regular`、
+> `ThresholdOptionKey`、`SeedMemberPermissions`）：本节旧文案「徽章可以进 `CachedStore`」
+> 字面为真（`BadgeRef` 确实进了），机制误导（**Badges store 从未被包装**）。
+> 2026-11-11 的 `/badges` 公共目录那一刀查实并改写。
+
 ## Feature Flag And Permissions
 
-- 开关 `features.badges`（`public: true`，推荐开）。关闭后：13 条徽章端点全部
+- 开关 `features.badges`（`public: true`，推荐开）。关闭后：**14 条**徽章端点（12 后台 + 资料页墙 + 公开目录）全部
   `403 forum.badges_disabled`、资料页徽章 tab 与帖子旁 chip 消失，**统计采集与
   统计数字照常**——统计不属于徽章产品面（计划 D1）。
 - 权限键 `badge.view`（读后台）/ `badge.manage`（全部写）。**校验在领域层**：
@@ -220,8 +242,11 @@ WHERE NOT EXISTS (
 7. `SFComment.vue` 仍有 537 行（在 500 以上），本刀只抽了 `SFCommentAuthorRow`，
    未继续拆；下次动它之前先看 `tests/architecture-boundaries-baseline.json` 的 cap。
 8. 无自动对账周期 job（D5 明确不做 CLI），统计漂移靠上面两段 SQL 人工核对。
-9. `/badges` 公共目录页未做（要 Page Registry 全套：catalog、route shell、
-   ThemeCompiler ViewModel、Host island、主题模板）。
+9. ~~`/badges` 公共目录页未做~~ —— **已做（2026-11-11）**：page ID `forum.badge.index`、
+   contract `sforum.page.badge_index@1`、`CoreComponent pages/badges/index`、
+   Host 岛 `sf-badge-index-page`（ComponentID `forum.component.badge_index`）、
+   端点 `GET /api/v1/badges`、路由 `core.route.badges.public_catalog`、
+   内置主题模板 `templates/badges.html`。剩余只有视觉 QA（B-26）未取证。
 10. 阅读字段 `posts_read_count` / `read_time_seconds` 预留未采集。
 11. **本刀的 i18n 完整性没有被断言覆盖，HEAD 的 `badges` 键整块缺失。**
     84 条断言 0 FAIL，但 **i18n 完整性不在断言覆盖范围内**——HEAD 的 `zh-CN.json` /
@@ -250,6 +275,11 @@ WHERE NOT EXISTS (
     里**都不存在**（HEAD 也没有），页面上直接显示裸键名。D1 规定资料页要显示获赞数与访问
     天数（数字来自 `user_activity`），所以这是「功能做了、文案没跟上」。已由前端补齐中英各
     两条。
+15. `SFProfileBadgeTab.vue` 现在 **514 行**（跨过 500 复核线，未进
+    `architecture-boundaries-baseline.json`），一个组件承载**双 variant 单 DOM**
+    （`profile` / `catalog`）。**第三个消费者出现时必须把卡片抽成
+    `apps/web/app/components/forum/badges/SFBadgeCard.vue`**；现在不抽是为了不制造第二份，
+    不是为了省事。
 
 > **11–14 四条的共同注脚**：徽章那一刀的验收是「**84 条断言 0 FAIL**」，而这四样东西
 > **都不在那 84 条里**——i18n 键完整性、路由计数 tripwire、错误码本地化、资料页统计条文案。

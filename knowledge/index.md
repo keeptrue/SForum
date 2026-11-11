@@ -39,15 +39,31 @@ load archived sessions or completed plans as current context.
   （N-01..N-16，N-05 已由双 loader 断言实测）。**残留**：注册响应绕过减法门（M-02）、
   bot 腿只有 fixture 层、后台用户详情仍把被扣的键算作生效、`CanEditPost` 生产零调用。
 
+### 下一纵列：关注 / 订阅（follow + watch，D36）
+
+- Status: **approved，未开计划**（YG 2026-11-11 裁决，只登记）。`follow`（关注用户 /
+  分类 / 标签）+ `watch`（订阅主题 / 评论），**复用 `content_bookmarks` 的提醒管线**
+  （`forum.bookmark_reminders` 周期任务 + `bookmark_reminder` 通知的形状：抢占式扫描、
+  目标不可见只写 `reminded_at` 不发通知、邮件默认开）。
+- 裁决与两条被否方案（先做通知中心 / 新开 `user_follows` 表）见
+  `decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`（D36）。
+  **尚无计划文件**；起计划前先读收藏那一刀的 `modules/` 与 D5（提醒不建 CLI）。
+
 ### 互动第三刀：徽章 + 用户活动统计
 
 - Status: **landed（M8 已通过，2026-11-10）**。五张表（`user_activity` /
   `user_visits` / `badge_groups` / `badges` / `user_badges`）+ `users.top_badge_id`；
-  独立包 `app/Models/Badges/`；13 条路由（1 公开 + 12 后台）；`badges.evaluate_user`
+  独立包 `app/Models/Badges/`；**14 条路由**（2 公开 + 12 后台）；`badges.evaluate_user`
   job 与「重算」批量补授予两条路径；三个稳定视图 + HostQuery；`features.badges`
   开关 + `badge.view` / `badge.manage`；资料页第 5 个 tab 与帖子旁 chip；OpenAPI
-  8 个 path item / 13 个 operation。M8：84 条后端断言 0 FAIL、16 条浏览器结构断言
+  9 个 path item / 14 个 operation。M8：84 条后端断言 0 FAIL、16 条浏览器结构断言
   全过。**统计层是信任等级的地基**，下一刀只需做「阈值 → 能力」映射。
+- **`/badges` 公共目录页已 landed（2026-11-11，互动系列收口）**：page ID
+  `forum.badge.index`、`GET /api/v1/badges`（`core.route.badges.public_catalog`，
+  `private, no-store`）、Page Registry 七件套 + 内置主题模板、资料页 tab 内链入口、
+  后台 IA 移到「用户与权限」。判定 **PASS-with-residual**（reviewer 独立复验），
+  唯一未闭是视觉 QA（B-26）。见 `sessions/2026-11-11-badges-public-catalog.md`、
+  `decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`。
 - Handoff：`sessions/2026-11-10-badges.md`；决策：
   `decisions/2026-11-10-badges-and-user-activity.md`；模块：`modules/badges.md`；
   计划：`plans/2026-11-10-badges-and-user-activity.md`（§11 决断、§12 陷阱 T1–T12）。
@@ -787,7 +803,19 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **信任等级基线门（2026-11-11，最新）**：D34 让「等级解锁能力」第一次在默认安装里可观测——
+- **`/badges` 公共目录页（2026-11-11，最新）**：互动系列收口刀。新增公开读面
+  `GET /api/v1/badges`（`core.route.badges.public_catalog`，返回全部 `enabled` 徽章含未获得、
+  不含 `threshold`/`metric`、上限 500 + `truncated`），缓存头 `private, no-store`
+  ——它返回**查看者自己**的 earned，写 `public` 会把 A 的 earned 投给 B（D37）。
+  Page Registry 七件套 + 内置主题模板全落，包级 digest `2f06a9e4…` → `c8105b4f…f34a`
+  （账本 revision 22 / `approval_source='admin'`）。判定 **PASS-with-residual**，
+  唯一未闭是视觉 QA（B-26）。两条最贵的教训：**404 页也由主题渲染**（只 grep
+  `data-provider`/`data-template` 会把「页面没做出来」判成通过）、**Core fallback 是静默的**
+  （标题/数据/`data-page` 全对，只有 provider/template 两值暴露它）。见
+  `sessions/2026-11-11-badges-public-catalog.md`、
+  `decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`、
+  `reports/2026-11-11-badges-public-catalog-matrix.md`。
+- **信任等级基线门（2026-11-11）**：D34 让「等级解锁能力」第一次在默认安装里可观测——
   `topic.create`/`attachment.upload` 是**等级门控键**，TL0 没有、TL1 起有，机制是装载期减法门
   （`member` 角色行与迁移一行未动，零迁移）。顺带修 `LoadEffectiveActorTx` 从未读 `created_at`
   的缺陷（插件命令路径曾永远不低于 TL1）。本刀首跑门禁红 31 条，根因是手写测试夹具的 `users`
@@ -2785,8 +2813,6 @@ challenge 200（64 字符 token、5 分钟 TTL、`sforum.trust-impact@2` 影响�
   `sessions/2026-07-24-profile-reply-comment-page-links.md`
 - Comment cross-page anchor SSR resolve (topic page) + path-style `/page/N`:
   `sessions/2026-07-24-comment-cross-page-anchor-handoff.md`
-- `/moderation` host chrome sidebar tokens aligned with default-theme hybrid:
-  `sessions/2026-07-24-moderation-sidebar-token-parity-handoff.md`
 
 ## Recently Completed
 
