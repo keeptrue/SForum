@@ -2484,6 +2484,16 @@
       "source": "apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue"
     },
     {
+      "id": "core.component.shared.sf_badge_card",
+      "contractVersion": "sforum.component.shared.sf_badge_card@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeCard.vue"
+    },
+    {
       "id": "core.component.page.badges.username",
       "contractVersion": "sforum.component.page.badges.username@1",
       "kind": "page",

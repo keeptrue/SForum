@@ -2319,6 +2319,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.shared.sf_badge_card",
+    "contractVersion": "sforum.component.shared.sf_badge_card@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/badges/SFBadgeCard.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sf_badge_catalog_page",
     "contractVersion": "sforum.component.shared.sf_badge_catalog_page@1",
     "kind": "component",
