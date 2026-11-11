@@ -8,7 +8,7 @@ load archived sessions or completed plans as current context.
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
-- Status: **in progress（M1–M4 已落地含公开面；M5 资料页等级卡已接线（2026-11-11 09:21 实测，见下）；M9–M13 收尾进行中（M10 earnable 编辑器已落地）；M8 最终表 124 行 ok 75 / 未实现 49 / FAIL 0；提交历史：`f63ad2cf9`（代码）+ 紧随其后的 docs 提交（证据升级））**。
+- Status: **landed（2026-11-11，有 residual）**。提交：`f63ad2cf9`（M1–M8 代码）→ `57a3de5ad`（M9–M13 收尾 + `host_commands` P0）→ `185be5701`（D34 基线门）+ 两笔 docs。验收：`reports/2026-11-11-trust-levels-acceptance-matrix-v3.md` **149** 条（ok 145 · FAIL 0 · pend 2 · 规则 1 · 作废 1 · 未实现 0）+ P0 条目 M-01 = **150**；D34 增量在 `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`（N-01..N-16 + M-02 residual）—— **两刀条目数不相加**。
   在既有 RBAC 之上叠一层按累计行为自动升降的能力层：TL 在**装载期**合并进
   `Actor.Permissions`（`Can()` 零改动，D13），装载公式
   `effective = Expand(static) ∪ (earned ∖ denied)`（D14）；现有「新人信任阶梯」
@@ -31,11 +31,13 @@ load archived sessions or completed plans as current context.
   `database/queries/identity.sql`（计划指错函数）、`.Can(` 非测试调用点 **256**（命令：
   `rg -o "\.Can\(" -g '*.go' -g '!*_test.go' | wc -l`；含测试 280）。deny 复活已由 D14 裁决
   且 D28 已修，不再是未决项。
-- **D34 基线收窄（进行中，2026-11-11T11:24 裁决）**：默认安装下 TL0 不能开新主题、不能传附件，
+- **D34 基线门（landed，`185be5701`）**：默认安装下 TL0 不能开新主题、不能传附件，
   能回帖能改删自己的内容；机制走减法门（零迁移、不动白名单与关闭语义）。决策
   `decisions/2026-11-11-trust-level-baseline-narrowing.md`；计划
-  `plans/2026-11-11-trust-levels-baseline-narrowing.md`（§1 死锁、§4-bis 裁决）；验收
-  `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`（N 组 9 条，N-05 待范围）。
+  `plans/2026-11-11-trust-levels-baseline-narrowing.md`（§1 静音推导、§4-bis 裁决、
+  §8 四条实施期教训）；验收 `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`
+  （N-01..N-16，N-05 已由双 loader 断言实测）。**残留**：注册响应绕过减法门（M-02）、
+  bot 腿只有 fixture 层、后台用户详情仍把被扣的键算作生效、`CanEditPost` 生产零调用。
 
 ### 互动第三刀：徽章 + 用户活动统计
 
@@ -785,7 +787,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章 + 用户活动统计（2026-11-10，最新）**：`user_activity` 独立表承载六项计数
+- **信任等级基线门（2026-11-11，最新）**：D34 让「等级解锁能力」第一次在默认安装里可观测——
+  `topic.create`/`attachment.upload` 是**等级门控键**，TL0 没有、TL1 起有，机制是装载期减法门
+  （`member` 角色行与迁移一行未动，零迁移）。顺带修 `LoadEffectiveActorTx` 从未读 `created_at`
+  的缺陷（插件命令路径曾永远不低于 TL1）。本刀首跑门禁红 31 条，根因是手写测试夹具的 `users`
+  表缺列、而哨兵文案指向 store —— 「红在别处」与「我没弄红它」是两个断言，后者要给集合差分。
+  见 `sessions/2026-11-11-trust-level-baseline-gate.md`、
+  `decisions/2026-11-11-trust-level-baseline-narrowing.md`、
+  `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`。
+- **徽章 + 用户活动统计（2026-11-10）**：`user_activity` 独立表承载六项计数
   （关系行三项可精确重算，`topic_count`/`comment_count` 是事件累计、软删后不回退），
   `user_visits` 由 Redis SETNX 挡库后同步写；徽章 actor 无关所以进 `CachedStore`
   （与 `likedByMe`/`bookmarkedByMe` 相反，代价是帖子旁 20–30s 延迟）；`top_badge_id`
@@ -794,7 +804,7 @@ load archived sessions or completed plans as current context.
   M8 通过（84 断言 0 FAIL）。本刀修掉的两个 P0（首页 500、后台无权限）根因都是
   「同一份东西存在多个副本」。见 `sessions/2026-11-10-badges.md`、
   `decisions/2026-11-10-badges-and-user-activity.md`、`modules/badges.md`。
-- **收藏（主题 + 评论 + 提醒，2026-11-10，最新）**：`content_bookmarks` 多态关系、
+- **收藏（主题 + 评论 + 提醒，2026-11-10）**：`content_bookmarks` 多态关系、
   每条可公开/私密（默认私密）、只统计公开收藏的计数列、`PUT` 全量状态写入
   （`visibility` / `remindAt` / `clearReminder` 三态）、`GET /profile/bookmarks` 与
   `GET /profiles/{username}/bookmarks` 视角分叉；提醒列 owner-only 三层闸（SQL CASE +
