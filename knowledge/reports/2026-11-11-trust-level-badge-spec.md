@@ -1,7 +1,7 @@
 # 前台信任等级徽章：视觉规格
 
 日期：2026-11-11
-状态：规格定稿（实现由前端执行，本文不含代码）
+状态：规格定稿（实现由前端执行，本文不含代码）；**当前的展示位置口径变了**——产品要求信任等级标识只在个人中心（资料页）出现，论坛读面（话题列表/详情/回复）一律不显示，因此论坛徽章实现已 revert（`46c2f52cb`）。本文的形态/密度/对比度结论与展示位置无关，保留作将来在受限面加等级标识时的依据。
 输入：`apps/web/app/assets/css/sforum-trust-colors.css`（9 色 token）、`apps/web/app/components/profile/SFTrustLevelCard.vue`（`--tl-accent` 阶梯）、`knowledge/reports/2026-11-11-trust-tier-color-palette.md`（对比度底表）
 
 ## 0. 一句话结论
