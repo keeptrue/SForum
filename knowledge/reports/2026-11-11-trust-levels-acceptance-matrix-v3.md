@@ -2,7 +2,7 @@
 
 Owner: pm（阿策）
 Status: **已提交（2026-11-11，commit `57a3de5ad`）**。第三版，在 `2026-11-10-trust-levels-acceptance-matrix.md`（v2，124 条）基础上
-**追加** J 组 14 条 + K 组 5 条 + L 组 6 条 = **25 条新增，总计 149 条**。
+**追加** J 组 14 条 + K 组 5 条 + L 组 6 条 = **25 条新增，总计 149 条**；**另有 M-01（P0 修复条目）单列，不计入 149，总计 150**。
 v2 原件**只改过一处**：I-16 因判据不可满足经 lead 裁决修订（原判据原文留档于 v2 I 组表后，新判据见本文件 §11）；其余不动，A–I 组的编号与内容继续由 v2 定义，本文件只定义 J/K/L。
 **矩阵是唯一编号源**：`scripts/verify-trust-levels-acceptance.sh` 按 ID 落盘，矩阵有而脚本没有的进 §8。
 
@@ -607,6 +607,29 @@ go test -count=1 -v -run '^<GuardName>$' ./<pkg>/ | tee storage/qa/trust-levels/
 
 ---
 
+## 3.1 M 组 — P0 条目（**不属信任等级功能范围，但必须在这张表里**）
+
+| ID | 断言 | 谁验 | 怎么验 | 证据 |
+| --- | --- | --- | --- | --- |
+| M-01 | 只声明 `own_schema` 的扩展执行 `sforum.entitlements.mutate` 必须 REJECTED；持 `host_commands` 者必须 COMMITTED；装配必须交出 wrapper | rev | `T: ^TestPostgresCommandRuntimeKeepsHostCommandAuthorityBackend$` + `T: ^TestHostCommandWrapperKeepsWrapperThroughChainedTrustLevelSource$` + `ISO: ^TestPostgresProtocolV2EntitlementCommandDeniesExtensionWithoutHostCommandsGrant$` @ `app/Support/HostAPI` | `M/M-01.md` + `M/M-01-red.txt` |
+
+**为什么它在这张表里**：`149 条 0 FAIL` 只覆盖**信任等级声明过的条目**。
+M-01 是同一基线 `f63ad2cf9` 引入的 **P0 授权闸门缺陷**，修复在同一提交 `57a3de5ad`。
+**不把它写进这张表，149 条 0 FAIL 就会把「矩阵绿」冒充成「仓库绿」**——这正是 R16 的立条理由。
+
+**判据细节**：
+
+- 三个测试名我逐个 `go test -list '.*' ./app/Support/HostAPI/` 实测存在（第三个是 DB 依赖，走 isolated）。
+- 三层修复缺一不可：① wrapper 上重新声明 `WithTrustLevelSource` 并返回 wrapper（让错误写法写不出来）；
+  ② 装配点显式两步 + 注释；③ 两条 tripwire + 一条语义守卫（带对照组）。
+- **变异三组（reviewer 实测，非转述）**：删 wrapper 重声明 → 链式测试红（类型快照仍绿，两层独立）；
+  只回退链式装配 → **不红**（第 1 层让链式也返回 wrapper，单层回退不复发）；
+  两层同时回退 → 类型快照红 + 语义守卫红在 `state COMMITTED, CommittedRevision:"1"`（期望 REJECTED）。
+  **第三组才是真正的证据**：它证明「无授权扩展真的写入了权益事实」，前两组只证明守卫在。
+
+
+---
+
 ## 4. 口径声明：默认安装下「TL 解锁能力」是空操作，这是正确行为
 
 researcher 实测（2026-11-11）：7 个白名单键**全部已在 `member` 基线**（`Identity/seeds.go:157-165` + 三层迁移），
@@ -663,7 +686,7 @@ storage/qa/trust-levels/
 
 ---
 
-## 8. 覆盖核对（矩阵 149 条 vs 证据，**未实现 0**）
+## 8. 覆盖核对（矩阵 149 + M-01 = **150 条** vs 证据，**未实现 0**）
 
 > **本节核对的是磁盘上的实际文件，不是 §3 证据列里的约定命名。**
 > §3 的「证据」列写的是**预期落点**（如 `J/J-01.txt`）；本刀实际有很多条目**合并到同一份证据文件**，
@@ -980,7 +1003,9 @@ M8 的合并规则（`reports/2026-11-10-trust-levels-m8-final-status.md:3`）�
 | 规则型 | **1** | L-02（判据是检查脚本本身，不靠造数） |
 | 作废 | **1** | v2 的 H13（由 H15 取代） |
 | 未实现 | **0** | 字面意思：**既无证据缺口，也无落盘缺口**；见 §8 覆盖核对 |
-| **合计** | **149** | 145+0+2+1+1+0 |
+| **小计（信任等级）** | **149** | 145+0+2+1+1+0 |
+| **M-01（P0）** | **1** | 不属信任等级范围，但必须在这张表里 |
+| **合计** | **150** | 149 + 1 |
 
 **对账**：`_summary.txt`（`2026-11-11T10:00:56`，矩阵 124 口径）为 **ok 121 · FAIL 0 · pend 2 · 未实现 0 · 作废 1**；
 本刀新增 25 条 = **24 ok + 1 规则型**。两边相加正好 149，四类互斥、无空白行。
@@ -990,6 +1015,8 @@ M8 的合并规则（`reports/2026-11-10-trust-levels-m8-final-status.md:3`）�
 回填校验 PASS（`git show HEAD:…controller_test.go` = `fa3f075a…` = 工作树）。
 所以 `未实现 0` 恢复**字面意思**，不再读作「无证据缺口」。
 **但注意 R16**：这份 `0 FAIL` 只覆盖**声明过的 149 条**，不等于整仓绿。
+所以本表把 **M-01（P0）单列一行**：`149（信任等级）+ 1（P0 条目）= 150`。
+**P0 不属于信任等级功能范围，但必须在这张表里**——否则 149 条 0 FAIL 会把「矩阵绿」冒充成「仓库绿」。
 
 M13 合并表要能对上一刀的 124 条逐条说清（四栏，缺一栏就是漏账）：
 
@@ -1114,6 +1141,20 @@ Q "SELECT topic_count,comment_count,like_received_count,like_given_count,bookmar
 | 3 | `LoadEffectiveActorTx` 不展开父→子继承 | 已知缺口（父计划 residual 11） | 另开一刀 |
 | 4 | `sqlc generate` 不可安全运行 | 已知（模块笔记 residual 14） | 另开一刀 |
 | 5 | `trust.new_user.forbid_attachments` 仍是死配置 | D20 不变 | 另开一刀（或接线或删除） |
+
+**M-01 的两层防御（下一个人必读，别以为「一条 tripwire 就够」）**：
+
+M-01 的修复是**两层**，单层回退**不复现**：
+
+| 变异 | 结果 | 含义 |
+| --- | --- | --- |
+| ① 删掉 wrapper 上的 `WithTrustLevelSource` 重声明 | 链式测试红、**类型快照仍绿** | 两层独立，各守一面 |
+| ② 只改回链式装配（保留重声明） | **不红** | 第 1 层让链式调用也返回 wrapper，单层回退不复发——**这是可接受的** |
+| ③ **两层同时回退** | 类型快照红 + 语义守卫红在 `state COMMITTED, CommittedRevision:"1"` | **唯一能证明「无授权扩展真的写入了权益事实」的一组** |
+
+所以将来有人「只删注释里的警告、保留 wrapper 重声明」时测试是绿的，那是**允许**的；
+但若有人删了 wrapper 重声明**又**保留链式调用，两层都破——那时才会红。
+**下一个人要知道这两层的分工，否则会误判「测试没覆盖」或「守卫多余」。**
 
 **注意**：这些**不是**矩阵里的「未实现」——它们是**已声明、已交代、本刀不做**的事项。
 矩阵的 `未实现 0` 不包含它们；把 residual 记成「未实现」会让下一刀误以为有 5 条证据欠账。

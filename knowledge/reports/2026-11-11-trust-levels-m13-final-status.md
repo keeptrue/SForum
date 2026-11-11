@@ -1,6 +1,6 @@
 # 信任等级收尾（M9–M13）— M13 最终合并表
 
-Status: **定稿（2026-11-11T10:01 +08:00）** —— 已与 pm 的矩阵 §10、ops 的 `_summary.txt` @ 10:00:56 三方交叉对账一致
+Status: **定稿（2026-11-11T10:38 +08:00）@ 提交 `57a3de5ad`** —— 已与 pm 的矩阵 §10、ops 的 `_summary.txt` @ 10:00:56 三方交叉对账一致；基线回填完成（`git show 57a3de5ad:<path> | sha256sum` 逐文件等于证据值）
 作者：reviewer 小审
 编号源：`reports/2026-11-11-trust-levels-acceptance-matrix-v3.md`（**149 条** = v2 124 + 本刀 25）
 运维摘要：`storage/qa/trust-levels/_summary.txt` @ `2026-11-11T10:00:56`（`ok 121 · FAIL 0 · pend 2 · 未实现 0 · 作废 1`，覆盖 v2 124 条）
@@ -17,17 +17,19 @@ Status: **定稿（2026-11-11T10:01 +08:00）** —— 已与 pm 的矩阵 §10�
 
 | 类别 | 数量 | 说明 |
 | --- | --- | --- |
-| ok | **145** | v2 121（114 + B7/F4/H15/I-22/I-23/I-03/I-04）+ v3 24 |
+| ok（信任等级 149 条口径） | **145** | v2 121（114 + B7/F4/H15/I-22/I-23/I-03/I-04）+ v3 24 |
+| ok（P0 独立条目 M-01） | **1** | `host_commands` 闸门 P0：三条守卫实测 PASS + 三组变异红绿（见 §7） |
 | FAIL | **0** | I-16 判据不可满足，已按 v3 §11 修订为 I-16a/b 并转绿 |
 | pend | **2** | D2（日限额被冷却抢先）、I-05（无 TL4 账号） |
 | 规则 | **1** | L-02（规则型：jq 必须落在 `.data` 层；没有也不该有 `Test*`） |
 | 作废 | **1** | H13（D18 后由 H15 取代） |
 | 未实现 | **0** | 本刀无欠账 |
-| **合计** | **149** | 145 + 0 + 2 + 1 + 1 + 0 |
+| **合计** | **150** | 信任等级 149（145 + 0 + 2 + 1 + 1 + 0）+ P0 条目 1 |
 
-提交信息里请写：**149 条 / ok 145 / FAIL 0 / pend 2 / 规则 1 / 作废 1 / 未实现 0**。
+提交信息里请写：**信任等级 149 条（ok 145 · FAIL 0 · pend 2 · 规则 1 · 作废 1 · 未实现 0）+ P0 条目 1（ok）= 150 条**。
+**不要把 P0 计入信任等级的 149** —— 它不属于这一刀的功能范围，但必须在这张表里，否则「149 条 0 FAIL」会把「矩阵绿」冒充成「仓库绿」。
 
-> **算术对账**：145 + 2 + 1 + 1 = 149，与 pm 的矩阵 §10 逐字一致。
+> **算术对账**：145 + 2 + 1 + 1 = 149（信任等级，与 pm 矩阵 §10 逐字一致）；149 + 1（M-01）= 150。
 > 两边独立算：`_summary.txt` @ 10:00:56 给 v2 = **121 ok**（+ 2 pend + 1 作废 = 124），
 > 本表给 v3 = **24 ok + 1 规则型 = 25**；121 + 24 = **145**。
 > 此前口头出现过的 `ok 140` 与明细差 5，差的是 v2 里原本「未实现」、由 reviewer 证据补齐的
@@ -132,3 +134,29 @@ Status: **定稿（2026-11-11T10:01 +08:00）** —— 已与 pm 的矩阵 §10�
 - 本表不声称「默认安装下 TL 解锁能力有行为变化」——它是**空操作**，见 v3 §4；J-13 只验 `Grants` 语义。
 - 本表不声称 `GrantSource` 有生产消费者 —— 它目前**零消费者**（登记为 residual）。
 - K-02 的 caveat 不变：Go 测试只锁总数 409 + guard 形状，逐条路由身份靠 `generate.mjs --check`（已用变异证明它会红）。
+
+---
+
+## 7. P0：基线 `f63ad2cf9` 引入的 `host_commands` 授权闸门静默失效（M-01）
+
+| ID | 断言 | 结论 | 证据类型 | 证据 |
+| --- | --- | --- | --- | --- |
+| M-01 | 只声明 `own_schema` 的扩展执行 `sforum.entitlements.mutate` 必须被拒；持 `host_commands` 者必须成功；装配必须交出 wrapper | ok | 二分法 + 运行时代码探针 + 变异红绿 | `M/M-01.md`、`M/M-01-red.txt`；三条守卫实测 PASS（10:36:32 / 10:36:44）；三组变异（单层不红、两层回退红） |
+
+**这条不属于信任等级，但它必须在这张表里。** 决策记录：`knowledge/decisions/2026-11-11-host-command-authority-gate-p0.md`；证据：`M/M-01.md`、`M/M-01-red.txt`。
+
+**发现路径。** 本刀验收矩阵 124 条全绿的同时，整仓门禁**一直红着** —— 提交前跑 `./scripts/test.sh --fast` 才暴露（`app/Support/HostAPI` 红）。用两个 worktree 二分：`f63ad2cf9~1` 绿 / `f63ad2cf9` 红，定性为**基线引入**，不是本刀改坏。这条本身就是判据：**矩阵的绿只证明声明过的条目有证据，不证明没声明的地方没问题。**
+
+**机制。** 基线把装配写成一行链式调用 `NewPostgresProtocolV2HostCommandBackend(pool).WithTrustLevelSource(src)`，而 `WithTrustLevelSource` 只定义在**被嵌入的中性类型**上并返回中性类型（`f63ad2cf9:v2_command_postgres.go:51`），wrapper 上只有 `ResolveScope`（`:87`）。Go 的**方法提升**于是让这行返回中性 backend，wrapper 被丢弃；中性实现的 `ResolveScope` 固定传 `requiredAuthority=""`，而闸门条件是 `requiredAuthority != "" && !hasDatabaseGrant(...)`（`:162`）⇒ **整个闸门对全部命令放行**。它是静默的：没有报错、没有日志、没有编译错误，返回值仍满足下游接口。
+
+**影响面。** `sforum.entitlements.mutate` 是 `ActorMode: service` 且**不设 `RequiredCapability`**（`v2_command_entitlements.go:62-70`），`host_commands` 闸门是它唯一防线 ⇒ 闸门失效时**任何已启用扩展**（哪怕 manifest 只声明 `own_schema`、从未申请 `host_commands`）都能 grant/revoke 权益。生产与测试走同一个构造器（`bootstrap/host_command_runtime.go:250`），所以这不是测试环境问题，是线上等价的问题。
+
+**修法（三层，缺一层会复发）。** ① 让错误写法写不出来：wrapper 上重新声明返回 **wrapper** 的 `WithTrustLevelSource`（`v2_command_postgres.go:75`），「记住别这么写」变成「这么写不出来」；② 装配点显式两步并注释原因（`v2_command_runtime_postgres.go:66-73`）；③ 两条 tripwire + 一条带对照组的语义守卫（类型快照 / 链式仍得 wrapper / 无 `host_commands` 必须 REJECTED 且持授权者必须 COMMITTED）。
+
+**为什么基线没发现。** `f63ad2cf9` 的验证写的是「八包全绿」，而 `app/Support/HostAPI` 与 `bootstrap` **都不在那八包里**；同一刀还漏了 `Controllers/Extensions` 一条红。**「全绿」的边界比听起来窄** —— 这是本仓第三次同形实例（前两次：fixture base schema、错误映射副本）。
+
+**我的实测与变异（证据类型：二分法 + 运行时代码探针 + 变异红绿）。**
+- 干净树 `57a3de5ad`：10:36:32 两条 tripwire `--- PASS`；10:36:44 语义守卫（隔离库）`--- PASS (3.01s)`。
+- 变异 1（删 wrapper 重声明）：链式测试**红**，类型快照仍绿 —— 两层修复独立。
+- 变异 2（只把装配点改回链式）：**不红** —— 第 1 层修复让链式也返回 wrapper，**单层回退不再复发**。
+- 变异 3（两层同时回退，复现原始缺陷）：类型快照**红**；语义守卫**红**在 `state COMMITTED, CommittedRevision:"1"`，期望 `REJECTED` ⇒ 无 `host_commands` 授权的扩展**成功写入了权益事实**。这一条是 P0 后果的直接证据，不是「测试写错了」。
