@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { computed, ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { forumBadgeRequirementText } from '~/utils/forum/forumBadge'
 
 /**
  * `/badges` 数据层契约（M5b）：wire → ProfileBadgeGroup 的映射、truncated、
@@ -130,6 +131,44 @@ describe('useBadgesCatalog wire mapping', () => {
     const { groups, error } = await useBadgesCatalog()
     expect(error.value).toBeInstanceOf(Error)
     expect(groups.value).toEqual([])
+  })
+})
+
+describe('useBadgesCatalog · requirementText', () => {
+  test('carries the server sentence through with both languages non-empty', async () => {
+    const requirementText = { zh: '在任意版块发布 10 个主题', en: 'Publish 10 topics in any category' }
+    payload = {
+      groups: [
+        { key: 'content', name: '内容', badges: [catalogItem({ requirementText })] }
+      ],
+      truncated: false
+    }
+
+    const { groups } = await useBadgesCatalog()
+    const mapped = groups.value[0]!.badges[0]!
+
+    // 值级断言：DTO 无 omitempty，漏赋值会得到 { zh: '', en: '' } —— 只断言键存在抓不到。
+    expect(mapped.requirementText).toEqual(requirementText)
+    expect(mapped.requirementText?.zh).not.toBe('')
+    expect(mapped.requirementText?.en).not.toBe('')
+    // 两种语言各自可达（映射没把某一语言吃掉）。
+    expect(forumBadgeRequirementText(mapped, 'zh-CN')).toBe(requirementText.zh)
+    expect(forumBadgeRequirementText(mapped, 'en-US')).toBe(requirementText.en)
+  })
+
+  test('a multi-condition badge keeps the empty pair empty instead of inventing copy', async () => {
+    payload = {
+      groups: [
+        { key: 'content', name: '内容', badges: [catalogItem({ requirementText: { zh: '', en: '' } })] }
+      ],
+      truncated: false
+    }
+
+    const { groups } = await useBadgesCatalog()
+    const mapped = groups.value[0]!.badges[0]!
+
+    expect(mapped.requirementText).toEqual({ zh: '', en: '' })
+    expect(forumBadgeRequirementText(mapped, 'zh-CN')).toBe('')
   })
 })
 

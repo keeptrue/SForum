@@ -42,6 +42,8 @@ export function useProfileBadges(username: Ref<string>, options: ProfileBadgesOp
     failed.value = false
     try {
       const result = await request<ProfileBadgesResponse>(`/profiles/${encodeURIComponent(name)}/badges`)
+      // 整块原样透传（不重建条目）：服务端已把 tier 外观、`requirementText` 的双语句子
+      // 和逐语言回落都算好，前端重建一次只会漏字段。空句由读侧解析成空串。
       groups.value = Array.isArray(result?.groups) ? result.groups : []
       loaded.value = true
     } catch {

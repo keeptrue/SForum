@@ -1,5 +1,6 @@
 import type { AdminBadgeGrantRow, AdminBadgeGroupInput } from '~/utils/admin/adminBadges'
 import type { AdminBadgeRow } from '~/utils/admin/adminBadges'
+import type { BadgeRule } from '~/utils/admin/badgeRule'
 import { apiErrorReason } from '~/composables/useApiClient'
 
 /** 后台徽章分组（GET /admin/badges/groups）。 */
@@ -23,6 +24,8 @@ export type AdminBadgeInput = {
   grantMode: string
   metric: string | null
   threshold: number | null
+  /** 规则三态：缺省 = 不改、`null` = 清空、对象 = 替换。 */
+  rule?: BadgeRule | null
   enabled: boolean
   position: number
 }
@@ -51,6 +54,19 @@ export type AdminBadgeTierInput = {
 
 /** 编辑等级的请求体：key 不在其中 —— 改名会打断 `?tier=` 深链与已授徽章的关联。 */
 export type AdminBadgeTierPatch = Partial<Omit<AdminBadgeTierInput, 'key'>>
+
+/**
+ * 全量重算的结果，字段名与后端 `RecomputeResult`（Models/Badges/admin_service.go 的
+ * dto 映射）逐字一致。三个数**语义互不相同**，调用方不得相加：
+ * - `granted`：本次新插入的授予行数；
+ * - `refreshed`：top_badge_id 实际变化的用户数；
+ * - `queued`：转入异步评估的徽章数（不是用户数、也不是 job 数）。
+ */
+export type AdminBadgeRecomputeResult = {
+  granted: number
+  refreshed: number
+  queued: number
+}
 
 /** 授予候选（GET /admin/badges/grant-candidates）。 */
 export type AdminBadgeGrantCandidate = {
@@ -269,14 +285,21 @@ export function useAdminBadges() {
   }
 
   /**
-   * 全量重算。后端返回 { granted, refreshed }（Models/Badges/admin_service.go 的
-   * RecomputeResult）：granted = 新插入的授予行数，refreshed = top_badge_id 实际变化的
-   * 用户数。两者相互独立（{0,0} 是正常幂等结果），返回合计作为「本次影响量」。
+   * 全量重算。后端返回 { granted, refreshed, queued }（Models/Badges/admin_service.go 的
+   * RecomputeResult），**原样返回，不相加**——三个数语义不同，加总只会得到一个假数字：
+   * - `granted`：本次新插入的授予行数；
+   * - `refreshed`：top_badge_id 实际变化的用户数；
+   * - `queued`：转入**异步评估**的徽章数（不是用户数，也不是 job 数），后台还在跑。
+   * {0,0,0} 是正常幂等结果，由文案层决定「不编一句假成功」。
    */
-  async function recompute(): Promise<number> {
-    const result = await request<{ granted: number, refreshed: number }>('/admin/badges/recompute', { method: 'POST' })
+  async function recompute(): Promise<AdminBadgeRecomputeResult> {
+    const result = await request<Partial<AdminBadgeRecomputeResult>>('/admin/badges/recompute', { method: 'POST' })
     await load()
-    return Number(result?.granted ?? 0) + Number(result?.refreshed ?? 0)
+    return {
+      granted: Number(result?.granted ?? 0),
+      refreshed: Number(result?.refreshed ?? 0),
+      queued: Number(result?.queued ?? 0)
+    }
   }
 
   return {

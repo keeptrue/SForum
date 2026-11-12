@@ -1,4 +1,4 @@
-import { forumBadgeTier, type ForumBadgeTierName, type ProfileBadgeGroup } from '~/utils/forum/forumBadge'
+import { forumBadgeTier, type ForumBadgeRequirementText, type ForumBadgeTierName, type ProfileBadgeGroup } from '~/utils/forum/forumBadge'
 
 /**
  * `GET /api/v1/badges` 的 wire 形状（backend `Badges/dto.go` 的 publicBadgeCatalog*）。
@@ -20,6 +20,8 @@ type PublicBadgeCatalogItem = {
   tierPosition?: number | null
   group: string
   earned: boolean
+  /** 「获得条件」双语句子（服务端已逐语言回落）；前端只选语言，不重写文案。 */
+  requirementText?: ForumBadgeRequirementText | null
 }
 
 type PublicBadgeCatalogGroup = {
@@ -64,7 +66,9 @@ export async function useBadgesCatalog() {
       tierPosition: badge.tierPosition ?? null,
       icon: badge.icon,
       position: badgeIndex,
-      earned: badge.earned
+      earned: badge.earned,
+      // 原样透传：句子与逐语言回落都在服务端完成，映射层不补字、不改写。
+      requirementText: badge.requirementText ?? null
     }))
   })))
 

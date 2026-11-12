@@ -278,6 +278,14 @@ const BadgeTableStub = {
 }
 const EditDialogStub = { name: 'SFAdminBadgeEditDialog', props: ['open', 'badge', 'groups'], template: '<div />' }
 const GrantDialogStub = { name: 'SFAdminBadgeGrantDialog', props: ['open', 'badge'], template: '<div />' }
+// 进度行自己由 adminBadgeBackfillStatus.test.ts 挂真实组件验文案；这里只钉「出现在筛选区
+// 上方」与「刷新回调一路传到壳层」这两件接线事实。
+const BackfillRowStub = {
+  name: 'SFAdminBadgeBackfillRow',
+  props: ['summary', 'failed', 'pending'],
+  emits: ['refresh'],
+  template: '<div class="backfill-row-stub" />'
+}
 
 // setup 时才读 query，所以每次挂载前替换这个对象即可模拟不同 URL。
 let currentQuery: Record<string, unknown> = {}
@@ -302,7 +310,8 @@ const BadgesTab = await compileVueSfc(
     pickTierName,
     SFAdminBadgeTable: BadgeTableStub,
     SFAdminBadgeEditDialog: EditDialogStub,
-    SFAdminBadgeGrantDialog: GrantDialogStub
+    SFAdminBadgeGrantDialog: GrantDialogStub,
+    SFAdminBadgeBackfillRow: BackfillRowStub
   }
 )
 
@@ -327,7 +336,7 @@ const tierRows = [
   { key: 'legendary', name: { zh: '传说', en: 'Legendary' }, icon: 'i-lucide-flame', color: 'violet', position: 3, enabled: true, badgeCount: 0 }
 ]
 
-function mountBadgesTab(query: Record<string, unknown> = {}) {
+function mountBadgesTab(query: Record<string, unknown> = {}, extraProps: Record<string, unknown> = {}) {
   currentQuery = query
   replaceCalls.length = 0
   return mount(BadgesTab, {
@@ -340,7 +349,8 @@ function mountBadgesTab(query: Record<string, unknown> = {}) {
       badges: badgesTabBadges,
       groups: badgesTabGroups,
       pending: false,
-      canManage: true
+      canManage: true,
+      ...extraProps
     },
     global: {
       stubs: {
@@ -350,7 +360,8 @@ function mountBadgesTab(query: Record<string, unknown> = {}) {
         UIcon: true,
         SFAdminBadgeTable: BadgeTableStub,
         SFAdminBadgeEditDialog: EditDialogStub,
-        SFAdminBadgeGrantDialog: GrantDialogStub
+        SFAdminBadgeGrantDialog: GrantDialogStub,
+        SFAdminBadgeBackfillRow: BackfillRowStub
       }
     }
   })
@@ -361,6 +372,27 @@ function lastQuery() {
   if (!call) throw new Error('router.replace was not called')
   return call.query
 }
+
+describe('badges tab backfill progress row (mounted)', () => {
+  test('sits above the filter bar and forwards the refresh callback to the shell', async () => {
+    const refresh = mock(() => {})
+    const wrapper = mountBadgesTab({}, {
+      backfillSummary: { status: 'running', badgeNames: ['Pioneer'], hiddenCount: 0, userId: 128 },
+      backfillFailed: false,
+      backfillPending: true,
+      backfillRefresh: refresh
+    })
+    const row = wrapper.findComponent(BackfillRowStub)
+    expect(row.exists()).toBe(true)
+    // DOM 顺序即视觉顺序：进度行在第一个筛选控件之前。
+    const html = wrapper.html()
+    expect(html.indexOf('backfill-row-stub')).toBeLessThan(html.indexOf('uselect-stub'))
+    expect(row.props('pending')).toBe(true)
+    await row.vm.$emit('refresh')
+    expect(refresh).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+})
 
 describe('badges tab filter selects (mounted)', () => {
   test('no SelectItem ever carries an empty-string value, and empty query maps to the sentinel', () => {

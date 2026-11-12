@@ -614,6 +614,29 @@
         "rule": "规则",
         "tier": "等级"
       },
+      "conditions": {
+        "empty": "没有可用的条件目录，暂时无法编辑规则。",
+        "unknown": "条件「{type}」不在当前目录中。",
+        "factCandidatesFailed": "插件事实候选暂时读不到，现在无法选择事实来源；已有规则不受影响。",
+        "factKeyPlaceholder": "选择事实来源",
+        "factStaleHint": "该事实来源已不可用（扩展可能已停用或卸载）。原值会保留，规则健康检查会继续提示。",
+        "candidatesPending": "候选列表待后端下发",
+        "params": {
+          "metric": "指标",
+          "window": "时间窗口",
+          "minDays": "连续天数",
+          "action": "互动方式",
+          "topicId": "主题 ID",
+          "targetKind": "对象类型",
+          "targetSlug": "对象标识",
+          "days": "天数",
+          "providerId": "登录方式",
+          "roleKey": "角色",
+          "slug": "徽章标识",
+          "variant": "变体"
+        },
+        "unknownHint": "该条件已不在目录中（插件可能已卸载）。删除这个节点，或恢复对应插件后再编辑。"
+      },
       "confirmDeleteBody": "删除后无法恢复。已授予该徽章的记录会一并删除，用户资料页的最高徽章也会被清空。",
       "confirmDeleteTitle": "确认删除",
       "confirmDeleteTopBadgeHint": "删除后徽章会从用户资料与帖子旁消失，其余徽章的展示要等下一次重算才会恢复。",
@@ -650,7 +673,12 @@
         "slug": "标识",
         "slugHint": "只保留小写字母、数字与连字符；下划线与空格会转成连字符。编辑时该字段锁定。",
         "threshold": "阈值",
-        "tier": "等级"
+        "tier": "等级",
+        "legacyRuleHint": "指标与阈值已由规则替代，这里只保留历史值。",
+        "requirementSummaryEn": "公开说明（英文）",
+        "requirementSummaryHint": "公开面「怎么获得」的说明，中英各一份；留空时单条件规则由系统自动生成。",
+        "requirementSummaryMissing": "这条规则无法自动生成说明，公开面会没有解释，建议中英文都填。",
+        "requirementSummaryZh": "公开说明（中文）"
       },
       "grant": {
         "automaticNotGrantable": "自动徽章按规则判定，不能手动授予。",
@@ -758,6 +786,16 @@
         "like_received_count": "获赞数",
         "topic_count": "主题数"
       },
+      "backfill": {
+        "completed": "回扫已完成",
+        "detail": "涉及徽章：{names}",
+        "failed": "回扫失败于用户 #{userId}",
+        "listSeparator": "、",
+        "more": "等 {count} 枚",
+        "refresh": "刷新回扫进度",
+        "running": "回扫进行中：已扫描到用户 #{userId}",
+        "unavailable": "回扫进度暂时无法读取，稍后重试。"
+      },
       "recompute": {
         "action": "重算授予",
         "confirm": "确认重算"
@@ -765,7 +803,111 @@
       "refresh": "刷新",
       "rule": {
         "metricThreshold": "{metric} 达到 {threshold} 时授予",
-        "none": "无规则（手动授予）"
+        "none": "无规则（手动授予）",
+        "title": "条件规则",
+        "groupOp": "组合方式",
+        "condition": "条件",
+        "compareOp": "比较",
+        "value": "阈值",
+        "ops": {
+          "all": "全部满足",
+          "any": "任一满足",
+          "not": "取反"
+        },
+        "compare": {
+          "gte": "大于等于（≥）",
+          "lte": "小于等于（≤）"
+        },
+        "window": {
+          "all": "累计",
+          "recent_days": "最近 N 天"
+        },
+        "emptyGroup": "这个条件组还没有子节点，至少需要 1 个条件才能保存。",
+        "addCondition": "添加条件",
+        "addGroup": "添加条件组",
+        "remove": "删除节点",
+        "wrapNot": "包进「非」",
+        "unwrap": "解包「非」",
+        "notNeedsOneChild": "「非」只能有 1 个子节点",
+        "limitDepth": "已达最大嵌套深度（{max} 层），不能再嵌套。",
+        "limitLeaves": "条件数已达上限（{max} 个），不能再加条件。",
+        "limitNodes": "节点数已达上限（{max} 个），不能再添加。",
+        "jsonTitle": "规则 JSON",
+        "copy": "复制",
+        "copied": "规则 JSON 已复制",
+        "copyFailed": "复制失败，请手动选择文本。",
+        "errors": {
+          "empty_group": "条件组至少要有一个子节点。",
+          "not_children": "「非」必须恰好有 1 个子节点。",
+          "unknown_type": "条件「{type}」不在当前目录中。",
+          "boolean_cmp": "布尔条件不能带比较阈值。",
+          "count_cmp_missing": "计数条件必须填写比较阈值。",
+          "cmp_not_allowed": "该条件不允许使用这个比较符。",
+          "cmp_value_range": "阈值必须在 1 到 1000000000 之间。",
+          "days_range": "天数必须在 1 到 3650 之间。",
+          "param_required": "缺少必填参数。",
+          "param_unknown": "存在未声明的参数。",
+          "param_invalid": "参数类型不正确。",
+          "param_range": "参数超出允许范围。",
+          "param_enum": "参数取值不在允许集合内。",
+          "param_window": "时间窗口的取值不合法。",
+          "depth_exceeded": "嵌套深度超过上限。",
+          "too_many_leaves": "条件数超过上限。",
+          "too_many_nodes": "节点数超过上限。",
+          "generic": "规则校验未通过（{code}）。",
+          "catalogMissing": "条件目录尚未加载，暂时无法编辑规则。",
+          "engine": {
+            "decode_failed": "规则数据无法解析。",
+            "version_unsupported": "规则版本不受支持。",
+            "shape_invalid": "规则结构不合法（例如条件组缺少子节点）。",
+            "too_deep": "嵌套深度超过上限。",
+            "unknown_condition": "条件不在当前目录中。",
+            "compare_missing": "计数条件必须填写比较阈值。",
+            "compare_invalid": "比较符不合法。",
+            "compare_not_allowed": "该条件不允许使用这个比较符。",
+            "compare_forbidden": "布尔条件不能带比较阈值。",
+            "value_out_of_range": "阈值超出允许范围。",
+            "param_missing": "缺少必填参数。",
+            "catalog_invalid": "条件目录声明不合法。",
+            "resolve_failed": "规则求值失败。"
+          }
+        },
+        "missingHint": "该徽章没有规则（可能是迁移中途或脏数据）；补一条规则后才能保存。",
+        "catalogUnavailable": "规则编辑器暂不可用：条件目录加载失败。",
+        "health": {
+          "missing_topic": "引用的主题不存在",
+          "missing_category": "引用的分类不存在",
+          "missing_tag": "引用的标签不存在",
+          "missing_role": "引用的角色不存在",
+          "missing_provider": "引用的登录方式不存在",
+          "missing_badge_slug": "引用的徽章不存在",
+          "missing_fact_key": "插件事实条件已失效",
+          "undecodable_rule": "规则无法解析"
+        },
+        "healthUnavailable": "规则健康检查暂不可用：清单加载失败。",
+        "impact": {
+          "cancel": "取消",
+          "confirm": "继续保存",
+          "confirmAnyway": "仍然保存",
+          "estimate": "≈ {count} 人",
+          "loadFailed": "影响面估算获取失败，仍可继续保存。",
+          "loading": "正在估算影响面…",
+          "method": {
+            "complement_of_leaf": "依据：按「排除某一条条件」估算。",
+            "single_leaf": "依据：规则里只有一个条件，按其估算。",
+            "strictest_leaf": "依据：多条同时满足的条件里，取最严格的一条估算。",
+            "strictest_leaf_partial": "依据：取最严格的一条可估条件，其余条件无法估算。",
+            "sum_of_leaves": "依据：多个可选条件相加，真实人数通常少于这个数。",
+            "unsupported_condition": "依据：规则里有无法估算的条件。"
+          },
+          "nullHint": "这里没有人数：表示无法估算，不代表 0 人。",
+          "partialHint": "只算了部分条件，所以这是上界，真实人数可能更少。",
+          "ruleChangedHint": "保存后会按新规则在后台重新评估。",
+          "scopeHint": "按当前已保存的规则估算，不是本次编辑的草稿。",
+          "title": "保存前确认影响面",
+          "unestimable": "无法估算",
+          "unsupportedTitle": "以下条件无法参与估算："
+        }
       },
       "sort": {
         "activeAsc": "已按{column}升序排列，点击切换为降序",
@@ -796,6 +938,7 @@
         "granted": "徽章已授予该用户。",
         "recomputeChanged": "本次影响 {count} 个用户。",
         "recomputeFailed": "徽章重算失败，请稍后重试。",
+        "recomputeQueued": "{count} 枚徽章已转入后台评估，稍后自动完成。",
         "recomputeStarted": "已开始重算徽章授予。",
         "saveFailed": "徽章保存失败，请稍后重试。",
         "updated": "徽章已更新。"
@@ -859,6 +1002,9 @@
           "doneHint": "等级已删除，相关徽章已迁移。"
         },
         "delete": "删除"
+      },
+      "table": {
+        "scrollLabel": "徽章表格（可横向滚动）"
       }
     },
     "shell": {
@@ -1900,6 +2046,12 @@
         "exactTrustDescription": "此管理端组件属于扩展的精确制品影响文档。请从插件启用操作完成超级管理员确认；未授权时继续使用声明式 Schema 设置。"
       },
       "trust": {
+        "capabilities": {
+          "title": "能力授权",
+          "disclosures": {
+            "badgesFactWrite": "允许该扩展为本论坛徽章写入自定义事实计数；徽章的公开说明与授予规则可能因此变化。"
+          }
+        },
         "title": "审阅精确制品并启用",
         "body": "启用「{name}」前，请核对服务端生成的完整影响文档。",
         "fullTrustTitle": "此操作将运行完全信任的代码",

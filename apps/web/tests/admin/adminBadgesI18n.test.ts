@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { BADGE_METRIC_OPTIONS, adminBadgeMetricLabel } from '~/utils/admin/adminBadges'
+import { BADGE_METRIC_OPTIONS, adminBadgeMetricLabel, recomputeToastDescription } from '~/utils/admin/adminBadges'
 
 /**
  * 徽章后台 i18n 的**双向**契约（K-01b）。
@@ -71,10 +71,73 @@ function referencedBadgeKeys(): { literal: Set<string>, prefixes: Set<string> } 
 // 动态前缀的枚举来源：`grantMode.` 来自 EditDialog 的 `['automatic','manual']`，
 // `metrics.` 来自 `BADGE_METRIC_OPTIONS`（单一来源，不在这里另抄一份）。
 // `columns.` 来自 SFAdminBadgeTable 的 sortAria（列头排序 aria 按列 id 拼键）。
+// `rule.ops.` / `rule.compare.` / `rule.window.` 来自规则编辑器的三组固定枚举；
+// `conditions.params.` 是内置条件的参数名（插件参数没有文案时回退原始 name）。
 const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
   'admin.badges.columns': ['actions', 'enabled', 'grantMode', 'grantedCount', 'group', 'name', 'rule', 'tier'],
   'admin.badges.grantMode': ['automatic', 'manual'],
-  'admin.badges.metrics': BADGE_METRIC_OPTIONS
+  'admin.badges.metrics': BADGE_METRIC_OPTIONS,
+  'admin.badges.rule.ops': ['all', 'any', 'not'],
+  'admin.badges.rule.compare': ['gte', 'lte'],
+  'admin.badges.rule.window': ['all', 'recent_days'],
+  'admin.badges.rule.health': [
+    'missing_topic',
+    'missing_category',
+    'missing_tag',
+    'missing_role',
+    'missing_provider',
+    'missing_badge_slug',
+    'missing_fact_key',
+    'undecodable_rule'
+  ],
+  'admin.badges.rule.errors': [
+    'empty_group',
+    'not_children',
+    'unknown_type',
+    'boolean_cmp',
+    'count_cmp_missing',
+    'cmp_not_allowed',
+    'cmp_value_range',
+    'days_range',
+    'param_required',
+    'param_unknown',
+    'param_invalid',
+    'param_range',
+    'param_enum',
+    'param_window',
+    'depth_exceeded',
+    'too_many_leaves',
+    'too_many_nodes',
+  ],
+  'admin.badges.rule.errors.engine': [
+    'decode_failed',
+    'version_unsupported',
+    'shape_invalid',
+    'too_deep',
+    'unknown_condition',
+    'compare_missing',
+    'compare_invalid',
+    'compare_not_allowed',
+    'compare_forbidden',
+    'value_out_of_range',
+    'param_missing',
+    'catalog_invalid',
+    'resolve_failed',
+  ],
+  'admin.badges.conditions.params': [
+    'metric',
+    'window',
+    'minDays',
+    'action',
+    'topicId',
+    'targetKind',
+    'targetSlug',
+    'days',
+    'providerId',
+    'roleKey',
+    'slug',
+    'variant'
+  ]
 }
 
 describe('admin.badges i18n namespace', () => {
@@ -163,6 +226,15 @@ describe('automatic badge grant copy (4-2)', () => {
   })
 })
 
+/** 把 `t(key, params)` 绑到某份真实 locale 上，测行为而不是测源码字符串。 */
+function translateWith(locale: Record<string, unknown>) {
+  return (key: string, params: Record<string, unknown> = {}) => {
+    const template = lookup(locale, key)
+    if (typeof template !== 'string') throw new Error(`missing locale key: ${key}`)
+    return template.replace(/\{(\w+)\}/g, (_match, name: string) => String(params[name] ?? `{${name}}`))
+  }
+}
+
 describe('recompute toast copy (4-3)', () => {
   test('describes how many users were affected instead of printing a bare number', () => {
     const template = lookup(zh, 'admin.badges.toast.recomputeChanged')
@@ -170,8 +242,38 @@ describe('recompute toast copy (4-3)', () => {
     expect(String(template)).toContain('{count}')
     expect(String(template).replace('{count}', '7')).toBe('本次影响 7 个用户。')
 
+    // 措辞接线已收口到纯函数：页面不再自己拼模板，也不把数字 str 化。
     const source = readFileSync(new URL('../../app/pages/admin/badges.vue', import.meta.url), 'utf8')
     expect(source).not.toContain('String(changed)')
-    expect(source).toContain("t('admin.badges.toast.recomputeChanged', { count: changed })")
+    expect(source).toContain('recomputeToastDescription(result, t)')
+  })
+
+  test('queued, affected, both and neither map to distinct sentences', () => {
+    const tZh = translateWith(zh)
+    const tEn = translateWith(en)
+
+    // queued 有值、影响量为 0：只说后台在跑，不许只报「完成」。
+    const queuedOnly = recomputeToastDescription({ granted: 0, refreshed: 0, queued: 4 }, tZh)
+    expect(queuedOnly).toBe('4 枚徽章已转入后台评估，稍后自动完成。')
+
+    // 影响量有值、queued 为 0：保留原来的「本次影响 N 个用户」。
+    const affectedOnly = recomputeToastDescription({ granted: 3, refreshed: 4, queued: 0 }, tZh)
+    expect(affectedOnly).toBe('本次影响 7 个用户。')
+
+    // 两者都有：两句都得在，后台在跑这件事不能被摘要吃掉。
+    const both = recomputeToastDescription({ granted: 1, refreshed: 2, queued: 9 }, tZh)
+    expect(both).toContain('9 枚徽章已转入后台评估，稍后自动完成。')
+    expect(both).toContain('本次影响 3 个用户。')
+    expect(both).toBe('9 枚徽章已转入后台评估，稍后自动完成。 本次影响 3 个用户。')
+
+    // 全 0（幂等）：不出副标题，不编一句假成功。
+    expect(recomputeToastDescription({ granted: 0, refreshed: 0, queued: 0 }, tZh)).toBeUndefined()
+
+    // 英文侧同样分得清（同一纯函数，换 locale 的 translate）。
+    const bothEn = recomputeToastDescription({ granted: 1, refreshed: 2, queued: 9 }, tEn)
+    expect(bothEn).toContain('9 badge(s) queued for background evaluation')
+    expect(bothEn).toContain('3 user(s) affected.')
+    expect(tEn('admin.badges.toast.recomputeQueued', { count: 1 }))
+      .toBe('1 badge(s) queued for background evaluation; they finish automatically in a moment.')
   })
 })

@@ -70,9 +70,17 @@ export function forumUserBadgesPath(username?: string | null): string | null {
 export interface ProfileBadgeEntry extends ForumBadgeRef {
   position: number
   earned: boolean
+  /** 「获得条件」双语句子（服务端 `requirementText`）；空句表示该徽章没有可展示的条件文案。 */
+  requirementText?: ForumBadgeRequirementText | null
   current?: number
   threshold?: number
   grantedAt?: string
+}
+
+/** 载荷里的「获得条件」句子（中英双份，按当前 locale 取一个）。 */
+export interface ForumBadgeRequirementText {
+  zh: string
+  en: string
 }
 
 export interface ProfileBadgeGroup {
@@ -96,6 +104,29 @@ export function pickTierName(name?: ForumBadgeTierName | null, locale = 'zh-CN')
   if (!name) return ''
   const preferred = locale.toLowerCase().startsWith('zh') ? name.zh : name.en
   const fallback = locale.toLowerCase().startsWith('zh') ? name.en : name.zh
+  return (preferred || fallback || '').trim()
+}
+
+/**
+ * 公开面「获得条件」句子的唯一解析入口。
+ *
+ * **句子由服务端生成，前端只选语言。** 服务端已按规则 AST 渲染成人话（含阈值、指标名）
+ * 并逐语言回落，所以这里只做「zh 前缀取 zh、否则取 en，选中那种语言为空则回落到另一种，
+ * 两者都空返回空串」。
+ *
+ * 公开面**禁止**调用 `describeRule`（`utils/admin/badgeRule.ts`）：那是后台影响确认用的
+ * 自渲染器，公开页复用它就会多出第二套口径，还会把 `cmp` / `params` / `op` 这些规则内部
+ * 结构漏到页面上。
+ */
+export function forumBadgeRequirementText(
+  entry: { requirementText?: ForumBadgeRequirementText | null },
+  locale = 'zh-CN'
+): string {
+  const text = entry?.requirementText
+  if (!text) return ''
+  const zhPreferred = locale.toLowerCase().startsWith('zh')
+  const preferred = zhPreferred ? text.zh : text.en
+  const fallback = zhPreferred ? text.en : text.zh
   return (preferred || fallback || '').trim()
 }
 

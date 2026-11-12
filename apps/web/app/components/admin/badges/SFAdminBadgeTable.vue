@@ -7,6 +7,37 @@
  *
  * 等级名/色/图标全部来自服务端等级表（`tiers` prop），不再写死 gold/silver/bronze 三套规则：
  * 运营新建的等级在列表里必须有名字与颜色，否则会显示成裸 key。
+ *
+ * ── 横向滚动容器（2026-11-12 修复 390 裁切）────────────────────────────────
+ * 逐层实测（390x844，`?tab=badges`，`getComputedStyle().overflowX` + rect）：
+ *
+ *   table.min-w-full.overflow-clip                ovx=clip   w=508.5 right=540.5 ← 自身就是裁切源
+ *   div.relative.overflow-auto (§ UTable root)    ovx=auto   w=326   right=358   scroller，但 tabindex=null
+ *   div                                           ovx=visible w=326  right=358
+ *   div.p-4.sm:p-6                                ovx=visible w=358  right=374
+ *   div.rounded-lg.overflow-hidden.ring           ovx=hidden  w=358  right=374
+ *   div.flex.flex-col.gap-4                       ovx=visible w=358  right=374
+ *   div.sforum-admin-page.min-w-0.w-full          ovx=visible w=358  right=374
+ *   div.sforum-admin-scroll-area                  ovx=auto   w=390   right=390   clientW=scrollW=390（不滚）
+ *   body.sforum-admin-shell                       ovx=visible w=390 right=390
+ *
+ * 结论：表宽 > 视口不是根因（`documentElement.scrollWidth` 恒等于 390）；真正的裁切来自
+ * `<table>` 自己 `overflow-clip`，而唯一能横向滚的是 UTable 的 root。那个 root **本身不在
+ * `<table>` 的祖先链上**（`Table.vue:482` 的 root 是 `<table>` 的兄弟/外层，table 被塞在
+ * `overflow-hidden` 的 `rounded-lg` 卡片里），所以它滚不动表格；同时它是个 `div`，默认
+ * 不可聚焦 → 按钮滚不到、键盘也滚不了。
+ *
+ * 修法（方案 A，用户已拍板）：把可聚焦语义挂在**真正的滚动容器**上，而不是在外面再包一层。
+ *
+ * 走过一次弯路，留证：先在外面包了 `<div class="min-w-0 overflow-x-auto" tabindex="0">`，
+ * 实测**没修好**——UTable 主题的 `slots.root` 自带 `overflow-auto`（`ui.BfHSFiIO.mjs:6514`），
+ * 于是变成两个滚动容器：外层 `scrollW == clientW == 326`（滚不动），内层才是真 scroller
+ * （`scrollW 508 / clientW 326`）。焦点落在外层，方向键什么也不会发生 —— 键盘可达性是假的。
+ *
+ * UTable 的 root 正是那个 scroller（同时承载 `max-h` 与 sticky 表头），且它 `v-bind="$attrs"`
+ * （`Table.vue:482`），所以把 `tabindex="0"` / `role="region"` / `aria-label` 直接挂在
+ * `<UTable>` 上：只留一个滚动容器，焦点、鼠标、键盘三者落在同一个元素上。
+ * 列宽与列集合一律不变（那是方案 C，本次不做）。
  */
 import { adminBadgeMetricLabel, adminBadgeRule, type AdminBadgeRow, type AdminBadgeSortDir, type AdminBadgeSortKey } from '~/utils/admin/adminBadges'
 import type { AdminBadgeTierRow } from '~/composables/admin/badges/useAdminBadges'
@@ -167,158 +198,162 @@ function sortAria(id: string): string {
     :loading="props.pending"
     :empty="t('admin.badges.empty')"
     :caption="t('admin.badges.title')"
+    data-badge-table-scroll
+    tabindex="0"
+    role="region"
+    :aria-label="t('admin.badges.table.scrollLabel')"
     sticky
     class="max-h-[calc(100vh-24rem)]"
   >
-    <template #icon-cell="{ row }">
-      <span class="sf-admin-badge-icon" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
-        <UIcon
-          :name="row.original.icon || tierIcon(row.original)"
-          class="size-[18px]"
-          aria-hidden="true"
-        />
-      </span>
-    </template>
+      <template #icon-cell="{ row }">
+        <span class="sf-admin-badge-icon" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
+          <UIcon
+            :name="row.original.icon || tierIcon(row.original)"
+            class="size-[18px]"
+            aria-hidden="true"
+          />
+        </span>
+      </template>
 
-    <template #name-header>
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        class="-ml-2 font-semibold"
-        :icon="sortIcon('name')"
-        :aria-label="sortAria('name')"
-        @click="emit('sort', 'name')"
-      >
-        {{ t('admin.badges.columns.name') }}
-      </UButton>
-    </template>
-
-    <template #name-cell="{ row }">
-      <div class="min-w-0">
-        <div class="truncate font-semibold text-slate-900 dark:text-white">{{ row.original.name }}</div>
-        <code class="text-xs text-slate-500 dark:text-zinc-400">{{ row.original.slug }}</code>
-      </div>
-    </template>
-
-    <template #group-cell="{ row }">
-      <span class="text-sm text-slate-600 dark:text-zinc-300">{{ row.original.groupName || '—' }}</span>
-    </template>
-
-    <template #tier-header>
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        class="-ml-2 font-semibold"
-        :icon="sortIcon('tier')"
-        :aria-label="sortAria('tier')"
-        @click="emit('sort', 'tier')"
-      >
-        {{ t('admin.badges.columns.tier') }}
-      </UButton>
-    </template>
-
-    <template #tier-cell="{ row }">
-      <span class="sf-admin-badge-tier" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
-        <!-- 颜色必须落在图标元素自己身上：@nuxt/icon 可能把图标渲染成「掩码元素」而不是
-             `<svg>`（此时图标色 = currentColor），只给 svg 上色会漏掉一半渲染路径。 -->
-        <UIcon
-          :name="tierIcon(row.original)"
-          class="size-3.5"
-          :style="{ color: 'var(--sf-tier-hue)' }"
-          aria-hidden="true"
-        />
-        <span>{{ tierLabel(row.original) }}</span>
-      </span>
-    </template>
-
-    <template #grantMode-cell="{ row }">
-      <UBadge color="neutral" variant="soft">
-        {{ t(`admin.badges.grantMode.${row.original.grantMode}`) }}
-      </UBadge>
-    </template>
-
-    <template #rule-cell="{ row }">
-      <span v-if="ruleOf(row.original)" class="tabular-nums text-sm text-slate-600 dark:text-zinc-300">
-        {{
-          t('admin.badges.rule.metricThreshold', {
-            metric: adminBadgeMetricLabel(ruleOf(row.original)?.metric, t, te),
-            threshold: ruleOf(row.original)?.threshold
-          })
-        }}
-      </span>
-      <span v-else class="text-sm text-slate-400 dark:text-zinc-500">{{ t('admin.badges.rule.none') }}</span>
-    </template>
-
-    <template #grantedCount-header>
-      <UButton
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        class="-ml-1 font-semibold"
-        :icon="sortIcon('grantedCount')"
-        :aria-label="sortAria('grantedCount')"
-        @click="emit('sort', 'grantedCount')"
-      >
-        {{ t('admin.badges.columns.grantedCount') }}
-      </UButton>
-    </template>
-
-    <template #grantedCount-cell="{ row }">
-      <span class="tabular-nums text-sm text-slate-600 dark:text-zinc-300">{{ row.original.grantedCount }}</span>
-    </template>
-
-    <template #enabled-cell="{ row }">
-      <USwitch
-        :model-value="row.original.enabled"
-        :disabled="!props.canManage"
-        :aria-label="t('admin.badges.actions.toggleLabel', { name: row.original.name })"
-        @update:model-value="emit('toggle', row.original)"
-      />
-    </template>
-
-    <template #actions-cell="{ row }">
-      <div v-if="props.canManage" class="flex items-center gap-1">
+      <template #name-header>
         <UButton
           color="neutral"
           variant="ghost"
           size="xs"
-          icon="i-lucide-pencil"
-          :aria-label="t('admin.badges.actions.editLabel', { name: row.original.name })"
-          :title="t('admin.badges.actions.edit')"
-          @click="emit('edit', row.original)"
-        />
+          class="-ml-2 font-semibold"
+          :icon="sortIcon('name')"
+          :aria-label="sortAria('name')"
+          @click="emit('sort', 'name')"
+        >
+          {{ t('admin.badges.columns.name') }}
+        </UButton>
+      </template>
+
+      <template #name-cell="{ row }">
+        <div class="min-w-0">
+          <div class="truncate font-semibold text-slate-900 dark:text-white">{{ row.original.name }}</div>
+          <code class="text-xs text-slate-500 dark:text-zinc-400">{{ row.original.slug }}</code>
+        </div>
+      </template>
+
+      <template #group-cell="{ row }">
+        <span class="text-sm text-slate-600 dark:text-zinc-300">{{ row.original.groupName || '—' }}</span>
+      </template>
+
+      <template #tier-header>
         <UButton
           color="neutral"
           variant="ghost"
           size="xs"
-          icon="i-lucide-award"
-          :aria-disabled="row.original.grantMode !== 'manual'"
-          :class="row.original.grantMode === 'manual' ? '' : 'opacity-40'"
-          :aria-label="t('admin.badges.actions.grantLabel', { name: row.original.name })"
-          :title="row.original.grantMode === 'manual'
-            ? t('admin.badges.actions.grant')
-            : t('admin.badges.actions.grantAutomaticHint')"
-          @click="requestGrant(row.original)"
-        />
+          class="-ml-2 font-semibold"
+          :icon="sortIcon('tier')"
+          :aria-label="sortAria('tier')"
+          @click="emit('sort', 'tier')"
+        >
+          {{ t('admin.badges.columns.tier') }}
+        </UButton>
+      </template>
+
+      <template #tier-cell="{ row }">
+        <span class="sf-admin-badge-tier" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
+          <!-- 颜色必须落在图标元素自己身上：@nuxt/icon 可能把图标渲染成「掩码元素」而不是
+               `<svg>`（此时图标色 = currentColor），只给 svg 上色会漏掉一半渲染路径。 -->
+          <UIcon
+            :name="tierIcon(row.original)"
+            class="size-3.5"
+            :style="{ color: 'var(--sf-tier-hue)' }"
+            aria-hidden="true"
+          />
+          <span>{{ tierLabel(row.original) }}</span>
+        </span>
+      </template>
+
+      <template #grantMode-cell="{ row }">
+        <UBadge color="neutral" variant="soft">
+          {{ t(`admin.badges.grantMode.${row.original.grantMode}`) }}
+        </UBadge>
+      </template>
+
+      <template #rule-cell="{ row }">
+        <span v-if="ruleOf(row.original)" class="tabular-nums text-sm text-slate-600 dark:text-zinc-300">
+          {{
+            t('admin.badges.rule.metricThreshold', {
+              metric: adminBadgeMetricLabel(ruleOf(row.original)?.metric, t, te),
+              threshold: ruleOf(row.original)?.threshold
+            })
+          }}
+        </span>
+        <span v-else class="text-sm text-slate-400 dark:text-zinc-500">{{ t('admin.badges.rule.none') }}</span>
+      </template>
+
+      <template #grantedCount-header>
         <UButton
           color="neutral"
           variant="ghost"
           size="xs"
-          :icon="row.original.enabled ? 'i-lucide-ban' : 'i-lucide-power'"
-          :aria-label="
-            row.original.enabled
-              ? t('admin.badges.actions.disableLabel', { name: row.original.name })
-              : t('admin.badges.actions.enableLabel', { name: row.original.name })
-          "
-          :title="row.original.enabled ? t('admin.badges.actions.disable') : t('admin.badges.actions.enable')"
-          @click="emit('toggle', row.original)"
+          class="-ml-1 font-semibold"
+          :icon="sortIcon('grantedCount')"
+          :aria-label="sortAria('grantedCount')"
+          @click="emit('sort', 'grantedCount')"
+        >
+          {{ t('admin.badges.columns.grantedCount') }}
+        </UButton>
+      </template>
+
+      <template #grantedCount-cell="{ row }">
+        <span class="tabular-nums text-sm text-slate-600 dark:text-zinc-300">{{ row.original.grantedCount }}</span>
+      </template>
+
+      <template #enabled-cell="{ row }">
+        <USwitch
+          :model-value="row.original.enabled"
+          :disabled="!props.canManage"
+          :aria-label="t('admin.badges.actions.toggleLabel', { name: row.original.name })"
+          @update:model-value="emit('toggle', row.original)"
         />
-      </div>
-      <span v-else class="text-sm text-slate-400 dark:text-zinc-500">—</span>
-    </template>
-  </UTable>
+      </template>
+
+      <template #actions-cell="{ row }">
+        <div v-if="props.canManage" class="flex items-center gap-1">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            icon="i-lucide-pencil"
+            :aria-label="t('admin.badges.actions.editLabel', { name: row.original.name })"
+            :title="t('admin.badges.actions.edit')"
+            @click="emit('edit', row.original)"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            icon="i-lucide-award"
+            :aria-disabled="row.original.grantMode !== 'manual'"
+            :class="row.original.grantMode === 'manual' ? '' : 'opacity-40'"
+            :aria-label="t('admin.badges.actions.grantLabel', { name: row.original.name })"
+            :title="row.original.grantMode === 'manual'
+              ? t('admin.badges.actions.grant')
+              : t('admin.badges.actions.grantAutomaticHint')"
+            @click="requestGrant(row.original)"
+          />
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :icon="row.original.enabled ? 'i-lucide-ban' : 'i-lucide-power'"
+            :aria-label="
+              row.original.enabled
+                ? t('admin.badges.actions.disableLabel', { name: row.original.name })
+                : t('admin.badges.actions.enableLabel', { name: row.original.name })
+            "
+            :title="row.original.enabled ? t('admin.badges.actions.disable') : t('admin.badges.actions.enable')"
+            @click="emit('toggle', row.original)"
+          />
+        </div>
+        <span v-else class="text-sm text-slate-400 dark:text-zinc-500">—</span>
+      </template>
+    </UTable>
 </template>
 
 <style scoped>

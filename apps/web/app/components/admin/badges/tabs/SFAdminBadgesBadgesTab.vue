@@ -19,22 +19,58 @@ import {
   sortBadges,
   tierOrderMap,
   toAdminBadgeInput,
+  type AdminBadgeBackfillSummary,
   type AdminBadgeFilters,
   type AdminBadgeRow,
   type AdminBadgeSortDir,
   type AdminBadgeSortKey
 } from '~/utils/admin/adminBadges'
+import type { BadgeConditionCatalogEntry, BadgeFactCandidate } from '~/utils/admin/badgeRule'
+import type { BadgeRuleHealthRow } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
+import SFAdminBadgeBackfillRow from '~/components/admin/badges/SFAdminBadgeBackfillRow.vue'
 
 export type AdminBadgesStore = ReturnType<typeof useAdminBadges>
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   store: AdminBadgesStore
   badges: AdminBadgeRow[]
   groups: AdminBadgeGroupRow[]
   pending: boolean
   /** 壳层的 can（badge.manage）判定结果。 */
   canManage: boolean
-}>()
+  /** 规则条件目录：空数组 = 端点未上线或加载失败（弹窗自行降级并提示）。 */
+  catalog?: BadgeConditionCatalogEntry[]
+  catalogFailed?: boolean
+  /** 插件事实候选：一路带到规则编辑器的事实叶子。 */
+  factCandidates?: BadgeFactCandidate[]
+  factCandidatesFailed?: boolean
+  /** 规则健康清单（只含引用/条件失效的徽章；空数组 = 全站健康）。 */
+  ruleHealth?: BadgeRuleHealthRow[]
+  ruleHealthFailed?: boolean
+  /** 回扫进度（`null` = 没有要展示的 run，整行不渲染）。 */
+  backfillSummary?: AdminBadgeBackfillSummary | null
+  /** 进度端点失败：仍渲染那一行，但内容是一条「读不到」提示。 */
+  backfillFailed?: boolean
+  backfillPending?: boolean
+  /**
+   * 刷新进度用的回调。
+   *
+   * 走 prop 而不是 `emit`：壳层用动态 `<component>` 渲染四个 tab，挂在上面的监听器
+   * 对没声明该事件的 tab 会变成根元素上的原生属性（`onRefreshBackfill="…"`）。
+   */
+  backfillRefresh?: () => void
+}>(), {
+  catalog: () => [],
+  catalogFailed: false,
+  factCandidates: () => [],
+  factCandidatesFailed: false,
+  ruleHealth: () => [],
+  ruleHealthFailed: false,
+  backfillSummary: null,
+  backfillFailed: false,
+  backfillPending: false,
+  backfillRefresh: undefined
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -276,6 +312,14 @@ defineOptions({ name: 'SFAdminBadgesBadgesTab' })
 
 <template>
   <div>
+    <!-- 回扫进度：一行，放在筛选区上方；没有 run 或已完成超过 24h 时行内部自行不渲染。 -->
+    <SFAdminBadgeBackfillRow
+      :summary="backfillSummary"
+      :failed="backfillFailed"
+      :pending="backfillPending"
+      @refresh="backfillRefresh?.()"
+    />
+
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <UInput
         :model-value="filters.q"
@@ -375,6 +419,12 @@ defineOptions({ name: 'SFAdminBadgesBadgesTab' })
       :groups="groups"
       :tiers="store.tiers.value"
       :badge="editing"
+      :catalog="props.catalog"
+      :catalog-failed="props.catalogFailed"
+      :fact-candidates="props.factCandidates"
+      :fact-candidates-failed="props.factCandidatesFailed"
+      :rule-health="props.ruleHealth"
+      :rule-health-failed="props.ruleHealthFailed"
       @saved="onSaved"
     />
     <SFAdminBadgeGrantDialog v-model:open="grantOpen" :badge="granting" :store="store" @saved="onSaved" />

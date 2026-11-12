@@ -1,7 +1,14 @@
 import type { BadgeTier } from '~/utils/forum/forumBadge'
+import type { BadgeRule } from '~/utils/admin/badgeRule'
 
 /** 授予方式：自动按统计阈值，手动由管理员授予。 */
 export type BadgeGrantMode = 'automatic' | 'manual'
+
+/** 公开说明的双语句子；两个键**必须成对写回**（服务端整体替换）。 */
+export interface BadgeRequirementSummary {
+  zh: string
+  en: string
+}
 
 /** 后台列表行：徽章定义 + 已授予人数（后端聚合）。 */
 export interface AdminBadgeRow {
@@ -14,8 +21,19 @@ export interface AdminBadgeRow {
   groupId: number | null
   groupName: string | null
   grantMode: BadgeGrantMode
+  /** 旧口径字段（只读展示）：M1 规则引擎之后写路径不再维护，下一刀删列。 */
   metric: string | null
   threshold: number | null
+  /**
+   * 规则 AST。`undefined` = 列表接口还没带这个字段（M1.4 前的过渡态）；
+   * `null` = 手动徽章（无规则）；对象 = 当前规则。
+   */
+  rule?: BadgeRule | null
+  /**
+   * 公开面「怎么获得」的双语说明（运营手填，`requirementSummary{zh,en}`）。
+   * 服务端恒下发（无 omitempty）；`undefined` = 旧后端没这个字段，写回时必须跳过。
+   */
+  requirementSummary?: BadgeRequirementSummary | null
   grantedCount: number
   enabled: boolean
   position: number
@@ -136,9 +154,19 @@ export function toAdminBadgeInput(form: {
   threshold: number | null
   enabled: boolean
   position: number
+  /**
+   * 规则三态：**缺省 = 不改**（键都不出现）、`null` = 清空、对象 = 替换。
+   * PATCH 是 merge 语义，缺省时带一个 `rule` 键会把「只改名字」变成「替换规则」。
+   */
+  rule?: BadgeRule | null
+  /**
+   * 公开说明：**缺省 = 不发**（读不到现值时不要用空串覆盖已有文案）。
+   * 给了就必须两个键一起给 —— 服务端是整体替换语义，只发一边会把另一边清空。
+   */
+  requirementSummary?: BadgeRequirementSummary
 }) {
   const automatic = form.grantMode === 'automatic'
-  return {
+  const body = {
     slug: form.slug.trim(),
     name: form.name.trim(),
     description: form.description.trim(),
@@ -151,6 +179,10 @@ export function toAdminBadgeInput(form: {
     enabled: form.enabled,
     position: form.position
   }
+  const withRule = form.rule === undefined ? body : { ...body, rule: form.rule }
+  return form.requirementSummary === undefined
+    ? withRule
+    : { ...withRule, requirementSummary: form.requirementSummary }
 }
 
 /** 徽章 tab 的筛选状态；空串表示「不过滤」。字段名与 URL query 键一致。 */
@@ -240,4 +272,219 @@ export function validateBadgeGroupForm(form: Pick<AdminBadgeGroupInput, 'key' | 
   if (!form.key.trim()) errors.key = 'required'
   if (!form.name.trim()) errors.name = 'required'
   return errors
+}
+
+/**
+ * 重算 toast 副标题的**唯一**文案决策点。
+ *
+ * 三个数语义不同（granted = 新插入授予行数，refreshed = top badge 变化的用户数，
+ * queued = 转入异步评估的徽章数），所以分两句说，绝不加总：
+ * - `queued > 0`：必须出现「{count} 枚徽章已转入后台评估」——后台还在跑，不能被摘要吃掉；
+ * - `granted + refreshed > 0`：保留「本次影响 {count} 个用户」；
+ * - 都为 0：`undefined`（幂等结果是正常状态，不编一句假成功）。
+ *
+ * 参数形状与 `useAdminBadges` 的 `AdminBadgeRecomputeResult` 同形；这里不反向 import
+ * composable（utils 是叶子层），缺字段按 0 处理。
+ */
+/**
+ * 重算之后是否值得重拉回扫进度。
+ *
+ * 只有真的把徽章转入后台评估（`queued > 0`）才可能新增 run；`0` 或字段缺失（老后端）
+ * 时重拉等于替一次空操作打一次请求。`undefined` 的既有语义见
+ * `recomputeToastDescription`：三数全 0 时不编副标题，所以这里也必须当 0 处理，
+ * 不能靠 `Number(undefined)` 之类的技巧把「没这个字段」当成「有值」。
+ */
+export function shouldRefreshBackfillAfterRecompute(
+  result: { queued?: number | null } | null | undefined
+): boolean {
+  return Number(result?.queued ?? 0) > 0
+}
+
+export function recomputeToastDescription(
+  result: { granted?: number | null, refreshed?: number | null, queued?: number | null } | null | undefined,
+  translate: (key: string, params?: Record<string, unknown>) => string
+): string | undefined {
+  const queued = Number(result?.queued ?? 0)
+  const affected = Number(result?.granted ?? 0) + Number(result?.refreshed ?? 0)
+  const sentences: string[] = []
+  if (queued > 0) {
+    sentences.push(translate('admin.badges.toast.recomputeQueued', { count: queued }))
+  }
+  if (affected > 0) {
+    sentences.push(translate('admin.badges.toast.recomputeChanged', { count: affected }))
+  }
+  return sentences.length > 0 ? sentences.join(' ') : undefined
+}
+
+/**
+ * 回扫进度（`GET /admin/badges/backfill-status`，形状冻结于计划 §13#15 的后续刀）。
+ *
+ * 读侧语义，别自行加码：
+ * - 数字只来自 job 写的 run 行（`lastUserId` = 最后一个成功页的游标，
+ *   `failedCursorUserId` = 失败页的 `afterUserID`），**不从 `user_badges` 反推**；
+ * - `completed` 只是「刚生效，值得看一眼」，24h 后收起（见 `BACKFILL_PROGRESS_TTL_MS`）；
+ * - 行内文案绝不出现 `cmp`/`params`/`children`/`op`/`rule` 这类内部字段名。
+ */
+export type AdminBadgeBackfillStatus = 'running' | 'completed' | 'failed'
+
+export interface AdminBadgeBackfillRun {
+  badgeId: number
+  slug: string
+  name: string
+  status: AdminBadgeBackfillStatus
+  /** 最后一个成功页的游标用户 id（0 = 还没推进过）。 */
+  lastUserId: number
+  /** 失败页的 `afterUserID`（非失败为 0）。 */
+  failedCursorUserId: number
+  startedAt: string
+  updatedAt: string
+  finishedAt: string
+  error: string
+}
+
+export interface AdminBadgeBackfillSummary {
+  status: AdminBadgeBackfillStatus
+  /** 当前状态下的徽章名，最多 `MAX_BACKFILL_BADGE_NAMES` 条。 */
+  badgeNames: string[]
+  /** 未展示的同状态徽章数；0 = 全部展示了。 */
+  hiddenCount: number
+  /** running = 已扫描游标，failed = 失败游标，completed = 0。 */
+  userId: number
+}
+
+/** completed 行的保留窗口：刚跑完值得确认一次，过期就收起，不长期占位。 */
+export const BACKFILL_PROGRESS_TTL_MS = 24 * 60 * 60 * 1000
+export const MAX_BACKFILL_BADGE_NAMES = 3
+
+const BACKFILL_STATUSES: readonly AdminBadgeBackfillStatus[] = ['running', 'completed', 'failed']
+/** 聚合优先级：还在跑 > 卡住了 > 刚跑完。 */
+const BACKFILL_STATUS_ORDER: readonly AdminBadgeBackfillStatus[] = ['running', 'failed', 'completed']
+
+function backfillText(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function backfillCount(value: unknown): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function normalizeBackfillRun(row: unknown): AdminBadgeBackfillRun | null {
+  if (!row || typeof row !== 'object') return null
+  const raw = row as Record<string, unknown>
+  const badgeId = Number(raw.badgeId)
+  if (!Number.isFinite(badgeId) || badgeId <= 0) return null
+  const status = raw.status
+  if (typeof status !== 'string' || !BACKFILL_STATUSES.includes(status as AdminBadgeBackfillStatus)) return null
+  const slug = backfillText(raw.slug)
+  return {
+    badgeId,
+    slug,
+    // 徽章名没给就退回 slug，再没有就退回 id：状态行不能因为一个空名字变空白。
+    name: backfillText(raw.name) || slug || `#${badgeId}`,
+    status: status as AdminBadgeBackfillStatus,
+    lastUserId: backfillCount(raw.lastUserId),
+    failedCursorUserId: backfillCount(raw.failedCursorUserId),
+    startedAt: backfillText(raw.startedAt),
+    updatedAt: backfillText(raw.updatedAt),
+    finishedAt: backfillText(raw.finishedAt),
+    error: backfillText(raw.error)
+  }
+}
+
+/**
+ * `{ items: [...] }` 是这一刀的冻结形状，**不接受裸数组**：新端点没有历史包袱，
+ * 两种形状都认会让后端改响应形状时前端安静地继续工作，契约漂移永远不红。
+ *
+ * 单行不合格只丢那一行（一条脏数据不该让整行进度消失）；整个 payload 不合格返回
+ * `null`，由调用方降级成空清单 + 一条可见提示。
+ */
+export function normalizeBackfillStatusPayload(payload: unknown): AdminBadgeBackfillRun[] | null {
+  const items = (payload as { items?: unknown } | null)?.items
+  if (!Array.isArray(items)) return null
+  return items.flatMap((row) => {
+    const run = normalizeBackfillRun(row)
+    return run ? [run] : []
+  })
+}
+
+/** 这一行最近一次有动静的时间：完成时间优先，失败行没有 finishedAt 时用 updatedAt。 */
+function backfillActivityMs(run: AdminBadgeBackfillRun): number {
+  for (const value of [run.finishedAt, run.updatedAt, run.startedAt]) {
+    const parsed = Date.parse(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return 0
+}
+
+function summarizeBackfillGroup(
+  status: AdminBadgeBackfillStatus,
+  runs: readonly AdminBadgeBackfillRun[],
+  userId: number
+): AdminBadgeBackfillSummary {
+  const badgeNames = runs.slice(0, MAX_BACKFILL_BADGE_NAMES).map(run => run.name)
+  return {
+    status,
+    badgeNames,
+    hiddenCount: Math.max(0, runs.length - badgeNames.length),
+    userId
+  }
+}
+
+/**
+ * 把多条 run 收成**一行**状态（不是每枚徽章一行：这是进度提示，不是清单）。
+ *
+ * `null` 表示这一行不该渲染：没有任何 run，或者只有超过 24h 的 completed。
+ */
+export function summarizeBackfillRuns(
+  runs: readonly AdminBadgeBackfillRun[],
+  nowMs: number = Date.now()
+): AdminBadgeBackfillSummary | null {
+  if (runs.length === 0) return null
+
+  // 最近有动静的排前面：失败行要展示「眼下卡在哪」，刚跑完的要展示刚跑完的那些。
+  const byStatus = (status: AdminBadgeBackfillStatus) => runs
+    .filter(run => run.status === status)
+    .slice()
+    .sort((left, right) => backfillActivityMs(right) - backfillActivityMs(left) || left.badgeId - right.badgeId)
+
+  for (const status of BACKFILL_STATUS_ORDER) {
+    const group = byStatus(status)
+    if (group.length === 0) continue
+    if (status === 'completed') {
+      const finishedMs = backfillActivityMs(group[0]!)
+      // 时间戳缺失（0）也算过期：渲染一条无法判断新鲜度的「已完成」不如不渲染。
+      if (nowMs - finishedMs > BACKFILL_PROGRESS_TTL_MS) return null
+      return summarizeBackfillGroup('completed', group, 0)
+    }
+    // 多条在跑时展示推进得最远的游标 —— 这一行回答「已经扫到哪」。
+    const userId = status === 'running'
+      ? Math.max(...group.map(run => run.lastUserId))
+      : group[0]!.failedCursorUserId
+    return summarizeBackfillGroup(status, group, userId)
+  }
+  return null
+}
+
+/**
+ * 进度行文案的**唯一**决策点（与 `recomputeToastDescription` 同一套路）：
+ * 组件只负责摆位，测试可以直接喂真实 locale 断言最终句子。
+ */
+export function backfillProgressCopy(
+  summary: AdminBadgeBackfillSummary,
+  translate: (key: string, params?: Record<string, unknown>) => string
+): { title: string, description: string } {
+  const titleKey = {
+    running: 'admin.badges.backfill.running',
+    completed: 'admin.badges.backfill.completed',
+    failed: 'admin.badges.backfill.failed'
+  }[summary.status]
+  const title = translate(titleKey, { userId: summary.userId })
+  const separator = translate('admin.badges.backfill.listSeparator')
+  const names = summary.badgeNames.join(separator)
+  if (names === '') return { title, description: '' }
+  const suffix = summary.hiddenCount > 0
+    ? ` ${translate('admin.badges.backfill.more', { count: summary.hiddenCount })}`
+    : ''
+  return { title, description: translate('admin.badges.backfill.detail', { names: `${names}${suffix}` }) }
 }

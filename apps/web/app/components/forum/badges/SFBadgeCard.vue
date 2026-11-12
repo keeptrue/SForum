@@ -22,8 +22,9 @@ const props = withDefaults(defineProps<{
   badge: ProfileBadgeEntry
   variant?: BadgeCardVariant
   /**
-   * 目录 wire 带 description，但 designer 规范 §6 的卡片没有它的展示位；
-   * 宿主当前不传（传了会改目录页视觉）。规范定稿后在这里接一行即可。
+   * 「获得条件」一句话的渲染 seam：宿主传 `forumBadgeRequirementText(badge, locale)`。
+   * 句子本身由服务端生成（前端只选语言），这里只管排版 —— 最多两行，超出裁掉。
+   * 空串表示没有条件文案，整行不渲染（不占位、不留空白行）。
    */
   description?: string
 }>(), {
@@ -218,13 +219,18 @@ function cardLabel() {
   white-space: nowrap;
 }
 
+/* 条件句子是自然语言，单行 nowrap 会吃掉大半句：改成两行 clamp，不写死高度
+   （行数由 line-height 决定，空句时整行不渲染由模板的 v-if 负责）。 */
 .sf-profile-badge-card__description {
+  display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--sf-fg-secondary);
   font-size: 11px;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .sf-profile-badge-card__meta {

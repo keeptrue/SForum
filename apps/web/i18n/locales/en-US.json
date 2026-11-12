@@ -574,6 +574,29 @@
         "rule": "Rule",
         "tier": "Tier"
       },
+      "conditions": {
+        "empty": "No condition catalog available; the rule cannot be edited yet.",
+        "unknown": "Condition “{type}” is not in the current catalog.",
+        "factCandidatesFailed": "Plugin fact candidates are unavailable right now, so no fact source can be selected. Existing rules are unaffected.",
+        "factKeyPlaceholder": "Select a fact source",
+        "factStaleHint": "This fact source is no longer available (the extension may be disabled or uninstalled). The original value is kept and the rule health check keeps reporting it.",
+        "candidatesPending": "Candidates arrive with the backend",
+        "params": {
+          "metric": "Metric",
+          "window": "Time window",
+          "minDays": "Consecutive days",
+          "action": "Action",
+          "topicId": "Topic ID",
+          "targetKind": "Target kind",
+          "targetSlug": "Target slug",
+          "days": "Days",
+          "providerId": "Provider",
+          "roleKey": "Role",
+          "slug": "Badge slug",
+          "variant": "Variant"
+        },
+        "unknownHint": "This condition is not in the catalog (the plugin may be uninstalled). Remove this node, or restore the plugin before editing."
+      },
       "confirmDeleteBody": "This cannot be undone. Grants of this badge are deleted and the top badge on user profiles is cleared.",
       "confirmDeleteTitle": "Confirm delete",
       "confirmDeleteTopBadgeHint": "After deletion the badge disappears from profiles and posts; remaining badges only show again after the next recompute.",
@@ -610,7 +633,12 @@
         "slug": "Slug",
         "slugHint": "Lowercase letters, digits, and hyphens only; underscores and spaces become hyphens. The field is locked while editing.",
         "threshold": "Threshold",
-        "tier": "Tier"
+        "tier": "Tier",
+        "legacyRuleHint": "Metric and threshold are replaced by the rule; these values are legacy.",
+        "requirementSummaryEn": "Public explanation (English)",
+        "requirementSummaryHint": "How members earn this badge, in both languages. Leave it empty and a single-condition rule is described automatically.",
+        "requirementSummaryMissing": "This rule cannot be described automatically, so the public page will show no explanation. Filling both languages is recommended.",
+        "requirementSummaryZh": "Public explanation (Chinese)"
       },
       "grant": {
         "automaticNotGrantable": "Automatic badges are granted by rules and cannot be granted manually.",
@@ -718,6 +746,16 @@
         "like_received_count": "Likes received",
         "topic_count": "Topics"
       },
+      "backfill": {
+        "completed": "Backfill completed",
+        "detail": "Badges: {names}",
+        "failed": "Backfill failed at user #{userId}",
+        "listSeparator": ", ",
+        "more": "and {count} more",
+        "refresh": "Refresh backfill progress",
+        "running": "Backfill in progress: scanned up to user #{userId}",
+        "unavailable": "Backfill progress is unavailable right now. Try again in a moment."
+      },
       "recompute": {
         "action": "Recompute grants",
         "confirm": "Confirm recompute"
@@ -725,7 +763,111 @@
       "refresh": "Refresh",
       "rule": {
         "metricThreshold": "Granted when {metric} reaches {threshold}",
-        "none": "No rule (manual)"
+        "none": "No rule (manual)",
+        "title": "Rule",
+        "groupOp": "Combine with",
+        "condition": "Condition",
+        "compareOp": "Compare",
+        "value": "Threshold",
+        "ops": {
+          "all": "All of",
+          "any": "Any of",
+          "not": "Not"
+        },
+        "compare": {
+          "gte": "At least (≥)",
+          "lte": "At most (≤)"
+        },
+        "window": {
+          "all": "All time",
+          "recent_days": "Last N days"
+        },
+        "emptyGroup": "This group has no children yet; at least one condition is required to save.",
+        "addCondition": "Add condition",
+        "addGroup": "Add group",
+        "remove": "Remove node",
+        "wrapNot": "Wrap in “not”",
+        "unwrap": "Unwrap “not”",
+        "notNeedsOneChild": "“not” takes exactly one child",
+        "limitDepth": "Maximum nesting depth ({max}) reached.",
+        "limitLeaves": "Condition limit ({max}) reached.",
+        "limitNodes": "Node limit ({max}) reached.",
+        "jsonTitle": "Rule JSON",
+        "copy": "Copy",
+        "copied": "Rule JSON copied",
+        "copyFailed": "Copy failed — select the text manually.",
+        "errors": {
+          "empty_group": "A group needs at least one child.",
+          "not_children": "“not” takes exactly one child.",
+          "unknown_type": "Condition “{type}” is not in the current catalog.",
+          "boolean_cmp": "A boolean condition cannot carry a threshold.",
+          "count_cmp_missing": "A count condition needs a comparison threshold.",
+          "cmp_not_allowed": "This condition does not allow that comparison.",
+          "cmp_value_range": "The threshold must be between 1 and 1000000000.",
+          "days_range": "Days must be between 1 and 3650.",
+          "param_required": "A required parameter is missing.",
+          "param_unknown": "The rule contains an undeclared parameter.",
+          "param_invalid": "A parameter has the wrong type.",
+          "param_range": "A parameter is out of range.",
+          "param_enum": "A parameter value is not allowed.",
+          "param_window": "The time window value is invalid.",
+          "depth_exceeded": "Nesting is too deep.",
+          "too_many_leaves": "Too many conditions.",
+          "too_many_nodes": "Too many nodes.",
+          "generic": "Rule validation failed ({code}).",
+          "catalogMissing": "The condition catalog is not loaded yet; the rule cannot be edited.",
+          "engine": {
+            "decode_failed": "The rule payload cannot be decoded.",
+            "version_unsupported": "The rule version is not supported.",
+            "shape_invalid": "The rule shape is invalid (for example a group without children).",
+            "too_deep": "Nesting is too deep.",
+            "unknown_condition": "The condition is not in the current catalog.",
+            "compare_missing": "A count condition needs a comparison threshold.",
+            "compare_invalid": "The comparison operator is invalid.",
+            "compare_not_allowed": "This condition does not allow that comparison.",
+            "compare_forbidden": "A boolean condition cannot carry a threshold.",
+            "value_out_of_range": "The threshold is out of range.",
+            "param_missing": "A required parameter is missing.",
+            "catalog_invalid": "The condition catalog declaration is invalid.",
+            "resolve_failed": "Rule evaluation failed."
+          }
+        },
+        "missingHint": "This badge has no rule (migration in progress or dirty data); add one before saving.",
+        "catalogUnavailable": "The rule editor is unavailable: the condition catalog failed to load.",
+        "health": {
+          "missing_topic": "Referenced topic is missing",
+          "missing_category": "Referenced category is missing",
+          "missing_tag": "Referenced tag is missing",
+          "missing_role": "Referenced role is missing",
+          "missing_provider": "Referenced login provider is missing",
+          "missing_badge_slug": "Referenced badge is missing",
+          "missing_fact_key": "Plugin fact condition is no longer available",
+          "undecodable_rule": "The rule cannot be decoded"
+        },
+        "healthUnavailable": "Rule health check unavailable: the report failed to load.",
+        "impact": {
+          "cancel": "Cancel",
+          "confirm": "Continue to save",
+          "confirmAnyway": "Save anyway",
+          "estimate": "≈ {count} people",
+          "loadFailed": "The impact estimate could not be loaded. You can still save.",
+          "loading": "Estimating the impact…",
+          "method": {
+            "complement_of_leaf": "Basis: estimated by excluding a single condition.",
+            "single_leaf": "Basis: the rule has a single condition, estimated from it.",
+            "strictest_leaf": "Basis: the strictest of the conditions that must all hold.",
+            "strictest_leaf_partial": "Basis: the strictest estimateable condition; the rest cannot be estimated.",
+            "sum_of_leaves": "Basis: a sum over any-of conditions, so the real audience is usually smaller.",
+            "unsupported_condition": "Basis: the rule contains conditions that cannot be estimated."
+          },
+          "nullHint": "No number was returned: the audience is unknown, not zero.",
+          "partialHint": "Only some conditions were counted, so this is an upper bound and the real audience may be smaller.",
+          "ruleChangedHint": "After saving, the new rule is re-evaluated in the background.",
+          "scopeHint": "Estimated from the rule saved right now, not from this edit's draft.",
+          "title": "Confirm the rule impact before saving",
+          "unestimable": "Cannot estimate",
+          "unsupportedTitle": "These conditions cannot take part in the estimate:"
+        }
       },
       "sort": {
         "activeAsc": "Sorted by {column} ascending; click to switch to descending",
@@ -756,6 +898,7 @@
         "granted": "Badge granted to the user.",
         "recomputeChanged": "{count} user(s) affected.",
         "recomputeFailed": "Badges could not be recomputed. Try again in a moment.",
+        "recomputeQueued": "{count} badge(s) queued for background evaluation; they finish automatically in a moment.",
         "recomputeStarted": "Recomputing badge grants.",
         "saveFailed": "The badge could not be saved. Try again in a moment.",
         "updated": "Badge updated."
@@ -819,6 +962,9 @@
           "doneHint": "Tier deleted and its badges moved."
         },
         "delete": "Delete"
+      },
+      "table": {
+        "scrollLabel": "Badges table (scrolls horizontally)"
       }
     },
     "shell": {
@@ -1860,6 +2006,12 @@
         "exactTrustDescription": "This admin component is part of the extension's exact-artifact impact document. Complete super-admin confirmation from the plugin enable action; declarative Schema settings remain available until then."
       },
       "trust": {
+        "capabilities": {
+          "title": "Capabilities",
+          "disclosures": {
+            "badgesFactWrite": "Lets this extension record custom fact counters for forum badges; badge copy and grant rules may change as a result."
+          }
+        },
         "title": "Review exact artifact and enable",
         "body": "Review the complete server-generated impact document before enabling “{name}”.",
         "fullTrustTitle": "This action will run fully trusted code",

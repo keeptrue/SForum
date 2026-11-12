@@ -13,7 +13,32 @@ const props = defineProps<{
   // 因此缺失时不影响其余披露内容的渲染。
   guardAuthorization?: ExecutableGuardAuthorization[]
 }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+/**
+ * 能力清单的可读面。
+ *
+ * 之前能力只在折叠的 JSON dump 里出现 —— 运营点「完成」前看不到 `badges.fact.write`
+ * 这类条目到底允许扩展做什么。这里只做两件事：渲染后端已给的双语 label/description，
+ * 以及为**需要额外解释**的能力补一句前端披露（不重复描述能力语义）。
+ */
+const CAPABILITY_DISCLOSURES: Record<string, string> = {
+  'badges.fact.write': 'admin.extensions.trust.capabilities.disclosures.badgesFactWrite'
+}
+
+const zh = computed(() => String(locale.value ?? '').toLowerCase().startsWith('zh'))
+const capabilityRows = computed(() => props.impact.capabilities ?? [])
+
+function capabilityLabel(row: { labelZh: string, labelEn: string, key: string }) {
+  const primary = zh.value ? row.labelZh : row.labelEn
+  const secondary = zh.value ? row.labelEn : row.labelZh
+  return primary || secondary || row.key
+}
+
+function capabilityDisclosure(row: { key: string }) {
+  const key = CAPABILITY_DISCLOSURES[row.key]
+  return key ? t(key) : ''
+}
 const showBackupGuidance = ref(true)
 let backupGuidanceTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -333,6 +358,37 @@ function formatted(value: unknown) {
               </dd>
             </div>
           </dl>
+        </li>
+      </ul>
+    </section>
+
+    <section
+      v-if="capabilityRows.length"
+      class="space-y-2 border-y border-slate-200 py-4 dark:border-zinc-800"
+      data-testid="extension-capabilities"
+    >
+      <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-zinc-100">
+        <UIcon name="i-lucide-key-round" class="size-5 shrink-0 text-slate-500 dark:text-zinc-400" />
+        {{ t('admin.extensions.trust.capabilities.title') }}
+      </h3>
+      <ul class="grid gap-2 lg:grid-cols-2">
+        <li
+          v-for="row in capabilityRows"
+          :key="row.key"
+          class="min-w-0 rounded-md border border-slate-200 px-3 py-2.5 dark:border-zinc-700"
+        >
+          <p class="truncate text-xs font-medium text-slate-900 dark:text-zinc-100">{{ capabilityLabel(row) }}</p>
+          <p class="mt-1 break-all font-mono text-[11px] text-slate-500 dark:text-zinc-400">{{ row.key }}</p>
+          <p
+            v-if="capabilityDisclosure(row)"
+            class="mt-1 text-[11px] leading-5 text-amber-600 dark:text-amber-400"
+            data-capability-disclosure
+          >
+            {{ capabilityDisclosure(row) }}
+          </p>
+          <p v-else-if="row.description" class="mt-1 text-[11px] leading-5 text-slate-600 dark:text-zinc-300">
+            {{ row.description }}
+          </p>
         </li>
       </ul>
     </section>

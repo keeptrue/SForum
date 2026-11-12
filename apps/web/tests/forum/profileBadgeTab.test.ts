@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
+  forumBadgeRequirementText,
   forumBadgeTier,
   forumBadgeTierIcon,
   forumBadgeTierLabel,
@@ -72,6 +73,9 @@ const EmptyStateStub = defineComponent({
 const badgeCardPath = fileURLToPath(new URL('../../app/components/forum/badges/SFBadgeCard.vue', import.meta.url))
 const has = (key: string) => typeof lookup(key) === 'string'
 
+/** 可变 locale：条件句子的中英选择就靠它切，卡片的 tier 名仍走 zh 文案。 */
+const localeRef = ref('zh-CN')
+
 const SFBadgeCard = await compileVueSfc(badgeCardPath, 'sf-badge-card', {
   computed,
   useI18n: () => ({ t, te: has, locale: ref('zh-CN') }),
@@ -87,7 +91,7 @@ const SFBadgeCard = await compileVueSfc(badgeCardPath, 'sf-badge-card', {
 const tabPath = fileURLToPath(new URL('../../app/components/profile/SFProfileBadgeTab.vue', import.meta.url))
 const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   computed,
-  useI18n: () => ({ t, te: has, locale: ref('zh-CN') }),
+  useI18n: () => ({ t, te: has, locale: localeRef }),
   useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),
   useLocalePath: () => (path: string) => path,
   forumBadgeHasProgress,
@@ -96,6 +100,7 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   forumBadgeTierIcon,
   forumBadgeTierLabel,
   forumBadgeTierStyle,
+  forumBadgeRequirementText,
   sortProfileBadgeEntries,
   sortProfileBadgeGroups,
   SFBadgeCard
@@ -319,5 +324,85 @@ describe('SFProfileBadgeTab · catalog variant', () => {
     } finally {
       wrapper.unmount()
     }
+  })
+})
+
+/**
+ * 条件句子（`requirementText`）的渲染契约。
+ *
+ * 句子由服务端生成、逐语言回落；前端只选语言。所以这里钉三件事：
+ * 1) 两种语言各取到自己的那份；
+ * 2) 选中语言为空时回落到另一种，两边都空则**整行不渲染**；
+ * 3) 页面上只出现人话，不出现规则内部结构（`cmp` / `params` / `op` / `rule` …）。
+ */
+const requirementGroups = (requirementText: unknown) => [
+  {
+    key: 'content',
+    name: '内容',
+    position: 1,
+    badges: [
+      {
+        slug: 'first-post',
+        name: '初次发帖',
+        tier: 'bronze',
+        icon: '',
+        tierPosition: 0,
+        position: 1,
+        earned: false,
+        current: 3,
+        threshold: 10,
+        requirementText
+      }
+    ]
+  }
+]
+
+const BILINGUAL = { zh: '在任意版块发布 10 个主题', en: 'Publish 10 topics in any category' }
+
+function descriptionText(groupsValue: unknown[]): string | undefined {
+  const wrapper = mountTab({ groups: groupsValue })
+  try {
+    const node = wrapper.find('.sf-profile-badge-card__description')
+    return node.exists() ? node.text() : undefined
+  } finally {
+    wrapper.unmount()
+  }
+}
+
+describe('SFProfileBadgeTab · requirementText', () => {
+  test('zh-CN shows the Chinese sentence and en-US shows the English one', () => {
+    expect(descriptionText(requirementGroups(BILINGUAL))).toBe(BILINGUAL.zh)
+    localeRef.value = 'en-US'
+    try {
+      expect(descriptionText(requirementGroups(BILINGUAL))).toBe(BILINGUAL.en)
+    } finally {
+      localeRef.value = 'zh-CN'
+    }
+  })
+
+  test('an empty selected language falls back to the other instead of rendering nothing', () => {
+    // 选中语言缺失：中文空 → 显示英文；英文空 → 显示中文。
+    expect(descriptionText(requirementGroups({ zh: '', en: BILINGUAL.en }))).toBe(BILINGUAL.en)
+    localeRef.value = 'en-US'
+    try {
+      expect(descriptionText(requirementGroups({ zh: BILINGUAL.zh, en: '' }))).toBe(BILINGUAL.zh)
+    } finally {
+      localeRef.value = 'zh-CN'
+    }
+  })
+
+  test('both languages empty (multi-condition badge) renders no description row at all', () => {
+    expect(descriptionText(requirementGroups({ zh: '', en: '' }))).toBeUndefined()
+    // 键整个缺失（老载荷）也必须是同一结果，不能画出空行。
+    expect(descriptionText(requirementGroups(null))).toBeUndefined()
+  })
+
+  test('the rendered sentence carries no rule AST tokens', () => {
+    const sentence = 'Reply in 5 different topics; each parent property counts once'
+    const text = descriptionText(requirementGroups({ zh: sentence, en: sentence }))
+    expect(text).toBe(sentence)
+    // 词边界正则：子串匹配会把 `topics` 里的 `op`、`params` 里的 `param` 误判成泄露。
+    expect(text).not.toMatch(/\b(cmp|params|children|op|rule)\b/)
+    expect(text).not.toMatch(/\b(topics|parent)\b.*\b(ast|node)\b/)
   })
 })

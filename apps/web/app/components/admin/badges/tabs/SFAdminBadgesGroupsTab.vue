@@ -173,6 +173,10 @@ defineOptions({ name: 'SFAdminBadgesGroupsTab' })
       ]"
       :loading="pending"
       :caption="t('admin.badges.groups.caption')"
+      data-badge-table-scroll
+      tabindex="0"
+      role="region"
+      :aria-label="t('admin.badges.table.scrollLabel')"
     >
       <template #name-cell="{ row }">
         <div class="min-w-0">

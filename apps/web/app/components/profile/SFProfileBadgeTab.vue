@@ -12,6 +12,7 @@
  */
 import SFBadgeCard from '~/components/forum/badges/SFBadgeCard.vue'
 import {
+  forumBadgeRequirementText,
   sortProfileBadgeEntries,
   sortProfileBadgeGroups,
   type ProfileBadgeGroup
@@ -32,7 +33,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ retry: [] }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const localePath = useLocalePath()
 
 const isCatalog = computed(() => props.variant === 'catalog')
@@ -116,6 +117,7 @@ const skeletonCount = computed(() => (isCatalog.value ? 8 : 3))
             :key="badge.slug"
             :badge="badge"
             :variant="props.variant"
+            :description="forumBadgeRequirementText(badge, locale)"
           />
         </div>
       </section>

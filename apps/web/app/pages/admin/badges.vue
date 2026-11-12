@@ -17,6 +17,10 @@ import SFAdminBadgesGrantsTab from '~/components/admin/badges/tabs/SFAdminBadges
 import SFAdminBadgesTiersTab from '~/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { useAdminBadges } from '~/composables/admin/badges/useAdminBadges'
+import { useAdminBadgeConditions } from '~/composables/admin/badges/useAdminBadgeConditions'
+import { useAdminBadgeRuleHealth } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
+import { useAdminBadgeBackfillStatus } from '~/composables/admin/badges/useAdminBadgeBackfillStatus'
+import { recomputeToastDescription, shouldRefreshBackfillAfterRecompute, summarizeBackfillRuns } from '~/utils/admin/adminBadges'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 
 definePageMeta({
@@ -41,6 +45,13 @@ const toast = useToast()
 const canManage = computed(() => can('badge.manage'))
 
 const store = useAdminBadges()
+// 条件目录：端点未上线/失败时退化成空数组，弹窗自己提示；壳层不做第二套判断。
+const badgeConditions = useAdminBadgeConditions()
+// 规则健康清单：同样按「端点可能不存在」降级，失败只影响编辑弹窗里的一条提示。
+const badgeRuleHealth = useAdminBadgeRuleHealth()
+// 回扫进度：badges 分区筛选区上方那一行；端点失败退化成空清单 + 一条可见提示。
+const badgeBackfill = useAdminBadgeBackfillStatus()
+const backfillSummary = computed(() => summarizeBackfillRuns(badgeBackfill.runs.value))
 
 const validTabs: BadgesTab[] = ['badges', 'groups', 'tiers', 'grants']
 const activeTab = ref<BadgesTab>(normalizeTab(route.query.tab))
@@ -97,7 +108,17 @@ const tabProps = computed(() => {
     badges: store.badges.value,
     groups: store.groups.value,
     pending: store.pending.value,
-    canManage: canManage.value
+    canManage: canManage.value,
+    catalog: badgeConditions.catalog.value,
+    catalogFailed: badgeConditions.failed.value,
+    factCandidates: badgeConditions.factCandidates.value,
+    factCandidatesFailed: badgeConditions.factCandidatesFailed.value,
+    ruleHealth: badgeRuleHealth.items.value,
+    ruleHealthFailed: badgeRuleHealth.failed.value,
+    backfillSummary: backfillSummary.value,
+    backfillFailed: badgeBackfill.failed.value,
+    backfillPending: badgeBackfill.pending.value,
+    backfillRefresh: () => { void badgeBackfill.load() }
   }
 })
 
@@ -106,6 +127,9 @@ const confirmRecompute = ref(false)
 
 onMounted(() => {
   void store.load()
+  void badgeConditions.load()
+  void badgeRuleHealth.load()
+  void badgeBackfill.load()
 })
 
 watch(() => route.query.tab, (tab) => {
@@ -146,14 +170,17 @@ async function runRecompute() {
   }
   recomputing.value = true
   try {
-    const changed = await store.recompute()
+    const result = await store.recompute()
     toast.add({
       title: t('admin.badges.toast.recomputeStarted'),
-      description: changed > 0 ? t('admin.badges.toast.recomputeChanged', { count: changed }) : undefined,
+      // 三个数语义不同，措辞由纯函数统一决策（queued 与影响量各一句，都为 0 就不编）。
+      description: recomputeToastDescription(result, t),
       color: 'success',
       icon: 'i-lucide-refresh-cw',
       duration: 5000
     })
+    // queued > 0 才可能新增回扫 run：否则这一行没必要替一次空操作重拉。
+    if (shouldRefreshBackfillAfterRecompute(result)) void badgeBackfill.load()
   } catch {
     toast.add({ title: t('admin.badges.toast.recomputeFailed'), color: 'error', icon: 'i-lucide-triangle-alert', duration: 0 })
   } finally {
