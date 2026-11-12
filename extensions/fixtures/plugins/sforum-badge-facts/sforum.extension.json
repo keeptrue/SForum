@@ -1,0 +1,91 @@
+{
+  "author": {
+    "name": "SForum Team",
+    "url": "https://sforum.local"
+  },
+  "backend": {
+    "digest": "fb6f0f61f9d516dba33cdaf84673a7d31d1e9602d5ebcbe90241a42ef62e6118",
+    "entry": "backend/plugin",
+    "hostApiVersion": "sforum.host@2",
+    "protocolVersion": 2,
+    "rpc": "hashicorp-go-plugin"
+  },
+  "badgeConditions": [
+    {
+      "compare": [
+        "gte",
+        "lte"
+      ],
+      "contractVersion": "sforum.badge-facts.reactions.given@1",
+      "key": "sforum.badge-facts.reactions.given",
+      "label": {
+        "en-US": "Reactions given",
+        "zh-CN": "送出点赞数"
+      },
+      "unit": {
+        "en-US": "reactions",
+        "zh-CN": "次"
+      }
+    }
+  ],
+  "capabilities": [
+    "host.api",
+    "badges.fact.write"
+  ],
+  "database": {
+    "backup": {
+      "required": false,
+      "strategy": "pg_dump"
+    },
+    "contractVersion": "sforum.badge-facts.database@1",
+    "grants": [
+      "host_commands"
+    ],
+    "retention": {
+      "days": 30,
+      "onDisable": "retain",
+      "onUninstall": "export"
+    }
+  },
+  "description": "Fixture plugin that turns a core event into badge fact counters: it observes reaction.created, reads the real subject from the payload, and reports the declared fact key through the Host badges.fact.record command. It exists to keep the event-to-fact path executable in CI, not to ship a product feature.",
+  "events": [
+    {
+      "contractVersion": "sforum.badge-facts.event.reaction-created@1",
+      "handler": "sforum.badge-facts.observe",
+      "id": "sforum.badge-facts.event.reaction-created",
+      "inputSchema": "sforum.badge-facts.reaction-created.input@1",
+      "kind": "observe",
+      "name": "reaction.created",
+      "resultSchema": "sforum.badge-facts.reaction-created.result@1"
+    }
+  ],
+  "id": "sforum.badge-facts",
+  "manifestVersion": 3,
+  "name": "SForum Badge Facts",
+  "packageFiles": [
+    {
+      "digest": "fb6f0f61f9d516dba33cdaf84673a7d31d1e9602d5ebcbe90241a42ef62e6118",
+      "id": "sforum.badge-facts.file.backend",
+      "kind": "executable",
+      "path": "backend/plugin"
+    },
+    {
+      "digest": "7027d6c38cc5ed3732ddb5708543487e6e0cafe4d1964fa43b8e206e06d29b6e",
+      "id": "sforum.badge-facts.reaction-created.input",
+      "kind": "schema",
+      "path": "schemas/reaction-created-input.json",
+      "version": "1"
+    },
+    {
+      "digest": "61502c136692b7ff8014def37a57b0a43fc83684177c9d44cf9005a6a77b4c09",
+      "id": "sforum.badge-facts.reaction-created.result",
+      "kind": "schema",
+      "path": "schemas/reaction-created-result.json",
+      "version": "1"
+    }
+  ],
+  "sforumVersion": "\u003e=0.1.0",
+  "type": "plugin",
+  "url": "https://sforum.local/plugins/badge-facts",
+  "version": "1.0.0"
+}

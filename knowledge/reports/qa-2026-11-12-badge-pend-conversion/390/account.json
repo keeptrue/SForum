@@ -1,0 +1,15 @@
+{
+  "username": "qa_pend_mwdl6414",
+  "email": "qa_pend_mwdl6414@example.test",
+  "password": "<redacted>",
+  "userId": 498,
+  "registerStatus": 201,
+  "readyStatus": 200,
+  "csrfCookiePresent": true,
+  "sessionCookieLength": 43,
+  "sessionCookie": "<redacted: 43 chars, deleted with the account>",
+  "registerBody": {
+    "id": 498
+  },
+  "note": "password redacted; the one-time account (userId 498) was deleted, see cleanup.log"
+}

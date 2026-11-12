@@ -818,7 +818,33 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章等级表改造：可管理档位 + 四分区后台 + 搜索批量授予（2026-11-12，最新；通过）**：
+- **徽章规则引擎：条件表达式 + 插件事实层（2026-11-12，最新；M1 + M2 + 回扫进度可见 + M3 全部完成并独立验收，FAIL 0）**：
+  徽章授予从「单指标 ≥ 阈值」升级为布尔条件树，`badges.rule` JSONB 成为自动徽章的唯一判定来源
+  （`metric`/`threshold` 降为 legacy 只读）。七层协作方：`Support/RuleEngine`（纯 AST +
+  Kleene 三值求值，畸形树/空组一律 unknown 而非恒真）→ `Models/Badges/conditions`（13 条条件 +
+  每 type 一条 SQL + memo）→ `rule_store`（保存校验 + 环检测）/ `rule_eval`（resolver 接线，
+  透传已声明 factKey）/ `rule_health` / `rule_impact` / `facts_store`，回扫走
+  `Jobs/Badges/backfill_rules`。插件条件**不新增条件类型**，而是给 `fact.count` 注册
+  `factKey` 候选（校验走 `Core()` 13 条，展示走 `PublishableDefinitions` 子集，两个面不许混）。
+  M1 全片验收；**M2 全部完成**（编辑器 + 剩余五项：`requirementText` 接卡片、影响确认弹窗、
+  `queued` toast、多条件 summary 字段提示、公开面/后台 390 视觉 QA），过程修掉三个静默缺陷：
+  资料页 `requirementText` 恒空串、`POST /admin/badges` 丢 `rule`/`requirementSummary`（automatic 变 500）、
+  后台表 390 的第一次滚动容器修复是假修复（两个 scroller）。
+  **第一刀（回扫进度可见）**：`badge_rule_backfill_runs` 表 + `GET /admin/badges/backfill-status`，
+  状态**只由 job 侧写**（绝不从授予数反推），`failed` 不写 `finished_at`（river 还会重试）、重试成功翻回
+  `running`，`Enqueuer==nil` 也落可见失败；后台在 `badges` 分区筛选区上方一行显示三态。`recompute`
+  响应形状未动（`{granted,refreshed,queued}` 恰好三键，变异守门）。验收逐条表 `40 ok / 0 FAIL / 0 pend`，脚本最终口径 `ok 41 / FAIL 0 / pend 1`（唯一 pend 由 390 实测补实），§13 残留 #15 关闭。
+  **M3（插件扩展）**：manifest `badgeConditions[]`（key pattern 与 DB CHECK 逐字一致、`contractVersion ==
+  key@N`、`compare` 无 `ne`、`variants ≤ 16`）+ 能力 `badges.fact.write` + Host 命令 `badges.fact.record`
+  （ID 无 `@N`、PolicyId/schema ref 带 `@1`、`userId`/`delta` 十进制字符串、六 reason 逐字、域层拒绝落
+  `extension.badge_fact_record.denied`）+ SDK `Host.RecordBadgeFact` + 事件转事实夹具 + 双语作者文档。
+  三份独立验收矩阵 FAIL 0（M3.1 `ok 48 / pend 0`、M3.2 `ok 34 / pend 0`），12+14 条变异 + 覆盖自检全红过；`test.sh --fast` 三线 PASS。
+  卸载语义是 **unknown 不是 false**（`fact.count` 未声明 factKey → resolver 返 error），后台健康清单
+  `missing_fact_key` 有 `rule::text` 逐字节相等 + `updated_at` 不变的「不静默改规则」证据。见
+  `plans/2026-11-12-badge-rule-engine.md`（§15.3/§15.4）、`sessions/2026-11-12-badge-rule-engine-handoff.md`、
+  `modules/badges.md`、`decisions/2026-11-12-badge-rule-engine.md`、
+  `decisions/2026-11-12-badge-plugin-facts.md`。代码提交：`4457106e2`（apps）/ `082f98624`（web）/ `4e1876331`（contracts，路由 422 与生成物）。
+- **徽章等级表改造：可管理档位 + 四分区后台 + 搜索批量授予（2026-11-12；通过）**：
   `badges.tier` 从 CHECK 枚举升级为 `badge_tiers` 表（双语名 / 图标 / 颜色 / `position` /
   `enabled`，外键 `ON UPDATE CASCADE ON DELETE RESTRICT`），排序口径改为
   `badge_tiers.position → badges.position → granted_at DESC` 并排除停用档；9 色 palette

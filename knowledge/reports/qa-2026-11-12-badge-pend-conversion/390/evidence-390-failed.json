@@ -1,0 +1,41 @@
+{
+  "web": "http://127.0.0.1:3000",
+  "adminPath": "/control-panel/badges?tab=badges",
+  "adminProfile": "badges",
+  "failures": [],
+  "evidence": [
+    {
+      "browser": "Chrome/154.0.8037.97",
+      "viewport": "390x844 dpr 3",
+      "path": "/control-panel/badges?tab=badges"
+    },
+    {
+      "url": "/control-panel/badges?tab=badges",
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "dpr": 3,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedRawCount": 48,
+      "clippedRawSample": [
+        "BUTTON.inline-flex items-center shrink-0 rounde",
+        "BUTTON.rounded-md font-medium inline-flex items",
+        "BUTTON.rounded-md font-medium inline-flex items"
+      ],
+      "clippedPageCount": 0,
+      "clippedPageSample": [],
+      "rowCount": 1,
+      "rowBeforeFilter": true,
+      "rowBottom": 439,
+      "filterTop": 451,
+      "inputTop": 451,
+      "rowWithinViewport": true,
+      "rowScrollFits": true,
+      "rowText": "回扫失败于用户 #137 | 涉及徽章：老住户",
+      "bodyText": "SForum 控制台\n/\n徽章\nqa_pend_mwdl6414\n仪表盘\n徽章\n徽章\n12 枚徽章\n·\n12 启用\n·\n10 自动\n·\n19 授予\n徽章\n分组\n等级\n授予记录\n回扫失败于用户 #137\n涉及徽章：老住户\n全部分组\n全部\n全部\n全部\n新建徽章\n徽章\n\t\n名称\t\n等级\t启用\t操作\n\n\t\n常客\nregular-visitor\n\t\n铜牌\n\t\n\t\n\n\n\t\n老住户\nresident\n\t\n银牌\n",
+      "consoleErrors": [],
+      "screenshot": "/home/inkedus/Code/github/SForum/knowledge/reports/qa-2026-11-12-badge-pend-conversion/390/2026-10-16-admin-390x844-control-panel-badges-tab-badges.png",
+      "rowScreenshot": "/home/inkedus/Code/github/SForum/knowledge/reports/qa-2026-11-12-badge-pend-conversion/390/2026-11-12-badge-backfill-row-390x844-control-panel-badges-tab-badges.png"
+    }
+  ]
+}

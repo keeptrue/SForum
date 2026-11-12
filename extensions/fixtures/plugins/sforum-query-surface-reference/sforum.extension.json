@@ -10,8 +10,58 @@
     "protocolVersion": 2,
     "rpc": "hashicorp-go-plugin"
   },
+  "badgeConditions": [
+    {
+      "compare": [
+        "gte",
+        "lte"
+      ],
+      "contractVersion": "sforum.query-surface-reference.onboarding.tasks@1",
+      "key": "sforum.query-surface-reference.onboarding.tasks",
+      "label": {
+        "en-US": "Completed onboarding tasks",
+        "zh-CN": "完成新手任务数"
+      },
+      "unit": {
+        "en-US": "tasks",
+        "zh-CN": "个"
+      },
+      "variants": [
+        {
+          "label": {
+            "en-US": "Tutorial tasks",
+            "zh-CN": "教程任务"
+          },
+          "value": "tutorial"
+        },
+        {
+          "label": {
+            "en-US": "Profile tasks",
+            "zh-CN": "资料完善任务"
+          },
+          "value": "profile"
+        }
+      ]
+    },
+    {
+      "compare": [
+        "gte"
+      ],
+      "contractVersion": "sforum.query-surface-reference.verified_reports@1",
+      "key": "sforum.query-surface-reference.verified_reports",
+      "label": {
+        "en-US": "Submitted verified reports",
+        "zh-CN": "已提交的校验报告数"
+      },
+      "unit": {
+        "en-US": "reports",
+        "zh-CN": "份"
+      }
+    }
+  ],
   "capabilities": [
-    "host.api"
+    "host.api",
+    "badges.fact.write"
   ],
   "database": {
     "backup": {
@@ -20,7 +70,8 @@
     },
     "contractVersion": "sforum.query-surface-reference.database@1",
     "grants": [
-      "core_views"
+      "core_views",
+      "host_commands"
     ],
     "retention": {
       "days": 30,

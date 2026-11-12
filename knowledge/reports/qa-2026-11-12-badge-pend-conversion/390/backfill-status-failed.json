@@ -1,0 +1,1 @@
+{"code":200,"message":"OK","data":{"items":[{"badgeId":2,"slug":"resident","name":"老住户","status":"failed","lastUserId":137,"failedCursorUserId":137,"startedAt":"2026-11-12T21:29:28.166432+08:00","updatedAt":"2026-11-12T21:31:28.166432+08:00","finishedAt":"2026-11-12T21:31:28.166432+08:00","error":"qa-pend: simulated batch failure"}]}}

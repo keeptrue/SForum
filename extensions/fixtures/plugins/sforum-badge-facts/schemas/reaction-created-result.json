@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sforum.badge-facts.reaction-created.result@1",
+  "title": "badges.fact.record receipt projected by the badge-facts fixture",
+  "type": "object",
+  "required": ["inserted"],
+  "properties": {
+    "inserted": { "type": "boolean" },
+    "total": { "type": "string", "pattern": "^-?[0-9]+$" }
+  },
+  "additionalProperties": false
+}

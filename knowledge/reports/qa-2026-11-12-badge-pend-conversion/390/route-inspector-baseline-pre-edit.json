@@ -1,0 +1,29 @@
+{
+  "web": "http://127.0.0.1:3000",
+  "adminPath": "/control-panel/extensions/route-inspector",
+  "failures": [],
+  "evidence": [
+    {
+      "browser": "Chrome/154.0.8037.97",
+      "viewport": "390x844 dpr 3",
+      "path": "/control-panel/extensions/route-inspector"
+    },
+    {
+      "url": "/control-panel/extensions/route-inspector",
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "dpr": 3,
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "clippedControls": 0,
+      "clippedSample": [],
+      "inspectorPresent": true,
+      "incidentsPanelPresent": true,
+      "incidentsLoading": true,
+      "incidentsSummary": "",
+      "tabs": 2,
+      "bodyText": "SForum 控制台\n/\n路由检查器\nqa_pend_mwdl6414\n仪表盘\n路由检查器\n路由检查器\n\n按具体 HTTP 方法与绝对路径，检查当前 Route Registry 的解析结果。本页只读，不会选择、重置或变更路由提供者。\n\n崩",
+      "consoleErrors": []
+    }
+  ]
+}

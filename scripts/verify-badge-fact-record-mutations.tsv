@@ -1,0 +1,15 @@
+# mutation_id	file	sed_expr	cmd_id(hostapi|http|clamp|models)	必红断言	说明
+M1	apps/api/app/Support/HostAPI/v2_command_badges.go	s/CommandBadgesFactRecordID            = "badges.fact.record"/CommandBadgesFactRecordID            = "badges.fact.record@1"/	hostapi	A-01,A-06	ID 带 @：四要素最容易写反的一条
+M2	apps/api/app/Support/HostAPI/v2_command_badges.go	s/CommandBadgesFactRecordVersion       = "1"/CommandBadgesFactRecordVersion       = "2"/	hostapi	A-02	Version 漂移
+M3	apps/api/app/Support/HostAPI/v2_command_badges.go	s/CommandBadgesFactRecordSchemaVersion = "1"/CommandBadgesFactRecordSchemaVersion = "2"/	hostapi	A-03,A-04	schema ref 版本与 @1 脱钩
+M5	apps/api/app/Support/HostAPI/v2_command_badges.go	s/if _, ok := declared\[prepared\.input\.FactKey\]; !ok \{/if _, ok := declared[prepared.input.FactKey]; !ok \&\& false {/	hostapi	E-02,E-03	删 factKey 归属校验：谁都能写别人的 key（保留变量使用，避免 build failed 混淆红因）
+M7	apps/api/app/Support/HostAPI/v2_command_badges.go	s/_ = auditor\.AuditDenied\(ctx, event\)/if err := auditor.AuditDenied(ctx, event); err != nil { panic(err) }/	hostapi	C-08	审计失败升级：拒绝变 500
+M9	apps/api/app/Support/HostAPI/v2_command_badges.go	s/if total < 0 \{/if false {/	clamp	F-03	回执不 clamp：累计为负时把负数发给插件
+M11	apps/api/app/Support/HostAPI/v2_command_badges.go	s/badges\.NewBadgeFactWriteDenied\(BadgeFactReasonWriteFailed\)/badges.NewBadgeFactWriteDenied(BadgeFactReasonInvalidDelta)/g	hostapi	C-06,E-05	写失败 reason 换成参数错：最隐蔽的漂移
+M12	apps/api/app/Support/HostAPI/v2_command_badges.go	s/if declarations == nil \|\| extensionID == "" \{/if false {/	hostapi	E-04	删 fail-closed：声明读口缺失时放行/panic
+M13	apps/api/app/Support/HostAPI/v2_command_badges.go	s/"extensionId": event\.ExtensionID,/"extensionId": "",/	audit	D-01	审计 metadata 丢 extensionId：真库值级断言必须红
+M14	apps/api/app/Models/Badges/facts_store.go	s/SET total = user_fact_counters\.total \+ EXCLUDED\.total,/SET total = GREATEST(user_fact_counters.total + EXCLUDED.total, 0),/	models	F-03	存储层也 clamp：true 负值被吞，并排断言必须红
+M15	apps/api/app/Http/Controllers/Badges/controller.go	s/return fiber\.NewError\(fiber\.StatusForbidden, badges\.CodeBadgeFactWriteDenied\)/return fiber.NewError(fiber.StatusInternalServerError, badges.CodeBadgeFactWriteDenied)/	http	G-03	403→500：顶层码映射的失败类
+M16	apps/api/app/Support/HostAPI/v2_command_badges.go	s/const BadgeFactRecordPolicyID = "sforum.badges.fact.record@1"/const BadgeFactRecordPolicyID = "sforum.badges.fact.record"/	hostapi	A-05	PolicyId 去掉 @1：四要素的位置区分必须红
+M17	apps/api/app/Support/HostAPI/v2_command_badges.go	s/ResourceId: prepared\.input\.FactKey,/ResourceId: CommandBadgesFactRecordID,/	hostapi	A-05	ResourceId 换成命令名：与 notifications/events 的「资源=被写对象」语义脱钩
+M18	apps/api/app/Models/Badges/facts_store.go	s/VALUES \(\$1,\$2,\$3,\$4,\$5,\$6,''\)/VALUES ($1,$2,$3,$4,$5,$6,'__dedupe__')/	models	F-02	把空 dedupeKey 顺手变成固定键：第二次插入不再是新事件

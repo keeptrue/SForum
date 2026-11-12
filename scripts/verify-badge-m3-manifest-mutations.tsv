@@ -1,0 +1,13 @@
+# mutation_id <tab> file <tab> sed_expr <tab> cmd_id(manifest|conditions|models|dto|static) <tab> 必红断言 <tab> 说明
+M3M-01	apps/api/app/Support/ExtensionManifest/schemas/manifest-v3.schema.json	s/\{1,120\}/{1,121}/	static	A-01	key pattern 放宽 1 字符：schema 原文断言必须红
+M3M-02	apps/api/app/Support/ExtensionManifest/schemas/manifest-v3.schema.json	s/"unit": \{/"valueKind": {"type": "string"},\n            "unit": {/	static	A-02	把 valueKind 加回 schema：无 valueKind 断言必须红
+M3M-03	apps/api/app/Support/ExtensionManifest/v3_badge_conditions.go	s/if strings\.TrimSpace\(v\.manifest\.Backend\.Entry\) == "" \|\| v\.manifest\.Backend\.ProtocolVersion != 2 \{/if false {/	static	B-no-backend-empty-entry	删 rule#2（无 backend）：声明会变成永远为 0 的死候选
+M3M-04	apps/api/app/Support/ExtensionManifest/v3_badge_conditions.go	s/if condition\.ContractVersion != condition\.Key\+"@"\+contractVersionOf\(condition\.ContractVersion\) \{/if false {/	static	B-drift	删 contractVersion 等式：schema 不判等式，必须靠 Go
+M3M-05	apps/api/app/Support/ExtensionManifest/v3_badge_conditions.go	s/if len\(condition\.Compare\) == 0 \{/if false {/	static	B-empty-compare	删 compare 非空 rule#4
+M3M-06	apps/api/app/Support/ExtensionManifest/v3_badge_conditions.go	s/BadgeConditionVariantsMaximum = 16/BadgeConditionVariantsMaximum = 17/	static	B-seventeen-variants	variants 上限放到 17：Go 侧与 schema 16 脱钩
+M3M-07	apps/api/app/Support/ExtensionManifest/v3_badge_conditions.go	s/if !validBadgeConditionLocalizedText\(condition\.Label\) \{/if false {/	static	B-label-missing-en	删双语 label rule#6
+M3M-08	apps/api/app/Models/Badges/conditions/facts.go	s/if _, taken := Core\(\)\.Definition\(key\); taken \{/if false {/	static	C-04	删「撞 Core 内置 key」拒绝：静默覆盖风险
+M3M-09	apps/api/app/Models/Badges/conditions/facts.go	s/if !ok \|\| len\(candidate\.Variants\) == 0 \{/if !ok {/	static	C-05	删「无候选放行」：卸载后合法规则被判非法
+M3M-10	apps/api/app/Models/Badges/conditions/registry.go	s/if !hasCandidates\(def, candidates\) \{/if false {/	static	C-01	删「无候选隐藏 fact.count」：空下拉暴露给运营
+M3M-11	apps/api/app/Http/Controllers/Badges/dto.go	s/Label:    requirementTextDTO\{Zh: candidate\.LabelZh, En: candidate\.LabelEn\},/Label: requirementTextDTO{},/	dto	F-01	DTO label 清空：值级断言必须红（键存在断言不会）
+M3M-12	apps/api/app/Support/RuleEngine/eval.go	s/e\.record\(path, CodeResolveFailed, fmt\.Sprintf\("条件 %q 求值失败：%v", n\.Type, err\)\)/_ = err/	models	D-01	删 resolve_failed 记录：unknown 只剩 Incomplete，错误码断言必须红

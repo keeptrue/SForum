@@ -1,0 +1,1096 @@
+{
+  "generatedAt": "2026-11-12T05:37:47.863Z",
+  "harness": "CDP + Emulation.setDeviceMetricsOverride（真实 Chrome，无 Playwright），脚本于 /tmp，未入库",
+  "public": {
+    "public-390x844-badges": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "cardCount": 12,
+      "cardsWithDescription": 10,
+      "cardsCrossingViewport": [],
+      "clippedControls": 0,
+      "consoleErrors": [],
+      "gridTemplateColumns": "366px",
+      "maxCardRight": 378,
+      "descriptionStyles": [
+        [
+          "2",
+          "normal",
+          "anywhere",
+          "clip"
+        ]
+      ],
+      "descriptionHeights": [
+        [
+          14.8,
+          15,
+          1,
+          1.01
+        ]
+      ],
+      "screenshot": "public-390x844-badges.png"
+    },
+    "public-1440x900-badges": {
+      "viewport": "1440x900",
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "cardCount": 12,
+      "cardsWithDescription": 10,
+      "cardsCrossingViewport": [],
+      "clippedControls": 0,
+      "consoleErrors": [],
+      "gridTemplateColumns": "264px 264px 264px 264px",
+      "maxCardRight": 1382,
+      "descriptionStyles": [
+        [
+          "2",
+          "normal",
+          "anywhere",
+          "clip"
+        ]
+      ],
+      "descriptionHeights": [
+        [
+          14.8,
+          15,
+          1,
+          1.01
+        ]
+      ],
+      "screenshot": "public-1440x900-badges.png"
+    },
+    "public-390x844-u-zhuchunshu-tab-badges": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "cardCount": 12,
+      "cardsWithDescription": 10,
+      "cardsCrossingViewport": [],
+      "clippedControls": 0,
+      "consoleErrors": [],
+      "gridTemplateColumns": "366px",
+      "maxCardRight": 378,
+      "descriptionStyles": [
+        [
+          "2",
+          "normal",
+          "anywhere",
+          "clip"
+        ]
+      ],
+      "descriptionHeights": [
+        [
+          14.8,
+          15,
+          1,
+          1.01
+        ]
+      ],
+      "screenshot": "public-390x844-u-zhuchunshu-tab-badges.png"
+    },
+    "public-1440x900-u-zhuchunshu-tab-badges": {
+      "viewport": "1440x900",
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "cardCount": 12,
+      "cardsWithDescription": 10,
+      "cardsCrossingViewport": [],
+      "clippedControls": 0,
+      "consoleErrors": [],
+      "gridTemplateColumns": "193.5px 193.5px 193.5px 193.5px",
+      "maxCardRight": 1100,
+      "descriptionStyles": [
+        [
+          "2",
+          "normal",
+          "anywhere",
+          "clip"
+        ]
+      ],
+      "descriptionHeights": [
+        [
+          14.8,
+          15,
+          1,
+          1.01
+        ]
+      ],
+      "screenshot": "public-1440x900-u-zhuchunshu-tab-badges.png"
+    }
+  },
+  "admin": {
+    "admin-390x844-badges-frozen": {
+      "viewport": "390x844",
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "clippedControls": [],
+      "overNodes": [],
+      "consoleErrors": [],
+      "bodyTextLen": 847,
+      "screenshot": "admin-390x844-badges-frozen.png"
+    },
+    "admin-390x844-badges": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        }
+      ],
+      "overNodes": [
+        {
+          "tag": "TABLE",
+          "cls": "min-w-full overflow-clip",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "徽章名称分组等级授予方式规则已授予启用操作常客regular-visitor活跃",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "THEAD",
+          "cls": "sticky top-0 inset-x-0 bg-default/75 backdrop-blur z-1",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "名称分组等级授予方式规则已授予启用操作",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TR",
+          "cls": "data-[selected=true]:bg-elevated/50",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "名称分组等级授予方式规则已授予启用操作",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TH",
+          "cls": "px-4 py-3.5 text-sm text-highlighted text-left rtl:text-right font-semibold [&:has([role=c",
+          "right": 540.5,
+          "width": 112,
+          "text": "操作",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TR",
+          "cls": "absolute z-1 left-0 w-full h-px bg-(--ui-border-accented)",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TBODY",
+          "cls": "isolate [&>tr]:data-[selectable=true]:hover:bg-elevated/50 [&>tr]:data-[selectable=true]:o",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "常客regular-visitor活跃铜牌自动访问天数 达到 7 时授予0老住户",
+          "overflowPx": 150.5
+        }
+      ],
+      "consoleErrors": [],
+      "bodyTextLen": 519,
+      "screenshot": "admin-390x844-badges.png"
+    },
+    "admin-390x844-groups-frozen": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 412.5,
+          "left": 376.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 468.5,
+          "left": 444.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 496.5,
+          "left": 472.5,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 524.5,
+          "left": 500.5,
+          "text": ""
+        }
+      ],
+      "overNodes": [
+        {
+          "tag": "TABLE",
+          "cls": "min-w-full overflow-clip",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "徽章名称分组等级授予方式规则已授予启用操作常客regular-visitor活跃",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "THEAD",
+          "cls": "sticky top-0 inset-x-0 bg-default/75 backdrop-blur z-1",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "名称分组等级授予方式规则已授予启用操作",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TR",
+          "cls": "data-[selected=true]:bg-elevated/50",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "名称分组等级授予方式规则已授予启用操作",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TH",
+          "cls": "px-4 py-3.5 text-sm text-highlighted text-left rtl:text-right font-semibold [&:has([role=c",
+          "right": 540.5,
+          "width": 112,
+          "text": "操作",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TR",
+          "cls": "absolute z-1 left-0 w-full h-px bg-(--ui-border-accented)",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "",
+          "overflowPx": 150.5
+        },
+        {
+          "tag": "TBODY",
+          "cls": "isolate [&>tr]:data-[selectable=true]:hover:bg-elevated/50 [&>tr]:data-[selectable=true]:o",
+          "right": 540.5,
+          "width": 508.5,
+          "text": "常客regular-visitor活跃铜牌自动访问天数 达到 7 时授予0老住户",
+          "overflowPx": 150.5
+        }
+      ],
+      "consoleErrors": [],
+      "bodyTextLen": 519,
+      "screenshot": "admin-390x844-groups-frozen.png"
+    },
+    "admin-390x844-groups": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [
+        {
+          "tag": "BUTTON",
+          "right": 393.6,
+          "left": 369.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 421.6,
+          "left": 397.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 393.6,
+          "left": 369.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 421.6,
+          "left": 397.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 393.6,
+          "left": 369.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 421.6,
+          "left": 397.6,
+          "text": ""
+        }
+      ],
+      "overNodes": [
+        {
+          "tag": "TABLE",
+          "cls": "min-w-full overflow-clip",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "徽章分组名称标识徽章数排序操作活跃持续回到社区activity30内容发帖、讨论",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "THEAD",
+          "cls": "relative",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "名称标识徽章数排序操作",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TR",
+          "cls": "data-[selected=true]:bg-elevated/50",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "名称标识徽章数排序操作",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TH",
+          "cls": "px-4 py-3.5 text-sm text-highlighted text-left rtl:text-right font-semibold [&:has([role=c",
+          "right": 437.6,
+          "width": 84,
+          "text": "操作",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TR",
+          "cls": "absolute z-1 left-0 w-full h-px bg-(--ui-border-accented)",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TBODY",
+          "cls": "isolate [&>tr]:data-[selectable=true]:hover:bg-elevated/50 [&>tr]:data-[selectable=true]:o",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "活跃持续回到社区activity30内容发帖、讨论与被认可content71荣誉",
+          "overflowPx": 47.6
+        }
+      ],
+      "consoleErrors": [],
+      "bodyTextLen": 239,
+      "screenshot": "admin-390x844-groups.png"
+    },
+    "admin-390x844-tiers-frozen": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [
+        {
+          "tag": "BUTTON",
+          "right": 393.6,
+          "left": 369.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 421.6,
+          "left": 397.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 393.6,
+          "left": 369.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 421.6,
+          "left": 397.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 393.6,
+          "left": 369.6,
+          "text": ""
+        },
+        {
+          "tag": "BUTTON",
+          "right": 421.6,
+          "left": 397.6,
+          "text": ""
+        }
+      ],
+      "overNodes": [
+        {
+          "tag": "TABLE",
+          "cls": "min-w-full overflow-clip",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "徽章分组名称标识徽章数排序操作活跃持续回到社区activity30内容发帖、讨论",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "THEAD",
+          "cls": "relative",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "名称标识徽章数排序操作",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TR",
+          "cls": "data-[selected=true]:bg-elevated/50",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "名称标识徽章数排序操作",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TH",
+          "cls": "px-4 py-3.5 text-sm text-highlighted text-left rtl:text-right font-semibold [&:has([role=c",
+          "right": 437.6,
+          "width": 84,
+          "text": "操作",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TR",
+          "cls": "absolute z-1 left-0 w-full h-px bg-(--ui-border-accented)",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "",
+          "overflowPx": 47.6
+        },
+        {
+          "tag": "TBODY",
+          "cls": "isolate [&>tr]:data-[selectable=true]:hover:bg-elevated/50 [&>tr]:data-[selectable=true]:o",
+          "right": 437.6,
+          "width": 405.6,
+          "text": "活跃持续回到社区activity30内容发帖、讨论与被认可content71荣誉",
+          "overflowPx": 47.6
+        }
+      ],
+      "consoleErrors": [],
+      "bodyTextLen": 239,
+      "screenshot": "admin-390x844-tiers-frozen.png"
+    },
+    "admin-390x844-tiers": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [],
+      "overNodes": [],
+      "consoleErrors": [],
+      "bodyTextLen": 245,
+      "screenshot": "admin-390x844-tiers.png"
+    },
+    "admin-390x844-grants-frozen": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [],
+      "overNodes": [],
+      "consoleErrors": [],
+      "bodyTextLen": 245,
+      "screenshot": "admin-390x844-grants-frozen.png"
+    },
+    "admin-390x844-grants": {
+      "viewport": "390x844",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [],
+      "overNodes": [],
+      "consoleErrors": [],
+      "bodyTextLen": 142,
+      "screenshot": "admin-390x844-grants.png"
+    },
+    "admin-1440x900-default-frozen": {
+      "viewport": "1440x900",
+      "innerWidth": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false,
+      "clippedControls": [],
+      "overNodes": [],
+      "consoleErrors": [],
+      "bodyTextLen": 142,
+      "screenshot": "admin-1440x900-default-frozen.png"
+    },
+    "admin-1440x900-default": {
+      "viewport": "1440x900",
+      "innerWidth": 1440,
+      "scrollWidth": 1440,
+      "horizontalOverflow": false,
+      "clippedControls": [],
+      "overNodes": [],
+      "consoleErrors": [],
+      "bodyTextLen": 952,
+      "screenshot": "admin-1440x900-default.png"
+    }
+  },
+  "failures": [
+    "admin-390x844-badges: clipped controls :: [{\"tag\":\"BUTTON\",\"right\":412.5,\"left\":376.5,\"text\":\"\"},{\"tag\":\"BUTTON\",\"right\":468.5,\"left\":444.5,\"text\":\"\"},{\"tag\":\"BUTTON\",\"right\":496.5,\"left\":472.5,\"text\":\"\"}]",
+    "admin-390x844-groups: clipped controls :: [{\"tag\":\"BUTTON\",\"right\":393.6,\"left\":369.6,\"text\":\"\"},{\"tag\":\"BUTTON\",\"right\":421.6,\"left\":397.6,\"text\":\"\"},{\"tag\":\"BUTTON\",\"right\":393.6,\"left\":369.6,\"text\":\"\"}]",
+    "admin-390x844-grants: page body looks empty (auth/route problem) :: bodyTextLen=142"
+  ],
+  "pends": [],
+  "notes": [
+    "admin-*-frozen 是把 body overflow-x 强制 hidden 后的复测，只证明表格有无滚动容器，不作为用户可见证据。",
+    "admin-390x844-badges-frozen 记录到 inner=1440/bodyTextLen=847 的错位（该次运行首帧未落定），已作废，以 admin-390x844-badges 为准。"
+  ]
+}

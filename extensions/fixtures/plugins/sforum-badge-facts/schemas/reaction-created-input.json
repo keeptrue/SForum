@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sforum.badge-facts.reaction-created.input@1",
+  "title": "reaction.created observe payload consumed by the badge-facts fixture",
+  "type": "object",
+  "required": ["actorUserId"],
+  "properties": {
+    "targetType": { "type": "string" },
+    "targetId": { "type": "string" },
+    "reaction": { "type": "string" },
+    "actorUserId": { "type": ["integer", "string"] }
+  },
+  "additionalProperties": true
+}

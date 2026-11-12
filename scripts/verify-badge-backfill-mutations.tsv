@@ -1,0 +1,12 @@
+# mutation_id <tab> file <tab> sed_expr(-E) <tab> cmd_id(iso-job|iso-badge|route|oas|web|static) <tab> 必红断言 <tab> 说明
+MUT-1	apps/api/app/Jobs/Badges/backfill_rules.go	s/w\.recordFailure\(ctx, badgeID, job\.Args\.CursorUserID, err\.Error\(\)\)/w.recordFailure(ctx, badgeID, 0, err.Error())/	iso-job	C-03,F-01	失败页游标写 0：失败不可定位
+MUT-2	apps/api/app/Jobs/Badges/backfill_rules.go	s/w\.Runs\.AdvanceBackfillRun\(ctx, badgeID, next, true\)/w.Runs.AdvanceBackfillRun(ctx, badgeID, next, false)/	iso-job	C-02,F-04	末页写成 running：永不结束
+MUT-4	apps/api/app/Models/Badges/backfill_runs.go	s/runs\.last_user_id,/COALESCE((SELECT count(*) FROM user_badges ub WHERE ub.badge_id = runs.badge_id), 0),/	iso-badge	B-01,B-02	进度改成从授予数反推（本刀最大假绿）
+MUT-9	apps/api/app/Models/Badges/backfill_runs.go	s/failed_cursor_user_id = 0,/failed_cursor_user_id = failed_cursor_user_id,/;s/error = '',/error = error,/	iso-badge	C-01,C-04	成功页不清 failed 游标：永远停在 failed
+MUT-10	apps/api/app/Models/Badges/backfill_runs.go	s/items := \[\]BackfillRunStatus\{\}/var items []BackfillRunStatus/	iso-badge	A-06	空 items 输出 null 而非 []
+MUT-5	apps/api/app/Http/Controllers/Badges/backfill_controller.go	s/setAdminNoStore\(c\)/_ = c/	static	A-07	删 no-store 头：缓存会吃掉进度更新
+MUT-6	apps/api/app/Http/Controllers/Badges/dto.go	s/json:"queued"/json:"queuedTotal"/	static	A-05	wire 键改名/加键等价：三键断言必须红
+MUT-7	apps/api/app/Support/Routes/registry_test.go	s/len\(catalog\) != 422/len(catalog) != 421/	route	A-03	计数 tripwire 真的会响
+MUT-3	apps/web/app/components/admin/badges/SFAdminBadgeBackfillRow.vue	s/v-if="failed \|\| summary"/v-if="summary"/	web	E-01,E-03,F-01	前端失败态提示被删：降级静默、失败不可定位
+MUT-8	contracts/openapi.yaml	s|^  "/admin/badges/backfill-status":|  "/admin/badges/backfill-status-disabled":|	static	A-04	删 OpenAPI 路径映射：客户端看不到该端点
+MUT-14	apps/api/app/Jobs/Badges/backfill_rules.go	s/w\.recordFailure\(ctx, badgeID, job\.Args\.CursorUserID, "backfill enqueuer not wired"\)/return nil/	iso-job	D-01	Enqueuer 未接通恢复静默：链断在半路且不可见
