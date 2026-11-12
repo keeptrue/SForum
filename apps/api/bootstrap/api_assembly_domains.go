@@ -551,9 +551,39 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithActivityCounters(profileActivityCounters{store: badgeActivityStore})
 	// 徽章：公开资料页徽章墙 + 后台 12 条。读 badge.view / 写 badge.manage 由生成的
 	// route catalog 守卫声明；features.badges 关闭时由 controller 返回 forum.badges_disabled。
+	// 规则引擎的两个 provider 在 M1 **刻意不注入**：
+	//   1. `SetFactKeyProvider`（已声明的插件事实 key）
+	//   2. `SetDeclaredProviders`（identity registry 已声明的 provider）
+	// 不注入 = 空集，于是条件解析器对 `fact.count` 一律返回 error → 引擎转 unknown
+	// （fail-closed，正确行为：M1 没有扩展，没有插件条件可满足）。`missing_provider`
+	// 的健康检查退化为「只认 identity_external_links 里已有绑定」。
+	// **M3 在这个位置注入**已启用扩展的 `badgeConditions[]`（事实 key）与 identity
+	// registry 的 provider 声明。这里留注释而不是空装配行：空着会让下一个人分不清
+	// 「M1 故意不注入」和「忘了注入」——`rule_eval.go` 漏传 factKeys 就是同款失败。
 	badgesStore := badges.NewPostgresStore(pool)
+	// 插件事实候选：来源是「当前已启用插件声明的 badgeConditions[]」，短 TTL 缓存
+	// （见 badges_fact_catalog.go）。同一个 provider 同时喂三处，避免三套口径：
+	//   1. `PublishableDefinitions`  → GET /admin/badges/conditions 的 factCandidates
+	//   2. `SetFactKeyProvider`      → resolver 判据与 rule_health 的失效引用检查
+	//   3. `SetFactCandidates`       → 保存期 variant 兜底校验
+	// 卸载/停用后候选消失，`fact.count` 叶子求值转 unknown（fail-closed），**绝不返 0**。
+	badgesFactCatalog := newBadgesFactCatalog(extensionService, logger)
+	// Host 命令 `badges.fact.record` 的所有权校验与候选目录共用同一个快照。
+	if extensionPlatform.commandDeferred != nil {
+		extensionPlatform.commandDeferred.BadgeFactKeys.Bind(badgesFactCatalog)
+	}
+	badgesStore.SetFactKeyProvider(badgesFactCatalog.FactKeys)
+	badgesStore.SetFactCandidates(badgesFactCatalog.Candidates)
 	badgesService := badges.NewService(badgesStore, badgeActivityStore)
 	badgesAdmin := badges.NewAdminService(badgesStore)
+	badgesAdmin.SetFactCandidates(badgesFactCatalog.Candidates)
+	// 复杂规则的异步回扫入口：HTTP 只入队（`queued` 回执），绝不在请求内跑全量。
+	backfillEnqueuer := &deferredBackfillEnqueuer{}
+	backfillEnqueuer.Bind(jobDispatcher)
+	badgesBackfillRuns := badges.NewPostgresBackfillRuns(pool)
+	badgesAdmin.SetBackfillEnqueuer(newBadgesBackfillEnqueuer(backfillEnqueuer, badgesBackfillRuns))
+	// 进度读口与写口共用一个 store：读端点（HTTP）与 job 侧写的是同一张表同一套排序。
+	badgesAdmin.SetBackfillRuns(badgesBackfillRuns)
 	badgesProvider := providers.NewBadgesProvider(
 		badgesService, badgesAdmin, optionsService, identityStore, authSessions, pageProfileService,
 	)

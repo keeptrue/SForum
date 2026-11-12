@@ -130,6 +130,7 @@ type Manifest struct {
 	Lifecycle             *ManifestLifecycle             `json:"lifecycle,omitempty"`
 	OpenAPI               []ManifestOpenAPIFragment      `json:"openapi,omitempty"`
 	AITools               []ManifestAITool               `json:"aiTools,omitempty"`
+	BadgeConditions       []ManifestBadgeCondition       `json:"badgeConditions,omitempty"`
 	PackageFiles          []ManifestPackageFile          `json:"packageFiles,omitempty"`
 }
 
@@ -708,31 +709,6 @@ func isThemeManifestSupported(manifest Manifest) bool {
 		return false
 	}
 	return true
-}
-
-// CapabilityResolveInput 将 manifest 转为 capabilities 解析输入（F2.1）。
-func CapabilityResolveInput(manifest Manifest) capabilities.ResolveInput {
-	slots := make([]string, 0, len(manifest.Providers))
-	for _, provider := range manifest.Providers {
-		slots = append(slots, provider.Slot)
-	}
-	return capabilities.ResolveInput{
-		Explicit:      manifest.Capabilities,
-		HasJobs:       len(manifest.Jobs) > 0,
-		HasSettings:   len(manifest.Settings) > 0,
-		ProviderSlots: slots,
-		HasBackend:    strings.TrimSpace(manifest.Backend.Entry) != "",
-	}
-}
-
-// ResolvedCapabilities 返回有效能力 key 与 implied 标记。
-func ResolvedCapabilities(manifest Manifest) (keys []string, implied map[string]bool) {
-	return capabilities.Resolve(CapabilityResolveInput(manifest))
-}
-
-// CapabilityGrants 返回启用审查用的能力列表。
-func CapabilityGrants(manifest Manifest) []capabilities.Grant {
-	return capabilities.GrantsFor(CapabilityResolveInput(manifest))
 }
 
 func validHTTPURL(value string) bool {

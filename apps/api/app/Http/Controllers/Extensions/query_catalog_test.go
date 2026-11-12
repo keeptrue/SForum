@@ -58,15 +58,16 @@ func newQueryCatalogTestApp(t *testing.T, configured bool) (*fiber.App, *authses
 // 显式集合让失败信息直接说出是哪条多/少了。
 //
 // 构成：15 条 stable（含 1 条 consent-gated 的 core.query.identity.self_email）
-// + 7 条 shortcode 投影 = 22。三条徽章查询（public_badges.list / public_user_badges.list /
-// public_user_activity.list）来自基线提交 f63ad2cf9，属于密封目录的一部分。
+// + 7 条 shortcode 投影 = 23。四条徽章查询（public_badges.list / public_user_badges.list /
+// public_user_activity.list / public_user_badge_facts.list）来自基线提交 f63ad2cf9
+// 与规则引擎那一刀，属于密封目录的一部分。
 // **加查询必须同批改这里**，否则本测试红。
 //
 // 同一份清单在 `bootstrap/sealed_query_catalog_test.go` 里还有一份（`sealedCoreQueryCatalogIDs`）：
 // bootstrap 断言装配产物、本文件断言 HTTP 响应，两个包各自必须能独立红。
 // 改一处必须同批改另一处。
 var sealedQueryCatalogIDs = []string{
-	// stable（15）
+	// stable（16）
 	"core.query.identity.self_email",
 	"core.query.public_attachment.by_public_id",
 	"core.query.public_badges.list",
@@ -77,6 +78,7 @@ var sealedQueryCatalogIDs = []string{
 	"core.query.public_topic.by_id",
 	"core.query.public_topics.list",
 	"core.query.public_user_activity.list",
+	"core.query.public_user_badge_facts.list",
 	"core.query.public_user_badges.list",
 	"core.query.safe_user.by_id",
 	"core.query.safe_user.by_username",

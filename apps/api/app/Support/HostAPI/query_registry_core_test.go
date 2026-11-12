@@ -152,6 +152,13 @@ func TestQueryRegistryCoreCatalogSealsPublicationsBindingsAndSchemas(t *testing.
 			ResultSchema:     QueryPublicUserActivitySchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		},
+		QueryPublicUserBadgeFactsList: {
+			HostQueryID: QueryPublicUserBadgeFactsList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_badge_facts.list", ContractVersion: "core.query.public_user_badge_facts.list@1",
+			Entity: "core.query.public_user_badge_fact", PlanVersion: "core.query.public_user_badge_facts.list.plan@1",
+			ResultSchema:     QueryPublicUserBadgeFactSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
 		QueryPublicCategoriesList: {
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,
 			QueryID: "core.query.public_categories.list", ContractVersion: "core.query.public_categories.list@1",

@@ -58,7 +58,9 @@ func TestPostgresProtocolV2CommandRuntimePublishesDomainCommands(t *testing.T) {
 	if engine.queryInvalidationJobs == nil {
 		t.Fatal("production command runtime omitted Query invalidation dispatcher")
 	}
-	if len(engine.definitions) != 16 {
+	// 17 = 16 条既有域命令 + badges.fact.record（M3.2 的事实写口）。目录是密封的：
+	// 数字即契约，漏注册会让调用方拿到 unknown command 而不是某条具体拒绝。
+	if len(engine.definitions) != 17 {
 		t.Fatalf("command count = %d", len(engine.definitions))
 	}
 	for _, command := range []string{
@@ -67,7 +69,7 @@ func TestPostgresProtocolV2CommandRuntimePublishesDomainCommands(t *testing.T) {
 		CommandEntitlementsMutateID, CommandAttachmentStatusSetID,
 		CommandExtensionPluginDisableID, CommandExtensionSettingsResetID,
 		CommandExtensionSettingsUpdateID, CommandExtensionSettingsActionID,
-		CommandNotificationsEmitID, CommandEventsEmitID, CommandAICompleteID,
+		CommandNotificationsEmitID, CommandEventsEmitID, CommandAICompleteID, CommandBadgesFactRecordID,
 		CommandAttachmentExtensionClaimID, CommandAttachmentExtensionReleaseID,
 		CommandAttachmentExtensionListID,
 	} {

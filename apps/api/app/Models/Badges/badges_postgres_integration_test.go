@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
@@ -56,13 +57,17 @@ CREATE TABLE badges (
   grant_mode TEXT NOT NULL CHECK (grant_mode IN ('automatic','manual')),
   metric TEXT,
   threshold BIGINT,
+  rule JSONB,
+  requirement_summary_zh TEXT NOT NULL DEFAULT '',
+  requirement_summary_en TEXT NOT NULL DEFAULT '',
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
   position INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 与 202611120002 之后的定义一致：自动徽章只认 rule，legacy 两列可空。
   CONSTRAINT badges_rule_check CHECK (
-    (grant_mode = 'automatic' AND metric IS NOT NULL AND threshold IS NOT NULL AND threshold > 0)
-    OR (grant_mode = 'manual' AND metric IS NULL AND threshold IS NULL)
+    (grant_mode = 'automatic' AND rule IS NOT NULL)
+    OR (grant_mode = 'manual' AND rule IS NULL)
   )
 );
 
@@ -118,6 +123,41 @@ CREATE TABLE content_reactions (
   CONSTRAINT content_reactions_unique UNIQUE (user_id, target_type, target_id, reaction)
 );
 
+-- 事实表也要在 fixture schema 里：否则不带 schema 前缀的查询会落到 public 的真实表，
+-- 而本 fixture 的 user 只存在于隔离 schema，外键会直接炸（也会污染真实表）。
+-- rule_health / rule_store 会查这五张表：必须建在 fixture schema 里，否则会落到
+-- 真实 public（search_path 带 public，见计划 §13 残留 14）。
+CREATE TABLE categories (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE);
+CREATE TABLE tags (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE);
+CREATE TABLE roles (id BIGSERIAL PRIMARY KEY, key TEXT NOT NULL UNIQUE);
+CREATE TABLE identity_external_links (
+  id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, provider_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active'
+);
+
+CREATE TABLE user_fact_counters (
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  fact_key TEXT NOT NULL,
+  variant TEXT NOT NULL DEFAULT '',
+  total BIGINT NOT NULL DEFAULT 0,
+  last_occurred_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, fact_key, variant)
+);
+
+CREATE TABLE badge_facts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  fact_key TEXT NOT NULL,
+  variant TEXT NOT NULL DEFAULT '',
+  delta BIGINT NOT NULL,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  source_extension_id TEXT NOT NULL DEFAULT '',
+  dedupe_key TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX badge_facts_dedupe_idx
+  ON badge_facts (user_id, fact_key, variant, dedupe_key) WHERE dedupe_key <> '';
+
 CREATE TABLE content_bookmarks (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -152,6 +192,9 @@ func newBadgesPGFixture(t *testing.T) *badgesPGFixture {
 		admin.Close()
 		t.Fatal(err)
 	}
+	// 注意 `search_path` 带 public（全仓 86 处同款写法）：fixture 里漏建的表会静默
+	// 解析到真实 public 表。本刀不重构这个模式（见计划 §13 残留 14），所以**每加一张
+	// 被查询的表，必须同批加进上面的 DDL**，否则读的是脏数据、写的是真实库。
 	poolConfig.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
@@ -185,10 +228,13 @@ func (f *badgesPGFixture) user(t *testing.T, username string, status string) int
 func (f *badgesPGFixture) badge(t *testing.T, slug, tier string, position int, metric string, threshold int64) int64 {
 	t.Helper()
 	var id int64
+	// 自 202611120002 起自动徽章只认 rule；fixture 同时写 rule（迁移同款单叶子形状）
+	// 与 legacy 的 metric/threshold，模拟迁移后的真实数据形态。
+	rule := fmt.Sprintf(`{"v":1,"root":{"type":"activity.count","params":{"metric":%q,"window":{"kind":"all"}},"cmp":{"op":"gte","value":%d}}}`, metric, threshold)
 	if err := f.pool.QueryRow(f.ctx, `
-		INSERT INTO badges (slug, name, tier, grant_mode, metric, threshold, enabled, position)
-		VALUES ($1,$1,$2,'automatic',$3,$4,TRUE,$5) RETURNING id`,
-		slug, tier, metric, threshold, position).Scan(&id); err != nil {
+		INSERT INTO badges (slug, name, tier, grant_mode, metric, threshold, rule, enabled, position)
+		VALUES ($1,$1,$2,'automatic',$3,$4,$6::jsonb,TRUE,$5) RETURNING id`,
+		slug, tier, metric, threshold, position, rule).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	return id
@@ -609,9 +655,12 @@ func TestGrantFromRulesCoversEveryMetricBranch(t *testing.T) {
 	}
 
 	store := NewPostgresStore(fixture.pool)
-	granted, err := store.GrantFromRules(ctx)
+	granted, queuedIDs, err := store.GrantFromRules(ctx)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(queuedIDs) != 0 {
+		t.Fatalf("全部是快路径形状，不应有徽章转入异步评估：%v", queuedIDs)
 	}
 	if granted != int64(len(expectations)) {
 		t.Fatalf("granted = %d, want %d (每个 metric 只应授予刚好达标的那个用户)", granted, len(expectations))
@@ -647,11 +696,294 @@ func TestGrantFromRulesCoversEveryMetricBranch(t *testing.T) {
 	if _, err := fixture.pool.Exec(ctx, `UPDATE badges SET enabled=FALSE WHERE id=$1`, disabledID); err != nil {
 		t.Fatal(err)
 	}
-	again, err := store.GrantFromRules(ctx)
+	again, _, err := store.GrantFromRules(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if again != 0 {
 		t.Fatalf("second run granted = %d, want 0 (手动/停用徽章不得被批量授予，且已授予幂等)", again)
+	}
+}
+
+// TestFastPathSQLSubsetOfGoFastPath 是 lead 要求的兜底断言：
+// **SQL 选中的徽章集合必须是 Go `fastPathRule()` 选中集合的子集**。
+//
+// 为什么必须有这条：批量 SQL 是手写的 jsonb 谓词，Go 侧是结构化判断，两边各写一次
+// 就一定会漂移。漂移的方向决定后果——SQL 多选（把 `lte 5` 当成 `>= 5`）是**批量级
+// 语义错误**；SQL 漏选只是变慢（那些徽章会进 backfill 队列）。所以断言写成
+// 「SQL 授予的集合 ⊆ Go 快路径集合」，并额外要求 12 枚内置形状一个都不漏。
+func TestFastPathSQLSubsetOfGoFastPath(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	userID := fixture.user(t, "all-metrics", "active")
+	// 所有指标都给一个大值，任何「gte 小阈值」的规则都会命中——于是「谁被授予」
+	// 只由「这条规则有没有进 SQL」决定，与阈值无关。
+	if _, err := fixture.pool.Exec(fixture.ctx, `
+		INSERT INTO user_activity (user_id, topic_count, comment_count, like_received_count,
+		                           like_given_count, bookmark_count, days_visited)
+		VALUES ($1, 1000, 1000, 1000, 1000, 1000, 1000)`, userID); err != nil {
+		t.Fatal(err)
+	}
+
+	type ruleCase struct {
+		slug string
+		rule string
+		fast bool
+	}
+	builtin := []ruleCase{
+		{"r-days", `{"v":1,"root":{"type":"activity.count","params":{"metric":"days_visited","window":{"kind":"all"}},"cmp":{"op":"gte","value":7}}}`, true},
+		{"r-topic", `{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":1}}}`, true},
+		{"r-comment", `{"v":1,"root":{"type":"activity.count","params":{"metric":"comment_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":25}}}`, true},
+		{"r-like-rx", `{"v":1,"root":{"type":"activity.count","params":{"metric":"like_received_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":100}}}`, true},
+		{"r-like-gv", `{"v":1,"root":{"type":"activity.count","params":{"metric":"like_given_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":5}}}`, true},
+		{"r-bookmark", `{"v":1,"root":{"type":"activity.count","params":{"metric":"bookmark_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":10}}}`, true},
+	}
+	nonFast := []ruleCase{
+		// 语义反转风险最大的一条：lte 若被 SQL 当 gte，会批量授予全站。
+		{"x-lte", `{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"lte","value":5}}}`, false},
+		{"x-window", `{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"recent_days","days":30}},"cmp":{"op":"gte","value":1}}}`, false},
+		{"x-group", `{"v":1,"root":{"op":"all","children":[{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":1}}]}}`, false},
+		{"x-two-leaves", `{"v":1,"root":{"op":"all","children":[{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":1}},{"type":"activity.count","params":{"metric":"comment_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":1}}]}}`, false},
+		{"x-boolean", `{"v":1,"root":{"type":"identity.email_verified"}}`, false},
+		{"x-zero", `{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":0}}}`, false},
+	}
+
+	expectFast := map[string]bool{}
+	for _, tc := range append(append([]ruleCase{}, builtin...), nonFast...) {
+		var id int64
+		if err := fixture.pool.QueryRow(fixture.ctx, `
+			INSERT INTO badges (slug, name, tier, grant_mode, metric, threshold, rule, enabled, position)
+			VALUES ($1,$1,'bronze','automatic','topic_count',1,$2::jsonb,TRUE,0) RETURNING id`,
+			tc.slug, tc.rule).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		if tc.fast {
+			expectFast[tc.slug] = true
+		}
+	}
+
+	store := NewPostgresStore(fixture.pool)
+	granted, queuedIDs, err := store.GrantFromRules(fixture.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := fixture.pool.Query(fixture.ctx, `
+		SELECT badges.slug FROM user_badges
+		JOIN badges ON badges.id = user_badges.badge_id
+		WHERE user_badges.user_id = $1`, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	sqlSelected := map[string]bool{}
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			t.Fatal(err)
+		}
+		sqlSelected[slug] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	if granted != int64(len(sqlSelected)) {
+		t.Fatalf("granted=%d 与实际行数 %d 不符", granted, len(sqlSelected))
+	}
+	// 方向一：SQL 不许选中 Go 认为不是快路径的徽章（语义错）。
+	for slug := range sqlSelected {
+		if !expectFast[slug] {
+			t.Fatalf("SQL 选中了非快路径形状 %q —— 谓词比 fastPathRule 宽，语义会反转", slug)
+		}
+	}
+	// 方向二：内置形状不许漏（漏了只是变慢，但说明谓词写窄了）。
+	for slug := range expectFast {
+		if !sqlSelected[slug] {
+			t.Fatalf("内置形状 %q 没被 SQL 选中（谓词过窄）", slug)
+		}
+	}
+	// 非快路径徽章必须全部进队列，且数量按徽章算。
+	if len(queuedIDs) != len(nonFast) {
+		t.Fatalf("queued 徽章数 = %d，want %d", len(queuedIDs), len(nonFast))
+	}
+}
+
+// TestEvaluateRulePassesFactKeysThrough 是 task-4 rev6 的「接通」断言：
+// `PostgresStore.EvaluateRule` 必须把已声明的事实 key 透传给 resolver。
+//
+// M1 不注入 provider → `fact.count` 恒 unknown（fail-closed，正确）。
+// 注入 `wiki.edit` 后同一条规则必须变成**可判定**：有事实行时按计数比较，
+// 没有事实行时是确定的 0。不接通这条链路，M3 上线后所有插件事实条件都会
+// 「规则存得下、永远不满足」，且零报错。
+func TestEvaluateRulePassesFactKeysThrough(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	userID := fixture.user(t, "fact-user", "active")
+	store := NewPostgresStore(fixture.pool)
+	rule, err := ruleengine.Decode([]byte(`{"v":1,"root":{"type":"fact.count","params":{"factKey":"wiki.edit","window":{"kind":"all"}},"cmp":{"op":"gte","value":2}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 未注入：unknown（fail-closed）。
+	result, err := store.EvaluateRule(fixture.ctx, userID, rule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Matched || !result.Incomplete {
+		t.Fatalf("M1 未声明 factKey 时必须 unknown，得到 %+v", result)
+	}
+
+	// 注入后：事实行 2 → 满足。
+	if _, err := fixture.pool.Exec(fixture.ctx, `
+		INSERT INTO user_fact_counters (user_id, fact_key, variant, total) VALUES ($1,'wiki.edit','',2)`, userID); err != nil {
+		t.Fatal(err)
+	}
+	store.SetFactKeyProvider(func() []string { return []string{"wiki.edit"} })
+	result, err = store.EvaluateRule(fixture.ctx, userID, rule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Matched || result.Incomplete {
+		t.Fatalf("声明 factKey 且有 2 次事实时应满足，得到 %+v", result)
+	}
+
+	// 已声明但没有事实行：确定的 0（不是 unknown）。
+	otherRule, err := ruleengine.Decode([]byte(`{"v":1,"root":{"type":"fact.count","params":{"factKey":"wiki.edit","window":{"kind":"all"}},"cmp":{"op":"lte","value":1}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.SetFactKeyProvider(func() []string { return []string{"wiki.edit"} })
+	if _, err := fixture.pool.Exec(fixture.ctx, `DELETE FROM user_fact_counters WHERE user_id = $1`, userID); err != nil {
+		t.Fatal(err)
+	}
+	result, err = store.EvaluateRule(fixture.ctx, userID, otherRule)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Matched || result.Incomplete {
+		t.Fatalf("已声明但无事实行应为确定 0（满足 lte 1），得到 %+v", result)
+	}
+}
+
+// TestEvaluatePureRuleBadgeWithoutLegacyMetric 是 M1.4-02：`metric`/`threshold` 全为
+// NULL、只有 `rule` 的自动徽章必须能正常授予。
+//
+// 这条覆盖的是本刀最贵的失败模式：若求值写成「先看 metric，没有再看 rule」，
+// 纯 rule 徽章会「保存成功、用户达标、永远不发、零报错」。既有夹具全带 legacy
+// metric，所以那种写法在别的测试里照样全绿。
+func TestEvaluatePureRuleBadgeWithoutLegacyMetric(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	ctx := fixture.ctx
+	userID := fixture.user(t, "pure-rule", "active")
+
+	var badgeID int64
+	if err := fixture.pool.QueryRow(ctx, `
+		INSERT INTO badges (slug, name, tier, grant_mode, metric, threshold, rule, enabled, position)
+		VALUES ('pure-rule', 'Pure Rule', 'bronze', 'automatic', NULL, NULL,
+		        '{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":3}}}'::jsonb,
+		        TRUE, 0) RETURNING id`).Scan(&badgeID); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewPostgresStore(fixture.pool)
+	evaluator := NewEvaluator(store, NewPostgresActivityStore(fixture.pool))
+
+	// 未达标：不授予。
+	if granted, err := evaluator.EvaluateWithCounters(ctx, userID, ActivityCounters{TopicCount: 2}); err != nil {
+		t.Fatal(err)
+	} else if len(granted) != 0 {
+		t.Fatalf("未达标不应授予，得到 %d 枚", len(granted))
+	}
+	// 达标：授予。metric/threshold 为 NULL 不影响判定。
+	granted, err := evaluator.EvaluateWithCounters(ctx, userID, ActivityCounters{TopicCount: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(granted) != 1 || granted[0].Slug != "pure-rule" {
+		t.Fatalf("纯 rule 徽章达标必须授予，得到 %+v", granted)
+	}
+	var metric, threshold *string
+	if err := fixture.pool.QueryRow(ctx, `SELECT metric, threshold::text FROM badges WHERE id = $1`, badgeID).Scan(&metric, &threshold); err != nil {
+		t.Fatal(err)
+	}
+	if metric != nil || threshold != nil {
+		t.Fatalf("夹具的 legacy 两列必须为 NULL（否则没验到纯 rule 路径）")
+	}
+	// 把规则改严：不授予。
+	if _, err := fixture.pool.Exec(ctx, `UPDATE badges SET rule = jsonb_set(rule, '{root,cmp,value}', '99'::jsonb) WHERE id = $1`, badgeID); err != nil {
+		t.Fatal(err)
+	}
+	if granted, err := evaluator.EvaluateWithCounters(ctx, userID, ActivityCounters{TopicCount: 3}); err != nil {
+		t.Fatal(err)
+	} else if len(granted) != 0 {
+		t.Fatalf("规则改严后不应再授予，得到 %d 枚", len(granted))
+	}
+}
+
+// TestGrantSourcesAreDistinguishable 是 M1.4-04：三来源判别式必须逐条钉住。
+//
+// 只验回扫那一行会让另外两条失效而无人发现——运维审计靠的就是这三行互不混淆：
+//   - 规则自动：granted_by IS NULL, grant_reason = ”
+//   - 批量重算：granted_by IS NULL, grant_reason = 'recompute'
+//   - 管理员手动：granted_by = 操作者 id, grant_reason = 操作者填的理由
+func TestGrantSourcesAreDistinguishable(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	ctx := fixture.ctx
+	store := NewPostgresStore(fixture.pool)
+
+	automaticID := fixture.badge(t, "auto", "bronze", 0, "topic_count", 1)
+	recomputeID := fixture.badge(t, "recompute", "bronze", 1, "topic_count", 1)
+	manualID := fixture.badge(t, "manual", "bronze", 2, "topic_count", 1)
+	if _, err := fixture.pool.Exec(ctx, `UPDATE badges SET grant_mode='manual', metric=NULL, threshold=NULL, rule=NULL WHERE id=$1`, manualID); err != nil {
+		t.Fatal(err)
+	}
+
+	type source struct {
+		userID int64
+		reason *string
+		by     *int64
+	}
+	read := func(badgeID, userID int64) source {
+		t.Helper()
+		var out source
+		if err := fixture.pool.QueryRow(ctx, `
+			SELECT grant_reason, granted_by FROM user_badges WHERE badge_id=$1 AND user_id=$2`,
+			badgeID, userID).Scan(&out.reason, &out.by); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+
+	// 1) 规则自动：走 GrantAutomatic。
+	autoUser := fixture.user(t, "auto-user", "active")
+	if inserted, err := store.GrantAutomatic(ctx, autoUser, automaticID); err != nil || !inserted {
+		t.Fatalf("GrantAutomatic: inserted=%v err=%v", inserted, err)
+	}
+	if got := read(automaticID, autoUser); got.by != nil || got.reason == nil || *got.reason != "" {
+		t.Fatalf("规则自动行必须是 NULL/''，得到 %+v", got)
+	}
+
+	// 2) 批量重算：走 GrantFromRules。
+	recomputeUser := fixture.user(t, "recompute-user", "active")
+	if _, err := fixture.pool.Exec(ctx, `
+		INSERT INTO user_activity (user_id, topic_count) VALUES ($1, 5)`, recomputeUser); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := store.GrantFromRules(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(recomputeID, recomputeUser); got.by != nil || got.reason == nil || *got.reason != "recompute" {
+		t.Fatalf("重算行必须是 NULL/'recompute'，得到 %+v", got)
+	}
+
+	// 3) 管理员手动：走 GrantManual，带操作者与理由。
+	operatorID := fixture.user(t, "operator", "active")
+	manualUser := fixture.user(t, "manual-user", "active")
+	reason := "社区贡献"
+	if inserted, err := store.GrantManual(ctx, GrantInput{UserID: manualUser, BadgeID: manualID, GrantedBy: operatorID, GrantReason: reason}); err != nil || !inserted {
+		t.Fatalf("GrantManual: inserted=%v err=%v", inserted, err)
+	}
+	if got := read(manualID, manualUser); got.by == nil || *got.by != operatorID || got.reason == nil || *got.reason != reason {
+		t.Fatalf("手动行必须带操作者与理由，得到 %+v", got)
 	}
 }

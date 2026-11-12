@@ -194,6 +194,17 @@ func queryRegistryCoreResultSchemaProperties(definition protocolV2QueryDefinitio
 			"bookmark_count":      schemaString(),
 			"days_visited":        schemaString(),
 		}
+	case QueryPublicUserBadgeFactSchemaID:
+		// 事实累计面：只输出 active 用户的 total。delta 行是写入流水，dedupe_key
+		// 是写入方私有幂等约定，source_extension_id 属于扩展间信息，三者都不进 schema。
+		properties = map[string]any{
+			"user_id":      schemaString(),
+			"username":     schemaString(),
+			"display_name": schemaString(),
+			"fact_key":     schemaString(),
+			"variant":      schemaString(),
+			"total":        schemaString(),
+		}
 	case QuerySelfEmailSchemaID:
 		// 只暴露展示形态的 email、布尔验证位与更新时间；email_lower 是唯一性/
 		// 登录匹配列，永远不进 schema。属性数必须与 Host 字段数严格相等。

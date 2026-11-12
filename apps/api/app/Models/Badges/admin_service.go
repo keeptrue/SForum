@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // 权限键（与 Identity/seeds.go、迁移 202611100003 逐字一致）。
@@ -51,6 +53,14 @@ type AdminService struct {
 	// 未注入时回退到 store（它本身实现了 TierReader）：这样既有的装配代码
 	// NewAdminService(store) 不必改签名，也不会出现「忘了注入 = 校验被跳过」。
 	tiers TierReader
+	// backfill 是复杂规则的回扫入口；nil 表示装配没接（此时有复杂徽章就报错）。
+	backfill BackfillEnqueuer
+	// runs 是回扫进度的读口（见 backfill_runs.go）；nil 时状态端点回空 items。
+	// 读与写分开：AdminService 只读，写口（BackfillRunWriter）只交给 job 侧。
+	runs BackfillRunReader
+	// factCandidates 是插件事实候选来源（已启用扩展的 badgeConditions[]）；
+	// nil = 没有任何扩展声明，`fact.count` 因此不出现在可发布目录里。
+	factCandidates conditions.FactCandidateProvider
 }
 
 func NewAdminService(store Store) *AdminService {
@@ -98,6 +108,47 @@ func (a *AdminService) CreateBadge(ctx context.Context, actor identity.Actor, in
 	if a == nil || a.store == nil {
 		return Badge{}, ErrBadgesDisabled
 	}
+	// 创建时没有「缺省=不改」：effective rule 就是本次提交的 rule。
+	// 这条判断放在这里而不是 validateBadgeInput，因为只有本层知道三态语义；
+	// 且必须在落库前给出 422——`badges_rule_check` 抛的是约束错误，会变成 500。
+	created, err := a.normalizeNewBadge(ctx, input)
+	if err != nil {
+		return Badge{}, err
+	}
+	return created, nil
+}
+
+// normalizeNewBadge 是创建路径的 effective-rule 判定 + 入参归一化。
+//
+// 与 UpdateBadge 的三态校验一一对应，只是「缺省」在创建时等价于「空」：
+//   - automatic 必须有规则（`metric`/`threshold` 已经不再代表判定来源）；
+//   - manual 不得带规则（留着规则会让「什么时候该授予」有两种解释）。
+//
+// 规则形状（未知条件 / 层级过深）由 ruleengine.Decode 的严格模式报出，
+// mapBadgeError 会按 CodeOf 拆成 422 的具体错误码。
+func (a *AdminService) normalizeNewBadge(ctx context.Context, input BadgeInput) (Badge, error) {
+	if input.GrantMode == GrantAutomatic && len(input.RuleRaw) == 0 {
+		return Badge{}, fmt.Errorf("%w: automatic badge requires a rule", ErrBadgeRuleInvalid)
+	}
+	if input.GrantMode == GrantManual && len(input.RuleRaw) > 0 {
+		return Badge{}, fmt.Errorf("%w: manual badge must not carry a rule", ErrBadgeRuleInvalid)
+	}
+	// 创建时还没有 badge id，跳过 badge.owned 的环检测（新徽章不可能被别人引用），
+	// 但形状与引用存在性照样校验。ValidateBadgeRule 的签名要求 badgeID，
+	// 所以引用检查走 store 的窄接口（PostgresStore 实现），id 传 0。
+	if len(input.RuleRaw) > 0 {
+		node, decodeErr := ruleengine.Decode(input.RuleRaw)
+		if decodeErr != nil {
+			return Badge{}, fmt.Errorf("%w: %s", ErrBadgeRuleInvalid, decodeErr)
+		}
+		if validator, ok := a.store.(interface {
+			ValidateBadgeRule(context.Context, int64, ruleengine.Node) error
+		}); ok {
+			if err := validator.ValidateBadgeRule(ctx, 0, node); err != nil {
+				return Badge{}, err
+			}
+		}
+	}
 	normalized, err := validateBadgeInput(ctx, input, a.tierReader(), nil)
 	if err != nil {
 		return Badge{}, err
@@ -120,6 +171,38 @@ func (a *AdminService) UpdateBadge(ctx context.Context, actor identity.Actor, ba
 	previous, err := a.store.GetBadge(ctx, badgeID)
 	if err != nil {
 		return Badge{}, err
+	}
+	// 规则三态 × grantMode 的组合校验：必须在落库前给出 422，而不是让 CHECK 抛
+	// 约束错误（那会变成 500）。三种组合：
+	//   {"rule":null}                     + 原本 automatic → 422（自动徽章必须有规则）
+	//   {"rule":null,"grantMode":"manual"}                 → 200（转手动时清空是合法且常用的操作）
+	//   {"rule":null,"grantMode":"automatic"}              → 422
+	effectiveMode := input.GrantMode
+	effectiveRule := previous.RuleRaw
+	if input.RuleSet {
+		effectiveRule = input.RuleRaw
+	}
+	if effectiveMode == GrantAutomatic && len(effectiveRule) == 0 {
+		return Badge{}, fmt.Errorf("%w: automatic badge requires a rule", ErrBadgeRuleInvalid)
+	}
+	if effectiveMode == GrantManual && len(effectiveRule) > 0 {
+		return Badge{}, fmt.Errorf("%w: manual badge must not carry a rule", ErrBadgeRuleInvalid)
+	}
+
+	// 规则三态里「对象」这一态要在这里过一遍保存校验：AST 形状（严格 Decode）、
+	// 引用存在性、badge.owned 环检测。缺省与清空都不进这里。
+	if input.RuleSet && len(input.RuleRaw) > 0 {
+		node, decodeErr := ruleengine.Decode(input.RuleRaw)
+		if decodeErr != nil {
+			return Badge{}, fmt.Errorf("%w: %s", ErrBadgeRuleInvalid, decodeErr)
+		}
+		if validator, ok := a.store.(interface {
+			ValidateBadgeRule(context.Context, int64, ruleengine.Node) error
+		}); ok {
+			if err := validator.ValidateBadgeRule(ctx, badgeID, node); err != nil {
+				return Badge{}, err
+			}
+		}
 	}
 	normalized, err := validateBadgeInput(ctx, input, a.tierReader(), &previous.Tier)
 	if err != nil {
@@ -261,6 +344,27 @@ type RecomputeResult struct {
 	Granted int64 `json:"granted"`
 	// Refreshed 是 top_badge_id 实际发生变化的用户数。
 	Refreshed int64 `json:"refreshed"`
+	// Queued 是**被转入异步评估的徽章数**（不是用户数、不是 job 数）。
+	//
+	// 复杂规则没法在一条 INSERT ... SELECT 里求值，必须由 backfill job 逐人算。
+	// 静默跳过等于「重算完成、0 人获得，实际上一半徽章没算」——所以这里必须报数，
+	// 运营界面也要说清「Z 枚徽章转入后台评估」。
+	Queued int64 `json:"queued"`
+}
+
+// BackfillEnqueuer 把「需要异步评估的徽章」交给后台 job。
+//
+// 只入队不执行：HTTP 请求里跑全量回扫会重演残留 #17（长事务 + 长请求）。
+type BackfillEnqueuer interface {
+	EnqueueRuleBackfill(ctx context.Context, badgeIDs []int64) error
+}
+
+// SetBackfillEnqueuer 注入后台回扫入口（bootstrap 装配；测试可注入 fake）。
+func (a *AdminService) SetBackfillEnqueuer(enqueuer BackfillEnqueuer) {
+	if a == nil {
+		return
+	}
+	a.backfill = enqueuer
 }
 
 // Recompute 全量重算：先按规则补授予，再刷新 top_badge_id。
@@ -277,15 +381,26 @@ func (a *AdminService) Recompute(ctx context.Context, actor identity.Actor) (Rec
 	if a == nil || a.store == nil {
 		return RecomputeResult{}, ErrBadgesDisabled
 	}
-	granted, err := a.store.GrantFromRules(ctx)
+	granted, complexBadgeIDs, err := a.store.GrantFromRules(ctx)
 	if err != nil {
 		return RecomputeResult{}, err
+	}
+	queued := int64(len(complexBadgeIDs))
+	if queued > 0 {
+		// 没有入队能力时必须报错，不能只把数字填上——那会让运营以为「已经安排好了」，
+		// 而实际上一枚复杂规则徽章都没算。
+		if a.backfill == nil {
+			return RecomputeResult{}, ErrBadgeBackfillUnavailable
+		}
+		if err := a.backfill.EnqueueRuleBackfill(ctx, complexBadgeIDs); err != nil {
+			return RecomputeResult{}, fmt.Errorf("enqueue rule backfill: %w", err)
+		}
 	}
 	refreshed, err := a.store.RecomputeAll(ctx)
 	if err != nil {
 		return RecomputeResult{}, err
 	}
-	return RecomputeResult{Granted: granted, Refreshed: refreshed}, nil
+	return RecomputeResult{Granted: granted, Refreshed: refreshed, Queued: queued}, nil
 }
 
 // recomputeAffected 重算持有该徽章的全部用户的 top_badge_id。
@@ -312,7 +427,10 @@ func topBadgeAffected(previous, updated Badge) bool {
 		previous.Position != updated.Position
 }
 
-// validateBadgeInput 是规则校验的唯一入口（创建与更新共用）。
+// validateBadgeInput 是**字段级**校验的唯一入口（创建与更新共用）。
+//
+// 它不认识「规则三态」：是否必须有规则由 CreateBadge / UpdateBadge 掌握
+// effective rule 之后再判。这里只回答单个字段本身合不合法。
 //
 // 等级合法性从「枚举自证」变成「查等级表」：tier 必须存在于 badge_tiers，
 // 切档时还必须是启用状态；currentTier 非 nil 表示更新，保持原值一律放行。
@@ -337,11 +455,15 @@ func validateBadgeInput(ctx context.Context, input BadgeInput, tiers TierReader,
 	}
 	switch input.GrantMode {
 	case GrantAutomatic:
-		if input.Metric == nil || !input.Metric.Valid() {
-			return BadgeInput{}, fmt.Errorf("%w: automatic badge requires a known metric", ErrBadgeRuleInvalid)
+		// 自 202611120002 起 automatic 的判定来源是 `rule`，`metric`/`threshold` 是
+		// legacy 只读列（可为 NULL）。这里只校验「给了就必须合法」，
+		// 「必须有规则」由掌握 effective rule 的服务层（CreateBadge / UpdateBadge）判：
+		// 那两处才知道「缺省=不改」还是「创建时缺省=没有」。
+		if input.Metric != nil && !input.Metric.Valid() {
+			return BadgeInput{}, fmt.Errorf("%w: unknown metric %q", ErrBadgeRuleInvalid, *input.Metric)
 		}
-		if input.Threshold == nil || *input.Threshold <= 0 {
-			return BadgeInput{}, fmt.Errorf("%w: automatic badge requires threshold > 0", ErrBadgeRuleInvalid)
+		if input.Threshold != nil && *input.Threshold <= 0 {
+			return BadgeInput{}, fmt.Errorf("%w: threshold must be > 0", ErrBadgeRuleInvalid)
 		}
 	case GrantManual:
 		// 手动徽章必须两者皆空：留着 metric 会让「什么时候该授予」有两种解释。
@@ -360,4 +482,79 @@ func validateGroupInput(input BadgeGroupInput) (BadgeGroupInput, error) {
 		return BadgeGroupInput{}, fmt.Errorf("%w: group key and name are required", ErrBadgeRuleInvalid)
 	}
 	return input, nil
+}
+
+// RuleAdminStore 是规则只读面的窄接口（只由 PostgresStore 实现）。
+//
+// 不往 `Store` 上加方法：那会逼所有测试 fake 实现它们不需要的能力（同 RuleResolver）。
+type RuleAdminStore interface {
+	RuleHealth(ctx context.Context) ([]BadgeRuleHealth, error)
+	EstimateRuleImpact(ctx context.Context, rule ruleengine.Node) (RuleImpact, error)
+	GetBadgeRule(ctx context.Context, badgeID int64) (ruleengine.Node, error)
+}
+
+// BadgeConditionCatalog 是 `GET /admin/badges/conditions` 的领域结果。
+//
+// 两个面刻意一起返回：`Items` 是**条件**目录（规则的 type 维），`FactCandidates`
+// 是**事实候选**（规则里 `fact.count` 的 factKey/variant 维）。插件条件的双语
+// label 属于候选项而不是 Core 条件文案，混进 Items 会让「条件名」被插件覆盖。
+type BadgeConditionCatalog struct {
+	Items          []conditions.Definition
+	FactCandidates []conditions.FactCandidate
+}
+
+// BadgeConditions 返回**可发布**的条件目录（展示面）。
+//
+// 用 `PublishableDefinitions(candidates)` 而不是 `Definitions()`：没有事实候选时
+// `fact.count` 是空下拉，暴露出去只会让运营点进死路。校验/求值仍走全集。
+func (a *AdminService) BadgeConditions(ctx context.Context, actor identity.Actor) (BadgeConditionCatalog, error) {
+	if err := requireBadgePermission(actor, PermissionBadgeView); err != nil {
+		return BadgeConditionCatalog{}, err
+	}
+	candidates := []conditions.FactCandidate{}
+	if a != nil && a.factCandidates != nil {
+		if declared := a.factCandidates(); declared != nil {
+			candidates = declared
+		}
+	}
+	return BadgeConditionCatalog{
+		Items:          conditions.Core().PublishableDefinitions(candidates),
+		FactCandidates: candidates,
+	}, nil
+}
+
+// SetFactCandidates 注入事实候选来源（bootstrap 装配；nil = 无候选）。
+func (a *AdminService) SetFactCandidates(provider conditions.FactCandidateProvider) {
+	if a == nil {
+		return
+	}
+	a.factCandidates = provider
+}
+
+// RuleHealth 返回失效引用清单。空清单是正常结果，不是错误。
+func (a *AdminService) RuleHealth(ctx context.Context, actor identity.Actor) ([]BadgeRuleHealth, error) {
+	if err := requireBadgePermission(actor, PermissionBadgeView); err != nil {
+		return nil, err
+	}
+	store, ok := a.store.(RuleAdminStore)
+	if !ok {
+		return nil, nil
+	}
+	return store.RuleHealth(ctx)
+}
+
+// EstimateRuleImpact 估算某枚徽章规则的影响面（语义是「≈」）。
+func (a *AdminService) EstimateRuleImpact(ctx context.Context, actor identity.Actor, badgeID int64) (RuleImpact, error) {
+	if err := requireBadgePermission(actor, PermissionBadgeView); err != nil {
+		return RuleImpact{}, err
+	}
+	store, ok := a.store.(RuleAdminStore)
+	if !ok {
+		return RuleImpact{}, ErrBadgeNotFound
+	}
+	rule, err := store.GetBadgeRule(ctx, badgeID)
+	if err != nil {
+		return RuleImpact{}, err
+	}
+	return store.EstimateRuleImpact(ctx, rule)
 }

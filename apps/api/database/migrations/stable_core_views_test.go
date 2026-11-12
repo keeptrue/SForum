@@ -307,7 +307,12 @@ func TestStableCoreViewsBadgesMigrationFiltersByUserStatusAndBadgeEnabled(t *tes
 		},
 	}
 	for view, clauses := range views {
+		// forum_badges 用 DROP + CREATE（后续迁移会加宽它，OR REPLACE 重放会 42P16），
+		// 其余视图仍是 OR REPLACE。断言两种声明形态都接受，但都必须带 security 选项。
 		marker := "CREATE OR REPLACE VIEW sforum_core_v1." + view
+		if !strings.Contains(up, marker) {
+			marker = "CREATE VIEW sforum_core_v1." + view
+		}
 		if !strings.Contains(up, marker+" WITH (security_barrier = true, security_invoker = false) AS") {
 			t.Fatalf("stable core view %s is not declared with security_barrier/security_invoker", view)
 		}

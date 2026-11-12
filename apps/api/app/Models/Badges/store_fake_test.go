@@ -2,10 +2,13 @@ package badges
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // fakeStore 是 Store 的内存实现，供领域单测使用。
@@ -371,6 +374,17 @@ func (f *fakeStore) CreateBadge(_ context.Context, input BadgeInput) (Badge, err
 		GroupID: input.GroupID, Tier: input.Tier, Icon: input.Icon, GrantMode: input.GrantMode,
 		Metric: input.Metric, Threshold: input.Threshold, Enabled: input.Enabled, Position: input.Position,
 	}
+	// 与 PostgresStore.CreateBadge 同口径：创建即落规则与双语要求（缺省为空）。
+	if input.RuleSet && len(input.RuleRaw) > 0 {
+		badge.RuleRaw = append(json.RawMessage(nil), input.RuleRaw...)
+		if node, err := ruleengine.Decode(input.RuleRaw); err == nil {
+			badge.Rule = &node
+		}
+	}
+	if input.RequirementSummarySet {
+		badge.RequirementSummaryZh = input.RequirementSummaryZh
+		badge.RequirementSummaryEn = input.RequirementSummaryEn
+	}
 	f.nextBadge++
 	f.badges = append(f.badges, badge)
 	return badge, nil
@@ -613,20 +627,51 @@ func (f *fakeStore) betterTopBadge(candidate Badge, candidateOrder int, current 
 	return candidateOrder > currentOrder
 }
 
+// fakeRuleSatisfied 复刻**当前**批量 SQL（`PostgresStore.GrantFromRules`）的语义：
+// 按 legacy 的 metric/threshold 比较。生产 SQL 在规则引擎收口时会改成按 rule 走
+// 快路径 + 复杂规则入队回扫，届时这里也要跟着改。
+func fakeRuleSatisfied(badge Badge, counters ActivityCounters) bool {
+	if badge.GrantMode != GrantAutomatic || !badge.Enabled {
+		return false
+	}
+	if badge.Metric == nil || badge.Threshold == nil || *badge.Threshold <= 0 {
+		return false
+	}
+	if !badge.Metric.Valid() {
+		return false
+	}
+	return counters.Value(*badge.Metric) >= *badge.Threshold
+}
+
 // GrantFromRules 复刻批量 SQL 的语义：启用自动徽章 + 活动计数达阈值 → 授予。
-func (f *fakeStore) GrantFromRules(ctx context.Context) (int64, error) {
+func (f *fakeStore) GrantFromRules(ctx context.Context) (int64, []int64, error) {
 	var granted int64
 	rules, _ := f.ListEnabledAutomaticBadges(ctx)
-	for userID := range f.activityCounters {
-		for _, rule := range rules {
-			if ruleSatisfied(rule, f.activityCounters[userID]) {
+	var complexIDs []int64
+	for _, rule := range rules {
+		// 复刻生产 SQL 的分流：规则形状不是「单 activity.count + window.all + gte」
+		// 的徽章不进批量 SQL，而是返回给调用方入队。
+		if _, _, ok := fastPathRuleOf(rule); !ok {
+			complexIDs = append(complexIDs, rule.ID)
+			continue
+		}
+		for userID := range f.activityCounters {
+			if fakeRuleSatisfied(rule, f.activityCounters[userID]) {
 				if f.insertGrant(userID, rule.ID, 0, "recompute") {
 					granted++
 				}
 			}
 		}
 	}
-	return granted, nil
+	return granted, complexIDs, nil
+}
+
+// fastPathRuleOf 是 fake 侧对 `fastPathRule` 的转发（Rule 为 nil 时视为非快路径）。
+func fastPathRuleOf(badge Badge) (ActivityMetric, int64, bool) {
+	if badge.Rule == nil {
+		return "", 0, false
+	}
+	return fastPathRule(*badge.Rule)
 }
 
 func (f *fakeStore) RecomputeAll(ctx context.Context) (int64, error) {

@@ -73,6 +73,9 @@ func (v *v3Validator) validatePlatform() error {
 	if err := v.validateAITools(); err != nil {
 		return err
 	}
+	if err := v.validateBadgeConditions(); err != nil {
+		return err
+	}
 	return nil
 }
 

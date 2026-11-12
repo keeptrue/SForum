@@ -3,6 +3,9 @@ package badges
 import (
 	"context"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 	"time"
 )
 
@@ -20,19 +23,24 @@ func seedCatalog(t *testing.T) (*fakeStore, *fakeActivity) {
 	seven, one, ten := int64(7), int64(1), int64(10)
 	metricDays := MetricDaysVisited
 	metricTopic := MetricTopicCount
+	// 自 202611120002 起自动徽章的判定只认 rule；夹具按迁移生成的同款形状给上，
+	// metric/threshold 保留（旧列仍在表里，但评估不再读它们）。
 	store.badges = []Badge{
 		{ID: 1, Slug: "regular-visitor", Name: "常客", GroupID: ptrInt64(2), GroupKey: &activityKey,
 			Tier: TierBronze, Icon: "i-lucide-calendar", GrantMode: GrantAutomatic,
-			Metric: &metricDays, Threshold: &seven, Enabled: true, Position: 0},
+			Metric: &metricDays, Threshold: &seven, Rule: builtinRule(MetricDaysVisited, 7),
+			Enabled: true, Position: 0},
 		{ID: 2, Slug: "first-topic", Name: "初次发帖", GroupID: ptrInt64(1), GroupKey: &contentKey,
 			Tier: TierBronze, Icon: "i-lucide-sprout", GrantMode: GrantAutomatic,
-			Metric: &metricTopic, Threshold: &one, Enabled: true, Position: 0},
+			Metric: &metricTopic, Threshold: &one, Rule: builtinRule(MetricTopicCount, 1),
+			Enabled: true, Position: 0},
 		{ID: 3, Slug: "quality-answer", Name: "优质解答", GroupID: ptrInt64(1), GroupKey: &contentKey,
 			Tier: TierSilver, Icon: "i-lucide-circle-check-big", GrantMode: GrantManual,
 			Enabled: true, Position: 1},
 		{ID: 4, Slug: "disabled-badge", Name: "已停用", GroupKey: &contentKey,
 			Tier: TierGold, Icon: "i-lucide-trophy", GrantMode: GrantAutomatic,
-			Metric: &metricTopic, Threshold: &ten, Enabled: false, Position: 2},
+			Metric: &metricTopic, Threshold: &ten, Rule: builtinRule(MetricTopicCount, 10),
+			Enabled: false, Position: 2},
 		{ID: 5, Slug: "loose-badge", Name: "未分组", Tier: TierGold,
 			Icon: "i-lucide-star", GrantMode: GrantManual, Enabled: true, Position: 3},
 	}
@@ -40,6 +48,19 @@ func seedCatalog(t *testing.T) (*fakeStore, *fakeActivity) {
 }
 
 func ptrInt64(value int64) *int64 { return &value }
+
+// builtinRule 生成迁移 202611120002 为内置自动徽章写入的同款规则：
+// 单 `activity.count` 叶子 + window.all + gte。
+func builtinRule(metric ActivityMetric, threshold int64) *ruleengine.Node {
+	return &ruleengine.Node{
+		Type: conditions.KeyActivityCount,
+		Params: map[string]any{
+			"metric": string(metric),
+			"window": map[string]any{"kind": ruleengine.WindowKindAll},
+		},
+		Cmp: &ruleengine.Compare{Op: ruleengine.CompareGTE, Value: threshold},
+	}
+}
 
 // TestListUserBadgesSectionsFollowGroupPosition 断言分组顺序与未分组兜底。
 func TestListUserBadgesSectionsFollowGroupPosition(t *testing.T) {

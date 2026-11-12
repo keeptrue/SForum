@@ -23,6 +23,7 @@ func TestBadgeQueriesAreStablePublicReads(t *testing.T) {
 		{QueryPublicBadgesList, QueryPublicBadgeSchemaID, "core.query.public_badges.list", "core.query.public_badge", "public_badges.list"},
 		{QueryPublicUserBadgesList, QueryPublicUserBadgeSchemaID, "core.query.public_user_badges.list", "core.query.public_user_badge", "public_user_badges.list"},
 		{QueryPublicUserActivityList, QueryPublicUserActivitySchemaID, "core.query.public_user_activity.list", "core.query.public_user_activity", "public_user_activity.list"},
+		{QueryPublicUserBadgeFactsList, QueryPublicUserBadgeFactSchemaID, "core.query.public_user_badge_facts.list", "core.query.public_user_badge_fact", "public_user_badge_facts.list"},
 	}
 
 	definitions := map[string]protocolV2QueryDefinition{}
@@ -72,10 +73,16 @@ func TestBadgeQueriesAreStablePublicReads(t *testing.T) {
 // granted_by / grant_reason 是审计数据；posts_read_count / read_time_seconds
 // 是 v1 未采集的阅读指标。四者都不得出现在稳定查询的 schema 里。
 func TestBadgeQuerySchemasExcludeAuditAndUncollectedFields(t *testing.T) {
-	forbidden := []string{"granted_by", "grant_reason", "posts_read_count", "read_time_seconds", "email", "email_lower"}
+	forbidden := []string{
+		"granted_by", "grant_reason", "posts_read_count", "read_time_seconds", "email", "email_lower",
+		// 事实面专属：delta 是写入流水，dedupe_key 是写入方幂等约定，
+		// source_extension_id 是扩展间信息，三者都不许出现在公开 schema 里。
+		"delta", "dedupe_key", "source_extension_id", "occurred_at",
+	}
 	for _, definition := range stableCoreProtocolV2QueryDefinitions() {
 		switch definition.ResultSchemaID {
-		case QueryPublicBadgeSchemaID, QueryPublicUserBadgeSchemaID, QueryPublicUserActivitySchemaID:
+		case QueryPublicBadgeSchemaID, QueryPublicUserBadgeSchemaID, QueryPublicUserActivitySchemaID,
+			QueryPublicUserBadgeFactSchemaID:
 		default:
 			continue
 		}
@@ -94,7 +101,7 @@ func TestBadgeQuerySchemasExcludeAuditAndUncollectedFields(t *testing.T) {
 func TestBadgeUserQueriesRequireUserFilter(t *testing.T) {
 	for _, definition := range stableCoreProtocolV2QueryDefinitions() {
 		switch definition.ID {
-		case QueryPublicUserBadgesList, QueryPublicUserActivityList:
+		case QueryPublicUserBadgesList, QueryPublicUserActivityList, QueryPublicUserBadgeFactsList:
 			if len(definition.RequiredFilters) != 1 || definition.RequiredFilters[0] != "user_id" {
 				t.Fatalf("%s required filters = %v, want [user_id]", definition.ID, definition.RequiredFilters)
 			}

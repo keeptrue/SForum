@@ -29,6 +29,7 @@ func (s *PostgresStore) ListPublicCatalog(ctx context.Context, limit int) ([]Pub
 	rows, err := s.pool.Query(ctx, `
 		SELECT badges.slug, badges.name, badges.description, badges.icon, badges.tier,
 		       COALESCE(badge_groups.key, ''), COALESCE(badge_groups.name, ''),
+		       badges.rule, badges.requirement_summary_zh, badges.requirement_summary_en,
 		       `+badgeTierColumnsSQL+`
 		FROM badges
 		LEFT JOIN badge_groups ON badge_groups.id = badges.group_id
@@ -43,12 +44,22 @@ func (s *PostgresStore) ListPublicCatalog(ctx context.Context, limit int) ([]Pub
 	items := make([]PublicCatalogEntry, 0, limit)
 	for rows.Next() {
 		var entry PublicCatalogEntry
+		var ruleRaw []byte
+		var summaryZh, summaryEn string
 		if err := rows.Scan(&entry.Slug, &entry.Name, &entry.Description, &entry.Icon,
 			&entry.Tier, &entry.GroupKey, &entry.GroupName,
+			&ruleRaw, &summaryZh, &summaryEn,
 			&entry.Appearance.NameZh, &entry.Appearance.NameEn,
 			&entry.Appearance.Color, &entry.Appearance.Position); err != nil {
 			return nil, false, fmt.Errorf("scan public badge catalog: %w", err)
 		}
+		// 文案在扫描时算：`BuildRequirementText` 只看运营文本与单条件规则，
+		// 不做 IO；放在这里比在 HTTP 层再拼一遍更不容易漏（目录与资料页同源）。
+		entry.RequirementText = BuildRequirementText(Badge{
+			Rule:                 decodeRuleQuietly(ruleRaw, entry.Slug),
+			RequirementSummaryZh: summaryZh,
+			RequirementSummaryEn: summaryEn,
+		})
 		items = append(items, entry)
 	}
 	if err := rows.Err(); err != nil {

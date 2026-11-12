@@ -15,15 +15,30 @@ import (
 // 混在同一个文件里会让 postgres_store.go 很快越过 500 行的可读边界。
 
 // CreateBadge 插入徽章定义。slug 冲突返回 ErrBadgeSlugTaken。
+//
+// `rule` 与两个 requirement_summary 列必须和定义一起落库，原因有两条：
+//   - `badges_rule_check` 要求自动徽章 `rule IS NOT NULL`，漏写这一列会撞约束、
+//     变成 500（而不是「规则没用上」这种能自查的症状）；
+//   - 运营在创建时填的双语要求是**用户可见内容**，丢在 INSERT 里等于静默清空，
+//     响应还能靠默认空串回显成「保存成功」。
+//
+// 创建没有「不改」语义：缺省即空串 / NULL，与表默认值一致，所以直接写值，
+// 不需要 UpdateBadge 那套三态 CASE。
 func (s *PostgresStore) CreateBadge(ctx context.Context, input BadgeInput) (Badge, error) {
+	var ruleArg any
+	if input.RuleSet && len(input.RuleRaw) > 0 {
+		ruleArg = []byte(input.RuleRaw)
+	}
 	var id int64
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO badges (slug, name, description, group_id, tier, icon, grant_mode,
-		                    metric, threshold, enabled, position)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		                    metric, threshold, enabled, position,
+		                    rule, requirement_summary_zh, requirement_summary_en)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14)
 		RETURNING id`,
 		input.Slug, input.Name, input.Description, input.GroupID, input.Tier, input.Icon,
 		input.GrantMode, nullableMetric(input.Metric), input.Threshold, input.Enabled, input.Position,
+		ruleArg, input.RequirementSummaryZh, input.RequirementSummaryEn,
 	).Scan(&id)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -36,15 +51,29 @@ func (s *PostgresStore) CreateBadge(ctx context.Context, input BadgeInput) (Badg
 
 // UpdateBadge 全量更新徽章定义。
 func (s *PostgresStore) UpdateBadge(ctx context.Context, badgeID int64, input BadgeInput) (Badge, error) {
+	// 规则三列用 `CASE WHEN` 而不是「无条件写回同值」：
+	// **jsonb 相等不代表 `::text` 相等**——jsonb 在写入时会规范化键序与空白，
+	// 所以「写回同一个值」也可能让 `rule::text` 变化，字节级断言（PATCH 只改 name
+	// 时规则必须一字不变）就会红。必须「不写」，而不是写回同值。
+	var ruleArg any
+	if input.RuleSet && len(input.RuleRaw) > 0 {
+		ruleArg = []byte(input.RuleRaw)
+	}
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE badges
 		SET slug = $2, name = $3, description = $4, group_id = $5, tier = $6,
 		    icon = $7, grant_mode = $8, metric = $9, threshold = $10,
-		    enabled = $11, position = $12, updated_at = now()
+		    enabled = $11, position = $12,
+		    rule = CASE WHEN $13 THEN $14::jsonb ELSE rule END,
+		    requirement_summary_zh = CASE WHEN $15 THEN $16 ELSE requirement_summary_zh END,
+		    requirement_summary_en = CASE WHEN $15 THEN $17 ELSE requirement_summary_en END,
+		    updated_at = now()
 		WHERE id = $1`,
 		badgeID, input.Slug, input.Name, input.Description, input.GroupID, input.Tier,
 		input.Icon, input.GrantMode, nullableMetric(input.Metric), input.Threshold,
 		input.Enabled, input.Position,
+		input.RuleSet, ruleArg, input.RequirementSummarySet,
+		input.RequirementSummaryZh, input.RequirementSummaryEn,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {

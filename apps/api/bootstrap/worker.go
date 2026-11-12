@@ -817,7 +817,7 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 		),
 	}
 	// 收藏提醒：worker 注册 + schedule 条目都在这里一次装好（见 worker_forum_jobs.go）。
-	bookmarkReminderEnqueuer := registerForumBookmarkRemindersWorker(registry, coreScheduleConstructors, wrapEnabled, cfg, pool, logger)
+	bookmarkReminderEnqueuer, badgeBackfillEnqueuer := registerForumBookmarkRemindersWorker(registry, coreScheduleConstructors, wrapEnabled, cfg, pool, logger)
 	applyUninstallCleanupSweepRegistration(registry, coreScheduleConstructors, wrapEnabled, deps)
 	scheduleRegistry, err := supportjobs.NewCoreScheduleRegistry(coreScheduleConstructors)
 	if err != nil {
@@ -855,6 +855,7 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	searchReconciler.WithDispatcher(supportjobs.NewDispatcher(client))
 	pluginJobEnqueuer.Dispatcher = supportjobs.NewDispatcher(client)
 	bookmarkReminderEnqueuer.Bind(supportjobs.NewDispatcher(client))
+	badgeBackfillEnqueuer.Bind(supportjobs.NewDispatcher(client))
 	if err := pluginSchedules.BindPeriodicPublisher(
 		supportjobs.NewPluginSchedulePeriodicPublisher(client.PeriodicJobs()),
 	); err != nil {

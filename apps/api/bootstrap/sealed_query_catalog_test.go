@@ -15,12 +15,12 @@ import (
 // 两个包各自必须能独立红；共用一个包会把两个独立失败面耦合成一个。
 //
 // 为什么不再用 `12 + len(ShortcodeProjectionQueryIDs())`：那个表达式在徽章三条查询落地时
-// 只会说「19 != 22」，不说多了哪三条，于是红了一整天没人认领。纯计数断言没有信息量。
+// 只会说「19 != 22」，不说多了哪几条，于是红了一整天没人认领。纯计数断言没有信息量。
 //
 // 构成：15 stable（含 1 条 consent-gated 的 core.query.identity.self_email）
-// + 7 shortcode 投影 = 22。三条徽章查询来自基线提交 f63ad2cf9。
+// + 7 shortcode 投影 = 23。四条徽章查询来自基线提交 f63ad2cf9 与规则引擎那一刀。
 var sealedCoreQueryCatalogIDs = []string{
-	// stable（15）
+	// stable（16）
 	"core.query.identity.self_email",
 	"core.query.public_attachment.by_public_id",
 	"core.query.public_badges.list",
@@ -31,6 +31,7 @@ var sealedCoreQueryCatalogIDs = []string{
 	"core.query.public_topic.by_id",
 	"core.query.public_topics.list",
 	"core.query.public_user_activity.list",
+	"core.query.public_user_badge_facts.list",
 	"core.query.public_user_badges.list",
 	"core.query.safe_user.by_id",
 	"core.query.safe_user.by_username",

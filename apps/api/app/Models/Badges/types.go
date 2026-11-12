@@ -1,8 +1,11 @@
 package badges
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // BadgeTier 是徽章档位的 key（等级表 badge_tiers.key 的引用）。
@@ -68,16 +71,25 @@ type Badge struct {
 	GroupKey    *string   `json:"groupKey"`
 	Tier        BadgeTier `json:"tier"`
 	// Appearance 是 tier 指向的等级行外观（双语名/颜色/位次）。
-	Appearance   TierAppearance  `json:"tierAppearance"`
-	Icon         string          `json:"icon"`
-	GrantMode    GrantMode       `json:"grantMode"`
-	Metric       *ActivityMetric `json:"metric"`
-	Threshold    *int64          `json:"threshold"`
-	Enabled      bool            `json:"enabled"`
-	Position     int             `json:"position"`
-	GrantedCount int64           `json:"grantedCount"`
-	CreatedAt    time.Time       `json:"createdAt"`
-	UpdatedAt    time.Time       `json:"updatedAt"`
+	Appearance TierAppearance `json:"tierAppearance"`
+	Icon       string         `json:"icon"`
+	GrantMode  GrantMode      `json:"grantMode"`
+	// Metric / Threshold 是 202611120002 之前的旧列：**写路径不再维护、求值不再读取**，
+	// 只作为 down 迁移的还原依据与后台只读展示保留一版。
+	Metric    *ActivityMetric `json:"metric"`
+	Threshold *int64          `json:"threshold"`
+	// Rule 是自动徽章的判定规则 AST（`badges.rule`）。自动徽章唯一认它；
+	// 手工徽章为 nil。解码失败时为 nil 且 RuleRaw 非空（见 rule_health 的失效清单）。
+	Rule    *ruleengine.Node `json:"-"`
+	RuleRaw json.RawMessage  `json:"-"`
+	// RequirementSummary* 是运营填的双语要求文案；空串表示由规则自动生成。
+	RequirementSummaryZh string    `json:"-"`
+	RequirementSummaryEn string    `json:"-"`
+	Enabled              bool      `json:"enabled"`
+	Position             int       `json:"position"`
+	GrantedCount         int64     `json:"grantedCount"`
+	CreatedAt            time.Time `json:"createdAt"`
+	UpdatedAt            time.Time `json:"updatedAt"`
 }
 
 // PublicBadge 是公开面的徽章定义。
@@ -97,6 +109,12 @@ type PublicBadge struct {
 	Metric      *ActivityMetric `json:"metric"`
 	Threshold   *int64          `json:"threshold"`
 	Position    int             `json:"position"`
+	// RequirementText 是公开面的双语「获得条件」自然语言。
+	// 运营填的优先；为空且规则是单条件时由服务端生成；多条件规则留空
+	// （宁可没有说明，也不把内部结构拼成一句读不懂的话）。
+	// **绝不包含 AST**：公开响应里出现 rule/cmp/params/children/op 会让规则结构
+	// 变成事实上的公开契约。
+	RequirementText RequirementText `json:"requirementText"`
 }
 
 // Public 从 admin 结构派生公开结构（丢掉运营与审计字段）。
@@ -114,6 +132,8 @@ func (b Badge) Public() PublicBadge {
 		Metric:      b.Metric,
 		Threshold:   b.Threshold,
 		Position:    b.Position,
+
+		RequirementText: BuildRequirementText(b),
 	}
 }
 

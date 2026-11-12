@@ -38,6 +38,21 @@ func normalizeV3Manifest(manifest *Manifest) {
 		item.DescriptionI18n = normalizeAIToolDescriptionI18n(item.DescriptionI18n)
 		item.Handler = strings.TrimSpace(item.Handler)
 	}
+	for index := range manifest.BadgeConditions {
+		item := &manifest.BadgeConditions[index]
+		item.Key = strings.TrimSpace(item.Key)
+		item.ContractVersion = strings.TrimSpace(item.ContractVersion)
+		for compareIndex := range item.Compare {
+			item.Compare[compareIndex] = strings.ToLower(strings.TrimSpace(item.Compare[compareIndex]))
+		}
+		for variantIndex := range item.Variants {
+			variant := &item.Variants[variantIndex]
+			variant.Value = strings.TrimSpace(variant.Value)
+			variant.Label = normalizeLocaleKeys(variant.Label)
+		}
+		item.Label = normalizeLocaleKeys(item.Label)
+		item.Unit = normalizeLocaleKeys(item.Unit)
+	}
 	for index := range manifest.Routes {
 		item := &manifest.Routes[index]
 		item.ID = NormalizeID(item.ID)
@@ -298,4 +313,29 @@ func coreGuardForRouteAccess(access string) (string, bool) {
 func normalizeDigest(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	return strings.TrimSpace(strings.TrimPrefix(value, "sha256:"))
+}
+
+// normalizeLocaleKeys 把 locale map 归一成 `zh-CN` / `en-US` 这类规范形，并修剪值
+// 两侧空白；键本身复用本包既有的 normalizeLocaleKey（manifest langs、localized
+// text、平台的 locale 字段都走它），不另造大小写规则。
+//
+// 空键与空值会被丢弃：没有展示意义的条目留着只会让规范字节依赖 map 遍历顺序。
+// 全空返回 nil，让「写了空 map」与「没写」序列化结果一致。
+func normalizeLocaleKeys(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	normalized := make(map[string]string, len(values))
+	for key, value := range values {
+		code := normalizeLocaleKey(key)
+		text := strings.TrimSpace(value)
+		if code == "" || text == "" {
+			continue
+		}
+		normalized[code] = text
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }

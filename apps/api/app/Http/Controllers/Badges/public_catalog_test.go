@@ -171,7 +171,7 @@ func TestPublicCatalogWireKeysAreWhitelisted(t *testing.T) {
 		}
 		// tierName / tierColor 是等级表下发的展示外观：tier 仍是 key（前端 data-tier 用它），
 		// 名字与颜色由服务端给，前端不该按 key 硬编码。
-		assertKeys(t, "badge entry", item, []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned"})
+		assertKeys(t, "badge entry", item, []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned", "requirementText"})
 		for _, forbidden := range []string{"threshold", "metric", "enabled", "grantedCount", "createdAt", "updatedAt", "id"} {
 			if _, present := item[forbidden]; present {
 				t.Fatalf("public catalog entry must not carry %q: %v", forbidden, item)
@@ -204,10 +204,12 @@ func TestPublicCatalogDTOCarriesNoThresholdOrMetricField(t *testing.T) {
 			tags:   []string{"key", "name", "badges"},
 		},
 		{
-			name:   "entry",
-			typ:    reflect.TypeOf(publicBadgeCatalogItem{}),
-			fields: []string{"Slug", "Name", "Description", "Icon", "Tier", "TierName", "TierColor", "Group", "Earned"},
-			tags:   []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned"},
+			name: "entry",
+			typ:  reflect.TypeOf(publicBadgeCatalogItem{}),
+			// requirementText 与 OpenAPI 的 PublicBadgeCatalogEntry.required 同步：
+			// 「过滤后重建结构」最容易漏这类新键，所以这里做白名单式断言。
+			fields: []string{"Slug", "Name", "Description", "Icon", "Tier", "TierName", "TierColor", "Group", "Earned", "RequirementText"},
+			tags:   []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned", "requirementText"},
 		},
 	}
 	for _, tc := range cases {

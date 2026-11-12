@@ -2,6 +2,7 @@ package badges
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,11 +10,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // PostgresStore 是 Store 的生产实现。
 type PostgresStore struct {
 	pool *pgxpool.Pool
+	// factKeys 是已声明的插件事实 key 来源；nil 表示没有扩展（空集）。
+	factKeys FactKeyProvider
+	// factCandidates 是事实**候选**来源（含 variant 与双语 label）。
+	//
+	// 与 factKeys 分开而不是从它派生：键集合用于「这个 key 还能不能用」，
+	// 候选还带 variants，保存期要靠它拦拼错的 variant（spec §8 Errata 2 #1）。
+	// 两者在生产装配里同源（见 bootstrap），但测试与迁移期可以只给其中一个。
+	factCandidates conditions.FactCandidateProvider
+	// declaredProviders 是 identity registry 已声明的 provider（含零绑定）；nil 时只认绑定表。
+	declaredProviders DeclaredProviderFunc
 }
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
@@ -54,6 +68,7 @@ const badgeColumnsSQL = `
 	badges.group_id, badge_groups.name AS group_name, badge_groups.key AS group_key,
 	badges.tier, badges.icon, badges.grant_mode, badges.metric, badges.threshold,
 	badges.enabled, badges.position, badges.created_at, badges.updated_at,
+	badges.rule, badges.requirement_summary_zh, badges.requirement_summary_en,
 	COALESCE(grants.granted_count, 0) AS granted_count,` + badgeTierColumnsSQL
 
 const badgeJoinsSQL = `
@@ -67,22 +82,41 @@ const badgeJoinsSQL = `
 func scanBadge(row pgx.Row) (Badge, error) {
 	var badge Badge
 	var metric *string
+	var ruleRaw []byte
 	if err := row.Scan(
 		&badge.ID, &badge.Slug, &badge.Name, &badge.Description,
 		&badge.GroupID, &badge.GroupName, &badge.GroupKey,
 		&badge.Tier, &badge.Icon, &badge.GrantMode, &metric, &badge.Threshold,
 		&badge.Enabled, &badge.Position, &badge.CreatedAt, &badge.UpdatedAt,
+		&ruleRaw, &badge.RequirementSummaryZh, &badge.RequirementSummaryEn,
 		&badge.GrantedCount,
 		&badge.Appearance.NameZh, &badge.Appearance.NameEn, &badge.Appearance.Color,
 		&badge.Appearance.Position,
 	); err != nil {
 		return Badge{}, err
 	}
+	applyScannedBadgeFields(&badge, metric, ruleRaw)
+	return badge, nil
+}
+
+// applyScannedBadgeFields 把「可空 metric + rule 解码」的扫描后处理收在一处。
+//
+// 后台列表（scanBadge）与资料页（ListUserBadges）必须逐字同口径：同一条脏规则
+// 若在两处得到不同的 Rule，资料页就会莫名少一句「获得条件」，而目录页有——这种
+// 分叉没有编译期信号，只能靠共用同一段代码 + 双向测试守住。
+func applyScannedBadgeFields(badge *Badge, metric *string, ruleRaw []byte) {
 	if metric != nil {
 		value := ActivityMetric(*metric)
 		badge.Metric = &value
 	}
-	return badge, nil
+	if len(ruleRaw) > 0 {
+		badge.RuleRaw = append(json.RawMessage(nil), ruleRaw...)
+		// 解码失败不返回错误：一条脏规则不该让整个列表/评估崩掉。Rule 留 nil，
+		// 评估按「不满足」处理，rule_health 会把 RuleRaw 非空 + Rule 为 nil 的行列出来。
+		if node, err := ruleengine.Decode(ruleRaw); err == nil {
+			badge.Rule = &node
+		}
+	}
 }
 
 // ListBadges 返回全部徽章（含停用），按分组位置、徽章位置排序。
@@ -156,11 +190,17 @@ func (s *PostgresStore) ListGroups(ctx context.Context) ([]BadgeGroup, error) {
 }
 
 // ListUserBadges 返回「全部启用徽章 × 该用户」的墙：未获得的也要出现（进度用）。
+//
+// 文案（`RequirementText`）只能经 `Badge.Public()` 生成，与公开目录共用
+// `BuildRequirementText` 一份口径。本查询曾经漏选 rule / requirement_summary_*
+// 三列，资料页于是恒为 `{"zh":"","en":""}`，而目录页同一枚徽章有文案——
+// 前端按「文案整行为空」隐藏卡片，症状是徽章墙少行、且没有报错。
 func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]UserBadge, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT badges.id, badges.slug, badges.name, badges.description,
 		       badge_groups.key AS group_key, badges.tier, badges.icon,
 		       badges.grant_mode, badges.metric, badges.threshold, badges.position,
+		       badges.rule, badges.requirement_summary_zh, badges.requirement_summary_en,
 		       user_badges.granted_at,
 		       `+badgeTierColumnsSQL+`
 		FROM badges
@@ -177,24 +217,27 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 	items := make([]UserBadge, 0, 16)
 	for rows.Next() {
 		var item UserBadge
+		var badge Badge
 		var metric *string
+		var ruleRaw []byte
 		if err := rows.Scan(
-			&item.Badge.ID, &item.Badge.Slug, &item.Badge.Name, &item.Badge.Description,
-			&item.Badge.GroupKey, &item.Badge.Tier, &item.Badge.Icon,
-			&item.Badge.GrantMode, &metric, &item.Badge.Threshold, &item.Badge.Position,
+			&badge.ID, &badge.Slug, &badge.Name, &badge.Description,
+			&badge.GroupKey, &badge.Tier, &badge.Icon,
+			&badge.GrantMode, &metric, &badge.Threshold, &badge.Position,
+			&ruleRaw, &badge.RequirementSummaryZh, &badge.RequirementSummaryEn,
 			&item.GrantedAt,
-			&item.Badge.Appearance.NameZh, &item.Badge.Appearance.NameEn,
-			&item.Badge.Appearance.Color, &item.Badge.Appearance.Position,
+			&badge.Appearance.NameZh, &badge.Appearance.NameEn,
+			&badge.Appearance.Color, &badge.Appearance.Position,
 		); err != nil {
 			return nil, fmt.Errorf("scan user badge: %w", err)
 		}
-		if metric != nil {
-			value := ActivityMetric(*metric)
-			item.Badge.Metric = &value
-		}
+		applyScannedBadgeFields(&badge, metric, ruleRaw)
+		// 投影一步不自己拼文案：运营文本优先 / 单条件生成 / 多条件留空的分支
+		// 只在 BuildRequirementText 里有一份，抄第二遍必然与目录页分叉。
+		item.Badge = badge.Public()
 		item.Earned = item.GrantedAt != nil
-		if item.Badge.Threshold != nil {
-			item.Progress.Threshold = *item.Badge.Threshold
+		if badge.Threshold != nil {
+			item.Progress.Threshold = *badge.Threshold
 		}
 		items = append(items, item)
 	}
@@ -398,7 +441,7 @@ func (s *PostgresStore) RecomputeTopBadge(ctx context.Context, userID int64) err
 //
 // granted_by = NULL + grant_reason = 'recompute' 让授予记录能区分三种来源：
 // 规则自动（NULL/”）、管理员手动（actor/理由）、批量重算（NULL/'recompute'）。
-func (s *PostgresStore) GrantFromRules(ctx context.Context) (int64, error) {
+func (s *PostgresStore) GrantFromRules(ctx context.Context) (int64, []int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		INSERT INTO user_badges (user_id, badge_id, granted_by, grant_reason)
 		SELECT activity.user_id, rules.id, NULL, 'recompute'
@@ -406,23 +449,74 @@ func (s *PostgresStore) GrantFromRules(ctx context.Context) (int64, error) {
 		JOIN badges AS rules
 		  ON rules.enabled
 		 AND rules.grant_mode = 'automatic'
-		 AND rules.metric IS NOT NULL
-		 AND rules.threshold IS NOT NULL
-		 AND rules.threshold > 0
-		WHERE CASE rules.metric
+		 AND `+fastPathRulePredicateSQL("rules")+`
+		WHERE CASE rules.rule->'root'->'params'->>'metric'
 		        WHEN 'topic_count'         THEN activity.topic_count
 		        WHEN 'comment_count'       THEN activity.comment_count
 		        WHEN 'like_received_count' THEN activity.like_received_count
 		        WHEN 'like_given_count'    THEN activity.like_given_count
 		        WHEN 'bookmark_count'      THEN activity.bookmark_count
 		        WHEN 'days_visited'        THEN activity.days_visited::bigint
-		        ELSE NULL
-		      END >= rules.threshold
+		      END >= (rules.rule->'root'->'cmp'->>'value')::bigint
 		ON CONFLICT ON CONSTRAINT user_badges_unique DO NOTHING`)
 	if err != nil {
-		return 0, fmt.Errorf("grant badges from rules: %w", err)
+		return 0, nil, fmt.Errorf("grant badges from rules: %w", err)
 	}
-	return tag.RowsAffected(), nil
+	complexIDs, err := s.complexRuleBadgeIDs(ctx)
+	if err != nil {
+		return 0, nil, err
+	}
+	return tag.RowsAffected(), complexIDs, nil
+}
+
+// fastPathRulePredicateSQL 必须与 Go 侧 `fastPathRule()` **完全等价**。
+//
+// 少一个条件就是语义 bug，而且是批量级的：只认 `type` + `window.kind` 而漏掉
+// `cmp.op = 'gte'`，一条 `lte 5` 的规则会被这条 SQL 当成 `>= 5` 授予全站。
+// 逐条对应：
+//   - `op IS NULL`：组节点不是快路径（`all` 包一个叶子在语义上等价，但
+//     `fastPathRule` 只认叶子根，SQL 跟着收窄——漏选只是变慢，误选是语义错）；
+//   - `metric IN (...)`：与 `ActivityMetric.Valid()` 的六项白名单一致；
+//   - `window.kind='all'` 且 `window.days IS NULL`：`fastPathRule` 对带 days 的 all 也拒绝；
+//   - `cmp.op='gte'`、`value` 是数字且 > 0：与 `fastPathRule` 的 `value <= 0` 拒绝一致。
+func fastPathRulePredicateSQL(alias string) string {
+	return fmt.Sprintf(`
+		     %[1]s.rule->>'v' = '1'
+		 AND %[1]s.rule->'root'->>'op' IS NULL
+		 AND %[1]s.rule->'root'->>'type' = 'activity.count'
+		 AND %[1]s.rule->'root'->'params'->>'metric' IN (
+		       'topic_count','comment_count','like_received_count',
+		       'like_given_count','bookmark_count','days_visited')
+		 AND %[1]s.rule->'root'->'params'->'window'->>'kind' = 'all'
+		 AND %[1]s.rule->'root'->'params'->'window'->'days' IS NULL
+		 AND %[1]s.rule->'root'->'cmp'->>'op' = 'gte'
+		 AND jsonb_typeof(%[1]s.rule->'root'->'cmp'->'value') = 'number'
+		 AND (%[1]s.rule->'root'->'cmp'->>'value') ~ '^[0-9]+$'
+		 AND (%[1]s.rule->'root'->'cmp'->>'value')::bigint > 0`, alias)
+}
+
+// complexRuleBadgeIDs 返回「自动徽章里不能走快路径」的那些 id。
+//
+// `rule IS NULL` 不算：没有规则就没有可评估的东西，入队只会让 job 空转一遍；
+// 这类脏数据由 `rule_health` 报出来。
+func (s *PostgresStore) complexRuleBadgeIDs(ctx context.Context) ([]int64, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id FROM badges
+		WHERE enabled AND grant_mode = 'automatic' AND rule IS NOT NULL
+		  AND NOT (`+fastPathRulePredicateSQL("badges")+`)`)
+	if err != nil {
+		return nil, fmt.Errorf("list complex rule badges: %w", err)
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan complex rule badge: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 // RecomputeAll 全量重算 top_badge_id，返回实际变更的行数。

@@ -28,6 +28,9 @@ const (
 	AIInvoke = "ai.invoke"
 	// EventsEmit 允许插件向宿主事件通道发布自身命名空间下的事件。
 	EventsEmit = "events.emit"
+	// BadgesFactWrite 允许插件通过 Host 命令上报用户维度的徽章事实计数。
+	// 它不授予任何表访问：写入只有一个入口（host 命令），宿主负责取整、边界与审计。
+	BadgesFactWrite = "badges.fact.write"
 	// Trusted automation: process capabilities, never human RBAC or PAT scopes.
 	ExtensionsRead   = "extensions.read"
 	ExtensionsCall   = "extensions.call"
@@ -157,6 +160,15 @@ var catalog = []Definition{
 		LabelZH:     "发布自身命名空间事件",
 		LabelEN:     "Emit own-namespace events",
 		Description: "Publish events strictly under this extension's namespace through the Host event channel; core event names and other plugins' namespaces stay closed.",
+	},
+	{
+		// 启用确认弹窗只渲染 label：这一行就是运营判断风险时读到的全部文案，
+		// 因此必须自解释成「写入用户维度的插件事实计数」，而不是笼统的「徽章」。
+		Key:         BadgesFactWrite,
+		Risk:        RiskMedium,
+		LabelZH:     "写入插件事实计数",
+		LabelEN:     "Write plugin fact counters",
+		Description: "Report per-user badge fact counters only through the Host badges.fact.record command. The Host clamps deltas, enforces bounds, and audits every write; it never grants direct access to badge or counter tables.",
 	},
 }
 

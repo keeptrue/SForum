@@ -12,6 +12,7 @@ import (
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // 徽章 HTTP 层：公开 1 条（资料页徽章墙）+ 后台 12 条。
@@ -99,6 +100,12 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	admin.Patch("/tiers/:tierKey", h.adminUpdateBadgeTier)
 	admin.Delete("/tiers/:tierKey", h.adminDeleteBadgeTier)
 	admin.Get("/grant-candidates", h.adminSearchGrantCandidates)
+	// 规则引擎的两条静态段：与 /:badgeID 同形，必须在这里注册。
+	// 顺序错了 `conditions` 会被当成 badgeID 解析成 0（报 invalid id / 500）。
+	admin.Get("/conditions", h.adminListBadgeConditions)
+	admin.Get("/rule-health", h.adminBadgeRuleHealth)
+	// 回扫进度同样是静态段：与 /:badgeID 系列同形，必须排在任何含参数段的 GET 之前。
+	admin.Get("/backfill-status", h.adminBadgeBackfillStatus)
 	admin.Get("/", h.adminListBadges)
 	admin.Post("/", h.adminCreateBadge)
 	admin.Patch("/:badgeID", h.adminUpdateBadge)
@@ -107,6 +114,7 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	admin.Post("/groups", h.adminCreateBadgeGroup)
 	admin.Patch("/groups/:groupID", h.adminUpdateBadgeGroup)
 	admin.Delete("/groups/:groupID", h.adminDeleteBadgeGroup)
+	admin.Get("/:badgeID/rule-impact", h.adminBadgeRuleImpact)
 	admin.Get("/:badgeID/grants", h.adminListBadgeGrants)
 	admin.Post("/:badgeID/grants", h.adminCreateBadgeGrant)
 	admin.Post("/:badgeID/grants/batch", h.adminBatchGrantBadge)
@@ -133,6 +141,19 @@ func (h *Controller) requireFeature(ctx context.Context) error {
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
+	// loadActor 是测试缝（生产装配留空）：后台端点要能验证「未登录 401 / 缺权限 403 /
+	// 有权限 200 + no-store」这三条路径，而真实会话需要 Redis。缝只影响 actor 解析，
+	// 权限判定仍在域层（`requireBadgePermission`）与路由守卫里，不放宽任何边界。
+	if h.loadActor != nil {
+		actor, err := h.loadActor(c)
+		if err != nil {
+			return identity.Actor{}, err
+		}
+		if actor.ID <= 0 {
+			return identity.Actor{}, fiber.NewError(fiber.StatusUnauthorized, "auth.required")
+		}
+		return actor, nil
+	}
 	actor, err := apphttp.OptionalActor(c, h.sessions, h.users)
 	if err != nil {
 		return identity.Actor{}, err
@@ -277,11 +298,33 @@ type badgeBody struct {
 	GroupID     patchField[int64]  `json:"groupId"`
 	Metric      patchField[string] `json:"metric"`
 	Threshold   patchField[int64]  `json:"threshold"`
+	// Rule 三态：缺省 = 不改 / null = 清空 / 对象 = 替换。
+	// 用既有的 patchField（Set + *Value）而不是自造 `*json.RawMessage` 判空：
+	// 后者会把「缺省」和「显式 null」写成同一个分支，症状是「只改名字」把规则清空。
+	Rule patchField[json.RawMessage] `json:"rule"`
+	// RequirementSummary 是**整体替换**：字段存在就两种语言都写（缺哪个当空串），
+	// 缺省则两个都不动。
+	RequirementSummary patchField[requirementSummaryBody] `json:"requirementSummary"`
+}
+
+// requirementSummaryBody 是运营填的双语要求。
+type requirementSummaryBody struct {
+	Zh string `json:"zh"`
+	En string `json:"en"`
 }
 
 // createInput 组装创建入参：创建时缺省字段用推荐默认值。
 func (b badgeBody) createInput() badges.BadgeInput {
 	input := badges.BadgeInput{Enabled: true, Icon: "i-lucide-award"}
+	if b.Rule.Set && b.Rule.Value != nil {
+		input.RuleSet = true
+		input.RuleRaw = append(json.RawMessage(nil), (*b.Rule.Value)...)
+	}
+	if b.RequirementSummary.Set && b.RequirementSummary.Value != nil {
+		input.RequirementSummarySet = true
+		input.RequirementSummaryZh = b.RequirementSummary.Value.Zh
+		input.RequirementSummaryEn = b.RequirementSummary.Value.En
+	}
 	if b.Slug != nil {
 		input.Slug = *b.Slug
 	}
@@ -362,6 +405,17 @@ func (b badgeBody) mergeInto(current badges.Badge) badges.BadgeInput {
 	}
 	if b.Metric.Set {
 		input.Metric = metricValue(b.Metric.Value)
+	}
+	if b.Rule.Set {
+		input.RuleSet = true
+		if b.Rule.Value != nil {
+			input.RuleRaw = append(json.RawMessage(nil), (*b.Rule.Value)...)
+		}
+	}
+	if b.RequirementSummary.Set && b.RequirementSummary.Value != nil {
+		input.RequirementSummarySet = true
+		input.RequirementSummaryZh = b.RequirementSummary.Value.Zh
+		input.RequirementSummaryEn = b.RequirementSummary.Value.En
 	}
 	if b.Threshold.Set {
 		input.Threshold = b.Threshold.Value
@@ -657,8 +711,9 @@ func (h *Controller) adminRecomputeBadges(c fiber.Ctx) error {
 		return mapBadgeError(err)
 	}
 	setAdminNoStore(c)
-	// 两个数字分开返回：granted=本次补的授予，refreshed=top_badge_id 变化的人数。
-	return apphttp.OK(c, map[string]any{"granted": result.Granted, "refreshed": result.Refreshed})
+	// 三个计数器分开返回：granted=本次补的授予，refreshed=top_badge_id 变化的人数，
+	// queued=转入异步评估的徽章数。映射抽在 dto.go，便于单测与契约比对。
+	return apphttp.OK(c, toRecomputeResponse(result))
 }
 
 // findGroup 从分组列表里取当前值（分组只有几十行，不值得为它加一条 store 接口）。
@@ -695,7 +750,27 @@ func mapBadgeError(err error) error {
 	case errors.Is(err, badges.ErrBadgeAlreadyGranted):
 		return fiber.NewError(fiber.StatusConflict, badges.CodeBadgeAlreadyGranted)
 	case errors.Is(err, badges.ErrBadgeRuleInvalid):
-		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleInvalid)
+		// 规则引擎的错误按**引擎错误码**细分：前端有
+		// `admin.badges.rule.errors.<code>` 文案，笼统返回 badge_rule_invalid
+		// 会让「层级太深」与「条件未知」显示成同一句话。
+		switch ruleengine.CodeOf(err) {
+		case ruleengine.CodeUnknownCondition:
+			return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleUnknownCond)
+		case ruleengine.CodeTooDeep, ruleengine.CodeTooManyNodes, ruleengine.CodeTooManyLeaves, ruleengine.CodeValueOutOfRange:
+			return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleTooComplex)
+		default:
+			return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleInvalid)
+		}
+	case errors.Is(err, badges.ErrBadgeRuleReferenceInvalid):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleReferenceInvalid)
+	case errors.Is(err, badges.ErrBadgeRuleCycle):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleCycle)
+	case errors.Is(err, badges.ErrBadgeFactWriteDenied):
+		return fiber.NewError(fiber.StatusForbidden, badges.CodeBadgeFactWriteDenied)
+	case errors.Is(err, badges.ErrBadgeBackfillUnavailable):
+		// 422 而不是 503：这是「请求当前无法完成，需要运维接入回扫入口」，
+		// 属于业务前置条件缺失，重试不会变好。
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeBackfillUnavailable)
 	case errors.Is(err, badges.ErrBadgeManualOnly):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeManualOnly)
 	case errors.Is(err, badges.ErrBadgeTierNotFound):

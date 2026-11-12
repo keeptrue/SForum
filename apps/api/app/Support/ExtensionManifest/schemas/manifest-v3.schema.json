@@ -169,6 +169,9 @@
     "aiTools": {
       "$ref": "#/$defs/aiTools"
     },
+    "badgeConditions": {
+      "$ref": "#/$defs/badgeConditions"
+    },
     "packageFiles": {
       "$ref": "#/$defs/packageFiles"
     },
@@ -283,6 +286,48 @@
                 }
               }
             }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "backend"
+        ],
+        "properties": {
+          "type": {
+            "const": "plugin"
+          },
+          "backend": {
+            "type": "object",
+            "required": [
+              "entry",
+              "protocolVersion"
+            ],
+            "properties": {
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "protocolVersion": {
+                "const": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "badgeConditions"
+        ],
+        "properties": {
+          "badgeConditions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 1
           }
         }
       },
@@ -3306,6 +3351,108 @@
         },
         "checkpointSchema": {
           "$ref": "#/$defs/schemaRef"
+        }
+      }
+    },
+    "badgeConditions": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "contractVersion",
+          "label",
+          "compare"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 121,
+            "pattern": "^[a-z0-9][a-z0-9._-]{1,120}$"
+          },
+          "contractVersion": {
+            "$ref": "#/$defs/contract"
+          },
+          "label": {
+            "type": "object",
+            "minProperties": 2,
+            "maxProperties": 8,
+            "required": [
+              "zh-CN",
+              "en-US"
+            ],
+            "additionalProperties": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "unit": {
+            "type": "object",
+            "minProperties": 2,
+            "maxProperties": 8,
+            "required": [
+              "zh-CN",
+              "en-US"
+            ],
+            "additionalProperties": {
+              "$ref": "#/$defs/nonEmpty"
+            }
+          },
+          "compare": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "gte",
+                "gt",
+                "lte",
+                "lt",
+                "eq"
+              ]
+            }
+          },
+          "variants": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "value",
+                "label"
+              ],
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+                },
+                "label": {
+                  "type": "object",
+                  "minProperties": 2,
+                  "maxProperties": 8,
+                  "required": [
+                    "zh-CN",
+                    "en-US"
+                  ],
+                  "additionalProperties": {
+                    "$ref": "#/$defs/nonEmpty"
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

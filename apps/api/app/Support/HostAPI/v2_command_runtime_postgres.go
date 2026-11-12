@@ -32,6 +32,14 @@ type PostgresProtocolV2CommandRuntimeConfig struct {
 	// TrustLevels 是信任等级来源（与 identity store 同一实例）。nil 时插件命令
 	// 授权看不到已挣得权限——装配层必须注入，否则「HTTP 放行、插件 403」（D22）。
 	TrustLevels identity.TrustLevelSource
+	// BadgeFactKeys 返回某扩展自己声明的事实 key。nil 时 fail-closed
+	// （所有权无法证明 ⇒ 一律 `fact_key_not_declared`），绝不放行。
+	BadgeFactKeys ProtocolV2BadgeFactDeclarationReader
+	// BadgeFacts 是插件事实的写口（`*badges.PostgresStore` 满足）。
+	//
+	// 为 nil 时命令**仍然注册**、但一律拒绝 `fact_write_failed`：目录是密封的，
+	// 少一个依赖不能让调用方拿到 unknown command（那会让插件以为是版本不支持）。
+	BadgeFacts ProtocolV2BadgeFactRecorder
 }
 
 // NewPostgresProtocolV2CommandRuntime publishes the complete immutable domain
@@ -59,6 +67,7 @@ func NewPostgresProtocolV2CommandRuntime(config PostgresProtocolV2CommandRuntime
 		newProtocolV2ExtensionSettingsUpdateCommandDefinition(),
 		newProtocolV2ExtensionSettingsActionCommandDefinition(),
 		newProtocolV2NotificationEmitCommandDefinition(config.Pool, config.Jobs),
+		newProtocolV2BadgeFactRecordCommandDefinition(config.Pool, config.BadgeFacts, config.BadgeFactKeys),
 		newProtocolV2EventsEmitCommandDefinition(config.Events),
 		newProtocolV2AICompleteCommandDefinition(config.AI),
 	}

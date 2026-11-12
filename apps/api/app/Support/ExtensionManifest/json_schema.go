@@ -89,7 +89,10 @@ func compiledManifestSchema(fragment string) (*jsonschema.Schema, error) {
 			return
 		}
 		manifestSchemas = map[string]*jsonschema.Schema{}
-		fragments := []string{"", "guards", "schedules", "components", "templates", "assets", "content", "editor", "database", "cache", "seo", "services", "commands", "adminSurfaces", "adminPages", "aiTools", "queries", "queryResultFilters", "identity", "permissionDefinitions", "notificationTypes", "media", "navigation", "regions", "dependencies", "lifecycle", "openapi", "packageFiles"}
+		// 追加片段时**必须与 schemas/manifest-v3.schema.json 的 $defs 同批**：
+		// 这里多一个名字但 $defs 里没有对应成员，compiler.Compile 在 init 期就失败，
+		// 全仓的清单校验会一起挂（不是「只影响这个分片」）。
+		fragments := []string{"", "guards", "schedules", "components", "templates", "assets", "content", "editor", "database", "cache", "seo", "services", "commands", "adminSurfaces", "adminPages", "aiTools", "badgeConditions", "queries", "queryResultFilters", "identity", "permissionDefinitions", "notificationTypes", "media", "navigation", "regions", "dependencies", "lifecycle", "openapi", "packageFiles"}
 		for _, name := range fragments {
 			location := manifestV3SchemaURL
 			if name != "" {

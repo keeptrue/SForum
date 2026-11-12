@@ -2,7 +2,9 @@ package badgescontroller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 type fakeGate struct {
@@ -162,5 +165,68 @@ func TestCacheHeadersSeparatePublicAndAdmin(t *testing.T) {
 	}
 	if got := adminResp.Header.Get(fiber.HeaderCacheControl); got != "private, no-store" {
 		t.Fatalf("admin cache-control = %q", got)
+	}
+}
+
+// TestMapBadgeErrorRuleCodes 是 M1.4-08 的映射层断言：五个规则错误码必须都映射成
+// **422**，不能落到 default（那是 500）。
+//
+// 为什么不造 HTTP 装配：这五个码是服务层语义，HTTP 只做映射；给 admin 写路径造一套
+// 新装配测的是「装配对不对」而不是「码对不对」，长期维护成本还高。服务层断言
+// （`TestRuleErrorCodesAtServiceLayer`）+ 这条映射断言 = 完整链路。
+func TestMapBadgeErrorRuleCodes(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		code string
+	}{
+		// 必须包真正的 *ruleengine.Error：`CodeOf` 走 errors.As，拼字符串是取不到码的。
+		{"too_complex", fmt.Errorf("%w: %w", badges.ErrBadgeRuleInvalid, &ruleengine.Error{Code: ruleengine.CodeTooDeep, Path: "root", Detail: "depth"}), badges.CodeBadgeRuleTooComplex},
+		{"unknown_condition", fmt.Errorf("%w: %w", badges.ErrBadgeRuleInvalid, &ruleengine.Error{Code: ruleengine.CodeUnknownCondition, Path: "root.children[0]", Detail: "unknown"}), badges.CodeBadgeRuleUnknownCond},
+		{"cycle", fmt.Errorf("%w: a -> b -> a", badges.ErrBadgeRuleCycle), badges.CodeBadgeRuleCycle},
+		{"reference_invalid", fmt.Errorf("%w: category gone", badges.ErrBadgeRuleReferenceInvalid), badges.CodeBadgeRuleReferenceInvalid},
+		{"backfill_unavailable", badges.ErrBadgeBackfillUnavailable, badges.CodeBadgeBackfillUnavailable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mapped := mapBadgeError(tc.err)
+			var fiberErr *fiber.Error
+			if !errors.As(mapped, &fiberErr) {
+				t.Fatalf("必须映射成 fiber.Error，得到 %T", mapped)
+			}
+			if fiberErr.Code != fiber.StatusUnprocessableEntity {
+				t.Fatalf("%s 必须映射成 422，得到 %d", tc.name, fiberErr.Code)
+			}
+			if fiberErr.Message != tc.code {
+				t.Fatalf("%s 错误码 = %q，want %q", tc.name, fiberErr.Message, tc.code)
+			}
+		})
+	}
+}
+
+// TestRecomputeResponseCarriesAllCounters 是 M1.4-21 的映射层回归。
+//
+// 事故形态：handler 里内联的 map 字面量只写了 granted / refreshed，`queued` 被丢掉，
+// 而 OpenAPI 的 `BadgeRecomputeResult.required` 要求三个键。契约与实现不一致，
+// 但功能路径（重算确实跑了）完全正常——只有返回结构不对。
+//
+// 断言三件事：三个键都在、值映射正确、**没有多余键**（多键同样是契约漂移）。
+func TestRecomputeResponseCarriesAllCounters(t *testing.T) {
+	raw, err := json.Marshal(toRecomputeResponse(badges.RecomputeResult{Granted: 1, Refreshed: 2, Queued: 3}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got map[string]int64
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	want := map[string]int64{"granted": 1, "refreshed": 2, "queued": 3}
+	if len(got) != len(want) {
+		t.Fatalf("键集合 = %v，want %v（多键或少键都是契约漂移）", got, want)
+	}
+	for key, value := range want {
+		if got[key] != value {
+			t.Fatalf("%s = %d，want %d（完整响应 %v）", key, got[key], value, got)
+		}
 	}
 }

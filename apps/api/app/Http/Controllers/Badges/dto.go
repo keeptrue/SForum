@@ -1,9 +1,11 @@
 package badgescontroller
 
 import (
+	"encoding/json"
 	"time"
 
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
 )
 
 // 本文件只做「领域结构 → 扁平 JSON」的映射，不写任何业务逻辑：
@@ -25,9 +27,11 @@ type profileBadgeItem struct {
 	Icon      string      `json:"icon"`
 	Position  int         `json:"position"`
 	Earned    bool        `json:"earned"`
-	Current   *int64      `json:"current,omitempty"`
-	Threshold *int64      `json:"threshold,omitempty"`
-	GrantedAt *time.Time  `json:"grantedAt,omitempty"`
+	// RequirementText 与目录同源：用户看到徽章想「怎么拿」是同一个需求。
+	RequirementText requirementTextDTO `json:"requirementText"`
+	Current         *int64             `json:"current,omitempty"`
+	Threshold       *int64             `json:"threshold,omitempty"`
+	GrantedAt       *time.Time         `json:"grantedAt,omitempty"`
 }
 
 // tierNameDTO 是等级的双语名。两个语言都下发，前端按当前 locale 选：
@@ -81,6 +85,8 @@ func toProfileBadgeItem(entry badges.UserBadge) profileBadgeItem {
 		Icon:      entry.Badge.Icon,
 		Position:  entry.Badge.Position,
 		Earned:    entry.Earned,
+
+		RequirementText: toRequirementText(entry.Badge.RequirementText),
 	}
 	if entry.Earned {
 		// 已获得：只给 grantedAt，不给进度条数据。
@@ -131,6 +137,19 @@ type publicBadgeCatalogItem struct {
 	TierColor   string      `json:"tierColor"`
 	Group       string      `json:"group"`
 	Earned      bool        `json:"earned"`
+	// RequirementText 是公开面的双语「获得条件」。领域层由 `Badge.Public()` 填好，
+	// 这里必须原样带出——「过滤后重建结构」最容易漏的就是这类新字段。
+	RequirementText requirementTextDTO `json:"requirementText"`
+}
+
+// requirementTextDTO 是双语要求文案。两语言都下发，前端按 locale 选。
+type requirementTextDTO struct {
+	Zh string `json:"zh"`
+	En string `json:"en"`
+}
+
+func toRequirementText(text badges.RequirementText) requirementTextDTO {
+	return requirementTextDTO{Zh: text.Zh, En: text.En}
 }
 
 // toPublicCatalog 把领域目录映射成 wire 形状，并按查看者合并 earned。
@@ -153,6 +172,8 @@ func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) p
 				TierColor:   entry.Appearance.Color,
 				Group:       entry.GroupKey,
 				Earned:      granted,
+
+				RequirementText: toRequirementText(entry.RequirementText),
 			})
 		}
 		groups = append(groups, publicBadgeCatalogGroup{
@@ -165,25 +186,41 @@ func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) p
 }
 
 // adminBadgeResponse 是后台列表的一行：公开面不得出现这些字段。
+//
+// Rule 是 `badges.rule` 的**原始字节** `{"v":1,"root":{...}}`，不是重新 marshal
+// 的 `*ruleengine.Node`：
+//   - 重新 marshal 会丢掉解码器不认识的字段（规则写入方是后台表单，但导入、
+//     M3 插件或回滚版本的规则可能带本版本不认识的键），运营打开编辑器再保存
+//     就等于静默改写规则；
+//   - 解码失败的脏规则在领域层是 `Rule=nil` + `RuleRaw` 非空（见 rule_health），
+//     按 Node 序列化会把它变成 `null`，编辑器就再也看不到「这条规则坏在哪」。
+//
+// 手写徽章 / 无规则时**输出 `null`**（键必须在）：前端据此区分「没有规则」与
+// 「字段没下发」，后者会被当成读取失败并禁用编辑器。
+//
+// RequirementSummary 无 omitempty：空串是有效值（表示「按规则自动生成文案」），
+// 缺键会让前端把「运营清空了文案」误判为「后端没实现」。
 type adminBadgeResponse struct {
-	ID           int64       `json:"id"`
-	Slug         string      `json:"slug"`
-	Name         string      `json:"name"`
-	Description  string      `json:"description"`
-	GroupID      *int64      `json:"groupId"`
-	GroupName    *string     `json:"groupName"`
-	Tier         string      `json:"tier"`
-	TierName     tierNameDTO `json:"tierName"`
-	TierColor    string      `json:"tierColor"`
-	Icon         string      `json:"icon"`
-	GrantMode    string      `json:"grantMode"`
-	Metric       *string     `json:"metric"`
-	Threshold    *int64      `json:"threshold"`
-	Enabled      bool        `json:"enabled"`
-	Position     int         `json:"position"`
-	GrantedCount int64       `json:"grantedCount"`
-	CreatedAt    time.Time   `json:"createdAt"`
-	UpdatedAt    time.Time   `json:"updatedAt"`
+	ID                 int64              `json:"id"`
+	Slug               string             `json:"slug"`
+	Name               string             `json:"name"`
+	Description        string             `json:"description"`
+	GroupID            *int64             `json:"groupId"`
+	GroupName          *string            `json:"groupName"`
+	Tier               string             `json:"tier"`
+	TierName           tierNameDTO        `json:"tierName"`
+	TierColor          string             `json:"tierColor"`
+	Icon               string             `json:"icon"`
+	GrantMode          string             `json:"grantMode"`
+	Metric             *string            `json:"metric"`
+	Threshold          *int64             `json:"threshold"`
+	Rule               json.RawMessage    `json:"rule"`
+	RequirementSummary requirementTextDTO `json:"requirementSummary"`
+	Enabled            bool               `json:"enabled"`
+	Position           int                `json:"position"`
+	GrantedCount       int64              `json:"grantedCount"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	UpdatedAt          time.Time          `json:"updatedAt"`
 }
 
 func toAdminBadge(badge badges.Badge) adminBadgeResponse {
@@ -192,13 +229,23 @@ func toAdminBadge(badge badges.Badge) adminBadgeResponse {
 		value := string(*badge.Metric)
 		metric = &value
 	}
+	// 只认 RuleRaw：领域结构里 `Rule` 是解码结果，脏规则时为 nil，
+	// 用它当 wire 来源会把「有规则但解不开」渲染成「没有规则」。
+	// 空字节归一成 nil，让 encoding/json 输出 `null` 而不是空串（后者不是合法 JSON）。
+	var rule json.RawMessage
+	if len(badge.RuleRaw) > 0 {
+		rule = append(json.RawMessage(nil), badge.RuleRaw...)
+	}
 	return adminBadgeResponse{
 		ID: badge.ID, Slug: badge.Slug, Name: badge.Name, Description: badge.Description,
 		GroupID: badge.GroupID, GroupName: badge.GroupName,
 		Tier: string(badge.Tier), TierName: toTierName(badge.Appearance),
 		TierColor: badge.Appearance.Color, Icon: badge.Icon, GrantMode: string(badge.GrantMode),
-		Metric: metric, Threshold: badge.Threshold, Enabled: badge.Enabled,
-		Position: badge.Position, GrantedCount: badge.GrantedCount,
+		Metric: metric, Threshold: badge.Threshold,
+		Rule:               rule,
+		RequirementSummary: requirementTextDTO{Zh: badge.RequirementSummaryZh, En: badge.RequirementSummaryEn},
+		Enabled:            badge.Enabled,
+		Position:           badge.Position, GrantedCount: badge.GrantedCount,
 		CreatedAt: badge.CreatedAt, UpdatedAt: badge.UpdatedAt,
 	}
 }
@@ -362,4 +409,134 @@ func toBatchGrantResult(result badges.BatchGrantResult) batchGrantResultResponse
 		})
 	}
 	return batchGrantResultResponse{Granted: result.Granted, Skipped: result.Skipped, Failed: failed}
+}
+
+// conditionParamDTO 是一个条件参数。字段名与 M2 编辑器契约逐字一致。
+type conditionParamDTO struct {
+	Name     string   `json:"name"`
+	Kind     string   `json:"kind"`
+	Required bool     `json:"required"`
+	Min      *int64   `json:"min,omitempty"`
+	Max      *int64   `json:"max,omitempty"`
+	Options  []string `json:"options,omitempty"`
+	RefKind  string   `json:"refKind,omitempty"`
+}
+
+// conditionDTO 是 `GET /admin/badges/conditions` 的一条。
+type conditionDTO struct {
+	Key        string              `json:"key"`
+	ValueKind  string              `json:"valueKind"`
+	Compare    []string            `json:"compare"`
+	LabelZh    string              `json:"labelZh"`
+	LabelEn    string              `json:"labelEn"`
+	DescribeZh string              `json:"describeZh,omitempty"`
+	DescribeEn string              `json:"describeEn,omitempty"`
+	UnitZh     string              `json:"unitZh,omitempty"`
+	UnitEn     string              `json:"unitEn,omitempty"`
+	Params     []conditionParamDTO `json:"params"`
+}
+
+// factCandidateDTO 是插件事实候选（`factCandidates[]`）的 wire 形状。
+//
+// 与 `conditionDTO` 分开：候选有自己的双语 label/unit、比较运算符子集与 variant 列表，
+// 塞进条件 DTO 会让「条件名」与「下拉项文案」两个概念继续纠缠。
+//
+// **除 `unit` 外都没有 omitempty**：键在值空（`"compare": []` 被省略成缺键）会让
+// 编辑器按 undefined 渲染，而空数组/空字符串在这里是合法且有意义的取值。
+// `unit` 用 null 表示「这个条件没有计量单位」，所以是唯一的指针字段。
+type factCandidateDTO struct {
+	Key      string              `json:"key"`
+	Label    requirementTextDTO  `json:"label"`
+	Unit     *requirementTextDTO `json:"unit"`
+	Compare  []string            `json:"compare"`
+	Variants []factVariantDTO    `json:"variants"`
+}
+
+// factVariantDTO 是一个 variant 候选。
+type factVariantDTO struct {
+	Value string             `json:"value"`
+	Label requirementTextDTO `json:"label"`
+}
+
+func toFactCandidateDTO(candidate conditions.FactCandidate) factCandidateDTO {
+	dto := factCandidateDTO{
+		Key:      candidate.Key,
+		Label:    requirementTextDTO{Zh: candidate.LabelZh, En: candidate.LabelEn},
+		Compare:  make([]string, 0, len(candidate.Compare)),
+		Variants: make([]factVariantDTO, 0, len(candidate.Variants)),
+	}
+	if candidate.UnitZh != "" || candidate.UnitEn != "" {
+		dto.Unit = &requirementTextDTO{Zh: candidate.UnitZh, En: candidate.UnitEn}
+	}
+	dto.Compare = append(dto.Compare, candidate.Compare...)
+	for _, variant := range candidate.Variants {
+		dto.Variants = append(dto.Variants, factVariantDTO{
+			Value: variant.Value,
+			Label: requirementTextDTO{Zh: variant.LabelZh, En: variant.LabelEn},
+		})
+	}
+	return dto
+}
+
+func conditionToDTO(definition conditions.Definition) conditionDTO {
+	dto := conditionDTO{
+		Key:        definition.Key,
+		ValueKind:  string(definition.ValueKind),
+		Compare:    make([]string, 0, len(definition.Compare)),
+		LabelZh:    definition.LabelZh,
+		LabelEn:    definition.LabelEn,
+		DescribeZh: definition.DescribeZh,
+		DescribeEn: definition.DescribeEn,
+		UnitZh:     definition.UnitZh,
+		UnitEn:     definition.UnitEn,
+		Params:     make([]conditionParamDTO, 0, len(definition.Params.Specs)),
+	}
+	for _, op := range definition.Compare {
+		dto.Compare = append(dto.Compare, string(op))
+	}
+	for _, spec := range definition.Params.Specs {
+		param := conditionParamDTO{
+			Name:     spec.Name,
+			Kind:     string(spec.Kind),
+			Required: spec.Required,
+			Options:  spec.Options,
+			RefKind:  spec.RefKind,
+		}
+		if spec.Min != 0 {
+			value := spec.Min
+			param.Min = &value
+		}
+		if spec.Max != 0 {
+			value := spec.Max
+			param.Max = &value
+		}
+		dto.Params = append(dto.Params, param)
+	}
+	return dto
+}
+
+// recomputeResponse 是 `POST /admin/badges/recompute` 的 wire 形状。
+//
+// 三个计数器缺一不可，且**键集合必须与 OpenAPI `BadgeRecomputeResult.required` 一致**：
+//   - granted   = 本次按规则补出的授予行数；
+//   - refreshed = `top_badge_id` 实际变化的人数；
+//   - queued    = 转入异步评估的**徽章数**（不是用户数）。
+//
+// 为什么抽成结构体而不是 handler 里的 map 字面量：内联字面量只能靠源码 grep 守，
+// 抓不到「字段名拼错」「新增字段漏加」这类问题；抽出来之后可以真单测（见
+// `TestRecomputeResponseCarriesAllCounters`）。本字段曾因内联映射漏写而丢失，
+// 导致契约与实现不一致（M1.4-21）。
+type recomputeResponse struct {
+	Granted   int64 `json:"granted"`
+	Refreshed int64 `json:"refreshed"`
+	Queued    int64 `json:"queued"`
+}
+
+// toRecomputeResponse 把领域结果投影成 wire 形状。
+func toRecomputeResponse(result badges.RecomputeResult) recomputeResponse {
+	return recomputeResponse{
+		Granted:   result.Granted,
+		Refreshed: result.Refreshed,
+		Queued:    result.Queued,
+	}
 }

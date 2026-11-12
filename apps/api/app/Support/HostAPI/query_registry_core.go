@@ -422,6 +422,14 @@ func queryRegistryCoreMappingFor(definition protocolV2QueryDefinition) (queryReg
 			ResultSchema:     QueryPublicUserActivitySchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		}
+	case QueryPublicUserBadgeFactsList:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicUserBadgeFactsList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_badge_facts.list", ContractVersion: "core.query.public_user_badge_facts.list@1",
+			Entity: "core.query.public_user_badge_fact", PlanVersion: "core.query.public_user_badge_facts.list.plan@1",
+			ResultSchema:     QueryPublicUserBadgeFactSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		}
 	case QueryPublicCategoriesList:
 		mapping = queryRegistryCoreMapping{
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,

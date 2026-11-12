@@ -109,9 +109,13 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS top_badge_id BIGINT REFERENCES badges
 -- grant_mode / metric / threshold 必须输出：插件要能只靠稳定数据面重建「徽章目录 +
 -- 获得条件」，否则做徽章墙就得直读 core 表，违反 extension-data-surface-policy。
 -- metric 是白名单枚举（见 badges_metric_check），暴露不构成契约风险。
--- 用 OR REPLACE：视图落在固定 Host schema（非 search_path 隔离的测试 schema），
--- 在 schema 隔离的测试库里重放整条迁移链时会命中同一对象；定义相同，替换即收敛。
-CREATE OR REPLACE VIEW sforum_core_v1.forum_badges
+-- 用 DROP + CREATE 而不是 CREATE OR REPLACE：视图落在固定 Host schema（非
+-- search_path 隔离的测试 schema），schema 隔离的测试库会在同一个 `sforum_core_v1`
+-- 上重放整条链。后续迁移（202611120002）会**加宽**这个视图；此时再重放本条时，
+-- OR REPLACE 会因为「不能从视图删列」直接失败（42P16），而 DROP + CREATE 收敛。
+-- 这也是 202610180001 改视图时用的同一套写法。
+DROP VIEW IF EXISTS sforum_core_v1.forum_badges;
+CREATE VIEW sforum_core_v1.forum_badges
 WITH (security_barrier = true, security_invoker = false) AS
 SELECT badges.id, badges.slug, badges.name, badges.description,
        badge_groups.key AS group_key, badges.tier, badges.icon, badges.position,

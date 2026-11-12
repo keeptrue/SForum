@@ -720,6 +720,35 @@ func stableCoreProtocolV2QueryDefinitions() []protocolV2QueryDefinition {
 			},
 		},
 		{
+			ID: QueryPublicUserBadgeFactsList, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicUserBadgeFactSchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			From: "sforum_core_v1.forum_user_badge_facts AS stable",
+			Fields: []protocolV2QueryField{
+				{Name: "user_id", Expression: "stable.user_id"},
+				{Name: "username", Expression: "stable.username"},
+				{Name: "display_name", Expression: "stable.display_name"},
+				{Name: "fact_key", Expression: "stable.fact_key"},
+				{Name: "variant", Expression: "stable.variant"},
+				// total 已在视图里 GREATEST(...,0)；这里不再二次夹取，避免两处口径。
+				{Name: "total", Expression: "stable.total"},
+			},
+			Filters: []protocolV2QueryFilterDefinition{
+				{Field: "user_id", Operator: "eq", Expression: "stable.user_id", SchemaID: QueryInt64ParameterSchemaID, Kind: "int64"},
+				{Field: "fact_key", Operator: "eq", Expression: "stable.fact_key", SchemaID: QueryTextParameterSchemaID, Kind: "text"},
+				{Field: "variant", Operator: "eq", Expression: "stable.variant", SchemaID: QueryTextParameterSchemaID, Kind: "text"},
+			},
+			// 事实是按用户读的：没有 user_id 就是全站枚举，必须拒绝（与授予/统计两条一致）。
+			RequiredFilters: []string{"user_id"},
+			Sorts: []protocolV2QuerySortDefinition{
+				{Field: "fact_key", Expression: "stable.fact_key"},
+				{Field: "variant", Expression: "stable.variant"},
+			},
+			DefaultSorts: []protocolV2QuerySort{
+				{Field: "fact_key", Expression: "stable.fact_key"},
+				{Field: "variant", Expression: "stable.variant"},
+			},
+		},
+		{
 			ID: QueryPublicCategoriesList, PlanVersion: QueryStableCorePlanVersion,
 			ResultSchemaID: QueryPublicCategorySchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
 			From: "sforum_core_v1.public_categories AS stable", Fields: categoryFields,

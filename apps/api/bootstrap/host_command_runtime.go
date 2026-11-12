@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	"sync"
 
 	"github.com/jackc/pgx/v5"
@@ -198,6 +199,40 @@ func (g *deferredAIGateway) Execute(ctx context.Context, request supportai.Compl
 type protocolV2CommandRuntimeDeferred struct {
 	Events *deferredEventPublisher
 	AI     *deferredAIGateway
+	// BadgeFactKeys 把事实声明的读口延迟到装配后段：命令目录在 River/扩展平台
+	// 就绪前就要冻结，而候选快照依赖已启用扩展的清单。
+	BadgeFactKeys *deferredBadgeFactKeys
+}
+
+// deferredBadgeFactKeys 先给空壳、后绑定真实声明读口。
+//
+// 未绑定时的语义是 fail-closed：`BadgeFactKeys` 返回空集合 → 命令一律拒绝
+// `fact_key_not_declared`。这比「未绑定就放行」安全，也比 panic 更适合启动期。
+type deferredBadgeFactKeys struct {
+	mu     sync.RWMutex
+	reader hostapi.ProtocolV2BadgeFactDeclarationReader
+}
+
+func (d *deferredBadgeFactKeys) Bind(reader hostapi.ProtocolV2BadgeFactDeclarationReader) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	d.reader = reader
+	d.mu.Unlock()
+}
+
+func (d *deferredBadgeFactKeys) BadgeFactKeys(ctx context.Context, extensionID string) ([]string, error) {
+	if d == nil {
+		return nil, nil
+	}
+	d.mu.RLock()
+	reader := d.reader
+	d.mu.RUnlock()
+	if reader == nil {
+		return nil, nil
+	}
+	return reader.BadgeFactKeys(ctx, extensionID)
 }
 
 func (m protocolV2AttachmentStatusMutator) MutateProtocolV2AttachmentStatus(
@@ -234,8 +269,9 @@ func bindPostgresProtocolV2CommandRuntime(
 	trustLevels identity.TrustLevelSource,
 ) (protocolV2CommandRuntimeDeferred, error) {
 	deferred := protocolV2CommandRuntimeDeferred{
-		Events: &deferredEventPublisher{},
-		AI:     &deferredAIGateway{},
+		Events:        &deferredEventPublisher{},
+		AI:            &deferredAIGateway{},
+		BadgeFactKeys: &deferredBadgeFactKeys{},
 	}
 	if gateway == nil {
 		return deferred, fmt.Errorf("Host Command gateway is required")
@@ -255,6 +291,9 @@ func bindPostgresProtocolV2CommandRuntime(
 		Events:               deferred.Events,
 		AI:                   deferred.AI,
 		TrustLevels:          trustLevels,
+		// 事实写口只需要 pool：RecordFact 自己管事务与幂等，命令层不复制这份 SQL。
+		BadgeFacts:    badges.NewPostgresStore(pool),
+		BadgeFactKeys: deferred.BadgeFactKeys,
 	})
 	if err != nil {
 		return deferred, fmt.Errorf("create Host Command runtime: %w", err)

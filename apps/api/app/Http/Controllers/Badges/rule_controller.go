@@ -1,0 +1,89 @@
+package badgescontroller
+
+import (
+	"strconv"
+
+	"github.com/gofiber/fiber/v3"
+
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+)
+
+// 规则引擎的三条只读后台端点。
+//
+// 三条都是 GET、都要求 badge.view（守卫由生成的 route catalog 声明），且都
+// **不碰写路径**：保存规则触发的回扫一律入队，不在 HTTP 内跑全量。
+
+// adminListBadgeConditions 返回条件目录。
+//
+// **只调 `PublishableDefinitions(factKeys)`，不调 `Definitions()`**：
+// 前者是展示面（objectRef 没有候选的条件不出现，M1 的 `fact.count` 就是这种），
+// 后者是校验/求值的全集。混用的后果是双向的——展示面用全集会让运营看到空下拉，
+// 校验用展示面会让 M3 卸载插件后已存规则保存不了。
+func (h *Controller) adminListBadgeConditions(c fiber.Ctx) error {
+	if err := h.requireFeature(c.Context()); err != nil {
+		return err
+	}
+	actor, err := h.actor(c)
+	if err != nil {
+		return err
+	}
+	catalog, err := h.admin.BadgeConditions(c.Context(), actor)
+	if err != nil {
+		return mapBadgeError(err)
+	}
+	setAdminNoStore(c)
+	items := make([]conditionDTO, 0, len(catalog.Items))
+	for _, definition := range catalog.Items {
+		items = append(items, conditionToDTO(definition))
+	}
+	// `factCandidates` 是 additive 顶层字段：`items` 的形状一个字都没动（M2 已发的
+	// 编辑器不会被这个版本打断）。两个面故意分开——`items` 是规则 type 维的目录，
+	// 候选是 `fact.count` 的 factKey/variant 维，混进去会让条件名被插件文案覆盖。
+	candidates := make([]factCandidateDTO, 0, len(catalog.FactCandidates))
+	for _, candidate := range catalog.FactCandidates {
+		candidates = append(candidates, toFactCandidateDTO(candidate))
+	}
+	return apphttp.OK(c, map[string]any{"items": items, "factCandidates": candidates})
+}
+
+// adminBadgeRuleHealth 返回失效引用清单。空 items 是 200 正常结果（不是 404）。
+func (h *Controller) adminBadgeRuleHealth(c fiber.Ctx) error {
+	if err := h.requireFeature(c.Context()); err != nil {
+		return err
+	}
+	actor, err := h.actor(c)
+	if err != nil {
+		return err
+	}
+	items, err := h.admin.RuleHealth(c.Context(), actor)
+	if err != nil {
+		return mapBadgeError(err)
+	}
+	setAdminNoStore(c)
+	if items == nil {
+		items = []badges.BadgeRuleHealth{}
+	}
+	return apphttp.OK(c, map[string]any{"items": items})
+}
+
+// adminBadgeRuleImpact 估算一条规则的影响面（语义是「≈」，不是精确值）。
+func (h *Controller) adminBadgeRuleImpact(c fiber.Ctx) error {
+	if err := h.requireFeature(c.Context()); err != nil {
+		return err
+	}
+	actor, err := h.actor(c)
+	if err != nil {
+		return err
+	}
+	badgeID, err := strconv.ParseInt(c.Params("badgeID"), 10, 64)
+	if err != nil || badgeID <= 0 {
+		return mapBadgeError(badges.ErrBadgeNotFound)
+	}
+	impact, err := h.admin.EstimateRuleImpact(c.Context(), actor, badgeID)
+	if err != nil {
+		return mapBadgeError(err)
+	}
+	setAdminNoStore(c)
+	return apphttp.OK(c, impact)
+}

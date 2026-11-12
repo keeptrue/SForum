@@ -2,6 +2,7 @@ package badges
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -42,11 +43,16 @@ func TestAdminCreateBadgeRejectsInvalidRules(t *testing.T) {
 		{"bad tier", BadgeInput{Slug: "x", Name: "X", Tier: "platinum", GrantMode: GrantManual}},
 		{"bad grant mode", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: "auto"}},
 		{"bad icon prefix", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantManual, Icon: "emoji-star"}},
-		{"automatic without metric", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantAutomatic, Threshold: ptrInt64(1)}},
-		{"automatic without threshold", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantAutomatic, Metric: &days}},
+		// 自 202611120002 起 automatic 必须有**规则**；`metric`/`threshold` 是 legacy
+		// 只读列，缺它们是合法形状（见 TestAdminCreateAutomaticBadgeNeedsOnlyRule）。
+		// 这里守的是另一条：既没规则、legacy 字段也残缺时仍要 422，
+		// 而不是让 `badges_rule_check` 抛约束错变成 500。
+		{"automatic without rule", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantAutomatic}},
+		{"automatic with unknown metric", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantAutomatic, RuleSet: true, RuleRaw: json.RawMessage(validSingleLeafRule), Metric: ptrActivityMetric("nope")}},
 		{"automatic zero threshold", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantAutomatic, Metric: &days, Threshold: ptrInt64(0)}},
 		{"manual with metric", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantManual, Metric: &days}},
 		{"manual with threshold", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantManual, Threshold: ptrInt64(3)}},
+		{"manual with rule", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantManual, RuleSet: true, RuleRaw: json.RawMessage(validSingleLeafRule)}},
 	}
 	for _, tc := range cases {
 		want := ErrBadgeRuleInvalid
@@ -260,5 +266,64 @@ func TestAdminServiceEnforcesPermissions(t *testing.T) {
 	// 4. 匿名（ID=0）即使权限集合异常也不放行。
 	if _, err := admin.ListBadges(ctx, identity.Actor{ID: 0, Permissions: map[string]bool{PermissionBadgeView: true}}); !errors.Is(err, identity.ErrPermissionDenied) {
 		t.Fatalf("anonymous err = %v, want ErrPermissionDenied", err)
+	}
+}
+
+// 自动徽章的合法规则夹具：单 activity.count 叶子 + window.all + gte。
+const validSingleLeafRule = `{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":3}}}`
+
+func ptrActivityMetric(value string) *ActivityMetric {
+	metric := ActivityMetric(value)
+	return &metric
+}
+
+// TestAdminCreateAutomaticBadgeNeedsOnlyRule 断言「纯 rule 徽章」建得出来。
+//
+// M1 之后 `rule` 是唯一判定来源，`metric`/`threshold` 是 legacy 只读列（可为 NULL）。
+// 旧校验要求 automatic 必须带这两个字段，导致后台建不出任何只给规则的新徽章——
+// 这条用例就是那个回归的守门人。
+func TestAdminCreateAutomaticBadgeNeedsOnlyRule(t *testing.T) {
+	store := newFakeStore()
+	admin := NewAdminService(store)
+
+	created, err := admin.CreateBadge(context.Background(), manageActor(), BadgeInput{
+		Slug: "rule-only", Name: "纯规则", Tier: TierGold, GrantMode: GrantAutomatic, Enabled: true,
+		RuleSet: true, RuleRaw: json.RawMessage(validSingleLeafRule),
+	})
+	if err != nil {
+		t.Fatalf("CreateBadge: %v", err)
+	}
+	if created.RuleRaw == nil || len(created.RuleRaw) == 0 {
+		t.Fatalf("rule must reach the store, got %q", created.RuleRaw)
+	}
+	if created.Metric != nil || created.Threshold != nil {
+		t.Fatalf("legacy metric/threshold must stay nil, got %v / %v", created.Metric, created.Threshold)
+	}
+}
+
+// TestAdminCreateBadgeKeepsRequirementSummary 断言创建时提交的双语要求逐字落到 store。
+//
+// 只断言响应回显会被「DTO 里写死空串 / store 里丢字段」同时骗过：
+// 所以把同一份 input 传下去后，再从 store 读回来比对。
+func TestAdminCreateBadgeKeepsRequirementSummary(t *testing.T) {
+	store := newFakeStore()
+	admin := NewAdminService(store)
+
+	created, err := admin.CreateBadge(context.Background(), manageActor(), BadgeInput{
+		Slug: "manual-summary", Name: "手动条件", Tier: TierBronze, GrantMode: GrantManual, Enabled: true,
+		RequirementSummarySet: true,
+		RequirementSummaryZh:  "手动条件",
+		RequirementSummaryEn:  "manual condition",
+	})
+	if err != nil {
+		t.Fatalf("CreateBadge: %v", err)
+	}
+	stored, err := store.GetBadge(context.Background(), created.ID)
+	if err != nil {
+		t.Fatalf("GetBadge: %v", err)
+	}
+	if stored.RequirementSummaryZh != "手动条件" || stored.RequirementSummaryEn != "manual condition" {
+		t.Fatalf("summary must reach the store verbatim, got %q / %q",
+			stored.RequirementSummaryZh, stored.RequirementSummaryEn)
 	}
 }

@@ -27,6 +27,9 @@ type PublicCatalogEntry struct {
 	// GroupName 为空有两种情况：未分组，或该分组没有名字。
 	// 未分组的展示文案由前端 i18n 提供，领域层不硬编码中文。
 	GroupName string
+	// RequirementText 是双语「获得条件」。由 `BuildRequirementText` 在扫描时算好：
+	// 目录与资料页同源，用户看到徽章想「怎么拿」是同一个需求。
+	RequirementText RequirementText
 }
 
 // PublicCatalogGroup 是公开目录的一个分组外壳。空分组不会出现。

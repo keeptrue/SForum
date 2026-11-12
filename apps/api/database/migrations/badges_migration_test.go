@@ -74,7 +74,7 @@ func TestBadgesMigrationDeclaresActivityDomainAndSeeds(t *testing.T) {
 		"ALTER TABLE users ADD COLUMN IF NOT EXISTS top_badge_id BIGINT REFERENCES badges(id) ON DELETE SET NULL",
 
 		// 三个稳定读视图：同一套安全视图修饰符。
-		"CREATE OR REPLACE VIEW sforum_core_v1.forum_badges WITH (security_barrier = true, security_invoker = false)",
+		"DROP VIEW IF EXISTS sforum_core_v1.forum_badges; CREATE VIEW sforum_core_v1.forum_badges WITH (security_barrier = true, security_invoker = false)",
 		"FROM public.badges LEFT JOIN public.badge_groups ON badge_groups.id = badges.group_id WHERE badges.enabled OFFSET 0",
 		"COMMENT ON VIEW sforum_core_v1.forum_badges IS",
 		"CREATE OR REPLACE VIEW sforum_core_v1.forum_user_badges WITH (security_barrier = true, security_invoker = false)",
@@ -199,7 +199,7 @@ func TestBadgesMigrationDeclaresActivityDomainAndSeeds(t *testing.T) {
 	// 徽章目录必须能让插件只靠稳定数据面重建「目录 + 获得条件」：
 	// grant_mode / metric / threshold 三个规则列要在视图列清单里。
 	// 它们与「未采集的阅读指标」不是一类东西——后者仍然禁止输出。
-	badgesView := up[strings.Index(up, "CREATE OR REPLACE VIEW sforum_core_v1.forum_badges"):]
+	badgesView := up[strings.Index(up, "CREATE VIEW sforum_core_v1.forum_badges"):]
 	badgesView = badgesView[:strings.Index(badgesView, "OFFSET 0")]
 	for _, column := range []string{"badges.grant_mode", "badges.metric", "badges.threshold"} {
 		if !strings.Contains(badgesView, column) {

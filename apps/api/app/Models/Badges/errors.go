@@ -27,6 +27,18 @@ var (
 	ErrBadgeTierInUse = errors.New("badges: tier in use")
 	// ErrBadgeGrantBatchInvalid 表示批量授予入参不合法（空列表、超上限、非手动徽章）。
 	ErrBadgeGrantBatchInvalid = errors.New("badges: invalid grant batch")
+	// ErrBadgeFactInvalid 表示事实入参不合法（userID/factKey 为空、delta 为 0）。
+	ErrBadgeFactInvalid = errors.New("badges: invalid fact")
+	// ErrBadgeRuleReferenceInvalid 表示规则指向的对象不存在（分类/标签/角色/provider/徽章/主题）。
+	ErrBadgeRuleReferenceInvalid = errors.New("badges: rule reference invalid")
+	// ErrBadgeRuleCycle 表示规则之间通过 badge.owned 形成依赖环（含自引用）。
+	ErrBadgeRuleCycle = errors.New("badges: rule cycle")
+	// ErrBadgeBackfillUnavailable 表示存在复杂规则徽章，但装配里没有后台回扫入口。
+	// 宁可报错，也不要让运营看到「重算完成、0 人获得」而实际一半徽章没算。
+	ErrBadgeBackfillUnavailable = errors.New("badges: rule backfill unavailable")
+	// ErrBadgeFactWriteDenied 表示插件事实写入被拒（参数非法、key 未声明、存储失败）。
+	// Host 命令按冻结 reason 细分，这里只承载顶层错误码。
+	ErrBadgeFactWriteDenied = errors.New("badges: fact write denied")
 )
 
 // HTTP 错误码。与 contracts/openapi 的 error.code 取值逐字一致。
@@ -44,6 +56,15 @@ const (
 	CodeBadgeTierInvalid       = "forum.badge_tier_invalid"
 	CodeBadgeTierInUse         = "forum.badge_tier_in_use"
 	CodeBadgeGrantBatchInvalid = "forum.badge_grant_batch_invalid"
+	// 规则引擎三码：形状过复杂 / 条件未知 / 引用失效 / 成环。
+	CodeBadgeRuleTooComplex       = "forum.badge_rule_too_complex"
+	CodeBadgeRuleUnknownCond      = "forum.badge_rule_unknown_condition"
+	CodeBadgeRuleReferenceInvalid = "forum.badge_rule_reference_invalid"
+	CodeBadgeRuleCycle            = "forum.badge_rule_cycle"
+	CodeBadgeBackfillUnavailable  = "forum.badge_backfill_unavailable"
+	// CodeBadgeFactWriteDenied 是插件事实上报（Host 命令 badges.fact.record）被拒的
+	// 顶层错误码。细节在 ErrorDetail.reason 的六个冻结字面量里（spec §9 Errata 3）。
+	CodeBadgeFactWriteDenied = "forum.badge_fact_write_denied"
 )
 
 // ErrorCode 把领域错误映射到稳定的错误码字符串。
@@ -71,6 +92,14 @@ func ErrorCode(err error) string {
 		return CodeBadgeTierInUse
 	case errors.Is(err, ErrBadgeGrantBatchInvalid):
 		return CodeBadgeGrantBatchInvalid
+	case errors.Is(err, ErrBadgeRuleReferenceInvalid):
+		return CodeBadgeRuleReferenceInvalid
+	case errors.Is(err, ErrBadgeRuleCycle):
+		return CodeBadgeRuleCycle
+	case errors.Is(err, ErrBadgeBackfillUnavailable):
+		return CodeBadgeBackfillUnavailable
+	case errors.Is(err, ErrBadgeFactWriteDenied):
+		return CodeBadgeFactWriteDenied
 	default:
 		return ""
 	}

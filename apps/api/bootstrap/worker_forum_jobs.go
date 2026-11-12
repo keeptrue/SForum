@@ -106,7 +106,7 @@ func registerForumBookmarkRemindersWorker(
 	cfg config.Config,
 	pool *pgxpool.Pool,
 	logger *slog.Logger,
-) *deferredTxEnqueuer {
+) (*deferredTxEnqueuer, *deferredBackfillEnqueuer) {
 	optionStore := options.NewPostgresStore(pool)
 	optionsService := options.NewServiceWithDefaults(optionStore, optionsDefaultsFromConfig(cfg))
 	enqueuer := &deferredTxEnqueuer{}
@@ -117,11 +117,15 @@ func registerForumBookmarkRemindersWorker(
 	forumjobs.RegisterBookmarkReminders(registry, forumStore, logger)
 	// 徽章评估 worker 与收藏提醒共用同一个 outbox：通知出口只有一套装配。
 	registerBadgesEvaluateUserWorker(registry, pool, outbox, logger)
+	// 规则回扫 worker：与徽章评估共用 pool，入队入口延迟到 River client 建好后 Bind。
+	backfillEnqueuer := &deferredBackfillEnqueuer{}
+	registerBadgesBackfillWorker(registry, pool, backfillEnqueuer, logger)
+	// 由调用方在 River client 建好后 Bind，见 worker.go。
 	coreScheduleConstructors[supportjobs.ScheduleForumBookmarkReminders] = wrapEnabled(
 		supportjobs.ScheduleForumBookmarkReminders,
 		func() (river.JobArgs, *river.InsertOpts) {
 			return forumjobs.BookmarkRemindersArgs{}, nil
 		},
 	)
-	return enqueuer
+	return enqueuer, backfillEnqueuer
 }

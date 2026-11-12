@@ -34,6 +34,9 @@ const (
 	// QueryPublicUserActivityList 是用户活动统计的公开读面。阅读类指标未采集，
 	// 视图不输出，查询也不声明它们。
 	QueryPublicUserActivityList = "sforum.core.public_user_activity.list"
+	// QueryPublicUserBadgeFactsList 是插件事实累计值的公开读面（forum_user_badge_facts）。
+	// 只含 active 用户的 total；delta 行、dedupe_key、来源扩展都不出现。
+	QueryPublicUserBadgeFactsList = "sforum.core.public_user_badge_facts.list"
 	// QuerySelfEmail 只由 host 签发的 actor 委派驱动执行；actorless 稳定入口
 	// 一律拒绝（见 consent_query_definitions.go）。
 	QuerySelfEmail                   = "sforum.core.identity.self_email"
@@ -50,6 +53,7 @@ const (
 	QueryPublicBadgeSchemaID         = "sforum.core.public_badge"
 	QueryPublicUserBadgeSchemaID     = "sforum.core.public_user_badge"
 	QueryPublicUserActivitySchemaID  = "sforum.core.public_user_activity"
+	QueryPublicUserBadgeFactSchemaID = "sforum.core.public_user_badge_fact"
 	QuerySelfEmailSchemaID           = "sforum.core.self_email"
 	QueryStableCoreResultSchemaV1    = "1"
 	QueryInt64ParameterSchemaID      = "sforum.core.query.int64"
@@ -149,7 +153,8 @@ func isStableProtocolV2QueryID(queryID string) bool {
 	case QuerySafeUserByID, QueryPublicTopicsList, QueryPublicTopicByID, QueryPublicAttachmentByPublicID,
 		QuerySiteStats, QueryPublicCommentsList, QuerySafeUserByUsername, QuerySafeUsersBatch, QueryPublicCategoriesList,
 		QueryPublicReactionsList, QueryPublicBookmarksList, QuerySelfEmail,
-		QueryPublicBadgesList, QueryPublicUserBadgesList, QueryPublicUserActivityList:
+		QueryPublicBadgesList, QueryPublicUserBadgesList, QueryPublicUserActivityList,
+		QueryPublicUserBadgeFactsList:
 		return true
 	default:
 		return false
