@@ -140,6 +140,10 @@ function routePolicy(route) {
   if (path === '/api/v1/badges') return ['public', 'badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled']
   // 公开等级目录：actor 无关（没有 earned、没有 enabled），可共享缓存（max-age=60）。
   if (path === '/api/v1/badges/tiers') return ['public', 'badge tier catalog; 403 forum.badges_disabled when features.badges is disabled']
+  // 规则文案预览（POST）：语义是**只读**——不写库、不审计、不入队，所以权限与读面
+  // 一致（badge.view）。按 method 一刀切成 badge.manage 会让只读管理员看不到预览，
+  // 而他们本来就能读同一条规则（GET /admin/badges 已透出 rule 原文）。
+  if (path === '/api/v1/admin/badges/rule-text') return ['permission', 'badge.view']
   if (path.startsWith('/api/v1/admin/badges')) return ['permission', method === 'GET' ? 'badge.view' : 'badge.manage']
   // 信任等级：公开目录与本人进度；后台读 admin.access、写 trust.manage。
   // 产品开关 features.trust_levels 关闭时四条路由一律 404（本刀之前它们不存在）。

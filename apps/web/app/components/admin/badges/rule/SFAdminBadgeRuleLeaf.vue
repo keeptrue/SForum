@@ -2,27 +2,21 @@
 /**
  * 规则树的一片叶子：条件选择 + 比较符/阈值 + 目录声明的参数控件。
  *
- * 参数控件完全由 `catalog[].params` 驱动（`int` / `enum` / `window` / `objectRef` /
- * `string` / `bool`），这里不写死任何内置条件的参数表——插件条件用同一套控件。
- * `objectRef` 的候选来自后端，M1.4 落地前只渲染「待下发」占位，不让运营手打 slug。
+ * 参数控件本身**不在这个文件里**：`SFAdminBadgeRuleParamField` 是唯一实现，
+ * 简单模式表单与高级模式树都渲染它。这里只负责「叶子这一行」的头部（条件 / 比较符 /
+ * 阈值 / 单位）与把参数改动合并回本节点。
  */
 import {
   createDefaultLeaf,
   replaceNode,
   type BadgeConditionCatalogEntry,
   type BadgeConditionParam,
-  type BadgeConditionParamOption,
   type BadgeFactCandidate,
   type BadgeRule,
   type BadgeRuleLeaf
 } from '~/utils/admin/badgeRule'
-import {
-  applyFactKeySelection,
-  factCandidateUnit,
-  factKeyMissing,
-  factKeyOptions,
-  factVariantOptions
-} from '~/utils/admin/badgeFactCandidates'
+import { factCandidateUnit } from '~/utils/admin/badgeFactCandidates'
+import SFAdminBadgeRuleParamField from '~/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue'
 
 const props = withDefaults(defineProps<{
   rule: BadgeRule
@@ -41,65 +35,50 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
 
-const { t, te, locale } = useI18n()
+const { t, locale } = useI18n()
 
 const entry = computed(() => props.catalog.find(item => item.key === props.node.type) ?? null)
-const params = computed(() => entry.value?.params ?? [])
+const params = computed<BadgeConditionParam[]>(() => entry.value?.params ?? [])
 const zh = computed(() => String(locale.value ?? '').toLowerCase().startsWith('zh'))
 
-const isFactCount = computed(() => entry.value?.key === 'fact.count')
-// 先声明 spec 再声明依赖它的 computed：靠惰性求值侥幸不炸的写法，加个 immediate 就是 TDZ。
-const factKeySpec = computed<BadgeConditionParam | undefined>(
-  () => params.value.find(spec => spec.name === 'factKey')
-)
 const currentFactKey = computed(() => paramText('factKey'))
-/** 事实候选只属于事实叶子，别的条件一次都不该读它。 */
-const factItems = computed(() => factKeyOptions(
-  factKeySpec.value?.options?.map(option => option.value) ?? [],
-  props.factCandidates,
-  zh.value
-))
-// 候选整体读不到时**不判失效**：不知道它是否存在，就不能说它失效（两种降级不能混）。
-const factStale = computed(() => isFactCount.value
-  && !props.factCandidatesFailed
-  && factKeyMissing(props.factCandidates, currentFactKey.value))
-const variantItems = computed(() => factVariantOptions(props.factCandidates, currentFactKey.value, zh.value))
 const factUnit = computed(() => factCandidateUnit(props.factCandidates, currentFactKey.value, zh.value))
+/** 目录级计量单位（`conditionDTO.unitZh/unitEn`）：事实候选没给单位时的兜底。 */
+const entryUnit = computed(() => {
+  const pair = zh.value
+    ? [entry.value?.unitZh, entry.value?.unitEn]
+    : [entry.value?.unitEn, entry.value?.unitZh]
+  return pair.find(unit => typeof unit === 'string' && unit.trim() !== '') ?? ''
+})
 
 /**
- * `variant` 的候选是运行时填的（目录里 `options: nil`）：这一项**没有候选就整项隐藏**，
- * 绝不渲染一个空下拉——那会让运营以为「不能选变体」。
+ * 阈值格后缀：插件事实取候选单位，其余取目录单位。
+ * `days_visited` 例外——它本身就是「天数」，「访问天数 ≥ 7 次」读不通，所以不挂单位。
  */
-const visibleParams = computed(() => params.value.filter(spec =>
-  !(spec.name === 'variant' && variantItems.value.length === 0)
-))
+const thresholdUnit = computed(() => (paramText('metric') === 'days_visited'
+  ? ''
+  : factUnit.value || entryUnit.value))
 
 function entryLabel(item: BadgeConditionCatalogEntry) {
   return zh.value ? item.labelZh : item.labelEn
-}
-
-function optionLabel(option: BadgeConditionParamOption) {
-  return zh.value ? option.labelZh : option.labelEn
-}
-
-/** 参数文案走共享键；插件自定义参数没有文案时回退原始 name，不显示裸 i18n key。 */
-/** `variant` 的候选来自插件（含插件双语 label）；其余 enum 仍用目录 options。 */
-function enumOptions(spec: BadgeConditionParam) {
-  if (spec.name === 'variant') return variantItems.value
-  return (spec.options ?? []).map(option => ({ value: option.value, label: optionLabel(option) }))
-}
-
-function paramLabel(name: string) {
-  const key = `admin.badges.conditions.params.${name}`
-  return te(key) ? t(key) : name
 }
 
 function compareLabel(op: string) {
   return t(`admin.badges.rule.compare.${op}`)
 }
 
+function paramText(name: string) {
+  const value = props.node.params?.[name]
+  return value === undefined || value === null ? '' : String(value)
+}
+
 function patch(next: BadgeRuleLeaf) {
   emit('update:rule', replaceNode(props.rule, props.path, next))
+}
+
+/** 参数组件的唯一出口：整份新 params 落到本节点，位置与其余字段保持原样。 */
+function applyParams(next: Record<string, unknown>) {
+  patch({ ...props.node, params: next })
 }
 
 function setType(event: Event) {
@@ -117,67 +96,6 @@ function setCompareOp(event: Event) {
 function setValue(event: Event) {
   const value = Number((event.target as HTMLInputElement).value)
   patch({ ...props.node, cmp: { op: props.node.cmp?.op ?? 'gte', value: Number.isFinite(value) ? value : 0 } })
-}
-
-/** 选 factKey：值原样落进 params，显示文案只来自候选；顺带归一变体（无变体置空串）。 */
-function setFactKey(event: Event) {
-  const key = (event.target as HTMLSelectElement).value
-  patch({ ...props.node, params: applyFactKeySelection(props.node.params, props.factCandidates, key, zh.value) })
-}
-
-function setParam(name: string, value: unknown) {
-  patch({ ...props.node, params: { ...(props.node.params ?? {}), [name]: value } })
-}
-
-function paramText(name: string) {
-  const value = props.node.params?.[name]
-  return value === undefined || value === null ? '' : String(value)
-}
-
-function paramNumber(name: string) {
-  const value = props.node.params?.[name]
-  return typeof value === 'number' ? value : null
-}
-
-function paramBool(name: string) {
-  return props.node.params?.[name] === true
-}
-
-function windowValue(name: string) {
-  const value = props.node.params?.[name]
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-}
-
-function windowKind(name: string) {
-  return String(windowValue(name)?.kind ?? 'all')
-}
-
-function windowDays(name: string) {
-  const days = windowValue(name)?.days
-  return typeof days === 'number' ? days : 30
-}
-
-function setText(name: string, event: Event) {
-  setParam(name, (event.target as HTMLInputElement | HTMLSelectElement).value)
-}
-
-function setNumber(name: string, event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  setParam(name, Number.isFinite(value) ? value : null)
-}
-
-function setBool(name: string, event: Event) {
-  setParam(name, (event.target as HTMLInputElement).checked)
-}
-
-function setWindowKind(name: string, event: Event) {
-  const kind = (event.target as HTMLSelectElement).value
-  setParam(name, kind === 'recent_days' ? { kind, days: windowDays(name) } : { kind })
-}
-
-function setWindowDays(name: string, event: Event) {
-  const days = Number((event.target as HTMLInputElement).value)
-  setParam(name, { kind: windowKind(name), days: Number.isFinite(days) ? days : 1 })
 }
 </script>
 
@@ -208,112 +126,34 @@ function setWindowDays(name: string, event: Event) {
 
       <label v-if="node.cmp && entry" class="sf-rule-field">
         <span class="sf-rule-field__label">{{ t('admin.badges.rule.value') }}</span>
-        <input
-          class="sf-rule-control"
-          data-rule-value
-          type="number"
-          min="1"
-          max="1000000000"
-          :value="node.cmp.value"
-          @input="setValue"
-        >
-        <span v-if="factUnit" class="sf-rule-field__unit">{{ factUnit }}</span>
+        <!-- 单位是 input 的行内后缀（与简单模式同一套语言），不再独占第三行。 -->
+        <span class="sf-rule-field__value">
+          <input
+            class="sf-rule-control"
+            data-rule-value
+            type="number"
+            min="1"
+            max="1000000000"
+            :value="node.cmp.value"
+            @input="setValue"
+          >
+          <span v-if="thresholdUnit" class="sf-rule-field__unit">{{ thresholdUnit }}</span>
+        </span>
       </label>
     </div>
 
     <div v-if="params.length > 0" class="sf-rule-params">
-      <label
-        v-for="spec in visibleParams"
+      <SFAdminBadgeRuleParamField
+        v-for="spec in params"
         :key="spec.name"
-        class="sf-rule-field"
-        :data-param="spec.name"
-        :data-param-kind="spec.kind"
-      >
-        <span class="sf-rule-field__label">{{ paramLabel(spec.name) }}</span>
-
-        <select
-          v-if="spec.kind === 'enum'"
-          class="sf-rule-control"
-          :value="paramText(spec.name)"
-          @change="setText(spec.name, $event)"
-        >
-          <option v-for="option in enumOptions(spec)" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-
-        <template v-else-if="spec.kind === 'window'">
-          <select class="sf-rule-control" :value="windowKind(spec.name)" @change="setWindowKind(spec.name, $event)">
-            <option value="all">{{ t('admin.badges.rule.window.all') }}</option>
-            <option value="recent_days">{{ t('admin.badges.rule.window.recent_days') }}</option>
-          </select>
-          <input
-            v-if="windowKind(spec.name) === 'recent_days'"
-            class="sf-rule-control"
-            type="number"
-            min="1"
-            max="3650"
-            :value="windowDays(spec.name)"
-            @input="setWindowDays(spec.name, $event)"
-          >
-        </template>
-
-        <!-- factKey：值来自目录 options，显示文案来自插件候选（Errata 2）；失效旧值保留可见。 -->
-        <template v-if="spec.kind === 'objectRef' && spec.refKind === 'fact'">
-          <select
-            class="sf-rule-control"
-            data-fact-key
-            :value="paramText(spec.name)"
-            :aria-label="paramLabel(spec.name)"
-            @change="setFactKey"
-          >
-            <option value="">{{ t('admin.badges.conditions.factKeyPlaceholder') }}</option>
-            <option v-for="item in factItems" :key="item.value" :value="item.value">{{ item.label }}</option>
-            <option v-if="factStale" :value="currentFactKey">{{ currentFactKey }}</option>
-          </select>
-          <p v-if="factStale" class="sf-rule-leaf__flag" data-fact-stale>
-            {{ t('admin.badges.rule.health.missing_fact_key') }} · {{ t('admin.badges.conditions.factStaleHint') }}
-          </p>
-          <p v-else-if="factCandidatesFailed" class="sf-rule-leaf__flag" data-fact-candidates-failed>
-            {{ t('admin.badges.conditions.factCandidatesFailed') }}
-          </p>
-        </template>
-
-        <select
-          v-else-if="spec.kind === 'objectRef'"
-          class="sf-rule-control"
-          :value="paramText(spec.name)"
-          @change="setText(spec.name, $event)"
-        >
-          <option value="">{{ t('admin.badges.conditions.candidatesPending') }}</option>
-          <option v-if="paramText(spec.name)" :value="paramText(spec.name)">{{ paramText(spec.name) }}</option>
-        </select>
-
-        <input
-          v-else-if="spec.kind === 'int'"
-          class="sf-rule-control"
-          type="number"
-          :min="spec.min"
-          :max="spec.max"
-          :value="paramNumber(spec.name)"
-          @input="setNumber(spec.name, $event)"
-        >
-
-        <input
-          v-else-if="spec.kind === 'bool'"
-          type="checkbox"
-          :checked="paramBool(spec.name)"
-          @change="setBool(spec.name, $event)"
-        >
-
-        <input
-          v-else
-          class="sf-rule-control"
-          type="text"
-          :value="paramText(spec.name)"
-          @input="setText(spec.name, $event)"
-        >
-      </label>
+        :spec="spec"
+        :node="node"
+        :entry="entry"
+        :fact-candidates="factCandidates ?? []"
+        :fact-candidates-failed="factCandidatesFailed === true"
+        :zh="zh"
+        @update:params="applyParams"
+      />
     </div>
     </template>
   </article>
@@ -397,16 +237,23 @@ function setWindowDays(name: string, event: Event) {
   line-height: 1.4;
 }
 
-.sf-rule-field__unit {
-  color: var(--sf-fg-tertiary);
-  font-size: 11px;
+.sf-rule-field__value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
-.sf-rule-leaf__flag {
-  margin: 0;
-  color: var(--sf-warning, var(--sf-fg-secondary));
+.sf-rule-field__value .sf-rule-control {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sf-rule-field__unit {
+  flex: 0 0 auto;
+  color: var(--sf-fg-tertiary);
   font-size: 11px;
-  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .sf-rule-leaf__missing-key {

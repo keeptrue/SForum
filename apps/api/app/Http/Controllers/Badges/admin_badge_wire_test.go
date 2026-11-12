@@ -80,8 +80,8 @@ func TestAdminBadgeEmitsRuleRawVerbatim(t *testing.T) {
 			assertKeys(t, "admin badge", wire, []string{
 				"id", "slug", "name", "description", "groupId", "groupName",
 				"tier", "tierName", "tierColor", "icon", "grantMode", "metric",
-				"threshold", "rule", "requirementSummary", "enabled", "position",
-				"grantedCount", "createdAt", "updatedAt",
+				"threshold", "rule", "requirementSummary", "requirementText",
+				"enabled", "position", "grantedCount", "createdAt", "updatedAt",
 			})
 
 			assertRuleObject(t, wire)
@@ -101,6 +101,16 @@ func TestAdminBadgeEmitsRuleRawVerbatim(t *testing.T) {
 			}
 			if summary["zh"] != "发满五帖" || summary["en"] != "Publish five topics" {
 				t.Fatalf("requirementSummary must be domain values verbatim, got %v", summary)
+			}
+
+			// requirementText 是服务端自动生成的文案：键必须在，且**永远非空**
+			// （手写框已被移除，空串就是公开面空白）。
+			generated, ok := wire["requirementText"].(map[string]any)
+			if !ok {
+				t.Fatalf("requirementText must be an object, got %v", wire["requirementText"])
+			}
+			if generated["zh"] == "" || generated["en"] == "" {
+				t.Fatalf("requirementText must never be empty, got %v", generated)
 			}
 		})
 	}
@@ -130,5 +140,11 @@ func TestAdminBadgeEmitsNullRuleForManualBadge(t *testing.T) {
 	}
 	if en, present := summary["en"]; !present || en != "" {
 		t.Fatalf("requirementSummary.en must be present with empty string, got %v", summary)
+	}
+
+	// 手工徽章：自动文案是固定句（不是空串），前端只读预览照常有内容。
+	generated, ok := wire["requirementText"].(map[string]any)
+	if !ok || generated["zh"] == "" || generated["en"] == "" {
+		t.Fatalf("manual badge must still carry a fixed requirementText, got %v", wire["requirementText"])
 	}
 }

@@ -6,6 +6,10 @@
  *
  * 事实来源：`knowledge/plans/2026-11-12-badge-rule-engine.md` §5.2 / §5.2.1（参数精确
  * 形状已冻结，前后端同一份）。`objectRef` 的取值恒为字符串 slug，数字一律走 `int`。
+ *
+ * 选项（`options`）只下发**取值**，不带双语 label：文案由 `resolveParamOptionLabel`
+ * 按 i18n 键解析，缺失时回落原始值。别把双语 label 塞回这里——那会让 wire 形状与
+ * OpenAPI 脱钩，也会让插件条件没法只声明取值。
  */
 import type { BadgeRuleError } from './badgeRule'
 
@@ -25,12 +29,6 @@ export type BadgeRuleParamKind = 'int' | 'enum' | 'window' | 'objectRef' | 'stri
  */
 export type BadgeRuleRefKind = 'category' | 'tag' | 'role' | 'provider' | 'badge' | 'fact'
 
-export interface BadgeConditionParamOption {
-  value: string
-  labelZh: string
-  labelEn: string
-}
-
 /** 一个条件参数的声明。`min` / `max` 只对 `int` 生效。 */
 export interface BadgeConditionParam {
   name: string
@@ -38,13 +36,53 @@ export interface BadgeConditionParam {
   required: boolean
   min?: number
   max?: number
-  options?: BadgeConditionParamOption[]
+  /**
+   * 取值候选，**wire 上就是裸字符串数组**（`conditionParamDTO.Options []string`，
+   * OpenAPI `items: {type: string}`）。选项文案不随数据下发，由 `resolveParamOptionLabel`
+   * 按 i18n 键解析——把这里写成 `{value,label}` 曾让每个 `<option>` 的 value 变成 undefined。
+   */
+  options?: string[]
   /** 仅 `objectRef`：前端只据此选候选来源，**不做存在性校验**（那是后端 rule_health 的活）。 */
   refKind?: BadgeRuleRefKind
 }
 
 /** 窗口参数的 `kind` 取值，与后端 `ParamEnum` 声明一致。 */
 const WINDOW_KINDS: readonly string[] = ['all', 'recent_days']
+
+/**
+ * 参数取值的候选 i18n 键，**按命中优先级**排列：
+ * 1) 参数专属的选项文案（`metric.options.topic_count`）；
+ * 2) 共享指标名（`metrics.topic_count`，多个条件的同名指标只写一份）；
+ * 3) 共享枚举值名（`enums.*`）。
+ *
+ * 返回数组而不是单个键，是为了让调用方只做一次「第一个存在的键」决策，
+ * 文案顺序不会因为实现细节在不同控件里漂移。
+ */
+export function paramOptionLabelKey(paramName: string, value: string): string[] {
+  return [
+    `admin.badges.conditions.params.${paramName}.options.${value}`,
+    `admin.badges.metrics.${value}`,
+    `admin.badges.conditions.enums.${value}`
+  ]
+}
+
+/**
+ * 解析一个选项的显示文案：取第一个 `te()` 命中的键，全缺失时回落到**原始值**。
+ *
+ * 回落不是兜底美化：插件条件声明的取值宿主没有文案，显示 `my_plugin.metric` 至少还能读，
+ * 显示空串等于把下拉变成了空白项（正是线上那个 bug 的观感）。
+ */
+export function resolveParamOptionLabel(
+  paramName: string,
+  value: string,
+  t: (key: string) => string,
+  te: (key: string) => boolean
+): string {
+  for (const key of paramOptionLabelKey(paramName, value)) {
+    if (te(key)) return t(key)
+  }
+  return value
+}
 
 export function isIntegerIn(value: unknown, min: number, max: number): boolean {
   const numeric = typeof value === 'number' ? value : Number(value)
@@ -102,7 +140,7 @@ export function validateParamSpec(
         invalidParam(spec, path, errors)
         return
       }
-      const allowed = (spec.options ?? []).map(option => option.value)
+      const allowed = spec.options ?? []
       if (!allowed.includes(value)) {
         errors.push({ code: 'rule.param_enum', path, field, params: { param: spec.name, value } })
       }

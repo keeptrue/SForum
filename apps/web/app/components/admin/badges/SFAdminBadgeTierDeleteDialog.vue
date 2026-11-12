@@ -84,12 +84,14 @@ async function remove() {
             {{ t('admin.badges.tiers.remove.body', { count: badgeCount }) }}
           </p>
 
-          <UFormField :label="t('admin.badges.tiers.remove.migrateTo')">
-            <USelect v-model="migrateTo" :items="props.targets.map(target => ({ value: target.key, label: target.name.zh }))" class="w-full" />
-            <template #hint>
-              <span class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.badges.tiers.remove.migrateHint') }}</span>
-            </template>
-          </UFormField>
+          <div>
+            <UFormField :label="t('admin.badges.tiers.remove.migrateTo')">
+              <USelect v-model="migrateTo" :items="props.targets.map(target => ({ value: target.key, label: target.name.zh }))" class="w-full" />
+            </UFormField>
+            <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400" data-field-hint data-field-hint-for="migrateTo">
+              {{ t('admin.badges.tiers.remove.migrateHint') }}
+            </p>
+          </div>
 
           <p v-if="props.targets.length === 0" class="text-sm text-amber-600 dark:text-amber-400">
             {{ t('admin.badges.tiers.remove.noTarget') }}

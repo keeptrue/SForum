@@ -28,6 +28,8 @@ type PostgresStore struct {
 	factCandidates conditions.FactCandidateProvider
 	// declaredProviders 是 identity registry 已声明的 provider（含零绑定）；nil 时只认绑定表。
 	declaredProviders DeclaredProviderFunc
+	// providerNames 是公开说明用到的登录方式真名（见 ref_names_postgres.go）。
+	providerNames providerNameFunc
 }
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
@@ -115,6 +117,9 @@ func applyScannedBadgeFields(badge *Badge, metric *string, ruleRaw []byte) {
 		// 评估按「不满足」处理，rule_health 会把 RuleRaw 非空 + Rule 为 nil 的行列出来。
 		if node, err := ruleengine.Decode(ruleRaw); err == nil {
 			badge.Rule = &node
+		} else {
+			// 解不开的规则记在 RuleBroken 上：公开说明不能把它说成「手动授予」。
+			badge.RuleBroken = true
 		}
 	}
 }
@@ -200,7 +205,7 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 		SELECT badges.id, badges.slug, badges.name, badges.description,
 		       badge_groups.key AS group_key, badges.tier, badges.icon,
 		       badges.grant_mode, badges.metric, badges.threshold, badges.position,
-		       badges.rule, badges.requirement_summary_zh, badges.requirement_summary_en,
+		       badges.rule,
 		       user_badges.granted_at,
 		       `+badgeTierColumnsSQL+`
 		FROM badges
@@ -215,6 +220,7 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 	}
 	defer rows.Close()
 	items := make([]UserBadge, 0, 16)
+	badgeItems := make([]Badge, 0, 16)
 	for rows.Next() {
 		var item UserBadge
 		var badge Badge
@@ -224,7 +230,7 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 			&badge.ID, &badge.Slug, &badge.Name, &badge.Description,
 			&badge.GroupKey, &badge.Tier, &badge.Icon,
 			&badge.GrantMode, &metric, &badge.Threshold, &badge.Position,
-			&ruleRaw, &badge.RequirementSummaryZh, &badge.RequirementSummaryEn,
+			&ruleRaw,
 			&item.GrantedAt,
 			&badge.Appearance.NameZh, &badge.Appearance.NameEn,
 			&badge.Appearance.Color, &badge.Appearance.Position,
@@ -232,16 +238,22 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 			return nil, fmt.Errorf("scan user badge: %w", err)
 		}
 		applyScannedBadgeFields(&badge, metric, ruleRaw)
-		// 投影一步不自己拼文案：运营文本优先 / 单条件生成 / 多条件留空的分支
-		// 只在 BuildRequirementText 里有一份，抄第二遍必然与目录页分叉。
-		item.Badge = badge.Public()
+		badgeItems = append(badgeItems, badge)
 		item.Earned = item.GrantedAt != nil
 		if badge.Threshold != nil {
 			item.Progress.Threshold = *badge.Threshold
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// 两段式投影：一次批量解析引用名，再逐条渲染（文案只有一份实现）。
+	names := BadgeRefNames(ctx, RefNameLoaderOf(s), badgeItems)
+	for index := range items {
+		items[index].Badge = badgeItems[index].Public(names)
+	}
+	return items, nil
 }
 
 // TopBadgesFor 一次查询取整页用户的最高级徽章，避免列表 N+1。

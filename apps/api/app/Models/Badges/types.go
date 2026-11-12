@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
@@ -82,14 +83,21 @@ type Badge struct {
 	// 手工徽章为 nil。解码失败时为 nil 且 RuleRaw 非空（见 rule_health 的失效清单）。
 	Rule    *ruleengine.Node `json:"-"`
 	RuleRaw json.RawMessage  `json:"-"`
-	// RequirementSummary* 是运营填的双语要求文案；空串表示由规则自动生成。
-	RequirementSummaryZh string    `json:"-"`
-	RequirementSummaryEn string    `json:"-"`
-	Enabled              bool      `json:"enabled"`
-	Position             int       `json:"position"`
-	GrantedCount         int64     `json:"grantedCount"`
-	CreatedAt            time.Time `json:"createdAt"`
-	UpdatedAt            time.Time `json:"updatedAt"`
+	// RuleBroken 表示 RuleRaw 非空但解不开（脏规则）。公开说明据此给泛称句，
+	// 而不是错误地宣称「由管理员手动授予」。
+	RuleBroken bool `json:"-"`
+	// RequirementSummary* 已废弃（deprecated）：2026-11 起公开说明只由规则生成，
+	// 这两个字段与数据库列都保留一版仅用于回滚，**任何读路径都不得再读它们**。
+	RequirementSummaryZh string `json:"-"`
+	RequirementSummaryEn string `json:"-"`
+	// RequirementText 是后台列表/编辑弹窗展示用的自动生成文案（由 AdminService 填）。
+	// 公开面不用它：`Public()` 现算，避免「结构里缓存的旧文案」漏到公开响应。
+	RequirementText RequirementText `json:"-"`
+	Enabled         bool            `json:"enabled"`
+	Position        int             `json:"position"`
+	GrantedCount    int64           `json:"grantedCount"`
+	CreatedAt       time.Time       `json:"createdAt"`
+	UpdatedAt       time.Time       `json:"updatedAt"`
 }
 
 // PublicBadge 是公开面的徽章定义。
@@ -109,16 +117,18 @@ type PublicBadge struct {
 	Metric      *ActivityMetric `json:"metric"`
 	Threshold   *int64          `json:"threshold"`
 	Position    int             `json:"position"`
-	// RequirementText 是公开面的双语「获得条件」自然语言。
-	// 运营填的优先；为空且规则是单条件时由服务端生成；多条件规则留空
-	// （宁可没有说明，也不把内部结构拼成一句读不懂的话）。
+	// RequirementText 是公开面的双语「获得条件」自然语言：**永远非空**，
+	// 由规则生成（手工徽章给固定句），名字已由 `RefNames` 解析成真名。
 	// **绝不包含 AST**：公开响应里出现 rule/cmp/params/children/op 会让规则结构
 	// 变成事实上的公开契约。
 	RequirementText RequirementText `json:"requirementText"`
 }
 
 // Public 从 admin 结构派生公开结构（丢掉运营与审计字段）。
-func (b Badge) Public() PublicBadge {
+//
+// 名字要由调用方一次批量解析后传入（见 `ref_names.go`）：签名里没有 ctx 与 store，
+// 所以在公开投影里偷偷查库在结构上不可能发生。
+func (b Badge) Public(names conditions.RefNames) PublicBadge {
 	return PublicBadge{
 		ID:          b.ID,
 		Slug:        b.Slug,
@@ -133,7 +143,7 @@ func (b Badge) Public() PublicBadge {
 		Threshold:   b.Threshold,
 		Position:    b.Position,
 
-		RequirementText: BuildRequirementText(b),
+		RequirementText: BuildRequirementText(b, names),
 	}
 }
 

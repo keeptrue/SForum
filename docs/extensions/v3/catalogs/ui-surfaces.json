@@ -290,10 +290,30 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.s_f_admin_badge_rule_param_field",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_param_field@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.s_f_admin_badge_rule_section",
     "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_section@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleSection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_simple_form@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleSimpleForm.vue",
     "owners": [
       "admin"
     ],

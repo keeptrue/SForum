@@ -734,6 +734,8 @@ paths:
     "$ref": "./openapi/paths/badges.yaml#/adminListBadgeConditions"
   "/admin/badges/rule-health":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeRuleHealth"
+  "/admin/badges/rule-text":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeRuleText"
   "/admin/badges/{badgeID}/rule-impact":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeRuleImpact"
   "/admin/badges/{badgeID}/grants/batch":

@@ -11,7 +11,8 @@ import (
 // 内嵌 fiber.Router 是为了满足接口；控制器只用到这六个方法，其余方法不会被调用。
 type recordingRouter struct {
 	fiber.Router
-	gets []string
+	gets  []string
+	posts []string
 }
 
 func (r *recordingRouter) Get(path string, handler any, handlers ...any) fiber.Router {
@@ -19,7 +20,10 @@ func (r *recordingRouter) Get(path string, handler any, handlers ...any) fiber.R
 	return r
 }
 
-func (r *recordingRouter) Post(string, any, ...any) fiber.Router   { return r }
+func (r *recordingRouter) Post(path string, _ any, _ ...any) fiber.Router {
+	r.posts = append(r.posts, path)
+	return r
+}
 func (r *recordingRouter) Put(string, any, ...any) fiber.Router    { return r }
 func (r *recordingRouter) Patch(string, any, ...any) fiber.Router  { return r }
 func (r *recordingRouter) Delete(string, any, ...any) fiber.Router { return r }
@@ -94,6 +98,34 @@ func TestBackfillStatusIsRegisteredBeforeParamRoutes(t *testing.T) {
 	for _, paramPath := range []string{"/:badgeID/rule-impact", "/:badgeID/grants"} {
 		if paramIndex := index(paramPath); paramIndex >= 0 && paramIndex < status {
 			t.Fatalf("%s 注册在 /backfill-status 之前（index %d < %d）", paramPath, paramIndex, status)
+		}
+	}
+}
+
+// TestRuleTextPreviewIsRegisteredBeforeParamRoutes 钉住 POST /rule-text 的注册位置。
+//
+// 与 GET 的 /conditions 同款风险：静态段排到含参数段之后，`rule-text` 会被当成
+// badgeID 解析（报 invalid id / 500），而报错完全指不回路由顺序。
+func TestRuleTextPreviewIsRegisteredBeforeParamRoutes(t *testing.T) {
+	recorder := &recordingRouter{}
+	(&Controller{}).RegisterRoutes(recorder)
+
+	index := func(path string) int {
+		for i, registered := range recorder.posts {
+			if registered == path {
+				return i
+			}
+		}
+		return -1
+	}
+
+	preview := index("/rule-text")
+	if preview < 0 {
+		t.Fatal("/rule-text 未以 POST 注册")
+	}
+	for _, paramPath := range []string{"/:badgeID/grants", "/:badgeID/grants/batch", "/recompute"} {
+		if paramIndex := index(paramPath); paramIndex >= 0 && paramIndex < preview {
+			t.Fatalf("%s 注册在 /rule-text 之前（index %d < %d）", paramPath, paramIndex, preview)
 		}
 	}
 }

@@ -75,7 +75,11 @@ func (a *AdminService) ListBadges(ctx context.Context, actor identity.Actor) ([]
 	if a == nil || a.store == nil {
 		return nil, nil
 	}
-	return a.store.ListBadges(ctx)
+	items, err := a.store.ListBadges(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return a.fillRequirementTexts(ctx, items), nil
 }
 
 // GetBadge 读单个徽章（后台编辑弹窗要用旧值做合并）。
@@ -115,6 +119,9 @@ func (a *AdminService) CreateBadge(ctx context.Context, actor identity.Actor, in
 	if err != nil {
 		return Badge{}, err
 	}
+	// 创建/更新的回执也要带文案：前端保存后用服务端结果覆盖预览，
+	// 少一次「保存成功但预览还是旧句子」的时序问题。
+	created = a.fillRequirementTexts(ctx, []Badge{created})[0]
 	return created, nil
 }
 
@@ -212,6 +219,7 @@ func (a *AdminService) UpdateBadge(ctx context.Context, actor identity.Actor, ba
 	if err != nil {
 		return Badge{}, err
 	}
+	updated = a.fillRequirementTexts(ctx, []Badge{updated})[0]
 	if topBadgeAffected(previous, updated) {
 		if err := a.recomputeAffected(ctx, badgeID); err != nil {
 			return Badge{}, err

@@ -3,8 +3,10 @@ package badges
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
@@ -439,7 +441,7 @@ func TestPublicBadgeRequirementText(t *testing.T) {
 			Cmp:    &ruleengine.Compare{Op: ruleengine.CompareGTE, Value: 10},
 		},
 	}
-	public := single.Public()
+	public := single.Public(conditions.NewRefNames())
 	if public.RequirementText.Zh == "" || public.RequirementText.En == "" {
 		t.Fatalf("单条件徽章必须有双语 requirementText，得到 %+v", public.RequirementText)
 	}
@@ -450,9 +452,13 @@ func TestPublicBadgeRequirementText(t *testing.T) {
 			{Type: "activity.count", Params: map[string]any{"metric": "comment_count", "window": map[string]any{"kind": "all"}}, Cmp: &ruleengine.Compare{Op: ruleengine.CompareGTE, Value: 1}},
 		}},
 	}
-	public = multi.Public()
-	if public.RequirementText.Zh != "" || public.RequirementText.En != "" {
-		t.Fatalf("多条件徽章不应生成 requirementText，得到 %+v", public.RequirementText)
+	public = multi.Public(conditions.NewRefNames())
+	// 多条件徽章现在**必须**有文案（手填已移除，空串就是公开面空白）。
+	if public.RequirementText.Zh == "" || public.RequirementText.En == "" {
+		t.Fatalf("多条件徽章必须有 requirementText，得到 %+v", public.RequirementText)
+	}
+	if !strings.Contains(public.RequirementText.Zh, "并且") {
+		t.Fatalf("多条件文案应用「并且」连接：%q", public.RequirementText.Zh)
 	}
 }
 

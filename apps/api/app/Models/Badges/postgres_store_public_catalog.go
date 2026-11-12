@@ -3,6 +3,9 @@ package badges
 import (
 	"context"
 	"fmt"
+
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // 本文件是公开目录的**读**查询。
@@ -29,7 +32,7 @@ func (s *PostgresStore) ListPublicCatalog(ctx context.Context, limit int) ([]Pub
 	rows, err := s.pool.Query(ctx, `
 		SELECT badges.slug, badges.name, badges.description, badges.icon, badges.tier,
 		       COALESCE(badge_groups.key, ''), COALESCE(badge_groups.name, ''),
-		       badges.rule, badges.requirement_summary_zh, badges.requirement_summary_en,
+		       badges.rule,
 		       `+badgeTierColumnsSQL+`
 		FROM badges
 		LEFT JOIN badge_groups ON badge_groups.id = badges.group_id
@@ -42,28 +45,37 @@ func (s *PostgresStore) ListPublicCatalog(ctx context.Context, limit int) ([]Pub
 	}
 	defer rows.Close()
 	items := make([]PublicCatalogEntry, 0, limit)
+	// 两段式：先只扫数据（含规则 AST），扫完再一次性解析引用名、一次性渲染文案。
+	// 逐行渲染会把整页变成几百次单行查询（N+1），这也是本刀的性能验收点。
+	rules := make([]*ruleengine.Node, 0, limit)
+	broken := make([]bool, 0, limit)
+	seed := conditions.NewRefNames()
 	for rows.Next() {
 		var entry PublicCatalogEntry
 		var ruleRaw []byte
-		var summaryZh, summaryEn string
 		if err := rows.Scan(&entry.Slug, &entry.Name, &entry.Description, &entry.Icon,
 			&entry.Tier, &entry.GroupKey, &entry.GroupName,
-			&ruleRaw, &summaryZh, &summaryEn,
+			&ruleRaw,
 			&entry.Appearance.NameZh, &entry.Appearance.NameEn,
 			&entry.Appearance.Color, &entry.Appearance.Position); err != nil {
 			return nil, false, fmt.Errorf("scan public badge catalog: %w", err)
 		}
-		// 文案在扫描时算：`BuildRequirementText` 只看运营文本与单条件规则，
-		// 不做 IO；放在这里比在 HTTP 层再拼一遍更不容易漏（目录与资料页同源）。
-		entry.RequirementText = BuildRequirementText(Badge{
-			Rule:                 decodeRuleQuietly(ruleRaw, entry.Slug),
-			RequirementSummaryZh: summaryZh,
-			RequirementSummaryEn: summaryEn,
-		})
+		node := decodeRuleQuietly(ruleRaw, entry.Slug)
+		rules = append(rules, node)
+		broken = append(broken, node == nil && len(ruleRaw) > 0)
+		// 同一次扫描里的徽章名直接进 seed：`badge.owned` 引用本页徽章时零额外查询。
+		seed.AddBadge(entry.Slug, entry.Name)
 		items = append(items, entry)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, false, err
+	}
+	names := ResolveRefNames(ctx, RefNameLoaderOf(s), CollectRefs(rules...), seed)
+	for index := range items {
+		items[index].RequirementText = BuildRequirementText(Badge{
+			Rule:       rules[index],
+			RuleBroken: broken[index],
+		}, names)
 	}
 	truncated := len(items) > limit
 	if truncated {

@@ -31,12 +31,18 @@ func (s *Service) ListBadges(ctx context.Context) ([]PublicBadge, error) {
 	if err != nil {
 		return nil, err
 	}
-	items := make([]PublicBadge, 0, len(badges))
+	enabled := make([]Badge, 0, len(badges))
 	for _, badge := range badges {
 		if !badge.Enabled {
 			continue
 		}
-		items = append(items, badge.Public())
+		enabled = append(enabled, badge)
+	}
+	// 名字一次批量解析：签名里没有 ctx/store，逐条查库在这里不可能发生。
+	names := BadgeRefNames(ctx, RefNameLoaderOf(s.store), enabled)
+	items := make([]PublicBadge, 0, len(enabled))
+	for _, badge := range enabled {
+		items = append(items, badge.Public(names))
 	}
 	return items, nil
 }

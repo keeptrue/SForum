@@ -103,6 +103,8 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	// 规则引擎的两条静态段：与 /:badgeID 同形，必须在这里注册。
 	// 顺序错了 `conditions` 会被当成 badgeID 解析成 0（报 invalid id / 500）。
 	admin.Get("/conditions", h.adminListBadgeConditions)
+	// 规则文案预览：静态段 + POST，与 /:badgeID 同段数，必须注册在任何含参数段之前。
+	admin.Post("/rule-text", h.adminBadgeRuleText)
 	admin.Get("/rule-health", h.adminBadgeRuleHealth)
 	// 回扫进度同样是静态段：与 /:badgeID 系列同形，必须排在任何含参数段的 GET 之前。
 	admin.Get("/backfill-status", h.adminBadgeBackfillStatus)

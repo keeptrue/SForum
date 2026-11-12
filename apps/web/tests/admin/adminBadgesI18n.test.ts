@@ -69,17 +69,28 @@ function referencedBadgeKeys(): { literal: Set<string>, prefixes: Set<string> } 
 }
 
 // 动态前缀的枚举来源：`grantMode.` 来自 EditDialog 的 `['automatic','manual']`，
-// `metrics.` 来自 `BADGE_METRIC_OPTIONS`（单一来源，不在这里另抄一份）。
+// `metrics.` 是服务端六个指标的稳定顺序（`conditions.Metrics()`）：**不**从
+// `BADGE_METRIC_OPTIONS` 取——那份历史下拉白名单少一个 `like_given_count`，
+// 用它枚举会把运行时会用到的文案判成「多余键」。
+// `conditions.enums.` 是跨条件共享的枚举取值文案（互动动作 / 对象类型）。
 // `columns.` 来自 SFAdminBadgeTable 的 sortAria（列头排序 aria 按列 id 拼键）。
 // `rule.ops.` / `rule.compare.` / `rule.window.` 来自规则编辑器的三组固定枚举；
 // `conditions.params.` 是内置条件的参数名（插件参数没有文案时回退原始 name）。
 const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
   'admin.badges.columns': ['actions', 'enabled', 'grantMode', 'grantedCount', 'group', 'name', 'rule', 'tier'],
   'admin.badges.grantMode': ['automatic', 'manual'],
-  'admin.badges.metrics': BADGE_METRIC_OPTIONS,
+  'admin.badges.metrics': [
+    'topic_count',
+    'comment_count',
+    'like_received_count',
+    'like_given_count',
+    'bookmark_count',
+    'days_visited'
+  ],
   'admin.badges.rule.ops': ['all', 'any', 'not'],
   'admin.badges.rule.compare': ['gte', 'lte'],
   'admin.badges.rule.window': ['all', 'recent_days'],
+  'admin.badges.conditions.enums': ['like', 'bookmark', 'comment', 'category', 'tag'],
   'admin.badges.rule.health': [
     'missing_topic',
     'missing_category',

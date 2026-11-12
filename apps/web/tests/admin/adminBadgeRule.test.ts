@@ -4,11 +4,14 @@ import type {
   BadgeConditionCatalogEntry,
   BadgeConditionParam,
   BadgeRule,
+  BadgeRuleError,
   BadgeRuleNode,
   BadgeRuleRefKind
 } from '../../app/utils/admin/badgeRule'
+import { validateParams } from '../../app/utils/admin/badgeRuleParams'
 import {
   BADGE_RULE_LIMITS,
+  createDefaultLeaf,
   createGroup,
   createLeaf,
   describeRule,
@@ -48,10 +51,8 @@ const catalog: BadgeConditionCatalogEntry[] = [
         name: 'category',
         kind: 'enum',
         required: true,
-        options: [
-          { value: '公告', labelZh: '公告', labelEn: 'Announcements' },
-          { value: 'news', labelZh: '新闻', labelEn: 'News' }
-        ]
+        // wire 形状：只有取值，文案由 i18n 解析（`errors` 里回显的也是取值本身）。
+        options: ['公告', 'news']
       },
       { name: 'days', kind: 'int', required: false, min: 1, max: 3650 }
     ]
@@ -326,6 +327,22 @@ describe('badgeRule validateRuleDraft', () => {
 
     const valid = validateRuleDraft(ruleOf(leaf('object.authoring', 5, { category: '公告', days: 30 })), catalog)
     expect(valid).toEqual({ ok: true, errors: [] })
+  })
+
+  test('enum 候选取值就是 wire 上的字符串：默认值/校验都按值取，不需要 {value,label}', () => {
+    // `createDefaultLeaf` 取第一个候选取值——写成对象型时这里会拿到 undefined（下拉空白）。
+    expect(createDefaultLeaf(catalog.find(item => item.key === 'object.authoring')!).params)
+      .toEqual({ category: '公告', days: 1 })
+    // 校验的允许集合等于字符串数组本身。
+    const enumParam: BadgeConditionParam = { name: 'category', kind: 'enum', required: true, options: ['公告', 'news'] }
+    const errors: BadgeRuleError[] = []
+    validateParams([enumParam], { category: 'news' }, [0], errors)
+    expect(errors).toEqual([])
+    validateParams([enumParam], { category: '公告栏' }, [0], errors)
+    expect(errors[0]?.code).toBe('rule.param_enum')
+    // 字段缺失（未声明候选）不抛错，按空集合处理。
+    validateParams([{ ...enumParam, options: undefined }], { category: '公告' }, [0], errors)
+    expect(errors[1]?.code).toBe('rule.param_enum')
   })
 
   test('必填参数缺失时带 params.<name> 字段定位', () => {

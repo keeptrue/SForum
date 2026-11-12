@@ -8,6 +8,8 @@ import type {
   BadgeRuleGroup,
   BadgeRuleNode
 } from '../../app/utils/admin/badgeRule'
+import { resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
+import { isSimpleRule, ruleSentence } from '../../app/utils/admin/badgeRuleSentence'
 import {
   applyFactKeySelection,
   factCandidateUnit,
@@ -43,7 +45,29 @@ const useToastStub = () => ({ add: (payload: unknown) => { toastCalls.push(paylo
 
 const UIconStub = defineComponent({ name: 'UIcon', props: { name: String }, template: '<i />' })
 
+/** 简单模式表单是另一个文件的契约，这里只验「高级模式下不该出现它」。 */
+const SimpleFormStub = defineComponent({
+  name: 'SFAdminBadgeRuleSimpleForm',
+  props: ['rule', 'catalog'],
+  emits: ['update:rule'],
+  template: '<div data-simple-form />'
+})
+
 const ruleDir = new URL('../../app/components/admin/badges/rule/', import.meta.url)
+
+const ParamField = await compileVueSfc(
+  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue', import.meta.url)),
+  'rule-param-field-editor',
+  {
+    computed,
+    useI18n: i18nStub,
+    resolveParamOptionLabel,
+    applyFactKeySelection,
+    factKeyMissing,
+    factKeyOptions,
+    factVariantOptions
+  }
+)
 
 const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue', ruleDir)), 'rule-leaf', {
   createDefaultLeaf,
@@ -51,12 +75,14 @@ const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue
   computed,
   ref,
   useI18n: i18nStub,
-  // fact.count 的两级下拉读这组纯函数（import 被剥离，必须按名注入）。
+  // 选项文案解析与事实候选的纯函数（import 被剥离，必须按名注入）。
+  resolveParamOptionLabel,
   applyFactKeySelection,
   factCandidateUnit,
   factKeyMissing,
   factKeyOptions,
-  factVariantOptions
+  factVariantOptions,
+  SFAdminBadgeRuleParamField: ParamField
 })
 
 const JsonPreview = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleJsonPreview.vue', ruleDir)), 'rule-json', {
@@ -87,8 +113,11 @@ const Editor = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleEditor
   computed,
   ref,
   useI18n: i18nStub,
+  isSimpleRule,
+  ruleSentence,
   SFAdminBadgeRuleGroup: Group,
   SFAdminBadgeRuleLeaf: Leaf,
+  SFAdminBadgeRuleSimpleForm: SimpleFormStub,
   SFAdminBadgeRuleJsonPreview: JsonPreview
 })
 
@@ -100,14 +129,12 @@ const catalog: BadgeConditionCatalogEntry[] = [
     labelZh: '计数',
     labelEn: 'Count',
     params: [
+      // wire 形状：后端只下发取值，文案走 i18n（`admin.badges.metrics.<value>` 等）。
       {
         name: 'metric',
         kind: 'enum',
         required: true,
-        options: [
-          { value: 'topic_count', labelZh: '主题数', labelEn: 'Topics' },
-          { value: 'comment_count', labelZh: '回复数', labelEn: 'Comments' }
-        ]
+        options: ['topic_count', 'comment_count']
       },
       { name: 'window', kind: 'window', required: true }
     ]
@@ -130,10 +157,7 @@ const catalog: BadgeConditionCatalogEntry[] = [
         name: 'targetKind',
         kind: 'enum',
         required: true,
-        options: [
-          { value: 'category', labelZh: '分类', labelEn: 'Category' },
-          { value: 'tag', labelZh: '标签', labelEn: 'Tag' }
-        ]
+        options: ['category', 'tag']
       },
       { name: 'targetSlug', kind: 'objectRef', required: true, refKind: 'category' },
       { name: 'window', kind: 'window', required: true }
@@ -154,9 +178,13 @@ function group(op: 'all' | 'any' | 'not', children: BadgeRuleNode[] = []): Badge
   return createGroup(op, children)
 }
 
+/**
+ * 树/上限用例验的是**高级模式**的布尔树（简单模式表达不了 any / not / 嵌套组）。
+ * 简单模式自身的契约在 `adminBadgeRuleSimpleMode.test.ts`。
+ */
 function mountEditor(rule: BadgeRule, items: BadgeConditionCatalogEntry[] = catalog) {
   return mount(Editor, {
-    props: { modelValue: rule, catalog: items },
+    props: { modelValue: rule, catalog: items, initialMode: 'advanced' },
     global: {
       // 组组件递归渲染自身：编译后的对象按名字注册，运行时 resolveComponent 才能找到。
       components: { SFAdminBadgeRuleGroup: Group },
@@ -334,87 +362,25 @@ describe('SFAdminBadgeRuleEditor limits', () => {
     }
   })
 
+  test('目录为空时显示提示而不是空白树（不渲染模式切换与 JSON）', () => {
+    const wrapper = mountEditor(ruleOf(group('all', [leaf('activity.count', 1)])), [])
+    try {
+      expect(wrapper.text()).toContain('admin.badges.conditions.empty')
+      expect(wrapper.find('[data-rule-mode-simple]').exists()).toBe(false)
+      expect(wrapper.find('[data-rule-mode-advanced]').exists()).toBe(false)
+      expect(wrapper.find('details').exists()).toBe(false)
+      expect(wrapper.find('[data-rule-group]').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   test('未到上限时按钮可用，title 是动作名', () => {
     const wrapper = mountEditor(ruleOf(group('all', [leaf('identity.email_verified')])))
     try {
       const add = wrapper.find('[data-rule-add-condition]')
       expect(add.attributes('disabled')).toBeUndefined()
       expect(add.attributes('title')).toBe('admin.badges.rule.addCondition')
-    } finally {
-      wrapper.unmount()
-    }
-  })
-})
-
-describe('SFAdminBadgeRuleLeaf params', () => {
-  test('按目录 params 渲染枚举、窗口与比较/阈值控件', () => {
-    const rule = ruleOf(leaf('activity.count', 5, { metric: 'topic_count', window: { kind: 'all' } }))
-    const wrapper = mountEditor(rule)
-    try {
-      const metric = wrapper.find('[data-param="metric"]')
-      expect(metric.exists()).toBe(true)
-      expect(metric.findAll('option')).toHaveLength(2)
-      expect((metric.find('select').element as HTMLSelectElement).value).toBe('topic_count')
-
-      const windowField = wrapper.find('[data-param="window"]')
-      expect((windowField.find('select').element as HTMLSelectElement).value).toBe('all')
-      expect((wrapper.find('[data-rule-compare]').element as HTMLSelectElement).value).toBe('gte')
-      expect((wrapper.find('[data-rule-value]').element as HTMLInputElement).value).toBe('5')
-    } finally {
-      wrapper.unmount()
-    }
-  })
-
-  test('切换条件类型时按目录生成默认参数（不保留上一个条件的参数）', async () => {
-    const rule = ruleOf(group('all', [leaf('activity.count', 1, { metric: 'topic_count', window: { kind: 'all' } })]))
-    const wrapper = mountEditor(rule)
-    try {
-      const select = wrapper.find('[data-rule-condition]')
-      await select.setValue('object.authoring')
-      const next = childrenOf(lastEmitted(wrapper))[0] as { type: string, params: Record<string, unknown> }
-      expect(next.type).toBe('object.authoring')
-      expect(next.params).toEqual({ targetKind: 'category', targetSlug: '', window: { kind: 'all' } })
-    } finally {
-      wrapper.unmount()
-    }
-  })
-
-  test('objectRef 只渲染「候选待下发」占位，不提供自由输入', () => {
-    const rule = ruleOf(leaf('object.authoring', 3, { targetKind: 'category', targetSlug: '', window: { kind: 'all' } }))
-    const wrapper = mountEditor(rule)
-    try {
-      const target = wrapper.find('[data-param="targetSlug"]')
-      expect(target.find('input[type="text"]').exists()).toBe(false)
-      const options = target.findAll('option')
-      expect(options).toHaveLength(1)
-      expect(options[0]!.text()).toBe('admin.badges.conditions.candidatesPending')
-    } finally {
-      wrapper.unmount()
-    }
-  })
-
-  test('目录未命中的条件渲染为只读失效块（原始 key + 提示），不渲染空控件', () => {
-    const rule = ruleOf(group('all', [leaf('plugin.removed_fact', 3)]))
-    const wrapper = mountEditor(rule)
-    try {
-      const missing = wrapper.find('[data-rule-leaf-missing]')
-      expect(missing.exists()).toBe(true)
-      expect(missing.text()).toContain('plugin.removed_fact')
-      expect(missing.text()).toContain('admin.badges.conditions.unknownHint')
-      // 失效节点没有可编辑控件：改不了就明确只读，别给一个永远对不上的下拉。
-      expect(wrapper.find('[data-rule-condition]').exists()).toBe(false)
-      expect(wrapper.find('[data-rule-compare]').exists()).toBe(false)
-    } finally {
-      wrapper.unmount()
-    }
-  })
-
-  test('目录为空时显示提示而不是空白树', () => {
-    const rule = ruleOf(group('all', [leaf('activity.count', 1)]))
-    const wrapper = mountEditor(rule, [])
-    try {
-      expect(wrapper.text()).toContain('admin.badges.conditions.empty')
-      expect(wrapper.find('[data-rule-group]').exists()).toBe(false)
     } finally {
       wrapper.unmount()
     }

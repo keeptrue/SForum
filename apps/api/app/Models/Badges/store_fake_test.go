@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
@@ -460,7 +461,7 @@ func (f *fakeStore) ListUserBadges(_ context.Context, userID int64) ([]UserBadge
 		if !badge.Enabled {
 			continue
 		}
-		item := UserBadge{Badge: badge.Public()}
+		item := UserBadge{Badge: badge.Public(conditions.NewRefNames())}
 		if grantedAt, ok := f.grants[userID][badge.ID]; ok {
 			at := grantedAt
 			item.GrantedAt = &at

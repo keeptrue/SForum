@@ -41,6 +41,7 @@ import (
 	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 	idempotency "github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
+	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
 	routes "github.com/keeptrue/sforum/apps/api/app/Support/Routes"
@@ -561,6 +562,31 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	// registry 的 provider 声明。这里留注释而不是空装配行：空着会让下一个人分不清
 	// 「M1 故意不注入」和「忘了注入」——`rule_eval.go` 漏传 factKeys 就是同款失败。
 	badgesStore := badges.NewPostgresStore(pool)
+	// 公开说明里的「登录方式」真名：来自 identity registry 已发布的 auth provider 声明
+	//（`label` / `labelLocales` 就是插件声明的展示名，与登录页同源）。
+	// 不读 identity_provider_activations：那张表只表示「当前是否允许登录」，而规则引用
+	// 的是一条历史事实——运营临时关掉某个 provider 时，徽章说明不该退回「指定登录方式」。
+	if identityRegistry != nil {
+		badgesStore.SetProviderNames(func() map[string][2]string {
+			contributions := identityRegistry.Providers(identityregistry.ProviderKindAuth)
+			names := make(map[string][2]string, len(contributions))
+			for _, provider := range contributions {
+				zh := strings.TrimSpace(provider.LabelLocales["zh-CN"])
+				en := strings.TrimSpace(provider.LabelLocales["en-US"])
+				if zh == "" {
+					zh = strings.TrimSpace(provider.Label)
+				}
+				if en == "" {
+					en = strings.TrimSpace(provider.Label)
+				}
+				if zh == "" && en == "" {
+					continue
+				}
+				names[provider.ID] = [2]string{zh, en}
+			}
+			return names
+		})
+	}
 	// 插件事实候选：来源是「当前已启用插件声明的 badgeConditions[]」，短 TTL 缓存
 	// （见 badges_fact_catalog.go）。同一个 provider 同时喂三处，避免三套口径：
 	//   1. `PublishableDefinitions`  → GET /admin/badges/conditions 的 factCandidates

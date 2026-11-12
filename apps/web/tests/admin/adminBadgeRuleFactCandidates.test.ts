@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRuleLeaf } from '../../app/utils/admin/badgeRule'
 import { createDefaultLeaf, replaceNode } from '../../app/utils/admin/badgeRule'
+import { resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
 import {
   applyFactKeySelection,
   factCandidateLabel,
@@ -29,6 +30,20 @@ const i18nStub = () => ({
   locale: { value: 'zh-CN' }
 })
 
+const ParamField = await compileVueSfc(
+  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue', import.meta.url)),
+  'rule-param-field-facts',
+  {
+    computed,
+    useI18n: i18nStub,
+    resolveParamOptionLabel,
+    applyFactKeySelection,
+    factKeyMissing,
+    factKeyOptions,
+    factVariantOptions
+  }
+)
+
 const Leaf = await compileVueSfc(
   fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue', import.meta.url)),
   'rule-leaf-facts',
@@ -37,11 +52,13 @@ const Leaf = await compileVueSfc(
     replaceNode,
     computed,
     useI18n: i18nStub,
+    resolveParamOptionLabel,
     applyFactKeySelection,
     factCandidateUnit,
     factKeyMissing,
     factKeyOptions,
-    factVariantOptions
+    factVariantOptions,
+    SFAdminBadgeRuleParamField: ParamField
   }
 )
 
@@ -53,10 +70,11 @@ const catalog: BadgeConditionCatalogEntry[] = [
     labelZh: '插件事实计数',
     labelEn: 'Plugin fact count',
     params: [
+      // 目录只下发取值；事实候选（factCandidates）负责文案。
       { name: 'factKey', kind: 'objectRef', required: true, refKind: 'fact', options: [
-        { value: 'example.tasks', labelZh: '', labelEn: '' },
-        { value: 'example.streak', labelZh: '', labelEn: '' },
-        { value: 'example.plain', labelZh: '', labelEn: '' }
+        'example.tasks',
+        'example.streak',
+        'example.plain'
       ] },
       { name: 'variant', kind: 'enum', required: false, options: [] },
       { name: 'window', kind: 'window', required: false }

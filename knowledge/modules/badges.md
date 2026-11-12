@@ -15,7 +15,8 @@ the first consumer.
 | --- | --- | --- |
 | 徽章 + 用户活跃 | 2026-11-10 | 84 条后端断言 0 FAIL、16 条浏览器结构断言；双门禁绿 |
 | 等级表（`badge_tiers`） | 2026-11-12 | 8 条门禁全绿；P1/P2 修复后复验通过 |
-| **规则引擎（布尔条件树 + 插件事实层）** | **2026-11-12** | **M1 后端全片落地**（迁移/引擎/条件/存储/回扫/HTTP/契约）；**M2 全部完成**（编辑器 + 剩余五项：`requirementText` 接卡片、影响确认弹窗、`queued` toast、summary 字段提示、公开面/后台 390 QA）；**第一刀「回扫进度可见」已收口**（`badge_rule_backfill_runs` + `backfill-status` 端点 + 后台三态行，§13 残留 #15 关闭）；**M3 插件扩展已收口**（manifest 候选 + `badges.fact.record` + SDK 封装 + 夹具，见扩展面段） |
+| **规则引擎（布尔条件树 + 插件事实层）** | **2026-11-12** | **M1 后端全片落地**（迁移/引擎/条件/存储/回扫/HTTP/契约）；**M2 全部完成**（编辑器 + 剩余五项：`requirementText` 接卡片、影响确认弹窗、`queued` toast、summary 字段提示、公开面/后台 390 QA）；**第一刀「回扫进度可见」已收口**（`badge_rule_backfill_runs` + `backfill-status` 端点 + 后台三态行，§13 残留 #15 关闭）；**M3 插件扩展已收口**（manifest 候选 + `badges.fact.record` + SDK 封装 + 夹具，见扩展面段）；**二轮编辑器 UX 收口**（单一参数控件 + 简单/高级双模式，见「条件规则编辑器」节） |
+| **获得条件自动解释器** | **2026-11-13** | **落地（未提交）**：公开说明改为服务端从规则生成，13 条条件措辞注册测试**实际调用**、手工/脏规则/任意形状都不空白；后台两个 textarea → 只读预览 + `POST /admin/badges/rule-text`；`requirement_summary_*` 降级为回滚兼容。见「获得条件的自动解释器」节 |
 
 规则引擎把「单指标 ≥ 阈值」升级成 JSONB 布尔条件树：`badges.rule` 成为自动徽章的**唯一**判定来源，`metric`/`threshold` 降为 legacy 只读（只给 down 迁移还原用）。
 
@@ -65,6 +66,25 @@ the first consumer.
 - `PublishableDefinitions(factKeys)` = **展示子集**（后台 `GET /admin/badges/conditions`）。M1 传 nil → `fact.count` 不出现（空 options 的 enum 是陷阱）。控制器只调它，**绝不回退 `Definitions()`**。
 
 `ParamSpec.RefKind` ∈ `category|tag|role|provider|badge|fact`；数字一律 `int`，**绝不混进 objectRef**。`variant` 的 `Options: nil` 表示「候选由事实目录运行时填」，不是空下拉。
+
+## 获得条件的自动解释器（2026-11-13）
+
+公开面「获得条件」从**运营手填**改成**服务端从规则生成**。产品口径因此变了：以前写「运营手填优先」的地方全部作废，`requirement_summary_*` 只作为回滚兼容保留。
+
+**唯一实现（两个文件，别在别处拼句子）**：
+
+- `conditions/phrases.go`（269 行）：13 种条件各一个 `PhraseFunc`，签名 `(params, cmp, names RefNames) (zh, en string)`，经 `Definition.Phrase` 注册。注册测试 `TestEveryConditionHasPhrase` 会**用最小合法参数实际调用每个条件**并断言双语非空——只判 `Phrase != nil` 会把 `return "", ""` 放过去，所以它连「实现改成返回空串」一起咬住；条件数不是 13 也直接红。
+- `requirement_text_render.go`（244 行）：树遍历。中文用**标点**连接（`，并且` / `，或者`，连接符**不带尾空格**）——`≥ 5并且` 是粘连，`并且 账户年龄` 又像多打了空格。组内子句超过 `maxListedClauses = 4` 压成「满足全部 N 个条件，例如：A、B、C」（保留 `listedHead = 3` 条），`any` 压成「满足其中任一条件（共 N 个），例如：…」；单句超 `maxLeafRunes = 100` 的叶子降级为「满足『条件名』条件」，整段超 `maxTextRunes = 160` 降级为「满足 N 个条件，其中最关键的是：…」。**先结论后举例**是有意的：「A 并且 B…等 N 个条件」在中文里没有断句点，读者分不清 N 是总数还是第 N 条。
+
+**永不空白**（产品口径，不是兜底）：手工徽章（`Rule == nil`）→「由管理员手动授予」/「Granted manually by an admin」；`Rule == nil && RuleBroken`（脏规则）→ 泛称句「满足一个自定义条件」，**不能**谎称「由管理员手动授予」——那等于把脏数据说成运营决定；组缺句子 →「满足若干条件」。任何形状都有 zh + en；终审穷举 936 种形状组合 0 失败（审阅侧证据，不在仓内测试里）。
+
+**引用真名**：`CollectRefs` 从规则收集 `RefSet` → `RefNameLoader`（窄接口，`RefNameLoaderOf` 从 store 取）→ `ResolveRefNames`，每类引用**一次** `= ANY($1)` 批量解析，解析不到回落泛称并记一条 warn（fail-soft）。provider 名来自 identity registry 的插件 label（装配点 `bootstrap/api_assembly_domains.go`）。渲染本身是纯函数，「N 枚徽章 = N 次名字查询」在结构上不可能发生。
+
+**预览端点**：`POST /admin/badges/rule-text`（路由 `controller.go:107`，handler `rule_controller.go:60`）。权限是 **`badge.view`**，不要按 method 一刀切改成 `badge.manage`：它不写库、不审计、不入队，同一批管理员本就能从 `GET /admin/badges` 拿到规则原文，改 manage 只会让只读管理员看不到自己有权读的东西。非法规则返回与保存**同一个** 422 码（预览与保存共用一条校验链）。
+
+**前端**：两个 textarea → 只读预览 +「由规则自动生成」；`useBadgeRuleTextPreview` 300ms 防抖 + 序号丢弃过期响应 + 失败保留旧文案且**不阻断保存**；`toAdminBadgeInput` 不再发 `requirementSummary`；`badgeRuleNeedsSummary` / `AUTO_SUMMARY_METRICS` 已删除（测试断言源码里不再出现这两个名字）。
+
+**保留但不读**：`requirement_summary_zh/en` 列、`POST`/`PATCH` 的 `requirementSummary` 字段、后台 wire 的回显都还在（旧客户端与回滚用）——服务端仍会接受并落库，**但没有任何文案读路径再用它**：公开目录、资料页徽章墙、后台列表与编辑弹窗全部走 `RequirementText`（`Public()` 现算，不拿结构里缓存的旧文案）。回滚 = 恢复读列 + 回退该 commit；列与数据都在，不需要迁移。
 
 ## 两条相反的失效语义（本模块最容易被「统一」掉的地方）
 
@@ -177,8 +197,34 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 - `tiers` 分区：CRUD + 调序；**删除必须选迁移目标**；「最后一档」的开关禁用（前后端各拦一道）。
 - `grants` 分区：先选徽章再懒加载，来源列按三来源着色，收回只对手动来源行渲染。
 - 授予弹窗三态（`granted`/`skipped`/`failed`）**不能合并成一个成功 toast**；`skipped` 是「已持有」不是错误；失败项才给「重试这一批」。
-- 规则编辑器（2026-11-12 新增）：`components/admin/badges/rule/SFAdminBadgeRule{Editor,Group,Leaf,JsonPreview}.vue` + 纯函数 `utils/admin/badgeRule.ts` / `badgeRuleParams.ts`。编辑器只渲染 `PublishableDefinitions` 下发的目录。
+- 规则编辑器（2026-11-12 新增，同日二轮改造）：`components/admin/badges/rule/SFAdminBadgeRule{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview}.vue` + 纯函数 `utils/admin/badgeRule.ts` / `badgeRuleParams.ts` / `badgeRuleSentence.ts`。编辑器只渲染 `PublishableDefinitions` 下发的目录。
 - **回扫进度行（2026-11-12 第一刀）**：`components/admin/badges/SFAdminBadgeBackfillRow.vue` 渲染在 `badges` 分区**筛选区上方一行**（不新增卡片/页头），`data-testid="badge-backfill-progress"`。三态：进行中「已扫描到用户 #N」/ 已完成 / **失败于用户 #N**（失败必须带徽章名 + 用户 id）；刷新按钮 `aria-label`/`title` 齐全；`queued>0` 的 recompute 后自动刷一次、`queued==0`/`undefined` 不刷。端点失败 → `[]` + 可见提示（`admin.badges.backfill.unavailable`），筛选区与表格照常渲染。数据源是 `GET /admin/badges/backfill-status`。
+
+### 条件规则编辑器（2026-11-12 二轮改造）
+
+用户报的两个运营可见 bug 都出在「同一种控件存在两条实现」上，修法统一到**单一实现**。
+
+**1. 参数控件只有一个实现**：`SFAdminBadgeRuleParamField.vue`（306 行）是参数控件的唯一实现，内部是一条 `v-if/v-else-if` 链，按 `kind` 决定 `int`/`enum`/`window`/`objectRef`/`string`/`bool` 控件。`SFAdminBadgeRuleLeaf.vue`（445 → 247 行）与 `SFAdminBadgeRuleSimpleForm.vue`（482 → 332 行）都改为渲染它。
+
+> **不要在任何调用方另起一条条件链。** bug 1 的成因就是 `Leaf` 里的 `objectRef` 分支另起了 `v-if` 链，尾部兜底 `<input v-else type="text">` 对 `enum`/`window` 重复渲染——于是「指标 / 时间窗口」下方各多出一个输入框（显示 `days_visited`、`[object Object]`）。新增参数类型只加在 `ParamField` 里，调用方只传值。
+
+**2. 双模式：简单模式只表达「扁平 all 条件列表」**。`badgeRuleSentence.ts` 提供 `isSimpleRule` / `flattenAllLeaves` / `buildFlatAllRule` / `leafSentence` / `ruleSentence`，纯函数、`t`/`te` 由调用方注入，不 import 组件。`SFAdminBadgeRuleEditor.vue` 持有 `data-rule-mode` 切换、常显的一句话预览，以及在规则含 `any`/`not`/嵌套组时按 `rule.modeAdvancedOnly` 只读提示降级。
+
+**3. `options` 是字符串数组，不是对象**。wire 形状是 `conditionParamDTO.Options []string`（`dto.go:415-423`），与 OpenAPI `BadgeConditionParam.options: array<string>` 一致。前端类型曾写成 `{value,labelZh,labelEn}[]`，于是每个 `<option>` 的 `value` 与文案都是 `undefined`——bug 2「指标下拉点开空白」的直接原因。**测试没抓到是因为夹具自己按对象形状写的**（夹具跟着错类型走，是最难发现那类假绿）。
+
+选项文案走 `badgeRuleParams.ts` 的**三级 i18n 键回退**（均在 `admin.badges` 命名空间下）：`conditions.params.<param>.options.<value>` → `metrics.<value>`（同名指标只写一份） → `conditions.enums.<value>` → 原始值。读入口 `useAdminBadgeConditions.normalizeConditionsPayload` 把 `params[].options` 归一成字符串数组，是唯一的放宽点。
+
+**4. 没有展示位的字段错误不再静默丢失**：`utils/admin/badgeFieldSlots.ts` 的 `FIELD_SLOT_KEYS`（23 行）声明哪些字段有行内展示位；`metric`/`threshold` 等无展示位的字段错误合并进通用提示。
+
+**5. 弹窗去噪音**：删掉顶部「指标 / 阈值」只读两栏与 `form.legacyRuleHint`（连带 `form.metric`/`form.threshold` 三个 i18n 死键）；规则 JSON 改成默认折叠的原生 `<details>`「开发者视图」，复制按钮放在 `<summary>` 行上，折叠态一次点击可达。
+
+**6. 视觉层：单位是行内后缀，删除按钮在卡片头（用户截图报「UI 有问题」后补）**。量真实 DOM 定位三处缺陷：① 带单位的阈值字段比其它字段高 **21px**、label 不齐（`align-items: flex-end` + 单位当第三行渲染）；② 单位「次 / 篇」掉到 input 下方单独一行；③ 删除按钮被 `flex-wrap` 挤到控件行下面，成了孤立图标。修法：`.sf-simple-field__value` / `.sf-rule-field__value` 包住 input + unit（**两种模式同一套语言**，`days_visited` 仍不出单位，因为「访问天数 ≥ 7 次」读不通）；简单模式 `.sf-simple-rule__controls` 改 `align-items: flex-start`，字段按「条件 `2 1 180px` : 比较 `1 1 132px` : 阈值 `0 1 104px`」分层（阈值字段窄、不抢行动力）；删除按钮移进 `.sf-simple-rule__head`，与人话同一行，`.sf-simple-rule__controls` 里**不再放非控件元素**。高级模式同构：`.sf-rule-leaf__head` 仍是单层 flex 行，单位同样走 `.sf-rule-field__value`（组头 `.sf-rule-group__head` 的 `flex-end` 是操作符行，不属这条）。结构锁：**单位必须与 input 同父**、单位不能是字段的直接子元素、删除按钮在头不在控件行——三条都配了正向断言 + 反向确认，把单位改回独立行或把按钮挪回控件行会立刻红。
+
+**本轮三条决策**（不属跨前后端契约变更，记在这里而不单开 ADR）：
+
+1. **简单模式绝不压平 `any`/`not`/嵌套组**。表达不了就降到高级模式并给只读提示——压平会改变判定，等于给不符合条件的人**误发徽章**。这是本模块最贵的一条：任何「为了让两种模式都可用而自动归一」的改动都必须先证明判定集合不变。
+2. **`initialMode` 是首次渲染的种子，不随 prop / 规则变化**（`SFAdminBadgeRuleEditor.vue:51` 的 `ref`）。切换模式只改视图，**不改 AST、不 emit**；误用（比如用 watch 同步 `initialMode`）的表现是「运营切到简单模式后规则被悄悄重写」。
+3. **叶子根规则的行内错误按「本规则是叶子根」映射到第 0 行**。迁移后的现网徽章（如 `regular-visitor`）根节点就是 `{root:{type:'activity.count',…}}`，此时 `error.path` 是 `[]`（空路径），只有这种情况可当作第 0 行；其余空路径错误走通用提示，否则会指向一条不存在的行。
 
 ## 回扫进度（`badge_rule_backfill_runs`）的四条硬口径
 
@@ -258,7 +304,8 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 13. 插件 RPC 判定器（A 路径）未做；`fail-closed` 目前只覆盖「事实查询失败」。
 14. 查看类 / 采纳精华热榜 / 举报类条件未做（分别缺 `user_topic_reads`、Forum 域字段、审核数据不进公开面）。
 15. trust levels 未共用引擎（引擎已独立成包，可平移）。
-16. 公开面自然语言是双列（zh/en）；只填一种时另一种回落规则自动生成句。
+16. ~~公开面自然语言是双列（zh/en）；只填一种时另一种回落规则自动生成句。~~ —— **已被 2026-11-13 取代**：
+    公开说明只由服务端生成，运营不再填任何一种语言（见「获得条件的自动解释器」节）。保留原条目只为对照旧口径。
 17. ~~`PublishableDefinitions(factKeys []string)` **不携带 variants**~~ —— **M3 已闭**：签名落成 `PublishableDefinitions(candidates []FactCandidate)`，候选自带 `Variants`（见扩展面段）。保留原条目以便对照当时的 M2 约束。
 18. 等级改名/改色的缓存延迟：帖子 chip 20–30s、资料页 ≤10s。
 19. 批量授予单次上限 50 人（`admin.badges.grant.search.max`）；候选搜索上限 20 条是另一回事。
@@ -275,6 +322,20 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 26. **`badgeConditions.key` 在 Go 侧比 schema 更严**：Go 复用 `manifestIDPattern` → 上限 **81** 字符，
    而 schema 与 `badge_facts.fact_key` 的 CHECK 都是 **121**。82–121 字符能过 schema 与 DB，但会被
    manifest 拒 —— 安全侧偏差，已在 `v3_badge_conditions.go` 的注释写明，不要为「对齐」而放宽 Go 侧。
+
+27. **`fact.count` 的句子不带计量单位**：单位只在 `conditions.FactCandidate.UnitZh/UnitEn`（插件清单里声明），
+    而 `PhraseFunc` 的入参是 `(params, cmp, names RefNames)`、`RefNames.Fact` 只有双语 label ——
+    `phraseFactCount` 拿不到单位，所以公开句写「『点赞』累计 ≥ 3」而不是「≥ 3 次」。
+    **别把「字段里显示单位」当成这条已修**：输入框单位是前端视觉层，句子是服务端生成器。
+    要带单位得把单位并进 `RefNames` 或给 `PhraseFunc` 加候选入参（契约变更），别在 `phrases.go` 里硬编码单位表。
+28. **指标清单仍是多处同源手抄（2026-11-13 起少一处）**：`AUTO_SUMMARY_METRICS` 已随手填口径删除，
+    剩下的手抄点是 `adminBadgesI18n.test.ts` 的指标常量与服务端条件表（`conditions/registry.go` 的
+    `activity.count` 六个 `metric` 枚举）。改指标名仍要两地同改，应收敛到单一来源（生成物或 OpenAPI 派生）。
+29. **`normalizeConditionsPayload` 会静默丢弃非字符串 `options`**：后端若真把 `options` 改成对象型，
+    表现是**空下拉**而不是显式报错；眼下唯一兜底是 OpenAPI 契约 + 测试。改 wire 形状时先改这里。
+30. **`Badges/conditions` 有两条在干净 HEAD 也红的日期敏感测试**：`TestIdentityConditions` 与
+    `TestActivityStreakEndsTodayOrYesterday`。与本刀（解释器）无关，终审已复核；**别为了跑绿去改断言**，
+    要单独修（真实原因是「按日取界」对系统时钟/时区的依赖，与残留 12 的 `site.timezone` 同源）。
 
 ## Reconcile SQL（对账靠这两段）
 
@@ -392,13 +453,14 @@ D-01（未声明 → unknown 成对）与 D-02（variant 三态，含「卸载�
 ## Important Paths
 
 - 规则引擎：`apps/api/app/Support/RuleEngine/`（`types` / `decode` / `validate` / `eval` / `catalog`）
-- 条件与规则：`apps/api/app/Models/Badges/conditions/`（`registry` / `batch` / `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
+- 条件与规则：`apps/api/app/Models/Badges/conditions/`（`registry` / `batch` / `phrases`（13 条双语措辞）/ `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
+- 公开说明生成：`requirement_text.go`（`BuildRequirementText` / `BuildRuleRequirementText` 唯一入口）、`requirement_text_render.go`（树遍历 + 压缩 + 降级）、`ref_names.go`（`CollectRefs` / `RefSet` / `RefNameLoader` / `ResolveRefNames`）、`admin_requirement_text.go`（预览端点域层）
 - 领域：`apps/api/app/Models/Badges/`（`types.go` / `service.go` / `admin_service.go` / `evaluate.go` / `postgres_store.go` / `activity_store.go` / `visits.go` / `badge_reader.go` / `tiers_store.go` / `tiers.go` / `grant_candidates.go`）
 - 回扫 job：`apps/api/app/Jobs/Badges/backfill_rules.go`
 - HTTP：`apps/api/app/Http/Controllers/Badges/`（`controller.go` 路由 + `dto.go` wire 形状唯一来源 + `rule_controller.go`）
 - 装配：`apps/api/bootstrap/badges_wiring.go`、`apps/api/app/Providers/badges.go`
 - 前端（论坛面）：`components/profile/SFProfileBadgeTab.vue`、`components/forum/badges/SFBadgeCard.vue`、`components/forum/SFBadgeChip.vue`
-- 前端（后台）：壳 `pages/admin/badges.vue`；四分区 `components/admin/badges/tabs/SFAdminBadges{Badges,Groups,Tiers,Grants}Tab.vue`；共享 `SFAdminBadge{Table,EditDialog,GrantDialog,UserPicker}.vue`；规则区 `SFAdminBadgeRuleSection.vue`（从编辑弹窗抽出）；规则编辑器与影响弹窗 `components/admin/badges/rule/{Editor,Group,Leaf,JsonPreview,ImpactDialog}.vue`；数据层 `composables/admin/badges/{useAdminBadges,useBadgeRuleDraft,useAdminBadgeConditions,useAdminBadgeRuleHealth,useAdminBadgeRuleImpact}.ts` + 纯函数 `utils/admin/{adminBadges,badgeRule,badgeRuleParams}.ts`
+- 前端（后台）：壳 `pages/admin/badges.vue`；四分区 `components/admin/badges/tabs/SFAdminBadges{Badges,Groups,Tiers,Grants}Tab.vue`；共享 `SFAdminBadge{Table,EditDialog,GrantDialog,UserPicker}.vue`；规则区 `SFAdminBadgeRuleSection.vue`（从编辑弹窗抽出）；规则编辑器与影响弹窗 `components/admin/badges/rule/{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview,ImpactDialog}.vue`；数据层 `composables/admin/badges/{useAdminBadges,useBadgeRuleDraft,useBadgeRuleTextPreview,useAdminBadgeConditions,useAdminBadgeRuleHealth,useAdminBadgeRuleImpact}.ts` + 纯函数 `utils/admin/{adminBadges,badgeRule,badgeRuleParams,badgeRuleSentence,badgeFieldSlots}.ts`
 - 前端（公开面）：`components/forum/badges/{SFBadgeCard,SFBadgeCatalogPage}.vue`、`components/profile/SFProfileBadgeTab.vue`、`utils/forum/forumBadge.ts`（`forumBadgeRequirementText` 是公开面唯一句子解析入口，只选语言、不生成句子）
 - 验收与证据：`scripts/verify-badge-rules-acceptance.sh`（值级双向，`requirementText` 按规则形状取样）、`knowledge/reports/2026-11-12-badge-m2-remaining-acceptance.md`、`knowledge/reports/2026-11-12-badge-m2-visual-qa.md` + `qa-2026-11-12-badge-m2/`
 - 配色：`apps/api/app/Support/Palette`（9 色唯一来源）+ `apps/web/app/utils/theme/tierColor.ts` + `assets/css/sforum-trust-colors.css`
@@ -418,3 +480,9 @@ D-01（未声明 → unknown 成对）与 D-02（variant 三态，含「卸载�
   落成 `PublishableDefinitions(candidates []FactCandidate)`，候选自带 `Variants` 与双语 label/unit。
 - 条件目录若要扩（查看类 / 采纳精华热榜 / 举报类），先确认数据面是否存在——
   三者分别缺 `user_topic_reads`、Forum 域字段、以及「审核数据不进公开面」的既有裁决。
+- **二轮编辑器 UX 的窄屏证据只有结构级（2026-11-12）**：390×844 实机未验（当次浏览器载体不支持
+  视口模拟），键盘可达性同理。**后续那次 340px 是「行宽模拟」，只证明行内几何，不等于 390×844 视口**——
+  别把它当中窄屏证据划掉本条。桌面侧已在真实 dev server（`:3000` + `:8080`）验过：简单模式
+  「累计访问天数 ≥ 7」、指标下拉 6 项全中文、指标与时间窗口各 1 个控件、无 `[object Object]`、
+  模式来回切换规则 JSON 字节稳定、无横向溢出；340px 行宽下控件按「条件 → 比较 / 阈值 → 指标 / 时间窗口」
+  三行落、行内 `scrollWidth == clientWidth`、删除按钮 y 不随换行变化。

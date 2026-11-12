@@ -68,6 +68,35 @@ describe('useAdminBadgeConditions', () => {
     expect(normalizeConditionsPayload({ items: [entry, { nope: 1 }, null] })).toEqual([entry])
     expect(normalizeConditionsPayload('nope')).toBeNull()
   })
+
+  test('params[].options 归一为字符串数组：非数组 → []，非字符串元素丢弃', () => {
+    const dirty = {
+      items: [{
+        ...factCondition,
+        params: [
+          { name: 'factKey', kind: 'objectRef', required: true, refKind: 'fact', options: { value: 'a.b' } },
+          { name: 'metric', kind: 'enum', required: true, options: ['topic_count', 7, null, 'comment_count'] },
+          { name: 'window', kind: 'window', required: true }
+        ]
+      }]
+    }
+    const [normalized] = normalizeConditionsPayload(dirty)!
+    const params = normalized!.params!
+    // 对象型（或任何非数组）options 收敛成空数组，而不是把 undefined 塞进 <option>。
+    expect(params[0]!.options).toEqual([])
+    expect(params[1]!.options).toEqual(['topic_count', 'comment_count'])
+    // 未声明 options 的字段保持原样：既不补空数组也不丢键。
+    expect(params[2]).toEqual({ name: 'window', kind: 'window', required: true })
+    // 其余字段一个不丢。
+    expect(normalized!.key).toBe('fact.count')
+    expect(normalized!.compare).toEqual(['gte'])
+  })
+
+  test('params 不是数组时归一为 []，整条条件仍然保留', () => {
+    const [normalized] = normalizeConditionsPayload({ items: [{ ...entry, params: { metric: 'topic_count' } }] })!
+    expect(normalized!.params).toEqual([])
+    expect(normalized!.key).toBe('activity.count')
+  })
 })
 
 describe('badges page shell wiring', () => {
@@ -98,7 +127,8 @@ const factCondition: BadgeConditionCatalogEntry = {
   labelZh: '插件事实计数',
   labelEn: 'Plugin fact count',
   params: [
-    { name: 'factKey', kind: 'objectRef', required: true, refKind: 'fact', options: [{ value: 'a.b', labelZh: '', labelEn: '' }] },
+    // wire 形状：目录只下发取值（`conditionParamDTO.Options []string`）。
+    { name: 'factKey', kind: 'objectRef', required: true, refKind: 'fact', options: ['a.b'] },
     { name: 'variant', kind: 'enum', required: false, options: [] }
   ]
 }

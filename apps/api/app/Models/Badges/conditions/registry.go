@@ -87,6 +87,12 @@ type Definition struct {
 	DescribeEn string
 	UnitZh     string
 	UnitEn     string
+	// Phrase 把叶子翻成公开面可读的双语句子。
+	//
+	// **每个条件都必须有**：缺一条就是「公开面这枚徽章没有说明」，而手填已被移除，
+	// 没有兜底来源。注册测试（`TestEveryConditionHasPhrase`）按 key 数量比对这个
+	// 字段，新增条件忘了写句子会直接判红，而不是上线后显示半句话。
+	Phrase PhraseFunc
 }
 
 // Registry 是 Core 内置条件目录。它实现 `ruleengine.Catalog`。
@@ -209,6 +215,7 @@ func newCoreRegistry() *Registry {
 	defs := []Definition{
 		{
 			Key:       KeyActivityCount,
+			Phrase:    phraseActivityCount,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
@@ -221,6 +228,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyActivityStreak,
+			Phrase:    phraseActivityStreak,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
@@ -232,6 +240,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyObjectEngagement,
+			Phrase:    phraseObjectEngagement,
 			ValueKind: ruleengine.ValueBoolean,
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
 				{Name: "action", Kind: ruleengine.ParamEnum, Required: true, Options: []string{ActionLike, ActionBookmark, ActionComment}},
@@ -242,6 +251,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyObjectAuthoring,
+			Phrase:    phraseObjectAuthoring,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
@@ -255,6 +265,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyIdentityAccountAge,
+			Phrase:    phraseIdentityAccountAge,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			LabelZh:   "账户年龄", LabelEn: "Account age",
@@ -263,12 +274,14 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyIdentityEmailVerify,
+			Phrase:    phraseIdentityEmailVerify,
 			ValueKind: ruleengine.ValueBoolean,
 			LabelZh:   "邮箱已验证", LabelEn: "Email verified",
 			DescribeZh: "邮箱是否已验证。", DescribeEn: "Whether the email address is verified.",
 		},
 		{
 			Key:       KeyIdentityOAuthLink,
+			Phrase:    phraseIdentityOAuthLink,
 			ValueKind: ruleengine.ValueBoolean,
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
 				{Name: "providerId", Kind: ruleengine.ParamObjectRef, Required: true, RefKind: "provider"},
@@ -278,6 +291,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyIdentityRole,
+			Phrase:    phraseIdentityRole,
 			ValueKind: ruleengine.ValueBoolean,
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
 				{Name: "roleKey", Kind: ruleengine.ParamObjectRef, Required: true, RefKind: "role"},
@@ -287,12 +301,14 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyIdentityAvatar,
+			Phrase:    phraseIdentityAvatar,
 			ValueKind: ruleengine.ValueBoolean,
 			LabelZh:   "已设置头像", LabelEn: "Avatar set",
 			DescribeZh: "是否上传过头像。", DescribeEn: "Whether the user has uploaded an avatar.",
 		},
 		{
 			Key:       KeyContentPinned,
+			Phrase:    phraseContentPinned,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			LabelZh:   "主题被置顶", LabelEn: "Topics pinned",
@@ -301,6 +317,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyContentHidden,
+			Phrase:    phraseContentHidden,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			LabelZh:   "主题被隐藏", LabelEn: "Topics hidden",
@@ -309,6 +326,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyBadgeOwned,
+			Phrase:    phraseBadgeOwned,
 			ValueKind: ruleengine.ValueBoolean,
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
 				{Name: "slug", Kind: ruleengine.ParamObjectRef, Required: true, RefKind: "badge"},
@@ -318,6 +336,7 @@ func newCoreRegistry() *Registry {
 		},
 		{
 			Key:       KeyFactCount,
+			Phrase:    phraseFactCount,
 			ValueKind: ruleengine.ValueCount,
 			Compare:   countCompare(),
 			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{

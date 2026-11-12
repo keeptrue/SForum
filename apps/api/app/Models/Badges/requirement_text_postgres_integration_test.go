@@ -3,6 +3,7 @@ package badges
 import (
 	"context"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -83,8 +84,8 @@ func TestListUserBadgesGeneratesRequirementTextForSingleConditionRule(t *testing
 	}
 }
 
-// 多条件规则：按设计两种语言都为空（不是缺陷），防止有人为了「非空」把 AST 拼进文案。
-func TestListUserBadgesLeavesRequirementTextEmptyForMultiConditionRule(t *testing.T) {
+// 多条件规则：**必须**有文案（手填已移除，空串就是公开面空白这起报障本身）。
+func TestListUserBadgesGeneratesRequirementTextForMultiConditionRule(t *testing.T) {
 	fixture := newBadgesPGFixture(t)
 	userID := fixture.user(t, "bob", "active")
 	fixture.requirementBadge(t, "active-and-verified", multiConditionRule, "", "")
@@ -93,30 +94,68 @@ func TestListUserBadgesLeavesRequirementTextEmptyForMultiConditionRule(t *testin
 	if !ok {
 		t.Fatal("enabled badge missing from profile wall")
 	}
-	if item.Badge.RequirementText.Zh != "" || item.Badge.RequirementText.En != "" {
-		t.Fatalf("multi-condition rule must stay empty, got %+v", item.Badge.RequirementText)
+	text := item.Badge.RequirementText
+	if text.Zh == "" || text.En == "" {
+		t.Fatalf("multi-condition rule must yield bilingual text, got %+v", text)
+	}
+	if !strings.Contains(text.Zh, "并且") {
+		t.Fatalf("multi-condition zh text must join with 并且, got %q", text.Zh)
+	}
+	for _, value := range []string{text.Zh, text.En} {
+		if match := astWordPattern.FindString(value); match != "" {
+			t.Fatalf("requirement text must not leak AST vocabulary %q: %q", match, value)
+		}
 	}
 }
 
-// 运营文案优先，且**逐语言独立回落**：只填中文时英文仍按规则生成。
-func TestListUserBadgesPrefersOperatorTextPerLanguage(t *testing.T) {
+// 手工徽章（无规则）：固定句，且**不再**读废弃的手写覆盖列。
+func TestListUserBadgesManualBadgeIgnoresDeprecatedOperatorText(t *testing.T) {
 	fixture := newBadgesPGFixture(t)
 	userID := fixture.user(t, "carol", "active")
-	fixture.requirementBadge(t, "zh-only", singleConditionRule, "运营写的获取条件", "")
-	fixture.requirementBadge(t, "both-languages", singleConditionRule, "运营写的获取条件", "Operator copy wins")
+	fixture.requirementBadge(t, "manual-copy", "", "运营写的获取条件", "Operator copy wins")
 
-	bySlug := fixture.userBadgesBySlug(t, userID)
-
-	zhOnly := bySlug["zh-only"].Badge.RequirementText
-	if zhOnly.Zh != "运营写的获取条件" {
-		t.Fatalf("operator zh text must win, got %q", zhOnly.Zh)
+	item, ok := fixture.userBadgesBySlug(t, userID)["manual-copy"]
+	if !ok {
+		t.Fatal("enabled badge missing from profile wall")
 	}
-	if zhOnly.En == "" || zhOnly.En == "运营写的获取条件" {
-		t.Fatalf("empty en must fall back to generated text, got %q", zhOnly.En)
+	text := item.Badge.RequirementText
+	if text.Zh != manualRequirementZh || text.En != manualRequirementEn {
+		t.Fatalf("hand-written copy must be ignored (deprecated), got %+v", text)
 	}
+}
 
-	both := bySlug["both-languages"].Badge.RequirementText
-	if both.Zh != "运营写的获取条件" || both.En != "Operator copy wins" {
-		t.Fatalf("operator text must win in both languages, got %+v", both)
+// 公开目录里每一枚徽章都必须有文案（含手工徽章）。
+//
+// 用 12 枚覆盖真实种子形状的组合（单条件 / 多条件 / 带窗口 / 手工），同时验证目录
+// 扫描的两段式投影：扫描 → 一次名字解析 → 渲染（不是逐行查库）。
+func TestPublicCatalogBadgesAllHaveRequirementText(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	windowed := `{"v":1,"root":{"type":"activity.count",` +
+		`"params":{"metric":"comment_count","window":{"kind":"recent_days","days":30}},` +
+		`"cmp":{"op":"gte","value":5}}}`
+	for index := 0; index < 10; index++ {
+		fixture.requirementBadge(t, "auto-"+string(rune('a'+index)), singleConditionRule, "", "")
+	}
+	fixture.requirementBadge(t, "windowed", windowed, "", "")
+	fixture.requirementBadge(t, "multi", multiConditionRule, "", "")
+	fixture.requirementBadge(t, "manual", "", "", "")
+
+	entries, _, err := NewPostgresStore(fixture.pool).ListPublicCatalog(context.Background(), PublicCatalogLimit)
+	if err != nil {
+		t.Fatalf("ListPublicCatalog: %v", err)
+	}
+	if len(entries) != 13 {
+		t.Fatalf("catalog should list all 13 seeded badges, got %d", len(entries))
+	}
+	for _, entry := range entries {
+		text := entry.RequirementText
+		if text.Zh == "" || text.En == "" {
+			t.Fatalf("badge %q has empty requirement text: %+v", entry.Slug, text)
+		}
+		for _, value := range []string{text.Zh, text.En} {
+			if match := astWordPattern.FindString(value); match != "" {
+				t.Fatalf("badge %q leaks AST vocabulary %q: %q", entry.Slug, match, value)
+			}
+		}
 	}
 }

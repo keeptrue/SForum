@@ -26,23 +26,25 @@ async function copy() {
 </script>
 
 <template>
-  <section class="sf-rule-json" :aria-label="t('admin.badges.rule.jsonTitle')">
-    <div class="sf-rule-json__head">
-      <h3 class="sf-rule-json__title">{{ t('admin.badges.rule.jsonTitle') }}</h3>
+  <!-- 原生 details：默认收起，不占版面也不抢注意力；展开后仍是只读 + 复制。 -->
+  <details class="sf-rule-json">
+    <!-- 复制按钮放在 summary 里：折叠态也能一次点到，不必先展开再去内容区找。 -->
+    <summary class="sf-rule-json__summary">
+      <span class="sf-rule-json__title">{{ t('admin.badges.rule.jsonTitle') }}</span>
       <button
         type="button"
         class="sf-rule-json__copy"
         data-rule-copy
         :aria-label="t('admin.badges.rule.copy')"
         :title="t('admin.badges.rule.copy')"
-        @click="copy"
+        @click.stop.prevent="copy"
       >
         <UIcon name="i-lucide-copy" aria-hidden="true" />
         <span>{{ t('admin.badges.rule.copy') }}</span>
       </button>
-    </div>
+    </summary>
     <pre class="sf-rule-json__code"><code>{{ json }}</code></pre>
-  </section>
+  </details>
 </template>
 
 <style scoped>
@@ -55,19 +57,23 @@ async function copy() {
   margin-top: 16px;
 }
 
-.sf-rule-json__head {
+.sf-rule-json__summary {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  cursor: pointer;
 }
 
 .sf-rule-json__title {
-  margin: 0;
   color: var(--sf-fg-secondary);
   font-size: 12px;
   font-weight: 600;
+}
+
+.sf-rule-json__summary:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 1px;
 }
 
 .sf-rule-json__copy {

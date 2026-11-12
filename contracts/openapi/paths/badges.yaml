@@ -818,6 +818,51 @@ adminListBadgeConditions:
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
+adminBadgeRuleText:
+  post:
+    tags: [Badges]
+    summary: Preview the generated requirement text for a draft rule
+    operationId: adminBadgeRuleText
+    description: |
+      Requires `badge.view` — read-only preview, same permission as reading a
+      badge (it does not widen the information surface: `GET /admin/badges`
+      already exposes the rule AST). Nothing is persisted, no audit entry is
+      written and no backfill is queued.
+
+      Uses the **same** renderer and the same validation chain as the public
+      surface and the save path (AST validation, reference existence, badge
+      dependency cycle), so "what the preview shows" and "what the public page
+      shows after saving" cannot diverge. Invalid rules return the same `422`
+      codes as `PATCH /admin/badges/{badgeID}`.
+
+      A `null` rule returns the fixed manual-badge sentence instead of an error,
+      letting the editor tell "no rule yet" apart from "request failed".
+
+      Reference names are resolved in one batched lookup per kind; names that no
+      longer resolve fall back to a generic noun, so this endpoint never returns
+      an empty string.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeRuleTextInput"
+    responses:
+      '200':
+        description: Generated bilingual requirement text (never empty).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeRuleText"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeRuleHealth:
   get:
     tags: [Badges]

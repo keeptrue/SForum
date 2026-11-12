@@ -1,22 +1,18 @@
 <script setup lang="ts">
 /**
- * 徽章弹窗里的「自动授予」区（legacy 只读两栏 + 健康清单 + 规则编辑器 + 规则字段错误）。
+ * 徽章弹窗里的「自动授予」区（健康清单 + 规则编辑器 + 规则字段错误 + 公开说明预览）。
  *
  * 从 `SFAdminBadgeEditDialog.vue` 抽出来的纯展示段：**不持有状态**，规则草稿与
- * `useBadgeRuleDraft` 仍归弹窗（草稿的 reset/validate/payload 与保存流程绑在一起，
- * 搬进来只会造出第二套生命周期）。这里只把弹窗算好的值渲染出来，并把编辑器的
- * `update:modelValue` 原样往上抛。
+ * `useBadgeRuleDraft`、公开说明预览（`useBadgeRuleTextPreview`）都归弹窗——草稿的
+ * reset/validate/payload 与保存流程绑在一起，搬进来只会造出第二套生命周期。
+ * 这里只把弹窗算好的值渲染出来，并把编辑器的 `update:modelValue` 原样往上抛。
  */
-import { BADGE_METRIC_OPTIONS } from '~/utils/admin/adminBadges'
-import { badgeRuleNeedsSummary } from '~/utils/admin/badgeRule'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRule } from '~/utils/admin/badgeRule'
+import type { BadgeRuleText, BadgeRuleTextStatus } from '~/composables/admin/badges/useBadgeRuleTextPreview'
 import type { BadgeRuleHealthIssue } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
 import SFAdminBadgeRuleEditor from '~/components/admin/badges/rule/SFAdminBadgeRuleEditor.vue'
 
 const props = withDefaults(defineProps<{
-  /** legacy 指标/阈值：规则接管判定后这两列只读，值仍来自弹窗的 form。 */
-  metric: string
-  threshold: number | null
   fieldErrors: Record<string, string[]>
   catalog: BadgeConditionCatalogEntry[]
   catalogFailed: boolean
@@ -27,6 +23,9 @@ const props = withDefaults(defineProps<{
   ruleMissing: boolean
   healthIssues: BadgeRuleHealthIssue[]
   healthFailed: boolean
+  /** 服务端生成的公开说明（草稿预览 / 保存回值），**只读**展示。 */
+  requirementText?: BadgeRuleText | null
+  requirementTextStatus?: BadgeRuleTextStatus
 }>(), {
   fieldErrors: () => ({}),
   catalog: () => [],
@@ -36,32 +35,24 @@ const props = withDefaults(defineProps<{
   draftRule: null,
   ruleMissing: false,
   healthIssues: () => [],
-  healthFailed: false
+  healthFailed: false,
+  requirementText: null,
+  requirementTextStatus: 'idle'
 })
 
 const emit = defineEmits<{ 'update:rule': [value: BadgeRule] }>()
 
-/**
- * 公开说明的双语字段。用 model 而不是内部 copy：弹窗持有 form，这里不许出现第二套状态。
- */
-const summaryZh = defineModel<string>('requirementSummaryZh', { default: '' })
-const summaryEn = defineModel<string>('requirementSummaryEn', { default: '' })
-
-/**
- * 只在「服务端不会自动生成 + 两侧都空」时提示（判据镜像服务端谓词）。
- * 只是提醒：不进 `fieldErrors`、不禁用保存按钮。
- */
-const summaryMissing = computed(() => badgeRuleNeedsSummary(props.draftRule, {
-  zh: summaryZh.value ?? '',
-  en: summaryEn.value ?? ''
-}))
-
 const { t, te } = useI18n()
 
-const metricItems = computed(() => BADGE_METRIC_OPTIONS.map((metric: string) => ({
-  value: metric,
-  label: t(`admin.badges.metrics.${metric}`)
-})))
+/**
+ * 公开说明是**派生数据**：句子由服务端按规则生成，后台只预览、不许手改。
+ * 三种非就绪态都不进 `fieldErrors`——预览失败不阻断保存。
+ */
+const previewEmpty = computed(() => !props.draftRule)
+const previewLoading = computed(() => !props.requirementText && props.requirementTextStatus === 'pending')
+const previewFailed = computed(() => props.requirementTextStatus === 'error')
+const previewZh = computed(() => props.requirementText?.zh ?? '')
+const previewEn = computed(() => props.requirementText?.en ?? '')
 
 /**
  * 引擎错误码的查找链：`errors.engine.<ref>` → `errors.<ref>` → `errors.generic`（带码）。
@@ -82,23 +73,7 @@ function issueText(issue: BadgeRuleHealthIssue) {
 
 <template>
   <div class="space-y-3" data-rule-section>
-    <!-- legacy 只读：规则接管判定后这两列不再有写路径，下一刀删列时一起删。 -->
-    <div class="grid gap-3 sm:grid-cols-2">
-      <UFormField :label="t('admin.badges.form.metric')" :error="fieldErrors.metric?.[0]">
-        <USelect :model-value="props.metric" :items="metricItems" class="w-full" disabled data-field="metric" />
-      </UFormField>
-      <UFormField :label="t('admin.badges.form.threshold')" :error="fieldErrors.threshold?.[0]">
-        <UInput
-          :model-value="props.threshold ?? 0"
-          type="number"
-          min="1"
-          class="w-full"
-          disabled
-          data-field="threshold"
-        />
-      </UFormField>
-    </div>
-    <p class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.badges.form.legacyRuleHint') }}</p>
+    <!-- 规则接管判定后，指标/阈值两栏既没有写路径也没有信息量，整段删掉；历史值仍在表里显示。 -->
 
     <!-- 健康清单只报「引用/条件失效」，不报「暂时没人达标」：后者是正常状态。 -->
     <p v-if="healthFailed" class="text-sm text-amber-600 dark:text-amber-400" data-rule-health-failed>
@@ -140,22 +115,47 @@ function issueText(issue: BadgeRuleHealthIssue) {
       </ul>
     </div>
 
-    <!-- 公开说明：两语言必须成对写回（服务端整体替换），所以两个字段并排。 -->
-    <div class="grid gap-3 sm:grid-cols-2">
-      <UFormField :label="t('admin.badges.form.requirementSummaryZh')">
-        <UTextarea v-model="summaryZh" :rows="2" class="w-full" data-field="requirementSummaryZh" />
-        <template #hint>
-          <span class="text-xs text-slate-500 dark:text-zinc-400">
-            {{ t('admin.badges.form.requirementSummaryHint') }}
-          </span>
-        </template>
-      </UFormField>
-      <UFormField :label="t('admin.badges.form.requirementSummaryEn')">
-        <UTextarea v-model="summaryEn" :rows="2" class="w-full" data-field="requirementSummaryEn" />
-      </UFormField>
+    <!-- 公开说明：只读预览，句子由服务端按规则生成（与公开面同一实现）。 -->
+    <div class="min-w-0" data-requirement-text>
+      <p v-if="previewEmpty" class="text-sm text-slate-500 dark:text-zinc-400" data-requirement-text-empty>
+        {{ t('admin.badges.form.requirementTextEmpty') }}
+      </p>
+      <template v-else>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-500 dark:text-zinc-400">
+              {{ t('admin.badges.form.requirementSummaryZh') }}
+            </p>
+            <p
+              class="mt-1 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-zinc-200"
+              data-requirement-text-zh
+              :aria-busy="previewLoading"
+            >
+              <span v-if="previewLoading" aria-hidden="true">…</span>
+              <template v-else>{{ previewZh }}</template>
+            </p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-500 dark:text-zinc-400">
+              {{ t('admin.badges.form.requirementSummaryEn') }}
+            </p>
+            <p
+              class="mt-1 whitespace-pre-wrap break-words text-sm text-slate-700 dark:text-zinc-200"
+              data-requirement-text-en
+              :aria-busy="previewLoading"
+            >
+              <span v-if="previewLoading" aria-hidden="true">…</span>
+              <template v-else>{{ previewEn }}</template>
+            </p>
+          </div>
+        </div>
+        <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400" data-requirement-text-auto>
+          {{ t('admin.badges.form.requirementTextAuto') }}
+        </p>
+        <p v-if="previewFailed" class="mt-1 text-xs text-amber-600 dark:text-amber-400" data-requirement-text-failed>
+          {{ t('admin.badges.form.requirementTextPreviewFailed') }}
+        </p>
+      </template>
     </div>
-    <p v-if="summaryMissing" class="text-sm text-amber-600 dark:text-amber-400" data-rule-summary-hint>
-      {{ t('admin.badges.form.requirementSummaryMissing') }}
-    </p>
   </div>
 </template>

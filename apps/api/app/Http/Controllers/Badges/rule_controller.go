@@ -1,6 +1,7 @@
 package badgescontroller
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -45,6 +46,39 @@ func (h *Controller) adminListBadgeConditions(c fiber.Ctx) error {
 		candidates = append(candidates, toFactCandidateDTO(candidate))
 	}
 	return apphttp.OK(c, map[string]any{"items": items, "factCandidates": candidates})
+}
+
+// adminBadgeRuleText 预览一条草稿规则生成的公开说明（只读，无副作用）。
+//
+// 权限是 `badge.view`，**不要**按 method 一刀切改成 `badge.manage`：本端点不写库、
+// 不审计、不入队，而且同一批管理员本来就能从 `GET /admin/badges` 拿到 `rule` 原文，
+// 预览没有扩大任何信息面。改成 manage 只会让只读管理员看不到自己有权读的规则。
+//
+// 句子在本包之外：本 handler 只做「解码 → 调域层 → 编码」，措辞与拼接全部在
+// `Badges.BuildRuleRequirementText`（与公开面同一实现）。预览与保存共用一条校验链，
+// 非法规则返回与保存相同的 422 错误码。
+func (h *Controller) adminBadgeRuleText(c fiber.Ctx) error {
+	if err := h.requireFeature(c.Context()); err != nil {
+		return err
+	}
+	actor, err := h.actor(c)
+	if err != nil {
+		return err
+	}
+	var body struct {
+		Rule json.RawMessage `json:"rule"`
+	}
+	if err := c.Bind().Body(&body); err != nil {
+		// 与保存路径同一个码：请求体形状错误属于「规则不合法」，不是 500。
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleInvalid)
+	}
+	text, err := h.admin.PreviewRequirementText(c.Context(), actor, body.Rule)
+	if err != nil {
+		return mapBadgeError(err)
+	}
+	// 只读预览：不写库，也不让代理/浏览器缓存把草稿文案当公开内容。
+	setAdminNoStore(c)
+	return apphttp.OK(c, toRequirementText(text))
 }
 
 // adminBadgeRuleHealth 返回失效引用清单。空 items 是 200 正常结果（不是 404）。

@@ -635,7 +635,14 @@
           "slug": "徽章标识",
           "variant": "变体"
         },
-        "unknownHint": "该条件已不在目录中（插件可能已卸载）。删除这个节点，或恢复对应插件后再编辑。"
+        "unknownHint": "该条件已不在目录中（插件可能已卸载）。删除这个节点，或恢复对应插件后再编辑。",
+        "enums": {
+          "like": "点赞",
+          "bookmark": "收藏",
+          "comment": "评论",
+          "category": "分类",
+          "tag": "标签"
+        }
       },
       "confirmDeleteBody": "删除后无法恢复。已授予该徽章的记录会一并删除，用户资料页的最高徽章也会被清空。",
       "confirmDeleteTitle": "确认删除",
@@ -667,18 +674,16 @@
         "grantMode": "授予方式",
         "group": "分组",
         "icon": "图标",
-        "metric": "指标",
         "name": "名称",
         "saveFailed": "徽章保存失败，请稍后重试。",
         "slug": "标识",
         "slugHint": "只保留小写字母、数字与连字符；下划线与空格会转成连字符。编辑时该字段锁定。",
-        "threshold": "阈值",
         "tier": "等级",
-        "legacyRuleHint": "指标与阈值已由规则替代，这里只保留历史值。",
         "requirementSummaryEn": "公开说明（英文）",
-        "requirementSummaryHint": "公开面「怎么获得」的说明，中英各一份；留空时单条件规则由系统自动生成。",
-        "requirementSummaryMissing": "这条规则无法自动生成说明，公开面会没有解释，建议中英文都填。",
-        "requirementSummaryZh": "公开说明（中文）"
+        "requirementSummaryZh": "公开说明（中文）",
+        "requirementTextAuto": "由规则自动生成，保存后立即生效。",
+        "requirementTextPreviewFailed": "预览暂时不可用，下面显示的是上一次生成的文案；不影响保存。",
+        "requirementTextEmpty": "还没有规则，保存后这里会显示自动生成的公开说明。"
       },
       "grant": {
         "automaticNotGrantable": "自动徽章按规则判定，不能手动授予。",
@@ -784,7 +789,8 @@
         "comment_count": "回复数",
         "days_visited": "访问天数",
         "like_received_count": "获赞数",
-        "topic_count": "主题数"
+        "topic_count": "主题数",
+        "like_given_count": "送出赞"
       },
       "backfill": {
         "completed": "回扫已完成",
@@ -805,6 +811,29 @@
         "metricThreshold": "{metric} 达到 {threshold} 时授予",
         "none": "无规则（手动授予）",
         "title": "条件规则",
+        "mode": {
+          "simple": "简单",
+          "advanced": "高级"
+        },
+        "modeAdvancedOnly": "这条规则包含「任一满足 / 排除」这类高级逻辑，简单模式表达不了。切到高级模式继续编辑；切换模式本身不会改动规则。",
+        "paramUnsupported": "不支持的参数类型 {kind}",
+        "sentence": {
+          "tpl": "{when}{label} {symbol} {value}",
+          "allTime": "累计",
+          "withinDays": "最近 {days} 天内",
+          "joinAll": " 且 ",
+          "joinAny": " 或 ",
+          "negate": "非（{inner}）",
+          "empty": "还没有设置条件"
+        },
+        "simple": {
+          "allOf": "并且",
+          "addCondition": "添加条件",
+          "empty": "还没有条件，先添加一条吧。",
+          "windowAll": "累计（不限时间）",
+          "windowRecent": "最近 N 天",
+          "delete": "删除这条条件"
+        },
         "groupOp": "组合方式",
         "condition": "条件",
         "compareOp": "比较",
@@ -832,7 +861,7 @@
         "limitDepth": "已达最大嵌套深度（{max} 层），不能再嵌套。",
         "limitLeaves": "条件数已达上限（{max} 个），不能再加条件。",
         "limitNodes": "节点数已达上限（{max} 个），不能再添加。",
-        "jsonTitle": "规则 JSON",
+        "jsonTitle": "开发者视图 · 规则 JSON",
         "copy": "复制",
         "copied": "规则 JSON 已复制",
         "copyFailed": "复制失败，请手动选择文本。",

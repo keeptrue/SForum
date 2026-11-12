@@ -10,7 +10,9 @@ import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRuleError } f
 import type { BadgeRuleHealthIssue, BadgeRuleHealthRow } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
 import { useBadgeRuleDraft } from '~/composables/admin/badges/useBadgeRuleDraft'
 import { useAdminBadgeRuleImpact } from '~/composables/admin/badges/useAdminBadgeRuleImpact'
+import { useBadgeRuleTextPreview } from '~/composables/admin/badges/useBadgeRuleTextPreview'
 import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
+import { FIELD_SLOT_KEYS } from '~/utils/admin/badgeFieldSlots'
 
 /**
  * 新建 / 编辑徽章弹窗。
@@ -63,9 +65,6 @@ const form = reactive({
   grantMode: 'manual' as 'automatic' | 'manual',
   metric: 'topic_count',
   threshold: 1 as number | null,
-  /** 公开说明双语（成对写回；读不到现值时整体不发，见 canWriteRequirementSummary）。 */
-  requirementSummaryZh: '',
-  requirementSummaryEn: '',
   enabled: true,
   position: 0
 })
@@ -75,6 +74,18 @@ const deleting = ref(false)
 const confirmDelete = ref(false)
 const errorMessage = ref('')
 const fieldErrors = ref<Record<string, string[]>>({})
+// 展示位清单与模板里的 `fieldErrors.<key>` 一一对应（含 Section 的 `rule`）。
+
+/**
+ * 没有展示位的字段错误 → 一行可读文本，并进通用提示。
+ * 这些键没有本地化 label（控件已删），所以直接带原始键名：运营/开发都能定位到字段，
+ * 总好过一条 422 在界面上完全不存在。
+ */
+function unmappedFieldMessages(fields: Record<string, string[]>) {
+  return Object.entries(fields)
+    .filter(([key]) => !FIELD_SLOT_KEYS.has(key))
+    .flatMap(([key, messages]) => messages.map(message => `${key}: ${message}`))
+}
 
 const isEdit = computed(() => Boolean(props.badge?.id))
 const title = computed(() => (isEdit.value ? t('admin.badges.form.editTitle') : t('admin.badges.form.createTitle')))
@@ -187,23 +198,19 @@ const {
 const impactOpen = ref(false)
 
 /**
- * `requirementSummary` 是整体替换语义（服务端两语言一起落库）。
- * 只有「读到过现值」或「新建」才允许写回：字段缺失（旧后端）时读不到现值，
- * 这时发 `{zh:'',en:''}` 会把线上已有的公开文案抹掉，所以干脆不发。
+ * 公开说明的**只读预览**：草稿规则一变就问服务端「这句话会怎么生成」。
+ * 它不是字段、不进 `fieldErrors`、失败也不阻断保存（派生数据）。
+ * 弹窗关闭时把规则置空 → 不发请求，也顺手清掉上一次的文案。
  */
-const canWriteRequirementSummary = computed(() => !props.badge || props.badge.requirementSummary !== undefined)
-
-/** 公开说明的两语言：要么整对给，要么完全不给（不给 = 不改）。 */
-function requirementSummaryPayload() {
-  if (!canWriteRequirementSummary.value) return undefined
-  return {
-    zh: form.requirementSummaryZh.trim(),
-    en: form.requirementSummaryEn.trim()
-  }
-}
+const ruleTextPreview = useBadgeRuleTextPreview({
+  rule: () => draftRule.value,
+  enabled: () => open.value
+})
 
 watch(open, (value) => {
   if (!value) return
+  // 换了一条徽章就别让上一位的公开说明先闪一下：清空后由草稿预览重新填。
+  ruleTextPreview.setText(null)
   errorMessage.value = ''
   fieldErrors.value = {}
   confirmDelete.value = false
@@ -217,8 +224,6 @@ watch(open, (value) => {
   form.grantMode = badge?.grantMode ?? 'manual'
   form.metric = badge?.metric ?? 'topic_count'
   form.threshold = badge?.threshold ?? 1
-  form.requirementSummaryZh = badge?.requirementSummary?.zh ?? ''
-  form.requirementSummaryEn = badge?.requirementSummary?.en ?? ''
   form.enabled = badge?.enabled ?? true
   form.position = badge?.position ?? 0
   resetRuleDraft()
@@ -274,22 +279,30 @@ async function persist() {
       tier: forumBadgeTier(form.tier),
       metric: automatic.value ? form.metric : null,
       threshold: automatic.value ? form.threshold : null,
-      rule: rulePayload(),
-      requirementSummary: requirementSummaryPayload()
+      rule: rulePayload()
     })
-    if (isEdit.value && props.badge) {
-      await request(`/admin/badges/${props.badge.id}`, { method: 'PATCH', body })
-      toast.add({ title: t('admin.badges.toast.updated'), color: 'success', icon: 'i-lucide-check', duration: 5000 })
-    } else {
-      await request('/admin/badges', { method: 'POST', body })
-      toast.add({ title: t('admin.badges.toast.created'), color: 'success', icon: 'i-lucide-check', duration: 5000 })
-    }
+    const saved = isEdit.value && props.badge
+      ? await request<AdminBadgeRow>(`/admin/badges/${props.badge.id}`, { method: 'PATCH', body })
+      : await request<AdminBadgeRow>('/admin/badges', { method: 'POST', body })
+    // 落库结果优先：预览是草稿的近似，保存后以服务端返回的 requirementText 为准。
+    // 旧后端没有这个字段（undefined）时保留当前预览，不把已显示的句子清空。
+    if (saved?.requirementText !== undefined) ruleTextPreview.setText(saved.requirementText)
+    toast.add({
+      title: isEdit.value ? t('admin.badges.toast.updated') : t('admin.badges.toast.created'),
+      color: 'success',
+      icon: 'i-lucide-check',
+      duration: 5000
+    })
     emit('saved')
     close()
   } catch (error) {
     const fields = apiErrorFields(error)
     fieldErrors.value = fields
-    if (Object.keys(fields).length === 0) {
+    const unmapped = unmappedFieldMessages(fields)
+    if (unmapped.length > 0) {
+      // 有落点的字段各自显示自己的错误；没有落点的合并到通用提示，一条都不许吞。
+      errorMessage.value = unmapped.join(' · ')
+    } else if (Object.keys(fields).length === 0) {
       errorMessage.value = apiErrorMessage(error) || t('admin.badges.form.saveFailed')
     }
   } finally {
@@ -335,12 +348,15 @@ async function removeBadge() {
         </div>
 
         <div class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
-          <UFormField :label="t('admin.badges.form.slug')" :error="fieldErrors.slug?.[0]">
-            <UInput v-model="form.slug" :disabled="isEdit" class="w-full" data-field="slug" />
-            <template #hint>
-              <span class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.badges.form.slugHint') }}</span>
-            </template>
-          </UFormField>
+          <div>
+            <UFormField :label="t('admin.badges.form.slug')" :error="fieldErrors.slug?.[0]">
+              <UInput v-model="form.slug" :disabled="isEdit" class="w-full" data-field="slug" />
+            </UFormField>
+            <!-- 提示在控件下方单独一行：放进 label 行会把标题挤窄、两侧高度也不齐。 -->
+            <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400" data-field-hint data-field-hint-for="slug">
+              {{ t('admin.badges.form.slugHint') }}
+            </p>
+          </div>
 
           <UFormField :label="t('admin.badges.form.name')" :error="fieldErrors.name?.[0]">
             <UInput v-model="form.name" class="w-full" data-field="name" />
@@ -401,8 +417,6 @@ async function removeBadge() {
 
           <SFAdminBadgeRuleSection
             v-if="automatic"
-            :metric="form.metric"
-            :threshold="form.threshold"
             :field-errors="fieldErrors"
             :catalog="catalog"
             :catalog-failed="catalogFailed"
@@ -412,8 +426,8 @@ async function removeBadge() {
             :rule-missing="ruleMissing"
             :health-issues="healthIssues"
             :health-failed="ruleHealthFailed"
-            v-model:requirement-summary-zh="form.requirementSummaryZh"
-            v-model:requirement-summary-en="form.requirementSummaryEn"
+            :requirement-text="ruleTextPreview.text.value"
+            :requirement-text-status="ruleTextPreview.status.value"
             @update:rule="onRuleUpdate"
           />
 

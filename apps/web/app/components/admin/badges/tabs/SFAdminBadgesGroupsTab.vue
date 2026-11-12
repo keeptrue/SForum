@@ -242,12 +242,14 @@ defineOptions({ name: 'SFAdminBadgesGroupsTab' })
           </div>
 
           <div class="space-y-3 px-5 py-4">
-            <UFormField :label="t('admin.badges.groups.form.key')" :error="fieldErrors.key">
-              <UInput v-model="form.key" :disabled="isEdit" class="w-full" />
-              <template #hint>
-                <span class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.badges.groups.form.keyHint') }}</span>
-              </template>
-            </UFormField>
+            <div>
+              <UFormField :label="t('admin.badges.groups.form.key')" :error="fieldErrors.key">
+                <UInput v-model="form.key" :disabled="isEdit" class="w-full" />
+              </UFormField>
+              <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400" data-field-hint data-field-hint-for="key">
+                {{ t('admin.badges.groups.form.keyHint') }}
+              </p>
+            </div>
             <UFormField :label="t('admin.badges.groups.form.name')" :error="fieldErrors.name">
               <UInput v-model="form.name" class="w-full" />
             </UFormField>

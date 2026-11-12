@@ -201,26 +201,31 @@ func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) p
 // RequirementSummary 无 omitempty：空串是有效值（表示「按规则自动生成文案」），
 // 缺键会让前端把「运营清空了文案」误判为「后端没实现」。
 type adminBadgeResponse struct {
-	ID                 int64              `json:"id"`
-	Slug               string             `json:"slug"`
-	Name               string             `json:"name"`
-	Description        string             `json:"description"`
-	GroupID            *int64             `json:"groupId"`
-	GroupName          *string            `json:"groupName"`
-	Tier               string             `json:"tier"`
-	TierName           tierNameDTO        `json:"tierName"`
-	TierColor          string             `json:"tierColor"`
-	Icon               string             `json:"icon"`
-	GrantMode          string             `json:"grantMode"`
-	Metric             *string            `json:"metric"`
-	Threshold          *int64             `json:"threshold"`
-	Rule               json.RawMessage    `json:"rule"`
+	ID          int64           `json:"id"`
+	Slug        string          `json:"slug"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	GroupID     *int64          `json:"groupId"`
+	GroupName   *string         `json:"groupName"`
+	Tier        string          `json:"tier"`
+	TierName    tierNameDTO     `json:"tierName"`
+	TierColor   string          `json:"tierColor"`
+	Icon        string          `json:"icon"`
+	GrantMode   string          `json:"grantMode"`
+	Metric      *string         `json:"metric"`
+	Threshold   *int64          `json:"threshold"`
+	Rule        json.RawMessage `json:"rule"`
+	// RequirementSummary 已废弃（deprecated）：2026-11 起公开说明只由规则生成，
+	// 本字段仅为回滚与旧客户端兼容保留，**后台不再读写它**。
 	RequirementSummary requirementTextDTO `json:"requirementSummary"`
-	Enabled            bool               `json:"enabled"`
-	Position           int                `json:"position"`
-	GrantedCount       int64              `json:"grantedCount"`
-	CreatedAt          time.Time          `json:"createdAt"`
-	UpdatedAt          time.Time          `json:"updatedAt"`
+	// RequirementText 是服务端按规则生成的文案（与公开面同一实现）。
+	// 保存后立即生效；后台把两个手写框改成它的只读预览。
+	RequirementText requirementTextDTO `json:"requirementText"`
+	Enabled         bool               `json:"enabled"`
+	Position        int                `json:"position"`
+	GrantedCount    int64              `json:"grantedCount"`
+	CreatedAt       time.Time          `json:"createdAt"`
+	UpdatedAt       time.Time          `json:"updatedAt"`
 }
 
 func toAdminBadge(badge badges.Badge) adminBadgeResponse {
@@ -236,6 +241,12 @@ func toAdminBadge(badge badges.Badge) adminBadgeResponse {
 	if len(badge.RuleRaw) > 0 {
 		rule = append(json.RawMessage(nil), badge.RuleRaw...)
 	}
+	// 文案由域层填好（`AdminService` 一次批量解析真名）；单条读（GetBadge）没有
+	// 那一步，用泛称兜底现算——「admin 面也有文案」是契约，不能靠调用顺序成立。
+	text := badge.RequirementText
+	if text.Zh == "" || text.En == "" {
+		text = badges.BuildRequirementText(badge, conditions.NewRefNames())
+	}
 	return adminBadgeResponse{
 		ID: badge.ID, Slug: badge.Slug, Name: badge.Name, Description: badge.Description,
 		GroupID: badge.GroupID, GroupName: badge.GroupName,
@@ -244,6 +255,7 @@ func toAdminBadge(badge badges.Badge) adminBadgeResponse {
 		Metric: metric, Threshold: badge.Threshold,
 		Rule:               rule,
 		RequirementSummary: requirementTextDTO{Zh: badge.RequirementSummaryZh, En: badge.RequirementSummaryEn},
+		RequirementText:    toRequirementText(text),
 		Enabled:            badge.Enabled,
 		Position:           badge.Position, GrantedCount: badge.GrantedCount,
 		CreatedAt: badge.CreatedAt, UpdatedAt: badge.UpdatedAt,

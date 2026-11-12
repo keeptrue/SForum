@@ -123,15 +123,17 @@ async function submit() {
         </div>
 
         <div class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
-          <UFormField
-            :label="t('admin.badges.tiers.form.key')"
-            :error="fieldErrors.key?.[0] || (keyInvalid ? t('admin.badges.tiers.form.keyInvalid') : '')"
-          >
-            <UInput v-model="form.key" :disabled="isEdit" class="w-full" autocomplete="off" />
-            <template #hint>
-              <span class="text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.badges.tiers.form.keyHint') }}</span>
-            </template>
-          </UFormField>
+          <div>
+            <UFormField
+              :label="t('admin.badges.tiers.form.key')"
+              :error="fieldErrors.key?.[0] || (keyInvalid ? t('admin.badges.tiers.form.keyInvalid') : '')"
+            >
+              <UInput v-model="form.key" :disabled="isEdit" class="w-full" autocomplete="off" />
+            </UFormField>
+            <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400" data-field-hint data-field-hint-for="key">
+              {{ t('admin.badges.tiers.form.keyHint') }}
+            </p>
+          </div>
 
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField :label="t('admin.badges.tiers.form.nameZh')" :error="fieldErrors.nameZh?.[0]">

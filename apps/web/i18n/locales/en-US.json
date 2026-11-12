@@ -595,7 +595,14 @@
           "slug": "Badge slug",
           "variant": "Variant"
         },
-        "unknownHint": "This condition is not in the catalog (the plugin may be uninstalled). Remove this node, or restore the plugin before editing."
+        "unknownHint": "This condition is not in the catalog (the plugin may be uninstalled). Remove this node, or restore the plugin before editing.",
+        "enums": {
+          "like": "like",
+          "bookmark": "bookmark",
+          "comment": "comment",
+          "category": "category",
+          "tag": "tag"
+        }
       },
       "confirmDeleteBody": "This cannot be undone. Grants of this badge are deleted and the top badge on user profiles is cleared.",
       "confirmDeleteTitle": "Confirm delete",
@@ -627,18 +634,16 @@
         "grantMode": "Grant mode",
         "group": "Group",
         "icon": "Icon",
-        "metric": "Metric",
         "name": "Name",
         "saveFailed": "The badge could not be saved. Try again in a moment.",
         "slug": "Slug",
         "slugHint": "Lowercase letters, digits, and hyphens only; underscores and spaces become hyphens. The field is locked while editing.",
-        "threshold": "Threshold",
         "tier": "Tier",
-        "legacyRuleHint": "Metric and threshold are replaced by the rule; these values are legacy.",
         "requirementSummaryEn": "Public explanation (English)",
-        "requirementSummaryHint": "How members earn this badge, in both languages. Leave it empty and a single-condition rule is described automatically.",
-        "requirementSummaryMissing": "This rule cannot be described automatically, so the public page will show no explanation. Filling both languages is recommended.",
-        "requirementSummaryZh": "Public explanation (Chinese)"
+        "requirementSummaryZh": "Public explanation (Chinese)",
+        "requirementTextAuto": "Generated from the rule automatically; takes effect as soon as you save.",
+        "requirementTextPreviewFailed": "Preview is unavailable right now — showing the last generated text. Saving is not affected.",
+        "requirementTextEmpty": "No rule yet — the generated public description appears here after saving."
       },
       "grant": {
         "automaticNotGrantable": "Automatic badges are granted by rules and cannot be granted manually.",
@@ -744,7 +749,8 @@
         "comment_count": "Replies",
         "days_visited": "Days visited",
         "like_received_count": "Likes received",
-        "topic_count": "Topics"
+        "topic_count": "Topics",
+        "like_given_count": "Likes given"
       },
       "backfill": {
         "completed": "Backfill completed",
@@ -765,6 +771,29 @@
         "metricThreshold": "Granted when {metric} reaches {threshold}",
         "none": "No rule (manual)",
         "title": "Rule",
+        "mode": {
+          "simple": "Simple",
+          "advanced": "Advanced"
+        },
+        "modeAdvancedOnly": "This rule uses advanced logic (any / not) that simple mode cannot express. Switch to Advanced to keep editing — switching modes never changes the rule.",
+        "paramUnsupported": "Unsupported parameter type {kind}",
+        "sentence": {
+          "tpl": "{when} {label} {symbol} {value}",
+          "allTime": "All-time",
+          "withinDays": "In the last {days} days",
+          "joinAll": " and ",
+          "joinAny": " or ",
+          "negate": "not ({inner})",
+          "empty": "No conditions yet"
+        },
+        "simple": {
+          "allOf": "and",
+          "addCondition": "Add condition",
+          "empty": "No conditions yet — add one to start.",
+          "windowAll": "All time",
+          "windowRecent": "Last N days",
+          "delete": "Remove this condition"
+        },
         "groupOp": "Combine with",
         "condition": "Condition",
         "compareOp": "Compare",
@@ -792,7 +821,7 @@
         "limitDepth": "Maximum nesting depth ({max}) reached.",
         "limitLeaves": "Condition limit ({max}) reached.",
         "limitNodes": "Node limit ({max}) reached.",
-        "jsonTitle": "Rule JSON",
+        "jsonTitle": "Developer view · rule JSON",
         "copy": "Copy",
         "copied": "Rule JSON copied",
         "copyFailed": "Copy failed — select the text manually.",

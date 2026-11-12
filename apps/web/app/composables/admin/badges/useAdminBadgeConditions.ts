@@ -22,10 +22,36 @@ export type BadgeConditionsLoader = () => Promise<unknown>
 export function normalizeConditionsPayload(payload: unknown): BadgeConditionCatalogEntry[] | null {
   const candidate = Array.isArray(payload) ? payload : (payload as { items?: unknown } | null)?.items
   if (!Array.isArray(candidate)) return null
-  return candidate.filter(
-    (item): item is BadgeConditionCatalogEntry =>
-      Boolean(item) && typeof item === 'object' && typeof (item as { key?: unknown }).key === 'string'
-  )
+  return candidate.flatMap((item) => {
+    if (!item || typeof item !== 'object' || typeof (item as { key?: unknown }).key !== 'string') return []
+    return [normalizeEntryParams(item as BadgeConditionCatalogEntry)]
+  })
+}
+
+/**
+ * 参数层归一：`options` 在 wire / OpenAPI 上是**字符串数组**（`conditionParamDTO.Options
+ * []string`）。写前端的把这里当成 `{value,label}` 对象数组时，每个 `<option>` 的 value
+ * 都变成 undefined，下拉整片空白——所以在读入口先收敛形状。
+ *
+ * 若后端将来真改成对象型 options，这里是**唯一**放宽点：把对象里的 value 取出来，
+ * 界面层继续只按值渲染，不必跟着二次改造。
+ */
+function normalizeParamSpec(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw
+  const spec = raw as Record<string, unknown>
+  if (!('options' in spec)) return spec
+  const options = Array.isArray(spec.options)
+    ? spec.options.filter((value): value is string => typeof value === 'string')
+    : []
+  return { ...spec, options }
+}
+
+/** `params` 是可选字段：缺省表示「这个条件没声明参数表」，不补空数组，也不改名不丢键。 */
+function normalizeEntryParams(entry: BadgeConditionCatalogEntry): BadgeConditionCatalogEntry {
+  const raw = (entry as { params?: unknown }).params
+  if (raw === undefined) return entry
+  if (!Array.isArray(raw)) return { ...entry, params: [] }
+  return { ...entry, params: raw.map(normalizeParamSpec) as BadgeConditionCatalogEntry['params'] }
 }
 
 /**

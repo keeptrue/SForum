@@ -3,10 +3,10 @@ package badges
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
-	"time"
 )
 
 func seedCatalog(t *testing.T) (*fakeStore, *fakeActivity) {
@@ -131,7 +131,7 @@ func TestPublicBadgeDropsAdminFields(t *testing.T) {
 		ID: 1, Slug: "x", Name: "X", Tier: TierGold, Icon: "i-lucide-star",
 		GrantMode: GrantManual, Enabled: true, GrantedCount: 9, Position: 2,
 	}
-	public := badge.Public()
+	public := badge.Public(conditions.NewRefNames())
 	if public.Slug != "x" || public.Position != 2 {
 		t.Fatalf("public badge lost fields: %+v", public)
 	}

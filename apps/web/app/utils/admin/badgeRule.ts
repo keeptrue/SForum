@@ -48,69 +48,8 @@ export interface BadgeRule {
  * 参数层类型从 `badgeRuleParams.ts` re-export：调用方 import 面保持只认 `badgeRule`。
  * 参数 schema 校验的实现在那边（`validateParams` / `validateParamSpec`）。
  */
-/**
- * 服务端能自动生成公开说明的指标白名单。
- *
- * 镜像 `Models/Badges/requirement_text.go` 的 `metricLabels` 键集，**不是**抄
- * `BADGE_METRIC_OPTIONS`：后者少一个历史指标 `like_given_count`（服务端仍认它），
- * 按下拉白名单判会把「服务端能生成」误判成「生成不了」。
- */
-const AUTO_SUMMARY_METRICS: readonly string[] = [
-  'topic_count',
-  'comment_count',
-  'like_received_count',
-  'like_given_count',
-  'bookmark_count',
-  'days_visited'
-]
-
-/**
- * 规则是否落在服务端「自动生成公开说明」的形状里。
- *
- * 镜像 `fastPathRuleForText`：单 `activity.count` 叶子 + `window.kind === 'all'` +
- * 不带 `days` + `cmp.op === 'gte'` + `value > 0` + 指标在白名单里。别的形状服务端一律
- * 不生成（宁可不出文案，也不把内部结构拼成人话）。
- */
-function badgeRuleAutoSummarized(rule: BadgeRule | null | undefined): boolean {
-  if (!rule || typeof rule !== 'object') return false
-  const root = rule.root
-  if (!root || typeof root !== 'object' || isGroupNode(root)) return false
-  if (root.type !== 'activity.count') return false
-  const cmp = root.cmp
-  if (!cmp || cmp.op !== 'gte' || !(Number(cmp.value) > 0)) return false
-  const params = root.params ?? {}
-  if (typeof params.metric !== 'string' || !AUTO_SUMMARY_METRICS.includes(params.metric)) return false
-  const window = params.window as Record<string, unknown> | undefined
-  if (!window || typeof window !== 'object' || window.kind !== 'all') return false
-  // 服务端用「键存在」判 days，不是判值：`days: undefined` 也会被算作带了窗口天数。
-  if ('days' in window) return false
-  return true
-}
-
-/**
- * 公开说明是否需要运营手填（后台提示，仅提醒、不阻止保存）。
- *
- * 判据是**镜像服务端谓词**，不是「条件个数 > 1」：用户点名的是多条件，但同一后果
- * （公开面没有任何解释）在「单个计数条件用最近 30 天窗口」和「单个身份条件」上照样
- * 发生。只要判据跟服务端一致，就不会对服务端会生成的形状误报。
- *
- * - 服务端会生成的形状 → `false`（不提示）；
- * - 其余形状 → 仅当 `summary.zh` 与 `summary.en` **都为空**时 `true`；
- *   任一侧有值就不提示（另一侧由服务端/运营自己决定，不在这里造第二套口径）。
- */
-export function badgeRuleNeedsSummary(
-  rule: BadgeRule | null | undefined,
-  summary?: { zh: string, en: string } | null
-): boolean {
-  if (badgeRuleAutoSummarized(rule)) return false
-  const zh = typeof summary?.zh === 'string' ? summary.zh.trim() : ''
-  const en = typeof summary?.en === 'string' ? summary.en.trim() : ''
-  return zh === '' && en === ''
-}
-
 export type {
   BadgeConditionParam,
-  BadgeConditionParamOption,
   BadgeRuleParamKind,
   BadgeRuleRefKind
 } from './badgeRuleParams'
@@ -283,7 +222,7 @@ export function createDefaultLeaf(entry: BadgeConditionCatalogEntry): BadgeRuleL
         params[spec.name] = spec.min ?? 1
         break
       case 'enum':
-        params[spec.name] = spec.options?.[0]?.value ?? ''
+        params[spec.name] = spec.options?.[0] ?? ''
         break
       case 'window':
         params[spec.name] = { kind: 'all' }

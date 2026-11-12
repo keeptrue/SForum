@@ -30,8 +30,13 @@ export interface AdminBadgeRow {
    */
   rule?: BadgeRule | null
   /**
-   * 公开面「怎么获得」的双语说明（运营手填，`requirementSummary{zh,en}`）。
-   * 服务端恒下发（无 omitempty）；`undefined` = 旧后端没这个字段，写回时必须跳过。
+   * 公开面「怎么获得」的双语说明，**服务端按规则生成**（`requirementText{zh,en}`）。
+   * 后台只读展示，不再手填。
+   */
+  requirementText?: BadgeRequirementSummary | null
+  /**
+   * @deprecated 手填口径已废弃（`requirementSummary{zh,en}`）：服务端仍下发以兼容旧客户端，
+   * 后台界面既不读也不写。新代码一律用 `requirementText`。
    */
   requirementSummary?: BadgeRequirementSummary | null
   grantedCount: number
@@ -159,11 +164,6 @@ export function toAdminBadgeInput(form: {
    * PATCH 是 merge 语义，缺省时带一个 `rule` 键会把「只改名字」变成「替换规则」。
    */
   rule?: BadgeRule | null
-  /**
-   * 公开说明：**缺省 = 不发**（读不到现值时不要用空串覆盖已有文案）。
-   * 给了就必须两个键一起给 —— 服务端是整体替换语义，只发一边会把另一边清空。
-   */
-  requirementSummary?: BadgeRequirementSummary
 }) {
   const automatic = form.grantMode === 'automatic'
   const body = {
@@ -179,10 +179,8 @@ export function toAdminBadgeInput(form: {
     enabled: form.enabled,
     position: form.position
   }
-  const withRule = form.rule === undefined ? body : { ...body, rule: form.rule }
-  return form.requirementSummary === undefined
-    ? withRule
-    : { ...withRule, requirementSummary: form.requirementSummary }
+  // 公开说明是派生数据：请求体永不携带 requirementSummary（服务端按规则生成）。
+  return form.rule === undefined ? body : { ...body, rule: form.rule }
 }
 
 /** 徽章 tab 的筛选状态；空串表示「不过滤」。字段名与 URL query 键一致。 */

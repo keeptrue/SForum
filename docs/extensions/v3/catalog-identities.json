@@ -2522,6 +2522,12 @@
       "path": "/api/v1/admin/badges/rule-health"
     },
     {
+      "id": "core.route.badges.admin_badge_rule_text",
+      "contractVersion": "sforum.route.badges.admin_badge_rule_text@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges/rule-text"
+    },
+    {
       "id": "core.route.badges.admin_badge_rule_impact",
       "contractVersion": "sforum.route.badges.admin_badge_rule_impact@1",
       "method": "GET",
@@ -6709,6 +6715,26 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_param_field",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_param_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_simple_form@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleSimpleForm.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
