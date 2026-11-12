@@ -3,7 +3,7 @@
  * 徽章后台页壳：只承担 tab 选择、?tab= query 同步与顶部编排。
  *
  * 表格行动作（启停/编辑/授予）在 badges tab、分组 CRUD 在 groups tab、
- * 授予记录与收回在 grants tab；壳层持有唯一数据层实例（store）下发给三个
+ * 等级增删改与调序在 tiers tab、授予记录与收回在 grants tab；壳层持有唯一数据层实例（store）下发给三个
  * tab，保证任意 tab 的写动作刷新后其它 tab 立即看到同一份状态。
  *
  * 三态顶部告警（功能关闭 / 无权限 / 加载失败）与 toolbar 的统计、刷新、重算
@@ -14,6 +14,7 @@ import SFAdminFixedTabNav from '~/components/admin/settings/shared/SFAdminFixedT
 import SFAdminBadgesBadgesTab from '~/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue'
 import SFAdminBadgesGroupsTab from '~/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue'
 import SFAdminBadgesGrantsTab from '~/components/admin/badges/tabs/SFAdminBadgesGrantsTab.vue'
+import SFAdminBadgesTiersTab from '~/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { useAdminBadges } from '~/composables/admin/badges/useAdminBadges'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
@@ -27,7 +28,7 @@ defineOptions({
   name: 'AdminBadges'
 })
 
-type BadgesTab = 'badges' | 'groups' | 'grants'
+type BadgesTab = 'badges' | 'groups' | 'tiers' | 'grants'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,7 +42,7 @@ const canManage = computed(() => can('badge.manage'))
 
 const store = useAdminBadges()
 
-const validTabs: BadgesTab[] = ['badges', 'groups', 'grants']
+const validTabs: BadgesTab[] = ['badges', 'groups', 'tiers', 'grants']
 const activeTab = ref<BadgesTab>(normalizeTab(route.query.tab))
 
 // 放在 tabs 之前：tabs 的每一项都读 blockedActive.value，声明晚于引用只是靠 computed
@@ -51,12 +52,14 @@ const blockedActive = computed(() => store.blocked.value !== '')
 const tabs = computed(() => [
   { id: 'badges', label: t('admin.badges.tabs.badges'), icon: 'i-lucide-medal', disabled: blockedActive.value },
   { id: 'groups', label: t('admin.badges.tabs.groups'), icon: 'i-lucide-folder-open', disabled: blockedActive.value },
+  { id: 'tiers', label: t('admin.badges.tabs.tiers'), icon: 'i-lucide-layers', disabled: blockedActive.value },
   { id: 'grants', label: t('admin.badges.tabs.grants'), icon: 'i-lucide-scroll-text', disabled: blockedActive.value }
 ])
 
 const tabComponents: Record<BadgesTab, Component> = {
   badges: SFAdminBadgesBadgesTab,
   groups: SFAdminBadgesGroupsTab,
+  tiers: SFAdminBadgesTiersTab,
   grants: SFAdminBadgesGrantsTab
 }
 const activeComponent = computed(() => tabComponents[activeTab.value])
@@ -77,15 +80,26 @@ const statsVisible = computed(() => !blockedActive.value && !store.failed.value)
 
 // 每个分区只收到自己声明过的 props：统一传会让未声明的 props 变成 fallthrough attr
 // （grants 分区不声明 groups/pending，DOM 里会落下 groups="[object Object]"）。
-const tabProps = computed(() => activeTab.value === 'grants'
-  ? { store, badges: store.badges.value, canManage: canManage.value }
-  : {
+const tabProps = computed(() => {
+  if (activeTab.value === 'grants') {
+    return { store, badges: store.badges.value, canManage: canManage.value }
+  }
+  if (activeTab.value === 'tiers') {
+    return {
       store,
-      badges: store.badges.value,
-      groups: store.groups.value,
-      pending: store.pending.value,
+      tiers: store.tiers.value,
+      colorChoices: store.colorChoices.value,
       canManage: canManage.value
-    })
+    }
+  }
+  return {
+    store,
+    badges: store.badges.value,
+    groups: store.groups.value,
+    pending: store.pending.value,
+    canManage: canManage.value
+  }
+})
 
 const recomputing = ref(false)
 const confirmRecompute = ref(false)

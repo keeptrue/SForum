@@ -1,30 +1,56 @@
 import { forumUserProfilePath } from '~/utils/forum/forumTaxonomy'
+import { tierAccentVars } from '~/utils/theme/tierColor'
 
 /**
- * 徽章的读模型口径：`BadgeRef` 只带展示需要的四个字段。
+ * 徽章的读模型口径。
  *
- * tier 在后端是 `TEXT + CHECK`，前端仍然收窄一次，未知值按 bronze 渲染，
- * 避免徽章文案缺键或样式变体落空。
+ * tier 在服务端是**运营可增删的等级 key**（TEXT），不再是固定三档：前端不再把未知值折叠成
+ * bronze —— 那会让新建等级的所有徽章都显示成「铜牌」。等级的中英名、色值、位次随载荷下发
+ * （`tierName` / `tierColor` / `tierPosition`），缺失时才回退到内置三档的文案与颜色。
+ *
+ * `data-tier` 与 URL `?tier=` 仍然是 key 字符串，读侧按已加载的等级白名单归一。
  */
-export type BadgeTier = 'bronze' | 'silver' | 'gold'
+export type BadgeTier = string
+
+/** 载荷里的等级名（中英双份，按当前 locale 取一个）。 */
+export interface ForumBadgeTierName {
+  zh: string
+  en: string
+}
 
 export interface ForumBadgeRef {
   slug: string
   name: string
   tier: BadgeTier
   icon: string
+  /** 等级显示名（服务端 `tierName`）；缺失时回退内置三档文案。 */
+  tierName?: ForumBadgeTierName | null
+  /** 等级色：token 名或 `#rrggbb`（服务端 `tierColor`）；缺失时回退内置三档色。 */
+  tierColor?: string | null
+  /** 等级位次（服务端 `tierPosition`，升序 = 展示顺序）；缺失时排在已知等级之后。 */
+  tierPosition?: number | null
 }
 
-/** tier 展示顺序：与后端视图一致，gold 在前。 */
-export const BADGE_TIERS: readonly BadgeTier[] = ['gold', 'silver', 'bronze']
+/** 内置三档：只在载荷缺字段时兜底，不是可配置等级的来源。 */
+export const BADGE_TIERS: readonly string[] = ['gold', 'silver', 'bronze']
 
+/** 内置三档的兜底色（token 名）。与 `sforum-trust-colors.css` 的 9 色同域。 */
+const BUILTIN_TIER_COLORS: Record<string, string> = {
+  gold: 'amber',
+  silver: 'slate',
+  bronze: 'rose'
+}
+
+/** 未知等级的兜底文案键（绝不把 `badges.tier.<key>` 裸键渲染出去）。 */
+export const BADGE_TIER_FALLBACK_KEY = 'badges.tier.bronze'
+
+/**
+ * 归一化：只去空白，不做三档折叠。
+ * 空值仍落到 bronze —— 那是「服务端没给 tier」的旧数据，不是「新等级」。
+ */
 export function forumBadgeTier(tier?: string | null): BadgeTier {
-  return tier === 'gold' || tier === 'silver' ? tier : 'bronze'
-}
-
-/** 排序权重（越大越靠前），供资料页徽章 tab 与后台列表共用。 */
-export function forumBadgeTierWeight(tier?: string | null): number {
-  return BADGE_TIERS.length - BADGE_TIERS.indexOf(forumBadgeTier(tier))
+  const value = typeof tier === 'string' ? tier.trim() : ''
+  return value || 'bronze'
 }
 
 /** 资料页徽章 tab 的地址；chip 跳转与 tab 写回 query 共用同一口径。 */
@@ -56,13 +82,55 @@ export interface ProfileBadgeGroup {
   badges: ProfileBadgeEntry[]
 }
 
-/** tier 的兜底图标：后台 tier 列与 tier 选择卡用，避免只靠颜色表达级别。 */
+/** 等级图标：只做内置三档兜底，可配置等级的图标由服务端下发。 */
 export function forumBadgeTierIcon(tier?: string | null): string {
   const value = forumBadgeTier(tier)
   if (value === 'gold') {
     return 'i-lucide-crown'
   }
   return value === 'silver' ? 'i-lucide-medal' : 'i-lucide-award'
+}
+
+/** 载荷 `tierName` 里挑当前语言的一份；两边都空视为「没给」。 */
+export function pickTierName(name?: ForumBadgeTierName | null, locale = 'zh-CN'): string {
+  if (!name) return ''
+  const preferred = locale.toLowerCase().startsWith('zh') ? name.zh : name.en
+  const fallback = locale.toLowerCase().startsWith('zh') ? name.en : name.zh
+  return (preferred || fallback || '').trim()
+}
+
+/**
+ * 等级的显示名，三级回退：载荷 `tierName` → locale 里的 `badges.tier.<key>` → 内置三档文案。
+ *
+ * 第三级不是为了「好看」：新建等级的 key 在旧 locale 里没有文案，直接渲染会露出
+ * `badges.tier.legendary` 这种裸键。宁可退成通用文案，也不能把键名当产品文案。
+ */
+export function forumBadgeTierLabel(
+  badge: Pick<ForumBadgeRef, 'tier' | 'tierName'>,
+  locale: string,
+  translate: (key: string) => string,
+  has: (key: string) => boolean
+): string {
+  const fromPayload = pickTierName(badge.tierName, locale)
+  if (fromPayload) return fromPayload
+  const key = `badges.tier.${forumBadgeTier(badge.tier)}`
+  if (has(key)) return translate(key)
+  return translate(BADGE_TIER_FALLBACK_KEY)
+}
+
+/** 等级的色值：载荷 `tierColor` 优先，缺失按内置三档兜底（未知档落到 slate）。 */
+export function forumBadgeTierColor(badge: Pick<ForumBadgeRef, 'tier' | 'tierColor'>): string {
+  const payload = typeof badge.tierColor === 'string' ? badge.tierColor.trim() : ''
+  if (payload) return payload
+  return BUILTIN_TIER_COLORS[forumBadgeTier(badge.tier)] ?? 'slate'
+}
+
+/**
+ * 公开面统一色变量：hue = 等级色（明暗两套），填充/环线由组件用 `color-mix` 就地混。
+ * 卡片与 chip 共用这一条，避免两处各写一套比例。
+ */
+export function forumBadgeTierStyle(badge: Pick<ForumBadgeRef, 'tier' | 'tierColor'>): Record<string, string> {
+  return tierAccentVars(forumBadgeTierColor(badge))
 }
 
 /** 只有「未获得的自动徽章」才带进度：threshold 缺失或为 0 时整条进度都不画。 */
@@ -79,11 +147,19 @@ export function forumBadgeProgressPercent(current?: number, threshold?: number):
   return Math.round(Math.min(1, Math.max(0, safeCurrent / (threshold as number))) * 100)
 }
 
-/** 组内排序：tier 降序（gold → bronze），同级按 position 升序。 */
+/** 未知位次排在所有已知等级之后（升序 = 展示顺序，最高档在前）。 */
+const UNKNOWN_TIER_POSITION = Number.MAX_SAFE_INTEGER
+
+function tierPositionOf(entry: Pick<ProfileBadgeEntry, 'tierPosition'>): number {
+  const value = Number(entry.tierPosition)
+  return Number.isFinite(value) ? value : UNKNOWN_TIER_POSITION
+}
+
+/** 组内排序：等级位次升序（服务端顺序 = 高等级在前），同级按 position 升序。 */
 export function sortProfileBadgeEntries(entries: ProfileBadgeEntry[]): ProfileBadgeEntry[] {
   return [...entries].sort((a, b) => {
-    const weight = forumBadgeTierWeight(b.tier) - forumBadgeTierWeight(a.tier)
-    return weight !== 0 ? weight : a.position - b.position
+    const byTier = tierPositionOf(a) - tierPositionOf(b)
+    return byTier !== 0 ? byTier : a.position - b.position
   })
 }
 

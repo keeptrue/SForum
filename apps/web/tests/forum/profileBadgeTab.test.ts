@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computed, defineComponent, h } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
@@ -7,6 +7,8 @@ import {
   forumBadgeProgressPercent,
   forumBadgeTier,
   forumBadgeTierIcon,
+  forumBadgeTierLabel,
+  forumBadgeTierStyle,
   sortProfileBadgeEntries,
   sortProfileBadgeGroups
 } from '~/utils/forum/forumBadge'
@@ -68,26 +70,32 @@ const EmptyStateStub = defineComponent({
 
 // 单张卡已抽成独立 SFC（组件拆分的装配线，不是行为变更）；这里把它编译好喂给容器。
 const badgeCardPath = fileURLToPath(new URL('../../app/components/forum/badges/SFBadgeCard.vue', import.meta.url))
+const has = (key: string) => typeof lookup(key) === 'string'
+
 const SFBadgeCard = await compileVueSfc(badgeCardPath, 'sf-badge-card', {
   computed,
-  useI18n: () => ({ t }),
+  useI18n: () => ({ t, te: has, locale: ref('zh-CN') }),
   useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
   forumBadgeTier,
-  forumBadgeTierIcon
+  forumBadgeTierIcon,
+  forumBadgeTierLabel,
+  forumBadgeTierStyle
 })
 
 const tabPath = fileURLToPath(new URL('../../app/components/profile/SFProfileBadgeTab.vue', import.meta.url))
 const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   computed,
-  useI18n: () => ({ t }),
+  useI18n: () => ({ t, te: has, locale: ref('zh-CN') }),
   useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),
   useLocalePath: () => (path: string) => path,
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
   forumBadgeTier,
   forumBadgeTierIcon,
+  forumBadgeTierLabel,
+  forumBadgeTierStyle,
   sortProfileBadgeEntries,
   sortProfileBadgeGroups,
   SFBadgeCard
@@ -106,7 +114,7 @@ const groups = [
     name: '荣誉',
     position: 2,
     badges: [
-      { slug: 'helper', name: '优质解答', tier: 'silver' as const, icon: 'i-lucide-award', position: 1, earned: true, current: 0, threshold: 0, grantedAt: '2026-11-03T08:00:00Z' }
+      { slug: 'helper', name: '优质解答', tier: 'silver', icon: 'i-lucide-award', tierPosition: 1, position: 1, earned: true, current: 0, threshold: 0, grantedAt: '2026-11-03T08:00:00Z' }
     ]
   },
   {
@@ -114,14 +122,14 @@ const groups = [
     name: '内容',
     position: 1,
     badges: [
-      { slug: 'first-post', name: '初次发帖', tier: 'bronze' as const, icon: 'i-lucide-zap', position: 1, earned: false, current: 3, threshold: 10, grantedAt: null },
-      { slug: 'liked', name: '广受好评', tier: 'silver' as const, icon: 'i-lucide-thumbs-up', position: 2, earned: true, current: 100, threshold: 100, grantedAt: '2026-11-01T08:00:00Z' }
+      { slug: 'first-post', name: '初次发帖', tier: 'bronze', icon: 'i-lucide-zap', tierPosition: 2, position: 1, earned: false, current: 3, threshold: 10, grantedAt: null },
+      { slug: 'liked', name: '广受好评', tier: 'silver', icon: 'i-lucide-thumbs-up', tierPosition: 1, position: 2, earned: true, current: 100, threshold: 100, grantedAt: '2026-11-01T08:00:00Z' }
     ]
   }
 ]
 
 describe('SFProfileBadgeTab', () => {
-  test('groups follow position and entries follow tier weight', () => {
+  test('groups follow position and entries follow the server tier position', () => {
     const wrapper = mountTab({ groups })
     try {
       const titles = wrapper.findAll('.sf-badge-group__name').map(node => node.text())
@@ -230,8 +238,8 @@ const catalogGroups = [
     name: '内容',
     position: 1,
     badges: [
-      { slug: 'bronze-first', name: '初次发帖', tier: 'bronze' as const, icon: '', position: 2, earned: false },
-      { slug: 'gold-writer', name: '笔耕不辍', tier: 'gold' as const, icon: '', position: 1, earned: true, grantedAt: '2026-11-01T08:00:00Z' }
+      { slug: 'bronze-first', name: '初次发帖', tier: 'bronze', icon: '', tierPosition: 2, position: 2, earned: false },
+      { slug: 'gold-writer', name: '笔耕不辍', tier: 'gold', icon: '', tierPosition: 0, position: 1, earned: true, grantedAt: '2026-11-01T08:00:00Z' }
     ]
   }
 ]

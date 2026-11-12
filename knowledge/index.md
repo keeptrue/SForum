@@ -818,17 +818,18 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章管理页：SelectItem 空串崩溃修复 + 内容区补 Card（2026-11-12，最新）**：`/control-panel/badges`
-  四个筛选 `USelect` 的 items 首项原为 `value: ''`，触发 Reka
-  `A <SelectItem /> must have a value prop that is not an empty string` 并污染整个
-  `SelectContent` 的 update。改为组件内哨兵 `ALL_FILTER = 'all'` +
-  `filterSelectModel` / `onFilterSelect` 两个助手，URL query 契约不变（空值仍
-  delete key，`group=none` 不受影响）。`null` 分组（EditDialog「—」）实测合法，未改。
-  同日补内容区承载容器：三个分区正文原来直接铺在页面灰底上，现在 `<KeepAlive>` 外包一张
-  `UCard`（与 `permissions.vue` 同款，无卡头、默认 body padding，卡在 KeepAlive 外、nav 在
-  卡外），`SFAdminBadgeTable` 的 `max-h` 随之 `20rem → 24rem`（sticky 未动）；已知残留是长表
-  仍有轻微外层滚动，nav 与卡 32px 间隙属既有几何不动。实测 1920×1080 / 390×844 卡与
-  nav、toolbar 左右边界偏差 0px、无横向溢出。详见
+- **徽章等级表改造：可管理档位 + 四分区后台 + 搜索批量授予（2026-11-12，最新；通过）**：
+  `badges.tier` 从 CHECK 枚举升级为 `badge_tiers` 表（双语名 / 图标 / 颜色 / `position` /
+  `enabled`，外键 `ON UPDATE CASCADE ON DELETE RESTRICT`），排序口径改为
+  `badge_tiers.position → badges.position → granted_at DESC` 并排除停用档；9 色 palette
+  上提到 `Support/Palette`，前端单源 `utils/theme/tierColor.ts` + `--sf-tl-*` 明暗两套，
+  chip 统一 12% 底 / 34% 环线（bronze 虚线移除）；后台扩为 badges / groups / **tiers** /
+  grants 四分区，授予弹窗改成「搜索 + 多选批量 + 逐人三态结果」。8 条门禁全绿，写路径
+  浏览器证据已补齐；P1（停用最后一个启用档会清空全站 `top_badge_id`）与 P2（新建等级
+  `position` 落 0 与金牌并列）均已修复并复验。见
+  `sessions/2026-11-12-badges-tiers.md`、`reports/2026-11-12-badges-tiers-review.md`、
+  `modules/badges.md`；上一轮 SelectItem
+  空串崩溃与内容区 Card 修复留在
   `sessions/2026-11-12-badges-admin-selectitem-fix.md`。
 - **信任等级：档位色单源渲染 + 后台 IA 归位（2026-11-11）**：五个后台分区与资料页卡收敛到共享
   `.sf-tl-mark`，色相只认**行根内联** `--tl-accent`（`tierColorOf` → `tierAccentStyle`），删掉六处子层

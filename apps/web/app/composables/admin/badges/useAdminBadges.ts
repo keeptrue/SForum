@@ -27,6 +27,50 @@ export type AdminBadgeInput = {
   position: number
 }
 
+/** 后台等级行（GET /admin/badges/tiers）：色值 = token 名或 `#rrggbb`。 */
+export type AdminBadgeTierRow = {
+  key: string
+  name: { zh: string, en: string }
+  icon: string
+  color: string
+  position: number
+  enabled: boolean
+  badgeCount: number
+}
+
+/** 新建等级的请求体：字段名与后端 tierBody 逐字一致（PATCH 时 key 不可变）。 */
+export type AdminBadgeTierInput = {
+  key: string
+  nameZh: string
+  nameEn: string
+  icon: string
+  color: string
+  position?: number
+  enabled?: boolean
+}
+
+/** 编辑等级的请求体：key 不在其中 —— 改名会打断 `?tier=` 深链与已授徽章的关联。 */
+export type AdminBadgeTierPatch = Partial<Omit<AdminBadgeTierInput, 'key'>>
+
+/** 授予候选（GET /admin/badges/grant-candidates）。 */
+export type AdminBadgeGrantCandidate = {
+  userId: number
+  username: string
+  displayName: string
+  status: string
+  alreadyGranted: boolean
+}
+
+/** 批量授予结果（POST /admin/badges/:id/grants/batch）。 */
+export type AdminBadgeBatchGrantResult = {
+  granted: number
+  skipped: number
+  failed: Array<{ userId: number, username: string, reason: string }>
+}
+
+/** 数据层实例类型：tab / 弹窗之间传递的就是这一个实例，不要各自 `ReturnType` 推导。 */
+export type AdminBadgesStore = ReturnType<typeof useAdminBadges>
+
 /** 两种 403 语义必须分开：功能关闭 ≠ 没权限。 */
 export type AdminBadgeBlockReason = '' | 'disabled' | 'forbidden'
 
@@ -42,6 +86,12 @@ export function useAdminBadges() {
 
   const badges = ref<AdminBadgeRow[]>([])
   const groups = ref<AdminBadgeGroupRow[]>([])
+  const tiers = ref<AdminBadgeTierRow[]>([])
+  /**
+   * 颜色候选由服务端下发（9 色 token），前端不再抄一份色表：
+   * 抄了就会在运营调色板后出现「后台能选、公开面渲染不出来」的分叉。
+   */
+  const colorChoices = ref<string[]>([])
   const pending = ref(false)
   const failed = ref(false)
   const blocked = ref<AdminBadgeBlockReason>('')
@@ -64,13 +114,16 @@ export function useAdminBadges() {
     failed.value = false
     blocked.value = ''
     try {
-      const [list, groupList] = await Promise.all([
+      const [list, groupList, tierList] = await Promise.all([
         request<{ items: AdminBadgeRow[] }>('/admin/badges'),
-        request<{ items: AdminBadgeGroupRow[] }>('/admin/badges/groups')
+        request<{ items: AdminBadgeGroupRow[] }>('/admin/badges/groups'),
+        request<{ items: AdminBadgeTierRow[], colorChoices: string[] }>('/admin/badges/tiers')
       ])
       if (seq !== loadSeq) return
       badges.value = Array.isArray(list?.items) ? list.items : []
       groups.value = Array.isArray(groupList?.items) ? groupList.items : []
+      tiers.value = Array.isArray(tierList?.items) ? tierList.items : []
+      colorChoices.value = Array.isArray(tierList?.colorChoices) ? tierList.colorChoices : []
     } catch (error) {
       if (seq !== loadSeq) return
       classify(error)
@@ -143,10 +196,74 @@ export function useAdminBadges() {
     return result?.revoked === true
   }
 
-  async function grantBadge(badgeId: number, payload: { username: string, reason: string }) {
-    await request<{ granted: boolean }>(`/admin/badges/${badgeId}/grants`, {
+  /**
+   * 授予候选搜索（GET /admin/badges/grant-candidates?q=&badgeId=）。
+   *
+   * `alreadyGranted` 由后端算：前端不能拿「已授予列表」自己比对 —— 那需要先分页拉全量，
+   * 而候选是按查询词现算的。搜索词为空时后端返回空列表（不返回「全站用户」）。
+   */
+  async function searchGrantCandidates(
+    q: string,
+    badgeId: number | null
+  ): Promise<AdminBadgeGrantCandidate[]> {
+    const query = new URLSearchParams({ q: q.trim() })
+    if (badgeId !== null) query.set('badgeId', String(badgeId))
+    const result = await request<{ items: AdminBadgeGrantCandidate[] }>(
+      `/admin/badges/grant-candidates?${query.toString()}`,
+      { method: 'GET' }
+    )
+    return Array.isArray(result?.items) ? result.items : []
+  }
+
+  /**
+   * 批量授予（POST /admin/badges/:id/grants/batch）。
+   *
+   * 三态结果必须原样返回给弹窗：`skipped` 是幂等命中（已持有），`failed` 是逐条失败原因。
+   * 在这里统一 toast 会把「部分成功」说成「成功」。
+   */
+  async function batchGrant(
+    badgeId: number,
+    payload: { userIds: number[], reason: string }
+  ): Promise<AdminBadgeBatchGrantResult> {
+    const result = await request<AdminBadgeBatchGrantResult>(`/admin/badges/${badgeId}/grants/batch`, {
       method: 'POST',
-      body: { username: payload.username.trim(), reason: payload.reason.trim() }
+      body: { userIds: payload.userIds, reason: payload.reason.trim() }
+    })
+    return {
+      granted: Number(result?.granted ?? 0),
+      skipped: Number(result?.skipped ?? 0),
+      failed: Array.isArray(result?.failed) ? result.failed : []
+    }
+  }
+
+  async function createTier(input: AdminBadgeTierInput) {
+    await request<AdminBadgeTierRow>('/admin/badges/tiers', { method: 'POST', body: input })
+    await load()
+  }
+
+  async function updateTier(key: string, patch: AdminBadgeTierPatch) {
+    await request<AdminBadgeTierRow>(`/admin/badges/tiers/${encodeURIComponent(key)}`, {
+      method: 'PATCH',
+      body: patch
+    })
+    await load()
+  }
+
+  /** 删除等级必须带迁移目标：该档徽章会被改挂到 `migrateTo`，不会丢徽章。 */
+  async function deleteTier(key: string, migrateTo: string) {
+    const query = new URLSearchParams({ migrateTo })
+    const result = await request<{ deleted: boolean }>(
+      `/admin/badges/tiers/${encodeURIComponent(key)}?${query.toString()}`,
+      { method: 'DELETE' }
+    )
+    await load()
+    return result?.deleted !== false
+  }
+
+  async function reorderTiers(keys: string[]) {
+    await request<{ items: AdminBadgeTierRow[] }>('/admin/badges/tiers/order', {
+      method: 'PUT',
+      body: { keys }
     })
     await load()
   }
@@ -165,6 +282,8 @@ export function useAdminBadges() {
   return {
     badges,
     groups,
+    tiers,
+    colorChoices,
     pending,
     failed,
     blocked,
@@ -175,7 +294,12 @@ export function useAdminBadges() {
     createBadgeGroup,
     updateBadgeGroup,
     deleteBadgeGroup,
-    grantBadge,
+    createTier,
+    updateTier,
+    deleteTier,
+    reorderTiers,
+    searchGrantCandidates,
+    batchGrant,
     listGrants,
     revokeGrant,
     recompute

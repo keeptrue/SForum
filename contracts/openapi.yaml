@@ -718,6 +718,18 @@ paths:
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantByUser"
   "/admin/badges/recompute":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgesRecompute"
+  /badges/tiers:
+    "$ref": "./openapi/paths/badges.yaml#/publicBadgeTiers"
+  "/admin/badges/tiers":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeTiers"
+  "/admin/badges/tiers/{tierKey}":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeTierByKey"
+  "/admin/badges/tiers/order":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeTierOrder"
+  "/admin/badges/grant-candidates":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantCandidates"
+  "/admin/badges/{badgeID}/grants/batch":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantsBatch"
 components:
   securitySchemes:
     cookieAuth:

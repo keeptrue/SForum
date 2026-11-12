@@ -21,7 +21,24 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 
 TARGET_VERSION="${SFORUM_MIGRATION_TARGET_VERSION:-202611100002}"
-TARGET_FILE="${SFORUM_MIGRATION_TARGET_FILE:-$API_DIR/database/migrations/${TARGET_VERSION}_badges_and_user_activity.sql}"
+# 文件名后缀按版本号 glob 解析，而不是写死某条迁移的名字：
+# 这个脚本的用途就是「验证最新的那条迁移」，写死后缀会让换目标版本时必须改脚本。
+if [[ -n "${SFORUM_MIGRATION_TARGET_FILE:-}" ]]; then
+  TARGET_FILE="$SFORUM_MIGRATION_TARGET_FILE"
+else
+  shopt -s nullglob
+  candidates=("$API_DIR/database/migrations/${TARGET_VERSION}"_*.sql)
+  shopt -u nullglob
+  if [[ ${#candidates[@]} -eq 1 ]]; then
+    TARGET_FILE="${candidates[0]}"
+  elif [[ ${#candidates[@]} -eq 0 ]]; then
+    TARGET_FILE="$API_DIR/database/migrations/${TARGET_VERSION}_<unknown>.sql"
+  else
+    printf '\n[exit 3] 版本 %s 命中多个迁移文件，请用 SFORUM_MIGRATION_TARGET_FILE 指定：\n' "$TARGET_VERSION" >&2
+    printf '  %s\n' "${candidates[@]}" >&2
+    exit 3
+  fi
+fi
 EXPECTED_PREVIOUS="${SFORUM_MIGRATION_PREVIOUS_VERSION:-202611100001}"
 EXPECTED_BADGES="${SFORUM_EXPECTED_BUILTIN_BADGES:-12}"
 EXPECTED_GROUPS="${SFORUM_EXPECTED_BADGE_GROUPS:-3}"
@@ -260,7 +277,16 @@ step "down 之后的对象断言（应全部消失）"
 down_failures=0
 # 每个迁移的对象断言不同：本脚本只验证「最新那条」，所以断言必须跟着目标走。
 # 新增迁移时在这里加一个分支，不要指望通用断言能覆盖所有迁移（权限键 vs 表 vs 视图形态完全不同）。
-if [[ "$TARGET_VERSION" == "202611100004" ]]; then
+if [[ "$TARGET_VERSION" == "202611120001" ]]; then
+  # badge_tiers：Down 段是「先把非内置档位的徽章落回 bronze → 拆外键 → 恢复旧 CHECK
+  # → 删表」。断言这四件事都发生了，而不是「表没了就算过」。
+  assert_value '表 badge_tiers 已删除' "SELECT to_regclass('public.badge_tiers') IS NULL" t || down_failures=$((down_failures + 1))
+  assert_value '外键 badges_tier_fkey 已删除' "SELECT NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'badges_tier_fkey')" t || down_failures=$((down_failures + 1))
+  assert_value '索引 badges_tier_idx 已删除' "SELECT to_regclass('public.badges_tier_idx') IS NULL" t || down_failures=$((down_failures + 1))
+  assert_value '旧 CHECK badges_tier_check 已恢复' "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'badges_tier_check' AND contype = 'c')" t || down_failures=$((down_failures + 1))
+  assert_value '没有徽章落在内置三档之外' "SELECT NOT EXISTS (SELECT 1 FROM badges WHERE tier NOT IN ('bronze','silver','gold'))" t || down_failures=$((down_failures + 1))
+  assert_value "goose 版本回退到 202611100004" "SELECT max(version_id) FROM goose_db_version WHERE is_applied" 202611100004 || down_failures=$((down_failures + 1))
+elif [[ "$TARGET_VERSION" == "202611100004" ]]; then
   # trust.manage：Down 段是「按 key 全删关联行 + 删权限行」，断言就是这两条都归零。
   assert_value '权限行 trust.manage 已删除' "SELECT NOT EXISTS (SELECT 1 FROM permissions WHERE key = 'trust.manage')" t || down_failures=$((down_failures + 1))
   assert_value '角色授权 trust.manage 已全部删除' "SELECT NOT EXISTS (SELECT 1 FROM role_permissions WHERE permission_key = 'trust.manage')" t || down_failures=$((down_failures + 1))
@@ -291,7 +317,16 @@ ok '迁移链重新到最新'
 
 step "up 之后的对象断言（应全部重建）"
 up_failures=0
-if [[ "$TARGET_VERSION" == "202611100004" ]]; then
+if [[ "$TARGET_VERSION" == "202611120001" ]]; then
+  assert_value '表 badge_tiers 存在' "SELECT to_regclass('public.badge_tiers') IS NOT NULL" t || up_failures=$((up_failures + 1))
+  assert_value '内置等级三行' "SELECT count(*) FROM public.badge_tiers" 3 || up_failures=$((up_failures + 1))
+  assert_value 'gold 位次为 0（最高档）' "SELECT position FROM public.badge_tiers WHERE key = 'gold'" 0 || up_failures=$((up_failures + 1))
+  assert_value '外键 badges_tier_fkey 存在' "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'badges_tier_fkey' AND contype = 'f')" t || up_failures=$((up_failures + 1))
+  assert_value '旧 CHECK badges_tier_check 已移除' "SELECT NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'badges_tier_check' AND contype = 'c')" t || up_failures=$((up_failures + 1))
+  assert_value '索引 badges_tier_idx 存在' "SELECT to_regclass('public.badges_tier_idx') IS NOT NULL" t || up_failures=$((up_failures + 1))
+  assert_value '内置徽章仍为 12 个（回滚不丢数据）' "SELECT count(*) FROM public.badges" "$EXPECTED_BADGES" || up_failures=$((up_failures + 1))
+  assert_value "goose 版本回到 $TARGET_VERSION" "SELECT max(version_id) FROM goose_db_version WHERE is_applied" "$TARGET_VERSION" || up_failures=$((up_failures + 1))
+elif [[ "$TARGET_VERSION" == "202611100004" ]]; then
   # trust.manage：权限行 1 条；授权 2 条（operator + super_admin）；版主 0 条。
   assert_value '权限行 trust.manage 已重建' "SELECT count(*) FROM permissions WHERE key = 'trust.manage'" 1 || up_failures=$((up_failures + 1))
   assert_value '角色授权 trust.manage 两条（operator + super_admin）' "SELECT count(*) FROM role_permissions WHERE permission_key = 'trust.manage'" 2 || up_failures=$((up_failures + 1))

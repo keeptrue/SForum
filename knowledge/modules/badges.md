@@ -13,6 +13,16 @@ will read, and badges are just the first consumer.
 断言全过（2 条 pend 是 dev 限流，前一轮 403 已交叉验证）；双门禁绿；迁移
 up/down 由 `scripts/verify-migration-reversible.sh` 独立覆盖。
 
+**等级表改造（2026-11-12）：通过（初验有条件通过，P1 与 P2 均已修复并复验）。** `badges.tier` 从写死的
+CHECK 枚举升级为可管理的 `badge_tiers` 表（双语名 / 图标 / 颜色 / `position` /
+`enabled`），后台徽章页从三分区扩成四分区（`badges` / `groups` / `tiers` / `grants`），
+授予弹窗改成「搜索 + 批量 + 逐人结果」。独立验收 8 条门禁全绿；初验发现的 P1
+（停用最后一个启用档会清空全站 `top_badge_id`）与写路径 QA 发现的 P2（新建等级
+`position` 落 0，与金牌并列最高档）**都已修复，并在 shell 恢复后重跑门禁复验通过**
+（`go build`、`bun test` 2379 pass、`bun run typecheck`、Badges/Controllers 两包
+`test-api-isolated`、架构边界、OpenAPI refs、v3-catalog --check）。
+报告 `../reports/2026-11-12-badges-tiers-review.md`；handoff `../sessions/2026-11-12-badges-tiers.md`。
+
 验收报告 `../reports/2026-11-10-badges-m8-acceptance-report.md`；验收执行清单
 `../reports/2026-11-10-badges-acceptance-criteria.md`（含 §6 契约对照）；决策
 `../decisions/2026-11-10-badges-and-user-activity.md`；计划
@@ -20,16 +30,26 @@ up/down 由 `scripts/verify-migration-reversible.sh` 独立覆盖。
 
 ## Data Model
 
-五张表 + 一个反规范化列（迁移 `202611100002_badges_and_user_activity.sql`）：
+六张表 + 一个反规范化列。基础五张来自 `202611100002_badges_and_user_activity.sql`，
+等级表 `badge_tiers` 来自 `202611120001_badge_tiers.sql`（2026-11-12 等级表改造）：
 
 | 对象 | 作用 |
 | --- | --- |
 | `user_activity` | 每用户一行六项计数 + 预留阅读字段；`user_id` 主键，懒创建（`INSERT ... ON CONFLICT DO UPDATE`） |
 | `user_visits` | `(user_id, visited_on)` 主键，`days_visited` 的真值来源 |
 | `badge_groups` | 分组（`activity` / `content` / `honor`），`position` 决定资料页分区顺序 |
-| `badges` | 徽章定义 + 规则（`grant_mode` / `metric` / `threshold`），三个 CHECK 约束把规则形状写进库 |
+| `badges` | 徽章定义 + 规则（`grant_mode` / `metric` / `threshold`），自动徽章的两个 CHECK 约束把规则形状写进库；`tier` 是 `badge_tiers.key` 的外键 |
+| `badge_tiers` | 等级档位：`key` 主键（小写字母开头，2..32 位，同时是 URL 段与 `data-tier` 取值）+ `name_zh` / `name_en` / `icon` / `color` / `position` / `enabled`；`badgeCount` 由查询聚合，不落列 |
 | `user_badges` | 授予行，`UNIQUE (user_id, badge_id)`，`granted_by` 可空 |
 | `users.top_badge_id` | 反规范化「最高级 1 个」，列表页据此单列 JOIN |
+
+`badges.tier` 的外键是 `ON UPDATE CASCADE ON DELETE RESTRICT`，旧的
+`CHECK (tier IN ('bronze','silver','gold'))` 已在 `202611120001` 里删除。
+**`RESTRICT` 是刻意的**：删一档必须先给 `migrateTo`，让做出删除的人显式决定「这些
+徽章归到哪」，而不是让数据库级联降级或级联删徽章。`badges_tier_idx` 支撑按档筛徽章
+与删除前的 `badgeCount`。三个内置档的 `position` 与旧 `Weight()` 等价
+（gold 0 < silver 1 < bronze 2），所以升级后逐人的最高级徽章选择结果与升级前一致
+——这也是迁移 down 能把非内置档徽章落回 bronze、再重新加回旧 CHECK 的前提。
 
 **为什么 `user_activity` 是独立表而不是往 `users` 加列**：`users` 是读路径最热的
 JOIN 目标（主题列表、评论、资料页都要 JOIN 它）。把六项计数放进去，意味着每次
@@ -112,9 +132,48 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
    换图标不重算，因为不影响「谁被选中」）。
 
 排序规则只有一处定义：`postgres_store.go` 的 `topBadgeOrderSQL`——
-`tier` 权重（gold > silver > bronze）→ `badges.position` 升序 →
-`user_badges.granted_at` 降序。资料页、帖子旁 chip、`top_badge_id` 维护必须共用
-这一段，否则同一个人会在两个地方显示不同徽章。
+`badge_tiers.position` 升序（0 = 最高档）→ `badges.position` 升序 →
+`user_badges.granted_at` 降序。**不再**用 `CASE` 映射 gold/silver/bronze：等级是运营
+可增删的数据，写死映射会让新档位永远排最后。资料页、帖子旁 chip、`top_badge_id`
+维护必须共用这一段，否则同一个人会在两个地方显示不同徽章。
+
+用这个常量的每条查询都**必须**自带
+`JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled`（别名固定 `t`）：
+用 JOIN 不用 LEFT JOIN，停用档位的徽章不参与竞争，等价于「这一档不存在」。
+所以「停用一档」与「删掉一档」对最高级徽章的效果相同，区别只是前者保留历史授予行。
+
+**改序 / 启停 / 删除等级之后必须重算**：这三个动作改变的是「谁该被选中」，不是单条
+徽章的外观。入口仍是等级写路径内的 `RecomputeAll` 与后台「重算」按钮；
+**改名、改图标、改颜色不重算**（不改变选择结果），代价是展示层一个缓存 TTL 的延迟
+（见 Cache Semantics）。
+
+## 等级与配色
+
+**9 色 palette 只有一个来源**：后端 `app/Support/Palette`（`palette.Tokens()` /
+`palette.IsTierColor()` / `palette.DefaultForRank()`）。`TrustLevels/tier_colors.go`
+现在只是薄包装（同名函数转发，既有调用点零改动），`Badges` 也吃同一份——两边各存一份
+色表的结果是「后台预览的色和前台看到的不是同一个」。前端唯一实现是
+`apps/web/app/utils/theme/tierColor.ts`；token 的**明暗两套取值**住在
+`assets/css/sforum-trust-colors.css` 的 `--sf-tl-<token>` 里，组件只引用
+`var(--sf-tl-*)`，不判断当前是不是暗色。
+
+**自定义 hex 没有第二组取值**，深色靠现算：
+`color-mix(in srgb, <hex> 74%, white)`（`TIER_DARK_ACCENT_MIX = 0.74`）。这条公式同时
+以 JS（`tierAccentDarkHex`，供对比度提示）与 CSS（`tierAccentStyle` / `tierAccentVars`）
+两种形式存在，**改一处必须改另一处**；数字只在 `tierColor.ts` 里写一次。
+
+**统一 chip 规则**：底色 `color-mix(in srgb, var(--sf-tier-hue) 12%, transparent)`、
+环线 `34%`，比例只写在样式表里；`tierAccentVars` 只负责成对下发
+`--sf-tier-hue-light` / `--sf-tier-hue-dark`，组件按主题挑一个。**bronze 的虚线边框
+已移除**——档位色是识别色，虚线会和「未解锁」语义撞车。内置三档的 `color` 种子值刻意
+是 token（`amber` / `slate`）而不是 hex，只有 bronze 是历史 hex `#b45309`；前端兜底
+`BUILTIN_TIER_COLORS.bronze = 'rose'` 只在载荷缺字段时生效。
+
+**别踩的坑**：色值先过 `normalizeTierColor`（不认识的 token 返回 `null`，按位次取默认，
+不抛错）；写一个不存在的 `--sf-tl-*` 会让整条 `color-mix()` 失效、色条掉成透明。
+后台「颜色候选」来自服务端 `colorChoices`（`GET /admin/badges/tiers`），前端**不再抄
+第二份候选表**——抄了就会在改色板时静默分叉。`tierColor.ts` 顶部的注释仍写着「必须与
+`TrustLevels/tier_colors.go` 逐字同序」，实际对照物已是 `Support/Palette`（注释待更新）。
 
 ## Cache Semantics
 
@@ -123,7 +182,7 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 | 对象 | 有没有缓存 | 事实 |
 | --- | --- | --- |
 | `Badges` 的 store | **没有** | `bootstrap/api_assembly_domains.go:554` 是裸 `badges.NewPostgresStore(pool)`，**无任何装饰器**；`CachedStore` 全仓只存在于 `app/Models/Forum`（`cached_store.go:28` 定义、`:75` 构造函数 `NewCachedStore`） |
-| 徽章在**读模型**里的形态 | **有** | 帖子/评论载荷里的 `BadgeRef`（`app/Models/Badges/types.go:158-163`）随主题/评论进 `CachedStore`。它只有 `slug`/`name`/`tier`/`icon` 四个字段，**actor 无关**（同一个作者的徽章对所有访客一样） |
+| 徽章在**读模型**里的形态 | **有** | 帖子/评论载荷里的 `BadgeRef`（`app/Models/Badges/types.go:158-163`）随主题/评论进 `CachedStore`。它带 `slug` / `name` / `tier` / `icon` 与**等级外观**（`tier_name_zh` / `tier_name_en` / `color` / `position`），**actor 无关**（同一个作者的徽章对所有访客一样） |
 | 公开目录端点 `GET /api/v1/badges` | **明确不缓存** | 响应含**查看者自己的** `earned`，头是 `private, no-store`（`Badges/controller.go:723` 的 `setViewerScopedNoStore`） |
 
 **`BadgeRef` 可以进缓存**，因为它 actor 无关；这与 `likedByMe` / `bookmarkedByMe`
@@ -160,9 +219,9 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 - `badge.view` 单独存在是**死权限**：可达性前提是 `admin.access`。只给
   `badge.view` 不给后台入口权限，用户进不去后台。
 
-## 管理台徽章页（`/control-panel/badges`，三分区）
+## 管理台徽章页（`/control-panel/badges`，四分区）
 
-页面是**三个固定分区**（`badges` / `groups` / `grants`），tab 选择在 URL query `?tab=`：
+页面是**四个固定分区**（`badges` / `groups` / `tiers` / `grants`），tab 选择在 URL query `?tab=`：
 非法值回落 `badges`，`route.query.tab` 与 `activeTab` 双向同步。这是 Core 自有后台页，
 几何按 `pages/admin/settings/index.vue` 的契约走（紧凑 `text-xl` 标题 + 一个
 `UDashboardToolbar` + `SFAdminFixedTabNav` + 单个 `flex flex-col gap-4` 内容列），
@@ -172,9 +231,9 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 
 - **壳 `pages/admin/badges.vue` 只承担编排**：tab 选择 / query 同步、三态顶部告警
   （`features.badges` 关闭 / 无权限 / 加载失败）、toolbar。行动作全部在分区组件里。
-  `blocked` 非空时三个 tab 一起禁用（`disabled: blockedActive` → `SFAdminFixedTabNav`
+  `blocked` 非空时四个 tab 一起禁用（`disabled: blockedActive` → `SFAdminFixedTabNav`
   的 `:disabled="item.disabled"`）；**加载失败态不禁用**，留着刷新重试。
-- **唯一数据层实例在壳里**：`useAdminBadges()` 只调一次，`store` 下发三个分区，任一
+- **唯一数据层实例在壳里**：`useAdminBadges()` 只调一次，`store` 下发四个分区，任一
   分区写动作后 `load()` 刷新的是同一份状态。别在分区里再调一次 `useAdminBadges()`——
   那会得到第二份列表。
 - **两套状态不要混成一套**：模板是 `<KeepAlive>` 包
@@ -209,6 +268,27 @@ WHERE ub.user_id = $1 ORDER BY ub.granted_at DESC;
 - **`grants` 分区**：先选徽章再懒加载 `GET /admin/badges/:id/grants`（`perPage` 20 分页，
   返回 `{ items, total }`），来源列用三来源判别式着色；收回是行内两步确认（不弹窗），
   只对手动来源行渲染（见上一节的收回语义）。
+- **`tiers` 分区（2026-11-12 新增）**：等级表 CRUD（`GET` / `POST /admin/badges/tiers`、
+  `PATCH` / `DELETE /admin/badges/tiers/:tierKey`、`POST /admin/badges/tiers/reorder`）。
+  每行有双语名、图标（共享 `SFIconPicker`，存 `i-lucide-*` / `i-tabler-*` 全名）、颜色
+  （9 token ∪ 自定义 `#rrggbb`）、`position` 与启用开关；列表带 `badgeCount`，删除前就能
+  看到「这一档压着多少枚徽章」。**删除必须选迁移目标**（`migrateTo`：须存在、非自身、
+  启用），不提供「静默降级」出口。**「最后一档」的开关禁用并给 `title` 说明**：停用最后
+  一个启用档等于把全站 `top_badge_id` 清空，前端拦一道、后端
+  `ErrBadgeTierInUse`（409 `forum.badge_tier_in_use`）再拦一道。**`key` 不可变**：它是
+  URL 段与 `data-tier` 的取值，改名只能改 `name_zh` / `name_en`。调序是「按 keys 顺序重写
+  `position`，未列出的档位按原序追加在后」——后台一次只带看得见的那几档，被隐藏的档位
+  不该阻止可见档位的排序。
+- **授予弹窗（`SFAdminBadgeGrantDialog` + `SFAdminBadgeUserPicker`）**：搜索候选
+  （`GET /admin/badges/:id/grant-candidates`，权限 `badge.view`，只匹配 username /
+  display_name，**绝不匹配 email**，单次最多 20 条）→ 多选 → 一次提交 → 弹窗内三态结果
+  （`granted` / `skipped` / `failed`）。三态**不能合并成一个成功 toast**：`skipped` 是
+  「已持有」（幂等命中，不是错误），`failed` 逐条给用户名与原因，且只对失败项提供
+  「重试这一批」（重试时把两次结果累加，否则上一轮的 `granted` 会被冲掉）。body 是唯一
+  滚动区、footer 吸底——失败名单可能很长，按钮不能被滚出视口（**这条未做浏览器取证**）。
+  自动徽章在弹窗里直接禁用（后端 422 `forum.badge_manual_only`）。已持有的人在选择器里
+  置灰；账号状态（disabled / banned）只提示、不过滤——「给已封禁用户补发历史活动徽章」
+  是合法运营动作，服务端不替运营决定。
 - **`top_badge_id` 失真提示在删除弹窗里**（见失真窗口 2），不在页面上做常驻横幅。
 
 ## 已知陷阱：`SelectItem` 不接受空字符串 value
@@ -352,7 +432,8 @@ WHERE NOT EXISTS (
     补键来源有两类：徽章视觉规范原文（tier 名、chip/card 的 aria 模板、`group.count`），
     以及徽章测试里钉死的期望字符串（`empty` / `loadFailed` / `retry`）——**后者不是规范
     原文**，看到别当成设计定稿。
-    **现状（2026-11-11 后台三分区改造后）**：后台 `admin.badges.*` 已由
+    **现状（2026-11-11 后台三分区改造后；2026-11-12 扩为四分区，`tiers.*` 与
+    `tiers.lastEnabledHint` 同样受这条双向断言约束）**：后台 `admin.badges.*` 已由
     `apps/web/tests/admin/adminBadgesI18n.test.ts` **双向**断言兜住——引用键必须都在两份
     locale 里，locale 里的键也必须都被引用（`missing` 与 `extra` 同时必须为空，外加 zh/en
     键集合相等）。动态拼接的前缀走 `DYNAMIC_ENUMERATIONS`（`grantMode.` / `metrics.` /
@@ -380,6 +461,36 @@ WHERE NOT EXISTS (
     `apps/web/app/components/forum/badges/SFBadgeCard.vue`**；现在不抽是为了不制造第二份，
     不是为了省事。
 
+16. **「最后一档」保护只防误点，不防对抗性并发**：`UpdateTier` 用事务 +
+    `FOR UPDATE` 锁住被改的那一行，再数「除自己以外还有几个启用档」；两个请求**各停
+    不同档**仍有窄窗口（各自都读到「还有别的启用档」）。`DeleteTier` 锁了被删行与目标行，
+    比 `UpdateTier` 严一档。这是刻意的取舍，不是待修 bug（见 `tiers_store.go` 注释）。
+17. **`RecomputeAll` 在 HTTP 请求内同步执行**：改序 / 启停 / 删除等级三处都会触发。它是一
+    条 SQL（按「有授予行或 `top_badge_id` 非空」全量 UPDATE，只写真正变化的行），但在
+    上万 `user_badges` 的库上仍是长事务 + 长请求。规模上来后应改投 River job，并把
+    「已排队」回执给运营，而不是让 PATCH 等它跑完。
+18. **等级改名 / 改色的缓存延迟**：帖子 chip 20–30s、资料页 ≤10s（与授予同一窗口），因为
+    `BadgeRef` 带 `tier` 与等级外观进了 `CachedStore`。看到「后台改了色、前台还是旧色」
+    先等一个 TTL，别当渲染 bug 查。
+19. **批量授予单次上限 50 人**（前端选择器到上限即拦，文案键
+    `admin.badges.grant.search.max`）；**候选搜索上限 20 条**是另一回事
+    （`MaxGrantCandidates`），两个数字别混用。候选搜索不返回邮箱，也不按 `user.view`
+    授权——它只回答「谁可以被授予这枚徽章」。
+20. **等级 `key` 不可变**（`PATCH` 只改展示字段）。迁移 down 会把所有非内置档的徽章落回
+    bronze，且**不动 `updated_at`**（`202611120001_badge_tiers.sql:72`）；回滚丢的是运营
+    可重建的等级配置，不是用户数据。
+21. **写路径浏览器证据已补齐（2026-11-12 下午）**：等级新建 / 改色 / 改图标 / 调序 / 停用 /
+    删除（含迁移目标，下拉只列启用档）、批量授予（已授予 1 / 已持有 1 / 失败 0，`skipped`
+    不是错误）、授予结果区 390×500 下 footer 吸底、编辑弹窗等级下拉只列启用档——全部真实
+    浏览器实测，脚本与 43 张截图在 `storage/qa/`。**仍未取证**：`features.badges` 关闭态
+    403 与后台三态告警、帖子列表 chip 与资料页徽章 tab（库内没有持徽章用户，基线 0）。
+22. **跨档并发窄窗口**：两个请求各停用不同档时各锁各自的行，理论上仍可能同时通过
+    「至少保留一档」检查。防的是运营误点，不是对抗性并发；真要根治用 advisory lock。
+23. **新建等级缺省 `position` 走 `TierPositionAppend`（-1）**，由 store 在
+    `INSERT ... SELECT CASE WHEN $6 < 0 THEN max(position)+1 ELSE $6 END` 里解析成末尾。
+    不要把「没传」当成 0：0 是最高位次，新档会与金牌并列，挂在上面的徽章会和金牌徽章
+    争同一个名次。
+
 > **11–14 四条的共同注脚**：徽章那一刀的验收是「**84 条断言 0 FAIL**」，而这四样东西
 > **都不在那 84 条里**——i18n 键完整性、路由计数 tripwire、错误码本地化、资料页统计条文案。
 > **不是那刀做得差，是断言集不完备时，「全绿」推不出「可用」。**
@@ -406,10 +517,17 @@ WHERE NOT EXISTS (
 - 装配：`apps/api/bootstrap/badges_wiring.go`（`badges.evaluate_user` worker 注册）、
   `apps/api/app/Providers/badges.go`
 - 前端（论坛面）：`components/profile/SFProfileBadgeTab.vue`、`components/forum/SFBadgeChip.vue`
-- 前端（后台徽章页）：壳 `pages/admin/badges.vue`；三个分区
+- 等级表与配色：`apps/api/app/Models/Badges/tiers_store.go`（等级读写 + 最后一档保护）、
+  `tiers.go`（`resolveBadgeTier`：切档必须存在且启用，保持原值放行）、
+  `grant_candidates.go`（候选搜索）、`apps/api/app/Support/Palette`（9 色唯一来源）、
+  迁移 `apps/api/database/migrations/202611120001_badge_tiers.sql`；前端
+  `apps/web/app/utils/theme/tierColor.ts`（取值域 / 归一化 / 两条渲染路径）+
+  `apps/web/app/assets/css/sforum-trust-colors.css`（`--sf-tl-*` 明暗两套）
+- 前端（后台徽章页）：壳 `pages/admin/badges.vue`；四个分区
   `components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue` /
-  `SFAdminBadgesGroupsTab.vue` / `SFAdminBadgesGrantsTab.vue`；共享
-  `components/admin/badges/SFAdminBadge{Table,EditDialog,GrantDialog}.vue`；
+  `SFAdminBadgesGroupsTab.vue` / `SFAdminBadgesTiersTab.vue` /
+  `SFAdminBadgesGrantsTab.vue`；共享
+  `components/admin/badges/SFAdminBadge{Table,EditDialog,GrantDialog,UserPicker}.vue`；
   数据层 `composables/admin/badges/useAdminBadges.ts` + 纯函数
   `utils/admin/adminBadges.ts`（`grantSourceOf` / `grantRevocable` / `filterBadges` /
   `sortBadges` / `validateBadgeGroupForm`）

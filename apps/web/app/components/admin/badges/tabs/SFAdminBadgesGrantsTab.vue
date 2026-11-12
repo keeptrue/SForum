@@ -322,6 +322,6 @@ defineOptions({ name: 'SFAdminBadgesGrantsTab' })
       </p>
     </template>
 
-    <SFAdminBadgeGrantDialog v-model:open="dialogOpen" :badge="selectedBadge" @saved="onGranted" />
+    <SFAdminBadgeGrantDialog v-model:open="dialogOpen" :badge="selectedBadge" :store="store" @saved="onGranted" />
   </div>
 </template>

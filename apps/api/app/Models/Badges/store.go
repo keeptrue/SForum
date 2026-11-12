@@ -12,6 +12,9 @@ type Store interface {
 	CatalogWriter
 	GrantReader
 	GrantWriter
+	TierReader
+	TierWriter
+	GrantCandidateReader
 }
 
 // CatalogReader 读徽章目录与分组。
@@ -58,6 +61,16 @@ type GrantWriter interface {
 	RecomputeAll(ctx context.Context) (int64, error)
 	// GrantFromRules 按启用规则批量补授予（阈值下调后的追溯），返回新插入行数。
 	GrantFromRules(ctx context.Context) (int64, error)
+}
+
+// GrantCandidateReader 是「批量授予」的两个读口：候选搜索与失败行回填用户名。
+//
+// 两者都读 users 表（本包的 ListGrants 已经在 JOIN users，不是新依赖方向）；
+// 刻意不引入 Identity 包：徽章授予只需要「谁可以被授予」这一条极窄的读，
+// 引入整个 Identity 域会把用户可见性/隐私策略带进徽章写路径。
+type GrantCandidateReader interface {
+	SearchGrantCandidates(ctx context.Context, input GrantCandidateInput) ([]GrantCandidate, error)
+	UsernamesByIDs(ctx context.Context, userIDs []int64) (map[int64]string, error)
 }
 
 // BadgeInput 是创建/更新徽章的入参。

@@ -558,6 +558,8 @@
         "enable": "Enable",
         "enableLabel": "Enable badge {name}",
         "grant": "Grant",
+        "grantAutomaticDetail": "\"{name}\" is granted by its rule. Switch it to manual granting to hand it out yourself.",
+        "grantAutomaticHint": "Automatic badges are decided by their rule and cannot be granted manually.",
         "grantLabel": "Grant badge {name}",
         "save": "Save",
         "toggleLabel": "Toggle badge {name} on or off"
@@ -618,7 +620,22 @@
         "submit": "Grant",
         "title": "Grant badge",
         "user": "User",
-        "userPlaceholder": "Username"
+        "userPlaceholder": "Username",
+        "search": {
+          "empty": "Type a username or display name to search",
+          "noResult": "No matching users",
+          "already": "Already granted",
+          "remove": "Remove {name}",
+          "max": "You can grant at most {max} users at a time."
+        },
+        "result": {
+          "granted": "Granted",
+          "skipped": "Already held",
+          "failed": "Failed",
+          "failedTitle": "Failed users",
+          "retry": "Retry failed",
+          "done": "Done"
+        }
       },
       "grantMode": {
         "automatic": "Automatic",
@@ -725,7 +742,8 @@
         "badges": "Badges",
         "grants": "Grant history",
         "groups": "Groups",
-        "label": "Badge management sections"
+        "label": "Badge management sections",
+        "tiers": "Tiers"
       },
       "title": "Badges",
       "toast": {
@@ -741,6 +759,66 @@
         "recomputeStarted": "Recomputing badge grants.",
         "saveFailed": "The badge could not be saved. Try again in a moment.",
         "updated": "Badge updated."
+      },
+      "icon": {
+        "more": "More icons",
+        "less": "Fewer icons"
+      },
+      "tiers": {
+        "hint": "Tiers control the public color and ordering of badges. Disabled tiers are still listed, but can no longer be picked for new badges and no longer compete for a member's top badge.",
+        "create": "New tier",
+        "empty": "No custom tiers yet",
+        "emptyGuide": "The built-in tiers (gold / silver / bronze) are in use. Create a tier to attach badges to your own levels.",
+        "badgeCount": "{count} badges",
+        "toggleLabel": "{name}: enabled state",
+        "lastEnabledHint": "Keep at least one enabled tier: disabling every tier clears every member's top badge.",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "moveUpLabel": "Move {name} up",
+        "moveDownLabel": "Move {name} down",
+        "edit": "Edit",
+        "editLabel": "Edit tier {name}",
+        "deleteLabel": "Delete tier {name}",
+        "toast": {
+          "created": "Tier created",
+          "updated": "Tier updated",
+          "deleted": "Tier deleted",
+          "saveFailed": "Could not save the tier",
+          "deleteFailed": "Could not delete the tier",
+          "orderFailed": "Could not reorder tiers",
+          "enabled": "Tier enabled",
+          "disabled": "Tier disabled"
+        },
+        "form": {
+          "createTitle": "New tier",
+          "editTitle": "Edit tier",
+          "key": "Key",
+          "keyHint": "Used in URLs and data links. It cannot be changed after creation.",
+          "keyInvalid": "Use lowercase letters, digits, underscores, or hyphens, starting with a letter or digit.",
+          "nameZh": "Chinese name",
+          "nameEn": "English name",
+          "color": "Color",
+          "saveFailed": "Save failed. Try again."
+        },
+        "color": {
+          "auto": "Auto by position",
+          "picker": "Color picker",
+          "hex": "Color value (#rrggbb)",
+          "apply": "Apply",
+          "invalid": "Enter a color as #rrggbb.",
+          "lowContrast": "This color has about {ratio}:1 contrast on dark pages and may look washed out (you can still save)."
+        },
+        "remove": {
+          "title": "Delete tier",
+          "body": "This tier has {count} badges. Choose where they should move before deleting.",
+          "migrateTo": "Move to",
+          "migrateHint": "The badges move to the selected tier; the badges themselves are kept.",
+          "noTarget": "At least one other enabled tier is required before this tier can be deleted.",
+          "confirm": "Confirm deletion",
+          "confirmBody": "Delete anyway? {count} badges will move to the selected tier.",
+          "doneHint": "Tier deleted and its badges moved."
+        },
+        "delete": "Delete"
       }
     },
     "shell": {

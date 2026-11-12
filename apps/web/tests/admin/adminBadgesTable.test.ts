@@ -6,6 +6,7 @@ import {
   grantRevocable,
   grantSourceOf,
   sortBadges,
+  tierOrderMap,
   validateBadgeGroupForm,
   type AdminBadgeFilters,
   type AdminBadgeGrantRow,
@@ -77,24 +78,39 @@ describe('filterBadges', () => {
 })
 
 describe('sortBadges', () => {
+  // 等级位次由服务端下发（升序 = 展示顺序），前端不再持有三档权重表。
+  const tierOrder = tierOrderMap([
+    { key: 'gold', position: 0 },
+    { key: 'silver', position: 1 },
+    { key: 'bronze', position: 2 }
+  ])
+
   test('keeps the backend order when no sort key is selected', () => {
-    expect(sortBadges(list, '', 'asc')).toBe(list)
+    expect(sortBadges(list, '', 'asc', tierOrder)).toBe(list)
   })
 
   test('sorts by name with a stable copy (input untouched)', () => {
-    const sorted = sortBadges(list, 'name', 'asc')
+    const sorted = sortBadges(list, 'name', 'asc', tierOrder)
     expect(sorted.map(row => row.name)).toEqual(['Astronomer', 'Chatter', 'Pioneer'])
     expect(sorted).not.toBe(list)
     expect(list.map(row => row.id)).toEqual([1, 2, 3])
   })
 
-  test('sorts tiers by weight, gold above silver above bronze (topBadgeOrderSQL parity)', () => {
-    expect(sortBadges(list, 'tier', 'asc').map(row => row.tier)).toEqual(['bronze', 'silver', 'gold'])
-    expect(sortBadges(list, 'tier', 'desc').map(row => row.tier)).toEqual(['gold', 'silver', 'bronze'])
+  test('sorts tiers by the server tier order, not by a frontend weight table', () => {
+    // asc = 服务端展示顺序（gold 在前）；desc 反向。
+    expect(sortBadges(list, 'tier', 'asc', tierOrder).map(row => row.tier)).toEqual(['gold', 'silver', 'bronze'])
+    expect(sortBadges(list, 'tier', 'desc', tierOrder).map(row => row.tier)).toEqual(['bronze', 'silver', 'gold'])
+    // 位次变了，顺序跟着变 —— 证明用的是入参而不是内置常量。
+    const flipped = tierOrderMap([
+      { key: 'gold', position: 2 },
+      { key: 'silver', position: 1 },
+      { key: 'bronze', position: 0 }
+    ])
+    expect(sortBadges(list, 'tier', 'asc', flipped).map(row => row.tier)).toEqual(['bronze', 'silver', 'gold'])
   })
 
   test('sorts grantedCount numerically, not lexically', () => {
-    expect(sortBadges(list, 'grantedCount', 'desc').map(row => row.grantedCount)).toEqual([40, 12, 3])
+    expect(sortBadges(list, 'grantedCount', 'desc', tierOrder).map(row => row.grantedCount)).toEqual([40, 12, 3])
   })
 
   test('exposes exactly the sortable keys the table headers emit', () => {
@@ -107,18 +123,20 @@ describe('sortBadges', () => {
       badge({ id: 12, name: 'A', grantedCount: 5, tier: 'gold' }),
       badge({ id: 13, name: 'C', grantedCount: 5, tier: 'gold' })
     ]
-    expect(sortBadges(ties, 'grantedCount', 'desc').map(row => row.id)).toEqual([11, 12, 13])
-    expect(sortBadges(ties, 'tier', 'asc').map(row => row.id)).toEqual([11, 12, 13])
+    expect(sortBadges(ties, 'grantedCount', 'desc', tierOrder).map(row => row.id)).toEqual([11, 12, 13])
+    expect(sortBadges(ties, 'tier', 'asc', tierOrder).map(row => row.id)).toEqual([11, 12, 13])
   })
 
-  test('sorts an unknown tier as the lowest weight instead of dropping the row', () => {
+  test('keeps a tier that is missing from the order table at the end instead of dropping the row', () => {
+    // 等级被删但列表还没刷新：未知 key 排最后，行不能消失。
     const odd = [
-      badge({ id: 21, name: 'Odd', tier: 'platinum' as AdminBadgeRow['tier'] }),
+      badge({ id: 21, name: 'Odd', tier: 'platinum' }),
       badge({ id: 22, name: 'Bronze', tier: 'bronze' })
     ]
-    const sorted = sortBadges(odd, 'tier', 'asc')
-    expect(sorted.map(row => row.id)).toEqual([21, 22])
+    const sorted = sortBadges(odd, 'tier', 'asc', tierOrder)
+    expect(sorted.map(row => row.id)).toEqual([22, 21])
     expect(sorted).toHaveLength(2)
+    expect(sortBadges(odd, 'tier', 'desc', tierOrder).map(row => row.id)).toEqual([21, 22])
   })
 })
 

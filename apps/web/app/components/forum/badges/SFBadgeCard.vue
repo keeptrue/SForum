@@ -11,6 +11,8 @@ import {
   forumBadgeProgressPercent,
   forumBadgeTier,
   forumBadgeTierIcon,
+  forumBadgeTierLabel,
+  forumBadgeTierStyle,
   type ProfileBadgeEntry
 } from '~/utils/forum/forumBadge'
 
@@ -29,14 +31,14 @@ const props = withDefaults(defineProps<{
   description: ''
 })
 
-const { t } = useI18n()
+const { t, te, locale } = useI18n()
 const { formatDateOnly } = useSiteDateTime()
 
 const isCatalog = computed(() => props.variant === 'catalog')
 
-function tierName() {
-  return t(`badges.tier.${forumBadgeTier(props.badge.tier)}`)
-}
+// 等级名/色都优先取载荷（运营可增删等级），缺失才回退内置三档文案与色。
+const tierName = computed(() => forumBadgeTierLabel(props.badge, locale.value, t, te))
+const tierStyle = computed(() => forumBadgeTierStyle(props.badge))
 
 function earnedDate() {
   return props.badge.grantedAt ? formatDateOnly(props.badge.grantedAt) : ''
@@ -51,24 +53,24 @@ function cardLabel() {
     // catalog 的 wire 上没有 grantedAt（D37 的公开面白名单），所以不能复用带日期的模板，
     // 否则会读成「获得于 」（日期为空）。
     if (isCatalog.value) {
-      return t('badges.catalog.ariaLabelEarned', { tier: tierName(), name: props.badge.name })
+      return t('badges.catalog.ariaLabelEarned', { tier: tierName.value, name: props.badge.name })
     }
     return t('badges.card.ariaLabel', {
-      tier: tierName(),
+      tier: tierName.value,
       name: props.badge.name,
       date: earnedDate()
     })
   }
   if (forumBadgeHasProgress(props.badge)) {
     return t('badges.card.ariaLabelUngranted', {
-      tier: tierName(),
+      tier: tierName.value,
       name: props.badge.name,
       current: props.badge.current ?? 0,
       threshold: props.badge.threshold ?? 0
     })
   }
   // 未获得的手动徽章没有阈值：文案里不能出现进度，否则会读成「进度 0/0」。
-  return t('badges.card.ariaLabelNotEarned', { tier: tierName(), name: props.badge.name })
+  return t('badges.card.ariaLabelNotEarned', { tier: tierName.value, name: props.badge.name })
 }
 </script>
 
@@ -82,6 +84,7 @@ function cardLabel() {
     :data-tier="forumBadgeTier(props.badge.tier)"
     :data-earned="props.badge.earned ? 'true' : 'false'"
     :data-badge-slug="props.badge.slug"
+    :style="tierStyle"
     :aria-label="cardLabel()"
   >
     <span class="sf-profile-badge-card__icon" aria-hidden="true">
@@ -96,7 +99,7 @@ function cardLabel() {
       <span class="sf-profile-badge-card__name">{{ props.badge.name }}</span>
       <span v-if="props.description" class="sf-profile-badge-card__description">{{ props.description }}</span>
       <span class="sf-profile-badge-card__meta">
-        <span class="sf-profile-badge-card__tier">{{ tierName() }}</span>
+        <span class="sf-profile-badge-card__tier">{{ tierName }}</span>
         <template v-if="props.badge.earned">
           <span aria-hidden="true">·</span>
           <span class="sf-profile-badge-card__date">
@@ -167,10 +170,10 @@ function cardLabel() {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--sf-badge-card-ring, var(--sf-border));
+  border: 1px solid color-mix(in srgb, var(--sf-tier-hue) 34%, transparent);
   border-radius: 10px;
-  background: var(--sf-badge-card-soft, transparent);
-  color: var(--sf-badge-card-hue, var(--sf-fg-tertiary));
+  background: color-mix(in srgb, var(--sf-tier-hue) 12%, transparent);
+  color: var(--sf-tier-hue);
 }
 
 .sf-profile-badge-card__glyph {
@@ -274,35 +277,24 @@ function cardLabel() {
   font-variant-numeric: tabular-nums;
 }
 
-/* tier 只染图标容器与环线；名称永远是 --sf-fg。 */
-.sf-profile-badge-card[data-earned="true"][data-tier="gold"] {
-  --sf-badge-card-hue: var(--sf-accent);
-  --sf-badge-card-soft: var(--sf-accent-soft);
-  --sf-badge-card-ring: color-mix(in srgb, var(--sf-accent) 34%, transparent);
-  border-color: color-mix(in srgb, var(--sf-accent) 34%, transparent);
-  background: var(--sf-accent-soft);
+/* 统一配色：hue = 等级色，填充 12%，环线 34%；名称永远是 --sf-fg。
+   等级色成对下发（明/暗），这里按主题挑一个 —— 没有 [data-tier] 变体规则。 */
+.sf-profile-badge-card {
+  --sf-tier-hue: var(--sf-tier-hue-light);
 }
 
-.sf-profile-badge-card[data-earned="true"][data-tier="silver"] {
-  --sf-badge-card-hue: var(--sf-fg-secondary);
-  --sf-badge-card-soft: transparent;
-  --sf-badge-card-ring: var(--sf-public-border-strong);
+.dark .sf-profile-badge-card {
+  --sf-tier-hue: var(--sf-tier-hue-dark);
 }
 
-.sf-profile-badge-card[data-earned="true"][data-tier="bronze"] {
-  --sf-badge-card-hue: var(--sf-warning);
-  --sf-badge-card-soft: var(--sf-warning-soft);
-  --sf-badge-card-ring: color-mix(in srgb, var(--sf-warning) 45%, transparent);
+.sf-profile-badge-card[data-earned="true"] {
+  border-color: color-mix(in srgb, var(--sf-tier-hue) 34%, transparent);
+  background: color-mix(in srgb, var(--sf-tier-hue) 12%, var(--sf-card));
 }
 
 /* 未获得：不降透明度，只把名称降到 secondary、图标降到 tertiary。 */
 .sf-profile-badge-card[data-earned="false"] .sf-profile-badge-card__name {
   color: var(--sf-fg-secondary);
-}
-
-.dark .sf-profile-badge-card[data-earned="true"][data-tier="gold"] {
-  --sf-badge-card-hue: var(--sf-accent-dark);
-  --sf-badge-card-ring: color-mix(in srgb, var(--sf-accent-dark) 38%, transparent);
 }
 
 /* hover 反馈只属于资料页；目录页卡片不可点击，边框变色是假承诺。 */

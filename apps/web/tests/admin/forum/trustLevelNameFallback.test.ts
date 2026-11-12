@@ -192,7 +192,11 @@ describe('levelSlug is passed through, never recomputed (regression)', () => {
 
 describe('tier color names stay identical to the backend whitelist', () => {
   // 与上面图标那条同构：离线读 Go 源码，不依赖后端进程。
+  // 色板已上提到 app/Support/Palette（徽章等级表与信任等级共用），TrustLevels 只剩薄包装：
+  // 三个候选路径都试，找到哪份就用哪份 —— 护栏的对象是「同一份 9 色」，不是某个文件位置。
   const candidates = [
+    new URL('../../../../../apps/api/app/Support/Palette/tier_colors.go', import.meta.url),
+    new URL('../../../api/app/Support/Palette/tier_colors.go', import.meta.url),
     new URL('../../../../../apps/api/app/Models/TrustLevels/tier_colors.go', import.meta.url),
     new URL('../../../api/app/Models/TrustLevels/tier_colors.go', import.meta.url)
   ]

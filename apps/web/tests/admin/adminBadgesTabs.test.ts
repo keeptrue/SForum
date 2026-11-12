@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from 'bun:test'
+import { ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, flushPromises, mount, testVue } from '../helpers/vueSfc'
@@ -8,8 +9,10 @@ import {
   grantRevocable,
   grantSourceOf,
   sortBadges,
+  tierOrderMap,
   toAdminBadgeInput
 } from '~/utils/admin/adminBadges'
+import { pickTierName } from '~/utils/forum/forumBadge'
 
 /**
  * 三个 tab 组件与壳层的关键行为锚点（源码断言）。
@@ -168,6 +171,17 @@ describe('edit dialog and table wiring', () => {
     expect(tableSource).not.toContain('useRoute()')
     expect(tableSource).not.toContain('router.replace')
   })
+
+  test('automatic badges explain themselves instead of opening a dead dialog', () => {
+    // 原生 disabled 的按钮不触发 click：用户点了没反应，也永远看不到原因。
+    // 所以按钮用 aria-disabled 表达状态、保持可点，点击上抛 grantBlocked 由页面解释。
+    expect(tableSource).not.toContain(':disabled="row.original.grantMode !== \'manual\'"')
+    expect(tableSource).toContain(':aria-disabled="row.original.grantMode !== \'manual\'"')
+    expect(tableSource).toContain("emit('grantBlocked'")
+    expect(badgesTabSource).toContain('@grant-blocked="onGrantBlocked"')
+    expect(badgesTabSource).toContain('admin.badges.actions.grantAutomaticHint')
+    expect(badgesTabSource).toContain('admin.badges.actions.grantAutomaticDetail')
+  })
 })
 
 
@@ -277,13 +291,15 @@ const BadgesTab = await compileVueSfc(
     computed: testVue.computed,
     useRoute: () => ({ query: currentQuery }),
     useRouter: () => ({ replace: async (to: { query: Record<string, string> }) => { replaceCalls.push(to) } }),
-    useI18n: () => ({ t: (key: string) => key }),
+    useI18n: () => ({ t: (key: string) => key, locale: ref('zh-CN') }),
     useToast: () => ({ add: () => {} }),
     useAuthSession: () => ({ can: () => true }),
     badgeFiltersActive,
     filterBadges,
     sortBadges,
+    tierOrderMap,
     toAdminBadgeInput,
+    pickTierName,
     SFAdminBadgeTable: BadgeTableStub,
     SFAdminBadgeEditDialog: EditDialogStub,
     SFAdminBadgeGrantDialog: GrantDialogStub
@@ -303,13 +319,24 @@ const badgesTabBadges = [
   }
 ]
 const badgesTabGroups = [{ id: 3, name: '活跃', slug: 'active', description: '', position: 0, badgeCount: 1 }]
+// 等级筛选的选项来自服务端等级表：三档 + 一个自定义档（证明不是写死的 gold/silver/bronze）。
+const tierRows = [
+  { key: 'gold', name: { zh: '金牌', en: 'Gold' }, icon: 'i-lucide-crown', color: 'amber', position: 0, enabled: true, badgeCount: 1 },
+  { key: 'silver', name: { zh: '银牌', en: 'Silver' }, icon: 'i-lucide-medal', color: 'slate', position: 1, enabled: true, badgeCount: 1 },
+  { key: 'bronze', name: { zh: '铜牌', en: 'Bronze' }, icon: 'i-lucide-award', color: 'rose', position: 2, enabled: true, badgeCount: 1 },
+  { key: 'legendary', name: { zh: '传说', en: 'Legendary' }, icon: 'i-lucide-flame', color: 'violet', position: 3, enabled: true, badgeCount: 0 }
+]
 
 function mountBadgesTab(query: Record<string, unknown> = {}) {
   currentQuery = query
   replaceCalls.length = 0
   return mount(BadgesTab, {
     props: {
-      store: { load: async () => {}, updateBadge: async () => {} },
+      store: {
+        load: async () => {},
+        updateBadge: async () => {},
+        tiers: ref(tierRows)
+      },
       badges: badgesTabBadges,
       groups: badgesTabGroups,
       pending: false,

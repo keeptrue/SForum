@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { computed, defineComponent } from 'vue'
+import { computed, defineComponent, ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { forumBadgeTier, forumUserBadgesPath } from '~/utils/forum/forumBadge'
+import { forumBadgeTier, forumBadgeTierLabel, forumBadgeTierStyle, forumUserBadgesPath } from '~/utils/forum/forumBadge'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 
 /**
@@ -42,11 +42,15 @@ const UIconStub = defineComponent({
 })
 
 const chipPath = fileURLToPath(new URL('../../app/components/forum/SFBadgeChip.vue', import.meta.url))
+const has = (key: string) => typeof lookup(key) === 'string'
+
 const SFBadgeChip = await compileVueSfc(chipPath, 'sf-badge-chip', {
   computed,
-  useI18n: () => ({ t }),
+  useI18n: () => ({ t, te: has, locale: ref('zh-CN') }),
   useLocalePath: () => (path: string) => path,
   forumBadgeTier,
+  forumBadgeTierLabel,
+  forumBadgeTierStyle,
   forumUserBadgesPath
 })
 
@@ -91,15 +95,61 @@ describe('SFBadgeChip', () => {
     }
   })
 
-  test('unknown tier falls back to bronze and a missing icon falls back to a library icon', () => {
+  test('an unknown tier keeps its raw key but never renders a bare i18n key', () => {
+    // 等级是运营可增删的数据：未知 key 不能被折叠成 bronze（那会把新等级全画成铜牌），
+    // 也不能把 `badges.tier.platinum` 直接当文案渲染出去。
     const wrapper = mountChip({
-      badge: { slug: 'legacy', name: '旧徽章', tier: 'platinum' as never, icon: '' }
+      badge: { slug: 'legacy', name: '旧徽章', tier: 'platinum', icon: '' }
     })
     try {
       const chip = wrapper.get('.sf-badge-chip')
-      expect(chip.attributes('data-tier')).toBe('bronze')
+      expect(chip.attributes('data-tier')).toBe('platinum')
       expect(chip.attributes('aria-label')).toBe('铜牌徽章：旧徽章')
+      expect(chip.attributes('aria-label')).not.toContain('badges.tier')
       expect(wrapper.get('[data-testid="chip-icon"]').attributes('data-icon')).toBe('i-lucide-medal')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('a server-provided tier name and color win over the built-in fallbacks', () => {
+    const wrapper = mountChip({
+      badge: {
+        slug: 'legendary',
+        name: '传世之作',
+        tier: 'legendary',
+        icon: 'i-lucide-flame',
+        tierName: { zh: '传说', en: 'Legendary' },
+        tierColor: 'violet',
+        tierPosition: 0
+      }
+    })
+    try {
+      const chip = wrapper.get('.sf-badge-chip')
+      expect(chip.attributes('aria-label')).toBe('传说徽章：传世之作')
+      // hue 成对下发：token 走 --sf-tl-* 变量，明暗取值由 CSS 自己切。
+      expect(chip.attributes('style')).toContain('--sf-tier-hue-light: var(--sf-tl-violet)')
+      expect(chip.attributes('style')).toContain('--sf-tier-hue-dark: var(--sf-tl-violet)')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('a custom hex tier color is brightened for dark mode instead of reusing one literal', () => {
+    const wrapper = mountChip({
+      badge: {
+        slug: 'custom',
+        name: '自定义',
+        tier: 'custom',
+        icon: 'i-lucide-gem',
+        tierName: { zh: '自定义', en: 'Custom' },
+        tierColor: '#7c3aed'
+      }
+    })
+    try {
+      const style = wrapper.get('.sf-badge-chip').attributes('style') ?? ''
+      expect(style).toContain('--sf-tier-hue-light: #7c3aed')
+      expect(style).toContain('--sf-tier-hue-dark: color-mix(in srgb, #7c3aed 74%, white)')
     } finally {
       wrapper.unmount()
     }

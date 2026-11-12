@@ -84,7 +84,9 @@ adminBadges:
 
       - `grantMode: automatic` requires `metric` and `threshold > 0`.
       - `grantMode: manual` requires both `metric` and `threshold` to be absent.
-      - `tier` must be one of `bronze` / `silver` / `gold`.
+      - `tier` must exist in the badge tier table and be enabled. The three
+        built-in keys are `gold` / `silver` / `bronze`, but operators can add
+        their own — never validate this against a client-side enum.
       - `icon` must start with `i-lucide-` or `i-tabler-`.
 
       Violations return `422` reason `forum.badge_rule_invalid`; a duplicate
@@ -477,6 +479,312 @@ publicBadgeCatalog:
           application/json:
             schema:
               "$ref": "../schemas/badges.yaml#/ApiResponsePublicBadgeCatalog"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+# --- Badge tiers (/admin/badges/tiers, /badges/tiers) ---
+#
+# 等级表把 tier 从「写死枚举」升级为运营数据。读走 `badge.view`、写走 `badge.manage`。
+#
+# 静态段 `/admin/badges/tiers` 在控制器里注册于 `/:badgeID` 之前：两者形状相同，
+# 注册顺序颠倒会让 `DELETE /admin/badges/tiers` 被当成 `DELETE /admin/badges/{badgeID}`
+# 解析（badgeID = "tiers" → 0 → 404）。
+adminBadgeTiers:
+  get:
+    summary: List badge tiers
+    operationId: adminListBadgeTiers
+    description: |
+      Requires `badge.view` (not `badge.manage`): the badge editor needs the tier
+      dropdown even for read-only operators.
+
+      Returns every tier, including disabled ones, ordered by `position`
+      ascending (0 = highest tier). `colorChoices` is the server-side palette
+      whitelist and must be rendered as-is — a client-side copy drifts into
+      "selectable in the UI, 422 on save".
+
+      Fails with `403` reason `forum.badges_disabled` when `features.badges` is off.
+    responses:
+      '200':
+        description: Tier table plus the accepted colour palette.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeTierList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+  post:
+    summary: Create a badge tier
+    operationId: adminCreateBadgeTier
+    description: |
+      Requires `badge.manage`.
+
+      Validation is authoritative on the server: `key` must match
+      `^[a-z][a-z0-9_]{1,31}$`, both `nameZh` and `nameEn` are required, `icon`
+      must start with `i-lucide-` or `i-tabler-`, and `color` must be one of the
+      palette tokens or a lowercase `#rrggbb` (empty means "no colour").
+
+      Violations return `422` reason `forum.badge_tier_invalid`; a duplicate key
+      returns `409` reason `forum.badge_tier_key_taken`.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeTierCreateInput"
+    responses:
+      '201':
+        description: Tier created.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeTierDef"
+      '400':
+        "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgeTierByKey:
+  patch:
+    summary: Update a badge tier
+    operationId: adminUpdateBadgeTier
+    description: |
+      Requires `badge.manage`. Partial update: omitted fields keep their current
+      value. `key` is **not** accepted — a renamed key is a different tier, so
+      delete and create instead.
+
+      Disabling a tier excludes its badges from the "top badge" competition and
+      triggers a full `top_badge_id` recompute, so posts stop showing badges of
+      that tier.
+    parameters:
+    - name: tierKey
+      in: path
+      required: true
+      schema:
+        "$ref": "../schemas/badges.yaml#/BadgeTier"
+      description: Tier key (immutable).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeTierUpdateInput"
+    responses:
+      '200':
+        description: Tier updated.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeTierDef"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+  delete:
+    summary: Delete a badge tier
+    operationId: adminDeleteBadgeTier
+    description: |
+      Requires `badge.manage`. Deleting a tier is only possible with an explicit
+      migration target: badges referencing the tier are moved to `migrateTo` in
+      the same transaction, then the tier row is removed.
+
+      Rejected cases (`migrateTo` is required, so a bare delete never silently
+      demotes badges):
+
+      - `migrateTo` missing, equal to the deleted key, or pointing at a disabled
+        tier → `422` reason `forum.badge_tier_invalid`.
+      - `migrateTo` does not exist → `404` reason `forum.badge_tier_not_found`.
+      - It is the last enabled tier → `409` reason `forum.badge_tier_in_use`
+        (removing it would blank every `top_badge_id` on the site).
+
+      A successful delete triggers a full `top_badge_id` recompute.
+    parameters:
+    - name: tierKey
+      in: path
+      required: true
+      schema:
+        "$ref": "../schemas/badges.yaml#/BadgeTier"
+    - name: migrateTo
+      in: query
+      required: true
+      schema:
+        "$ref": "../schemas/badges.yaml#/BadgeTier"
+      description: |
+        Enabled tier that inherits the badges currently pointing at `tierKey`.
+        Required — a delete without it is rejected rather than silently
+        demoting badges.
+    responses:
+      '200':
+        description: Tier deleted and referencing badges migrated.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDeleteResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgeTierOrder:
+  put:
+    summary: Reorder badge tiers
+    operationId: adminReorderBadgeTiers
+    description: |
+      Requires `badge.manage`. Rewrites `position` from the array index; tiers
+      not listed keep their relative order and are appended afterwards (a client
+      may submit only the tiers it currently shows).
+
+      `position` is the first sort key of the "top badge" ordering, so a reorder
+      changes which badge every post shows. The server recomputes `top_badge_id`
+      for affected users and returns the refreshed table.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeTierOrderInput"
+    responses:
+      '200':
+        description: Tiers reordered; the refreshed table is returned.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeTierList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminBadgeGrantCandidates:
+  get:
+    summary: Search users eligible for a manual badge grant
+    operationId: adminSearchGrantCandidates
+    description: |
+      Requires `badge.view` — **not** `user.view`. This answers "who can be
+      granted this badge"; it does not expose emails, roles, or ban reasons, so
+      an operator role that manages badges without the user directory still
+      works.
+
+      Matching covers `username` and `displayName` only, never the email
+      address: email search would turn the badge admin into a
+      "does this address have an account" oracle.
+
+      `limit` defaults to and is capped at 20. An empty `q` returns the first
+      page of candidates. `alreadyGranted` is a hint for the picker, not a
+      filter.
+    parameters:
+    - name: q
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Case-insensitive substring of the username or display name.
+    - name: badgeId
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+      description: Badge whose grant state is reported per candidate.
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        maximum: 20
+        default: 20
+    responses:
+      '200':
+        description: Candidate users.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseGrantCandidateList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+adminBadgeGrantsBatch:
+  post:
+    summary: Grant a manual badge to several users at once
+    operationId: adminBatchGrantBadge
+    description: |
+      Requires `badge.manage`. Only manual badges accept a batch grant;
+      automatic badges are owned by their rule and return `422` reason
+      `forum.badge_manual_only`.
+
+      Request rules: at least one user id, at most 50 **unique** ids (duplicates
+      are collapsed, non-positive ids dropped); violations return `422` reason
+      `forum.badge_grant_batch_invalid`.
+
+      Partial success is a `200`, not an error:
+      `granted + skipped + len(failed)` equals the number of distinct ids sent.
+      `skipped` counts users who already held the badge; `failed[].reason` is a
+      stable error code. Every newly granted user gets `top_badge_id` recomputed.
+    parameters:
+    - "$ref": "../components/parameters.yaml#/BadgeID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BatchGrantInput"
+    responses:
+      '200':
+        description: Batch result with per-user failures.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBatchGrantResult"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+publicBadgeTiers:
+  get:
+    summary: List badge tiers for public rendering
+    operationId: publicBadgeTiers
+    description: |
+      Public tier catalog: enabled tiers only, ordered by `position` ascending.
+      Clients need it to render the tier name and colour of every badge — the
+      badge payloads only carry the tier **key**, and hard-coding a
+      key→name/colour map breaks as soon as an operator adds a tier.
+
+      Actor-agnostic (no `earned`, no `enabled`), therefore cacheable:
+      `Cache-Control: public, max-age=60`.
+
+      Fails with `403` reason `forum.badges_disabled` when `features.badges` is off.
+    responses:
+      '200':
+        description: Enabled tiers.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponsePublicBadgeTiers"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
       '503':

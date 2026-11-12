@@ -169,7 +169,9 @@ func TestPublicCatalogWireKeysAreWhitelisted(t *testing.T) {
 		if !ok {
 			t.Fatalf("badge entry is not an object: %v", raw)
 		}
-		assertKeys(t, "badge entry", item, []string{"slug", "name", "description", "icon", "tier", "group", "earned"})
+		// tierName / tierColor 是等级表下发的展示外观：tier 仍是 key（前端 data-tier 用它），
+		// 名字与颜色由服务端给，前端不该按 key 硬编码。
+		assertKeys(t, "badge entry", item, []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned"})
 		for _, forbidden := range []string{"threshold", "metric", "enabled", "grantedCount", "createdAt", "updatedAt", "id"} {
 			if _, present := item[forbidden]; present {
 				t.Fatalf("public catalog entry must not carry %q: %v", forbidden, item)
@@ -204,8 +206,8 @@ func TestPublicCatalogDTOCarriesNoThresholdOrMetricField(t *testing.T) {
 		{
 			name:   "entry",
 			typ:    reflect.TypeOf(publicBadgeCatalogItem{}),
-			fields: []string{"Slug", "Name", "Description", "Icon", "Tier", "Group", "Earned"},
-			tags:   []string{"slug", "name", "description", "icon", "tier", "group", "earned"},
+			fields: []string{"Slug", "Name", "Description", "Icon", "Tier", "TierName", "TierColor", "Group", "Earned"},
+			tags:   []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned"},
 		},
 	}
 	for _, tc := range cases {

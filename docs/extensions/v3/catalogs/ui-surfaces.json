@@ -220,10 +220,50 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.s_f_admin_badge_icon_field",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_icon_field@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeIconField.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.s_f_admin_badge_table",
     "contractVersion": "sforum.component.admin.s_f_admin_badge_table@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/badges/SFAdminBadgeTable.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_tier_delete_dialog",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_delete_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDeleteDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_tier_dialog",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_user_picker",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_user_picker@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeUserPicker.vue",
     "owners": [
       "admin"
     ],
@@ -254,6 +294,16 @@
     "contractVersion": "sforum.component.admin.sfadmin_badges_groups_tab@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badges_tiers_tab",
+    "contractVersion": "sforum.component.admin.s_f_admin_badges_tiers_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue",
     "owners": [
       "admin"
     ],
@@ -994,6 +1044,16 @@
     "contractVersion": "sforum.component.admin.sf_admin_theme_activate_dialog@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/SFAdminThemeActivateDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_tier_color_field",
+    "contractVersion": "sforum.component.admin.s_f_admin_tier_color_field@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/shared/SFAdminTierColorField.vue",
     "owners": [
       "admin"
     ],

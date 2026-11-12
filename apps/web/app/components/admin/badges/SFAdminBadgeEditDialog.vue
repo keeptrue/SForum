@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { AdminBadgeGroupRow } from '~/composables/admin/badges/useAdminBadges'
+import type { AdminBadgeGroupRow, AdminBadgeTierRow } from '~/composables/admin/badges/useAdminBadges'
 import {
-  BADGE_ICON_CHOICES,
   BADGE_METRIC_OPTIONS,
   toAdminBadgeInput,
   type AdminBadgeRow
 } from '~/utils/admin/adminBadges'
-import { forumBadgeTier } from '~/utils/forum/forumBadge'
+import { forumBadgeTier, pickTierName } from '~/utils/forum/forumBadge'
+import SFAdminBadgeIconField from '~/components/admin/badges/SFAdminBadgeIconField.vue'
 import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
 
 /**
@@ -17,6 +17,8 @@ import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
  */
 const props = defineProps<{
   groups: AdminBadgeGroupRow[]
+  /** 服务端等级表：等级下拉的唯一来源（前端不再写死三档）。 */
+  tiers: AdminBadgeTierRow[]
   badge: AdminBadgeRow | null
 }>()
 
@@ -24,7 +26,7 @@ const emit = defineEmits<{ saved: [] }>()
 
 const open = defineModel<boolean>('open', { required: true })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { request } = useApiClient()
 const toast = useToast()
 
@@ -33,7 +35,7 @@ const form = reactive({
   name: '',
   description: '',
   groupId: null as number | null,
-  tier: 'bronze' as 'bronze' | 'silver' | 'gold',
+  tier: 'bronze' as string,
   icon: 'i-lucide-medal',
   grantMode: 'manual' as 'automatic' | 'manual',
   metric: 'topic_count',
@@ -57,10 +59,20 @@ const groupItems = computed(() => [
   ...props.groups.map(group => ({ value: group.id as number | null, label: group.name }))
 ])
 
-const tierItems = computed(() => (['gold', 'silver', 'bronze'] as const).map(tier => ({
-  value: tier,
-  label: t(`badges.tier.${tier}`)
-})))
+/**
+ * 等级下拉：只列**启用中**的等级，外加「当前值」例外。
+ *
+ * 例外是必须的：把一枚老徽章从停用档改到别的档，如果下拉里没有当前值，打开弹窗时
+ * Select 会显示空 —— 运营会以为等级丢了，随手保存就把徽章挪到了别的档。
+ */
+const tierItems = computed(() => {
+  const current = forumBadgeTier(props.badge?.tier)
+  return props.tiers
+    .filter(tier => tier.enabled || tier.key === current)
+    .slice()
+    .sort((left, right) => left.position - right.position)
+    .map(tier => ({ value: tier.key, label: pickTierName(tier.name, locale.value) }))
+})
 
 const grantModeItems = computed(() => (['automatic', 'manual'] as const).map(mode => ({
   value: mode,
@@ -71,10 +83,6 @@ const metricItems = computed(() => BADGE_METRIC_OPTIONS.map(metric => ({
   value: metric,
   label: t(`admin.badges.metrics.${metric}`)
 })))
-
-function selectIcon(choice: string) {
-  form.icon = choice
-}
 
 const canSubmit = computed(() => {
   if (submitting.value || deleting.value) return false
@@ -200,23 +208,13 @@ async function removeBadge() {
             </UFormField>
           </div>
 
-          <UFormField :label="t('admin.badges.form.icon')" :error="fieldErrors.icon?.[0]">
-            <div class="grid grid-cols-8 gap-2 sm:grid-cols-8">
-              <UButton
-                v-for="choice in BADGE_ICON_CHOICES"
-                :key="choice"
-                type="button"
-                size="xs"
-                :color="form.icon === choice ? 'primary' : 'neutral'"
-                :variant="form.icon === choice ? 'solid' : 'outline'"
-                :icon="choice"
-                :aria-label="choice"
-                :title="choice"
-                class="justify-center"
-                @click="selectIcon(choice)"
-              />
-            </div>
-          </UFormField>
+          <SFAdminBadgeIconField
+            v-model="form.icon"
+            :label="t('admin.badges.form.icon')"
+            :more-label="t('admin.badges.icon.more')"
+            :less-label="t('admin.badges.icon.less')"
+            :error="fieldErrors.icon?.[0]"
+          />
 
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField :label="t('admin.badges.form.grantMode')" :error="fieldErrors.grantMode?.[0]">

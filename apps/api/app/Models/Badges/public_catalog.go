@@ -19,6 +19,9 @@ type PublicCatalogEntry struct {
 	Description string
 	Icon        string
 	Tier        BadgeTier
+	// Appearance 是等级外观（双语名/颜色/位次），随条目一起下发：
+	// 目录卡片的角标配色必须与后台配置一致，前端不该自己按 key 硬编码颜色。
+	Appearance TierAppearance
 	// GroupKey 为空表示未分组。
 	GroupKey string
 	// GroupName 为空有两种情况：未分组，或该分组没有名字。

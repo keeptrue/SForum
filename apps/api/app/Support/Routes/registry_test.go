@@ -505,7 +505,13 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	// 409 = 405 + 四条信任等级路由（1 公开 + 3 后台）。
 	// 410 = 409 + core.route.badges.public_catalog（公开徽章目录：目录本体 actor 无关，
 	// earned 只给查看者本人，故是 public guard 而不是 badge.view）。
-	if len(catalog) != 410 {
+	// 418 = 410 + 八条徽章等级表路由（202611120001 badge_tiers）：
+	//   公开 1 条（GET /badges/tiers，actor 无关、可共享缓存）
+	//   后台 5 条等级 CRUD/排序（读 badge.view、写 badge.manage）
+	//   后台 2 条批量授予（候选搜索读 badge.view、批量授予写 badge.manage）
+	// 注意 /admin/badges/tiers 与 /admin/badges/{badgeID} 形状相同，控制器里静态段
+	// 必须先注册，否则 DELETE /admin/badges/tiers 会被解析成 badgeID="tiers"。
+	if len(catalog) != 418 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

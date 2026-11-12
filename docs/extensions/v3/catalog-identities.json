@@ -2426,6 +2426,54 @@
       "path": "/api/v1/admin/badges/recompute"
     },
     {
+      "id": "core.route.badges.public_badge_tiers",
+      "contractVersion": "sforum.route.badges.public_badge_tiers@1",
+      "method": "GET",
+      "path": "/api/v1/badges/tiers"
+    },
+    {
+      "id": "core.route.badges.admin_list_badge_tiers",
+      "contractVersion": "sforum.route.badges.admin_list_badge_tiers@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/tiers"
+    },
+    {
+      "id": "core.route.badges.admin_create_badge_tier",
+      "contractVersion": "sforum.route.badges.admin_create_badge_tier@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges/tiers"
+    },
+    {
+      "id": "core.route.badges.admin_reorder_badge_tiers",
+      "contractVersion": "sforum.route.badges.admin_reorder_badge_tiers@1",
+      "method": "PUT",
+      "path": "/api/v1/admin/badges/tiers/order"
+    },
+    {
+      "id": "core.route.badges.admin_update_badge_tier",
+      "contractVersion": "sforum.route.badges.admin_update_badge_tier@1",
+      "method": "PATCH",
+      "path": "/api/v1/admin/badges/tiers/:tierKey"
+    },
+    {
+      "id": "core.route.badges.admin_delete_badge_tier",
+      "contractVersion": "sforum.route.badges.admin_delete_badge_tier@1",
+      "method": "DELETE",
+      "path": "/api/v1/admin/badges/tiers/:tierKey"
+    },
+    {
+      "id": "core.route.badges.admin_search_grant_candidates",
+      "contractVersion": "sforum.route.badges.admin_search_grant_candidates@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/grant-candidates"
+    },
+    {
+      "id": "core.route.badges.admin_batch_grant_badge",
+      "contractVersion": "sforum.route.badges.admin_batch_grant_badge@1",
+      "method": "POST",
+      "path": "/api/v1/admin/badges/:badgeID/grants/batch"
+    },
+    {
       "id": "core.route.badges.public_profile_badges",
       "contractVersion": "sforum.route.badges.public_profile_badges@1",
       "method": "GET",
@@ -6537,6 +6585,66 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_tier_color_field",
+      "contractVersion": "sforum.component.admin.s_f_admin_tier_color_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/shared/SFAdminTierColorField.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_user_picker",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_user_picker@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeUserPicker.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_tier_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_icon_field",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_icon_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeIconField.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_tier_delete_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_delete_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDeleteDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badges_tiers_tab",
+      "contractVersion": "sforum.component.admin.s_f_admin_badges_tiers_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue"
     }
   ]
 }

@@ -178,8 +178,17 @@ export function badgeFiltersActive(filters: AdminBadgeFilters): boolean {
     || filters.grantMode !== '' || filters.enabled !== ''
 }
 
-/** tier 排序权重与后端 topBadgeOrderSQL 同口径：gold > silver > bronze。 */
-const TIER_SORT_WEIGHT: Record<string, number> = { gold: 3, silver: 2, bronze: 1 }
+/**
+ * 等级位次表 → 排序用的 `Record<key, position>`。
+ *
+ * 等级是运营可增删的数据，前端不许再写一份三档权重：位次只来自 `GET /admin/badges/tiers`
+ * 的 `position`（升序 = 后台与公开面一致的展示顺序）。
+ */
+export function tierOrderMap(tiers: ReadonlyArray<{ key: string, position: number }>): Record<string, number> {
+  const order: Record<string, number> = {}
+  for (const tier of tiers) order[tier.key] = Number(tier.position)
+  return order
+}
 
 /** 按筛选条件过滤徽章列表；q 同时匹配名称、slug 与说明（大小写不敏感）。 */
 export function filterBadges(badges: AdminBadgeRow[], filters: AdminBadgeFilters): AdminBadgeRow[] {
@@ -209,11 +218,13 @@ export const BADGE_SORT_KEYS: readonly AdminBadgeSortKey[] = ['name', 'tier', 'g
 export function sortBadges(
   badges: AdminBadgeRow[],
   key: AdminBadgeSortKey | '',
-  dir: AdminBadgeSortDir
+  dir: AdminBadgeSortDir,
+  tierOrder: Record<string, number> = {}
 ): AdminBadgeRow[] {
   if (!key) return badges
   const factor = dir === 'desc' ? -1 : 1
-  const tierWeight = (tier: string) => TIER_SORT_WEIGHT[tier] ?? 0
+  // 未知等级（等级被删但行还没刷新）排在所有已知等级之后，不丢行、不猜位次。
+  const tierWeight = (tier: string) => tierOrder[tier] ?? Number.MAX_SAFE_INTEGER
   return [...badges].sort((left, right) => {
     if (key === 'tier') return (tierWeight(left.tier) - tierWeight(right.tier)) * factor
     if (key === 'grantedCount') return (left.grantedCount - right.grantedCount) * factor

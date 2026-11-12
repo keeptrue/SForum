@@ -22,24 +22,44 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 
 // topBadgeOrderSQL 是「最高级徽章」的唯一排序定义。
 //
-// gold > silver > bronze，同级按 badges.position 升序，再按 granted_at 降序。
+// 排序键来自等级表：badge_tiers.position 升序（0 = 最高档）→ badges.position →
+// granted_at 降序。**不再**用 CASE 映射 gold/silver/bronze——等级是运营可增删的
+// 数据，写死映射会让新档位永远排最后。
+//
+// 使用本常量的每个查询都**必须**自带
+// `JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled`：
+//   - JOIN 而不是 LEFT JOIN：停用档位的徽章不该参与竞争（等价于「这一档不存在」）；
+//   - 别名固定为 t，本常量引用 t.position。
+//
 // 资料页、帖子旁 chip、top_badge_id 维护必须共用这一段，否则同一个人在两个地方
 // 会显示不同的徽章。
 const topBadgeOrderSQL = `
-	CASE badges.tier WHEN 'gold' THEN 3 WHEN 'silver' THEN 2 WHEN 'bronze' THEN 1 ELSE 0 END DESC,
+	t.position ASC,
 	badges.position ASC,
 	user_badges.granted_at DESC`
+
+// badgeTierColumnsSQL 是徽章的等级外观列（双语名/颜色/位次）。
+//
+// LEFT JOIN + COALESCE 而不是 INNER JOIN：外键保证正常情况一定有行，但读路径
+// 不该因为「等级行暂时缺失」（运维手工删数据、回滚中的中间态）把整个后台列表变成 500。
+// 空外观在 DTO 层是「没有等级信息」，前端有兜底分支。
+const badgeTierColumnsSQL = `
+	COALESCE(tier_def.name_zh, '') AS tier_name_zh,
+	COALESCE(tier_def.name_en, '') AS tier_name_en,
+	COALESCE(tier_def.color, '') AS tier_color,
+	COALESCE(tier_def.position, 2147483647) AS tier_position`
 
 const badgeColumnsSQL = `
 	badges.id, badges.slug, badges.name, badges.description,
 	badges.group_id, badge_groups.name AS group_name, badge_groups.key AS group_key,
 	badges.tier, badges.icon, badges.grant_mode, badges.metric, badges.threshold,
 	badges.enabled, badges.position, badges.created_at, badges.updated_at,
-	COALESCE(grants.granted_count, 0) AS granted_count`
+	COALESCE(grants.granted_count, 0) AS granted_count,` + badgeTierColumnsSQL
 
 const badgeJoinsSQL = `
 	FROM badges
 	LEFT JOIN badge_groups ON badge_groups.id = badges.group_id
+	LEFT JOIN badge_tiers AS tier_def ON tier_def.key = badges.tier
 	LEFT JOIN (
 		SELECT badge_id, COUNT(*) AS granted_count FROM user_badges GROUP BY badge_id
 	) AS grants ON grants.badge_id = badges.id`
@@ -53,6 +73,8 @@ func scanBadge(row pgx.Row) (Badge, error) {
 		&badge.Tier, &badge.Icon, &badge.GrantMode, &metric, &badge.Threshold,
 		&badge.Enabled, &badge.Position, &badge.CreatedAt, &badge.UpdatedAt,
 		&badge.GrantedCount,
+		&badge.Appearance.NameZh, &badge.Appearance.NameEn, &badge.Appearance.Color,
+		&badge.Appearance.Position,
 	); err != nil {
 		return Badge{}, err
 	}
@@ -139,9 +161,11 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 		SELECT badges.id, badges.slug, badges.name, badges.description,
 		       badge_groups.key AS group_key, badges.tier, badges.icon,
 		       badges.grant_mode, badges.metric, badges.threshold, badges.position,
-		       user_badges.granted_at
+		       user_badges.granted_at,
+		       `+badgeTierColumnsSQL+`
 		FROM badges
 		LEFT JOIN badge_groups ON badge_groups.id = badges.group_id
+		LEFT JOIN badge_tiers AS tier_def ON tier_def.key = badges.tier
 		LEFT JOIN user_badges ON user_badges.badge_id = badges.id AND user_badges.user_id = $1
 		WHERE badges.enabled
 		ORDER BY COALESCE(badge_groups.position, 2147483647), badge_groups.id NULLS LAST,
@@ -159,6 +183,8 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 			&item.Badge.GroupKey, &item.Badge.Tier, &item.Badge.Icon,
 			&item.Badge.GrantMode, &metric, &item.Badge.Threshold, &item.Badge.Position,
 			&item.GrantedAt,
+			&item.Badge.Appearance.NameZh, &item.Badge.Appearance.NameEn,
+			&item.Badge.Appearance.Color, &item.Badge.Appearance.Position,
 		); err != nil {
 			return nil, fmt.Errorf("scan user badge: %w", err)
 		}
@@ -184,9 +210,11 @@ func (s *PostgresStore) TopBadgesFor(ctx context.Context, userIDs []int64) (map[
 		return result, nil
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT users.id, badges.slug, badges.name, badges.tier, badges.icon
+		SELECT users.id, badges.slug, badges.name, badges.tier, badges.icon,
+		       `+badgeTierColumnsSQL+`
 		FROM users
 		JOIN badges ON badges.id = users.top_badge_id
+		LEFT JOIN badge_tiers AS tier_def ON tier_def.key = badges.tier
 		WHERE users.id = ANY($1) AND badges.enabled`, userIDs)
 	if err != nil {
 		return nil, fmt.Errorf("top badges for users: %w", err)
@@ -195,7 +223,9 @@ func (s *PostgresStore) TopBadgesFor(ctx context.Context, userIDs []int64) (map[
 	for rows.Next() {
 		var userID int64
 		var ref BadgeRef
-		if err := rows.Scan(&userID, &ref.Slug, &ref.Name, &ref.Tier, &ref.Icon); err != nil {
+		if err := rows.Scan(&userID, &ref.Slug, &ref.Name, &ref.Tier, &ref.Icon,
+			&ref.Appearance.NameZh, &ref.Appearance.NameEn,
+			&ref.Appearance.Color, &ref.Appearance.Position); err != nil {
 			return nil, fmt.Errorf("scan top badge: %w", err)
 		}
 		result[userID] = ref
@@ -348,6 +378,7 @@ func (s *PostgresStore) RecomputeTopBadge(ctx context.Context, userID int64) err
 			SELECT badges.id
 			FROM user_badges
 			JOIN badges ON badges.id = user_badges.badge_id
+			JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled
 			WHERE user_badges.user_id = $1 AND badges.enabled
 			ORDER BY `+topBadgeOrderSQL+`
 			LIMIT 1
@@ -407,6 +438,7 @@ func (s *PostgresStore) RecomputeAll(ctx context.Context) (int64, error) {
 			       (SELECT badges.id
 			        FROM user_badges
 			        JOIN badges ON badges.id = user_badges.badge_id
+			        JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled
 			        WHERE user_badges.user_id = users.id AND badges.enabled
 			        ORDER BY `+topBadgeOrderSQL+`
 			        LIMIT 1) AS badge_id

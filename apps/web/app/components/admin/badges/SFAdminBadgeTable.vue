@@ -3,13 +3,19 @@
  * 后台徽章列表：九列，窄屏按列 `meta.class` 逐列收起，不做横向滚动。
  *
  * 纯展示 + 事件上抛：CRUD、授予、重算都在页面与 useAdminBadges 里，表格不持有状态。
- * tier 列不允许只用颜色表达级别，所以固定是「图标 + tier 名」，色只染图标。
+ * tier 列不允许只用颜色表达级别，所以固定是「图标 + 等级名」，色只染图标。
+ *
+ * 等级名/色/图标全部来自服务端等级表（`tiers` prop），不再写死 gold/silver/bronze 三套规则：
+ * 运营新建的等级在列表里必须有名字与颜色，否则会显示成裸 key。
  */
 import { adminBadgeMetricLabel, adminBadgeRule, type AdminBadgeRow, type AdminBadgeSortDir, type AdminBadgeSortKey } from '~/utils/admin/adminBadges'
-import { forumBadgeTier, forumBadgeTierIcon } from '~/utils/forum/forumBadge'
+import type { AdminBadgeTierRow } from '~/composables/admin/badges/useAdminBadges'
+import { forumBadgeTier, forumBadgeTierIcon, forumBadgeTierLabel, forumBadgeTierStyle, pickTierName } from '~/utils/forum/forumBadge'
 
 const props = withDefaults(defineProps<{
   badges: AdminBadgeRow[]
+  /** 服务端等级表：tier 列的名字、图标、色都从这里取。 */
+  tiers?: AdminBadgeTierRow[]
   pending?: boolean
   /** 只有 badge.manage 才渲染操作按钮；无权限时列仍保留表头。 */
   canManage?: boolean
@@ -17,6 +23,7 @@ const props = withDefaults(defineProps<{
   sortKey?: AdminBadgeSortKey | ''
   sortDir?: AdminBadgeSortDir
 }>(), {
+  tiers: () => [],
   pending: false,
   canManage: false,
   sortKey: '',
@@ -26,11 +33,13 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   edit: [badge: AdminBadgeRow]
   grant: [badge: AdminBadgeRow]
+  /** 点了「授予」但这枚徽章是自动徽章：由页面决定怎么解释（toast 归页面，表格不持有反馈状态）。 */
+  grantBlocked: [badge: AdminBadgeRow]
   toggle: [badge: AdminBadgeRow]
   sort: [key: AdminBadgeSortKey]
 }>()
 
-const { t, te } = useI18n()
+const { t, te, locale } = useI18n()
 
 // 断点口径（规范 §4.3）：≤640 收「分组 / 授予方式 / 已授予」，≤1023 再收「规则」。
 const HIDDEN_SM = 'hidden sm:table-cell'
@@ -91,12 +100,42 @@ function tierOf(badge: AdminBadgeRow) {
   return forumBadgeTier(badge.tier)
 }
 
+function tierRow(badge: AdminBadgeRow): AdminBadgeTierRow | undefined {
+  return props.tiers.find(tier => tier.key === tierOf(badge))
+}
+
 function tierLabel(badge: AdminBadgeRow) {
-  return t(`badges.tier.${tierOf(badge)}`)
+  const row = tierRow(badge)
+  if (row) return pickTierName(row.name, locale.value)
+  return forumBadgeTierLabel(badge, locale.value, t, te)
+}
+
+function tierIcon(badge: AdminBadgeRow) {
+  return tierRow(badge)?.icon || forumBadgeTierIcon(badge.tier)
+}
+
+/** 等级色走行内变量：等级可增删，写死 [data-tier] 规则就等于把色表钉在前端。 */
+function tierStyle(badge: AdminBadgeRow) {
+  return forumBadgeTierStyle({ tier: tierOf(badge), tierColor: tierRow(badge)?.color })
 }
 
 function ruleOf(badge: AdminBadgeRow) {
   return adminBadgeRule(badge)
+}
+
+/**
+ * 「授予」按钮的点击分流。
+ *
+ * 自动徽章不能用原生 `disabled`：禁用按钮不触发 click，用户点了什么也不会发生，
+ * 而「为什么点不动」恰恰是他最需要知道的。所以按钮保持可聚焦、可点击，用
+ * `aria-disabled` 表达状态，点击时上抛 grantBlocked 由页面给一句解释。
+ */
+function requestGrant(badge: AdminBadgeRow) {
+  if (badge.grantMode !== 'manual') {
+    emit('grantBlocked', badge)
+    return
+  }
+  emit('grant', badge)
 }
 
 /** 可排序列头的图标与 aria 态由父层 query 驱动；表格本身不感知 URL。 */
@@ -132,16 +171,16 @@ function sortAria(id: string): string {
     class="max-h-[calc(100vh-24rem)]"
   >
     <template #icon-cell="{ row }">
-      <span class="sf-admin-badge-icon" :data-tier="tierOf(row.original)">
+      <span class="sf-admin-badge-icon" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
         <UIcon
-          :name="row.original.icon || forumBadgeTierIcon(row.original.tier)"
+          :name="row.original.icon || tierIcon(row.original)"
           class="size-[18px]"
           aria-hidden="true"
         />
       </span>
     </template>
 
-    <template #name-header="{ column }">
+    <template #name-header>
       <UButton
         color="neutral"
         variant="ghost"
@@ -166,7 +205,7 @@ function sortAria(id: string): string {
       <span class="text-sm text-slate-600 dark:text-zinc-300">{{ row.original.groupName || '—' }}</span>
     </template>
 
-    <template #tier-header="{ column }">
+    <template #tier-header>
       <UButton
         color="neutral"
         variant="ghost"
@@ -181,8 +220,8 @@ function sortAria(id: string): string {
     </template>
 
     <template #tier-cell="{ row }">
-      <span class="sf-admin-badge-tier" :data-tier="tierOf(row.original)">
-        <UIcon :name="forumBadgeTierIcon(row.original.tier)" class="size-3.5" aria-hidden="true" />
+      <span class="sf-admin-badge-tier" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
+        <UIcon :name="tierIcon(row.original)" class="size-3.5" aria-hidden="true" />
         <span>{{ tierLabel(row.original) }}</span>
       </span>
     </template>
@@ -205,7 +244,7 @@ function sortAria(id: string): string {
       <span v-else class="text-sm text-slate-400 dark:text-zinc-500">{{ t('admin.badges.rule.none') }}</span>
     </template>
 
-    <template #grantedCount-header="{ column }">
+    <template #grantedCount-header>
       <UButton
         color="neutral"
         variant="ghost"
@@ -248,9 +287,13 @@ function sortAria(id: string): string {
           variant="ghost"
           size="xs"
           icon="i-lucide-award"
+          :aria-disabled="row.original.grantMode !== 'manual'"
+          :class="row.original.grantMode === 'manual' ? '' : 'opacity-40'"
           :aria-label="t('admin.badges.actions.grantLabel', { name: row.original.name })"
-          :title="t('admin.badges.actions.grant')"
-          @click="emit('grant', row.original)"
+          :title="row.original.grantMode === 'manual'
+            ? t('admin.badges.actions.grant')
+            : t('admin.badges.actions.grantAutomaticHint')"
+          @click="requestGrant(row.original)"
         />
         <UButton
           color="neutral"
@@ -272,6 +315,7 @@ function sortAria(id: string): string {
 </template>
 
 <style scoped>
+/* 等级色：hue 由行内 `--sf-tier-hue-light/-dark` 提供，这里只按主题挑一个。 */
 .sf-admin-badge-icon {
   display: inline-flex;
   align-items: center;
@@ -279,23 +323,13 @@ function sortAria(id: string): string {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: var(--sf-badge-icon-soft, var(--sf-muted));
-  color: var(--sf-badge-icon-hue, var(--sf-fg-secondary));
+  --sf-tier-hue: var(--sf-tier-hue-light);
+  background: color-mix(in srgb, var(--sf-tier-hue) 12%, transparent);
+  color: var(--sf-tier-hue);
 }
 
-.sf-admin-badge-icon[data-tier="gold"] {
-  --sf-badge-icon-hue: var(--sf-accent);
-  --sf-badge-icon-soft: var(--sf-accent-soft);
-}
-
-.sf-admin-badge-icon[data-tier="silver"] {
-  --sf-badge-icon-hue: var(--sf-fg-secondary);
-  --sf-badge-icon-soft: var(--sf-muted);
-}
-
-.sf-admin-badge-icon[data-tier="bronze"] {
-  --sf-badge-icon-hue: var(--sf-warning);
-  --sf-badge-icon-soft: var(--sf-warning-soft);
+.dark .sf-admin-badge-icon {
+  --sf-tier-hue: var(--sf-tier-hue-dark);
 }
 
 /* tier 列：色只上图标，文字恒为 --sf-fg，避免 11px 文字吃低对比度。 */
@@ -303,29 +337,17 @@ function sortAria(id: string): string {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  --sf-tier-hue: var(--sf-tier-hue-light);
   color: var(--sf-fg);
   font-size: 12px;
   font-weight: 600;
 }
 
-.sf-admin-badge-tier[data-tier="gold"] {
-  --sf-badge-icon-hue: var(--sf-accent);
-  color: var(--sf-fg);
+.sf-admin-badge-tier :deep(svg) {
+  color: var(--sf-tier-hue);
 }
 
-.sf-admin-badge-tier[data-tier="gold"] :deep(svg) {
-  color: var(--sf-accent);
-}
-
-.sf-admin-badge-tier[data-tier="silver"] :deep(svg) {
-  color: var(--sf-fg-secondary);
-}
-
-.sf-admin-badge-tier[data-tier="bronze"] :deep(svg) {
-  color: var(--sf-warning);
-}
-
-.dark .sf-admin-badge-icon[data-tier="gold"] {
-  --sf-badge-icon-hue: var(--sf-accent-dark);
+.dark .sf-admin-badge-tier {
+  --sf-tier-hue: var(--sf-tier-hue-dark);
 }
 </style>

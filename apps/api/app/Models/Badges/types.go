@@ -5,38 +5,40 @@ import (
 	"time"
 )
 
-// BadgeTier 是徽章档位。权重只用于 top_badge_id 的排序，不参与展示。
+// BadgeTier 是徽章档位的 key（等级表 badge_tiers.key 的引用）。
+//
+// 它刻意仍是 string 别名而不是枚举：等级自 202611120001 起是**数据**（运营可增删），
+// Go 侧再维护一份枚举就必然漂移——那种漂移的表现是「保存成功但排序/展示错档」。
+// 合法性由等级表（外键）与 TierReader 校验，不再由本类型自证。
 type BadgeTier string
 
+// 三个内置档位的 key。它们由迁移种子行保证存在，代码里只在需要引用内置语义时使用
+// （例如删除等级的 migrateTo 兜底、测试夹具），不再参与任何排序判断——排序一律读
+// badge_tiers.position。
 const (
 	TierBronze BadgeTier = "bronze"
 	TierSilver BadgeTier = "silver"
 	TierGold   BadgeTier = "gold"
 )
 
-// Valid 报告档位是否在枚举内（与迁移里的 tier CHECK 一致）。
-func (t BadgeTier) Valid() bool {
-	switch t {
-	case TierBronze, TierSilver, TierGold:
-		return true
-	default:
-		return false
-	}
+// TierAppearance 是徽章的等级外观：双语名、识别色、展示位次。
+//
+// 它是**actor 无关**的纯展示数据，因此可以安全地随主题/评论进缓存（BadgeRef 也带它）。
+// 名字是双语并列而不是「已按 locale 解析的一个串」：同一个响应可能被不同语言的
+// 读者共享（缓存、SSR 复用），在服务端按 locale 选一个就等于把 locale 写进缓存键。
+//
+// 空值（NameZh/NameEn/Color 全空）表示「该等级的引用已失效」——外键 RESTRICT 让
+// 这在生产里不会发生，但读路径不该因此 panic 或输出半个对象。
+type TierAppearance struct {
+	NameZh   string
+	NameEn   string
+	Color    string
+	Position int
 }
 
-// Weight 返回档位权重：gold > silver > bronze。
-// top_badge_id 的排序第一关键字就是它，必须与资料页展示顺序一致。
-func (t BadgeTier) Weight() int {
-	switch t {
-	case TierGold:
-		return 3
-	case TierSilver:
-		return 2
-	case TierBronze:
-		return 1
-	default:
-		return 0
-	}
+// Empty 报告外观是否为空（未解析到等级行）。
+func (a TierAppearance) Empty() bool {
+	return a.NameZh == "" && a.NameEn == "" && a.Color == ""
 }
 
 // GrantMode 是授予方式。
@@ -57,14 +59,16 @@ func (m GrantMode) Valid() bool {
 // 公开面**不得**复用这个结构：enabled / grantedCount / 审计时间戳都不该下发。
 // 两条面各自有结构（见 PublicBadge），靠 omitempty 遮字段迟早漏。
 type Badge struct {
-	ID           int64           `json:"id"`
-	Slug         string          `json:"slug"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	GroupID      *int64          `json:"groupId"`
-	GroupName    *string         `json:"groupName"`
-	GroupKey     *string         `json:"groupKey"`
-	Tier         BadgeTier       `json:"tier"`
+	ID          int64     `json:"id"`
+	Slug        string    `json:"slug"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	GroupID     *int64    `json:"groupId"`
+	GroupName   *string   `json:"groupName"`
+	GroupKey    *string   `json:"groupKey"`
+	Tier        BadgeTier `json:"tier"`
+	// Appearance 是 tier 指向的等级行外观（双语名/颜色/位次）。
+	Appearance   TierAppearance  `json:"tierAppearance"`
 	Icon         string          `json:"icon"`
 	GrantMode    GrantMode       `json:"grantMode"`
 	Metric       *ActivityMetric `json:"metric"`
@@ -87,6 +91,7 @@ type PublicBadge struct {
 	Description string          `json:"description"`
 	GroupKey    *string         `json:"groupKey"`
 	Tier        BadgeTier       `json:"tier"`
+	Appearance  TierAppearance  `json:"tierAppearance"`
 	Icon        string          `json:"icon"`
 	GrantMode   GrantMode       `json:"grantMode"`
 	Metric      *ActivityMetric `json:"metric"`
@@ -103,6 +108,7 @@ func (b Badge) Public() PublicBadge {
 		Description: b.Description,
 		GroupKey:    b.GroupKey,
 		Tier:        b.Tier,
+		Appearance:  b.Appearance,
 		Icon:        b.Icon,
 		GrantMode:   b.GrantMode,
 		Metric:      b.Metric,
@@ -159,7 +165,10 @@ type BadgeRef struct {
 	Slug string    `json:"slug"`
 	Name string    `json:"name"`
 	Tier BadgeTier `json:"tier"`
-	Icon string    `json:"icon"`
+	// Appearance 随徽章一起下发：chip 的配色与双语名必须与后台配置一致，
+	// 而 tier 只是 key——前端拿 key 自己映射颜色就会在运营自定义色时失效。
+	Appearance TierAppearance `json:"tierAppearance"`
+	Icon       string         `json:"icon"`
 }
 
 // BadgeGrantRecord 是 admin 面的授予记录，含授予人与理由。

@@ -86,7 +86,19 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Get("/badges", h.publicCatalog)
 	api.Get("/profiles/:username/badges", h.publicProfileBadges)
 
+	// 公开等级目录：前端渲染 tier 角标的中文名/颜色要靠它，不能让前端硬编码三档。
+	api.Get("/badges/tiers", h.publicBadgeTiers)
+
 	admin := api.Group("/admin/badges")
+	// 静态段必须先于 /:badgeID 注册：`DELETE /admin/badges/tiers` 与
+	// `DELETE /admin/badges/:badgeID` 形状相同，后注册的会被先注册的吃掉
+	// （Fiber 按注册顺序匹配，params 段会把 "tiers" 当 badgeID 解析成 0）。
+	admin.Get("/tiers", h.adminListBadgeTiers)
+	admin.Post("/tiers", h.adminCreateBadgeTier)
+	admin.Put("/tiers/order", h.adminReorderBadgeTiers)
+	admin.Patch("/tiers/:tierKey", h.adminUpdateBadgeTier)
+	admin.Delete("/tiers/:tierKey", h.adminDeleteBadgeTier)
+	admin.Get("/grant-candidates", h.adminSearchGrantCandidates)
 	admin.Get("/", h.adminListBadges)
 	admin.Post("/", h.adminCreateBadge)
 	admin.Patch("/:badgeID", h.adminUpdateBadge)
@@ -97,6 +109,7 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	admin.Delete("/groups/:groupID", h.adminDeleteBadgeGroup)
 	admin.Get("/:badgeID/grants", h.adminListBadgeGrants)
 	admin.Post("/:badgeID/grants", h.adminCreateBadgeGrant)
+	admin.Post("/:badgeID/grants/batch", h.adminBatchGrantBadge)
 	admin.Delete("/:badgeID/grants/:userID", h.adminDeleteBadgeGrant)
 	admin.Post("/recompute", h.adminRecomputeBadges)
 }
@@ -685,6 +698,16 @@ func mapBadgeError(err error) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleInvalid)
 	case errors.Is(err, badges.ErrBadgeManualOnly):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeManualOnly)
+	case errors.Is(err, badges.ErrBadgeTierNotFound):
+		return fiber.NewError(fiber.StatusNotFound, badges.CodeBadgeTierNotFound)
+	case errors.Is(err, badges.ErrBadgeTierKeyTaken):
+		return fiber.NewError(fiber.StatusConflict, badges.CodeBadgeTierKeyTaken)
+	case errors.Is(err, badges.ErrBadgeTierInUse):
+		return fiber.NewError(fiber.StatusConflict, badges.CodeBadgeTierInUse)
+	case errors.Is(err, badges.ErrBadgeTierInvalid):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeTierInvalid)
+	case errors.Is(err, badges.ErrBadgeGrantBatchInvalid):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeGrantBatchInvalid)
 	default:
 		return err
 	}

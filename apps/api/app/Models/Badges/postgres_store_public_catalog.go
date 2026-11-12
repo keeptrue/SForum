@@ -28,9 +28,11 @@ func (s *PostgresStore) ListPublicCatalog(ctx context.Context, limit int) ([]Pub
 	}
 	rows, err := s.pool.Query(ctx, `
 		SELECT badges.slug, badges.name, badges.description, badges.icon, badges.tier,
-		       COALESCE(badge_groups.key, ''), COALESCE(badge_groups.name, '')
+		       COALESCE(badge_groups.key, ''), COALESCE(badge_groups.name, ''),
+		       `+badgeTierColumnsSQL+`
 		FROM badges
 		LEFT JOIN badge_groups ON badge_groups.id = badges.group_id
+		LEFT JOIN badge_tiers AS tier_def ON tier_def.key = badges.tier
 		WHERE badges.enabled
 		ORDER BY COALESCE(badge_groups.position, 2147483647), badge_groups.id NULLS LAST, badges.position, badges.id
 		LIMIT $1`, limit+1)
@@ -42,7 +44,9 @@ func (s *PostgresStore) ListPublicCatalog(ctx context.Context, limit int) ([]Pub
 	for rows.Next() {
 		var entry PublicCatalogEntry
 		if err := rows.Scan(&entry.Slug, &entry.Name, &entry.Description, &entry.Icon,
-			&entry.Tier, &entry.GroupKey, &entry.GroupName); err != nil {
+			&entry.Tier, &entry.GroupKey, &entry.GroupName,
+			&entry.Appearance.NameZh, &entry.Appearance.NameEn,
+			&entry.Appearance.Color, &entry.Appearance.Position); err != nil {
 			return nil, false, fmt.Errorf("scan public badge catalog: %w", err)
 		}
 		items = append(items, entry)

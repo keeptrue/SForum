@@ -598,6 +598,8 @@
         "enable": "启用",
         "enableLabel": "启用徽章 {name}",
         "grant": "授予",
+        "grantAutomaticDetail": "「{name}」按规则自动授予；想手动发放，请先把它的授予方式改成「手动授予」。",
+        "grantAutomaticHint": "自动徽章由规则判定，不能手动授予。",
         "grantLabel": "授予徽章 {name}",
         "save": "保存",
         "toggleLabel": "切换徽章 {name} 的启用状态"
@@ -658,7 +660,22 @@
         "submit": "授予",
         "title": "授予徽章",
         "user": "用户",
-        "userPlaceholder": "用户名"
+        "userPlaceholder": "用户名",
+        "search": {
+          "empty": "输入用户名或昵称开始搜索",
+          "noResult": "没有匹配的用户",
+          "already": "已持有",
+          "remove": "移除 {name}",
+          "max": "最多一次授予 {max} 人。"
+        },
+        "result": {
+          "granted": "已授予",
+          "skipped": "已持有",
+          "failed": "失败",
+          "failedTitle": "失败名单",
+          "retry": "重试失败项",
+          "done": "完成"
+        }
       },
       "grantMode": {
         "automatic": "自动",
@@ -765,7 +782,8 @@
         "badges": "徽章",
         "grants": "授予记录",
         "groups": "分组",
-        "label": "徽章管理分区"
+        "label": "徽章管理分区",
+        "tiers": "等级"
       },
       "title": "徽章",
       "toast": {
@@ -781,6 +799,66 @@
         "recomputeStarted": "已开始重算徽章授予。",
         "saveFailed": "徽章保存失败，请稍后重试。",
         "updated": "徽章已更新。"
+      },
+      "icon": {
+        "more": "更多图标",
+        "less": "收起图标"
+      },
+      "tiers": {
+        "hint": "等级决定徽章在公开面的配色与排序。停用的等级仍会列出，但不能再选给新徽章，也不参与「最高级徽章」的竞争。",
+        "create": "新建等级",
+        "empty": "还没有自定义等级",
+        "emptyGuide": "站点当前使用内置三档（金/银/铜）。新建等级后，徽章可以挂到自己的等级上。",
+        "badgeCount": "{count} 枚徽章",
+        "toggleLabel": "{name}：启用状态",
+        "lastEnabledHint": "至少要保留一个启用中的等级：全部停用会让所有用户的最高级徽章一起消失。",
+        "moveUp": "上移",
+        "moveDown": "下移",
+        "moveUpLabel": "上移 {name}",
+        "moveDownLabel": "下移 {name}",
+        "edit": "编辑",
+        "editLabel": "编辑等级 {name}",
+        "deleteLabel": "删除等级 {name}",
+        "toast": {
+          "created": "等级已创建",
+          "updated": "等级已更新",
+          "deleted": "等级已删除",
+          "saveFailed": "等级保存失败",
+          "deleteFailed": "等级删除失败",
+          "orderFailed": "等级排序失败",
+          "enabled": "等级已启用",
+          "disabled": "等级已停用"
+        },
+        "form": {
+          "createTitle": "新建等级",
+          "editTitle": "编辑等级",
+          "key": "标识",
+          "keyHint": "用于 URL 与数据关联，创建后不可修改。",
+          "keyInvalid": "只能用小写字母、数字、下划线和连字符，且以字母或数字开头。",
+          "nameZh": "中文名",
+          "nameEn": "英文名",
+          "color": "配色",
+          "saveFailed": "保存失败，请重试。"
+        },
+        "color": {
+          "auto": "按位置自动",
+          "picker": "取色器",
+          "hex": "色值（#rrggbb）",
+          "apply": "应用",
+          "invalid": "请输入 #rrggbb 形式的色值。",
+          "lowContrast": "该色在深色页面对比度约 {ratio}:1，可能偏淡（仍可保存）。"
+        },
+        "remove": {
+          "title": "删除等级",
+          "body": "该等级下有 {count} 枚徽章，删除前必须为它们选择迁移目标。",
+          "migrateTo": "迁移到",
+          "migrateHint": "被迁移的徽章会改挂到目标等级，徽章本身不会被删除。",
+          "noTarget": "至少还需要一个启用中的等级才能删除当前等级。",
+          "confirm": "确认删除等级",
+          "confirmBody": "确认删除？{count} 枚徽章将改挂到所选等级。",
+          "doneHint": "等级已删除，相关徽章已迁移。"
+        },
+        "delete": "删除"
       }
     },
     "shell": {

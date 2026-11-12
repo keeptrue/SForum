@@ -37,6 +37,8 @@ func TestAdminCreateBadgeRejectsInvalidRules(t *testing.T) {
 	}{
 		{"empty slug", BadgeInput{Name: "X", Tier: TierGold, GrantMode: GrantManual}},
 		{"empty name", BadgeInput{Slug: "x", Tier: TierGold, GrantMode: GrantManual}},
+		// 不存在的档位自 202611120001 起报 ErrBadgeTierInvalid（422 badge_tier_invalid），
+		// 不再是 ErrBadgeRuleInvalid：等级合法性由等级表回答，不是规则问题。
 		{"bad tier", BadgeInput{Slug: "x", Name: "X", Tier: "platinum", GrantMode: GrantManual}},
 		{"bad grant mode", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: "auto"}},
 		{"bad icon prefix", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantManual, Icon: "emoji-star"}},
@@ -47,8 +49,12 @@ func TestAdminCreateBadgeRejectsInvalidRules(t *testing.T) {
 		{"manual with threshold", BadgeInput{Slug: "x", Name: "X", Tier: TierGold, GrantMode: GrantManual, Threshold: ptrInt64(3)}},
 	}
 	for _, tc := range cases {
-		if _, err := admin.CreateBadge(context.Background(), manageActor(), tc.input); !errors.Is(err, ErrBadgeRuleInvalid) {
-			t.Fatalf("%s: err = %v, want ErrBadgeRuleInvalid", tc.name, err)
+		want := ErrBadgeRuleInvalid
+		if tc.name == "bad tier" {
+			want = ErrBadgeTierInvalid
+		}
+		if _, err := admin.CreateBadge(context.Background(), manageActor(), tc.input); !errors.Is(err, want) {
+			t.Fatalf("%s: err = %v, want %v", tc.name, err, want)
 		}
 	}
 	if len(store.badges) != 5 {

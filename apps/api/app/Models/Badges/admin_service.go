@@ -42,6 +42,15 @@ func requireBadgePermission(actor identity.Actor, permission string) error {
 // 刻意分离——两条面共用一个结构再靠 omitempty 遮字段，迟早漏字段。
 type AdminService struct {
 	store Store
+	// tiers 是徽章等级校验端口（TierReader）。
+	//
+	// 单独一个字段而不是直接调 a.store.GetTier：等级校验只需要「这一档存在吗、
+	// 启用吗」，而 AdminService 的其余方法需要完整 Store。留出这个缝，单测才能只
+	// 实现两条方法就验证「切到停用档必须 422」。
+	//
+	// 未注入时回退到 store（它本身实现了 TierReader）：这样既有的装配代码
+	// NewAdminService(store) 不必改签名，也不会出现「忘了注入 = 校验被跳过」。
+	tiers TierReader
 }
 
 func NewAdminService(store Store) *AdminService {
@@ -89,7 +98,7 @@ func (a *AdminService) CreateBadge(ctx context.Context, actor identity.Actor, in
 	if a == nil || a.store == nil {
 		return Badge{}, ErrBadgesDisabled
 	}
-	normalized, err := validateBadgeInput(input)
+	normalized, err := validateBadgeInput(ctx, input, a.tierReader(), nil)
 	if err != nil {
 		return Badge{}, err
 	}
@@ -107,11 +116,12 @@ func (a *AdminService) UpdateBadge(ctx context.Context, actor identity.Actor, ba
 	if a == nil || a.store == nil {
 		return Badge{}, ErrBadgesDisabled
 	}
-	normalized, err := validateBadgeInput(input)
+	// 先读旧值：校验「切档」需要知道原值（保持原值一律允许，即使该档已停用）。
+	previous, err := a.store.GetBadge(ctx, badgeID)
 	if err != nil {
 		return Badge{}, err
 	}
-	previous, err := a.store.GetBadge(ctx, badgeID)
+	normalized, err := validateBadgeInput(ctx, input, a.tierReader(), &previous.Tier)
 	if err != nil {
 		return Badge{}, err
 	}
@@ -303,14 +313,18 @@ func topBadgeAffected(previous, updated Badge) bool {
 }
 
 // validateBadgeInput 是规则校验的唯一入口（创建与更新共用）。
-func validateBadgeInput(input BadgeInput) (BadgeInput, error) {
+//
+// 等级合法性从「枚举自证」变成「查等级表」：tier 必须存在于 badge_tiers，
+// 切档时还必须是启用状态；currentTier 非 nil 表示更新，保持原值一律放行。
+// 具体规则见 tiers.go 的 resolveBadgeTier。
+func validateBadgeInput(ctx context.Context, input BadgeInput, tiers TierReader, currentTier *BadgeTier) (BadgeInput, error) {
 	input.Slug = normalizeSlug(input.Slug)
 	input.Name = strings.TrimSpace(input.Name)
 	if input.Slug == "" || input.Name == "" {
 		return BadgeInput{}, fmt.Errorf("%w: slug and name are required", ErrBadgeRuleInvalid)
 	}
-	if !input.Tier.Valid() {
-		return BadgeInput{}, fmt.Errorf("%w: unknown tier %q", ErrBadgeRuleInvalid, input.Tier)
+	if err := resolveBadgeTier(ctx, tiers, input.Tier, currentTier); err != nil {
+		return BadgeInput{}, err
 	}
 	if !input.GrantMode.Valid() {
 		return BadgeInput{}, fmt.Errorf("%w: unknown grant mode %q", ErrBadgeRuleInvalid, input.GrantMode)

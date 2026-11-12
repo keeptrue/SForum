@@ -1,4 +1,4 @@
-import { forumBadgeTier, type ProfileBadgeGroup } from '~/utils/forum/forumBadge'
+import { forumBadgeTier, type ForumBadgeTierName, type ProfileBadgeGroup } from '~/utils/forum/forumBadge'
 
 /**
  * `GET /api/v1/badges` 的 wire 形状（backend `Badges/dto.go` 的 publicBadgeCatalog*）。
@@ -14,6 +14,10 @@ type PublicBadgeCatalogItem = {
   description: string
   icon: string
   tier: string
+  /** 等级显示名（中英双份）与色值、位次：等级可增删，前端不许再靠 tier key 猜文案。 */
+  tierName?: ForumBadgeTierName | null
+  tierColor?: string | null
+  tierPosition?: number | null
   group: string
   earned: boolean
 }
@@ -53,8 +57,11 @@ export async function useBadgesCatalog() {
     badges: group.badges.map((badge, badgeIndex) => ({
       slug: badge.slug,
       name: badge.name,
-      // wire 上的 tier 是字符串，卡片只认 gold/silver/bronze 三档，交给既有归一化函数。
+      // 原样保留等级 key（不再折叠成三档），文案与色由载荷字段决定。
       tier: forumBadgeTier(badge.tier),
+      tierName: badge.tierName ?? null,
+      tierColor: badge.tierColor ?? null,
+      tierPosition: badge.tierPosition ?? null,
       icon: badge.icon,
       position: badgeIndex,
       earned: badge.earned

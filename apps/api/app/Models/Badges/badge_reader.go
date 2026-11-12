@@ -87,6 +87,11 @@ func toForumBadgeRef(ref BadgeRef) *forum.BadgeRef {
 		Name: ref.Name,
 		Tier: string(ref.Tier),
 		Icon: ref.Icon,
+		TierName: forum.BadgeTierName{
+			Zh: ref.Appearance.NameZh,
+			En: ref.Appearance.NameEn,
+		},
+		TierColor: ref.Appearance.Color,
 	}
 }
 

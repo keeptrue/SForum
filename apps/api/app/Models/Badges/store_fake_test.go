@@ -32,6 +32,13 @@ type fakeStore struct {
 	// catalogReads / grantReads 计数用于钉住「匿名不碰 user_badges」。
 	catalogReads int
 	grantReads   int
+	// tiers 是等级表；默认三个内置档位，position 与迁移种子一致（gold 0/silver 1/bronze 2）。
+	tiers []TierDef
+	// candidates / usernames 供批量授予的候选搜索与失败行回填。
+	candidates []GrantCandidate
+	usernames  map[int64]string
+	// failGrantFor 让指定用户的 GrantManual 失败，用来验「部分成功」。
+	failGrantFor map[int64]error
 }
 
 func newFakeStore() *fakeStore {
@@ -42,7 +49,195 @@ func newFakeStore() *fakeStore {
 		top:              map[int64]int64{},
 		grantOrder:       map[int64]map[int64]int{},
 		activityCounters: map[int64]ActivityCounters{},
+		tiers: []TierDef{
+			{Key: "gold", NameZh: "金牌", NameEn: "Gold", Icon: "i-lucide-crown", Color: "amber", Position: 0, Enabled: true},
+			{Key: "silver", NameZh: "银牌", NameEn: "Silver", Icon: "i-lucide-medal", Color: "slate", Position: 1, Enabled: true},
+			{Key: "bronze", NameZh: "铜牌", NameEn: "Bronze", Icon: "i-lucide-award", Color: "#b45309", Position: 2, Enabled: true},
+		},
+		usernames: map[int64]string{},
 	}
+}
+
+// ---- 等级表（TierReader / TierWriter） ----
+
+func (f *fakeStore) ListTiers(context.Context) ([]TierDef, error) {
+	items := make([]TierDef, 0, len(f.tiers))
+	for _, tier := range f.tiers {
+		count := int64(0)
+		for _, badge := range f.badges {
+			if string(badge.Tier) == tier.Key {
+				count++
+			}
+		}
+		tier.BadgeCount = count
+		items = append(items, tier)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].Position != items[j].Position {
+			return items[i].Position < items[j].Position
+		}
+		return items[i].Key < items[j].Key
+	})
+	return items, nil
+}
+
+func (f *fakeStore) GetTier(_ context.Context, key string) (TierDef, error) {
+	items, _ := f.ListTiers(context.Background())
+	for _, tier := range items {
+		if tier.Key == key {
+			return tier, nil
+		}
+	}
+	return TierDef{}, ErrBadgeTierNotFound
+}
+
+func (f *fakeStore) CreateTier(_ context.Context, input TierInput) (TierDef, error) {
+	for _, tier := range f.tiers {
+		if tier.Key == input.Key {
+			return TierDef{}, ErrBadgeTierKeyTaken
+		}
+	}
+	tier := TierDef{
+		Key: input.Key, NameZh: input.NameZh, NameEn: input.NameEn, Icon: input.Icon,
+		Color: input.Color, Position: input.Position, Enabled: input.Enabled,
+	}
+	f.tiers = append(f.tiers, tier)
+	return tier, nil
+}
+
+func (f *fakeStore) UpdateTier(_ context.Context, key string, input TierInput) (TierDef, error) {
+	for i := range f.tiers {
+		if f.tiers[i].Key != key {
+			continue
+		}
+		f.tiers[i].NameZh = input.NameZh
+		f.tiers[i].NameEn = input.NameEn
+		f.tiers[i].Icon = input.Icon
+		f.tiers[i].Color = input.Color
+		f.tiers[i].Position = input.Position
+		f.tiers[i].Enabled = input.Enabled
+		return f.tiers[i], nil
+	}
+	return TierDef{}, ErrBadgeTierNotFound
+}
+
+// DeleteTier 复刻真实现的四条前置条件，再迁移引用并删行。
+func (f *fakeStore) DeleteTier(_ context.Context, key string, migrateTo string) error {
+	if migrateTo == "" {
+		return ErrBadgeTierInvalid
+	}
+	if migrateTo == key {
+		return ErrBadgeTierInvalid
+	}
+	target, err := f.GetTier(context.Background(), migrateTo)
+	if err != nil {
+		return err
+	}
+	if !target.Enabled {
+		return ErrBadgeTierInvalid
+	}
+	found := false
+	remainingEnabled := 0
+	for _, tier := range f.tiers {
+		if tier.Key == key {
+			found = true
+		} else if tier.Enabled {
+			remainingEnabled++
+		}
+	}
+	if !found {
+		return ErrBadgeTierNotFound
+	}
+	if remainingEnabled == 0 {
+		return ErrBadgeTierInUse
+	}
+	for i := range f.badges {
+		if string(f.badges[i].Tier) == key {
+			f.badges[i].Tier = BadgeTier(migrateTo)
+		}
+	}
+	kept := f.tiers[:0]
+	for _, tier := range f.tiers {
+		if tier.Key != key {
+			kept = append(kept, tier)
+		}
+	}
+	f.tiers = kept
+	return nil
+}
+
+func (f *fakeStore) ReorderTiers(_ context.Context, keys []string) error {
+	if len(keys) == 0 {
+		return ErrBadgeTierInvalid
+	}
+	known := map[string]bool{}
+	for _, tier := range f.tiers {
+		known[tier.Key] = true
+	}
+	order := make([]string, 0, len(f.tiers))
+	seen := map[string]bool{}
+	for _, key := range keys {
+		if !known[key] {
+			return ErrBadgeTierNotFound
+		}
+		if seen[key] {
+			return ErrBadgeTierInvalid
+		}
+		seen[key] = true
+		order = append(order, key)
+	}
+	items, _ := f.ListTiers(context.Background())
+	for _, tier := range items {
+		if !seen[tier.Key] {
+			order = append(order, tier.Key)
+		}
+	}
+	for index, key := range order {
+		for i := range f.tiers {
+			if f.tiers[i].Key == key {
+				f.tiers[i].Position = index
+			}
+		}
+	}
+	return nil
+}
+
+// ---- 批量授予的读口（GrantCandidateReader） ----
+
+func (f *fakeStore) SearchGrantCandidates(_ context.Context, input GrantCandidateInput) ([]GrantCandidate, error) {
+	limit := input.Limit
+	if limit <= 0 || limit > MaxGrantCandidates {
+		limit = MaxGrantCandidates
+	}
+	items := make([]GrantCandidate, 0, limit)
+	for _, candidate := range f.candidates {
+		if len(items) >= limit {
+			break
+		}
+		items = append(items, candidate)
+	}
+	return items, nil
+}
+
+func (f *fakeStore) UsernamesByIDs(_ context.Context, userIDs []int64) (map[int64]string, error) {
+	names := make(map[int64]string, len(userIDs))
+	for _, id := range userIDs {
+		if name, ok := f.usernames[id]; ok {
+			names[id] = name
+		}
+	}
+	return names, nil
+}
+
+// tierOrder 返回该等级的排序位次；停用或不存在时返回 ok=false（等价于 SQL 的
+// JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled 把行过滤掉）。
+func (f *fakeStore) tierOrder(tier BadgeTier) (int, bool) {
+	for _, def := range f.tiers {
+		if def.Key == string(tier) && def.Enabled {
+			return def.Position, true
+		}
+	}
+	return 0, false
 }
 
 func (f *fakeStore) ListBadges(context.Context) ([]Badge, error) {
@@ -288,7 +483,13 @@ func (f *fakeStore) TopBadgesFor(_ context.Context, userIDs []int64) (map[int64]
 		}
 		for _, badge := range f.badges {
 			if badge.ID == badgeID && badge.Enabled {
-				result[userID] = BadgeRef{Slug: badge.Slug, Name: badge.Name, Tier: badge.Tier, Icon: badge.Icon}
+				appearance := badge.Appearance
+				if appearance.Empty() {
+					if def, err := f.GetTier(context.Background(), string(badge.Tier)); err == nil {
+						appearance = def.Appearance()
+					}
+				}
+				result[userID] = BadgeRef{Slug: badge.Slug, Name: badge.Name, Tier: badge.Tier, Icon: badge.Icon, Appearance: appearance}
 			}
 		}
 	}
@@ -321,6 +522,9 @@ func (f *fakeStore) GrantAutomatic(_ context.Context, userID int64, badgeID int6
 }
 
 func (f *fakeStore) GrantManual(_ context.Context, input GrantInput) (bool, error) {
+	if err, ok := f.failGrantFor[input.UserID]; ok {
+		return false, err
+	}
 	if !f.insertGrant(input.UserID, input.BadgeID, input.GrantedBy, input.GrantReason) {
 		return false, ErrBadgeAlreadyGranted
 	}
@@ -375,9 +579,12 @@ func (f *fakeStore) RecomputeTopBadge(_ context.Context, userID int64) error {
 			if badge.ID != badgeID || !badge.Enabled {
 				continue
 			}
+			if _, ok := f.tierOrder(badge.Tier); !ok {
+				continue
+			}
 			order := f.grantOrder[userID][badgeID]
 			_ = grantedAt
-			if best == nil || betterTopBadge(badge, order, *best, bestOrder) {
+			if best == nil || f.betterTopBadge(badge, order, *best, bestOrder) {
 				candidate := badge
 				best = &candidate
 				bestOrder = order
@@ -392,10 +599,13 @@ func (f *fakeStore) RecomputeTopBadge(_ context.Context, userID int64) error {
 	return nil
 }
 
-// betterTopBadge 复刻 SQL 的排序：tier 权重降序 → position 升序 → granted_at 降序。
-func betterTopBadge(candidate Badge, candidateOrder int, current Badge, currentOrder int) bool {
-	if candidate.Tier.Weight() != current.Tier.Weight() {
-		return candidate.Tier.Weight() > current.Tier.Weight()
+// betterTopBadge 复刻 SQL 的排序：badge_tiers.position 升序 → badges.position
+// 升序 → granted_at 降序。等级位次来自 f.tiers（不是写死的 gold/silver/bronze）。
+func (f *fakeStore) betterTopBadge(candidate Badge, candidateOrder int, current Badge, currentOrder int) bool {
+	candidateTier, _ := f.tierOrder(candidate.Tier)
+	currentTier, _ := f.tierOrder(current.Tier)
+	if candidateTier != currentTier {
+		return candidateTier < currentTier
 	}
 	if candidate.Position != current.Position {
 		return candidate.Position < current.Position

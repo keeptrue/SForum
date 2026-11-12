@@ -16,15 +16,30 @@ import (
 //     已获得条目不输出这两个键。current=0 是有效值，用 omitempty 会把它吃掉。
 //   - grantedAt 只在 earned=true 时出现，未获得条目不返回 null。
 type profileBadgeItem struct {
-	Slug      string     `json:"slug"`
-	Name      string     `json:"name"`
-	Tier      string     `json:"tier"`
-	Icon      string     `json:"icon"`
-	Position  int        `json:"position"`
-	Earned    bool       `json:"earned"`
-	Current   *int64     `json:"current,omitempty"`
-	Threshold *int64     `json:"threshold,omitempty"`
-	GrantedAt *time.Time `json:"grantedAt,omitempty"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+	// Tier 仍是等级 key（前端 data-tier 与 URL 用它），TierName/TierColor 是展示用外观。
+	Tier      string      `json:"tier"`
+	TierName  tierNameDTO `json:"tierName"`
+	TierColor string      `json:"tierColor"`
+	Icon      string      `json:"icon"`
+	Position  int         `json:"position"`
+	Earned    bool        `json:"earned"`
+	Current   *int64      `json:"current,omitempty"`
+	Threshold *int64      `json:"threshold,omitempty"`
+	GrantedAt *time.Time  `json:"grantedAt,omitempty"`
+}
+
+// tierNameDTO 是等级的双语名。两个语言都下发，前端按当前 locale 选：
+// 服务端选一个就等于把 locale 写进响应，而这份响应是可被共享缓存的（资料页徽章墙）。
+type tierNameDTO struct {
+	Zh string `json:"zh"`
+	En string `json:"en"`
+}
+
+// toTierName 把领域外观投影成 wire 形状。
+func toTierName(appearance badges.TierAppearance) tierNameDTO {
+	return tierNameDTO{Zh: appearance.NameZh, En: appearance.NameEn}
 }
 
 type profileBadgeGroup struct {
@@ -58,12 +73,14 @@ func toProfileBadges(sections []badges.BadgeGroupSection) profileBadgesResponse 
 
 func toProfileBadgeItem(entry badges.UserBadge) profileBadgeItem {
 	item := profileBadgeItem{
-		Slug:     entry.Badge.Slug,
-		Name:     entry.Badge.Name,
-		Tier:     string(entry.Badge.Tier),
-		Icon:     entry.Badge.Icon,
-		Position: entry.Badge.Position,
-		Earned:   entry.Earned,
+		Slug:      entry.Badge.Slug,
+		Name:      entry.Badge.Name,
+		Tier:      string(entry.Badge.Tier),
+		TierName:  toTierName(entry.Badge.Appearance),
+		TierColor: entry.Badge.Appearance.Color,
+		Icon:      entry.Badge.Icon,
+		Position:  entry.Badge.Position,
+		Earned:    entry.Earned,
 	}
 	if entry.Earned {
 		// 已获得：只给 grantedAt，不给进度条数据。
@@ -98,20 +115,22 @@ type publicBadgeCatalogGroup struct {
 	Key string `json:"key"`
 	// Name 为空表示未分组（或该分组没配名字），展示文案由前端 i18n 决定：
 	// 领域层不硬编码「未分组」，否则 en-US 站点会收到中文。
-	Name   string               `json:"name"`
+	Name   string                   `json:"name"`
 	Badges []publicBadgeCatalogItem `json:"badges"`
 }
 
 // publicBadgeCatalogItem 是目录里的一枚徽章。Group 是该徽章所属分组的 key
 // （未分组为空串），让条目自描述：前端做筛选或平铺时不必回看父分组。
 type publicBadgeCatalogItem struct {
-	Slug        string `json:"slug"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	Tier        string `json:"tier"`
-	Group       string `json:"group"`
-	Earned      bool   `json:"earned"`
+	Slug        string      `json:"slug"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Icon        string      `json:"icon"`
+	Tier        string      `json:"tier"`
+	TierName    tierNameDTO `json:"tierName"`
+	TierColor   string      `json:"tierColor"`
+	Group       string      `json:"group"`
+	Earned      bool        `json:"earned"`
 }
 
 // toPublicCatalog 把领域目录映射成 wire 形状，并按查看者合并 earned。
@@ -130,6 +149,8 @@ func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) p
 				Description: entry.Description,
 				Icon:        entry.Icon,
 				Tier:        string(entry.Tier),
+				TierName:    toTierName(entry.Appearance),
+				TierColor:   entry.Appearance.Color,
 				Group:       entry.GroupKey,
 				Earned:      granted,
 			})
@@ -145,22 +166,24 @@ func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) p
 
 // adminBadgeResponse 是后台列表的一行：公开面不得出现这些字段。
 type adminBadgeResponse struct {
-	ID           int64     `json:"id"`
-	Slug         string    `json:"slug"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	GroupID      *int64    `json:"groupId"`
-	GroupName    *string   `json:"groupName"`
-	Tier         string    `json:"tier"`
-	Icon         string    `json:"icon"`
-	GrantMode    string    `json:"grantMode"`
-	Metric       *string   `json:"metric"`
-	Threshold    *int64    `json:"threshold"`
-	Enabled      bool      `json:"enabled"`
-	Position     int       `json:"position"`
-	GrantedCount int64     `json:"grantedCount"`
-	CreatedAt    time.Time `json:"createdAt"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           int64       `json:"id"`
+	Slug         string      `json:"slug"`
+	Name         string      `json:"name"`
+	Description  string      `json:"description"`
+	GroupID      *int64      `json:"groupId"`
+	GroupName    *string     `json:"groupName"`
+	Tier         string      `json:"tier"`
+	TierName     tierNameDTO `json:"tierName"`
+	TierColor    string      `json:"tierColor"`
+	Icon         string      `json:"icon"`
+	GrantMode    string      `json:"grantMode"`
+	Metric       *string     `json:"metric"`
+	Threshold    *int64      `json:"threshold"`
+	Enabled      bool        `json:"enabled"`
+	Position     int         `json:"position"`
+	GrantedCount int64       `json:"grantedCount"`
+	CreatedAt    time.Time   `json:"createdAt"`
+	UpdatedAt    time.Time   `json:"updatedAt"`
 }
 
 func toAdminBadge(badge badges.Badge) adminBadgeResponse {
@@ -172,7 +195,8 @@ func toAdminBadge(badge badges.Badge) adminBadgeResponse {
 	return adminBadgeResponse{
 		ID: badge.ID, Slug: badge.Slug, Name: badge.Name, Description: badge.Description,
 		GroupID: badge.GroupID, GroupName: badge.GroupName,
-		Tier: string(badge.Tier), Icon: badge.Icon, GrantMode: string(badge.GrantMode),
+		Tier: string(badge.Tier), TierName: toTierName(badge.Appearance),
+		TierColor: badge.Appearance.Color, Icon: badge.Icon, GrantMode: string(badge.GrantMode),
 		Metric: metric, Threshold: badge.Threshold, Enabled: badge.Enabled,
 		Position: badge.Position, GrantedCount: badge.GrantedCount,
 		CreatedAt: badge.CreatedAt, UpdatedAt: badge.UpdatedAt,
@@ -212,4 +236,130 @@ func toAdminBadgeGroups(items []badges.BadgeGroup) []adminBadgeGroupResponse {
 		out = append(out, toAdminBadgeGroup(item))
 	}
 	return out
+}
+
+// adminBadgeTierResponse 是后台等级表的一行。
+//
+// name 是 {zh,en} 对象而不是两个扁平字段：前端已有「按 locale 取名」的 helper，
+// 扁平字段会让每个调用点再拼一次 `locale === 'en' ? nameEn : nameZh`。
+//
+// badgeCount 不是运营字段而是**决策依据**：删除前必须知道有多少徽章要迁移。
+type adminBadgeTierResponse struct {
+	Key        string      `json:"key"`
+	Name       tierNameDTO `json:"name"`
+	Icon       string      `json:"icon"`
+	Color      string      `json:"color"`
+	Position   int         `json:"position"`
+	Enabled    bool        `json:"enabled"`
+	BadgeCount int64       `json:"badgeCount"`
+}
+
+func toAdminBadgeTier(tier badges.TierDef) adminBadgeTierResponse {
+	return adminBadgeTierResponse{
+		Key:        tier.Key,
+		Name:       tierNameDTO{Zh: tier.NameZh, En: tier.NameEn},
+		Icon:       tier.Icon,
+		Color:      tier.Color,
+		Position:   tier.Position,
+		Enabled:    tier.Enabled,
+		BadgeCount: tier.BadgeCount,
+	}
+}
+
+// adminBadgeTiersResponse 是 GET /admin/badges/tiers 的整份响应。
+//
+// colorChoices 与 items 同体下发是刻意的：色板白名单属于服务端（Support/Palette），
+// 前端自己抄一份就会在服务端调整时变成「UI 里能选、保存时 422」。
+type adminBadgeTiersResponse struct {
+	Items        []adminBadgeTierResponse `json:"items"`
+	ColorChoices []string                 `json:"colorChoices"`
+}
+
+func toAdminBadgeTiers(items []badges.TierDef, colorChoices []string) adminBadgeTiersResponse {
+	out := make([]adminBadgeTierResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, toAdminBadgeTier(item))
+	}
+	return adminBadgeTiersResponse{Items: out, ColorChoices: colorChoices}
+}
+
+// publicBadgeTierItem 是公开等级目录的一行。
+//
+// 刻意不含 enabled / badgeCount / 审计字段：公开面只回答「站内有哪几档、叫什么、
+// 什么颜色、什么顺序」。停用档位由 SQL 过滤，不出现在这里。
+type publicBadgeTierItem struct {
+	Key      string      `json:"key"`
+	Name     tierNameDTO `json:"name"`
+	Icon     string      `json:"icon"`
+	Color    string      `json:"color"`
+	Position int         `json:"position"`
+}
+
+func toPublicBadgeTiers(items []badges.TierDef) []publicBadgeTierItem {
+	out := make([]publicBadgeTierItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, publicBadgeTierItem{
+			Key:      item.Key,
+			Name:     tierNameDTO{Zh: item.NameZh, En: item.NameEn},
+			Icon:     item.Icon,
+			Color:    item.Color,
+			Position: item.Position,
+		})
+	}
+	return out
+}
+
+// grantCandidateItem 是批量授予选择器的一行。
+//
+// status 与 alreadyGranted 都是**提示**而不是过滤条件：服务端不替运营决定
+// 「能不能给一个已封禁用户补发历史活动徽章」，只把事实摆出来。
+type grantCandidateItem struct {
+	UserID         int64  `json:"userId"`
+	Username       string `json:"username"`
+	DisplayName    string `json:"displayName"`
+	Status         string `json:"status"`
+	AlreadyGranted bool   `json:"alreadyGranted"`
+}
+
+func toGrantCandidates(items []badges.GrantCandidate) []grantCandidateItem {
+	out := make([]grantCandidateItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, grantCandidateItem{
+			UserID:         item.UserID,
+			Username:       item.Username,
+			DisplayName:    item.DisplayName,
+			Status:         item.Status,
+			AlreadyGranted: item.AlreadyGranted,
+		})
+	}
+	return out
+}
+
+// batchGrantFailureItem 是单个人的失败原因；reason 是稳定错误码，不是日志串。
+type batchGrantFailureItem struct {
+	UserID   int64  `json:"userId"`
+	Username string `json:"username"`
+	Reason   string `json:"reason"`
+}
+
+// batchGrantResultResponse 是批量授予的结果。
+//
+// 三个计数分开返回，且**部分成功不是错误状态码**：运营需要看到
+// 「48 成功 / 2 已持有 / 1 失败」这种事实，而不是一个 500 之后不知道做成了多少。
+type batchGrantResultResponse struct {
+	Granted int                     `json:"granted"`
+	Skipped int                     `json:"skipped"`
+	Failed  []batchGrantFailureItem `json:"failed"`
+}
+
+func toBatchGrantResult(result badges.BatchGrantResult) batchGrantResultResponse {
+	failed := make([]batchGrantFailureItem, 0, len(result.Failed))
+	for _, item := range result.Failed {
+		failed = append(failed, batchGrantFailureItem{
+			UserID:   item.UserID,
+			Username: item.Username,
+			Reason:   item.Reason,
+		})
+	}
+	return batchGrantResultResponse{Granted: result.Granted, Skipped: result.Skipped, Failed: failed}
 }

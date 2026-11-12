@@ -6,11 +6,15 @@
  * 作者行高度差必须为 0。因此唯一挂载点是 `SFUserIdentityName` 的 `#name-suffix` 槽，
  * 本组件不带 margin，间距全部由父级 `gap` 提供。
  *
- * tier 只染图标、环线与填充，文字永远是 `--sf-fg`：暗色下 `--sf-warning` 对 11px 文字
- * 只有约 3.5:1，够图形不够正文。tier 语义由 `aria-label` / `title` / `data-tier` 承担。
+ * **统一配色规则**（与徽章卡片同一套）：hue = 等级色，填充 = 同色 12%，环线 = 同色 34%；
+ * 文字恒为 `--sf-fg` —— 11px 文字吃等级色在暗色下只有 3:1 左右，够图形不够正文。
+ * 等级不再写死 gold/silver/bronze 三套 CSS：色值随载荷下发（`tierColor`），
+ * 没有 `[data-tier]` 变体规则，也就没有「新等级没有样式」的空档。
  */
 import {
   forumBadgeTier,
+  forumBadgeTierLabel,
+  forumBadgeTierStyle,
   forumUserBadgesPath,
   type ForumBadgeRef
 } from '~/utils/forum/forumBadge'
@@ -23,11 +27,12 @@ const props = withDefaults(defineProps<{
   username: null
 })
 
-const { t } = useI18n()
+const { t, te, locale } = useI18n()
 const localePath = useLocalePath()
 
 const tier = computed(() => forumBadgeTier(props.badge.tier))
-const tierName = computed(() => t(`badges.tier.${tier.value}`))
+const tierName = computed(() => forumBadgeTierLabel(props.badge, locale.value, t, te))
+const tierStyle = computed(() => forumBadgeTierStyle(props.badge))
 const name = computed(() => props.badge.name?.trim() || props.badge.slug)
 const icon = computed(() => props.badge.icon?.trim() || 'i-lucide-medal')
 const label = computed(() => t('badges.chip.ariaLabel', { tier: tierName.value, name: name.value }))
@@ -45,6 +50,7 @@ const to = computed(() => {
     class="sf-badge-chip"
     :data-tier="tier"
     :data-badge-slug="badge.slug"
+    :style="tierStyle"
     :aria-label="label"
     :title="linkHint"
   >
@@ -57,6 +63,7 @@ const to = computed(() => {
     role="img"
     :data-tier="tier"
     :data-badge-slug="badge.slug"
+    :style="tierStyle"
     :aria-label="label"
     :title="label"
   >
@@ -79,17 +86,22 @@ const to = computed(() => {
   font-weight: 700;
   line-height: 18px;
   text-decoration: none;
-  /* tier 变体只改这三个自定义属性，不复制规则 */
+  /* 等级色成对下发（明/暗），这里按主题挑一个；文字恒为 --sf-fg。 */
+  --sf-tier-hue: var(--sf-tier-hue-light);
   color: var(--sf-fg);
-  background: var(--sf-badge-chip-bg, transparent);
-  border: 1px solid var(--sf-badge-chip-ring);
+  background: color-mix(in srgb, var(--sf-tier-hue) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sf-tier-hue) 34%, transparent);
+}
+
+.dark .sf-badge-chip {
+  --sf-tier-hue: var(--sf-tier-hue-dark);
 }
 
 .sf-badge-chip__icon {
   width: 12px;
   height: 12px;
   flex: 0 0 auto;
-  color: var(--sf-badge-chip-hue);
+  color: var(--sf-tier-hue);
 }
 
 .sf-badge-chip__name {
@@ -99,33 +111,9 @@ const to = computed(() => {
   white-space: nowrap;
 }
 
-.sf-badge-chip[data-tier="gold"] {
-  --sf-badge-chip-hue: var(--sf-accent);
-  --sf-badge-chip-bg: var(--sf-accent-soft);
-  --sf-badge-chip-ring: color-mix(in srgb, var(--sf-accent) 34%, transparent);
-}
-
-.sf-badge-chip[data-tier="silver"] {
-  --sf-badge-chip-hue: var(--sf-fg-secondary);
-  --sf-badge-chip-bg: transparent;
-  --sf-badge-chip-ring: var(--sf-public-border-strong);
-}
-
-.sf-badge-chip[data-tier="bronze"] {
-  --sf-badge-chip-hue: var(--sf-warning);
-  --sf-badge-chip-bg: transparent;
-  --sf-badge-chip-ring: color-mix(in srgb, var(--sf-warning) 45%, transparent);
-  border-style: dashed;
-}
-
-.dark .sf-badge-chip[data-tier="gold"] {
-  --sf-badge-chip-hue: var(--sf-accent-dark);
-  --sf-badge-chip-ring: color-mix(in srgb, var(--sf-accent-dark) 38%, transparent);
-}
-
 .sf-badge-chip:hover,
 .sf-badge-chip:focus-visible {
-  border-color: var(--sf-badge-chip-hue);
+  border-color: color-mix(in srgb, var(--sf-tier-hue) 64%, transparent);
 }
 
 .sf-badge-chip:focus-visible {

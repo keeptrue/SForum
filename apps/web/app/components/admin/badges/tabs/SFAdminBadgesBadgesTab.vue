@@ -10,11 +10,13 @@ import SFAdminBadgeTable from '~/components/admin/badges/SFAdminBadgeTable.vue'
 import SFAdminBadgeEditDialog from '~/components/admin/badges/SFAdminBadgeEditDialog.vue'
 import SFAdminBadgeGrantDialog from '~/components/admin/badges/SFAdminBadgeGrantDialog.vue'
 import type { AdminBadgeGroupRow, useAdminBadges } from '~/composables/admin/badges/useAdminBadges'
+import { pickTierName } from '~/utils/forum/forumBadge'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import {
   badgeFiltersActive,
   filterBadges,
   sortBadges,
+  tierOrderMap,
   toAdminBadgeInput,
   type AdminBadgeFilters,
   type AdminBadgeRow,
@@ -35,7 +37,7 @@ const props = defineProps<{
 
 const route = useRoute()
 const router = useRouter()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const toast = useToast()
 const { can } = useAuthSession()
 
@@ -62,7 +64,6 @@ const ALL_FILTER = 'all'
  * 会把 'all' 当分组 id 比对（一条不剩落 noMatch），或让 `badgeFiltersActive` 误报
  * 「有筛选」而多出一个「清除筛选」按钮——读写契约就不对称了。
  */
-const TIER_VALUES = ['gold', 'silver', 'bronze'] as const
 const GRANT_MODE_VALUES = ['automatic', 'manual'] as const
 const ENABLED_VALUES = ['true', 'false'] as const
 
@@ -70,13 +71,21 @@ function oneOf(value: string, allowed: readonly string[]): string {
   return allowed.includes(value) ? value : ''
 }
 
+/**
+ * tier 的合法值 = 已加载的等级 key。
+ *
+ * 等级是运营可增删的数据，前端不写死三档：`?tier=platinum` 这种手改 URL 或已删除等级的
+ * 旧深链必须在读侧收口成「不筛选」，否则会筛出一条不剩却看不出原因。
+ */
+const tierKeys = computed(() => props.store.tiers.value.map(tier => tier.key))
+
 const filters = computed<AdminBadgeFilters>(() => {
   const group = queryValue(route.query.group)
   return {
     q: queryValue(route.query.q),
     // 分组只有两种合法形态：数字 id 或 'none'（未分组）。
     group: group === 'none' || /^\d+$/.test(group) ? group : '',
-    tier: oneOf(queryValue(route.query.tier), TIER_VALUES),
+    tier: oneOf(queryValue(route.query.tier), tierKeys.value),
     grantMode: oneOf(queryValue(route.query.grantMode), GRANT_MODE_VALUES),
     enabled: oneOf(queryValue(route.query.enabled), ENABLED_VALUES)
   }
@@ -138,7 +147,13 @@ function onSort(key: AdminBadgeSortKey) {
   void applyQuery({ sort: key, dir: 'asc' })
 }
 
-const visibleBadges = computed(() => sortBadges(filterBadges(props.badges, filters.value), sortKey.value, sortDir.value))
+const tierOrder = computed(() => tierOrderMap(props.store.tiers.value))
+const visibleBadges = computed(() => sortBadges(
+  filterBadges(props.badges, filters.value),
+  sortKey.value,
+  sortDir.value,
+  tierOrder.value
+))
 const filtersActive = computed(() => badgeFiltersActive(filters.value))
 const directoryEmpty = computed(() => props.badges.length === 0)
 
@@ -148,11 +163,13 @@ const groupItems = computed(() => [
   ...props.groups.map(group => ({ value: String(group.id), label: group.name }))
 ])
 
+// 等级筛选项来自服务端等级表（含停用档：停用徽章仍可被筛出来处理）。
 const tierItems = computed(() => [
   { value: ALL_FILTER, label: t('admin.badges.filters.all') },
-  { value: 'gold', label: t('badges.tier.gold') },
-  { value: 'silver', label: t('badges.tier.silver') },
-  { value: 'bronze', label: t('badges.tier.bronze') }
+  ...props.store.tiers.value
+    .slice()
+    .sort((left, right) => left.position - right.position)
+    .map(tier => ({ value: tier.key, label: pickTierName(tier.name, locale.value) }))
 ])
 
 const grantModeItems = computed(() => [
@@ -186,6 +203,22 @@ function openEdit(badge: AdminBadgeRow) {
 function openGrant(badge: AdminBadgeRow) {
   granting.value = badge
   grantOpen.value = true
+}
+
+/**
+ * 自动徽章的「授予」点击：不打开一个全禁用的弹窗，就地解释为什么不行。
+ *
+ * 按钮本身不是原生 disabled（那样 click 根本不触发，用户点了没反应也不知道原因），
+ * 所以这个分支必须给一条能读完的说明，并指出下一步该怎么做。
+ */
+function onGrantBlocked(badge: AdminBadgeRow) {
+  toast.add({
+    title: t('admin.badges.actions.grantAutomaticHint'),
+    description: t('admin.badges.actions.grantAutomaticDetail', { name: badge.name }),
+    color: 'warning',
+    icon: 'i-lucide-info',
+    duration: 5000
+  })
 }
 
 // 弹窗 saved 后统一重拉：编辑/删除可能改变分组与 grantedCount，全量刷新最稳。
@@ -300,17 +333,25 @@ defineOptions({ name: 'SFAdminBadgesBadgesTab' })
     <SFAdminBadgeTable
       v-else
       :badges="visibleBadges"
+      :tiers="store.tiers.value"
       :pending="pending"
       :can-manage="canManage"
       :sort-key="sortKey"
       :sort-dir="sortDir"
       @edit="openEdit"
       @grant="openGrant"
+      @grant-blocked="onGrantBlocked"
       @toggle="toggleEnabled"
       @sort="onSort"
     />
 
-    <SFAdminBadgeEditDialog v-model:open="editOpen" :groups="groups" :badge="editing" @saved="onSaved" />
-    <SFAdminBadgeGrantDialog v-model:open="grantOpen" :badge="granting" @saved="onSaved" />
+    <SFAdminBadgeEditDialog
+      v-model:open="editOpen"
+      :groups="groups"
+      :tiers="store.tiers.value"
+      :badge="editing"
+      @saved="onSaved"
+    />
+    <SFAdminBadgeGrantDialog v-model:open="grantOpen" :badge="granting" :store="store" @saved="onSaved" />
   </div>
 </template>

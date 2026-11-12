@@ -12,10 +12,38 @@
 # does not emit it).
 BadgeTier:
   type: string
-  enum:
-  - bronze
-  - silver
-  - gold
+  description: |
+    Badge tier **key**, referencing `badge_tiers.key`.
+
+    Until migration `202611120001_badge_tiers.sql` this was a closed enum of
+    `bronze` / `silver` / `gold`. It is now operator-managed data: an operator
+    can add a tier (for example `activity_limited`), rename it, recolour it, or
+    disable it. The three built-in keys still ship with the migration, so
+    existing clients keep working — but **do not** validate this value against a
+    client-side enum, and do not derive a colour from it. Read `tierName` /
+    `tierColor` instead (they are always present and always match the server).
+
+    Shape (enforced by the database CHECK constraint): 2–32 characters,
+    lowercase letters, digits, or underscores, starting with a letter.
+  pattern: ^[a-z][a-z0-9_]{1,31}$
+  example: gold
+BadgeTierName:
+  type: object
+  description: |
+    Bilingual tier name. Both languages are always sent: the server never picks
+    one for the caller, because that would make the response body depend on the
+    request locale and force `Vary: Accept-Language` onto every cached payload
+    that embeds a badge.
+  required:
+  - zh
+  - en
+  properties:
+    zh:
+      type: string
+      example: 金牌
+    en:
+      type: string
+      example: Gold
 BadgeGrantMode:
   type: string
   enum:
@@ -42,6 +70,8 @@ Badge:
   - name
   - description
   - tier
+  - tierName
+  - tierColor
   - icon
   - grantMode
   - enabled
@@ -69,6 +99,14 @@ Badge:
       description: Badge group name; null when ungrouped.
     tier:
       "$ref": "#/BadgeTier"
+    tierName:
+      "$ref": "#/BadgeTierName"
+    tierColor:
+      type: string
+      description: |
+        Tier identification colour: one of the nine palette tokens
+        (`slate teal emerald sky indigo violet fuchsia rose amber`) or a
+        lowercase `#rrggbb`. Empty string means the tier declares no colour.
     icon:
       type: string
       description: Icon library name, `i-lucide-*` or `i-tabler-*`.
@@ -154,6 +192,8 @@ ProfileBadgeItem:
   - slug
   - name
   - tier
+  - tierName
+  - tierColor
   - icon
   - position
   - earned
@@ -164,6 +204,11 @@ ProfileBadgeItem:
       type: string
     tier:
       "$ref": "#/BadgeTier"
+    tierName:
+      "$ref": "#/BadgeTierName"
+    tierColor:
+      type: string
+      description: Tier identification colour (palette token or `#rrggbb`).
     icon:
       type: string
     position:
@@ -229,6 +274,8 @@ BadgeRef:
   - slug
   - name
   - tier
+  - tierName
+  - tierColor
   - icon
   properties:
     slug:
@@ -237,6 +284,11 @@ BadgeRef:
       type: string
     tier:
       "$ref": "#/BadgeTier"
+    tierName:
+      "$ref": "#/BadgeTierName"
+    tierColor:
+      type: string
+      description: Tier identification colour (palette token or `#rrggbb`).
     icon:
       type: string
 BadgeGrantRecord:
@@ -679,6 +731,8 @@ PublicBadgeCatalogEntry:
   - description
   - icon
   - tier
+  - tierName
+  - tierColor
   - group
   - earned
   properties:
@@ -692,6 +746,11 @@ PublicBadgeCatalogEntry:
       type: string
     tier:
       "$ref": "#/BadgeTier"
+    tierName:
+      "$ref": "#/BadgeTierName"
+    tierColor:
+      type: string
+      description: Tier identification colour (palette token or `#rrggbb`).
     group:
       type: string
     earned:
@@ -712,3 +771,302 @@ ApiResponsePublicBadgeCatalog:
       type: string
     data:
       "$ref": "#/PublicBadgeCatalog"
+
+# --- Badge tiers (/api/v1/admin/badges/tiers, /api/v1/badges/tiers) ---
+#
+# 等级表把 tier 从枚举变成数据：运营可新增档位、改双语名/图标/颜色、调位次、停用。
+# 三个内置档位（gold/silver/bronze）由迁移种子保证存在，position 依次 0/1/2。
+#
+# 位次语义：position 升序 = 从高到低。它同时是「最高级徽章」排序的第一关键字，
+# 所以重排等级会改变全站帖子旁的徽章展示（服务端在重排后自动全量重算）。
+BadgeTierDef:
+  type: object
+  description: |
+    One row of the admin tier table (`adminBadgeTierResponse`). `badgeCount` is
+    the number of badges referencing this tier — the delete dialog needs it,
+    because a non-empty tier can only be deleted with an explicit `migrateTo`.
+  required:
+  - key
+  - name
+  - icon
+  - color
+  - position
+  - enabled
+  - badgeCount
+  properties:
+    key:
+      "$ref": "#/BadgeTier"
+    name:
+      "$ref": "#/BadgeTierName"
+    icon:
+      type: string
+      description: Icon library name, `i-lucide-*` or `i-tabler-*`.
+    color:
+      type: string
+      description: |
+        Tier identification colour. Empty string means "no explicit colour";
+        otherwise one of the nine palette tokens or a lowercase `#rrggbb`.
+    position:
+      type: integer
+      description: Ascending display order; 0 is the highest tier.
+    enabled:
+      type: boolean
+      description: |
+        Disabled tiers keep their badges but are excluded from the "top badge"
+        competition (the ordering JOIN requires `enabled`).
+    badgeCount:
+      type: integer
+      format: int64
+      description: Number of badges referencing this tier.
+BadgeTierList:
+  type: object
+  description: |
+    Admin tier table (`adminBadgeTiersResponse`). `colorChoices` is the server's
+    palette whitelist; clients must render it instead of shipping their own copy
+    (a client-side copy drifts into "selectable in the UI, 422 on save").
+  required:
+  - items
+  - colorChoices
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/BadgeTierDef"
+    colorChoices:
+      type: array
+      description: Accepted colour values (nine palette tokens). `#rrggbb` is also accepted.
+      items:
+        type: string
+      example: [slate, teal, emerald, sky, indigo, violet, fuchsia, rose, amber]
+BadgeTierCreateInput:
+  type: object
+  description: Create a tier. `key` is immutable after creation.
+  required:
+  - key
+  - nameZh
+  - nameEn
+  properties:
+    key:
+      "$ref": "#/BadgeTier"
+    nameZh:
+      type: string
+      description: Chinese display name; required, must not be blank.
+    nameEn:
+      type: string
+      description: English display name; required, must not be blank.
+    icon:
+      type: string
+      description: Icon library name; defaults to `i-lucide-medal`.
+    color:
+      type: string
+      description: Palette token or lowercase `#rrggbb`; empty means no colour.
+    position:
+      type: integer
+      description: Display order; defaults to 0.
+    enabled:
+      type: boolean
+      description: Defaults to true.
+BadgeTierUpdateInput:
+  type: object
+  description: |
+    Partial update of a tier. `key` is not accepted — changing it would be a
+    different tier, so delete + create instead. Every field is optional; omitted
+    fields keep their current value.
+  properties:
+    nameZh:
+      type: string
+    nameEn:
+      type: string
+    icon:
+      type: string
+    color:
+      type: string
+    enabled:
+      type: boolean
+BadgeTierOrderInput:
+  type: object
+  description: |
+    Rewrite tier positions by array index. Tiers not listed keep their relative
+    order and are appended after the listed ones.
+  required:
+  - keys
+  properties:
+    keys:
+      type: array
+      items:
+        "$ref": "#/BadgeTier"
+PublicBadgeTierItem:
+  type: object
+  description: |
+    One row of the public tier catalog (`publicBadgeTierItem`). Only enabled
+    tiers are listed; operator fields (`enabled`, `badgeCount`, timestamps) are
+    never exposed.
+  required:
+  - key
+  - name
+  - icon
+  - color
+  - position
+  properties:
+    key:
+      "$ref": "#/BadgeTier"
+    name:
+      "$ref": "#/BadgeTierName"
+    icon:
+      type: string
+    color:
+      type: string
+    position:
+      type: integer
+PublicBadgeTiers:
+  type: object
+  required:
+  - items
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/PublicBadgeTierItem"
+GrantCandidate:
+  type: object
+  description: |
+    One row of the batch-grant picker (`grantCandidateItem`).
+
+    `status` and `alreadyGranted` are **hints, not filters**: the server does not
+    decide whether granting a badge to a disabled account is legitimate, it only
+    reports the facts. Matching covers `username` and `displayName` only —
+    never the email address.
+  required:
+  - userId
+  - username
+  - displayName
+  - status
+  - alreadyGranted
+  properties:
+    userId:
+      type: integer
+      format: int64
+    username:
+      type: string
+    displayName:
+      type: string
+    status:
+      type: string
+      enum: [active, disabled, banned]
+    alreadyGranted:
+      type: boolean
+      description: True when the user already holds the badge being granted.
+GrantCandidateList:
+  type: object
+  required:
+  - items
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/GrantCandidate"
+BatchGrantInput:
+  type: object
+  description: |
+    Batch grant. At most 50 unique user ids per request; duplicate ids are
+    collapsed, non-positive ids are dropped. Only manual badges accept a batch
+    grant (automatic badges are owned by their rule).
+  required:
+  - userIds
+  properties:
+    userIds:
+      type: array
+      items:
+        type: integer
+        format: int64
+      maxItems: 50
+    reason:
+      type: string
+      description: Optional audit reason stored on every inserted grant row.
+BatchGrantFailure:
+  type: object
+  description: |
+    Per-user failure. `reason` is a stable error code (the same vocabulary as
+    the HTTP error codes), not a log line, so the client can translate it.
+  required:
+  - userId
+  - username
+  - reason
+  properties:
+    userId:
+      type: integer
+      format: int64
+    username:
+      type: string
+    reason:
+      type: string
+      example: forum.badge_not_found
+BatchGrantResult:
+  type: object
+  description: |
+    Batch result. Partial success is a **200**, not an error: `granted` +
+    `skipped` + `len(failed)` always equals the number of distinct user ids sent.
+    `skipped` counts users who already held the badge.
+  required:
+  - granted
+  - skipped
+  - failed
+  properties:
+    granted:
+      type: integer
+    skipped:
+      type: integer
+    failed:
+      type: array
+      items:
+        "$ref": "#/BatchGrantFailure"
+ApiResponseBadgeTierList:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeTierList"
+ApiResponseBadgeTierDef:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeTierDef"
+ApiResponsePublicBadgeTiers:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/PublicBadgeTiers"
+ApiResponseGrantCandidateList:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/GrantCandidateList"
+ApiResponseBatchGrantResult:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BatchGrantResult"
