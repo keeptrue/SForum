@@ -8,7 +8,7 @@
     "name": "SForum",
     "url": "https://github.com/keeptrue/sforum"
   },
-  "version": "1.0.10",
+  "version": "1.0.11",
   "type": "plugin",
   "sforumVersion": ">=0.1.0",
   "capabilities": [
