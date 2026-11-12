@@ -11,6 +11,7 @@ import SFAdminBadgeEditDialog from '~/components/admin/badges/SFAdminBadgeEditDi
 import SFAdminBadgeGrantDialog from '~/components/admin/badges/SFAdminBadgeGrantDialog.vue'
 import type { AdminBadgeGroupRow, useAdminBadges } from '~/composables/admin/badges/useAdminBadges'
 import { pickTierName } from '~/utils/forum/forumBadge'
+import { tierColorVar } from '~/utils/theme/tierColor'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import {
   badgeFiltersActive,
@@ -169,8 +170,22 @@ const tierItems = computed(() => [
   ...props.store.tiers.value
     .slice()
     .sort((left, right) => left.position - right.position)
-    .map(tier => ({ value: tier.key, label: pickTierName(tier.name, locale.value) }))
+    .map(tier => ({
+      value: tier.key,
+      label: pickTierName(tier.name, locale.value),
+      icon: tier.icon || 'i-lucide-award',
+      color: tier.color
+    }))
 ])
+
+/** 下拉项里的等级图标与颜色（`全部` 那一项没有等级，不渲染图标）。 */
+function tierItemIcon(item: unknown): string {
+  return (item as { icon?: string } | null)?.icon || ''
+}
+
+function tierItemColor(item: unknown): string {
+  return tierColorVar((item as { color?: string } | null)?.color ?? '')
+}
 
 const grantModeItems = computed(() => [
   { value: ALL_FILTER, label: t('admin.badges.filters.all') },
@@ -283,7 +298,17 @@ defineOptions({ name: 'SFAdminBadgesBadgesTab' })
         :aria-label="t('admin.badges.filters.tier')"
         class="w-36"
         @update:model-value="onFilterSelect('tier', $event)"
-      />
+      >
+        <template #item-leading="{ item }">
+          <UIcon
+            v-if="tierItemIcon(item)"
+            :name="tierItemIcon(item)"
+            class="size-4 shrink-0"
+            :style="{ color: tierItemColor(item) }"
+            aria-hidden="true"
+          />
+        </template>
+      </USelect>
       <USelect
         :model-value="filterSelectModel(filters.grantMode)"
         :items="grantModeItems"

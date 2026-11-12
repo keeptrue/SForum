@@ -11,7 +11,7 @@
 import type { AdminBadgesStore, AdminBadgeTierRow } from '~/composables/admin/badges/useAdminBadges'
 import SFAdminBadgeIconField from '~/components/admin/badges/SFAdminBadgeIconField.vue'
 import SFAdminTierColorField from '~/components/admin/shared/SFAdminTierColorField.vue'
-import { defaultTierColorName, normalizeTierColor } from '~/utils/theme/tierColor'
+import { defaultTierColorName, normalizeTierColor, tierColorVar } from '~/utils/theme/tierColor'
 import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
 
 const props = defineProps<{
@@ -159,6 +159,7 @@ async function submit() {
             :label="t('admin.badges.form.icon')"
             :more-label="t('admin.badges.icon.more')"
             :less-label="t('admin.badges.icon.less')"
+            :accent="tierColorVar(form.color)"
             :error="fieldErrors.icon?.[0]"
           />
 

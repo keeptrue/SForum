@@ -3,7 +3,7 @@ import { computed, defineComponent, ref, watch } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, flushPromises, mount } from '../helpers/vueSfc'
-import { tierColorVar } from '~/utils/theme/tierColor'
+import { isTierCustomColor, tierColorVar } from '~/utils/theme/tierColor'
 
 /**
  * 第四分区（等级）的接线与两个不可回退的约束：
@@ -101,6 +101,7 @@ const TiersTab = await compileVueSfc(tiersTabPath, 'tiers-tab', {
   useI18n: () => ({ t: (key: string) => key }),
   useToast: () => ({ add: () => {} }),
   tierColorVar,
+  isTierCustomColor,
   SFAdminBadgeTierDialog: TierDialogStub,
   SFAdminBadgeTierDeleteDialog: TierDeleteDialogStub
 })

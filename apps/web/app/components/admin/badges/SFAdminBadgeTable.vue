@@ -221,7 +221,14 @@ function sortAria(id: string): string {
 
     <template #tier-cell="{ row }">
       <span class="sf-admin-badge-tier" :data-tier="tierOf(row.original)" :style="tierStyle(row.original)">
-        <UIcon :name="tierIcon(row.original)" class="size-3.5" aria-hidden="true" />
+        <!-- 颜色必须落在图标元素自己身上：@nuxt/icon 可能把图标渲染成「掩码元素」而不是
+             `<svg>`（此时图标色 = currentColor），只给 svg 上色会漏掉一半渲染路径。 -->
+        <UIcon
+          :name="tierIcon(row.original)"
+          class="size-3.5"
+          :style="{ color: 'var(--sf-tier-hue)' }"
+          aria-hidden="true"
+        />
         <span>{{ tierLabel(row.original) }}</span>
       </span>
     </template>

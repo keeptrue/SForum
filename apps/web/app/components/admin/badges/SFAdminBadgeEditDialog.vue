@@ -6,6 +6,7 @@ import {
   type AdminBadgeRow
 } from '~/utils/admin/adminBadges'
 import { forumBadgeTier, pickTierName } from '~/utils/forum/forumBadge'
+import { tierColorVar } from '~/utils/theme/tierColor'
 import SFAdminBadgeIconField from '~/components/admin/badges/SFAdminBadgeIconField.vue'
 import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
 
@@ -71,13 +72,43 @@ const tierItems = computed(() => {
     .filter(tier => tier.enabled || tier.key === current)
     .slice()
     .sort((left, right) => left.position - right.position)
-    .map(tier => ({ value: tier.key, label: pickTierName(tier.name, locale.value) }))
+    .map(tier => ({
+      value: tier.key,
+      label: pickTierName(tier.name, locale.value),
+      // icon/color 只给下拉项与触发器用（见模板里的 #item-leading / #default），
+      // 不参与提交——tier 的落库形状仍然只是一个 key。
+      icon: tier.icon || 'i-lucide-award',
+      color: tier.color
+    }))
 })
+
+/** 下拉项与触发器共用的取色/取图标：slot 里的 item 类型由 Nuxt UI 泛型推导，这里收窄一次。 */
+function tierItemIcon(item: unknown): string {
+  return (item as { icon?: string } | null)?.icon || 'i-lucide-award'
+}
+
+function tierItemColor(item: unknown): string {
+  return tierColorVar((item as { color?: string } | null)?.color ?? '')
+}
+
+/** 触发器里显示的当前等级（下拉关闭时也要带图标与颜色，不能只剩一行文字）。 */
+const selectedTier = computed(() => props.tiers.find(tier => tier.key === form.tier) ?? null)
 
 const grantModeItems = computed(() => (['automatic', 'manual'] as const).map(mode => ({
   value: mode,
   label: t(`admin.badges.grantMode.${mode}`)
 })))
+
+/**
+ * 图标选中态要用的颜色 = 当前选中等级的识别色。
+ *
+ * 等级下拉一改，图标区的选中态跟着变色：运营在弹窗里就能看到「这枚徽章会是什么颜色」，
+ * 不必保存后再回列表确认。等级没加载出来时回退 slate（`tierColorVar('')` 的兜底）。
+ */
+const iconAccent = computed(() => {
+  const tier = props.tiers.find(item => item.key === form.tier)
+  return tierColorVar(tier?.color ?? '')
+})
 
 const metricItems = computed(() => BADGE_METRIC_OPTIONS.map(metric => ({
   value: metric,
@@ -204,7 +235,29 @@ async function removeBadge() {
               <USelect v-model="form.groupId" :items="groupItems" class="w-full" />
             </UFormField>
             <UFormField :label="t('admin.badges.form.tier')" :error="fieldErrors.tier?.[0]">
-              <USelect v-model="form.tier" :items="tierItems" class="w-full" />
+              <USelect v-model="form.tier" :items="tierItems" class="w-full">
+                <!-- 等级的身份是「图标 + 颜色 + 名字」：下拉里只给文字等于让人靠记性选档。 -->
+                <template #default>
+                  <span class="flex min-w-0 items-center gap-2">
+                    <UIcon
+                      v-if="selectedTier"
+                      :name="tierItemIcon(selectedTier)"
+                      class="size-4 shrink-0"
+                      :style="{ color: tierItemColor(selectedTier) }"
+                      aria-hidden="true"
+                    />
+                    <span class="truncate">{{ selectedTier ? pickTierName(selectedTier.name, locale) : form.tier }}</span>
+                  </span>
+                </template>
+                <template #item-leading="{ item }">
+                  <UIcon
+                    :name="tierItemIcon(item)"
+                    class="size-4 shrink-0"
+                    :style="{ color: tierItemColor(item) }"
+                    aria-hidden="true"
+                  />
+                </template>
+              </USelect>
             </UFormField>
           </div>
 
@@ -213,6 +266,7 @@ async function removeBadge() {
             :label="t('admin.badges.form.icon')"
             :more-label="t('admin.badges.icon.more')"
             :less-label="t('admin.badges.icon.less')"
+            :accent="iconAccent"
             :error="fieldErrors.icon?.[0]"
           />
 

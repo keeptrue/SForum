@@ -10,7 +10,7 @@
 import SFAdminBadgeTierDialog from '~/components/admin/badges/SFAdminBadgeTierDialog.vue'
 import SFAdminBadgeTierDeleteDialog from '~/components/admin/badges/SFAdminBadgeTierDeleteDialog.vue'
 import type { AdminBadgesStore, AdminBadgeTierRow } from '~/composables/admin/badges/useAdminBadges'
-import { tierColorVar } from '~/utils/theme/tierColor'
+import { isTierCustomColor, tierColorVar } from '~/utils/theme/tierColor'
 
 const props = defineProps<{
   store: AdminBadgesStore
@@ -47,8 +47,20 @@ function isLastEnabled(tier: AdminBadgeTierRow) {
   return tier.enabled && enabledCount.value <= 1
 }
 
-function swatchStyle(tier: AdminBadgeTierRow) {
-  return { background: tierColorVar(tier.color) }
+/**
+ * 色点与图标共用的等级色变量。
+ *
+ * token（`var(--sf-tl-*)`）自带明暗两套取值；自定义 hex 只有一组，深色下按信任等级
+ * 同一条公式提亮（`color-mix(in srgb, <hex> 74%, white)`）。两个值都下发、由 CSS
+ * 按 `.dark` 挑一个——行内只能写一个值，写死就必然在另一套主题里失效。
+ */
+function tierAccentVars(tier: AdminBadgeTierRow): Record<string, string> {
+  const accent = tierColorVar(tier.color)
+  const dark = isTierCustomColor(accent) ? `color-mix(in srgb, ${accent} 74%, white)` : accent
+  return {
+    '--sf-tier-accent': accent,
+    '--sf-tier-accent-dark': dark
+  }
 }
 
 function openCreate() {
@@ -135,9 +147,15 @@ defineOptions({ name: 'SFAdminBadgesTiersTab' })
         :data-tier="tier.key"
         :data-enabled="tier.enabled ? 'true' : 'false'"
       >
-        <span class="sf-tier-dot" :style="swatchStyle(tier)" aria-hidden="true" />
+        <span class="sf-tier-dot" :style="tierAccentVars(tier)" aria-hidden="true" />
 
-        <UIcon :name="tier.icon || 'i-lucide-award'" class="size-4 shrink-0 text-slate-500 dark:text-zinc-400" aria-hidden="true" />
+        <!-- 图标与色点同色：等级的身份就是「色 + 图标 + 名字」，图标保持中性灰会让人以为它只是装饰。 -->
+        <UIcon
+          :name="tier.icon || 'i-lucide-award'"
+          class="sf-tier-icon size-4 shrink-0"
+          :style="tierAccentVars(tier)"
+          aria-hidden="true"
+        />
 
         <span class="min-w-0 flex-1">
           <span class="block truncate text-sm font-semibold text-slate-900 dark:text-white">{{ tier.name.zh }}</span>
@@ -225,5 +243,19 @@ defineOptions({ name: 'SFAdminBadgesTiersTab' })
   width: 10px;
   height: 10px;
   border-radius: 999px;
+  background: var(--sf-tier-accent);
+}
+
+.sf-tier-icon {
+  color: var(--sf-tier-accent);
+}
+
+/* 深色：自定义 hex 用提亮后的值；token 的明暗由 `--sf-tl-*` 自己处理。 */
+:global(.dark) .sf-tier-dot {
+  background: var(--sf-tier-accent-dark, var(--sf-tier-accent));
+}
+
+:global(.dark) .sf-tier-icon {
+  color: var(--sf-tier-accent-dark, var(--sf-tier-accent));
 }
 </style>
