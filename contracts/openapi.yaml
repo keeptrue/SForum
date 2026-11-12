@@ -718,6 +718,8 @@ paths:
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantByUser"
   "/admin/badges/recompute":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgesRecompute"
+  "/admin/badges/backfill-status":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeBackfillStatus"
   /badges/tiers:
     "$ref": "./openapi/paths/badges.yaml#/publicBadgeTiers"
   "/admin/badges/tiers":
@@ -728,6 +730,12 @@ paths:
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeTierOrder"
   "/admin/badges/grant-candidates":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantCandidates"
+  "/admin/badges/conditions":
+    "$ref": "./openapi/paths/badges.yaml#/adminListBadgeConditions"
+  "/admin/badges/rule-health":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeRuleHealth"
+  "/admin/badges/{badgeID}/rule-impact":
+    "$ref": "./openapi/paths/badges.yaml#/adminBadgeRuleImpact"
   "/admin/badges/{badgeID}/grants/batch":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeGrantsBatch"
 components:

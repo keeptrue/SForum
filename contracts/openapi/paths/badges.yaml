@@ -789,3 +789,136 @@ publicBadgeTiers:
         "$ref": "../components/responses.yaml#/Forbidden"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+adminListBadgeConditions:
+  get:
+    tags: [Badges]
+    summary: List badge rule conditions
+    operationId: adminListBadgeConditions
+    description: |
+      Requires `badge.view`. Returns the **publishable** condition catalog: a
+      condition whose `objectRef` parameter has no candidates is omitted (M1 has
+      no extensions, so `fact.count` does not appear — an empty dropdown is a dead
+      end). Validation and evaluation still accept the full catalog, otherwise a
+      rule stored by a since-removed extension could never be saved again.
+
+      Each entry carries bilingual labels plus the parameter schema the admin
+      editor uses for required/enum checks.
+    responses:
+      '200':
+        description: Condition catalog.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeConditionList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+adminBadgeRuleHealth:
+  get:
+    tags: [Badges]
+    summary: List broken badge rule references
+    operationId: adminBadgeRuleHealth
+    description: |
+      Requires `badge.view`. Lists enabled automatic badges whose rule points at
+      something that no longer exists, cannot be decoded, or fails validation.
+
+      Deliberately **excludes badges that merely granted nobody**: a correct rule
+      with no qualifying users is healthy, and mixing it in would bury the real
+      problems. An empty `items` array is a normal `200`, not a `404`.
+
+      `missing_provider` accepts both "linked by some user" and "declared by the
+      identity registry but not linked yet", so installing a provider does not
+      turn every rule referencing it red for a day.
+    responses:
+      '200':
+        description: Health report (possibly empty).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeRuleHealthList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+adminBadgeRuleImpact:
+  get:
+    tags: [Badges]
+    summary: Estimate how many users a badge rule covers
+    operationId: adminBadgeRuleImpact
+    description: |
+      Requires `badge.view`. Returns an **estimate** (the UI must render it with a
+      "≈"): AND takes the strictest leaf, OR sums them — both are upper bounds,
+      because leaves correlate.
+
+      `estimated` is nullable: `null` means "cannot be estimated" (for example OR
+      with an unsupported leaf), `0` means the estimate really is zero. Collapsing
+      the two would make an operator rewrite a correct rule they believe nobody
+      can reach.
+    parameters:
+    - name: badgeID
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    responses:
+      '200':
+        description: Impact estimate.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeRuleImpact"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+adminBadgeBackfillStatus:
+  get:
+    tags: [Badges]
+    summary: Report progress of the badge rule backfill chain
+    operationId: adminBadgeBackfillStatus
+    description: |
+      Requires `badge.view`. Reports the **latest** `badges.backfill_rules` run
+      per badge, so an operator can tell whether the `queued` badges from
+      `POST /admin/badges/recompute` actually moved, where they stopped, and why.
+
+      State is written only by the job side (a `running` row is created at
+      enqueue time, then every page advances `lastUserId`, marks `completed`, or
+      records a failure with `failedCursorUserId`). It is never derived from
+      `user_badges`: inferring progress from grant counts would make the progress
+      go backwards whenever a rule simply matches nobody.
+
+      `status` is one of `running` / `completed` / `failed`. `finishedAt` is only
+      set for `completed`; a `failed` run leaves it `null` because the queue will
+      retry the page. `failedCursorUserId` is `0` for non-failed runs, so a
+      retried-and-recovered run does not keep pointing at an old failure.
+
+      An empty `items` array is a normal `200` (nobody has triggered a backfill
+      yet), not a `404`. Rows disappear with their badge (foreign key cascade):
+      `slug` and `name` come from a join, so there is no orphan state.
+    responses:
+      '200':
+        description: Latest backfill run per badge (possibly empty).
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeBackfillRunList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

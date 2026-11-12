@@ -55,6 +55,7 @@ These paths are referenced by CI and generators—do not move casually:
 
 - [Plugin authoring guide](../extensions/authoring-guide.md)
 - [Host API v2](../extensions/host-api-v2.md)
+- [Plugin badge facts](../extensions/badge-plugin-facts.md)
 - [Runtime themes](../extensions/runtime-themes.md)
 - [Generated catalogs](../extensions/catalogs/)
 - [V3 platform docs](../extensions/v3/)
@@ -63,6 +64,7 @@ These paths are referenced by CI and generators—do not move casually:
 
 - [Plugin routes (中文)](../zh-CN/extensions/routes.md) · [English (canonical)](../extensions/routes.md)
 - [Build, digest, and load (中文)](../zh-CN/extensions/build-and-load.md) · [English (canonical)](../extensions/build-and-load.md)
+- [Plugin badge facts (中文)](../zh-CN/extensions/badge-plugin-facts.md) · [English (canonical)](../extensions/badge-plugin-facts.md)
 
 ## Docs vs knowledge
 

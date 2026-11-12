@@ -94,6 +94,7 @@ SForum 是可维护、插件优先的开源论坛框架：核心做宿主与契�
 
 - [插件编写指南](../extensions/authoring-guide.md)
 - [Host API v2](../extensions/host-api-v2.md)
+- [插件徽章事实（badge-plugin-facts）](../extensions/badge-plugin-facts.md)
 - [运行时主题](../extensions/runtime-themes.md)
 - [生成目录 catalogs](../extensions/catalogs/)
 - [V3 平台文档](../extensions/v3/)
@@ -102,6 +103,7 @@ SForum 是可维护、插件优先的开源论坛框架：核心做宿主与契�
 
 - [插件路由定义（routes）](./extensions/routes.md)
 - [构建与加载循环（build-and-load）](./extensions/build-and-load.md)
+- [插件徽章事实（badge-plugin-facts）](./extensions/badge-plugin-facts.md)
 
 > 英文原文（路径稳定）位于 `docs/extensions/`；字段名与命令以原文和代码为准。
 

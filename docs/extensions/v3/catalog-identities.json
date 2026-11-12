@@ -2508,6 +2508,30 @@
       "contractVersion": "sforum.route.trust_levels.admin_restore_trust_level_defaults@1",
       "method": "POST",
       "path": "/api/v1/admin/trust-levels/restore-defaults"
+    },
+    {
+      "id": "core.route.badges.admin_badge_conditions",
+      "contractVersion": "sforum.route.badges.admin_badge_conditions@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/conditions"
+    },
+    {
+      "id": "core.route.badges.admin_badge_rule_health",
+      "contractVersion": "sforum.route.badges.admin_badge_rule_health@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/rule-health"
+    },
+    {
+      "id": "core.route.badges.admin_badge_rule_impact",
+      "contractVersion": "sforum.route.badges.admin_badge_rule_impact@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/:badgeID/rule-impact"
+    },
+    {
+      "id": "core.route.badges.admin_badge_backfill_status",
+      "contractVersion": "sforum.route.badges.admin_badge_backfill_status@1",
+      "method": "GET",
+      "path": "/api/v1/admin/badges/backfill-status"
     }
   ],
   "ui": [
@@ -6637,6 +6661,16 @@
       "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDeleteDialog.vue"
     },
     {
+      "id": "core.component.admin.s_f_admin_badge_rule_section",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_section@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleSection.vue"
+    },
+    {
       "id": "core.component.admin.s_f_admin_badges_tiers_tab",
       "contractVersion": "sforum.component.admin.s_f_admin_badges_tiers_tab@1",
       "kind": "component",
@@ -6645,6 +6679,66 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_editor",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_editor@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleEditor.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_group",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_group@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleGroup.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_leaf",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_leaf@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_json_preview@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleJsonPreview.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_impact_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_impact_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleImpactDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_backfill_row",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_backfill_row@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeBackfillRow.vue"
     }
   ]
 }

@@ -690,7 +690,7 @@
     "handler": "adminListBadges",
     "method": "GET",
     "path": "/api/v1/admin/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:102",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:109",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -708,7 +708,7 @@
     "handler": "adminCreateBadge",
     "method": "POST",
     "path": "/api/v1/admin/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:103",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:110",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -726,7 +726,7 @@
     "handler": "adminDeleteBadge",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/:badgeID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:105",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:112",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -744,7 +744,7 @@
     "handler": "adminUpdateBadge",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/:badgeID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:104",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:111",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -762,7 +762,7 @@
     "handler": "adminListBadgeGrants",
     "method": "GET",
     "path": "/api/v1/admin/badges/:badgeID/grants",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:110",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:118",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -780,7 +780,7 @@
     "handler": "adminCreateBadgeGrant",
     "method": "POST",
     "path": "/api/v1/admin/badges/:badgeID/grants",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:111",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:119",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -798,7 +798,7 @@
     "handler": "adminDeleteBadgeGrant",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/:badgeID/grants/:userID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:113",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:121",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -816,7 +816,7 @@
     "handler": "adminBatchGrantBadge",
     "method": "POST",
     "path": "/api/v1/admin/badges/:badgeID/grants/batch",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:112",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:120",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -828,13 +828,67 @@
     }
   },
   {
+    "id": "core.route.badges.admin_badge_rule_impact",
+    "contractVersion": "sforum.route.badges.admin_badge_rule_impact@1",
+    "module": "badges",
+    "handler": "adminBadgeRuleImpact",
+    "method": "GET",
+    "path": "/api/v1/admin/badges/:badgeID/rule-impact",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:117",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_badge_backfill_status",
+    "contractVersion": "sforum.route.badges.admin_badge_backfill_status@1",
+    "module": "badges",
+    "handler": "adminBadgeBackfillStatus",
+    "method": "GET",
+    "path": "/api/v1/admin/badges/backfill-status",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:108",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.admin_badge_conditions",
+    "contractVersion": "sforum.route.badges.admin_badge_conditions@1",
+    "module": "badges",
+    "handler": "adminListBadgeConditions",
+    "method": "GET",
+    "path": "/api/v1/admin/badges/conditions",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:105",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.badges.admin_search_grant_candidates",
     "contractVersion": "sforum.route.badges.admin_search_grant_candidates@1",
     "module": "badges",
     "handler": "adminSearchGrantCandidates",
     "method": "GET",
     "path": "/api/v1/admin/badges/grant-candidates",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:101",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:102",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -852,7 +906,7 @@
     "handler": "adminListBadgeGroups",
     "method": "GET",
     "path": "/api/v1/admin/badges/groups",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:106",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:113",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -870,7 +924,7 @@
     "handler": "adminCreateBadgeGroup",
     "method": "POST",
     "path": "/api/v1/admin/badges/groups",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:107",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:114",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -888,7 +942,7 @@
     "handler": "adminDeleteBadgeGroup",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:109",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:116",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -906,7 +960,7 @@
     "handler": "adminUpdateBadgeGroup",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:108",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:115",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -924,7 +978,7 @@
     "handler": "adminRecomputeBadges",
     "method": "POST",
     "path": "/api/v1/admin/badges/recompute",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:114",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:122",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -936,13 +990,31 @@
     }
   },
   {
+    "id": "core.route.badges.admin_badge_rule_health",
+    "contractVersion": "sforum.route.badges.admin_badge_rule_health@1",
+    "module": "badges",
+    "handler": "adminBadgeRuleHealth",
+    "method": "GET",
+    "path": "/api/v1/admin/badges/rule-health",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:106",
+    "access": "permission",
+    "policy": "badge.view",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "badge.view"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.badges.admin_list_badge_tiers",
     "contractVersion": "sforum.route.badges.admin_list_badge_tiers@1",
     "module": "badges",
     "handler": "adminListBadgeTiers",
     "method": "GET",
     "path": "/api/v1/admin/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:96",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:97",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -960,7 +1032,7 @@
     "handler": "adminCreateBadgeTier",
     "method": "POST",
     "path": "/api/v1/admin/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:97",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:98",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -978,7 +1050,7 @@
     "handler": "adminDeleteBadgeTier",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/tiers/:tierKey",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:100",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:101",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -996,7 +1068,7 @@
     "handler": "adminUpdateBadgeTier",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/tiers/:tierKey",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:99",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:100",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1014,7 +1086,7 @@
     "handler": "adminReorderBadgeTiers",
     "method": "PUT",
     "path": "/api/v1/admin/badges/tiers/order",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:98",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:99",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -4845,7 +4917,7 @@
     "handler": "publicCatalog",
     "method": "GET",
     "path": "/api/v1/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:86",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:87",
     "access": "public",
     "policy": "badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -4861,7 +4933,7 @@
     "handler": "publicBadgeTiers",
     "method": "GET",
     "path": "/api/v1/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:90",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:91",
     "access": "public",
     "policy": "badge tier catalog; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5949,7 +6021,7 @@
     "handler": "publicProfileBadges",
     "method": "GET",
     "path": "/api/v1/profiles/:username/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:87",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:88",
     "access": "public",
     "policy": "public read contract",
     "guard": {

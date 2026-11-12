@@ -64,6 +64,11 @@ Badge:
     Admin-facing badge definition (`adminBadgeResponse`). Carries operator state
     (`enabled`), the rule, and the aggregate `grantedCount`; none of that is
     exposed on the public profile surface.
+
+    `rule` and `requirementSummary` are always present in this response — the
+    admin editor reads them as the current value before saving, so a missing key
+    is indistinguishable from "no value stored" and would silently overwrite
+    either the rule or the operator-written requirement text.
   required:
   - id
   - slug
@@ -77,6 +82,8 @@ Badge:
   - enabled
   - position
   - grantedCount
+  - rule
+  - requirementSummary
   - createdAt
   - updatedAt
   properties:
@@ -121,6 +128,18 @@ Badge:
       type: [integer, "null"]
       format: int64
       description: Rule threshold; null for manual badges. Always > 0 when set.
+    rule:
+      type: [object, "null"]
+      description: |
+        规则 AST 原样透出：`{"v":1,"root":{...}}`，与保存时提交的字节一致
+        （不重新序列化已知字段，所以本次实现不认识的键也会原样带出）。
+        自动徽章的唯一判定来源；手写徽章为 `null`。
+
+        故意**不**声明 `root` 的子结构：AST 的字段集合随条件目录演进，在这里
+        重抄一份会让契约成为第三份需要同步的真值表。该键始终存在，值可以是
+        `null`，不存在「键缺失」这一态。
+    requirementSummary:
+      "$ref": "#/RequirementText"
     enabled:
       type: boolean
       description: Disabled badges keep their grants but stop rendering.
@@ -197,7 +216,10 @@ ProfileBadgeItem:
   - icon
   - position
   - earned
+  - requirementText
   properties:
+    requirementText:
+      "$ref": "#/RequirementText"
     slug:
       type: string
     name:
@@ -513,6 +535,7 @@ BadgeRecomputeResult:
   required:
   - granted
   - refreshed
+  - queued
   properties:
     granted:
       type: integer
@@ -523,6 +546,13 @@ BadgeRecomputeResult:
         which is how a recompute grant is distinguishable from a rule-time
         grant (null / empty reason) and an operator grant (actor + reason).
         Running the sweep again on an already-correct community returns 0.
+    queued:
+      type: integer
+      format: int64
+      description: |
+        **转入异步评估的徽章数**（不是用户数、不是 job 数）。复杂规则没法在一条
+        批量 SQL 里求值，会被交给 `badges.backfill_rules` job 逐页回扫；这些徽章的
+        授予结果稍后由 job 生效。`0` 是正常路径（全部是快路径形状），不是异常。
     refreshed:
       type: integer
       format: int64
@@ -735,6 +765,7 @@ PublicBadgeCatalogEntry:
   - tierColor
   - group
   - earned
+  - requirementText
   properties:
     slug:
       type: string
@@ -753,6 +784,8 @@ PublicBadgeCatalogEntry:
       description: Tier identification colour (palette token or `#rrggbb`).
     group:
       type: string
+    requirementText:
+      "$ref": "#/RequirementText"
     earned:
       type: boolean
       description: |
@@ -1070,3 +1103,342 @@ ApiResponseBatchGrantResult:
       type: string
     data:
       "$ref": "#/BatchGrantResult"
+
+# --- 徽章规则引擎（2026-11-12） ---
+#
+# 三条只读端点的响应形状。`estimated` 必须 nullable：`null` 表示「无法估算」，
+# `0` 表示「估算结果确实是零人」——两者语义不同，不能混（与 factKey 的
+# 「查不到数据 vs 无法判定」同一条原则）。
+
+RequirementText:
+  type: object
+  description: |
+    双语文案形状，公开面 `requirementText` 与后台 `requirementSummary` 共用。
+    两处**取值时机不同**：
+
+    - 公开面：运营填的文本优先；为空且规则是**单条件**时由服务端生成（只含指标名
+      与阈值）；多条件规则留空——宁可没有说明，也不把内部结构拼成一句读不懂的话。
+    - 后台 `requirementSummary`：原样是运营存下的值，空串表示「按规则自动生成」。
+      响应时不生成文案，否则编辑器会把生成结果当成运营填的原文，整体替换保存后
+      文案就被固化了。
+
+    **绝不包含 AST**：公开响应里出现 rule/cmp/params/children/op 会让规则结构变成
+    事实上的公开契约。
+  required:
+  - zh
+  - en
+  properties:
+    zh:
+      type: string
+    en:
+      type: string
+
+BadgeConditionParam:
+  type: object
+  description: |
+    一个条件参数。字段名与 M2 编辑器契约逐字一致：编辑器按 `kind` 决定控件，
+    按 `required`/`min`/`max`/`options` 做校验，按 `refKind` 渲染候选选择器。
+  required:
+  - name
+  - kind
+  - required
+  properties:
+    name:
+      type: string
+    kind:
+      type: string
+      enum: [int, enum, window, objectRef, string, bool]
+    required:
+      type: boolean
+    min:
+      type: integer
+      format: int64
+    max:
+      type: integer
+      format: int64
+    options:
+      type: array
+      items:
+        type: string
+    refKind:
+      type: string
+      enum: [category, tag, role, provider, badge, fact]
+
+BadgeCondition:
+  type: object
+  description: |
+    一个可选条件。`valueKind` 决定叶子是否需要 `cmp`：`count` 必须有、`boolean` 禁止有。
+  required:
+  - key
+  - valueKind
+  - compare
+  - labelZh
+  - labelEn
+  - params
+  properties:
+    key:
+      type: string
+    valueKind:
+      type: string
+      enum: [count, boolean]
+    compare:
+      type: array
+      items:
+        type: string
+        enum: [gte, gt, lte, lt, eq]
+    labelZh:
+      type: string
+    labelEn:
+      type: string
+    describeZh:
+      type: string
+    describeEn:
+      type: string
+    unitZh:
+      type: string
+    unitEn:
+      type: string
+    params:
+      type: array
+      items:
+        "$ref": "#/BadgeConditionParam"
+
+BadgeConditionList:
+  type: object
+  description: |
+    条件目录 + 插件事实候选。两个面刻意分开：`items` 描述规则的 **type** 维
+    （条件本身），`factCandidates` 描述 `fact.count` 的 **factKey/variant** 维。
+    插件在清单里声明的双语 label 属于候选项（下拉文案），不会覆盖 Core 条件名。
+
+    `factCandidates` 是 additive 字段：M2 已发布的编辑器只读 `items` 也照常工作。
+  required: [items, factCandidates]
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/BadgeCondition"
+    factCandidates:
+      type: array
+      description: |
+        当前**已启用**扩展声明的事实条件。扩展停用或卸载后候选消失，
+        `fact.count` 在可发布目录里随之隐藏，规则求值转 unknown（fail-closed）。
+      items:
+        "$ref": "#/BadgeFactCandidate"
+
+BadgeFactVariant:
+  type: object
+  description: 某个事实条件的一个合法 variant 候选（下拉项）。
+  required: [value, label]
+  properties:
+    value:
+      type: string
+      description: 写进规则 `params.variant` 的值（`^[a-z0-9][a-z0-9._-]{0,63}$`）。
+    label:
+      "$ref": "#/BadgeI18nText"
+
+BadgeFactCandidate:
+  type: object
+  description: |
+    一个已声明事实条件的候选：`factKey` 的合法取值 + 变体列表。
+
+    `unit` 可为 `null`（该条件没有计量单位）；`compare`与`variants` 永远是数组，
+    不会是 null——编辑器按数组渲染，缺失键会让下拉崩掉。
+  required: [key, label, unit, compare, variants]
+  properties:
+    key:
+      type: string
+      description: |
+        规则 `params.factKey` 的合法值。与 `badge_facts.fact_key` 的 CHECK
+        （`^[a-z0-9][a-z0-9._-]{1,120}$`）逐字一致，且必须以 `<extensionId>.` 为前缀。
+    label:
+      "$ref": "#/BadgeI18nText"
+    unit:
+      allOf:
+        - "$ref": "#/BadgeI18nText"
+      nullable: true
+    compare:
+      type: array
+      items:
+        type: string
+        enum: [gte, gt, lte, lt, eq]
+    variants:
+      type: array
+      items:
+        "$ref": "#/BadgeFactVariant"
+
+BadgeI18nText:
+  type: object
+  description: 双语文案（服务端下发，不走前端 `t()`：条件目录是数据不是界面字符串）。
+  required: [zh, en]
+  properties:
+    zh:
+      type: string
+    en:
+      type: string
+
+BadgeRuleImpact:
+  type: object
+  description: |
+    规则影响面的**估算**（语义是「≈」）。AND 取最严叶子、OR 取和，两者对「同时满足」
+    的真实人数都只是**上界**。
+  required: [method, partial, unsupportedConditions]
+  properties:
+    estimated:
+      type: integer
+      format: int64
+      nullable: true
+      description: |
+        估算人数。`null` 表示**无法估算**（不是 0 人）；`0` 表示估算结果确实是零人。
+    method:
+      type: string
+      enum: [single_leaf, strictest_leaf, strictest_leaf_partial, sum_of_leaves, complement_of_leaf, unsupported_condition]
+    partial:
+      type: boolean
+      description: 估算只用了部分叶子（AND 里有不可估的条件）。
+    unsupportedConditions:
+      type: array
+      items:
+        type: string
+
+BadgeRuleIssue:
+  type: object
+  description: |
+    规则里的一处失效。`path` 与规则引擎的错误坐标一致
+    （`root.children[1].params.topicId`），前端据此定位到编辑器里的节点。
+  required: [kind, path, ref, label]
+  properties:
+    kind:
+      type: string
+      enum: [missing_topic, missing_category, missing_tag, missing_role, missing_provider, missing_badge_slug, missing_fact_key, undecodable_rule, invalid_rule_shape]
+    path:
+      type: string
+    ref:
+      type: string
+      description: 失效引用的值；`invalid_rule_shape` 时是错误码（前端按 `admin.badges.rule.errors.<code>` 渲染）。
+    label:
+      type: string
+
+BadgeRuleHealth:
+  type: object
+  required: [badgeId, slug, name, issues]
+  properties:
+    badgeId:
+      type: integer
+      format: int64
+    slug:
+      type: string
+    name:
+      type: string
+    issues:
+      type: array
+      items:
+        "$ref": "#/BadgeRuleIssue"
+
+BadgeRuleHealthList:
+  type: object
+  description: 只列「引用/条件失效」，**不列零授予**；空 `items` 是 200 正常结果。
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/BadgeRuleHealth"
+
+ApiResponseBadgeConditionList:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeConditionList"
+
+ApiResponseBadgeRuleImpact:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeRuleImpact"
+
+ApiResponseBadgeRuleHealthList:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeRuleHealthList"
+
+BadgeBackfillRun:
+  type: object
+  description: |
+    One badge's latest `badges.backfill_rules` run. `slug`/`name` come from a join
+    on the badge table, so a deleted badge takes its run rows with it.
+  required: [badgeId, slug, name, status, lastUserId, failedCursorUserId, startedAt, updatedAt, finishedAt, error]
+  properties:
+    badgeId:
+      type: integer
+      format: int64
+    slug:
+      type: string
+    name:
+      type: string
+    status:
+      type: string
+      enum: [running, completed, failed]
+    lastUserId:
+      type: integer
+      format: int64
+      description: Cursor (`user_id`) of the last **successfully** processed page.
+    failedCursorUserId:
+      type: integer
+      format: int64
+      description: |
+        `afterUserID` of the failed page. Always `0` for non-failed runs: a retry
+        that succeeds clears it, otherwise the report would keep pointing at an
+        already-recovered failure.
+    startedAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+    finishedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: |
+        Set only when `status` is `completed`. A `failed` run leaves it `null`
+        because the queue still retries that page.
+    error:
+      type: string
+      description: Failure message, truncated to 500 characters on write.
+
+BadgeBackfillRunList:
+  type: object
+  description: 只回每个徽章的**最新**一次回扫；空 `items` 是 200 正常结果。
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        "$ref": "#/BadgeBackfillRun"
+
+ApiResponseBadgeBackfillRunList:
+  type: object
+  required: [code, message, data]
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeBackfillRunList"

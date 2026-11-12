@@ -26,6 +26,7 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `assets` | array \| null | no | yes |
 | `author` | object | yes | no |
 | `backend` | object \| null | no | no |
+| `badgeConditions` | array \| null | no | no |
 | `cache` | array \| null | no | yes |
 | `capabilities` | array \| null | no | no |
 | `commands` | array \| null | no | yes |

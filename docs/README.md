@@ -24,6 +24,7 @@ Official project documentation. Choose a language:
 | Architecture | [架构](./zh-CN/architecture.md) | [Architecture](./en-US/architecture.md) |
 | Product | [产品说明](./zh-CN/product.md) | [Product](./en-US/product.md) |
 | Extensions (tech) | [扩展参考](./extensions/) | [Extension reference](./extensions/) |
+| Plugin badge facts | [插件徽章事实](./zh-CN/extensions/badge-plugin-facts.md) | [Plugin badge facts](./en-US/extensions/badge-plugin-facts.md) |
 
 ## Layout
 
@@ -36,6 +37,7 @@ docs/
 │   └── deployment/           # same structure as zh-CN/deployment
 ├── extensions/               # technical extension contracts (path stable for CI)
 │   ├── authoring-guide.md
+│   ├── badge-plugin-facts.md   # plugin badgeConditions + badges.fact.record
 │   ├── migrating-from-sforum-v2.md   # SForum-old -> V3 mapping + quick starts
 │   ├── catalogs/             # generated host catalogs
 │   └── v3/                   # V3 governance, matrices, evidence

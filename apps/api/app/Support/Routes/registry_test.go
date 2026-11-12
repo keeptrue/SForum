@@ -511,7 +511,14 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	//   后台 2 条批量授予（候选搜索读 badge.view、批量授予写 badge.manage）
 	// 注意 /admin/badges/tiers 与 /admin/badges/{badgeID} 形状相同，控制器里静态段
 	// 必须先注册，否则 DELETE /admin/badges/tiers 会被解析成 badgeID="tiers"。
-	if len(catalog) != 418 {
+	// 421 = 418 + 三条徽章规则路由（conditions / rule-health / rule-impact，
+	// 2026-11-12 规则引擎那一刀）。与 docs/extensions/v3/catalog-identities.json
+	// 的 routes 数组必须同时是 421，否则又是「两个计数各说一套」。
+	// 422 = 421 + core.route.badges.admin_badge_backfill_status（回扫进度读面：
+	// GET /admin/badges/backfill-status，读 badge.view）。注意上一轮 421 只改了
+	// 计数、没重生成 core_catalog_gen.go，所以这次生成同时补回了那三条规则路由
+	// ——计数与生成物从此同一批产物，别再单边改数字。
+	if len(catalog) != 422 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

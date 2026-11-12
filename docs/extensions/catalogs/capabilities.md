@@ -30,6 +30,7 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `extensions.manage` | high | Manage trusted extensions | 管理受信任扩展 | Perform allowlisted settings update/reset/action and disable of already-trusted non-system non-self plugins via Host Commands. Never replaces super_admin trust confirmation. |
 | `ai.invoke` | medium | Invoke Host AI gateway | 调用宿主 AI 网关 | Send AI completion requests through the Host gateway so cost accounting, rate limits, and audit stay host-owned. Subject and cost gates still apply per request. |
 | `events.emit` | low | Emit own-namespace events | 发布自身命名空间事件 | Publish events strictly under this extension's namespace through the Host event channel; core event names and other plugins' namespaces stay closed. |
+| `badges.fact.write` | medium | Write plugin fact counters | 写入插件事实计数 | Report per-user badge fact counters only through the Host badges.fact.record command. The Host clamps deltas, enforces bounds, and audits every write; it never grants direct access to badge or counter tables. |
 
 ### Risk tiers
 
