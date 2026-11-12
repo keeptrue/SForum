@@ -11,12 +11,15 @@
 //   SFORUM_ADMIN_PATH     默认 /control-panel/extensions/route-inspector
 //   SFORUM_QA_DIR         可选：截图目录
 //   SFORUM_EVIDENCE_OUTPUT 可选：JSON 报告路径
+//   SFORUM_ADMIN_PROFILE  可选：断言档案。默认 `route-inspector`（原契约，逐字未动）；
+//                         `badges` 走徽章页契约（回扫进度行位置 / 390 溢出 / 失败态文案）。
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const web = process.env.SFORUM_WEB_BASE_URL || 'http://127.0.0.1:3000'
 const adminPath = process.env.SFORUM_ADMIN_PATH || '/control-panel/extensions/route-inspector'
+const adminProfile = process.env.SFORUM_ADMIN_PROFILE || 'route-inspector'
 const session = process.env.SFORUM_SESSION_COOKIE || ''
 const qaDir = process.env.SFORUM_QA_DIR || ''
 const outputPath = process.env.SFORUM_EVIDENCE_OUTPUT || ''
@@ -46,6 +49,9 @@ async function launchChrome(binary) {
   mkdirSync(profile, { recursive: true })
   const child = spawn(binary, [
     '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
+    // 本机带 http_proxy 时 Chrome 会把 127.0.0.1 也送进代理 → ERR_CONNECTION_REFUSED。
+    // 这条脚本只打本地 dev server，直接禁用代理。
+    '--no-proxy-server',
     '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', 'about:blank'
   ], { stdio: 'ignore' })
   for (let attempt = 0; attempt < 120; attempt += 1) {
@@ -130,6 +136,55 @@ const measure = `(() => {
   }
 })()`
 
+// badges 档案的测量：进度行位置/唯一性、失败态文案、390 溢出（排除与不排除各一条）。
+const badgesMeasure = `(() => {
+  const visible = element => {
+    const style = getComputedStyle(element)
+    const box = element.getBoundingClientRect()
+    return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0
+  }
+  const scrollsHorizontally = element => {
+    for (let node = element.parentElement; node; node = node.parentElement) {
+      const style = getComputedStyle(node)
+      if (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth + 1) return true
+    }
+    return false
+  }
+  const controls = [...document.querySelectorAll('button, a, input, select, textarea, [role="button"]')].filter(visible)
+  const isClipped = element => {
+    const box = element.getBoundingClientRect()
+    return box.right > innerWidth + 1 || box.left < -1
+  }
+  const clippedRaw = controls.filter(isClipped)
+  const clippedPage = clippedRaw.filter(element => !scrollsHorizontally(element))
+  const row = document.querySelector('[data-testid="badge-backfill-progress"]')
+  const rowBox = row ? row.getBoundingClientRect() : null
+  const filterArea = row ? row.nextElementSibling : null
+  const filterBox = filterArea ? filterArea.getBoundingClientRect() : null
+  const filterInput = filterArea ? filterArea.querySelector('input') : null
+  const inputBox = filterInput ? filterInput.getBoundingClientRect() : null
+  const sample = list => list.slice(0, 3).map(element => element.tagName + '.' + (element.className || '').toString().slice(0, 40))
+  return {
+    url: location.pathname + location.search,
+    innerWidth, innerHeight, dpr: devicePixelRatio,
+    scrollWidth: document.documentElement.scrollWidth,
+    horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+    clippedRawCount: clippedRaw.length,
+    clippedRawSample: sample(clippedRaw),
+    clippedPageCount: clippedPage.length,
+    clippedPageSample: sample(clippedPage),
+    rowCount: document.querySelectorAll('[data-testid="badge-backfill-progress"]').length,
+    rowBeforeFilter: !!(row && filterArea && (row.compareDocumentPosition(filterArea) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0),
+    rowBottom: rowBox ? Math.round(rowBox.bottom) : null,
+    filterTop: filterBox ? Math.round(filterBox.top) : null,
+    inputTop: inputBox ? Math.round(inputBox.top) : null,
+    rowWithinViewport: rowBox ? rowBox.left >= -1 && rowBox.right <= innerWidth + 1 : false,
+    rowScrollFits: row ? row.scrollWidth <= row.clientWidth + 1 : false,
+    rowText: row ? row.innerText.replace(/\\n+/g, ' | ') : '',
+    bodyText: document.body.innerText.slice(0, 200)
+  }
+})()`
+
 async function main() {
   if (!session) {
     console.log('SKIP set SFORUM_SESSION_COOKIE (from CDP Network.getCookies on a logged-in session) to run the admin pass')
@@ -162,23 +217,84 @@ async function main() {
       client.socket.addEventListener('message', onMessage)
     })
     // 面板是异步加载的：给它一点时间，再测量。
-    await new Promise(resolve => setTimeout(resolve, 2500))
-    const result = await client.send('Runtime.evaluate', { expression: measure, returnByValue: true, awaitPromise: true })
+    if (adminProfile === 'badges') {
+      // 徽章列表与回扫进度是并行按需拉取的，dev 首次编译还慢：轮询到进度行出现为止（最多 15s）。
+      // 等不到就照常测量 —— rowCount=0 会让断言红，不会假绿。
+      const deadline = Date.now() + 15000
+      while (Date.now() < deadline) {
+        const probe = await client.send('Runtime.evaluate', {
+          expression: `!!document.querySelector('[data-testid="badge-backfill-progress"]')`,
+          returnByValue: true
+        })
+        if (probe.result.value) break
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+      await new Promise(resolve => setTimeout(resolve, 400))
+    } else {
+      await new Promise(resolve => setTimeout(resolve, 2500))
+    }
+    const expression = adminProfile === 'badges' ? badgesMeasure : measure
+    const result = await client.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })
     const measurement = result.result.value
     const consoleErrors = client.consoleMessages.filter(message => message.type === 'error' || message.type === 'exception')
     evidence.push({ ...measurement, consoleErrors })
-    if (measurement.innerWidth !== WIDTH) fail('viewport override did not apply', `innerWidth=${measurement.innerWidth}`)
-    if (!measurement.inspectorPresent) fail('route inspector page did not render (auth or route problem)', JSON.stringify(measurement).slice(0, 200))
-    if (!measurement.incidentsPanelPresent) fail('route incidents panel missing')
-    if (measurement.horizontalOverflow) fail('horizontal overflow', `scrollWidth=${measurement.scrollWidth}`)
-    if (measurement.clippedControls !== 0) fail('clipped controls', JSON.stringify(measurement.clippedSample))
-    if (consoleErrors.length > 0) fail('console errors', JSON.stringify(consoleErrors.slice(0, 3)))
+    if (adminProfile === 'badges') {
+      // 徽章页契约：进度行在筛选区上方且只有一行 + 失败态文案（值级）+ 390 无横向溢出。
+      if (measurement.innerWidth !== WIDTH) fail('viewport override did not apply', `innerWidth=${measurement.innerWidth}`)
+      if (measurement.rowCount !== 1) fail('backfill progress row is not exactly one', `rowCount=${measurement.rowCount}`)
+      else if (!measurement.rowBeforeFilter) fail('backfill progress row is not before the filter area')
+      else if (measurement.rowBottom > measurement.filterTop) fail('backfill progress row sits below the filter area', `rowBottom=${measurement.rowBottom} filterTop=${measurement.filterTop}`)
+      else if (measurement.inputTop !== null && measurement.rowBottom > measurement.inputTop) fail('backfill progress row overlaps the search input', `rowBottom=${measurement.rowBottom} inputTop=${measurement.inputTop}`)
+      if (!measurement.rowWithinViewport) fail('backfill progress row is clipped horizontally')
+      if (measurement.scrollWidth > WIDTH) fail('horizontal overflow', `scrollWidth=${measurement.scrollWidth}`)
+      if (measurement.clippedPageCount !== 0) fail('clipped controls outside horizontal scrollers', JSON.stringify(measurement.clippedPageSample))
+      if (!measurement.rowText.includes('回扫失败于用户 #137')) fail('failed run copy lost the cursor user id', JSON.stringify(measurement.rowText))
+      if (!measurement.rowText.includes('涉及徽章：老住户')) fail('failed run copy lost the badge name', JSON.stringify(measurement.rowText))
+      if (consoleErrors.length > 0) fail('console errors', JSON.stringify(consoleErrors.slice(0, 3)))
+    } else {
+      if (measurement.innerWidth !== WIDTH) fail('viewport override did not apply', `innerWidth=${measurement.innerWidth}`)
+      if (!measurement.inspectorPresent) fail('route inspector page did not render (auth or route problem)', JSON.stringify(measurement).slice(0, 200))
+      if (!measurement.incidentsPanelPresent) fail('route incidents panel missing')
+      if (measurement.horizontalOverflow) fail('horizontal overflow', `scrollWidth=${measurement.scrollWidth}`)
+      if (measurement.clippedControls !== 0) fail('clipped controls', JSON.stringify(measurement.clippedSample))
+      if (consoleErrors.length > 0) fail('console errors', JSON.stringify(consoleErrors.slice(0, 3)))
+    }
     if (qaDir) {
       mkdirSync(qaDir, { recursive: true })
       const shot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
-      const file = join(qaDir, `2026-10-16-admin-390x844${adminPath.replaceAll('/', '-')}.png`)
+      const slug = adminPath.replace(/[/?&=]+/g, '-')
+      const file = join(qaDir, `2026-10-16-admin-390x844${slug}.png`)
       writeFileSync(file, Buffer.from(shot.data, 'base64'))
       evidence[evidence.length - 1].screenshot = file
+      if (adminProfile === 'badges') {
+        // 行裁切：证据要能单独看清进度行本身。截图不是断言，裁切失败只记录。
+        try {
+          const clip = await client.send('Runtime.evaluate', {
+            expression: `(() => {
+              const row = document.querySelector('[data-testid="badge-backfill-progress"]')
+              if (!row) return null
+              const box = row.getBoundingClientRect()
+              const pad = 8
+              return {
+                x: Math.max(0, box.left + scrollX - pad),
+                y: Math.max(0, box.top + scrollY - pad),
+                width: Math.min(box.width + pad * 2, document.documentElement.scrollWidth),
+                height: box.height + pad * 2,
+                scale: 1
+              }
+            })()`,
+            returnByValue: true
+          })
+          if (clip.result.value) {
+            const rowShot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: clip.result.value })
+            const rowFile = join(qaDir, `2026-11-12-badge-backfill-row-390x844${slug}.png`)
+            writeFileSync(rowFile, Buffer.from(rowShot.data, 'base64'))
+            evidence[evidence.length - 1].rowScreenshot = rowFile
+          }
+        } catch (error) {
+          evidence[evidence.length - 1].rowScreenshotError = String(error?.message || error)
+        }
+      }
     }
   } finally {
     client.socket.close()
@@ -188,11 +304,20 @@ async function main() {
 }
 
 function finish() {
-  if (outputPath) writeFileSync(outputPath, `${JSON.stringify({ web, adminPath, failures, evidence }, null, 2)}\n`, 'utf8')
-  console.log(`admin 390x844 browser evidence (web=${web} path=${adminPath})`)
+  if (outputPath) writeFileSync(outputPath, `${JSON.stringify({ web, adminPath, adminProfile, failures, evidence }, null, 2)}\n`, 'utf8')
+  console.log(`admin 390x844 browser evidence (web=${web} path=${adminPath} profile=${adminProfile})`)
   for (const entry of evidence) {
     if (entry.browser) {
       console.log(`  browser: ${entry.browser} viewport=${entry.viewport}`)
+      continue
+    }
+    if (adminProfile === 'badges') {
+      console.log(
+        `  ${entry.url}: ${entry.innerWidth}x${entry.innerHeight} dpr=${entry.dpr} scrollWidth=${entry.scrollWidth} ` +
+          `rowCount=${entry.rowCount} rowBeforeFilter=${entry.rowBeforeFilter} rowBottom=${entry.rowBottom} ` +
+          `filterTop=${entry.filterTop} inputTop=${entry.inputTop} clippedRaw=${entry.clippedRawCount} ` +
+          `clippedPage=${entry.clippedPageCount} consoleErrors=${entry.consoleErrors.length} text=${JSON.stringify(entry.rowText)}`
+      )
       continue
     }
     console.log(
