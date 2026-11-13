@@ -47,6 +47,8 @@ const title = computed(() => (isEdit.value ? t('admin.badges.tiers.form.editTitl
 
 /** 新等级追加到末尾：位次决定默认色，也决定列表里的位置。 */
 const fallbackPosition = computed(() => props.store.tiers.value.length)
+/** 「按位置自动」会落成的色：与列表行的取色规则同源，也让色块显示 = 保存后的实际色。 */
+const positionDefault = computed(() => defaultTierColorName(props.tier?.position ?? fallbackPosition.value))
 
 const canSubmit = computed(() => {
   if (submitting.value) return false
@@ -74,8 +76,7 @@ function close() {
 }
 
 function resolvedColor(): string {
-  if (form.color) return form.color
-  return defaultTierColorName(props.tier?.position ?? fallbackPosition.value)
+  return form.color || positionDefault.value
 }
 
 async function submit() {
@@ -154,6 +155,7 @@ async function submit() {
             :apply-label="t('admin.badges.tiers.color.apply')"
             :invalid-label="t('admin.badges.tiers.color.invalid')"
             :low-contrast-label="t('admin.badges.tiers.color.lowContrast')"
+            :default-color="positionDefault"
           />
 
           <SFAdminBadgeIconField
@@ -161,7 +163,7 @@ async function submit() {
             :label="t('admin.badges.form.icon')"
             :more-label="t('admin.badges.icon.more')"
             :less-label="t('admin.badges.icon.less')"
-            :accent="tierColorVar(form.color)"
+            :accent="tierColorVar(resolvedColor())"
             :error="fieldErrors.icon?.[0]"
           />
 

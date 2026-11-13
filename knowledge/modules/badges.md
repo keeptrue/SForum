@@ -195,6 +195,7 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 - `KeepAlive` 保留的是**组件实例级局部状态**（grants 的选中徽章/页码、groups 的表单草稿、badges 的弹窗开关）；筛选与排序**不是**它的功劳——七个 query 键从 `route.query` 计算。
 - `badges` 分区七键筛选/排序全部进 URL（`q`/`group`/`tier`/`grantMode`/`enabled`/`sort`/`dir`），**读侧有白名单归一**：`group` 只认 `/^\d+$/` 或 `'none'`，其余归 `''`。
 - `tiers` 分区：CRUD + 调序；**删除必须选迁移目标**；「最后一档」的开关禁用（前后端各拦一道）。
+- **等级配色字段（2026-11-13）**：`components/admin/shared/SFAdminTierColorField.vue` 是徽章等级配色的唯一实现（消费者只有 `SFAdminBadgeTierDialog.vue`）。取色器 `input` **即时写入**表单（同值短路），所以拖动过程中色块 / hex 框 / 低对比度提示 / 图标强调色一起变；文本框仍是「草稿 + 应用」（手打 hex 打到一半就重算配色反而干扰）。取色块显示的是**有效色**：token 运行时读 CSS `--sf-tl-<token>-light`（SSR 回落 `#475569`，禁止前端第二份色表），「按位置自动」由调用方传 `defaultColor`。**与信任等级那个字段（`SFAdminTrustLevelColorField.vue`，仍是草稿→应用）行为不同是有意的**，别为了统一改成 change-only——用户报过的原话就是「拖动时颜色显示不动」。
 - `grants` 分区：先选徽章再懒加载，来源列按三来源着色，收回只对手动来源行渲染。
 - 授予弹窗三态（`granted`/`skipped`/`failed`）**不能合并成一个成功 toast**；`skipped` 是「已持有」不是错误；失败项才给「重试这一批」。
 - 规则编辑器（2026-11-12 新增，同日二轮改造）：`components/admin/badges/rule/SFAdminBadgeRule{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview}.vue` + 纯函数 `utils/admin/badgeRule.ts` / `badgeRuleParams.ts` / `badgeRuleSentence.ts`。编辑器只渲染 `PublishableDefinitions` 下发的目录。

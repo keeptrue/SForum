@@ -818,7 +818,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章 objectRef 候选残留收口（2026-11-13，最新）**：上一刀 accepted 带 5 条残留，本刀全部关闭 ——
+- **徽章等级配色：取色器实时驱动（2026-11-13，最新）**：用户报「拖动取色器时颜色显示不动」。根因是
+  配色字段只在 `change` / 「应用」写模型，拖动过程中只有 hex 文本框在动。改为取色器 `input` 即时写入
+  （同值短路），并让取色块显示**有效色**——token 运行时读 `--sf-tl-<token>-light`，不再固定 slate；
+  弹窗侧位次默认色收敛成 `positionDefault`，图标强调色跟随。信任等级外观弹窗**保持**「草稿 → 应用」
+  （两处口径有意不同，别顺手统一）。新增 `tests/admin/adminBadgeTierColorField.test.ts`（8 例）。
+  验证：`bun test tests/admin` 1244 pass / 0 fail、`bun run typecheck` 通过、架构边界门通过、
+  3000 端口实测 input 事件后 hex / 图标强调色 / 色板选中态同步。已随本 commit 提交。
+  见 `sessions/2026-11-13-badge-tier-color-live.md`、`modules/badges.md`「管理台徽章页」节。
+- **徽章 objectRef 候选残留收口（2026-11-13）**：上一刀 accepted 带 5 条残留，本刀全部关闭 ——
   ① `refKindManual` 布尔 → **三态 `refKindMode`**（`select`/`unavailable`/`empty`），「候选取不到」与
   「该类型没有候选项」拆成两句（旧键 `refManualHint` 删除），文本框带 `data-ref-manual-state`；
   ② 目录诊断分三条：老后端（无字段）**静默**、有数组缺类 → 规则区横幅、白名单外 `refKind` →

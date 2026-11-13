@@ -9,6 +9,10 @@
  *    宽度不够时横向滚动，绝不 wrap —— 折行会让「第几档」的视觉顺序失效。
  * 3. **只提示不阻断**：自定义 hex 在深色卡面下对比度不足时给一行提示，仍允许保存。
  *    配色是审美决策，工具不该替运营拍板。
+ *
+ * 写入口径（与信任等级那套字段**有意不同**，别顺手统一）：取色器 `input` 事件即时写入表单，
+ * 拖动过程中色块 / hex 框 / 对比度提示 / 图标强调色全部实时跟随；文本框仍是「草稿 + 应用」
+ * ——手打 hex 只会在打到一半时反复重算配色，实时写反而干扰。
  */
 import {
   TIER_MIN_DARK_CONTRAST,
@@ -31,9 +35,12 @@ const props = withDefaults(defineProps<{
   invalidLabel: string
   /** 低对比度提示模板，含 `{ratio}`。 */
   lowContrastLabel: string
+  /** 「按位置自动」时会落成的色（token 或 hex）；组件不认位次，由调用方算好传进来。 */
+  defaultColor?: string
   hint?: string
   disabled?: boolean
 }>(), {
+  defaultColor: '',
   hint: '',
   disabled: false
 })
@@ -58,6 +65,43 @@ const contrast = computed(() => (customHex.value ? tierAccentContrast(customHex.
 const lowContrast = computed(() => contrast.value !== null && contrast.value < TIER_MIN_DARK_CONTRAST)
 const contrastText = computed(() => (contrast.value === null ? '' : contrast.value.toFixed(2)))
 
+/**
+ * 当前显示的 token：模型是 token 就用它；模型为空（按位置自动）时用调用方给的默认色；
+ * 自定义 hex 没有 token 形态，返回 `null`。
+ */
+const effectiveToken = computed(() => {
+  const value = selected.value ?? normalizeTierColor(props.defaultColor)
+  return value && !isTierCustomColor(value) ? value : null
+})
+
+/**
+ * token 的浅色取值**从 CSS 读**（`--sf-tl-<token>-light` 在 `sforum-trust-colors.css` 是唯一真值），
+ * 不在 JS 里再抄一份色表。取色器只吃字面量 hex，所以这一步不可省；SSR 阶段没有 CSSOM，先留 `null`。
+ */
+const tokenLightHex = ref<string | null>(null)
+
+function readTokenLightHex(token: string | null) {
+  if (!token || typeof document === 'undefined') {
+    tokenLightHex.value = null
+    return
+  }
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(`--sf-tl-${token}-light`).trim().toLowerCase()
+  tokenLightHex.value = /^#[0-9a-f]{6}$/.test(raw) ? raw : null
+}
+
+onMounted(() => readTokenLightHex(effectiveToken.value))
+watch(effectiveToken, token => readTokenLightHex(token))
+
+/**
+ * 取色器显示值：自定义 hex → 当前 token 的实际色 → 调用方给的默认色若本身是 hex → 兜底 slate
+ * （最后一段只在 SSR / 无色板时可见，取色器不吃 `var()`）。
+ */
+const pickerValue = computed(() => {
+  const fallback = normalizeTierColor(props.defaultColor)
+  const fallbackHex = fallback && isTierCustomColor(fallback) ? fallback : null
+  return customHex.value || tokenLightHex.value || fallbackHex || '#475569'
+})
+
 function pick(value: string) {
   if (props.disabled) return
   emit('update:modelValue', value)
@@ -66,6 +110,19 @@ function pick(value: string) {
 function onHexInput(value: string | number) {
   hexDraft.value = String(value)
   hexInvalid.value = false
+}
+
+/**
+ * 取色器即时写入：拖动 / 点选过程中就把归一后的 hex 交给表单，颜色显示全部实时跟随。
+ * 同值短路 —— 拖动每帧都会触发 `input`，重复下发同一个值只会让父组件白重算一遍。
+ */
+function onPickerInput(event: Event) {
+  if (props.disabled) return
+  const target = event.target as HTMLInputElement | null
+  const normalized = normalizeTierColorInput(target?.value ?? '')
+  if (!normalized || normalized === selected.value) return
+  hexInvalid.value = false
+  emit('update:modelValue', normalized)
 }
 
 function applyHex() {
@@ -124,12 +181,12 @@ function swatchStyle(token: string) {
         <span class="sr-only">{{ props.pickerLabel }}</span>
         <input
           type="color"
-          :value="customHex || '#475569'"
+          :value="pickerValue"
           :disabled="props.disabled"
           :aria-label="props.pickerLabel"
           class="sf-tier-color-picker__input"
-          @input="onHexInput(($event.target as HTMLInputElement).value)"
-          @change="applyHex"
+          @input="onPickerInput"
+          @change="onPickerInput"
         >
       </label>
 
@@ -141,6 +198,7 @@ function swatchStyle(token: string) {
         size="sm"
         class="w-28"
         @update:model-value="onHexInput"
+        @keydown.enter.prevent="applyHex"
       />
       <UButton
         color="neutral"
