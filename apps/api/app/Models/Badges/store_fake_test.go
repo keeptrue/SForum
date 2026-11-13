@@ -498,15 +498,20 @@ func (f *fakeStore) TopBadgesFor(_ context.Context, userIDs []int64) (map[int64]
 			continue
 		}
 		for _, badge := range f.badges {
-			if badge.ID == badgeID && badge.Enabled {
-				appearance := badge.Appearance
-				if appearance.Empty() {
-					if def, err := f.GetTier(context.Background(), string(badge.Tier)); err == nil {
-						appearance = def.Appearance()
-					}
-				}
-				result[userID] = BadgeRef{Slug: badge.Slug, Name: badge.Name, Tier: badge.Tier, Icon: badge.Icon, Appearance: appearance}
+			if badge.ID != badgeID || !badge.Enabled {
+				continue
 			}
+			// 与 SQL 的 `JOIN badge_tiers ... AND tier_def.enabled` 同义：
+			// 等级缺失或停用都等于这枚徽章不可展示，不能只判 badges.enabled。
+			tier, err := f.GetTier(context.Background(), string(badge.Tier))
+			if err != nil || !tier.Enabled {
+				continue
+			}
+			appearance := badge.Appearance
+			if appearance.Empty() {
+				appearance = tier.Appearance()
+			}
+			result[userID] = BadgeRef{Slug: badge.Slug, Name: badge.Name, Tier: badge.Tier, Icon: badge.Icon, Appearance: appearance}
 		}
 	}
 	return result, nil

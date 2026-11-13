@@ -6927,6 +6927,16 @@
       "source": "apps/web/app/components/notifications/SFCelebrationHost.vue"
     },
     {
+      "id": "core.component.shared.sf_badge_detail_dialog_host",
+      "contractVersion": "sforum.component.shared.sf_badge_detail_dialog_host@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeDetailDialogHost.vue"
+    },
+    {
       "id": "core.component.shared.sfbadgedetailmodal",
       "contractVersion": "sforum.component.shared.sfbadgedetailmodal@1",
       "kind": "component",

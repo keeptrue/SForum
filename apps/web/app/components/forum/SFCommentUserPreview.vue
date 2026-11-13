@@ -3,14 +3,20 @@ import { useProfileApi, type PublicProfile } from '~/composables/profile/useProf
 import { apiErrorStatusCode } from '~/composables/useApiClient'
 import { userDisplayName, type ForumUserRef } from '~/utils/forum/userDisplay'
 import SFUserIdentityName from '~/components/forum/SFUserIdentityName.vue'
+import SFBadgeChip from '~/components/forum/SFBadgeChip.vue'
+import type { ForumBadgeRef } from '~/utils/forum/forumBadge'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** 列表场景已有的用户摘要：名字与头像直接消费，网络资料只做增强。 */
   user: ForumUserRef
   /** 传 user.username 之外的显式用户名（提及场景只有 username）。 */
   username?: string
   profilePath: string
-}>()
+  /** 评论载荷里已投影的佩戴徽章；缺省时等资料接口补齐。 */
+  topBadge?: ForumBadgeRef | null
+}>(), {
+  topBadge: null
+})
 
 const { t } = useI18n()
 const profileApi = useProfileApi()
@@ -32,6 +38,9 @@ const localDisplayName = computed(() => {
 const displayName = computed(() => localDisplayName.value || profile.value?.displayName || previewUsername.value)
 const displayAvatar = computed(() => props.user?.avatar || profile.value?.profile.avatar || null)
 const bio = computed(() => profile.value?.profile.bio?.trim() || profile.value?.profile.signature?.trim() || '')
+// 优先评论载荷：与用户点开预览卡的那颗 chip 同源，同页不会出现两枚不同的徽章；
+// @提及 没有评论载荷，回落资料接口的 `topBadge`。
+const badge = computed(() => props.topBadge ?? profile.value?.topBadge ?? null)
 
 async function loadProfile() {
   if (!previewUsername.value || profile.value || pending.value) {
@@ -71,7 +80,12 @@ onMounted(() => {
         :user="{ username: previewUsername, displayName }"
         :to="profilePath"
         class="sf-comment-user-preview__names sf-comment-user-preview__identity-names"
-      />
+      >
+        <!-- 不传 username：卡片名字本身已是资料页链接，chip 再带链接就是嵌套 <a>。 -->
+        <template #name-suffix>
+          <SFBadgeChip v-if="badge" :badge="badge" />
+        </template>
+      </SFUserIdentityName>
     </div>
 
     <SFSkeleton v-if="pending" width="88%" height="0.75rem" class="sf-comment-user-preview__skeleton" />

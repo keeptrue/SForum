@@ -266,8 +266,16 @@ describe('profile page header contract', () => {
 
   test('the handle line sits below the nickname instead of sharing the h1 row', () => {
     const page = source(pagePath)
-    // 身份块是「昵称一行 + (handle, UID) 一行」：h1 直接领起第二行容器。
+    // 身份块是「昵称行（h1 + 可选徽章 chip）+ (handle, UID) 一行」：
+    // name-row 只装昵称与 chip，handle 必须还在紧随其后的 identity-meta 里。
+    const nameRow = page.match(/<div class="sf-profile-intro__name-row">([\s\S]*?)<\/div>/)?.[1] ?? ''
+    expect(nameRow).toContain('<h1 id="profile-name">{{ displayName }}</h1>')
+    expect(nameRow).not.toContain('sf-profile-handle')
+    expect(nameRow).not.toContain('sf-profile-uid')
     expect(page).toContain('class="sf-profile-intro__identity-meta"')
-    expect(page).toMatch(/<h1 id="profile-name">\{\{ displayName \}\}<\/h1>\s*<div class="sf-profile-intro__identity-meta">/)
+    // 两个容器仍是兄弟节点且顺序不变：昵称行在前，身份小字紧随其后。
+    expect(page).toMatch(/<\/div>\s*<div class="sf-profile-intro__identity-meta">/)
+    expect(page.indexOf('sf-profile-intro__name-row'))
+      .toBeLessThan(page.indexOf('sf-profile-intro__identity-meta'))
   })
 })

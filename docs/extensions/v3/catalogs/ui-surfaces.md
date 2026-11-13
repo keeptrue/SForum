@@ -266,6 +266,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sf_badge_catalog_page` | `sforum.component.shared.sf_badge_catalog_page@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue` | P9 Component Registry |
 | `core.component.public.s_f_badge_chip` | `sforum.component.public.s_f_badge_chip@1` | component | `public` | — | `apps/web/app/components/forum/SFBadgeChip.vue` | P9 Component Registry |
 | `core.component.shared.sfbadgedetailbody` | `sforum.component.shared.sfbadgedetailbody@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeDetailBody.vue` | P9 Component Registry |
+| `core.component.shared.sf_badge_detail_dialog_host` | `sforum.component.shared.sf_badge_detail_dialog_host@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeDetailDialogHost.vue` | P9 Component Registry |
 | `core.component.shared.sfbadgedetailmodal` | `sforum.component.shared.sfbadgedetailmodal@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeDetailModal.vue` | P9 Component Registry |
 | `core.component.shared.sfbookmark_control` | `sforum.component.shared.sfbookmark_control@1` | component | `public` | — | `apps/web/app/components/forum/SFBookmarkControl.vue` | P9 Component Registry |
 | `core.component.shared.sfbutton` | `sforum.component.shared.sfbutton@1` | component | `public`, `admin` | — | `apps/web/app/components/SFButton.vue` | P7/P9 Admin and Component Registries |

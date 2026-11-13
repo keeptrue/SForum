@@ -15,6 +15,8 @@
 import SFBadgeCard from '~/components/forum/badges/SFBadgeCard.vue'
 import SFBadgeDetailModal from '~/components/forum/badges/SFBadgeDetailModal.vue'
 import { badgeWornErrorKey, useBadgeWorn } from '~/composables/forum/badges/useBadgeWorn'
+import { useBadgeWearToggle } from '~/composables/forum/badges/useBadgeWearToggle'
+import { useAuthSession } from '~/composables/identity/useAuthSession'
 import {
   forumBadgeRequirementText,
   sortProfileBadgeEntries,
@@ -61,6 +63,9 @@ const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const toast = useToast()
 const worn = useBadgeWorn()
+// 佩戴状态条只回显「当前账号」的佩戴态：全局态带归属，账号切换后不能短暂显示上一账号。
+const { user } = useAuthSession()
+const viewerId = computed(() => Number(user.value?.id ?? 0))
 
 const isCatalog = computed(() => props.variant === 'catalog')
 // 佩戴控件只属于「本人的资料页」：目录页是目录，他人页是展示。
@@ -68,24 +73,8 @@ const canWear = computed(() => props.self && !isCatalog.value)
 
 const isHidden = computed(() => worn.isHidden.value)
 
-async function wearSlug(slug: string, name: string) {
-  try {
-    await worn.wear(slug)
-    toast.add({
-      color: 'success',
-      icon: 'i-lucide-check',
-      title: t('badges.worn.wearSuccess', { name })
-    })
-  } catch (error) {
-    // 失败不静默：未持有/不可用与一般保存失败分开说。
-    toast.add({
-      color: 'error',
-      icon: 'i-lucide-alert-triangle',
-      title: t(badgeWornErrorKey(error)),
-      duration: 0
-    })
-  }
-}
+// 佩戴动作（乐观更新 + toast）与全局徽章弹窗共用一份实现。
+const { toggleWear: toggleBadgeWear, hideWorn } = useBadgeWearToggle()
 
 /**
  * 卡片/弹窗上的那颗按钮：未佩戴 → 佩戴；已佩戴 → **取消佩戴（不佩戴任何徽章）**。
@@ -95,11 +84,7 @@ async function wearSlug(slug: string, name: string) {
  */
 async function toggleWear(badge: ProfileBadgeEntry) {
   if (!canWear.value) return
-  if (worn.isWorn(badge.slug)) {
-    await hideWorn()
-    return
-  }
-  await wearSlug(badge.slug, badge.name)
+  await toggleBadgeWear(badge)
 }
 
 /** 从已加载分组里反查佩戴 slug 的展示名（名字只由徽章清单提供，佩戴层不带文案）。 */
@@ -120,26 +105,6 @@ const wornStatusText = computed(() => {
   }
   return ''
 })
-
-/** 不佩戴任何徽章（`PUT {hidden:true}`）：已经是 hidden 时不重复发请求。 */
-async function hideWorn() {
-  if (isHidden.value) return
-  try {
-    await worn.hide()
-    toast.add({
-      color: 'success',
-      icon: 'i-lucide-eye-off',
-      title: t('badges.worn.hideSuccess')
-    })
-  } catch (error) {
-    toast.add({
-      color: 'error',
-      icon: 'i-lucide-alert-triangle',
-      title: t(badgeWornErrorKey(error)),
-      duration: 0
-    })
-  }
-}
 
 /** 自动展示徽章（`DELETE` 回 auto）：已经是 auto 时不重复发请求。 */
 async function restoreAuto() {
@@ -308,7 +273,7 @@ watch(
       当前态那颗点了不发请求（handler guard），按钮保持可聚焦——不用 disabled。
     -->
     <div
-      v-if="canWear && worn.loaded.value && !worn.failed.value"
+      v-if="canWear && worn.loadedFor(viewerId) && !worn.failed.value"
       class="sf-profile-badges__worn-state"
     >
       <span v-if="wornStatusText" class="sf-profile-badges__worn-text">{{ wornStatusText }}</span>

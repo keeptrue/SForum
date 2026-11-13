@@ -178,8 +178,10 @@ func buildSections(groups []BadgeGroup, items []UserBadge) []BadgeGroupSection {
 
 // TopBadgesFor 批量取用户**当前展示**的徽章（一次查询，无 N+1）。
 //
-// 当前无生产调用方：论坛读模型的徽章由 Forum 的读 SQL 直接投影（topBadgeSelectSQL），
-// 不再经本包补齐。保留为 store 能力（后台/插件或未来的批量读）。
+// 生产消费方是 Profile 资料页展示位：Profile 只认 TopBadgeReader 最小接口，
+// 适配器在 bootstrap（`profileTopBadges`），所以 Profile 与 Badges 之间没有直接
+// import，也不会有第二份徽章 SQL。论坛读模型的 chip 仍由 Forum 的读 SQL 直接投影
+// （topBadgeSelectSQL），两者口径必须一致：徽章停用**或等级停用**都不展示。
 func (s *Service) TopBadgesFor(ctx context.Context, userIDs []int64) (map[int64]BadgeRef, error) {
 	if s == nil || s.store == nil {
 		return map[int64]BadgeRef{}, nil

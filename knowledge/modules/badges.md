@@ -174,6 +174,50 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 **不要在前端按 tier key 反查颜色**：等级是运营数据（可增删、可换色），猜出来的色会和后台配置打架。
 `forumBadgeTierColor()` 缺载荷时一律 `slate`。图标的三档兜底保留（形状不是颜色）。
 
+## 资料页展示位（2026-11-13）
+
+资料页头部与用户预览卡显示的「佩戴中徽章」= `PublicProfile.topBadge`（`json:"topBadge,omitempty"`），
+数据源与 chip 同一列：`users.top_badge_id`（佩戴优先，否则排序第一）。
+
+- **读口复用**：`badges.PostgresStore.TopBadgesFor`（批量，无 N+1）。Profile 只认窄接口
+  `profile.TopBadgeReader`，字段翻译（`badges.BadgeRef.Appearance` → `forum.BadgeRef.TierName/TierColor`）
+  住在装配层 `bootstrap/profile_badge_wiring.go`；Profile 与 Badges 之间**没有直接 import**，
+  也**没有第二份徽章 SQL**。两处装配（API 的 `profileProvider` 与 PageViewModels 的 `pageProfileService`）
+  都接了同一个适配器——只接一处会出现「主题页与 JSON 端点两套身份装饰」。
+- **`TopBadgesFor` 的等级过滤已修**：`LEFT JOIN badge_tiers` → `JOIN ... AND tier_def.enabled`。
+  它原来只判 `badges.enabled`，一旦有了消费者就会在「停档 + 重算未跑」窗口里挂出一枚
+  chip 不显示的徽章。现在与 `topBadgeJoinSQL` 逐字同口径（停用档等价于不存在）。
+  这不是修 NULL 扫描（`badgeTierColumnsSQL` 全是 `COALESCE`，旧 SQL 本来就不会扫 NULL），
+  唯一目的是可见性口径。
+- **`hidden` 不在读路径过滤**：两个读口都只投影 `top_badge_id`，`hidden` 的可见性依赖写入不变量
+  `top_badge_hidden = TRUE ⇒ top_badge_id IS NULL`（`HideWornBadge` 同源写入三列）。半坏行会让
+  两边同时显示——属数据修复，不在读路径兜。
+- **失败姿态 fail-soft**：读失败只 `slog.Warn("profile: load top badge failed")` 并省略字段。
+  与行为计数相反（计数读失败整页 500，因为「恒显示 0 获赞」像真的）；徽章是装饰，缺它不说假话。
+  装配漏接的兜底是 `bootstrap/profile_badge_wiring_test.go`（真库），不是读路径报错。
+- **预览卡优先级**：`SFCommentUserPreview` 优先吃评论载荷的 `topBadge`（与用户点开的那颗 chip 同源），
+  `@提及` 没有载荷时回落资料接口。卡片内 chip **不传 username**（名字本身是链接，chip 若成按钮就是
+  `<a>` 里套 `<button>`）。
+- **chip 点击 = 徽章说明弹窗（2026-11-14 二段）**：`SFBadgeChip` 有 username 时渲染成 `<button
+  aria-haspopup="dialog">`，点击调 `useForumBadgeDialog().openBadgeDialog`，**不再跳** `/u/x?tab=badges`；
+  无 username 仍是 `<span role="img">`。全局宿主 `SFBadgeDetailDialogHost`（挂在 `app.vue`，与庆祝宿主同层）
+  复用 `SFBadgeDetailModal` / `SFBadgeDetailBody`，所以和徽章墙弹窗的信息项完全同源。
+  取数是 `GET /profiles/{username}/badges`，按 username 分桶缓存；chip 载荷没有说明/条件/获得时间，
+  所以**必须**拉墙，墙里没有这个 slug（徽章停用/删除）或请求失败时显示「暂时不可用」，**不许**拿 chip
+  的字段拼一颗缺说明的假徽章。佩戴按钮只在「本人 + 已获得」出现，动作与资料页徽章墙共用
+  `useBadgeWearToggle`（`hide()` = 不佩戴任何徽章，不是回落自动）。
+  因为 chip 是 button，任何调用点都不能让它在 button/a 里面：评论作者行把它放成预览按钮的兄弟节点，
+  预览卡不传 username。
+- **本人页跟随本地佩戴态**：资料页用 `useBadgeWorn` 的 `loaded/mode/wornSlug` 覆盖接口字段，
+  刚换佩戴立即生效、选「不佩戴」chip 消失；他人页只认接口字段。**全局态带账号归属**
+  （`ownerId` + `loadedFor(userId)`）：账号切换是客户端跳转、不刷新页面，没有归属会让上一个
+  账号的佩戴漏给下一个账号。优先级收在纯函数 `utils/profile/profileHeaderBadge.ts`
+  （`resolveHeaderBadge`，表驱动测试）。
+- **延迟**：`GET /profiles/{username}` 是 `private, no-store`，资料页 chip 即时；评论载荷有 20–30s 缓存，
+  所以佩戴/停档窗口内两处可能差一个评论 TTL——与上面「授予后缓存延迟」同源，别当 bug 修。
+- **不做**：右栏身份小字（`@name · UID n`）不叠 chip；主题 `ProfilePageViewModel` 不加字段
+  （内置主题只挂 `<sf-profile-page>` Host 岛，chip 在岛内渲染）。
+
 ## Grant Sources — 三来源判别式
 
 | 来源 | `granted_by` | `grant_reason` | 触发路径 |

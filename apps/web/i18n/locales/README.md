@@ -8,15 +8,26 @@
 | 键 | 来源 |
 | --- | --- |
 | `badges.tier.gold` / `silver` / `bronze` | `knowledge/reports/2026-11-10-badge-visual-spec.md` §5.1 原文（金牌 / 银牌 / 铜牌） |
-| `badges.chip.ariaLabel` / `ariaLabelLink` | 同上 §5.1 模板原文 |
+| `badges.chip.ariaLabel` | 同上 §5.1 模板原文（纯展示 chip，不可点） |
+| `badges.chip.ariaLabelDialog` | **2026-11-14 换源**：chip 由「跳转资料页徽章 tab」改为「打开徽章说明弹窗」，旧句「查看资料页徽章」不再成立；句尾动作词按本轮 UI 需求写，非规范原文 |
 | `badges.card.ariaLabel` / `ariaLabelUngranted` / `ariaLabelNotEarned` / `earnedOn` / `notEarned` / `progress` | 同上 §5.1 模板原文 |
 | `badges.group.count` | 同上 §8 原文（`{earned} / {total}`） |
 | `badges.empty` | **来源：徽章测试的期望字符串**（`tests/forum/profileBadgeTab.test.ts` 断言 `还没有获得徽章`），非规范原文 |
 | `badges.loadFailed` | **来源：徽章测试的期望字符串**（同上，断言含句号：`徽章加载失败。`），非规范原文 |
 | `badges.retry` | **来源：徽章测试的期望字符串**（同上用例的重试按钮），非规范原文 |
 
-另：`badges.chip.ariaLabelLink` 在 `SFBadgeChip.vue` 里当 `title` 用，而规范写的是「追加到
-`aria-label` 末尾」。实现与规范的这处分歧属徽章域 residual，locale 值按实现填了完整句。
+另：`badges.chip.ariaLabelLink` 已随交互改造删除（原句「查看资料页徽章」会被徽章说明弹窗
+误用）。新键 `ariaLabelDialog` 同时用于 `aria-label` 与 `title`。
+
+## `badges.dialog.*`（2026-11-14 徽章说明弹窗）
+
+**来源：本轮 UI 需求，不是规范原文。** 昵称旁 chip 改为打开全局徽章说明弹窗；取数期间与
+取数失败各需要一句状态文案，避免「点了没反应」。
+
+| 键 | zh-CN | en-US | 出口 |
+| --- | --- | --- | --- |
+| `badges.dialog.loading` | 正在加载徽章说明… | Loading badge details… | 弹窗骨架上方 |
+| `badges.dialog.failed` | 徽章说明暂时不可用 | Badge details are unavailable right now | 取数失败，或 slug 已不在徽章墙里 |
 
 ## `badges.worn.*`（2026-11-13 佩戴出口收口）
 

@@ -279,6 +279,48 @@ func TestDisabledTierIsExcludedFromTopBadge(t *testing.T) {
 	}
 }
 
+// TestTopBadgesForSQLSkipsDisabledTier 断言批量展示位读口与 chip 同口径：
+// 等级停用后，即使 users.top_badge_id 仍指向该档徽章（停档 + 重算未跑的窗口），
+// TopBadgesFor 也必须返回空。
+//
+// 这条只能真库验：fake 复刻不了 JOIN 条件。用直接写 top_badge_id 造出那个窗口，
+// 而不是走 RecomputeTopBadge——后者会把展示位挪走，恰好绕开要测的分支。
+func TestTopBadgesForSQLSkipsDisabledTier(t *testing.T) {
+	fixture := newBadgeTiersPGFixture(t)
+	store := NewPostgresStore(fixture.pool)
+	ctx := fixture.ctx
+
+	userID := fixture.user(t, "carol")
+	badgeID := fixture.manualBadge(t, "gold-badge", "gold", 0)
+	if _, err := fixture.pool.Exec(ctx, `UPDATE users SET top_badge_id = $1 WHERE id = $2`, badgeID, userID); err != nil {
+		t.Fatal(err)
+	}
+
+	refs, err := store.TopBadgesFor(ctx, []int64{userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, ok := refs[userID]
+	if !ok || ref.Slug != "gold-badge" {
+		t.Fatalf("TopBadgesFor = %+v, want gold-badge while the tier is enabled", refs[userID])
+	}
+	// 外观必须随徽章一起出来（资料页 chip 与帖子旁 chip 共用同一份配色/双语名）。
+	if ref.Appearance.NameZh == "" || ref.Appearance.Color == "" {
+		t.Fatalf("tier appearance missing: %+v", ref.Appearance)
+	}
+
+	if _, err := fixture.pool.Exec(ctx, `UPDATE badge_tiers SET enabled = FALSE WHERE key = 'gold'`); err != nil {
+		t.Fatal(err)
+	}
+	refs, err = store.TopBadgesFor(ctx, []int64{userID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref, ok := refs[userID]; ok {
+		t.Fatalf("disabled tier must not expose a top badge, got %+v", ref)
+	}
+}
+
 // TestDeleteTierMigratesBadgesInOneTransaction 断言删除把引用徽章迁到目标档再删行。
 func TestDeleteTierMigratesBadgesInOneTransaction(t *testing.T) {
 	fixture := newBadgeTiersPGFixture(t)

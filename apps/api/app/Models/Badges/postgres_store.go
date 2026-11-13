@@ -255,9 +255,22 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 	return items, nil
 }
 
-// TopBadgesFor 一次查询取整页用户的最高级徽章，避免列表 N+1。
+// TopBadgesFor 一次查询取整页用户**当前展示**的徽章，避免列表 N+1。
 //
-// 只返回「启用」徽章：停用徽章的已授予行保留，但不再展示。
+// 可见性与帖子/评论旁 chip 逐字同口径（见 Forum 的 topBadgeJoinSQL）：
+//   - 徽章停用后不再展示（`top_badge_id` 可能仍指向它）；
+//   - 等级停用同样不展示——自 202611120001 起「停用一档等价于这一档不存在」，
+//     停档 + 重算未跑的窗口里不能仍把该档徽章当展示位。
+//
+// 所以等级是 JOIN 而不是 LEFT JOIN：缺行与停用行在这里是同一件事（不可展示）。
+//
+// 两个读口（这里的 top_badge_id 投影与 Forum 的 topBadgeJoinSQL）都**不判**
+// `users.top_badge_hidden`：hidden 的不可见性完全依赖写入不变量
+// `top_badge_hidden = TRUE ⇒ top_badge_id IS NULL`（HideWornBadge 同一句写入，
+// 清展示位、清 manual 标记、置 hidden）。半坏行（hidden 为真但仍指向徽章）会让
+// 资料页与 chip 同时把它显示出来——那属于数据修复范畴，不在读路径兜。
+//
+// 消费方是 Profile 资料页展示位（经 bootstrap 适配器转成 forum.BadgeRef）。
 func (s *PostgresStore) TopBadgesFor(ctx context.Context, userIDs []int64) (map[int64]BadgeRef, error) {
 	result := make(map[int64]BadgeRef, len(userIDs))
 	if len(userIDs) == 0 {
@@ -268,7 +281,7 @@ func (s *PostgresStore) TopBadgesFor(ctx context.Context, userIDs []int64) (map[
 		       `+badgeTierColumnsSQL+`
 		FROM users
 		JOIN badges ON badges.id = users.top_badge_id
-		LEFT JOIN badge_tiers AS tier_def ON tier_def.key = badges.tier
+		JOIN badge_tiers AS tier_def ON tier_def.key = badges.tier AND tier_def.enabled
 		WHERE users.id = ANY($1) AND badges.enabled`, userIDs)
 	if err != nil {
 		return nil, fmt.Errorf("top badges for users: %w", err)

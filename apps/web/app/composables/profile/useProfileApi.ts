@@ -3,6 +3,7 @@ import type {
   ProfileSettingsSection,
   ProfileSettingsValue
 } from '~/utils/settings/profileSettings'
+import type { ForumBadgeRef } from '~/utils/forum/forumBadge'
 
 export type ProfileData = {
   userId: number
@@ -85,6 +86,12 @@ export type PublicProfile = {
   userId: number
   username: string
   displayName: string
+  /**
+   * 当前佩戴的徽章，与帖子/评论作者行的 chip 同源（同一个 `top_badge` 投影）。
+   * 缺省表示没有可展示的徽章：没有徽章、徽章或等级被停用、用户选了不佩戴，
+   * 或徽章读取失败——装饰性字段，不阻断整份资料。
+   */
+  topBadge?: ForumBadgeRef | null
   profile: ProfileData
   topicCount: number
   commentCount: number

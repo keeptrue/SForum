@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computed, defineComponent, h, ref, watch } from 'vue'
+import { computed, defineComponent, h, ref, watch, type Ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
@@ -10,6 +10,8 @@ import {
   useBadgeWorn,
   wornSlugOf
 } from '~/composables/forum/badges/useBadgeWorn'
+import { useAuthSession } from '~/composables/identity/useAuthSession'
+import { useBadgeWearToggle } from '~/composables/forum/badges/useBadgeWearToggle'
 import {
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
@@ -71,8 +73,13 @@ function createStateStore() {
 }
 
 type WornGlobalsOptions = {
-  /** 每次请求依次消费：对象 = 正常响应，Error = 抛错。 */
-  responses?: Array<Record<string, unknown> | Error>
+  /** 每次请求依次消费：对象 = 正常响应，Error = 抛错，Promise = 手动控制回包时机。 */
+  responses?: Array<Record<string, unknown> | Error | Promise<Record<string, unknown>>>
+  /**
+   * 当前登录用户（`useState('auth:user')` 那一格）：账号切换用例要在两次
+   * `ensureLoaded()` 之间改它。缺省视为已登录的 user 1（归属判定需要非零 viewerId）。
+   */
+  viewer?: Ref<{ id: number } | null>
 }
 
 /**
@@ -91,8 +98,13 @@ async function withWornGlobals(
   const calls: Call[] = []
   const toasts: Array<Record<string, unknown>> = []
   const queue = [...(options.responses ?? [])]
+  // `useAuthSession` 是显式 import（仓库约定），不能从全局桩替身；但它读的是
+  // `useState('auth:user')`，所以把这一格换成用例可改的 ref 就能控制当前账号。
+  const authUser = options.viewer ?? ref<{ id: number } | null>({ id: 1 })
 
-  globals.useState = store.useState
+  globals.useState = <T>(key: string, init: () => T) => (
+    key === 'auth:user' ? authUser as unknown as Ref<T> : store.useState(key, init)
+  )
   globals.useToast = () => ({ add: (toast: Record<string, unknown>) => toasts.push(toast) })
   globals.useApiClient = () => ({
     request: async (path: string, init: { method?: string, body?: unknown } = {}) => {
@@ -293,6 +305,61 @@ describe('useBadgeWorn · 乐观更新与回滚', () => {
       expect(worn.loaded.value).toBe(false)
     })
   })
+
+  test('switching accounts refetches the worn state instead of leaking the previous owner', async () => {
+    // 登录/登出都是客户端跳转、不整页刷新：全局佩戴态会带着上一个账号的 loaded/wornSlug 活下来。
+    const viewer = ref<{ id: number } | null>({ id: 1 })
+    await withWornGlobals({
+      viewer,
+      responses: [
+        { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null },
+        { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null }
+      ]
+    }, async ({ calls }) => {
+      const worn = useBadgeWorn()
+      await worn.ensureLoaded()
+      expect(worn.loadedFor(1)).toBe(true)
+      expect(worn.loadedFor(2)).toBe(false)
+      expect(worn.wornSlug.value).toBe('helper')
+
+      // 同一页面里换成 user 2：loaded 仍为 true，但归属不是当前账号，必须重取。
+      viewer.value = { id: 2 }
+      await worn.ensureLoaded()
+
+      expect(calls.filter(call => call.method === 'GET')).toHaveLength(2)
+      expect(worn.loadedFor(1)).toBe(false)
+      expect(worn.loadedFor(2)).toBe(true)
+      // 新账号的 hidden 态立刻生效：不会继承上一个账号的 helper。
+      expect(worn.isHidden.value).toBe(true)
+      expect(worn.wornSlug.value).toBe('')
+    })
+  })
+
+  test('a response that lands after an account switch is discarded', async () => {
+    const viewer = ref<{ id: number } | null>({ id: 1 })
+    let resolveResponse!: (value: Record<string, unknown>) => void
+    const pending = new Promise<Record<string, unknown>>((resolve) => {
+      resolveResponse = resolve
+    })
+
+    await withWornGlobals({ viewer, responses: [pending] }, async ({ calls }) => {
+      const worn = useBadgeWorn()
+      // 以 user 1 发起 GET，回包被手动挂起。
+      const inFlight = worn.ensureLoaded()
+      expect(calls).toHaveLength(1)
+
+      // 回包前换账号：旧账号的响应迟到，不能记到 user 2 名下，也不能污染共享 state。
+      viewer.value = { id: 2 }
+      resolveResponse({ mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null })
+      await inFlight
+
+      expect(worn.loadedFor(1)).toBe(false)
+      expect(worn.loadedFor(2)).toBe(false)
+      expect(worn.ownerId.value).toBe(0)
+      expect(worn.state.value.wornSlug).toBe('')
+      expect(worn.mode.value).toBe('auto')
+    })
+  })
 })
 
 /* ------------------------------------------------------------------------- */
@@ -356,6 +423,9 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab-wor
   useLocalePath: () => (path: string) => path,
   useToast: () => ({ add: (toast: Record<string, unknown>) => toastSink.push(toast) }),
   useBadgeWorn,
+  useBadgeWearToggle,
+  // tab 现在按账号归属判断佩戴状态条；真实组合式函数读的就是被桩掉的 useState。
+  useAuthSession,
   badgeWornErrorKey,
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
@@ -402,10 +472,15 @@ async function mountTab(
   toastSink = []
   const originalState = globals.useState
   const originalApiClient = globals.useApiClient
+  const originalI18n = globals.useI18n
+  const originalToast = globals.useToast
   const store = createStateStore()
   const calls: Call[] = []
   const queue = [...(options.responses ?? [])]
   globals.useState = store.useState
+  // 真实 useBadgeWearToggle 走 Nuxt 自动导入：tab 的 toast/i18n 与它必须共用同一份桩。
+  globals.useI18n = () => ({ t: zhI18n.t, te: zhI18n.te, locale: ref('zh-CN') })
+  globals.useToast = () => ({ add: (toast: Record<string, unknown>) => toastSink.push(toast) })
   globals.useApiClient = () => ({
     request: async (path: string, init: { method?: string, body?: unknown } = {}) => {
       calls.push({ path, method: init.method ?? 'GET', body: init.body })
@@ -429,6 +504,8 @@ async function mountTab(
       wrapper.unmount()
       globals.useState = originalState
       globals.useApiClient = originalApiClient
+      globals.useI18n = originalI18n
+      globals.useToast = originalToast
     }
   }
 }

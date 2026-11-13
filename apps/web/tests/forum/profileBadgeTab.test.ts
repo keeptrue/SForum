@@ -102,6 +102,8 @@ const badgeWornStub = () => {
     loading: ref(false),
     failed: ref(false),
     loaded: ref(false),
+    // 本文件只挂 self=false 的容器：状态条不渲染，归属判定恒 false 即可。
+    loadedFor: () => false,
     isWorn: (slug: string) => Boolean(slug) && state.value.wornSlug === slug,
     load: async () => {},
     ensureLoaded: async () => {},
@@ -135,6 +137,13 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   watch,
   useToast: () => ({ add: () => {} }),
   useBadgeWorn: badgeWornStub,
+  // 佩戴动作已抽到共享 composable；本文件只渲染容器，给无副作用桩。
+  useBadgeWearToggle: () => ({
+    toggleWear: async () => {},
+    wearBadge: async () => {},
+    hideWorn: async () => {}
+  }),
+  useAuthSession: () => ({ user: ref(null) }),
   badgeWornErrorKey,
   useI18n: () => ({ t, te: has, locale: localeRef }),
   useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),

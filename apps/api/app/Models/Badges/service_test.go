@@ -245,6 +245,32 @@ func TestTopBadgesForReturnsEnabledOnly(t *testing.T) {
 	}
 }
 
+// TestTopBadgesForSkipsDisabledTier 断言「等级停用」与「徽章停用」同权：
+// 展示位指向一枚挂在停用档位上的启用徽章时，批量读口必须什么都不返回。
+//
+// 这是与 chip 的 topBadgeJoinSQL 对齐的那一条：只判 badges.enabled 会让资料页
+// 挂着 chip 已经不再展示的徽章（停档 + 重算未跑的窗口）。
+func TestTopBadgesForSkipsDisabledTier(t *testing.T) {
+	store, activity := seedCatalog(t)
+	service := NewService(store, activity)
+	// first-topic 是 bronze 档、enabled 的徽章；把 bronze 整档停用。
+	store.grants[7] = map[int64]time.Time{2: {}}
+	store.top[7] = 2
+	if _, err := store.UpdateTier(context.Background(), "bronze", TierInput{
+		Key: "bronze", NameZh: "铜牌", NameEn: "Bronze", Icon: "i-lucide-award", Color: "#b45309", Enabled: false,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	refs, err := service.TopBadgesFor(context.Background(), []int64{7})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref, ok := refs[7]; ok {
+		t.Fatalf("disabled tier must not expose a top badge, got %+v", ref)
+	}
+}
+
 // TestRecomputeTopBadgePrefersGoldThenPosition 断言排序规则：
 // gold > silver > bronze，同级 position 升序，再 granted_at 降序。
 func TestRecomputeTopBadgePrefersGoldThenPosition(t *testing.T) {

@@ -1,4 +1,3 @@
-import { forumUserProfilePath } from '~/utils/forum/forumTaxonomy'
 import { tierAccentVars } from '~/utils/theme/tierColor'
 
 /**
@@ -45,12 +44,6 @@ export const BADGE_TIER_FALLBACK_KEY = 'badges.tier.bronze'
 export function forumBadgeTier(tier?: string | null): BadgeTier {
   const value = typeof tier === 'string' ? tier.trim() : ''
   return value || 'bronze'
-}
-
-/** 资料页徽章 tab 的地址；chip 跳转与 tab 写回 query 共用同一口径。 */
-export function forumUserBadgesPath(username?: string | null): string | null {
-  const handle = username?.trim()
-  return handle ? `${forumUserProfilePath(handle)}?tab=badges` : null
 }
 
 /**

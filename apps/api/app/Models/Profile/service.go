@@ -25,6 +25,7 @@ type Service struct {
 	trustLevels    TrustLevelReader
 	trustTiers     TrustTierCatalog
 	activityCounts ActivityCountersReader
+	topBadges      TopBadgeReader
 	// settingsSections / settingsMeta / settingsMetaWriter 是插件设置面（task-1/2）。
 	settingsSections   SettingsSectionProvider
 	settingsMeta       SettingsMetaReader
@@ -69,6 +70,26 @@ type ActivityCountersReader interface {
 func (s *Service) WithActivityCounters(reader ActivityCountersReader) *Service {
 	if s != nil {
 		s.activityCounts = reader
+	}
+	return s
+}
+
+// TopBadgeReader 读用户**当前展示**的徽章（佩戴优先，否则排序第一）。
+//
+// 数据源必须是 users.top_badge_id：帖子/评论旁 chip 由 Forum 的读 SQL 直接投影
+// 同一列，Profile 这里再写一份「按等级排序取第一枚」的 SQL 就会在佩戴、停档、
+// 隐藏这三种状态下与 chip 分叉。实现由装配层提供（badges.PostgresStore 的适配器），
+// Profile 与 Badges 之间没有直接 import。
+type TopBadgeReader interface {
+	TopBadgesFor(ctx context.Context, userIDs []int64) (map[int64]forum.BadgeRef, error)
+}
+
+// WithTopBadgeReader 注入当前展示徽章的批量读口（链式可选）。
+//
+// 未注入时公开资料页不带 topBadge，与本次接线之前逐字节等价。
+func (s *Service) WithTopBadgeReader(reader TopBadgeReader) *Service {
+	if s != nil {
+		s.topBadges = reader
 	}
 	return s
 }
@@ -214,6 +235,9 @@ func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string
 		JoinedAt:          user.JoinedAt,
 		ExtensionTabs:     tabs,
 		TrustLevel:        trustLevel,
+		// 当前展示的徽章：与帖子/评论旁 chip 同源（users.top_badge_id）。
+		// fail-soft：读不到就省略字段，不让资料页为装饰性徽章整页失败。
+		TopBadge: s.topBadgeFor(ctx, user.UserID),
 	}
 	// 插件字段的公开面：只含 visibility=public 且 viewer 有权的字段。
 	s.attachPublicSettingsMeta(ctx, viewer, user.UserID, &view)
@@ -701,6 +725,27 @@ func isValidWebsiteURL(value string) bool {
 
 // 保留 forum 包引用，避免未来扩展公开资料时的引用丢失（近期主题等依赖 forum 类型）。
 var _ = forum.TopicSummary{}
+
+// topBadgeFor 读用户**当前展示**的徽章（佩戴优先，否则排序第一）。
+//
+// 失败姿态刻意与行为计数相反：计数读失败整页失败（「恒显示 0 获赞」像真的），
+// 而徽章是装饰，缺它不等于假事实，所以读失败只 Warn 并省略字段——不让资料页
+// 因为一枚徽章 500。未接线 / userID 非法 / 查无徽章都返回 nil。
+func (s *Service) topBadgeFor(ctx context.Context, userID int64) *forum.BadgeRef {
+	if s == nil || s.topBadges == nil || userID <= 0 {
+		return nil
+	}
+	refs, err := s.topBadges.TopBadgesFor(ctx, []int64{userID})
+	if err != nil {
+		slog.Warn("profile: load top badge failed", "userId", userID, "error", err)
+		return nil
+	}
+	ref, ok := refs[userID]
+	if !ok {
+		return nil
+	}
+	return &ref
+}
 
 // publicTrustLevel 返回**他人视角**的等级：level + levelSlug + displayName。
 //

@@ -41,6 +41,21 @@
   min-width: 0;
 }
 
+/* 昵称行：昵称 + 佩戴中的徽章 chip。短昵称与 chip 同行，行高差为 0（chip 18px 小于 h1 行盒
+   32px / ≤680px 26.88px）；昵称接近列宽时 flex-wrap 会把 chip 整体换到第二行
+   （+18px chip + 6px 行距），这是可接受的换行，不是塌陷。 */
+.sf-profile-intro__name-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.sf-profile-intro__name-row > h1 {
+  min-width: 0;
+}
+
 /* 身份块第二行：@handle 与 UID 同排（与右栏 `@name · UID n`、评论身份组件同构）。
    行盒显式钉 1.4（=16.8px），不吃 preflight 的 html 1.5，行高可预算。 */
 .sf-profile-intro__identity-meta {

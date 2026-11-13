@@ -87,6 +87,18 @@ func (p *ProfileProvider) WithActivityCounters(reader profile.ActivityCountersRe
 	return p
 }
 
+// WithTopBadgeReader 注入公开资料页的「当前展示徽章」读口。
+//
+// 与 WithActivityCounters 同款：Profile 只认最小接口 TopBadgeReader，适配器
+// （badges.PostgresStore → forum.BadgeRef）留在 bootstrap。未注入时资料页不带
+// topBadge，与本次接线之前逐字节等价。
+func (p *ProfileProvider) WithTopBadgeReader(reader profile.TopBadgeReader) *ProfileProvider {
+	if p != nil && p.service != nil {
+		p.service.WithTopBadgeReader(reader)
+	}
+	return p
+}
+
 func (p *ProfileProvider) WithNicknameEditor(editor profile.NicknameEditor) *ProfileProvider {
 	if p != nil && p.service != nil {
 		p.service.WithNicknameEditor(editor)

@@ -6,9 +6,9 @@ import SFBadgeChip from '~/components/forum/SFBadgeChip.vue'
 /**
  * 作者块：头像 + 昵称 + 最高级徽章 chip，主题标题行与评论行共用。
  *
- * chip 是 `<a>`，所以它必须排在作者链接**外面**：塞进链接会变成嵌套 anchor，
- * 点击行为与键盘焦点都不确定。因此结构是 `[链接: 头像+昵称][chip]`。
- * 不需要跳转的场景（评论预览按钮内）由调用方不传 `username`，chip 退化成 span。
+ * chip 是 `<button>`（打开徽章说明弹窗），所以它必须排在作者链接**外面**：
+ * 按钮不能嵌链接，链接也不能嵌按钮。因此结构是 `[链接: 头像+昵称][chip]`。
+ * 不可点的场景（评论预览按钮内）由调用方不传 `username`，chip 退化成 span。
  */
 const props = withDefaults(defineProps<{
   author?: ForumUserRef

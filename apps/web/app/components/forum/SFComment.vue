@@ -137,31 +137,21 @@ function toggleBranch() {
   branchExpanded.value = !branchExpanded.value
 }
 
-// 触发按钮内层是 NuxtLink（SFUserIdentityName 渲染的资料页链接）。
-// NuxtLink 的 onClick 不检查 defaultPrevented，preventDefault 拦不住它的 router.push；
-// 因此用捕获阶段监听：在内层链接的 onClick 之前阻止其导航，同时由本函数自行开卡片
-//（stopPropagation 会连按钮的 toggle 冒泡监听一起吞掉，所以这里直接负责 toggle）。
-// 修饰键/中键仍放行，保留「新标签打开资料页」。
-function toggleUserPreviewCapture(event: MouseEvent) {
+// 预览按钮内已没有链接（作者名 `linked=false`、chip 也移到了按钮外），
+// 因此不再需要捕获阶段拦截 NuxtLink 的导航，按钮的 click 直接开卡片。
+function toggleUserPreview(event?: MouseEvent) {
   if (!canPreviewUser.value) {
     return
   }
-  if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-    const anchor = (event.target as Element | null)?.closest?.('a')
-    if (anchor) {
-      event.preventDefault()
-      event.stopPropagation()
-      lastPreviewTrigger.value = event.currentTarget as HTMLElement
-      userPreviewOpen.value = !userPreviewOpen.value
-    }
+  // 作者行把原生 click 透传上来（自定义组件事件不会自带 currentTarget），
+  // 用 target.closest 定位触发按钮，关闭预览后焦点才能还回去。
+  const target = event?.target ?? event?.currentTarget
+  const trigger = target instanceof Element
+    ? target.closest('.sf-comment__author-trigger, .sf-comment__avatar-trigger')
+    : null
+  if (trigger instanceof HTMLElement) {
+    lastPreviewTrigger.value = trigger
   }
-}
-
-function toggleUserPreview(event: MouseEvent) {
-  if (!canPreviewUser.value) {
-    return
-  }
-  lastPreviewTrigger.value = event.currentTarget as HTMLElement
   userPreviewOpen.value = !userPreviewOpen.value
 }
 
@@ -329,7 +319,6 @@ const InlineEditorHost = () => {
             :interactive="canPreviewUser"
             :preview-open="userPreviewOpen"
             :preview-id="userPreviewId"
-            @preview-capture="toggleUserPreviewCapture"
             @preview-toggle="toggleUserPreview"
           />
           <!-- 时间与楼层合并为头部右侧的 meta 组；楼层保留 .sf-comment__floor 类与 #N 文本供进度条读取 -->
@@ -370,6 +359,7 @@ const InlineEditorHost = () => {
           <SFCommentUserPreview
             :user="comment?.author ? { username: previewUsername, displayName: comment.author.displayName, avatar } : { username: previewUsername, avatar }"
             :profile-path="authorLink || ''"
+            :top-badge="comment?.topBadge || null"
           />
         </div>
 

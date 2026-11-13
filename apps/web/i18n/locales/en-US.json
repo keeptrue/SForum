@@ -7239,7 +7239,7 @@
     },
     "chip": {
       "ariaLabel": "{tier} badge: {name}",
-      "ariaLabelLink": "{tier} badge: {name}, view profile badges"
+      "ariaLabelDialog": "{tier} badge: {name}, view badge details"
     },
     "card": {
       "ariaLabel": "{tier} badge: {name}, earned on {date}",
@@ -7277,6 +7277,10 @@
       "requirementLabel": "How to earn it",
       "progressLabel": "Progress",
       "progress": "{current} / {threshold} ({percent}%)"
+    },
+    "dialog": {
+      "loading": "Loading badge details…",
+      "failed": "Badge details are unavailable right now"
     },
     "worn": {
       "wear": "Wear",

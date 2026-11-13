@@ -435,6 +435,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		// 公开行为计数（获赞 / 访问天数）：复用 badges 的 user_activity 读入口，
 		// Profile 侧不写第二份 SQL。漏接会表现为「资料页恒显示 0 获赞」。
 		WithActivityCounters(profileActivityCounters{store: badgeActivityStore}).
+		// 公开资料页「当前展示徽章」：与帖子/评论旁 chip 同源（users.top_badge_id）。
+		// 适配器把 badges 的批量读口翻成 forum.BadgeRef，Profile 侧不写第二份 SQL。
+		WithTopBadgeReader(profileTopBadges{store: badgesStore}).
 		// 插件设置面：settingsSections / settingsValues（自助）与 profile.meta（公开）。
 		WithSettingsSurface(settingsSurfaceProvider, settingsSurfaceMeta, settingsSurfaceMeta)
 	moderationReadModels, _ := forumCachedStore.(moderation.DecisionReadModelInvalidator)
@@ -570,6 +573,8 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithProfileTabs(providers.NewExtensionProfileTabProvider(extensionService)).
 		// 主题渲染的资料页与 JSON 端点取同一份计数，否则两个入口会给出两套数字。
 		WithActivityCounters(profileActivityCounters{store: badgeActivityStore}).
+		// 展示位徽章同样必须与 JSON 端点一致（同一枚、同一可见性口径）。
+		WithTopBadgeReader(profileTopBadges{store: badgesStore}).
 		// 主题公开页 / AI 工具 / 徽章读到的 profile.meta 必须与 JSON 端点同源：
 		// 不接这两行，L1 主题渲染的公开资料页会永远没有插件字段。
 		WithSettingsSections(settingsSurfaceProvider).

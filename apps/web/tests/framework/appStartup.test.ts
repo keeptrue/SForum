@@ -129,6 +129,7 @@ function loadAppComponentForStartupTest(options: { server: boolean, routePath?: 
     'computed',
     'SFApiConnectionModal',
     'SFCelebrationHost',
+    'SFBadgeDetailDialogHost',
     executable
   )
 
@@ -205,7 +206,8 @@ function loadAppComponentForStartupTest(options: { server: boolean, routePath?: 
     }),
     computed,
     {},
-    // 庆祝浮卡不是启动流程的一部分：给个空壳，断言只看启动动作是否发生。
+    // 庆祝浮卡/徽章弹窗宿主不是启动流程的一部分：给空壳，断言只看启动动作是否发生。
+    {},
     {}
   )
 

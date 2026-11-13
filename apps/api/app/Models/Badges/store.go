@@ -45,8 +45,9 @@ type GrantReader interface {
 	ListUserBadges(ctx context.Context, userID int64) ([]UserBadge, error)
 	ListGrants(ctx context.Context, input GrantListInput) (GrantList, error)
 	// TopBadgesFor 批量取用户**当前展示**的徽章（一次查询，无 N+1）。
-	// 当前无生产调用方：帖子/评论旁的 chip 由 Forum 的读 SQL 直接投影
-	// users.top_badge_id（见 topBadgeSelectSQL），保留为 store 能力。
+	// 生产消费方是 Profile 资料页展示位（经 bootstrap 的 profileTopBadges 适配器），
+	// 与 Forum 读 SQL 投影的帖子/评论 chip 同源同口径：徽章停用或等级停用都不展示
+	// （见 topBadgeSelectSQL / topBadgeJoinSQL）。
 	TopBadgesFor(ctx context.Context, userIDs []int64) (map[int64]BadgeRef, error)
 	ListEnabledAutomaticBadges(ctx context.Context) ([]Badge, error)
 	// AffectedUserIDs 返回持有该徽章的用户（停用/规则变更后要重算 top_badge_id）。

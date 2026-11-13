@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 import { badgeWornErrorKey, useBadgeWorn } from '~/composables/forum/badges/useBadgeWorn'
+import { useAuthSession } from '~/composables/identity/useAuthSession'
 import {
   forumBadgeHasProgress,
   forumBadgeProgressPercent,
@@ -181,6 +182,14 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab-cat
   useLocalePath: () => (path: string) => path,
   useToast: () => ({ add: () => {} }),
   useBadgeWorn,
+  // 目录页没有佩戴动作；tab setup 会实例化它，给无副作用桩即可。
+  useBadgeWearToggle: () => ({
+    toggleWear: async () => {},
+    wearBadge: async () => {},
+    hideWorn: async () => {}
+  }),
+  // tab 按账号归属判断佩戴状态条；真实组合式函数读的是本文件桩掉的 useState。
+  useAuthSession,
   badgeWornErrorKey,
   forumBadgeHasProgress,
   forumBadgeProgressPercent,

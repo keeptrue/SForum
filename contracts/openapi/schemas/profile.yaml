@@ -82,6 +82,20 @@ PublicProfile:
       type: string
     displayName:
       type: string
+    topBadge:
+      "$ref": "./badges.yaml#/BadgeRef"
+      description: |
+        Badge the user is **currently displaying**, denormalized from
+        `users.top_badge_id` — the manually worn badge when there is one, else
+        the best badge by tier ordering. Same source as the post/comment chip,
+        so both surfaces resolve the same badge; the chip payload itself is
+        cached for up to one TTL, so right after a wear/disable the two can
+        briefly disagree.
+        Omitted when the user has no displayable badge, when the badge is
+        disabled, when its tier is disabled, or when the user chose to wear
+        nothing (`top_badge_hidden`). A failed badge read also omits the field
+        instead of failing the whole profile response: the badge is decoration,
+        not a fact the page has to report.
     profile:
       "$ref": "#/Profile"
     topicCount:

@@ -182,6 +182,34 @@ editor in V1.
   applied to comments and notifications. `UID {n}` always stays, and hiding the
   handle leaves no leading `·` or doubled space. Account-handle contexts (user
   menu, profile settings preview) deliberately keep their `@username`.
+- The header identity block is three layers: `sf-profile-intro__name-row`
+  (`h1` + optional worn-badge chip), then `sf-profile-intro__identity-meta`
+  (`@handle` + `UID n`), then the bio. The chip is `SFBadgeChip` fed by
+  `PublicProfile.topBadge` (source: `users.top_badge_id`, see
+  `modules/badges.md`), and is 18px against a 32px
+  (25px on ≤680px) h1 line box, so it adds no header height. On the owner's own
+  profile the chip follows `useBadgeWorn`'s local state instead of the response
+  field: wearing another badge updates it without a reload, and "wear nothing"
+  removes it. That global state is actor-scoped (`ownerId` / `loadedFor`) because
+  login and logout are client-side navigations, so an unscoped `useState` would
+  leak the previous account's worn badge into the next one; the seven-step
+  priority lives in the pure `resolveHeaderBadge` (`utils/profile/profileHeaderBadge.ts`).
+  The user preview card (`SFCommentUserPreview`) shows the same
+  chip, preferring the comment payload's `topBadge` so the card never disagrees
+  with the chip that opened it; inside the card the chip is link-free because
+  the name is already a link.
+- A badge chip is a `<button>`, not a link: clicking it opens the global badge
+  explainer dialog (`SFBadgeDetailDialogHost` in `app.vue`, state in
+  `composables/forum/badges/useForumBadgeDialog.ts`) instead of navigating to
+  `?tab=badges`. The dialog body is the same `SFBadgeDetailBody` the badge wall
+  modal uses, so the two entries cannot drift. The chip payload has no
+  description/requirement/granted-at, so the dialog fetches
+  `GET /profiles/{username}/badges` once per username and resolves the entry by
+  slug; a failure shows an explicit "unavailable" state rather than a fabricated
+  badge built from the chip's fields. Because it is a button, it must never sit
+  inside another button or link — hence the comment author row renders it as a
+  sibling of the preview trigger, and the preview card passes no `username` so
+  the chip stays a plain `span`.
 - Extension tab contributions (`forum.profile.tabs`) have two shapes.
   `extensionRoute` / `hostLink` tabs stay right-rail links; `widget` tabs join
   the main tab bar after `about` and mount `SFExtensionWidget` in the panel

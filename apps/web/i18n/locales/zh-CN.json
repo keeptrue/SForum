@@ -7279,7 +7279,7 @@
     },
     "chip": {
       "ariaLabel": "{tier}徽章：{name}",
-      "ariaLabelLink": "{tier}徽章：{name}，查看资料页徽章"
+      "ariaLabelDialog": "{tier}徽章：{name}，查看徽章说明"
     },
     "card": {
       "ariaLabel": "{tier}徽章：{name}，获得于 {date}",
@@ -7317,6 +7317,10 @@
       "requirementLabel": "获得条件",
       "progressLabel": "进度",
       "progress": "{current} / {threshold}（{percent}%）"
+    },
+    "dialog": {
+      "loading": "正在加载徽章说明…",
+      "failed": "徽章说明暂时不可用"
     },
     "worn": {
       "wear": "佩戴",

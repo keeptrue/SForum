@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { readFileSync } from 'node:fs'
 
 /**
- * 行为级回归：`?tab=` 是作者旁徽章 chip 的落地入口（`/u/{username}?tab=badges`），
+ * 行为级回归：`?tab=` 是资料页徽章 tab 的深链（chip 已改为开弹窗，不再落地到这里），
  * 所以「读一次 → 写回 → tab 不存在时回落并纠正 query」这三条不能只靠页面手测。
  *
  * 直接用真实源码跑：剥掉 import，注入 route/router/ref（与 useAuthReturnNavigation 同一手法）。

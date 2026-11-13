@@ -313,9 +313,10 @@ BadgeRef:
   type: object
   description: |
     Compact badge reference embedded next to a post or comment author
-    (`topBadge`, see `forum.yaml`). Actor-agnostic: the same value is served to
-    every viewer and may therefore be cached with the post payload. These four
-    fields are everything a 12px chip renders.
+    (`topBadge`, see `forum.yaml`) and in the profile identity line
+    (`topBadge`, see `profile.yaml`). Actor-agnostic: the same value is served to
+    every viewer and may therefore be cached with the post payload. These fields
+    are everything an 18px chip renders.
   required:
   - slug
   - name

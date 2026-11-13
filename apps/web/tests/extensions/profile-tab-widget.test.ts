@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { compileVueSfc, flushPromises, mount, testVue } from '../helpers/vueSfc'
 import { buildProfileTabs } from '../../app/utils/profile/profileTabs'
+import { resolveHeaderBadge } from '../../app/utils/profile/profileHeaderBadge'
 import { shouldShowUserHandle } from '../../app/utils/forum/userDisplay'
 import {
   extensionTabLabel,
@@ -179,8 +180,16 @@ const bindings: Record<string, unknown> = {
     ensureLoaded: async () => {},
     retry: async () => {}
   }),
+  // 昵称行的佩戴态：本用例只关心 tab 栏，页面只读 loaded/wornSlug/isHidden/ownerId。
+  useBadgeWorn: () => ({
+    loaded: testVue.ref(false),
+    isHidden: testVue.ref(false),
+    wornSlug: testVue.ref(''),
+    ownerId: testVue.ref(0)
+  }),
   buildProfileTabs,
   SFProfileBadgeTab: BadgeTabStub,
+  SFBadgeChip: nullRender,
   // 右栏等级卡：本用例 trustLevel 恒为 null，卡片不会真的渲染，只需要名字可解析。
   SFTrustLevelCard: testVue.defineComponent({
     name: 'SFTrustLevelCard',
@@ -248,6 +257,8 @@ const bindings: Record<string, unknown> = {
   // 「关于」里的自定义字段行：本用例 profile.meta 为空，返回空列表即可。
   profileMetaRows: () => [],
   safeUrl: (value: string) => value,
+  // 头部徽章优先级：真实纯函数，页面只负责凑输入。
+  resolveHeaderBadge,
   // 本任务抽出的共享解析
   extensionTabLabel,
   profileWidgetTabValue,

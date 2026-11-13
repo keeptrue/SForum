@@ -6,6 +6,7 @@ import { useUserLanguage } from '~/composables/identity/useUserLanguage'
 import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
 import SFApiConnectionModal from '~/components/errors/SFApiConnectionModal.vue'
 import SFCelebrationHost from '~/components/notifications/SFCelebrationHost.vue'
+import SFBadgeDetailDialogHost from '~/components/forum/badges/SFBadgeDetailDialogHost.vue'
 import { useAdminTabs } from '~/composables/admin/useAdminTabs'
 import { useAdminAppearancePreview } from '~/composables/admin/settings/useAdminAppearancePreview'
 import { useAppliedAppearance } from '~/composables/appearance/useAppliedAppearance'
@@ -194,5 +195,7 @@ useHead(() => {
     <SFApiConnectionModal />
     <!-- 站内庆祝浮卡：左下角，与右下角 toast 不重叠；内部自行 gate 登录态/功能开关/管理端路由。 -->
     <SFCelebrationHost />
+    <!-- 徽章说明弹窗：三处 chip 共用的全局宿主，与庆祝宿主同层，不随路由卸载。 -->
+    <SFBadgeDetailDialogHost />
   </UApp>
 </template>

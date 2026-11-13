@@ -101,6 +101,11 @@ type PublicProfile struct {
 	// 刻意不带 progress / bottleneck：瓶颈可能落在 like_given_count / bookmark_count，
 	// 而这两个计数是刻意不公开的窥探面（D1）。开关关闭或等级未解析时为 nil。
 	TrustLevel *PublicTrustLevel `json:"trustLevel,omitempty"`
+	// TopBadge 是用户**当前展示**的徽章（佩戴优先，否则排序第一）。与帖子/评论旁 chip 同源（users.top_badge_id），actor 无关。
+	//
+	// 与 chip 同口径：徽章停用或等级停用都不下发。读失败时省略字段（fail-soft），
+	// 不让资料页因为一枚装饰性徽章整页 500。
+	TopBadge *forum.BadgeRef `json:"topBadge,omitempty"`
 	// PreviousDisplayNames 仅在运营开启 profile.nickname.history_public 时出现，
 	// 最多一条；它属于公开资料页，因此不会出现在自助响应里。
 	PreviousDisplayNames []string `json:"previousDisplayNames,omitempty"`

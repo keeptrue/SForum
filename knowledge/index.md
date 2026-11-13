@@ -830,7 +830,26 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章佩戴出口收口（2026-11-13，最新）**：已佩戴那颗按钮的可见文字与 `title` 从「佩戴中」改成
+- **徽章 chip 点击改为「徽章说明弹窗」（2026-11-14，最新）**：昵称旁的 chip 不再是链接，改成
+  `<button aria-haspopup="dialog">`，点击开全局徽章说明弹窗（`SFBadgeDetailDialogHost` 挂 `app.vue`，
+  复用 `SFBadgeDetailModal`/`SFBadgeDetailBody`，与徽章墙弹窗同源），**不再跳** `/u/x?tab=badges`。
+  三处入口：资料页头部、主题作者行、评论作者行；用户预览卡里的 chip 仍是无 username 的 span。
+  取数按 username 分桶缓存 `GET /profiles/{u}/badges` 并按 slug 命中，失败/墙里没有该 slug 显示
+  「暂时不可用」而不伪造徽章；佩戴按钮只在「本人 + 已获得」出现，动作与徽章墙共用
+  `useBadgeWearToggle`。因为 chip 是 button，评论作者行把它移出预览按钮当兄弟节点、交互分支的
+  `SFUserIdentityName` 加 `linked=false`（顺带修掉捕获监听掩盖的 `event.currentTarget` undefined）；
+  关闭后焦点回 chip。**未提交**。见 `sessions/2026-11-13-profile-badge-chip.md`（二段）、决策
+  `decisions/2026-11-14-badge-chip-opens-dialog.md`、模块 `modules/badges.md`「资料页展示位」。
+- **资料页 / 预览卡的佩戴中徽章（2026-11-13）**：`PublicProfile.topBadge` 新增，数据源
+  `users.top_badge_id`（佩戴优先、否则排序第一），经 `badges.TopBadgesFor` + 装配层适配器
+  `bootstrap/profile_badge_wiring.go` 翻成 `forum.BadgeRef`（Profile 与 Badges 无直接 import、
+  无第二份徽章 SQL，两处装配都接）；顺手把 `TopBadgesFor` 的等级过滤补成 `JOIN ... AND enabled`
+  （原来只判 `badges.enabled`）。前端头部改成 `name-row`（昵称 + chip，chip 链 `?tab=badges`）+
+  紧随其后的 `identity-meta`（`@handle` + `UID`），预览卡优先吃评论载荷的 `topBadge`、卡片内 chip 不传
+  username，本人页跟随 `useBadgeWorn` 本地佩戴态。**未提交**。见
+  `sessions/2026-11-13-profile-badge-chip.md`、决策 `decisions/2026-11-13-profile-top-badge-source.md`、
+  模块 `modules/badges.md`「资料页展示位」与 `modules/profile.md`。
+- **徽章佩戴出口收口（2026-11-13）**：已佩戴那颗按钮的可见文字与 `title` 从「佩戴中」改成
   动作「取消佩戴」，点了发 `PUT /badges/worn {hidden:true}`（**不再** `DELETE` 回自动展示）；
   资料页底部状态条改成两个并列常驻出口「自动展示徽章」（`DELETE` → auto，`mode==='auto'` 时按下）
   与「不佩戴徽章」（`PUT {hidden:true}`，`isHidden` 时按下），当前态那颗点了不发请求（handler

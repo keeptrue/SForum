@@ -5,6 +5,7 @@ import { useProfileShowData } from '~/composables/profile/useProfileShowData'
 import { useProfileTabQuery } from '~/composables/profile/useProfileTabQuery'
 import { useBadgeDetailQuery } from '~/composables/profile/useBadgeDetailQuery'
 import { useProfileBadges } from '~/composables/profile/useProfileBadges'
+import { useBadgeWorn } from '~/composables/forum/badges/useBadgeWorn'
 import { useTrustLevel } from '~/composables/profile/useTrustLevel'
 import { useProfileBookmarks } from '~/composables/profile/useProfileBookmarks'
 import {
@@ -20,6 +21,7 @@ import SFProfileBadgeTab from '~/components/profile/SFProfileBadgeTab.vue'
 import SFProfileFeedTab from '~/components/profile/SFProfileFeedTab.vue'
 import SFProfileRightRail from '~/components/profile/SFProfileRightRail.vue'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
+import SFBadgeChip from '~/components/forum/SFBadgeChip.vue'
 import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsivePublicSidebar.vue'
 import SFPublicMobileUserMenu from '~/components/navigation/SFPublicMobileUserMenu.vue'
 import SFPublicMobileRightDrawerHeader from '~/components/navigation/SFPublicMobileRightDrawerHeader.vue'
@@ -38,12 +40,14 @@ import { shouldShowUserHandle, userDisplayName } from '~/utils/forum/userDisplay
 import { profileHasPublicDetails } from '~/utils/profile/profileActivity'
 import { profileMetaRows } from '~/utils/settings/profileSettings'
 import { buildProfileTabs, type ProfileTabOption } from '~/utils/profile/profileTabs'
+import { resolveHeaderBadge } from '~/utils/profile/profileHeaderBadge'
 import {
   extensionTabLabel,
   profileWidgetTabValue,
   profileWidgetTabs
 } from '~/utils/profile/profileExtensionTab'
 import { safeUrl } from '~/utils/sfUrl'
+import type { ForumBadgeRef } from '~/utils/forum/forumBadge'
 
 const route = useRoute()
 const { t, locale } = useI18n()
@@ -182,6 +186,22 @@ watch(activeTab, (tab) => {
 })
 
 const badgeSlugs = computed(() => badgeGroups.value.flatMap(group => group.badges.map(badge => badge.slug)))
+
+// 昵称行徽章：本人页优先本地佩戴态（含账号归属），他人页只认接口字段。
+// 优先级全在 `resolveHeaderBadge`（纯函数 + 表驱动测试）；这里只把各来源凑齐。
+const worn = useBadgeWorn()
+const headerBadge = computed<ForumBadgeRef | null>(() => (
+  resolveHeaderBadge({
+    isSelf: isSelf.value,
+    viewerId: Number(authUser.value?.id ?? 0),
+    wornOwnerId: worn.ownerId.value,
+    wornLoaded: worn.loaded.value,
+    wornHidden: worn.isHidden.value,
+    wornSlug: worn.wornSlug.value,
+    wallBadges: badgeGroups.value.flatMap(group => group.badges),
+    fallback: profile.value?.topBadge ?? null
+  })
+))
 
 // 清单**真的到过服务端**之后才确认 slug 还在：停用/删除的徽章静默清 query，不弹空弹窗。
 // `!loaded` 这一条是必需的：`loading` 初值 false + `groups` 为 [] 时守卫会先于 composable
@@ -342,7 +362,10 @@ async function shareProfile() {
           <header class="sf-profile-intro">
             <SFAvatar :name="displayName" :avatar="profile.profile.avatar" size="lg" class="sf-profile-intro__avatar" />
             <div class="sf-profile-intro__content">
-              <h1 id="profile-name">{{ displayName }}</h1>
+              <div class="sf-profile-intro__name-row">
+                <h1 id="profile-name">{{ displayName }}</h1>
+                <SFBadgeChip v-if="headerBadge" :badge="headerBadge" :username="profile.username" />
+              </div>
               <div class="sf-profile-intro__identity-meta">
                 <span v-if="showHandle" class="sf-profile-handle">@{{ profile.username }}</span>
                 <span class="sf-profile-uid">UID {{ profile.userId }}</span>
