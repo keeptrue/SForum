@@ -490,6 +490,60 @@ func toFactCandidateDTO(candidate conditions.FactCandidate) factCandidateDTO {
 	return dto
 }
 
+// refCandidateDTO 是 objectRef 参数的一个候选（下拉项）。
+//
+// 与 `factCandidateDTO` 分开：这里只有「写进 params 的值 + 给人看的名字 + 为什么
+// 不该选」，没有比较运算符、variant、计量单位。`flags` 是数组而不是 bool：未来
+// 可能同时命中多种标记（例如一个既隐藏又停用的对象）。
+type refCandidateDTO struct {
+	Value string   `json:"value"`
+	Label string   `json:"label"`
+	Flags []string `json:"flags"`
+}
+
+// refCandidateGroupDTO 是一类候选。五类永远是五项、固定顺序，由领域层保证。
+//
+// 三个字段都**没有** omitempty：`flags: []` 被省略成缺键会让前端按 undefined 渲染
+// （与 factCandidates 同一条裁决）；`unavailable:false` 也必须显式出现，否则前端
+// 无法区分「能取到且为空」与「根本没下发」。
+type refCandidateGroupDTO struct {
+	Kind        string            `json:"kind"`
+	Candidates  []refCandidateDTO `json:"candidates"`
+	Unavailable bool              `json:"unavailable"`
+	Truncated   bool              `json:"truncated"`
+}
+
+func toRefCandidateDTO(candidate conditions.RefCandidate) refCandidateDTO {
+	flags := make([]string, 0, len(candidate.Flags))
+	flags = append(flags, candidate.Flags...)
+	return refCandidateDTO{
+		Value: candidate.Value,
+		Label: candidate.Label,
+		Flags: flags,
+	}
+}
+
+// toRefCandidateSetDTO 把领域集合投影成 wire 数组。
+//
+// 恒为数组而不是 null：编辑器对 null 与 `[]` 的处理不同（前者会被当成「没下发」
+// 触发整体兜底），而 `NormalizeRefCandidateSet` 已经保证五项齐全、顺序固定。
+func toRefCandidateSetDTO(set conditions.RefCandidateSet) []refCandidateGroupDTO {
+	groups := make([]refCandidateGroupDTO, 0, len(set))
+	for _, group := range set {
+		candidates := make([]refCandidateDTO, 0, len(group.Candidates))
+		for _, candidate := range group.Candidates {
+			candidates = append(candidates, toRefCandidateDTO(candidate))
+		}
+		groups = append(groups, refCandidateGroupDTO{
+			Kind:        group.Kind,
+			Candidates:  candidates,
+			Unavailable: group.Unavailable,
+			Truncated:   group.Truncated,
+		})
+	}
+	return groups
+}
+
 func conditionToDTO(definition conditions.Definition) conditionDTO {
 	dto := conditionDTO{
 		Key:        definition.Key,

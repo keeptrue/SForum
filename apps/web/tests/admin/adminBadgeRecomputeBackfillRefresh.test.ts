@@ -80,6 +80,8 @@ function createShellHarness(result: RecomputeResult) {
       catalog: ref([]),
       factCandidates: ref([]),
       factCandidatesFailed: ref(false),
+      refCandidates: ref({}),
+      refCandidatesIncomplete: ref(false),
       failed: ref(false),
       load: async () => {}
     }),

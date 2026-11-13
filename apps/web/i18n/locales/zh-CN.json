@@ -620,7 +620,12 @@
         "factCandidatesFailed": "插件事实候选暂时读不到，现在无法选择事实来源；已有规则不受影响。",
         "factKeyPlaceholder": "选择事实来源",
         "factStaleHint": "该事实来源已不可用（扩展可能已停用或卸载）。原值会保留，规则健康检查会继续提示。",
-        "candidatesPending": "候选列表待后端下发",
+        "refCandidatesPlaceholder": "搜索并选择",
+        "refManualHint": "候选暂时读不到，请直接填写标识（slug / key）。保存后规则健康检查会告诉你它是否存在。",
+        "refTruncated": "候选太多，这里只显示前 500 条；用搜索缩小范围即可。",
+        "refStale": "（失效）",
+        "refFlagHidden": "（已隐藏）",
+        "refFlagDisabled": "（已停用）",
         "params": {
           "metric": "指标",
           "window": "时间窗口",

@@ -261,18 +261,25 @@ func int64Of(value any) (int64, bool) {
 	}
 }
 
+// nowTime 返回 resolver 视角的当前时刻（生产 = `time.Now()`，测试可用 `WithClock` 钉住）。
+//
+// 它是**日界的唯一来源**：`today()` 与所有「日历日差」折算都必须经过它。任何加载器
+// 自己再调一次 `time.Now()`，同一次求值里就会出现两个「今天」，跨零点时前后矛盾。
+func (r *Resolver) nowTime() time.Time {
+	if r.now != nil {
+		return r.now()
+	}
+	return time.Now()
+}
+
 // today 返回「按 API 进程本地时区」的今天（`YYYY-MM-DD`）。
 //
 // 徽章域的日界以进程时区为准：`user_visits.visited_on` 是 `time.Now()` 写进去的，
 // 任何用数据库 `CURRENT_DATE` 的比较都会在两者时区不一致时跨零点错一天。
 func (r *Resolver) today() string {
-	now := time.Now()
-	if r.now != nil {
-		now = r.now()
-	}
 	// 返回 `YYYY-MM-DD` 字符串而不是 time.Time：后者交给驱动后，Postgres 会按**会话
 	// 时区**把 timestamptz 折成 date，等于把刚修掉的日界问题换个地方重现。
-	return now.Format("2006-01-02")
+	return r.nowTime().Format("2006-01-02")
 }
 
 // countValue / boolValue 是两种 ValueKind 的构造器，避免各加载器手写 Kind。

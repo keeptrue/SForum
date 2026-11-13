@@ -1239,12 +1239,14 @@ BadgeCondition:
 BadgeConditionList:
   type: object
   description: |
-    条件目录 + 插件事实候选。两个面刻意分开：`items` 描述规则的 **type** 维
-    （条件本身），`factCandidates` 描述 `fact.count` 的 **factKey/variant** 维。
+    条件目录 + 事实候选 + 对象引用候选。三个面刻意分开：`items` 描述规则的 **type**
+    维（条件本身），`factCandidates` 描述 `fact.count` 的 **factKey/variant** 维，
+    `refCandidates` 描述 `ParamSpec.refKind` 的**取值域**（分类/标签/角色/登录方式/徽章）。
     插件在清单里声明的双语 label 属于候选项（下拉文案），不会覆盖 Core 条件名。
 
-    `factCandidates` 是 additive 字段：M2 已发布的编辑器只读 `items` 也照常工作。
-  required: [items, factCandidates]
+    `factCandidates` 与 `refCandidates` 都是 additive 字段：早先发布的编辑器只读
+    `items` 也照常工作。
+  required: [items, factCandidates, refCandidates]
   properties:
     items:
       type: array
@@ -1257,6 +1259,65 @@ BadgeConditionList:
         `fact.count` 在可发布目录里随之隐藏，规则求值转 unknown（fail-closed）。
       items:
         "$ref": "#/BadgeFactCandidate"
+    refCandidates:
+      type: array
+      description: |
+        编辑器里 `objectRef` 参数的可选值。**永远是五项、固定顺序**：
+        `badge` → `category` → `tag` → `role` → `provider`。
+        逐类独立成败：某一类取不到候选只把该组标成 `unavailable`，不影响其余类，
+        也不让本端点失败。
+      items:
+        "$ref": "#/BadgeRefCandidateGroup"
+
+BadgeRefCandidateGroup:
+  type: object
+  description: |
+    一类 `objectRef` 候选。`unavailable` 与「候选为空」是两件事：前者表示**取不到**
+    （查询失败 / 来源未注入），编辑器应退回文本输入；后者只是当前没有可选项。
+    标记（`flags`）只做提示，**不过滤**：已隐藏/已停用的对象仍然可以被选中，
+    因为规则记录的是历史事实。
+  required: [kind, candidates, unavailable, truncated]
+  properties:
+    kind:
+      type: string
+      enum: [badge, category, tag, role, provider]
+      description: |
+        `badge.owned{slug}` / `object.authoring{targetSlug}` / `identity.role{roleKey}` /
+        `identity.oauth_link{providerId}` 的取域分别对应 badge / category(或 tag) /
+        role / provider。
+    candidates:
+      type: array
+      description: 永远数组（可能为空），不会是 null；按展示名排序。
+      items:
+        "$ref": "#/BadgeRefCandidate"
+    unavailable:
+      type: boolean
+      description: true = 取不到候选（不是「没有候选」）。
+    truncated:
+      type: boolean
+      description: true = 结果被截断（每类上限 500 条），编辑器需提示只显示前 500 条。
+
+BadgeRefCandidate:
+  type: object
+  description: 一个 `objectRef` 的可选值。
+  required: [value, label, flags]
+  properties:
+    value:
+      type: string
+      description: |
+        写进规则 `params` 的值：分类/标签/徽章的 slug、角色的 `roles.key`、
+        登录方式的 provider id。
+    label:
+      type: string
+      description: |
+        展示名，直接用于下拉项。数据库里大多只有单语名（`categories.name` 等）；
+        登录方式取 registry 声明的 zh-CN → en-US → id 回落。
+    flags:
+      type: array
+      description: 提示标记，空数组表示正常。仍可被选中。
+      items:
+        type: string
+        enum: [hidden, disabled]
 
 BadgeFactVariant:
   type: object

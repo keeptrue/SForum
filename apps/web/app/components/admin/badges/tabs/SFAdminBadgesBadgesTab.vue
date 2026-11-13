@@ -27,6 +27,7 @@ import {
 } from '~/utils/admin/adminBadges'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate } from '~/utils/admin/badgeRule'
 import type { BadgeRuleHealthRow } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import SFAdminBadgeBackfillRow from '~/components/admin/badges/SFAdminBadgeBackfillRow.vue'
 
 export type AdminBadgesStore = ReturnType<typeof useAdminBadges>
@@ -44,6 +45,8 @@ const props = withDefaults(defineProps<{
   /** 插件事实候选：一路带到规则编辑器的事实叶子。 */
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：一路带到规则编辑器的参数控件（不可用时那边退文本输入）。 */
+  refCandidates?: BadgeRefCandidateMap
   /** 规则健康清单（只含引用/条件失效的徽章；空数组 = 全站健康）。 */
   ruleHealth?: BadgeRuleHealthRow[]
   ruleHealthFailed?: boolean
@@ -64,6 +67,7 @@ const props = withDefaults(defineProps<{
   catalogFailed: false,
   factCandidates: () => [],
   factCandidatesFailed: false,
+  refCandidates: () => ({}),
   ruleHealth: () => [],
   ruleHealthFailed: false,
   backfillSummary: null,
@@ -423,6 +427,7 @@ defineOptions({ name: 'SFAdminBadgesBadgesTab' })
       :catalog-failed="props.catalogFailed"
       :fact-candidates="props.factCandidates"
       :fact-candidates-failed="props.factCandidatesFailed"
+      :ref-candidates="props.refCandidates"
       :rule-health="props.ruleHealth"
       :rule-health-failed="props.ruleHealthFailed"
       @saved="onSaved"

@@ -226,6 +226,61 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 2. **`initialMode` 是首次渲染的种子，不随 prop / 规则变化**（`SFAdminBadgeRuleEditor.vue:51` 的 `ref`）。切换模式只改视图，**不改 AST、不 emit**；误用（比如用 watch 同步 `initialMode`）的表现是「运营切到简单模式后规则被悄悄重写」。
 3. **叶子根规则的行内错误按「本规则是叶子根」映射到第 0 行**。迁移后的现网徽章（如 `regular-visitor`）根节点就是 `{root:{type:'activity.count',…}}`，此时 `error.path` 是 `[]`（空路径），只有这种情况可当作第 0 行；其余空路径错误走通用提示，否则会指向一条不存在的行。
 
+### objectRef 候选（2026-11-13，`refCandidates`）
+
+**这一节的存在理由**：本模块曾经有一个「看起来能用、实际配不完」的控件活了整整一刀。
+计划把 `objectRef` 定义成「有候选列表的引用」，但候选只接了 `fact` 一类，
+`category/tag/role/provider/badge` 五类从未接通 → 前端渲染**只有占位 option 的空下拉**
+（`admin.badges.conditions.candidatesPending`「候选列表待后端下发」）→
+`badge.owned` / `object.authoring` / `identity.role` / `identity.oauth_link`
+四条条件的必填参数恒空 → 保存必报「缺少必填参数。」。
+决策与未采用方案见 `decisions/2026-11-13-badge-ref-candidates.md`。
+
+**下发面**：`GET /admin/badges/conditions` 现在有三个 additve 顶层键，**三个面不要合并**：
+`items`（规则 type 维）/ `factCandidates`（factKey/variant 维）/ `refCandidates`（RefKind 维）。
+`refCandidates` 恒五项、固定顺序 `badge → category → tag → role → provider`，
+每项 `{kind, candidates:[{value,label,flags}], unavailable, truncated}`。
+
+| 环节 | 实现 | 换写法就埋雷的地方 |
+| --- | --- | --- |
+| 领域类型 | `conditions/refcandidates.go`：`RefCandidateSet` / `RefCandidateGroup` / `RefCandidate`，`refKindOrder` 是**唯一**顺序定义 | 在 DTO、补齐逻辑、测试三处各写一遍顺序 → 迟早有一处漂 |
+| 读口 | `PostgresStore.RefCandidates(ctx)`：四类各一条 SQL（`categories`/`tags`/`roles`/`badges`，`LIMIT 501`），provider 读既有的 `providerNames` 注入 | 走 Forum/Identity service 当候选：分页 + 权限 + 视图模型全绑进来；先例是 `ref_names_postgres.go` |
+| 窄接口 | `badges.RefCandidateStore`（`AdminService` 用类型断言） | 往 `Store` 上加方法 → 每个测试 fake 都得实现一份它们不关心的查询 |
+| 失败语义 | 单类失败只让该类 `unavailable`；`error` 时**保留部分结果**，端点始终 200，错误只 `slog.Warn` | 整体退化成五项全空，会把一次 tags 抖动放大成「所有候选都没了」 |
+| flag | `hidden`（隐藏分类 / 非 active 标签）、`disabled`（停用角色 / 停用徽章）；**标了仍然可选** | 把标记项过滤掉 → 运营无法引用隐藏分类，而「当时发在该分类」是历史事实；禁用 → 让人以为规则写不出来 |
+| 上限 | `RefCandidatesLimit = 500` + `truncated`；截断靠 `LIMIT 501` 探测 | 用 `COUNT` 判断截断：多一次查询，还把「恰好 500」与「还有第 501」混为一谈 |
+| 控件 | `SFAdminBadgeRuleParamField.vue`：有候选 → `USelectMenu`（`search-input` + `filter-fields=['label','value']` + `value-key`/`label-key`）；候选不可用或为空 → `input[data-ref-manual]` + 提示 | **任何情况下都不许渲染只有占位项的空下拉**——它表达的是「不能选」，而运营需要的是「先手填」 |
+| 自引用 | `SFAdminBadgeEditDialog.vue` 用 `excludeBadgeSlug` 剔掉当前徽章自身的 slug | 放到后端做 → 端点得知道「正在编辑哪枚」，签名被绑死；两层都不做 → 规则能存但保存期环检测报 422 |
+
+**`unavailable` 与「空候选」刻意分开记录、渲染相同**：对运营后果一致（都没有可选项），
+所以都退文本输入；映射里分开是为了联调能区分「没取到」与「真的没有」。前端
+`refCandidatesInvariantBroken` **只作诊断不升级为失败**——内置条件恒带 objectRef，
+老后端必然命中，升级成硬失败就是假故障（与 `factCandidatesInvariantBroken` 的方向相反，
+那边「声称有 fact.count 却没给候选」是真回归）。
+
+**`identity.account_age` 的日界（2026-11-13 修，本刀挖出的历史缺陷）**：
+旧写法 `GREATEST($2::date - users.created_at::date, 0)` 把**Go 进程本地日**和
+`created_at` 在 **PG 会话时区**里的日历日相减——两个日界不同源。后果不是「凌晨几小时」，
+而是**永久**：凡注册本地时间落在偏移窗口（CST 00:00–08:00 且 PG 会话 UTC）的用户，
+年龄恒多 1 天，30 天门槛提前一天满足。实测：进程 CST、会话 UTC，真实日历差 10 天算出 11。
+现在 SQL 只取 `created_at`，折算搬到 Go 的 `calendarDaysBetween`，日界只有一个来源
+（resolver 的 `nowTime()` / `today()`）。`calendarDaysBetween` 不用 `Sub/Hours/24`
+（DST 日 23/25 小时会把 1 天算成 0 或 1.x），而是各自折成该时区日历日 → 映射 UTC 午夜相减。
+**这条与本模块的「按日取界必须 Go 传参」是同一条纪律的两个面**：传参只解决「哪一天」，
+不解决「把 timestamptz 折成 date 时用的是谁的表」。
+验收教训：**只跑 UTC + Asia/Shanghai 会放过它**——America/New_York（负偏移）才暴露
+「日期在会话时区里落到午夜、进程再位移一天」的二阶错误。三时区是硬判据。
+
+**provider 候选与保存期判据必须同源（2026-11-13 修）**：候选来自 registry 的**已声明**快照
+（插件刚装、零绑定也在列），保存期若只查 `identity_external_links`（只记「有人绑定过」），
+就会出现「候选里唯一那个 provider 必存不进去」——422 还说「可能已被删除」。
+两边必须共用 `knownProviders`（绑定表 ∪ 已声明）。**失效语义交给 `rule_health`**，
+不要靠收紧保存期来「防错」，那会把运营挡在门外而一个错都没防住。
+
+**USelectMenu 是全仓首用（`@nuxt/ui@4.9`）**：弹层走 reka-ui `ComboboxPortal`（`portal: true` 默认），
+teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得出的结论，**真实弹层行为仍以浏览器证据为准**。
+若某天它在 modal/390 下被裁切且 `:content`/`:ui` 收不回来，退路是「原生 select + 过滤输入框」。
+
 ## 回扫进度（`badge_rule_backfill_runs`）的四条硬口径
 
 规则改严触发的回扫是「一页一个 job」的链（`Jobs/Badges/backfill_rules.go`），链断在半路时运营只拿到过入队回执。进度表把它变成可查询的一行——**四条换写法就埋雷**：
@@ -328,6 +383,19 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
     `phraseFactCount` 拿不到单位，所以公开句写「『点赞』累计 ≥ 3」而不是「≥ 3 次」。
     **别把「字段里显示单位」当成这条已修**：输入框单位是前端视觉层，句子是服务端生成器。
     要带单位得把单位并进 `RefNames` 或给 `PhraseFunc` 加候选入参（契约变更），别在 `phrases.go` 里硬编码单位表。
+
+28. **`object.engagement.topicId` 仍是 int 自由数字**（主题不可下拉）：主题数量无上限，
+    候选列表做不出「有用的下拉」，而帖子 ID 由运营从 URL 抄最直接。这一点与 objectRef 其余
+    四类不同，**不要为了「统一」把它改成 objectRef**。
+29. **`fact.count` 的 `factKey`/`variant` 仍用原生 `<select>`**，未跟进 `USelectMenu`：
+    它的候选带双语 label 与 variants（M3 已验收），本刀刻意不碰以免重开那一刀的验收面。
+    控件族统一（四类 objectRef + fact 都用一个可搜索控件）是下一刀的事。
+30. **候选是后台读面，刻意不进 `sforum_core_v1`、不新增 HostQuery**：插件没有消费面
+    （插件读规则走 `forum_badges` 视图即可）。若将来有插件要枚举「分类候选」，先想清楚
+    它要的是**规则可选值**还是**站点分类列表**——后者应该走 Forum 的公开/查询面，别复制这里。
+31. **`badge.view` 持有者可见隐藏分类/标签名、全部角色 `key+alias`、全部徽章 `slug+name`（含停用）、
+    已声明 auth provider 的 `id+label`**。这是「配规则必须知道可选什么」的代价，**不含**凭据与用户数据。
+    收紧权限时不要只改路由守卫——领域层 `BadgeConditions` 自己就校验 `badge.view`。
 28. **指标清单仍是多处同源手抄（2026-11-13 起少一处）**：`AUTO_SUMMARY_METRICS` 已随手填口径删除，
     剩下的手抄点是 `adminBadgesI18n.test.ts` 的指标常量与服务端条件表（`conditions/registry.go` 的
     `activity.count` 六个 `metric` 枚举）。改指标名仍要两地同改，应收敛到单一来源（生成物或 OpenAPI 派生）。

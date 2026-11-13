@@ -831,6 +831,17 @@ load archived sessions or completed plans as current context.
   **只降级不压平**）+ 常显一句话预览；视觉轮把单位改成 input 行内后缀、删除按钮移进卡片头。
   **未提交**；390×844 仍只有 340px 行宽模拟（不是视口证据）。见
   `sessions/2026-11-12-badge-rule-editor-ux.md`、`modules/badges.md`「条件规则编辑器」节。
+- **徽章 objectRef 候选补齐（2026-11-13，`refCandidates`）**：`objectRef` 的
+  `category/tag/role/provider/badge` 五类候选第一次真正接通。此前 `badge.owned` /
+  `object.authoring` / `identity.role` / `identity.oauth_link` 四条条件渲染的是**只有占位
+  option 的空下拉**（「候选列表待后端下发」），必填参数恒空、保存必报「缺少必填参数。」——
+  后台根本配不完，而测试把「只有 1 个 option」钉成了断言所以一直是绿的。
+  `GET /admin/badges/conditions` 新增 additive 顶层 `refCandidates`（恒五项、固定顺序、
+  `unavailable`/`truncated` 逐类独立）；控件改成「有候选 → 可搜索 `USelectMenu`（全仓首用）／
+  取不到 → 文本兜底」，**任何情况下不再出现空下拉**。见
+  `sessions/2026-11-13-badge-ref-candidates.md`、`decisions/2026-11-13-badge-ref-candidates.md`、
+  `modules/badges.md`「objectRef 候选」节。顺带补正 HEAD 上本就红的路由 tripwire（`7c07edf9d`
+  漏计数，422 → 423）与 `verify-badge-rules-acceptance.sh` 的 `expected=421` 手工账。
 - **徽章规则：条件表达式 + 插件事实层（M1–M3 收口，2026-11-12）**：`badges.rule` JSONB 成为自动徽章的
   唯一判定来源（`metric`/`threshold` 降 legacy 只读）；七层协作方（`Support/RuleEngine` 纯 AST + Kleene
   三值 → `conditions` 13 条 → `rule_store`/`rule_eval`/`rule_health`/`rule_impact`/`facts_store` →

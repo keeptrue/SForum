@@ -59,11 +59,22 @@ func (s *PostgresStore) checkRuleReferences(ctx context.Context, rule ruleengine
 			query = `SELECT EXISTS (SELECT 1 FROM roles WHERE key = $1)`
 			arg = stringParamOf(leaf, "roleKey")
 		case conditions.KeyIdentityOAuthLink:
-			// 保存期只认「有人绑定过」的 provider；「已声明但零绑定」由 rule_health
-			// 认（它拿得到 identity registry）。保存期放宽会让拼错的 provider 存进来，
-			// 收紧则会让新装插件的第一条规则存不下——这里选前者，把后者留给健康检查。
-			query = `SELECT EXISTS (SELECT 1 FROM identity_external_links WHERE provider_id = $1)`
-			arg = stringParamOf(leaf, "providerId")
+			// 保存期与 `rule_health` 共用**同一个**判据：「绑定表 ∪ identity registry
+			// 已声明」。计划 §5.2.1 原文就是「值必须能对上
+			// `identity_external_links.provider_id` **或** identity registry 的已声明
+			// provider」——只查绑定表会让候选面里唯一的 provider 在零绑定时存不进去
+			// （界面能选、保存必 422，候选与保存自相矛盾）；完全不校验则会让拼错的 id
+			// 落库、永不命中。失效语义仍由 `rule_health.missing_provider` 承担：
+			// 规则是运营资产，存得下、健康页提醒（与 fact.count 未声明 key 同一条纪律）。
+			known, err := s.knownProviders(ctx)
+			if err != nil {
+				return fmt.Errorf("check rule reference: %w", err)
+			}
+			providerID := stringParamOf(leaf, "providerId")
+			if !known[providerID] {
+				return fmt.Errorf("%w: %s 的引用 %q 不存在", ErrBadgeRuleReferenceInvalid, leaf.Type, providerID)
+			}
+			continue
 		case conditions.KeyBadgeOwned:
 			query = `SELECT EXISTS (SELECT 1 FROM badges WHERE slug = $1)`
 			arg = stringParamOf(leaf, "slug")

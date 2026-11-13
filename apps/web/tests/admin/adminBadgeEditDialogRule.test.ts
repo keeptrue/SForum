@@ -21,6 +21,7 @@ import { forumBadgeTier, pickTierName } from '../../app/utils/forum/forumBadge'
 import { tierColorVar } from '../../app/utils/theme/tierColor'
 import { apiErrorFields, apiErrorMessage } from '../../app/composables/useApiClient'
 import { FIELD_SLOT_KEYS } from '../../app/utils/admin/badgeFieldSlots'
+import { excludeBadgeSlug } from '../../app/utils/admin/badgeRefCandidates'
 
 /**
  * 规则编辑器接进编辑弹窗后的提交契约：
@@ -159,6 +160,7 @@ const EditDialog = await compileVueSfc(dialogPath, 'badge-edit-dialog', {
   tierColorVar,
   apiErrorFields,
   apiErrorMessage,
+  excludeBadgeSlug,
   FIELD_SLOT_KEYS,
   computed,
   reactive,

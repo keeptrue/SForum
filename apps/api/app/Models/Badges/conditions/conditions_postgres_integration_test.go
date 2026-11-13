@@ -122,9 +122,37 @@ CREATE TABLE badge_facts (
 type fixture struct {
 	ctx  context.Context
 	pool *pgxpool.Pool
+	// now 是本次 fixture 的「今天」来源，在创建时取一次并同时喂给两侧：
+	//   - 写侧：日历日参数（created_at / visited_on 的基准日）；
+	//   - 读侧：`Resolver.WithClock`（resolver 的 today()）。
+	// 两侧同源之后，断言不再依赖「测试运行到哪一刻」，也不会在跨零点时半路换日。
+	//
+	// 它**不改变**日界口径：仍然是 API 进程本地日（生产路径 `time.Now()` 的同一口径），
+	// 只是把「同一次测试里的今天」钉住。
+	now time.Time
+}
+
+// todayDate 返回与 `Resolver.today()` 同源的日历日（进程本地日，YYYY-MM-DD）。
+//
+// fixture 里凡是表达「N 个日历日前」的地方都必须用它，不能用
+// `now() - make_interval(days => N)` 或 `CURRENT_DATE`：前者是 24 小时算术
+// （跨零点会落到前一个日历日），后者取的是 PG 会话时区的日界，
+// 两者都与 resolver「Go 传进程本地日」的口径不同源。
+func (f *fixture) todayDate() string {
+	return f.now.Format(time.DateOnly)
 }
 
 func newFixture(t *testing.T) *fixture {
+	t.Helper()
+	return newFixtureWithSessionTimeZone(t, "")
+}
+
+// newFixtureWithSessionTimeZone 与 newFixture 相同，但把 PG 会话时区钉死。
+//
+// 只给「日界来源」的回归测试用：`identity.account_age` 曾经把 created_at 在**会话
+// 时区**里折成日期、再与 Go 的进程本地日相减，于是会话时区 ≠ 进程时区时多算一天。
+// 要连续证伪那个实现，必须能显式设定会话时区，而不是依赖测试集群的默认值。
+func newFixtureWithSessionTimeZone(t *testing.T, sessionTimeZone string) *fixture {
 	t.Helper()
 	databaseURL := testdb.IsolatedURL(t)
 	ctx := context.Background()
@@ -147,6 +175,11 @@ func newFixture(t *testing.T) *fixture {
 	// `search_path` 带 public 是全仓既有模式（计划 §13 残留 14）：漏建的表会静默落到
 	// 真实 public 表，所以新增被查询的表必须同批加进上面的 DDL。
 	config.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
+	if sessionTimeZone != "" {
+		// 会话级 GUC：连接池里每条连接都带这个启动参数，而不是 SET LOCAL 那种
+		// 「只在当前连接上生效」的写法。
+		config.ConnConfig.RuntimeParams["timezone"] = sessionTimeZone
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		admin.Close()
@@ -162,15 +195,27 @@ func newFixture(t *testing.T) *fixture {
 		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+quoted+" CASCADE")
 		admin.Close()
 	})
-	return &fixture{ctx: ctx, pool: pool}
+	return &fixture{ctx: ctx, pool: pool, now: time.Now()}
 }
 
 func (f *fixture) user(t *testing.T, name string, createdAgoDays int) int64 {
 	t.Helper()
 	var id int64
+	// created_at 表达的是「N 个日历日前的那个本地日起点」，不是「N×24 小时前的一个
+	// 瞬间」：后者在本地 00:00–08:00（PG 会话仍是 UTC 时）会落到前一个日历日，于是
+	// `identity.account_age` 多算一天——测试红的真正原因是这行 fixture。
+	//
+	// 时区处理的方式：日期在 **Go 侧**按 `f.now` 的 location 构造（本地午夜），再以
+	// timestamptz 原样传参。不能写成 SQL 的 `$2::date - N`：那样会先在会话时区里
+	// 把字符串折成日期、再按会话时区落到午夜，进程时区与会话时区偏移方向相反时
+	// （例如进程 America/New_York、会话 UTC）又会位移一天。
+	createdAt := time.Date(
+		f.now.Year(), f.now.Month(), f.now.Day()-createdAgoDays,
+		0, 0, 0, 0, f.now.Location(),
+	)
 	if err := f.pool.QueryRow(f.ctx,
-		`INSERT INTO users (username, created_at) VALUES ($1, now() - make_interval(days => $2)) RETURNING id`,
-		name, createdAgoDays).Scan(&id); err != nil {
+		`INSERT INTO users (username, created_at) VALUES ($1, $2) RETURNING id`,
+		name, createdAt).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	return id
@@ -189,7 +234,7 @@ func (f *fixture) resolver(t *testing.T, userID int64, factKeys ...string) *cond
 	if err != nil {
 		t.Fatal(err)
 	}
-	return resolver
+	return resolver.WithClock(func() time.Time { return f.now })
 }
 
 // eval 走完整链路：Prepare（按 type 分组一次查询）→ ruleengine.Eval（三值）。
@@ -373,12 +418,20 @@ func TestActivityCountExcludesSelfLikes(t *testing.T) {
 	}
 }
 
+// TestActivityStreakEndsTodayOrYesterday 用「日历日」构造访问日期。
+//
+// 曾经的写法是 `CURRENT_DATE - d`：把 PG 会话时区的今天当成基准日。而 resolver 的
+// 日界来自 Go 的进程本地日（`today()`，见 activityStreakSQL 的注释），两者在
+// `TZ=Asia/Shanghai` + PG 会话 UTC 的本地 00:00–08:00 会差一天，于是「以昨天收尾的
+// 连续 3 天」被判成不是连续段。基准日必须与 resolver 同源，这里直接用 fixture 的
+// 进程本地日，日期运算本身仍是纯日历运算。
 func TestActivityStreakEndsTodayOrYesterday(t *testing.T) {
 	f := newFixture(t)
+	today := f.todayDate()
 	userID := f.user(t, "streaker", 30)
 	// 今天 + 昨天 + 前天：连续 3 天。
 	f.exec(t, `INSERT INTO user_visits (user_id, visited_on)
-	          SELECT $1, CURRENT_DATE - d FROM unnest(ARRAY[0,1,2]) AS d`, userID)
+	          SELECT $1, $2::date - d FROM unnest(ARRAY[0,1,2]) AS d`, userID, today)
 	rule := `{"v":1,"root":{"type":"activity.streak","params":{"minDays":3},"cmp":{"op":"gte","value":3}}}`
 	if matched, result := f.eval(t, userID, rule); !matched || result.Incomplete {
 		t.Fatalf("连续 3 天应满足 minDays 3: %+v", result)
@@ -386,21 +439,21 @@ func TestActivityStreakEndsTodayOrYesterday(t *testing.T) {
 	// 以昨天收尾（今天没上线）仍然是连续 3 天。
 	gapID := f.user(t, "gap", 30)
 	f.exec(t, `INSERT INTO user_visits (user_id, visited_on)
-	          SELECT $1, CURRENT_DATE - d FROM unnest(ARRAY[1,2,3]) AS d`, gapID)
+	          SELECT $1, $2::date - d FROM unnest(ARRAY[1,2,3]) AS d`, gapID, today)
 	if matched, result := f.eval(t, gapID, rule); !matched || result.Incomplete {
 		t.Fatalf("以昨天收尾的连续 3 天应满足: %+v", result)
 	}
 	// 断档：今天 + 前天，只有 1 天。
 	brokenID := f.user(t, "broken", 30)
 	f.exec(t, `INSERT INTO user_visits (user_id, visited_on)
-	          SELECT $1, CURRENT_DATE - d FROM unnest(ARRAY[0,2]) AS d`, brokenID)
+	          SELECT $1, $2::date - d FROM unnest(ARRAY[0,2]) AS d`, brokenID, today)
 	if matched, result := f.eval(t, brokenID, rule); matched || result.Incomplete {
 		t.Fatalf("断档后不应满足连续 3 天: %+v", result)
 	}
 	// 更早的连续段不算：今天没访问、最近一次是 5 天前。
 	staleID := f.user(t, "stale", 30)
 	f.exec(t, `INSERT INTO user_visits (user_id, visited_on)
-	          SELECT $1, CURRENT_DATE - d FROM unnest(ARRAY[5,6,7]) AS d`, staleID)
+	          SELECT $1, $2::date - d FROM unnest(ARRAY[5,6,7]) AS d`, staleID, today)
 	if matched, result := f.eval(t, staleID, rule); matched || result.Incomplete {
 		t.Fatalf("以 5 天前收尾的连续段不应算作当前连续: %+v", result)
 	}

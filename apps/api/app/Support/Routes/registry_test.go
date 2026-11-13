@@ -518,7 +518,11 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	// GET /admin/badges/backfill-status，读 badge.view）。注意上一轮 421 只改了
 	// 计数、没重生成 core_catalog_gen.go，所以这次生成同时补回了那三条规则路由
 	// ——计数与生成物从此同一批产物，别再单边改数字。
-	if len(catalog) != 422 {
+	// 423 = 422 + core.route.badges.admin_badge_rule_text（草稿规则的公开说明预览：
+	// POST /admin/badges/rule-text，读 badge.view、不写库不入队）。7c07edf9d 那批只
+	// 改了 catalog-identities 与生成物，漏了这里的计数，于是 tripwire 在 HEAD 上
+	// 一直是红的（2026-11-13 补正）。照旧：计数、identities.routes、生成物三者同一批。
+	if len(catalog) != 423 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

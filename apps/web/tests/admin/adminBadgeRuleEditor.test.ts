@@ -18,6 +18,12 @@ import {
   factVariantOptions
 } from '../../app/utils/admin/badgeFactCandidates'
 import {
+  refKindGroup,
+  refKindItems,
+  refKindManual,
+  refOptionLabel
+} from '../../app/utils/admin/badgeRefCandidates'
+import {
   BADGE_RULE_LIMITS,
   createDefaultLeaf,
   createGroup,
@@ -65,7 +71,11 @@ const ParamField = await compileVueSfc(
     applyFactKeySelection,
     factKeyMissing,
     factKeyOptions,
-    factVariantOptions
+    factVariantOptions,
+    refKindGroup,
+    refKindItems,
+    refKindManual,
+    refOptionLabel
   }
 )
 

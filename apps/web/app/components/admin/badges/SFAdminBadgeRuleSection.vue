@@ -7,6 +7,7 @@
  * reset/validate/payload 与保存流程绑在一起，搬进来只会造出第二套生命周期。
  * 这里只把弹窗算好的值渲染出来，并把编辑器的 `update:modelValue` 原样往上抛。
  */
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRule } from '~/utils/admin/badgeRule'
 import type { BadgeRuleText, BadgeRuleTextStatus } from '~/composables/admin/badges/useBadgeRuleTextPreview'
 import type { BadgeRuleHealthIssue } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
@@ -19,6 +20,8 @@ const props = withDefaults(defineProps<{
   /** 插件事实候选（`factCandidates`）与它自己的失败标志：与目录降级互相独立。 */
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：与目录降级互相独立，缺失时参数控件退文本输入。 */
+  refCandidates?: BadgeRefCandidateMap
   draftRule: BadgeRule | null
   ruleMissing: boolean
   healthIssues: BadgeRuleHealthIssue[]
@@ -32,6 +35,7 @@ const props = withDefaults(defineProps<{
   catalogFailed: false,
   factCandidates: () => [],
   factCandidatesFailed: false,
+  refCandidates: () => ({}),
   draftRule: null,
   ruleMissing: false,
   healthIssues: () => [],
@@ -103,6 +107,7 @@ function issueText(issue: BadgeRuleHealthIssue) {
         :catalog="catalog"
         :fact-candidates="factCandidates ?? []"
         :fact-candidates-failed="factCandidatesFailed === true"
+        :ref-candidates="refCandidates ?? {}"
         @update:model-value="(value) => emit('update:rule', value)"
       />
       <p v-else class="text-sm text-slate-500 dark:text-zinc-400" data-rule-catalog-state>

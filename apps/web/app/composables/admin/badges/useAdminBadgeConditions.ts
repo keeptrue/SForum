@@ -1,6 +1,11 @@
 import { ref } from 'vue'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate } from '~/utils/admin/badgeRule'
 import { normalizeFactCandidates } from '~/utils/admin/badgeFactCandidates'
+import {
+  normalizeRefCandidates,
+  refCandidatesInvariantBroken,
+  type BadgeRefCandidateMap
+} from '~/utils/admin/badgeRefCandidates'
 
 /**
  * 后台条件目录（`GET /admin/badges/conditions`）。
@@ -12,6 +17,11 @@ import { normalizeFactCandidates } from '~/utils/admin/badgeFactCandidates'
  * `factCandidates` 是同一响应的**顶层新增字段**（M3，Errata 2）：插件声明的事实候选，
  * 供 `fact.count` 的 `factKey` / `variant` 下拉显示插件文案。它单独降级：
  * 目录可用但候选读不到时，规则编辑器照常工作，只少一组候选 + 一条提示。
+ *
+ * `refCandidates` 也是顶层新增字段（M3）：分类 / 标签 / 角色 / 提供方 / 徽章的可选项，
+ * 供 `objectRef` 参数渲染可搜索选择。它**没有失败标志**——读不到就退成 `{}`，
+ * 每个 kind 由读侧按 `unavailable` 处理（退文本输入），所以 `failed` 语义不变。
+ * `refCandidatesIncomplete` 只是诊断（后端未升级时会天生命中），不参与任何 UI 分支。
  *
  * `loader` 是测试注入点：默认实现走 `useApiClient()`（Nuxt 自动导入），
  * 传了 loader 就不再触碰网络层。
@@ -77,6 +87,10 @@ export function useAdminBadgeConditions(loader?: BadgeConditionsLoader) {
   const failed = ref(false)
   /** 候选整体不可用的独立标志：目录正常时编辑器仍可用，只提示候选缺失。 */
   const factCandidatesFailed = ref(false)
+  /** `objectRef` 候选：缺项/整体缺失都是 `{}`（读侧当作每项不可用 → 文本兜底）。 */
+  const refCandidates = ref<BadgeRefCandidateMap>({})
+  /** 仅诊断：目录声明了 objectRef 参数却没拿到 `refCandidates` 数组。 */
+  const refCandidatesIncomplete = ref(false)
   const pending = ref(false)
   const loaded = ref(false)
 
@@ -95,10 +109,17 @@ export function useAdminBadgeConditions(loader?: BadgeConditionsLoader) {
       const invariantBroken = factCandidatesInvariantBroken(items, rawCandidates)
       factCandidates.value = invariantBroken ? [] : candidates ?? []
       factCandidatesFailed.value = candidates === null || invariantBroken
+      // objectRef 候选：形状不合/字段缺失都归一到 {}，读侧逐 kind 降级到文本输入。
+      // 不变量只记录，不当失败（见 refCandidatesInvariantBroken 的注释）。
+      const rawRefs = (payload as { refCandidates?: unknown } | null)?.refCandidates
+      refCandidates.value = normalizeRefCandidates(rawRefs)
+      refCandidatesIncomplete.value = refCandidatesInvariantBroken(items, rawRefs)
     } catch {
       // 端点未上线 / 网络失败 / 形状不符：空目录让 ruleReady 保持 false，失败态交给 UI 提示。
       catalog.value = []
       factCandidates.value = []
+      refCandidates.value = {}
+      refCandidatesIncomplete.value = false
       failed.value = true
       factCandidatesFailed.value = true
     } finally {
@@ -107,5 +128,15 @@ export function useAdminBadgeConditions(loader?: BadgeConditionsLoader) {
     }
   }
 
-  return { catalog, factCandidates, factCandidatesFailed, failed, pending, loaded, load }
+  return {
+    catalog,
+    factCandidates,
+    factCandidatesFailed,
+    refCandidates,
+    refCandidatesIncomplete,
+    failed,
+    pending,
+    loaded,
+    load
+  }
 }

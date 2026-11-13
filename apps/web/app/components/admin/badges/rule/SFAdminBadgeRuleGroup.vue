@@ -27,6 +27,7 @@ import {
   type BadgeRuleLeaf,
   type BadgeRuleOp
 } from '~/utils/admin/badgeRule'
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import SFAdminBadgeRuleLeaf from '~/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue'
 
 const props = defineProps<{
@@ -38,6 +39,8 @@ const props = defineProps<{
   /** 插件事实候选：递归往下带，直到 fact.count 叶子。 */
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：递归往下带，直到参数控件。 */
+  refCandidates?: BadgeRefCandidateMap
 }>()
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
@@ -221,6 +224,7 @@ function opLabel(op: BadgeRuleOp) {
           :catalog="catalog"
         :fact-candidates="factCandidates ?? []"
         :fact-candidates-failed="factCandidatesFailed === true"
+        :ref-candidates="refCandidates ?? {}"
           @update:rule="update"
         />
         <SFAdminBadgeRuleLeaf
@@ -232,6 +236,7 @@ function opLabel(op: BadgeRuleOp) {
           :catalog="catalog"
         :fact-candidates="factCandidates ?? []"
         :fact-candidates-failed="factCandidatesFailed === true"
+        :ref-candidates="refCandidates ?? {}"
           @update:rule="update"
         />
       </li>

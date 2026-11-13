@@ -92,6 +92,35 @@ RULE_STORE_FILE="$API_DIR/app/Models/Badges/rule_store.go"
 ROUTES_TEST="$API_DIR/app/Support/Routes/registry_test.go"
 REVERSIBLE_SCRIPT="$ROOT_DIR/scripts/verify-migration-reversible.sh"
 
+# latest_migration_version 返回 database/migrations 里最大的版本号（文件名前缀）。
+#
+# 为什么不再写死某个常量：那等于把「某一刻的最新迁移」当成期望值，加一条迁移就必红，
+# 而红的原因（脚本抄的旧数字）与断言要验的东西（迁移是否都跑过）毫无关系。
+# 判据改成「库里的最新已应用 == 文件里的最新」，它随迁移演进而自动前进。
+latest_migration_version() {
+  local file version max=""
+  for file in "$API_DIR"/database/migrations/*.sql; do
+    version="$(basename "$file" | cut -d_ -f1)"
+    [[ "$version" =~ ^[0-9]+$ ]] || continue
+    if [[ -z "$max" ]] || (( version > max )); then
+      max="$version"
+    fi
+  done
+  printf '%s' "$max"
+}
+
+# require_static_target <path> <断言ID>：absence-grep 的判据文件（或目录）必须存在。
+#
+# grep「不存在」类断言在目标被改名/拆分/搬家后会**恒不命中**——即静默变绿，而它要守的
+# 事（查询面暴露 stable.rule、文案里混进处罚口吻）恰恰是要长期守住的资产。所以这里
+# FAIL 而不是 pend：文件消失是「需要人看一眼」，不是「环境没备好」。
+require_static_target() {
+  local path=$1 id=$2
+  [[ -e "$path" ]] && return 0
+  fail "$id 判据文件缺失" "判据文件不存在（${path#"$API_DIR"/}），需人工确认改名/拆分；absence-grep 在文件消失时会恒为真，不能静默放行"
+  return 1
+}
+
 slice_m11=0; [[ -f "$MIGRATION_FILE" ]] && slice_m11=1
 slice_m12=0; [[ -f "$RULEENGINE_FILE" ]] && slice_m12=1
 slice_m13=0; [[ -f "$CONDITIONS_FILE" ]] && slice_m13=1
@@ -244,10 +273,11 @@ elif [[ "$db_ready" != 1 ]]; then
   pend_m11_all 'DATABASE_URL 未设置或不可用'
 else
   version="$(sqlv "SELECT max(version_id) FROM goose_db_version WHERE is_applied")"
-  if [[ "$version" == 202611120002 ]]; then
-    pass "M1.1-01 迁移已应用（$version）"
+  latest_migration="$(latest_migration_version)"
+  if [[ -n "$latest_migration" && "$version" == "$latest_migration" ]]; then
+    pass "M1.1-01 迁移已全部应用（库 ${version} = 文件最新 ${latest_migration}）"
   else
-    fail 'M1.1-01 迁移版本' "最新已应用 = ${version:-?}，期望 202611120002"
+    fail 'M1.1-01 迁移版本' "最新已应用 = ${version:-?}，文件最新 = ${latest_migration:-?}（迁移未跑全或库落后）"
   fi
 
   cols="$(sqlv "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='badges' AND column_name IN ('rule','requirement_summary_zh','requirement_summary_en')")"
@@ -302,11 +332,14 @@ else
   fi
 
   # M1.1-13：rule 只进视图，不进 HostQuery Fields（残留 R-1，见矩阵 §7）
-  hostq_rule="$(grep -c 'stable\.rule' "$API_DIR/app/Support/HostAPI/v2_query_postgres.go" 2>/dev/null || true)"
-  if printf '%s' "$view_cols" | tr ',' '\n' | grep -qx 'rule' && [[ "${hostq_rule:-0}" == 0 ]]; then
-    pass 'M1.1-13 rule 只进视图（HostQuery public_badges.list 的 Fields 无 rule）'
-  else
-    fail 'M1.1-13 rule 传播边界' "视图含 rule=$(printf '%s' "$view_cols" | tr ',' '\n' | grep -cx rule)，HostQuery 出现 stable.rule=${hostq_rule:-?} 次（期望 0）"
+  # 这是 absence-grep：先确认判据文件还在，否则改名会让它恒真、静默变绿。
+  if require_static_target "$API_DIR/app/Support/HostAPI/v2_query_postgres.go" 'M1.1-13'; then
+    hostq_rule="$(grep -c 'stable\.rule' "$API_DIR/app/Support/HostAPI/v2_query_postgres.go" 2>/dev/null || true)"
+    if printf '%s' "$view_cols" | tr ',' '\n' | grep -qx 'rule' && [[ "${hostq_rule:-0}" == 0 ]]; then
+      pass 'M1.1-13 rule 只进视图（HostQuery public_badges.list 的 Fields 无 rule）'
+    else
+      fail 'M1.1-13 rule 传播边界' "视图含 rule=$(printf '%s' "$view_cols" | tr ',' '\n' | grep -cx rule)，HostQuery 出现 stable.rule=${hostq_rule:-?} 次（期望 0）"
+    fi
   fi
 
   if [[ "$(sqlv "SELECT to_regclass('sforum_core_v1.forum_user_badge_facts') IS NOT NULL")" == t ]]; then
@@ -404,15 +437,19 @@ elif [[ -z "$DB_URL" ]]; then
     '07|object.engagement 三 action（comment 含自评论）' \
     '08|失效引用恒 false + 健康清单' '09|每 type 一次查询（memo）' \
     '10|窗口获赞 P95（10k 夹具）' '11|自赞排除' \
-    '12|content.hidden 文案口径' '13|content.pinned 当前语义' \
-    '14|streak 日期由 Go 传入' '15|窗口日界不依赖 PG 时区' \
+    '13|content.pinned 当前语义' \
     '16|fact.count 在 Core() 里' '17|fact.count 不在发布面' \
-    '18|factKey Options 内容' '19|bookmark 三面一致'; do
+    '18|factKey Options 内容'; do
     pend "M1.3-${pair%%|*}" "${pair#*|}：PG 集成测试需要 DATABASE_URL"
   done
+  # 12/14 是纯静态断言：上面已在无条件下结论，不在这里重复成 pend（否则同一 ID 一绿一灰）。
+  note 'M1.3-12 / M1.3-14 为静态断言，已在上方给出结论（不受 DATABASE_URL 影响）。'
+  # 15/19 的静态面同样已 ok；它们的行为级孪生需要一次性集群，本口径（无库）下不执行。
+  # 用 note 而不是 pend：same-ID 的第二条 pend 会把计数与「证据缺口」混在一起。
+  note 'M1.3-15 / M1.3-19 的行为级孪生（days_visited 日界 / bookmark 三面）需 DATABASE_URL，本轮跳过。'
 else
   # 条件解析器是 PG 集成测试：走一次性集群，不碰 DATABASE_URL 指向的库。
-  ./scripts/test-api-isolated.sh -v -run '^(TestRegistryCatalogIsCompleteAndValidatable|TestActivityCountCumulativeAndWindow|TestActivityCountWindowedLikeReceived|TestActivityCountExcludesSelfLikes|TestActivityStreakEndsTodayOrYesterday|TestDaysVisitedWindowUsesProcessLocalDate|TestActivityCountWindowCountsSoftDeleted|TestPrepareServesFromMemo|TestObjectEngagement|TestObjectAuthoring|TestIdentityConditions|TestContentAndBadgeConditions|TestFactCountCumulativeWindowAndClamp)$' ./app/Models/Badges/conditions/... >"$work/m13.out" 2>&1
+  ./scripts/test-api-isolated.sh -v -run '^(TestRegistryCatalogIsCompleteAndValidatable|TestActivityCountCumulativeAndWindow|TestActivityCountWindowedLikeReceived|TestActivityCountExcludesSelfLikes|TestActivityStreakEndsTodayOrYesterday|TestDaysVisitedWindowUsesProcessLocalDate|TestActivityCountWindowCountsSoftDeleted|TestBookmarkCountWindowIgnoresVisibility|TestPrepareServesFromMemo|TestObjectEngagement|TestObjectAuthoring|TestIdentityConditions|TestContentAndBadgeConditions|TestFactCountCumulativeWindowAndClamp)$' ./app/Models/Badges/conditions/... >"$work/m13.out" 2>&1
   if ! grep -qE '^(ok|FAIL|--- (PASS|FAIL): )' "$work/m13.out"; then
     tail -15 "$work/m13.out" >&2
     for id in 01 02 04 05 06 07 08 09 11 13; do
@@ -436,14 +473,30 @@ else
     expect_test 'M1.3-15' '窗口日界用进程本地日' "$work/m13.out" 'TestDaysVisitedWindowUsesProcessLocalDate'
   fi
 
-  # M1.3-12 文案口径：静态断言，不依赖 DB。
+  # 上面那条是**单文件 absence grep**：resolve_activity.go 改名/搬家后 grep 恒不命中，
+  # 断言会静默变绿。行为级孪生测试是它的兜底（同一个判据的权威实现），一起断言。
+  expect_test 'M1.3-19' 'bookmark 三面一致（行为级）' "$work/m13.out" 'TestBookmarkCountWindowIgnoresVisibility'
+
+  pend 'M1.3-10 窗口获赞 P95' '需 ./scripts/verify-badge-rules-perf.sh（默认 10k 即 M1-EXIT-PERF）'
+fi
+
+# M1.3 的静态断言（grep / absence）：与数据库无关，因此放在 DB 分支之外。
+#
+# 它们曾经坐在 `else`（DB ready）分支里：没有 DATABASE_URL 时统一 pend，把「本机没起库」
+# 这种环境状态伪装成「证据缺口」——与 M1.4-14 修复前同病。行为级孪生仍留在 DB 轮
+# （M1.3-15 / M1.3-19 的 expect_test），静态检查只负责快速失败。
+#
+# 每条都先过 `require_static_target`：单文件 absence-grep 在文件改名后会恒真。
+if require_static_target "$API_DIR/app/Models/Badges/conditions/registry.go" 'M1.3-12'; then
   if grep -qE '违规|处罚|封禁' "$API_DIR/app/Models/Badges/conditions/registry.go" 2>/dev/null; then
     fail 'M1.3-12 content.hidden 文案' '条件说明出现「违规/处罚/封禁」，库里没有处罚记录，属误导'
   else
     pass 'M1.3-12 content.hidden 文案中性（无违规/处罚/封禁）'
   fi
+fi
 
-  # M1.3-14 streak 日期来源：不得用 CURRENT_DATE；streak/account_age 必须收 $2::date。
+# M1.3-14 streak 日期来源：不得用 CURRENT_DATE；streak/account_age 必须收 $2::date。
+if require_static_target "$API_DIR/app/Models/Badges/conditions" 'M1.3-14'; then
   cd_hits="$(grep -rnE 'CURRENT_DATE|current_date' "$API_DIR/app/Models/Badges/conditions/" --include='*.go' 2>/dev/null \
     | grep -v '_test.go' | grep -vE ':[0-9]+:[[:space:]]*//' | wc -l)"
   if [[ "${cd_hits:-0}" == 0 ]]; then
@@ -451,23 +504,25 @@ else
   else
     fail 'M1.3-14 streak 日期来源' "conditions 包仍有 ${cd_hits} 处 CURRENT_DATE（非注释）"
   fi
+fi
 
-  # M1.3-19 bookmark 三面一致：窗口分支若按 visibility 过滤，就与累计/object 分叉。
+# M1.3-19 bookmark 三面一致：窗口分支若按 visibility 过滤，就与累计/object 分叉。
+if require_static_target "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" 'M1.3-19'; then
   if grep -q "b.visibility = 'public'" "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" 2>/dev/null; then
     fail 'M1.3-19 bookmark 三面一致' "窗口 SQL 过滤 b.visibility='public'，而 user_activity.bookmark_count 与 object.engagement 都不过滤（private 收藏被计入）→ 同一指标累计与窗口分叉"
   else
     pass 'M1.3-19 bookmark 三面一致（窗口不再按 visibility 过滤）'
   fi
+fi
 
-  # M1.3-15 窗口日界：`(now() - interval)::date` 与 visited_on 的写入日界不同源。
+# M1.3-15 窗口日界：`(now() - interval)::date` 与 visited_on 的写入日界不同源。
+if require_static_target "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" 'M1.3-15'; then
   pgdate_hits="$(grep -rn 'now() - make_interval' "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" | grep -c '::date' || true)"
   if [[ "${pgdate_hits:-0}" == 0 ]]; then
     pass 'M1.3-15 窗口日界不依赖 PG 时区'
   else
     fail 'M1.3-15 窗口日界' "days_visited 窗口下界用 (now()-interval)::date（PG 时区），与 user_visits 的 API 本地日界不同源：${pgdate_hits} 处"
   fi
-
-  pend 'M1.3-10 窗口获赞 P95' '需 ./scripts/verify-badge-rules-perf.sh（默认 10k 即 M1-EXIT-PERF）'
 fi
 
 # ================================================================ M1.4 存储/HTTP
@@ -657,20 +712,6 @@ else
       fi
     fi
   fi
-  # 静态护栏：metricLabels 缺一个指标，单条件徽章就会「没有文案」；上面按形状取样时会
-  # 用同一张指标白名单把它排除，覆盖就悄悄丢了。这里把 registry 与标签表钉在一起。
-  metric_consts="$(grep -oE 'Metric[A-Za-z]+[[:space:]]+=' "$API_DIR/app/Models/Badges/conditions/registry.go" 2>/dev/null | grep -oE 'Metric[A-Za-z]+' | sort -u)"
-  label_consts="$(grep -oE 'conditions\.Metric[A-Za-z]+' "$API_DIR/app/Models/Badges/requirement_text.go" 2>/dev/null | sed 's/conditions\.//' | sort -u)"
-  if [[ -z "$metric_consts" || -z "$label_consts" ]]; then
-    pend 'M1.4-14 指标文案标签齐全' '缺 registry.go 或 requirement_text.go'
-  else
-    missing_labels="$(comm -23 <(printf '%s\n' "$metric_consts") <(printf '%s\n' "$label_consts") | grep -v '^$' | tr '\n' ' ')"
-    if [[ -z "${missing_labels// /}" ]]; then
-      pass "M1.4-14 指标文案标签齐全（$(printf '%s\n' "$label_consts" | grep -c .)/$(printf '%s\n' "$metric_consts" | grep -c .) 个指标）"
-    else
-      fail 'M1.4-14 指标文案标签' "requirement_text.go 的 metricLabels 缺：${missing_labels}"
-    fi
-  fi
   if ( cd "$ROOT_DIR" && ruby scripts/validate-openapi-refs.rb ) >"$work/m1415.out" 2>&1; then
     pass 'M1.4-15 OpenAPI $ref 校验通过'
   else
@@ -763,6 +804,47 @@ else
   esac
 fi
 
+# M1.4-14 文案覆盖：行为级判据（不依赖 DATABASE_URL，因此放在 DB 分支之外）
+#
+# 这里曾经是「grep requirement_text.go 里的 conditions.Metric*，与 metricLabels 表
+# 对齐」。那张表在 2026-11-13 的 requirement-text 重写中被删除后，断言恒 pend——
+# 静态断言绑在一个已经不存在的形状上，腐化时没有信号。与 X-02 写死路由数、
+# M1.1-01 写死迁移版本同族：把某一时刻的实现细节当成期望值。
+#
+# 「每个条件都有公开文案」现在的权威实现是 `TestEveryConditionHasPhrase`（枚举全部
+# 条件 key；缺 Phrase 或 Phrase 返回空句都失败）+ `TestPhraseGolden`（13 种条件的
+# 黄金句）。判据落在它们身上，脚本不再抄一份符号清单。
+#
+# 两个坑：
+#   1. `go test` 对**零匹配**的 `-run` 也返回 0，所以必须 `-v` 并逐条断言
+#      `--- PASS: <name>`（`-run` 一个不存在的测试名，退出码照样是 0）。
+#   2. 判据测试改名/删除时这里 FAIL，不是 pend、更不是 pass：宁可红着让人看一眼，
+#      也不要绿着让人放心。
+m1414_phrase_out="$work/m1414-phrase.out"
+( cd "$API_DIR" && go test -count=1 -v \
+    -run '^(TestEveryConditionHasPhrase|TestPhraseGolden)$' \
+    ./app/Models/Badges/ ) >"$m1414_phrase_out" 2>&1
+m1414_phrase_problem=''
+for m1414_name in TestEveryConditionHasPhrase TestPhraseGolden; do
+  if grep -qE "^--- PASS: ${m1414_name}([[:space:]]|$)" "$m1414_phrase_out"; then
+    continue
+  fi
+  if grep -qE "^--- FAIL: ${m1414_name}([[:space:]]|$)" "$m1414_phrase_out"; then
+    # 失败详情在 `--- FAIL` **之前**（`    xxx_test.go:177: ...`），所以按行扫一遍
+    # 取第一条测试文件定位，而不是从 `--- FAIL` 往后抓（那会抓到别的测试的 RUN 行）。
+    m1414_phrase_detail="$(grep -m1 -E '^[[:space:]]+[a-zA-Z0-9_]+_test\.go:[0-9]+:' "$m1414_phrase_out" | sed 's/^[[:space:]]*//' | cut -c1-200)"
+    m1414_phrase_problem="判据测试 ${m1414_name} 失败：${m1414_phrase_detail:-见 go test 输出}"
+  else
+    m1414_phrase_problem="判据测试不存在（${m1414_name} 不在 go test 输出里），需人工确认改名或删除"
+  fi
+  break
+done
+if [[ -z "$m1414_phrase_problem" ]]; then
+  pass 'M1.4-14 文案覆盖：每个条件都有 Phrase（TestEveryConditionHasPhrase + TestPhraseGolden）'
+else
+  fail 'M1.4-14 条件文案覆盖' "$m1414_phrase_problem"
+fi
+
 # ================================================================ X 横切面
 step 'X 横切面四条'
 
@@ -779,23 +861,28 @@ else
   pend 'X-01 i18n 键双向一致' 'adminBadgesI18n.test.ts 不存在'
 fi
 
-# X-02 路由计数 tripwire：期望值随 M1.4 路由落地而变
+# X-02 路由计数 tripwire：判据是测试本身，不在 bash 里再抄一份期望值
+#
+# 这里曾维护 `expected=418` / `slice_m14 == 1 → 421` 的手工账。它把「历史某时刻的
+# 路由数」写死成期望值：路由一涨必红，而红的原因（脚本抄的旧数字）与这条断言要验
+# 的东西（tripwire 与目录是否自洽）毫无关系——修数字只是把定时炸弹往后挪一个月
+# （计划 §13#22 记过的腐坏形态）。
+#
+# 现在 `asserted` 只作**报告值**打印，裁决交给 `go test ./app/Support/Routes/`：
+# `registry_test.go` 里的 `len(catalog) != N` 就是这条断言的权威实现，bash 再抄一份
+# 相当于制造第二个真相源，两者必然漂移（本脚本已经因此假红过一次）。
 if [[ ! -f "$ROUTES_TEST" ]]; then
   pend 'X-02 路由计数 tripwire' 'registry_test.go 不存在'
 else
   asserted="$(grep -oE 'len\(catalog\) != [0-9]+' "$ROUTES_TEST" | grep -oE '[0-9]+' | head -1)"
-  expected=418
-  [[ "$slice_m14" == 1 ]] && expected=421
-  if [[ "$asserted" == "$expected" ]]; then
-    if ( cd "$API_DIR" && go test -count=1 ./app/Support/Routes/ ) >"$work/x02.out" 2>&1; then
-      pass "X-02 路由计数 = ${expected}"
-    elif grep -qE 'build failed|cannot use|undefined:' "$work/x02.out"; then
-      pend 'X-02 路由计数测试' "Routes 包无法编译（可能正在编辑）"
-    else
-      fail 'X-02 路由计数测试' 'go test ./app/Support/Routes/ 失败（见输出）'
-    fi
+  if [[ -z "$asserted" ]]; then
+    fail 'X-02 路由计数 tripwire' 'registry_test.go 里解析不到 len(catalog) != N（断言形态变了，需人工确认）'
+  elif ( cd "$API_DIR" && go test -count=1 ./app/Support/Routes/ ) >"$work/x02.out" 2>&1; then
+    pass "X-02 路由计数 tripwire = ${asserted}（判据：go test ./app/Support/Routes/）"
+  elif grep -qE 'build failed|cannot use|undefined:' "$work/x02.out"; then
+    pend 'X-02 路由计数测试' 'Routes 包无法编译（可能正在编辑）'
   else
-    fail 'X-02 路由计数 tripwire' "断言值 ${asserted:-?}，期望 ${expected}（418 + 规则引擎路由）"
+    fail 'X-02 路由计数测试' "go test ./app/Support/Routes/ 失败（断言值 ${asserted}，见 $work/x02.out）"
   fi
 fi
 
@@ -833,13 +920,20 @@ fi
 # X-04 迁移可逆：脚本分支存在性 + 目标版本
 if [[ "$slice_m11" != 1 ]]; then
   pend 'X-04 迁移 up/down' '迁移未落地'
-elif grep -q '202611120002' "$REVERSIBLE_SCRIPT"; then
-  pass 'X-04 可逆脚本已含 202611120002 分支（执行：SFORUM_MIGRATION_TARGET_VERSION=202611120002 ./scripts/verify-migration-reversible.sh）'
 else
-  # 交付缺口（task-1）而非行为错：脚本分支没写时 CMD-REV 会落进 else 断言旧对象消失，
-  # 结果是 exit 6 假红。这里记 pend + 提示，避免开发期把脚本自己变成红门禁。
-  printf '  注意 %s\n' 'verify-migration-reversible.sh 缺 202611120002 分支：现在跑 CMD-REV 会假红 exit 6'
-  pend 'X-04 迁移 up/down' '可逆脚本缺 202611120002 分支（task-1 交付缺口）'
+  # 判据是「可逆脚本覆盖到**当前最新**迁移」，不是「里面有某个固定版本号」：
+  # 默认目标版本与文件最新版本一致、且该版本的断言分支存在，才算覆盖。
+  latest_migration="$(latest_migration_version)"
+  reversible_default="$(grep -oE 'SFORUM_MIGRATION_TARGET_VERSION:-[0-9]+' "$REVERSIBLE_SCRIPT" | head -1 | grep -oE '[0-9]+$')"
+  if [[ -n "$latest_migration" && "$reversible_default" == "$latest_migration" ]] \
+    && grep -q "\"${latest_migration}\"" "$REVERSIBLE_SCRIPT"; then
+    pass "X-04 可逆脚本覆盖最新迁移 ${latest_migration}（执行：SFORUM_MIGRATION_TARGET_VERSION=${latest_migration} ./scripts/verify-migration-reversible.sh）"
+  else
+    # 交付缺口而非行为错：分支不存在时 CMD-REV 会落进 else 断言旧对象消失，结果是
+    # exit 6 假红。记 pend + 提示，避免把脚本自己变成红门禁。
+    printf '  注意 %s\n' "verify-migration-reversible.sh 默认目标 ${reversible_default:-?} ≠ 最新迁移 ${latest_migration:-?}：现在跑 CMD-REV 会假红 exit 6"
+    pend 'X-04 迁移 up/down' "可逆脚本未覆盖最新迁移 ${latest_migration:-?}（缺分支，task-1 交付缺口）"
+  fi
 fi
 
 # ================================================================ P 计划未覆盖

@@ -3,6 +3,7 @@ package conditions
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
@@ -25,19 +26,22 @@ func (r *Resolver) loadIdentity(ctx context.Context, typ string, leaves []ruleen
 	}
 }
 
-// accountAgeSQL：账户年龄按**进程本地日**算（$2::date 由 Go 传，与 streak 同一来源）。
-// 用 CURRENT_DATE 会在 API 与 PG 时区不一致时跨零点差一天；GREATEST(...,0) 挡住
-// 「时钟回拨导致的负年龄」——负值会让 lte 条件意外成立。
-const accountAgeSQL = `
-SELECT GREATEST($2::date - users.created_at::date, 0)
-FROM users WHERE users.id = $1
-`
+// accountAgeSQL 只取注册时刻，**日期折算全部在 Go 侧**完成。
+//
+// 旧写法是 `GREATEST($2::date - users.created_at::date, 0)`：左操作数是 Go 的进程
+// 本地日，右操作数是 created_at 在 **PG 会话时区**里的日历日。两个日界不同源，于是
+// 会话时区与进程时区不一致时，凡注册本地时间落在偏移窗口内的用户会**永久**多算
+// 1 天（2026-11-13 实测：进程 CST、会话 UTC，CST 日历差 10 天被算成 11）。
+// 现在把原始时刻取回，用 resolver 的同一个 clock/location 折算（见 calendarDaysBetween），
+// 日界只剩一个来源；查询形状不变（仍是每 type 一次、按主键取一行）。
+const accountAgeSQL = `SELECT users.created_at FROM users WHERE users.id = $1`
 
 func (r *Resolver) loadAccountAge(ctx context.Context, leaves []ruleengine.Leaf) (map[string]ruleengine.Value, error) {
-	var days int64
-	if err := r.pool.QueryRow(ctx, accountAgeSQL, r.userID, r.today()).Scan(&days); err != nil {
+	var createdAt time.Time
+	if err := r.pool.QueryRow(ctx, accountAgeSQL, r.userID).Scan(&createdAt); err != nil {
 		return nil, fmt.Errorf("conditions: 查询 identity.account_age 失败：%w", err)
 	}
+	days := calendarDaysBetween(createdAt, r.nowTime())
 	out := make(map[string]ruleengine.Value, len(leaves))
 	for _, leaf := range leaves {
 		memo, err := valueKey(leaf.Type, leaf.Params)
@@ -47,6 +51,30 @@ func (r *Resolver) loadAccountAge(ctx context.Context, leaves []ruleengine.Leaf)
 		out[memo] = countValue(days)
 	}
 	return out, nil
+}
+
+// calendarDaysBetween 返回 from → to 在 to 所在时区日历下的整天数；负数夹到 0。
+//
+// 为什么不用 `to.Sub(from).Hours()/24`：夏令时切换日只有 23 或 25 小时，按小时折算
+// 会把「差 1 个日历日」算成 0 或 1.x。做法是把两个时刻各自折算成**该时区里的日历日**，
+// 再映射到 UTC 午夜相减——UTC 没有夏令时，除法因此是精确的。
+//
+// 负数夹到 0 是既有语义（原 SQL 的 GREATEST(...,0)）：时钟回拨或 created_at 在
+// 「今天」之后时，负年龄会让 `lte` 条件意外成立。
+func calendarDaysBetween(from, to time.Time) int64 {
+	location := to.Location()
+	fromDate := dateAtUTCMidnight(from.In(location))
+	toDate := dateAtUTCMidnight(to)
+	days := int64(toDate.Sub(fromDate) / (24 * time.Hour))
+	if days < 0 {
+		return 0
+	}
+	return days
+}
+
+func dateAtUTCMidnight(value time.Time) time.Time {
+	year, month, day := value.Date()
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
 
 const emailVerifiedSQL = `SELECT users.email_verified_at IS NOT NULL FROM users WHERE users.id = $1`

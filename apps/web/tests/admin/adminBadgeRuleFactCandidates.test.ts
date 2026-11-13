@@ -14,6 +14,12 @@ import {
   factVariantOptions,
   normalizeFactCandidates
 } from '../../app/utils/admin/badgeFactCandidates'
+import {
+  refKindGroup,
+  refKindItems,
+  refKindManual,
+  refOptionLabel
+} from '../../app/utils/admin/badgeRefCandidates'
 
 /**
  * M3.1：编辑器消费 `factCandidates` 的契约（Errata 2 冻结形状）。
@@ -40,7 +46,11 @@ const ParamField = await compileVueSfc(
     applyFactKeySelection,
     factKeyMissing,
     factKeyOptions,
-    factVariantOptions
+    factVariantOptions,
+    refKindGroup,
+    refKindItems,
+    refKindManual,
+    refOptionLabel
   }
 )
 

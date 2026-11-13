@@ -17,6 +17,7 @@ import {
   type BadgeRule,
   type BadgeRuleLeaf
 } from '~/utils/admin/badgeRule'
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import { buildFlatAllRule, flattenAllLeaves, leafSentence } from '~/utils/admin/badgeRuleSentence'
 import SFAdminBadgeRuleParamField from '~/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue'
 
@@ -26,9 +27,12 @@ const props = withDefaults(defineProps<{
   /** 插件事实候选：只有 fact.count 行消费。 */
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：只有 objectRef 参数行消费。 */
+  refCandidates?: BadgeRefCandidateMap
 }>(), {
   factCandidates: () => [],
-  factCandidatesFailed: false
+  factCandidatesFailed: false,
+  refCandidates: () => ({})
 })
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
@@ -203,6 +207,7 @@ function removeCondition(index: number) {
           :entry="entryOf(leaf.type)"
           :fact-candidates="factCandidates ?? []"
           :fact-candidates-failed="factCandidatesFailed === true"
+          :ref-candidates="refCandidates ?? {}"
           :zh="zh"
           :simple-mode="true"
           @update:params="applyParams(index, leaf, $event)"

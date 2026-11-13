@@ -580,7 +580,12 @@
         "factCandidatesFailed": "Plugin fact candidates are unavailable right now, so no fact source can be selected. Existing rules are unaffected.",
         "factKeyPlaceholder": "Select a fact source",
         "factStaleHint": "This fact source is no longer available (the extension may be disabled or uninstalled). The original value is kept and the rule health check keeps reporting it.",
-        "candidatesPending": "Candidates arrive with the backend",
+        "refCandidatesPlaceholder": "Search and select",
+        "refManualHint": "Candidates are unavailable right now. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
+        "refTruncated": "Too many candidates: only the first 500 are listed. Use search to narrow it down.",
+        "refStale": " (stale)",
+        "refFlagHidden": " (hidden)",
+        "refFlagDisabled": " (disabled)",
         "params": {
           "metric": "Metric",
           "window": "Time window",

@@ -4,8 +4,8 @@
  *
  * 上一版这段链在两个文件里各写了一遍，结果一处补了兜底分支、另一处没补，运营就看到了
  * 重复文本框。现在控件由 `spec.kind` 决定，只有这一条 `v-if / v-else-if` 链，顺序固定：
- * `enum` → `window` → `objectRef`（内层分 fact 候选 / 待下发占位）→ `int` → `bool` →
- * `string` → 只读的「不支持的参数类型」。
+ * `enum` → `window` → `objectRef`（内层再分 fact 候选 / 可搜索候选选择 / 文本兜底）→
+ * `int` → `bool` → `string` → 只读的「不支持的参数类型」。
  *
  * 组件**不持有草稿副本**：每次改动把整份新 `params` 交给调用方（`update:params`），
  * 由调用方决定怎么落进它自己的位置（叶子原地替换 / 简单表单重建扁平树）。
@@ -24,6 +24,14 @@ import {
   factVariantOptions,
   type FactOption
 } from '~/utils/admin/badgeFactCandidates'
+import {
+  refKindGroup,
+  refKindItems,
+  refKindManual,
+  refOptionLabel,
+  type BadgeRefCandidateMap,
+  type BadgeRefKind
+} from '~/utils/admin/badgeRefCandidates'
 
 const props = withDefaults(defineProps<{
   spec: BadgeConditionParam
@@ -32,6 +40,11 @@ const props = withDefaults(defineProps<{
   entry?: BadgeConditionCatalogEntry | null
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /**
+   * `objectRef` 候选（分类 / 标签 / 角色 / 提供方 / 徽章）：唯一来源是后端顶层
+   * `refCandidates`。缺项由读侧当作「不可用」，控件退成文本输入。
+   */
+  refCandidates?: BadgeRefCandidateMap
   /** 语言判定由调用方给：组件不读 locale，避免同一数据在两条渲染路径上取到不同语言。 */
   zh?: boolean
   /**
@@ -43,6 +56,7 @@ const props = withDefaults(defineProps<{
   entry: null,
   factCandidates: () => [],
   factCandidatesFailed: false,
+  refCandidates: () => ({}),
   zh: true,
   simpleMode: false
 })
@@ -60,6 +74,32 @@ const factStale = computed(() => isFactCount.value
   && !props.factCandidatesFailed
   && factKeyMissing(props.factCandidates, currentFactKey.value))
 const variantItems = computed(() => factVariantOptions(props.factCandidates, currentFactKey.value, props.zh))
+
+/**
+ * `objectRef`（非 `fact`）的候选来源。`fact` 走上面那套事实候选，这里恒为 `undefined`。
+ */
+const refKind = computed<BadgeRefKind | undefined>(() => {
+  const kind = props.spec.refKind
+  return kind && kind !== 'fact' ? kind : undefined
+})
+const refGroup = computed(() => refKindGroup(props.refCandidates, refKind.value))
+/**
+ * 候选不可用**或**为空 → 文本输入。两种情形都拿不出可选项，对运营的后果一样：
+ * 曾经这里渲染一个只含占位 option 的下拉，值永远为空，保存必报「缺少必填参数」。
+ */
+const refManual = computed(() => refKindManual(props.refCandidates, refKind.value))
+const refTruncated = computed(() => !refManual.value && refGroup.value.truncated)
+/** 下拉项 = 后端候选（+ 必要时的失效项）；显示文案在这里拼标记后缀。 */
+const refItems = computed<Array<{ value: string, label: string }>>(() =>
+  refKindItems(props.refCandidates, refKind.value, textValue.value)
+  .map(option => ({
+    value: option.value,
+    label: refOptionLabel(option, {
+      stale: t('admin.badges.conditions.refStale'),
+      hidden: t('admin.badges.conditions.refFlagHidden'),
+      disabled: t('admin.badges.conditions.refFlagDisabled')
+    })
+  })))
 
 /**
  * `variant` 的候选是运行时填的（目录里 `options: nil`）：没有候选就整项不渲染，
@@ -128,10 +168,6 @@ function setBool(event: Event) {
   setParam((event.target as HTMLInputElement).checked)
 }
 
-function setSelection(event: Event) {
-  setParam((event.target as HTMLSelectElement).value)
-}
-
 function setWindowKind(event: Event) {
   const kind = (event.target as HTMLSelectElement).value
   setParam(kind === 'recent_days' ? { kind, days: windowDays.value } : { kind })
@@ -140,6 +176,11 @@ function setWindowKind(event: Event) {
 function setWindowDays(event: Event) {
   const days = Number((event.target as HTMLInputElement).value)
   setParam({ kind: windowKind.value, days: Number.isFinite(days) ? days : 1 })
+}
+
+/** 选 objectRef 候选：值原样落进 params（显示文案只来自后端候选，不参与取值）。 */
+function setRefValue(value: unknown) {
+  setParam(typeof value === 'string' ? value : '')
 }
 
 /** 选 factKey：值原样落进 params，显示文案只来自候选；顺带归一变体（无变体置空串）。 */
@@ -211,15 +252,47 @@ function setFactKey(event: Event) {
         </p>
       </template>
 
-      <select
-        v-else
-        class="sf-rule-control"
-        :value="textValue"
-        @change="setSelection"
-      >
-        <option value="">{{ t('admin.badges.conditions.candidatesPending') }}</option>
-        <option v-if="textValue" :value="textValue">{{ textValue }}</option>
-      </select>
+      <template v-else>
+        <!-- 候选不可用 / 为空：文本输入 + 提示。绝不渲染只有占位项的空下拉。 -->
+        <template v-if="refManual">
+          <input
+            class="sf-rule-control"
+            data-ref-manual
+            :data-ref-kind="spec.refKind"
+            type="text"
+            :value="textValue"
+            :aria-label="label"
+            @input="setText"
+          >
+          <p class="sf-rule-field__flag" data-ref-manual-hint>
+            {{ t('admin.badges.conditions.refManualHint') }}
+          </p>
+        </template>
+
+        <template v-else>
+          <!-- 首用 USelectMenu：`:content` 走 reka-ui Portal（`portal: true` 默认），
+               弹层挂在 body 上，不受 Modal 的 overflow 裁切。 -->
+          <USelectMenu
+            class="sf-rule-ref"
+            data-ref-select
+            :data-ref-kind="spec.refKind"
+            :model-value="textValue"
+            :items="refItems"
+            value-key="value"
+            label-key="label"
+            :search-input="true"
+            :filter-fields="['label', 'value']"
+            :clear="false"
+            size="sm"
+            :placeholder="t('admin.badges.conditions.refCandidatesPlaceholder')"
+            :aria-label="label"
+            @update:model-value="setRefValue"
+          />
+          <p v-if="refTruncated" class="sf-rule-field__flag" data-ref-truncated>
+            {{ t('admin.badges.conditions.refTruncated') }}
+          </p>
+        </template>
+      </template>
     </template>
 
     <input
@@ -285,6 +358,11 @@ function setFactKey(event: Event) {
 .sf-rule-control:focus-visible {
   outline: 2px solid var(--sf-accent);
   outline-offset: 1px;
+}
+
+.sf-rule-ref {
+  width: 100%;
+  min-width: 0;
 }
 
 .sf-rule-window {

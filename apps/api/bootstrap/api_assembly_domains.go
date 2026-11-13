@@ -552,15 +552,17 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithActivityCounters(profileActivityCounters{store: badgeActivityStore})
 	// 徽章：公开资料页徽章墙 + 后台 12 条。读 badge.view / 写 badge.manage 由生成的
 	// route catalog 守卫声明；features.badges 关闭时由 controller 返回 forum.badges_disabled。
-	// 规则引擎的两个 provider 在 M1 **刻意不注入**：
-	//   1. `SetFactKeyProvider`（已声明的插件事实 key）
-	//   2. `SetDeclaredProviders`（identity registry 已声明的 provider）
-	// 不注入 = 空集，于是条件解析器对 `fact.count` 一律返回 error → 引擎转 unknown
-	// （fail-closed，正确行为：M1 没有扩展，没有插件条件可满足）。`missing_provider`
-	// 的健康检查退化为「只认 identity_external_links 里已有绑定」。
-	// **M3 在这个位置注入**已启用扩展的 `badgeConditions[]`（事实 key）与 identity
-	// registry 的 provider 声明。这里留注释而不是空装配行：空着会让下一个人分不清
-	// 「M1 故意不注入」和「忘了注入」——`rule_eval.go` 漏传 factKeys 就是同款失败。
+	// 规则引擎的三个 provider 在 M1 曾刻意留空（`SetFactKeyProvider` /
+	// `SetFactCandidates` / `SetDeclaredProviders`），M3 起全部接到真实来源：
+	//   1. `SetFactKeyProvider` + `SetFactCandidates` → 已启用扩展的 `badgeConditions[]`
+	//      （见下方 badgesFactCatalog；M1 的空集语义只对「没有扩展」成立）
+	//   2. `SetDeclaredProviders` → identity registry 已声明的 auth provider id，
+	//      让 `missing_provider` 认识「刚装、还没人绑定」的登录方式（只查绑定表会误报）
+	//   3. `SetProviderNames` → 同一份 registry 的展示名，公开说明与后台下拉共用
+	// 三个来源都未注入时才是 M1 的 fail-closed 语义：`fact.count` 叶子求值转 unknown、
+	// `missing_provider` 只认 `identity_external_links`、候选类参数退回文本输入。
+	// 空着不写注释会让下一个人分不清「故意不注入」和「忘了注入」——`rule_eval.go`
+	// 漏传 factKeys 就是同款失败。
 	badgesStore := badges.NewPostgresStore(pool)
 	// 公开说明里的「登录方式」真名：来自 identity registry 已发布的 auth provider 声明
 	//（`label` / `labelLocales` 就是插件声明的展示名，与登录页同源）。
@@ -585,6 +587,20 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 				names[provider.ID] = [2]string{zh, en}
 			}
 			return names
+		})
+		// 已声明 provider 的 id：与上面同源，但不按 label 过滤——「声明了但没写展示名」
+		// 的 provider 仍然是一个合法引用值（下拉里用 id 兜底），健康检查也不该把它
+		// 报成失效。`Providers` 返回的是构建期提交快照，调用开销与本函数同量级。
+		badgesStore.SetDeclaredProviders(func(context.Context) ([]string, error) {
+			contributions := identityRegistry.Providers(identityregistry.ProviderKindAuth)
+			ids := make([]string, 0, len(contributions))
+			for _, provider := range contributions {
+				if strings.TrimSpace(provider.ID) == "" {
+					continue
+				}
+				ids = append(ids, provider.ID)
+			}
+			return ids, nil
 		})
 	}
 	// 插件事实候选：来源是「当前已启用插件声明的 badgeConditions[]」，短 TTL 缓存

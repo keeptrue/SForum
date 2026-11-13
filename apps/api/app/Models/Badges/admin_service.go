@@ -3,6 +3,7 @@ package badges
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
@@ -501,20 +502,36 @@ type RuleAdminStore interface {
 	GetBadgeRule(ctx context.Context, badgeID int64) (ruleengine.Node, error)
 }
 
+// RefCandidateStore 是 objectRef 候选的窄读口（只由 PostgresStore 实现）。
+//
+// 与 `RuleAdminStore` 同一个理由：不往 `Store` 上加方法，否则每个测试 fake 都得
+// 实现一份它们不关心的候选查询。`!ok` 时调用方按「取不到候选」处理，编辑器退回
+// 文本输入，而不是渲染空下拉。
+type RefCandidateStore interface {
+	RefCandidates(ctx context.Context) (conditions.RefCandidateSet, error)
+}
+
 // BadgeConditionCatalog 是 `GET /admin/badges/conditions` 的领域结果。
 //
-// 两个面刻意一起返回：`Items` 是**条件**目录（规则的 type 维），`FactCandidates`
-// 是**事实候选**（规则里 `fact.count` 的 factKey/variant 维）。插件条件的双语
-// label 属于候选项而不是 Core 条件文案，混进 Items 会让「条件名」被插件覆盖。
+// 三个面刻意一起返回：`Items` 是**条件**目录（规则的 type 维），`FactCandidates`
+// 是**事实候选**（规则里 `fact.count` 的 factKey/variant 维），`RefCandidates`
+// 是**对象引用候选**（`ParamSpec.RefKind` 的取值域：分类/标签/角色/登录方式/徽章）。
+// 插件条件的双语 label 属于候选项而不是 Core 条件文案，混进 Items 会让「条件名」
+// 被插件覆盖；对象引用候选同理——它是数据（运营增删的对象），不是条件元数据。
 type BadgeConditionCatalog struct {
 	Items          []conditions.Definition
 	FactCandidates []conditions.FactCandidate
+	RefCandidates  conditions.RefCandidateSet
 }
 
 // BadgeConditions 返回**可发布**的条件目录（展示面）。
 //
 // 用 `PublishableDefinitions(candidates)` 而不是 `Definitions()`：没有事实候选时
 // `fact.count` 是空下拉，暴露出去只会让运营点进死路。校验/求值仍走全集。
+//
+// 对象引用候选是 best-effort：缺少 `RefCandidateStore`、查询失败都只让对应 kind 变
+// `Unavailable`，**绝不**让这个只读端点失败。理由是候选只是编辑器的便利设施——
+// 取不到时运营还能手填，而让整个条件目录 500 会把「配规则」这条主流程一起打死。
 func (a *AdminService) BadgeConditions(ctx context.Context, actor identity.Actor) (BadgeConditionCatalog, error) {
 	if err := requireBadgePermission(actor, PermissionBadgeView); err != nil {
 		return BadgeConditionCatalog{}, err
@@ -525,9 +542,24 @@ func (a *AdminService) BadgeConditions(ctx context.Context, actor identity.Actor
 			candidates = declared
 		}
 	}
+	refCandidates := conditions.UnavailableRefCandidateSet()
+	if a != nil && a.store != nil {
+		if store, ok := a.store.(RefCandidateStore); ok {
+			// 先接返回值再用错误：store 的契约是「失败类标 unavailable、其余照常
+			// 返回」，整体丢弃会把一次局部失败放大成五项全空。
+			set, err := store.RefCandidates(ctx)
+			if err != nil {
+				slog.Default().Warn("badge ref candidates partially unavailable", "error", err)
+			}
+			if len(set) > 0 {
+				refCandidates = set
+			}
+		}
+	}
 	return BadgeConditionCatalog{
 		Items:          conditions.Core().PublishableDefinitions(candidates),
 		FactCandidates: candidates,
+		RefCandidates:  refCandidates,
 	}, nil
 }
 

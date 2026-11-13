@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computed, defineComponent, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 import type {
@@ -23,6 +23,13 @@ import {
   factKeyOptions,
   factVariantOptions
 } from '../../app/utils/admin/badgeFactCandidates'
+import {
+  refKindGroup,
+  refKindItems,
+  refKindManual,
+  refOptionLabel,
+  type BadgeRefCandidateMap
+} from '../../app/utils/admin/badgeRefCandidates'
 
 /**
  * 叶子参数控件的行为契约（从 `adminBadgeRuleEditor.test.ts` 拆出：那里只留树/组/上限，
@@ -33,6 +40,43 @@ import {
  * 窗口格多出 `[object Object]`。
  */
 const UIconStub = defineComponent({ name: 'UIcon', props: { name: String }, template: '<i />' })
+
+/**
+ * `USelectMenu` 在测试环境里没有全局注册，未解析组件会把 props 压成字符串属性，
+ * 断言就会变成「猜 attribute 名」。用同形 stub 把「传了什么、能选什么」变成结构化证据。
+ */
+const SelectMenuStub = defineComponent({
+  name: 'USelectMenu',
+  inheritAttrs: false,
+  props: {
+    modelValue: { type: String, default: '' },
+    items: { type: Array, default: () => [] },
+    valueKey: { type: String, default: '' },
+    labelKey: { type: String, default: '' },
+    searchInput: { type: [Boolean, Object], default: false },
+    filterFields: { type: Array, default: () => [] },
+    clear: { type: [Boolean, Object], default: false },
+    placeholder: { type: String, default: '' }
+  },
+  emits: ['update:modelValue'],
+  setup(props, { attrs, emit }) {
+    return () => h('div', {
+      ...attrs,
+      'data-select-stub': '',
+      'data-model': props.modelValue as string,
+      'data-search-input': String(props.searchInput),
+      'data-filter-fields': (props.filterFields as string[]).join(','),
+      'data-value-key': props.valueKey as string,
+      'data-label-key': props.labelKey as string,
+      'data-clear': String(props.clear),
+      'data-placeholder': props.placeholder as string
+    }, (props.items as Array<{ value: string, label: string }>).map(item => h(
+      'button',
+      { type: 'button', 'data-option': item.value, onClick: () => emit('update:modelValue', item.value) },
+      item.label
+    )))
+  }
+})
 
 const i18nStub = () => ({
   t: (key: string) => key,
@@ -50,7 +94,11 @@ const ParamField = await compileVueSfc(
     applyFactKeySelection,
     factKeyMissing,
     factKeyOptions,
-    factVariantOptions
+    factVariantOptions,
+    refKindGroup,
+    refKindItems,
+    refKindManual,
+    refOptionLabel
   }
 )
 
@@ -142,11 +190,32 @@ function activityLeaf(params: Record<string, unknown> = { metric: 'topic_count',
   return { type: 'activity.count', params, cmp: { op: 'gte', value } }
 }
 
-function mountLeaf(node: BadgeRuleLeaf, items: BadgeConditionCatalogEntry[] = catalog) {
+function mountLeaf(
+  node: BadgeRuleLeaf,
+  items: BadgeConditionCatalogEntry[] = catalog,
+  extra: Record<string, unknown> = {}
+) {
   const rule: BadgeRule = { v: 1, root: node }
   return mount(Leaf, {
-    props: { rule, node, path: [], depth: 1, catalog: items }
+    props: { rule, node, path: [], depth: 1, catalog: items, ...extra },
+    global: { stubs: { USelectMenu: SelectMenuStub } }
   })
+}
+
+/** objectRef 候选的三类形态：五项齐全 / 截断 / 不可用 / 空列表。 */
+function refMap(overrides: Partial<BadgeRefCandidateMap> = {}): BadgeRefCandidateMap {
+  return {
+    category: {
+      kind: 'category',
+      candidates: [
+        { value: 'news', label: '新闻', flags: [] },
+        { value: 'archived-cat', label: '归档分类', flags: ['hidden'] }
+      ],
+      unavailable: false,
+      truncated: false
+    },
+    ...overrides
+  }
 }
 
 function lastEmittedLeaf(wrapper: ReturnType<typeof mountLeaf>): BadgeRuleLeaf {
@@ -273,19 +342,114 @@ describe('SFAdminBadgeRuleLeaf params', () => {
     }
   })
 
-  test('objectRef 只渲染「候选待下发」占位，不提供自由输入', () => {
-    const node: BadgeRuleLeaf = {
-      type: 'object.authoring',
-      params: { targetKind: 'category', targetSlug: '', window: { kind: 'all' } },
-      cmp: { op: 'gte', value: 3 }
-    }
-    const wrapper = mountLeaf(node)
+  /**
+   * `objectRef` 的四种情形（线上 bug：原来是「只含占位 option 的空下拉」，值永远为空，
+   * 保存必报「缺少必填参数」。现在候选可用 → 可搜索选择；其余一律文本输入）。
+   */
+  const refNode = (targetSlug = ''): BadgeRuleLeaf => ({
+    type: 'object.authoring',
+    params: { targetKind: 'category', targetSlug, window: { kind: 'all' } },
+    cmp: { op: 'gte', value: 3 }
+  })
+
+  test('有候选：objectRef 渲染可搜索选择控件（不是文本框、不是空下拉）', () => {
+    const wrapper = mountLeaf(refNode(), catalog, { refCandidates: refMap() })
     try {
       const target = wrapper.find('[data-param="targetSlug"]')
+      const select = target.find('[data-ref-select]')
+      expect(select.exists()).toBe(true)
+      // 首用 USelectMenu：搜索、按 label/value 过滤、取值用 value、显示用 label。
+      expect(select.attributes('data-search-input')).toBe('true')
+      expect(select.attributes('data-filter-fields')).toBe('label,value')
+      expect(select.attributes('data-value-key')).toBe('value')
+      expect(select.attributes('data-label-key')).toBe('label')
+      expect(select.attributes('data-clear')).toBe('false')
+      expect(select.attributes('data-ref-kind')).toBe('category')
+      expect(select.attributes('data-placeholder')).toBe('admin.badges.conditions.refCandidatesPlaceholder')
+      // 候选真的渲染成可选项，隐藏标记只加后缀、仍然可选。
+      expect(select.findAll('[data-option]').map(option => option.text())).toEqual([
+        '新闻',
+        `归档分类${'admin.badges.conditions.refFlagHidden'}`
+      ])
+      // 这条链上不许再出现任何文本框（曾经的兜底文本框就是这个 bug 的观感）。
       expect(target.find('input[type="text"]').exists()).toBe(false)
-      const options = target.findAll('option')
-      expect(options).toHaveLength(1)
-      expect(options[0]!.text()).toBe('admin.badges.conditions.candidatesPending')
+      expect(target.find('select').exists()).toBe(false)
+      // data-param / data-param-kind 保留，新增 data-ref-kind。
+      expect(target.attributes('data-param-kind')).toBe('objectRef')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('有候选：选中一项把 slug 落进 params，其余参数不动', async () => {
+    const wrapper = mountLeaf(refNode(), catalog, { refCandidates: refMap() })
+    try {
+      await wrapper.find('[data-param="targetSlug"] [data-option="news"]').trigger('click')
+      const next = lastEmittedLeaf(wrapper)
+      expect(next.params).toEqual({ targetKind: 'category', targetSlug: 'news', window: { kind: 'all' } })
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('截断：追加「仅显示前 500 条」提示，控件仍是选择器', () => {
+    const map = refMap({
+      category: {
+        kind: 'category',
+        candidates: [{ value: 'news', label: '新闻', flags: [] }],
+        unavailable: false,
+        truncated: true
+      }
+    })
+    const wrapper = mountLeaf(refNode(), catalog, { refCandidates: map })
+    try {
+      const target = wrapper.find('[data-param="targetSlug"]')
+      expect(target.find('[data-ref-select]').exists()).toBe(true)
+      expect(target.find('[data-ref-truncated]').text()).toBe('admin.badges.conditions.refTruncated')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('不可用 / 空候选：退成文本框 + 提示，绝不留空下拉', async () => {
+    const unavailable: BadgeRefCandidateMap = {
+      category: { kind: 'category', candidates: [], unavailable: true, truncated: false }
+    }
+    const empty: BadgeRefCandidateMap = {
+      category: { kind: 'category', candidates: [], unavailable: false, truncated: false }
+    }
+    for (const map of [unavailable, empty, {} as BadgeRefCandidateMap]) {
+      const wrapper = mountLeaf(refNode(), catalog, { refCandidates: map })
+      try {
+        const target = wrapper.find('[data-param="targetSlug"]')
+        const manual = target.find('input[data-ref-manual]')
+        expect(manual.exists()).toBe(true)
+        expect(manual.attributes('data-ref-kind')).toBe('category')
+        expect(target.find('[data-ref-manual-hint]').text()).toBe('admin.badges.conditions.refManualHint')
+        // 不再有任何下拉（含只带占位 option 的那种）。
+        expect(target.find('[data-ref-select]').exists()).toBe(false)
+        expect(target.find('select').exists()).toBe(false)
+        await manual.setValue('news')
+        expect(lastEmittedLeaf(wrapper).params?.targetSlug).toBe('news')
+      } finally {
+        wrapper.unmount()
+      }
+    }
+  })
+
+  test('失效值：保留原值并标「（失效）」，不静默清空', () => {
+    const wrapper = mountLeaf(refNode('legacy-category'), catalog, { refCandidates: refMap() })
+    try {
+      const options = wrapper.find('[data-param="targetSlug"]').findAll('[data-option]')
+      expect(options.map(option => option.text())).toEqual([
+        '新闻',
+        `归档分类${'admin.badges.conditions.refFlagHidden'}`,
+        `legacy-category${'admin.badges.conditions.refStale'}`
+      ])
+      const stale = options[options.length - 1]!
+      expect(stale.attributes('data-option')).toBe('legacy-category')
+      // 打开弹窗 / 渲染候选不是一次写操作：失效值只展示，不 emit。
+      expect(wrapper.emitted('update:rule')).toBeUndefined()
     } finally {
       wrapper.unmount()
     }

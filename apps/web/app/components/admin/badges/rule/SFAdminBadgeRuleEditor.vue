@@ -10,6 +10,7 @@
  * 的 `isSimpleRule`），高级模式 = 完整布尔树。切模式**绝不迁移语义**——把 `any`
  * 压平会直接改变判定结果、误发徽章，属于数据事故而不是体验问题。
  */
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import { isGroupNode, type BadgeConditionCatalogEntry, type BadgeFactCandidate, type BadgeRule } from '~/utils/admin/badgeRule'
 import { isSimpleRule, ruleSentence } from '~/utils/admin/badgeRuleSentence'
 import SFAdminBadgeRuleGroup from '~/components/admin/badges/rule/SFAdminBadgeRuleGroup.vue'
@@ -23,6 +24,8 @@ const props = withDefaults(defineProps<{
   /** 插件事实候选：只有 fact.count 叶子消费，但树上每一层都要往下带到它。 */
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：树上每层都要往下带到参数控件。 */
+  refCandidates?: BadgeRefCandidateMap
   /**
    * **仅首次渲染的种子**：只在组件挂载时读一次，之后既不随 prop 变化、也不随规则变化
    * 重新推断（否则用户点了切换会被下一次 props 更新顶回去）。唯一用途是测试可控
@@ -35,6 +38,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   factCandidates: () => [],
   factCandidatesFailed: false,
+  refCandidates: () => ({}),
   initialMode: undefined
 })
 
@@ -123,6 +127,7 @@ function update(next: BadgeRule) {
         :catalog="catalog"
         :fact-candidates="factCandidates ?? []"
         :fact-candidates-failed="factCandidatesFailed === true"
+        :ref-candidates="refCandidates ?? {}"
         @update:rule="update"
       />
 
@@ -136,6 +141,7 @@ function update(next: BadgeRule) {
           :catalog="catalog"
           :fact-candidates="factCandidates ?? []"
           :fact-candidates-failed="factCandidatesFailed === true"
+          :ref-candidates="refCandidates ?? {}"
           @update:rule="update"
         />
         <SFAdminBadgeRuleLeaf
@@ -147,6 +153,7 @@ function update(next: BadgeRule) {
           :catalog="catalog"
           :fact-candidates="factCandidates ?? []"
           :fact-candidates-failed="factCandidatesFailed === true"
+          :ref-candidates="refCandidates ?? {}"
           @update:rule="update"
         />
       </template>

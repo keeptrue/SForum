@@ -6,12 +6,14 @@ import { tierColorVar } from '~/utils/theme/tierColor'
 import SFAdminBadgeIconField from '~/components/admin/badges/SFAdminBadgeIconField.vue'
 import SFAdminBadgeRuleSection from '~/components/admin/badges/SFAdminBadgeRuleSection.vue'
 import SFAdminBadgeRuleImpactDialog from '~/components/admin/badges/rule/SFAdminBadgeRuleImpactDialog.vue'
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRuleError } from '~/utils/admin/badgeRule'
 import type { BadgeRuleHealthIssue, BadgeRuleHealthRow } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
 import { useBadgeRuleDraft } from '~/composables/admin/badges/useBadgeRuleDraft'
 import { useAdminBadgeRuleImpact } from '~/composables/admin/badges/useAdminBadgeRuleImpact'
 import { useBadgeRuleTextPreview } from '~/composables/admin/badges/useBadgeRuleTextPreview'
 import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
+import { excludeBadgeSlug } from '~/utils/admin/badgeRefCandidates'
 import { FIELD_SLOT_KEYS } from '~/utils/admin/badgeFieldSlots'
 
 /**
@@ -33,6 +35,8 @@ const props = withDefaults(defineProps<{
   /** 插件事实候选：只影响 fact.count 的两级下拉与失效提示。 */
   factCandidates?: BadgeFactCandidate[]
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：编辑已有徽章时先剔掉它自己（自引用永不成立）。 */
+  refCandidates?: BadgeRefCandidateMap
   /** 条件目录加载失败（端点未上线/网络错）：条件区给可见提示，不静默降级。 */
   catalogFailed?: boolean
   /** 规则健康清单：只含引用/条件失效的徽章，空数组表示全站健康（不渲染任何提示）。 */
@@ -43,6 +47,7 @@ const props = withDefaults(defineProps<{
   catalogFailed: false,
   factCandidates: () => [],
   factCandidatesFailed: false,
+  refCandidates: () => ({}),
   ruleHealth: () => [],
   ruleHealthFailed: false
 })
@@ -50,6 +55,12 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ saved: [] }>()
 
 const open = defineModel<boolean>('open', { required: true })
+
+/**
+ * 规则里不能引用**自身**徽章：自引用永不成立（授予链路本身就是在授予它）。
+ * 过滤后 badge 类若为空，参数控件会退成文本输入——新建徽章时这就是正常状态。
+ */
+const ruleRefCandidates = computed(() => excludeBadgeSlug(props.refCandidates, props.badge?.slug ?? ''))
 
 const { t, te, locale } = useI18n()
 const { request } = useApiClient()
@@ -422,6 +433,7 @@ async function removeBadge() {
             :catalog-failed="catalogFailed"
             :fact-candidates="factCandidates"
             :fact-candidates-failed="factCandidatesFailed"
+            :ref-candidates="ruleRefCandidates"
             :draft-rule="draftRule"
             :rule-missing="ruleMissing"
             :health-issues="healthIssues"

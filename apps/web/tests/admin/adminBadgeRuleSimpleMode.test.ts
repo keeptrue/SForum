@@ -31,6 +31,12 @@ import {
   factVariantOptions
 } from '../../app/utils/admin/badgeFactCandidates'
 import {
+  refKindGroup,
+  refKindItems,
+  refKindManual,
+  refOptionLabel
+} from '../../app/utils/admin/badgeRefCandidates'
+import {
   buildFlatAllRule,
   flattenAllLeaves,
   isSimpleRule,
@@ -91,7 +97,11 @@ const ParamField = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRulePa
   applyFactKeySelection,
   factKeyMissing,
   factKeyOptions,
-  factVariantOptions
+  factVariantOptions,
+  refKindGroup,
+  refKindItems,
+  refKindManual,
+  refOptionLabel
 })
 
 const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue', ruleDir)), 'simple-leaf', {

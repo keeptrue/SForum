@@ -15,6 +15,7 @@ import {
   type BadgeRule,
   type BadgeRuleLeaf
 } from '~/utils/admin/badgeRule'
+import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import { factCandidateUnit } from '~/utils/admin/badgeFactCandidates'
 import SFAdminBadgeRuleParamField from '~/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue'
 
@@ -28,9 +29,12 @@ const props = withDefaults(defineProps<{
   factCandidates?: BadgeFactCandidate[]
   /** 候选整体读不到：编辑器照常可用，只在事实叶子下给一条提示。 */
   factCandidatesFailed?: boolean
+  /** objectRef 参数候选：不可用/为空时参数控件退成文本输入。 */
+  refCandidates?: BadgeRefCandidateMap
 }>(), {
   factCandidates: () => [],
-  factCandidatesFailed: false
+  factCandidatesFailed: false,
+  refCandidates: () => ({})
 })
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
@@ -151,6 +155,7 @@ function setValue(event: Event) {
         :entry="entry"
         :fact-candidates="factCandidates ?? []"
         :fact-candidates-failed="factCandidatesFailed === true"
+        :ref-candidates="refCandidates ?? {}"
         :zh="zh"
         @update:params="applyParams"
       />

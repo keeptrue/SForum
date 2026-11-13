@@ -45,7 +45,16 @@ func (h *Controller) adminListBadgeConditions(c fiber.Ctx) error {
 	for _, candidate := range catalog.FactCandidates {
 		candidates = append(candidates, toFactCandidateDTO(candidate))
 	}
-	return apphttp.OK(c, map[string]any{"items": items, "factCandidates": candidates})
+	// `refCandidates` 是第二个 additive 顶层字段：`items` 与 `factCandidates` 的
+	// 拼装一个字都没动（M2/M3 已发的编辑器不会被这个版本打断）。它回答的是另一个
+	// 维度——`ParamSpec.RefKind` 的取值域（分类/标签/角色/登录方式/徽章），
+	// 与 `items`（规则 type 维）、`factCandidates`（factKey/variant 维）并列而不是
+	// 互相嵌套：编辑器按 refKind 查同一张表，独立成面才不会被条件名绑死。
+	return apphttp.OK(c, map[string]any{
+		"items":          items,
+		"factCandidates": candidates,
+		"refCandidates":  toRefCandidateSetDTO(catalog.RefCandidates),
+	})
 }
 
 // adminBadgeRuleText 预览一条草稿规则生成的公开说明（只读，无副作用）。

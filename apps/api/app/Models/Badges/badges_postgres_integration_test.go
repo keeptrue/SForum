@@ -127,9 +127,27 @@ CREATE TABLE content_reactions (
 -- 而本 fixture 的 user 只存在于隔离 schema，外键会直接炸（也会污染真实表）。
 -- rule_health / rule_store 会查这五张表：必须建在 fixture schema 里，否则会落到
 -- 真实 public（search_path 带 public，见计划 §13 残留 14）。
-CREATE TABLE categories (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE);
-CREATE TABLE tags (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE);
-CREATE TABLE roles (id BIGSERIAL PRIMARY KEY, key TEXT NOT NULL UNIQUE);
+-- objectRef 候选（RefCandidates）要读分类/标签/角色的「展示名 + 是否可见」：
+-- 列补齐时全部给默认值，既有测试只插 slug/key 也照常成立；漏列会让查询落到
+-- 真实 public 表（search_path 带 public），所以新增读取列必须同批补进 DDL。
+CREATE TABLE categories (
+  id BIGSERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL DEFAULT '',
+  visibility TEXT NOT NULL DEFAULT 'public'
+);
+CREATE TABLE tags (
+  id BIGSERIAL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active'
+);
+CREATE TABLE roles (
+  id BIGSERIAL PRIMARY KEY,
+  key TEXT NOT NULL UNIQUE,
+  alias TEXT NOT NULL DEFAULT '',
+  is_enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
 CREATE TABLE identity_external_links (
   id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, provider_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active'
 );
