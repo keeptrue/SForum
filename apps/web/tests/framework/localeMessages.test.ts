@@ -89,6 +89,24 @@ describe('locale message syntax', () => {
     })
   }
 
+  test('资料设置 tab / 插件设置 / 扩展点治理的新文案两种语言键集一致', () => {
+    // 新增命名空间必须成对落地：缺一条就是运行时 t() 直接漏键。
+    const groups: Array<(locale: Record<string, unknown>) => unknown> = [
+      locale => (locale.profileSettings as Record<string, unknown>).tabs,
+      locale => (locale.profileSettings as Record<string, unknown>).extension,
+      locale => ((locale.admin as Record<string, Record<string, unknown>>).settings as Record<string, unknown>).contributions,
+      locale => (((locale.admin as Record<string, Record<string, unknown>>).extensions as Record<string, unknown>).contributions as Record<string, unknown>).governance
+    ]
+    const zh = readLocale('zh-CN')
+    const en = readLocale('en-US')
+    for (const pick of groups) {
+      const zhKeys = Object.keys(flatten(pick(zh) as Record<string, unknown>)).sort()
+      const enKeys = Object.keys(flatten(pick(en) as Record<string, unknown>)).sort()
+      expect(zhKeys.length).toBeGreaterThan(0)
+      expect(zhKeys).toEqual(enKeys)
+    }
+  })
+
   test('昵称文案用字面量转义 @，且 username 插值仍可用', () => {
     for (const locale of LOCALES) {
       const messages = new Map(flatten(readLocale(locale)))

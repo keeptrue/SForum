@@ -3,8 +3,10 @@ package extensions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -216,6 +218,12 @@ func (s *PostgresStore) moveLifecycleState(
 		return err
 	}
 	if err := writeLifecycleExtensionState(ctx, tx, record.ExtensionID, current, want); err != nil {
+		return err
+	}
+	// 状态真的要变了：设置字段投影与去投影在这里发生（enable/disable/upgrade/
+	// rollback/uninstall 全部经过这条状态发布）。与 PostgresStore.Enable/Disable
+	// 一起构成两个状态写原语；它们共用同一个投影器实例。
+	if err := s.syncLifecycleSettingsSurfaceFields(ctx, tx, record.ExtensionID, want); err != nil {
 		return err
 	}
 	tag, err := tx.Exec(ctx, `
@@ -686,3 +694,80 @@ func mapLifecycleStatePublicationLoadError(action string, err error) error {
 }
 
 var _ LifecycleStatePublicationRepository = (*PostgresStore)(nil)
+
+// syncLifecycleSettingsSurfaceFields 在状态发布事务内同步插件设置字段。
+//
+// 规则与 store.Enable/Disable 一致：
+//   - 目标状态不是 enabled（停用/卸载）→ 只翻 enabled=false，值保留；失败不阻断
+//     （停用必须永远可用，残留字段由启动 reconcile 收敛）
+//   - 目标状态是 enabled（启用/升级/回滚）→ 以目标 active version 的 manifest 为准
+//     幂等投影；失败返回 preflight 错误，整笔状态发布回滚
+func (s *PostgresStore) syncLifecycleSettingsSurfaceFields(
+	ctx context.Context,
+	tx pgx.Tx,
+	extensionID string,
+	want lifecycleStateVector,
+) error {
+	if s.settingsSurfaceFields == nil {
+		return nil
+	}
+	if want.Status != StatusEnabled {
+		if err := s.settingsSurfaceFields.Disable(ctx, extensionID); err != nil {
+			slog.Warn("settings surface: deproject after lifecycle disable failed",
+				"extensionId", extensionID, "error", err)
+		}
+		return nil
+	}
+	if want.Active.VersionID == 0 {
+		return nil
+	}
+	var manifestRaw []byte
+	if err := tx.QueryRow(ctx, `
+		SELECT manifest FROM extension_versions WHERE id = $1`, want.Active.VersionID).Scan(&manifestRaw); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("read lifecycle settings surface manifest: %w", err)
+	}
+	var manifest Manifest
+	if err := json.Unmarshal(manifestRaw, &manifest); err != nil || manifest.Type != TypePlugin {
+		return nil
+	}
+	if _, err := s.settingsSurfaceFields.SyncManifest(ctx, manifest); err != nil {
+		return fmt.Errorf("%w: settings surface fields: %v", ErrPreflightFailed, err)
+	}
+	return nil
+}
+
+// WithSettingsSurfaceFields 注入设置字段投影器（链式可选）。
+// nil = 不投影（既有测试与未接线装配的行为）。
+func (s *PostgresStore) WithSettingsSurfaceFields(projector SettingsSurfaceFieldProjector) *PostgresStore {
+	if s != nil {
+		s.settingsSurfaceFields = projector
+	}
+	return s
+}
+
+// projectSettingsSurfaceFields 在 enable 提交前投影声明；失败返回 preflight 错误，
+// 由 defer tx.Rollback 撤销 status 变更。
+//
+// 投影本身走独立连接（entity-meta 有它自己的事务边界），因此极端情况下可能出现
+// 「字段已落库、status 回滚」的残留：它们 enabled=true 但没有插件引用，读模型
+// 不可见，下一次 enable 或启动 reconcile 会重新收敛。
+func (s *PostgresStore) projectSettingsSurfaceFields(ctx context.Context, id string, manifestRaw []byte) error {
+	if s.settingsSurfaceFields == nil || len(manifestRaw) == 0 {
+		return nil
+	}
+	var manifest Manifest
+	if err := json.Unmarshal(manifestRaw, &manifest); err != nil {
+		// 清单读不出来时不能假装投影成功：enabled 会让读模型与存储彻底分叉。
+		return fmt.Errorf("%w: settings surface fields: decode manifest: %v", ErrPreflightFailed, err)
+	}
+	if manifest.Type != "" && manifest.Type != TypePlugin {
+		return nil
+	}
+	if _, err := s.settingsSurfaceFields.SyncManifest(ctx, manifest); err != nil {
+		return fmt.Errorf("%w: settings surface fields: %v", ErrPreflightFailed, err)
+	}
+	return nil
+}

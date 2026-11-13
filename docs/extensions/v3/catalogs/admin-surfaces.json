@@ -743,7 +743,7 @@
     "forms": false,
     "notices": true,
     "editorPanels": false,
-    "detailRegions": false,
+    "detailRegions": true,
     "importer": true,
     "exporter": false
   },

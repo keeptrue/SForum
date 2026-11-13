@@ -25,6 +25,10 @@ type Service struct {
 	trustLevels    TrustLevelReader
 	trustTiers     TrustTierCatalog
 	activityCounts ActivityCountersReader
+	// settingsSections / settingsMeta / settingsMetaWriter 是插件设置面（task-1/2）。
+	settingsSections   SettingsSectionProvider
+	settingsMeta       SettingsMetaReader
+	settingsMetaWriter SettingsMetaWriter
 }
 
 // TrustLevelReader 读某个用户的信任等级（装配层用 identity store 实现）。
@@ -211,6 +215,8 @@ func (s *Service) GetPublicProfileForViewer(ctx context.Context, username string
 		ExtensionTabs:     tabs,
 		TrustLevel:        trustLevel,
 	}
+	// 插件字段的公开面：只含 visibility=public 且 viewer 有权的字段。
+	s.attachPublicSettingsMeta(ctx, viewer, user.UserID, &view)
 	// 曾用名是可选公开面：运营没打开时这里什么都不返回，公开页也不会多一行。
 	if s.nicknames != nil {
 		if names, err := s.nicknames.PublicPreviousNames(ctx, user.UserID); err == nil {
@@ -408,20 +414,12 @@ func (s *Service) listProfileTabs(ctx context.Context, viewer identity.Actor) ([
 	return s.profileTabs.ProfileTabs(ctx, viewer)
 }
 
-// GetMyProfile 读取当前用户可编辑的资料。
+// GetMyProfile 读取当前用户可编辑的资料（无权限视角）。
+//
+// HTTP 入口走 GetMyProfileForActor：插件设置 tab 的 permission 过滤需要真实 actor，
+// 这里只保留「按 userID 读自己」的兼容签名。
 func (s *Service) GetMyProfile(ctx context.Context, userID int64) (PublicProfile, error) {
-	if userID <= 0 {
-		return PublicProfile{}, identity.ErrPermissionDenied
-	}
-	user, err := s.store.GetUserSummaryByID(ctx, userID)
-	if err != nil {
-		return PublicProfile{}, err
-	}
-	profile, err := s.store.GetProfile(ctx, userID)
-	if err != nil {
-		return PublicProfile{}, err
-	}
-	return s.myProfileView(ctx, user, profile), nil
+	return s.GetMyProfileForActor(ctx, identity.Actor{ID: userID, Status: identity.UserStatusActive})
 }
 
 // UpdateMyProfile 更新当前用户自己的资料。仅限当前用户操作自己。
@@ -480,6 +478,10 @@ func (s *Service) UpdateMyProfile(ctx context.Context, actor identity.Actor, inp
 		if err != nil {
 			return PublicProfile{}, err
 		}
+	}
+	// 插件设置字段最后写：资料字段先落库，meta 失败整次请求仍是 422 + 字段级错误。
+	if err := s.writeSettingsMeta(ctx, actor, input.Meta); err != nil {
+		return PublicProfile{}, err
 	}
 	user, err := s.store.GetUserSummaryByID(ctx, actor.ID)
 	if err != nil {
@@ -648,20 +650,26 @@ func normalizeUpdateProfileInput(input UpdateProfileInput) (NormalizeProfile, er
 		WebsiteURL:         trimPtr(input.WebsiteURL, maxWebsiteLength),
 		AvatarAttachmentID: input.AvatarAttachmentID,
 	}
+	// 一次收集全部字段错误：前端按 tab 汇总「还有 N 处待修正」，
+	// 只报第一条会让汇总链路永远显示 1。
+	fields := map[string][]string{}
 	if result.Bio != nil && len(*result.Bio) > maxBioLength {
-		return NormalizeProfile{}, ErrProfileInvalid
+		fields["bio"] = []string{MessageFieldTooLong}
 	}
 	if result.Signature != nil && len(*result.Signature) > maxSignatureLength {
-		return NormalizeProfile{}, ErrProfileInvalid
+		fields["signature"] = []string{MessageFieldTooLong}
 	}
 	if result.Location != nil && len(*result.Location) > maxLocationLength {
-		return NormalizeProfile{}, ErrProfileInvalid
+		fields["location"] = []string{MessageFieldTooLong}
 	}
 	if result.WebsiteURL != nil {
 		url := *result.WebsiteURL
 		if url != "" && !isValidWebsiteURL(url) {
-			return NormalizeProfile{}, ErrProfileInvalid
+			fields["websiteUrl"] = []string{MessageFieldInvalidURL}
 		}
+	}
+	if len(fields) > 0 {
+		return NormalizeProfile{}, &ProfileFieldsError{Fields: fields}
 	}
 	if result.AvatarAttachmentID != nil && *result.AvatarAttachmentID <= 0 {
 		return NormalizeProfile{}, ErrProfileInvalid

@@ -154,11 +154,14 @@ func newProfileTestAppWithEditor(policy profileForumReadPolicy, editor profile.N
 
 // profileTestOptions 让单个测试只替换它关心的装配件，其余保持默认。
 type profileTestOptions struct {
-	editor    profile.NicknameEditor
-	tabs      profile.ProfileTabProvider
-	bookmarks profile.BookmarkLister
-	actors    map[int64]identity.Actor
-	actorsErr error
+	editor        profile.NicknameEditor
+	tabs          profile.ProfileTabProvider
+	bookmarks     profile.BookmarkLister
+	actors        map[int64]identity.Actor
+	actorsErr     error
+	settings      profile.SettingsSectionProvider
+	settingsMeta  profile.SettingsMetaReader
+	settingsWrite profile.SettingsMetaWriter
 }
 
 func newProfileTestAppWithOptions(policy profileForumReadPolicy, opts profileTestOptions) (*fiber.App, *authsession.Manager, *profileFakeStore) {
@@ -184,6 +187,12 @@ func newProfileTestAppWithOptions(policy profileForumReadPolicy, opts profileTes
 	}
 	if opts.bookmarks != nil {
 		service.WithBookmarkLister(opts.bookmarks)
+	}
+	if opts.settings != nil {
+		service.WithSettingsSections(opts.settings)
+	}
+	if opts.settingsMeta != nil || opts.settingsWrite != nil {
+		service.WithSettingsMeta(opts.settingsMeta, opts.settingsWrite)
 	}
 	controller := NewController(service, users, manager, policy)
 	loginProvider := profileRouteProviderFunc(func(api fiber.Router) {

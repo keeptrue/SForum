@@ -1550,6 +1550,79 @@ Relevant plans:
   while avoiding an `io.ReadAll` allocation proportional to a 20-30 MiB plugin
   artifact on every GuardPolicy refresh.
 
+### 设置面贡献点（`settingsSection`，2026-11-13）
+
+插件把自己的设置挂到宿主已有的设置页上，而不是另建插件页。两个贡献点共用宿主拥有的
+payload 类型 `settingsSection`，形态矩阵在
+`app/Support/ExtensionManifest/settings_section_validate.go` 的
+`settingsSectionTabKinds` 里是唯一真值：
+
+| 贡献点 | 表面 | 允许的 `payload.type` | 值存哪 |
+| --- | --- | --- | --- |
+| `forum.settings.profile.tabs` | 个人设置页 tab 栏 | `fields` / `component` | 按用户存 entity-meta |
+| `admin.settings.tabs` | 站点设置页 tab 栏 | `settings`（引用本包 Settings Document 的 `tabId`） | 插件自己的设置存储 |
+
+- 声明上限（manifest 校验直接拒绝）：每 tab ≤24 字段、每扩展 ≤60 字段、每表面 ≤12 个插件 tab；
+  渲染侧还有一次 ≤12 的跨插件截断（按生效顺序，`slog.Warn` 一条）。
+- 字段裸键 `^[a-z][a-z0-9_-]{1,40}$`，**整包唯一**（两个 tab 用同名裸键会落进同一行
+  entity-meta 字段）。组合键 `x.<扩展段>.<裸键>` 由 `SettingsSurfaceFieldKey` 唯一产生；
+  扩展段 = 压平的可读前缀（≤11，不足 8 补 `_`）+ `-` + 8 位 FNV-1a，总长 ≤20，
+  保证组合键 ≤64 正好等于 entity-meta `fieldKeyPattern` 上限。哈希无条件：`sforum.smtp`
+  与 `sforum-smtp` 压平后同形，身份只能由哈希区分。
+- `permission`（tab 级与字段级）必须在本包声明过，否则**安装/校验失败**；过滤只在服务端发生，
+  权限键永不下发（`Section`/`Field` 结构里刻意没有 `Permission` 字段）。
+- 声明上限、约束与形态都是 fail closed：`constraints` 严格解析（未知键、类型错配、
+  `enum` 与 `options` 不一致都拒绝），`select` 无 `options` 拒绝，非 `select` 带 `options` 拒绝。
+  这与 entity-meta 既有字段的宽松历史行为**分开**。
+- 投影（`app/Providers/settings_surface_sync.go`）：把 `fields` 声明 upsert 成 entity-meta 字段
+  （`entityType=user`、`owner_extension_id=扩展 id`），幂等且不碰已存值。同一趟还做两件收尾：
+  **差集清扫**（该扩展仍有、但本次不再声明的定义 → `SetEnabledByOwnerField(false)`，值保留，
+  重新声明即恢复）与**悬空治理行清理**（`pruneDanglingOverrides`：tab 整条消失、
+  或 `item_key` 字段不再声明 → `DeleteOverride`，留 `rows` 计数的 Info 日志）。
+  不做差集清扫的后果是暴露面：旧定义仍 `enabled=true` 且 `visibility=public` 时，
+  历史值继续匿名可读、并且仍可写。
+  `admin.settings.tabs` 不投影任何 entity-meta 字段。
+- **投影只有一个入口**：挂在改 status 的原语上——`PostgresStore.Enable`（同事务内投影，
+  失败 `extension.preflight_failed` 且回滚）、
+  `syncLifecycleSettingsSurfaceFields`（生命周期状态发布事务内，目标是 enabled 就投影、
+  否则去投影）、`PostgresStore.Disable`（提交后去投影，失败只告警）、
+  启动 reconcile `projectEnabledSettingsSurfaces`（只遍历 `status=enabled` 的插件幂等重投影）。
+  活环境踩过的坑：投影原先挂在 service 层 enable/upgrade 包装上，绕过那两个包装的入口
+  （dev 零命令自动启用最先被打到，`PostgresStore` 注释同列 SystemTier 恢复与 legacy 发布）
+  会留下「已启用但没有字段定义」，
+  表现为**表单能看、保存必 422**（`entity_meta.not_found` → `profile.settings.field_unknown`）。
+  诊断口径：查 `entity_field_definitions WHERE owner_extension_id = '<id>'` 是否 0 行，比看接口报错快。
+  **已知缺口（如实）**：带外恢复命令 `sforum extension disable|disable-all|quarantine`
+  （`cmd/sforum/recovery.go`，独立 SQL、不装配 Provider）**不做去投影**，字段保持 `enabled=true`；
+  启动 reconcile 只处理已启用插件，收敛不了这个窗口，需恢复后走一次正常的「启用 → 停用」
+  （V2 插件的停用前置要求 `status=enabled`）。
+  取舍理由：恢复通道必须在应用代码起不来时可用。
+- 治理（`settings_surface_items` + `app/Providers/settings_surface_governance.go`）：稀疏覆盖行，
+  无行=manifest 默认、`enabled=false`=运营关掉、删行=恢复默认。端点在
+  `GET /admin/extensions/contributions`（不截断，超限标 `suppressedByCap`）、
+  `PUT|DELETE /admin/extensions/contributions/:point/:contributionId`
+  与同形的 `/items/:itemKey`；写权限 `extension.plugin.manage`，读权限 `extension.view`
+  （`extension.manage` / `super_admin` 也放行）。治理目标必须是**当前生效**的声明：
+  拼错、插件已停用、升级后删掉的 tab 一律 `ErrUnknownContribution`（422），
+  不凭空造覆盖行。`PUT` 是部分更新（`sortOrder` 三态：没传 / `null` 清覆盖 / 数字设值）。
+- 治理行的清理时机是**投影**（enable / upgrade / 启动 reconcile），不是治理保存——
+  迁移注释里那句「下次治理保存时被清掉」只是措辞漂移，别照它去治理页等自动清理。
+- `GET /profile` 的 `settingsValues` **恒在下发**（有 `settingsSections` 时）：空对象 `{}` 表示
+  「有字段、还没填」，整键消失会让前端分不清「没有插件字段」与「没填」。
+  类型是 `*map[string]any` + `omitempty`，测试 `TestAttachSelfSettingsAlwaysSendsSettingsValues`。
+- 站点设置页的插件 tab 由 `GET /admin/settings/surface-tabs` 下发，id 命名空间
+  `ext.<extensionId>.<contributionId>`，`type=settings` 的 tab 内联解析后的设置文档
+  （免二次请求）；单个插件设置读不出来只跳过该 tab 并留 warn，不让整页打不开。
+- 前端渲染位置：个人页 `SFProfileSettingsTabNav.vue`（呈现归 `SFSettingsTabNav.vue`）+
+  `SFProfileExtensionTabPanel.vue`（`utils/settings/profileSettings.ts` 合成分区）；站点设置页
+  `pages/admin/settings/index.vue` 把 `surfaceTabs` 混排进固定 tab 栏，
+  面板是 `components/admin/settings/contributions/SFAdminSettingsExtensionTab.vue`；
+  治理界面是 `pages/admin/extensions/contributions.vue` +
+  `composables/admin/useAdminContributionGovernance.ts`（乐观更新、行内错误、失败整表回滚）。
+- Fixture：`extensions/fixtures/plugins/sforum-settings-surface-demo`（三形态各一条）。
+  作者文档：`docs/extensions/authoring-guide.md`「Settings tabs and profile fields (`settingsSection`)」。
+  决策：`../decisions/2026-11-13-settings-surface-contributions.md`。
+
 ## Important Paths
 
 | Path | Responsibility |

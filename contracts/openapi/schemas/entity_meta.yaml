@@ -26,6 +26,11 @@ EntityFieldDefinition:
         type: string
     ownerExtensionId:
       type: string
+      description: |
+        Host-internal ownership marker. Written only by the settings-surface field
+        sync (plugin enable/upgrade) and echoed on read; the admin create/update
+        request bodies no longer accept it. Rows owned by an extension reject
+        admin PATCH/DELETE (403), because the next sync would overwrite them.
     required:
       type: boolean
     enabled:
@@ -89,8 +94,6 @@ CreateEntityFieldDefinitionRequest:
       type: object
       additionalProperties:
         type: string
-    ownerExtensionId:
-      type: string
     required:
       type: boolean
     enabled:
@@ -115,8 +118,6 @@ UpdateEntityFieldDefinitionRequest:
       type: object
       additionalProperties:
         type: string
-    ownerExtensionId:
-      type: string
     required:
       type: boolean
     enabled:

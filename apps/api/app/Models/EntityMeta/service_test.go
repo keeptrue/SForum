@@ -105,6 +105,31 @@ func (s *memoryStore) DeleteDefinition(_ context.Context, fieldKey string) error
 	return nil
 }
 
+func (s *memoryStore) SetEnabledDefinition(_ context.Context, fieldKey string, enabled bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, ok := s.defs[fieldKey]
+	if !ok {
+		return ErrNotFound
+	}
+	row.Enabled = enabled
+	s.defs[fieldKey] = row
+	return nil
+}
+
+func (s *memoryStore) SetEnabledByOwnerExtension(_ context.Context, extensionID string, enabled bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key, row := range s.defs {
+		if row.OwnerExtensionID != extensionID {
+			continue
+		}
+		row.Enabled = enabled
+		s.defs[key] = row
+	}
+	return nil
+}
+
 func (s *memoryStore) ListValues(_ context.Context, entityType string, entityID int64) ([]valueRow, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -164,6 +164,12 @@ export function useApiClient() {
         return payload as T
       }
 
+      if (payload === null || payload === undefined) {
+        // 204/205/304 没有响应体（DELETE 成功就是这种）。没有信封可解，如实返回空，
+        // 不能让 `(null).data` 把一次成功的写操作抛成失败。
+        return undefined as T
+      }
+
       return (payload as ApiEnvelope<T>).data
     }
 

@@ -219,6 +219,8 @@ const bindings: Record<string, unknown> = {
   groupProfileActivitiesByDate: () => [],
   profileActivityLink: () => '/',
   profileHasPublicDetails: () => false,
+  // 「关于」里的自定义字段行：本用例 profile.meta 为空，返回空列表即可。
+  profileMetaRows: () => [],
   safeUrl: (value: string) => value,
   // 本任务抽出的共享解析
   extensionTabLabel,

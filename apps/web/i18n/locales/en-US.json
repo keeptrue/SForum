@@ -2371,7 +2371,25 @@
         "emptyPointsDescription": "The host contribution point catalog could not be loaded.",
         "emptyActiveTitle": "No active contributions",
         "emptyActiveDescription": "Enabled plugins that declare contributions will appear here.",
-        "order": "Order {order}"
+        "order": "Order {order}",
+        "loadErrorTitle": "Loading extension points failed",
+        "loadErrorHint": "The list was not cleared; fix the connection and retry.",
+        "retry": "Retry",
+        "governance": {
+          "enabledBadge": "Disabled",
+          "overriddenBadge": "Overridden",
+          "moveUp": "Move up one place",
+          "moveDown": "Move down one place",
+          "toggleAria": "Enable this contribution",
+          "reset": "Restore default",
+          "disableTabConfirm": "Disabling hides this extension tab from everyone. Continue?",
+          "disableConfirm": "Disabling takes effect immediately for this contribution. Continue?",
+          "enabledToast": "Contribution enabled.",
+          "disabledToast": "Contribution disabled.",
+          "reorderedToast": "Order updated.",
+          "resetToast": "Restored the plugin-declared default.",
+          "saveFailed": "The governance change did not apply and was rolled back."
+        }
       },
       "dynamic": {
         "loading": "Loading extension information...",
@@ -4656,6 +4674,21 @@
         "updates": "Updates",
         "client": "Client apps"
       },
+      "contributions": {
+        "badge": "Extension",
+        "extensionHint": "This section is provided by the extension {extensionId}; saving here only changes that extension's settings.",
+        "saved": "Extension settings saved.",
+        "resetDone": "Recommended extension defaults restored.",
+        "secretsPreserved": "Secret fields keep their current values and are never overwritten by defaults.",
+        "saveFailed": "Saving extension settings failed.",
+        "actionFailed": "The extension action failed.",
+        "visibilityTitle": "Extension settings sections are hidden",
+        "visibilityForbidden": "Extension settings sections belong to the extension admin surface: they need the extension.view permission, which this account does not have, so they are hidden. Core settings are unaffected.",
+        "visibilityUnavailable": "Extension settings sections could not be loaded (network or service unavailable). This does not mean the site has no extension settings; retry or reopen this page later.",
+        "visibilityDetails": "Show details",
+        "visibilityDetailEmpty": "No further details",
+        "retry": "Retry"
+      },
       "locale": {
         "zhCN": "简体中文",
         "enUS": "English"
@@ -6401,6 +6434,8 @@
       "resetForm": "Create form cleared.",
       "empty": "No field definitions yet.",
       "disabled": "Disabled",
+      "managedByExtension": "Managed by extension",
+      "managedByExtensionHint": "The extension {extensionId} declares this field; plugin sync overwrites local edits, so it is read-only here.",
       "enable": "Enable",
       "disable": "Disable",
       "delete": "Delete",
@@ -7420,6 +7455,21 @@
       "storyDescription": "Help others quickly understand the topics you care about and the discussions you welcome.",
       "links": "Location and links",
       "linksDescription": "Both are optional. Add only what you want to share publicly."
+    },
+    "tabs": {
+      "ariaLabel": "Profile setting sections",
+      "identity": "Identity",
+      "story": "Intro",
+      "links": "Location and links",
+      "errorDot": "(has errors)",
+      "errorSummary": "{count} field(s) still need fixing in {tab}",
+      "errorGlobal": "{count} field error(s) are not attached to any section; check what you entered."
+    },
+    "extension": {
+      "componentNotice": "This section comes from an extension; its content and saving are owned by that extension.",
+      "componentLoading": "Loading extension section…",
+      "saveManagedByExtension": "This section is managed by an extension; use the save button inside the section.",
+      "required": "Required"
     },
     "viewPublicProfile": "View public profile",
     "username": "Username",

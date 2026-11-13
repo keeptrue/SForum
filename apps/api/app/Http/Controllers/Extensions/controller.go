@@ -86,6 +86,9 @@ type Controller struct {
 	// cleanupConvergence 是卸载物理清理的聚焦协作对象；nil 时免键收尾路由
 	// fail-closed（503），列表徽标投影静默降级。
 	cleanupConvergence *extensions.CleanupConvergenceService
+	// settingsSurface 是设置面治理策略入口；nil 时治理路由 fail-closed（503），
+	// 贡献列表退回未加工形状。
+	settingsSurface SettingsSurfaceGovernanceService
 	// installer 与 service 同源；测试可注入 fake 以验证编排顺序。
 	installer archiveInstaller
 }
@@ -654,6 +657,15 @@ func (h *Controller) contributions(c fiber.Ctx) error {
 	actor, err := h.actor(c)
 	if err != nil {
 		return err
+	}
+	// 注入治理服务时返回带治理事实的读模型（enabled/effectiveSortOrder/fields[]）；
+	// 未注入（裸控制器）退回只读声明形状，保证既有调用方不被打断。
+	if h.settingsSurface != nil {
+		items, err := h.settingsSurface.Contributions(c.Context(), actor)
+		if err != nil {
+			return mapSettingsSurfaceGovernanceError(err)
+		}
+		return apphttp.OK(c, items)
 	}
 	items, err := h.service.Contributions(c.Context(), actor)
 	if err != nil {

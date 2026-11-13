@@ -1030,6 +1030,16 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sf_admin_settings_extension_tab",
+    "contractVersion": "sforum.component.admin.sf_admin_settings_extension_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/settings/contributions/SFAdminSettingsExtensionTab.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_site_account_security_tab",
     "contractVersion": "sforum.component.admin.sfadmin_site_account_security_tab@1",
     "kind": "component",
@@ -2802,6 +2812,16 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sf_declarative_settings_field",
+    "contractVersion": "sforum.component.shared.sf_declarative_settings_field@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/shared/SFDeclarativeSettingsField.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfeditor",
     "contractVersion": "sforum.component.shared.sfeditor@1",
     "kind": "component",
@@ -3295,10 +3315,40 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sf_profile_extension_tab_panel",
+    "contractVersion": "sforum.component.shared.sf_profile_extension_tab_panel@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/profile/SFProfileExtensionTabPanel.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfprofile_feed_tab",
     "contractVersion": "sforum.component.shared.sfprofile_feed_tab@1",
     "kind": "component",
     "source": "apps/web/app/components/profile/SFProfileFeedTab.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_profile_identity_tab",
+    "contractVersion": "sforum.component.shared.sf_profile_identity_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/profile/tabs/SFProfileIdentityTab.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_profile_links_tab",
+    "contractVersion": "sforum.component.shared.sf_profile_links_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/profile/tabs/SFProfileLinksTab.vue",
     "owners": [
       "public"
     ],
@@ -3325,6 +3375,16 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sf_profile_settings_footer",
+    "contractVersion": "sforum.component.shared.sf_profile_settings_footer@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/profile/SFProfileSettingsFooter.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfprofile_settings_page",
     "contractVersion": "sforum.component.shared.sfprofile_settings_page@1",
     "kind": "component",
@@ -3345,10 +3405,30 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sf_profile_settings_tab_nav",
+    "contractVersion": "sforum.component.shared.sf_profile_settings_tab_nav@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/SFProfileSettingsTabNav.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfprofile_show_page",
     "contractVersion": "sforum.component.shared.sfprofile_show_page@1",
     "kind": "component",
     "source": "apps/web/app/components/profile/SFProfileShowPage.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_profile_story_tab",
+    "contractVersion": "sforum.component.shared.sf_profile_story_tab@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/profile/tabs/SFProfileStoryTab.vue",
     "owners": [
       "public"
     ],
@@ -3640,6 +3720,16 @@
     "contractVersion": "sforum.component.shared.sfsettings_shell@1",
     "kind": "component",
     "source": "apps/web/app/components/settings/SFSettingsShell.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_settings_tab_nav",
+    "contractVersion": "sforum.component.shared.sf_settings_tab_nav@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/SFSettingsTabNav.vue",
     "owners": [
       "public"
     ],

@@ -111,6 +111,20 @@ func NewProfileProviderWithAvatarAndTabs(store profile.Store, users identity.Act
 	}
 }
 
+// WithSettingsSurface 注入插件设置面（个人设置页 tab + 字段值读写）。
+// 三个参数同源装配：字段目录来自 provider 投影，读写由同一个 meta 适配器实现，
+// 避免「能看见的字段」与「能写的字段」来自两处判断。
+func (p *ProfileProvider) WithSettingsSurface(
+	sections profile.SettingsSectionProvider,
+	meta profile.SettingsMetaReader,
+	writer profile.SettingsMetaWriter,
+) *ProfileProvider {
+	if p != nil && p.service != nil {
+		p.service.WithSettingsSections(sections).WithSettingsMeta(meta, writer)
+	}
+	return p
+}
+
 func (p *ProfileProvider) RegisterRoutes(api fiber.Router) {
 	p.controller.RegisterRoutes(api)
 }

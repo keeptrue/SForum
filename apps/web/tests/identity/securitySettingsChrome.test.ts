@@ -120,7 +120,11 @@ describe('consolidated account security tabs', () => {
     expect(src).toContain("localePath('/settings/security/login-methods')")
     expect(src).toContain("localePath('/settings/security/password')")
     expect(src).toContain('route.path')
-    expect(src).toContain("aria-current=\"tab.active ? 'page' : undefined\"")
+    // 呈现与无障碍语义由共享 tab 栏独占（资料设置页同一份实现）。
+    expect(src).toContain('<SFSettingsTabNav')
+    const sharedNav = source('../../app/components/settings/SFSettingsTabNav.vue')
+    expect(sharedNav).toContain(":aria-current=\"isActive(tab.id) ? 'page' : undefined\"")
+    expect(sharedNav).toContain('sforum-settings__tabs')
     for (const [island, name] of [[page(), 'security'], [loginMethodsPage(), 'login-methods'], [passwordPage(), 'password']] as const) {
       expect(island, name).toContain('<SFSettingsSecurityTabNav')
       // 合并后的侧栏高亮：三个 tab 页共用单一「账号安全」项。

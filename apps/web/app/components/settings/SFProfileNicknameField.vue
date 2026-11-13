@@ -161,6 +161,7 @@ function onInput(event: Event) {
       :disabled="!editable"
       :class="{ 'is-invalid': Boolean(conflictMessage) }"
       :placeholder="t('profileSettings.nicknamePlaceholder')"
+      :aria-invalid="conflictMessage ? 'true' : undefined"
       aria-describedby="profile-settings-nickname-message"
       @input="onInput"
     >

@@ -1,3 +1,9 @@
+import type {
+  ProfileMetaEntry,
+  ProfileSettingsSection,
+  ProfileSettingsValue
+} from '~/utils/settings/profileSettings'
+
 export type ProfileData = {
   userId: number
   bio: string
@@ -99,6 +105,19 @@ export type PublicProfile = {
    * 开关关闭或等级未解析时后端省略该字段（`omitempty`）。
    */
   trustLevel?: import('~/composables/profile/useTrustLevel').PublicTrustLevel | null
+  /**
+   * 仅自助端点 `GET /profile` 下发：资料设置分区（核心三区 + 插件分区）与
+   * 自定义字段的当前值。
+   */
+  settingsSections?: ProfileSettingsSection[]
+  settingsValues?: Record<string, ProfileSettingsValue>
+  /**
+   * 自定义字段的公开值（只含 visibility=public 且 viewer 有权的项）。
+   *
+   * 注意层级：`meta` 是 **PublicProfile 的顶层属性**，与 `profile` / `settingsValues`
+   * 同级（见 contracts/openapi/schemas/profile.yaml）；不在 `profile` 里面。
+   */
+  meta?: Record<string, ProfileMetaEntry>
 }
 
 export type NicknameState = {
@@ -123,6 +142,8 @@ export type UpdateProfileInput = {
   websiteUrl?: string
   avatarAttachmentId?: number | null
   displayName?: string
+  /** 自定义字段：`null` 表示清空该字段。 */
+  meta?: Record<string, ProfileSettingsValue | null>
 }
 
 export function useProfileApi() {

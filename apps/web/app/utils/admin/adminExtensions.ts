@@ -674,6 +674,42 @@ export type AdminEffectiveContribution = {
   label?: Record<string, string>
   icon?: string
   payload?: AdminContributionPayload
+  /** 治理状态：贡献是否生效（关闭后不再出现在公开/后台表面）。 */
+  enabled?: boolean
+  /** 治理后的实际排序值；未治理时等于 manifest 的 order。 */
+  effectiveSortOrder?: number
+  /** 宿主侧是否存在覆盖（启用状态或排序与 manifest 不同）。 */
+  overridden?: boolean
+  /**
+   * 该贡献可被宿主逐字段覆盖的声明。字段键只有 `fieldKey` 一个名字
+   * （与 settingsSections[].fields[].fieldKey 同一把组合键 `x.<ext>.<key>`）；
+   * 做 item 级覆盖时把读模型里的 fieldKey 原样传给 `.../items/{itemKey}`，
+   * 后端自行归一化裸键，前端不剥前缀。
+   *
+   * 顺序字段一律读模型名 `effectiveSortOrder`；wire 请求体才叫 `sortOrder`。
+   */
+  fields?: Array<{ fieldKey: string, enabled?: boolean, effectiveSortOrder?: number, overridden?: boolean }>
+}
+
+/**
+ * `GET /admin/settings/surface-tabs` 的条目：插件向站点设置页贡献的 tab。
+ * 设置文档随列表内联下发，避免每个插件 tab 再各发一次 page-bootstrap。
+ */
+export type AdminSettingsSurfaceTab = {
+  id: string
+  /** 线上可能是纯字符串，也可能是 locale → 文案映射（LocalizedText）。 */
+  label: string | Record<string, string>
+  icon?: string
+  type: 'settings'
+  extensionId: string
+  settings: AdminExtensionSettings
+}
+
+/** 插件 tab 的 id 命名空间：站内固定 tab 永不与 `ext.*` 相撞。 */
+export const ADMIN_SETTINGS_EXTENSION_TAB_PREFIX = 'ext.'
+
+export function isExtensionSettingsTabId(value: unknown): boolean {
+  return typeof value === 'string' && value.startsWith(ADMIN_SETTINGS_EXTENSION_TAB_PREFIX)
 }
 
 export type AdminExtensionStats = {

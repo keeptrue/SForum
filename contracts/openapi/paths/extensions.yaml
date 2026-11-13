@@ -1365,16 +1365,23 @@ adminExtensionContributionPoints:
         "$ref": "../components/responses.yaml#/Forbidden"
 adminExtensionContributions:
   get:
-    summary: List active extension contributions
-    description: Requires extension.manage. Returns effective contributions from enabled plugins only; disabled plugins and inactive themes do not affect runtime behavior.
+    summary: List active extension contributions with governance facts
+    description: >-
+      Requires extension.view (extension.manage also satisfies it). Returns
+      effective contributions from enabled plugins only; disabled plugins and
+      inactive themes do not affect runtime behavior. Each item additionally
+      reports `enabled`, `overridden`, `effectiveSortOrder` and its declared
+      `fields[]`. The governance read model never truncates: contributions
+      beyond the per-surface plugin-tab cap are returned with
+      `suppressedByCap=true`.
     operationId: listAdminExtensionContributions
     responses:
       '200':
-        description: Active contribution descriptors sorted by order, extension id, and contribution id.
+        description: Active contribution descriptors with governance facts, sorted by effective order, extension id, and contribution id.
         content:
           application/json:
             schema:
-              "$ref": "../schemas/extensions.yaml#/ApiResponseEffectiveContributionList"
+              "$ref": "../schemas/extensions.yaml#/ApiResponseContributionGovernanceList"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
@@ -1442,6 +1449,13 @@ adminExtensionSettings:
   put:
     summary: Update extension settings
     description: >-
+      Requires `extension.plugin.manage` (the contextual mutation guard
+      `core.guard.extensions.mutation`; `extension.manage` also satisfies it).
+      This is the endpoint a site-settings plugin tab saves through, which is why
+      the plugin-tab section is an extension-administrator surface: an account
+      that may read the tabs but not save them (for example `RoleOperator`) is
+      never granted `extension.view` alone.
+
       Persists only manifest-declared keys. Stored secrets remain encrypted and
       blank/omitted secret values preserve the current secret. Disabled plugins
       and inactive themes can be configured; only an already-enabled backend
@@ -2741,3 +2755,166 @@ extensionPluginRoute:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+adminSettingsSurfaceTabs:
+  get:
+    summary: List plugin tabs of the site settings page
+    description: |
+      Requires `admin.access` AND `extension.view` (both — contextual guard
+      `core.guard.extensions.read`), then each tab's own `permission` key is
+      filtered server-side (permission keys are never returned). An empty
+      permission is not public: the site settings page is an admin surface.
+      Missing either permission returns 403; a client should treat the plugin
+      section as **not visible for this account** and say so, not as an empty
+      list.
+
+      Plugin sections are an extension-administrator surface: saving a tab goes
+      through `PUT /admin/extensions/{extensionId}/settings`, which requires
+      `extension.plugin.manage`. An account that may see the tabs but not save
+      them is therefore never granted `extension.view` alone — e.g. `RoleOperator`
+      (site operations) intentionally sees no plugin sections at all.
+
+      Tabs contributed with `type=settings` inline their resolved Settings
+      Document, so the console does not need a second request per tab.
+      `id` is namespaced as `ext.<extensionId>.<contributionId>`.
+    operationId: listAdminSettingsSurfaceTabs
+    responses:
+      '200':
+        description: Plugin tabs for the site settings page, in effective order.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/extensions.yaml#/ApiResponseSettingsSurfaceTabList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+adminExtensionContributionGovernance:
+  parameters:
+  - name: point
+    in: path
+    required: true
+    description: Contribution point id, e.g. `forum.settings.profile.tabs`.
+    schema:
+      type: string
+  - name: contributionId
+    in: path
+    required: true
+    description: Contribution id declared by the plugin.
+    schema:
+      type: string
+  - name: extensionId
+    in: query
+    required: false
+    description: |
+      Owning extension id. Required only when the contribution id is not unique
+      across currently effective declarations (for example after the declaring
+      plugin was uninstalled) — ambiguity is rejected instead of guessed.
+    schema:
+      type: string
+  put:
+    summary: Override one contribution tab
+    description: |
+      Requires extension.plugin.manage. Partial update: omitted columns keep
+      their current value, and `sortOrder: null` clears the order override so
+      the declared order applies again. The request body uses `sortOrder`; the
+      response reports the resulting `effectiveSortOrder`.
+    operationId: updateAdminExtensionContributionGovernance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/extensions.yaml#/ContributionGovernanceRequest"
+    responses:
+      '200':
+        description: The override row after the write.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/extensions.yaml#/ContributionGovernanceView200"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+  delete:
+    summary: Reset one contribution tab to the manifest default
+    description: |
+      Requires extension.plugin.manage. Deletes the override row; no row means
+      "use the manifest declaration". Idempotent: deleting an absent override
+      still returns 204.
+    operationId: resetAdminExtensionContributionGovernance
+    responses:
+      '204':
+        description: Override removed (or already absent).
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminExtensionContributionItemGovernance:
+  parameters:
+  - name: point
+    in: path
+    required: true
+    schema:
+      type: string
+  - name: contributionId
+    in: path
+    required: true
+    schema:
+      type: string
+  - name: itemKey
+    in: path
+    required: true
+    description: |
+      Field key. Both the composite entity-meta key
+      (`x.<extensionId>.<key>`) and the bare manifest key are accepted; the
+      override row always stores the bare key.
+    schema:
+      type: string
+  - name: extensionId
+    in: query
+    required: false
+    schema:
+      type: string
+  put:
+    summary: Override one declared settings field
+    description: Requires extension.plugin.manage. Same body semantics as the tab-level endpoint.
+    operationId: updateAdminExtensionContributionItemGovernance
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/extensions.yaml#/ContributionGovernanceRequest"
+    responses:
+      '200':
+        description: The override row after the write.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/extensions.yaml#/ContributionGovernanceView200"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+  delete:
+    summary: Reset one declared settings field to the manifest default
+    description: Requires extension.plugin.manage. Idempotent.
+    operationId: resetAdminExtensionContributionItemGovernance
+    responses:
+      '204':
+        description: Override removed (or already absent).
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"

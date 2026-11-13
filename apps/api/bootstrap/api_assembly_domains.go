@@ -404,6 +404,16 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		options.NewNicknamePolicySource(optionsService),
 		optionsService,
 	).WithAuthorNameSyncer(siteEngine)
+	// 实体元数据服务提前构造：设置面字段的读写适配器（与 Profile 同一份字段目录）
+	// 需要在 Profile 装配时就拿到它；这里与下方 entity-meta provider 复用同一实例。
+	entityMetaService := entitymeta.NewService(entitymeta.NewPostgresStore(pool)).WithPublisher(eventPublisher)
+	// 设置面：治理覆盖存储复用基础设施里那一个实例（与 store 漏斗、升级路径同源）。
+	settingsSurfaceOverrides := infrastructure.settingsSurfaceOverrides
+	settingsSurfaceProvider := providers.NewExtensionSettingsSurfaceProvider(extensionService, settingsSurfaceOverrides)
+	// 插件字段的读写策略：用渲染投影裁决（治理关闭/无权限的键在存储层也被拒）。
+	entityMetaService.WithFieldPolicy(providers.NewSettingsSurfaceFieldPolicy(settingsSurfaceProvider))
+	settingsSurfaceMeta := providers.NewSettingsSurfaceMetaStore(settingsSurfaceProvider, entityMetaService)
+
 	profileProvider := providers.NewProfileProviderWithAvatarAndTabs(
 		profileStore,
 		identityStore,
@@ -419,7 +429,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithTrustLevelReader(identityStore).
 		// 公开行为计数（获赞 / 访问天数）：复用 badges 的 user_activity 读入口，
 		// Profile 侧不写第二份 SQL。漏接会表现为「资料页恒显示 0 获赞」。
-		WithActivityCounters(profileActivityCounters{store: badgeActivityStore})
+		WithActivityCounters(profileActivityCounters{store: badgeActivityStore}).
+		// 插件设置面：settingsSections / settingsValues（自助）与 profile.meta（公开）。
+		WithSettingsSurface(settingsSurfaceProvider, settingsSurfaceMeta, settingsSurfaceMeta)
 	moderationReadModels, _ := forumCachedStore.(moderation.DecisionReadModelInvalidator)
 	moderationProvider := providers.NewModerationWorkbenchProviderWithIndexer(moderationStore, forumStore, identityStore, authSessions, searchIndexer, moderationReadModels)
 	// AI 网关：默认关闭，未启用前不产生任何出站调用。密钥只以 Secret Store
@@ -467,6 +479,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	jobsProvider := providers.NewJobsProvider(pool, jobClient, identityStore, authSessions)
 	routeTraceRing := routes.NewRouteTraceRing(0)
 	extensionsProvider := providers.NewExtensionsProviderWithService(extensionService, identityStore, authSessions, extensionRuntime, frontendService).
+		WithSettingsSurfaceGovernance(providers.NewExtensionSettingsSurfaceGovernanceProvider(
+			extensionService, settingsSurfaceOverrides, settingsSurfaceProvider, extensionService,
+		)).
 		WithRouteProviderSelection(lifecycleStack.RouteProviders, auditWriter).
 		WithRouteContractCatalog(lifecycleStack.RouteSchemas).
 		WithProviderSlotSelection(lifecycleStack.ProviderSlots, lifecycleRuntime, auditWriter).
@@ -549,7 +564,11 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	pageProfileService := profile.NewServiceWithAvatar(profileStore, avatarAttachmentService, optionsService).
 		WithProfileTabs(providers.NewExtensionProfileTabProvider(extensionService)).
 		// 主题渲染的资料页与 JSON 端点取同一份计数，否则两个入口会给出两套数字。
-		WithActivityCounters(profileActivityCounters{store: badgeActivityStore})
+		WithActivityCounters(profileActivityCounters{store: badgeActivityStore}).
+		// 主题公开页 / AI 工具 / 徽章读到的 profile.meta 必须与 JSON 端点同源：
+		// 不接这两行，L1 主题渲染的公开资料页会永远没有插件字段。
+		WithSettingsSections(settingsSurfaceProvider).
+		WithSettingsMeta(settingsSurfaceMeta, settingsSurfaceMeta)
 	// 徽章：公开资料页徽章墙 + 后台 12 条。读 badge.view / 写 badge.manage 由生成的
 	// route catalog 守卫声明；features.badges 关闭时由 controller 返回 forum.badges_disabled。
 	// 规则引擎的三个 provider 在 M1 曾刻意留空（`SetFactKeyProvider` /
@@ -734,7 +753,6 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 
 	// F4.4：实体自定义字段（EAV，无 per-plugin core ALTER）。
 	entityMetaStore := entitymeta.NewPostgresStore(pool)
-	entityMetaService := entitymeta.NewService(entityMetaStore).WithPublisher(eventPublisher)
 	entityMetaProvider := providers.NewEntityMetaProvider(entityMetaService, identityStore, authSessions)
 
 	// Readiness：PG 必检；Redis 失败记 degraded 仍 ready。

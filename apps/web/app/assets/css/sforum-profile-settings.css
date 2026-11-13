@@ -1,4 +1,4 @@
-/* 资料设置：表单与预览内容（chrome 见 sforum-settings.css） */
+/* 资料设置：tab 面板内容、声明式字段与右栏预览（chrome 见 sforum-settings.css） */
 
 .sforum-settings-profile__form {
   width: min(100%, 760px);
@@ -8,36 +8,22 @@
   margin-top: 16px;
 }
 
-.sforum-settings-profile__section {
-  display: grid;
-  grid-template-columns: 170px minmax(0, 1fr);
-  gap: 30px;
-  margin-top: 28px;
-  padding: 0 0 28px;
-  border-bottom: 1px solid var(--sf-public-border);
-}
-
-.sforum-settings-profile__section:last-of-type {
-  border-bottom: 0;
-}
-
-.sforum-settings-profile__section-heading h2 {
-  margin: 0;
-  color: var(--sf-public-text);
-  font-size: 16px;
-  font-weight: 850;
-  line-height: 1.25;
-}
-
-.sforum-settings-profile__section-heading p {
-  margin: 8px 0 0;
-  color: var(--sf-public-text-secondary);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.sforum-settings-profile__section-body {
+/* tab 面板：标签已在 tab 栏里，面板内不再重复标题，只留一段说明。 */
+.sforum-settings-profile__panel {
   min-width: 0;
+  padding: 4px 0 24px;
+}
+
+.sforum-settings-profile__panel-body {
+  min-width: 0;
+}
+
+.sforum-settings-profile__panel-description {
+  margin: 0 0 20px;
+  max-width: 62ch;
+  color: var(--sf-public-text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
 }
 
 .sforum-settings-profile__avatar-editor {
@@ -149,7 +135,9 @@
 }
 
 .sforum-settings-profile__field input.is-invalid,
-.sforum-settings-profile__field textarea.is-invalid {
+.sforum-settings-profile__field textarea.is-invalid,
+.sforum-settings-field input.is-invalid,
+.sforum-settings-field textarea.is-invalid {
   border-color: var(--sf-danger);
 }
 
@@ -193,14 +181,23 @@
   box-shadow: none;
 }
 
+/* 页脚必须留在 <form> 内（保存是 submit）；窄屏吸底，主操作占满宽度。 */
 .sforum-settings-profile__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-top: 8px;
   border-top: 1px solid var(--sf-public-border);
-  padding-top: 20px;
+  background: var(--sf-public-surface);
+  padding: 16px 0;
+}
+
+.sforum-settings-profile__footer-copy {
+  min-width: 0;
 }
 
 .sforum-settings-profile__footer p {
@@ -210,6 +207,38 @@
   line-height: 1.5;
 }
 
+.sforum-settings-profile__footer-hint {
+  margin-top: 6px !important;
+  color: var(--sf-public-text-muted);
+}
+
+.sforum-settings-profile__footer-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--sf-danger);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0;
+  text-align: left;
+}
+
+.sforum-settings-profile__footer-error:hover {
+  text-decoration: underline;
+}
+
+/* 未归属分区的错误：只陈述，不可点（点也没有地方可跳）。 */
+.sforum-settings-profile__footer-global-error {
+  margin: 6px 0 0 !important;
+  color: var(--sf-danger);
+  font-weight: 650;
+}
+
 .sforum-settings-profile__footer-actions {
   display: flex;
   flex-wrap: wrap;
@@ -217,11 +246,114 @@
   gap: 8px;
 }
 
+.sforum-settings-profile__footer-actions .sf-button {
+  min-height: 44px;
+}
+
 .sforum-settings-profile__loading {
   display: flex;
   gap: 20px;
   width: min(100%, 760px);
   padding-top: 24px;
+}
+
+/* 插件组件型分区：说明 + L2 挂载位 */
+.sforum-settings-profile__extension-notice {
+  margin-bottom: 16px;
+}
+
+.sforum-settings-profile__extension-placeholder {
+  margin: 0;
+  color: var(--sf-public-text-secondary);
+  font-size: 13px;
+}
+
+/* 声明式字段（SFDeclarativeSettingsField）：与原生字段同一套视觉权重。 */
+.sforum-settings-field {
+  min-width: 0;
+  margin-bottom: 18px;
+}
+
+.sforum-settings-field__label {
+  display: block;
+  color: var(--sf-public-text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.sforum-settings-field__required {
+  margin-left: 2px;
+  color: var(--sf-danger);
+}
+
+.sforum-settings-field input,
+.sforum-settings-field textarea,
+.sforum-settings-field__select {
+  width: 100%;
+  min-width: 0;
+  margin-top: 8px;
+  border: 1px solid var(--sf-public-border-strong);
+  border-radius: var(--sf-public-radius);
+  background: var(--sf-public-surface);
+  color: var(--sf-public-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  outline: none;
+  padding: 11px 12px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sforum-settings-field textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.sforum-settings-field input:focus,
+.sforum-settings-field textarea:focus,
+.sforum-settings-field__select:focus {
+  border-color: var(--sf-accent);
+  box-shadow: 0 0 0 3px var(--sf-accent-focus);
+}
+
+.sforum-settings-field input:disabled,
+.sforum-settings-field textarea:disabled,
+.sforum-settings-field__select:disabled {
+  background: var(--sf-public-surface-muted);
+  color: var(--sf-public-text-muted);
+  cursor: not-allowed;
+}
+
+.sforum-settings-field__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+  color: var(--sf-public-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sforum-settings-field__toggle input {
+  width: auto;
+  margin: 2px 0 0;
+  accent-color: var(--sf-accent);
+}
+
+.sforum-settings-field__description {
+  margin: 7px 0 0;
+  color: var(--sf-public-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sforum-settings-field__error {
+  margin: 7px 0 0;
+  color: var(--sf-danger);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.5;
 }
 
 /* 右栏预览内容（rail-section 容器由 chrome 提供） */
@@ -338,14 +470,6 @@
 }
 
 @media (max-width: 700px) {
-  .sforum-settings-profile__section {
-    display: block;
-  }
-
-  .sforum-settings-profile__section-heading {
-    margin-bottom: 18px;
-  }
-
   .sforum-settings-profile__field-grid {
     grid-template-columns: 1fr;
   }
@@ -357,6 +481,10 @@
 
   .sforum-settings-profile__footer-actions {
     justify-content: stretch;
+  }
+
+  .sforum-settings-profile__footer-actions .sf-button--primary {
+    flex: 1 1 auto;
   }
 }
 

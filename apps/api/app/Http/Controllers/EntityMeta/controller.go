@@ -40,28 +40,30 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 }
 
 type createDefinitionBody struct {
-	FieldKey         string            `json:"fieldKey"`
-	EntityType       string            `json:"entityType"`
-	ValueType        string            `json:"valueType"`
-	Visibility       string            `json:"visibility"`
-	Label            map[string]string `json:"label"`
-	Description      map[string]string `json:"description"`
-	OwnerExtensionID string            `json:"ownerExtensionId"`
-	Required         bool              `json:"required"`
-	Enabled          *bool             `json:"enabled"`
-	SortOrder        *int              `json:"sortOrder"`
-	Constraints      map[string]any    `json:"constraints"`
+	FieldKey    string            `json:"fieldKey"`
+	EntityType  string            `json:"entityType"`
+	ValueType   string            `json:"valueType"`
+	Visibility  string            `json:"visibility"`
+	Label       map[string]string `json:"label"`
+	Description map[string]string `json:"description"`
+	// ownerExtensionId 是宿主内部字段：只有设置面同步（SyncManifest）能写，
+	// 管理端请求体不接受。它决定「谁能改这条定义」，接受外部输入等于把
+	// 插件字段的所有权交给任何有 entity_meta.manage 的人。
+	Required    bool           `json:"required"`
+	Enabled     *bool          `json:"enabled"`
+	SortOrder   *int           `json:"sortOrder"`
+	Constraints map[string]any `json:"constraints"`
 }
 
 type updateDefinitionBody struct {
-	Visibility       *string           `json:"visibility"`
-	Label            map[string]string `json:"label"`
-	Description      map[string]string `json:"description"`
-	OwnerExtensionID *string           `json:"ownerExtensionId"`
-	Required         *bool             `json:"required"`
-	Enabled          *bool             `json:"enabled"`
-	SortOrder        *int              `json:"sortOrder"`
-	Constraints      map[string]any    `json:"constraints"`
+	Visibility  *string           `json:"visibility"`
+	Label       map[string]string `json:"label"`
+	Description map[string]string `json:"description"`
+	// ownerExtensionId 同上：管理端不接受（插件定义本身也已拒绝 PATCH）。
+	Required    *bool          `json:"required"`
+	Enabled     *bool          `json:"enabled"`
+	SortOrder   *int           `json:"sortOrder"`
+	Constraints map[string]any `json:"constraints"`
 }
 
 type upsertValuesBody struct {
@@ -106,19 +108,18 @@ func (h *Controller) createDefinition(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "entity_meta.invalid")
 	}
 	item, err := h.service.CreateDefinition(c.Context(), actor, entitymeta.CreateFieldInput{
-		FieldKey:         body.FieldKey,
-		EntityType:       body.EntityType,
-		ValueType:        body.ValueType,
-		Visibility:       body.Visibility,
-		LabelZHCN:        body.Label["zh-CN"],
-		LabelENUS:        body.Label["en-US"],
-		DescriptionZHCN:  body.Description["zh-CN"],
-		DescriptionENUS:  body.Description["en-US"],
-		OwnerExtensionID: body.OwnerExtensionID,
-		Required:         body.Required,
-		Enabled:          body.Enabled,
-		SortOrder:        body.SortOrder,
-		Constraints:      rawJSON(body.Constraints),
+		FieldKey:        body.FieldKey,
+		EntityType:      body.EntityType,
+		ValueType:       body.ValueType,
+		Visibility:      body.Visibility,
+		LabelZHCN:       body.Label["zh-CN"],
+		LabelENUS:       body.Label["en-US"],
+		DescriptionZHCN: body.Description["zh-CN"],
+		DescriptionENUS: body.Description["en-US"],
+		Required:        body.Required,
+		Enabled:         body.Enabled,
+		SortOrder:       body.SortOrder,
+		Constraints:     rawJSON(body.Constraints),
 	})
 	if err != nil {
 		return mapError(err)
@@ -136,11 +137,10 @@ func (h *Controller) updateDefinition(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "entity_meta.invalid")
 	}
 	input := entitymeta.UpdateFieldInput{
-		Visibility:       body.Visibility,
-		OwnerExtensionID: body.OwnerExtensionID,
-		Required:         body.Required,
-		Enabled:          body.Enabled,
-		SortOrder:        body.SortOrder,
+		Visibility: body.Visibility,
+		Required:   body.Required,
+		Enabled:    body.Enabled,
+		SortOrder:  body.SortOrder,
 	}
 	if body.Label != nil {
 		if v, ok := body.Label["zh-CN"]; ok {

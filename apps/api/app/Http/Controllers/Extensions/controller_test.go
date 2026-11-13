@@ -1101,6 +1101,8 @@ func TestControllerListsContributionPointsAndContributions(t *testing.T) {
 		"admin.dashboard.widgets",
 		"system.health.checks",
 		"forum.page.regions",
+		"forum.settings.profile.tabs",
+		"admin.settings.tabs",
 	}
 	if len(points.Data) != len(requiredPoints) {
 		t.Fatalf("unexpected contribution points count %d: %#v", len(points.Data), points.Data)

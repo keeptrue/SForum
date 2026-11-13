@@ -163,6 +163,23 @@ describe('useApiClient CSRF handling', () => {
     expect(calls[1].options?.headers?.['X-Csrf-Token']).toBe('fresh-token')
   })
 
+  test('resolves an empty (204) response body instead of dereferencing null', async () => {
+    // DELETE 成功就是 204 + 空体：没有信封可解，绝不能抛 TypeError 让调用方回滚。
+    const csrfCookie = ref('token')
+    await withApiClientGlobals(csrfCookie, async () => {
+      globalThis.$fetch = async () => null
+      const { request } = useApiClient()
+      const result = await request('/admin/extensions/contributions/p/c', { method: 'DELETE' })
+      expect(result).toBeUndefined()
+    })
+    await withApiClientGlobals(csrfCookie, async () => {
+      globalThis.$fetch = async () => undefined
+      const { request } = useApiClient()
+      const result = await request('/admin/extensions/contributions/p/c', { method: 'DELETE' })
+      expect(result).toBeUndefined()
+    })
+  })
+
   test('refreshes csrf token and retries once after csrf.invalid', async () => {
     const postHeaders: Array<Record<string, string> | undefined> = []
     const csrfCookie = ref('stale-token')

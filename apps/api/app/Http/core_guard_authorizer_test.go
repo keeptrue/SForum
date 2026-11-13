@@ -528,6 +528,7 @@ func TestProductionExtensionsMutationGuardPartitionsCatalogByProvablePolicy(t *t
 	type expectedRoute struct {
 		method      string
 		permissions []string
+		allOf       []string
 		body        string
 		supported   bool
 	}
@@ -552,6 +553,12 @@ func TestProductionExtensionsMutationGuardPartitionsCatalogByProvablePolicy(t *t
 		"core.route.extensions.reset_provider_slot":        {method: "POST", supported: true, permissions: superAdmin},
 		"core.route.extensions.select_route_provider":      {method: "POST", supported: true, permissions: superAdmin},
 		"core.route.extensions.reset_route_provider":       {method: "POST", supported: true, permissions: superAdmin},
+		// 设置面治理写：extension.plugin.manage（父权限 extension.manage 也放行），
+		// 不依赖扩展状态/制品，因此属于可证明策略而不是 artifact-dependent。
+		"core.route.extensions.update_contribution_governance":      {method: "PUT", supported: true, permissions: plugin},
+		"core.route.extensions.reset_contribution_governance":       {method: "DELETE", supported: true, permissions: plugin},
+		"core.route.extensions.update_contribution_item_governance": {method: "PUT", supported: true, permissions: plugin},
+		"core.route.extensions.reset_contribution_item_governance":  {method: "DELETE", supported: true, permissions: plugin},
 
 		"core.route.extensions.install":                 {method: "POST"},
 		"core.route.extensions.install_from_url":        {method: "POST"},
@@ -679,8 +686,10 @@ func TestProductionExtensionsReadGuardPartitionsCatalogByProvablePolicy(t *testi
 	type expectedRoute struct {
 		method      string
 		permissions []string
-		body        string
-		supported   bool
+		// allOf 表示 AND 语义：列出的权限必须同时具备，单独给任何一个都要被拒。
+		allOf     []string
+		body      string
+		supported bool
 	}
 	viewer := []string{identity.PermissionExtensionView, identity.PermissionExtensionManage}
 	migrations := []string{
@@ -695,6 +704,11 @@ func TestProductionExtensionsReadGuardPartitionsCatalogByProvablePolicy(t *testi
 		identity.PermissionExtensionManage,
 	}
 	expected := map[string]expectedRoute{
+		// 站点设置页插件 tab：admin.access 与 extension.view 是 AND 关系，
+		// 用 allOf 表达（单给任一权限都必须被拒）。
+		"core.route.extensions.surface_tabs": {method: "GET", supported: true, allOf: []string{
+			identity.PermissionAdminAccess, identity.PermissionExtensionView,
+		}},
 		"core.route.extensions.list":                    {method: "GET", supported: true, permissions: viewer},
 		"core.route.extensions.events":                  {method: "GET", supported: true, permissions: viewer},
 		"core.route.extensions.lifecycle_operations":    {method: "GET", supported: true, permissions: viewer},
@@ -766,6 +780,21 @@ func TestProductionExtensionsReadGuardPartitionsCatalogByProvablePolicy(t *testi
 			continue
 		}
 
+		if len(want.allOf) > 0 {
+			// AND 语义：合在一起放行，单独任何一个都必须被拒。
+			combined := productionGuardRequest(want.allOf...)
+			combined.Method, combined.Path, combined.Body = plan.Method(), plan.Path(), []byte(want.body)
+			if err := authorizer.Authorize(context.Background(), plan, step, combined); err != nil {
+				t.Fatalf("%s allOf error = %v", route.ID, err)
+			}
+			for _, permission := range want.allOf {
+				single := productionGuardRequest(permission)
+				single.Method, single.Path, single.Body = plan.Method(), plan.Path(), []byte(want.body)
+				if err := authorizer.Authorize(context.Background(), plan, step, single); !errors.Is(err, ErrRoutePermissionDenied) {
+					t.Fatalf("%s allOf single %s error = %v", route.ID, permission, err)
+				}
+			}
+		}
 		for _, permission := range want.permissions {
 			allowed := productionGuardRequest(permission)
 			allowed.Method, allowed.Path = plan.Method(), plan.Path()
@@ -785,7 +814,13 @@ func TestProductionExtensionsReadGuardPartitionsCatalogByProvablePolicy(t *testi
 			t.Fatalf("%s anonymous error = %v", route.ID, err)
 		}
 
-		allowed := productionGuardRequest(want.permissions[0])
+		// allOf 路由的 catalog Guard.Permissions 为空（contextual 不变量），
+		// 伪造步骤用例用 allOf 里的第一个权限即可（它单独就会被拒）。
+		granted := want.permissions
+		if len(granted) == 0 {
+			granted = want.allOf
+		}
+		allowed := productionGuardRequest(granted[0])
 		allowed.Method, allowed.Path = plan.Method(), plan.Path()
 		forgedStep := step
 		forgedStep.RouteID += ".forged"

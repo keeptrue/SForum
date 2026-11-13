@@ -91,7 +91,7 @@ func validateContributions(manifest Manifest, definitions []ContributionPointDef
 				return fmt.Errorf("%w: contribution rule #9", ErrInvalidManifest)
 			}
 		}
-		if err := validateDescriptorContributionPayload(manifest, definition.PayloadType, contribution.Payload); err != nil {
+		if err := validateDescriptorContributionPayload(manifest, definition, contribution); err != nil {
 			return err
 		}
 	}
@@ -138,8 +138,9 @@ func allowedContributionIcon(icon string) bool {
 
 // validateDescriptorContributionPayload 按 payloadType 校验宿主拥有的描述符（F4.3 / E2）。
 // manifest 仅供需要交叉引用包内声明的 payload（regionPlacement / profileSection 的 l2Widget）使用。
-func validateDescriptorContributionPayload(manifest Manifest, payloadType string, raw json.RawMessage) error {
-	switch payloadType {
+func validateDescriptorContributionPayload(manifest Manifest, definition ContributionPointDefinition, contribution ManifestContribution) error {
+	raw := contribution.Payload
+	switch definition.PayloadType {
 	case PayloadTypeExtensionRoute:
 		return validateTopicActionContributionPayload(raw)
 	case PayloadTypeProfileSection:
@@ -156,6 +157,8 @@ func validateDescriptorContributionPayload(manifest Manifest, payloadType string
 		return validateHealthCheckContributionPayload(raw)
 	case PayloadTypeRegionPlacement:
 		return validateRegionPlacementContributionPayload(manifest, raw)
+	case PayloadTypeSettingsSection:
+		return validateSettingsSectionContributionPayload(manifest, definition.ID, contribution, raw)
 	default:
 		return ErrInvalidManifest
 	}

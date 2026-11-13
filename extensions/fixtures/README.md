@@ -24,6 +24,7 @@ Parent layout map (not product install): [../README.md](../README.md).
 | `plugins/sforum-profile-tab-demo` | `forum.profile.tabs` shapes: public `l2Widget` tab, permission-gated `l2Widget` tab, and legacy `hostLink` tab |
 | `plugins/sforum-query-reference` | Host-owned Query Registry execution and cross-plugin result filtering |
 | `plugins/sforum-region-demo` | Public page region placements, setting gates, and prebuilt L2 widget |
+| `plugins/sforum-settings-surface-demo` | `settingsSection` contributions: a `fields` profile tab (per-user entity-meta values), a `component` profile tab, and a `settings` site settings tab |
 | `plugins/sforum-seo-reference` | Protocol V2 SEO Registry transport, Host-policy fallback, and trace attribution |
 | `themes/sforum-plugin-override-e2e-theme` | Presentation-only override of a plugin-owned page template |
 | `themes/sforum-schema-theme` | Buildless schema settings and theme manifest validation |

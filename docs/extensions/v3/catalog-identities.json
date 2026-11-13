@@ -2538,6 +2538,36 @@
       "contractVersion": "sforum.route.badges.admin_badge_backfill_status@1",
       "method": "GET",
       "path": "/api/v1/admin/badges/backfill-status"
+    },
+    {
+      "id": "core.route.extensions.surface_tabs",
+      "contractVersion": "sforum.route.extensions.surface_tabs@1",
+      "method": "GET",
+      "path": "/api/v1/admin/settings/surface-tabs"
+    },
+    {
+      "id": "core.route.extensions.update_contribution_governance",
+      "contractVersion": "sforum.route.extensions.update_contribution_governance@1",
+      "method": "PUT",
+      "path": "/api/v1/admin/extensions/contributions/:point/:contributionId"
+    },
+    {
+      "id": "core.route.extensions.reset_contribution_governance",
+      "contractVersion": "sforum.route.extensions.reset_contribution_governance@1",
+      "method": "DELETE",
+      "path": "/api/v1/admin/extensions/contributions/:point/:contributionId"
+    },
+    {
+      "id": "core.route.extensions.update_contribution_item_governance",
+      "contractVersion": "sforum.route.extensions.update_contribution_item_governance@1",
+      "method": "PUT",
+      "path": "/api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey"
+    },
+    {
+      "id": "core.route.extensions.reset_contribution_item_governance",
+      "contractVersion": "sforum.route.extensions.reset_contribution_item_governance@1",
+      "method": "DELETE",
+      "path": "/api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey"
     }
   ],
   "ui": [
@@ -6765,6 +6795,96 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/badges/SFAdminBadgeBackfillRow.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_settings_extension_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_settings_extension_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/contributions/SFAdminSettingsExtensionTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_declarative_settings_field",
+      "contractVersion": "sforum.component.shared.sf_declarative_settings_field@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/shared/SFDeclarativeSettingsField.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_extension_tab_panel",
+      "contractVersion": "sforum.component.shared.sf_profile_extension_tab_panel@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/SFProfileExtensionTabPanel.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_identity_tab",
+      "contractVersion": "sforum.component.shared.sf_profile_identity_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/tabs/SFProfileIdentityTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_links_tab",
+      "contractVersion": "sforum.component.shared.sf_profile_links_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/tabs/SFProfileLinksTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_settings_footer",
+      "contractVersion": "sforum.component.shared.sf_profile_settings_footer@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/SFProfileSettingsFooter.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_settings_tab_nav",
+      "contractVersion": "sforum.component.shared.sf_profile_settings_tab_nav@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFProfileSettingsTabNav.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_story_tab",
+      "contractVersion": "sforum.component.shared.sf_profile_story_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/tabs/SFProfileStoryTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_settings_tab_nav",
+      "contractVersion": "sforum.component.shared.sf_settings_tab_nav@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFSettingsTabNav.vue"
     }
   ]
 }

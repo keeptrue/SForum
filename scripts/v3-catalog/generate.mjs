@@ -129,6 +129,10 @@ function routePolicy(route) {
   if (path === '/api/v1/admin/extensions/:id/page-bootstrap') return ['permission', 'extension.view for metadata pages; matching plugin/theme settings manage permission for declared settings views']
   if (path === '/api/v1/admin/extensions/:id/uninstall-cleanup/finalize') return ['super_admin', 'super_admin keyless finalization of pending uninstall tombstones; service policy mirrors cleanup_missing_artifacts']
   if (path.startsWith('/api/v1/admin/extensions')) return ['permission', method === 'GET' ? 'extension.view or matching manage permission' : 'extension.plugin.manage or extension.theme.manage; operation-specific service policy']
+  // 站点设置页的插件 tab：先 admin.access，再 extension.view（两者都要求）。
+  // 与 /api/v1/admin/extensions 分开写是因为它不在 extensions 前缀下，落进
+  // GET 兜底会被登记成 public —— 那会把一条管理端路由写进公开目录。
+  if (path.startsWith('/api/v1/admin/settings/')) return ['permission', 'admin.access plus extension.view for site settings plugin tabs']
   if (path.startsWith('/api/v1/admin/pages')) return ['permission', 'extension.view for inspection; theme/plugin manage and super_admin approval where required']
   if (path.startsWith('/api/v1/admin/ai')) return ['permission', 'ai.manage']
   if (path.startsWith('/api/v1/admin/attachment-upload-policies/')) return ['permission', 'attachment.upload_policy.manage']
@@ -319,6 +323,9 @@ const reviewedGuardPolicies = new Map([
   ['extension.view for metadata pages; matching plugin/theme settings manage permission for declared settings views', { kind: 'contextual', evaluatorId: 'core.guard.extensions.read' }],
   ['extension.view for inspection; theme/plugin manage and super_admin approval where required', { kind: 'contextual', evaluatorId: 'core.guard.pages.admin' }],
   ['extension.view or matching manage permission', { kind: 'contextual', evaluatorId: 'core.guard.extensions.read' }],
+  // contextual guard 的 Permissions 必须为空（不变量：contextual 由 evaluator 自己裁决），
+  // admin.access + extension.view 的 AND 语义写在 core.guard.extensions.read 的实现里。
+  ['admin.access plus extension.view for site settings plugin tabs', { kind: 'contextual', evaluatorId: 'core.guard.extensions.read' }],
   ['active cookie session with role.manage; PAT denied; Host explicit decision', { kind: 'contextual', evaluatorId: 'core.guard.identity.admin' }],
   ['identity service route-specific user.view/user.manage/role.manage/user.ban policy', { kind: 'contextual', evaluatorId: 'core.guard.identity.admin' }],
   ['moderation.review; moderation.view_ip controls sensitive fields', { kind: 'contextual', permissions: ['moderation.review'], evaluatorId: 'core.guard.moderation.review' }],

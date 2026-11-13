@@ -31,17 +31,19 @@ func TestSafeArchivePathRejectsCrossPlatformAbsoluteAndTraversalPaths(t *testing
 func TestContributionPointDefinitionsContainOnlyHostRenderedDescriptors(t *testing.T) {
 	points := ContributionPointDefinitions()
 	want := map[string]bool{
-		PointForumTopicActions:     true,
-		PointForumTopicSidebar:     true,
-		PointForumTopicBadges:      true,
-		PointForumCommentActions:   true,
-		PointForumNavItems:         true,
-		PointForumTopicListBadges:  true,
-		PointForumComposerToolbar:  true,
-		PointForumProfileTabs:      true,
-		PointAdminDashboardWidgets: true,
-		PointSystemHealthChecks:    true,
-		PointForumPageRegions:      true,
+		PointForumTopicActions:        true,
+		PointForumTopicSidebar:        true,
+		PointForumTopicBadges:         true,
+		PointForumCommentActions:      true,
+		PointForumNavItems:            true,
+		PointForumTopicListBadges:     true,
+		PointForumComposerToolbar:     true,
+		PointForumProfileTabs:         true,
+		PointAdminDashboardWidgets:    true,
+		PointSystemHealthChecks:       true,
+		PointForumPageRegions:         true,
+		PointForumSettingsProfileTabs: true,
+		PointAdminSettingsTabs:        true,
 	}
 	for _, point := range points {
 		delete(want, point.ID)

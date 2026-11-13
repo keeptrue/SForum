@@ -2411,7 +2411,25 @@
         "emptyPointsDescription": "宿主扩展点目录暂未加载成功。",
         "emptyActiveTitle": "暂无生效贡献项",
         "emptyActiveDescription": "启用声明 contributions 的插件后，生效项会显示在这里。",
-        "order": "顺序 {order}"
+        "order": "顺序 {order}",
+        "loadErrorTitle": "扩展点数据加载失败",
+        "loadErrorHint": "列表没有被清空；修好连接后点「重试」重新读取。",
+        "retry": "重试",
+        "governance": {
+          "enabledBadge": "已禁用",
+          "overriddenBadge": "已覆盖",
+          "moveUp": "上移一格",
+          "moveDown": "下移一格",
+          "toggleAria": "启用该贡献项",
+          "reset": "恢复默认",
+          "disableTabConfirm": "禁用后这个插件 tab 将对所有人隐藏。确认继续？",
+          "disableConfirm": "禁用后该贡献项会立即失效。确认继续？",
+          "enabledToast": "已启用该贡献项。",
+          "disabledToast": "已禁用该贡献项。",
+          "reorderedToast": "顺序已更新。",
+          "resetToast": "已恢复插件声明的默认状态。",
+          "saveFailed": "治理操作未生效，已回滚。"
+        }
       },
       "dynamic": {
         "loading": "正在加载扩展信息...",
@@ -4696,6 +4714,21 @@
         "updates": "版本更新",
         "client": "客户端"
       },
+      "contributions": {
+        "badge": "插件",
+        "extensionHint": "该分区由插件 {extensionId} 提供；在这里保存只影响该插件的设置。",
+        "saved": "插件设置已保存。",
+        "resetDone": "已恢复插件设置的推荐默认值。",
+        "secretsPreserved": "密钥类字段保持原值，不会被默认值覆盖。",
+        "saveFailed": "插件设置保存失败。",
+        "actionFailed": "插件动作执行失败。",
+        "visibilityTitle": "插件设置分区不可见",
+        "visibilityForbidden": "插件设置分区属于扩展管理员面：需要「查看扩展」权限（extension.view），当前账号没有，因此它们被隐藏了。这不会影响核心设置项。",
+        "visibilityUnavailable": "插件设置分区暂时加载失败（网络或服务不可用），并不是本站没有插件设置。可以重试，或稍后再打开本页。",
+        "visibilityDetails": "查看详情",
+        "visibilityDetailEmpty": "没有更多信息",
+        "retry": "重试"
+      },
       "locale": {
         "zhCN": "简体中文",
         "enUS": "English"
@@ -6441,6 +6474,8 @@
       "resetForm": "已清空新建表单。",
       "empty": "暂无字段定义。",
       "disabled": "已停用",
+      "managedByExtension": "由插件管理",
+      "managedByExtensionHint": "该字段由插件 {extensionId} 声明；插件同步会覆盖这里的改动，因此不可在后台编辑。",
       "enable": "启用",
       "disable": "停用",
       "delete": "删除",
@@ -7460,6 +7495,21 @@
       "storyDescription": "让别人快速了解你关心的主题，以及你愿意参与的讨论。",
       "links": "地点与链接",
       "linksDescription": "这两项完全可选，只添加你愿意公开分享的内容。"
+    },
+    "tabs": {
+      "ariaLabel": "资料设置分区",
+      "identity": "身份",
+      "story": "介绍",
+      "links": "地点与链接",
+      "errorDot": "（有错误）",
+      "errorSummary": "「{tab}」还有 {count} 处待修正",
+      "errorGlobal": "另有 {count} 处字段错误不在任何分区内，请检查已填写内容。"
+    },
+    "extension": {
+      "componentNotice": "此分区由插件提供，内容与保存都由插件自己负责。",
+      "componentLoading": "插件分区加载中…",
+      "saveManagedByExtension": "此分区由插件管理，请用分区内的保存按钮。",
+      "required": "必填"
     },
     "viewPublicProfile": "查看公开主页",
     "username": "用户名",

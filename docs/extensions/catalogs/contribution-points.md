@@ -28,6 +28,8 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `admin.dashboard.widgets` | admin | descriptor | `dashboardLink` | Admin dashboard link widgets; host-owned routes only, no executable payloads. |
 | `system.health.checks` | system | descriptor | `healthDescriptor` | Plugin readiness components merged into GET /ready without invoking plugin RPC. |
 | `forum.page.regions` | forum | descriptor | `regionPlacement` | Standard page region placements (RegionCatalog whitelist): hostLink card, extensionRoute action card, or l2Widget reference resolved by the public L2 runtime. |
+| `forum.settings.profile.tabs` | forum | descriptor | `settingsSection` | Personal settings page tabs rendered by the host UI. Allowed tab shapes: `fields` (host-rendered form, values stored per user in entity-meta) or `component` (a public L2 component declared by this package). Optional permission keys are filtered server-side and never reach the client. |
+| `admin.settings.tabs` | admin | descriptor | `settingsSection` | Site settings page tabs rendered by the host UI. The only allowed tab shape is `settings`: the tab shows one tab of this package SettingsDocument, selected by `tabId`. Optional permission keys are filtered server-side and never reach the client. |
 
 ### Kind meanings
 

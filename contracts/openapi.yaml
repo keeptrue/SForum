@@ -571,6 +571,12 @@ paths:
     "$ref": "./openapi/paths/extensions.yaml#/adminExtensionContributionPoints"
   "/admin/extensions/contributions":
     "$ref": "./openapi/paths/extensions.yaml#/adminExtensionContributions"
+  "/admin/extensions/contributions/{point}/{contributionId}":
+    "$ref": "./openapi/paths/extensions.yaml#/adminExtensionContributionGovernance"
+  "/admin/extensions/contributions/{point}/{contributionId}/items/{itemKey}":
+    "$ref": "./openapi/paths/extensions.yaml#/adminExtensionContributionItemGovernance"
+  "/admin/settings/surface-tabs":
+    "$ref": "./openapi/paths/extensions.yaml#/adminSettingsSurfaceTabs"
   "/admin/extensions/route-providers/conflicts":
     "$ref": "./openapi/paths/extensions.yaml#/adminExtensionRouteProviderConflicts"
   "/admin/extensions/route-providers/selection":

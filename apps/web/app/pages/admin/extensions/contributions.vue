@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { useAdminExtensionsManager } from '~/composables/admin/useAdminExtensionsManager'
-import { apiErrorMessage } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
+import { useAdminContributionCatalog } from '~/composables/admin/useAdminContributionCatalog'
+import { useAdminContributionGovernance } from '~/composables/admin/useAdminContributionGovernance'
+import { usePermissions } from '~/composables/identity/usePermissions'
 import {
   extensionContributionLabel,
   extensionContributionPage,
   extensionContributionPayloadSummary,
-  type AdminContributionPointDefinition
+  type AdminContributionPointDefinition,
+  type AdminEffectiveContribution
 } from '~/utils/admin/adminExtensions'
+import {
+  contributionEnabled,
+  contributionOverridden,
+  contributionsForPoint
+} from '~/utils/admin/adminContributions'
 
 definePageMeta({
   middleware: 'admin',
@@ -21,17 +28,31 @@ defineOptions({
 const { t, locale } = useI18n()
 const adminPage = useAdminPage('/extensions/contributions')
 const contributionPage = ref(1)
+// 加载失败必须可见：这里拿到的是显式状态，而不是「catch 成空列表」的假空态。
 const {
-  pending,
-  error,
-  refresh,
-  contributionPoints,
+  points: contributionPoints,
   contributions,
-  loadingContributionPoints,
-  loadingContributions,
-  loadContributionPoints,
-  loadContributions
-} = await useAdminExtensionsManager()
+  loading: pending,
+  failed,
+  errorMessage,
+  viewState,
+  load: loadCatalog
+} = useAdminContributionCatalog()
+await loadCatalog()
+
+const { can } = usePermissions()
+// 治理操作（启用 / 顺序 / 恢复默认）需要插件管理权限；没有权限时整列不渲染，
+// 只留下只读的顺序与来源说明。
+const canGovern = computed(() => can('extension.plugin.manage'))
+const {
+  rowErrors,
+  rowBusy,
+  rowKey,
+  effectiveOrderOf,
+  setEnabled,
+  move,
+  resetDefault
+} = useAdminContributionGovernance({ contributions })
 
 const contributionPageInfo = computed(() => extensionContributionPage(contributions.value, contributionPage.value))
 
@@ -43,17 +64,38 @@ watch(() => contributionPageInfo.value.page, (page) => {
   contributionPage.value = page
 })
 
-void loadContributionPoints()
-void loadContributions()
-
 async function refreshContributions() {
-  await refresh()
-  await loadContributionPoints()
-  await loadContributions()
+  await loadCatalog()
 }
 
 function pointDefinition(point: string): AdminContributionPointDefinition | undefined {
   return contributionPoints.value.find(item => item.id === point)
+}
+
+// 上移/下移的边界由同一份排序结果决定：首行不能再上移，末行不能再下移。
+function canMove(item: AdminEffectiveContribution, direction: -1 | 1): boolean {
+  const group = contributionsForPoint(contributions.value, item.point)
+  const index = group.findIndex(entry => entry.id === item.id)
+  if (index < 0) return false
+  const target = index + direction
+  return target >= 0 && target < group.length
+}
+
+function enabledOf(item: AdminEffectiveContribution): boolean {
+  return contributionEnabled(item)
+}
+
+// UButton/USwitch 的事件签名是 void | Promise<void>，这里不把治理结果透给模板。
+function onMove(item: AdminEffectiveContribution, direction: -1 | 1) {
+  void move(item, direction)
+}
+
+function onToggle(item: AdminEffectiveContribution, value: unknown) {
+  void setEnabled(item, value === true)
+}
+
+function onReset(item: AdminEffectiveContribution) {
+  void resetDefault(item)
 }
 </script>
 
@@ -79,20 +121,36 @@ function pointDefinition(point: string): AdminContributionPointDefinition | unde
         </div>
       </template>
       <template #right>
-        <UButton icon="i-lucide-rotate-cw" color="neutral" variant="subtle" :loading="pending || loadingContributionPoints || loadingContributions" @click="refreshContributions">
+        <UButton icon="i-lucide-rotate-cw" color="neutral" variant="subtle" :loading="pending" @click="refreshContributions">
           {{ t('admin.extensions.refresh') }}
         </UButton>
       </template>
     </UDashboardToolbar>
 
-    <UAlert
-      v-if="error"
-      color="error"
-      icon="i-lucide-triangle-alert"
-      variant="subtle"
-      :title="apiErrorMessage(error) || t('admin.extensions.loadFailed')"
-      class="mb-6"
-    />
+    <div
+      v-if="failed"
+      data-testid="contributions-load-error"
+      class="mb-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/60 dark:bg-red-950/30"
+    >
+      <UAlert
+        color="error"
+        icon="i-lucide-triangle-alert"
+        variant="subtle"
+        :title="errorMessage || t('admin.extensions.contributions.loadErrorTitle')"
+        :description="t('admin.extensions.contributions.loadErrorHint')"
+      />
+      <div>
+        <UButton
+          icon="i-lucide-rotate-cw"
+          color="error"
+          variant="soft"
+          :loading="pending"
+          @click="refreshContributions()"
+        >
+          {{ t('admin.extensions.contributions.retry') }}
+        </UButton>
+      </div>
+    </div>
 
     <section class="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
@@ -103,7 +161,7 @@ function pointDefinition(point: string): AdminContributionPointDefinition | unde
           {{ t('admin.extensions.contributions.pointsCount', { count: contributionPoints.length }) }}
         </UBadge>
       </div>
-      <div v-if="contributionPoints.length === 0 && !loadingContributionPoints" class="p-10">
+      <div v-if="viewState === 'empty'" class="p-10">
         <SFEmptyState icon-label="EXT" :title="t('admin.extensions.contributions.emptyPointsTitle')" :description="t('admin.extensions.contributions.emptyPointsDescription')" />
       </div>
       <div v-else class="divide-y divide-slate-200 dark:divide-zinc-800">
@@ -143,14 +201,16 @@ function pointDefinition(point: string): AdminContributionPointDefinition | unde
           {{ t('admin.extensions.contributions.activeCount', { count: contributions.length }) }}
         </UBadge>
       </div>
-      <div v-if="contributions.length === 0 && !loadingContributions" class="p-10">
+      <div v-if="viewState === 'empty'" class="p-10">
         <SFEmptyState icon-label="ACT" :title="t('admin.extensions.contributions.emptyActiveTitle')" :description="t('admin.extensions.contributions.emptyActiveDescription')" />
       </div>
       <div v-else class="divide-y divide-slate-200 dark:divide-zinc-800">
         <div
           v-for="contribution in contributionPageInfo.items"
           :key="`${contribution.extensionId}:${contribution.point}:${contribution.id}`"
-          class="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_220px]"
+          class="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_260px]"
+          :data-contribution-key="rowKey(contribution)"
+          :data-governance-enabled="enabledOf(contribution) ? 'true' : 'false'"
         >
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
@@ -161,6 +221,12 @@ function pointDefinition(point: string): AdminContributionPointDefinition | unde
               <UBadge color="neutral" variant="subtle">
                 {{ contribution.point }}
               </UBadge>
+              <UBadge v-if="!enabledOf(contribution)" color="warning" variant="subtle">
+                {{ t('admin.extensions.contributions.governance.disabledBadge') }}
+              </UBadge>
+              <UBadge v-if="contributionOverridden(contribution)" color="primary" variant="subtle">
+                {{ t('admin.extensions.contributions.governance.overriddenBadge') }}
+              </UBadge>
             </div>
             <p class="mt-1 break-all text-xs text-slate-500 dark:text-zinc-400">
               {{ contribution.extensionName }} · {{ contribution.id }}
@@ -168,10 +234,58 @@ function pointDefinition(point: string): AdminContributionPointDefinition | unde
             <p class="mt-1 break-all text-xs text-slate-500 dark:text-zinc-400">
               {{ pointDefinition(contribution.point)?.description || contribution.point }}
             </p>
+            <p class="mt-1 break-all text-xs text-slate-500 dark:text-zinc-400">
+              {{ extensionContributionPayloadSummary(contribution) }}
+            </p>
+            <p
+              v-if="rowErrors[rowKey(contribution)]"
+              class="mt-2 text-xs font-semibold text-red-600 dark:text-red-400"
+              role="alert"
+            >
+              {{ rowErrors[rowKey(contribution)] }}
+            </p>
           </div>
-          <div class="flex flex-col gap-1 text-xs text-slate-500 md:items-end dark:text-zinc-400">
-            <span>{{ t('admin.extensions.contributions.order', { order: contribution.order }) }}</span>
-            <span class="break-all text-right">{{ extensionContributionPayloadSummary(contribution) }}</span>
+          <div class="flex flex-col gap-2 text-xs text-slate-500 md:items-end dark:text-zinc-400">
+            <span>{{ t('admin.extensions.contributions.order', { order: effectiveOrderOf(contribution) }) }}</span>
+            <div v-if="canGovern" class="flex flex-wrap items-center gap-1 md:justify-end">
+              <UButton
+                icon="i-lucide-arrow-up"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('admin.extensions.contributions.governance.moveUp')"
+                :title="t('admin.extensions.contributions.governance.moveUp')"
+                :disabled="!canMove(contribution, -1) || Boolean(rowBusy[rowKey(contribution)])"
+                @click="onMove(contribution, -1)"
+              />
+              <UButton
+                icon="i-lucide-arrow-down"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                :aria-label="t('admin.extensions.contributions.governance.moveDown')"
+                :title="t('admin.extensions.contributions.governance.moveDown')"
+                :disabled="!canMove(contribution, 1) || Boolean(rowBusy[rowKey(contribution)])"
+                @click="onMove(contribution, 1)"
+              />
+              <USwitch
+                :model-value="enabledOf(contribution)"
+                :aria-label="t('admin.extensions.contributions.governance.toggleAria')"
+                :disabled="Boolean(rowBusy[rowKey(contribution)])"
+                @update:model-value="onToggle(contribution, $event)"
+              />
+              <UButton
+                v-if="contributionOverridden(contribution)"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-rotate-ccw"
+                :disabled="Boolean(rowBusy[rowKey(contribution)])"
+                @click="onReset(contribution)"
+              >
+                {{ t('admin.extensions.contributions.governance.reset') }}
+              </UButton>
+            </div>
           </div>
         </div>
         <div

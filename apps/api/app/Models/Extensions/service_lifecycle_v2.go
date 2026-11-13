@@ -118,6 +118,8 @@ func (s *serviceCore) enableLifecycleV2(
 	default:
 		return Extension{}, fmt.Errorf("%w: unsupported extension status", ErrLifecycleCoordinatorInvalid)
 	}
+	// 设置字段投影由 PostgresStore.Enable 这个唯一漏斗负责（dev 零命令、CLI、
+	// SystemTier、legacy 发布都经过它）；这里不再重复投影。
 	return s.runLifecycleV2(ctx, actor, request)
 }
 
@@ -171,14 +173,15 @@ func (s *LifecycleService) Upgrade(ctx context.Context, actor identity.Actor, id
 	if err := requireEnablePreflight(target); err != nil {
 		return Extension{}, err
 	}
+	// 升级换 manifest 后新增的设置字段由生命周期状态发布统一投影
+	// （PostgresStore.syncLifecycleSettingsSurfaceFields，目标 active version 的
+	// manifest），这里不再单独 sync。
 	return s.runLifecycleV2(ctx, actor, lifecycleServiceRequest{
 		operation: LifecycleMachineUpgrade, source: exactLifecycleCopy(extension), target: target,
 		idempotencyKey: input.IdempotencyKey, confirmationToken: input.ConfirmationToken,
 	})
 }
 
-// Rollback activates an exact historical artifact and reuses only that
-// artifact's last successful frozen authority snapshot.
 func (s *LifecycleService) Rollback(ctx context.Context, actor identity.Actor, id string, input RollbackInput) (Extension, error) {
 	if !canManagePlugins(actor) {
 		return Extension{}, identity.ErrPermissionDenied

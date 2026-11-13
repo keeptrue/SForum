@@ -209,6 +209,19 @@ skin behavior without admin session.
 - Avatar settings are product behavior, not attachment-provider settings. They
   live in `web_options` under `avatar.*`, use `settings.manage`, and keep
   provider-specific storage behavior in the attachment module.
+- 插件设置面的**治理覆盖**（哪个插件 tab / 字段在哪个表面可见、排第几）刻意**不**放进
+  `web_options`，而是独立表 `settings_surface_items`（2026-11-13）。三条理由：
+  (1) options 是「一个键一整块值」的写入，两个管理员同时关两个不同插件的 tab 会互相覆盖，
+  独立表是行级写入；(2) 治理是宿主治理态（谁还能看见什么），没有公开读面、不该被
+  「恢复默认设置」顺手清掉；(3) 行上要记 `updated_by_user_id` 并允许悬空（插件升级删掉
+  一个 tab 后旧覆盖行不阻断升级，读取侧自然失效）。
+  该表是 **sparse overlay**：无行=manifest 默认，`enabled=false`=运营关掉，删行=恢复默认，
+  因此永远可以安全清空，也不需要任何初始化投影。
+  不建 `sforum_core_v1` 视图、不建 HostQuery —— 它不是要给插件读的产品数据，
+  与 `decisions/2026-10-18-extension-data-surface-policy.md` 同口径。
+  决策：`decisions/2026-11-13-settings-surface-contributions.md`。
+- 与之相邻但不同层：插件 Settings Document（站点级配置，走插件设置存储、有推荐默认与
+  一键恢复默认）仍然不是 `web_options`；`web_options` 继续只装宿主自己拥有的运行期选项。
 
 ## Implementation Notes
 

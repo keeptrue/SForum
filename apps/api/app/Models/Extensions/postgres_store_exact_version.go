@@ -201,3 +201,37 @@ func scanExtensionVersion(row extensionRow) (ExtensionVersion, error) {
 }
 
 var _ ExactExtensionVersionRepository = (*PostgresStore)(nil)
+
+func extensionSelectSQL() string {
+	return `
+		SELECT extensions.id, extensions.name, extensions.type, extensions.status,
+		  extensions.source, extensions.is_system, extensions.is_deletable,
+		  extensions.active_version_id,
+		  extension_versions.version, extension_versions.manifest, extension_versions.package_digest,
+		  extension_versions.admin_frontend_digest,
+		  extension_versions.package_path,
+		  extension_versions.installed_at, extensions.updated_at,
+		  COALESCE(staged_versions.id, 0),
+		  CASE WHEN staged_versions.id IS NULL THEN NULL ELSE jsonb_build_object(
+		    'version', staged_versions.version,
+		    'manifest', staged_versions.manifest,
+		    'packageDigest', staged_versions.package_digest,
+		    'adminFrontendDigest', staged_versions.admin_frontend_digest,
+		    'packagePath', staged_versions.package_path,
+		    'installedAt', staged_versions.installed_at
+		  ) END
+		FROM extensions
+		JOIN extension_versions ON extension_versions.id = extensions.active_version_id
+		LEFT JOIN extension_versions AS staged_versions ON staged_versions.id = extensions.staged_version_id
+		LEFT JOIN extension_missing_artifact_removals AS missing_artifact_removals
+		  ON missing_artifact_removals.extension_id = extensions.id
+		LEFT JOIN extension_builtin_removals AS builtin_removals
+		  ON builtin_removals.extension_id = extensions.id
+		WHERE missing_artifact_removals.extension_id IS NULL
+		  AND builtin_removals.extension_id IS NULL
+	`
+}
+
+type extensionRow interface {
+	Scan(dest ...any) error
+}

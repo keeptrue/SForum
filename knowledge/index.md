@@ -818,6 +818,27 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **插件设置面贡献点 settingsSection（2026-11-13，最新）**：插件第一次可以用宿主契约挂
+  设置 tab / 按用户存的表单字段，而不是自建插件页。两个贡献点
+  `forum.settings.profile.tabs`（`fields` | `component`）与 `admin.settings.tabs`（仅 `settings`）
+  共用宿主拥有的 `settingsSection` payload；引擎是「manifest 声明 → 投影 → 读模型 → 写入策略」四段，
+  后端在 `app/Support/ExtensionManifest/settings_section_*.go` 与 `app/Providers/settings_surface_*.go`。
+  字段键 `x.<扩展段>.<裸键>`（扩展段无条件带 8 位 FNV-1a，插件不自己拼），值按用户落 entity-meta；
+  运营治理走独立表 `settings_surface_items`（sparse overlay：无行=默认、`enabled=false`=关掉、
+  删行=恢复默认），治理关闭同时阻止写入——`PUT /profile` 的 `meta` 与 `/entity-meta` 写路径
+  共用同一策略。投影挂在改 status 的原语上（`PostgresStore.Enable` / 生命周期状态发布 /
+  `Disable` / 启动 reconcile），失败即 `extension.preflight_failed` 阻断——挂在 service 包装上的旧接法
+  曾让 dev 零命令等旁路漏投影，表现是「表单能看、保存必 422」。投影同时做**差集清扫**
+  （不再声明的定义置 `enabled=false`，值保留、重新声明恢复）与**悬空治理行清理**；
+  disable 同样不删定义不删值。`GET /profile` 的 `settingsValues` 有 sections 时恒下发（空则 `{}`）。
+  **已知缺口**：带外恢复命令 `sforum extension disable`（`cmd/sforum/recovery.go`，独立 SQL）
+  不做去投影，需恢复后走一次正常的「启用 → 停用」收敛。**未提交**。见 `sessions/2026-11-13-settings-surfaces.md`、
+  决策 `decisions/2026-11-13-settings-surface-contributions.md`、
+  作者文档 `docs/extensions/authoring-guide.md`「Settings tabs and profile fields (`settingsSection`)」、
+  模块 `modules/{profile,extensions,frontend,options}.md`。
+  **运维约束**：该迁移的 `updated_by_user_id → users(id)` 让 `CREATE TABLE` 对 `users` 取
+  `ShareRowExclusiveLock`，上线需无长于 5s 的 `users` 写事务；`SET LOCAL` 只在事务块内生效，
+  手工 `psql -f` 必须显式 `BEGIN/COMMIT`。
 - **徽章等级配色：取色器实时驱动（2026-11-13，最新）**：用户报「拖动取色器时颜色显示不动」。根因是
   配色字段只在 `change` / 「应用」写模型，拖动过程中只有 hex 文本框在动。改为取色器 `input` 即时写入
   （同值短路），并让取色块显示**有效色**——token 运行时读 `--sf-tl-<token>-light`，不再固定 slate；

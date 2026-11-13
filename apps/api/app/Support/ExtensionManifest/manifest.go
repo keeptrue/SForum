@@ -396,7 +396,7 @@ type ContributionPointDefinition struct {
 }
 
 func ContributionPointDefinitions() []ContributionPointDefinition {
-	return []ContributionPointDefinition{
+	return append([]ContributionPointDefinition{
 		{ID: PointForumTopicActions, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Topic detail action descriptors rendered by the host UI.", PayloadType: PayloadTypeExtensionRoute},
 		{ID: PointForumTopicSidebar, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Topic detail sidebar cards/links rendered by the host UI (extensionRoute or hostLink).", PayloadType: PayloadTypeTopicSidebarCard},
 		{ID: PointForumTopicBadges, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Small status badges under the topic title (tone enum + optional hostLink).", PayloadType: PayloadTypeTopicBadge},
@@ -408,7 +408,7 @@ func ContributionPointDefinitions() []ContributionPointDefinition {
 		{ID: PointAdminDashboardWidgets, Owner: "admin", Kind: ContributionPointKindDescriptor, Description: "Admin dashboard link widgets; host-owned routes only, no executable payloads.", PayloadType: PayloadTypeDashboardLink},
 		{ID: PointSystemHealthChecks, Owner: "system", Kind: ContributionPointKindDescriptor, Description: "Plugin readiness components merged into GET /ready without invoking plugin RPC.", PayloadType: PayloadTypeHealthDescriptor},
 		{ID: PointForumPageRegions, Owner: "forum", Kind: ContributionPointKindDescriptor, Description: "Standard page region placements (RegionCatalog whitelist): hostLink card, extensionRoute action card, or l2Widget reference resolved by the public L2 runtime.", PayloadType: PayloadTypeRegionPlacement},
-	}
+	}, settingsSurfaceContributionPoints()...)
 }
 
 func Validate(manifest Manifest) error {

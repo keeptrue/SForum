@@ -290,6 +290,14 @@ func requireExtensionsReadAuthority(_ context.Context, evaluation routes.CoreGua
 			identity.PermissionExtensionView,
 			identity.PermissionExtensionManage,
 		)
+	case "core.route.extensions.surface_tabs":
+		// 站点设置页插件 tab：先 admin.access，再 extension.view —— 两者都要求
+		// （AND），与 v3 目录里 reviewed 策略声明的权限集合逐字一致。这条路由会
+		// 透出插件完整设置文档（含非 secret 项），只「进得了后台」不够。
+		return requireAllCoreGuardPermissions(evaluation,
+			identity.PermissionAdminAccess,
+			identity.PermissionExtensionView,
+		)
 	case "core.route.extensions.list_migrations":
 		return requireCoreGuardPermission(evaluation,
 			identity.PermissionExtensionView,

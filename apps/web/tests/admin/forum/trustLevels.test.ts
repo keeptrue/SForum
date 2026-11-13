@@ -375,8 +375,9 @@ describe('settings shell after the promotion', () => {
     expect(settingsShell).toContain("'/forum/trust-levels'")
     expect(settingsShell).toMatch(/navigateTo\(\{[\s\S]*?replace: true/)
     // 重定向必须早于 activeTab 初始化，否则先渲染一次 basic 再跳（闪一帧错页面）。
+    // activeTab 的类型已放宽到 string（插件 tab 的 `ext.` id 是动态的），两种写法都要认。
     expect(settingsShell.indexOf("route.query.tab === 'trustLevels'"))
-      .toBeLessThan(settingsShell.indexOf('ref<SettingsTab>(normalizeTab('))
+      .toBeLessThan(settingsShell.indexOf('(normalizeTab('))
   })
 })
 

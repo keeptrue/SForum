@@ -134,6 +134,25 @@ func (s *PostgresStore) DeleteDefinition(ctx context.Context, fieldKey string) e
 	return nil
 }
 
+// SetEnabledDefinition 只翻转 enabled（单字段版）。
+func (s *PostgresStore) SetEnabledDefinition(ctx context.Context, fieldKey string, enabled bool) error {
+	_, err := s.pool.Exec(ctx, `
+UPDATE entity_field_definitions
+SET enabled = $2, updated_at = $3
+WHERE field_key = $1`, strings.TrimSpace(fieldKey), enabled, time.Now().UTC())
+	return err
+}
+
+// SetEnabledByOwnerExtension 只翻转 enabled。刻意不删定义、不碰 entity_meta_values：
+// 插件被停用或卸载后，用户填过的值必须在重装后原样回来。
+func (s *PostgresStore) SetEnabledByOwnerExtension(ctx context.Context, extensionID string, enabled bool) error {
+	_, err := s.pool.Exec(ctx, `
+UPDATE entity_field_definitions
+SET enabled = $2, updated_at = $3
+WHERE owner_extension_id = $1`, strings.TrimSpace(extensionID), enabled, time.Now().UTC())
+	return err
+}
+
 func (s *PostgresStore) ListValues(ctx context.Context, entityType string, entityID int64) ([]valueRow, error) {
 	rows, err := s.pool.Query(ctx, `
 SELECT entity_type, entity_id, field_key, value_text, updated_at, updated_by_user_id

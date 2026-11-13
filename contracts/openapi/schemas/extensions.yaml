@@ -2087,6 +2087,247 @@ EffectiveContribution:
       type: string
     payload:
       "$ref": "#/ExtensionContributionPayload"
+SettingsSection:
+  type: object
+  description: |
+    One settings tab contributed by a plugin. `type=fields` renders the declared
+    form; `type=component` mounts a public L2 component; `type=settings` shows a
+    tab of the plugin Settings Document (site settings page only).
+  required:
+  - source
+  - id
+  - type
+  properties:
+    source:
+      type: string
+      enum: [extension]
+      description: Who owns this tab. Plugin-contributed tabs are always `extension`.
+    extensionId:
+      type: string
+    extensionName:
+      type: string
+    id:
+      type: string
+      description: Opaque tab id (contribution id).
+    effectiveSortOrder:
+      type: integer
+      description: Effective order (site governance override first, then the declared order).
+    label:
+      type: object
+      additionalProperties:
+        type: string
+    icon:
+      type: string
+    description:
+      description: "Localized description (plain string or a locale-to-text map)."
+    type:
+      type: string
+      enum: [fields, component, settings]
+    componentId:
+      type: string
+      description: Public L2 component id (type=component only).
+    tabId:
+      type: string
+      description: Settings Document tab id (type=settings only).
+    fields:
+      type: array
+      items:
+        "$ref": "#/SettingsSectionField"
+SettingsSectionField:
+  type: object
+  required:
+  - fieldKey
+  - type
+  - visibility
+  properties:
+    fieldKey:
+      type: string
+      description: |
+        Composite entity-meta field key (`x.<extensionId>.<key>`). Use it as the
+        value key on `PUT /profile` (`meta`) and as the error key in
+        `data.fields`.
+    effectiveSortOrder:
+      type: integer
+    label:
+      description: Localized label.
+    description:
+      description: Localized description.
+    type:
+      type: string
+      enum: [string, text, number, boolean, select]
+    default:
+      type: string
+    placeholder:
+      description: Localized placeholder.
+    required:
+      type: boolean
+    visibility:
+      type: string
+      enum: [public, owner]
+      description: |
+        Read scope of the stored value. `admin`-visibility fields are never part
+        of the self-service surface.
+    constraints:
+      type: object
+      additionalProperties: true
+    options:
+      type: array
+      description: Allowed values for `type=select`; enforced server-side through the stored enum.
+      items:
+        type: object
+        required: [value]
+        properties:
+          value:
+            type: string
+          label:
+            description: Localized label.
+SettingsSurfaceTab:
+  type: object
+  description: |
+    A plugin tab on the site settings page (`admin.settings.tabs`). `id` uses the
+    `ext.<extensionId>.<contributionId>` namespace so it can never collide with
+    the fixed Core tabs.
+  required: [id, point, contributionId, type, extensionId]
+  properties:
+    id:
+      type: string
+    point:
+      type: string
+    contributionId:
+      type: string
+    label:
+      type: object
+      additionalProperties:
+        type: string
+    icon:
+      type: string
+    type:
+      type: string
+      enum: [settings]
+    extensionId:
+      type: string
+    tabId:
+      type: string
+    settings:
+      "$ref": "#/ExtensionSettings"
+ApiResponseSettingsSurfaceTabList:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: array
+      items:
+        "$ref": "#/SettingsSurfaceTab"
+GovernanceItemView:
+  type: object
+  required: [fieldKey, enabled, effectiveSortOrder, overridden]
+  properties:
+    fieldKey:
+      type: string
+      description: Composite entity-meta field key.
+    enabled:
+      type: boolean
+    effectiveSortOrder:
+      type: integer
+    overridden:
+      type: boolean
+ContributionGovernanceView:
+  type: object
+  description: |
+    A contribution descriptor plus its governance facts. The governance read
+    model never truncates: contributions beyond the per-surface cap are returned
+    with `suppressedByCap=true` so an operator can tell why a toggle has no
+    visible effect.
+  required:
+  - extensionId
+  - point
+  - id
+  - order
+  - enabled
+  - overridden
+  - effectiveSortOrder
+  - fields
+  properties:
+    extensionId:
+      type: string
+    extensionName:
+      type: string
+    extensionType:
+      "$ref": "#/ExtensionType"
+    point:
+      type: string
+    id:
+      type: string
+    order:
+      type: integer
+      description: Declared order from the manifest.
+    enabled:
+      type: boolean
+    overridden:
+      type: boolean
+    effectiveSortOrder:
+      type: integer
+    suppressedByCap:
+      type: boolean
+      description: |
+        True when the rendering side suppresses this contribution because the
+        surface already reached its plugin-tab cap.
+    label:
+      type: object
+      additionalProperties:
+        type: string
+    icon:
+      type: string
+    payload:
+      "$ref": "#/ExtensionContributionPayload"
+    fields:
+      type: array
+      items:
+        "$ref": "#/GovernanceItemView"
+ApiResponseContributionGovernanceList:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: array
+      items:
+        "$ref": "#/ContributionGovernanceView"
+ContributionGovernanceRequest:
+  type: object
+  description: |
+    Partial update. Omitted columns keep their current value; `sortOrder: null`
+    clears the order override so the declared order applies again.
+  properties:
+    enabled:
+      type: boolean
+    sortOrder:
+      type:
+      - integer
+      - 'null'
+ContributionGovernanceView200:
+  type: object
+  required: [data]
+  properties:
+    data:
+      type: object
+      required: [extensionId, point, contributionId, enabled, declaredSortOrder, effectiveSortOrder, overridden]
+      properties:
+        extensionId:
+          type: string
+        point:
+          type: string
+        contributionId:
+          type: string
+        itemKey:
+          type: string
+        enabled:
+          type: boolean
+        declaredSortOrder:
+          type: integer
+        effectiveSortOrder:
+          type: integer
+        overridden:
+          type: boolean
 PublicActiveThemeSettings:
   type: object
   required:

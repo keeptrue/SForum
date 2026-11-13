@@ -4,6 +4,11 @@ import { normalizeSiteDomain, siteDomainFromUrl } from '../../app/utils/settings
 
 const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8')
 const page = () => source('../../app/components/settings/SFProfileSettingsPage.vue')
+// tab 化之后：草稿归 composable，分区内容各自一个文件（AGENTS 的固定 tab 规约）。
+const draftState = () => source('../../app/composables/settings/useProfileSettingsDraft.ts')
+const identityTab = () => source('../../app/components/settings/profile/tabs/SFProfileIdentityTab.vue')
+const storyTab = () => source('../../app/components/settings/profile/tabs/SFProfileStoryTab.vue')
+const linksTab = () => source('../../app/components/settings/profile/tabs/SFProfileLinksTab.vue')
 const shell = () => source('../../app/components/settings/SFSettingsShell.vue')
 const accountSidebar = () => source('../../app/components/settings/SFSettingsAccountSidebar.vue')
 const preview = () => source('../../app/components/settings/SFProfileSettingsPreview.vue')
@@ -27,25 +32,31 @@ describe('profile settings canvas', () => {
 
   test('loads and saves profile fields plus the private default language', () => {
     const src = page()
+    const draft = draftState()
     expect(src).toContain('profileApi.getMyProfile()')
-    expect(src).toContain('profileApi.updateMyProfile({')
-    expect(src).toContain('bio: draft.bio')
-    expect(src).toContain('signature: draft.signature')
-    expect(src).toContain('location: draft.location')
-    expect(src).toContain('websiteUrl: draft.websiteUrl')
-    expect(src).toContain('updateLanguage(draft.locale)')
-    expect(src).toContain('v-model="draft.locale"')
-    expect(src).not.toContain('company')
-    expect(src).not.toContain('portfolio')
-    expect(src).not.toContain('followers')
-    expect(src).not.toContain('privacy')
+    expect(draft).toContain('profileApi.updateMyProfile({')
+    expect(draft).toContain('bio: draft.bio')
+    expect(draft).toContain('signature: draft.signature')
+    expect(draft).toContain('location: draft.location')
+    expect(draft).toContain('websiteUrl: draft.websiteUrl')
+    expect(draft).toContain('await options.updateLanguage(draft.locale)')
+    expect(identityTab()).toContain("t('profileSettings.defaultLanguage')")
+    expect(identityTab()).toContain(':model-value="localeDraft"')
+    for (const file of [src, draft, identityTab(), storyTab(), linksTab()]) {
+      expect(file).not.toContain('company')
+      expect(file).not.toContain('portfolio')
+      expect(file).not.toContain('followers')
+      expect(file).not.toContain('privacy')
+    }
   })
 
   test('uses the runtime website domain for the public profile path', () => {
     const src = page()
     expect(src).toContain('const { siteDomain, avatarSettings, nicknameSettings } = useWebOptions()')
     expect(src).toContain('`${siteDomain.value}/u/`')
-    expect(src).toContain('{{ publicProfilePrefix }}')
+    // 前缀字段搬进身份分区：宿主算，tab 只管渲染。
+    expect(src).toContain(':public-profile-prefix="publicProfilePrefix"')
+    expect(identityTab()).toContain('{{ publicProfilePrefix }}')
     expect(src).not.toContain("t('profileSettings.profilePathPrefix')")
     expect(normalizeSiteDomain(' https://Forum.Example.com/// ')).toBe('Forum.Example.com')
     expect(siteDomainFromUrl('https://forum.example.com:8443/base')).toBe('forum.example.com:8443')
@@ -53,40 +64,47 @@ describe('profile settings canvas', () => {
 
   test('edits the nickname through the same profile save flow', () => {
     const src = page()
-    expect(src).toContain('import SFProfileNicknameField')
-    expect(src).toContain('v-model="draft.displayName"')
-    expect(src).toContain(':policy="nicknameSettings"')
-    expect(src).toContain('draft.displayName !== baseline.value.displayName')
-    expect(src).toContain('...(nicknameChanged ? { displayName: draft.displayName } : {})')
-    expect(src).toContain('syncAuthDisplayName(updated.displayName)')
-    // 用户名保持只读：昵称才是可改的展示标签。
-    expect(src).toContain(':value="profile.username" type="text" readonly')
+    const draft = draftState()
+    const identity = identityTab()
+    expect(identity).toContain('import SFProfileNicknameField')
+    expect(identity).toContain(':model-value="displayNameDraft"')
+    expect(identity).toContain(':policy="nicknameSettings"')
+    expect(draft).toContain('draft.displayName !== baseline.value.displayName')
+    expect(draft).toContain('...(nicknameChanged ? { displayName: draft.displayName } : {})')
+    // 改名后导航栏读的是会话里的 displayName，保存成功要一起同步。
+    expect(src).toContain('syncAuthUser({ displayName: updated.displayName })')
+    // 用户名保持只读：昵称才是可改的展示标签（属性已分行，逐项断言）。
+    expect(identity).toContain(':value="profile.username"')
+    expect(identity).toMatch(/:value="profile\.username"[\s\S]{0,120}?readonly/)
   })
 
   test('preserves avatar upload and removal through the real profile API', () => {
-    const src = page()
+    const src = identityTab()
     expect(src).toContain('const avatarAccept = computed')
     expect(src).toContain('can(FORUM_PERMISSIONS.attachmentUpload)')
     expect(src).toContain('const canUploadAvatar = computed')
-    expect(src).toContain('avatarSettings.value.allowGif')
-    expect(src).toContain('file.size > avatarSettings.value.maxSizeKb * 1024')
+    expect(src).toContain('props.avatarSettings.allowGif')
+    expect(src).toContain('file.size > props.avatarSettings.maxSizeKb * 1024')
     expect(src).toContain("file.type === 'image/gif'")
     expect(src).toContain('profileApi.uploadAvatar(file)')
     expect(src).toContain('profileApi.deleteAvatar()')
-    expect(src).toContain('syncAuthAvatar(updated)')
+    // 头像结果交给宿主同步会话（导航/右栏读的是会话里的 avatar）。
+    expect(src).toContain("emit('avatar-changed', updated)")
+    expect(page()).toContain('syncAuthUser({ avatar: updated.avatar })')
     expect(src).toContain(':disabled="!canUploadAvatar || avatarBusy"')
     expect(src).toContain(':loading="avatarBusy"')
   })
 
   test('renders the public preview from the local draft and marks unsaved edits', () => {
     const src = page()
+    const draft = draftState()
     const previewSrc = preview()
-    expect(src).toContain('const isDirty = computed')
-    expect(src).toContain('function resetDraft()')
-    expect(src).toContain("title: t('profileSettings.resetDone')")
-    expect(src).toContain('draft.bio !== baseline.value.bio')
-    expect(src).toContain('draft.location !== baseline.value.location')
-    expect(src).toContain('publicWebsiteHref')
+    expect(draft).toContain('const isDirty = computed')
+    expect(draft).toContain('function resetDraft()')
+    expect(draft).toContain("title: t('profileSettings.resetDone')")
+    expect(draft).toContain('draft.bio !== baseline.value.bio')
+    expect(draft).toContain('draft.location !== baseline.value.location')
+    expect(src).toContain('const publicWebsiteHref = computed(() => safeUrl(draft.websiteUrl))')
     expect(previewSrc).toContain('v-if="!dirty && websiteHref"')
     expect(previewSrc).toContain('profileSettings.preview.unsaved')
     expect(previewSrc).toContain("t('profile.joinedOn'")
@@ -193,9 +211,12 @@ describe('profile settings canvas', () => {
   })
 
   test('uses the active appearance color for successful profile actions', () => {
-    const src = page()
-    expect(src.match(/color: 'primary'/g)?.length).toBe(3)
-    expect(src).not.toContain("color: 'success'")
+    // 保存 toast 在草稿 composable，头像上传/移除 toast 在身份分区；合计仍只有 3 处。
+    const owners = [draftState(), identityTab()]
+    expect(owners.join('').match(/color: 'primary'/g)?.length).toBe(3)
+    for (const file of owners) {
+      expect(file).not.toContain("color: 'success'")
+    }
   })
 
   test('keeps i18n complete for the canvas, preview, and visibility copy', () => {

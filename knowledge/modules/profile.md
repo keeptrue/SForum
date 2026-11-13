@@ -92,6 +92,44 @@ editor in V1.
 - 数据口径、隐私三层闸与残余见 `modules/forum.md` 的 Bookmarks 段与
   `decisions/2026-11-10-content-bookmarks.md`。
 
+### 插件设置面（`forum.settings.profile.tabs`，2026-11-13）
+
+- 个人设置页的插件 tab 来自宿主贡献点，不再是插件自建页面。声明 →
+  投影 → 读模型 → 写入策略四段都在宿主侧：
+  `ExtensionManifest.settings_section_*`（声明与校验）、
+  `app/Providers/settings_surface_contributions.go`（裁决成 `Section`）、
+  `settings_surface_sync.go`（投影进 entity-meta）、
+  `settings_surface_policy.go`（读写策略）、`settings_surface_meta.go`（值的读写适配）。
+  决策：`decisions/2026-11-13-settings-surface-contributions.md`。
+- 允许的 tab 形态只有两种：`fields`（宿主按 `fields[]` 渲染表单，值按用户存）
+  与 `component`（挂载本包声明的公开 L2 组件，保存权归插件）。`settings`
+  形态只属于站点设置页，在个人页上声明会被 manifest 校验拒绝。
+- 读：`GET /profile` 新增可选 `settingsSections`（已按治理覆盖、权限、可见性过滤并
+  完成排序/截断）与 `settingsValues`（只含当前 tab 声明过的键）。**有 sections 时
+  `settingsValues` 恒下发**，空则 `{}`：`*map[string]any` + `omitempty` 会让空 map 整键消失，
+  前端就无法区分「没有插件字段」与「有字段但一个值都没存」，两者该渲染的东西相反。
+  测试 `TestAttachSelfSettingsAlwaysSendsSettingsValues`。公开资料页
+  `GET /profiles/{username}` 的 `meta` 只出 `visibility=public` 且有权的字段；
+  `owner`/`admin` 永不出现在公开响应里。未注入 provider 时响应与改造前逐字节等价。
+- 写：`PUT /profile` 的 `meta` 是 `{ <fieldKey>: string|number|boolean|null }`，
+  `fieldKey` 是 entity-meta 组合键（`x.<扩展段>.<裸键>`），`null` 表示删除该字段值。
+  只接受标量（对象/数组按非法值 422）；能定位到字段的一律 `422` +
+  `data.fields[fieldKey]`（键是组合 fieldKey，值是由 `profile.settings.field_{unknown,forbidden,invalid,required}` 本地化后的文案）。
+  未声明 / 被运营停用 / 无写权限的键**一律拒绝而不是静默丢弃**。
+- 顺序：核心资料字段先落库，插件字段最后写（`UpdateMyProfile` → `writeSettingsMeta`）。
+  两者无共同不变量，因此不引入跨域事务；meta 失败整次请求仍是 422，前端保留 dirty
+  重发即收敛。逐字段写入是刻意的——entity-meta 的错误不带字段名。
+- 生命周期：enable / upgrade / 生命周期状态发布先投影（失败即 `extension.preflight_failed`，
+  状态变更整体回滚）；disable 把该扩展的字段整体翻成 `enabled=false`，定义与值都保留。
+  投影同时做**差集清扫**：该扩展仍有、但本次不再声明的定义置 `enabled=false`（值保留），
+  重新声明即恢复——所以升级改字段名的结局是「旧键停用、值还在」，而不是一个仍可读写、
+  `visibility=public` 时还能被匿名读到的孤儿定义。
+  投影只挂在改 status 的原语上（`PostgresStore.Enable` / 生命周期状态发布 / `Disable` /
+  启动 reconcile），任何绕过它们的入口都会留下「表单能看、保存必 422」的坑，详见
+  `modules/extensions.md`「投影只有一个入口」。
+- 字段键的扩展段**无条件**带 8 位 FNV-1a：可读前缀压平后 `sforum.smtp` 与 `sforum-smtp`
+  同形，身份必须由哈希保证。插件作者不拼这个键，只读下发的 `fieldKey` 并原样回写。
+
 ### Nickname（昵称）
 
 - 昵称是展示标签，不是身份：`users.display_name` **不唯一**，唯一性只属于
@@ -221,6 +259,23 @@ editor in V1.
   dirty, reset discards unsaved changes with a neutral Toast, save/avatar
   success Toasts auto-dismiss after 5 seconds, field-level validation stays
   beside the relevant inputs, and blocking errors remain visible.
+- 插件分区与核心 tab 共用一根 tab 栏：`SFProfileSettingsTabNav.vue` 把分区清单与错误计数
+  翻成 tab 条目，呈现与键盘语义归 `SFSettingsTabNav.vue`（面板模型下
+  `role=tab/tablist`、roving tabindex、←/→ 循环、Home/End）；
+  分区清单由 `utils/settings/profileSettings.ts` 的 `composeProfileSettingsTabs`
+  合成——核心 `identity`/`story`/`links` 在前，插件分区按 `effectiveSortOrder` 追加；
+  同 id 重复、缺 label、`component` 缺 `componentId`、字段分区过滤后为空的分区
+  **在这里就被丢掉**（不会渲染成空壳 tab）。分区选中态属于 URL `?tab=`，composable 不持有。
+- 插件分区的面板只由 `components/settings/profile/SFProfileExtensionTabPanel.vue` 渲染：
+  `fields` 用中性渲染器 `SFDeclarativeSettingsField`（随页脚统一保存），
+  `component` 挂 `SFExtensionWidget` 并显示「保存由插件自己负责」——此时页脚保存按钮
+  禁用并给出原因，避免两套保存互相覆盖。
+- 一次保存只发一个 `PUT /profile`（核心字段与 `meta` 同体）。失败时 `useProfileSettingsDraft`
+  只写 `fieldErrors`（键就是 `fieldKey`），**不清空草稿、不刷新快照**，因此 dirty 状态保留；
+  页脚用 `errorSummary` 显示第一个出错分区与计数，点「跳到出错分区」才切 tab
+  （`firstProfileSettingsErrorTab` → `jumpToErrorTab`），不自动抢走用户正在输入的分区。
+- 插件分区 id 就是贡献 `id`，与核心 tab id 同命名空间：贡献 id 不能叫
+  `identity`/`story`/`links`，否则整个分区被去重丢掉。
 - The profile identity section includes a private default-language selector.
   `useUserLanguage` maps API BCP 47 values (such as `en-US`) to Nuxt locale
   keys (such as `en`), persists a signed-in choice, and applies it to i18n.

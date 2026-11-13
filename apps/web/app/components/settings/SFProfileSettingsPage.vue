@@ -1,38 +1,39 @@
 <script setup lang="ts">
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import { userDisplayName } from '~/utils/forum/userDisplay'
-import { useProfileApi } from '~/composables/profile/useProfileApi'
-import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
+import { useProfileApi, type ProfileData, type PublicProfile } from '~/composables/profile/useProfileApi'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useUserLanguage } from '~/composables/identity/useUserLanguage'
+import { useProfileSettingsDraft } from '~/composables/settings/useProfileSettingsDraft'
+import {
+  PROFILE_SETTINGS_DEFAULT_TAB,
+  profileSettingsPanelDomId,
+  profileSettingsTabDomId,
+  resolveProfileSettingsTab
+} from '~/utils/settings/profileSettings'
+import { safeUrl } from '~/utils/sfUrl'
 import SFSettingsShell from '~/components/settings/SFSettingsShell.vue'
 import SFProfileSettingsPreview from '~/components/settings/SFProfileSettingsPreview.vue'
-import SFProfileNicknameField from '~/components/settings/SFProfileNicknameField.vue'
+import SFProfileSettingsTabNav from '~/components/settings/SFProfileSettingsTabNav.vue'
+import SFProfileSettingsFooter from '~/components/settings/profile/SFProfileSettingsFooter.vue'
+import SFProfileIdentityTab from '~/components/settings/profile/tabs/SFProfileIdentityTab.vue'
+import SFProfileStoryTab from '~/components/settings/profile/tabs/SFProfileStoryTab.vue'
+import SFProfileLinksTab from '~/components/settings/profile/tabs/SFProfileLinksTab.vue'
+import SFProfileExtensionTabPanel from '~/components/settings/profile/SFProfileExtensionTabPanel.vue'
 /**
  * 宿主 body 岛：forum.settings.profile。主题 L1 挂载；路由页仅 outlet + fail-closed 回退。
- * 三栏 chrome 由 SFSettingsShell 提供，此处仅保留资料表单业务。
+ *
+ * 本文件只是 tab 宿主：页头、tab 导航、`?tab=` 同步、唯一可见的分区面板、页脚统一保存、
+ * 右栏预览。分区内容各自一个文件（components/settings/profile/tabs/），草稿状态归
+ * useProfileSettingsDraft，插件分区归 SFProfileExtensionTabPanel。
  */
-import type { ProfileData, PublicProfile } from '~/composables/profile/useProfileApi'
-import { safeUrl } from '~/utils/sfUrl'
-
-type ProfileDraft = {
-  displayName: string
-  bio: string
-  signature: string
-  location: string
-  websiteUrl: string
-  locale: string
-}
-
-type SaveState = 'idle' | 'saving' | 'error' | 'success'
-
 const { t } = useI18n()
 const localePath = useLocalePath()
-const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 const { siteDomain, avatarSettings, nicknameSettings } = useWebOptions()
 const { user: authUser, setUser } = useAuthSession()
 const { currentLanguage, languageOptions, updateLanguage } = useUserLanguage()
-const { can } = usePermissions()
 const { formatDateOnly } = useSiteDateTime()
 const profileApi = useProfileApi()
 
@@ -49,78 +50,53 @@ const { data: profile, pending } = await useAsyncData(
   { default: () => null as PublicProfile | null }
 )
 
-const draft = reactive<ProfileDraft>({
-  displayName: '',
-  bio: '',
-  signature: '',
-  location: '',
-  websiteUrl: '',
-  locale: currentLanguage.value
+const {
+  draft,
+  metaDraft,
+  tabs,
+  fieldErrors,
+  errorCounts,
+  firstErrorTab,
+  saveState,
+  saving,
+  errorMessage,
+  globalErrorCount,
+  formReady,
+  isDirty,
+  hydrate,
+  dismissError,
+  resetDraft,
+  save,
+  clearFieldError,
+  setMetaValue
+} = useProfileSettingsDraft({
+  profile,
+  currentLanguage,
+  updateLanguage
 })
-const baseline = ref<ProfileDraft>({
-  displayName: '',
-  bio: '',
-  signature: '',
-  location: '',
-  websiteUrl: '',
-  locale: currentLanguage.value
-})
-const formReady = ref(false)
 
-const avatarInput = ref<HTMLInputElement | null>(null)
-const avatarBusy = ref(false)
-const avatarError = ref('')
-const saveState = ref<SaveState>('idle')
-const errorMessage = ref('')
-const successMessage = ref('')
-const fieldErrors = ref<Record<string, string[]>>({})
-let successTimer: ReturnType<typeof setTimeout> | undefined
+const activeTab = ref<string>(PROFILE_SETTINGS_DEFAULT_TAB)
+const activeSection = computed(() => tabs.value.find(tab => tab.id === activeTab.value) || null)
+// 组件型插件分区自带保存按钮：此时页脚的统一保存必须禁用并说明原因。
+const pluginManagedTab = computed(() => activeSection.value?.source === 'extension' && activeSection.value.type === 'component')
+const saveDisabledReason = computed(() => {
+  if (pluginManagedTab.value) return t('profileSettings.extension.saveManagedByExtension')
+  return ''
+})
+const canSave = computed(() => isDirty.value && !saving.value && !pending.value && !pluginManagedTab.value)
+const errorSummary = computed(() => {
+  const first = firstErrorTab.value
+  if (!first) return null
+  const label = tabs.value.find(tab => tab.id === first.id)?.label || first.id
+  return { label, count: first.count }
+})
 
 const currentAvatar = computed(() => profile.value?.profile.avatar || null)
 // 预览跟着草稿走：改了昵称但没保存时，右侧应该显示改后的名字。
-const displayName = computed(() => {
-  const draftName = draft.displayName.trim()
-  return draftName || userDisplayName(profile.value)
-})
+const displayName = computed(() => draft.displayName.trim() || userDisplayName(profile.value))
 const publicProfilePath = computed(() => profile.value ? localePath(`/u/${profile.value.username}`) : undefined)
 const publicProfilePrefix = computed(() => `${siteDomain.value}/u/`)
 const joinedLabel = computed(() => profile.value ? formatDateOnly(profile.value.joinedAt) : '')
-const avatarAccept = computed(() => avatarSettings.value.allowGif ? 'image/jpeg,image/png,image/gif' : 'image/jpeg,image/png')
-const canUploadAvatar = computed(() => avatarSettings.value.allowUpload && can(FORUM_PERMISSIONS.attachmentUpload))
-const avatarHint = computed(() => {
-  const types = avatarSettings.value.allowGif ? 'JPG / PNG / GIF' : 'JPG / PNG'
-  return t('profileSettings.avatarHint', {
-    types,
-    size: avatarSettings.value.maxSizeKb,
-    dimension: avatarSettings.value.maxDimension
-  })
-})
-const avatarCapabilityHint = computed(() => {
-  if (!avatarSettings.value.allowUpload) {
-    return t('profileSettings.avatarUploadDisabled')
-  }
-  if (!canUploadAvatar.value) {
-    return t('profileSettings.avatarUploadPermissionDenied')
-  }
-  return avatarHint.value
-})
-
-const isDirty = computed(() => (
-  draft.displayName !== baseline.value.displayName
-  || draft.bio !== baseline.value.bio
-  || draft.signature !== baseline.value.signature
-  || draft.location !== baseline.value.location
-  || draft.websiteUrl !== baseline.value.websiteUrl
-  || draft.locale !== baseline.value.locale
-))
-const canSave = computed(() => saveState.value !== 'saving' && !pending.value && isDirty.value)
-const hasUploadedAvatar = computed(() => Boolean(
-  profile.value?.profile.avatarAttachmentId
-  || profile.value?.profile.avatar.attachmentId
-  || profile.value?.profile.avatar.kind === 'uploaded'
-))
-const bioCount = computed(() => draft.bio.length)
-const signatureCount = computed(() => draft.signature.length)
 const publicWebsiteText = computed(() => {
   const value = draft.websiteUrl.trim()
   return value ? value.replace(/^https?:\/\//i, '') : ''
@@ -128,214 +104,63 @@ const publicWebsiteText = computed(() => {
 const publicWebsiteHref = computed(() => safeUrl(draft.websiteUrl))
 
 watch(profile, (value) => {
-  if (!value || formReady.value) {
-    return
-  }
-  setDraftFromProfile(value)
-  formReady.value = true
+  if (!value || formReady.value) return
+  hydrate(value)
 }, { immediate: true })
 
-// 用户一改动昵称就收起上一次的服务端字段错误，避免旧提示压着新输入。
-watch(() => draft.displayName, () => {
-  if (!fieldErrors.value.displayName) {
-    return
-  }
-  const { displayName, ...rest } = fieldErrors.value
-  fieldErrors.value = rest
+// 分区清单依赖 profile（插件分区随 GET /profile 下发）：必须等资料行落地再归一化
+// `?tab=`，否则深链里的插件分区 id 会被当成未知值，连带把地址栏改掉。
+watch(tabs, (list) => {
+  if (!formReady.value) return
+  activeTab.value = resolveProfileSettingsTab(route.query.tab, list, activeTab.value)
+}, { immediate: true })
+
+watch(() => route.query.tab, (value) => {
+  if (!formReady.value) return
+  activeTab.value = resolveProfileSettingsTab(value, tabs.value, activeTab.value)
 })
 
-onBeforeUnmount(() => {
-  if (successTimer) {
-    clearTimeout(successTimer)
+// 只在 tab 真的变了时 replace（不用 push：Back 不该变成 tab 历史）。
+watch(activeTab, (tab) => {
+  if (route.query.tab === tab) return
+  const query = { ...route.query }
+  if (tab === PROFILE_SETTINGS_DEFAULT_TAB) {
+    delete query.tab
+  } else {
+    query.tab = tab
   }
+  void router.replace({ query })
 })
 
-function profileValues(data: PublicProfile): ProfileDraft {
-  return {
-    displayName: data.displayName || '',
-    bio: data.profile.bio || '',
-    signature: data.profile.signature || '',
-    location: data.profile.location || '',
-    websiteUrl: data.profile.websiteUrl || '',
-    locale: currentLanguage.value
-  }
+watch(() => draft.displayName, () => clearFieldError('displayName'))
+
+function syncAuthUser(patch: { displayName?: string, avatar?: ProfileData['avatar'] }) {
+  if (!authUser.value) return
+  setUser({ ...authUser.value, ...patch })
 }
 
-function setDraftFromProfile(data: PublicProfile) {
-  const values = profileValues(data)
-  Object.assign(draft, values)
-  baseline.value = { ...values }
+async function onSubmit() {
+  const updated = await save()
+  if (!updated) return
+  profile.value = updated
+  syncAuthUser({ displayName: updated.displayName })
 }
 
-// 保存返回完整 PublicProfile（含新昵称与冷却状态），头像接口仍只返回资料行。
-function applyProfileSnapshot(snapshot: PublicProfile) {
-  profile.value = snapshot
-  setDraftFromProfile(snapshot)
-}
-
-function applyProfileData(updated: ProfileData) {
+// 头像上传是即时写操作：直接合并资料行，顺带更新导航里的头像。
+function onAvatarChanged(updated: ProfileData) {
   if (profile.value) {
     profile.value = { ...profile.value, profile: updated }
   }
+  syncAuthUser({ avatar: updated.avatar })
 }
 
-function syncAuthAvatar(updated: ProfileData) {
-  if (!authUser.value) {
-    return
-  }
-  setUser({ ...authUser.value, avatar: updated.avatar })
+function jumpToErrorTab() {
+  const first = firstErrorTab.value
+  if (first) activeTab.value = first.id
 }
 
-function showSuccess(message: string) {
-  successMessage.value = message
-  if (successTimer) {
-    clearTimeout(successTimer)
-  }
-  successTimer = setTimeout(() => {
-    successMessage.value = ''
-  }, 10000)
-}
-
-function resetDraft() {
-  if (!isDirty.value) {
-    return
-  }
-  Object.assign(draft, baseline.value)
-  fieldErrors.value = {}
-  errorMessage.value = ''
-  successMessage.value = ''
-  saveState.value = 'idle'
-  toast.add({
-    color: 'neutral',
-    icon: 'i-lucide-rotate-ccw',
-    title: t('profileSettings.resetDone'),
-    duration: 5000
-  })
-}
-
-async function save() {
-  if (!canSave.value) {
-    return
-  }
-  saveState.value = 'saving'
-  errorMessage.value = ''
-  successMessage.value = ''
-  fieldErrors.value = {}
-  try {
-    const nicknameChanged = draft.displayName !== baseline.value.displayName
-    const profileChanged = nicknameChanged
-      || draft.bio !== baseline.value.bio
-      || draft.signature !== baseline.value.signature
-      || draft.location !== baseline.value.location
-      || draft.websiteUrl !== baseline.value.websiteUrl
-    let updated: PublicProfile | null = null
-    if (profileChanged) {
-      updated = await profileApi.updateMyProfile({
-        bio: draft.bio,
-        signature: draft.signature,
-        location: draft.location,
-        websiteUrl: draft.websiteUrl,
-        // 只在真的改过时提交昵称：服务端把「提交了 displayName」当作一次改名意图。
-        ...(nicknameChanged ? { displayName: draft.displayName } : {})
-      })
-    }
-    if (draft.locale !== baseline.value.locale) {
-      await updateLanguage(draft.locale)
-    }
-    if (updated) {
-      applyProfileSnapshot(updated)
-      syncAuthDisplayName(updated.displayName)
-    }
-    saveState.value = 'success'
-    showSuccess(t('profileSettings.saved'))
-    toast.add({
-      color: 'primary',
-      icon: 'i-lucide-check',
-      title: t('profileSettings.saved'),
-      duration: 5000
-    })
-  } catch (error) {
-    saveState.value = 'error'
-    errorMessage.value = apiErrorMessage(error) || t('profileSettings.saveFailed')
-    fieldErrors.value = apiErrorFields(error)
-  }
-}
-
-// 导航栏与其它壳层读的是 auth session 里的 displayName，改名后要一起更新。
-function syncAuthDisplayName(next: string) {
-  if (!authUser.value || authUser.value.displayName === next) {
-    return
-  }
-  setUser({ ...authUser.value, displayName: next })
-}
-
-function openAvatarPicker() {
-  if (avatarBusy.value || !canUploadAvatar.value) {
-    return
-  }
-  avatarError.value = ''
-  avatarInput.value?.click()
-}
-
-async function uploadAvatar(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file || avatarBusy.value) {
-    return
-  }
-  avatarError.value = ''
-  if (!canUploadAvatar.value) {
-    avatarError.value = t('profileSettings.avatarUploadPermissionDenied')
-    return
-  }
-  if (file.size > avatarSettings.value.maxSizeKb * 1024) {
-    avatarError.value = t('profileSettings.avatarTooLarge', { size: avatarSettings.value.maxSizeKb })
-    return
-  }
-  if (!avatarSettings.value.allowGif && file.type === 'image/gif') {
-    avatarError.value = t('profileSettings.avatarGifDisabled')
-    return
-  }
-  avatarBusy.value = true
-  try {
-    const updated = await profileApi.uploadAvatar(file)
-    applyProfileData(updated)
-    syncAuthAvatar(updated)
-    toast.add({
-      color: 'primary',
-      icon: 'i-lucide-check',
-      title: t('profileSettings.avatarUploaded'),
-      duration: 5000
-    })
-  } catch (error) {
-    avatarError.value = apiErrorMessage(error) || t('profileSettings.avatarUploadFailed')
-  } finally {
-    avatarBusy.value = false
-  }
-}
-
-async function removeAvatar() {
-  if (avatarBusy.value || !hasUploadedAvatar.value) {
-    return
-  }
-  avatarError.value = ''
-  avatarBusy.value = true
-  try {
-    const updated = await profileApi.deleteAvatar()
-    applyProfileData(updated)
-    syncAuthAvatar(updated)
-    toast.add({
-      color: 'primary',
-      icon: 'i-lucide-check',
-      title: t('profileSettings.avatarRemoved'),
-      duration: 5000
-    })
-  } catch (error) {
-    avatarError.value = apiErrorMessage(error) || t('profileSettings.avatarRemoveFailed')
-  } finally {
-    avatarBusy.value = false
-  }
+function selectTab(tabId: string) {
+  activeTab.value = tabId
 }
 </script>
 
@@ -351,16 +176,6 @@ async function removeAvatar() {
     :public-profile-path="publicProfilePath"
     :show-rail="Boolean(profile)"
   >
-    <nav
-      v-if="profile"
-      class="sforum-settings__section-nav"
-      :aria-label="t('profileSettings.sections.ariaLabel')"
-    >
-      <a href="#profile-settings-identity">{{ t('profileSettings.sections.identity') }}</a>
-      <a href="#profile-settings-story">{{ t('profileSettings.sections.story') }}</a>
-      <a href="#profile-settings-links">{{ t('profileSettings.sections.links') }}</a>
-    </nav>
-
     <template v-if="pending && !profile">
       <div class="sforum-settings-profile__loading">
         <SFSkeleton class="h-16 w-16 rounded-full" />
@@ -372,225 +187,87 @@ async function removeAvatar() {
       </div>
     </template>
 
-    <form
-      v-else-if="profile"
-      class="sforum-settings-profile__form"
-      novalidate
-      @submit.prevent="save"
-    >
-      <SFAlert
-        v-if="successMessage"
-        variant="success"
-        :title="successMessage"
-        class="sforum-settings-profile__alert"
-      />
+    <template v-else-if="profile">
       <SFAlert
         v-if="errorMessage"
         variant="danger"
         :title="errorMessage"
         closable
         class="sforum-settings-profile__alert"
-        @close="errorMessage = ''"
+        @close="dismissError"
       />
 
-      <section id="profile-settings-identity" class="sforum-settings-profile__section">
-        <div class="sforum-settings-profile__section-heading">
-          <h2>{{ t('profileSettings.sections.identity') }}</h2>
-          <p>{{ t('profileSettings.sections.identityDescription') }}</p>
-        </div>
-        <div class="sforum-settings-profile__section-body">
-          <div class="sforum-settings-profile__avatar-editor">
-            <SFAvatar :name="displayName" :avatar="currentAvatar" size="lg" />
-            <div class="sforum-settings-profile__avatar-copy">
-              <strong>{{ t('profileSettings.avatarCurrent') }}</strong>
-              <p>{{ avatarCapabilityHint }}</p>
-              <p v-if="avatarError" class="sforum-settings-profile__field-error">
-                {{ avatarError }}
-              </p>
-              <div class="sforum-settings-profile__actions">
-                <input ref="avatarInput" class="hidden" type="file" :accept="avatarAccept" @change="uploadAvatar">
-                <SFButton
-                  variant="ghost"
-                  size="sm"
-                  :disabled="!canUploadAvatar || avatarBusy"
-                  :loading="avatarBusy"
-                  @click="openAvatarPicker"
-                >
-                  <template #leading>
-                    <UIcon name="i-lucide-image-plus" />
-                  </template>
-                  {{ t('profileSettings.avatarUpload') }}
-                </SFButton>
-                <SFButton
-                  v-if="hasUploadedAvatar"
-                  variant="ghost"
-                  size="sm"
-                  :disabled="avatarBusy"
-                  @click="removeAvatar"
-                >
-                  <template #leading>
-                    <UIcon name="i-lucide-trash-2" />
-                  </template>
-                  {{ t('profileSettings.avatarRemove') }}
-                </SFButton>
-              </div>
-            </div>
-          </div>
+      <SFProfileSettingsTabNav
+        :tabs="tabs"
+        :model-value="activeTab"
+        :error-counts="errorCounts"
+        @update:model-value="selectTab"
+      />
 
-          <SFProfileNicknameField
-            v-model="draft.displayName"
-            class="sforum-settings-profile__field--spaced"
-            :username="profile.username"
-            :policy="nicknameSettings"
-            :state="profile.nickname || null"
-            :busy="saveState === 'saving'"
-            :server-error="fieldErrors.displayName?.[0] || ''"
+      <form class="sforum-settings-profile__form" novalidate @submit.prevent="onSubmit">
+        <div
+          :id="profileSettingsPanelDomId(activeTab)"
+          class="sforum-settings-profile__panel"
+          role="tabpanel"
+          :aria-labelledby="profileSettingsTabDomId(activeTab)"
+        >
+          <SFProfileIdentityTab
+            v-if="activeTab === 'identity'"
+            :profile="profile"
+            :display-name-draft="draft.displayName"
+            :locale-draft="draft.locale"
+            :avatar="currentAvatar"
+            :avatar-settings="avatarSettings"
+            :nickname-settings="nicknameSettings"
+            :language-options="languageOptions"
+            :public-profile-prefix="publicProfilePrefix"
+            :busy="saving"
+            :field-errors="fieldErrors"
+            @update:display-name-draft="draft.displayName = $event"
+            @update:locale-draft="draft.locale = $event"
+            @avatar-changed="onAvatarChanged"
           />
-
-          <div class="sforum-settings-profile__field sforum-settings-profile__field--spaced">
-            <label for="profile-settings-username">{{ t('profileSettings.username') }}</label>
-            <div class="sforum-settings-profile__prefix-field">
-              <span>{{ publicProfilePrefix }}</span>
-              <input id="profile-settings-username" :value="profile.username" type="text" readonly>
-            </div>
-            <p>{{ t('profileSettings.usernameHint') }}</p>
-          </div>
-          <div class="sforum-settings-profile__field">
-            <label for="profile-settings-locale">{{ t('profileSettings.defaultLanguage') }}</label>
-            <USelect
-              id="profile-settings-locale"
-              v-model="draft.locale"
-              :items="languageOptions"
-              value-key="value"
-              label-key="label"
-              class="w-full"
-              :disabled="saveState === 'saving'"
-            />
-            <p>{{ t('profileSettings.defaultLanguageHint') }}</p>
-          </div>
+          <SFProfileStoryTab
+            v-else-if="activeTab === 'story'"
+            :bio-draft="draft.bio"
+            :signature-draft="draft.signature"
+            :busy="saving"
+            :field-errors="fieldErrors"
+            @update:bio-draft="draft.bio = $event"
+            @update:signature-draft="draft.signature = $event"
+          />
+          <SFProfileLinksTab
+            v-else-if="activeTab === 'links'"
+            :location-draft="draft.location"
+            :website-draft="draft.websiteUrl"
+            :busy="saving"
+            :field-errors="fieldErrors"
+            @update:location-draft="draft.location = $event"
+            @update:website-draft="draft.websiteUrl = $event"
+          />
+          <SFProfileExtensionTabPanel
+            v-else-if="activeSection"
+            :section="activeSection"
+            :values="metaDraft"
+            :field-errors="fieldErrors"
+            :busy="saving"
+            @update:value="setMetaValue"
+            @change="clearFieldError"
+          />
         </div>
-      </section>
 
-      <section id="profile-settings-story" class="sforum-settings-profile__section">
-        <div class="sforum-settings-profile__section-heading">
-          <h2>{{ t('profileSettings.sections.story') }}</h2>
-          <p>{{ t('profileSettings.sections.storyDescription') }}</p>
-        </div>
-        <div class="sforum-settings-profile__section-body">
-          <div class="sforum-settings-profile__field">
-            <div class="sforum-settings-profile__field-topline">
-              <label for="profile-settings-bio">{{ t('profileSettings.bio') }}</label>
-              <span>{{ bioCount }} / 500</span>
-            </div>
-            <textarea
-              id="profile-settings-bio"
-              v-model="draft.bio"
-              rows="4"
-              maxlength="500"
-              :class="{ 'is-invalid': fieldErrors.bio }"
-              :placeholder="t('profileSettings.bioPlaceholder')"
-              :aria-describedby="fieldErrors.bio ? 'profile-settings-bio-error' : undefined"
-            />
-            <p v-if="fieldErrors.bio" id="profile-settings-bio-error" class="sforum-settings-profile__field-error">
-              {{ fieldErrors.bio.join(', ') }}
-            </p>
-          </div>
-
-          <div class="sforum-settings-profile__field">
-            <div class="sforum-settings-profile__field-topline">
-              <label for="profile-settings-signature">{{ t('profileSettings.signature') }}</label>
-              <span>{{ signatureCount }} / 200</span>
-            </div>
-            <input
-              id="profile-settings-signature"
-              v-model="draft.signature"
-              type="text"
-              maxlength="200"
-              :class="{ 'is-invalid': fieldErrors.signature }"
-              :placeholder="t('profileSettings.signaturePlaceholder')"
-              :aria-describedby="fieldErrors.signature ? 'profile-settings-signature-error' : undefined"
-            >
-            <p v-if="fieldErrors.signature" id="profile-settings-signature-error" class="sforum-settings-profile__field-error">
-              {{ fieldErrors.signature.join(', ') }}
-            </p>
-            <p>{{ t('profileSettings.signaturePublicHint') }}</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="profile-settings-links" class="sforum-settings-profile__section">
-        <div class="sforum-settings-profile__section-heading">
-          <h2>{{ t('profileSettings.sections.links') }}</h2>
-          <p>{{ t('profileSettings.sections.linksDescription') }}</p>
-        </div>
-        <div class="sforum-settings-profile__section-body">
-          <div class="sforum-settings-profile__field-grid">
-            <div class="sforum-settings-profile__field">
-              <label for="profile-settings-location">{{ t('profileSettings.location') }}</label>
-              <input
-                id="profile-settings-location"
-                v-model="draft.location"
-                type="text"
-                maxlength="100"
-                :class="{ 'is-invalid': fieldErrors.location }"
-                :placeholder="t('profileSettings.locationPlaceholder')"
-                :aria-describedby="fieldErrors.location ? 'profile-settings-location-error' : undefined"
-              >
-              <p v-if="fieldErrors.location" id="profile-settings-location-error" class="sforum-settings-profile__field-error">
-                {{ fieldErrors.location.join(', ') }}
-              </p>
-            </div>
-
-            <div class="sforum-settings-profile__field">
-              <label for="profile-settings-website">{{ t('profileSettings.website') }}</label>
-              <input
-                id="profile-settings-website"
-                v-model="draft.websiteUrl"
-                type="url"
-                maxlength="200"
-                :class="{ 'is-invalid': fieldErrors.websiteUrl }"
-                :placeholder="t('profileSettings.websitePlaceholder')"
-                :aria-describedby="fieldErrors.websiteUrl ? 'profile-settings-website-error profile-settings-website-hint' : 'profile-settings-website-hint'"
-              >
-              <p v-if="fieldErrors.websiteUrl" id="profile-settings-website-error" class="sforum-settings-profile__field-error">
-                {{ fieldErrors.websiteUrl.join(', ') }}
-              </p>
-              <p id="profile-settings-website-hint">
-                {{ t('profileSettings.websiteHint') }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer class="sforum-settings-profile__footer">
-        <p>{{ isDirty ? t('profileSettings.unsavedFooter') : t('profileSettings.savedFooter') }}</p>
-        <div class="sforum-settings-profile__footer-actions">
-          <SFButton
-            variant="ghost"
-            type="button"
-            :disabled="!isDirty || saveState === 'saving'"
-            @click="resetDraft"
-          >
-            <template #leading>
-              <UIcon name="i-lucide-rotate-ccw" />
-            </template>
-            {{ t('profileSettings.resetChanges') }}
-          </SFButton>
-          <SFButton
-            variant="primary"
-            type="submit"
-            :disabled="!canSave"
-            :loading="saveState === 'saving'"
-          >
-            <template #leading>
-              <UIcon name="i-lucide-save" />
-            </template>
-            {{ saveState === 'saving' ? t('profileSettings.saving') : t('profileSettings.save') }}
-          </SFButton>
-        </div>
-      </footer>
-    </form>
+        <SFProfileSettingsFooter
+          :dirty="isDirty"
+          :saving="saving"
+          :can-save="canSave"
+          :save-disabled-reason="saveDisabledReason"
+          :error-summary="errorSummary"
+          :global-error-count="globalErrorCount"
+          @reset="resetDraft"
+          @jump-error="jumpToErrorTab"
+        />
+      </form>
+    </template>
 
     <template #rail>
       <SFProfileSettingsPreview

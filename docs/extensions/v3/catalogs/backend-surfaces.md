@@ -49,6 +49,8 @@
 - `admin.dashboard.widgets`
 - `system.health.checks`
 - `forum.page.regions`
+- `forum.settings.profile.tabs`
+- `admin.settings.tabs`
 
 ## providerSlots
 

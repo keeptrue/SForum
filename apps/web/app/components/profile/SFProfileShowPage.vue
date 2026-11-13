@@ -35,6 +35,7 @@ import {
 } from '~/utils/forum/forumTaxonomy'
 import { userDisplayName } from '~/utils/forum/userDisplay'
 import { profileHasPublicDetails } from '~/utils/profile/profileActivity'
+import { profileMetaRows } from '~/utils/settings/profileSettings'
 import { buildProfileTabs, type ProfileTabOption } from '~/utils/profile/profileTabs'
 import {
   extensionTabLabel,
@@ -112,6 +113,9 @@ const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
 const navCategories = computed(() => categoryGroups.value.flatMap(group => group.categories || []))
 const navTotalTopics = computed(() => navCategories.value.reduce((sum, category) => sum + category.topicCount, 0))
 const hasPublicDetails = computed(() => profileHasPublicDetails(profile.value))
+// 「关于」里的自定义字段：服务端已按可见性过滤，前端只负责空值不渲染 + 链接白名单。
+// meta 是 PublicProfile 的顶层属性（与 profile 同级），不是 profile 里的字段。
+const metaRows = computed(() => profileMetaRows(profile.value?.meta, locale.value))
 const recentTopics = computed(() => profile.value?.recentTopics || [])
 
 // 两条活动流常驻：切 tab 只换 activeFeed，已加载的流不重复请求。
@@ -197,6 +201,12 @@ const websiteHref = computed(() => {
   const raw = profile.value?.profile.websiteUrl?.trim() || ''
   return raw ? safeUrl(raw) : ''
 })
+
+/** 自定义字段值只有确实是 http(s) 链接时才渲染成链接（safeUrl 已过滤危险协议）。 */
+function metaHref(value: string): string {
+  const url = safeUrl(value)
+  return /^https?:\/\//i.test(url) ? url : ''
+}
 
 function formatDate(value: string) {
   return formatDateOnly(value)
@@ -395,6 +405,20 @@ async function shareProfile() {
                 <li v-if="profile.profile.signature">
                   <UIcon name="i-lucide-quote" class="size-4" aria-hidden="true" />
                   <span>{{ profile.profile.signature }}</span>
+                </li>
+                <li v-for="row in metaRows" :key="row.fieldKey">
+                  <UIcon
+                    :name="metaHref(row.value) ? 'i-lucide-link' : 'i-lucide-tag'"
+                    class="size-4"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    <span class="sf-profile-detail-label">{{ row.label }}</span>
+                    <template v-if="metaHref(row.value)">
+                      <a :href="metaHref(row.value)" target="_blank" rel="noopener noreferrer nofollow">{{ row.value }}</a>
+                    </template>
+                    <template v-else>{{ row.value }}</template>
+                  </span>
                 </li>
               </ul>
             </section>

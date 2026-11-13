@@ -16,15 +16,18 @@ import (
 	adminoverview "github.com/keeptrue/sforum/apps/api/app/Models/AdminOverview"
 	attachments "github.com/keeptrue/sforum/apps/api/app/Models/Attachments"
 	uploadpolicy "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/UploadPolicy"
-	database "github.com/keeptrue/sforum/apps/api/app/Models/Database"
-	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
-	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+	database "github.com/keeptrue/sforum/apps/api/app/Models/Database"
+	entitymeta "github.com/keeptrue/sforum/apps/api/app/Models/EntityMeta"
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	settingssurface "github.com/keeptrue/sforum/apps/api/app/Models/Extensions/settingssurface"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
-	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
+	providers "github.com/keeptrue/sforum/apps/api/app/Providers"
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 	cache "github.com/keeptrue/sforum/apps/api/app/Support/Cache"
@@ -59,7 +62,7 @@ type apiInfrastructure struct {
 	// trustLevelSource 是信任等级的唯一来源（bootstrap/trust_levels_wiring.go）。
 	trustLevelSource identity.TrustLevelSource
 	// trustLevelResolver 是同一个实例的具体类型：HTTP 面要读 activity 算「还差多少」。
-	trustLevelResolver *trustlevels.Resolver
+	trustLevelResolver    *trustlevels.Resolver
 	sessionPolicyRenewal  *sessionPolicyRenewalGate
 	identityAuthorityGate *deferredIdentityAuthorityMutationGate
 	adminOverviewStore    *adminoverview.PostgresStore
@@ -71,11 +74,16 @@ type apiInfrastructure struct {
 	attachmentService     *attachments.Service
 	databaseStore         *database.PostgresStore
 	extensionStore        *extensions.PostgresStore
-	frontendTrustStore    *extensions.PostgresFrontendTrustStore
-	executableTrustStore  *extensions.PostgresExecutableTrustStore
-	activationCoordinator *extensions.ActivationCoordinator
-	jobClient             *supportjobs.Client
-	jobDispatcher         *supportjobs.Dispatcher
+	// settingsSurfaceProjector / settingsSurfaceOverrides 是设置面的单一实例：
+	// store 的 enable/disable 漏斗、生命周期升级、启动 reconcile、治理端点必须
+	// 用同一个投影器，否则各自投影会互相覆盖声明。
+	settingsSurfaceProjector providers.SettingsSurfaceFieldSync
+	settingsSurfaceOverrides *settingssurface.PostgresStore
+	frontendTrustStore       *extensions.PostgresFrontendTrustStore
+	executableTrustStore     *extensions.PostgresExecutableTrustStore
+	activationCoordinator    *extensions.ActivationCoordinator
+	jobClient                *supportjobs.Client
+	jobDispatcher            *supportjobs.Dispatcher
 }
 
 func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.Logger) (*apiInfrastructure, error) {
@@ -266,6 +274,14 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 		WithUploadPolicy(attachmentUploadPolicy, int64(cfg.HTTPBodyLimit))
 	databaseStore := database.NewPostgresStore(pool)
 	extensionStore := extensions.NewPostgresStore(pool)
+	// 设置字段投影器：投影与治理覆盖共用同一 pool。extensions 装配、domains 装配
+	// 与 store 漏斗都复用这两个实例（见 apiInfrastructure 的字段）。
+	settingsSurfaceOverrides := settingssurface.NewPostgresStore(pool)
+	settingsSurfaceProjector := providers.NewSettingsSurfaceFieldSync(
+		entitymeta.NewService(entitymeta.NewPostgresStore(pool)),
+		settingsSurfaceOverrides,
+	)
+	extensionStore.WithSettingsSurfaceFields(settingsSurfaceProjector)
 	frontendTrustStore := extensions.NewPostgresFrontendTrustStore(pool)
 	executableTrustStore := extensions.NewPostgresExecutableTrustStore(pool)
 	activationCoordinator := extensions.NewActivationCoordinator(extensionStore).WithAuditor(auditWriter)
@@ -283,38 +299,40 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 	jobDispatcher := supportjobs.NewDispatcher(jobClient)
 
 	return &apiInfrastructure{
-		pool:                  pool,
-		databaseLeaseRegistry: databaseLeaseRegistry,
-		hostInstallationID:    hostInstallationID,
-		queryCursorSecret:     queryCursorSecret,
-		redisStorage:          redisStorage,
-		sharedRedisClient:     sharedRedisClient,
-		queryResultCache:      queryCacheOwnership.HandOff(),
-		optionCipher:          optionCipher,
-		requiredReplayCipher:  requiredReplayCipher,
-		auditWriter:           auditWriter,
-		optionsService:        optionsService,
-		seoHostPolicy:         seoHostPolicy,
-		humanVerifier:         humanVerifier,
-		authSessions:          authSessions,
-		identityStore:         identityStore,
-		trustLevelResolver:    trustLevelResolver,
-		trustLevelSource:      trustLevelResolver,
-		sessionPolicyRenewal:  sessionPolicyRenewal,
-		identityAuthorityGate: identityAuthorityGate,
-		adminOverviewStore:    adminOverviewStore,
-		forumStore:            forumStore,
-		forumCachedStore:      forumCachedStore,
-		profileStore:          profileStore,
-		moderationStore:       moderationStore,
-		attachmentStore:       attachmentStore,
-		attachmentService:     attachmentService,
-		databaseStore:         databaseStore,
-		extensionStore:        extensionStore,
-		frontendTrustStore:    frontendTrustStore,
-		executableTrustStore:  executableTrustStore,
-		activationCoordinator: activationCoordinator,
-		jobClient:             jobClient,
-		jobDispatcher:         jobDispatcher,
+		pool:                     pool,
+		databaseLeaseRegistry:    databaseLeaseRegistry,
+		hostInstallationID:       hostInstallationID,
+		queryCursorSecret:        queryCursorSecret,
+		redisStorage:             redisStorage,
+		sharedRedisClient:        sharedRedisClient,
+		queryResultCache:         queryCacheOwnership.HandOff(),
+		optionCipher:             optionCipher,
+		requiredReplayCipher:     requiredReplayCipher,
+		auditWriter:              auditWriter,
+		optionsService:           optionsService,
+		seoHostPolicy:            seoHostPolicy,
+		humanVerifier:            humanVerifier,
+		authSessions:             authSessions,
+		identityStore:            identityStore,
+		trustLevelResolver:       trustLevelResolver,
+		trustLevelSource:         trustLevelResolver,
+		sessionPolicyRenewal:     sessionPolicyRenewal,
+		identityAuthorityGate:    identityAuthorityGate,
+		adminOverviewStore:       adminOverviewStore,
+		forumStore:               forumStore,
+		forumCachedStore:         forumCachedStore,
+		profileStore:             profileStore,
+		moderationStore:          moderationStore,
+		attachmentStore:          attachmentStore,
+		attachmentService:        attachmentService,
+		databaseStore:            databaseStore,
+		extensionStore:           extensionStore,
+		settingsSurfaceProjector: settingsSurfaceProjector,
+		settingsSurfaceOverrides: settingsSurfaceOverrides,
+		frontendTrustStore:       frontendTrustStore,
+		executableTrustStore:     executableTrustStore,
+		activationCoordinator:    activationCoordinator,
+		jobClient:                jobClient,
+		jobDispatcher:            jobDispatcher,
 	}, nil
 }

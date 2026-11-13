@@ -1,0 +1,186 @@
+{
+  "author": {
+    "name": "SForum",
+    "url": "https://github.com/keeptrue/sforum"
+  },
+  "components": [
+    {
+      "action": "add",
+      "contractVersion": "sforum.settings.surface.demo.component.panel@1",
+      "id": "sforum.settings.surface.demo.component.panel",
+      "l2Component": "sforum.settings.surface.demo.file.frontend.panel",
+      "propsSchema": "sforum.settings.surface.demo.component.panel.props@1"
+    }
+  ],
+  "contributions": [
+    {
+      "icon": "i-lucide-sliders-horizontal",
+      "id": "sforum.settings.surface.demo.preferences",
+      "label": {
+        "en-US": "Preferences",
+        "zh-CN": "偏好设置"
+      },
+      "order": 10,
+      "payload": {
+        "description": {
+          "en-US": "Per-user preferences stored in entity-meta.",
+          "zh-CN": "按用户存进 entity-meta 的偏好。"
+        },
+        "fields": [
+          {
+            "default": "system",
+            "key": "theme",
+            "label": {
+              "en-US": "Theme",
+              "zh-CN": "主题"
+            },
+            "options": [
+              {
+                "label": {
+                  "en-US": "Follow site",
+                  "zh-CN": "跟随站点"
+                },
+                "value": "system"
+              },
+              {
+                "label": {
+                  "en-US": "Dark",
+                  "zh-CN": "深色"
+                },
+                "value": "dark"
+              },
+              {
+                "label": {
+                  "en-US": "Light",
+                  "zh-CN": "浅色"
+                },
+                "value": "light"
+              }
+            ],
+            "order": 10,
+            "type": "select",
+            "visibility": "owner"
+          },
+          {
+            "constraints": {
+              "maxLength": 120
+            },
+            "key": "signature_line",
+            "label": {
+              "en-US": "Signature line",
+              "zh-CN": "签名档"
+            },
+            "order": 20,
+            "placeholder": {
+              "en-US": "Shown under your posts",
+              "zh-CN": "显示在你的帖子下方"
+            },
+            "type": "text",
+            "visibility": "public"
+          }
+        ],
+        "type": "fields"
+      },
+      "point": "forum.settings.profile.tabs"
+    },
+    {
+      "icon": "i-lucide-panel-right",
+      "id": "sforum.settings.surface.demo.panel",
+      "label": {
+        "en-US": "Settings panel",
+        "zh-CN": "设置面板"
+      },
+      "order": 20,
+      "payload": {
+        "componentId": "sforum.settings.surface.demo.component.panel",
+        "type": "component"
+      },
+      "point": "forum.settings.profile.tabs"
+    },
+    {
+      "icon": "i-lucide-settings-2",
+      "id": "sforum.settings.surface.demo.site",
+      "label": {
+        "en-US": "Demo settings",
+        "zh-CN": "演示设置"
+      },
+      "order": 10,
+      "payload": {
+        "permission": "sforum.settings.surface.demo.manage",
+        "tabId": "general",
+        "type": "settings"
+      },
+      "point": "admin.settings.tabs"
+    }
+  ],
+  "description": "CI fixture for settingsSection contributions: a `fields` profile tab (per-user values in entity-meta), a `component` profile tab bound to a public L2 component, and a `settings` site settings tab bound to this package settings document.",
+  "id": "sforum.settings.surface.demo",
+  "manifestVersion": 3,
+  "name": "Settings Surface Demo Fixture",
+  "packageFiles": [
+    {
+      "digest": "e7ef0375627256993e4e004cca692be1b790cf4cf13ba75f3fc555290af1e69f",
+      "id": "sforum.settings.surface.demo.component.panel.props",
+      "kind": "schema",
+      "path": "schemas/settings-panel-props.json",
+      "version": "1"
+    },
+    {
+      "digest": "3e4ced0a6f2f66d141dced9bf10cf6d8d0c628cfbdbc8ddea34f0468157678fe",
+      "id": "sforum.settings.surface.demo.file.frontend.panel",
+      "kind": "frontend",
+      "path": "assets/settings-panel.mjs",
+      "version": "1"
+    }
+  ],
+  "permissionDefinitions": [
+    {
+      "assignmentPolicy": "host",
+      "contractVersion": "sforum.settings.surface.demo.permission.manage@1",
+      "description": "See and edit the demo settings tab in the site settings page.",
+      "key": "sforum.settings.surface.demo.manage",
+      "label": {
+        "en-US": "Manage demo settings",
+        "zh-CN": "管理演示设置"
+      },
+      "recommendedRoles": [
+        "admin"
+      ]
+    }
+  ],
+  "settings": {
+    "fields": [
+      {
+        "default": "Hello",
+        "description": {
+          "en-US": "Shown by this fixture on the site settings page.",
+          "zh-CN": "该 fixture 在站点设置页展示的问候语。"
+        },
+        "key": "site_greeting",
+        "label": {
+          "en-US": "Site greeting",
+          "zh-CN": "站点问候语"
+        },
+        "type": "string"
+      }
+    ],
+    "schemaVersion": 1,
+    "ui": {
+      "layout": "tabs",
+      "mode": "schema",
+      "tabs": [
+        {
+          "id": "general",
+          "label": {
+            "en-US": "General",
+            "zh-CN": "通用"
+          }
+        }
+      ]
+    }
+  },
+  "sforumVersion": "\u003e=0.1.0",
+  "type": "plugin",
+  "url": "https://github.com/keeptrue/sforum",
+  "version": "1.0.0"
+}

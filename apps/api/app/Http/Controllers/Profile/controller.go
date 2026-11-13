@@ -1,6 +1,7 @@
 package profilecontroller
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strconv"
@@ -39,6 +40,9 @@ type updateProfileRequest struct {
 	AvatarAttachmentID *int64  `json:"avatarAttachmentId"`
 	// DisplayName 是昵称。留空字符串表示「显示用户名」。
 	DisplayName *string `json:"displayName"`
+	// Meta 是插件设置字段（键为组合 fieldKey；null 值表示删除该字段）。
+	// 用 RawMessage 保留 null 与标量的区别：写成 map[string]any 会把 null 吞成缺失。
+	Meta map[string]json.RawMessage `json:"meta"`
 }
 
 // setViewerScopedResponse 标记「响应内容随请求者身份变化」的读取。
@@ -122,7 +126,7 @@ func (h *Controller) myProfile(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	data, err := h.service.GetMyProfile(c.Context(), actor.ID)
+	data, err := h.service.GetMyProfileForActor(c.Context(), actor)
 	if err != nil {
 		return mapProfileError(err)
 	}
@@ -138,6 +142,11 @@ func (h *Controller) updateMyProfile(c fiber.Ctx) error {
 	if err := c.Bind().Body(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, profile.CodeProfileInvalid)
 	}
+	meta, metaFieldErrors := decodeSettingsMeta(req.Meta)
+	if len(metaFieldErrors) > 0 {
+		// 解析阶段就能定位的非法值：不写任何东西，直接字段级 422。
+		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, profile.CodeSettingsInvalid, metaFieldErrors)
+	}
 	updated, err := h.service.UpdateMyProfile(c.Context(), actor, profile.UpdateProfileInput{
 		Bio:                req.Bio,
 		Signature:          req.Signature,
@@ -145,6 +154,7 @@ func (h *Controller) updateMyProfile(c fiber.Ctx) error {
 		WebsiteURL:         req.WebsiteURL,
 		AvatarAttachmentID: req.AvatarAttachmentID,
 		DisplayName:        req.DisplayName,
+		Meta:               meta,
 	})
 	if err != nil {
 		return mapProfileError(err)
@@ -203,6 +213,18 @@ func mapProfileError(err error) error {
 		return fiber.NewError(fiber.StatusForbidden, "permission.denied")
 	// 昵称错误走带字段/重试时刻的 APIError：错误中间件会本地化字段消息，
 	// 前端能就地把原因贴在输入框旁边，冷却时还能显示「什么时候能再改」。
+	// 插件设置字段的字段级错误：422 + data.fields[fieldKey]，
+	// 前端据此把消息贴到对应输入框并跳到出错的 tab。
+	case errors.As(err, new(*profile.SettingsFieldError)):
+		return mapSettingsFieldError(err)
+	// 核心资料字段（websiteUrl/bio/signature/location）同样是字段级错误：
+	// reason 保持 profile.invalid（前端已有分支），只是多带 data.fields。
+	case errors.As(err, new(*profile.ProfileFieldsError)):
+		var fieldsErr *profile.ProfileFieldsError
+		if errors.As(err, &fieldsErr) {
+			return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, profile.CodeProfileFieldsInvalid, fieldsErr.Fields)
+		}
+		return fiber.NewError(fiber.StatusUnprocessableEntity, profile.CodeProfileFieldsInvalid)
 	case errors.Is(err, identity.ErrNicknameDisabled):
 		return apphttp.NewError(fiber.StatusUnprocessableEntity, profile.CodeNicknameDisabled)
 	case errors.As(err, &nicknameInvalid):

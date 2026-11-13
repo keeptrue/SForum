@@ -27,6 +27,15 @@ func requireExtensionsMutationAuthority(_ context.Context, evaluation routes.Cor
 			return requireCoreGuardPermission(evaluation, "*")
 		}
 		return nil
+	case "core.route.extensions.update_contribution_governance",
+		"core.route.extensions.reset_contribution_governance",
+		"core.route.extensions.update_contribution_item_governance",
+		"core.route.extensions.reset_contribution_item_governance":
+		// 设置面治理写：只依赖 actor 权限，不依赖扩展/制品状态，因此可证明。
+		return requireCoreGuardPermission(evaluation,
+			identity.PermissionExtensionPluginManage,
+			identity.PermissionExtensionManage,
+		)
 	case "core.route.extensions.revoke_executable_trust",
 		"core.route.extensions.issue_executable_trust_challenge",
 		// 开发期信任会话：创建/撤销/自动写入都是 super_admin only（"*"）。

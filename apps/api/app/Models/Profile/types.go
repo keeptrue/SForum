@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	settingssurface "github.com/keeptrue/sforum/apps/api/app/Models/Extensions/settingssurface"
 	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
@@ -83,6 +84,17 @@ type PublicProfile struct {
 	// Nickname 只在自助端点（GET/PUT /profile）填充：公开资料页不需要暴露
 	// 「还能不能改名」这类账号状态。
 	Nickname *NicknameState `json:"nickname,omitempty"`
+	// SettingsSections 是个人设置页的插件 tab（forum.settings.profile.tabs），
+	// 已按权限与站点治理过滤；字段键是 entity-meta 组合键。
+	SettingsSections []settingssurface.Section `json:"settingsSections,omitempty"`
+	// SettingsValues 是当前用户在这些 tab 里的字段值（self-only，公开端点不带）。
+	//
+	// 指针是刻意的三态：nil = 整键省略（没有插件 tab）；非 nil = 恒下发，
+	// 空 map 序列化成 {}。用 map + omitempty 做不到这件事——空 map 会被整键丢掉，
+	// 前端于是无法区分「还没填」与「不支持插件字段」。
+	SettingsValues *map[string]any `json:"settingsValues,omitempty"`
+	// Meta 是公开资料页上的插件字段值：只含 visibility=public 且 viewer 有权的字段。
+	Meta map[string]SettingsMetaValue `json:"meta,omitempty"`
 	// TrustLevel 是**他人视角**的等级展示：只有 level + levelSlug + displayName
 	// （当前档的名字，不是整条阶梯，也不带任何阈值/限额）。
 	//
@@ -208,6 +220,9 @@ type UpdateProfileInput struct {
 	// DisplayName 是昵称。它不落在 user_profiles，而由 Identity 昵称服务
 	// 负责策略、冷却、历史与审计。
 	DisplayName *string
+	// Meta 是插件设置字段的一次提交（键是组合 fieldKey，nil 值表示删除该字段）。
+	// 它在资料字段写成功之后才写，失败时整次请求仍是 422 + 字段级错误。
+	Meta map[string]any
 }
 
 // 公开用户检索的边界。查询词必须非空：空查询等于「列出全站用户」，

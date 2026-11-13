@@ -309,6 +309,43 @@ responsibilities.
   42px track intact inside fixed-height, scrollable public content columns;
   narrow layouts scroll the track horizontally instead of clipping tab labels.
 
+### 插件设置面 tab（settings surfaces，2026-11-13）
+
+- 账号设置类页面共用 `components/settings/SFSettingsTabNav.vue`，它是唯一的 tab 呈现与
+  键盘语义所有者，支持两种激活模型：路由模型（item 带 `to` → `NuxtLink` +
+  `aria-current="page"`）与面板模型（`role=tab`/`role=tablist`、roving tabindex、
+  ←/→ 循环、Home/End、panel 用 `aria-controls` 关联）。插件 tab 的长名字用 `title`
+  给全文、样式侧按 `max-width` 截断；错误点只在提交后出现（`item.error`），
+  读屏文案走 `aria-describedby` 指向的隐藏文本，不是图标本身。
+  个人设置页在它之上包了一层 `components/settings/SFProfileSettingsTabNav.vue`
+  （只把「分区清单 + 错误计数」翻成 tab 条目，呈现仍归 `SFSettingsTabNav`）；
+  站点设置页用的是另一根 `components/admin/settings/shared/SFAdminFixedTabNav.vue`
+  （`UButton` + `role=tab`，插件 tab 混排进同一 `items` 数组）。
+- 个人设置页：`composeProfileSettingsTabs`（`utils/settings/profileSettings.ts`）把
+  `GET /profile` 的 `settingsSections` 合成进 tab 清单，核心
+  `identity`/`story`/`links` 在前，插件分区按 `effectiveSortOrder` 追加；同 id 重复、
+  缺 label、`component` 缺 `componentId`、字段分区过滤后为空的分区在这里丢弃，
+  后端已裁过的数据前端再兜一层。选中态属于 URL `?tab=`（`resolveProfileSettingsTab`
+  归一化，未知值回落第一个可用 tab），不用 `push`。
+- 个人设置页的插件面板：`components/settings/profile/SFProfileExtensionTabPanel.vue`
+  —— `fields` 走中性渲染器 `components/settings/shared/SFDeclarativeSettingsField.vue`
+  随页脚统一保存；`component` 挂 `SFExtensionWidget`，此时页脚保存禁用并给出原因
+  （`pluginManagedTab`），保存权归插件。
+- `settingsSections` 存在时 `settingsValues` 恒下发（空则 `{}`），所以「有分区但一个值都没存」
+  的初值来自字段 `default` 与空串兜底，不是靠键缺失推断；不要把「键不存在」当作「不支持」。
+- 一次保存只发一个 `PUT /profile`；失败时 `useProfileSettingsDraft` 只写
+  `fieldErrors`（键 = `fieldKey`）、保留 dirty，页脚 `errorSummary` 显示第一个出错分区与
+  计数，点「跳到出错分区」才切 tab（`firstProfileSettingsErrorTab` → `jumpToErrorTab`）。
+- 站点设置页：`pages/admin/settings/index.vue` 拉 `GET /admin/settings/surface-tabs`，
+  把插件 tab 混排进固定 8 个 tab 之后（id 命名空间 `ext.<extensionId>.<contributionId>`，
+  标签按当前 locale 解析，图标缺省 `i-lucide-plug`），面板是
+  `components/admin/settings/contributions/SFAdminSettingsExtensionTab.vue`。
+  拉取失败只隐藏插件 tab，核心 8 个 tab 必须照常可用。
+- 治理界面：`pages/admin/extensions/contributions.vue` +
+  `composables/admin/useAdminContributionGovernance.ts`（乐观更新、失败整表回滚并把错误写在
+  那一行、成功 Toast 5s 自动消失）；没有 `extension.plugin.manage` 时整列不渲染，
+  只留只读顺序与来源。
+
 ### Shared public page headings
 
 - `SFPublicPageHeader` is the single typography owner for Core public list and

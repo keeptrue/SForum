@@ -132,6 +132,38 @@ PublicProfile:
         `profile.nickname.history_public` is enabled. At most one item.
       items:
         type: string
+    settingsSections:
+      type: array
+      description: |
+        Personal settings tabs contributed by plugins (`forum.settings.profile.tabs`),
+        self-service responses only. Tabs and fields gated by a `permission` are
+        already filtered server-side; permission keys are never returned.
+        Ordering is the effective order (site governance override first, then the
+        declared `order`).
+      items:
+        "$ref": "../schemas/extensions.yaml#/SettingsSection"
+    settingsValues:
+      type: object
+      description: |
+        Current values of the fields declared by `settingsSections`, keyed by the
+        composite entity-meta field key (`x.<extensionId>.<key>`). Self-service
+        responses only (the public profile endpoint never carries it); values are
+        string, number, or boolean.
+
+        Tri-state, deliberately: when `settingsSections` is non-empty this key is
+        **always present**, and it is `{}` when the user has not filled anything
+        yet; when the user has no plugin tabs at all the whole key is omitted.
+        A missing key therefore means "this site exposes no plugin sections",
+        never "plugin fields are unsupported".
+      additionalProperties: true
+    meta:
+      type: object
+      description: |
+        Public profile meta: extension fields declared with `visibility: public`
+        that the requesting viewer may read, keyed by the composite entity-meta
+        field key. `owner` and `admin` fields never appear here.
+      additionalProperties:
+        "$ref": "#/PublicProfileMetaValue"
 ProfileActivity:
   type: object
   required:
@@ -269,6 +301,22 @@ ProfileExtensionTab:
         component declared in the same extension manifest: `action: add`, a
         built `l2Component` file, and no component-level permission gate.
         Absent for `extensionRoute` and `hostLink` tabs.
+PublicProfileMetaValue:
+  type: object
+  required:
+  - value
+  properties:
+    label:
+      type: object
+      description: Localized field label (`zh-CN` / `en-US`).
+      additionalProperties:
+        type: string
+    value:
+      description: Stored field value (string, number, or boolean).
+      oneOf:
+      - type: string
+      - type: number
+      - type: boolean
 UpdateProfileRequest:
   type: object
   description: All fields optional. Omitted fields are left unchanged.
@@ -298,6 +346,26 @@ UpdateProfileRequest:
         Length limits, reserved words, the cooldown, and the site-wide switch
         come from the `profile.nickname.*` runtime options; the server is
         authoritative.
+    meta:
+      type: object
+      description: |
+        Extension settings fields (`forum.settings.profile.tabs`), keyed by the
+        composite entity-meta field key (`x.<extensionId>.<key>`). Values are
+        string, number, or boolean; `null` deletes the field. A key that is not
+        currently declared, was disabled by site governance, or that the caller
+        may not write is rejected, never silently dropped.
+
+        Writes happen after the profile columns: the two are not atomic (they
+        share no invariant). Any rejected field fails the whole request with
+        `422 profile.settings_invalid` and `data.fields[<fieldKey>]`, so the
+        client can keep its dirty state and jump to the offending tab.
+      additionalProperties:
+        oneOf:
+        - type: string
+        - type: number
+        - type: boolean
+        - type: 'null'
+
 NicknameState:
   type: object
   required:

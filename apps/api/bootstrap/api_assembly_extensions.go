@@ -116,6 +116,9 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 		pool.Close()
 		return nil, err
 	}
+	// 设置字段投影器在基础设施装配里建好并注入 PostgresStore（状态写原语），
+	// 这里只用于启动期补投影。
+	settingsSurfaceProjector := infrastructure.settingsSurfaceProjector
 	// 先构造带 Cipher 的 Service，插件启动与 Host API 才能共享同一个解密设置源。
 	// 主题激活走 Page Registry 同步路径；不再注入 theme_activate dispatcher。
 	extensionService := extensions.NewServiceWithOptions(
@@ -491,6 +494,9 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 	if err != nil {
 		return nil, err
 	}
+	// 启动期补投影：enable 期的投影可能被跳过（旧启用路径、上一次启动中断），
+	// 这里按当前 manifest 幂等补一次；单条失败只告警，不阻断启动。
+	projectEnabledSettingsSurfaces(ctx, logger, extensionStore, settingsSurfaceProjector)
 	_ = queryCacheOwnership.HandOff()
 	return &apiExtensionPlatform{
 		infrastructure:               infrastructure,
@@ -540,4 +546,50 @@ func (r pageRuntimeInstanceResolver) ActiveRuntimeInstanceID(extensionID, versio
 		return "", false
 	}
 	return snapshot.Identity.InstanceID, true
+}
+
+// projectEnabledSettingsSurfaces 在启动期把已启用插件的设置字段投影回宿主字段存储。
+//
+// 幂等：SyncManifest 只刷新声明，不新增重复行、不碰已存值。失败只告警——启动
+// 不该因为一个插件的字段冲突而整体失败，运营能在扩展详情里看到该插件的状态。
+func projectEnabledSettingsSurfaces(
+	ctx context.Context,
+	logger *slog.Logger,
+	store extensions.Store,
+	projector extensions.SettingsSurfaceFieldProjector,
+) {
+	if projector == nil || store == nil {
+		return
+	}
+	items, err := store.List(ctx)
+	if err != nil {
+		logger.Warn("settings surface: list extensions for startup projection failed", "error", err)
+		return
+	}
+	projected := 0
+	stale := make([]string, 0, 8)
+	for _, item := range items {
+		if item.Type != extensions.TypePlugin {
+			continue
+		}
+		if item.Status != extensions.StatusEnabled {
+			stale = append(stale, item.ID)
+			continue
+		}
+		if _, err := projector.SyncManifest(ctx, item.Manifest); err != nil {
+			logger.Warn("settings surface: startup projection failed", "extensionId", item.ID, "error", err)
+			continue
+		}
+		projected++
+	}
+	if projected > 0 {
+		logger.Info("settings surface: projected declared fields for enabled plugins", "plugins", projected)
+	}
+	// 反方向自愈：停用/卸载/带外恢复之后残留的 enabled 定义必须收敛，
+	// 否则 public 字段的历史值会继续匿名可读。失败只告警，不阻断启动。
+	if healed, err := projector.DeprojectStale(ctx, stale); err != nil {
+		logger.Warn("settings surface: startup deprojection failed", "error", err)
+	} else if healed > 0 {
+		logger.Warn("settings surface: healed field definitions left enabled by disabled plugins", "plugins", healed)
+	}
 }

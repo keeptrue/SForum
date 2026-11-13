@@ -180,7 +180,7 @@ function resetCreateForm() {
 }
 
 async function toggleEnabled(item: FieldDefinition) {
-  if (!canManage.value) return
+  if (!canManage.value || item.ownerExtensionId) return
   try {
     await request(`/admin/entity-meta/definitions/${encodeURIComponent(item.fieldKey)}`, {
       method: 'PATCH',
@@ -203,7 +203,7 @@ async function toggleEnabled(item: FieldDefinition) {
 }
 
 async function removeField(item: FieldDefinition) {
-  if (!canManage.value) return
+  if (!canManage.value || item.ownerExtensionId) return
   if (!confirm(t('admin.entityMeta.deleteConfirm', { key: item.fieldKey }))) return
   try {
     await request(`/admin/entity-meta/definitions/${encodeURIComponent(item.fieldKey)}`, {
@@ -458,6 +458,17 @@ onMounted(load)
               <span v-if="!item.enabled" class="ml-2 text-amber-600 dark:text-amber-400">
                 {{ t('admin.entityMeta.disabled') }}
               </span>
+              <UBadge
+                v-if="item.ownerExtensionId"
+                color="neutral"
+                variant="subtle"
+                class="ml-2 align-middle"
+              >
+                {{ t('admin.entityMeta.managedByExtension') }}
+              </UBadge>
+            </p>
+            <p v-if="item.ownerExtensionId" class="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+              {{ t('admin.entityMeta.managedByExtensionHint', { extensionId: item.ownerExtensionId }) }}
             </p>
           </div>
           <div class="flex gap-2">
@@ -466,7 +477,8 @@ onMounted(load)
               color="neutral"
               variant="outline"
               class="border-slate-200 dark:border-zinc-700"
-              :disabled="!canManage"
+              :disabled="!canManage || Boolean(item.ownerExtensionId)"
+              :title="item.ownerExtensionId ? t('admin.entityMeta.managedByExtensionHint', { extensionId: item.ownerExtensionId }) : undefined"
               @click="toggleEnabled(item)"
             >
               {{ item.enabled ? t('admin.entityMeta.disable') : t('admin.entityMeta.enable') }}
@@ -475,7 +487,8 @@ onMounted(load)
               size="sm"
               color="error"
               variant="soft"
-              :disabled="!canManage"
+              :disabled="!canManage || Boolean(item.ownerExtensionId)"
+              :title="item.ownerExtensionId ? t('admin.entityMeta.managedByExtensionHint', { extensionId: item.ownerExtensionId }) : undefined"
               @click="removeField(item)"
             >
               {{ t('admin.entityMeta.delete') }}

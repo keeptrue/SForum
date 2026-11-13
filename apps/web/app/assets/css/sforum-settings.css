@@ -56,18 +56,25 @@
   border-bottom: 1px solid var(--sf-public-border-strong);
 }
 
-/* 账号安全合并页的固定子路由 tab 导航（设备与会话 / 登录方式 / 登录密码）。
+/* 账号设置类页面的固定 tab 栏（资料设置 / 账号安全共用一份几何）：
+   - 桌面：单行、2px 下划线、accent 高亮；
+   - 窄屏：不换行 + 横向滚动 + scroll-snap，隐藏滚动条，靠下一个 tab 露出 peek。
+     不做右缘渐隐遮罩 —— 那会裁掉键盘焦点环；
+   - 触控目标 ≥ 44×44，长插件标签按 max-width 省略。
    注意：.sforum-content-column 是共享的 flex 纵列（中心列滚动契约），
    本元素带 overflow-x:auto 后自动最小尺寸为 0，必须 flex-shrink:0
    否则内容超高时 tab 栏会被 flex 收缩压成 1px。 */
 .sforum-settings__tabs {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 4px;
   margin: 14px 0 18px;
   border-bottom: 1px solid var(--sf-public-border);
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 4px;
 }
 
 .sforum-settings__tabs::-webkit-scrollbar {
@@ -76,14 +83,40 @@
 
 .sforum-settings__tab {
   position: relative;
-  flex-shrink: 0;
-  padding: 8px 14px 11px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 44px;
+  max-width: min(14rem, 60vw);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--sf-public-radius) var(--sf-public-radius) 0 0;
+  background: transparent;
+  color: var(--sf-public-text-secondary);
+  cursor: pointer;
+  font: inherit;
   font-size: 14px;
   font-weight: 500;
-  color: var(--sf-public-text-secondary);
-  border-radius: var(--sf-public-radius) var(--sf-public-radius) 0 0;
+  padding: 0 14px;
+  scroll-snap-align: start;
   white-space: nowrap;
   transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.sforum-settings__tab-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 提交后才有：该分区存在字段错误。纯视觉标记，读屏语义由 aria-describedby 承担。 */
+.sforum-settings__tab-error {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sf-danger);
 }
 
 .sforum-settings__tab:hover {
@@ -133,39 +166,6 @@
 /* 必须写在 icon-button 之后，否则 display:inline-grid 会盖掉桌面隐藏 */
 .sforum-settings__desktop-hidden {
   display: none;
-}
-
-.sforum-settings__section-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 14px 0 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.sforum-settings__section-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.sforum-settings__section-nav a {
-  min-height: 34px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  border: 0;
-  border-radius: var(--sf-public-radius);
-  padding: 0 11px;
-  background: transparent;
-  color: var(--sf-public-text-secondary);
-  font-size: 12px;
-  font-weight: 650;
-  text-decoration: none;
-}
-
-.sforum-settings__section-nav a:hover {
-  background: var(--sf-accent-soft);
-  color: var(--sf-accent);
 }
 
 .sforum-settings__rail-section {

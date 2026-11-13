@@ -1484,6 +1484,8 @@ Payloads are JSON descriptors — **never executable code**.
 | `forum.profile.tabs` | `profileSection` (`extensionRoute` \| `hostLink` \| `l2Widget`) | Public profile `extensionTabs` (link tabs in the right rail, `l2Widget` in the tab strip) |
 | `admin.dashboard.widgets` | `dashboardLink` (`adminLink` + admin route) | Admin overview `extensionWidgets` |
 | `system.health.checks` | `healthDescriptor` (`static` \| `extensionRuntime`) | Merged into `GET /ready` without plugin RPC |
+| `forum.settings.profile.tabs` | `settingsSection` (`fields` \| `component`) | `GET /profile` → `settingsSections` + `settingsValues` (profile settings tab strip) |
+| `admin.settings.tabs` | `settingsSection` (`settings`) | `GET /admin/settings/surface-tabs` (site settings tab strip, settings document inlined) |
 
 `forum.page.regions` places content into a named area of a public page
 (`content_before`, `detail_before`, `comments_before`, `sidebar_top`, …). The
@@ -1573,6 +1575,359 @@ key the viewer lacks is absent from `extensionTabs` entirely, and the
   keeps rendering.
 - Host read surfaces that carry no viewer (page view models, AI tools) read the
   anonymous view, so only ungated tabs appear there.
+
+### Settings tabs and profile fields (`settingsSection`)
+
+When your plugin needs *settings* rather than a public tab, do not build a
+plugin-owned settings page. Contribute a tab to a settings page the host already
+has. Two points share one payload type; each surface accepts only the tab shapes
+it can actually render:
+
+| Point | Rendered on | Allowed `payload.type` | Values stored |
+| --- | --- | --- | --- |
+| `forum.settings.profile.tabs` | `/settings/profile` tab strip | `fields`, `component` | per user, in entity-meta |
+| `admin.settings.tabs` | site settings page (`/control-panel/settings`) | `settings` | your plugin's own settings store |
+
+`payload.type` is the tab **shape**, not the payload type. The contribution
+point catalog fixes the payload type to `settingsSection`; a `type` outside the
+matrix above fails manifest validation instead of being silently ignored.
+
+Payload keys:
+
+| Key | Applies to | Meaning |
+| --- | --- | --- |
+| `type` | all | `fields` / `component` / `settings` (see matrix) |
+| `description` | all | Localized one-line description shown above the panel |
+| `permission` | all | Optional permission key gating **who sees the tab**; must be declared by this package |
+| `fields` | `fields` | Field declarations (1–24 per tab) |
+| `componentId` | `component` | A component declared by **this** manifest: `action: "add"`, a built `l2Component`, no component-level `permission` |
+| `tabId` | `settings` | A tab `id` from this package's Settings Document (`settings.ui.tabs[].id`) |
+
+Each block below is one element of the manifest's `contributions[]` array.
+
+`fields` shape — host-rendered form, values stored per user:
+
+```json
+{
+  "point": "forum.settings.profile.tabs",
+  "id": "acme.demo.preferences",
+  "label": { "zh-CN": "偏好设置", "en-US": "Preferences" },
+  "icon": "i-lucide-sliders-horizontal",
+  "order": 10,
+  "payload": {
+    "type": "fields",
+    "description": {
+      "zh-CN": "按用户存进 entity-meta 的偏好。",
+      "en-US": "Per-user preferences stored in entity-meta."
+    },
+    "fields": [
+      {
+        "key": "theme",
+        "order": 10,
+        "label": { "zh-CN": "主题", "en-US": "Theme" },
+        "type": "select",
+        "default": "system",
+        "visibility": "owner",
+        "options": [
+          { "value": "system", "label": { "zh-CN": "跟随站点", "en-US": "Follow site" } },
+          { "value": "dark", "label": { "zh-CN": "深色", "en-US": "Dark" } },
+          { "value": "light", "label": { "zh-CN": "浅色", "en-US": "Light" } }
+        ],
+        "constraints": { "enum": ["system", "dark", "light"] }
+      },
+      {
+        "key": "signature_line",
+        "order": 20,
+        "label": { "zh-CN": "签名档", "en-US": "Signature line" },
+        "type": "text",
+        "visibility": "public",
+        "placeholder": { "zh-CN": "显示在你的帖子下方", "en-US": "Shown under your posts" },
+        "constraints": { "maxLength": 120 }
+      },
+      {
+        "key": "posts_per_page",
+        "label": { "zh-CN": "每页帖子数", "en-US": "Posts per page" },
+        "type": "number",
+        "default": "20",
+        "constraints": { "min": 5, "max": 100 }
+      }
+    ]
+  }
+}
+```
+
+`component` shape — you own the panel, the host only mounts it:
+
+```json
+{
+  "point": "forum.settings.profile.tabs",
+  "id": "acme.demo.panel",
+  "label": { "zh-CN": "设置面板", "en-US": "Settings panel" },
+  "icon": "i-lucide-panel-right",
+  "order": 20,
+  "payload": {
+    "type": "component",
+    "componentId": "acme.demo.component.panel"
+  }
+}
+```
+
+`settings` shape — the site settings page shows one tab of your own Settings
+Document (no second field declaration, and no admin frontend build):
+
+```json
+{
+  "point": "admin.settings.tabs",
+  "id": "acme.demo.site",
+  "label": { "zh-CN": "演示设置", "en-US": "Demo settings" },
+  "icon": "i-lucide-settings-2",
+  "order": 10,
+  "payload": {
+    "type": "settings",
+    "tabId": "general",
+    "permission": "acme.demo.manage"
+  }
+}
+```
+
+`tabId` must be a tab of this package's `settings.ui.tabs[]`:
+
+```json
+"settings": {
+  "schemaVersion": 1,
+  "ui": {
+    "mode": "schema",
+    "layout": "tabs",
+    "tabs": [{ "id": "general", "label": { "zh-CN": "通用", "en-US": "General" } }]
+  },
+  "fields": [
+    { "key": "site_greeting", "type": "string", "default": "Hello",
+      "label": { "zh-CN": "站点问候语", "en-US": "Site greeting" } }
+  ]
+}
+```
+
+#### Field declaration keys
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `key` | yes | Bare field key, `^[a-z][a-z0-9_-]{1,40}$` (2–41 chars, lowercase first). Unique **across the whole package**, not per tab |
+| `label` | yes | Localized label; an empty label fails validation |
+| `type` | yes | `string` / `text` / `number` / `boolean` / `select` |
+| `order` | no | Declared order inside the tab (default 0) |
+| `description` | no | Localized helper text |
+| `placeholder` | no | Localized input placeholder |
+| `default` | no | String form of the default; not written to storage — it fills the input when no value exists |
+| `required` | no | Rejected on save while empty, with a field-level message |
+| `visibility` | no | `public` (default) / `owner` / `admin` |
+| `options` | `select` only | `[{ "value", "label" }]`; required for `select`, rejected on every other type |
+| `constraints` | no | `maxLength` (string/text), `min`/`max` (number), `enum` (select) |
+| `permission` | no | Optional key gating **who sees this field**; must be declared by this package |
+
+Declared limits:
+
+| Limit | Value | Enforced where |
+| --- | --- | --- |
+| Fields per tab | 24 | Manifest validation |
+| Fields per extension (all settings-surface tabs together) | 60 | Manifest validation |
+| Plugin tabs per surface | 12 | Manifest validation, plus a read-side truncation across *all* plugins on that surface (effective order wins, one warning is logged) |
+
+#### Where the values go, and the key you must not build yourself
+
+`fields` tabs store values as per-user entity-meta: `entityType=user`, owned by
+your extension, so the value follows the user and survives a disable. Your
+declared `key` is only the bare half of the storage key. The host composes the
+composite key:
+
+```
+fieldKey = "x." + <extension segment> + "." + <declared key>      (max 64 chars)
+```
+
+The extension segment is **not** your extension id. It is a flattened readable
+prefix (≤11 chars, `[a-z0-9_-]` only) plus `-` plus an 8-hex FNV-1a digest of the
+normalized id, total ≤20 chars. The digest is unconditional: `sforum.smtp` and
+`sforum-smtp` flatten to the same readable text, and the hash is what keeps them
+in two different rows. Never hand-build this key: read `fieldKey` from the API
+response, and send that same string back when writing a value.
+
+| Extension id | Declared key | Composite `fieldKey` |
+| --- | --- | --- |
+| `acme.demo` | `theme` | `x.acme-demo-35ade2f8.theme` |
+| `sforum.settings.surface.demo` | `theme` | `x.sforum-sett-7dc19bb0.theme` |
+
+The host uses that one composite key as the value key **and** the error key, so
+a rejected field arrives as `data.fields["x.acme-demo-35ade2f8.theme"]` and maps
+straight onto the input that produced it.
+
+#### Visibility
+
+| `visibility` | In the profile settings form | On the public profile (`GET /profiles/{username}` → `meta`) | Notes |
+| --- | --- | --- | --- |
+| `public` (default) | yes | yes, when the requesting viewer may read it | The only visibility that reaches other people's profile pages |
+| `owner` | yes | no | Self-service only; the safe default for personal preferences |
+| `admin` | **no** | no | Server-side/operator read. Never rendered in the user form and never in the writable key set; declare it only for data an operator reads |
+
+Values are also filtered twice on every read: the settings-surface projection
+decides which keys exist for this viewer, and entity-meta's own read policy
+applies visibility on top. A `owner` or `admin` value cannot leak through a
+pathway that forgets one of the two.
+
+#### Constraints and `select`
+
+`constraints` is parsed strictly — an unknown key fails the manifest instead of
+being ignored, because a constraint that validates nothing is worse than no
+constraint at all:
+
+- `maxLength` — `string`/`text` only, `>= 0`.
+- `min` / `max` — `number` only, `min <= max`.
+- `enum` — `select` only, non-empty, and it must be **exactly** the set of
+  `options[].value` (an enum that disagrees with the dropdown is rejected).
+- `boolean` accepts no constraints.
+
+A `select` without `options` is rejected, and the host derives the stored
+`enum` constraint from `options` anyway — declare `options`, and omit `enum`
+unless you want it spelled out. A `select` degrades to a stored string with an
+enum constraint; a wrong value is rejected on write, not just hidden by the
+dropdown.
+
+#### Permissions
+
+- `payload.permission` and `field.permission` must be declared by your package
+  (`permissionDefinitions[]` or the legacy `permissions[]` shard). An undeclared
+  key fails **install/enable** — a tab gated by a key that does not exist could
+  never render.
+- Filtering happens on the server for the requesting viewer. A permission key
+  never appears in any response: the sections and fields that reach the browser
+  simply have no `permission` member.
+- A tab `permission` decides *who sees the tab*, not what your component may do.
+  A `component` tab still has to be a public L2 component, and mounting still
+  goes through public L2 admission.
+- `admin.settings.tabs` sits behind two host permissions regardless of your own
+  `permission`: the tab is listed with `admin.access` **and** `extension.view`,
+  and saving it needs `extension.plugin.manage` or the wider `extension.manage`
+  (it goes through `PUT /admin/extensions/{id}/settings`). An empty tab
+  `permission` therefore does **not** mean "public" — it means "any admin who
+  also holds the extension permissions". A role such as the site operator holds
+  `admin.access` but no extension permission, so it does not see the tab at all;
+  that is the intended boundary, not a missing registration.
+
+#### Site governance: an operator can disable, reorder, or reset your contribution
+
+Every `settingsSection` contribution (and every declared field) becomes an
+independently governable row in **Extensions → Contribution points** (扩展点,
+`/control-panel/extensions/contributions`), gated on `extension.plugin.manage`:
+
+| Action | Where | Effect |
+| --- | --- | --- |
+| Disable a tab | admin page | The tab disappears for everyone, and its fields are removed from the writable key set — writes are rejected, not just hidden |
+| Disable a field | API only (`PUT …/items/{key}` with `"enabled": false`) | That field disappears from the panel and can no longer be written; the tab itself stays |
+| Reorder | admin page (tabs), API (fields) | A governance order override wins over your declared `order` |
+| Reset to default | admin page | Deletes the override row: your `enabled` / `order` declarations apply again |
+
+The page governs whole contributions (tabs). Per-field `enabled` / `sortOrder`
+is supported by the item endpoint and read back in `contributions[].fields[]`,
+but the admin page does not expose per-field controls yet, so do not promise an
+operator a field switch that is not on screen.
+
+The governance table is a **sparse overlay**: no row means "use the manifest",
+`enabled=false` means "the operator turned this off for the site", and deleting
+the row means "back to the manifest default". It is therefore always safe to
+clear, and it never stores your declarations. Governance is applied **before**
+permission filtering: an operator-disabled tab does not come back for a viewer
+who happens to hold the permission.
+
+Endpoint surface — reads need `extension.view`, writes need
+`extension.plugin.manage`:
+
+- `GET /admin/extensions/contributions` — the governance read model. It is never
+  truncated: contributions above the per-surface cap come back with
+  `suppressedByCap: true` instead of silently disappearing.
+- `PUT|DELETE /admin/extensions/contributions/{point}/{contributionId}`
+- `PUT|DELETE /admin/extensions/contributions/{point}/{contributionId}/items/{itemKey}`
+  for one declared field.
+
+`PUT` is a partial update: omit `enabled` to leave it alone, send
+`sortOrder: null` to drop an order override. A target that is not a currently
+effective declaration (typo, disabled plugin, or a tab a new version removed)
+returns `422` — governance never creates an override for a row it cannot see.
+
+#### Minimal runnable example
+
+`extensions/fixtures/plugins/sforum-settings-surface-demo/` declares all three
+shapes at once — copy it and shrink it:
+
+```
+sforum-settings-surface-demo/
+  sforum.extension.json          # contributions + components + settings document
+  schemas/
+    settings-panel-props.json    # props schema of the L2 component
+  assets/
+    settings-panel.mjs           # built public L2 component (type=component)
+```
+
+The smallest useful version drops the `component` and `settings` contributions
+and keeps only a `fields` tab: a manifest with `contributions[]` and nothing
+else. After editing any packaged file, refresh the exact digests before
+enabling:
+
+```bash
+cd apps/api
+go run ./cmd/sforum extension digest --write ../../extensions/fixtures/plugins/sforum-settings-surface-demo
+go run ./cmd/sforum extension validate ../../extensions/fixtures/plugins/sforum-settings-surface-demo
+```
+
+#### Lifecycle, in the order it happens
+
+- **Enable / upgrade** projects your `fields` declarations into entity-meta
+  first. If that projection fails, the whole enable or upgrade is blocked
+  (`extension.preflight_failed`) and no state changes: a field that exists in
+  the read model but not in storage would turn every save into
+  `entity_meta.not_found`.
+- Projection is idempotent and lives on the state-change primitive itself, not
+  in the admin handler: every path that flips `status` through the store (the
+  admin page, dev zero-command auto-enable, SystemTier recovery, legacy
+  publication) pushes the same projection, so none of them can leave a plugin
+  `enabled` without its fields. The deliberate exception is the out-of-band
+  recovery CLI (`sforum extension disable|disable-all|quarantine`), which writes
+  the database directly without loading application code and therefore does not
+  deproject. Close that window afterwards by enabling and then disabling the
+  plugin through the admin page: enabling re-projects (and sweeps), disabling
+  deprojects. A plain "disable" is not available on an already disabled plugin.
+- Projection also **sweeps the difference**: any definition this extension still
+  owns but no longer declares is flipped to `enabled=false`, values kept. The
+  same pass deletes governance override rows that point at a tab or field that
+  no longer exists.
+- Re-declaring a previously swept key restores it (`enabled=true`, same row, same
+  values). Renaming a field is therefore a sweep plus a new definition: the old
+  key ends up disabled with its values intact, and the host never migrates or
+  deletes them (it cannot know two keys are the same field) — migrate the data
+  yourself if the meaning must carry over.
+- **Disable** flips every field of the extension to `enabled=false` and keeps
+  both the definitions and the values; re-enable restores them. Deprojection
+  never blocks a disable: a management plane that cannot stop a plugin would be
+  worse than leftover field rows, so a failure here is only logged. Startup
+  reconciliation re-projects plugins that are `enabled`; it does not sweep a
+  plugin that is already disabled, so a failed deprojection is cleared by the
+  next enable of that plugin (re-projection plus sweep) and not by a restart.
+- `admin.settings.tabs` contributes no entity-meta field at all; its content is
+  your Settings Document and your own settings store.
+
+#### Common failures
+
+| Symptom | Cause |
+| --- | --- |
+| Rejected: "tab shape is not allowed on …" | `type` from the wrong surface — `settings` on the profile point, or `fields`/`component` on the admin point |
+| Rejected: "component … is not a public L2 add component" | `componentId` names an unknown component, one with no built `l2Component`, one declared with `action != "add"`, or one carrying a component-level `permission` |
+| Rejected: "tabId … is not a tab of this package settings document" | `tabId` does not match any `settings.ui.tabs[].id` |
+| Rejected: label missing | Contribution `label` is required on every contribution; field `label` is required on every field |
+| Rejected: field key declared more than once | Field keys are package-wide, so two tabs cannot both declare `theme` |
+| Rejected: caps | >24 fields in one tab, >60 in the package, >12 tabs on one point |
+| Rejected: "declared undeclared permission" | The permission key is not in this package's `permissionDefinitions[]` |
+| Tab never appears | It is disabled in Extensions → 扩展点, the viewer lacks the tab `permission`, the plugin is disabled, or the tab id collides with a host tab id (`identity`, `story`, `links` on the profile page) |
+| Tab appears but the panel is empty | Every field was governance-disabled or permission-filtered — a `fields` tab with no visible field is dropped whole, never rendered as an empty shell |
+| The form renders but every save fails with `422` | The host has no stored definition for that key: the projection never ran for this deployment path. Check `SELECT field_key, enabled FROM entity_field_definitions WHERE owner_extension_id = '<extension-id>'` — zero rows means "no projection", rows with `enabled=false` means "swept or disabled". Your manifest is not the suspect; the state-change path is |
+| Save returns `422` with `data.fields[fieldKey]` | The field is no longer declared/writable (disabled tab or field, undeclared key), or the value violates `constraints` / `required`. The map key is the composite `fieldKey` and the message is already localized by the host (its source key is `profile.settings.field_{unknown,forbidden,invalid,required}`), so a client can attach each message to the input that produced it |
+| `422` only for the plugin fields, core profile fields saved | Expected: the profile row is written before plugin fields. Retry converges; the frontend keeps the dirty state and offers to jump to the failing tab |
 
 ## Entity meta / custom fields (F4.4)
 

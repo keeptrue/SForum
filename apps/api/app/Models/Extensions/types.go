@@ -1,6 +1,7 @@
 package extensions
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -189,6 +190,20 @@ func (e *ExecutablePlatformMismatchError) Error() string {
 
 func (e *ExecutablePlatformMismatchError) Unwrap() error {
 	return ErrExecutablePlatformMismatch
+}
+
+// SettingsSurfaceFieldProjector 是插件设置字段的投影边界（Providers 层实现）。
+//
+// 放在这里而不是让 Extensions 直接依赖 entity-meta：插件包只需要知道「我的字段
+// 声明要投影到宿主某处」，宿主字段存储怎么实现与扩展平台无关。
+type SettingsSurfaceFieldProjector interface {
+	// SyncManifest 在插件启用时投影声明并返回字段数；失败必须阻断启用。
+	SyncManifest(ctx context.Context, manifest Manifest) (int, error)
+	// Disable 在插件停用/卸载时整体停用该扩展的字段（不删值）。
+	Disable(ctx context.Context, extensionID string) error
+	// DeprojectStale 对「不在 enabled 状态但仍有启用定义」的扩展做去投影，
+	// 返回实际自愈的扩展数。启动 reconcile 用它兜住 Disable 失败与带外恢复命令。
+	DeprojectStale(ctx context.Context, extensionIDs []string) (int, error)
 }
 
 type Manifest = extensionmanifest.Manifest

@@ -1,0 +1,7 @@
+{
+  "type": "object",
+  "properties": {
+    "locale": { "type": "string" }
+  },
+  "additionalProperties": true
+}

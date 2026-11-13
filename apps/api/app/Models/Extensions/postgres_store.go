@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,10 @@ import (
 
 type PostgresStore struct {
 	pool *pgxpool.Pool
+	// settingsSurfaceFields 是插件设置字段投影器。所有 enable/disable 路径
+	// （生命周期、dev 零命令、CLI、SystemTier、legacy 发布）都汇聚到本 store，
+	// 因此投影只在这里发生一次——不要在调用点各自补 sync。
+	settingsSurfaceFields SettingsSurfaceFieldProjector
 }
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
@@ -483,12 +488,27 @@ func (s *PostgresStore) Enable(ctx context.Context, id string, extensionType str
 	if extensionType == TypeTheme || storedType == TypeTheme {
 		return Extension{}, ErrThemeActivationRequired
 	}
+	// manifest 属于 active version，不在 extensions 行上。
+	var manifestRaw []byte
+	if err := tx.QueryRow(ctx, `
+		SELECT extension_versions.manifest
+		FROM extensions
+		JOIN extension_versions ON extension_versions.id = extensions.active_version_id
+		WHERE extensions.id = $1`, id).Scan(&manifestRaw); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return Extension{}, fmt.Errorf("read extension manifest for enable: %w", err)
+	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE extensions
 		SET status = 'enabled', updated_at = now()
 		WHERE id = $1
 	`, id); err != nil {
 		return Extension{}, fmt.Errorf("enable extension: %w", err)
+	}
+	// 设置字段投影与状态变更同一漏斗：投影失败就不提交 enabled。
+	// 这是「不存在『已启用但没有字段定义』的路径」的唯一保证——dev 零命令、
+	// CLI、SystemTier 恢复、legacy 发布都走这里。
+	if err := s.projectSettingsSurfaceFields(ctx, id, manifestRaw); err != nil {
+		return Extension{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Extension{}, fmt.Errorf("commit extension enable: %w", err)
@@ -558,6 +578,17 @@ func (s *PostgresStore) Disable(ctx context.Context, id string) (Extension, erro
 	// becomes effective again on the next enable. Uninstall clears it.
 	if err := tx.Commit(ctx); err != nil {
 		return Extension{}, fmt.Errorf("commit disable extension: %w", err)
+	}
+	// 停用后去投影：只翻 enabled=false，值保留。
+	//
+	// 这里刻意不阻断 disable：一个连停用都失败的管理面比残留字段更危险。
+	// 失败只告警——但收敛不是「等下次 enable」：启动 reconcile 双向跑，
+	// 除了给 enabled 插件补投影，还会对「status != enabled 但仍有 enabled=true
+	// 定义」的扩展做一次去投影（Providers.SettingsSurfaceFieldSync.DeprojectStale）。
+	if s.settingsSurfaceFields != nil {
+		if err := s.settingsSurfaceFields.Disable(ctx, id); err != nil {
+			slog.Warn("settings surface: deproject after disable failed", "extensionId", id, "error", err)
+		}
 	}
 	return s.Get(ctx, id)
 }
@@ -854,40 +885,6 @@ func (s *PostgresStore) ListEventDeliveries(ctx context.Context, input EventDeli
 		return nil, fmt.Errorf("iterate extension event deliveries: %w", err)
 	}
 	return deliveries, nil
-}
-
-func extensionSelectSQL() string {
-	return `
-		SELECT extensions.id, extensions.name, extensions.type, extensions.status,
-		  extensions.source, extensions.is_system, extensions.is_deletable,
-		  extensions.active_version_id,
-		  extension_versions.version, extension_versions.manifest, extension_versions.package_digest,
-		  extension_versions.admin_frontend_digest,
-		  extension_versions.package_path,
-		  extension_versions.installed_at, extensions.updated_at,
-		  COALESCE(staged_versions.id, 0),
-		  CASE WHEN staged_versions.id IS NULL THEN NULL ELSE jsonb_build_object(
-		    'version', staged_versions.version,
-		    'manifest', staged_versions.manifest,
-		    'packageDigest', staged_versions.package_digest,
-		    'adminFrontendDigest', staged_versions.admin_frontend_digest,
-		    'packagePath', staged_versions.package_path,
-		    'installedAt', staged_versions.installed_at
-		  ) END
-		FROM extensions
-		JOIN extension_versions ON extension_versions.id = extensions.active_version_id
-		LEFT JOIN extension_versions AS staged_versions ON staged_versions.id = extensions.staged_version_id
-		LEFT JOIN extension_missing_artifact_removals AS missing_artifact_removals
-		  ON missing_artifact_removals.extension_id = extensions.id
-		LEFT JOIN extension_builtin_removals AS builtin_removals
-		  ON builtin_removals.extension_id = extensions.id
-		WHERE missing_artifact_removals.extension_id IS NULL
-		  AND builtin_removals.extension_id IS NULL
-	`
-}
-
-type extensionRow interface {
-	Scan(dest ...any) error
 }
 
 func scanExtension(row extensionRow) (Extension, error) {

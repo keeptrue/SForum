@@ -134,6 +134,14 @@ func (p *ExtensionsProvider) WithDevTrustSessions(service extensionscontroller.D
 	return p
 }
 
+// WithSettingsSurfaceGovernance 透传设置面治理（站点设置页插件 tab + 贡献覆盖）。
+func (p *ExtensionsProvider) WithSettingsSurfaceGovernance(service extensionscontroller.SettingsSurfaceGovernanceService) *ExtensionsProvider {
+	if p != nil && p.controller != nil {
+		p.controller.WithSettingsSurfaceGovernance(service)
+	}
+	return p
+}
+
 // WithVersionGC 透传版本 GC 管理端边界（阶段 5）；生产可用，无条件注入。
 func (p *ExtensionsProvider) WithVersionGC(service extensionscontroller.VersionGCManagementService) *ExtensionsProvider {
 	if p != nil && p.controller != nil {

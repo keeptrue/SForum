@@ -24,6 +24,12 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Get("/admin/extensions/navigation", h.navigation)
 	api.Get("/admin/extensions/contribution-points", h.contributionPoints)
 	api.Get("/admin/extensions/contributions", h.contributions)
+	// 设置面治理：站点设置页插件 tab + 贡献覆盖（enabled / sortOrder）。
+	api.Get("/admin/settings/surface-tabs", h.surfaceTabs)
+	api.Put("/admin/extensions/contributions/:point/:contributionId", h.updateContributionGovernance)
+	api.Delete("/admin/extensions/contributions/:point/:contributionId", h.resetContributionGovernance)
+	api.Put("/admin/extensions/contributions/:point/:contributionId/items/:itemKey", h.updateContributionItemGovernance)
+	api.Delete("/admin/extensions/contributions/:point/:contributionId/items/:itemKey", h.resetContributionItemGovernance)
 	api.Get("/admin/extensions/route-providers/conflicts", h.routeProviderConflicts)
 	api.Get("/admin/extensions/route-providers/selection", h.routeProviderCurrent)
 	api.Get("/admin/extensions/route-providers/events", h.routeProviderEvents)
