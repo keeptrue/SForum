@@ -43,14 +43,16 @@ const (
 	// genCommentsPrefix + topicID：按主题递增，写评论只失效该主题评论列表。
 	genCommentsPrefix = "forum:gen:comments:"
 
-	// 缓存 key 前缀。
-	// v3：TopicDetail 增加 editedAt 字段后换前缀，避免旧缓存缺字段。
-	prefixTopicDetail = "forum:topic:v3:"
-	prefixTopicBySlug = "forum:topic-slug:v3:"
+	// 缓存 key 前缀。约定：读模型**新增字段就必须换前缀**，否则滚动发布期间
+	// 新旧进程会互相读到缺字段的 JSON（缺字段在 Go 里解码成零值，不报错）。
+	//   v3 → v4：TopBadge 增加 tierName/tierColor（等级外观），由读 SQL 一并带出。
+	//   topics v1 → v2、comments v2 → v3：同一次改动，列表/评论读模型同样多出外观列。
+	prefixTopicDetail = "forum:topic:v4:"
+	prefixTopicBySlug = "forum:topic-slug:v4:"
 	// id→slug 反向映射：写路径只有 topicID 时也能同时失效 by-slug 详情缓存。
-	prefixTopicIDSlug  = "forum:topic-id-slug:v3:"
-	prefixTopicsList   = "forum:topics:"
-	prefixCommentsList = "forum:comments:v2:"
+	prefixTopicIDSlug  = "forum:topic-id-slug:v4:"
+	prefixTopicsList   = "forum:topics:v2:"
+	prefixCommentsList = "forum:comments:v3:"
 	prefixCatsList     = "forum:cats"
 	prefixGroupsList   = "forum:groups"
 	prefixTagsList     = "forum:tags"

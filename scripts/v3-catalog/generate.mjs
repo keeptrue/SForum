@@ -142,6 +142,13 @@ function routePolicy(route) {
   // 公开目录 /api/v1/badges：目录本体 actor 无关，earned 只给查看者本人（响应头 private）。
   // features.badges 关闭时 403 forum.badges_disabled，与其余十三条徽章路由同口径。
   if (path === '/api/v1/badges') return ['public', 'badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled']
+  // 自由佩戴（GET/PUT/DELETE /badges/worn）：**本人自服务**，只读写当前登录用户
+  // 自己的展示位（users.top_badge_id），请求里没有他人 id，服务层也不接受他人 id。
+  // 因此口径是 login 而不是 permission：没有可授予的「替别人佩戴」能力，
+  // badge.view / badge.manage 都不适用（只读管理员不该因为「没有 manage」而看不到
+  // 自己的展示位）。`features.badges` 关闭时与同域其余徽章路由一样 403
+  // forum.badges_disabled，这条在 handler 里先于 actor 解析执行。
+  if (path === '/api/v1/badges/worn') return ['login', 'current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled']
   // 公开等级目录：actor 无关（没有 earned、没有 enabled），可共享缓存（max-age=60）。
   if (path === '/api/v1/badges/tiers') return ['public', 'badge tier catalog; 403 forum.badges_disabled when features.badges is disabled']
   // 规则文案预览（POST）：语义是**只读**——不写库、不审计、不入队，所以权限与读面
@@ -345,6 +352,7 @@ const reviewedGuardPolicies = new Map([
   ['active actor like/unlike policy; visibility rechecked by service', { kind: 'login' }],
   ['active actor bookmark policy; visibility rechecked by service', { kind: 'login' }],
   ['current actor device ownership; ownership rechecked by service', { kind: 'login' }],
+  ['current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled', { kind: 'login' }],
   ['current recipient ownership', { kind: 'contextual', evaluatorId: 'core.guard.notifications.recipient' }],
   ['active package containment, digest, MIME, and path policy', { kind: 'contextual', evaluatorId: 'core.guard.pages.theme_asset' }],
   ['forum public read policy; visibility rechecked by service', { kind: 'contextual', evaluatorId: 'core.guard.forum.read' }],

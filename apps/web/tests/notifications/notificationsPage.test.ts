@@ -14,8 +14,10 @@ import {
   filterNotifications,
   groupNotificationsByDate,
   notificationFilterCounts,
+  notificationHasTarget,
   notificationPresentation,
   notificationTarget,
+  notificationTargetTitle,
   unreadLoadedCount
 } from '../../app/utils/notifications/notificationsPresentation'
 
@@ -191,6 +193,61 @@ describe('notification presentation helpers', () => {
     expect(filterNotifications(views, 'reply').map(view => view.id)).toEqual([7, 5])
     expect(filterNotifications(views, 'unread').map(view => view.id)).toEqual([7])
     expect(unreadLoadedCount(views)).toBe(1)
+  })
+
+  test('the detail target title prefers the badge name, then the payload title, then the type label', () => {
+    // 徽章授予：badgeName 是「我拿到了哪枚」，必须排在主题标题之前。
+    expect(notificationTargetTitle(item({
+      type: 'badge_granted',
+      targetType: 'badge',
+      targetId: 12,
+      payload: { badgeName: '常客', title: '某个主题' }
+    }))).toBe('常客')
+
+    // 没有 badgeName 时退到 payload.title（普通内容类通知的既有口径）。
+    expect(notificationTargetTitle(item({
+      type: 'badge_granted',
+      payload: { title: '某个主题' }
+    }))).toBe('某个主题')
+
+    // 两者都没有时返回空串（`typeTargetLabel` 对徽章也只看 badgeName），由调用方决定不画标题。
+    expect(notificationTargetTitle(item({ type: 'badge_granted', payload: {} }))).toBe('')
+    expect(notificationTargetTitle(item({ type: 'reply', payload: {} }))).toBe('')
+  })
+
+  test('the target-available judgement is a real conjunction, not a shortcut', () => {
+    // 真值表：只有「unavailable 为假」**且**「path 非空」才算有目标。
+    // 任何一半被换成 `||` 或整段漏掉 path，都会在这里翻红 —— 这正是「有目标但无预览」
+    // 那个分支的判据，靠页面源码字符串匹配抓不到。
+    expect(notificationHasTarget({ path: '/t/9', unavailable: false })).toBe(true)
+    expect(notificationHasTarget({ path: '', unavailable: false })).toBe(false)
+    expect(notificationHasTarget({ path: '/t/9', unavailable: true })).toBe(false)
+    expect(notificationHasTarget({ path: '', unavailable: true })).toBe(false)
+    expect(notificationHasTarget(null)).toBe(false)
+    expect(notificationHasTarget(undefined)).toBe(false)
+
+    // 与 notificationTarget 的口径对齐：徽章授予（没有正文预览）有可用目标。
+    const badge = notificationPresentation(item({
+      type: 'badge_granted',
+      targetType: 'badge',
+      targetId: 12,
+      targetAvailable: true,
+      targetPath: '/u/zhuchunshu?tab=badges',
+      payload: { badgeName: '常客' }
+    }))
+    expect(badge.target).toEqual({ path: '/u/zhuchunshu?tab=badges', unavailable: false })
+    expect(notificationHasTarget(badge.target)).toBe(true)
+
+    // 目标不可用：path 会回落成 /notifications，但 unavailable=true 必须判成没有目标。
+    const gone = notificationPresentation(item({
+      type: 'badge_granted',
+      targetType: 'badge',
+      targetId: 12,
+      targetAvailable: false,
+      payload: { badgeName: '常客' }
+    }))
+    expect(gone.target).toEqual({ path: '/notifications', unavailable: true })
+    expect(notificationHasTarget(gone.target)).toBe(false)
   })
 
   test('does not fabricate a target link when the API lacks a reliable topic target', () => {
@@ -541,6 +598,31 @@ describe('SFNotificationsPage contract', () => {
     expect(detail).not.toContain('ssr: false')
   })
 
+  test('the detail page takes the target judgement from the shared helper and wires both branches', () => {
+    const detail = detailPageSource()
+
+    // 判据只有一份：组件不再自己写布尔组合（否则真值表保护不到它）。
+    expect(detail).toContain('notificationHasTarget(presented.value?.target)')
+    expect(detail).not.toContain('!presented.value.target.unavailable')
+
+    // 正文：有预览走内容块，没预览但有目标走目标卡，最后才是「目标不可用」。
+    expect(detail).toContain('v-else-if="hasTarget"')
+    const targetCardAt = detail.indexOf('v-else-if="hasTarget"')
+    const unavailableAt = detail.indexOf("t('notifications.targetUnavailable')")
+    expect(targetCardAt).toBeGreaterThan(-1)
+    expect(unavailableAt).toBeGreaterThan(targetCardAt)
+
+    // 右栏与正文共用同一口径（同一页不能出现两个结论）。
+    expect(detail).toContain("{{ hasTarget ? t('notifications.detailPage.available') : t('notifications.targetUnavailable') }}")
+    expect(detail).not.toContain('detail.targetAvailable ?')
+
+    // 目标卡：说明文案 + 「查看我的徽章」+ 复用 openTarget()。
+    expect(detail).toContain("t('notifications.detailPage.targetAvailableHelp')")
+    expect(detail).toContain("t('notifications.actions.viewBadges')")
+    expect(detail).toContain('@click="openTarget"')
+    expect(detail).toContain('notificationTargetTitle(detail.value)')
+  })
+
   test('ships bilingual copy for every notification type and state added by the page', () => {
     for (const locale of [zh(), en()]) {
       expect(locale.notifications.types.admin_test).toBeTruthy()
@@ -554,6 +636,8 @@ describe('SFNotificationsPage contract', () => {
       expect(locale.notifications.detailPage.repliedComment).toBeTruthy()
       expect(locale.notifications.detailPage.originalTopic).toBeTruthy()
       expect(locale.notifications.targetUnavailableHelp).toBeTruthy()
+      expect(locale.notifications.detailPage.targetAvailableHelp).toBeTruthy()
+      expect(locale.notifications.actions.viewBadges).toBeTruthy()
       expect(locale.notifications.preview.limitHint).toBeTruthy()
       expect(locale.notifications.preview.viewAll).toBeTruthy()
       expect(locale.notifications.preview.tabs.reply).toBeTruthy()

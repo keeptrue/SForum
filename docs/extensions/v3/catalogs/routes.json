@@ -690,7 +690,7 @@
     "handler": "adminListBadges",
     "method": "GET",
     "path": "/api/v1/admin/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:111",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:127",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -708,7 +708,7 @@
     "handler": "adminCreateBadge",
     "method": "POST",
     "path": "/api/v1/admin/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:112",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:128",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -726,7 +726,7 @@
     "handler": "adminDeleteBadge",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/:badgeID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:114",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:130",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -744,7 +744,7 @@
     "handler": "adminUpdateBadge",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/:badgeID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:113",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:129",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -762,7 +762,7 @@
     "handler": "adminListBadgeGrants",
     "method": "GET",
     "path": "/api/v1/admin/badges/:badgeID/grants",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:120",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:136",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -780,7 +780,7 @@
     "handler": "adminCreateBadgeGrant",
     "method": "POST",
     "path": "/api/v1/admin/badges/:badgeID/grants",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:121",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:137",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -798,7 +798,7 @@
     "handler": "adminDeleteBadgeGrant",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/:badgeID/grants/:userID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:123",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:139",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -816,7 +816,7 @@
     "handler": "adminBatchGrantBadge",
     "method": "POST",
     "path": "/api/v1/admin/badges/:badgeID/grants/batch",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:122",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:138",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -834,7 +834,7 @@
     "handler": "adminBadgeRuleImpact",
     "method": "GET",
     "path": "/api/v1/admin/badges/:badgeID/rule-impact",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:119",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:135",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -852,7 +852,7 @@
     "handler": "adminBadgeBackfillStatus",
     "method": "GET",
     "path": "/api/v1/admin/badges/backfill-status",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:110",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:126",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -870,7 +870,7 @@
     "handler": "adminListBadgeConditions",
     "method": "GET",
     "path": "/api/v1/admin/badges/conditions",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:105",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:121",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -888,7 +888,7 @@
     "handler": "adminSearchGrantCandidates",
     "method": "GET",
     "path": "/api/v1/admin/badges/grant-candidates",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:102",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:118",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -906,7 +906,7 @@
     "handler": "adminListBadgeGroups",
     "method": "GET",
     "path": "/api/v1/admin/badges/groups",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:115",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:131",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -924,7 +924,7 @@
     "handler": "adminCreateBadgeGroup",
     "method": "POST",
     "path": "/api/v1/admin/badges/groups",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:116",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:132",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -942,7 +942,7 @@
     "handler": "adminDeleteBadgeGroup",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:118",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:134",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -960,7 +960,7 @@
     "handler": "adminUpdateBadgeGroup",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:117",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:133",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -978,7 +978,7 @@
     "handler": "adminRecomputeBadges",
     "method": "POST",
     "path": "/api/v1/admin/badges/recompute",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:124",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:140",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -996,7 +996,7 @@
     "handler": "adminBadgeRuleHealth",
     "method": "GET",
     "path": "/api/v1/admin/badges/rule-health",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:108",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:124",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -1014,7 +1014,7 @@
     "handler": "adminBadgeRuleText",
     "method": "POST",
     "path": "/api/v1/admin/badges/rule-text",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:107",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:123",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -1032,7 +1032,7 @@
     "handler": "adminListBadgeTiers",
     "method": "GET",
     "path": "/api/v1/admin/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:97",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:113",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -1050,7 +1050,7 @@
     "handler": "adminCreateBadgeTier",
     "method": "POST",
     "path": "/api/v1/admin/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:98",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:114",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1068,7 +1068,7 @@
     "handler": "adminDeleteBadgeTier",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/tiers/:tierKey",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:101",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:117",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1086,7 +1086,7 @@
     "handler": "adminUpdateBadgeTier",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/tiers/:tierKey",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:100",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:116",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1104,7 +1104,7 @@
     "handler": "adminReorderBadgeTiers",
     "method": "PUT",
     "path": "/api/v1/admin/badges/tiers/order",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:99",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:115",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -3450,7 +3450,7 @@
     "handler": "listChannels",
     "method": "GET",
     "path": "/api/v1/admin/notifications/channels",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:94",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:102",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3469,7 +3469,7 @@
     "handler": "selectChannel",
     "method": "PUT",
     "path": "/api/v1/admin/notifications/channels/:channel",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:95",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:103",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3488,7 +3488,7 @@
     "handler": "resetChannel",
     "method": "POST",
     "path": "/api/v1/admin/notifications/channels/:channel/reset",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:96",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:104",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3507,7 +3507,7 @@
     "handler": "testChannel",
     "method": "POST",
     "path": "/api/v1/admin/notifications/channels/:channel/test",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:97",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:105",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3526,7 +3526,7 @@
     "handler": "listChannelDeliveries",
     "method": "GET",
     "path": "/api/v1/admin/notifications/deliveries",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:98",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:106",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3545,7 +3545,7 @@
     "handler": "listAdminPolicy",
     "method": "GET",
     "path": "/api/v1/admin/notifications/policy",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:90",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:98",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3564,7 +3564,7 @@
     "handler": "replaceAdminPolicy",
     "method": "PUT",
     "path": "/api/v1/admin/notifications/policy",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:91",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:99",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3583,7 +3583,7 @@
     "handler": "restoreAdminPolicy",
     "method": "POST",
     "path": "/api/v1/admin/notifications/policy/restore",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:92",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:100",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3602,7 +3602,7 @@
     "handler": "adminTest",
     "method": "POST",
     "path": "/api/v1/admin/notifications/test",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:93",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:101",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -5015,7 +5015,7 @@
     "handler": "publicCatalog",
     "method": "GET",
     "path": "/api/v1/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:87",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:96",
     "access": "public",
     "policy": "badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5031,11 +5031,59 @@
     "handler": "publicBadgeTiers",
     "method": "GET",
     "path": "/api/v1/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:91",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:107",
     "access": "public",
     "policy": "badge tier catalog; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
       "kind": "public",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.clear_worn_badge",
+    "contractVersion": "sforum.route.badges.clear_worn_badge@1",
+    "module": "badges",
+    "handler": "clearWornBadge",
+    "method": "DELETE",
+    "path": "/api/v1/badges/worn",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:103",
+    "access": "login",
+    "policy": "current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled",
+    "guard": {
+      "kind": "login",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.get_worn_badge",
+    "contractVersion": "sforum.route.badges.get_worn_badge@1",
+    "module": "badges",
+    "handler": "getWornBadge",
+    "method": "GET",
+    "path": "/api/v1/badges/worn",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:101",
+    "access": "login",
+    "policy": "current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled",
+    "guard": {
+      "kind": "login",
+      "permissions": [],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.badges.set_worn_badge",
+    "contractVersion": "sforum.route.badges.set_worn_badge@1",
+    "module": "badges",
+    "handler": "setWornBadge",
+    "method": "PUT",
+    "path": "/api/v1/badges/worn",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:102",
+    "access": "login",
+    "policy": "current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled",
+    "guard": {
+      "kind": "login",
       "permissions": [],
       "evaluatorId": ""
     }
@@ -5735,7 +5783,7 @@
     "handler": "listPreferences",
     "method": "GET",
     "path": "/api/v1/notification-preferences",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:86",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:94",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5751,7 +5799,7 @@
     "handler": "replacePreferences",
     "method": "PUT",
     "path": "/api/v1/notification-preferences",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:87",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:95",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5767,7 +5815,7 @@
     "handler": "restorePreferences",
     "method": "POST",
     "path": "/api/v1/notification-preferences/restore",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:88",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:96",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5783,7 +5831,7 @@
     "handler": "list",
     "method": "GET",
     "path": "/api/v1/notifications",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:79",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:84",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5799,7 +5847,7 @@
     "handler": "detail",
     "method": "GET",
     "path": "/api/v1/notifications/:id",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:84",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:92",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5815,7 +5863,39 @@
     "handler": "markRead",
     "method": "PATCH",
     "path": "/api/v1/notifications/:id/read",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:81",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:86",
+    "access": "login",
+    "policy": "current recipient ownership",
+    "guard": {
+      "kind": "contextual",
+      "permissions": [],
+      "evaluatorId": "core.guard.notifications.recipient"
+    }
+  },
+  {
+    "id": "core.route.notifications.list_celebrations",
+    "contractVersion": "sforum.route.notifications.list_celebrations@1",
+    "module": "notifications",
+    "handler": "listCelebrations",
+    "method": "GET",
+    "path": "/api/v1/notifications/celebrations",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:90",
+    "access": "login",
+    "policy": "current recipient ownership",
+    "guard": {
+      "kind": "contextual",
+      "permissions": [],
+      "evaluatorId": "core.guard.notifications.recipient"
+    }
+  },
+  {
+    "id": "core.route.notifications.acknowledge_celebrations",
+    "contractVersion": "sforum.route.notifications.acknowledge_celebrations@1",
+    "module": "notifications",
+    "handler": "acknowledgeCelebrations",
+    "method": "POST",
+    "path": "/api/v1/notifications/celebrations/seen",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:91",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5831,7 +5911,7 @@
     "handler": "markAllRead",
     "method": "POST",
     "path": "/api/v1/notifications/read-all",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:82",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:87",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5847,7 +5927,7 @@
     "handler": "stream",
     "method": "GET",
     "path": "/api/v1/notifications/stream",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:83",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:88",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5863,7 +5943,7 @@
     "handler": "unreadCount",
     "method": "GET",
     "path": "/api/v1/notifications/unread-count",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:80",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:85",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -6119,7 +6199,7 @@
     "handler": "publicProfileBadges",
     "method": "GET",
     "path": "/api/v1/profiles/:username/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:88",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go:104",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6151,7 +6231,7 @@
     "handler": "listPushDevices",
     "method": "GET",
     "path": "/api/v1/push/devices",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:101",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:109",
     "access": "login",
     "policy": "current actor device ownership; ownership rechecked by service",
     "guard": {
@@ -6167,7 +6247,7 @@
     "handler": "registerPushDevice",
     "method": "POST",
     "path": "/api/v1/push/devices",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:102",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:110",
     "access": "login",
     "policy": "current actor device ownership; ownership rechecked by service",
     "guard": {
@@ -6183,7 +6263,7 @@
     "handler": "revokePushDevice",
     "method": "DELETE",
     "path": "/api/v1/push/devices/:deviceId",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:103",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:111",
     "access": "login",
     "policy": "current actor device ownership; ownership rechecked by service",
     "guard": {
@@ -7223,7 +7303,7 @@
     "handler": "webPushConfig",
     "method": "GET",
     "path": "/api/v1/web-push/config",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:106",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:114",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7239,7 +7319,7 @@
     "handler": "listWebPushSubscriptions",
     "method": "GET",
     "path": "/api/v1/web-push/subscriptions",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:107",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:115",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7255,7 +7335,7 @@
     "handler": "createWebPushSubscription",
     "method": "POST",
     "path": "/api/v1/web-push/subscriptions",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:108",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:116",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7271,7 +7351,7 @@
     "handler": "revokeWebPushSubscription",
     "method": "DELETE",
     "path": "/api/v1/web-push/subscriptions/:id",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:109",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:117",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {

@@ -2068,6 +2068,8 @@ func TestProductionNotificationRecipientGuardClosesCatalogModule(t *testing.T) {
 		"core.route.notifications.update_preferences":           "PUT",
 		"core.route.notifications.restore_preferences":          "POST",
 		"core.route.notifications.list":                         "GET",
+		"core.route.notifications.list_celebrations":            "GET",
+		"core.route.notifications.acknowledge_celebrations":     "POST",
 		"core.route.notifications.detail":                       "GET",
 		"core.route.notifications.mark_read":                    "PATCH",
 		"core.route.notifications.mark_all_read":                "POST",

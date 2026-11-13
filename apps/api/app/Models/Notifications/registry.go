@@ -50,6 +50,11 @@ type TypeDescriptor struct {
 	RecommendedChannels []string                        `json:"recommendedChannels,omitempty"`
 	Required            bool                            `json:"required"`
 	Active              bool                            `json:"active"`
+	// Celebration 表示该类型参与「庆祝展示层」（presentation.celebration）。
+	//
+	// 它只影响读面（GET /notifications/celebrations 的候选集），不影响授予、
+	// 去重、渠道或偏好：庆祝是通知平台的展示层，不是新的通知类型。
+	Celebration bool `json:"celebration,omitempty"`
 }
 
 type RegistrySnapshot struct {
@@ -343,6 +348,10 @@ func persistPluginDescriptors(
 		presentation, _ := json.Marshal(map[string]any{
 			"label": descriptor.Label, "body": descriptor.Body, "icon": descriptor.Icon,
 			"channels": descriptor.Channels, "recommendedChannels": descriptor.RecommendedChannels,
+			// celebration 落在 presentation 里而不是新列：读面的判据是
+			// `presentation->>'celebration' = 'true'`，加列会让 Core 与插件
+			// 走两张表两种判据。
+			"celebration": descriptor.Celebration,
 		})
 		target, _ := json.Marshal(map[string]any{"kind": descriptor.TargetKind, "id": descriptor.TargetID})
 		payloadSchema, _ := json.Marshal(map[string]string{"contract": descriptor.PayloadSchema})
@@ -419,7 +428,8 @@ func pluginDescriptors(owner DescriptorOwner, declarations []extensionmanifest.M
 			Label: declaration.Label, Body: declaration.Body, Icon: declaration.Icon,
 			TargetKind: declaration.TargetKind, TargetID: declaration.TargetID,
 			Channels: slices.Clone(declaration.Channels), RecommendedChannels: slices.Clone(declaration.RecommendedChannels),
-			Required: false, Active: true,
+			Celebration: declaration.Celebration,
+			Required:    false, Active: true,
 		}
 	}
 	return result, nil
@@ -450,6 +460,9 @@ func coreTypeDescriptors() map[string]TypeDescriptor {
 			Label: extensionmanifest.LocalizedText{Default: value.id}, Body: extensionmanifest.LocalizedText{Default: "Notification"},
 			Icon: value.icon, TargetKind: "entity", TargetID: "core.entity.notification_target",
 			Channels: []string{"in_app", "email", "web_push"}, Active: true,
+			// Core 里只有徽章授予是「值得庆祝一次」的事件：
+			// 回复/提及/审核结果都是流程的一部分，弹庆祝卡会变成噪音。
+			Celebration: value.id == TypeBadgeGranted,
 		}
 	}
 	return result

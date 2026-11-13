@@ -2670,6 +2670,26 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sfbadgedetailbody",
+    "contractVersion": "sforum.component.shared.sfbadgedetailbody@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/badges/SFBadgeDetailBody.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfbadgedetailmodal",
+    "contractVersion": "sforum.component.shared.sfbadgedetailmodal@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/badges/SFBadgeDetailModal.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfbookmark_control",
     "contractVersion": "sforum.component.shared.sfbookmark_control@1",
     "kind": "component",
@@ -2736,6 +2756,16 @@
     "contractVersion": "sforum.component.shared.sfcategory_show_page@1",
     "kind": "component",
     "source": "apps/web/app/components/forum/SFCategoryShowPage.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sf_celebration_host",
+    "contractVersion": "sforum.component.shared.sf_celebration_host@1",
+    "kind": "component",
+    "source": "apps/web/app/components/notifications/SFCelebrationHost.vue",
     "owners": [
       "public"
     ],

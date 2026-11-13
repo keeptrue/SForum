@@ -390,8 +390,13 @@ func mailTemplateData(data map[string]any, brand MailBrand) map[string]any {
 // 与 ReactionEvent 的语义相反——那边自赞要静默，这边自授要通知。
 type BadgeGrantedEvent struct {
 	RecipientUserID int64
-	BadgeSlug       string
-	BadgeName       string
+	// BadgeID 是通知的可点击目标（TargetType="badge"）。
+	//
+	// 0 表示调用方拿不到 id（历史数据/测试夹具）：此时不写目标，
+	// 收件箱渲染成「无链接的纯文本通知」而不是指向 /badges/0 的死链。
+	BadgeID   int64
+	BadgeSlug string
+	BadgeName string
 	// GrantedByUserID 为 0 表示系统自动授予（规则命中）。
 	GrantedByUserID int64
 }
@@ -435,6 +440,7 @@ func (o *Outbox) NotifyBadgeGrantedTx(ctx context.Context, tx pgx.Tx, event Badg
 	payload, _ := json.Marshal(mailTemplateData(map[string]any{
 		"badgeSlug":     event.BadgeSlug,
 		"badgeName":     event.BadgeName,
+		"badgeId":       event.BadgeID,
 		"locale":        resolveMailLocale(ctx, locale, o.localeResolver),
 		"recipientName": name,
 	}, brand))
@@ -447,11 +453,22 @@ func (o *Outbox) NotifyBadgeGrantedTx(ctx context.Context, tx pgx.Tx, event Badg
 		value := event.GrantedByUserID
 		actor = &value
 	}
+	// 目标类型是 "badge"、目标 id 是徽章 id：收件箱据此经
+	// `ResolveNotificationBadgeTarget` 解析成「查看者自己资料页的徽章 tab」。
+	// 徽章 id 缺失时留空目标（见事件字段注释），不要写 0 造成死链。
+	targetType := ""
+	targetID := int64(0)
+	if event.BadgeID > 0 {
+		targetType = "badge"
+		targetID = event.BadgeID
+	}
 	return o.CreateProjectionsTx(ctx, tx, CreateBundleInput{
 		Notification: CreateInput{
 			RecipientUserID: event.RecipientUserID,
 			Type:            TypeBadgeGranted,
 			ActorUserID:     actor,
+			TargetType:      targetType,
+			TargetID:        targetID,
 			Payload:         payload,
 			DedupeKey:       dedupe,
 		},

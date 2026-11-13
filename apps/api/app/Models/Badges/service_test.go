@@ -91,12 +91,41 @@ func TestListUserBadgesSectionsFollowGroupPosition(t *testing.T) {
 	}
 }
 
-// TestListUserBadgesProgressUsesCounters 断言进度来自 user_activity 快照，
-// 手动徽章没有阈值。
-func TestListUserBadgesProgressUsesCounters(t *testing.T) {
+// fakeProgressMeasurer 记录测量请求，并按夹具回填当前值。
+//
+// 它只能拿到 Service 从 `PublicBadge.Measure` 传下来的徽章——「规则没派生
+// 出 Measure」时它不会被调用，所以「进度来自规则」这条因果是可测的。
+type fakeProgressMeasurer struct {
+	calls    int
+	userID   int64
+	requests map[string]ProgressMeasure
+	current  map[string]int64
+}
+
+func (m *fakeProgressMeasurer) MeasureProgress(_ context.Context, userID int64, measures map[string]ProgressMeasure) map[string]BadgeProgress {
+	m.calls++
+	m.userID = userID
+	m.requests = measures
+	out := make(map[string]BadgeProgress, len(measures))
+	for slug, measure := range measures {
+		out[slug] = BadgeProgress{Current: m.current[slug], Threshold: measure.Threshold}
+	}
+	return out
+}
+
+// TestListUserBadgesProgressComesFromRules 断言进度来自规则测量，而不是 legacy 计数器。
+//
+// 夹具里的徽章同时带 metric/threshold 与 rule；测量器回填的值刻意与
+// `activity.counters` 不同（3/2 vs 9/9），这样「谁在喂进度」一眼可辨。
+func TestListUserBadgesProgressComesFromRules(t *testing.T) {
 	store, activity := seedCatalog(t)
-	activity.counters[7] = ActivityCounters{UserID: 7, DaysVisited: 3, TopicCount: 2}
+	activity.counters[7] = ActivityCounters{UserID: 7, DaysVisited: 9, TopicCount: 9}
 	service := NewService(store, activity)
+	measurer := &fakeProgressMeasurer{current: map[string]int64{
+		"regular-visitor": 3,
+		"first-topic":     2,
+	}}
+	service.SetProgressMeasurer(measurer)
 
 	sections, err := service.ListUserBadges(context.Background(), 7)
 	if err != nil {
@@ -110,7 +139,7 @@ func TestListUserBadgesProgressUsesCounters(t *testing.T) {
 	}
 	regular := bySlug["regular-visitor"]
 	if regular.Progress.Current != 3 || regular.Progress.Threshold != 7 {
-		t.Fatalf("regular-visitor progress = %+v, want 3/7", regular.Progress)
+		t.Fatalf("regular-visitor progress = %+v, want 3/7 (规则阈值，不是 legacy 计数器)", regular.Progress)
 	}
 	if regular.Progress.Done() {
 		t.Fatal("3/7 must not be done")
@@ -122,6 +151,64 @@ func TestListUserBadgesProgressUsesCounters(t *testing.T) {
 	manual := bySlug["quality-answer"]
 	if manual.Progress.Threshold != 0 || manual.Progress.Done() {
 		t.Fatalf("manual badge progress = %+v, want zero threshold", manual.Progress)
+	}
+	if _, measured := measurer.requests["quality-answer"]; measured {
+		t.Fatal("手动徽章没有可测规则，不该进测量批次")
+	}
+	if measurer.userID != 7 || measurer.calls != 1 {
+		t.Fatalf("want one measurement batch for user 7, got calls=%d userID=%d", measurer.calls, measurer.userID)
+	}
+}
+
+// TestListUserBadgesMeasuresRuleOnlyBadge 是本次缺陷的直接回归：
+// 新规则徽章的 metric/threshold 是 NULL，只有 rule——进度仍必须有值。
+func TestListUserBadgesMeasuresRuleOnlyBadge(t *testing.T) {
+	store := newFakeStore()
+	store.badges = []Badge{{
+		ID: 1, Slug: "rule-only", Name: "规则徽章", Tier: TierBronze,
+		Icon: "i-lucide-award", GrantMode: GrantAutomatic, Enabled: true,
+		Metric: nil, Threshold: nil, Rule: builtinRule(MetricTopicCount, 5),
+	}}
+	service := NewService(store, newFakeActivity())
+	measurer := &fakeProgressMeasurer{current: map[string]int64{"rule-only": 2}}
+	service.SetProgressMeasurer(measurer)
+
+	sections, err := service.ListUserBadges(context.Background(), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := sections[0].Badges[0]
+	if item.Badge.Slug != "rule-only" {
+		t.Fatalf("unexpected badge %q", item.Badge.Slug)
+	}
+	if item.Progress.Current != 2 || item.Progress.Threshold != 5 {
+		t.Fatalf("rule-only progress = %+v, want 2/5 (legacy 两列为 NULL 也必须可测)", item.Progress)
+	}
+	request, ok := measurer.requests["rule-only"]
+	if !ok {
+		t.Fatalf("rule-only must be measured, got %v", measurer.requests)
+	}
+	if request.Leaf.Type != conditions.KeyActivityCount || request.Threshold != 5 {
+		t.Fatalf("measure = %+v, want activity.count gte 5", request)
+	}
+}
+
+// TestListUserBadgesWithoutMeasurerLeavesProgressEmpty 钉住 nil 安全：
+// 未装配测量器时进度为空、不报错（装配点漏了也不会 500）。
+func TestListUserBadgesWithoutMeasurerLeavesProgressEmpty(t *testing.T) {
+	store, activity := seedCatalog(t)
+	service := NewService(store, activity)
+
+	sections, err := service.ListUserBadges(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("nil measurer must not error: %v", err)
+	}
+	for _, section := range sections {
+		for _, item := range section.Badges {
+			if item.Progress != (BadgeProgress{}) {
+				t.Fatalf("badge %q progress = %+v, want zero value without a measurer", item.Badge.Slug, item.Progress)
+			}
+		}
 	}
 }
 

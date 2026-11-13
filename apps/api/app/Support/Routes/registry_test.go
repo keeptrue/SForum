@@ -525,7 +525,13 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	// 428 = 423 + 设置面那一刀的 5 条路由（GET /admin/settings/surface-tabs 与
 	// 4 条 /admin/extensions/contributions/... 治理写）。同样三者同一批：identities
 	// 与生成物都是 428，这里的计数必须同步，否则 tripwire 红。
-	if len(catalog) != 428 {
+	// 433 = 428 + 自由佩戴与庆祝展示层那 5 条：
+	//   GET/PUT/DELETE /badges/worn（login：本人自服务，只动自己的展示位，
+	//     没有「替别人佩戴」的可授予能力，所以不是 permission）
+	//   GET /notifications/celebrations 与 POST /notifications/celebrations/seen
+	//     （沿用 /api/v1/notifications 前缀的 contextual + core.guard.notifications.recipient）
+	// 照旧：计数、catalog-identities.json 的 routes、core_catalog_gen.go 三者同一批。
+	if len(catalog) != 433 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

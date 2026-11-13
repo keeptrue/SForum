@@ -471,11 +471,19 @@ publicBadgeCatalog:
       describes the whole response.
 
       Field whitelist: `slug` / `name` / `description` / `icon` / `tier` /
-      `group` / `earned` (plus top-level `truncated`). `threshold` and `metric`
-      are **never** exposed here: thresholds are operator tuning, and publishing
-      them cannot be taken back. Operators who want them public write them into
+      `tierName` / `tierColor` / `group` / `earned` / `requirementText`, plus
+      the viewer-progress pair `current` / `threshold` and the top-level
+      `truncated`. `metric` and the **definition-level** `threshold` are never
+      exposed here: thresholds are operator tuning, and publishing them cannot
+      be taken back. Operators who want them public write them into
       `description`. The plugin-facing `sforum_core_v1.forum_badges` view does
       expose `threshold`; that is a plugin data surface, not this HTTP surface.
+
+      `current` / `threshold` are a different thing from the definition-level
+      threshold: they are the **viewer's** progress and appear only on entries
+      that are unearned, automatic, and measurable (a `lte`, boolean, or
+      multi-condition rule has no scalar progress). Earned entries and anonymous
+      requests omit both keys. `current: 0` is a real value and is emitted.
 
       Cache contract: because `earned` is viewer-scoped, the response carries
       `Cache-Control: private, no-store`. A shared cache must never reuse one
@@ -494,6 +502,169 @@ publicBadgeCatalog:
         "$ref": "../components/responses.yaml#/Forbidden"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
+# --- Free-form worn badge display (/badges/worn) ---
+#
+# 用户从**自己已获得的**徽章里挑一枚常驻展示（`users.top_badge_id` +
+# `top_badge_manual`）。三条端点返回同一个 `BadgeDisplay`：前端只有一种响应形状，
+# 佩戴（PUT）与取消佩戴（DELETE）不必各自维护「改完之后长什么样」的推导。
+# PUT/DELETE 成功后服务端会**再读一次**展示位（回落逻辑可能刚在同一事务里改写了
+# 它），所以 200 的 body 是读出来的真值，不是请求的回声。
+#
+# 权限口径：**本人自服务**（login），不是 `badge.view` / `badge.manage`。
+# 三条路由只读写当前登录用户自己的展示位，路径与 body 里都没有他人 id，服务层也
+# 不接受他人 id —— 没有「替别人佩戴」这种可授予能力，用 permission 描述反而是错的
+# 口径（只读管理员不该因为「没有 manage」就看不到自己的展示位）。
+# `features.badges` 关闭时与同域其余徽章路由一样 403 reason `forum.badges_disabled`，
+# 这条检查在 handler 里先于主体解析执行。
+#
+# 三条路由都是静态段，控制器里注册于任何含参数段之前（否则 `/badges/worn` 会被当成
+# `/badges/{slug}` 解析）。响应恒为 `Cache-Control: private, no-store`：body 是
+# 「我这个账号戴了什么」。
+badgeWorn:
+  get:
+    tags: [Badges]
+    summary: Read the current user's worn badge display
+    operationId: getWornBadge
+    description: |
+      The signed-in user's display slot. `mode` is `auto` or `manual`:
+
+      - `auto` — never wore one manually, or the worn badge lapsed and the slot
+        fell back; `worn` then equals `automatic`.
+      - `manual` — the user picked a badge; `worn` is that badge.
+
+      `automatic` is always the best badge derived from tier and position — the
+      same ordering (`topBadgeOrderSQL`) that drives the author chip next to a
+      post, so the chip and this response cannot disagree after an operator
+      reorders tiers. `upgrade` is non-null only in `manual` mode when a better
+      badge exists; it is a hint, not an error, and the client renders
+      "you can switch to X" from it.
+
+      All three refs may be null: a user holding no displayable badge gets
+      `worn`/`automatic`/`upgrade` all null with `mode: auto` (not a null
+      `mode`, not an empty object). The keys are always present, null or not.
+
+      Each ref carries `slug`, `name`, `tier`, `tierName{zh,en}`, `tierColor`
+      and `icon` — the same shape as the author chip (`topBadge`) and the badge
+      catalog entry, so one client-side parser covers all three. The tier
+      appearance is projected server-side (`tierAppearance` / Go field names
+      never reach the wire).
+
+      Requires a signed-in session. Fails with `403` reason
+      `forum.badges_disabled` when `features.badges` is off.
+    responses:
+      '200':
+        description: Current display slot, automatic fallback, and upgrade hint.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDisplay"
+      '401':
+        description: Not signed in; `data.reason` is `auth.required`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+  put:
+    tags: [Badges]
+    summary: Wear one of the current user's own badges
+    operationId: setWornBadge
+    description: |
+      Pins a badge the caller already holds into the display slot and marks the
+      slot as manual (`mode: manual` on the next read).
+
+      The eligibility check and the write are one statement: the badge must be
+      enabled, its tier must be enabled, and the caller must hold it. Two
+      statements would let a revoke land between the check and the write and
+      leave a badge in the slot that the user no longer owns.
+
+      Every ineligibility — not held, badge disabled, tier disabled, unknown
+      slug, or an empty/omitted `slug` — returns the **same** `422` reason
+      `forum.badge_not_owned`. The codes are deliberately not split: an ordinary
+      user does not need to know whether a slug exists on the site, and
+      distinguishing the two turns this endpoint into a slug oracle.
+
+      A body that is not valid JSON (or whose `slug` is not a string) is `400`
+      reason `forum.badge_worn_body_invalid` — *not* `422`: at that point the
+      server has not read a slug at all, so "you do not own this badge" would be
+      a lie. The 401 check runs before body parsing, so an anonymous caller with
+      a malformed body gets `401`.
+
+      The response is the re-read display slot, so a badge that lapsed between
+      the write and the read is already reflected.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/badges.yaml#/BadgeWornInput"
+    responses:
+      '200':
+        description: Display slot after the write, re-read from storage.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDisplay"
+      '400':
+        description: |
+          Body is not valid JSON, or `slug` is not a string; `data.reason` is
+          `forum.badge_worn_body_invalid`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '401':
+        description: Not signed in; `data.reason` is `auth.required`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        description: |
+          The caller does not hold that badge (or it, or its tier, is disabled,
+          or the slug is unknown/empty); `data.reason` is
+          `forum.badge_not_owned`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+  delete:
+    tags: [Badges]
+    summary: Clear the current user's worn badge and fall back to automatic
+    operationId: clearWornBadge
+    description: |
+      Drops the manual choice and immediately recomputes the slot from the same
+      ordering, so the display never goes empty when the user still holds a
+      displayable badge (`mode` returns to `auto`, `worn` becomes
+      `automatic`). The clear and the recompute are ordered: clearing the manual
+      flag first, then recomputing, because `RecomputeTopBadge` refuses to
+      overwrite a slot marked manual — the reverse order makes "clear" a no-op
+      that only flips a flag.
+
+      Idempotent: clearing a slot that is already automatic is a `200` with the
+      unchanged display, not a `404`. A caller who never wore a badge does not
+      need a different code from one who did.
+
+      Requires a signed-in session; the response is the re-read display slot.
+    responses:
+      '200':
+        description: Display slot after the clear, re-read from storage.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDisplay"
+      '401':
+        description: Not signed in; `data.reason` is `auth.required`.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
 
 # --- Badge tiers (/admin/badges/tiers, /badges/tiers) ---
 #

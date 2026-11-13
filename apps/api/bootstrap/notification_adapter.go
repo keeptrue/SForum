@@ -21,12 +21,31 @@ type notificationActorLoader interface {
 	LoadActor(context.Context, int64) (identity.Actor, error)
 }
 
+// notificationBadgeTargetResolver 是徽章通知目标的窄读口（见
+// `Models/Badges/notification_targets.go`）。
+//
+// 窄接口而不是直接吃 `*badges.PostgresStore`：装配层只需要「徽章 id → 收件人可
+// 点击路径」这一条读，把整个 store 传进来会让目标解析随手多出「读规则」「写授予」
+// 这类本不该出现在收件箱读路径上的能力。
+type notificationBadgeTargetResolver interface {
+	ResolveNotificationBadgeTarget(ctx context.Context, userID int64, badgeID int64) (bool, string, error)
+}
+
 type notificationTargetVisibilityAdapter struct {
 	forum      *forum.PostgresStore
 	identities notificationActorLoader
+	badges     notificationBadgeTargetResolver
 }
 
 func (a notificationTargetVisibilityAdapter) ResolveNotificationTarget(ctx context.Context, userID int64, targetType string, targetID int64) (bool, string, error) {
+	// 徽章目标不走 Forum：徽章不是论坛内容，`/u/{username}?tab=badges` 也由
+	// Badges 域自己判定（持有 + 启用 + 等级启用）。
+	if targetType == "badge" {
+		if a.badges == nil {
+			return false, "", nil
+		}
+		return a.badges.ResolveNotificationBadgeTarget(ctx, userID, targetID)
+	}
 	moderationType, isModeration := strings.CutPrefix(targetType, "moderation_")
 	if !isModeration {
 		return a.forum.ResolveNotificationTarget(ctx, userID, targetType, targetID)

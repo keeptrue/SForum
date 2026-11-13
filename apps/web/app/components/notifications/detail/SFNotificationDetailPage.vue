@@ -14,7 +14,9 @@ import { usePublicSidebarDrawer } from '~/composables/navigation/usePublicSideba
 import {
   notificationFilterCounts,
   notificationFilters,
+  notificationHasTarget,
   notificationPresentation,
+  notificationTargetTitle,
   type NotificationFilter
 } from '~/utils/notifications/notificationsPresentation'
 
@@ -82,6 +84,27 @@ const actionLabel = computed(() => {
   if (detail.value?.type === 'mention') return t('notifications.actions.viewMention')
   return t('notifications.actions.viewTarget')
 })
+
+/**
+ * 「有可靠目标」的唯一口径：**不是**「有没有正文预览」。
+ *
+ * 徽章授予没有 topic/comment 预览（`preview` 为空），但目标页是真实可打开的
+ * （`/u/{username}?tab=badges`）。过去用 `preview` 判定正文分支，于是徽章通知
+ * 被误报成「目标不可用」，而右栏又按 `targetAvailable` 说「可查看」—— 同一页两个结论。
+ * 现在正文与右栏共用这一条：`unavailable` 为假且 path 非空才算有目标。
+ */
+const hasTarget = computed(() => notificationHasTarget(presented.value?.target))
+
+/** 目标卡的标题：徽章名优先（`notificationTargetTitle`），再退到列表用的摘要标签。 */
+const targetTitle = computed(() => {
+  if (!detail.value) return ''
+  return notificationTargetTitle(detail.value) || presented.value?.targetLabel || ''
+})
+
+/** 目标卡的按钮文案：徽章授予说「查看我的徽章」，其余沿用内容类动作文案。 */
+const targetActionLabel = computed(() => (detail.value?.type === 'badge_granted'
+  ? t('notifications.actions.viewBadges')
+  : actionLabel.value))
 
 function authorName(content?: NotificationPreviewContent) {
   return userDisplayName(content?.author, t('notifications.detailPage.unknownAuthor'))
@@ -250,6 +273,38 @@ useHead(() => ({ title: preview.value?.topicTitle || t('notifications.detailPage
             </div>
           </template>
 
+          <!--
+            有可靠目标但没有正文预览（徽章授予就是这一类）：画目标卡而不是「目标不可用」。
+            卡片给出「目标是什么 + 能去哪」，按钮复用 openTarget()，与内容类通知同一个跳转口径。
+          -->
+          <section
+            v-else-if="hasTarget"
+            class="sforum-notification-detail__content-block sforum-notification-detail__target"
+            :aria-labelledby="`notification-target-${detail.id}`"
+          >
+            <div class="sforum-notification-detail__section-head">
+              <h3 :id="`notification-target-${detail.id}`">{{ t('notifications.detailPage.target') }}</h3>
+              <span>{{ t(presented.typeLabelKey) }}</span>
+            </div>
+
+            <div class="sforum-notification-detail__target-row">
+              <span class="sforum-notification-detail__target-icon" aria-hidden="true">
+                <UIcon :name="presented.icon" class="size-4" />
+              </span>
+              <div class="sforum-notification-detail__target-body">
+                <strong v-if="targetTitle">{{ targetTitle }}</strong>
+                <p>{{ t('notifications.detailPage.targetAvailableHelp') }}</p>
+              </div>
+            </div>
+
+            <div class="sforum-notification-detail__actions sforum-notification-detail__actions--inline">
+              <button type="button" class="sforum-notifications__primary-button" @click="openTarget">
+                {{ targetActionLabel }}
+                <UIcon name="i-lucide-arrow-right" class="size-4" aria-hidden="true" />
+              </button>
+            </div>
+          </section>
+
           <SFAlert
             v-else
             variant="info"
@@ -283,7 +338,7 @@ useHead(() => ({ title: preview.value?.topicTitle || t('notifications.detailPage
             </div>
             <div>
               <dt>{{ t('notifications.detailPage.target') }}</dt>
-              <dd>{{ detail.targetAvailable ? t('notifications.detailPage.available') : t('notifications.targetUnavailable') }}</dd>
+              <dd>{{ hasTarget ? t('notifications.detailPage.available') : t('notifications.targetUnavailable') }}</dd>
             </div>
           </dl>
         </section>

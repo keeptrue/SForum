@@ -92,16 +92,62 @@ The executable reference fixture is
 uninstalled, stale-artifact, or cross-namespace callers cannot emit; historical
 rows retain versioned structured payload and use Host fallback presentation.
 
-**徽章授予通知（2026-11-10 落地）**：新增核心类型 `badge_granted`（category
-`engagement`，图标 `i-lucide-award`），站内默认开、邮件/推送默认关（与 reaction 同
+**徽章授予通知（2026-11-10 落地，2026-11-13 补齐四条路径）**：新增核心类型 `badge_granted`
+（category `engagement`，图标 `i-lucide-award`），站内默认开、邮件/推送默认关（与 reaction 同
 姿态），邮件模板键 `forum.badge_granted`（中英齐全——默认关闭不等于可以不写，用户
-打开邮件通道后无模板会静默失败）。去重键 `badge_granted:{userBadgeID}`，与授予行
-一对一，重复评估不会重复通知（`ON CONFLICT DO NOTHING` 未插入行时根本不发）。
+打开邮件通道后无模板会静默失败）。
+
+**去重键是 `badge:{slug}`**（`fanout.go` 的 `NotifyBadgeGrantedTx`），不是按授予行 id：
+同一用户同一徽章**终身只通知一次**，手动收回后重新授予也不再通知（徽章是终局荣誉）。
+按 `user_badge_id` 去重会牵动 `GrantAutomatic` 的签名，把「授予是否新建」与「通知去重键」
+耦合在一起。旧笔记写的 `badge_granted:{userBadgeID}` 与代码不符，已按代码订正。
+
+**四条授予路径全部发通知**（`bootstrap/badges_wiring.go` 的 `badgeGrantedNotifier` 是唯一实现，
+两个薄适配器只做类型转换）：规则自动 job、`AdminService.Grant`、`BatchGrant`（**只发
+`grantedUsers`，`skipped` 不发**）、`Recompute`（`recomputeNotifyLimit = 200`，超限**整体不发**，
+只留一条 `slog.Warn`）。通知失败只 warn，**不回滚授予**——每条 grant 都是自动提交的独立语句，
+没有可回滚的事务边界。细节见 `modules/badges.md`「授予通知与庆祝」与
+`../decisions/2026-11-13-badge-notification-and-celebration.md`。
+
+**`badge` 是新的通知目标类型**（`TargetType="badge"`，`TargetID` 是徽章 id）：
+`BadgeGrantedEvent.BadgeID <= 0` 时**不写目标**（收件箱渲染成无链接的纯文本，不是 `/badges/0`
+死链）。目标解析走 `bootstrap/notification_adapter.go` 的 `targetType == "badge"` 分支 →
+`Badges.ResolveNotificationBadgeTarget`（三重校验：徽章启用 + 仍持有授予行 + 等级启用），
+fail-closed 返回 `(false,"",nil)` 而不报错，目标恒为 `/u/{username}?tab=badges`。
+**不加这条分支的症状是徽章通知整条变 `targetAvailable=false`**——Forum 的解析器不认识 `badge`。
 
 **语义与互动通知相反的一处**：管理员给自己授予徽章**会**发通知。自赞跳过是因为
 那是互动噪音；徽章是公开荣誉，自己给自己发一枚运营徽章也需要留下通知记录。
 三种授予来源（规则自动 / 管理员手动 / 批量重算）在 `user_badges` 里可区分，见
 `modules/badges.md` 的判别式表。
+
+### 站内庆祝展示层（`presentation.celebration`，2026-11-13）
+
+庆祝**不是新的通知类型、不是新的授予路径、不是新的 Host 命令**：徽章授予照旧写
+`notifications` 行（`badge_granted`），这一层只回答「哪些已发生的通知值得在前端弹一张庆祝卡」。
+
+| 环节 | 事实 |
+| --- | --- |
+| 载体 | `notification_type_descriptors.presentation` jsonb 的 `celebration: true`（**没有新列**）。Core 只标 `badge_granted`（`registry.go` 的 `Celebration: value.id == TypeBadgeGranted`：回复/提及/审核结果是流程的一部分，弹卡会变噪音） |
+| 插件声明 | Manifest V3 `notificationTypes[].celebration`（`ManifestNotificationType.Celebration`，`manifest-v3.schema.json` 里是可选布尔）→ `pluginDescriptors` 落进同一个 `presentation` jsonb。**读面判据统一是 `presentation->>'celebration' = 'true'`**，所以插件与 Core 一条 SQL 全覆盖 |
+| 迁移 | `202611130002_notification_celebrations.sql`：`presentation \|\| '{"celebration":true}'` 打标（保留既有 icon 等键）+ 建 `user_celebration_cursors`（Down 先拆表再退标记） |
+| 读面 | `GET /notifications/celebrations`（`ListCelebrations`）/ `POST /notifications/celebrations/seen`（`AcknowledgeCelebrations`）。login 守卫；注册在 `/:id` **之前**，否则 `celebrations` 会被当成通知 id |
+| 首访 | 没有游标行 → `initialized=false` + **空 items** + `cursorId = LatestNotificationID`，且**不写游标行**。写了 `initialized` 就变 true，而前端要靠 false 触发「先 ack 种子游标、本轮不再拉取」；老用户升级后不该被几个月前的徽章刷屏 |
+| 窗口/边界 | `celebrationWindow = 7 天`（SQL 里 `now() - interval`：比的是**时间戳**，不是日历界，所以不违反「按日取界必须 Go 传参」）+ `n.id > cursor`；`DefaultCelebrationLimit = 3`；`total` 封顶 99 |
+| 可见性 | 复用 `ResolveSafeTargets`，**目标不可见整条丢弃**，不返回 `targetPath=null` 的空卡 |
+| ack | `GREATEST` 语义（`ON CONFLICT DO UPDATE` + `GREATEST`），游标只进不退：前端 ack 是尽力而为的，乱序到达时「置等于」会把看过的通知重新弹一遍 |
+| 文案 | `titleKey`/`bodyKey` 是 Core 类型的 i18n 键，插件类型为 `null`；`label`/`body` 是 `{zh,en}` 兜底（Core 在服务端有 `coreCelebrationFallback`，因为 Core 描述符的 presentation 只有 icon）。**逐语言回落**，不整体二选一 |
+| 前端 | `SFCelebrationHost.vue` 固定左下（`bottom-4 left-4`，右下是 toast）；只在「已登录 + 徽章功能开 + 非管理端路由 + 页面可见」时存在；`items` 为空不渲染任何 DOM。文案链三态：i18n 命中（`te` 且译完无残留 `{name}`）→ 服务端 `label`/`body` → 吃掉占位符 |
+
+**刻意不给 `user_celebration_cursors` 建 `sforum_core_v1` 视图、也不新增 HostQuery**（AGENTS.md
+要求刻意缺失的读面写明理由）：它是**每用户的展示进度位**，唯一的消费者是 Core 自己的庆祝读面；
+插件既没有正当消费面（插件要表达「我这条值得庆祝」只需清单里的 `celebration`），
+把它暴露成稳定视图等于给「谁看到了哪张卡」发一个契约。插件真正需要的是通知/授予数据，
+那两条已有稳定视图。
+
+已知残留两条：① `total` 是 SQL 候选数，可见性过滤后 `items` 可能更少——**前端不得用 `total`
+决定是否弹卡**（`items` 为空就不渲染）；② 庆祝跟随 `in_app` 偏好，用户关掉站内渠道时根本没有
+行可读，庆祝自然消失（不另做一套偏好）。
 
 ## Persistence and Delivery
 
@@ -150,6 +196,8 @@ Authenticated self-service routes:
 - `PATCH /api/v1/notifications/:id/read`
 - `POST /api/v1/notifications/read-all`
 - `GET /api/v1/notifications/stream`
+- `GET /api/v1/notifications/celebrations` / `POST /api/v1/notifications/celebrations/seen`
+  (celebration display layer; registered before `/:id`)
 - `GET|PUT /api/v1/notification-preferences`
 - `POST /api/v1/notification-preferences/restore`
 - `GET|POST|DELETE /api/v1/web-push/*` (current-user subscriptions only)

@@ -1,11 +1,12 @@
 package forum
 
-import "context"
-
-// BadgeRef 是帖子/评论旁展示的「最高级徽章」引用（Forum 侧的读模型）。
+// BadgeRef 是帖子/评论旁展示的「当前展示徽章」引用（Forum 侧的读模型）。
+// 它可能是用户手动佩戴的那枚，未必是排序里的最高级——chip 与资料页展示位同源。
 //
-// 与 badges.BadgeRef 刻意是两份结构：Forum 不能 import Badges（依赖方向），
-// 转换由 Badges 侧的 badge_reader.go 完成，bootstrap 注入实现。
+// 它只有一份来源：读 SQL 的 topBadgeSelectSQL/topBadgeJoinSQL（见
+// badge_ref_scan.go）在同一个 SELECT 里把徽章四列与等级外观三列一起带出。
+// 曾有过第二条「Badges 包按用户批量补齐」的投影路径，生产从未装配，两套实现
+// 让「论坛读模型有没有徽章外观」取决于走了哪条路——那条路径已删除。
 //
 // actor 无关：同一个作者的徽章对所有人一样，因此它可以随主题/评论进缓存，
 // 不像 likedByMe / bookmarkedByMe 必须每请求重算。
@@ -28,13 +29,4 @@ type BadgeRef struct {
 type BadgeTierName struct {
 	Zh string `json:"zh"`
 	En string `json:"en"`
-}
-
-// BadgeReader 由 Badges 包实现，用于批量补齐主题/评论作者的最高级徽章。
-//
-// 实现必须一次查询覆盖整页作者（禁止 N+1），并且失败时由调用方决定是否降级：
-// 徽章是装饰信息，拿不到不该让列表整体失败。
-type BadgeReader interface {
-	DecorateTopics(ctx context.Context, topics []TopicSummary) error
-	DecorateComments(ctx context.Context, comments []Comment) error
 }

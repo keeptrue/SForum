@@ -2568,6 +2568,36 @@
       "contractVersion": "sforum.route.extensions.reset_contribution_item_governance@1",
       "method": "DELETE",
       "path": "/api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey"
+    },
+    {
+      "id": "core.route.badges.get_worn_badge",
+      "contractVersion": "sforum.route.badges.get_worn_badge@1",
+      "method": "GET",
+      "path": "/api/v1/badges/worn"
+    },
+    {
+      "id": "core.route.badges.set_worn_badge",
+      "contractVersion": "sforum.route.badges.set_worn_badge@1",
+      "method": "PUT",
+      "path": "/api/v1/badges/worn"
+    },
+    {
+      "id": "core.route.badges.clear_worn_badge",
+      "contractVersion": "sforum.route.badges.clear_worn_badge@1",
+      "method": "DELETE",
+      "path": "/api/v1/badges/worn"
+    },
+    {
+      "id": "core.route.notifications.list_celebrations",
+      "contractVersion": "sforum.route.notifications.list_celebrations@1",
+      "method": "GET",
+      "path": "/api/v1/notifications/celebrations"
+    },
+    {
+      "id": "core.route.notifications.acknowledge_celebrations",
+      "contractVersion": "sforum.route.notifications.acknowledge_celebrations@1",
+      "method": "POST",
+      "path": "/api/v1/notifications/celebrations/seen"
     }
   ],
   "ui": [
@@ -6885,6 +6915,36 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/settings/SFSettingsTabNav.vue"
+    },
+    {
+      "id": "core.component.shared.sf_celebration_host",
+      "contractVersion": "sforum.component.shared.sf_celebration_host@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/notifications/SFCelebrationHost.vue"
+    },
+    {
+      "id": "core.component.shared.sfbadgedetailmodal",
+      "contractVersion": "sforum.component.shared.sfbadgedetailmodal@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeDetailModal.vue"
+    },
+    {
+      "id": "core.component.shared.sfbadgedetailbody",
+      "contractVersion": "sforum.component.shared.sfbadgedetailbody@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeDetailBody.vue"
     }
   ]
 }

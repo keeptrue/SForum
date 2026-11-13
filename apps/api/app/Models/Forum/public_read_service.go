@@ -16,10 +16,6 @@ type PublicReadService struct {
 	// bookmarks 可选：为登录访客补 bookmarkedByMe。与 reactions 同一契约：
 	// 缓存之后、请求级、fail-open。
 	bookmarks BookmarkReader
-	// badges 可选：为作者补最高级徽章。与上面两个**相反**：徽章是 actor 无关的，
-	// 同一份结果对所有人相同，因此它可以随主题/评论进缓存，不必每请求重算。
-	// 缓存命中时这里通常无事可做（读模型已带 TopBadge）；它兜的是未带徽章的路径。
-	badges BadgeReader
 }
 
 func NewPublicReadService(service *Service) *PublicReadService {
@@ -42,14 +38,6 @@ func (s *PublicReadService) WithBookmarks(reader BookmarkReader) *PublicReadServ
 	return s
 }
 
-// WithBadges 注入徽章装饰器；nil 时读模型不含 topBadge。
-func (s *PublicReadService) WithBadges(reader BadgeReader) *PublicReadService {
-	if s != nil {
-		s.badges = reader
-	}
-	return s
-}
-
 func (s *PublicReadService) decorateTopic(ctx context.Context, viewer identity.Actor, topic *TopicDetail) {
 	if s == nil || topic == nil {
 		return
@@ -62,19 +50,6 @@ func (s *PublicReadService) decorateTopic(ctx context.Context, viewer identity.A
 	if s.bookmarks != nil {
 		_ = s.bookmarks.DecorateTopic(ctx, viewer, topic)
 	}
-	// 徽章是 actor 无关的：只补还没填过的字段，缓存里已有的不覆盖。
-	if s.badges != nil && topic.TopBadge == nil {
-		batch := []TopicSummary{topic.TopicSummary}
-		if err := s.badges.DecorateTopics(ctx, batch); err == nil {
-			topic.TopBadge = batch[0].TopBadge
-			if topic.Author != nil && batch[0].Author != nil {
-				topic.Author.TopBadge = batch[0].Author.TopBadge
-			}
-			if topic.LastReplyAuthor != nil && batch[0].LastReplyAuthor != nil {
-				topic.LastReplyAuthor.TopBadge = batch[0].LastReplyAuthor.TopBadge
-			}
-		}
-	}
 }
 
 func (s *PublicReadService) decorateComments(ctx context.Context, viewer identity.Actor, comments []Comment) {
@@ -86,9 +61,6 @@ func (s *PublicReadService) decorateComments(ctx context.Context, viewer identit
 	}
 	if s.bookmarks != nil {
 		_ = s.bookmarks.DecorateComments(ctx, viewer, comments)
-	}
-	if s.badges != nil {
-		_ = s.badges.DecorateComments(ctx, comments)
 	}
 }
 

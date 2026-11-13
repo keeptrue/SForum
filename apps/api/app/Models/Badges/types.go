@@ -122,6 +122,12 @@ type PublicBadge struct {
 	// **绝不包含 AST**：公开响应里出现 rule/cmp/params/children/op 会让规则结构
 	// 变成事实上的公开契约。
 	RequirementText RequirementText `json:"requirementText"`
+	// Measure 是内部进度定义（哪条计数条件 + 阈值），由 `Public()` 从规则派生。
+	//
+	// 它**绝不进公开响应、也不进插件 schema**（json:"-"）：阈值是运营调参，
+	// 公开即不可撤回。进度只经 `BadgeProgress` 两个数字键下发，由 Service 决定
+	// 哪些条目该带（未获得 + 自动 + 可测）。
+	Measure *ProgressMeasure `json:"-"`
 }
 
 // Public 从 admin 结构派生公开结构（丢掉运营与审计字段）。
@@ -144,6 +150,7 @@ func (b Badge) Public(names conditions.RefNames) PublicBadge {
 		Position:    b.Position,
 
 		RequirementText: BuildRequirementText(b, names),
+		Measure:         measureForRule(b.Rule),
 	}
 }
 

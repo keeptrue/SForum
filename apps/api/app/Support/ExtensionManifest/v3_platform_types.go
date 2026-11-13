@@ -16,6 +16,11 @@ type ManifestNotificationType struct {
 	Channels            []string      `json:"channels"`
 	RecommendedChannels []string      `json:"recommendedChannels,omitempty"`
 	Required            bool          `json:"required,omitempty"`
+	// Celebration 让插件声明「这条通知值得庆祝一次」（presentation.celebration）。
+	//
+	// 只是展示层开关：不新增 Host 命令、不改渠道/偏好/去重语义，
+	// 也不能让插件自建庆祝读面（读面恒为 Core 的 GET /notifications/celebrations）。
+	Celebration bool `json:"celebration,omitempty"`
 }
 
 type ManifestDatabase struct {

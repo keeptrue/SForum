@@ -62,6 +62,8 @@ type AdminService struct {
 	// factCandidates 是插件事实候选来源（已启用扩展的 badgeConditions[]）；
 	// nil = 没有任何扩展声明，`fact.count` 因此不出现在可发布目录里。
 	factCandidates conditions.FactCandidateProvider
+	// notifier 是授予通知出口（见 grant_notifications.go）；nil = 不发通知。
+	notifier GrantNotifier
 }
 
 func NewAdminService(store Store) *AdminService {
@@ -302,7 +304,12 @@ func (a *AdminService) Grant(ctx context.Context, actor identity.Actor, input Gr
 	if _, err := a.store.GrantManual(ctx, input); err != nil {
 		return err
 	}
-	return a.store.RecomputeTopBadge(ctx, input.UserID)
+	if err := a.store.RecomputeTopBadge(ctx, input.UserID); err != nil {
+		return err
+	}
+	// 授予行已经落库：通知放在重算之后、且尽力而为（见 notifyGranted）。
+	a.notifyGranted(ctx, input.UserID, []GrantedBadge{{ID: badge.ID, Slug: badge.Slug, Name: badge.Name}})
+	return nil
 }
 
 // Revoke 手动收回。
@@ -344,6 +351,18 @@ func (a *AdminService) ListGrants(ctx context.Context, actor identity.Actor, inp
 	}
 	return a.store.ListGrants(ctx, input)
 }
+
+// recomputeNotifyLimit 是「重算后逐条发授予通知」的上限。
+//
+// 为什么有上限：重算是一次面向全站的批量补授予，运营调低阈值后一次可能补出
+// 成千上万行。逐条写通知（每条一个事务 + 收件箱投影 + 邮件投递行）会把一次
+// 点击变成一分钟的写放大，且对用户来说是一夜几十条徽章通知的噪音。
+// 超过上限时**整体不发**而不是「发前 200 条」：部分发送会让「谁被通知到」
+// 取决于行扫描顺序，运营既解释不了也复现不了。
+//
+// 与自动授予无关：`badges.evaluate_user` job 每次最多几枚，走的是 job 自己的
+// 通知出口（见 bootstrap/badges_wiring.go），不受这个阈值约束。
+const recomputeNotifyLimit = 200
 
 // RecomputeResult 是重算的两个可区分结果。
 //
@@ -390,10 +409,11 @@ func (a *AdminService) Recompute(ctx context.Context, actor identity.Actor) (Rec
 	if a == nil || a.store == nil {
 		return RecomputeResult{}, ErrBadgesDisabled
 	}
-	granted, complexBadgeIDs, err := a.store.GrantFromRules(ctx)
+	grants, err := a.store.GrantFromRules(ctx)
 	if err != nil {
 		return RecomputeResult{}, err
 	}
+	granted, complexBadgeIDs := grants.Granted, grants.ComplexBadgeIDs
 	queued := int64(len(complexBadgeIDs))
 	if queued > 0 {
 		// 没有入队能力时必须报错，不能只把数字填上——那会让运营以为「已经安排好了」，
@@ -409,7 +429,48 @@ func (a *AdminService) Recompute(ctx context.Context, actor identity.Actor) (Rec
 	if err != nil {
 		return RecomputeResult{}, err
 	}
+	a.notifyRecomputeGrants(ctx, grants.Rows)
+	// 响应形状**严格三键**：授予通知是副作用，不新增计数器（见 modules/badges.md
+	// 「queued 与 granted/refreshed 是三个不同单位」——再塞一个数字只会更混乱）。
 	return RecomputeResult{Granted: granted, Refreshed: refreshed, Queued: queued}, nil
+}
+
+// notifyRecomputeGrants 为重算补出来的授予发通知（≤ recomputeNotifyLimit 时）。
+//
+// 超过阈值整体不发，只留一条 warn：运营需要知道「这次没通知」，否则会把
+// 「用户说没收到通知」当成缺陷去查。
+func (a *AdminService) notifyRecomputeGrants(ctx context.Context, rows []RuleGrant) {
+	if a == nil || a.notifier == nil || len(rows) == 0 {
+		return
+	}
+	if len(rows) > recomputeNotifyLimit {
+		slog.Warn("skip badge grant notifications for recompute over limit",
+			"grants", len(rows), "limit", recomputeNotifyLimit)
+		return
+	}
+	// 按用户聚合后再发出：这只减少**通知出口的调用次数**（一次调用带该用户的 N 枚），
+	// 不改变投影结果——`badgeGrantedNotifier` 仍逐枚写通知行，去重键是
+	// `badge:{slug}`，所以「同一用户拿到 3 枚」最终是 3 条通知行、不是 1 条。
+	// 不要照这段注释去优化成「一条通知列多枚」，那会改掉收件箱的既有语义。
+	badgesByUser := make(map[int64][]GrantedBadge, len(rows))
+	badgeCache := make(map[int64]GrantedBadge)
+	for _, row := range rows {
+		badge, ok := badgeCache[row.BadgeID]
+		if !ok {
+			loaded, err := a.store.GetBadge(ctx, row.BadgeID)
+			if err != nil {
+				// 读不到徽章名只影响这一枚的通知文案，不值得放弃整批通知。
+				slog.Warn("load badge for recompute notification failed", "badge_id", row.BadgeID, "error", err)
+				continue
+			}
+			badge = GrantedBadge{ID: loaded.ID, Slug: loaded.Slug, Name: loaded.Name}
+			badgeCache[row.BadgeID] = badge
+		}
+		badgesByUser[row.UserID] = append(badgesByUser[row.UserID], badge)
+	}
+	for userID, badges := range badgesByUser {
+		a.notifyGranted(ctx, userID, badges)
+	}
 }
 
 // recomputeAffected 重算持有该徽章的全部用户的 top_badge_id。

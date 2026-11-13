@@ -6,15 +6,20 @@
  * - `variant="catalog"`：`/badges` 公共目录，组内按 position 升序，取数在 useBadgesCatalog。
  *
  * 单张卡已抽到 `components/forum/badges/SFBadgeCard.vue`（icon / 名称 / tier 标记 / earned 两态 /
- * 进度条 / aria-label 模板都在那边）。本文件只拥有**容器级**职责：分组 section、组内排序、
- * 组计数、空态 / 加载态 / 失败态、目录页内链，以及两个 variant 的这四处差异。
+ * 进度条 / aria-label 模板 / 整卡点击都在那边），详情弹窗在
+ * `components/forum/badges/SFBadgeDetailModal.vue`。本文件只拥有**容器级**职责：分组 section、
+ * 组内排序、组计数、空态 / 加载态 / 失败态、目录页内链、两个 variant 的差异，以及
+ * 「哪一枚被选中」（`focusSlug` 由宿主与 URL 对齐，本文件只回发 `update:focusSlug`）。
  * 再出现新消费者时，加 variant 或复用容器；不要把卡片逻辑搬回来。
  */
 import SFBadgeCard from '~/components/forum/badges/SFBadgeCard.vue'
+import SFBadgeDetailModal from '~/components/forum/badges/SFBadgeDetailModal.vue'
+import { badgeWornErrorKey, useBadgeWorn } from '~/composables/forum/badges/useBadgeWorn'
 import {
   forumBadgeRequirementText,
   sortProfileBadgeEntries,
   sortProfileBadgeGroups,
+  type ProfileBadgeEntry,
   type ProfileBadgeGroup
 } from '~/utils/forum/forumBadge'
 
@@ -25,18 +30,88 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   failed?: boolean
   variant?: BadgeTabVariant
+  /**
+   * 是否本人视角。只有本人能佩戴：他人资料页与 `/badges` 目录页都不出现佩戴控件。
+   * 取数仍由 useProfileBadges 拥有，佩戴态是独立的 `/badges/worn` 私有口径。
+   */
+  self?: boolean
+  /**
+   * 当前打开详情的徽章 slug（`?badge=` 的唯一来源在宿主，见 useBadgeDetailQuery）。
+   * 空串 = 不弹窗；本文件不回退成「第一枚」，也不自己改 URL。
+   */
+  focusSlug?: string
+  /**
+   * 清单是否**真的到过服务端**（`useProfileBadges` / `useBadgesCatalog` 的 `loaded`）。
+   * 深链守卫必须看它：`loading=false` + `groups=[]` 在「还没请求」和「请求回来是空」
+   * 之间是同一个形状，只看 loading 会把还没到达的 `?badge=` 当未知 slug 清掉。
+   */
+  loaded?: boolean
 }>(), {
   loading: false,
   failed: false,
-  variant: 'profile'
+  variant: 'profile',
+  self: false,
+  focusSlug: '',
+  loaded: false
 })
 
-const emit = defineEmits<{ retry: [] }>()
+const emit = defineEmits<{ retry: [], 'update:focusSlug': [slug: string] }>()
 
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
+const toast = useToast()
+const worn = useBadgeWorn()
 
 const isCatalog = computed(() => props.variant === 'catalog')
+// 佩戴控件只属于「本人的资料页」：目录页是目录，他人页是展示。
+const canWear = computed(() => props.self && !isCatalog.value)
+
+async function wearSlug(slug: string, name: string) {
+  try {
+    await worn.wear(slug)
+    toast.add({
+      color: 'success',
+      icon: 'i-lucide-check',
+      title: t('badges.worn.wearSuccess', { name })
+    })
+  } catch (error) {
+    // 失败不静默：未持有/不可用与一般保存失败分开说。
+    toast.add({
+      color: 'error',
+      icon: 'i-lucide-alert-triangle',
+      title: t(badgeWornErrorKey(error)),
+      duration: 0
+    })
+  }
+}
+
+async function toggleWear(badge: ProfileBadgeEntry) {
+  if (!canWear.value) return
+  if (worn.isWorn(badge.slug)) {
+    try {
+      await worn.clear()
+      toast.add({
+        color: 'success',
+        icon: 'i-lucide-check',
+        title: t('badges.worn.unwearSuccess')
+      })
+    } catch (error) {
+      toast.add({
+        color: 'error',
+        icon: 'i-lucide-alert-triangle',
+        title: t(badgeWornErrorKey(error)),
+        duration: 0
+      })
+    }
+    return
+  }
+  await wearSlug(badge.slug, badge.name)
+}
+
+// 只有本人视角才需要佩戴态；切回他人页/目录页时不请求。
+watch(canWear, (enabled) => {
+  if (enabled) void worn.ensureLoaded()
+}, { immediate: true })
 
 const sortedGroups = computed(() => sortProfileBadgeGroups(props.groups).map((group) => {
   // 目录页是「管理员编排的清单」，所见即 position；资料页是「我的荣誉」，按 tier 降序。
@@ -54,6 +129,40 @@ const sortedGroups = computed(() => sortProfileBadgeGroups(props.groups).map((gr
 
 const hasAny = computed(() => sortedGroups.value.some(group => group.total > 0))
 const skeletonCount = computed(() => (isCatalog.value ? 8 : 3))
+
+/** 当前打开详情的条目（带所属分组名）：slug 找不到就是 null，等于不弹窗。 */
+const activeEntry = computed(() => {
+  const slug = String(props.focusSlug || '').trim()
+  if (!slug) return null
+  for (const group of sortedGroups.value) {
+    const badge = group.badges.find(entry => entry.slug === slug)
+    if (badge) return { badge, groupName: group.name }
+  }
+  return null
+})
+
+const detailOpen = computed(() => Boolean(activeEntry.value))
+
+function openBadge(badge: ProfileBadgeEntry) {
+  emit('update:focusSlug', badge.slug)
+}
+
+function closeBadge() {
+  emit('update:focusSlug', '')
+}
+
+// 深链的 slug 不在已加载清单里（停用 / 删除 / 换了 key）：静默清掉，不弹空弹窗。
+// 三个前置条件缺一不可：`loaded` 为假时清单还不可信（宿主可能连请求都还没发），
+// `loading` 期间同理，取数失败时更不该据此判定「这枚徽章不存在」。
+watch(
+  [() => props.focusSlug, sortedGroups, () => props.loading, () => props.failed, () => props.loaded],
+  ([slug, , loading, failed, loaded]) => {
+    if (!slug || loading || failed || !loaded) return
+    if (activeEntry.value) return
+    closeBadge()
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -118,7 +227,21 @@ const skeletonCount = computed(() => (isCatalog.value ? 8 : 3))
             :badge="badge"
             :variant="props.variant"
             :description="forumBadgeRequirementText(badge, locale)"
-          />
+            @open="openBadge"
+          >
+            <template v-if="canWear && badge.earned" #action>
+              <button
+                type="button"
+                class="sf-profile-badges__wear"
+                :class="{ 'sf-profile-badges__wear--active': worn.isWorn(badge.slug) }"
+                :aria-pressed="worn.isWorn(badge.slug) ? 'true' : 'false'"
+                :title="worn.isWorn(badge.slug) ? t('badges.worn.unwear') : t('badges.worn.wear')"
+                @click.stop="toggleWear(badge)"
+              >
+                {{ worn.isWorn(badge.slug) ? t('badges.worn.wearing') : t('badges.worn.wear') }}
+              </button>
+            </template>
+          </SFBadgeCard>
         </div>
       </section>
     </template>
@@ -129,6 +252,18 @@ const skeletonCount = computed(() => (isCatalog.value ? 8 : 3))
         {{ t('badges.catalog.viewAll') }}
       </NuxtLink>
     </div>
+
+    <!-- 详情弹窗：开关与选中项都由宿主（`?badge=`）拥有，这里只回发。 -->
+    <SFBadgeDetailModal
+      :open="detailOpen"
+      :badge="activeEntry?.badge ?? null"
+      :group-name="activeEntry?.groupName ?? ''"
+      :variant="props.variant"
+      :self="props.self"
+      :worn="activeEntry ? worn.isWorn(activeEntry.badge.slug) : false"
+      @update:open="value => { if (!value) closeBadge() }"
+      @toggle-wear="activeEntry && toggleWear(activeEntry.badge)"
+    />
   </section>
 </template>
 
@@ -216,6 +351,42 @@ const skeletonCount = computed(() => (isCatalog.value ? 8 : 3))
   font-size: 12px;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
+}
+
+/* 佩戴按钮：已佩戴用实心 accent 表明「这就是当前展示的那枚」。 */
+.sf-profile-badges__wear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sf-fg-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.sf-profile-badges__wear:hover {
+  border-color: var(--sf-accent);
+  color: var(--sf-accent);
+}
+
+.sf-profile-badges__wear:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 2px;
+}
+
+.sf-profile-badges__wear--active {
+  border-color: var(--sf-accent);
+  background: var(--sf-accent);
+  color: var(--sf-public-surface);
+}
+
+.sf-profile-badges__wear--active:hover {
+  color: var(--sf-public-surface);
+  opacity: 0.9;
 }
 
 /* 单列 → 4 列：390 档硬塞两列会让名称与进度条一起挤坏，规范明确走单列。 */

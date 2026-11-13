@@ -79,8 +79,20 @@ load archived sessions or completed plans as current context.
   后台 IA 移到「用户与权限」。判定 **PASS-with-residual**（reviewer 独立复验），
   唯一未闭是视觉 QA（B-26）。见 `sessions/2026-11-11-badges-public-catalog.md`、
   `decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`。
-- Handoff：`sessions/2026-11-10-badges.md`；决策：
-  `decisions/2026-11-10-badges-and-user-activity.md`；模块：`modules/badges.md`；
+- **UI 五处收口 + 外观单一真源（2026-11-13 landed）**：chip 颜色与后台配置不一致的根因是
+  「两套投影」——论坛读 SQL 只带 4 列（无等级外观），而带外观的 `Badges.Reader` 装饰路径
+  `WithBadges` 生产从未装配。修法：投影扩到 7 列（`LEFT JOIN badge_tiers`）、删除装饰路径、
+  前端缺外观改中性 `slate`、缓存前缀 bump（topic v4 / topics v2 / comments v3）。
+  同批收口：删资料页升级提示条、庆祝浮卡改居中 modal、通知详情目标卡（不再误报「目标不可用」）、
+  徽章详情 modal + `?badge=` 深链。审查后又修了庆祝游标 ack 恒 no-op、深链在 `loaded` 前被清、
+  佩戴按钮 label-in-name、停用档位仍入候选。决策
+  `decisions/2026-11-13-badge-appearance-single-source.md`；handoff
+  `sessions/2026-11-13-badges-ui-closeout.md`。**待人工复验**：YG 重启 `apps/web` dev server 后
+  看新 i18n 文案；庆祝 modal 实机弹窗与 modal 内佩戴切换（写库）。
+- Handoff：`sessions/2026-11-13-badges-ui-closeout.md`（hot；上一刀
+  `sessions/2026-11-10-badges.md`）；决策：
+  `decisions/2026-11-10-badges-and-user-activity.md`、`decisions/2026-11-13-badge-appearance-single-source.md`；
+  模块：`modules/badges.md`；
   计划：`plans/2026-11-10-badges-and-user-activity.md`（§11 决断、§12 陷阱 T1–T12）。
 
 ### 互动第二刀：收藏（主题 + 评论，公开/私密 + 提醒）
@@ -818,7 +830,28 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **插件设置面贡献点 settingsSection（2026-11-13，最新）**：插件第一次可以用宿主契约挂
+- **徽章三件事：通知补全 + 自由佩戴 + 进度统一（2026-11-13，最新）**：三刀都是补上一刀留的洞。
+  ① **授予通知覆盖四条路径**（手动 / 批量只发 `grantedUsers` / 重算 `recomputeNotifyLimit=200` 超限整体不发 /
+  自动 job），出口是领域侧端口 `GrantNotifier`（`Badges` 不 import `Notifications`），失败只 warn 不回滚授予；
+  新增 `TargetType="badge"`（`BadgeID<=0` 不写目标），`ResolveNotificationBadgeTarget` 三重校验 fail-closed
+  → `/u/{username}?tab=badges`，`bootstrap/notification_adapter.go` 按 targetType 分流。去重键仍是
+  `badge:{slug}`，「按用户聚合」只减出口调用、**投影仍一枚一行**。
+  ② **站内庆祝**是通知平台的展示层：`presentation.celebration` jsonb（**没有新列**，插件用
+  `notificationTypes[].celebration` 声明）、**没有新增 Host 命令**、`user_celebration_cursors` 首访
+  `initialized=false` + 空 items + 种子游标（**不写游标行**）、7 天窗 + `id > cursor` + 目标不可见整条丢弃 +
+  `GREATEST` ack；前端 `SFCelebrationHost.vue` 固定左下（右下是 toast）。
+  ③ **自由佩戴**：`users.top_badge_manual`（`top_badge_id` 语义改为「当前展示的徽章」）、
+  `GET/PUT/DELETE /badges/worn`（CTE 单语句校验、`ROW_NUMBER()` 按 `topBadgeOrderSQL` 排名、
+  失效回落并清标记、`private, no-store`、`forum.badge_not_owned` 422 / `forum.badge_worn_body_invalid` 400）。
+  ④ **进度口径统一**：`measureForRule` 只认「单叶 + count + gte + value>0」，`progressFor` 已删除，
+  `ListUserBadges` 不再读 `ActivityCounters`，目录页新增 `current`/`threshold`——**这修订了 D37**
+  （阈值本就以自然语言在 `requirementText` 里，且响应已 `private, no-store`）。
+  **未提交；桌面 1633×810 实机已验（目录进度 / 庆祝浮卡 / 佩戴 / 失效回落），390×844 未验**。见
+  `sessions/2026-11-13-badge-notify-wear-progress.md`、
+  决策 `decisions/2026-11-13-badge-notification-and-celebration.md`、
+  `decisions/2026-11-13-badge-worn-display.md`、`decisions/2026-11-13-badge-progress-from-rule.md`、
+  模块 `modules/badges.md`（「进度口径」「授予通知与庆祝」两节）、`modules/notifications.md`。
+- **插件设置面贡献点 settingsSection（2026-11-13）**：插件第一次可以用宿主契约挂
   设置 tab / 按用户存的表单字段，而不是自建插件页。两个贡献点
   `forum.settings.profile.tabs`（`fields` | `component`）与 `admin.settings.tabs`（仅 `settings`）
   共用宿主拥有的 `settingsSection` payload；引擎是「manifest 声明 → 投影 → 读模型 → 写入策略」四段，
@@ -839,75 +872,6 @@ load archived sessions or completed plans as current context.
   **运维约束**：该迁移的 `updated_by_user_id → users(id)` 让 `CREATE TABLE` 对 `users` 取
   `ShareRowExclusiveLock`，上线需无长于 5s 的 `users` 写事务；`SET LOCAL` 只在事务块内生效，
   手工 `psql -f` 必须显式 `BEGIN/COMMIT`。
-- **徽章等级配色：取色器实时驱动（2026-11-13，最新）**：用户报「拖动取色器时颜色显示不动」。根因是
-  配色字段只在 `change` / 「应用」写模型，拖动过程中只有 hex 文本框在动。改为取色器 `input` 即时写入
-  （同值短路），并让取色块显示**有效色**——token 运行时读 `--sf-tl-<token>-light`，不再固定 slate；
-  弹窗侧位次默认色收敛成 `positionDefault`，图标强调色跟随。信任等级外观弹窗**保持**「草稿 → 应用」
-  （两处口径有意不同，别顺手统一）。新增 `tests/admin/adminBadgeTierColorField.test.ts`（8 例）。
-  验证：`bun test tests/admin` 1244 pass / 0 fail、`bun run typecheck` 通过、架构边界门通过、
-  3000 端口实测 input 事件后 hex / 图标强调色 / 色板选中态同步。已随本 commit 提交。
-  见 `sessions/2026-11-13-badge-tier-color-live.md`、`modules/badges.md`「管理台徽章页」节。
-- **徽章 objectRef 候选残留收口（2026-11-13）**：上一刀 accepted 带 5 条残留，本刀全部关闭 ——
-  ① `refKindManual` 布尔 → **三态 `refKindMode`**（`select`/`unavailable`/`empty`），「候选取不到」与
-  「该类型没有候选项」拆成两句（旧键 `refManualHint` 删除），文本框带 `data-ref-manual-state`；
-  ② 目录诊断分三条：老后端（无字段）**静默**、有数组缺类 → 规则区横幅、白名单外 `refKind` →
-  `data-ref-unknown-kind`（`declaredRefKinds` / `refCandidatesMissingKinds` 两个纯函数）；
-  ③ 手动徽章 `rule-impact` 不再 422（service 层返回 `estimated:null`，前端改按**库里的授予方式**决定
-  问不问，中性「无法估算」与红色「获取失败」互斥）；④ 新码 `forum.badge_rule_mode_conflict`
-  （sentinel/常量/两处 wrap/`mapBadgeError` 顺序/zh+en/OpenAPI 五件同批）；⑤ 两条覆盖缺口补实测
-  （390×844 注入 35 条候选滚动到底；服务端真失败用「缺 `alias` 的同名视图顶替」——**单纯改 `roles`
-  表名会让 `/profile` 也 500**，因为鉴权每请求都 `JOIN roles`）。门禁三线 PASS（api 347s / web 50s /
-  static 16s），验收脚本 20/0/53（无库，API 在跑）与 78/0/9（带库）。**未提交**。
-  见 `sessions/2026-11-13-badge-ref-candidates-residuals.md`、
-  `reports/2026-11-13-badge-ref-candidates-residuals.md`、`modules/badges.md`「objectRef 候选」节（含错误码小表）。
-- **徽章「获得条件」改为服务端生成（2026-11-13）**：公开说明不再由运营手填，改由规则树现算双语
-  （`conditions/phrases.go` 13 条措辞 + `requirement_text_render.go` 树遍历：子句 >4 压成「满足全部 N 个
-  条件，例如…」、单句 ≤100 / 整段 ≤160 超限降级）；手工徽章「由管理员手动授予」、脏规则给泛称句、
-  **永不空白**；引用走 `RefNameLoader` 一次 `= ANY($1)` 解析真名。后台两个 textarea → 只读预览 +
-  `POST /admin/badges/rule-text`（`badge.view`、只读、与公开面同一渲染函数）。`requirement_summary_*`
-  保留一版只作回滚，所有文案读路径已改走生成器。验证：`bun test` 2610 pass / 0 fail（263 文件）+
-  Go 定向渲染测试 ok。**未提交**。见 `sessions/2026-11-13-badge-requirement-text-auto.md`、
-  `decisions/2026-11-13-badge-requirement-text-auto.md`、`modules/badges.md`「获得条件的自动解释器」节。
-- **徽章条件规则编辑器 UX（2026-11-12，同日两轮）**：参数控件收敛为唯一实现 `SFAdminBadgeRuleParamField.vue`
-  （`options` 按 wire 回到 `string[]` + 三级 i18n 回退）；新增简单模式（扁平 all，`any`/`not`/嵌套组
-  **只降级不压平**）+ 常显一句话预览；视觉轮把单位改成 input 行内后缀、删除按钮移进卡片头。
-  **未提交**；390×844 仍只有 340px 行宽模拟（不是视口证据）。见
-  `sessions/2026-11-12-badge-rule-editor-ux.md`、`modules/badges.md`「条件规则编辑器」节。
-- **徽章 objectRef 候选补齐（2026-11-13，`refCandidates`）**：`objectRef` 的
-  `category/tag/role/provider/badge` 五类候选第一次真正接通。此前 `badge.owned` /
-  `object.authoring` / `identity.role` / `identity.oauth_link` 四条条件渲染的是**只有占位
-  option 的空下拉**（「候选列表待后端下发」），必填参数恒空、保存必报「缺少必填参数。」——
-  后台根本配不完，而测试把「只有 1 个 option」钉成了断言所以一直是绿的。
-  `GET /admin/badges/conditions` 新增 additive 顶层 `refCandidates`（恒五项、固定顺序、
-  `unavailable`/`truncated` 逐类独立）；控件改成「有候选 → 可搜索 `USelectMenu`（全仓首用）／
-  取不到 → 文本兜底」，**任何情况下不再出现空下拉**。见
-  `sessions/2026-11-13-badge-ref-candidates.md`、`decisions/2026-11-13-badge-ref-candidates.md`、
-  `modules/badges.md`「objectRef 候选」节。顺带补正 HEAD 上本就红的路由 tripwire（`7c07edf9d`
-  漏计数，422 → 423）与 `verify-badge-rules-acceptance.sh` 的 `expected=421` 手工账。
-  **残留已收口（同日第二刀）**：三态提示、目录诊断、手动徽章 `rule-impact` 中性返回、
-  `forum.badge_rule_mode_conflict`、两条覆盖缺口 —— 见
-  `sessions/2026-11-13-badge-ref-candidates-residuals.md` 与同名 reports 文件。
-- **徽章规则：条件表达式 + 插件事实层（M1–M3 收口，2026-11-12）**：`badges.rule` JSONB 成为自动徽章的
-  唯一判定来源（`metric`/`threshold` 降 legacy 只读）；七层协作方（`Support/RuleEngine` 纯 AST + Kleene
-  三值 → `conditions` 13 条 → `rule_store`/`rule_eval`/`rule_health`/`rule_impact`/`facts_store` →
-  `Jobs/Badges/backfill_rules`）；插件条件不新增条件类型，只给 `fact.count` 注册 `factKey` 候选。
-  第一刀（回扫进度可见）与 M3（插件扩展）均已独立验收，**卸载语义是 unknown 不是 false**。
-  提交：`4457106e2`（apps）/ `082f98624`（web）/ `4e1876331`（contracts）。见
-  `sessions/2026-11-12-badge-rule-engine-handoff.md`、`plans/2026-11-12-badge-rule-engine.md`（§15）、
-  `decisions/2026-11-12-badge-rule-engine.md`、`decisions/2026-11-12-badge-plugin-facts.md`。
-- **徽章等级表改造：可管理档位 + 四分区后台 + 搜索批量授予（2026-11-12；通过）**：
-  `badges.tier` 从 CHECK 枚举升级为 `badge_tiers` 表（双语名 / 图标 / 颜色 / `position` /
-  `enabled`，外键 `ON UPDATE CASCADE ON DELETE RESTRICT`），排序口径改为
-  `badge_tiers.position → badges.position → granted_at DESC` 并排除停用档；9 色 palette
-  上提到 `Support/Palette`，前端单源 `utils/theme/tierColor.ts` + `--sf-tl-*` 明暗两套，
-  chip 统一 12% 底 / 34% 环线（bronze 虚线移除）；后台扩为 badges / groups / **tiers** /
-  grants 四分区，授予弹窗改成「搜索 + 多选批量 + 逐人三态结果」。8 条门禁全绿，写路径
-  浏览器证据已补齐；P1（停用最后一个启用档会清空全站 `top_badge_id`）与 P2（新建等级
-  `position` 落 0 与金牌并列）均已修复并复验。见
-  `sessions/2026-11-12-badges-tiers.md`、`reports/2026-11-12-badges-tiers-review.md`、
-  `modules/badges.md`；上一轮 SelectItem
-  空串崩溃与内容区 Card 修复留在
-  `sessions/2026-11-12-badges-admin-selectitem-fix.md`。
 - **信任等级：档位色单源渲染 + 后台 IA 归位（2026-11-11）**：五个后台分区与资料页卡收敛到共享
   `.sf-tl-mark`，色相只认**行根内联** `--tl-accent`（`tierColorOf` → `tierAccentStyle`），删掉六处子层
   `--tl-accent: var(--sf-accent)` / `--sf-accent-dark` 遮蔽声明与 `--sf-accent-soft` 淡底；形状梯度
@@ -973,27 +937,6 @@ load archived sessions or completed plans as current context.
   `sessions/2026-11-11-trust-levels-admin-page.md`、
   `decisions/2026-11-11-trust-levels-standalone-admin-page.md`、`modules/trust-levels.md`。
 
-- **`/badges` 公共目录页（2026-11-11，最新）**：互动系列收口刀。新增公开读面
-  `GET /api/v1/badges`（`core.route.badges.public_catalog`，返回全部 `enabled` 徽章含未获得、
-  不含 `threshold`/`metric`、上限 500 + `truncated`），缓存头 `private, no-store`
-  ——它返回**查看者自己**的 earned，写 `public` 会把 A 的 earned 投给 B（D37）。
-  Page Registry 七件套 + 内置主题模板全落，包级 digest `2f06a9e4…` → `c8105b4f…f34a`
-  （账本 revision 22 / `approval_source='admin'`）。判定 **PASS-with-residual**，
-  唯一未闭是视觉 QA（B-26）。两条最贵的教训：**404 页也由主题渲染**（只 grep
-  `data-provider`/`data-template` 会把「页面没做出来」判成通过）、**Core fallback 是静默的**
-  （标题/数据/`data-page` 全对，只有 provider/template 两值暴露它）。见
-  `sessions/2026-11-11-badges-public-catalog.md`、
-  `decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`、
-  `reports/2026-11-11-badges-public-catalog-matrix.md`。
-- **徽章 + 用户活动统计（2026-11-10）**：`user_activity` 独立表承载六项计数
-  （关系行三项可精确重算，`topic_count`/`comment_count` 是事件累计、软删后不回退），
-  `user_visits` 由 Redis SETNX 挡库后同步写；徽章 actor 无关所以进 `CachedStore`
-  （与 `likedByMe`/`bookmarkedByMe` 相反，代价是帖子旁 20–30s 延迟）；`top_badge_id`
-  反规范化承担三个失真窗口；授予三来源可按 `granted_by`/`grant_reason` 精确区分；
-  `Recompute` 用一条批量 SQL 补授予 + 修 top_badge，返回 `{granted, refreshed}`。
-  M8 通过（84 断言 0 FAIL）。本刀修掉的两个 P0（首页 500、后台无权限）根因都是
-  「同一份东西存在多个副本」。见 `sessions/2026-11-10-badges.md`、
-  `decisions/2026-11-10-badges-and-user-activity.md`、`modules/badges.md`。
 - **收藏（主题 + 评论 + 提醒，2026-11-10）**：`content_bookmarks` 多态关系、
   每条可公开/私密（默认私密）、只统计公开收藏的计数列、`PUT` 全量状态写入
   （`visibility` / `remindAt` / `clearReminder` 三态）、`GET /profile/bookmarks` 与

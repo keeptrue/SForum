@@ -240,9 +240,8 @@ func (s *PostgresStore) ListUserBadges(ctx context.Context, userID int64) ([]Use
 		applyScannedBadgeFields(&badge, metric, ruleRaw)
 		badgeItems = append(badgeItems, badge)
 		item.Earned = item.GrantedAt != nil
-		if badge.Threshold != nil {
-			item.Progress.Threshold = *badge.Threshold
-		}
+		// 进度**不在这里算**：legacy 的 threshold 是只读遗留（规则徽章为 NULL），
+		// 而真实进度要按规则批量测量（见 Service.measureProgress / MeasureProgress）。
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -426,18 +425,44 @@ func (s *PostgresStore) RevokeManual(ctx context.Context, userID int64, badgeID 
 	return tag.RowsAffected() > 0, nil
 }
 
-// RecomputeTopBadge 重算单个用户的最高级徽章（可能落成 NULL）。
+// wornBadgeStillValidSQL 判断「当前展示位那枚徽章是否仍然可以展示」。
+//
+// 三个条件与 `topBadgeOrderSQL` 的 JOIN 完全一致（enabled + 等级 enabled + 仍持有）：
+// 排序查询排除掉的行，这里也必须判为失效，否则会出现「展示位保留了一枚排序里
+// 根本不存在的徽章」——chip 不显示，而佩戴状态说在戴。
+//
+// 只依赖外层查询提供 `users`（外层别名）：片段内自带 `FROM user_badges AS worn`
+// 并按 `worn.user_id = users.id` 关联，既不需要外层再提供 user_badges，也不吃 $1。
+const wornBadgeStillValidSQL = `EXISTS (
+	SELECT 1
+	FROM user_badges AS worn
+	JOIN badges AS worn_badge ON worn_badge.id = worn.badge_id AND worn_badge.enabled
+	JOIN badge_tiers AS t ON t.key = worn_badge.tier AND t.enabled
+	WHERE worn.user_id = users.id AND worn.badge_id = users.top_badge_id
+)`
+
+// RecomputeTopBadge 重算单个用户的展示徽章（可能落成 NULL）。
+//
+// **用户佩戴（`top_badge_manual`）优先**：只要那枚徽章仍然有效就不覆盖它，
+// 否则「佩戴了，下次评估就变回去」。失效（停用/收回/删除/等级停用）时回落到
+// 自动推导的下一枚，并同一条语句把标记清掉——两件事必须一起做，否则要么
+// 展示位空着（chip 消失），要么标记留着（下次又拦住重算）。
 func (s *PostgresStore) RecomputeTopBadge(ctx context.Context, userID int64) error {
 	_, err := s.pool.Exec(ctx, `
-		UPDATE users SET top_badge_id = (
-			SELECT badges.id
-			FROM user_badges
-			JOIN badges ON badges.id = user_badges.badge_id
-			JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled
-			WHERE user_badges.user_id = $1 AND badges.enabled
-			ORDER BY `+topBadgeOrderSQL+`
-			LIMIT 1
-		)
+		UPDATE users SET
+			top_badge_manual = (users.top_badge_manual AND `+wornBadgeStillValidSQL+`),
+			top_badge_id = CASE
+				WHEN users.top_badge_manual AND `+wornBadgeStillValidSQL+` THEN users.top_badge_id
+				ELSE (
+					SELECT badges.id
+					FROM user_badges
+					JOIN badges ON badges.id = user_badges.badge_id
+					JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled
+					WHERE user_badges.user_id = $1 AND badges.enabled
+					ORDER BY `+topBadgeOrderSQL+`
+					LIMIT 1
+				)
+			END
 		WHERE users.id = $1`, userID)
 	if err != nil {
 		return fmt.Errorf("recompute top badge: %w", err)
@@ -445,7 +470,17 @@ func (s *PostgresStore) RecomputeTopBadge(ctx context.Context, userID int64) err
 	return nil
 }
 
-// GrantFromRules 按启用规则批量补授予，返回本次新插入的 user_badges 行数。
+// grantFromRulesCollectLimit 是批量补授予时**收集**给通知层的行数上限。
+//
+// 通知在超过 `AdminService.recomputeNotifyLimit`（200）时整体不发，所以收集
+// 上限只需「足够判出 200 已被突破」。取 1000 而不是 200 是给阈值调整留余量，
+// 同时把十万行授予的内存占用压成常数。
+//
+// **1000 与 200 的关系是判据余量，不是第二道产品阈值**：超过 1000 条时这里只是
+// 停止继续收集（`Granted` 仍是真实行数），不发通知的唯一判据永远是 200。
+const grantFromRulesCollectLimit = 1000
+
+// GrantFromRules 按启用规则批量补授予，返回本次新插入的行与需要异步评估的徽章。
 //
 // 为什么是一条 SQL 而不是逐用户调 evaluator：10 万用户 × 12 规则在 Go 里循环是
 // 不可接受的，在 PG 里只是一次 join。这也是「运营调低阈值后点重算就能追溯授予」
@@ -453,8 +488,11 @@ func (s *PostgresStore) RecomputeTopBadge(ctx context.Context, userID int64) err
 //
 // granted_by = NULL + grant_reason = 'recompute' 让授予记录能区分三种来源：
 // 规则自动（NULL/”）、管理员手动（actor/理由）、批量重算（NULL/'recompute'）。
-func (s *PostgresStore) GrantFromRules(ctx context.Context) (int64, []int64, error) {
-	tag, err := s.pool.Exec(ctx, `
+//
+// `RETURNING user_id, badge_id` 而不是只看 RowsAffected：重算也要发授予通知，
+// 而通知需要知道「谁拿到了哪一枚」。行的收集上限见 grantFromRulesCollectLimit。
+func (s *PostgresStore) GrantFromRules(ctx context.Context) (GrantFromRulesResult, error) {
+	rows, err := s.pool.Query(ctx, `
 		INSERT INTO user_badges (user_id, badge_id, granted_by, grant_reason)
 		SELECT activity.user_id, rules.id, NULL, 'recompute'
 		FROM user_activity AS activity
@@ -470,15 +508,32 @@ func (s *PostgresStore) GrantFromRules(ctx context.Context) (int64, []int64, err
 		        WHEN 'bookmark_count'      THEN activity.bookmark_count
 		        WHEN 'days_visited'        THEN activity.days_visited::bigint
 		      END >= (rules.rule->'root'->'cmp'->>'value')::bigint
-		ON CONFLICT ON CONSTRAINT user_badges_unique DO NOTHING`)
+		ON CONFLICT ON CONSTRAINT user_badges_unique DO NOTHING
+		RETURNING user_id, badge_id`)
 	if err != nil {
-		return 0, nil, fmt.Errorf("grant badges from rules: %w", err)
+		return GrantFromRulesResult{}, fmt.Errorf("grant badges from rules: %w", err)
+	}
+	defer rows.Close()
+	result := GrantFromRulesResult{Rows: make([]RuleGrant, 0, 8)}
+	for rows.Next() {
+		var row RuleGrant
+		if err := rows.Scan(&row.UserID, &row.BadgeID); err != nil {
+			return GrantFromRulesResult{}, fmt.Errorf("scan rule grant: %w", err)
+		}
+		result.Granted++
+		if len(result.Rows) < grantFromRulesCollectLimit {
+			result.Rows = append(result.Rows, row)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return GrantFromRulesResult{}, fmt.Errorf("grant badges from rules: %w", err)
 	}
 	complexIDs, err := s.complexRuleBadgeIDs(ctx)
 	if err != nil {
-		return 0, nil, err
+		return GrantFromRulesResult{}, err
 	}
-	return tag.RowsAffected(), complexIDs, nil
+	result.ComplexBadgeIDs = complexIDs
+	return result, nil
 }
 
 // fastPathRulePredicateSQL 必须与 Go 侧 `fastPathRule()` **完全等价**。
@@ -531,14 +586,19 @@ func (s *PostgresStore) complexRuleBadgeIDs(ctx context.Context) ([]int64, error
 	return ids, rows.Err()
 }
 
-// RecomputeAll 全量重算 top_badge_id，返回实际变更的行数。
+// RecomputeAll 全量重算展示徽章，返回 `top_badge_id` 实际变更的行数。
 //
-// 覆盖两类人：有授予行的（可能该升/该降）与 top_badge_id 非空的（徽章被删/停用
-// 后可能该清空）。只写真正变化的行，避免无谓的 users 表 touch。
+// 覆盖三类人：有授予行的（可能该升/该降）、`top_badge_id` 非空的（徽章被删/停用
+// 后可能该清空）、以及佩戴了徽章的（佩戴值有效时**跳过**，失效时回落）。
+//
+// `refreshed` 的语义没有扩大：仍然只数 `top_badge_id` 真的变了的行。佩戴标记的
+// 清理搭同一批行的便车——失效的佩戴值必然让 `top_badge_id` 也变（排序里排除了
+// 那枚徽章，回落的下一枚与它不同），所以不会出现「标记清了但没计数」的行。
 func (s *PostgresStore) RecomputeAll(ctx context.Context) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
-		SET top_badge_id = best.badge_id
+		SET top_badge_manual = best.manual_valid,
+		    top_badge_id = CASE WHEN best.manual_valid THEN users.top_badge_id ELSE best.badge_id END
 		FROM (
 			SELECT users.id AS user_id,
 			       (SELECT badges.id
@@ -547,13 +607,16 @@ func (s *PostgresStore) RecomputeAll(ctx context.Context) (int64, error) {
 			        JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled
 			        WHERE user_badges.user_id = users.id AND badges.enabled
 			        ORDER BY `+topBadgeOrderSQL+`
-			        LIMIT 1) AS badge_id
+			        LIMIT 1) AS badge_id,
+			       (users.top_badge_manual AND `+wornBadgeStillValidSQL+`) AS manual_valid
 			FROM users
 			WHERE users.top_badge_id IS NOT NULL
+			   OR users.top_badge_manual
 			   OR EXISTS (SELECT 1 FROM user_badges WHERE user_badges.user_id = users.id)
 		) AS best
 		WHERE users.id = best.user_id
-		  AND users.top_badge_id IS DISTINCT FROM best.badge_id`)
+		  AND users.top_badge_id IS DISTINCT FROM
+		      CASE WHEN best.manual_valid THEN users.top_badge_id ELSE best.badge_id END`)
 	if err != nil {
 		return 0, fmt.Errorf("recompute all top badges: %w", err)
 	}

@@ -3,7 +3,7 @@
   "legacyLargeFiles": {
     "apps/api/app/Http/Controllers/Pages/controller.go": 975,
     "apps/api/app/Models/Extensions/service_package.go": 807,
-    "apps/api/app/Models/Forum/postgres_store_ops.go": 1136,
+    "apps/api/app/Models/Forum/postgres_store_ops.go": 933,
     "apps/api/app/Models/Forum/service.go": 1074,
     "apps/api/app/Models/Forum/service_ops.go": 1129,
     "apps/api/app/Models/Identity/service.go": 966,

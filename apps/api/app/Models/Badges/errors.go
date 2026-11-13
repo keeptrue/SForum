@@ -72,6 +72,16 @@ const (
 	// CodeBadgeFactWriteDenied 是插件事实上报（Host 命令 badges.fact.record）被拒的
 	// 顶层错误码。细节在 ErrorDetail.reason 的六个冻结字面量里（spec §9 Errata 3）。
 	CodeBadgeFactWriteDenied = "forum.badge_fact_write_denied"
+	// CodeBadgeNotOwned 是「自由佩戴」的唯一拒绝码：不持有 / 已停用 / 等级停用 /
+	// slug 不存在全部折成同一个码。对手方（普通用户）不需要知道站内是否存在这枚
+	// 徽章，区分只会变成一个探测面；前端也只需要一句「先获得它」。
+	CodeBadgeNotOwned = "forum.badge_not_owned"
+	// CodeBadgeWornBodyInvalid 是 PUT /badges/worn 的请求体解析失败（400）。
+	//
+	// 与 CodeBadgeNotOwned 分开：一个是「body 根本不是 JSON / slug 类型不对」，
+	// 一个是「body 合法但你没资格戴」。合成一码会让前端把解析失败也提示成
+	// 「这枚徽章不在你的徽章墙里」，用户会去重新获得一枚他早就有的徽章。
+	CodeBadgeWornBodyInvalid = "forum.badge_worn_body_invalid"
 )
 
 // ErrorCode 把领域错误映射到稳定的错误码字符串。
@@ -110,6 +120,8 @@ func ErrorCode(err error) string {
 		return CodeBadgeBackfillUnavailable
 	case errors.Is(err, ErrBadgeFactWriteDenied):
 		return CodeBadgeFactWriteDenied
+	case errors.Is(err, ErrBadgeNotOwned):
+		return CodeBadgeNotOwned
 	default:
 		return ""
 	}

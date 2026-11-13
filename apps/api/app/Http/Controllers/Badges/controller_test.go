@@ -159,6 +159,48 @@ func TestProfileBadgeItemOmitsAbsentFields(t *testing.T) {
 	}
 }
 
+// TestProfileBadgeItemCarriesDescription 断言徽章说明随资料页载荷下发。
+//
+// 为什么必须值级断言：徽章详情弹窗（点击卡片 / `?badge=<slug>` 深链）的正文只有
+// 这一个来源。缺键时前端拿到 undefined，弹窗会渲染成空正文——比「运营没写说明」
+// 更糟，因为那看起来像保存失败。空串与缺键是两种状态，必须都钉住。
+func TestProfileBadgeItemCarriesDescription(t *testing.T) {
+	const description = "发布第一个主题后自动获得。"
+	item := toProfileBadgeItem(badges.UserBadge{
+		Badge: badges.PublicBadge{Slug: "first-topic", Name: "初次发帖", Description: description},
+	})
+	if item.Description != description {
+		t.Fatalf("description = %q, want %q", item.Description, description)
+	}
+
+	raw, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got, present := wire["description"]; !present || got != description {
+		t.Fatalf("wire description = %#v (present=%v), want %q", got, present, description)
+	}
+
+	// 运营没写说明：键仍必须出现（空串），否则前端无法区分「没写」与「没下发」。
+	rawEmpty, err := json.Marshal(toProfileBadgeItem(badges.UserBadge{
+		Badge: badges.PublicBadge{Slug: "quality-answer"},
+	}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var wireEmpty map[string]any
+	if err := json.Unmarshal(rawEmpty, &wireEmpty); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got, present := wireEmpty["description"]; !present || got != "" {
+		t.Fatalf("wire description for badge without text = %#v (present=%v), want empty string", got, present)
+	}
+}
+
 // TestCacheHeadersSeparatePublicAndAdmin 断言公开端点可共享缓存、后台端点禁止缓存。
 func TestCacheHeadersSeparatePublicAndAdmin(t *testing.T) {
 	app := fiber.New()

@@ -62,6 +62,8 @@ Status: **accepted**（YG 与 Lead 在 2026-11-11 会话裁决；**未提交，�
 
 ## D37：`/badges` 响应的缓存头必须 `private`，禁止 `public`
 
+> **2026-11-13 修订索引**：见 `2026-11-13-badge-progress-from-rule.md` 的「显式修订 D37」小节（本条原文不改）。
+
 **裁决**：`GET /api/v1/badges` 的 `Cache-Control` 必须是 `private`（实现取 `private, no-store`），
 **不得**出现 `public`。既有 13 条徽章端点的头**不动**。
 

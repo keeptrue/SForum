@@ -2690,6 +2690,9 @@
               ]
             }
           },
+          "celebration": {
+            "type": "boolean"
+          },
           "required": {
             "const": false
           }

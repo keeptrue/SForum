@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { computed, ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { forumBadgeRequirementText } from '~/utils/forum/forumBadge'
+import { forumBadgeHasProgress, forumBadgeRequirementText } from '~/utils/forum/forumBadge'
 
 /**
  * `/badges` 数据层契约（M5b）：wire → ProfileBadgeGroup 的映射、truncated、
@@ -85,7 +85,7 @@ beforeEach(() => {
 })
 
 describe('useBadgesCatalog wire mapping', () => {
-  test('keeps the server order as position and never invents progress fields', async () => {
+  test('keeps the server order as position and stays silent about progress the wire did not send', async () => {
     payload = {
       groups: [
         { key: 'activity', name: '活跃', badges: [catalogItem({ slug: 'a', earned: true }), catalogItem({ slug: 'b' })] },
@@ -102,11 +102,64 @@ describe('useBadgesCatalog wire mapping', () => {
     expect(groups.value[1]!.name).toBe('未分组')
     expect(groups.value[0]!.badges.map(badge => badge.position)).toEqual([0, 1])
     expect(groups.value[0]!.badges[0]!.earned).toBe(true)
-    // D37 白名单：wire 上没有阈值与授予时间，映射后也不许凭空长出来。
+    // 缺键 = 不可测：映射层不许补 0，否则卡片会画出 0/N 的空进度。
     expect('threshold' in groups.value[0]!.badges[1]!).toBe(false)
     expect('current' in groups.value[0]!.badges[1]!).toBe(false)
     expect('grantedAt' in groups.value[0]!.badges[0]!).toBe(false)
     expect(truncated.value).toBe(true)
+  })
+
+  test('carries rule-engine progress for unearned measurable badges (value-level, not key-level)', async () => {
+    payload = {
+      groups: [
+        {
+          key: 'content',
+          name: '内容',
+          badges: [
+            catalogItem({ slug: 'first-post', current: 3, threshold: 10 }),
+            catalogItem({ slug: 'zero-progress', current: 0, threshold: 5 })
+          ]
+        }
+      ],
+      truncated: false
+    }
+
+    const { groups } = await useBadgesCatalog()
+    const measurable = groups.value[0]!.badges[0]!
+    const zero = groups.value[0]!.badges[1]!
+
+    // current=0 是有效值（后端用指针 + omitempty 保住它），不能被 `||` 吃掉变成缺键。
+    expect(measurable.current).toBe(3)
+    expect(measurable.threshold).toBe(10)
+    expect(zero.current).toBe(0)
+    expect(zero.threshold).toBe(5)
+    expect(forumBadgeHasProgress(measurable)).toBe(true)
+    expect(forumBadgeHasProgress(zero)).toBe(true)
+  })
+
+  test('drops a threshold of 0 and refuses progress on earned rows', async () => {
+    payload = {
+      groups: [
+        {
+          key: 'content',
+          name: '内容',
+          badges: [
+            catalogItem({ slug: 'zero-threshold', current: 4, threshold: 0 }),
+            // 防御性：即使服务端给已获得行塞了进度，映射后也不能让卡片画进度条。
+            catalogItem({ slug: 'already-earned', earned: true, current: 9, threshold: 9 })
+          ]
+        }
+      ],
+      truncated: false
+    }
+
+    const { groups } = await useBadgesCatalog()
+    const [zeroThreshold, earned] = groups.value[0]!.badges
+
+    expect('threshold' in zeroThreshold!).toBe(false)
+    expect('current' in zeroThreshold!).toBe(false)
+    expect(forumBadgeHasProgress(zeroThreshold!)).toBe(false)
+    expect(forumBadgeHasProgress(earned!)).toBe(false)
   })
 
   test('an empty catalog stays an empty array, not null', async () => {

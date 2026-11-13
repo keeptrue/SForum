@@ -36,6 +36,8 @@ type fakeStore struct {
 	// catalogReads / grantReads 计数用于钉住「匿名不碰 user_badges」。
 	catalogReads int
 	grantReads   int
+	// userBadgeReads 计数用于钉住「匿名目录不读徽章墙」。
+	userBadgeReads int
 	// tiers 是等级表；默认三个内置档位，position 与迁移种子一致（gold 0/silver 1/bronze 2）。
 	tiers []TierDef
 	// candidates / usernames 供批量授予的候选搜索与失败行回填。
@@ -456,6 +458,7 @@ func (f *fakeStore) DeleteGroup(_ context.Context, groupID int64) error {
 }
 
 func (f *fakeStore) ListUserBadges(_ context.Context, userID int64) ([]UserBadge, error) {
+	f.userBadgeReads++
 	items := make([]UserBadge, 0, len(f.badges))
 	for _, badge := range f.badges {
 		if !badge.Enabled {
@@ -467,9 +470,7 @@ func (f *fakeStore) ListUserBadges(_ context.Context, userID int64) ([]UserBadge
 			item.GrantedAt = &at
 			item.Earned = true
 		}
-		if badge.Threshold != nil {
-			item.Progress.Threshold = *badge.Threshold
-		}
+		// 与真实现同口径：store 不算进度，规则测量在 Service/MeasureProgress 一侧。
 		items = append(items, item)
 	}
 	return items, nil
@@ -645,26 +646,28 @@ func fakeRuleSatisfied(badge Badge, counters ActivityCounters) bool {
 }
 
 // GrantFromRules 复刻批量 SQL 的语义：启用自动徽章 + 活动计数达阈值 → 授予。
-func (f *fakeStore) GrantFromRules(ctx context.Context) (int64, []int64, error) {
-	var granted int64
+func (f *fakeStore) GrantFromRules(ctx context.Context) (GrantFromRulesResult, error) {
+	result := GrantFromRulesResult{Rows: make([]RuleGrant, 0, 2)}
 	rules, _ := f.ListEnabledAutomaticBadges(ctx)
-	var complexIDs []int64
 	for _, rule := range rules {
 		// 复刻生产 SQL 的分流：规则形状不是「单 activity.count + window.all + gte」
 		// 的徽章不进批量 SQL，而是返回给调用方入队。
 		if _, _, ok := fastPathRuleOf(rule); !ok {
-			complexIDs = append(complexIDs, rule.ID)
+			result.ComplexBadgeIDs = append(result.ComplexBadgeIDs, rule.ID)
 			continue
 		}
 		for userID := range f.activityCounters {
 			if fakeRuleSatisfied(rule, f.activityCounters[userID]) {
 				if f.insertGrant(userID, rule.ID, 0, "recompute") {
-					granted++
+					result.Granted++
+					if len(result.Rows) < grantFromRulesCollectLimit {
+						result.Rows = append(result.Rows, RuleGrant{UserID: userID, BadgeID: rule.ID})
+					}
 				}
 			}
 		}
 	}
-	return granted, complexIDs, nil
+	return result, nil
 }
 
 // fastPathRuleOf 是 fake 侧对 `fastPathRule` 的转发（Rule 为 nil 时视为非快路径）。

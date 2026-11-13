@@ -100,6 +100,7 @@ func scanCommentWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Comment
 	var parentAttachmentStatus sql.NullString
 
 	var badgeSlug, badgeName, badgeTier, badgeIcon sql.NullString
+	var badgeTierNameZh, badgeTierNameEn, badgeTierColor sql.NullString
 	if err := row.Scan(
 		&comment.ID,
 		&comment.TopicID,
@@ -146,11 +147,14 @@ func scanCommentWithAvatar(row RowScanner, builder *avatar.ViewBuilder) (Comment
 		&badgeName,
 		&badgeTier,
 		&badgeIcon,
+		&badgeTierNameZh,
+		&badgeTierNameEn,
+		&badgeTierColor,
 	); err != nil {
 		return Comment{}, err
 	}
 	comment.Content.Excerpt = ExcerptFromPlain(comment.Content.PlainText, defaultExcerptRuneLimit)
-	comment.TopBadge = badgeRefFromNulls(badgeSlug, badgeName, badgeTier, badgeIcon)
+	comment.TopBadge = badgeRefFromNulls(badgeSlug, badgeName, badgeTier, badgeIcon, badgeTierNameZh, badgeTierNameEn, badgeTierColor)
 	if authorID.Valid {
 		comment.AuthorUserID = authorID.Int64
 		comment.Author = userSummaryWithAvatar(builder, authorID, username, displayName, email, avatarAttachmentID, attachmentID, attachmentPublicID, attachmentOwnerID, attachmentContentType, attachmentStatus)

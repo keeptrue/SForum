@@ -1,6 +1,7 @@
 package badgescontroller
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -11,8 +12,10 @@ import (
 // 内嵌 fiber.Router 是为了满足接口；控制器只用到这六个方法，其余方法不会被调用。
 type recordingRouter struct {
 	fiber.Router
-	gets  []string
-	posts []string
+	gets    []string
+	posts   []string
+	puts    []string
+	deletes []string
 }
 
 func (r *recordingRouter) Get(path string, handler any, handlers ...any) fiber.Router {
@@ -24,10 +27,60 @@ func (r *recordingRouter) Post(path string, _ any, _ ...any) fiber.Router {
 	r.posts = append(r.posts, path)
 	return r
 }
-func (r *recordingRouter) Put(string, any, ...any) fiber.Router    { return r }
-func (r *recordingRouter) Patch(string, any, ...any) fiber.Router  { return r }
-func (r *recordingRouter) Delete(string, any, ...any) fiber.Router { return r }
-func (r *recordingRouter) Group(string, ...any) fiber.Router       { return r }
+func (r *recordingRouter) Put(path string, _ any, _ ...any) fiber.Router {
+	r.puts = append(r.puts, path)
+	return r
+}
+func (r *recordingRouter) Delete(path string, _ any, _ ...any) fiber.Router {
+	r.deletes = append(r.deletes, path)
+	return r
+}
+func (r *recordingRouter) Patch(string, any, ...any) fiber.Router { return r }
+func (r *recordingRouter) Group(string, ...any) fiber.Router      { return r }
+
+// TestWornBadgeRoutesAreRegisteredAsStaticSegments 钉住佩戴三条端点的注册位置。
+//
+// `/badges/worn` 与将来可能出现的 `/badges/:slug` 同形（同段数、同方法族）：
+// 注册顺序错了，Fiber 会把 "worn" 当成 slug 解析，症状是 200 返回空徽章而不是
+// 404——从响应完全看不出是路由顺序问题。同理它也不能被 `/profiles/:username/badges`
+// 一族抢走，所以三条都必须在任何含参数段之前。
+func TestWornBadgeRoutesAreRegisteredAsStaticSegments(t *testing.T) {
+	recorder := &recordingRouter{}
+	(&Controller{}).RegisterRoutes(recorder)
+
+	indexIn := func(paths []string, path string) int {
+		for i, registered := range paths {
+			if registered == path {
+				return i
+			}
+		}
+		return -1
+	}
+
+	get := indexIn(recorder.gets, "/badges/worn")
+	if get < 0 {
+		t.Fatal("GET /badges/worn 未注册")
+	}
+	if put := indexIn(recorder.puts, "/badges/worn"); put < 0 {
+		t.Fatal("PUT /badges/worn 未注册")
+	}
+	if del := indexIn(recorder.deletes, "/badges/worn"); del < 0 {
+		t.Fatal("DELETE /badges/worn 未注册")
+	}
+
+	// 三条端点都必须排在**任何**含参数段之前，而不是只躲开已知的那一条：
+	// 将来给徽章域加 `/badges/:slug`（GET/PUT/DELETE 都可能）时，这条会立刻红。
+	for method, paths := range map[string][]string{
+		"GET": recorder.gets, "PUT": recorder.puts, "DELETE": recorder.deletes,
+	} {
+		wornIndex := indexIn(paths, "/badges/worn")
+		for i, registered := range paths {
+			if i < wornIndex && strings.Contains(registered, ":") {
+				t.Fatalf("%s %s 注册在 /badges/worn 之前（index %d < %d）", method, registered, i, wornIndex)
+			}
+		}
+	}
+}
 
 // TestRuleRoutesAreRegisteredBeforeParamRoutes 钉住静态段先注册。
 //

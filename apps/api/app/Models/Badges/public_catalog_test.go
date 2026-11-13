@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // 公开目录读面的领域测试。
@@ -179,5 +181,82 @@ func TestPublicCatalogEmptyResultHasNonNilGroups(t *testing.T) {
 	}
 	if catalog.Truncated {
 		t.Fatal("empty catalog must not be truncated")
+	}
+}
+
+// ViewerCatalogProgress 只测「未获得 + 有 Measure」的启用徽章。
+//
+// 已获得的不需要进度条；lte / 布尔 / 多条件组没有可枚举的阈值语义；
+// 手动徽章没有规则。三类都不该进测量批次——测了只会白跑 SQL，
+// 更糟的是给前端一个 0/0 的假进度条。
+func TestViewerCatalogProgressOnlyUnearnedMeasurable(t *testing.T) {
+	ctx := context.Background()
+	store := newFakeStore()
+	lteRule := builtinRule(MetricTopicCount, 5)
+	lteRule.Cmp = &ruleengine.Compare{Op: ruleengine.CompareLTE, Value: 5}
+	store.badges = []Badge{
+		{ID: 1, Slug: "rule-only", Name: "规则徽章", GrantMode: GrantAutomatic,
+			Enabled: true, Rule: builtinRule(MetricTopicCount, 5)},
+		{ID: 2, Slug: "earned-rule", Name: "已获得", GrantMode: GrantAutomatic,
+			Enabled: true, Rule: builtinRule(MetricCommentCount, 3)},
+		{ID: 3, Slug: "lte-rule", Name: "上限条件", GrantMode: GrantAutomatic,
+			Enabled: true, Rule: lteRule},
+		{ID: 4, Slug: "manual", Name: "手动", GrantMode: GrantManual, Enabled: true},
+	}
+	store.insertGrant(7, 2, 0, "seed")
+
+	service := NewService(store, nil)
+	measurer := &fakeProgressMeasurer{current: map[string]int64{"rule-only": 2}}
+	service.SetProgressMeasurer(measurer)
+
+	progress := service.ViewerCatalogProgress(ctx, 7)
+	if len(progress) != 1 {
+		t.Fatalf("want exactly 1 measurable badge, got %+v", progress)
+	}
+	got, ok := progress["rule-only"]
+	if !ok || got.Current != 2 || got.Threshold != 5 {
+		t.Fatalf("rule-only progress = %+v, want 2/5", progress)
+	}
+	for _, slug := range []string{"earned-rule", "lte-rule", "manual"} {
+		if _, measured := measurer.requests[slug]; measured {
+			t.Fatalf("%q must not be measured: %+v", slug, measurer.requests)
+		}
+		if _, present := progress[slug]; present {
+			t.Fatalf("%q must not carry progress: %+v", slug, progress)
+		}
+	}
+}
+
+// 匿名目录不测量、不查库：userID <= 0 直接返回空 map（且不是 nil）。
+func TestViewerCatalogProgressAnonymousSkipsStore(t *testing.T) {
+	store := newFakeStore()
+	store.badges = []Badge{{ID: 1, Slug: "rule-only", GrantMode: GrantAutomatic,
+		Enabled: true, Rule: builtinRule(MetricTopicCount, 5)}}
+	service := NewService(store, nil)
+	measurer := &fakeProgressMeasurer{}
+	service.SetProgressMeasurer(measurer)
+
+	progress := service.ViewerCatalogProgress(context.Background(), 0)
+	if progress == nil || len(progress) != 0 {
+		t.Fatalf("anonymous progress = %+v, want empty non-nil map", progress)
+	}
+	if store.userBadgeReads != 0 || measurer.calls != 0 {
+		t.Fatalf("anonymous must not read badges/measure: reads=%d calls=%d", store.userBadgeReads, measurer.calls)
+	}
+}
+
+// 未装配测量器时连徽章墙都不读：进度是装饰，缺能力就不该产生任何查询。
+func TestViewerCatalogProgressWithoutMeasurerSkipsStore(t *testing.T) {
+	store := newFakeStore()
+	store.badges = []Badge{{ID: 1, Slug: "rule-only", GrantMode: GrantAutomatic,
+		Enabled: true, Rule: builtinRule(MetricTopicCount, 5)}}
+	service := NewService(store, nil)
+
+	progress := service.ViewerCatalogProgress(context.Background(), 7)
+	if len(progress) != 0 {
+		t.Fatalf("progress without measurer = %+v, want empty", progress)
+	}
+	if store.userBadgeReads != 0 {
+		t.Fatalf("nil measurer must not read badges, got %d reads", store.userBadgeReads)
 	}
 }

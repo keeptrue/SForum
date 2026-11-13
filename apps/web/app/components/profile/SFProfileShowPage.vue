@@ -3,6 +3,7 @@ import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import { useProfileApi, type ProfileActivityKind, type ProfileActivityPage } from '~/composables/profile/useProfileApi'
 import { useProfileShowData } from '~/composables/profile/useProfileShowData'
 import { useProfileTabQuery } from '~/composables/profile/useProfileTabQuery'
+import { useBadgeDetailQuery } from '~/composables/profile/useBadgeDetailQuery'
 import { useProfileBadges } from '~/composables/profile/useProfileBadges'
 import { useTrustLevel } from '~/composables/profile/useTrustLevel'
 import { useProfileBookmarks } from '~/composables/profile/useProfileBookmarks'
@@ -158,8 +159,34 @@ const {
   groups: badgeGroups,
   loading: badgesLoading,
   failed: badgesFailed,
+  loaded: badgesLoaded,
   retry: retryBadges
 } = useProfileBadges(username, { active: () => isBadgesTab.value })
+
+// `?badge=<slug>` 深链：弹窗住在徽章 tab 里，所以带 slug 进页要先把 tab 切过去。
+const { focusSlug, setFocusSlug, resetBadgeIfMissing } = useBadgeDetailQuery()
+
+watch(focusSlug, (slug) => {
+  if (!slug || !badgesEnabled.value || activeTab.value === 'badges') return
+  activeTab.value = 'badges'
+  // SSR 期间不碰 router（Nuxt 会告警）：水合后这里会再跑一次，把地址栏对齐成 tab=badges。
+  if (import.meta.client) syncTabQuery('badges')
+}, { immediate: true })
+
+// 离开徽章 tab 时清掉 `?badge=`：地址栏不能留一个当前页面打不开的弹窗参数。
+watch(activeTab, (tab) => {
+  if (tab !== 'badges' && focusSlug.value) setFocusSlug('')
+})
+
+const badgeSlugs = computed(() => badgeGroups.value.flatMap(group => group.badges.map(badge => badge.slug)))
+
+// 清单**真的到过服务端**之后才确认 slug 还在：停用/删除的徽章静默清 query，不弹空弹窗。
+// `!loaded` 这一条是必需的：`loading` 初值 false + `groups` 为 [] 时守卫会先于 composable
+// 的首次请求同步跑一次，那时「找不到」只是「还没请求」，清掉就等于把 `?badge=` 深链吃掉。
+watch([badgeSlugs, badgesLoading, badgesFailed, badgesLoaded], ([slugs, loading, failed, loaded]) => {
+  if (loading || failed || !loaded) return
+  resetBadgeIfMissing(slugs)
+}, { immediate: true })
 
 const profileTabs = computed<ProfileTabOption[]>(() => buildProfileTabs({
   t,
@@ -442,7 +469,11 @@ async function shareProfile() {
               :groups="badgeGroups"
               :loading="badgesLoading"
               :failed="badgesFailed"
+              :loaded="badgesLoaded"
+              :self="isSelf"
+              :focus-slug="focusSlug"
               @retry="retryBadges"
+              @update:focus-slug="setFocusSlug"
             />
           </template>
 

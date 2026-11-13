@@ -25,17 +25,21 @@ const (
 )
 
 type Controller struct {
-	store          notifications.Store
-	revisions      notifications.RecipientRevisionStore
-	preferences    notifications.PreferenceStore
-	adminPolicy    notifications.AdminPolicyStore
-	sessions       *authsession.Manager
-	users          identity.ActorStore
-	auditor        audit.Writer
-	targets        notifications.TargetVisibilityResolver
-	previews       notifications.TargetPreviewResolver
-	subscriptions  webPushSubscriptionStore
-	pushDevices    notifications.PushDeviceStore
+	store         notifications.Store
+	revisions     notifications.RecipientRevisionStore
+	preferences   notifications.PreferenceStore
+	adminPolicy   notifications.AdminPolicyStore
+	sessions      *authsession.Manager
+	users         identity.ActorStore
+	auditor       audit.Writer
+	targets       notifications.TargetVisibilityResolver
+	previews      notifications.TargetPreviewResolver
+	subscriptions webPushSubscriptionStore
+	pushDevices   notifications.PushDeviceStore
+	// celebrations 是庆祝展示层读面（见 Models/Notifications/celebrations.go）。
+	// nil = 装配没接：端点回 503 而不是悄悄返回空列表，避免「庆祝功能关掉了」
+	// 与「查出问题」两种状态在客户端无法区分。
+	celebrations   notifications.CelebrationStore
 	channels       ChannelRuntime
 	channelAuditor audit.IDWriter
 	outbox         *notifications.Outbox
@@ -52,7 +56,8 @@ func NewController(store notifications.Store, sessions *authsession.Manager, use
 	adminPolicy, _ := store.(notifications.AdminPolicyStore)
 	subscriptions, _ := store.(webPushSubscriptionStore)
 	pushDevices, _ := store.(notifications.PushDeviceStore)
-	return &Controller{store: store, preferences: preferences, revisions: revisions, adminPolicy: adminPolicy, subscriptions: subscriptions, pushDevices: pushDevices, sessions: sessions, users: users, creator: creator}
+	celebrations, _ := store.(notifications.CelebrationStore)
+	return &Controller{store: store, preferences: preferences, revisions: revisions, adminPolicy: adminPolicy, subscriptions: subscriptions, pushDevices: pushDevices, celebrations: celebrations, sessions: sessions, users: users, creator: creator}
 }
 
 func (h *Controller) WithAuditor(writer audit.Writer) *Controller {
@@ -81,6 +86,9 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	group.Patch("/:id/read", h.markRead)
 	group.Post("/read-all", h.markAllRead)
 	group.Get("/stream", h.stream)
+	// 庆祝展示层：必须在 `/:id` **之前**注册，否则 "celebrations" 会被当成 :id。
+	group.Get("/celebrations", h.listCelebrations)
+	group.Post("/celebrations/seen", h.acknowledgeCelebrations)
 	group.Get("/:id", h.detail)
 	preferences := api.Group("/notification-preferences")
 	preferences.Get("", h.listPreferences)
@@ -438,6 +446,54 @@ func (h *Controller) list(c fiber.Ctx) error {
 		return err
 	}
 	return apphttp.OK(c, page)
+}
+
+// celebrationAckRequest 是 POST /notifications/celebrations/seen 的请求体。
+//
+// 只有游标一个字段：庆祝层不维护「已读/未读」，它维护的是一个单调游标，
+// 客户端每次把自己的当前游标报上来即可（乱序到达由 GREATEST 兜住）。
+type celebrationAckRequest struct {
+	CursorID int64 `json:"cursorId"`
+}
+
+func (h *Controller) listCelebrations(c fiber.Ctx) error {
+	userID, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	if h.celebrations == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "notification.channel_unavailable")
+	}
+	feed, err := notifications.ListCelebrations(c.Context(), h.celebrations, h.targets, userID, notifications.DefaultCelebrationLimit)
+	if err != nil {
+		return err
+	}
+	// 响应含「我这个账号收到了什么」：必须是 private + no-store，
+	// 与收件箱同口径（写 public 会把 A 的庆祝投给 B）。
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	return apphttp.OK(c, feed)
+}
+
+func (h *Controller) acknowledgeCelebrations(c fiber.Ctx) error {
+	userID, err := h.userID(c)
+	if err != nil {
+		return err
+	}
+	if h.celebrations == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "notification.channel_unavailable")
+	}
+	var request celebrationAckRequest
+	if err := c.Bind().Body(&request); err != nil {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "notification.celebration_invalid")
+	}
+	// 负游标按 0 处理（不报错）：它是客户端本地状态，钳到 0 等价于「什么都没看过」，
+	// 而 GREATEST upsert 保证这次钳零不会把已推进的游标退回去。
+	stored, err := notifications.AcknowledgeCelebrations(c.Context(), h.celebrations, userID, request.CursorID)
+	if err != nil {
+		return err
+	}
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	return apphttp.OK(c, map[string]int64{"cursorId": stored})
 }
 
 func (h *Controller) detail(c fiber.Ctx) error {

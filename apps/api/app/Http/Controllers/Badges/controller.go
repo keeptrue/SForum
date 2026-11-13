@@ -39,11 +39,16 @@ type UserLookup interface {
 
 // BadgeCatalogReader 是公开徽章目录的窄读口（*badges.Service 满足它）。
 //
-// 两个方法刻意分开：PublicCatalog 签名里没有 actor，EarnedBadgeSlugs 是唯一
-// 吃 userID 的读。HTTP 层只依赖这两条，测试才能注入「3 条 / 读库失败」这类形状。
+// 三个方法刻意分开：PublicCatalog 签名里没有 actor，另外两个吃 userID，
+// 且都只由 HTTP 层每请求调用一次、结果永不进共享缓存。HTTP 层只依赖这三条，
+// 测试才能注入「3 条 / 读库失败 / 有进度」这类形状。
 type BadgeCatalogReader interface {
 	PublicCatalog(ctx context.Context) (badges.PublicCatalog, error)
 	EarnedBadgeSlugs(ctx context.Context, userID int64) (map[string]struct{}, error)
+	// ViewerCatalogProgress 只对「未获得 + 可测」的启用徽章算进度；
+	// 匿名（userID <= 0）返回空 map 且不查库。签名里没有 error：
+	// 进度是装饰，失败只让目录少一条进度条（领域层已 fail-soft）。
+	ViewerCatalogProgress(ctx context.Context, userID int64) map[string]badges.BadgeProgress
 }
 
 type Controller struct {
@@ -54,12 +59,16 @@ type Controller struct {
 	users    identity.ActorStore
 	sessions *authsession.Manager
 	lookup   UserLookup
+	// wear 是自由佩戴能力（GET/PUT/DELETE /badges/worn 用）。
+	// 生产由 NewController 直接接上 service（Service 委托给 PostgresStore）；
+	// 测试用 WithBadgeWearer 注入窄假实现，不必造出整个 Store。
+	wear badges.WearStore
 	// loadActor 是可选主体解析的测试缝；生产装配留空，走 apphttp.OptionalActor。
 	loadActor func(c fiber.Ctx) (identity.Actor, error)
 }
 
 func NewController(service *badges.Service, admin *badges.AdminService, gate BadgeFeatureGate, users identity.ActorStore, sessions *authsession.Manager) *Controller {
-	return &Controller{service: service, catalog: service, admin: admin, gate: gate, users: users, sessions: sessions}
+	return &Controller{service: service, catalog: service, admin: admin, gate: gate, users: users, sessions: sessions, wear: service}
 }
 
 // WithActorLoader 注入可选主体解析器（测试用）。只影响公开读的 viewer 判定，
@@ -85,6 +94,13 @@ func (h *Controller) WithUserLookup(lookup UserLookup) *Controller {
 // 所以名字必须与 contracts/openapi/paths/badges.yaml 的 operationId 一致。
 func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Get("/badges", h.publicCatalog)
+	// 自由佩戴：三条都是静态段，必须排在任何含参数段之前（Fiber 按注册顺序匹配）。
+	// 顺序错了的症状是 `/badges/worn` 被当成 slug 解析（200 返回空徽章而不是 404，
+	// 很难反推），所以 TestWornBadgeRoutesAreRegisteredAsStaticSegments 钉住了
+	// 「任何含参数段都不得排在它前面」，将来加 `/badges/:slug` 时会立刻红。
+	api.Get("/badges/worn", h.getWornBadge)
+	api.Put("/badges/worn", h.setWornBadge)
+	api.Delete("/badges/worn", h.clearWornBadge)
 	api.Get("/profiles/:username/badges", h.publicProfileBadges)
 
 	// 公开等级目录：前端渲染 tier 角标的中文名/颜色要靠它，不能让前端硬编码三档。
@@ -191,7 +207,8 @@ func (h *Controller) publicProfileBadges(c fiber.Ctx) error {
 // 目录回答「站内有什么、我拿到了哪些」——所以这里返回**全部启用徽章**，
 // 用 earned 标记查看者自己的获得情况。
 //
-// 也正因为响应含查看者的 earned，缓存头必须是 private（见 setViewerScopedNoStore）。
+// 也正因为响应含查看者的 earned 与进度，缓存头必须是 private（见
+// setViewerScopedNoStore）。
 func (h *Controller) publicCatalog(c fiber.Ctx) error {
 	if err := h.requireFeature(c.Context()); err != nil {
 		return err
@@ -207,14 +224,19 @@ func (h *Controller) publicCatalog(c fiber.Ctx) error {
 		return mapBadgeError(err)
 	}
 	var earned map[string]struct{}
+	var progress map[string]badges.BadgeProgress
 	if actor, ok := h.viewer(c); ok {
 		earned, err = reader.EarnedBadgeSlugs(c.Context(), actor.ID)
 		if err != nil {
 			return mapBadgeError(err)
 		}
+		// 进度只对登录查看者算，且匿名分支**一次库都不查**（与 earned 同一条
+		// 判定）：公开目录对匿名是纯静态读，不该为一个不存在的「我」去测量。
+		// 它不返回 error：进度是装饰，不该把已经读成功的目录变成 500。
+		progress = reader.ViewerCatalogProgress(c.Context(), actor.ID)
 	}
 	setViewerScopedNoStore(c)
-	return apphttp.OK(c, toPublicCatalog(catalog, earned))
+	return apphttp.OK(c, toPublicCatalog(catalog, earned, progress))
 }
 
 // viewer 解析可选登录主体。匿名、会话失效、坏 token 一律按匿名处理：
@@ -777,6 +799,11 @@ func mapBadgeError(err error) error {
 		// 422 而不是 503：这是「请求当前无法完成，需要运维接入回扫入口」，
 		// 属于业务前置条件缺失，重试不会变好。
 		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeBackfillUnavailable)
+	// 佩戴被拒（不持有 / 已停用 / 等级停用 / slug 不存在）统一 422：
+	// 请求语义不合法，但**不是** 404——404 会告诉对手方「这枚徽章不存在」，
+	// 而那正是这一码刻意不区分的信息。
+	case errors.Is(err, badges.ErrBadgeNotOwned):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeNotOwned)
 	case errors.Is(err, badges.ErrBadgeManualOnly):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeManualOnly)
 	case errors.Is(err, badges.ErrBadgeTierNotFound):
@@ -818,10 +845,10 @@ func setPublicCacheable(c fiber.Ctx) {
 	c.Set(fiber.HeaderCacheControl, "public, max-age=30")
 }
 
-// setViewerScopedNoStore：响应含查看者自己的 earned，同一个 URL 对不同人不同体。
+// setViewerScopedNoStore：响应含查看者自己的 earned / 进度，同一个 URL 对不同人不同体。
 //
 // 这与 setPublicCacheable 的 "public, max-age=30" 是互斥的语义：public 是写给
-// 共享缓存（CDN / 反向代理）看的，一旦用上，A 的 earned 会被投给 B。
+// 共享缓存（CDN / 反向代理）看的，一旦用上，A 的 earned 与进度会被投给 B。
 // 本控制器也没有 Vary 兜底（RegisterRoutes 不设 Vary），所以不能靠它补救。
 // private + no-store 的取舍：目录是低频读，宁可每次回源，也不赌缓存键正确。
 func setViewerScopedNoStore(c fiber.Ctx) {

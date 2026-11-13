@@ -223,6 +223,7 @@ ProfileBadgeItem:
   required:
   - slug
   - name
+  - description
   - tier
   - tierName
   - tierColor
@@ -237,6 +238,13 @@ ProfileBadgeItem:
       type: string
     name:
       type: string
+    description:
+      type: string
+      description: |
+        Badge description, shown in the badge detail modal on the profile wall and
+        when the page is opened through the `?badge=<slug>` deep link. Always
+        present (empty string when the operator wrote no description), matching
+        `profileBadgeItem.description`.
     tier:
       "$ref": "#/BadgeTier"
     tierName:
@@ -257,7 +265,10 @@ ProfileBadgeItem:
     threshold:
       type: integer
       format: int64
-      description: Value that grants the badge; always greater than `current`.
+      description: |
+        Threshold that grants the badge. `current` may briefly exceed it: evaluation
+        and granting are two separate steps, so a `current` above the threshold means
+        the grant is still pending rather than an impossible state.
     grantedAt:
       type: string
       format: date-time
@@ -732,8 +743,10 @@ ApiResponseBadgeRecomputeResult:
 # --- Public badge catalog (/api/v1/badges) ---
 #
 # 键集合是白名单，与 `publicBadgeCatalogResponse` / `publicBadgeCatalogItem`
-# （app/Http/Controllers/Badges/dto.go）逐字对应。刻意不出现 `threshold` / `metric`：
-# 阈值是运营调参，公开即不可撤回；想公开的运营写进 `description`。
+# （app/Http/Controllers/Badges/dto.go）逐字对应。刻意不出现 `metric`，也不出现
+# **定义级** `threshold`：阈值是运营调参，公开即不可撤回；想公开的运营写进
+# `description`。条目上的 `current` / `threshold` 是**查看者进度**（每请求合并、
+# 只对未获得 + 可测的条目出现），与定义级阈值不是一回事。
 # 也不出现 `enabled` / `grantedCount` / `createdAt` / `updatedAt` / `id`。
 PublicBadgeCatalog:
   type: object
@@ -814,6 +827,19 @@ PublicBadgeCatalogEntry:
       description: |
         查看者是否已获得。**这是查看者相关字段**，因此整个响应禁止共享缓存
         （`Cache-Control: private, no-store`）；匿名请求恒为 `false`。
+    current:
+      type: [integer, "null"]
+      format: int64
+      description: |
+        查看者当前进度（例如已发主题数）。**只在「未获得 + 自动 + 可测」的条目上
+        出现**：已获得、匿名、不可测（`lte`、布尔条件、多条件组）都没有这两个键。
+        `current: 0` 是有效值，会照常下发，不是省略。
+    threshold:
+      type: [integer, "null"]
+      format: int64
+      description: |
+        达到即授予的阈值，与 `current` 同时出现。定义级阈值仍然不下发 —— 这两个键
+        只在查看者维度有意义；运营调参不进公开面。
 ApiResponsePublicBadgeCatalog:
   type: object
   required:
@@ -827,6 +853,113 @@ ApiResponsePublicBadgeCatalog:
       type: string
     data:
       "$ref": "#/PublicBadgeCatalog"
+
+# --- Free-form worn badge display (/api/v1/badges/worn) ---
+#
+# 三条端点的请求与响应形状。`worn` / `automatic` / `upgrade` 都是「徽章引用」，
+# 由 `dto.go` 的 `badgeDisplayRef` 显式投影，与上面那个 `BadgeRef`（`topBadge`）
+# 逐字同形：`tier` 是等级 key，外观拆成 `tierName{zh,en}` + `tierColor`。
+# 领域结构 `badges.BadgeRef` 不上线——它的 `Appearance` 没有 json tag，直接序列化
+# 会把等级外观吐成 Go 字段名（`tierAppearance.NameZh` 那套），前端就要写两套解析。
+# `BadgeDisplayRef` 仍然单独定义（而不是直接 `$ref: BadgeRef`）：这三条端点可以
+# 独立演进（例如将来加入展示位专属字段），共用同一个节点会让改动互相牵连。
+BadgeDisplayRef:
+  type: object
+  description: |
+    展示位里的徽章引用（`badgeDisplayRef`，`GET` / `PUT` / `DELETE /badges/worn`
+    共用）。
+
+    形状与帖子旁的 `BadgeRef`（`topBadge`）、徽章目录条目一致：`tier` 是等级 key，
+    外观是 `tierName{zh,en}` + `tierColor`。带外观而不是只给 key，是因为 chip 的
+    配色与双语名必须与后台配置一致——前端拿 key 自己映射颜色，会在运营自定义颜色
+    或新增档位时立刻失效。
+
+    外观为空（等级引用失效）时字段**仍然全部出现**：`tierName` 是
+    `{"zh":"","en":""}`、`tierColor` 是空串，而不是缺键。
+  required:
+  - slug
+  - name
+  - tier
+  - tierName
+  - tierColor
+  - icon
+  properties:
+    slug:
+      type: string
+    name:
+      type: string
+    tier:
+      "$ref": "#/BadgeTier"
+    tierName:
+      "$ref": "#/BadgeTierName"
+    tierColor:
+      type: string
+      description: Tier identification colour (palette token or `#rrggbb`).
+    icon:
+      type: string
+BadgeWornInput:
+  type: object
+  description: |
+    佩戴请求体：只有 `slug`。佩戴没有「部分更新」语义，缺字段等于空 slug，由领域层
+    统一折成 `422 forum.badge_not_owned`（与「不持有」同码，不额外泄露站内是否存在
+    这个 slug）。
+  required:
+  - slug
+  properties:
+    slug:
+      type: string
+      description: 要佩戴的徽章 slug；必须是调用者已获得、且徽章与等级都启用的那枚。
+BadgeDisplay:
+  type: object
+  description: |
+    展示位状态（`GET` / `PUT` / `DELETE /badges/worn` 的同一个响应体）。
+
+     - `mode: auto` —— 没手动戴过，或佩戴已失效被回落；`worn` 等于 `automatic`。
+     - `mode: manual` —— 用户手动选了一枚；`upgrade` 在存在更优徽章时非 null。
+
+    三个引用都可能为 null：一枚可展示徽章都没有时三者全 null，`mode` 仍是 `auto`。
+    **但三个键永远出现**（值为 null 时照常输出 `null`，不省略）：客户端按 `mode`
+    分支渲染展示位，「键缺失」与「这个位子是空的」是两种状态，前者会被当成加载失败。
+  required:
+  - mode
+  - worn
+  - automatic
+  - upgrade
+  properties:
+    mode:
+      type: string
+      enum: [auto, manual]
+    worn:
+      oneOf:
+      - "$ref": "#/BadgeDisplayRef"
+      - type: "null"
+      description: 当前展示位指向的徽章；没有任何可展示徽章时为 null。
+    automatic:
+      oneOf:
+      - "$ref": "#/BadgeDisplayRef"
+      - type: "null"
+      description: |
+        按 `topBadgeOrderSQL` 推导出的最佳徽章（与帖子旁 chip 同一份排序）。
+        没有任何可展示徽章时为 null。
+    upgrade:
+      oneOf:
+      - "$ref": "#/BadgeDisplayRef"
+      - type: "null"
+      description: |
+        仅在 `manual` 且存在更优徽章时非 null —— 它是提示，不是错误。
+ApiResponseBadgeDisplay:
+  type: object
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      "$ref": "#/BadgeDisplay"
 
 # --- Badge tiers (/api/v1/admin/badges/tiers, /api/v1/badges/tiers) ---
 #

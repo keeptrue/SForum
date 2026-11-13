@@ -11,7 +11,8 @@ import (
 // 用户活动统计的写路径挂载点。
 //
 // 为什么 SQL 写在这里而不是 import app/Models/Badges：
-// Badges 依赖 Forum（装饰主题/评论摘要的徽章），Forum 反向 import 会成环。
+// 计数列是 Forum 写路径自己的列（user_activity），Forum 不该为了取几个列名去
+// 依赖徽章产品域——徽章可以整体停用，而这些计数仍是论坛的核心写路径。
 // 因此 Forum 只承认一个「计数列名 + 增量」的窄契约，列名白名单与
 // badges.ActivityMetric 逐字一致，两边由迁移里的 badges_metric_check 与
 // database/migrations 的结构测试共同钉死。

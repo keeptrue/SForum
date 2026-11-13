@@ -272,7 +272,12 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithExternalAuthRateLimiter(externalAuthRateLimiter).
 		WithPublicAppURL(cfg.AppURL, cfg.AppEnv).
 		WithAPITokens(apiTokenService)
-	notificationTargets := notificationTargetVisibilityAdapter{forum: forumStore, identities: identityStore}
+	// 徽章 store 在这里就建：通知目标解析（`targetType="badge"`）与后面的徽章域
+	// 装配共用同一个实例，否则「收件箱能不能点开」与「徽章页显不显示」会读两份
+	// 互不知情的连接池包装。规则引擎的 provider 仍在下面就地注入（它们是
+	// extensionService / identityRegistry 的产物，这里还没有）。
+	badgesStore := badges.NewPostgresStore(pool)
+	notificationTargets := notificationTargetVisibilityAdapter{forum: forumStore, identities: identityStore, badges: badgesStore}
 	notificationsProvider := providers.NewNotificationsProvider(notificationStore, identityStore, authSessions, auditWriter).
 		WithTargetVisibility(notificationTargets).
 		WithTargetPreview(notificationTargetPreviewAdapter{store: forumStore}).
@@ -582,7 +587,6 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	// `missing_provider` 只认 `identity_external_links`、候选类参数退回文本输入。
 	// 空着不写注释会让下一个人分不清「故意不注入」和「忘了注入」——`rule_eval.go`
 	// 漏传 factKeys 就是同款失败。
-	badgesStore := badges.NewPostgresStore(pool)
 	// 公开说明里的「登录方式」真名：来自 identity registry 已发布的 auth provider 声明
 	//（`label` / `labelLocales` 就是插件声明的展示名，与登录页同源）。
 	// 不读 identity_provider_activations：那张表只表示「当前是否允许登录」，而规则引用
@@ -636,8 +640,17 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	badgesStore.SetFactKeyProvider(badgesFactCatalog.FactKeys)
 	badgesStore.SetFactCandidates(badgesFactCatalog.Candidates)
 	badgesService := badges.NewService(badgesStore, badgeActivityStore)
+	// 进度测量走存储层的批量 Prepare（每类条件一条 SQL）。Service 自己没有 pool，
+	// 也不该有：装配在这里把同一个 store 同时当成读面与测量器。
+	// 不装配时进度静默为空（nil 安全），不会 500。
+	badgesService.SetProgressMeasurer(badgesStore)
 	badgesAdmin := badges.NewAdminService(badgesStore)
 	badgesAdmin.SetFactCandidates(badgesFactCatalog.Candidates)
+	// 手动授予 / 批量授予 / 重算三条运营路径的授予通知出口。自动评估那一支在
+	// worker 装配里注册（registerBadgesEvaluateUserWorker），两条出口共用同一个
+	// `badgeGrantedNotifier` 实现（见 badges_wiring.go）。
+	// 未装配 = 不发通知且不报错：授予成功与通知能力解耦。
+	badgesAdmin.SetGrantNotifier(badgesDomainGrantedNotifier{badgeGrantedNotifier{outbox: mailOutbox}})
 	// 复杂规则的异步回扫入口：HTTP 只入队（`queued` 回执），绝不在请求内跑全量。
 	backfillEnqueuer := &deferredBackfillEnqueuer{}
 	backfillEnqueuer.Bind(jobDispatcher)

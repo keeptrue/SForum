@@ -128,6 +128,7 @@ function loadAppComponentForStartupTest(options: { server: boolean, routePath?: 
     'usePublicContentStyles',
     'computed',
     'SFApiConnectionModal',
+    'SFCelebrationHost',
     executable
   )
 
@@ -203,6 +204,8 @@ function loadAppComponentForStartupTest(options: { server: boolean, routePath?: 
       }
     }),
     computed,
+    {},
+    // 庆祝浮卡不是启动流程的一部分：给个空壳，断言只看启动动作是否发生。
     {}
   )
 

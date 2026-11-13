@@ -4,17 +4,30 @@ import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsiv
 import SFProfileBadgeTab from '~/components/profile/SFProfileBadgeTab.vue'
 import SFPublicPageHeader from '~/components/public/SFPublicPageHeader.vue'
 import { useBadgesCatalog } from '~/composables/forum/badges/useBadgesCatalog'
+import { useBadgeDetailQuery } from '~/composables/profile/useBadgeDetailQuery'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 /**
  * 宿主 body 岛：forum.badge.index。
  * 两栏壳对齐标签 / 分类目录（本页不启用右栏）；卡片复用 SFProfileBadgeTab 的 catalog 变体，
  * 不在这里再造一份卡片实现。公共 chrome（navbar / footer）由主题模板挂载，岛不自带。
+ *
+ * `?badge=<slug>` 深链由 useBadgeDetailQuery 拥有：目录页是「分享某一枚徽章」的落地页，
+ * 所以选中项必须写回地址栏；清单里没有的 slug 静默清掉（不弹空弹窗）。
  */
 const { t } = useI18n()
 const { user } = useAuthSession()
 const { groups, truncated, pending, error, refresh } = await useBadgesCatalog()
+const { focusSlug, setFocusSlug, resetBadgeIfMissing } = useBadgeDetailQuery()
 
 const totalBadges = computed(() => groups.value.reduce((sum, group) => sum + group.badges.length, 0))
+const badgeSlugs = computed(() => groups.value.flatMap(group => group.badges.map(badge => badge.slug)))
+
+// 取数完成（且没失败）之后才判断「这个 slug 还在不在」：加载中/失败/还没请求时清单不可信。
+const badgesLoaded = computed(() => !pending.value && !error.value)
+watch([badgeSlugs, badgesLoaded, error], ([slugs, loaded, failed]) => {
+  if (!loaded || failed) return
+  resetBadgeIfMissing(slugs)
+}, { immediate: true })
 </script>
 
 <template>
@@ -70,7 +83,10 @@ const totalBadges = computed(() => groups.value.reduce((sum, group) => sum + gro
           :groups="groups"
           :loading="pending"
           :failed="Boolean(error)"
+          :loaded="badgesLoaded"
+          :focus-slug="focusSlug"
           @retry="refresh"
+          @update:focus-slug="setFocusSlug"
         />
       </section>
     </div>

@@ -2,7 +2,9 @@
 /**
  * 单张徽章卡：资料页「徽章」tab 与 `/badges` 公共目录共用的同一份实现。
  *
- * 职责边界：这里只渲染一格（图标砖 / 名称 / tier 标记 / earned 两态 / 进度条 / aria-label 模板）。
+ * 职责边界：这里只渲染一格（图标砖 / 名称 / tier 标记 / earned 两态 / 进度条 / aria-label 模板）
+ * 以及**整卡点击**。点击不打开路由也不取数：只 `emit('open', badge)`，详情弹窗由宿主拥有
+ * （`SFProfileBadgeTab` → `SFBadgeDetailModal`）。
  * 分组容器、组内排序、空态 / 加载态 / 失败态、以及两个 variant 的容器级差异，
  * 全部由 `profile/SFProfileBadgeTab.vue` 拥有——不要在卡片里加取数或分组逻辑。
  */
@@ -27,17 +29,26 @@ const props = withDefaults(defineProps<{
    * 空串表示没有条件文案，整行不渲染（不占位、不留空白行）。
    */
   description?: string
+  /**
+   * 整卡是否可点。默认 `true`：资料页与目录页都靠点卡片打开徽章详情。
+   * 传 `false` 只用于确实不该响应点击的纯展示位 —— 那时卡片自己带上无障碍名字，
+   * 也不再渲染覆盖按钮（避免出现一个点了没反应的假按钮）。
+   */
+  interactive?: boolean
 }>(), {
   variant: 'profile',
-  description: ''
+  description: '',
+  interactive: true
 })
+
+const emit = defineEmits<{ open: [badge: ProfileBadgeEntry] }>()
 
 const { t, te, locale } = useI18n()
 const { formatDateOnly } = useSiteDateTime()
 
 const isCatalog = computed(() => props.variant === 'catalog')
 
-// 等级名/色都优先取载荷（运营可增删等级），缺失才回退内置三档文案与色。
+// 等级名/色都优先取载荷（运营可增删等级），缺失才回退内置三档文案与中性色。
 const tierName = computed(() => forumBadgeTierLabel(props.badge, locale.value, t, te))
 const tierStyle = computed(() => forumBadgeTierStyle(props.badge))
 
@@ -73,6 +84,11 @@ function cardLabel() {
   // 未获得的手动徽章没有阈值：文案里不能出现进度，否则会读成「进度 0/0」。
   return t('badges.card.ariaLabelNotEarned', { tier: tierName.value, name: props.badge.name })
 }
+
+function open() {
+  if (!props.interactive) return
+  emit('open', props.badge)
+}
 </script>
 
 <template>
@@ -80,14 +96,30 @@ function cardLabel() {
     class="sf-profile-badge-card"
     :class="[
       `sf-profile-badge-card--${props.variant}`,
-      { 'sf-profile-badge-card--progress': forumBadgeHasProgress(props.badge) }
+      {
+        'sf-profile-badge-card--progress': forumBadgeHasProgress(props.badge),
+        'sf-profile-badge-card--interactive': props.interactive
+      }
     ]"
     :data-tier="forumBadgeTier(props.badge.tier)"
     :data-earned="props.badge.earned ? 'true' : 'false'"
     :data-badge-slug="props.badge.slug"
+    :data-interactive="props.interactive ? 'true' : 'false'"
     :style="tierStyle"
-    :aria-label="cardLabel()"
+    :aria-label="props.interactive ? undefined : cardLabel()"
   >
+    <!--
+      整卡点击：一个铺满卡片的真按钮承载，不把内容包进按钮里（按钮不能嵌套按钮，
+      佩戴按钮就在同一张卡里）。名字挂在按钮上，卡片本身就不再重复一遍。
+    -->
+    <button
+      v-if="props.interactive"
+      type="button"
+      class="sf-profile-badge-card__open"
+      :aria-label="cardLabel()"
+      @click="open"
+    />
+
     <span class="sf-profile-badge-card__icon" aria-hidden="true">
       <UIcon :name="props.badge.icon || forumBadgeTierIcon(props.badge.tier)" class="sf-profile-badge-card__glyph" />
       <!-- 目录页的「已获得」勾章：形状线索，去色后仍与未获得可辨。 -->
@@ -129,12 +161,22 @@ function cardLabel() {
         </div>
         <span class="sf-profile-badge-card__progress-text">{{ progressText() }}</span>
       </div>
+
+      <!--
+        卡片动作位：只有资料页（profile 变体）且宿主真的传了内容才渲染。
+        目录页的卡片不佩戴徽章，动作插槽在那里必须彻底消失，不能留一个空盒子。
+        动作位浮在覆盖按钮之上（z-index 更高），按钮自己 `@click.stop`，所以点佩戴不会顺带开弹窗。
+      -->
+      <div v-if="!isCatalog && $slots.action" class="sf-profile-badge-card__action">
+        <slot name="action" />
+      </div>
     </div>
   </article>
 </template>
 
 <style scoped>
 .sf-profile-badge-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -161,6 +203,26 @@ function cardLabel() {
     flex: 1 1 auto;
     min-width: 0;
   }
+}
+
+/* 覆盖整卡的点击面：铺满圆角矩形，内容层仍在下层正常绘制。 */
+.sf-profile-badge-card__open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sf-profile-badge-card__open:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: -2px;
 }
 
 .sf-profile-badge-card__icon {
@@ -283,6 +345,19 @@ function cardLabel() {
   font-variant-numeric: tabular-nums;
 }
 
+/* 动作位只占内容列，不改变卡片的其它几何；宿主条件为假时不留空盒子。
+   `position/z-index` 让佩戴按钮浮在覆盖按钮之上，点它不会顺带打开详情。 */
+.sf-profile-badge-card__action {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  margin-top: 6px;
+}
+
+.sf-profile-badge-card__action:empty {
+  display: none;
+}
+
 /* 统一配色：hue = 等级色，填充 12%，环线 34%；名称永远是 --sf-fg。
    等级色成对下发（明/暗），这里按主题挑一个 —— 没有 [data-tier] 变体规则。 */
 .sf-profile-badge-card {
@@ -303,8 +378,8 @@ function cardLabel() {
   color: var(--sf-fg-secondary);
 }
 
-/* hover 反馈只属于资料页；目录页卡片不可点击，边框变色是假承诺。 */
-.sf-profile-badge-card--profile:hover {
+/* hover 反馈只给可点的卡片；不可点时边框变色是假承诺。 */
+.sf-profile-badge-card--interactive:hover {
   border-color: var(--sf-public-border-strong);
 }
 

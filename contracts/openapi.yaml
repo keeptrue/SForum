@@ -289,6 +289,10 @@ paths:
     "$ref": "./openapi/paths/notifications.yaml#/notificationsReadAll"
   "/notifications/stream":
     "$ref": "./openapi/paths/notifications.yaml#/notificationStream"
+  "/notifications/celebrations":
+    "$ref": "./openapi/paths/notifications.yaml#/notificationCelebrations"
+  "/notifications/celebrations/seen":
+    "$ref": "./openapi/paths/notifications.yaml#/notificationCelebrationsSeen"
   "/notification-preferences":
     "$ref": "./openapi/paths/notifications.yaml#/notificationPreferences"
   "/notification-preferences/restore":
@@ -704,6 +708,8 @@ paths:
     "$ref": "./openapi/paths/badges.yaml#/profileBadgesByUsername"
   /badges:
     "$ref": "./openapi/paths/badges.yaml#/publicBadgeCatalog"
+  /badges/worn:
+    "$ref": "./openapi/paths/badges.yaml#/badgeWorn"
   /trust-levels:
     "$ref": "./openapi/paths/trust_levels.yaml#/trustLevels"
   /admin/trust-levels:

@@ -124,6 +124,7 @@
       "moderation_approved": "Approved",
       "moderation_rejected": "Rejected",
       "admin_test": "Tests",
+      "badge_granted": "Badges",
       "loadedScope": "Filters apply only to the {count} notifications currently loaded.",
       "empty": "No notifications in this filter",
       "emptyDescription": "The current API has no server-side type filter, so this only checks the {count} loaded notifications."
@@ -137,6 +138,7 @@
       "moderation_rejected": "Related content: {target}",
       "moderation_rejected_note": "Review note: {reviewNote}",
       "admin_test": "In-app notification delivery test.",
+      "badge_granted": "Badge: {target}",
       "noTarget": "This notification has no public target summary available."
     },
     "detail": {
@@ -159,13 +161,15 @@
       "read": "Read",
       "type": "Type",
       "target": "Related target",
-      "available": "Available"
+      "available": "Available",
+      "targetAvailableHelp": "The target page for this notification can be opened, but there is no content preview to show here."
     },
     "actions": {
       "markRead": "Mark this notification as read",
       "viewReply": "View reply",
       "viewMention": "View mention",
       "viewTarget": "View content",
+      "viewBadges": "View my badges",
       "openTarget": "Open target"
     },
     "types": {
@@ -175,8 +179,30 @@
       "moderation_pending": "New content is awaiting review",
       "moderation_approved": "Your content was approved",
       "moderation_rejected": "Your content was rejected",
-      "admin_test": "In-app notification test delivered"
+      "admin_test": "In-app notification test delivered",
+      "badge_granted": "You earned a new badge"
     }
+  },
+  "celebrations": {
+    "types": {
+      "badge_granted": "Badge"
+    },
+    "badge_granted": {
+      "title": "New badge earned",
+      "body": "You earned the {badgeName} badge."
+    },
+    "plugin": {
+      "title": "New achievement",
+      "body": "A new achievement is ready to view."
+    },
+    "dialog": {
+      "title": "New badge",
+      "aggregate": "You earned {count} new badges",
+      "aggregateBody": "All {count} badges are now on your badge wall.",
+      "view": "View my badges"
+    },
+    "dismiss": "Dismiss celebration",
+    "view": "View"
   },
   "search": {
     "title": "Site search",
@@ -7238,6 +7264,24 @@
       "ariaLabelEarned": "{tier} badge: {name}, earned",
       "ungrouped": "Ungrouped",
       "truncated": "The badge list is truncated; only the first badges are shown."
+    },
+    "detail": {
+      "title": "Badge details",
+      "close": "Close badge details",
+      "groupLabel": "Group",
+      "descriptionLabel": "About",
+      "requirementLabel": "How to earn it",
+      "progressLabel": "Progress",
+      "progress": "{current} / {threshold} ({percent}%)"
+    },
+    "worn": {
+      "wear": "Wear",
+      "wearing": "Wearing",
+      "unwear": "Stop wearing",
+      "notOwned": "This badge is not in your collection, so it cannot be worn",
+      "saveFailed": "Failed to save the badge you wear",
+      "wearSuccess": "Now wearing {name}",
+      "unwearSuccess": "Badge display is back to automatic"
     }
   },
   "profile": {

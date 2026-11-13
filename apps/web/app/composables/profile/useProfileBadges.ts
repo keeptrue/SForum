@@ -76,5 +76,7 @@ export function useProfileBadges(username: Ref<string>, options: ProfileBadgesOp
     }
   }, { immediate: true })
 
-  return { groups, loading, failed, ensureLoaded, retry }
+  // `loaded` 必须导出：`loading=false` + `groups=[]` 在「还没请求」和「请求回来是空」之间
+  // 是同一个形状，消费方（深链守卫）据此判断「清单可不可信」，不能靠 groups.length 猜。
+  return { groups, loading, failed, loaded, ensureLoaded, retry }
 }

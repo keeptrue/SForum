@@ -265,6 +265,8 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sf_badge_card` | `sforum.component.shared.sf_badge_card@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeCard.vue` | P9 Component Registry |
 | `core.component.shared.sf_badge_catalog_page` | `sforum.component.shared.sf_badge_catalog_page@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue` | P9 Component Registry |
 | `core.component.public.s_f_badge_chip` | `sforum.component.public.s_f_badge_chip@1` | component | `public` | — | `apps/web/app/components/forum/SFBadgeChip.vue` | P9 Component Registry |
+| `core.component.shared.sfbadgedetailbody` | `sforum.component.shared.sfbadgedetailbody@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeDetailBody.vue` | P9 Component Registry |
+| `core.component.shared.sfbadgedetailmodal` | `sforum.component.shared.sfbadgedetailmodal@1` | component | `public` | — | `apps/web/app/components/forum/badges/SFBadgeDetailModal.vue` | P9 Component Registry |
 | `core.component.shared.sfbookmark_control` | `sforum.component.shared.sfbookmark_control@1` | component | `public` | — | `apps/web/app/components/forum/SFBookmarkControl.vue` | P9 Component Registry |
 | `core.component.shared.sfbutton` | `sforum.component.shared.sfbutton@1` | component | `public`, `admin` | — | `apps/web/app/components/SFButton.vue` | P7/P9 Admin and Component Registries |
 | `core.component.shared.sfcard` | `sforum.component.shared.sfcard@1` | component | `public`, `admin` | — | `apps/web/app/components/SFCard.vue` | P7/P9 Admin and Component Registries |
@@ -272,6 +274,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfcategory_navigation_block` | `sforum.component.shared.sfcategory_navigation_block@1` | component | `public` | — | `apps/web/app/components/forum/navigation/SFCategoryNavigationBlock.vue` | P9 Component Registry |
 | `core.component.shared.sfcategory_select` | `sforum.component.shared.sfcategory_select@1` | component | `public` | — | `apps/web/app/components/forum/SFCategorySelect.vue` | P9 Component Registry |
 | `core.component.shared.sfcategory_show_page` | `sforum.component.shared.sfcategory_show_page@1` | component | `public` | — | `apps/web/app/components/forum/SFCategoryShowPage.vue` | P9 Component Registry |
+| `core.component.shared.sf_celebration_host` | `sforum.component.shared.sf_celebration_host@1` | component | `public` | — | `apps/web/app/components/notifications/SFCelebrationHost.vue` | P9 Component Registry |
 | `core.component.shared.sfcomment` | `sforum.component.shared.sfcomment@1` | component | `public` | — | `apps/web/app/components/forum/SFComment.vue` | P9 Component Registry |
 | `core.component.shared.sfcomment_citations` | `sforum.component.shared.sfcomment_citations@1` | component | `public` | — | `apps/web/app/components/forum/SFCommentAIActivity.vue` | P9 Component Registry |
 | `core.component.public.s_f_comment_author_row` | `sforum.component.public.s_f_comment_author_row@1` | component | `public` | — | `apps/web/app/components/forum/SFCommentAuthorRow.vue` | P9 Component Registry |

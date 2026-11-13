@@ -14,7 +14,13 @@ Notification:
     targetType: {type: string}
     targetId: {type: integer, format: int64}
     targetAvailable: {type: boolean, description: False when the Host cannot re-authorize the target at read time.}
-    targetPath: {type: string, description: Host-resolved same-origin path; omitted for unavailable targets.}
+    targetPath:
+      type: string
+      description: |
+        Host-resolved same-origin path; omitted for unavailable targets.
+        A `badge` target resolves to the recipient's own profile badge tab with
+        the granted badge preselected (`/u/{username}?tab=badges&badge={slug}`),
+        so the inbox can open that one badge instead of the whole wall.
     payload: {type: object, additionalProperties: true}
     readAt: {type: string, format: date-time}
     createdAt: {type: string, format: date-time}
@@ -320,3 +326,115 @@ ApiResponsePushDeviceRevoked:
       required: [revoked]
       properties:
         revoked: {type: boolean}
+
+# --- Badge celebration layer (/api/v1/notifications/celebrations) ---
+#
+# 庆祝展示层是通知平台的**展示层**，不是新通知类型、不是新授予路径：徽章授予照旧
+# 写 `badge_granted` 通知行，这一层只回答「哪些已发生的通知值得弹一张庆祝卡」。
+# 哪些类型进入这一层由类型描述符的 `presentation.celebration` 标记决定
+# （Core 声明自己的，插件声明自己的），所以 `type` 不是闭集。
+#
+# 三条产品口径写在形状里：
+#   - 跟随 in_app 偏好：读的仍是 notifications 行，用户关掉站内渠道就没有行可读。
+#   - 首访不回放历史：`initialized: false` + 空 items + 种子游标。
+#   - 目标不可见就整条丢弃：不返回「点了没反应」的空卡。
+CelebrationText:
+  type: object
+  description: 双语文本。两个语言恒定同时下发，前端按当前 locale 选；服务端不选语言。
+  required: [zh, en]
+  properties:
+    zh: {type: string}
+    en: {type: string}
+CelebrationItem:
+  type: object
+  description: |
+    一张庆祝卡的数据。
+
+    `titleKey` / `bodyKey` 是 **Core** 类型的 i18n 键，插件类型为 null（前端回落到
+    `label` / `body`）。三者同时存在不是冗余：Core 的文案由前端 i18n 拥有，插件文案
+    由插件清单拥有，服务端只负责选路，不生成句子。
+  required: [id, type, icon, label, body, titleKey, bodyKey, params, targetPath, createdAt]
+  properties:
+    id: {type: integer, format: int64, description: 衍生出这张卡的 notifications 行 id。}
+    type:
+      type: string
+      description: 通知类型。Core 为 `badge_granted`，插件类型按清单命名空间；不是闭集。
+    icon:
+      type: string
+      description: 描述符里的图标名（`i-lucide-*` / `i-tabler-*`）；描述符未写时为空串。
+    label: {$ref: "#/CelebrationText"}
+    body: {$ref: "#/CelebrationText"}
+    titleKey:
+      type: [string, "null"]
+      description: Core i18n 标题键（`celebrations.badge_granted.title`）；插件类型为 null。
+    bodyKey:
+      type: [string, "null"]
+      description: Core i18n 正文键（`celebrations.badge_granted.body`）；插件类型为 null。
+    params:
+      type: object
+      additionalProperties: {type: string}
+      description: |
+        i18n 插值参数。白名单抽取，不透传 payload：Core `badge_granted` 给
+        `badgeName`，并额外带 `badgeSlug`——前端用 slug 去 `/profiles/{me}/badges`
+        取**当前**的等级/颜色/说明/条件，好让庆祝卡与资料页徽章详情一致（徽章改名、
+        换色、停用后不会出现两张卡描述不一致）。`badgeSlug` 只在该通知行确实带了
+        slug 时出现；旧行缺这个键时**不输出空串**。其余键随类型而定（插件类型由
+        插件清单决定，Core 不认的字段一律不透传）。没有参数时是空对象（不是 null）。
+    targetPath:
+      type: string
+      description: |
+        Host 解析出的同源路径。**这条读面上不会为 null**：目标已不可见的条目整条
+        被丢弃（见 `items` 的说明），所以拿到 item 就一定能点击跳转。
+    createdAt: {type: string, format: date-time}
+CelebrationFeed:
+  type: object
+  description: |
+    庆祝读面。`initialized: false` 表示用户还没初始化过庆祝层（首访）：此时
+    `items` 为空、`total` 为 0，`cursorId` 是**种子游标**（该用户当前最大通知 id），
+    前端据此发第一次 ack —— 老用户升级后不会被几个月前的徽章刷屏。
+
+    `initialized: true` 时 `cursorId` 是当前离线游标，`total` 是候选数（封顶 99）。
+
+    **`items` 可能少于 `total`**：`total` 是 SQL 候选数，`items` 是过了目标可见性
+    之后的子集（徽章被收回/停用会让条目整条消失）。前端约定：`items` 为空时不渲染
+    任何庆祝 DOM —— 不要用 `total` 决定是否弹卡。`items` 按 id 升序（最早的先展示），
+    一次最多 3 条。
+  required: [initialized, cursorId, total, items]
+  properties:
+    initialized: {type: boolean}
+    cursorId: {type: integer, format: int64}
+    total: {type: integer, format: int64}
+    items: {type: array, items: {$ref: "#/CelebrationItem"}}
+CelebrationAckRequest:
+  type: object
+  description: |
+    只有游标一个字段：庆祝层不维护「已读/未读」，只维护一个单调游标。
+
+    **客户端必须上报「已消费条目的最大 id」**，不是逐条 ack、也不是「本次看到的最大
+    id 减一」：服务端按 `GREATEST(旧值, 提交值)` 单调推进，重复或乱序上报都安全。
+    少报的代价是那条庆祝在下次打开时又弹一次；多报（把还没消费的 id 也报上来）的
+    代价更重——读面按 `id > cursor` 过滤，那条庆祝会被永久跳过。因此游标只能推进到
+    真正消费过的最后一条。
+
+    负值按 0 处理（不报错）：那是客户端本地状态，钳零等价于「什么都没看过」。
+  required: [cursorId]
+  properties:
+    cursorId: {type: integer, format: int64}
+ApiResponseCelebrationFeed:
+  type: object
+  required: [code, message, data]
+  properties:
+    code: {type: integer}
+    message: {type: string}
+    data: {$ref: "#/CelebrationFeed"}
+ApiResponseCelebrationAck:
+  type: object
+  required: [code, message, data]
+  properties:
+    code: {type: integer}
+    message: {type: string}
+    data:
+      type: object
+      required: [cursorId]
+      properties:
+        cursorId: {type: integer, format: int64, description: 落库后的游标（单调，不会小于提交值）。}

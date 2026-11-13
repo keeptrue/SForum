@@ -415,6 +415,8 @@ func requireNotificationRecipientAuthority(ctx context.Context, evaluation route
 		"core.route.notifications.update_preferences",
 		"core.route.notifications.restore_preferences",
 		"core.route.notifications.list",
+		"core.route.notifications.list_celebrations",
+		"core.route.notifications.acknowledge_celebrations",
 		"core.route.notifications.detail",
 		"core.route.notifications.mark_read",
 		"core.route.notifications.mark_all_read",

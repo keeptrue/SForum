@@ -97,10 +97,14 @@ func (a *AdminService) BatchGrant(ctx context.Context, actor identity.Actor, inp
 	}
 
 	// 只重算真正拿到新徽章的人：跳过的人 top_badge_id 不会因为这次调用变化。
+	// 通知同样只发给他们：skipped 是「本来就持有」，再发一次等于凭重复点击刷通知
+	// （dedupe 键会挡住，但那只是第二道闸，不该靠它兜住语义错误）。
+	badgeForNotify := GrantedBadge{ID: badge.ID, Slug: badge.Slug, Name: badge.Name}
 	for _, userID := range grantedUsers {
 		if err := a.store.RecomputeTopBadge(ctx, userID); err != nil {
 			return BatchGrantResult{}, err
 		}
+		a.notifyGranted(ctx, userID, []GrantedBadge{badgeForNotify})
 	}
 	if len(result.Failed) > 0 {
 		result.Failed = a.fillFailureUsernames(ctx, result.Failed)

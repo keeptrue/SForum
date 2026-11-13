@@ -44,7 +44,9 @@ type CatalogWriter interface {
 type GrantReader interface {
 	ListUserBadges(ctx context.Context, userID int64) ([]UserBadge, error)
 	ListGrants(ctx context.Context, input GrantListInput) (GrantList, error)
-	// TopBadgesFor 一次查询覆盖整页用户，禁止 N+1。
+	// TopBadgesFor 批量取用户**当前展示**的徽章（一次查询，无 N+1）。
+	// 当前无生产调用方：帖子/评论旁的 chip 由 Forum 的读 SQL 直接投影
+	// users.top_badge_id（见 topBadgeSelectSQL），保留为 store 能力。
 	TopBadgesFor(ctx context.Context, userIDs []int64) (map[int64]BadgeRef, error)
 	ListEnabledAutomaticBadges(ctx context.Context) ([]Badge, error)
 	// AffectedUserIDs 返回持有该徽章的用户（停用/规则变更后要重算 top_badge_id）。
@@ -64,11 +66,31 @@ type GrantWriter interface {
 	RecomputeAll(ctx context.Context) (int64, error)
 	// GrantFromRules 批量补授予（阈值下调后的追溯）。
 	//
-	// 返回 (新插入行数, 需要异步评估的徽章 id)。第二个返回值是**徽章数**不是用户数：
-	// 复杂规则没法在一条 INSERT ... SELECT 里求值，必须由 backfill job 逐人算。
-	// 调用方（`AdminService.Recompute`）负责入队并把数量报给运营——静默跳过等于
-	// 「重算完成、0 人获得，实际上一半徽章没算」。
-	GrantFromRules(ctx context.Context) (int64, []int64, error)
+	// `ComplexBadgeIDs` 是**徽章数**不是用户数：复杂规则没法在一条 INSERT ... SELECT
+	// 里求值，必须由 backfill job 逐人算。调用方（`AdminService.Recompute`）负责入队
+	// 并把数量报给运营——静默跳过等于「重算完成、0 人获得，实际上一半徽章没算」。
+	GrantFromRules(ctx context.Context) (GrantFromRulesResult, error)
+}
+
+// RuleGrant 是一条按规则补授予出来的 (用户, 徽章) 行。
+//
+// 只够通知层用（谁拿到了哪枚），不带授予理由/时间：调用方已经知道来源是
+// `grant_reason='recompute'`，把它们再搬一遍只会让这个结构随授予表长。
+type RuleGrant struct {
+	UserID  int64
+	BadgeID int64
+}
+
+// GrantFromRulesResult 是批量补授予的结果。
+//
+// `Granted` 是**真实插入行数**（可能远大于 `Rows`），`Rows` 只收集到
+// `grantFromRulesCollectLimit` 条：通知在超过阈值时整体不发（见
+// `AdminService.recomputeNotifyLimit`），所以没必要为十万行授予在内存里
+// 攒十万个结构体。
+type GrantFromRulesResult struct {
+	Granted         int64
+	Rows            []RuleGrant
+	ComplexBadgeIDs []int64
 }
 
 // GrantCandidateReader 是「批量授予」的两个读口：候选搜索与失败行回填用户名。

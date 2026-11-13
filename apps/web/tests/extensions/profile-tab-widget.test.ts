@@ -140,6 +140,17 @@ const profileApi = {
 
 const state: { profile: PublicProfile } = { profile: makeProfile() }
 
+/**
+ * 深链守卫的探针：页面级那条「未知 slug 清 query」在 `loaded` 为假时**不许**触发。
+ * 这里把 `useProfileBadges.loaded` 与 `useBadgeDetailQuery.focusSlug` 都做成可变的，
+ * 才能证明守卫等的是「数据到了」而不是「碰巧没跑」。
+ */
+const badgeDeepLink = {
+  focusSlug: testVue.ref(''),
+  loaded: testVue.ref(true),
+  resetCalls: 0
+}
+
 const bindings: Record<string, unknown> = {
   // Nuxt 自动导入的运行时与组合式函数
   ref: testVue.ref,
@@ -163,6 +174,7 @@ const bindings: Record<string, unknown> = {
     groups: testVue.ref([]),
     loading: testVue.ref(false),
     failed: testVue.ref(false),
+    loaded: badgeDeepLink.loaded,
     ensureLoaded: async () => {},
     retry: async () => {}
   }),
@@ -207,6 +219,17 @@ const bindings: Record<string, unknown> = {
       }
     }
   },
+  // 徽章详情深链（`?badge=`）：这里只关心「页面级守卫何时清 query」，弹窗本身不在本文件。
+  useBadgeDetailQuery: () => ({
+    focusSlug: badgeDeepLink.focusSlug,
+    openBadge: () => {},
+    closeBadge: () => {},
+    setFocusSlug: () => {},
+    syncBadgeQuery: () => {},
+    resetBadgeIfMissing: () => {
+      badgeDeepLink.resetCalls += 1
+    }
+  }),
   // 路由壳是唯一取数点；测试里等价于「已 provide 的那份 refs」。
   useProfileShowData: async () => ({
     profile: testVue.ref(state.profile),
@@ -510,5 +533,33 @@ describe('profile page dynamic tabs', () => {
     expect(wrapper.find('.sf-profile-about').exists()).toBe(true)
     expect(widgetMounts).toEqual([])
     wrapper.unmount()
+  })
+})
+
+/**
+ * 页面级深链守卫（FIX-2）：`/u/alice?badge=first-post` 不带 tab 进页时，
+ * `useProfileBadges` 的 `loading` 初值是 false、`groups` 是 []，守卫会先于首次请求同步跑一次。
+ * 只要它不在 `loaded` 为真之前动手，深链就不会被吃掉。
+ */
+describe('profile page deep-link guard', () => {
+  test('waits for the badge list before judging an unknown slug', async () => {
+    badgeDeepLink.focusSlug.value = 'first-post'
+    badgeDeepLink.loaded.value = false
+    badgeDeepLink.resetCalls = 0
+    const wrapper = await mountPage(makeProfile())
+    try {
+      // 数据还没到：守卫一次都不许清（否则 `?badge=` 深链在首屏就被抹掉）。
+      expect(badgeDeepLink.resetCalls).toBe(0)
+
+      // 数据到达：这时才允许判「这枚徽章还在不在」（stub 里 groups 恒空 → 会清一次）。
+      badgeDeepLink.loaded.value = true
+      await flushPromises()
+      expect(badgeDeepLink.resetCalls).toBe(1)
+    } finally {
+      wrapper.unmount()
+      badgeDeepLink.focusSlug.value = ''
+      badgeDeepLink.loaded.value = true
+      badgeDeepLink.resetCalls = 0
+    }
   })
 })

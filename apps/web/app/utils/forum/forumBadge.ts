@@ -6,7 +6,11 @@ import { tierAccentVars } from '~/utils/theme/tierColor'
  *
  * tier 在服务端是**运营可增删的等级 key**（TEXT），不再是固定三档：前端不再把未知值折叠成
  * bronze —— 那会让新建等级的所有徽章都显示成「铜牌」。等级的中英名、色值、位次随载荷下发
- * （`tierName` / `tierColor` / `tierPosition`），缺失时才回退到内置三档的文案与颜色。
+ * （`tierName` / `tierColor` / `tierPosition`）。
+ *
+ * **缺外观 = 中性，绝不猜等级色。** 载荷没给 `tierColor` 时一律落中性 `slate`，不再按 tier key
+ * 反查内置色表 —— 猜出来的色会和运营在后台配的色打架，而且看起来像真的。
+ * 等级名同理：只在 locale 里有对应键时才用键，否则落到通用文案（见 `forumBadgeTierLabel`）。
  *
  * `data-tier` 与 URL `?tier=` 仍然是 key 字符串，读侧按已加载的等级白名单归一。
  */
@@ -25,20 +29,10 @@ export interface ForumBadgeRef {
   icon: string
   /** 等级显示名（服务端 `tierName`）；缺失时回退内置三档文案。 */
   tierName?: ForumBadgeTierName | null
-  /** 等级色：token 名或 `#rrggbb`（服务端 `tierColor`）；缺失时回退内置三档色。 */
+  /** 等级色：token 名或 `#rrggbb`（服务端 `tierColor`）；缺失时落中性 `slate`。 */
   tierColor?: string | null
   /** 等级位次（服务端 `tierPosition`，升序 = 展示顺序）；缺失时排在已知等级之后。 */
   tierPosition?: number | null
-}
-
-/** 内置三档：只在载荷缺字段时兜底，不是可配置等级的来源。 */
-export const BADGE_TIERS: readonly string[] = ['gold', 'silver', 'bronze']
-
-/** 内置三档的兜底色（token 名）。与 `sforum-trust-colors.css` 的 9 色同域。 */
-const BUILTIN_TIER_COLORS: Record<string, string> = {
-  gold: 'amber',
-  silver: 'slate',
-  bronze: 'rose'
 }
 
 /** 未知等级的兜底文案键（绝不把 `badges.tier.<key>` 裸键渲染出去）。 */
@@ -70,6 +64,8 @@ export function forumUserBadgesPath(username?: string | null): string | null {
 export interface ProfileBadgeEntry extends ForumBadgeRef {
   position: number
   earned: boolean
+  /** 徽章自身的说明（服务端 `description`）；缺键表示运营没写，详情弹窗整段不渲染。 */
+  description?: string
   /** 「获得条件」双语句子（服务端 `requirementText`）；空句表示该徽章没有可展示的条件文案。 */
   requirementText?: ForumBadgeRequirementText | null
   current?: number
@@ -149,11 +145,11 @@ export function forumBadgeTierLabel(
   return translate(BADGE_TIER_FALLBACK_KEY)
 }
 
-/** 等级的色值：载荷 `tierColor` 优先，缺失按内置三档兜底（未知档落到 slate）。 */
+/** 等级的色值：只认载荷 `tierColor`；缺外观一律中性 `slate`，不按 tier key 猜色。 */
 export function forumBadgeTierColor(badge: Pick<ForumBadgeRef, 'tier' | 'tierColor'>): string {
   const payload = typeof badge.tierColor === 'string' ? badge.tierColor.trim() : ''
   if (payload) return payload
-  return BUILTIN_TIER_COLORS[forumBadgeTier(badge.tier)] ?? 'slate'
+  return 'slate'
 }
 
 /**

@@ -35,6 +35,10 @@ CREATE TABLE users (
   email TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'active',
   top_badge_id BIGINT,
+  -- 202611130003：展示位是「当前展示的徽章」，manual 表示它是用户选的。
+  -- fixture 必须跟着迁移走：RecomputeTopBadge / RecomputeAll 的 SQL 会读写它，
+  -- 漏列会让整包测试以「column users.top_badge_manual does not exist」变红。
+  top_badge_manual BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -43,7 +47,11 @@ CREATE TABLE badge_groups (
   key TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
-  position INTEGER NOT NULL DEFAULT 0
+  position INTEGER NOT NULL DEFAULT 0,
+  -- ListGroups 会扫这两列（公开资料页徽章墙要走分组），fixture 漏列会让
+  -- Service.ListUserBadges 直接 500（column badge_groups.created_at does not exist）。
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE badges (
@@ -103,15 +111,19 @@ CREATE TABLE user_visits (
 );
 
 -- Recompute 需要的最小内容表：只要作者列与目标 id。
--- 真实迁移里这些表字段多得多，这里只保留 Recompute 的 SQL 会读到的部分。
+-- 真实迁移里这些表字段多得多，这里只保留 Recompute / conditions 的 SQL 会读到的部分。
 CREATE TABLE topics (
   id BIGSERIAL PRIMARY KEY,
-  author_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+  author_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- activity.count 的窗口分支按 created_at 数，且 Postgres 在解析期就会校验列，
+  -- 即使本次只查 window.all 也必须有这一列。
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE comments (
   id BIGSERIAL PRIMARY KEY,
-  author_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE
+  author_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE content_reactions (
@@ -120,6 +132,7 @@ CREATE TABLE content_reactions (
   target_type TEXT NOT NULL,
   target_id BIGINT NOT NULL,
   reaction TEXT NOT NULL DEFAULT 'like',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT content_reactions_unique UNIQUE (user_id, target_type, target_id, reaction)
 );
 
@@ -180,7 +193,8 @@ CREATE TABLE content_bookmarks (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL,
-  target_id BIGINT NOT NULL
+  target_id BIGINT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 `
 
@@ -673,15 +687,18 @@ func TestGrantFromRulesCoversEveryMetricBranch(t *testing.T) {
 	}
 
 	store := NewPostgresStore(fixture.pool)
-	granted, queuedIDs, err := store.GrantFromRules(ctx)
+	recompute, err := store.GrantFromRules(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(queuedIDs) != 0 {
-		t.Fatalf("全部是快路径形状，不应有徽章转入异步评估：%v", queuedIDs)
+	if len(recompute.ComplexBadgeIDs) != 0 {
+		t.Fatalf("全部是快路径形状，不应有徽章转入异步评估：%v", recompute.ComplexBadgeIDs)
 	}
-	if granted != int64(len(expectations)) {
-		t.Fatalf("granted = %d, want %d (每个 metric 只应授予刚好达标的那个用户)", granted, len(expectations))
+	if recompute.Granted != int64(len(expectations)) {
+		t.Fatalf("granted = %d, want %d (每个 metric 只应授予刚好达标的那个用户)", recompute.Granted, len(expectations))
+	}
+	if int64(len(recompute.Rows)) != recompute.Granted {
+		t.Fatalf("收集到的行 %d 应等于授予行数 %d", len(recompute.Rows), recompute.Granted)
 	}
 
 	for _, item := range expectations {
@@ -714,11 +731,11 @@ func TestGrantFromRulesCoversEveryMetricBranch(t *testing.T) {
 	if _, err := fixture.pool.Exec(ctx, `UPDATE badges SET enabled=FALSE WHERE id=$1`, disabledID); err != nil {
 		t.Fatal(err)
 	}
-	again, _, err := store.GrantFromRules(ctx)
+	again, err := store.GrantFromRules(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again != 0 {
+	if again.Granted != 0 {
 		t.Fatalf("second run granted = %d, want 0 (手动/停用徽章不得被批量授予，且已授予幂等)", again)
 	}
 }
@@ -780,10 +797,11 @@ func TestFastPathSQLSubsetOfGoFastPath(t *testing.T) {
 	}
 
 	store := NewPostgresStore(fixture.pool)
-	granted, queuedIDs, err := store.GrantFromRules(fixture.ctx)
+	recompute, err := store.GrantFromRules(fixture.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
+	granted, queuedIDs := recompute.Granted, recompute.ComplexBadgeIDs
 
 	rows, err := fixture.pool.Query(fixture.ctx, `
 		SELECT badges.slug FROM user_badges
@@ -987,7 +1005,7 @@ func TestGrantSourcesAreDistinguishable(t *testing.T) {
 		INSERT INTO user_activity (user_id, topic_count) VALUES ($1, 5)`, recomputeUser); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := store.GrantFromRules(ctx); err != nil {
+	if _, err := store.GrantFromRules(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if got := read(recomputeID, recomputeUser); got.by != nil || got.reason == nil || *got.reason != "recompute" {

@@ -164,6 +164,7 @@
       "moderation_approved": "审核通过",
       "moderation_rejected": "审核未通过",
       "admin_test": "测试",
+      "badge_granted": "徽章",
       "loadedScope": "筛选仅作用于当前已加载的 {count} 条通知。",
       "empty": "这个筛选下没有通知",
       "emptyDescription": "当前 API 不支持服务端类型筛选，因此这里只检查已加载的 {count} 条通知。"
@@ -177,6 +178,7 @@
       "moderation_rejected": "关联内容：{target}",
       "moderation_rejected_note": "处理说明：{reviewNote}",
       "admin_test": "站内通知投递测试。",
+      "badge_granted": "徽章：{target}",
       "noTarget": "这条通知没有可公开展示的目标摘要。"
     },
     "detail": {
@@ -199,13 +201,15 @@
       "read": "已读",
       "type": "类型",
       "target": "关联目标",
-      "available": "可查看"
+      "available": "可查看",
+      "targetAvailableHelp": "这条通知的目标页面可以打开，但这里没有可展示的内容摘要。"
     },
     "actions": {
       "markRead": "标记这条通知为已读",
       "viewReply": "查看回复",
       "viewMention": "查看提及",
       "viewTarget": "查看内容",
+      "viewBadges": "查看我的徽章",
       "openTarget": "打开目标"
     },
     "types": {
@@ -215,8 +219,30 @@
       "moderation_pending": "有新内容等待审核",
       "moderation_approved": "你的内容已通过审核",
       "moderation_rejected": "你的内容未通过审核",
-      "admin_test": "站内通知投递测试成功"
+      "admin_test": "站内通知投递测试成功",
+      "badge_granted": "你获得了新徽章"
     }
+  },
+  "celebrations": {
+    "types": {
+      "badge_granted": "徽章"
+    },
+    "badge_granted": {
+      "title": "获得新徽章",
+      "body": "你获得了「{badgeName}」徽章。"
+    },
+    "plugin": {
+      "title": "新成就",
+      "body": "有新的成就可以查看。"
+    },
+    "dialog": {
+      "title": "新徽章",
+      "aggregate": "获得 {count} 枚新徽章",
+      "aggregateBody": "这 {count} 枚徽章已经加入你的徽章墙。",
+      "view": "查看我的徽章"
+    },
+    "dismiss": "关闭庆祝提示",
+    "view": "查看"
   },
   "search": {
     "title": "站内搜索",
@@ -7278,6 +7304,24 @@
       "ariaLabelEarned": "{tier}徽章：{name}，已获得",
       "ungrouped": "未分组",
       "truncated": "徽章较多，列表已截断，只显示前面的一部分。"
+    },
+    "detail": {
+      "title": "徽章详情",
+      "close": "关闭徽章详情",
+      "groupLabel": "分组",
+      "descriptionLabel": "徽章说明",
+      "requirementLabel": "获得条件",
+      "progressLabel": "进度",
+      "progress": "{current} / {threshold}（{percent}%）"
+    },
+    "worn": {
+      "wear": "佩戴",
+      "wearing": "佩戴中",
+      "unwear": "取消佩戴",
+      "notOwned": "这枚徽章不在你的徽章墙里，无法佩戴",
+      "saveFailed": "徽章佩戴设置保存失败",
+      "wearSuccess": "已佩戴「{name}」",
+      "unwearSuccess": "已恢复自动展示徽章"
     }
   },
   "profile": {

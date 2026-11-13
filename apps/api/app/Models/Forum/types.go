@@ -248,8 +248,10 @@ type UserSummary struct {
 	Username    string      `json:"username"`
 	DisplayName string      `json:"displayName"`
 	Avatar      avatar.View `json:"avatar"`
-	// TopBadge 是该作者的最高级徽章（gold > silver > bronze）。
-	// nil 表示没有徽章或徽章已停用；由 Badges 包经 BadgeReader 批量补齐。
+	// TopBadge 是 UserSummary 形状上的徽章槽位。**当前论坛读路径不填充它**：
+	// 帖子/评论旁的 chip 读的是摘要级 TopBadge（TopicSummary / Comment），由读 SQL 的
+	// topBadgeSelectSQL 一次投影（徽章列 + 等级外观）。字段保留在 wire 形状里避免前端
+	// 类型分叉，但不要据此判断「作者徽章有没有下发」。
 	TopBadge *BadgeRef `json:"topBadge,omitempty"`
 }
 
@@ -293,8 +295,9 @@ type TopicSummary struct {
 	Author       *UserSummary `json:"author,omitempty"`
 	// LastReplyAuthor 最近一条 active 评论作者；无评论时与 Author 相同（列表「最近回复」列）。
 	LastReplyAuthor *UserSummary `json:"lastReplyAuthor,omitempty"`
-	// TopBadge 是主题作者的最高级徽章（与 Author.TopBadge 同值）。
-	// 列表卡片的 chip 贴在作者旁，但详情页也需要不展开 author 就能取到，故两处都出。
+	// TopBadge 是主题作者**当前展示**的徽章（可能是手动佩戴的那枚，未必最高级）。
+	// 列表卡片的 chip 贴在作者旁，详情页也需要不展开 author 就能取到，所以放在摘要级；
+	// 它与 Comment.TopBadge 同源（同一条读 SQL 的投影），不是 Author.TopBadge 的副本。
 	TopBadge     *BadgeRef `json:"topBadge,omitempty"`
 	Title        string    `json:"title"`
 	Slug         string    `json:"slug"`

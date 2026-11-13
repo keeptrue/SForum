@@ -51,7 +51,8 @@ type Comment struct {
 	TopicID      int64        `json:"topicId"`
 	AuthorUserID int64        `json:"authorUserId"`
 	Author       *UserSummary `json:"author,omitempty"`
-	// TopBadge 是评论作者的最高级徽章（与 Author.TopBadge 同值）。
+	// TopBadge 是评论作者**当前展示**的徽章（可能是手动佩戴的那枚，未必最高级），
+	// 由读 SQL 的 topBadgeSelectSQL 投影；它不是 Author.TopBadge 的副本。
 	TopBadge      *BadgeRef             `json:"topBadge,omitempty"`
 	ParentID      *int64                `json:"parentId,omitempty"`
 	RootCommentID int64                 `json:"rootCommentId"`

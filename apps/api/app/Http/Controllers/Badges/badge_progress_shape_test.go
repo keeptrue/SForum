@@ -41,8 +41,8 @@ func TestBadgeProgressWireStaysTwoNumericKeys(t *testing.T) {
 
 // TestProfileItemProgressKeepsFlatShape 断言资料页 DTO 的扁平形状与「无模式字段」。
 //
-// 含 `fact.count` 的徽章没有可枚举的阈值语义，因此 profile DTO **不产出进度**
-// （不是「产出 0/0 的占位」）：条件式进度会把「判不了」伪装成「0%」。
+// 没有测量结果（未装配测量器 / 规则不可测 / 已获得）时**不产出进度**（不是
+// 「产出 0/0 的占位」）：0/0 会把「判不了」伪装成「0%」，而前端会照它画一条空进度条。
 func TestProfileItemProgressKeepsFlatShape(t *testing.T) {
 	withThreshold := profileItemWire(t, badges.UserBadge{
 		Badge:    badges.PublicBadge{Slug: "ten-topics", GrantMode: badges.GrantAutomatic},
@@ -55,14 +55,14 @@ func TestProfileItemProgressKeepsFlatShape(t *testing.T) {
 		t.Fatalf("threshold 必须是数字 3，得到 %#v", withThreshold["threshold"])
 	}
 
-	// 插件事实徽章：Threshold 为 0 → 两个键都不出现。
-	factBased := profileItemWire(t, badges.UserBadge{
-		Badge:    badges.PublicBadge{Slug: "plugin-pages", GrantMode: badges.GrantAutomatic},
+	// 没有测量结果的自动徽章：Threshold 为 0 → 两个键都不出现。
+	unmeasured := profileItemWire(t, badges.UserBadge{
+		Badge:    badges.PublicBadge{Slug: "unmeasured", GrantMode: badges.GrantAutomatic},
 		Progress: badges.BadgeProgress{},
 	})
 	for _, key := range []string{"current", "threshold", "mode", "satisfied", "total"} {
-		if _, present := factBased[key]; present {
-			t.Fatalf("事实徽章不得输出 %q（键集合见下）：%v", key, factBased)
+		if _, present := unmeasured[key]; present {
+			t.Fatalf("没有测量结果时不得输出 %q（键集合见下）：%v", key, unmeasured)
 		}
 	}
 }

@@ -13,8 +13,10 @@ import "strings"
 //
 // 三者的 FROM/JOIN 确实不同，但**列清单必须相同**。
 //
-// 任何新增列都要同时改 scanTopicSummaryWithAvatar 与
-// TestTopicSummaryColumnsStayAlignedWithScanner 的列数断言。
+// 任何新增列都要同时改 scanTopicSummaryWithAvatar 的扫描目的地，并同步
+// badge_columns_test.go 的列尾逐字比对（钉顺序）；「SQL 列数 = 目的地数」由
+// badge_tier_appearance_postgres_integration_test.go 的真库扫描覆盖——那里列数
+// 对不上会直接报 scan 错误，而不是静默读脏数据。
 func topicSummaryColumns() string {
 	return `
 		topics.id, topics.category_id, categories.slug, categories.name,

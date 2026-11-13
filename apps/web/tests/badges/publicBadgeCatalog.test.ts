@@ -246,15 +246,49 @@ describe('/badges body island registration (paired surfaces)', () => {
   })
 })
 
-describe('catalog wire mapping (M5b)', () => {
-  test('maps the catalog response without inventing progress or grant-date fields', () => {
+describe('catalog wire mapping (M5b / M4 修订)', () => {
+  test('the whitelist now admits rule-engine progress and still bans grant and operator fields', () => {
     const composable = readFileSync(join(appRoot.pathname, 'composables/forum/badges/useBadgesCatalog.ts'), 'utf8')
     expect(composable).toContain("request<PublicBadgeCatalogResponse>('/badges')")
-    // D37 白名单：wire 上没有阈值与授予时间，映射里也不许出现这两个字段。
-    expect(composable).not.toContain('threshold:')
-    expect(composable).not.toContain('current:')
+    // M4：进度改由规则引擎派生，公开面在「未获得 + 可测」时下发 current/threshold
+    //（阈值本来就已经出现在 requirementText 里，藏数字只是自欺）。
+    expect(composable).toContain('current')
+    expect(composable).toContain('threshold')
+    // 仍然禁止：授予时间、条件内部 metric、以及运营开关 enabled（判赋值，不判注释里的提及）。
     expect(composable).not.toContain('grantedAt:')
-    expect(composable).toContain("t('badges.catalog.ungrouped')")
+    expect(composable).not.toMatch(/\bmetric:/)
+    expect(composable).not.toMatch(/\benabled:/)
+    expect(composable).toContain("badges.catalog.ungrouped")
+  })
+
+  test('the mapper carries progress through and invents none of the banned fields', async () => {
+    const { mapPublicBadgeCatalog } = await import('../../app/composables/forum/badges/useBadgesCatalog')
+    const groups = mapPublicBadgeCatalog({
+      groups: [{
+        key: 'content',
+        name: '',
+        badges: [{
+          slug: 'first-post',
+          name: '初次发帖',
+          description: '',
+          icon: '',
+          tier: 'bronze',
+          group: 'content',
+          earned: false,
+          current: 3,
+          threshold: 10
+        }]
+      }],
+      truncated: false
+    }, '未分组')
+
+    const badge = groups[0]!.badges[0]!
+    expect(badge.current).toBe(3)
+    expect(badge.threshold).toBe(10)
+    expect('grantedAt' in badge).toBe(false)
+    expect('metric' in badge).toBe(false)
+    expect('enabled' in badge).toBe(false)
+    expect(groups[0]!.name).toBe('未分组')
   })
 
   test('the island surfaces truncation and owns no cache logic', () => {

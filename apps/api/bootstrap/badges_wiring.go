@@ -60,26 +60,32 @@ func (a badgesEvaluatorAdapter) EvaluateUser(ctx context.Context, userID int64) 
 	}
 	items := make([]badgesjobs.GrantedBadge, 0, len(granted))
 	for _, badge := range granted {
-		items = append(items, badgesjobs.GrantedBadge{Slug: badge.Slug, Name: badge.Name})
+		items = append(items, badgesjobs.GrantedBadge{ID: badge.ID, Slug: badge.Slug, Name: badge.Name})
 	}
 	return items, nil
 }
 
-// badgeGrantedNotifier 把「本次新授予的徽章」写成站内/邮件通知。
+// badgeGrantedNotifier 是「徽章授予 → 站内/邮件通知」的唯一实现。
 //
 // 与 reaction 的关键差异：这里**不做自授抑制**。徽章是公开荣誉，管理员给自己
 // 授予徽章同样应该收到通知；reaction 的「自赞静默」是防互动噪音，不适用于此。
+//
+// 四条授予路径（自动评估 job / 手动授予 / 批量授予 / 重算）都要发通知，但它们的
+// 端口类型不同：job 侧用 `badgesjobs.GrantedBadge`，领域侧用 `badges.GrantedBadge`。
+// 同一种方法名不能在同一类型上写两份签名，所以下面用两个薄适配器包住同一个实现——
+// **写通知的逻辑只有这里一份**，别在适配器里复制循环。
 type badgeGrantedNotifier struct {
 	outbox *notifications.Outbox
 }
 
-func (n badgeGrantedNotifier) NotifyBadgeGranted(ctx context.Context, userID int64, granted []badgesjobs.GrantedBadge) error {
+func (n badgeGrantedNotifier) notify(ctx context.Context, userID int64, granted []badges.GrantedBadge) error {
 	if n.outbox == nil || userID <= 0 {
 		return nil
 	}
 	for _, badge := range granted {
 		if err := n.outbox.NotifyBadgeGranted(ctx, notifications.BadgeGrantedEvent{
 			RecipientUserID: userID,
+			BadgeID:         badge.ID,
 			BadgeSlug:       badge.Slug,
 			BadgeName:       badge.Name,
 		}); err != nil {
@@ -87,6 +93,24 @@ func (n badgeGrantedNotifier) NotifyBadgeGranted(ctx context.Context, userID int
 		}
 	}
 	return nil
+}
+
+// badgesJobGrantedNotifier 实现 `badgesjobs.GrantedNotifier`（自动评估 job）。
+type badgesJobGrantedNotifier struct{ badgeGrantedNotifier }
+
+func (n badgesJobGrantedNotifier) NotifyBadgeGranted(ctx context.Context, userID int64, granted []badgesjobs.GrantedBadge) error {
+	items := make([]badges.GrantedBadge, 0, len(granted))
+	for _, badge := range granted {
+		items = append(items, badges.GrantedBadge{ID: badge.ID, Slug: badge.Slug, Name: badge.Name})
+	}
+	return n.notify(ctx, userID, items)
+}
+
+// badgesDomainGrantedNotifier 实现 `badges.GrantNotifier`（手动/批量/重算）。
+type badgesDomainGrantedNotifier struct{ badgeGrantedNotifier }
+
+func (n badgesDomainGrantedNotifier) NotifyBadgeGranted(ctx context.Context, userID int64, granted []badges.GrantedBadge) error {
+	return n.notify(ctx, userID, granted)
 }
 
 // registerBadgesEvaluateUserWorker 注册自动徽章评估 worker 及其通知出口。
@@ -101,7 +125,8 @@ func registerBadgesEvaluateUserWorker(
 	store := badges.NewPostgresStore(pool)
 	activity := badges.NewPostgresActivityStore(pool)
 	evaluator := badges.NewEvaluator(store, activity)
-	badgesjobs.RegisterEvaluateUser(registry, badgesEvaluatorAdapter{evaluator: evaluator}, badgeGrantedNotifier{outbox: outbox}, logger)
+	notifier := badgesJobGrantedNotifier{badgeGrantedNotifier{outbox: outbox}}
+	badgesjobs.RegisterEvaluateUser(registry, badgesEvaluatorAdapter{evaluator: evaluator}, notifier, logger)
 }
 
 // deferredBackfillEnqueuer 让「回扫下一页」的入队入口先注册、后绑定 River client。

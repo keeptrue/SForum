@@ -63,7 +63,7 @@ export function notificationPresentation(item: NotificationItem): NotificationPr
   const topicId = payloadNumber(item.payload, 'topicId')
   const commentId = payloadNumber(item.payload, 'commentId')
   const target = notificationTarget(item, topicId, commentId)
-  const targetLabel = title || fallbackTargetLabel(item, topicId)
+  const targetLabel = title || typeTargetLabel(item) || fallbackTargetLabel(item, topicId)
   const detailMeta = reviewNote || targetLabel
 
   return {
@@ -101,6 +101,17 @@ export function notificationTarget(item: NotificationItem, topicId = payloadNumb
     return { path: `/t/${item.targetId}`, unavailable: false }
   }
   return { path: '/notifications', unavailable: true }
+}
+
+/**
+ * 「目标可用」的唯一判据：`unavailable` 为假**且** path 非空。
+ *
+ * 这条布尔组合是详情页正文与右栏共用的口径（徽章授予没有正文预览但目标真实可打开）。
+ * 单独导出而不是在组件里内联，是为了让它能被真值表钉住 —— `&&` / `||` 互换、或漏掉
+ * `path` 那一半，都只会在「有目标但预览为空」这一个分支上出错，靠页面源码字符串断言抓不到。
+ */
+export function notificationHasTarget(target: NotificationTarget | null | undefined): boolean {
+  return Boolean(target && !target.unavailable && target.path)
 }
 
 export function filterNotifications<T extends { type: NotificationItem['type'], read: boolean }>(items: T[], filter: NotificationFilter): T[] {
@@ -159,6 +170,29 @@ function fallbackTargetLabel(item: NotificationItem, topicId: number) {
   if (topicId > 0) return `#${topicId}`
   if (item.targetType && item.targetId > 0) return `${item.targetType} #${item.targetId}`
   return ''
+}
+
+/**
+ * 类型专属的目标标签。徽章授予没有 topic/comment，摘要标签就是徽章名
+ * （后端 payload 里的 `badgeName`）；只在 `badge_granted` 分支内生效，
+ * 其余类型的通用回落顺序不变。
+ */
+function typeTargetLabel(item: NotificationItem) {
+  if (item.type !== 'badge_granted') return ''
+  return payloadString(item.payload, 'badgeName')
+}
+
+/**
+ * 详情页「目标卡」的标题：`payload.badgeName` → `payload.title` → `typeTargetLabel`。
+ *
+ * 与摘要标签的区别在于**徽章名优先于主题标题**：徽章授予的 payload 可能同时带
+ * `badgeName` 与 `title`（后者是授予时所在主题），详情卡要展示的是「我拿到了哪枚徽章」。
+ * 三档都空时返回空串，由调用方决定不渲染标题（不猜、不拼 `#id`）。
+ */
+export function notificationTargetTitle(item: NotificationItem): string {
+  return payloadString(item.payload, 'badgeName')
+    || payloadString(item.payload, 'title')
+    || typeTargetLabel(item)
 }
 
 function payloadString(payload: Record<string, unknown>, key: string) {

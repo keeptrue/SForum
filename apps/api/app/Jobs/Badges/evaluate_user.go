@@ -15,6 +15,9 @@ const EvaluateUserKind = "badges.evaluate_user"
 
 // GrantedBadge 是本次新授予的徽章（供通知层渲染）。
 type GrantedBadge struct {
+	// ID 是徽章 id：通知目标（TargetType="badge"）靠它解析，
+	// 只有 slug 时收件箱拿不到可点击目标。
+	ID   int64
 	Slug string
 	Name string
 }

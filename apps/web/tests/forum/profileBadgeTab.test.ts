@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computed, defineComponent, h, ref } from 'vue'
+import { computed, defineComponent, h, ref, watch } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
@@ -13,6 +13,7 @@ import {
   sortProfileBadgeEntries,
   sortProfileBadgeGroups
 } from '~/utils/forum/forumBadge'
+import { badgeWornErrorKey } from '~/composables/forum/badges/useBadgeWorn'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 
 /**
@@ -88,9 +89,51 @@ const SFBadgeCard = await compileVueSfc(badgeCardPath, 'sf-badge-card', {
   forumBadgeTierStyle
 })
 
+// 佩戴 UI 的宿主契约（默认 self=false，本文件只断言「不渲染控件」）走真实组合式函数，
+// 所以这里必须给它喂 Nuxt 自动导入的同名桩，否则 setup 直接 ReferenceError。
+const badgeWornStub = () => {
+  const state = ref({ mode: 'auto', wornSlug: '', automaticSlug: '', upgradeSlug: '' })
+  return {
+    state,
+    wornSlug: computed(() => state.value.wornSlug),
+    upgradeSlug: computed(() => (state.value.mode === 'manual' ? state.value.upgradeSlug : '')),
+    mode: computed(() => state.value.mode),
+    loading: ref(false),
+    failed: ref(false),
+    loaded: ref(false),
+    isWorn: (slug: string) => Boolean(slug) && state.value.wornSlug === slug,
+    load: async () => {},
+    ensureLoaded: async () => {},
+    wear: async () => {},
+    clear: async () => {}
+  }
+}
+
+/**
+ * 详情弹窗在容器测试里只需要「被打开的是哪一枚」这一个事实；
+ * 弹窗自身的渲染契约在 `tests/badges/badgeDetailModal.test.ts` 里用真组件覆盖。
+ */
+const BadgeDetailModalStub = defineComponent({
+  name: 'SFBadgeDetailModal',
+  props: {
+    open: { type: Boolean, default: false },
+    badge: { type: Object, default: null },
+    groupName: { type: String, default: '' },
+    variant: { type: String, default: 'profile' },
+    self: { type: Boolean, default: false },
+    worn: { type: Boolean, default: false }
+  },
+  emits: ['update:open', 'toggle-wear'],
+  template: '<div v-if="open" class="badge-detail-stub" :data-slug="badge && badge.slug" :data-group="groupName" :data-worn="String(worn)" :data-self="String(self)" :data-variant="variant" />'
+})
+
 const tabPath = fileURLToPath(new URL('../../app/components/profile/SFProfileBadgeTab.vue', import.meta.url))
 const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   computed,
+  watch,
+  useToast: () => ({ add: () => {} }),
+  useBadgeWorn: badgeWornStub,
+  badgeWornErrorKey,
   useI18n: () => ({ t, te: has, locale: localeRef }),
   useSiteDateTime: () => ({ formatDateOnly: (value: string) => value.slice(0, 10) }),
   useLocalePath: () => (path: string) => path,
@@ -103,7 +146,8 @@ const SFProfileBadgeTab = await compileVueSfc(tabPath, 'sf-profile-badge-tab', {
   forumBadgeRequirementText,
   sortProfileBadgeEntries,
   sortProfileBadgeGroups,
-  SFBadgeCard
+  SFBadgeCard,
+  SFBadgeDetailModal: BadgeDetailModalStub
 })
 
 function mountTab(props: Record<string, unknown>) {
@@ -152,12 +196,16 @@ describe('SFProfileBadgeTab', () => {
       const earned = wrapper.get('[data-badge-slug="liked"]')
       expect(earned.attributes('data-earned')).toBe('true')
       expect(earned.attributes('data-tier')).toBe('silver')
-      expect(earned.attributes('aria-label')).toBe('银牌徽章：广受好评，获得于 2026-11-01')
+      // 卡片可点：可访问名字挂在覆盖按钮上，卡片本身不再重复一遍。
+      expect(earned.attributes('aria-label')).toBeUndefined()
+      expect(earned.get('.sf-profile-badge-card__open').attributes('aria-label'))
+        .toBe('银牌徽章：广受好评，获得于 2026-11-01')
       expect(earned.find('[role="progressbar"]').exists()).toBe(false)
 
       const unearned = wrapper.get('[data-badge-slug="first-post"]')
       expect(unearned.attributes('data-earned')).toBe('false')
-      expect(unearned.attributes('aria-label')).toBe('铜牌徽章：初次发帖，未获得，进度 3/10')
+      expect(unearned.get('.sf-profile-badge-card__open').attributes('aria-label'))
+        .toBe('铜牌徽章：初次发帖，未获得，进度 3/10')
     } finally {
       wrapper.unmount()
     }
@@ -275,7 +323,8 @@ describe('SFProfileBadgeTab · catalog variant', () => {
     try {
       const earned = wrapper.get('[data-badge-slug="gold-writer"]')
       // wire 上没有 grantedAt：不能复用「获得于 {date}」模板，否则会读成「获得于 」。
-      expect(earned.attributes('aria-label')).toBe('金牌徽章：笔耕不辍，已获得')
+      expect(earned.get('.sf-profile-badge-card__open').attributes('aria-label'))
+        .toBe('金牌徽章：笔耕不辍，已获得')
       expect(earned.text()).toContain('已获得')
       expect(earned.text()).not.toContain('获得于')
     } finally {
@@ -404,5 +453,101 @@ describe('SFProfileBadgeTab · requirementText', () => {
     // 词边界正则：子串匹配会把 `topics` 里的 `op`、`params` 里的 `param` 误判成泄露。
     expect(text).not.toMatch(/\b(cmp|params|children|op|rule)\b/)
     expect(text).not.toMatch(/\b(topics|parent)\b.*\b(ast|node)\b/)
+  })
+})
+
+/**
+ * 详情弹窗的容器契约（图5）：卡片点击只回发 slug，弹窗开关由宿主的 `?badge=` 决定。
+ * 弹窗自身的内容（大图标/等级/条件/进度/获得时间/佩戴）在 `tests/badges/badgeDetailModal.test.ts`
+ * 用真组件覆盖，这里只钉「选中了哪一枚」和「失效 slug 静默清掉」。
+ */
+describe('SFProfileBadgeTab · 徽章详情弹窗', () => {
+  test('clicking a card emits the slug instead of opening anything locally', async () => {
+    const wrapper = mountTab({ groups })
+    try {
+      expect(wrapper.find('.badge-detail-stub').exists()).toBe(false)
+
+      await wrapper.get('[data-badge-slug="helper"] .sf-profile-badge-card__open').trigger('click')
+
+      expect(wrapper.emitted('update:focusSlug')).toEqual([['helper']])
+      // 本地不开弹窗：开关的唯一来源是宿主的 focusSlug。
+      expect(wrapper.find('.badge-detail-stub').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('focusSlug opens the modal on that badge and carries its group name', () => {
+    const wrapper = mountTab({ groups, focusSlug: 'first-post' })
+    try {
+      const stub = wrapper.get('.badge-detail-stub')
+      expect(stub.attributes('data-slug')).toBe('first-post')
+      expect(stub.attributes('data-group')).toBe('内容')
+      expect(stub.attributes('data-variant')).toBe('profile')
+      expect(stub.attributes('data-worn')).toBe('false')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('an unknown slug clears the query silently once the list has loaded', () => {
+    const wrapper = mountTab({ groups, focusSlug: 'ghost', loaded: true })
+    try {
+      expect(wrapper.find('.badge-detail-stub').exists()).toBe(false)
+      expect(wrapper.emitted('update:focusSlug')).toEqual([['']])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('a slug is not cleared while the list is loading, failed, or not loaded yet', () => {
+    for (const props of [
+      { groups: [], focusSlug: 'helper', loading: true },
+      { groups: [], focusSlug: 'helper', failed: true },
+      // 关键回归：`loading=false` + `groups=[]` + `loaded=false` 是「还没请求」，
+      // 不是「这枚徽章不存在」。清掉它等于把 `?badge=` 深链吃掉。
+      { groups: [], focusSlug: 'helper' }
+    ]) {
+      const wrapper = mountTab(props)
+      try {
+        expect(wrapper.emitted('update:focusSlug')).toBeUndefined()
+        expect(wrapper.find('.badge-detail-stub').exists()).toBe(false)
+      } finally {
+        wrapper.unmount()
+      }
+    }
+  })
+
+  test('a deep link that arrives before the data is kept and opens once the list arrives', async () => {
+    const wrapper = mountTab({ groups: [], focusSlug: 'first-post', loaded: false })
+    try {
+      // 数据还没到：既不清 query，也不弹空弹窗。
+      expect(wrapper.emitted('update:focusSlug')).toBeUndefined()
+      expect(wrapper.find('.badge-detail-stub').exists()).toBe(false)
+
+      // 数据到达（同一个组件实例，不重新挂载）。
+      await wrapper.setProps({ groups, loaded: true })
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.emitted('update:focusSlug')).toBeUndefined()
+      const stub = wrapper.get('.badge-detail-stub')
+      expect(stub.attributes('data-slug')).toBe('first-post')
+      expect(stub.attributes('data-group')).toBe('内容')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the catalog variant also opens the modal (catalog cards are interactive now)', () => {
+    const wrapper = mountTab({ groups: catalogGroups, variant: 'catalog', focusSlug: 'gold-writer' })
+    try {
+      const stub = wrapper.get('.badge-detail-stub')
+      expect(stub.attributes('data-slug')).toBe('gold-writer')
+      expect(stub.attributes('data-variant')).toBe('catalog')
+      // 目录页不佩戴：self 恒为 false，弹窗里不会出现佩戴按钮。
+      expect(stub.attributes('data-self')).toBe('false')
+    } finally {
+      wrapper.unmount()
+    }
   })
 })

@@ -71,8 +71,8 @@ func (s *Service) PublicCatalog(ctx context.Context) (PublicCatalog, error) {
 //
 // 与 PublicCatalog 分成两个方法，是本端点缓存安全的全部依据：
 //   - PublicCatalog 的签名里没有 actor/userID，按构造只能是 actor 无关的；
-//   - EarnedBadgeSlugs 是唯一吃 userID 的读，结果永不进入任何共享缓存，
-//     也永不写回 PublicCatalog 结构。
+//   - EarnedBadgeSlugs 与 ViewerCatalogProgress 是唯一吃 userID 的读，
+//     结果永不进入任何共享缓存，也永不写回 PublicCatalog 结构。
 //
 // 匿名（userID <= 0）直接返回空集合且不查库：匿名请求不该碰 user_badges。
 func (s *Service) EarnedBadgeSlugs(ctx context.Context, userID int64) (map[string]struct{}, error) {
@@ -80,6 +80,32 @@ func (s *Service) EarnedBadgeSlugs(ctx context.Context, userID int64) (map[strin
 		return map[string]struct{}{}, nil
 	}
 	return s.store.ListEarnedBadgeSlugs(ctx, userID)
+}
+
+// ViewerCatalogProgress 返回目录页查看者的进度（slug → 当前/阈值）。
+//
+// 只对「未获得 + 有 Measure」的启用徽章算：
+//   - 已获得的不需要进度条（DTO 也不输出）；
+//   - 不可测的（lte / 布尔 / 多条件组）连阈值都没有，硬塞 0/0 只会把
+//     「判不了」伪装成「0%」。
+//
+// 一次 `ListUserBadges` 就同时拿到「启用徽章 × 该用户」的规则与 earned，
+// 不需要再单独读一遍 earned。匿名（userID <= 0）返回空 map 且**不查库**。
+//
+// 签名里没有 error：进度是装饰，读失败只让目录少一条进度条。目录本身已经由
+// `PublicCatalog` 读成功了，为一份可选装饰把整页变成 500 是本末倒置。
+func (s *Service) ViewerCatalogProgress(ctx context.Context, userID int64) map[string]BadgeProgress {
+	if s == nil || s.store == nil || s.progress == nil || userID <= 0 {
+		return map[string]BadgeProgress{}
+	}
+	userBadges, err := s.store.ListUserBadges(ctx, userID)
+	if err != nil {
+		return map[string]BadgeProgress{}
+	}
+	if measured := s.measureProgress(ctx, userID, userBadges); measured != nil {
+		return measured
+	}
+	return map[string]BadgeProgress{}
 }
 
 // groupCatalogEntries 把已排好序的行切成分组，空组不产生。

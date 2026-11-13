@@ -25,8 +25,13 @@ import (
 type fakeCatalogReader struct {
 	catalog  badges.PublicCatalog
 	earned   map[string]struct{}
+	progress map[string]badges.BadgeProgress
 	err      error
 	earnedID int64
+	// progressID / progressReads 钉住「进度只给登录查看者算」：匿名的 progressReads
+	// 必须是 0（目录页对匿名是纯公开读，不该为一个不存在的「我」去测量）。
+	progressID    int64
+	progressReads int
 }
 
 func (r *fakeCatalogReader) PublicCatalog(context.Context) (badges.PublicCatalog, error) {
@@ -42,6 +47,15 @@ func (r *fakeCatalogReader) EarnedBadgeSlugs(_ context.Context, userID int64) (m
 		return map[string]struct{}{}, nil
 	}
 	return r.earned, nil
+}
+
+func (r *fakeCatalogReader) ViewerCatalogProgress(_ context.Context, userID int64) map[string]badges.BadgeProgress {
+	r.progressReads++
+	r.progressID = userID
+	if r.progress == nil {
+		return map[string]badges.BadgeProgress{}
+	}
+	return r.progress
 }
 
 func catalogFixture() badges.PublicCatalog {
@@ -131,7 +145,11 @@ func TestPublicBadgeCatalogIsPrivateCacheable(t *testing.T) {
 	}
 }
 
-// B-03 的 wire 一半：条目键集合**精确相等**（不是包含），阈值与指标键不存在。
+// B-03 的 wire 一半：**匿名**响应的条目键集合精确相等（不是包含），
+// 定义级 metric / threshold 与运营字段都不存在。
+//
+// 登录查看者的进度键由 TestPublicCatalogMergesViewerProgress 单独钉住：
+// 那对键是 per-viewer 装饰，不属于匿名目录的契约。
 func TestPublicCatalogWireKeysAreWhitelisted(t *testing.T) {
 	reader := &fakeCatalogReader{catalog: catalogFixture()}
 	controller := &Controller{catalog: reader, gate: fakeGate{enabled: true}}
@@ -180,11 +198,16 @@ func TestPublicCatalogWireKeysAreWhitelisted(t *testing.T) {
 	}
 }
 
-// B-03 的结构一半：Go DTO 上**不得存在** Threshold / Metric 字段。
+// B-03 的结构一半：目录 DTO 上不得存在**定义级**的 Metric 字段。
 //
 // 只测 wire 会被 omitempty 骗过：字段存在、JSON 里没键，测试全绿但下一次
 // 有人删掉 tag 就泄露。所以字段名与 json tag 都做精确集合断言。
-func TestPublicCatalogDTOCarriesNoThresholdOrMetricField(t *testing.T) {
+//
+// threshold 的语义在 M3 之后分成两种：定义级阈值（运营调参，绝不下发）与
+// 查看者进度阈值（未获得 + 可测的条目才有）。前者由 `PublicCatalogEntry`
+// **结构上没有该字段**保证（本测试第二段直接核对），后者是本 DTO 的
+// current/threshold 一对，只在登录且可测时出现（见 TestPublicCatalogMergesViewerProgress）。
+func TestPublicCatalogDTOCarriesNoDefinitionMetricField(t *testing.T) {
 	cases := []struct {
 		name   string
 		typ    reflect.Type
@@ -206,10 +229,11 @@ func TestPublicCatalogDTOCarriesNoThresholdOrMetricField(t *testing.T) {
 		{
 			name: "entry",
 			typ:  reflect.TypeOf(publicBadgeCatalogItem{}),
-			// requirementText 与 OpenAPI 的 PublicBadgeCatalogEntry.required 同步：
-			// 「过滤后重建结构」最容易漏这类新键，所以这里做白名单式断言。
-			fields: []string{"Slug", "Name", "Description", "Icon", "Tier", "TierName", "TierColor", "Group", "Earned", "RequirementText"},
-			tags:   []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned", "requirementText"},
+			// requirementText / current / threshold 与 OpenAPI 的
+			// PublicBadgeCatalogEntry 同步：「过滤后重建结构」最容易漏这类新键，
+			// 所以这里做白名单式断言。
+			fields: []string{"Slug", "Name", "Description", "Icon", "Tier", "TierName", "TierColor", "Group", "Earned", "RequirementText", "Current", "Threshold"},
+			tags:   []string{"slug", "name", "description", "icon", "tier", "tierName", "tierColor", "group", "earned", "requirementText", "current", "threshold"},
 		},
 	}
 	for _, tc := range cases {
@@ -219,12 +243,23 @@ func TestPublicCatalogDTOCarriesNoThresholdOrMetricField(t *testing.T) {
 			field := tc.typ.Field(index)
 			gotFields = append(gotFields, field.Name)
 			gotTags = append(gotTags, strings.Split(field.Tag.Get("json"), ",")[0])
-			if field.Name == "Threshold" || field.Name == "Metric" {
-				t.Fatalf("public catalog %s must not declare field %q", tc.name, field.Name)
+			if field.Name == "Metric" {
+				t.Fatalf("public catalog %s must not declare definition field %q", tc.name, field.Name)
 			}
 		}
 		assertKeys(t, tc.name+" struct fields", namesToSet(gotFields), tc.fields)
 		assertKeys(t, tc.name+" json tags", namesToSet(gotTags), tc.tags)
+	}
+
+	// 定义级阈值/指标的结构保证：领域目录条目上根本没有这两个字段，
+	// 所以「公开目录泄露运营阈值」在类型层面不可能发生——进度阈值走的是
+	// 另一个来源（BadgeProgress），不会顺手把定义带出来。
+	entryType := reflect.TypeOf(badges.PublicCatalogEntry{})
+	for index := 0; index < entryType.NumField(); index++ {
+		name := entryType.Field(index).Name
+		if name == "Threshold" || name == "Metric" {
+			t.Fatalf("PublicCatalogEntry must not carry definition field %q", name)
+		}
 	}
 }
 
@@ -301,6 +336,140 @@ func TestPublicCatalogMergesViewerEarned(t *testing.T) {
 	if got := strings.Count(body, `"earned":true`); got != 1 {
 		t.Fatalf("want exactly 1 earned entry, got %d (%s)", got, body)
 	}
+}
+
+// B-02 的进度一半：登录查看者拿到**值级**进度，已获得的行不给这两个键。
+//
+// 值级断言的理由与资料页同款：只断言「键存在」会让 `current:0`（空值）和
+// 「真的测到 3」看起来一样，而本仓的历史坑就是「键在值空」。
+func TestPublicCatalogMergesViewerProgress(t *testing.T) {
+	reader := &fakeCatalogReader{
+		catalog: catalogFixture(),
+		earned:  map[string]struct{}{"first-post": {}},
+		// 两条都配了进度：earned 的 first-post 必须被丢弃，未获得的 ten-posts 才输出。
+		progress: map[string]badges.BadgeProgress{
+			"first-post": {Current: 1, Threshold: 1},
+			"ten-posts":  {Current: 3, Threshold: 10},
+		},
+	}
+	controller := (&Controller{catalog: reader, gate: fakeGate{enabled: true}}).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) {
+			return identity.Actor{ID: 42, Status: identity.UserStatusActive}, nil
+		})
+
+	status, _, body := getCatalog(t, newCatalogApp(t, controller))
+	if status != fiber.StatusOK {
+		t.Fatalf("want 200, got %d (%s)", status, body)
+	}
+	if reader.progressID != 42 {
+		t.Fatalf("progress must be measured for the viewer: want userID 42, got %d", reader.progressID)
+	}
+	items := catalogItemsBySlug(t, body)
+
+	ten := items["ten-posts"]
+	if current, ok := ten["current"].(float64); !ok || current != 3 {
+		t.Fatalf("ten-posts current 必须是数字 3，得到 %#v", ten["current"])
+	}
+	if threshold, ok := ten["threshold"].(float64); !ok || threshold != 10 {
+		t.Fatalf("ten-posts threshold 必须是数字 10，得到 %#v", ten["threshold"])
+	}
+
+	earned := items["first-post"]
+	for _, key := range []string{"current", "threshold"} {
+		if _, present := earned[key]; present {
+			t.Fatalf("earned 行不得输出 %q：%v", key, earned)
+		}
+	}
+}
+
+// 匿名：目录对匿名是纯公开读，不查 earned、也不测量进度，两个键都不出现。
+func TestPublicCatalogAnonymousSkipsProgress(t *testing.T) {
+	reader := &fakeCatalogReader{
+		catalog:  catalogFixture(),
+		progress: map[string]badges.BadgeProgress{"ten-posts": {Current: 3, Threshold: 10}},
+	}
+	controller := &Controller{catalog: reader, gate: fakeGate{enabled: true}}
+
+	status, _, body := getCatalog(t, newCatalogApp(t, controller))
+	if status != fiber.StatusOK {
+		t.Fatalf("want 200, got %d (%s)", status, body)
+	}
+	if reader.progressReads != 0 {
+		t.Fatalf("anonymous catalog must not measure progress, got %d reads", reader.progressReads)
+	}
+	if reader.earnedID != 0 {
+		t.Fatalf("anonymous catalog must not resolve earned, got userID %d", reader.earnedID)
+	}
+	for slug, item := range catalogItemsBySlug(t, body) {
+		for _, key := range []string{"current", "threshold"} {
+			if _, present := item[key]; present {
+				t.Fatalf("anonymous item %q must not carry %q: %v", slug, key, item)
+			}
+		}
+	}
+}
+
+// 目录响应带查看者进度时，缓存头仍必须是 private + no-store，且不得出现 public。
+//
+// 这是 B-29 的加强版：进度与 earned 一样是 per-viewer 数据，一旦 public，
+// A 的进度会被共享缓存投给 B。
+func TestPublicCatalogProgressKeepsPrivateCacheHeader(t *testing.T) {
+	reader := &fakeCatalogReader{
+		catalog:  catalogFixture(),
+		progress: map[string]badges.BadgeProgress{"ten-posts": {Current: 3, Threshold: 10}},
+	}
+	controller := (&Controller{catalog: reader, gate: fakeGate{enabled: true}}).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) {
+			return identity.Actor{ID: 42, Status: identity.UserStatusActive}, nil
+		})
+
+	status, cacheControl, body := getCatalog(t, newCatalogApp(t, controller))
+	if status != fiber.StatusOK {
+		t.Fatalf("want 200, got %d (%s)", status, body)
+	}
+	if cacheControl != "private, no-store" {
+		t.Fatalf("want Cache-Control: private, no-store, got %q", cacheControl)
+	}
+	if strings.Contains(cacheControl, "public") {
+		t.Fatalf("viewer-scoped progress must never be publicly cacheable, got %q", cacheControl)
+	}
+}
+
+// catalogItemsBySlug 把目录响应摊平成 slug → 条目，便于值级断言。
+func catalogItemsBySlug(t *testing.T, body string) map[string]map[string]any {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		t.Fatalf("decode body: %v (%s)", err, body)
+	}
+	data, ok := payload["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing data object: %s", body)
+	}
+	groups, ok := data["groups"].([]any)
+	if !ok {
+		t.Fatalf("missing groups array: %s", body)
+	}
+	items := make(map[string]map[string]any)
+	for _, rawGroup := range groups {
+		group, ok := rawGroup.(map[string]any)
+		if !ok {
+			t.Fatalf("group is not an object: %v", rawGroup)
+		}
+		badges, ok := group["badges"].([]any)
+		if !ok {
+			t.Fatalf("missing badges array: %v", group)
+		}
+		for _, rawItem := range badges {
+			item, ok := rawItem.(map[string]any)
+			if !ok {
+				t.Fatalf("badge entry is not an object: %v", rawItem)
+			}
+			slug, _ := item["slug"].(string)
+			items[slug] = item
+		}
+	}
+	return items
 }
 
 func namesToSet(values []string) map[string]any {

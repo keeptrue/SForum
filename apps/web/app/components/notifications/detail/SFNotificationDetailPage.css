@@ -114,6 +114,53 @@
   border-top: 1px solid var(--sf-public-border);
 }
 
+/* 目标卡内部的按钮行：卡片自己已经有上边框，这里不再叠第二条分隔线。 */
+.sforum-notification-detail__actions--inline {
+  margin-top: 18px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.sforum-notification-detail__target-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.sforum-notification-detail__target-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, var(--sf-accent) 34%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sf-accent) 12%, transparent);
+  color: var(--sf-accent);
+}
+
+.sforum-notification-detail__target-body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.sforum-notification-detail__target-body strong {
+  color: var(--sf-public-text);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sforum-notification-detail__target-body p {
+  margin: 0;
+  color: var(--sf-public-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .sforum-notification-detail__meta {
   display: grid;
   gap: 12px;

@@ -621,3 +621,32 @@ func TestCachedStoreListCommentsSkipsViewerScoped(t *testing.T) {
 		t.Fatalf("expected no cache for IncludeDeleted, got %d calls", inner.commentsCalls)
 	}
 }
+
+// TestReadModelCachePrefixesArePinnedToTheirVersion 把「读模型加字段就换前缀」
+// 这条约定钉成字面量断言。
+//
+// 为什么要字面量：前缀常量被 key 构造函数直接引用，改常量时所有测试都会跟着变，
+// 于是「忘了 bump」在测试里是**零信号**——滚动发布期间新旧进程会互相读到缺字段的
+// JSON（缺字段在 Go 里解码成零值，不报错，只是前端悄悄少一块 UI）。
+// 这里只钉版本号本身；要改版本，必须连同本测试一起改，改动因此永远可见。
+func TestReadModelCachePrefixesArePinnedToTheirVersion(t *testing.T) {
+	pinned := map[string]string{
+		"topic detail":  "forum:topic:v4:",
+		"topic by slug": "forum:topic-slug:v4:",
+		"topic id slug": "forum:topic-id-slug:v4:",
+		"topics list":   "forum:topics:v2:",
+		"comments list": "forum:comments:v3:",
+	}
+	actual := map[string]string{
+		"topic detail":  prefixTopicDetail,
+		"topic by slug": prefixTopicBySlug,
+		"topic id slug": prefixTopicIDSlug,
+		"topics list":   prefixTopicsList,
+		"comments list": prefixCommentsList,
+	}
+	for name, want := range pinned {
+		if got := actual[name]; got != want {
+			t.Fatalf("%s prefix = %q, want %q (读模型新增字段必须 bump 前缀并同步本测试)", name, got, want)
+		}
+	}
+}

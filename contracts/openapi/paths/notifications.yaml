@@ -102,6 +102,58 @@ notificationStream:
           text/event-stream: {schema: {type: string}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '429': {description: Recipient or process SSE connection limit reached.}
+notificationCelebrations:
+  get:
+    summary: List the current recipient's pending badge celebrations
+    description: |
+      Celebration presentation layer over notifications the recipient already has: a badge
+      grant still writes a `badge_granted` row, and this endpoint only decides which of those
+      rows deserve a celebration card. Which types qualify is the type descriptor's
+      `presentation.celebration` flag (Core declares its own, extensions declare theirs), so
+      `type` is not a closed set. Reads the same rows as the inbox, so turning off the in-app
+      channel removes the celebrations too.
+
+      First visit returns `initialized: false` with an empty `items` and a seed `cursorId`
+      (the recipient's current max notification id); acknowledge that cursor before pulling,
+      otherwise an existing account would replay months of badges. Afterwards `items` is a
+      subset of `total`: entries whose target is no longer visible are dropped whole, so an
+      empty `items` means "render nothing" even when `total` is non-zero. Items are ordered by
+      id ascending and capped at 3. Only celebrations from the last 7 days qualify.
+
+      Response is `Cache-Control: private, no-store` — it says what this account received.
+    operationId: listCelebrations
+    security: [{cookieAuth: []}]
+    responses:
+      '200': {description: Celebration feed, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseCelebrationFeed"}}}}
+      '401': {$ref: "../components/responses.yaml#/Unauthorized"}
+      '503':
+        description: Celebration store is not wired (`data.reason` is `notification.channel_unavailable`). A missing capability answers 503 instead of an empty feed, so "feature disabled" and "query failed" stay distinguishable.
+        content: {application/json: {schema: {$ref: "../schemas/common.yaml#/ApiErrorResponse"}}}
+notificationCelebrationsSeen:
+  post:
+    summary: Advance the current recipient's celebration cursor
+    description: |
+      Monotonic cursor acknowledgement, not a read/unread flag: the stored value is
+      `GREATEST(stored, submitted)`, so out-of-order acknowledgements never replay a card the
+      recipient already saw. Negative values are clamped to 0 rather than rejected — the value
+      is client-local state, and clamping to 0 is equivalent to "nothing seen yet".
+
+      Body that is not valid JSON, or whose `cursorId` is not an integer, is `422` reason
+      `notification.celebration_invalid`. Response is `Cache-Control: private, no-store`.
+    operationId: acknowledgeCelebrations
+    security: [{cookieAuth: []}]
+    requestBody:
+      required: true
+      content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/CelebrationAckRequest"}}}
+    responses:
+      '200': {description: Stored cursor, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseCelebrationAck"}}}}
+      '401': {$ref: "../components/responses.yaml#/Unauthorized"}
+      '422':
+        description: Body is not valid JSON or `cursorId` is not an integer (`data.reason` is `notification.celebration_invalid`).
+        content: {application/json: {schema: {$ref: "../schemas/common.yaml#/ApiErrorResponse"}}}
+      '503':
+        description: Celebration store is not wired (`data.reason` is `notification.channel_unavailable`).
+        content: {application/json: {schema: {$ref: "../schemas/common.yaml#/ApiErrorResponse"}}}
 adminNotificationPolicyV2:
   get:
     summary: Read the versioned notification type/channel policy catalog

@@ -17,6 +17,7 @@ the first consumer.
 | 等级表（`badge_tiers`） | 2026-11-12 | 8 条门禁全绿；P1/P2 修复后复验通过 |
 | **规则引擎（布尔条件树 + 插件事实层）** | **2026-11-12** | **M1 后端全片落地**（迁移/引擎/条件/存储/回扫/HTTP/契约）；**M2 全部完成**（编辑器 + 剩余五项：`requirementText` 接卡片、影响确认弹窗、`queued` toast、summary 字段提示、公开面/后台 390 QA）；**第一刀「回扫进度可见」已收口**（`badge_rule_backfill_runs` + `backfill-status` 端点 + 后台三态行，§13 残留 #15 关闭）；**M3 插件扩展已收口**（manifest 候选 + `badges.fact.record` + SDK 封装 + 夹具，见扩展面段）；**二轮编辑器 UX 收口**（单一参数控件 + 简单/高级双模式，见「条件规则编辑器」节） |
 | **获得条件自动解释器** | **2026-11-13** | **落地（未提交）**：公开说明改为服务端从规则生成，13 条条件措辞注册测试**实际调用**、手工/脏规则/任意形状都不空白；后台两个 textarea → 只读预览 + `POST /admin/badges/rule-text`；`requirement_summary_*` 降级为回滚兼容。见「获得条件的自动解释器」节 |
+| **徽章三件事（通知补全 / 自由佩戴 / 进度统一）** | **2026-11-13** | **落地（未提交）**：① 授予通知覆盖四条路径 + `TargetType="badge"` 目标解析 + 站内庆祝展示层；② `top_badge_manual` + `GET/PUT/DELETE /badges/worn`；③ 进度改由规则派生（`measureForRule`）、目录页下发 `current`/`threshold`（**修订 D37**）。见「进度口径」「授予通知与庆祝」两节与 `../decisions/2026-11-13-badge-notification-and-celebration.md`、`../decisions/2026-11-13-badge-worn-display.md`、`../decisions/2026-11-13-badge-progress-from-rule.md` |
 
 规则引擎把「单指标 ≥ 阈值」升级成 JSONB 布尔条件树：`badges.rule` 成为自动徽章的**唯一**判定来源，`metric`/`threshold` 降为 legacy 只读（只给 down 迁移还原用）。
 
@@ -119,7 +120,12 @@ the first consumer.
 | **`badge_facts`** | 插件事实流水（append-only）；`delta <> 0`；`fact_key` 正则 CHECK；`dedupe_key` 部分唯一索引兜幂等 |
 | **`user_fact_counters`** | 事实累计，PK `(user_id, fact_key, variant)`；`total` **允许为负**（扣减），读侧统一 `GREATEST(...,0)` |
 | **`badge_rules_rollback`** | 迁移前 `metric`/`threshold` 快照，**只在 Down 段读** |
-| `users.top_badge_id` | 反规范化「最高级 1 个」，列表页据此单列 JOIN |
+| `users.top_badge_id` | 反规范化「**当前展示的**徽章」（2026-11-13 起语义变了，旧义是「自动推导的最高级」），列表页据此单列 JOIN |
+| **`users.top_badge_manual`** | `BOOLEAN NOT NULL DEFAULT FALSE`（`202611130003`）。TRUE = 展示位是用户选的，重算必须让路；失效时由重算回落并清成 FALSE |
+
+`top_badge_id` 与 `top_badge_manual` **必须同源写入**：只写前者，下一次评估/重算按排序覆盖
+（症状「佩戴了，刷新就变回去」且无报错）；只写后者，展示位永远不动。裁决见
+`../decisions/2026-11-13-badge-worn-display.md`（D1/D5）。
 
 `badges.tier` 外键 `ON UPDATE CASCADE ON DELETE RESTRICT`——删一档必须先给 `migrateTo`，不让数据库替运营决定徽章归到哪。
 
@@ -145,7 +151,25 @@ bootstrap ─→ Badges ─→ Identity（读 users / actor 校验）
 Forum ─╳→ Badges      （Forum 不认识徽章域）
 ```
 
-`Badges` 不 import `Forum`；`Forum` 声明 `BadgeReader` 接口，由 `Badges` 实现、`bootstrap` 注入。**唯一例外**：`badge_reader.go` 为实现该接口会 import Forum 的 `TopicSummary`/`Comment` 类型——这是「实现别人的接口」所必需，不是先例。
+`Badges` 不 import `Forum`，`Forum` 也不 import `Badges`。**2026-11-13 起两个方向都不存在了**：
+曾有的 `forum.BadgeReader` + `Badges.Reader` 装饰路径（`bootstrap` 注入）已删除——它从未在生产装配里
+被调用，却让「论坛读模型有没有徽章外观」取决于走了哪条路（见 `decisions/2026-11-13-badge-appearance-single-source.md`）。
+论坛侧的徽章外观现在只来自读 SQL，`Badges` 侧不再有面向 Forum 的转换文件。
+
+## 论坛读路径的徽章投影（唯一真源）
+
+`Models/Forum/badge_ref_scan.go` 的两个片段是**唯一**投影，四个扫描器共用：
+
+- `topBadgeSelectSQL()`：7 列——`slug, name, tier, icon` + `COALESCE(tier_def.name_zh/name_en/color,'')`，**必须追加在列尾**（位置扫描）。
+- `topBadgeJoinSQL()`：`LEFT JOIN badges top_badge ON top_badge.id = users.top_badge_id AND top_badge.enabled AND EXISTS (等级启用)`
+  + `LEFT JOIN badge_tiers AS top_badge_tier ON top_badge_tier.key = top_badge.tier`（只供取外观）。
+  **等级停用或等级行缺失 = 该徽章不可见**，与 `topBadgeOrderSQL` 的 `AND t.enabled`、`RecomputeTopBadge`、
+  `SetWornBadge`、`ResolveNotificationBadgeTarget`、`DisplayBadge` 同口径；`users` 无徽章的行靠 `LEFT JOIN` 保留。
+- 扫描点：`postgres_store_topic_scans.go`（summary / detail / detailWithAvatar）+ `postgres_store_comment_reads.go`。
+  新增列必须同时改这里与 `badge_columns_test.go` 的列尾逐字比对。
+
+**不要在前端按 tier key 反查颜色**：等级是运营数据（可增删、可换色），猜出来的色会和后台配置打架。
+`forumBadgeTierColor()` 缺载荷时一律 `slate`。图标的三档兜底保留（形状不是颜色）。
 
 ## Grant Sources — 三来源判别式
 
@@ -162,23 +186,108 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 三个「现象与数据库不一致」的来源，全是设计内行为：
 
 1. **授予后缓存延迟**：帖子旁 chip 最多 20–30s；资料页 ≤10s（不走 Forum 缓存）。两个时限不同，别用同一窗口判。
-2. **删最高级徽章后变 NULL**：`ON DELETE SET NULL` 只置空，不会自动挑次高级，直到下一次评估/重算。
-3. **停用徽章要触发重算**：`enabled`/`tier`/`position` 变化时对受影响用户重算；改名/换图标/改色**不重算**（不改变「谁被选中」）。
+2. **删最高级徽章后变 NULL**：`ON DELETE SET NULL` 只置空，不会自动挑次高级，直到下一次评估/重算。佩戴中的徽章被删同样如此，但**读面立刻按自动模式呈现**（`DisplayBadge` 在 `manual=TRUE` 且 `worn` 解析不到时返回 `mode=auto`、`worn=automatic`），所以用户看到的不是空洞而是下一枚。
+3. **停用徽章要触发重算**：`enabled`/`tier`/`position` 变化时对受影响用户重算；改名/换图标/改色**不重算**（不改变「谁被选中」）。停用还会让佩戴位回落并清 `top_badge_manual`。
 
 排序规则单源：`postgres_store.go` 的 `topBadgeOrderSQL`——`badge_tiers.position` 升序（0 最高）→ `badges.position` 升序 → `user_badges.granted_at` 降序。**不要**再用 `CASE` 映射 gold/silver/bronze（等级是运营可增删的数据）。每条用它的查询必须自带 `JOIN badge_tiers AS t ON t.key = badges.tier AND t.enabled`（别名固定 `t`，用 JOIN 不用 LEFT JOIN）：停用一档等价于「这一档不存在」。
 
+**第三处用它的地方（2026-11-13）**：`DisplayBadge` 的 `ROW_NUMBER() OVER (ORDER BY topBadgeOrderSQL)`。名次只由 SQL 给，Go 侧**不许**另写「谁更好」的比较——运营调档位后 chip 与「可升级」提示会分叉，且两边都不报错。
+**候选判别必须看「等级是否启用」**：`LEFT JOIN badge_tiers AS t ... AND t.enabled` 里的 `t.enabled` 只让 `t.*` 变 NULL，**不过滤行**；判别列因此是 `CASE WHEN t.key IS NULL THEN NULL ELSE badges.id END`（rank 同款）。用 `badges.id IS NOT NULL` 会把停用档位的徽章算成候选，于是 `automatic`/`worn` 指向一枚「chip 不显示、`SetWornBadge` 422、通知目标判不可见」的徽章。这条修于 2026-11-13，两个方向的集成用例在 `wear_postgres_integration_test.go`（`TestDisplayBadgeIgnoresBadgesWhoseTierIsDisabled`）。
+
+## 进度口径（2026-11-13 起由规则派生）
+
+**`progressFor(badge, counters)` 已删除**（HEAD `service.go:88-96` 的实现，调用在 `:77`）：
+它读 `metric`/`threshold` + `ActivityCounters`。规则是自动徽章的唯一判定来源，legacy 两列在纯规则徽章上是 NULL，
+按它们算出来的进度是「键在值空」：`0/0` 或一个与真实阈值无关的数字，前端照它画一条永远不满的空条。
+
+现在的链路（三处，别在别处拼）：
+
+| 环节 | 实现 | 换写法就埋雷的地方 |
+| --- | --- | --- |
+| 派生 | `PublicBadge.Measure *ProgressMeasure`（`json:"-"`），`Badge.Public()` 调 `measureForRule(b.Rule)`（`types.go:153` 是唯一派生点） | 把 `Measure` 塞进 json / 插件 schema → 规则结构变成公开契约 |
+| 测量 | `ProgressMeasurer.MeasureProgress(ctx, userID, measures) map[string]BadgeProgress`（`*PostgresStore` 实现），`Service.SetProgressMeasurer` 装配 | 签名加 error → 一次抖动让资料页 500；按徽章逐条查 → N+1 |
+| 下发 | 资料页 `progress.{current,threshold}`；目录页 `current`/`threshold`（`omitempty`，只对未获得 + 自动 + 可测） | 给不可测的徽章塞 `0/0` → 把「判不了」伪装成「0%」 |
+
+**`measureForRule` 只接受四种情况同时成立**：根是单叶、条件在目录里是 count 型、`cmp.op == "gte"`、
+`value > 0`。`lte`/`lt`/`eq`、布尔条件、任何组（`all`/`any`/`not`，**含单孩子的 `all`**）一律返回 nil。
+理由：进度条的语义是「还差多少」，只有「达到某条线」可表达；一个进度条无法表达合取或析取，
+求和或取最大都会给出错误的「还差多少」。
+
+**批量测量**：待测叶子先合成一个临时 `all` 组，`resolver.Prepare` 按条件类型分组**每类一条 SQL**，
+再逐徽章 `Resolve` 读 memo；slug 先排序再拼树（SQL 参数与日志可复现）。失败是 fail-soft：
+单类型失败只让该类条件的徽章没有进度，resolver 建不起来返回空 map 且不逐条重试。
+
+**`ListUserBadges` 一律覆盖 `Progress`**（`userBadges[i].Progress = measured[slug]`）：没有测量结果的
+行必须是零值。留任何 legacy 阈值都会让 `0/7` 这种假进度条回到规则徽章上。
+
+**目录页 `ViewerCatalogProgress`**：只对「未获得 + 有 `Measure`」的启用徽章算，一次
+`ListUserBadges` 同时给出规则与 earned（不再单独读一遍 earned）；匿名返回空 map 且**一次库都不查**；
+签名里没有 error。`current: 0` 是有效值，照常下发。
+
+**这修订了 D37**（`../decisions/2026-11-11-badges-public-catalog-and-series-closeout.md`）：
+`/badges` 现在下发查看者进度，所以「actor 相关的只有 earned」不再成立；同时
+「阈值一个数字都不能公开」被收窄为「阈值的**结构**不公开，**读数**可以」。理由两条：
+阈值本来就以自然语言出现在 `requirementText` 里（数字早在页面上），且响应本就是
+`private, no-store`。完整论证见 `../decisions/2026-11-13-badge-progress-from-rule.md`「显式修订 D37」。
+
+## 授予通知与庆祝
+
+**四条授予路径全部发通知**（2026-11-13 补齐后三条），出口是领域侧端口，`Badges` 不 import
+`Notifications`：
+
+| 路径 | 出口 | 上限 |
+| --- | --- | --- |
+| 规则自动（`badges.evaluate_user` job） | `badgesJobGrantedNotifier` | 无（每次最多几枚） |
+| 管理员手动 `AdminService.Grant` | `badgesDomainGrantedNotifier` | 无 |
+| 批量 `BatchGrant` | 同上，**只发 `grantedUsers`** | 无 |
+| 全量 `Recompute` | 同上，`notifyRecomputeGrants` | `recomputeNotifyLimit = 200`，超限**整体不发** + warn |
+
+`grantFromRulesCollectLimit = 1000` 是 `RETURNING` 行的收集上限，**不是第二道产品阈值**：
+它只需「足够判出 200 已被突破」。唯一判据永远是 200。
+
+**端口与失败语义**：`GrantedBadge{ID,Slug,Name}` + `GrantNotifier` +
+`AdminService.SetGrantNotifier`；`notifyGranted` 失败只 `slog.Warn`，**不回滚授予**
+（每条 grant 都是自动提交的独立语句，没有可回滚的事务边界）。未注入 = 不发通知且不是错误。
+
+**投影口径**：去重键仍是 `badge:{slug}`（同一用户同一徽章终身一条通知，收回再授予不再通知）。
+`notifyRecomputeGrants` 按用户聚合**只减少出口调用次数**，`badgeGrantedNotifier.notify` 仍逐枚写行，
+所以「同一用户拿到 3 枚」是 **3 条通知行**，不是 1 条。
+
+**目标类型 `badge`**：`BadgeGrantedEvent.BadgeID > 0` 才写 `TargetType="badge"` + `TargetID`；
+`<= 0` 时留空目标（收件箱渲染成无链接的纯文本，不是 `/badges/0` 死链）。
+`ResolveNotificationBadgeTarget` 做三重校验（徽章启用 + 仍持有 + 等级启用），任一不满足返回
+`(false,"",nil)`（fail-closed 但不报错），目标恒为 `/u/{username}?tab=badges`。
+`bootstrap/notification_adapter.go` 按 `targetType == "badge"` 分流到徽章域，其余仍走 Forum。
+
+**站内庆祝**是通知平台的一个**展示层**，不是新类型/新授予路径/新 Host 命令：
+
+- 载体是 `notification_type_descriptors.presentation` jsonb 的 `celebration: true`（**没有新列**）。
+  Core 只标 `badge_granted`；插件用 manifest `notificationTypes[].celebration` 声明自己的。
+- 迁移 `202611130002_notification_celebrations.sql`：打标 + 建 `user_celebration_cursors`。
+- `GET /notifications/celebrations` / `POST /notifications/celebrations/seen`（login 守卫，
+  注册在 `/:id` **之前**，否则 `celebrations` 会被当成 id）。
+- 首访 `initialized=false` + 空 items + 种子游标（`LatestNotificationID`），**不写游标行**；
+  7 天窗 + `id > cursor`；目标不可见**整条丢弃**；ack 走 `GREATEST`（不倒退）。
+- 前端 `SFCelebrationHost.vue` 固定左下（`bottom-4 left-4`，右下是 toast），只在「已登录 +
+  徽章功能开 + 非管理端路由 + 页面可见」时存在；文案链是 i18n 命中 → 服务端兜底 →
+  吃掉占位符三态。
+
 ## Cache Semantics
+
+**读模型加字段就换前缀**（`cached_store.go` 的既有约定，缺字段在 Go 里解码成零值、不报错）：
+`forum:topic:v4:` / `forum:topic-slug:v4:` / `forum:topic-id-slug:v4:` / `forum:topics:v2:` /
+`forum:comments:v3:` 是 2026-11-13 加等级外观时的版本；旧 key 自然过期，不做主动清理。
 
 | 对象 | 有没有缓存 | 事实 |
 | --- | --- | --- |
 | `Badges` 的 store | **没有** | 装配是裸 `badges.NewPostgresStore(pool)`，无装饰器；`CachedStore` 全仓只在 `app/Models/Forum` |
 | 读模型里的 `BadgeRef` | **有** | 随主题/评论进 Forum 的 `CachedStore`；带 `slug`/`name`/`tier`/`icon` + 等级外观，**actor 无关** |
-| `GET /api/v1/badges`（公开目录） | **明确不缓存** | 响应含查看者自己的 `earned`，头 `private, no-store` |
+| `GET /api/v1/badges`（公开目录） | **明确不缓存** | 响应含查看者自己的 `earned` **与进度**（`current`/`threshold`），头 `private, no-store` |
 | `GET /profiles/:username/badges`（资料页徽章墙） | **共享缓存 30s** | 实测 `Cache-Control: public, max-age=30` + `Vary: Cookie`。同一句话（`requirementText`）目录页秒更、资料页最长滞后 **30s**——不要按 10s 估算（旧笔记写的 ≤10s 是错的）。该组合对登录用户命中率≈0 且键无界增长，属已知残留 |
 
 `BadgeRef` 可以进缓存是因为 actor 无关；这与 `likedByMe`/`bookmarkedByMe` **相反**（那两个必须逐请求装饰、永不进缓存）。照 reactions 抄成「每请求重算徽章」是错的——列表页每个作者会多一次查询。
 
-**公开目录禁止复用 `setPublicCacheable`**（它写 `public, max-age=30`）：`/api/v1/badges` 对同一 URL 返回不同人的 `earned`，写 `public` 会把 A 的 earned 投给 B。也不靠 `Vary` 补救——控制器路由注册不设 `Vary`。
+**公开目录禁止复用 `setPublicCacheable`**（它写 `public, max-age=30`）：`/api/v1/badges` 对同一 URL 返回不同人的 `earned` 与进度，写 `public` 会把 A 的成就状态投给 B。也不靠 `Vary` 补救——控制器路由注册不设 `Vary`。2026-11-13 起 actor 相关的面从「earned 一个字段」扩到「earned + 进度」，这条纪律只会更重要（D37 的修订见上节）。
 
 ## Feature Flag And Permissions
 
@@ -386,6 +495,15 @@ teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得
 > R4（mode 冲突用泛码）与 R5 的两条覆盖缺口（A5-c 长列表滚动、A3-b 服务端真失败）**全部已闭**，
 > 证据与变异记录在 `reports/2026-11-13-badge-ref-candidates-residuals.md`。
 > 下面清单里仍然有效的是与它们无关的条目；本刀新发现的两条是 32 / 33。
+>
+> **2026-11-13「徽章三件事」新增 34–38**（复杂规则无进度 / 重算超限静默 / `Service.activity`
+> 死字段 / 目录页每请求多一次读 / 佩戴乐观更新无版本号），见
+> `../sessions/2026-11-13-badge-notify-wear-progress.md`。
+>
+> **同日审查后补 39–40**（`RecomputeAll` 的两条边角：脏标记不清 / 失效回落覆盖不对称），
+> 见 `../reports/2026-11-13-badge-notify-wear-progress-review.md` 的 R1 / R2。
+>
+> **同日浏览器 QA 后补 41**：桌面 1633×810 已实测，390×844 仍无截图证据（只到 CSS 层核对）。
 
 1. `Recompute` 的 `granted`（新插入行数）与 `refreshed`（`top_badge_id` 实际变化人数）相互独立，`{0,0}` 是正常幂等结果。
 2. `revoked: false` 表示本来就没持有，不是失败。
@@ -465,6 +583,58 @@ teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得
     `PostgresStore.GetBadgeRule` 对 NULL 规则仍返回 `ErrBadgeRuleInvalid`。那是「读不到规则」
     的正确语义，**不要为了「统一语义」在 store 里放宽**——放宽后任何调用方都拿不到
     「这条规则不存在」这个信号了。
+
+34. **复杂规则没有进度条，这是语义而不是缺口（2026-11-13）**：`any` / `all` / `not` 与
+    `lte` / 布尔条件一律不产出 `current`/`threshold`。一个进度条无法表达合取或析取，
+    求和或取最大会给出错误的「还差多少」。想给这类规则「进度感」，正确做法是改文案
+    （`requirementText` 已经把条件写清），不是硬编一个数字。
+
+35. **`Recompute` 超过 200 条授予时通知整体不发，运营侧只有一条 `slog.Warn`**（2026-11-13）：
+    后台没有任何「这次没通知」的 UI 提示。运营看到的是「重算成功、用户说没收到通知」。
+    要做就得在 `RecomputeResult` 上加第四个键——但那会破坏「严格三键」的既有裁决
+    （残留 11b），所以留作独立开单，**别在本刀顺手加字段**。
+
+36. **`Service.activity` 字段现在没有读路径（2026-11-13）**：`NewService(store, activity)`
+    的签名与字段保留是为了不动外部装配与既有测试，但进度已改由规则测量。
+    删它要连带改 `bootstrap` 与若干测试的构造调用，收益只是少一个 nil 字段。
+
+37. **目录页每次登录请求多一次 `ListUserBadges`（2026-11-13）**：`ViewerCatalogProgress`
+    用它一次拿到「规则 + earned」，比再单独读一遍 earned 便宜，但仍是**每请求一次**。
+    目录页是运营配置量级（默认十几枚），当前不值得为它加缓存；一旦徽章数上百，
+    应当把「查看者相关的进度」做成带 TTL 的短缓存，而不是回退成不显示进度。
+
+38. **佩戴的乐观更新失败回滚只在客户端（2026-11-13）**：`useBadgeWorn` 点下去立刻改本地，
+    失败回滚到点击前快照。服务端没有「佩戴版本号」，两个标签页同时操作时后到的写入胜出，
+    前一个标签页要等下次 GET 才对齐。
+
+39. **`RecomputeAll` 在「佩戴的徽章被删除、且该用户没有其它可展示徽章」时不清 `top_badge_manual`**
+    （2026-11-13 审查 R1）。**现象**：库里留下 `top_badge_manual = TRUE` + `top_badge_id = NULL` 的行。
+    **根因**：删徽章时 FK `ON DELETE SET NULL` 把 `top_badge_id` 置空
+    （`202611100002_badges_and_user_activity.sql:105`），全量重算子查询的 `best.badge_id` 也是 NULL，
+    于是 `WHERE users.top_badge_id IS DISTINCT FROM CASE WHEN best.manual_valid THEN users.top_badge_id
+    ELSE best.badge_id END` 两侧同为 NULL → `IS DISTINCT FROM` 为假 → **整行被跳过**。
+    **判据**：用户可见行为正确（`DisplayBadge` 在 `manual && wornChoice == nil` 时按 auto 呈现，
+    `wear_store.go:199-210`），下一次 `RecomputeTopBadge`（授予/收回/取消佩戴触发）自愈，
+    所以**不要**为它加迁移或补扫 job；更**不要为了清这个标记去放宽 `refreshed` 的计数语义**——
+    `refreshed` 只数 `top_badge_id` 真的变了的行，这里确实没有可见变化，把标记清理算进计数会造出一个
+    运营看不懂的数字。裁决见 `../decisions/2026-11-13-badge-worn-display.md`「残留 R1」。
+
+40. **`RecomputeAll` 的失效回落只测了四种失效里的一种**（2026-11-13 审查 R2）：
+    `RecomputeTopBadge` 上「徽章停用 / 授予被收回 / 徽章被删除 / 档位停用」逐一有子测试
+    （`TestRecomputeFallsBackWhenWornBadgeStopsBeingValid`），`RecomputeAll` 只有
+    `TestRecomputeAllClearsInvalidWornBadge`（停用）+ `TestSetWornBadgeIsKeptByBothRecomputePaths`
+    （有效 manual 不被覆盖）。两条路径共用**同一个** `wornBadgeStillValidSQL`
+    （`postgres_store.go:435`），四条件已被单用户路径钉死，差异只剩 `CASE`/`WHERE` 分支，
+    **风险实质低但覆盖不对称**。补齐留给下一刀（按「4 种失效 × `RecomputeAll`」参数化），
+    **不要**为了「让两条路径看起来一样」合并两段 SQL：单用户是一条 `UPDATE`、全量是
+    `FROM (SELECT …) best` 自连接。
+
+41. **本轮三处新 UI 的 390×844 没有截图证据（2026-11-13）**：目录页进度条、庆祝浮卡、佩戴按钮
+    只在**桌面 1633×810** 实测（证据见 `../reports/2026-11-13-badge-notify-wear-progress-review.md`
+    「Lead 实机 QA 补充」）；移动端只做了 CSS 层核对——浮卡 `min(22rem, calc(100vw - 32px))`
+    在 390 下 = 352px、左右各 16px 余量。**这不算移动端已验**：`SFCelebrationHost` 是
+    `position: fixed` + 左下单卡，390 下若出现「toast 与浮卡同屏」或软键盘顶起，当前没有证据。
+    与残留 23（编辑器窄屏）同源：本仓的窄屏证据历来只到结构级，验收时要单独写清是视口还是行宽模拟。
 
 ## Reconcile SQL（对账靠这两段）
 
@@ -585,12 +755,15 @@ D-01（未声明 → unknown 成对）与 D-02（variant 三态，含「卸载�
 - 条件与规则：`apps/api/app/Models/Badges/conditions/`（`registry` / `batch` / `phrases`（13 条双语措辞）/ `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
 - 公开说明生成：`requirement_text.go`（`BuildRequirementText` / `BuildRuleRequirementText` 唯一入口）、`requirement_text_render.go`（树遍历 + 压缩 + 降级）、`ref_names.go`（`CollectRefs` / `RefSet` / `RefNameLoader` / `ResolveRefNames`）、`admin_requirement_text.go`（预览端点域层）
 - 领域：`apps/api/app/Models/Badges/`（`types.go` / `service.go` / `admin_service.go` / `evaluate.go` / `postgres_store.go` / `activity_store.go` / `visits.go` / `badge_reader.go` / `tiers_store.go` / `tiers.go` / `grant_candidates.go`）
+- 通知与进度（2026-11-13）：`grant_notifications.go`（`GrantedBadge` / `GrantNotifier` / `notifyGranted`）、`notification_targets.go`（`ResolveNotificationBadgeTarget`）、`progress_measure.go`（`measureForRule` / `ProgressMeasurer`）、`progress_measure_postgres.go`（批量 `Prepare`）、`public_catalog.go`（`ViewerCatalogProgress`）
+- 自由佩戴（2026-11-13）：`wear_store.go`（`SetWornBadge` / `ClearWornBadge` / `DisplayBadge` / `WearStore`）、`Http/Controllers/Badges/wear_controller.go`、`database/migrations/202611130003_badge_wear.sql`
 - 回扫 job：`apps/api/app/Jobs/Badges/backfill_rules.go`
 - HTTP：`apps/api/app/Http/Controllers/Badges/`（`controller.go` 路由 + `dto.go` wire 形状唯一来源 + `rule_controller.go`）
 - 装配：`apps/api/bootstrap/badges_wiring.go`、`apps/api/app/Providers/badges.go`
 - 前端（论坛面）：`components/profile/SFProfileBadgeTab.vue`、`components/forum/badges/SFBadgeCard.vue`、`components/forum/SFBadgeChip.vue`
 - 前端（后台）：壳 `pages/admin/badges.vue`；四分区 `components/admin/badges/tabs/SFAdminBadges{Badges,Groups,Tiers,Grants}Tab.vue`；共享 `SFAdminBadge{Table,EditDialog,GrantDialog,UserPicker}.vue`；规则区 `SFAdminBadgeRuleSection.vue`（从编辑弹窗抽出）；规则编辑器与影响弹窗 `components/admin/badges/rule/{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview,ImpactDialog}.vue`；数据层 `composables/admin/badges/{useAdminBadges,useBadgeRuleDraft,useBadgeRuleTextPreview,useAdminBadgeConditions,useAdminBadgeRuleHealth,useAdminBadgeRuleImpact}.ts` + 纯函数 `utils/admin/{adminBadges,badgeRule,badgeRuleParams,badgeRuleSentence,badgeFieldSlots}.ts`
-- 前端（公开面）：`components/forum/badges/{SFBadgeCard,SFBadgeCatalogPage}.vue`、`components/profile/SFProfileBadgeTab.vue`、`utils/forum/forumBadge.ts`（`forumBadgeRequirementText` 是公开面唯一句子解析入口，只选语言、不生成句子）
+- 前端（公开面）：`components/forum/badges/{SFBadgeCard,SFBadgeCatalogPage,SFBadgeDetailModal}.vue`、`components/profile/SFProfileBadgeTab.vue`、`composables/profile/{useProfileBadges,useBadgeDetailQuery}.ts`、`utils/forum/forumBadge.ts`（`forumBadgeRequirementText` 是公开面唯一句子解析入口，只选语言、不生成句子；`forumBadgeTierColor` 缺外观落 `slate`，**不猜等级色**）
+- 前端（佩戴 + 庆祝）：`composables/forum/badges/useBadgeWorn.ts`（乐观更新 + 失败回滚）、`components/notifications/SFCelebrationHost.vue`（**居中 modal**，2026-11-13 起不再是左下角浮卡）、`composables/notifications/useCelebrations.ts`（`dismiss` ack 已消费条目的**最大 id**，不是服务端返回的读取前游标）、`utils/notifications/celebrationPresentation.ts`（纯函数，`celebrationDialogModel` 复用 `celebrationPresentation` 的文案链）
 - 验收与证据：`scripts/verify-badge-rules-acceptance.sh`（值级双向，`requirementText` 按规则形状取样）、`knowledge/reports/2026-11-12-badge-m2-remaining-acceptance.md`、`knowledge/reports/2026-11-12-badge-m2-visual-qa.md` + `qa-2026-11-12-badge-m2/`
 - 配色：`apps/api/app/Support/Palette`（9 色唯一来源）+ `apps/web/app/utils/theme/tierColor.ts` + `assets/css/sforum-trust-colors.css`
 - 契约：`contracts/openapi/paths/badges.yaml`、`contracts/openapi/schemas/badges.yaml`

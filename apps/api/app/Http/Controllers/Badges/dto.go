@@ -20,6 +20,9 @@ import (
 type profileBadgeItem struct {
 	Slug string `json:"slug"`
 	Name string `json:"name"`
+	// Description 是徽章详情弹窗的正文（`?badge=<slug>` 深链与点击卡片共用）。
+	// 没有 omitempty：空串是有效值（运营没写说明），缺键会被前端当成「响应没实现」。
+	Description string `json:"description"`
 	// Tier 仍是等级 key（前端 data-tier 与 URL 用它），TierName/TierColor 是展示用外观。
 	Tier      string      `json:"tier"`
 	TierName  tierNameDTO `json:"tierName"`
@@ -77,14 +80,15 @@ func toProfileBadges(sections []badges.BadgeGroupSection) profileBadgesResponse 
 
 func toProfileBadgeItem(entry badges.UserBadge) profileBadgeItem {
 	item := profileBadgeItem{
-		Slug:      entry.Badge.Slug,
-		Name:      entry.Badge.Name,
-		Tier:      string(entry.Badge.Tier),
-		TierName:  toTierName(entry.Badge.Appearance),
-		TierColor: entry.Badge.Appearance.Color,
-		Icon:      entry.Badge.Icon,
-		Position:  entry.Badge.Position,
-		Earned:    entry.Earned,
+		Slug:        entry.Badge.Slug,
+		Name:        entry.Badge.Name,
+		Description: entry.Badge.Description,
+		Tier:        string(entry.Badge.Tier),
+		TierName:    toTierName(entry.Badge.Appearance),
+		TierColor:   entry.Badge.Appearance.Color,
+		Icon:        entry.Badge.Icon,
+		Position:    entry.Badge.Position,
+		Earned:      entry.Earned,
 
 		RequirementText: toRequirementText(entry.Badge.RequirementText),
 	}
@@ -103,13 +107,70 @@ func toProfileBadgeItem(entry badges.UserBadge) profileBadgeItem {
 	return item
 }
 
+// badgeDisplayRef 是展示位里的一枚徽章引用（`GET/PUT/DELETE /badges/worn` 共用）。
+//
+// 与 `profileBadgeItem` / `publicBadgeCatalogItem` 是同一套字段命名：`tier` 是等级
+// key，外观拆成 `tierName{zh,en}` + `tierColor`。**不是**领域 `BadgeRef` 的原样序列化：
+// 那边的外观字段是 Go 字段名（`tierAppearance.NameZh` / `NameEn` / `Color` / `Position`，
+// `TierAppearance` 没有 json tag），同一份数据两种形状会让前端写两套解析。
+//
+// 所有字段都没有 omitempty：外观为空（等级引用失效）时 `tierName` 仍是 `{"zh":"","en":""}`，
+// 缺键会让前端把「等级没配名」误判成「响应没实现」。
+type badgeDisplayRef struct {
+	Slug      string      `json:"slug"`
+	Name      string      `json:"name"`
+	Tier      string      `json:"tier"`
+	TierName  tierNameDTO `json:"tierName"`
+	TierColor string      `json:"tierColor"`
+	Icon      string      `json:"icon"`
+}
+
+// badgeDisplayResponse 是三条佩戴端点共用的响应体（`badges.BadgeDisplay` 的投影）。
+//
+// 三个引用字段都**没有** omitempty：值为 null 时键必须照常出现。前端按 `mode` 分支
+// 渲染展示位，「键缺失」与「这个位子是空的」是两种状态，前者会被当成加载失败。
+type badgeDisplayResponse struct {
+	Mode      string           `json:"mode"`
+	Worn      *badgeDisplayRef `json:"worn"`
+	Automatic *badgeDisplayRef `json:"automatic"`
+	Upgrade   *badgeDisplayRef `json:"upgrade"`
+}
+
+// toBadgeDisplay 把领域展示态投影成 wire 形状。nil 指针保持 nil（JSON 出 null）。
+func toBadgeDisplay(display badges.BadgeDisplay) badgeDisplayResponse {
+	return badgeDisplayResponse{
+		Mode:      display.Mode,
+		Worn:      toBadgeDisplayRef(display.Worn),
+		Automatic: toBadgeDisplayRef(display.Automatic),
+		Upgrade:   toBadgeDisplayRef(display.Upgrade),
+	}
+}
+
+func toBadgeDisplayRef(ref *badges.BadgeRef) *badgeDisplayRef {
+	if ref == nil {
+		return nil
+	}
+	return &badgeDisplayRef{
+		Slug:      ref.Slug,
+		Name:      ref.Name,
+		Tier:      string(ref.Tier),
+		TierName:  toTierName(ref.Appearance),
+		TierColor: ref.Appearance.Color,
+		Icon:      ref.Icon,
+	}
+}
+
 // publicBadgeCatalogResponse 是公开徽章目录（GET /api/v1/badges）的 wire 形状。
 //
 // 键集合是白名单，不是「admin DTO 减去几个」：
-//   - 不出现 threshold / metric：阈值是运营调参，公开即不可撤回（计划 §3.3 第 2 条）。
+//   - 不出现 metric：指标是运营调参，公开即不可撤回（计划 §3.3 第 2 条）。
 //     注意本结构上**没有**对应字段——用 omitempty 让字段存在但不出现在 JSON 里
 //     不算合规，那是漏写 tag 就泄露的形状。
 //   - 不出现 enabled / grantedCount / createdAt / updatedAt / id：运营与审计字段。
+//
+// 进度（current / threshold）是**查看者装饰**，不是定义字段：只对「未获得 + 可测」
+// 的条目出现，由 HTTP 层每请求合并（见 toPublicCatalog）。定义级阈值仍然不下发——
+// `PublicCatalogEntry` 上根本没有 Threshold 字段。
 //
 // truncated 在顶层而不是分组级：截断是整份响应的属性，不是某个分组的属性。
 type publicBadgeCatalogResponse struct {
@@ -140,6 +201,11 @@ type publicBadgeCatalogItem struct {
 	// RequirementText 是公开面的双语「获得条件」。领域层由 `Badge.Public()` 填好，
 	// 这里必须原样带出——「过滤后重建结构」最容易漏的就是这类新字段。
 	RequirementText requirementTextDTO `json:"requirementText"`
+	// Current / Threshold 是查看者的进度：只对「未获得 + 自动 + 可测」的规则徽章出现。
+	// 已获得 / 匿名 / 不可测（lte、布尔、多条件组）都不输出这两个键。
+	// current=0 是有效值，所以用指针 + omitempty，而不是 int64（那会吃掉 0）。
+	Current   *int64 `json:"current,omitempty"`
+	Threshold *int64 `json:"threshold,omitempty"`
 }
 
 // requirementTextDTO 是双语要求文案。两语言都下发，前端按 locale 选。
@@ -152,17 +218,21 @@ func toRequirementText(text badges.RequirementText) requirementTextDTO {
 	return requirementTextDTO{Zh: text.Zh, En: text.En}
 }
 
-// toPublicCatalog 把领域目录映射成 wire 形状，并按查看者合并 earned。
+// toPublicCatalog 把领域目录映射成 wire 形状，并按查看者合并 earned 与进度。
 //
-// earned 由调用方每请求单独取（badges.Service.EarnedBadgeSlugs），本函数只做查表；
-// 领域目录结构里没有 earned 字段，所以「actor 相关数据进缓存」在这里无从发生。
-func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) publicBadgeCatalogResponse {
+// earned / progress 都由调用方每请求单独取（`EarnedBadgeSlugs` /
+// `ViewerCatalogProgress`），本函数只做查表；领域目录结构里没有这两个字段，
+// 所以「actor 相关数据进缓存」在这里无从发生。
+//
+// 进度只挂在**未获得**的条目上：已获得的行已经有徽章本身，再给一条满格进度条
+// 只是噪音；匿名时 progress 为 nil，两个键都不出现。
+func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}, progress map[string]badges.BadgeProgress) publicBadgeCatalogResponse {
 	groups := make([]publicBadgeCatalogGroup, 0, len(catalog.Groups))
 	for _, group := range catalog.Groups {
 		items := make([]publicBadgeCatalogItem, 0, len(group.Badges))
 		for _, entry := range group.Badges {
 			_, granted := earned[entry.Slug]
-			items = append(items, publicBadgeCatalogItem{
+			item := publicBadgeCatalogItem{
 				Slug:        entry.Slug,
 				Name:        entry.Name,
 				Description: entry.Description,
@@ -174,7 +244,15 @@ func toPublicCatalog(catalog badges.PublicCatalog, earned map[string]struct{}) p
 				Earned:      granted,
 
 				RequirementText: toRequirementText(entry.RequirementText),
-			})
+			}
+			if !granted {
+				if measure, ok := progress[entry.Slug]; ok && measure.Threshold > 0 {
+					current, threshold := measure.Current, measure.Threshold
+					item.Current = &current
+					item.Threshold = &threshold
+				}
+			}
+			items = append(items, item)
 		}
 		groups = append(groups, publicBadgeCatalogGroup{
 			Key:    group.Key,
