@@ -447,11 +447,20 @@ const wornBadgeStillValidSQL = `EXISTS (
 // 否则「佩戴了，下次评估就变回去」。失效（停用/收回/删除/等级停用）时回落到
 // 自动推导的下一枚，并同一条语句把标记清掉——两件事必须一起做，否则要么
 // 展示位空着（chip 消失），要么标记留着（下次又拦住重算）。
+//
+// **hidden 让路**：`top_badge_hidden = TRUE` 时跳过回落写入（top_badge_id 保持
+// NULL）——「什么都不戴」是用户的明确选择，回落会把它变成「偷偷替用户戴上」。
+//
+// 这里写 NULL 而不是 `users.top_badge_id`（保持原值）：`hidden = TRUE` 时展示位
+// 的定义就是空，任何「hidden 但 top_badge_id 非空」的行都是半坏状态（chip 会显示
+// 一枚徽章，而佩戴面板说「未佩戴」）。写 NULL 让单用户重算顺手把历史脏行收敛到
+// 规范形态，而且对规范行是幂等的（本来就是 NULL）。
 func (s *PostgresStore) RecomputeTopBadge(ctx context.Context, userID int64) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE users SET
-			top_badge_manual = (users.top_badge_manual AND `+wornBadgeStillValidSQL+`),
+			top_badge_manual = (users.top_badge_manual AND NOT users.top_badge_hidden AND `+wornBadgeStillValidSQL+`),
 			top_badge_id = CASE
+				WHEN users.top_badge_hidden THEN NULL
 				WHEN users.top_badge_manual AND `+wornBadgeStillValidSQL+` THEN users.top_badge_id
 				ELSE (
 					SELECT badges.id
@@ -590,15 +599,32 @@ func (s *PostgresStore) complexRuleBadgeIDs(ctx context.Context) ([]int64, error
 //
 // 覆盖三类人：有授予行的（可能该升/该降）、`top_badge_id` 非空的（徽章被删/停用
 // 后可能该清空）、以及佩戴了徽章的（佩戴值有效时**跳过**，失效时回落）。
+// hidden 行同样跳过回落写入（「什么都不戴」是用户的明确选择）。
 //
 // `refreshed` 的语义没有扩大：仍然只数 `top_badge_id` 真的变了的行。佩戴标记的
 // 清理搭同一批行的便车——失效的佩戴值必然让 `top_badge_id` 也变（排序里排除了
 // 那枚徽章，回落的下一枚与它不同），所以不会出现「标记清了但没计数」的行。
+//
+// **hidden 行不进作用域**（`WHERE ... AND NOT users.top_badge_hidden`）：隐藏是
+// 「不参与全量重算」而不是「参与但结果不变」。两者在数据上等价，在计数上不等价
+// ——`IS DISTINCT FROM` 曾经按 `best.manual_valid=false` 拿 `best.badge_id` 比 NULL，
+// 于是 hidden 行每次都命中 UPDATE（值不变），第二次全量重算仍报 refreshed=1。
+// 选作用域闸门而不是「把 WHERE 的 CASE 镜像成 SET 的三分支」，理由是后者靠
+// 「两份 CASE 恰好相等」推出不命中：将来改 SET 的分支（多一种展示态）而忘了同步
+// WHERE，就会原地复现这个 bug，而且没有任何测试之外的现象能提示它。闸门只有一处
+// 定义「谁属于重算域」，SET 里的 hidden 分支留作纵深防御（见那里的注释）。
 func (s *PostgresStore) RecomputeAll(ctx context.Context) (int64, error) {
 	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET top_badge_manual = best.manual_valid,
-		    top_badge_id = CASE WHEN best.manual_valid THEN users.top_badge_id ELSE best.badge_id END
+		    top_badge_id = CASE
+			    -- 纵深防御：上面的 WHERE 已把 hidden 行挡在作用域外，这一支正常不可达。
+			    -- 保留它是因为「放宽 WHERE」是将来最可能的一处改动，而它一旦失守，
+			    -- 回落写入会把「什么都不戴」变成「偷偷替用户戴上」，且没有任何报错。
+			    WHEN users.top_badge_hidden THEN users.top_badge_id
+			    WHEN best.manual_valid THEN users.top_badge_id
+			    ELSE best.badge_id
+		    END
 		FROM (
 			SELECT users.id AS user_id,
 			       (SELECT badges.id
@@ -608,13 +634,15 @@ func (s *PostgresStore) RecomputeAll(ctx context.Context) (int64, error) {
 			        WHERE user_badges.user_id = users.id AND badges.enabled
 			        ORDER BY `+topBadgeOrderSQL+`
 			        LIMIT 1) AS badge_id,
-			       (users.top_badge_manual AND `+wornBadgeStillValidSQL+`) AS manual_valid
+			       (users.top_badge_manual AND NOT users.top_badge_hidden AND `+wornBadgeStillValidSQL+`) AS manual_valid
 			FROM users
 			WHERE users.top_badge_id IS NOT NULL
 			   OR users.top_badge_manual
+			   OR users.top_badge_hidden
 			   OR EXISTS (SELECT 1 FROM user_badges WHERE user_badges.user_id = users.id)
 		) AS best
 		WHERE users.id = best.user_id
+		  AND NOT users.top_badge_hidden
 		  AND users.top_badge_id IS DISTINCT FROM
 		      CASE WHEN best.manual_valid THEN users.top_badge_id ELSE best.badge_id END`)
 	if err != nil {

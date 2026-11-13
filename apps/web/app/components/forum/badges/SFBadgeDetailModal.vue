@@ -74,6 +74,8 @@ function close() {
         </button>
 
         <footer class="sf-badge-detail__footer">
+          <!-- 可见文字就是动作：已佩戴时写「取消佩戴」，不写「佩戴中」这种状态词。
+               状态只由 aria-pressed 表达，按钮说状态就等于让读屏用户猜它会做什么。 -->
           <button
             v-if="canWear"
             type="button"
@@ -83,7 +85,7 @@ function close() {
             :title="props.worn ? t('badges.worn.unwear') : t('badges.worn.wear')"
             @click="emit('toggle-wear')"
           >
-            {{ props.worn ? t('badges.worn.wearing') : t('badges.worn.wear') }}
+            {{ props.worn ? t('badges.worn.unwear') : t('badges.worn.wear') }}
           </button>
           <button type="button" class="sf-badge-detail__done" @click="close">
             {{ t('common.close') }}

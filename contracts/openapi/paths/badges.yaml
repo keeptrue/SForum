@@ -527,11 +527,14 @@ badgeWorn:
     summary: Read the current user's worn badge display
     operationId: getWornBadge
     description: |
-      The signed-in user's display slot. `mode` is `auto` or `manual`:
+      The signed-in user's display slot. `mode` is `auto`, `manual` or `hidden`:
 
       - `auto` — never wore one manually, or the worn badge lapsed and the slot
         fell back; `worn` then equals `automatic`.
       - `manual` — the user picked a badge; `worn` is that badge.
+      - `hidden` — the user chose to wear nothing (`PUT` with `hidden: true`);
+        `worn` is null while `automatic` is still derived, so the client can
+        render "your best badge is X".
 
       `automatic` is always the best badge derived from tier and position — the
       same ordering (`topBadgeOrderSQL`) that drives the author chip next to a
@@ -569,11 +572,25 @@ badgeWorn:
         "$ref": "../components/responses.yaml#/Forbidden"
   put:
     tags: [Badges]
-    summary: Wear one of the current user's own badges
+    summary: Wear one of the current user's own badges, or hide the slot entirely
     operationId: setWornBadge
     description: |
-      Pins a badge the caller already holds into the display slot and marks the
-      slot as manual (`mode: manual` on the next read).
+      Two mutually exclusive actions in one endpoint, chosen by the body:
+
+      - `{"slug": "<slug>"}` pins a badge the caller already holds into the
+        display slot and marks the slot as manual (`mode: manual` on the next
+        read). Wearing after a hidden slot also clears the hidden flag — the
+        recomputation maintains the slot again from that point on.
+      - `{"hidden": true}` clears the slot and marks it hidden (`mode: hidden`
+        on the next read): the user wears nothing. Recomputation skips hidden
+        rows, so the empty slot survives badge grants, evaluations and admin
+        recomputes instead of silently falling back to the best badge.
+
+      Sending both `slug` and `hidden: true` is `400`
+      `forum.badge_worn_body_invalid` — the two actions write different states
+      of the same slot, and guessing one would silently change state the user
+      did not consent to. `{"hidden": false}` is equivalent to omitting the
+      field and follows the slug path.
 
       The eligibility check and the write are one statement: the badge must be
       enabled, its tier must be enabled, and the caller must hold it. Two
@@ -609,7 +626,8 @@ badgeWorn:
               "$ref": "../schemas/badges.yaml#/ApiResponseBadgeDisplay"
       '400':
         description: |
-          Body is not valid JSON, or `slug` is not a string; `data.reason` is
+          Body is not valid JSON, `slug` is not a string, or `slug` and
+          `hidden: true` were sent together; `data.reason` is
           `forum.badge_worn_body_invalid`.
         content:
           application/json:
@@ -644,6 +662,10 @@ badgeWorn:
       flag first, then recomputing, because `RecomputeTopBadge` refuses to
       overwrite a slot marked manual — the reverse order makes "clear" a no-op
       that only flips a flag.
+
+      Clearing also clears the hidden flag: `DELETE` always means "back to the
+      automatic derivation", so a user who hid the slot has an escape hatch
+      back to the default. (`PUT` with `hidden: true` is the way to hide again.)
 
       Idempotent: clearing a slot that is already automatic is a `200` with the
       unchanged display, not a `404`. A caller who never wore a badge does not

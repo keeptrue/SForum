@@ -18,6 +18,27 @@
 另：`badges.chip.ariaLabelLink` 在 `SFBadgeChip.vue` 里当 `title` 用，而规范写的是「追加到
 `aria-label` 末尾」。实现与规范的这处分歧属徽章域 residual，locale 值按实现填了完整句。
 
+## `badges.worn.*`（2026-11-13 佩戴出口收口）
+
+**来源：YG UI 复核，不是规范原文。** 这一族按「按钮文案必须写动作、状态只走 `aria-pressed`」
+的口径逐条定的，规范里没有对应表。与上一版的差别：`wearing`（佩戴中）与 `restoreAuto`
+（恢复自动展示）已删除——它们是状态词，已佩戴的那颗按钮改成动作「取消佩戴」；自动展示
+变成底部常驻出口 `auto`。`unwearSuccess` 改名 `autoSuccess`，因为「已恢复自动展示」只可能
+由 `auto` 出口触发，名字必须跟出口对齐。
+
+| 键 | zh-CN | en-US | 出口 |
+| --- | --- | --- | --- |
+| `badges.worn.wear` | 佩戴 | Wear | 卡片/弹窗，未佩戴 |
+| `badges.worn.unwear` | 取消佩戴 | Stop wearing | 卡片/弹窗，已佩戴（= 不佩戴任何徽章，`PUT {hidden:true}`） |
+| `badges.worn.auto` | 自动展示徽章 | Show automatically | 底部常驻（`DELETE` 回 auto） |
+| `badges.worn.hide` | 不佩戴徽章 | Wear no badge | 底部常驻（`PUT {hidden:true}`） |
+| `badges.worn.hiddenEmpty` | 未佩戴徽章 | No badge worn | hidden 态状态行（不回落成自动徽章名） |
+| `badges.worn.currentlyWearing` | 当前佩戴：{name} | Currently wearing {name} | manual 态状态行 |
+| `badges.worn.hideSuccess` | 已不佩戴任何徽章 | No badge is worn now | 取消佩戴 / 不佩戴的成功 toast |
+| `badges.worn.autoSuccess` | 已恢复自动展示徽章 | Badge display is back to automatic | 自动展示的成功 toast |
+
+`wearSuccess`（已佩戴「{name}」）/ `notOwned` / `saveFailed` 沿用旧文案，不在本轮改动范围。
+
 ## 信任等级恢复默认披露 `admin.forum.trustLevels.restoreHint`（2026-11-10 改口径）
 
 **来源：lead 裁决（I-23）修正规范 §3.4 原文，不是照抄。** 原文是「恢复默认只重置五档阈值，

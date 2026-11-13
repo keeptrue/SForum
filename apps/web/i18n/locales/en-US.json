@@ -7280,12 +7280,16 @@
     },
     "worn": {
       "wear": "Wear",
-      "wearing": "Wearing",
       "unwear": "Stop wearing",
+      "auto": "Show automatically",
+      "hide": "Wear no badge",
+      "hiddenEmpty": "No badge worn",
+      "hideSuccess": "No badge is worn now",
+      "currentlyWearing": "Currently wearing {name}",
       "notOwned": "This badge is not in your collection, so it cannot be worn",
       "saveFailed": "Failed to save the badge you wear",
       "wearSuccess": "Now wearing {name}",
-      "unwearSuccess": "Badge display is back to automatic"
+      "autoSuccess": "Badge display is back to automatic"
     }
   },
   "profile": {

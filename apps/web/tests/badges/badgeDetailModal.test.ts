@@ -257,14 +257,15 @@ describe('SFBadgeDetailModal · 佩戴与关闭', () => {
     }
   })
 
-  test('the accessible name is the visible text, the state is aria-pressed, the action is title', async () => {
+  test('the visible text is the action, the state is aria-pressed, the title repeats the action', async () => {
     const wrapper = mountModal({ self: true, worn: true })
     try {
       const button = wrapper.get('.sf-badge-detail__wear')
-      // WCAG 2.5.3 label-in-name：读屏与语音控制都按可见文字「佩戴中」识别；
-      // 「取消佩戴」只是 title 里的动作提示，不能顶替名字。
+      // 可见文字就是动作：已佩戴时写「取消佩戴」，不写「佩戴中」这种状态词。
+      // WCAG 2.5.3 label-in-name 仍成立——读屏与语音控制按可见文字「取消佩戴」识别，
+      // 所以 title 与可见文字同文案（title 不承担区分状态或动作的职责，状态只在 aria-pressed）。
       expect(button.attributes('aria-pressed')).toBe('true')
-      expect(button.text()).toBe('佩戴中')
+      expect(button.text()).toBe('取消佩戴')
       expect(button.attributes('aria-label')).toBeUndefined()
       expect(button.attributes('title')).toBe('取消佩戴')
 

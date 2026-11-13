@@ -39,6 +39,8 @@ CREATE TABLE users (
   -- fixture 必须跟着迁移走：RecomputeTopBadge / RecomputeAll 的 SQL 会读写它，
   -- 漏列会让整包测试以「column users.top_badge_manual does not exist」变红。
   top_badge_manual BOOLEAN NOT NULL DEFAULT FALSE,
+  -- 202611130004：hidden 展示态（fixture 必须跟着迁移走，理由同上）。
+  top_badge_hidden BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

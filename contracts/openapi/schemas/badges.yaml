@@ -900,15 +900,22 @@ BadgeDisplayRef:
 BadgeWornInput:
   type: object
   description: |
-    佩戴请求体：只有 `slug`。佩戴没有「部分更新」语义，缺字段等于空 slug，由领域层
-    统一折成 `422 forum.badge_not_owned`（与「不持有」同码，不额外泄露站内是否存在
-    这个 slug）。
-  required:
-  - slug
+    佩戴请求体：`slug` 与 `hidden` **二选一，互斥**，同填返回
+    `400 forum.badge_worn_body_invalid`——两个动作写同一展示位的不同状态
+    （佩戴一枚 vs 什么都不戴），同填意味着调用方自己也不知道要哪个，服务端
+    不替它挑。佩戴没有「部分更新」语义，缺字段等于空 slug，由领域层统一折成
+    `422 forum.badge_not_owned`（与「不持有」同码，不额外泄露站内是否存在这个
+    slug）；`{"hidden":false}` 与缺字段等价，同样走 slug 路径。
   properties:
     slug:
       type: string
       description: 要佩戴的徽章 slug；必须是调用者已获得、且徽章与等级都启用的那枚。
+    hidden:
+      type: boolean
+      description: |-
+        `true` 表示「什么都不戴」：展示位清空（`top_badge_id = NULL`）并标记
+        hidden，重算不再回落写入；下次 `GET` 返回 `mode: hidden`。与 `slug`
+        互斥。
 BadgeDisplay:
   type: object
   description: |
@@ -916,6 +923,8 @@ BadgeDisplay:
 
      - `mode: auto` —— 没手动戴过，或佩戴已失效被回落；`worn` 等于 `automatic`。
      - `mode: manual` —— 用户手动选了一枚；`upgrade` 在存在更优徽章时非 null。
+     - `mode: hidden` —— 用户选择什么都不戴；`worn` 为 null，`automatic` 照常
+       推导（前端可据此显示「你的最佳徽章是 X」），`upgrade` 恒为 null。
 
     三个引用都可能为 null：一枚可展示徽章都没有时三者全 null，`mode` 仍是 `auto`。
     **但三个键永远出现**（值为 null 时照常输出 `null`，不省略）：客户端按 `mode`
@@ -928,7 +937,7 @@ BadgeDisplay:
   properties:
     mode:
       type: string
-      enum: [auto, manual]
+      enum: [auto, manual, hidden]
     worn:
       oneOf:
       - "$ref": "#/BadgeDisplayRef"

@@ -5,7 +5,8 @@ import { apiErrorReason } from '~/composables/useApiClient'
  * 资料页「佩戴徽章」的数据层（`GET/PUT/DELETE /badges/worn`）。
  *
  * 服务端契约：响应恒为 `{ mode, worn, automatic, upgrade }`。
- * - `mode`：`manual` = 用户选过，`auto` = 由规则自动推导。
+ * - `mode`：`manual` = 用户选过，`auto` = 由规则自动推导，`hidden` = 用户选择不佩戴
+ *   任何徽章（此时 `worn` 为空，`automatic` 仍返回，`upgrade` 恒为空）。
  * - `worn`：当前展示的徽章；`automatic`：自动口径下的最佳徽章；`upgrade`：用户选的那枚
  *   已经不是最佳时给出的「可升级」候选。
  *
@@ -14,8 +15,11 @@ import { apiErrorReason } from '~/composables/useApiClient'
  *    避免同一条徽章在佩戴层与列表层出现两套文案）。
  * 2. **乐观更新**：点下去立刻改本地，失败回滚到点击前的快照并抛出可提示的错误。
  * 3. **不覆盖用户选择**：佩戴后不回退成 automatic，清空后按服务端返回的 auto 口径走。
+ *
+ * 三个出口对应三种 mode，**不要合并**：`wear()` = 佩戴（manual）、`hide()` = 取消佩戴 /
+ * 不佩戴任何徽章（hidden）、`clear()` = 底部「自动展示徽章」（auto，DELETE）。
  */
-export type BadgeWornMode = 'auto' | 'manual'
+export type BadgeWornMode = 'auto' | 'manual' | 'hidden'
 
 export type BadgeWornState = {
   mode: BadgeWornMode
@@ -44,10 +48,10 @@ export function wornSlugOf(value: unknown): string {
 }
 
 export function badgeWornStateFrom(response: BadgeWornWireResponse | null | undefined): BadgeWornState {
-  const mode = response?.mode === 'manual' ? 'manual' : 'auto'
+  const mode = response?.mode === 'manual' ? 'manual' : response?.mode === 'hidden' ? 'hidden' : 'auto'
   return {
     mode,
-    wornSlug: wornSlugOf(response?.worn),
+    wornSlug: mode === 'hidden' ? '' : wornSlugOf(response?.worn),
     automaticSlug: wornSlugOf(response?.automatic),
     upgradeSlug: wornSlugOf(response?.upgrade)
   }
@@ -127,7 +131,7 @@ export function useBadgeWorn() {
     }
   }
 
-  /** 取消佩戴：本地先按自动口径回显，服务端回包为准。 */
+  /** 自动展示徽章（DELETE）：本地先按自动口径回显，服务端回包为准。只服务底部「自动展示徽章」。 */
   async function clear() {
     const snapshot = { ...state.value }
     state.value = { ...snapshot, mode: 'auto', wornSlug: snapshot.automaticSlug, upgradeSlug: '' }
@@ -139,11 +143,27 @@ export function useBadgeWorn() {
     }
   }
 
+  /** 取消佩戴 = 不佩戴任何徽章（PUT {hidden:true}）：乐观置 hidden，失败回滚并抛出；wear/clear 成功即自然解除隐藏。 */
+  async function hide() {
+    const snapshot = { ...state.value }
+    state.value = { ...snapshot, mode: 'hidden', wornSlug: '', upgradeSlug: '' }
+    try {
+      apply(await request<BadgeWornWireResponse>('/badges/worn', {
+        method: 'PUT',
+        body: { hidden: true }
+      }))
+    } catch (error) {
+      state.value = snapshot
+      throw error
+    }
+  }
+
   return {
     state,
     wornSlug,
     upgradeSlug,
     mode: computed(() => state.value.mode),
+    isHidden: computed(() => state.value.mode === 'hidden'),
     loading,
     failed,
     loaded,
@@ -151,6 +171,7 @@ export function useBadgeWorn() {
     load,
     ensureLoaded,
     wear,
-    clear
+    clear,
+    hide
   }
 }

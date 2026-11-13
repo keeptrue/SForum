@@ -236,8 +236,66 @@ CASE WHEN best.manual_valid THEN users.top_badge_id ELSE best.badge_id END`
 
 ## 复核点
 
-1. 任何新的「展示位写者」都必须同时写 `top_badge_manual`，否则会出现「自动推导覆盖用户选择」
-   或「用户选择永久粘住失效徽章」。
+1. 任何新的「展示位写者」都必须同时写 `top_badge_manual` **与** `top_badge_hidden`，否则会出现
+   「自动推导覆盖用户选择」、「用户选择永久粘住失效徽章」，或 hidden 态佩戴只写半边得到
+   「200 + mode=hidden」的假成功（D11）。
 2. 排序、有效性、回落三处读的是**同一段** `topBadgeOrderSQL` / `wornBadgeStillValidSQL`；
    想加一条排序键时三处一起改。
 3. `upgrade` 是提示不是错误；把它渲染成警告色或 toast 会让用户以为佩戴失败了。
+
+## 2026-11-13 修订二 · D10 取消佩戴 = 不佩戴任何徽章，「自动展示」是独立出口
+
+> 上一轮（同日「徽章 UI 五处收口」，见 `../sessions/2026-11-13-badges-ui-closeout.md`）的
+> label-in-name 结论**仍然成立**：可访问名就是可见文字，状态只走 `aria-pressed`。本修订只改
+> **可见文字的内容**（状态词 → 动作词）与它背后的请求，不改「可见文字 = 可访问名」这条绑定。
+
+**裁决**：
+
+1. 卡片与详情弹窗上那颗按钮，已佩戴时可见文字与 `title` 都是「取消佩戴」，点了发
+   `PUT /badges/worn {hidden:true}`（`useBadgeWorn.hide()`）。它**不再**走 `DELETE`（`clear()`）：
+   「取消佩戴」若回落成自动展示，用户看到的是「换了一枚」而不是「不戴了」——一个按钮吞掉了
+   两个语义，而且「什么都不戴」从此没有入口。
+2. 资料页底部状态条常驻两个并列出口：「自动展示徽章」（`DELETE` → auto）与「不佩戴徽章」
+   （`PUT {hidden:true}`）。按 `mode` 高亮（`auto` / `hidden` 各自 `aria-pressed`），当前态那颗
+   点了不发请求——guard 在 handler 里，**不用 `disabled`**（键盘用户不能因此丢掉这一格）。
+3. `mode=auto` 时旧的「恢复自动展示」按钮是**可见空操作**：它本来就处于 auto，点它不产生任何
+   状态变化。页面上留一个点了什么都不发生的按钮，比不显示更糟；改为「自动展示徽章」并让它按下，
+   用户才能读懂「当前就是自动」。
+4. 文案族随之收口：删 `badges.worn.wearing` / `badges.worn.restoreAuto`，新增 `badges.worn.auto`，
+   `unwearSuccess` 改名 `autoSuccess`（只可能由 auto 出口触发，名字必须跟出口对齐），
+   `hideSuccess` 口径改为「已不佩戴任何徽章」。locale 来源登记在
+   `apps/web/i18n/locales/README.md` 的 `badges.worn.*` 一节（YG UI 复核，非规范原文）。
+
+**为什么不把「不佩戴」编码成某个哨兵徽章 id**：哨兵会污染排序、目录与通知目标的口径。第三态
+由 `users.top_badge_hidden` 承载，与 D1 拒绝 `display_source` 枚举同一个理由——能用一个布尔
+表达的状态，不要开枚举。
+
+**判据**（删掉实现必须红）：点已佩戴那颗 → `PUT {hidden:true}` 且整轮无 `DELETE`；点当前态底部
+出口 → `calls` 长度不变且无 toast；已佩戴按钮的可见文字与 `title` 都是「取消佩戴」。
+
+## 2026-11-13 修订三 · D11 hidden 行不进全量重算作用域，半坏行由单用户重算收敛
+
+**背景**：hidden 落地后 YG 实测「hidden 态点佩戴，提示成功但没戴上」。两处根因都落在「三列同源」
+这条不变量上：`SetWornBadge` 漏清 `top_badge_hidden`（200 + `mode=hidden` 的假成功），
+`RecomputeAll` 把 hidden 行算进作用域（全量重算会碰它，变更计数与「什么都不戴」的语义打架）。
+
+**裁决**：
+
+1. `SetWornBadge` 一条 UPDATE 写齐三列（`id=X, manual=TRUE, hidden=FALSE`）；`ClearWornBadge`
+   同时清两标记再重算。这是 D10「三个出口」在服务端的对应实现，**前端不承担补偿**。
+2. `RecomputeAll` 用**作用域闸门** `AND NOT users.top_badge_hidden` 把 hidden 行挡在重算域外，
+   `SET` 里的 hidden 分支只作纵深防御。**不用「把 `WHERE` 的 `CASE` 镜像成 `SET` 的三分支」**：
+   那种写法靠两份 `CASE` 恰好相等推出不命中，改 `SET`（多一种展示态）忘了同步 `WHERE` 就原地
+   复现，且除测试外没有任何现象提示。闸门只有一处定义「谁属于重算域」。
+3. `RecomputeTopBadge` 对 hidden 行写 `top_badge_id = NULL`（不是保持原值）：`hidden=TRUE` 时展示位
+   的定义就是空，`(hidden=TRUE, id 非空)` 是半坏行——chip 会显示一枚，而面板说「未佩戴」。写 NULL
+   对规范行幂等、对脏行是收敛；`manual` 分支同时加 `NOT top_badge_hidden`，避免把 hidden 行当成
+   「用户选择」保留下来。
+4. **不清 manual 计数**：`refreshed` 仍只数 `top_badge_id` 真的变了的行。半坏行收敛时 `manual` 可能
+   由 TRUE 变 FALSE 而 `top_badge_id` 本来就是 NULL，这类「用户看不见的变化」不计数——沿用 R1 的
+   纪律，别为了清标记放宽计数语义。
+
+**判据**：`TestHideWornBadgeClearsSlotAndSurvivesRecompute`（隐藏后两条重算都不回落，第二次
+`RecomputeAll` 的 `refreshed = 0`）、`TestWearingBadgeAfterHideUnhides`（hidden → `PUT {slug}` 得到
+`mode=manual` + `worn` + `upgrade`，且 `hidden=FALSE`）、`TestRecomputeTopBadgeRepairsHalfBrokenHiddenRow`
+（半坏行收敛成 `(NULL, FALSE, TRUE)`，`RecomputeAll` 不碰它且 `refreshed = 0`）。

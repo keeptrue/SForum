@@ -66,6 +66,8 @@ const isCatalog = computed(() => props.variant === 'catalog')
 // 佩戴控件只属于「本人的资料页」：目录页是目录，他人页是展示。
 const canWear = computed(() => props.self && !isCatalog.value)
 
+const isHidden = computed(() => worn.isHidden.value)
+
 async function wearSlug(slug: string, name: string) {
   try {
     await worn.wear(slug)
@@ -85,27 +87,78 @@ async function wearSlug(slug: string, name: string) {
   }
 }
 
+/**
+ * 卡片/弹窗上的那颗按钮：未佩戴 → 佩戴；已佩戴 → **取消佩戴（不佩戴任何徽章）**。
+ *
+ * 「取消佩戴」不能走 `clear()`（那是「回到自动展示」）：合并成一个动作后用户就无法表达
+ * 「我什么都不戴」，而且取消当前这枚会静默换戴另一枚。两个出口分开在底部状态条上。
+ */
 async function toggleWear(badge: ProfileBadgeEntry) {
   if (!canWear.value) return
   if (worn.isWorn(badge.slug)) {
-    try {
-      await worn.clear()
-      toast.add({
-        color: 'success',
-        icon: 'i-lucide-check',
-        title: t('badges.worn.unwearSuccess')
-      })
-    } catch (error) {
-      toast.add({
-        color: 'error',
-        icon: 'i-lucide-alert-triangle',
-        title: t(badgeWornErrorKey(error)),
-        duration: 0
-      })
-    }
+    await hideWorn()
     return
   }
   await wearSlug(badge.slug, badge.name)
+}
+
+/** 从已加载分组里反查佩戴 slug 的展示名（名字只由徽章清单提供，佩戴层不带文案）。 */
+function badgeNameBySlug(slug: string): string {
+  for (const group of sortedGroups.value) {
+    const badge = group.badges.find(entry => entry.slug === slug)
+    if (badge) return badge.name
+  }
+  return ''
+}
+
+/** 佩戴状态条的一句话：hidden 说「未佩戴」，manual 报当前那枚；auto 不重复回落提示。 */
+const wornStatusText = computed(() => {
+  if (isHidden.value) return t('badges.worn.hiddenEmpty')
+  if (worn.mode.value === 'manual') {
+    const name = badgeNameBySlug(worn.wornSlug.value)
+    return name ? t('badges.worn.currentlyWearing', { name }) : ''
+  }
+  return ''
+})
+
+/** 不佩戴任何徽章（`PUT {hidden:true}`）：已经是 hidden 时不重复发请求。 */
+async function hideWorn() {
+  if (isHidden.value) return
+  try {
+    await worn.hide()
+    toast.add({
+      color: 'success',
+      icon: 'i-lucide-eye-off',
+      title: t('badges.worn.hideSuccess')
+    })
+  } catch (error) {
+    toast.add({
+      color: 'error',
+      icon: 'i-lucide-alert-triangle',
+      title: t(badgeWornErrorKey(error)),
+      duration: 0
+    })
+  }
+}
+
+/** 自动展示徽章（`DELETE` 回 auto）：已经是 auto 时不重复发请求。 */
+async function restoreAuto() {
+  if (worn.mode.value === 'auto') return
+  try {
+    await worn.clear()
+    toast.add({
+      color: 'success',
+      icon: 'i-lucide-check',
+      title: t('badges.worn.autoSuccess')
+    })
+  } catch (error) {
+    toast.add({
+      color: 'error',
+      icon: 'i-lucide-alert-triangle',
+      title: t(badgeWornErrorKey(error)),
+      duration: 0
+    })
+  }
 }
 
 // 只有本人视角才需要佩戴态；切回他人页/目录页时不请求。
@@ -230,6 +283,8 @@ watch(
             @open="openBadge"
           >
             <template v-if="canWear && badge.earned" #action>
+              <!-- 可见文字就是动作：已佩戴时写「取消佩戴」（= 不佩戴任何徽章），
+                   状态只由 aria-pressed 表达。 -->
               <button
                 type="button"
                 class="sf-profile-badges__wear"
@@ -238,13 +293,44 @@ watch(
                 :title="worn.isWorn(badge.slug) ? t('badges.worn.unwear') : t('badges.worn.wear')"
                 @click.stop="toggleWear(badge)"
               >
-                {{ worn.isWorn(badge.slug) ? t('badges.worn.wearing') : t('badges.worn.wear') }}
+                {{ worn.isWorn(badge.slug) ? t('badges.worn.unwear') : t('badges.worn.wear') }}
               </button>
             </template>
           </SFBadgeCard>
         </div>
       </section>
     </template>
+
+    <!--
+      佩戴状态条（仅本人资料页）：两个并列出口，文案写动作、状态只上 aria-pressed。
+      - 「自动展示徽章」：mode=auto 时按下；点了走 DELETE 回 auto。
+      - 「不佩戴徽章」：mode=hidden 时按下；点了走 PUT {hidden:true}。
+      当前态那颗点了不发请求（handler guard），按钮保持可聚焦——不用 disabled。
+    -->
+    <div
+      v-if="canWear && worn.loaded.value && !worn.failed.value"
+      class="sf-profile-badges__worn-state"
+    >
+      <span v-if="wornStatusText" class="sf-profile-badges__worn-text">{{ wornStatusText }}</span>
+      <button
+        type="button"
+        class="sf-profile-badges__wear sf-profile-badges__worn-auto"
+        :class="{ 'sf-profile-badges__wear--active': worn.mode.value === 'auto' }"
+        :aria-pressed="worn.mode.value === 'auto' ? 'true' : 'false'"
+        @click="restoreAuto"
+      >
+        {{ t('badges.worn.auto') }}
+      </button>
+      <button
+        type="button"
+        class="sf-profile-badges__wear sf-profile-badges__worn-hide"
+        :class="{ 'sf-profile-badges__wear--active': isHidden }"
+        :aria-pressed="isHidden ? 'true' : 'false'"
+        @click="hideWorn"
+      >
+        {{ t('badges.worn.hide') }}
+      </button>
+    </div>
 
     <!-- 目录页的站内入口：资料页是唯一能发现徽章的地方，没有这条链就没有入口。 -->
     <div v-if="!isCatalog" class="sf-profile-badges__more">
@@ -387,6 +473,25 @@ watch(
 .sf-profile-badges__wear--active:hover {
   color: var(--sf-public-surface);
   opacity: 0.9;
+}
+
+/* 佩戴状态条：一行文案 + 两个并列出口，独立于卡片网格。390 档两个按钮换行，不许横向溢出。 */
+.sf-profile-badges__worn-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 8px;
+  margin-top: 16px;
+}
+
+/* 状态行是 flex item：默认 min-width:auto 会被一个超长英文徽章名撑破 390 容器，
+   所以显式允许收缩并让长词断行（中文本来就能断，英文单词不能）。 */
+.sf-profile-badges__worn-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--sf-fg-secondary);
+  font-size: 12.5px;
 }
 
 /* 单列 → 4 列：390 档硬塞两列会让名称与进度条一起挤坏，规范明确走单列。 */

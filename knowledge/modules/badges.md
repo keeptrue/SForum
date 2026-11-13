@@ -122,10 +122,13 @@ the first consumer.
 | **`badge_rules_rollback`** | 迁移前 `metric`/`threshold` 快照，**只在 Down 段读** |
 | `users.top_badge_id` | 反规范化「**当前展示的**徽章」（2026-11-13 起语义变了，旧义是「自动推导的最高级」），列表页据此单列 JOIN |
 | **`users.top_badge_manual`** | `BOOLEAN NOT NULL DEFAULT FALSE`（`202611130003`）。TRUE = 展示位是用户选的，重算必须让路；失效时由重算回落并清成 FALSE |
+| **`users.top_badge_hidden`** | `BOOLEAN NOT NULL DEFAULT FALSE`（`202611130004`）。TRUE = 用户主动选择**什么都不戴**：`top_badge_id` 为 NULL、`top_badge_manual` 为 FALSE，重算对 hidden 行让路（不回落写入）；`PUT {slug}` 或 `DELETE` 解除 |
 
-`top_badge_id` 与 `top_badge_manual` **必须同源写入**：只写前者，下一次评估/重算按排序覆盖
-（症状「佩戴了，刷新就变回去」且无报错）；只写后者，展示位永远不动。裁决见
-`../decisions/2026-11-13-badge-worn-display.md`（D1/D5）。
+`top_badge_id`、`top_badge_manual`、`top_badge_hidden` **必须同源写入**：只写 `top_badge_id`，下一次评估/重算
+按排序覆盖（症状「佩戴了，刷新就变回去」且无报错）；只写标记位不写展示位，展示位永远不动。
+「不佩戴」也必须三列一次写齐（`top_badge_id = NULL` + `manual = FALSE` + `hidden = TRUE`，
+`HideWornBadge` 一条 UPDATE），只置 `hidden` 会留下一个仍被重算覆盖的展示位。裁决见
+`../decisions/2026-11-13-badge-worn-display.md`（D1/D5/D10）。
 
 `badges.tier` 外键 `ON UPDATE CASCADE ON DELETE RESTRICT`——删一档必须先给 `migrateTo`，不让数据库替运营决定徽章归到哪。
 
@@ -193,6 +196,54 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 
 **第三处用它的地方（2026-11-13）**：`DisplayBadge` 的 `ROW_NUMBER() OVER (ORDER BY topBadgeOrderSQL)`。名次只由 SQL 给，Go 侧**不许**另写「谁更好」的比较——运营调档位后 chip 与「可升级」提示会分叉，且两边都不报错。
 **候选判别必须看「等级是否启用」**：`LEFT JOIN badge_tiers AS t ... AND t.enabled` 里的 `t.enabled` 只让 `t.*` 变 NULL，**不过滤行**；判别列因此是 `CASE WHEN t.key IS NULL THEN NULL ELSE badges.id END`（rank 同款）。用 `badges.id IS NOT NULL` 会把停用档位的徽章算成候选，于是 `automatic`/`worn` 指向一枚「chip 不显示、`SetWornBadge` 422、通知目标判不可见」的徽章。这条修于 2026-11-13，两个方向的集成用例在 `wear_postgres_integration_test.go`（`TestDisplayBadgeIgnoresBadgesWhoseTierIsDisabled`）。
+
+## 佩戴的三个出口（2026-11-13 修订二）
+
+`GET/PUT/DELETE /badges/worn` 是同一份状态机的三个出口，**前端不允许把它们合并成一个「切换」**。
+修订二之前，已佩戴那颗按钮写「佩戴中」、点下去走 `DELETE` 回自动展示——于是「取消佩戴」会静默
+换戴另一枚，用户也没有任何「我什么都不戴」的入口。
+
+| 当前 mode | 卡片/弹窗上那颗按钮 | 底部「自动展示徽章」 | 底部「不佩戴徽章」 | 状态行 |
+| --- | --- | --- | --- | --- |
+| `auto` | 当前展示的那枚写「取消佩戴」（`aria-pressed=true`），点了 `PUT {hidden:true}` → hidden；其余已获得写「佩戴」 | **按下**（当前态，点了不发请求） | 未按下，点了 `PUT {hidden:true}` | 空（不重复回落提示） |
+| `manual` | 只有用户选的那枚写「取消佩戴」（`aria-pressed=true`），点了 `PUT {hidden:true}` → hidden；其余写「佩戴」 | 未按下，点了 `DELETE` → auto | 未按下，点了 `PUT {hidden:true}` | `当前佩戴：{name}` |
+| `hidden` | 所有已获得都写「佩戴」，点了 `PUT {slug}` → manual | 未按下，点了 `DELETE` → auto | **按下**（当前态，点了不发请求） | `未佩戴徽章` |
+
+**按钮文案必须写动作，不写状态**：已佩戴时是「取消佩戴」，不是「佩戴中」。状态只有两个合法载体：
+`aria-pressed`（按钮）与状态行（`当前佩戴：{name}` / `未佩戴徽章`）。写状态词等于让用户先读状态
+再自己推它会做什么；WCAG 2.5.3 label-in-name 仍然成立——可见文字就是可访问名，`title` 与可见文字
+同文案、不承担区分职责。
+
+**当前态那颗点了不发请求**：guard 在 handler 里（`restoreAuto` 判 `mode === 'auto'`、`hideWorn` 判
+`isHidden`），**不用 `disabled`**——按钮必须保持可聚焦，否则键盘用户会以为这一格消失了。
+
+**三个动作对应三个 composable 出口，不要合并**：`wear()` = 佩戴（manual）、`hide()` = 取消佩戴
+（hidden，`PUT {hidden:true}`）、`clear()` = 底部「自动展示徽章」（auto，`DELETE`）。前端的
+`toggleWear` 只在「未佩戴」分支调 `wear()`，已佩戴分支必须转 `hide()`。
+
+**服务端不变量：三列是一个状态（2026-11-13 修订三）**。展示位是 `users` 上的三列——`top_badge_id`
+（谁被展示）、`top_badge_manual`（是不是用户选的）、`top_badge_hidden`（是不是用户选了「什么都不戴」）。
+任何写者都必须**同源写入**：佩戴 = `(X, TRUE, FALSE)`（`SetWornBadge` 的 CTE，一条 UPDATE）、
+隐藏 = `(NULL, FALSE, TRUE)`（`HideWornBadge`）、回到自动 = 清两标记后重算（`ClearWornBadge`）。
+
+漏清 `top_badge_hidden` 的症状是**「200 + mode=hidden」的假成功**：`DisplayBadge` 先判 hidden 就
+return，接口 200、前端弹「已佩戴」，面板仍是「未佩戴徽章」——没有任何报错可查。YG 2026-11-13 实测的
+就是这一条（hidden 态点佩戴）。拆成两条语句同样不行：两次写之间可能夹进一次隐藏或一次重算，结果
+取决于调度顺序而不是用户的选择。
+
+**两条重算路径的分工**（同一不变量的两种写法，别合并）：
+
+- `RecomputeTopBadge`（单用户）：`CASE WHEN users.top_badge_hidden THEN NULL` 把 hidden 行**收敛**成
+  `(NULL, FALSE, TRUE)`，`manual` 分支加 `NOT users.top_badge_hidden`。半坏行（`hidden=TRUE` 但
+  `top_badge_id` 非空，只可能来自直接改库或修复前的旧代码）靠这里收敛——否则 chip 照 `top_badge_id`
+  显示一枚，而面板说「未佩戴」，两条读路径打架。
+- `RecomputeAll`（全量）：hidden 行**不进作用域**（`WHERE … AND NOT users.top_badge_hidden`）；`SET` 里
+  那支 `WHEN users.top_badge_hidden THEN users.top_badge_id` 是**纵深防御**，正常不可达。用闸门而不是
+  把 `WHERE` 的 `CASE` 镜像成 `SET` 的三分支，是因为后者靠「两份 `CASE` 恰好相等」推出不命中：将来改
+  `SET`（多一种展示态）而忘了同步 `WHERE` 就原地复现，而且除测试外没有任何现象提示。闸门只有一处
+  定义「谁属于重算域」。
+- `refreshed` 语义不扩大：仍只数 `top_badge_id` 真的变了的行。hidden 行不在作用域内，manual 标记的
+  清理也不单独计数——为用户看不见的变化造一个数字，运营只会拿去追问。
 
 ## 进度口径（2026-11-13 起由规则派生）
 
@@ -463,6 +514,36 @@ teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得
 4. **`queued` 与 `granted`/`refreshed` 是三个不同单位**（已修）。`queued` = **转入异步评估的徽章数**，`granted` = 新插入授予行数，`refreshed` = `top_badge_id` 变化的用户数。前端曾经把它们相加当「影响量」——那会造出一个不存在的数字。文案必须分别说，且 `queued>0` 不能被摘要吃掉。
 
 **影响估算的呈现纪律**（`SFAdminBadgeRuleImpactDialog.vue`）：端点估的是**已保存**规则（`EstimateRuleImpact(ctx, actor, badgeID)`），所以弹窗必须写「按当前已保存规则估算，不是本次编辑的草稿」；`estimated: 0`（读数确实是零人）与 `estimated: null`（无法估算）**不许互相顶替**；`partial: true` 必须追加「只算了部分条件，是上界」；不可估条件要逐个列出（后端 `unsupportedConditions` 只回条件 key），不能只报个数。
+
+## 已知陷阱：佩戴按钮写状态不写动作（2026-11-13 修订二）
+
+**症状**：卡片上那颗按钮显示「佩戴中」，点它却把展示位清空、回落成另一枚自动徽章。用户以为
+「点一下只是确认」，结果发现戴的换了；想「什么都不戴」则没有任何入口。
+
+**根因**：按钮把**状态**（佩戴中）当可见文案，把**动作**（取消佩戴）塞进 `title`，而 `title`
+描述的 `DELETE` 又被实现成「回自动展示」。两件事叠在一起：可见文字不描述行为，行为也不是
+文案说的那件。
+
+**判据**（三条缺一不可，任何一条单独绿都抓不到这条）：
+
+- **文案级**：已佩戴时可见文字与 `title` 都是「取消佩戴」，未佩戴都是「佩戴」；`aria-pressed`
+  只表达状态，不参与文案。只断言 `aria-pressed`、或只断言 `title`，都放过「佩戴中」。
+- **请求级**：点已佩戴那颗必须发出 `PUT /badges/worn {hidden:true}`，且整轮**不许出现 `DELETE`**；
+  `DELETE` 只属于底部「自动展示徽章」。
+- **空操作级**：当前 mode 对应的底部出口点下去 `calls` 长度不变（guard 在 handler 里，不用 `disabled`）。
+
+## 已知陷阱：佩戴成功但展示位不变（2026-11-13 修订三）
+
+**现象**：hidden 态点「佩戴」，接口 200、前端 toast「已佩戴「X」」，但状态行仍是「未佩戴徽章」，
+刷新也不变。
+
+**根因**：`SetWornBadge` 只写了 `top_badge_id` + `top_badge_manual`，漏清 `top_badge_hidden`。
+`DisplayBadge` 先判 `hidden` 就 return `mode=hidden`，于是写入成功、读面永远说没戴——写入与读面
+各按自己的口径，谁都不报错。修法是三列一条 UPDATE（见「佩戴的三个出口」的服务端不变量）。
+
+**判据**：从 hidden 出发 `PUT {slug}`，同一次响应里 `mode=manual`、`worn.slug` 是那枚、`upgrade`
+照常（不能因为「隐藏过」被短路），且库里 `top_badge_hidden = FALSE`。只断言 HTTP 200（甚至只断言
+「写库没报错」）抓不到这条——缺陷的形态正是 200 + `mode=hidden`。
 
 ## 已知陷阱：`SelectItem` 不接受空字符串 value
 

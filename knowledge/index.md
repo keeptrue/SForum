@@ -830,7 +830,17 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **通知收件箱 UI/UX 与 SEO 修复（2026-11-13，最新）**：六件事一次收口。
+- **徽章佩戴出口收口（2026-11-13，最新）**：已佩戴那颗按钮的可见文字与 `title` 从「佩戴中」改成
+  动作「取消佩戴」，点了发 `PUT /badges/worn {hidden:true}`（**不再** `DELETE` 回自动展示）；
+  资料页底部状态条改成两个并列常驻出口「自动展示徽章」（`DELETE` → auto，`mode==='auto'` 时按下）
+  与「不佩戴徽章」（`PUT {hidden:true}`，`isHidden` 时按下），当前态那颗点了不发请求（handler
+  guard，不用 `disabled`）。i18n 删 `wearing`/`restoreAuto`、加 `auto`、`unwearSuccess` →
+  `autoSuccess`、`hideSuccess` 改「已不佩戴任何徽章」；三个聚焦测试按值级断言改写
+  （含「点已按下的按钮 `calls` 不变」「PUT {hidden:true} 而不是 DELETE」）。**未提交**；Go 与
+  OpenAPI 未改，浏览器两档复验未做。见 `sessions/2026-11-13-badge-wear-exits.md`、决策
+  `decisions/2026-11-13-badge-worn-display.md`「修订二 · D10」、模块 `modules/badges.md`
+  「佩戴的三个出口」。
+- **通知收件箱 UI/UX 与 SEO 修复（2026-11-13）**：六件事一次收口。
   ① 中列 `.sforum-notifications__main` 从 `--sf-public-bg` 改 `--sf-public-surface`（与 settings/moderation
   三栏页对齐；列表页与详情页共用同一个类，两页一起修好，实测 `rgb(255,255,255)`）。
   ② 981px 起隐藏横向 `.sforum-notifications__filter-strip` 与 scope note，桌面只留左栏类型导航；

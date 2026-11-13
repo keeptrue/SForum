@@ -7320,12 +7320,16 @@
     },
     "worn": {
       "wear": "佩戴",
-      "wearing": "佩戴中",
       "unwear": "取消佩戴",
+      "auto": "自动展示徽章",
+      "hide": "不佩戴徽章",
+      "hiddenEmpty": "未佩戴徽章",
+      "hideSuccess": "已不佩戴任何徽章",
+      "currentlyWearing": "当前佩戴：{name}",
       "notOwned": "这枚徽章不在你的徽章墙里，无法佩戴",
       "saveFailed": "徽章佩戴设置保存失败",
       "wearSuccess": "已佩戴「{name}」",
-      "unwearSuccess": "已恢复自动展示徽章"
+      "autoSuccess": "已恢复自动展示徽章"
     }
   },
   "profile": {

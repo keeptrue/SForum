@@ -98,6 +98,7 @@ const badgeWornStub = () => {
     wornSlug: computed(() => state.value.wornSlug),
     upgradeSlug: computed(() => (state.value.mode === 'manual' ? state.value.upgradeSlug : '')),
     mode: computed(() => state.value.mode),
+    isHidden: computed(() => state.value.mode === 'hidden'),
     loading: ref(false),
     failed: ref(false),
     loaded: ref(false),
@@ -105,6 +106,7 @@ const badgeWornStub = () => {
     load: async () => {},
     ensureLoaded: async () => {},
     wear: async () => {},
+    hide: async () => {},
     clear: async () => {}
   }
 }

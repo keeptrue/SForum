@@ -57,12 +57,15 @@ func (h *Controller) badgeWearer() badges.WearStore {
 	return nil
 }
 
-// wornBadgeBody 是 PUT 的请求体：只认 slug。
+// wornBadgeBody 是 PUT 的请求体：slug 与 hidden 二选一，互斥。
 //
-// 用非指针 string：佩戴没有「部分更新」语义，缺字段就是空 slug，
-// 由领域层统一折成 ErrBadgeNotOwned（与「不持有」同码，不额外泄露站内是否存在）。
+// 用非指针 string / bool：佩戴没有「部分更新」语义。`hidden: true` 表示「什么都不戴」；
+// 两者同填是客户端 bug（不知道自己要哪个），400 forum.badge_worn_body_invalid
+// 而不是猜一个执行——猜错的那一半会静默改掉用户的展示位。
+// `{"hidden":false}` 与缺字段等价：走 slug 路径，空 slug 由领域层折成 ErrBadgeNotOwned。
 type wornBadgeBody struct {
-	Slug string `json:"slug"`
+	Slug   string `json:"slug"`
+	Hidden bool   `json:"hidden"`
 }
 
 // getWornBadge 是 GET /api/v1/badges/worn：读取当前佩戴状态。
@@ -101,14 +104,25 @@ func (h *Controller) setWornBadge(c fiber.Ctx) error {
 		// 「你没持有这枚徽章」是一句谎话——服务端连 slug 都没读到。
 		return fiber.NewError(fiber.StatusBadRequest, badges.CodeBadgeWornBodyInvalid)
 	}
+	// 互斥在解析成功后、触达领域层前判定：两个动作写同一列的不同状态，
+	// 同填意味着调用方自己也不知道想要哪个，执行哪个都是错的。
+	if body.Hidden && body.Slug != "" {
+		return fiber.NewError(fiber.StatusBadRequest, badges.CodeBadgeWornBodyInvalid)
+	}
 	wearer := h.badgeWearer()
 	if wearer == nil {
 		return errBadgeWearerMissing
 	}
-	// 空 slug 不在这里拦：SetWornBadge 归一化后同样返回 ErrBadgeNotOwned，
-	// 两处判断迟早分叉，而分叉后的症状是「接口拒绝但错误码说的是另一回事」。
-	if err := wearer.SetWornBadge(c.Context(), actor.ID, body.Slug); err != nil {
-		return mapBadgeError(err)
+	if body.Hidden {
+		if err := wearer.HideWornBadge(c.Context(), actor.ID); err != nil {
+			return mapBadgeError(err)
+		}
+	} else {
+		// 空 slug 不在这里拦：SetWornBadge 归一化后同样返回 ErrBadgeNotOwned，
+		// 两处判断迟早分叉，而分叉后的症状是「接口拒绝但错误码说的是另一回事」。
+		if err := wearer.SetWornBadge(c.Context(), actor.ID, body.Slug); err != nil {
+			return mapBadgeError(err)
+		}
 	}
 	display, err := wearer.DisplayBadge(c.Context(), actor.ID)
 	if err != nil {

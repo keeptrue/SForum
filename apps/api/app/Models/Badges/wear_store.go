@@ -16,6 +16,10 @@ import (
 //     另写一份比较必然在运营调档位后与 chip 显示不一致。
 //  3. **失效即回落，不留空洞**：徽章停用/收回/删除或等级停用后，展示位回落到自动
 //     推导的下一枚，而不是变成 NULL（用户会看到 chip 消失，却不知道为什么）。
+//  4. **hidden 同源写入**：「不佩戴」是第三种展示态（`top_badge_hidden = TRUE`），
+//     隐藏 = `top_badge_id=NULL, top_badge_manual=FALSE, top_badge_hidden=TRUE` 一次
+//     写齐（HideWornBadge）；重算对 hidden 行让路——top_badge_id 已是 NULL，回落
+//     写入会让「什么都不戴」变成「偷偷替用户戴上」，而且没有任何报错。
 
 // ErrBadgeNotOwned 表示用户并不持有那枚徽章（或它已停用/等级停用）。
 //
@@ -27,6 +31,7 @@ var ErrBadgeNotOwned = errors.New("badges: badge not owned")
 const (
 	BadgeDisplayModeAuto   = "auto"
 	BadgeDisplayModeManual = "manual"
+	BadgeDisplayModeHidden = "hidden"
 )
 
 // WearStore 是「自由佩戴」的领域能力（*PostgresStore 实现）。
@@ -38,6 +43,7 @@ const (
 type WearStore interface {
 	SetWornBadge(ctx context.Context, userID int64, slug string) error
 	ClearWornBadge(ctx context.Context, userID int64) error
+	HideWornBadge(ctx context.Context, userID int64) error
 	DisplayBadge(ctx context.Context, userID int64) (BadgeDisplay, error)
 }
 
@@ -69,6 +75,12 @@ type BadgeDisplay struct {
 //
 // 不满足任何一条即 ErrBadgeNotOwned（**不区分**是没持有还是已停用）：
 // 对手方（普通用户）不需要知道「站内是否存在这枚徽章」，区分只会变成一个探测面。
+//
+// **佩戴 = 三列同源写入**：`top_badge_id = X, top_badge_manual = TRUE,
+// top_badge_hidden = FALSE`，一条语句、一个快照。清 hidden 不能漏：`DisplayBadge`
+// 先判 hidden 就 return，只写前两列会得到「200 + mode=hidden」的假成功——用户看到
+// 「已佩戴」而展示位仍是「未佩戴徽章」，且没有任何报错。拆成两条语句同样不行：
+// 两次写之间可能夹进一次隐藏或一次重算，结果取决于调度顺序而不是用户的选择。
 func (s *PostgresStore) SetWornBadge(ctx context.Context, userID int64, slug string) error {
 	if s == nil || userID <= 0 {
 		return ErrBadgeNotOwned
@@ -87,7 +99,8 @@ func (s *PostgresStore) SetWornBadge(ctx context.Context, userID int64, slug str
 		)
 		UPDATE users
 		SET top_badge_id = (SELECT id FROM target),
-		    top_badge_manual = TRUE
+		    top_badge_manual = TRUE,
+		    top_badge_hidden = FALSE
 		WHERE users.id = $1 AND EXISTS (SELECT 1 FROM target)`, userID, normalized)
 	if err != nil {
 		return fmt.Errorf("set worn badge: %w", err)
@@ -103,12 +116,34 @@ func (s *PostgresStore) ClearWornBadge(ctx context.Context, userID int64) error 
 	if s == nil || userID <= 0 {
 		return nil
 	}
-	if _, err := s.pool.Exec(ctx, `UPDATE users SET top_badge_manual = FALSE WHERE id = $1`, userID); err != nil {
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE users SET top_badge_manual = FALSE, top_badge_hidden = FALSE WHERE id = $1`, userID); err != nil {
 		return fmt.Errorf("clear worn badge: %w", err)
 	}
 	// 先清标记再重算：顺序反了的话 RecomputeTopBadge 会看到 manual=TRUE 而拒绝覆盖，
 	// 于是「取消佩戴」变成一个只改了标记、展示位没动的假操作。
 	return s.RecomputeTopBadge(ctx, userID)
+}
+
+// HideWornBadge 让用户选择「什么都不戴」：展示位清空并标记 hidden。
+//
+// 与 SetWornBadge 的 CTE 同一条硬口径（第四条）：三列同源写入，不能只写
+// top_badge_id = NULL——那会让重算立刻回落写入自动推导的最佳徽章，「什么都不戴」
+// 变成一个点完按钮就失效的假操作。这里不需要校验用户是否持有徽章：隐藏对
+// 「一面空徽章墙」同样是有意义的选择。
+func (s *PostgresStore) HideWornBadge(ctx context.Context, userID int64) error {
+	if s == nil || userID <= 0 {
+		return nil
+	}
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE users
+		SET top_badge_id = NULL,
+		    top_badge_manual = FALSE,
+		    top_badge_hidden = TRUE
+		WHERE id = $1`, userID); err != nil {
+		return fmt.Errorf("hide worn badge: %w", err)
+	}
+	return nil
 }
 
 // DisplayBadge 返回佩戴状态：当前展示 / 自动推导 / 是否可升级。
@@ -134,7 +169,7 @@ func (s *PostgresStore) DisplayBadge(ctx context.Context, userID int64) (BadgeDi
 		return result, nil
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT users.top_badge_id, users.top_badge_manual,
+		SELECT users.top_badge_id, users.top_badge_manual, users.top_badge_hidden,
 		       -- 判别列：徽章**与等级**都必须有效。badges.id 只回答「徽章还在吗」
 		       -- （停用/删除时变 NULL）；等级停用时是 t.key 变 NULL。只判别 badges.id
 		       -- 会把等级停用的徽章当成有效候选——而 chip、top_badge_id 的自动推导
@@ -170,6 +205,7 @@ func (s *PostgresStore) DisplayBadge(ctx context.Context, userID int64) (BadgeDi
 	defer rows.Close()
 	var topBadgeID *int64
 	var manual bool
+	var hidden bool
 	var wornChoice *BadgeRef
 	var wornChoiceRank int64
 	var automatic *BadgeRef
@@ -177,15 +213,16 @@ func (s *PostgresStore) DisplayBadge(ctx context.Context, userID int64) (BadgeDi
 	for rows.Next() {
 		var rowTopBadgeID *int64
 		var rowManual bool
+		var rowHidden bool
 		var badgeID *int64
 		var ref BadgeRef
 		var appearance TierAppearance
 		var rank *int64
-		if err := rows.Scan(&rowTopBadgeID, &rowManual, &badgeID, &ref.Slug, &ref.Name, &ref.Tier, &ref.Icon,
+		if err := rows.Scan(&rowTopBadgeID, &rowManual, &rowHidden, &badgeID, &ref.Slug, &ref.Name, &ref.Tier, &ref.Icon,
 			&appearance.NameZh, &appearance.NameEn, &appearance.Color, &appearance.Position, &rank); err != nil {
 			return BadgeDisplay{}, fmt.Errorf("scan badge display: %w", err)
 		}
-		topBadgeID, manual = rowTopBadgeID, rowManual
+		topBadgeID, manual, hidden = rowTopBadgeID, rowManual, rowHidden
 		// 该用户没有任何可展示徽章：LEFT JOIN 给出一行全 NULL。
 		if badgeID == nil || rank == nil {
 			continue
@@ -205,6 +242,14 @@ func (s *PostgresStore) DisplayBadge(ctx context.Context, userID int64) (BadgeDi
 		return BadgeDisplay{}, fmt.Errorf("load badge display: %w", err)
 	}
 	result.Automatic = automatic
+	// hidden 模式：用户主动选择不佩戴。worn=nil（展示位确实是空的）、automatic
+	// 照常推导（前端可以显示「你的最佳徽章是 X」）、upgrade=nil（没有佩戴就没有
+	// 「升级」可言）。hidden=true 时 top_badge_id 必为 NULL（HideWornBadge 同源写入），
+	// wornChoice 天然匹配不到任何行。
+	if hidden {
+		result.Mode = BadgeDisplayModeHidden
+		return result, nil
+	}
 	if manual && wornChoice != nil {
 		result.Mode = BadgeDisplayModeManual
 		result.Worn = wornChoice
@@ -251,6 +296,15 @@ func (s *Service) ClearWornBadge(ctx context.Context, userID int64) error {
 		return errWearStoreUnavailable
 	}
 	return wear.ClearWornBadge(ctx, userID)
+}
+
+// HideWornBadge 让当前用户选择「什么都不戴」（hidden 展示态）。
+func (s *Service) HideWornBadge(ctx context.Context, userID int64) error {
+	wear := s.wearStore()
+	if wear == nil {
+		return errWearStoreUnavailable
+	}
+	return wear.HideWornBadge(ctx, userID)
 }
 
 // DisplayBadge 返回佩戴状态（当前展示 / 自动推导 / 是否可升级）。

@@ -37,13 +37,16 @@ type fakeWearer struct {
 	displayErr error
 	setErr     error
 	clearErr   error
+	hideErr    error
 
 	setUserID     int64
 	setSlug       string
 	clearUserID   int64
+	hideUserID    int64
 	displayUserID int64
 	setCalls      int
 	clearCalls    int
+	hideCalls     int
 }
 
 func (f *fakeWearer) SetWornBadge(_ context.Context, userID int64, slug string) error {
@@ -71,6 +74,18 @@ func (f *fakeWearer) ClearWornBadge(_ context.Context, userID int64) error {
 	}
 	f.display.Mode = badges.BadgeDisplayModeAuto
 	f.display.Worn = f.display.Automatic
+	f.display.Upgrade = nil
+	return nil
+}
+
+func (f *fakeWearer) HideWornBadge(_ context.Context, userID int64) error {
+	f.hideCalls++
+	f.hideUserID = userID
+	if f.hideErr != nil {
+		return f.hideErr
+	}
+	f.display.Mode = badges.BadgeDisplayModeHidden
+	f.display.Worn = nil
 	f.display.Upgrade = nil
 	return nil
 }
@@ -494,5 +509,78 @@ func TestWornBadgeEndpointsHonorFeatureGate(t *testing.T) {
 		if result.status != fiber.StatusForbidden || result.reason() != badges.CodeBadgesDisabled {
 			t.Fatalf("%s: want 403 %s, got %d %q", method, badges.CodeBadgesDisabled, result.status, result.reason())
 		}
+	}
+}
+
+// TestWornBadgePutHiddenClearsSlot 断言 `{"hidden":true}` 走隐藏路径：领域层收到
+// HideWornBadge（而不是 SetWornBadge/ClearWornBadge），响应是 mode=hidden + worn=null。
+//
+// worn 必须以 null 字面出现：前端按 mode 分支渲染展示位，「键缺失」与「位子是空的」
+// 是两种状态，前者会被当成加载失败。
+func TestWornBadgePutHiddenClearsSlot(t *testing.T) {
+	wearer := &fakeWearer{display: manualBadgeDisplay()}
+	result := callWorn(t, newWornApp(t, newWornController(wearer)), fiber.MethodPut, `{"hidden":true}`)
+
+	if result.status != fiber.StatusOK {
+		t.Fatalf("want 200, got %d (%s)", result.status, result.reason())
+	}
+	if result.data["mode"] != badges.BadgeDisplayModeHidden {
+		t.Fatalf("mode = %v, want hidden", result.data["mode"])
+	}
+	for _, key := range []string{"worn", "upgrade"} {
+		value, present := result.data[key]
+		if !present || value != nil {
+			t.Fatalf("%s = %v (present=%v), want null", key, value, present)
+		}
+		if !strings.Contains(result.raw, `"`+key+`":null`) {
+			t.Fatalf("%s 必须以 null 字面出现在响应里，got %s", key, result.raw)
+		}
+	}
+	// automatic 照常下发：前端可以据此显示「你的最佳徽章是 X」。
+	if automatic, ok := result.data["automatic"].(map[string]any); !ok || automatic["slug"] != "gold-badge" {
+		t.Fatalf("automatic = %v, want gold-badge", result.data["automatic"])
+	}
+	if wearer.hideCalls != 1 || wearer.hideUserID != wornActorID {
+		t.Fatalf("hide = (calls=%d, userID=%d), want (1, %d)", wearer.hideCalls, wearer.hideUserID, wornActorID)
+	}
+	if wearer.setCalls != 0 || wearer.clearCalls != 0 {
+		t.Fatalf("hidden 请求不得走 set/clear 路径（set=%d clear=%d）", wearer.setCalls, wearer.clearCalls)
+	}
+	if !strings.Contains(result.cacheControl, "private") {
+		t.Fatalf("Cache-Control = %q, want private", result.cacheControl)
+	}
+}
+
+// TestWornBadgePutHiddenAndSlugConflictIs400 断言 hidden 与 slug 同填是 400：
+// 两个动作写同一展示位的不同状态，同填意味着调用方自己也不知道要哪个，执行哪个
+// 都是错的——静默挑一个会改掉用户没同意的状态。400（而非 422）与「body 解析成功
+// 但语义非法」同一码 forum.badge_worn_body_invalid：服务端连用户意图都没读到。
+func TestWornBadgePutHiddenAndSlugConflictIs400(t *testing.T) {
+	wearer := &fakeWearer{display: autoBadgeDisplay()}
+	result := callWorn(t, newWornApp(t, newWornController(wearer)), fiber.MethodPut, `{"slug":"silver-badge","hidden":true}`)
+
+	if result.status != fiber.StatusBadRequest {
+		t.Fatalf("want 400, got %d (%s)", result.status, result.reason())
+	}
+	if result.reason() != badges.CodeBadgeWornBodyInvalid {
+		t.Fatalf("reason = %q, want %q", result.reason(), badges.CodeBadgeWornBodyInvalid)
+	}
+	if wearer.setCalls != 0 || wearer.clearCalls != 0 || wearer.hideCalls != 0 {
+		t.Fatalf("互斥冲突不得触达领域层（set=%d clear=%d hide=%d）", wearer.setCalls, wearer.clearCalls, wearer.hideCalls)
+	}
+}
+
+// TestWornBadgeHiddenFalseFallsBackToSlug 断言 `{"hidden":false}` 与缺字段等价：
+// 走 slug 路径，空 slug 由领域层折成 ErrBadgeNotOwned（不新增第三种「空请求」判定，
+// 两处判断迟早分叉）。
+func TestWornBadgeHiddenFalseFallsBackToSlug(t *testing.T) {
+	wearer := &fakeWearer{display: autoBadgeDisplay(), setErr: badges.ErrBadgeNotOwned}
+	result := callWorn(t, newWornApp(t, newWornController(wearer)), fiber.MethodPut, `{"hidden":false}`)
+
+	if result.status != fiber.StatusUnprocessableEntity || result.reason() != badges.CodeBadgeNotOwned {
+		t.Fatalf("hidden=false: want 422 %s, got %d %q", badges.CodeBadgeNotOwned, result.status, result.reason())
+	}
+	if wearer.setCalls != 1 || wearer.hideCalls != 0 {
+		t.Fatalf("hidden=false 必须走 slug 路径（set=%d hide=%d）", wearer.setCalls, wearer.hideCalls)
 	}
 }

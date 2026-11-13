@@ -35,6 +35,9 @@ CREATE TABLE users (
   -- 202611130003：佩戴标记。等级 fixture 也要带上，否则 RecomputeTopBadge 的
   -- SQL 会在这些测试里报 column does not exist（fixture 与迁移漂移）。
   top_badge_manual BOOLEAN NOT NULL DEFAULT FALSE,
+  -- 202611130004：hidden 展示态。RecomputeTopBadge / RecomputeAll 的 SQL 读写它，
+  -- 漏列同样以「column does not exist」变红（fixture 与迁移漂移）。
+  top_badge_hidden BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

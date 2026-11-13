@@ -26,7 +26,10 @@ import {
  * 资料页佩戴 UI 的契约（`GET/PUT/DELETE /badges/worn`）：
  *
  * - 只有本人视角（`self`）且非目录页才出现佩戴控件；他人页与 `/badges` 一个控件都没有。
- * - 佩戴按钮用 `aria-pressed` 表达当前态，已佩戴时再点 = 取消佩戴（DELETE）。
+ * - 按钮**可见文字就是动作**：未佩戴「佩戴」，已佩戴「取消佩戴」；状态只由 `aria-pressed`
+ *   表达。已佩戴时再点 = **不佩戴任何徽章**（`PUT {hidden:true}`），不是 `DELETE` 回自动展示。
+ * - 底部状态条是两个常驻出口：「自动展示徽章」（`DELETE` 回 auto）与「不佩戴徽章」
+ *   （`PUT {hidden:true}`）；当前态那颗点了不发请求（可见空操作）。
  * - 乐观更新：点下去本地立刻变；失败回滚到点击前的快照，并且**必须有错误 toast**。
  * - `upgradeSlug` 仍由数据层解析（服务端契约没变），但 UI 不再消费：浮起的「可升级」提示
  *   已按产品裁决删除，佩戴只由用户主动点选。
@@ -148,6 +151,11 @@ describe('useBadgeWorn · 契约归一', () => {
 })
 
 describe('useBadgeWorn · 乐观更新与回滚', () => {
+  test('badgeWornStateFrom parses mode=hidden with an empty worn slug', () => {
+    expect(badgeWornStateFrom({ mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null }))
+      .toEqual({ mode: 'hidden', wornSlug: '', automaticSlug: 'liked', upgradeSlug: '' })
+  })
+
   test('wear flips local state before the response and keeps the server answer afterwards', async () => {
     await withWornGlobals({ responses: [{ mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null }] }, async ({ calls }) => {
       const worn = useBadgeWorn()
@@ -156,6 +164,64 @@ describe('useBadgeWorn · 乐观更新与回滚', () => {
       expect(worn.mode.value).toBe('manual')
       expect(worn.wornSlug.value).toBe('helper')
       expect(worn.isWorn('helper')).toBe(true)
+    })
+  })
+
+  describe('hidden 展示态', () => {
+    test('hide sends PUT {hidden:true} optimistically and keeps the server answer', async () => {
+      await withWornGlobals({
+        responses: [
+          { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null },
+          { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null }
+        ]
+      }, async ({ calls }) => {
+        const worn = useBadgeWorn()
+        await worn.load()
+        await worn.hide()
+        expect(calls.at(-1)).toEqual({ path: '/badges/worn', method: 'PUT', body: { hidden: true } })
+        expect(worn.mode.value).toBe('hidden')
+        expect(worn.isHidden.value).toBe(true)
+        expect(worn.wornSlug.value).toBe('')
+      })
+    })
+
+    test('a failed hide rolls back to the previous snapshot and rethrows', async () => {
+      await withWornGlobals({
+        responses: [
+          { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null },
+          new Error('network')
+        ]
+      }, async () => {
+        const worn = useBadgeWorn()
+        await worn.load()
+        let caught: unknown
+        try {
+          await worn.hide()
+        } catch (error) {
+          caught = error
+        }
+        expect(caught).toBeDefined()
+        expect(worn.mode.value).toBe('manual')
+        expect(worn.wornSlug.value).toBe('helper')
+        expect(worn.isHidden.value).toBe(false)
+      })
+    })
+
+    test('wear lifts the hidden state back to manual', async () => {
+      await withWornGlobals({
+        responses: [
+          { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null },
+          { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null }
+        ]
+      }, async ({ calls }) => {
+        const worn = useBadgeWorn()
+        await worn.load()
+        expect(worn.isHidden.value).toBe(true)
+        await worn.wear('helper')
+        expect(worn.mode.value).toBe('manual')
+        expect(worn.wornSlug.value).toBe('helper')
+        expect(calls.at(-1)?.body).toEqual({ slug: 'helper' })
+      })
     })
   })
 
@@ -416,7 +482,64 @@ describe('SFProfileBadgeTab · 佩戴控件门禁', () => {
 })
 
 describe('SFProfileBadgeTab · 佩戴交互与 toast', () => {
-  test('clicking 佩戴 sends PUT, flips aria-pressed and toasts the badge name', async () => {
+  test('hidden state shows 未佩戴徽章, keeps every card unlit, and 自动展示 goes through DELETE', async () => {
+    const mounted = await mountTab({ groups, self: true }, {
+      responses: [
+        { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null },
+        { mode: 'auto', worn: { slug: 'liked' }, automatic: { slug: 'liked' }, upgrade: null }
+      ]
+    })
+    try {
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-text').text()).toBe('未佩戴徽章')
+      // hidden 态不回落：自动徽章不亮佩戴标识。
+      expect(mounted.wrapper.find('[data-badge-slug="liked"] .sf-profile-badges__wear').attributes('aria-pressed')).toBe('false')
+      // 两个常驻出口：当前态是「不佩戴徽章」。
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-auto').text()).toBe('自动展示徽章')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-auto').attributes('aria-pressed')).toBe('false')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').text()).toBe('不佩戴徽章')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').attributes('aria-pressed')).toBe('true')
+
+      await mounted.wrapper.get('.sf-profile-badges__worn-auto').trigger('click')
+      await mounted.wrapper.vm.$nextTick()
+      expect(mounted.calls.at(-1)).toEqual({ path: '/badges/worn', method: 'DELETE', body: undefined })
+      expect(mounted.toasts().at(-1)?.title).toBe('已恢复自动展示徽章')
+      // 回到 auto：状态行不再说「未佩戴」，auto 出口按下、自动徽章亮起。
+      expect(mounted.wrapper.find('.sf-profile-badges__worn-text').exists()).toBe(false)
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-auto').attributes('aria-pressed')).toBe('true')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').attributes('aria-pressed')).toBe('false')
+      expect(mounted.wrapper.get('[data-badge-slug="liked"] .sf-profile-badges__wear').attributes('aria-pressed')).toBe('true')
+    } finally {
+      mounted.restore()
+    }
+  })
+
+  test('不佩戴徽章 sends PUT {hidden:true} and flips the status line to 未佩戴徽章', async () => {
+    const mounted = await mountTab({ groups, self: true }, {
+      responses: [
+        { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null },
+        { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null }
+      ]
+    })
+    try {
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-text').text()).toBe('当前佩戴：优质解答')
+      // manual 不是任何常驻出口的当前态：两颗都不按下。
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-auto').attributes('aria-pressed')).toBe('false')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').attributes('aria-pressed')).toBe('false')
+
+      await mounted.wrapper.get('.sf-profile-badges__worn-hide').trigger('click')
+      await mounted.wrapper.vm.$nextTick()
+      expect(mounted.calls.at(-1)).toEqual({ path: '/badges/worn', method: 'PUT', body: { hidden: true } })
+      expect(mounted.toasts().at(-1)?.title).toBe('已不佩戴任何徽章')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-text').text()).toBe('未佩戴徽章')
+      // hidden 态：不佩戴徽章那颗按下，已佩戴的卡片全部熄灭。
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').attributes('aria-pressed')).toBe('true')
+      expect(mounted.wrapper.get('[data-badge-slug="helper"] .sf-profile-badges__wear').attributes('aria-pressed')).toBe('false')
+    } finally {
+      mounted.restore()
+    }
+  })
+
+  test('clicking 佩戴 sends PUT, flips the button to 取消佩戴 and toasts the badge name', async () => {
     const mounted = await mountTab({ groups, self: true }, {
       responses: [
         { mode: 'auto', worn: null, automatic: null, upgrade: null },
@@ -430,35 +553,67 @@ describe('SFProfileBadgeTab · 佩戴交互与 toast', () => {
       expect(mounted.calls.at(-1)).toEqual({ path: '/badges/worn', method: 'PUT', body: { slug: 'helper' } })
       const button = mounted.wrapper.get('[data-badge-slug="helper"] .sf-profile-badges__wear')
       expect(button.attributes('aria-pressed')).toBe('true')
-      expect(button.text()).toBe('佩戴中')
-      // 名字 = 可见文字「佩戴中」；「取消佩戴」只是 title 里的动作提示。
+      // 可见文字是动作「取消佩戴」，不是状态词「佩戴中」。
+      expect(button.text()).toBe('取消佩戴')
       expect(button.attributes('aria-label')).toBeUndefined()
       expect(button.attributes('title')).toBe('取消佩戴')
       expect(mounted.toasts().at(-1)?.title).toBe('已佩戴「优质解答」')
       expect(mounted.toasts().at(-1)?.color).toBe('success')
+      // manual 态：底部两颗出口都不按下。
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-auto').attributes('aria-pressed')).toBe('false')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').attributes('aria-pressed')).toBe('false')
     } finally {
       mounted.restore()
     }
   })
 
-  test('clicking 佩戴中 clears the selection with DELETE and toasts the reset', async () => {
+  test('clicking 取消佩戴 hides every badge with PUT {hidden:true}, never DELETE', async () => {
     const mounted = await mountTab({ groups, self: true }, {
       responses: [
         { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null },
-        { mode: 'auto', worn: { slug: 'liked' }, automatic: { slug: 'liked' }, upgrade: null }
+        { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null }
       ]
     })
     try {
       await mounted.wrapper.get('[data-badge-slug="helper"] .sf-profile-badges__wear').trigger('click')
       await mounted.wrapper.vm.$nextTick()
 
-      expect(mounted.calls.at(-1)?.method).toBe('DELETE')
+      expect(mounted.calls.at(-1)).toEqual({ path: '/badges/worn', method: 'PUT', body: { hidden: true } })
+      // 关键回归：取消佩戴不是「回到自动展示」，整轮不许出现 DELETE。
+      expect(mounted.calls.filter(call => call.method === 'DELETE')).toHaveLength(0)
       const button = mounted.wrapper.get('[data-badge-slug="helper"] .sf-profile-badges__wear')
       expect(button.attributes('aria-pressed')).toBe('false')
       expect(button.text()).toBe('佩戴')
-      expect(mounted.toasts().at(-1)?.title).toBe('已恢复自动展示徽章')
-      // 自动口径接回：另一枚变成佩戴中。
-      expect(mounted.wrapper.get('[data-badge-slug="liked"] .sf-profile-badges__wear').attributes('aria-pressed')).toBe('true')
+      expect(mounted.toasts().at(-1)?.title).toBe('已不佩戴任何徽章')
+      // hidden 后没有任何一枚卡片亮着：自动徽章也不亮。
+      expect(mounted.wrapper.findAll('[data-badge-slug] .sf-profile-badges__wear--active')).toHaveLength(0)
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-text').text()).toBe('未佩戴徽章')
+    } finally {
+      mounted.restore()
+    }
+  })
+
+  test('a rejected hide rolls the cards back to the previous state and keeps a persistent error toast', async () => {
+    const mounted = await mountTab({ groups, self: true }, {
+      responses: [
+        { mode: 'manual', worn: { slug: 'helper' }, automatic: { slug: 'liked' }, upgrade: null },
+        apiError('badge.worn_unavailable', 500)
+      ]
+    })
+    try {
+      await mounted.wrapper.get('.sf-profile-badges__worn-hide').trigger('click')
+      await mounted.wrapper.vm.$nextTick()
+
+      // 乐观更新已回滚：状态行与卡片都回到点击前（manual + helper），没有任何一枚熄灭。
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-text').text()).toBe('当前佩戴：优质解答')
+      expect(mounted.wrapper.get('[data-badge-slug="helper"] .sf-profile-badges__wear').attributes('aria-pressed')).toBe('true')
+      expect(mounted.wrapper.get('[data-badge-slug="helper"] .sf-profile-badges__wear').text()).toBe('取消佩戴')
+      expect(mounted.wrapper.get('.sf-profile-badges__worn-hide').attributes('aria-pressed')).toBe('false')
+      // 失败不静默：错误 toast 常驻（duration 0），文案按「保存失败」而不是「未持有」。
+      const toast = mounted.toasts().at(-1)
+      expect(toast?.title).toBe('徽章佩戴设置保存失败')
+      expect(toast?.color).toBe('error')
+      expect(toast?.duration).toBe(0)
     } finally {
       mounted.restore()
     }
@@ -488,10 +643,44 @@ describe('SFProfileBadgeTab · 佩戴交互与 toast', () => {
     }
   })
 
+  test('the already-active exit is a visible no-op: no request and no toast', async () => {
+    const cases = [
+      {
+        state: { mode: 'auto', worn: { slug: 'liked' }, automatic: { slug: 'liked' }, upgrade: null },
+        selector: '.sf-profile-badges__worn-auto'
+      },
+      {
+        state: { mode: 'hidden', worn: null, automatic: { slug: 'liked' }, upgrade: null },
+        selector: '.sf-profile-badges__worn-hide'
+      }
+    ]
+    for (const entry of cases) {
+      const mounted = await mountTab({ groups, self: true }, { responses: [entry.state] })
+      try {
+        const button = mounted.wrapper.get(entry.selector)
+        // 当前态那颗仍然可聚焦（不是 disabled），只是点了不发请求。
+        expect(button.attributes('aria-pressed')).toBe('true')
+        expect(button.attributes('disabled')).toBeUndefined()
+        const before = mounted.calls.length
+
+        await button.trigger('click')
+        await mounted.wrapper.vm.$nextTick()
+
+        expect(mounted.calls).toHaveLength(before)
+        expect(mounted.toasts()).toHaveLength(0)
+      } finally {
+        mounted.restore()
+      }
+    }
+  })
+
 })
 
 describe('badges.worn i18n keys', () => {
-  const required = ['wear', 'wearing', 'unwear', 'notOwned', 'saveFailed', 'wearSuccess', 'unwearSuccess']
+  const required = [
+    'wear', 'unwear', 'auto', 'hide', 'hiddenEmpty', 'hideSuccess',
+    'currentlyWearing', 'notOwned', 'saveFailed', 'wearSuccess', 'autoSuccess'
+  ]
 
   test('every required key exists in both locales', () => {
     for (const key of required) {
@@ -507,5 +696,15 @@ describe('badges.worn i18n keys', () => {
     const zhKeys = Object.keys(lookup(zh, 'badges.worn') as Record<string, unknown>).sort()
     const enKeys = Object.keys(lookup(en, 'badges.worn') as Record<string, unknown>).sort()
     expect(zhKeys).toEqual(enKeys)
+  })
+
+  test('the retired state-word keys stay deleted in both locales', () => {
+    // 「佩戴中」与「恢复自动展示」是被动作文案取代的旧键：留在 locale 里就会被再次引用，
+    // 于是按钮又开始写状态。这条让「删掉实现」真的红。
+    for (const key of ['wearing', 'restoreAuto', 'unwearSuccess']) {
+      for (const messages of [zh, en]) {
+        expect(lookup(messages, `badges.worn.${key}`)).toBeUndefined()
+      }
+    }
   })
 })

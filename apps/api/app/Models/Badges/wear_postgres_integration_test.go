@@ -50,6 +50,17 @@ func wornState(t *testing.T, store *PostgresStore, userID int64) (*int64, bool) 
 	return top, manual
 }
 
+// hiddenState 直接读 hidden 标记（与 wornState 同一理由：钉住库里的真实状态）。
+func hiddenState(t *testing.T, store *PostgresStore, userID int64) bool {
+	t.Helper()
+	var hidden bool
+	if err := store.pool.QueryRow(context.Background(),
+		`SELECT top_badge_hidden FROM users WHERE id = $1`, userID).Scan(&hidden); err != nil {
+		t.Fatalf("read hidden state: %v", err)
+	}
+	return hidden
+}
+
 func mustDisplay(t *testing.T, store *PostgresStore, userID int64) BadgeDisplay {
 	t.Helper()
 	display, err := store.DisplayBadge(context.Background(), userID)
@@ -460,4 +471,198 @@ func TestDisplayBadgeIgnoresBadgesWhoseTierIsDisabled(t *testing.T) {
 				display.Automatic, display.Worn, display.Upgrade)
 		}
 	})
+}
+
+// TestHideWornBadgeClearsSlotAndSurvivesRecompute 是 hidden 刀的核心契约：
+// 隐藏 = 三列同源写齐 → chip 读到空 → 两条重算都不许回落写入。
+//
+// 只看 top_badge_id 会漏掉 hidden 标记被回落逻辑顺手清掉（下次又替用户戴上）；
+// 只看 hidden 标记会漏掉 top_badge_id 没被清（chip 还在，「什么都不戴」没生效）。
+func TestHideWornBadgeClearsSlotAndSurvivesRecompute(t *testing.T) {
+	fixture, store, userID, _, _ := wearFixture(t)
+	ctx := fixture.ctx
+
+	if err := store.SetWornBadge(ctx, userID, "silver-badge"); err != nil {
+		t.Fatalf("set worn badge: %v", err)
+	}
+	if err := store.HideWornBadge(ctx, userID); err != nil {
+		t.Fatalf("hide worn badge: %v", err)
+	}
+
+	// 三列同源：top_badge_id 清空、manual 清掉、hidden 写上。少任何一列都是半坏状态。
+	if top, manual := wornState(t, store, userID); top != nil || manual {
+		t.Fatalf("after hide = (top=%v, manual=%v), want (NULL, false)", top, manual)
+	}
+	if !hiddenState(t, store, userID) {
+		t.Fatal("hidden 标记必须为 TRUE")
+	}
+
+	// chip 批量读口必须看到空：TopBadgesFor 按 top_badge_id JOIN，hidden 行天然为空。
+	refs, err := store.TopBadgesFor(ctx, []int64{userID})
+	if err != nil {
+		t.Fatalf("top badges: %v", err)
+	}
+	if _, ok := refs[userID]; ok {
+		t.Fatalf("TopBadgesFor = %+v, want 空（隐藏用户的 chip 不许显示徽章）", refs[userID])
+	}
+
+	// 单用户重算不许回落写入。
+	if err := store.RecomputeTopBadge(ctx, userID); err != nil {
+		t.Fatalf("recompute one: %v", err)
+	}
+	if top, manual := wornState(t, store, userID); top != nil || manual || !hiddenState(t, store, userID) {
+		t.Fatalf("RecomputeTopBadge 回落覆盖了 hidden：(top=%v, manual=%v, hidden=%v)", top, manual, hiddenState(t, store, userID))
+	}
+
+	// 全量重算走的是另一段 SQL（manual_valid 分支），必须单独钉。
+	if _, err := store.RecomputeAll(ctx); err != nil {
+		t.Fatalf("recompute all: %v", err)
+	}
+	if top, manual := wornState(t, store, userID); top != nil || manual || !hiddenState(t, store, userID) {
+		t.Fatalf("RecomputeAll 回落覆盖了 hidden：(top=%v, manual=%v, hidden=%v)", top, manual, hiddenState(t, store, userID))
+	}
+
+	// 幂等：再跑一次全量重算，hidden 行不计入变更。
+	again, err := store.RecomputeAll(ctx)
+	if err != nil {
+		t.Fatalf("second recompute all: %v", err)
+	}
+	if again != 0 {
+		t.Fatalf("second refreshed = %d, want 0（hidden 行不该被改）", again)
+	}
+
+	display := mustDisplay(t, store, userID)
+	if display.Mode != BadgeDisplayModeHidden {
+		t.Fatalf("mode = %q, want hidden", display.Mode)
+	}
+	if display.Worn != nil {
+		t.Fatalf("worn = %+v, want nil（展示位确实是空的）", display.Worn)
+	}
+	// automatic 照常推导：前端可以据此显示「你的最佳徽章是 X」。
+	if display.Automatic == nil || display.Automatic.Slug != "gold-badge" {
+		t.Fatalf("automatic = %+v, want gold-badge", display.Automatic)
+	}
+	if display.Upgrade != nil {
+		t.Fatalf("hidden 模式下 upgrade 必须为空，got %+v", display.Upgrade)
+	}
+
+}
+
+// TestWearingBadgeAfterHideUnhides 断言重新佩戴解除隐藏。
+//
+// PUT 的语义覆盖 hidden：用户从「什么都不戴」改成「戴 X」，hidden 标记必须清掉，
+// 否则它会在下一次重算里拦住佩戴值的维护（失效回落永远走不到）。
+//
+// 三列必须由**同一条** SetWornBadge 写齐：top_badge_id=silver、manual=TRUE、
+// hidden=FALSE。少清 hidden 就是 YG 报的那个缺陷——接口 200、mode 仍是 hidden。
+func TestWearingBadgeAfterHideUnhides(t *testing.T) {
+	fixture, store, userID, _, silverID := wearFixture(t)
+	ctx := fixture.ctx
+
+	if err := store.HideWornBadge(ctx, userID); err != nil {
+		t.Fatalf("hide worn badge: %v", err)
+	}
+	if top, manual := wornState(t, store, userID); top != nil || manual || !hiddenState(t, store, userID) {
+		t.Fatalf("hidden 起点不对：(top=%v, manual=%v, hidden=%v)", top, manual, hiddenState(t, store, userID))
+	}
+	if err := store.SetWornBadge(ctx, userID, "silver-badge"); err != nil {
+		t.Fatalf("set worn badge: %v", err)
+	}
+	if top, manual := wornState(t, store, userID); top == nil || *top != silverID || !manual {
+		t.Fatalf("after re-wear = (top=%v, manual=%v), want (silver, true)", top, manual)
+	}
+	if hiddenState(t, store, userID) {
+		t.Fatal("重新佩戴必须解除 hidden：否则重算永远不维护这个展示位")
+	}
+
+	display := mustDisplay(t, store, userID)
+	if display.Mode != BadgeDisplayModeManual || display.Worn == nil || display.Worn.Slug != "silver-badge" {
+		t.Fatalf("display = %+v, want manual + silver-badge", display)
+	}
+	// upgrade 语义在「隐藏过再佩戴」之后必须照常：gold 比 silver 好，佩戴 silver
+	// 就该提示可换成 gold。hidden 曾经把这个分支整个短路掉。
+	if display.Upgrade == nil || display.Upgrade.Slug != "gold-badge" {
+		t.Fatalf("upgrade = %+v, want gold-badge", display.Upgrade)
+	}
+
+	// 解除隐藏后，两条重算都必须按「有效的手动佩戴」对待：不改值、不重数。
+	if err := store.RecomputeTopBadge(ctx, userID); err != nil {
+		t.Fatalf("recompute one: %v", err)
+	}
+	if top, manual := wornState(t, store, userID); top == nil || *top != silverID || !manual || hiddenState(t, store, userID) {
+		t.Fatalf("RecomputeTopBadge 覆盖了重新佩戴：(top=%v, manual=%v, hidden=%v)",
+			top, manual, hiddenState(t, store, userID))
+	}
+	refreshed, err := store.RecomputeAll(ctx)
+	if err != nil {
+		t.Fatalf("recompute all: %v", err)
+	}
+	if refreshed != 0 {
+		t.Fatalf("refreshed = %d, want 0（有效的佩戴值不该被重写）", refreshed)
+	}
+	if top, manual := wornState(t, store, userID); top == nil || *top != silverID || !manual || hiddenState(t, store, userID) {
+		t.Fatalf("RecomputeAll 覆盖了重新佩戴：(top=%v, manual=%v, hidden=%v)",
+			top, manual, hiddenState(t, store, userID))
+	}
+}
+
+// TestRecomputeTopBadgeRepairsHalfBrokenHiddenRow 钉住「hidden = 三列同源」的收敛方向。
+//
+// 半坏行（hidden=TRUE 但 top_badge_id 非空）只可能来自直接改库或修复前的旧代码；
+// 单用户重算必须把它收敛成 (NULL, FALSE, TRUE)，而不是把非空展示位当成「用户选择」
+// 保留下来——chip 会照 top_badge_id 显示一枚徽章，而佩戴面板说「未佩戴」。
+func TestRecomputeTopBadgeRepairsHalfBrokenHiddenRow(t *testing.T) {
+	fixture, store, userID, goldID, _ := wearFixture(t)
+	ctx := fixture.ctx
+
+	if _, err := fixture.pool.Exec(ctx,
+		`UPDATE users SET top_badge_id = $2, top_badge_manual = TRUE, top_badge_hidden = TRUE WHERE id = $1`,
+		userID, goldID); err != nil {
+		t.Fatalf("seed half-broken hidden row: %v", err)
+	}
+	if err := store.RecomputeTopBadge(ctx, userID); err != nil {
+		t.Fatalf("recompute one: %v", err)
+	}
+	if top, manual := wornState(t, store, userID); top != nil || manual || !hiddenState(t, store, userID) {
+		t.Fatalf("半坏 hidden 行未被收敛：(top=%v, manual=%v, hidden=%v)",
+			top, manual, hiddenState(t, store, userID))
+	}
+	// 全量重算不碰 hidden 行：既不许修成「替用户戴上」，也不许把它算进 refreshed。
+	refreshed, err := store.RecomputeAll(ctx)
+	if err != nil {
+		t.Fatalf("recompute all: %v", err)
+	}
+	if refreshed != 0 {
+		t.Fatalf("refreshed = %d, want 0（hidden 行不在重算作用域内）", refreshed)
+	}
+	if top, manual := wornState(t, store, userID); top != nil || manual || !hiddenState(t, store, userID) {
+		t.Fatalf("RecomputeAll 碰了 hidden 行：(top=%v, manual=%v, hidden=%v)",
+			top, manual, hiddenState(t, store, userID))
+	}
+}
+
+// TestClearWornBadgeAfterHideReturnsToAutomatic 断言 DELETE 对隐藏用户回到 auto。
+//
+// DELETE 的承诺是「回到自动推导」，对「什么都不戴」的用户同样成立：hidden 不是
+// 不可撤销的终态，否则用户点错一次就永远找不到回到默认的入口。
+func TestClearWornBadgeAfterHideReturnsToAutomatic(t *testing.T) {
+	fixture, store, userID, goldID, _ := wearFixture(t)
+	ctx := fixture.ctx
+
+	if err := store.HideWornBadge(ctx, userID); err != nil {
+		t.Fatalf("hide worn badge: %v", err)
+	}
+	if err := store.ClearWornBadge(ctx, userID); err != nil {
+		t.Fatalf("clear worn badge: %v", err)
+	}
+	if hiddenState(t, store, userID) {
+		t.Fatal("DELETE 必须清掉 hidden 标记")
+	}
+	if top, manual := wornState(t, store, userID); top == nil || *top != goldID || manual {
+		t.Fatalf("after clear = (top=%v, manual=%v), want (gold, false)", top, manual)
+	}
+	display := mustDisplay(t, store, userID)
+	if display.Mode != BadgeDisplayModeAuto || display.Worn == nil || display.Worn.Slug != "gold-badge" {
+		t.Fatalf("display = %+v, want auto + gold-badge", display)
+	}
 }
