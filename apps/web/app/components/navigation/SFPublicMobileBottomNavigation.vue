@@ -39,9 +39,12 @@ const notifications = useNotifications()
     >
       <span class="sf-public-mobile-bottom-nav__icon-wrap">
         <UIcon name="i-lucide-bell" class="size-5" aria-hidden="true" />
-        <span v-if="authenticated && notifications.unreadCount.value" class="sf-public-mobile-bottom-nav__badge">
-          {{ notifications.unreadCount.value > 99 ? '99+' : notifications.unreadCount.value }}
-        </span>
+        <!-- 同 SFNotificationPreview：未读数在 SSR 时恒为 0，客户端首帧已有值会 node mismatch。 -->
+        <ClientOnly>
+          <span v-if="authenticated && notifications.unreadCount.value" class="sf-public-mobile-bottom-nav__badge">
+            {{ notifications.unreadCount.value > 99 ? '99+' : notifications.unreadCount.value }}
+          </span>
+        </ClientOnly>
       </span>
       <span>{{ t('nav.notifications') }}</span>
     </NuxtLink>

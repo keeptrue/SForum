@@ -14,10 +14,12 @@ import {
   filterNotifications,
   groupNotificationsByDate,
   notificationFilterCounts,
+  notificationFilters,
   notificationHasTarget,
   notificationPresentation,
   notificationTarget,
   notificationTargetTitle,
+  notificationTypeIcon,
   unreadLoadedCount
 } from '../../app/utils/notifications/notificationsPresentation'
 
@@ -27,6 +29,7 @@ const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'u
 const pageSource = () => source('../../app/components/notifications/SFNotificationsPage.vue')
 const pageStyles = () => source('../../app/components/notifications/SFNotificationsPage.css')
 const detailPageSource = () => source('../../app/components/notifications/detail/SFNotificationDetailPage.vue')
+const detailStyles = () => source('../../app/components/notifications/detail/SFNotificationDetailPage.css')
 const typeNavSource = () => source('../../app/components/notifications/SFNotificationTypeNav.vue')
 const detailRouteSource = () => source('../../app/pages/notifications/[notificationId].vue')
 const notificationComposableSource = () => source('../../app/composables/notifications/useNotifications.ts')
@@ -36,6 +39,8 @@ const notificationPreviewSource = () => source('../../app/components/notificatio
 const notificationPreviewStyles = () => source('../../app/components/notifications/SFNotificationPreview.css')
 const zh = () => JSON.parse(source('../../i18n/locales/zh-CN.json'))
 const en = () => JSON.parse(source('../../i18n/locales/en-US.json'))
+const listRouteSource = () => source('../../app/pages/notifications/index.vue')
+const emptyStateSource = () => source('../../app/components/SFEmptyState.vue')
 
 function item(input: Partial<NotificationItem>): NotificationItem {
   return {
@@ -642,5 +647,149 @@ describe('SFNotificationsPage contract', () => {
       expect(locale.notifications.preview.viewAll).toBeTruthy()
       expect(locale.notifications.preview.tabs.reply).toBeTruthy()
     }
+  })
+})
+
+describe('notification inbox polish contract', () => {
+  test('every inbox filter has a label, a type title, and a body template in both locales', () => {
+    // 目录是页面渲染的输入：少一条 key 就会在 UI 上漏出 `notifications.filter.*` 原始键。
+    expect(notificationFilters).toContain('reaction')
+    expect(notificationFilters).toContain('bookmark_reminder')
+    expect(notificationFilters.indexOf('bookmark_reminder')).toBeGreaterThan(notificationFilters.indexOf('reaction'))
+
+    for (const locale of [zh(), en()]) {
+      for (const filter of notificationFilters) {
+        expect(locale.notifications.filter[filter]).toBeTruthy()
+        // `all` / `unread` 是范围不是类型，没有专属标题与正文模板。
+        if (filter === 'all' || filter === 'unread') continue
+        expect(locale.notifications.types[filter]).toBeTruthy()
+        expect(locale.notifications.body[filter]).toBeTruthy()
+      }
+    }
+  })
+
+  test('the shared type icon catalog never degrades a real type into the generic bell', () => {
+    const realTypes = [
+      'reply',
+      'mention',
+      'reaction',
+      'bookmark_reminder',
+      'badge_granted',
+      'moderation_pending',
+      'moderation_approved',
+      'moderation_rejected',
+      'admin_test'
+    ]
+
+    for (const type of realTypes) {
+      expect(notificationTypeIcon(type)).not.toBe('i-tabler-bell')
+      expect(notificationTypeIcon(type).startsWith('i-tabler-')).toBe(true)
+    }
+
+    // 三种互动语义必须彼此可区分，而不是共用一个铃铛。
+    expect(notificationTypeIcon('reaction')).toBe('i-tabler-heart')
+    expect(notificationTypeIcon('badge_granted')).toBe('i-tabler-award')
+    expect(notificationTypeIcon('bookmark_reminder')).toBe('i-tabler-bookmark')
+    // 未知/插件类型才允许回退。
+    expect(notificationTypeIcon('plugin_unknown_type')).toBe('i-tabler-bell')
+
+    // 桌面左栏复用同一目录：本地只留 all/unread，不再维护第二份类型映射。
+    const typeNav = typeNavSource()
+    expect(typeNav).toContain('notificationTypeIcon(filter)')
+    expect(typeNav).not.toContain("reply: 'i-tabler-message-reply'")
+    expect(typeNav).not.toContain("moderation_approved: 'i-tabler-shield-check'")
+  })
+
+  test('owns inbox robots and title through the shared SEO resolver on list and detail', () => {
+    const route = listRouteSource()
+    const detail = detailPageSource()
+
+    expect(route).toContain("import { useSForumSeo } from '~/composables/seo/useSForumSeo'")
+    expect(route).toContain("title: () => t('notifications.title')")
+    expect(route).toContain("description: () => t('notifications.description')")
+    expect(route).toMatch(/useSForumSeo\(\{[\s\S]*?noindex: true/)
+
+    expect(detail).toContain("import { useSForumSeo } from '~/composables/seo/useSForumSeo'")
+    expect(detail).toContain("title: () => preview.value?.topicTitle || t('notifications.detailPage.title')")
+    expect(detail).toMatch(/useSForumSeo\(\{[\s\S]*?noindex: true/)
+    // 裸 useHead 会与公共 SEO 解析器抢 title/robots 归属。
+    expect(detail).not.toContain('useHead(')
+  })
+
+  test('keeps the middle column on the shared surface token and a single desktop filter surface', () => {
+    const styles = pageStyles()
+
+    expect(styles).toMatch(/\.sforum-notifications__main \{[^}]*background: var\(--sf-public-surface\);/)
+    expect(styles).not.toContain('var(--sf-public-bg)')
+
+    const desktopStart = styles.indexOf('@media (min-width: 981px) {')
+    const desktopEnd = styles.indexOf('@media (max-width: 980px) {')
+    expect(desktopStart).toBeGreaterThan(-1)
+    expect(desktopEnd).toBeGreaterThan(desktopStart)
+    expect(styles.slice(desktopStart, desktopEnd))
+      .toMatch(/\.sforum-notifications__filter-strip,\s*\.sforum-notifications__filter-note \{\s*display: none;/)
+
+    // 空状态自带虚线边框，外层不再叠一条实线。
+    const emptyRule = styles.slice(
+      styles.indexOf('.sforum-notifications__empty {'),
+      styles.indexOf('.sforum-notifications__group-head {')
+    )
+    expect(emptyRule.length).toBeGreaterThan(0)
+    expect(emptyRule).not.toContain('border-bottom')
+  })
+
+  test('renders one reachable empty state that switches copy and icon by the active filter', () => {
+    const empty = emptyStateSource()
+    expect(empty).toContain('icon?: string')
+    expect(empty).toContain("icon: 'i-lucide-inbox'")
+    expect(empty).toContain(':name="props.icon"')
+
+    const page = pageSource()
+    // 服务端已按类型筛选，`items` 为空就是「这个筛选下没有通知」；两段分支会把后者挡死。
+    expect(page.match(/<SFEmptyState/g)).toHaveLength(1)
+    expect(page).toContain('v-else-if="!filteredItems.length"')
+    expect(page).not.toContain('v-else-if="!items.length"')
+    expect(page).toContain("activeFilter === 'all' ? 'i-lucide-bell-off' : 'i-lucide-filter-x'")
+    expect(page).toContain("activeFilter === 'all' ? t('notifications.empty') : t('notifications.filter.empty')")
+    expect(page).toContain("activeFilter === 'all' ? t('notifications.emptyDescription') : t('notifications.filter.emptyDescription')")
+    expect(page).not.toContain("t('notifications.filter.emptyDescription', { count:")
+  })
+})
+
+describe('notification mobile layout and hydration contract', () => {
+  test('the detail header left-aligns below 560px while the desktop rule stays flex-end', () => {
+    const styles = detailStyles()
+
+    // 桌面：头部是 row，flex-end 是有意的右对齐，不能被顺手改掉。
+    expect(styles).toMatch(/^\.sforum-notification-detail__head \{\n  align-items: flex-end;/m)
+
+    const mobileStart = styles.indexOf('@media (max-width: 560px) {')
+    expect(mobileStart).toBeGreaterThan(-1)
+    // 窄屏头部已变成 column，交叉轴上的 flex-end 会把整块内容推到右边。
+    expect(styles.slice(mobileStart)).toMatch(/\.sforum-notification-detail__head \{\s*align-items: flex-start;/)
+    expect(styles.slice(0, mobileStart)).not.toMatch(/\.sforum-notification-detail__head \{\s*align-items: flex-start;/)
+  })
+
+  test('both unread badges sit behind ClientOnly so SSR and the client first frame agree', () => {
+    const cases = [
+      { label: 'SFNotificationPreview', src: notificationPreviewSource(), badge: 'sf-notification-preview__badge' },
+      { label: 'SFPublicMobileBottomNavigation', src: mobileBottomNavigationSource(), badge: 'sf-public-mobile-bottom-nav__badge' }
+    ]
+
+    for (const entry of cases) {
+      const badgeAt = entry.src.indexOf(entry.badge)
+      expect(badgeAt).toBeGreaterThan(-1)
+
+      const openAt = entry.src.lastIndexOf('<ClientOnly>', badgeAt)
+      const closeAt = entry.src.indexOf('</ClientOnly>', badgeAt)
+      expect(openAt).toBeGreaterThan(-1)
+      expect(closeAt).toBeGreaterThan(badgeAt)
+      // 徽章必须整段落在同一对 ClientOnly 之内。
+      expect(entry.src.slice(openAt, closeAt)).toContain(entry.badge)
+    }
+
+    // 防止「把徽章删掉」冒充修复：未读数的渲染条件必须原样保留。
+    expect(notificationPreviewSource()).toContain('v-if="notifications.unreadCount.value"')
+    expect(mobileBottomNavigationSource()).toContain('v-if="authenticated && notifications.unreadCount.value"')
   })
 })

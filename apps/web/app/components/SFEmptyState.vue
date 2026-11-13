@@ -4,10 +4,13 @@ const props = withDefaults(defineProps<{
   description?: string
   actionLabel?: string
   iconLabel?: string
+  /** 默认图标可由调用方替换；`iconLabel` 存在时仍然优先渲染文字标记。 */
+  icon?: string
 }>(), {
   description: undefined,
   actionLabel: undefined,
-  iconLabel: undefined
+  iconLabel: undefined,
+  icon: 'i-lucide-inbox'
 })
 
 const emit = defineEmits<{
@@ -19,7 +22,7 @@ const emit = defineEmits<{
   <div class="sf-empty-state">
     <div class="sf-empty-state__icon" aria-hidden="true">
       <span v-if="iconLabel">{{ iconLabel }}</span>
-      <UIcon v-else name="i-lucide-inbox" class="size-5" />
+      <UIcon v-else :name="props.icon" class="size-5" />
     </div>
     <h3 class="sf-empty-state__title">
       {{ title }}

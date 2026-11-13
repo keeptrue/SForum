@@ -267,6 +267,68 @@ loaded-scope count semantics and fixed type/icon catalog. On a detail page the
 current notification type is highlighted; selecting any type restores the
 existing inbox filter state and returns to `/notifications`.
 
+Inbox presentation rules (2026-11-13 polish):
+
+- **One filter surface per viewport.** From 981px the left rail is the only
+  type selector: `.sforum-notifications__filter-strip` and its scope note are
+  hidden there, because the rail is visible and both are driven by the same
+  `activeFilter`. Below 981px the rail collapses and the horizontal strip is
+  the selector. Rendering both at once duplicated the whole type catalog.
+- **The type/icon catalog has one owner.** `notificationTypeIcon(type)` in
+  `utils/notifications/notificationsPresentation.ts` is the only mapping from
+  notification type to icon (fallback `i-tabler-bell`); the left rail keeps
+  only the two range entries (`all`, `unread`) and delegates the rest. A
+  second local map silently degraded new types (previously `reaction` and
+  `badge_granted`) into a bell. `bookmark_reminder` is in the catalog
+  (`i-tabler-bookmark`) together with its filter label, type title, and body
+  template in both locales; every filter entry must keep all three keys or the
+  UI leaks a raw `notifications.filter.*` key.
+- **Loaded-scope counts are not server totals.** The API applies
+  category/type/unread filters server-side, so the rail counts and the
+  right-rail overview describe **the currently loaded page only**
+  (`filter.loadedScope`, `loadedTotal`/`loadedUnread`), while the unread
+  summary is the account-wide authoritative number. The copy states both
+  scopes explicitly; do not relabel the page counts as totals.
+- **One reachable empty state.** Because the server already filters, an empty
+  page means "nothing in this filter". The list renders a single
+  `v-else-if="!filteredItems.length"` branch that switches copy and icon by
+  `activeFilter`; a separate `!items.length` branch made the filter empty state
+  unreachable. `SFEmptyState` accepts an optional `icon` prop (default
+  `i-lucide-inbox`); `iconLabel` still wins when present.
+- **Surface token.** `.sforum-notifications__main` uses
+  `var(--sf-public-surface)` like the settings and moderation three-column
+  pages, so the content column is a canvas rather than a tinted panel. The
+  empty-state wrapper no longer adds a solid `border-bottom` (the shared empty
+  state draws its own dashed frame).
+- **Mobile detail header + badge hydration.** Below 560px the detail header is
+  a column, so its cross-axis alignment decides horizontal position: the base
+  `align-items: flex-end` (desktop, intentional) must be overridden to
+  `flex-start` inside the `@media (max-width: 560px)` block of
+  `detail/SFNotificationDetailPage.css`. Watch the import order — the detail
+  page loads `SFNotificationsPage.css` first and `SFNotificationDetailPage.css`
+  second, so at equal specificity the detail file wins; removing that override
+  silently pushes the back link, title, and subtitle against the right edge.
+  Unread badges in `SFNotificationPreview` and
+  `SFPublicMobileBottomNavigation` render behind `<ClientOnly>`: the SSR pass
+  paints the navbar before any page `useAsyncData` writes the shared unread
+  count, so the server HTML has no badge while the client's first frame already
+  has the hydrated value — that timing gap is what produced
+  `Hydration node mismatch`. Server-first rendering of the badge is deliberately
+  not attempted (it would need the count fetched in the app bootstrap path);
+  the badge keeps its `v-if` guard and `99+` clamp and simply appears one frame
+  later.
+
+SEO ownership for the inbox (2026-11-13): `/notifications` and
+`/notifications/:notificationId` take title/description/robots from
+`useSForumSeo` (`noindex: true`) — the detail island replaced its raw
+`useHead`. `nuxt.config.ts` routeRules declare `cache: false` plus
+`robots: { index: false }` for `/notifications` and `/notifications/**`, and
+`server/utils/seoProtectedPaths.ts` (`isProtectedSEOPath`, called by
+`server/middleware/seo-robots.ts` with the env-provided admin prefix) emits
+`X-Robots-Tag: noindex, nofollow` for the inbox, `/settings`, and the admin
+prefix. Both layers are required: routeRules own the rendered document, the
+middleware header covers responses that never reach the page renderer.
+
 The notification page uses the canonical `topic.create` permission helper for
 the shared forum navigation. Below the desktop right-rail breakpoint, the same
 unread summary/current-detail component is shown in the right mobile drawer;

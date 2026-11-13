@@ -15,6 +15,8 @@ describe('protected route rendering', () => {
     const config = readFileSync(new URL('../../nuxt.config.ts', import.meta.url), 'utf8')
     const protectedRoutes = [
       '/settings/**',
+      '/notifications',
+      '/notifications/**',
       '/topics/new',
       '/t/**'
     ]
@@ -29,6 +31,8 @@ describe('protected route rendering', () => {
     const config = readFileSync(new URL('../../nuxt.config.ts', import.meta.url), 'utf8')
     const protectedRoutes = [
       '/settings/**',
+      '/notifications',
+      '/notifications/**',
       '/topics/new',
       '/t/**'
     ]
@@ -36,6 +40,19 @@ describe('protected route rendering', () => {
     for (const route of protectedRoutes) {
       const escapedRoute = route.replaceAll('/', '\\/').replaceAll('*', '\\*')
       expect(config).toMatch(new RegExp(`['"]${escapedRoute}['"]\\s*:\\s*\\{[^}]*cache\\s*:\\s*false`))
+    }
+  })
+
+  test('keeps the session-owned notification inbox out of search indexes', () => {
+    const config = readFileSync(new URL('../../nuxt.config.ts', import.meta.url), 'utf8')
+    const protectedRoutes = [
+      '/notifications',
+      '/notifications/**'
+    ]
+
+    for (const route of protectedRoutes) {
+      const escapedRoute = route.replaceAll('/', '\\/').replaceAll('*', '\\*')
+      expect(config).toMatch(new RegExp(`['"]${escapedRoute}['"]\\s*:\\s*\\{[^}]*robots\\s*:\\s*\\{\\s*index\\s*:\\s*false`))
     }
   })
 

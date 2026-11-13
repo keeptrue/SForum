@@ -140,6 +140,9 @@ export default defineNuxtConfig({
       '/settings/login-methods': { redirect: { to: '/settings/security/login-methods', statusCode: 302 } },
       '/settings/password': { redirect: { to: '/settings/security/password', statusCode: 302 } },
       '/settings/**': { cache: false, robots: { index: false } },
+      // 通知收件箱与详情都是会话私有内容：SSR 保留，但永不共享缓存、永不索引。
+      '/notifications': { cache: false, robots: { index: false } },
+      '/notifications/**': { cache: false, robots: { index: false } },
       '/topics/new': { cache: false, robots: { index: false } },
       // 管理后台：SSR + 禁缓存 + 禁止索引。未登录由 admin 中间件服务端重定向到 /login，不再返回空壳。
       [`${adminRoutePrefix}/**`]: { cache: false, robots: { index: false } },

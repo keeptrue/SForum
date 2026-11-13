@@ -830,7 +830,23 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章三件事：通知补全 + 自由佩戴 + 进度统一（2026-11-13，最新）**：三刀都是补上一刀留的洞。
+- **通知收件箱 UI/UX 与 SEO 修复（2026-11-13，最新）**：六件事一次收口。
+  ① 中列 `.sforum-notifications__main` 从 `--sf-public-bg` 改 `--sf-public-surface`（与 settings/moderation
+  三栏页对齐；列表页与详情页共用同一个类，两页一起修好，实测 `rgb(255,255,255)`）。
+  ② 981px 起隐藏横向 `.sforum-notifications__filter-strip` 与 scope note，桌面只留左栏类型导航；
+  ≤980px 左栏 surface `display:none`、横向条保留——同一 `activeFilter` 不再有两个控件。
+  ③ `SFEmptyState` 新增可选 `icon`（默认 `i-lucide-inbox`），通知页两段空状态合并成一条
+  `!filteredItems.length` 并按 `activeFilter` 切文案/图标；之前先判 `!items.length` 让筛选空状态永久不可达。
+  ④ 类型/图标目录单源 `notificationTypeIcon(type)`，左栏只留 `all`/`unread`；`bookmark_reminder` 入目录并补
+  zh/en 的 `filter/types/body` 三键，同时补上一直缺失的 `notifications.filter.reaction`（页面漏原始 key 的根因）。
+  ⑤ SEO 归属：`/notifications` 路由壳与详情岛都改 `useSForumSeo({…, noindex: true})`（详情页删裸 `useHead`），
+  routeRules 补 `/notifications` 与 `/notifications/**`（`cache: false` + `robots: { index: false }`），
+  `isProtectedSEOPath` 抽到 `server/utils/seoProtectedPaths.ts` 并补 `/notifications`、`/settings`。
+  ⑥ 门禁：`bun test` 2873 pass / 0 fail、`typecheck` 0、架构门 0；浏览器实测 1633×810 与 390×844 两档
+  （title `通知 | SForum`、`meta[robots]=noindex,follow`、中列 `rgb(255,255,255)`、无原始 key）。
+  **未提交**。见 `sessions/2026-11-13-notifications-inbox-polish.md`、模块 `modules/notifications.md`
+  「API and UI」的 Inbox presentation rules 与 SEO ownership 两段。
+- **徽章三件事：通知补全 + 自由佩戴 + 进度统一（2026-11-13）**：三刀都是补上一刀留的洞。
   ① **授予通知覆盖四条路径**（手动 / 批量只发 `grantedUsers` / 重算 `recomputeNotifyLimit=200` 超限整体不发 /
   自动 job），出口是领域侧端口 `GrantNotifier`（`Badges` 不 import `Notifications`），失败只 warn 不回滚授予；
   新增 `TargetType="badge"`（`BadgeID<=0` 不写目标），`ResolveNotificationBadgeTarget` 三重校验 fail-closed

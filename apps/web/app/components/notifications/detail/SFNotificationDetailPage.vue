@@ -11,6 +11,7 @@ import SFPublicPageHeader from '~/components/public/SFPublicPageHeader.vue'
 import SFPublicMobileUserMenu from '~/components/navigation/SFPublicMobileUserMenu.vue'
 import SFPublicMobileRightDrawerHeader from '~/components/navigation/SFPublicMobileRightDrawerHeader.vue'
 import { usePublicSidebarDrawer } from '~/composables/navigation/usePublicSidebarDrawer'
+import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import {
   notificationFilterCounts,
   notificationFilters,
@@ -158,7 +159,12 @@ onMounted(async () => {
   }
 })
 
-useHead(() => ({ title: preview.value?.topicTitle || t('notifications.detailPage.title') }))
+// 详情页是会话私有内容：标题/robots 由公共 SEO 解析器统一拥有，不再用裸 useHead 抢标题。
+useSForumSeo({
+  title: () => preview.value?.topicTitle || t('notifications.detailPage.title'),
+  type: 'website',
+  noindex: true
+})
 </script>
 
 <template>

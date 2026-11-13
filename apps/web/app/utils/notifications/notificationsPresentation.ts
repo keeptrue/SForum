@@ -34,12 +34,21 @@ const notificationIcons: Record<NotificationItem['type'], string> = {
   reply: 'i-tabler-message-reply',
   mention: 'i-tabler-at',
   reaction: 'i-tabler-heart',
+  bookmark_reminder: 'i-tabler-bookmark',
   // 徽章授予：用奖章图标，与点赞/回复区分开——它是荣誉不是互动。
   badge_granted: 'i-tabler-award',
   moderation_pending: 'i-tabler-shield-exclamation',
   moderation_approved: 'i-tabler-shield-check',
   moderation_rejected: 'i-tabler-shield-x',
   admin_test: 'i-tabler-bell-ringing'
+}
+
+/**
+ * 类型 → 图标目录的唯一出口。列表行、详情目标卡、桌面左栏类型导航都走这里，
+ * 否则每加一个类型就要在 N 个组件里各补一行，漏掉的那处会静默退化成铃铛。
+ */
+export function notificationTypeIcon(type: string): string {
+  return notificationIcons[type] || 'i-tabler-bell'
 }
 
 const userAuthoredTypes = new Set<NotificationItem['type']>(['reply', 'mention'])
@@ -50,6 +59,7 @@ export const notificationFilters: NotificationFilter[] = [
   'reply',
   'mention',
   'reaction',
+  'bookmark_reminder',
   'badge_granted',
   'moderation_pending',
   'moderation_approved',
@@ -79,7 +89,7 @@ export function notificationPresentation(item: NotificationItem): NotificationPr
     typeLabelKey: `notifications.filter.${item.type}`,
     targetLabel,
     detailMeta,
-    icon: notificationIcons[item.type] || 'i-tabler-bell',
+    icon: notificationTypeIcon(item.type),
     actor: userAuthoredTypes.has(item.type) ? item.actor : undefined,
     target,
     createdAt: item.createdAt,

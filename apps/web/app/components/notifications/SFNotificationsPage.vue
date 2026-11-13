@@ -327,20 +327,16 @@ onBeforeUnmount(() => stopRealtime())
           <SFSkeleton v-for="item in 5" :key="item" avatar :lines="2" />
         </div>
 
-        <SFEmptyState
-          v-else-if="!items.length"
-          class="sforum-notifications__empty"
-          icon="i-lucide-bell-off"
-          :title="t('notifications.empty')"
-          :description="t('notifications.emptyDescription')"
-        />
-
+        <!--
+          空状态只有一条分支：列表接口本身按服务端筛选返回，`items` 为空就等于
+          「这个筛选下没有通知」。再单列一个 `!items.length` 分支会把筛选空状态永久挡住。
+        -->
         <SFEmptyState
           v-else-if="!filteredItems.length"
           class="sforum-notifications__empty"
-          icon="i-lucide-filter-x"
-          :title="t('notifications.filter.empty')"
-          :description="t('notifications.filter.emptyDescription', { count: presentedItems.length })"
+          :icon="activeFilter === 'all' ? 'i-lucide-bell-off' : 'i-lucide-filter-x'"
+          :title="activeFilter === 'all' ? t('notifications.empty') : t('notifications.filter.empty')"
+          :description="activeFilter === 'all' ? t('notifications.emptyDescription') : t('notifications.filter.emptyDescription')"
         />
 
         <div v-else class="sforum-notifications__stream">

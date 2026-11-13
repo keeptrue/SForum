@@ -208,6 +208,15 @@
 }
 
 @media (max-width: 560px) {
+  /*
+   * 头部在窄屏已经变成 column（见 SFNotificationsPage.css 的 560px 块）。
+   * column 下的 flex-end 作用在交叉轴（水平），会把「返回 / 标题 / 副标题」
+   * 整块推到右边缘；桌面保持 flex-end 不变。
+   */
+  .sforum-notification-detail__head {
+    align-items: flex-start;
+  }
+
   .sforum-notification-detail__reader {
     padding-top: 22px;
   }

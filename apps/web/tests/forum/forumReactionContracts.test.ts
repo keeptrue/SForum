@@ -160,7 +160,8 @@ describe('reaction i18n parity', () => {
   test('notification reaction copy is paired across locales', () => {
     const zh = keysUnder(locale('zh-CN'), /^notifications\..*reaction/)
     const en = keysUnder(locale('en-US'), /^notifications\..*reaction/)
-    expect(zh).toEqual(['notifications.body.reaction', 'notifications.types.reaction'])
+    // filter.reaction 是收件箱类型目录的一项，缺了会在 UI 上漏出原始 key。
+    expect(zh).toEqual(['notifications.body.reaction', 'notifications.filter.reaction', 'notifications.types.reaction'])
     expect(en).toEqual(zh)
   })
 

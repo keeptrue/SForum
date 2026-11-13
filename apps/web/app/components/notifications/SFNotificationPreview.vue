@@ -225,10 +225,17 @@ onBeforeUnmount(() => {
       @click="togglePreview"
     >
       <UIcon name="i-lucide-bell" class="size-5" aria-hidden="true" />
-      <span
-        v-if="notifications.unreadCount.value"
-        class="sf-notification-preview__badge"
-      >{{ notifications.unreadCount.value > 99 ? '99+' : notifications.unreadCount.value }}</span>
+      <!--
+        未读数由页面 useAsyncData 在 SSR 之后写入共享 state：服务端 HTML 恒为空，
+        客户端首帧却已有值 → hydration node mismatch。徽章是装饰性内容，
+        交给 ClientOnly 在挂载后再画，两边首帧一致。
+      -->
+      <ClientOnly>
+        <span
+          v-if="notifications.unreadCount.value"
+          class="sf-notification-preview__badge"
+        >{{ notifications.unreadCount.value > 99 ? '99+' : notifications.unreadCount.value }}</span>
+      </ClientOnly>
     </button>
 
     <Teleport to="body">

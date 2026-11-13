@@ -21,7 +21,8 @@
 .sforum-notifications__main {
   min-width: 0;
   padding: 28px 24px 28px;
-  background: var(--sf-public-bg);
+  /* 与 settings/moderation 三栏页同一中列底色：内容列是画布，不是背景板。 */
+  background: var(--sf-public-surface);
 }
 
 .sforum-notifications__right {
@@ -200,7 +201,6 @@
   min-height: 260px;
   display: grid;
   place-items: center;
-  border-bottom: 1px solid var(--sf-public-border);
 }
 
 .sforum-notifications__group-head {
@@ -601,6 +601,15 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  /*
+   * 桌面只有左栏一个筛选面。横向条是为「左栏被折叠掉」的窄屏准备的，
+   * 两套同时可见等于让同一份类型目录出现两次、状态却由同一个 activeFilter 驱动。
+   */
+  .sforum-notifications__filter-strip,
+  .sforum-notifications__filter-note {
+    display: none;
   }
 }
 

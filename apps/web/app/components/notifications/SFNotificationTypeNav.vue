@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { notificationFilters, type NotificationFilter } from '~/utils/notifications/notificationsPresentation'
+import { notificationFilters, notificationTypeIcon, type NotificationFilter } from '~/utils/notifications/notificationsPresentation'
 
 const props = defineProps<{
   activeFilter: NotificationFilter
@@ -13,19 +13,15 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+// 只有「全部 / 未读」是范围而不是类型，其余类型的图标来自共享目录，
+// 本地不再维护第二份映射（漏项时会静默退化成铃铛，两处还会各自漂移）。
 const filterIcons: Record<string, string> = {
   all: 'i-tabler-bell',
-  unread: 'i-tabler-point-filled',
-  reply: 'i-tabler-message-reply',
-  mention: 'i-tabler-at',
-  moderation_pending: 'i-tabler-shield-exclamation',
-  moderation_approved: 'i-tabler-shield-check',
-  moderation_rejected: 'i-tabler-shield-x',
-  admin_test: 'i-tabler-bell-ringing'
+  unread: 'i-tabler-point-filled'
 }
 
 function filterIcon(filter: NotificationFilter) {
-  return filterIcons[filter] || 'i-tabler-bell'
+  return filterIcons[filter] || notificationTypeIcon(filter)
 }
 
 function filterCount(filter: NotificationFilter) {
