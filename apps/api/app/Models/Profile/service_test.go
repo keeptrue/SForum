@@ -178,6 +178,42 @@ func TestServiceUpdateMyProfileRejectsInvalidWebsite(t *testing.T) {
 	}
 }
 
+// 上限按 Unicode 码点计，不按 UTF-8 字节。两条断言分工不同，一条都不能删：
+//   - 160 个汉字 = 480 字节，字节数 > 160：退回 len 会把它误拒，所以「160 必须通过」
+//     抓的是单位漂移（码点 ↔ 字节）。
+//   - 161 在两种口径下都超限（码点 161 > 160，字节 483 > 160），它抓的是阈值漂移，
+//     比如 maxBioLength 被改回 500。
+func TestServiceUpdateMyProfileCountsRunesNotBytes(t *testing.T) {
+	newStore := func() *fakeStore {
+		return &fakeStore{
+			user:    UserProfileSummary{UserID: 7, Username: "alice", DisplayName: "Alice"},
+			profile: Profile{UserID: 7},
+		}
+	}
+	actor := identity.Actor{ID: 7}
+
+	// 160 个汉字 = 480 字节 = 上限本身（maxBioLength），必须通过并逐字落库。
+	store := newStore()
+	bio := strings.Repeat("真", 160)
+	if _, err := NewService(store).UpdateMyProfile(context.Background(), actor, UpdateProfileInput{Bio: &bio}); err != nil {
+		t.Fatalf("160 runes (480 bytes) must pass, got %v", err)
+	}
+	if store.upserted.Bio != bio {
+		t.Fatalf("bio must be persisted verbatim, got %d runes", len([]rune(store.upserted.Bio)))
+	}
+
+	// 161 个汉字 = 483 字节：两种口径都超限，抓的是阈值被放宽。
+	overLimit := strings.Repeat("真", 161)
+	_, err := NewService(newStore()).UpdateMyProfile(context.Background(), actor, UpdateProfileInput{Bio: &overLimit})
+	var fieldsErr *ProfileFieldsError
+	if !errors.As(err, &fieldsErr) {
+		t.Fatalf("expected *ProfileFieldsError for 161 runes (483 bytes), got %v", err)
+	}
+	if len(fieldsErr.Fields["bio"]) == 0 {
+		t.Fatalf("bio field error missing: %#v", fieldsErr.Fields)
+	}
+}
+
 func TestServiceUpdateMyProfileCannotTargetOtherUser(t *testing.T) {
 	store := &fakeStore{
 		user:    UserProfileSummary{UserID: 7, Username: "alice"},

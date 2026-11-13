@@ -14,7 +14,7 @@ import (
 
 const (
 	// 字段长度上限。避免过度校验，只做基本边界保护。
-	maxBioLength       = 500
+	maxBioLength       = 160
 	maxSignatureLength = 200
 	maxLocationLength  = 100
 	maxWebsiteLength   = 200

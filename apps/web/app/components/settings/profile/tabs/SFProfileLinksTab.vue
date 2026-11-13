@@ -29,11 +29,12 @@ const { t } = useI18n()
     <div class="sforum-settings-profile__field-grid">
       <div class="sforum-settings-profile__field">
         <label for="profile-settings-location">{{ t('profileSettings.location') }}</label>
+        <!-- HTML maxlength 数 UTF-16 码元，一个码点最多占 2 码元，所以 100/200 码点的输入框取 2× 才不会被提前截断；真正的上限由服务端负责。 -->
         <input
           id="profile-settings-location"
           :value="locationDraft"
           type="text"
-          maxlength="100"
+          :maxlength="200"
           :class="{ 'is-invalid': fieldErrors.location }"
           :placeholder="t('profileSettings.locationPlaceholder')"
           :disabled="busy"
@@ -52,7 +53,7 @@ const { t } = useI18n()
           id="profile-settings-website"
           :value="websiteDraft"
           type="url"
-          maxlength="200"
+          :maxlength="400"
           :class="{ 'is-invalid': fieldErrors.websiteUrl }"
           :placeholder="t('profileSettings.websitePlaceholder')"
           :disabled="busy"

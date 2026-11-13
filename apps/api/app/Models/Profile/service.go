@@ -644,22 +644,26 @@ func defaultAvatarOptions() options.AvatarOptions {
 // normalizeUpdateProfileInput 规范化并校验输入字段。
 func normalizeUpdateProfileInput(input UpdateProfileInput) (NormalizeProfile, error) {
 	result := NormalizeProfile{
-		Bio:                trimPtr(input.Bio, maxBioLength),
-		Signature:          trimPtr(input.Signature, maxSignatureLength),
-		Location:           trimPtr(input.Location, maxLocationLength),
-		WebsiteURL:         trimPtr(input.WebsiteURL, maxWebsiteLength),
+		Bio:                trimPtr(input.Bio),
+		Signature:          trimPtr(input.Signature),
+		Location:           trimPtr(input.Location),
+		WebsiteURL:         trimPtr(input.WebsiteURL),
 		AvatarAttachmentID: input.AvatarAttachmentID,
 	}
 	// 一次收集全部字段错误：前端按 tab 汇总「还有 N 处待修正」，
 	// 只报第一条会让汇总链路永远显示 1。
+	//
+	// 上限按 Unicode 码点计，与 JSON Schema maxLength 及管理员路径
+	// （Identity 的 len([]rune(...))）保持一致：按字节计会让中文简介
+	// 只有 1/3 的额度，管理员能存、作者本人存不回去。
 	fields := map[string][]string{}
-	if result.Bio != nil && len(*result.Bio) > maxBioLength {
+	if result.Bio != nil && utf8.RuneCountInString(*result.Bio) > maxBioLength {
 		fields["bio"] = []string{MessageFieldTooLong}
 	}
-	if result.Signature != nil && len(*result.Signature) > maxSignatureLength {
+	if result.Signature != nil && utf8.RuneCountInString(*result.Signature) > maxSignatureLength {
 		fields["signature"] = []string{MessageFieldTooLong}
 	}
-	if result.Location != nil && len(*result.Location) > maxLocationLength {
+	if result.Location != nil && utf8.RuneCountInString(*result.Location) > maxLocationLength {
 		fields["location"] = []string{MessageFieldTooLong}
 	}
 	if result.WebsiteURL != nil {
@@ -677,8 +681,8 @@ func normalizeUpdateProfileInput(input UpdateProfileInput) (NormalizeProfile, er
 	return result, nil
 }
 
-// trimPtr 裁剪空白并校验长度上限；nil 保持 nil。
-func trimPtr(value *string, _ int) *string {
+// trimPtr 裁剪首尾空白；nil 保持 nil。长度校验在调用方按码点做。
+func trimPtr(value *string) *string {
 	if value == nil {
 		return nil
 	}
@@ -688,7 +692,7 @@ func trimPtr(value *string, _ int) *string {
 
 // isValidWebsiteURL 做最简单的 URL 形态校验，避免过度校验。
 func isValidWebsiteURL(value string) bool {
-	if len(value) > maxWebsiteLength {
+	if utf8.RuneCountInString(value) > maxWebsiteLength {
 		return false
 	}
 	lower := strings.ToLower(value)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { userDisplayName, type ForumUserRef } from '~/utils/forum/userDisplay'
+import { shouldShowUserHandle, userDisplayName, type ForumUserRef } from '~/utils/forum/userDisplay'
 
 /**
  * 统一身份呈现：展示名 + 可选小字 @username 双行模式。
@@ -30,7 +30,8 @@ const props = withDefaults(defineProps<{
 
 const name = computed(() => userDisplayName(props.user, props.fallback))
 const handle = computed(() => props.user?.username?.trim() || '')
-const showHandleLine = computed(() => props.showHandle && handle.value && handle.value !== name.value)
+// 与资料页同一口径：昵称与 username 同形时不再补一行重复的 @handle。
+const showHandleLine = computed(() => props.showHandle && shouldShowUserHandle(name.value, handle.value))
 const asLink = computed(() => props.linked && Boolean(props.to))
 </script>
 

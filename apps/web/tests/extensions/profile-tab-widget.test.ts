@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { compileVueSfc, flushPromises, mount, testVue } from '../helpers/vueSfc'
 import { buildProfileTabs } from '../../app/utils/profile/profileTabs'
+import { shouldShowUserHandle } from '../../app/utils/forum/userDisplay'
 import {
   extensionTabLabel,
   profileWidgetTabValue,
@@ -238,6 +239,8 @@ const bindings: Record<string, unknown> = {
   }),
   forumUserProfilePath: (name: string) => `/u/${name}`,
   userDisplayName: (profile: PublicProfile | null, fallback: string) => profile?.displayName || fallback,
+  // 主页身份行与 SFUserIdentityName 共用同一条判定：这里是真实现，页面/右栏编译后才能解析到它。
+  shouldShowUserHandle,
   apiErrorMessage: (error: unknown) => String(error),
   groupProfileActivitiesByDate: () => [],
   profileActivityLink: () => '/',

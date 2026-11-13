@@ -62,6 +62,17 @@ Member public profiles and current-user profile settings.
   current-user only). Validates length limits and website URL shape
   (`http://`/`https://`). It still accepts `avatarAttachmentId` for
   compatibility, but new avatar changes should use the dedicated endpoints.
+  - Length caps count Unicode code points (runes), not UTF-8 bytes: `bio` 160,
+    `signature` 200, `location` 100, `websiteUrl` 200. Counting bytes made 178
+    Chinese characters (534 bytes) a 422 while the counter read 178/500 — the
+    `bio` cap was 500 back then and is 160 now. Both sides count code points
+    (`utf8.RuneCountInString` / `Array.from(value).length`), the same unit as
+    `contracts/openapi/schemas/profile.yaml` `maxLength` and the admin path's
+    `len([]rune(...))`. Guarded by
+    `TestServiceUpdateMyProfileCountsRunesNotBytes`,
+    `TestUpdateProfileBioCountsRunesNotBytes`, and
+    `apps/web/tests/settings/profileStoryTabCounter.test.ts`; its emoji cases
+    are the only ones that fail if the counter goes back to `String.length`.
 - `POST /api/v1/profile/avatar` uploads and sets the current user's avatar.
   The actor must be logged in, active, have `attachment.upload`, and the runtime
   option `avatar.allow_upload` must be enabled.
@@ -162,6 +173,15 @@ editor in V1.
 - `SFProfileRightRail` owns the shared desktop/mobile rendering of public
   details, real statistics, recent topics, and extension links. On mobile the
   left navigation and this right rail use the default-theme shared drawers.
+- The identity line never repeats `@username` when the resolved display name is
+  already the username: an empty nickname comes back from the API with
+  `displayName` backfilled to the username, and a nickname may literally equal
+  it. The public header and the rail share
+  `shouldShowUserHandle(displayName, username)` from
+  `app/utils/forum/userDisplay.ts` — the same rule `SFUserIdentityName` already
+  applied to comments and notifications. `UID {n}` always stays, and hiding the
+  handle leaves no leading `·` or doubled space. Account-handle contexts (user
+  menu, profile settings preview) deliberately keep their `@username`.
 - Extension tab contributions (`forum.profile.tabs`) have two shapes.
   `extensionRoute` / `hostLink` tabs stay right-rail links; `widget` tabs join
   the main tab bar after `about` and mount `SFExtensionWidget` in the panel

@@ -323,13 +323,24 @@ UpdateProfileRequest:
   properties:
     bio:
       type: string
-      maxLength: 500
+      maxLength: 160
+      description: |
+        Free-form bio. `maxLength` counts Unicode code points, not bytes:
+        160 CJK characters (480 bytes) is valid, 161 code points is not.
+        The server is authoritative and reports a violation as
+        `422 profile.invalid` with `data.fields.bio`.
     signature:
       type: string
       maxLength: 200
+      description: |
+        Signature line. `maxLength` counts Unicode code points, not bytes,
+        matching the admin-side update path.
     location:
       type: string
       maxLength: 100
+      description: |
+        Location label. `maxLength` counts Unicode code points, not bytes,
+        matching the admin-side update path.
     websiteUrl:
       type: string
       maxLength: 200

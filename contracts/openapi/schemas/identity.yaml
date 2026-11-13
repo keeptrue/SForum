@@ -993,7 +993,10 @@ AdminUpdateUserInput:
         users — they occupy a seat, count as online, can be mentioned and reported.
     bio:
       type: string
-      maxLength: 500
+      maxLength: 160
+      description: |
+        Free-form bio. `maxLength` counts Unicode code points, not bytes, and
+        matches the self-service limit (`UpdateProfileRequest.bio`).
     signature:
       type: string
       maxLength: 200

@@ -58,3 +58,35 @@ func TestUpdateProfileCoreFieldsReturnFieldErrors(t *testing.T) {
 		t.Fatalf("valid update = %d", resp.StatusCode)
 	}
 }
+
+// 上限按 Unicode 码点计。两条断言分工不同，一条都不能删：
+//   - 160 个汉字 = 480 字节，字节数 > 160：按字节实现会把它误拒成 422，所以
+//     「160 必须 200」抓的是单位漂移（码点 ↔ 字节）。
+//   - 161 在两种口径下都超限（码点 161 > 160，字节 483 > 160），它抓的是阈值漂移。
+func TestUpdateProfileBioCountsRunesNotBytes(t *testing.T) {
+	app, _, _ := newProfileTestAppWithOptions(profileForumReadPolicy{guestRead: "public", ok: true}, profileTestOptions{})
+	cookie := loginProfileUser(t, app, 7)
+
+	body, _ := json.Marshal(map[string]any{"bio": strings.Repeat("真", 160)})
+	resp := performProfileRequest(t, app, http.MethodPut, "/api/v1/profile", body, cookie)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("160-char CJK bio (480 bytes) must be accepted, got %d", resp.StatusCode)
+	}
+
+	body, _ = json.Marshal(map[string]any{"bio": strings.Repeat("真", 161)})
+	resp = performProfileRequest(t, app, http.MethodPut, "/api/v1/profile", body, cookie)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("161-char CJK bio (483 bytes) = %d", resp.StatusCode)
+	}
+	var failure struct {
+		Data struct {
+			Fields map[string][]string `json:"fields"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&failure); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(failure.Data.Fields["bio"]) == 0 {
+		t.Fatalf("bio field error missing: %#v", failure.Data.Fields)
+	}
+}

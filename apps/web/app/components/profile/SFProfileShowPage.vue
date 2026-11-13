@@ -34,7 +34,7 @@ import {
   forumUserProfilePath,
   type ForumCategoryGroup
 } from '~/utils/forum/forumTaxonomy'
-import { userDisplayName } from '~/utils/forum/userDisplay'
+import { shouldShowUserHandle, userDisplayName } from '~/utils/forum/userDisplay'
 import { profileHasPublicDetails } from '~/utils/profile/profileActivity'
 import { profileMetaRows } from '~/utils/settings/profileSettings'
 import { buildProfileTabs, type ProfileTabOption } from '~/utils/profile/profileTabs'
@@ -107,6 +107,9 @@ useSForumSeo(computed(() => ({
 })))
 
 const displayName = computed(() => userDisplayName(profile.value, username.value))
+// 未自定义昵称时（后端把 username 回填成 displayName，或昵称就是 username）不再重复 @username；
+// 比较对象是最终展示名 displayName，不是 profile.displayName 原值。UID 始终保留。
+const showHandle = computed(() => shouldShowUserHandle(displayName.value, profile.value?.username))
 const isSelf = computed(() => Boolean(profile.value && authUser.value?.id === profile.value.userId))
 // 等级卡数据：他人视角只有 profile.trustLevel；本人额外读 /trust-levels 的 viewer 拿进度。
 const { trustLevel, ladder: trustLevelLadder } = useTrustLevel(computed(() => profile.value?.trustLevel), () => isSelf.value)
@@ -339,9 +342,9 @@ async function shareProfile() {
           <header class="sf-profile-intro">
             <SFAvatar :name="displayName" :avatar="profile.profile.avatar" size="lg" class="sf-profile-intro__avatar" />
             <div class="sf-profile-intro__content">
-              <div class="sf-profile-intro__name-row">
-                <h1 id="profile-name">{{ displayName }}</h1>
-                <span class="sf-profile-handle">@{{ profile.username }}</span>
+              <h1 id="profile-name">{{ displayName }}</h1>
+              <div class="sf-profile-intro__identity-meta">
+                <span v-if="showHandle" class="sf-profile-handle">@{{ profile.username }}</span>
                 <span class="sf-profile-uid">UID {{ profile.userId }}</span>
               </div>
               <p v-if="profile.profile.bio" class="sf-profile-intro__bio">{{ profile.profile.bio }}</p>

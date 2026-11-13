@@ -3,6 +3,7 @@ import type { PublicProfile } from '~/composables/profile/useProfileApi'
 import SFTrustLevelCard from '~/components/profile/SFTrustLevelCard.vue'
 import type { TrustLevelTier, TrustLevelView } from '~/composables/profile/useTrustLevel'
 import { forumTopicPath, type ForumTopicSummary } from '~/utils/forum/forumTaxonomy'
+import { shouldShowUserHandle } from '~/utils/forum/userDisplay'
 import { extensionTabLabel } from '~/utils/profile/profileExtensionTab'
 import { safeUrl } from '~/utils/sfUrl'
 
@@ -38,6 +39,16 @@ const websiteHref = computed(() => {
 // 曾用名是可选公开面：只有运营开启 history_public 时接口才会返回，最多一条。
 const previousDisplayName = computed(() => props.profile.previousDisplayNames?.[0] || '')
 
+// 身份小字：未自定义昵称时不重复 @username，整条只剩 `UID n`（不留前导 `·` 或多余空格）。
+// 判定与主页头部、SFUserIdentityName 共用 shouldShowUserHandle，比较对象是已解析的 displayName。
+const identityMeta = computed(() => {
+  const uid = `UID ${props.profile.userId}`
+  if (!shouldShowUserHandle(props.displayName, props.profile.username)) {
+    return uid
+  }
+  return `@${props.profile.username?.trim()} · ${uid}`
+})
+
 // widget tab 已在主 tab 栏原地挂载；这里再列一次会让同一个扩展入口出现两处。
 const extensionLinks = computed(() => (props.profile.extensionTabs || [])
   .filter(tab => tab.kind !== 'widget'))
@@ -57,7 +68,7 @@ function extensionTabTo(tab: NonNullable<PublicProfile['extensionTabs']>[number]
         <SFAvatar :name="displayName" :avatar="profile.profile.avatar" size="md" />
         <span>
           <strong>{{ displayName }}</strong>
-          <small>@{{ profile.username }} · UID {{ profile.userId }}</small>
+          <small>{{ identityMeta }}</small>
         </span>
       </div>
       <div class="sf-profile-side-stats">

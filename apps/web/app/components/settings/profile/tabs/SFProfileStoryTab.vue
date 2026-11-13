@@ -18,6 +18,10 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 计数器必须与后端同口径：`Array.from` 数的是 Unicode 码点，
+// 而 JS 的 `length` 数 UTF-16 码元，会把汉字之外的字符（emoji 等）数成 2。
+const characterCount = (value: string) => Array.from(value).length
 </script>
 
 <template>
@@ -29,13 +33,14 @@ const { t } = useI18n()
     <div class="sforum-settings-profile__field">
       <div class="sforum-settings-profile__field-topline">
         <label for="profile-settings-bio">{{ t('profileSettings.bio') }}</label>
-        <span>{{ bioDraft.length }} / 500</span>
+        <span>{{ characterCount(bioDraft) }} / 160</span>
       </div>
+      <!-- HTML maxlength 数 UTF-16 码元，一个码点最多占 2 码元，所以 160/200 码点的输入框取 2× 才不会被提前截断；真正的上限由服务端与上面的计数器负责。 -->
       <textarea
         id="profile-settings-bio"
         :value="bioDraft"
         rows="4"
-        maxlength="500"
+        :maxlength="320"
         :class="{ 'is-invalid': fieldErrors.bio }"
         :placeholder="t('profileSettings.bioPlaceholder')"
         :disabled="busy"
@@ -51,13 +56,13 @@ const { t } = useI18n()
     <div class="sforum-settings-profile__field">
       <div class="sforum-settings-profile__field-topline">
         <label for="profile-settings-signature">{{ t('profileSettings.signature') }}</label>
-        <span>{{ signatureDraft.length }} / 200</span>
+        <span>{{ characterCount(signatureDraft) }} / 200</span>
       </div>
       <input
         id="profile-settings-signature"
         :value="signatureDraft"
         type="text"
-        maxlength="200"
+        :maxlength="400"
         :class="{ 'is-invalid': fieldErrors.signature }"
         :placeholder="t('profileSettings.signaturePlaceholder')"
         :disabled="busy"

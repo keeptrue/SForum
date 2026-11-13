@@ -702,7 +702,7 @@ func (s *Service) UpdateAdminUser(ctx context.Context, actor Actor, targetUserID
 
 const (
 	maxAdminDisplayNameLength = 80
-	maxAdminBioLength         = 500
+	maxAdminBioLength         = 160
 	maxAdminSignatureLength   = 200
 	maxAdminLocationLength    = 100
 	maxAdminWebsiteLength     = 200

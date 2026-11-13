@@ -41,12 +41,16 @@
   min-width: 0;
 }
 
-.sf-profile-intro__name-row {
+/* 身份块第二行：@handle 与 UID 同排（与右栏 `@name · UID n`、评论身份组件同构）。
+   行盒显式钉 1.4（=16.8px），不吃 preflight 的 html 1.5，行高可预算。 */
+.sf-profile-intro__identity-meta {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: 7px 9px;
+  gap: 4px 6px;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 .sf-profile-intro h1 {
@@ -65,10 +69,19 @@
   font-weight: 600;
 }
 
+/* 长 username：优先整词换行，超长无空格串按字符断。
+   必须用 anywhere —— break-word 不影响 min-content 宽度，会让 grid 的 auto 列挤不下。 */
+.sf-profile-handle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .sf-profile-uid {
+  flex: 0 0 auto;
   border-radius: 5px;
   background: var(--sf-public-surface-muted);
   padding: 2px 6px;
+  white-space: nowrap;
 }
 
 .sf-profile-intro__bio {
