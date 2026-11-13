@@ -147,7 +147,7 @@ func TestManualBadgeGrantWritesClickableBadgeNotification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rows := fixture.notificationRows(t, "badge:"+slug)
+	rows := fixture.notificationRows(t, fmt.Sprintf("badge:%d:%s", fixture.userID, slug))
 	if len(rows) != 1 {
 		t.Fatalf("notifications = %d, want 1 (手动授予恰好一条)", len(rows))
 	}
@@ -275,7 +275,7 @@ func TestBadgesJobNotifierForwardsBadgeID(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	rows := fixture.notificationRows(t, "badge:"+slug)
+	rows := fixture.notificationRows(t, fmt.Sprintf("badge:%d:%s", fixture.userID, slug))
 	if len(rows) != 1 {
 		t.Fatalf("notifications = %d, want 1", len(rows))
 	}

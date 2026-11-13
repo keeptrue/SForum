@@ -421,8 +421,16 @@ func (o *Outbox) NotifyBadgeGranted(ctx context.Context, event BadgeGrantedEvent
 
 // NotifyBadgeGrantedTx 写一条徽章授予投影。
 //
-// 幂等靠 dedupeKey = badge:{slug}：同一用户同一徽章只会有一条通知，
-// 重复评估不会刷屏。授予被收回后再授予也不会重复（徽章是终局荣誉）。
+// 幂等靠 dedupeKey = badge:{recipientUserID}:{slug}：**键必须自证收件人**。
+// `notifications.dedupe_key` 是全局唯一约束（见 202607110016 的 DDL 与
+// postgres_store.go 的 `ON CONFLICT (dedupe_key) DO NOTHING`），早期写成
+// `badge:{slug}` 时全站第一个拿到该徽章的人会占住这个键，之后所有人的投影
+// 都被静默吞掉——「授予成功、收件箱空着」且零报错。其余通知类型一直自带收件人
+// 身份（`moderation-pending:…:{reviewerID}`、`comment:…:reply:{id}`、
+// `topic:…:mention:{id}`），只有徽章这一处漏了。
+//
+// 语义不变：同一用户同一徽章只会有一条通知，重复评估不会刷屏，授予被收回后
+// 再授予也不会重复（徽章是终局荣誉）。
 func (o *Outbox) NotifyBadgeGrantedTx(ctx context.Context, tx pgx.Tx, event BadgeGrantedEvent) error {
 	if event.RecipientUserID <= 0 || event.BadgeSlug == "" {
 		return nil
@@ -444,10 +452,11 @@ func (o *Outbox) NotifyBadgeGrantedTx(ctx context.Context, tx pgx.Tx, event Badg
 		"locale":        resolveMailLocale(ctx, locale, o.localeResolver),
 		"recipientName": name,
 	}, brand))
-	// dedupe 只看 slug：同一用户同一徽章终身只通知一次；手动收回后重新授予不再通知
-	// （有意为之，徽章是终局荣誉）。改成按授予事件去重会牵动 GrantAutomatic 的签名，
-	// 而那会把「授予是否新建」与「通知去重键」耦合在一起。
-	dedupe := fmt.Sprintf("badge:%s", event.BadgeSlug)
+	// 收件人进键是**必需**而不是风格：dedupe_key 全局唯一，只带 slug 的键会被
+	// 第一个获得者永久占住（见方法注释）。同一用户同一徽章仍终身只通知一次；
+	// 手动收回后重新授予不再通知（有意为之，徽章是终局荣誉）。改成按授予事件去重
+	// 会牵动 GrantAutomatic 的签名，而那会把「授予是否新建」与「通知去重键」耦合。
+	dedupe := fmt.Sprintf("badge:%d:%s", event.RecipientUserID, event.BadgeSlug)
 	var actor *int64
 	if event.GrantedByUserID > 0 {
 		value := event.GrantedByUserID

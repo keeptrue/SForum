@@ -31,13 +31,13 @@ func TestNotifyBadgeGrantedTxWritesBadgeTarget(t *testing.T) {
 	if err := outbox.NotifyBadgeGrantedTx(ctx, tx, event); err != nil {
 		t.Fatal(err)
 	}
-	// 幂等：dedupe 键仍是 badge:{slug}，重复评估不得写第二行。
+	// 幂等：键是 badge:{recipientUserID}:{slug}，同一用户重复评估不得写第二行。
 	if err := outbox.NotifyBadgeGrantedTx(ctx, tx, event); err != nil {
 		t.Fatal(err)
 	}
 	rows, err := tx.Query(ctx, `
 		SELECT target_type, target_id, payload->>'badgeId', payload->>'badgeName', type
-		FROM notifications WHERE dedupe_key=$1`, "badge:"+event.BadgeSlug)
+		FROM notifications WHERE dedupe_key=$1`, badgeGrantDedupeKey(event.RecipientUserID, event.BadgeSlug))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestNotifyBadgeGrantedTxWritesBadgeTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	if count != 1 {
-		t.Fatalf("notifications = %d, want 1 (dedupe 键 badge:{slug} 必须幂等)", count)
+		t.Fatalf("notifications = %d, want 1 (dedupe 键 badge:{userID}:{slug} 必须幂等)", count)
 	}
 	if typ != TypeBadgeGranted {
 		t.Fatalf("type = %q, want %q", typ, TypeBadgeGranted)
@@ -90,7 +90,7 @@ func TestNotifyBadgeGrantedTxWithoutBadgeIDSkipsTarget(t *testing.T) {
 	var targetType string
 	var targetID int64
 	if err := tx.QueryRow(ctx, `SELECT target_type, target_id FROM notifications WHERE dedupe_key=$1`,
-		"badge:"+event.BadgeSlug).Scan(&targetType, &targetID); err != nil {
+		badgeGrantDedupeKey(event.RecipientUserID, event.BadgeSlug)).Scan(&targetType, &targetID); err != nil {
 		t.Fatal(err)
 	}
 	if targetType != "" || targetID != 0 {
@@ -121,7 +121,8 @@ func TestNotifyBadgeGrantedTxHonoursDisabledInApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE dedupe_key=$1`, "badge:"+slug).Scan(&count); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE dedupe_key=$1`,
+		badgeGrantDedupeKey(userID, slug)).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -144,10 +145,87 @@ func TestNotifyBadgeGrantedTxSkipsInactiveRecipient(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE dedupe_key=$1`, "badge:"+slug).Scan(&count); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE dedupe_key=$1`,
+		badgeGrantDedupeKey(userID, slug)).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
 		t.Fatalf("notifications = %d, want 0 (停用用户不投影)", count)
+	}
+}
+
+// badgeGrantDedupeKey 是徽章授予通知去重键的唯一写法（收件人作用域）。
+//
+// 单独一个 helper 而不是到处拼字符串：这条键漏掉收件人时，`dedupe_key` 的全局
+// 唯一约束会让**全站第一个**拿到该徽章的人永久占住它，之后每个用户的投影都被
+// 静默吞掉（授予成功、收件箱空着、零报错）。让测试和实现共用同一个拼法，
+// 至少能保证「测试断言的键」与「代码写下的键」不会各说一套。
+func badgeGrantDedupeKey(recipientUserID int64, slug string) string {
+	return fmt.Sprintf("badge:%d:%s", recipientUserID, slug)
+}
+
+// TestNotifyBadgeGrantedTxScopesDedupeKeyToRecipient 断言两个用户拿同一枚徽章
+// 都能各落一行。
+//
+// 这是本 bug 的**直接回归测试**：键只带 slug 时第二次插入会撞 `dedupe_key` 的
+// 全局唯一约束，`ON CONFLICT DO NOTHING` 静默返回已有行，收件人永远收不到通知。
+// 断言三件事——两行、各归各人、键里带各自的 user id。
+func TestNotifyBadgeGrantedTxScopesDedupeKeyToRecipient(t *testing.T) {
+	ctx, tx := notificationChannelPostgresTx(t)
+	first := insertNotificationChannelUser(t, ctx, tx, "badge_scope_first")
+	second := insertNotificationChannelUser(t, ctx, tx, "badge_scope_second")
+	outbox := NewOutbox(nil, newPostgresStore(tx), &channelProjectionJobs{})
+	slug := fmt.Sprintf("shared-%d", time.Now().UnixNano())
+	for _, userID := range []int64{first, second} {
+		if err := outbox.NotifyBadgeGrantedTx(ctx, tx, BadgeGrantedEvent{
+			RecipientUserID: userID, BadgeID: 77, BadgeSlug: slug, BadgeName: "共享徽章",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := tx.Query(ctx, `SELECT recipient_user_id, dedupe_key FROM notifications WHERE type=$1 AND payload->>'badgeSlug'=$2 ORDER BY recipient_user_id`,
+		TypeBadgeGranted, slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var gotUsers []int64
+	var gotKeys []string
+	for rows.Next() {
+		var userID int64
+		var key string
+		if err := rows.Scan(&userID, &key); err != nil {
+			t.Fatal(err)
+		}
+		gotUsers = append(gotUsers, userID)
+		gotKeys = append(gotKeys, key)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(gotUsers) != 2 {
+		t.Fatalf("notifications = %d, want 2（同一徽章授予两个用户，各自都该收到）", len(gotUsers))
+	}
+	if gotUsers[0] != first || gotUsers[1] != second {
+		t.Fatalf("收件人 = %v, want [%d %d]", gotUsers, first, second)
+	}
+	for index, key := range gotKeys {
+		if want := badgeGrantDedupeKey(gotUsers[index], slug); key != want {
+			t.Fatalf("dedupe_key = %q, want %q（键必须自证收件人）", key, want)
+		}
+	}
+	// 同一用户重复授予仍然幂等：第 3 次调用不得写出第 3 行。
+	if err := outbox.NotifyBadgeGrantedTx(ctx, tx, BadgeGrantedEvent{
+		RecipientUserID: first, BadgeID: 77, BadgeSlug: slug, BadgeName: "共享徽章",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var total int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM notifications WHERE type=$1 AND payload->>'badgeSlug'=$2`,
+		TypeBadgeGranted, slug).Scan(&total); err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Fatalf("重复授予后 notifications = %d, want 2（同一用户同一徽章终身一条）", total)
 	}
 }

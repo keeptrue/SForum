@@ -63,7 +63,10 @@ function extensionTabTo(tab: NonNullable<PublicProfile['extensionTabs']>[number]
 
 <template>
   <div class="sf-profile-right-content" :class="{ 'sf-profile-right-content--drawer': drawer }">
-    <section class="sf-profile-side-section sf-profile-side-identity">
+    <section
+      class="sf-profile-side-section sf-profile-side-identity"
+      :class="{ 'sf-profile-side-identity--card-follows': props.trustLevel }"
+    >
       <div class="sf-profile-side-identity__main">
         <SFAvatar :name="displayName" :avatar="profile.profile.avatar" size="md" />
         <span>

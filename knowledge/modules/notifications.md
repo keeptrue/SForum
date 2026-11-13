@@ -92,22 +92,34 @@ The executable reference fixture is
 uninstalled, stale-artifact, or cross-namespace callers cannot emit; historical
 rows retain versioned structured payload and use Host fallback presentation.
 
-**徽章授予通知（2026-11-10 落地，2026-11-13 补齐四条路径）**：新增核心类型 `badge_granted`
+**徽章授予通知（2026-11-10 落地，2026-11-13 补齐四条路径，2026-11-14 修去重键）**：新增核心类型 `badge_granted`
 （category `engagement`，图标 `i-lucide-award`），站内默认开、邮件/推送默认关（与 reaction 同
 姿态），邮件模板键 `forum.badge_granted`（中英齐全——默认关闭不等于可以不写，用户
 打开邮件通道后无模板会静默失败）。
 
-**去重键是 `badge:{slug}`**（`fanout.go` 的 `NotifyBadgeGrantedTx`），不是按授予行 id：
+**去重键是 `badge:{recipientUserID}:{slug}`**（`fanout.go` 的 `NotifyBadgeGrantedTx`），不是按授予行 id：
 同一用户同一徽章**终身只通知一次**，手动收回后重新授予也不再通知（徽章是终局荣誉）。
 按 `user_badge_id` 去重会牵动 `GrantAutomatic` 的签名，把「授予是否新建」与「通知去重键」
 耦合在一起。旧笔记写的 `badge_granted:{userBadgeID}` 与代码不符，已按代码订正。
 
-**四条授予路径全部发通知**（`bootstrap/badges_wiring.go` 的 `badgeGrantedNotifier` 是唯一实现，
+**收件人必须进键，这是硬约束不是风格**：`notifications.dedupe_key` 是**全局唯一**
+（`202607110016` 的 DDL + 插入时的 `ON CONFLICT (dedupe_key) DO NOTHING`）。2026-11-10 的
+实现写成 `badge:{slug}`，于是**全站第一个**拿到该徽章的人永久占住这个键，之后每个用户的
+投影都被静默吞掉——「授予成功、收件箱空着、零报错」。dev 站实证：`first-topic` 自动授予
+13 人、通知只有 1 条。其余类型一直自带收件人身份（`moderation-pending:…:{reviewerID}`、
+`comment:…:reply:{id}`、`topic:…:mention:{id}`、插件 `plugin:sha256(…recipientID)`），
+**新增任何通知类型时，键里必须出现 recipient 或等价的收件人唯一标识**。
+历史行由 `202611140001_badge_grant_notification_dedupe_scope.sql` 改写为同一格式（只改键、
+**不补发**被吞掉的通知，与庆祝层「首访不回放历史」同口径）。
+
+**五条授予路径全部发通知**（`bootstrap/badges_wiring.go` 的 `badgeGrantedNotifier` 是唯一实现，
 两个薄适配器只做类型转换）：规则自动 job、`AdminService.Grant`、`BatchGrant`（**只发
 `grantedUsers`，`skipped` 不发**）、`Recompute`（`recomputeNotifyLimit = 200`，超限**整体不发**，
-只留一条 `slog.Warn`）。通知失败只 warn，**不回滚授予**——每条 grant 都是自动提交的独立语句，
-没有可回滚的事务边界。细节见 `modules/badges.md`「授予通知与庆祝」与
-`../decisions/2026-11-13-badge-notification-and-celebration.md`。
+只留一条 `slog.Warn`）、**规则回扫**（`badgesRuleBackfillRunner.notifyGranted`，逐用户批量、
+不设上限、失败只 warn 且不中断本页）。通知失败只 warn，**不回滚授予**——每条 grant 都是自动
+提交的独立语句，没有可回滚的事务边界。细节见 `modules/badges.md`「授予通知与庆祝」与
+`../decisions/2026-11-13-badge-notification-and-celebration.md`、
+`../decisions/2026-11-14-badge-grant-notification-scope.md`。
 
 **`badge` 是新的通知目标类型**（`TargetType="badge"`，`TargetID` 是徽章 id）：
 `BadgeGrantedEvent.BadgeID <= 0` 时**不写目标**（收件箱渲染成无链接的纯文本，不是 `/badges/0`

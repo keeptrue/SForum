@@ -190,31 +190,59 @@ func (e badgesBackfillEnqueuer) EnqueueRuleBackfill(ctx context.Context, badgeID
 	return nil
 }
 
+// badgeUserLister / badgeUserEvaluator 是回扫 runner 需要的最小能力面。
+//
+// 用接口而不是直接吃 `*badges.PostgresStore` / `*badges.Evaluator`：回扫的
+// 「授予之后发不发通知」只能用替身证明（真跑一遍要造全站用户与规则），而
+// 装配仍传具体类型，不存在第二套实现。
+type badgeUserLister interface {
+	ListActiveUserIDsAfter(ctx context.Context, afterUserID int64, limit int) ([]int64, error)
+}
+
+type badgeUserEvaluator interface {
+	EvaluateUser(ctx context.Context, userID int64) ([]badges.Badge, error)
+}
+
 // badgesRuleBackfillRunner 执行一页回扫：按 id 游标取一批活跃用户，逐个跑评估。
 //
 // 只评估、不补授予之外的副作用：`EvaluateUser` 自己负责幂等（ON CONFLICT DO NOTHING）
 // 与 top_badge 重算，这里不重复实现。
+//
+// **授予之后必须发通知**：回扫是自动授予的第五条路径（另外四条是评估 job、手动
+// 授予、批量授予、全量重算）。早期这里把 `EvaluateUser` 的返回值直接丢掉，症状是
+// 「运营改严规则 → 回扫补出几百枚徽章 → 收件箱一片安静」，而运营侧只看到回执。
 type badgesRuleBackfillRunner struct {
-	store     *badges.PostgresStore
-	evaluator *badges.Evaluator
+	users     badgeUserLister
+	evaluator badgeUserEvaluator
+	notifier  badges.GrantNotifier
+	logger    *slog.Logger
 	batch     int
 }
 
 func (r badgesRuleBackfillRunner) BackfillRuleBatch(ctx context.Context, badgeID int64, afterUserID int64, batch int) (int64, bool, error) {
-	if r.store == nil || r.evaluator == nil {
+	if r.users == nil || r.evaluator == nil {
 		return afterUserID, true, nil
 	}
 	if batch <= 0 {
 		batch = r.batch
 	}
-	userIDs, err := r.store.ListActiveUserIDsAfter(ctx, afterUserID, batch)
+	userIDs, err := r.users.ListActiveUserIDsAfter(ctx, afterUserID, batch)
 	if err != nil {
 		return afterUserID, false, err
 	}
+	// 空页 = 游标已经到头（或站上还没有活跃用户）。必须在这里收口：
+	// 下面两条返回都要取 `userIDs[len-1]`，空切片会 index -1 panic，
+	// 而 job 重试会再次命中同一页 → 无限崩溃循环，回扫永远跑不完。
+	// 游标原样返回，让状态行停在「确实处理到的最后一个用户」。
+	if len(userIDs) == 0 {
+		return afterUserID, true, nil
+	}
 	for _, userID := range userIDs {
-		if _, err := r.evaluator.EvaluateUser(ctx, userID); err != nil {
+		granted, err := r.evaluator.EvaluateUser(ctx, userID)
+		if err != nil {
 			return userID, false, err
 		}
+		r.notifyGranted(ctx, userID, granted)
 	}
 	if len(userIDs) < batch {
 		return userIDs[len(userIDs)-1], true, nil
@@ -222,14 +250,35 @@ func (r badgesRuleBackfillRunner) BackfillRuleBatch(ctx context.Context, badgeID
 	return userIDs[len(userIDs)-1], false, nil
 }
 
+// notifyGranted 把本页某个用户新得的徽章投影成通知，失败只 warn。
+//
+// 为什么吞错而不上抛：授予已经落库（每条 grant 都是自动提交的独立语句），把通知
+// 失败上抛会让 river 重跑整页，而重跑时这些授予已存在、`EvaluateUser` 返回空，
+// 通知**永远不会再发**——错被「重试」洗掉，用户永远收不到。与 2026-11-13 决策 D2
+// 同一姿态：授予成功、通知尽力而为，失败留一条 warn 给运维。
+func (r badgesRuleBackfillRunner) notifyGranted(ctx context.Context, userID int64, granted []badges.Badge) {
+	if r.notifier == nil || len(granted) == 0 {
+		return
+	}
+	items := make([]badges.GrantedBadge, 0, len(granted))
+	for _, badge := range granted {
+		items = append(items, badges.GrantedBadge{ID: badge.ID, Slug: badge.Slug, Name: badge.Name})
+	}
+	if err := r.notifier.NotifyBadgeGranted(ctx, userID, items); err != nil && r.logger != nil {
+		r.logger.Warn("notify badge granted from rule backfill failed",
+			"user_id", userID, "badges", len(items), "error", err)
+	}
+}
+
 // registerBadgesBackfillWorker 注册回扫 worker 并返回它的延迟绑定入口。
 func registerBadgesBackfillWorker(
 	registry *supportjobs.Registry,
 	pool *pgxpool.Pool,
+	outbox *notifications.Outbox,
 	enqueuer *deferredBackfillEnqueuer,
 	logger *slog.Logger,
 ) {
-	badgesjobs.RegisterBackfillRulesWorker(registry, newBadgesBackfillWorker(pool, enqueuer, logger))
+	badgesjobs.RegisterBackfillRulesWorker(registry, newBadgesBackfillWorker(pool, outbox, enqueuer, logger))
 }
 
 // newBadgesBackfillWorker 组装回扫 worker（注册路径与装配守卫测试共用同一个工厂）。
@@ -237,12 +286,17 @@ func registerBadgesBackfillWorker(
 // 为什么单独一个函数：`Runs` 为 nil 时 worker 会「退化但不停摆」——只写日志、不写
 // 进度。那条退化路径本身是对的，但如果**装配**忘了接 runs store，回扫看起来在跑、
 // 状态端点却永远空着，正是这一刀要消灭的假绿。守卫落在
-// `badges_wiring_test.go`：断言这个工厂产物带非 nil 的 Runs / Runner。
-func newBadgesBackfillWorker(pool *pgxpool.Pool, enqueuer badgesjobs.PageEnqueuer, logger *slog.Logger) *badgesjobs.BackfillRulesWorker {
+// `badges_wiring_test.go`：断言这个工厂产物带非 nil 的 Runs / Runner / 通知出口。
+func newBadgesBackfillWorker(pool *pgxpool.Pool, outbox *notifications.Outbox, enqueuer badgesjobs.PageEnqueuer, logger *slog.Logger) *badgesjobs.BackfillRulesWorker {
 	store := badges.NewPostgresStore(pool)
 	evaluator := badges.NewEvaluator(store, badges.NewPostgresActivityStore(pool))
 	return badgesjobs.NewBackfillRulesWorker(
-		badgesRuleBackfillRunner{store: store, evaluator: evaluator},
+		badgesRuleBackfillRunner{
+			users:     store,
+			evaluator: evaluator,
+			notifier:  badgesDomainGrantedNotifier{badgeGrantedNotifier{outbox: outbox}},
+			logger:    logger,
+		},
 		enqueuer,
 		badges.NewPostgresBackfillRuns(pool),
 		logger,

@@ -472,6 +472,11 @@
   padding-top: 0;
 }
 
+/* 等级卡自带 1px 圆角边框，身份区紧跟其后时再画分割线就是双线。 */
+.sf-profile-side-section.sf-profile-side-identity--card-follows {
+  border-bottom: 0;
+}
+
 .sf-profile-side-section__head {
   display: flex;
   align-items: baseline;

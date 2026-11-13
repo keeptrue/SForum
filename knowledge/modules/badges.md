@@ -327,8 +327,8 @@ return，接口 200、前端弹「已佩戴」，面板仍是「未佩戴徽章�
 
 ## 授予通知与庆祝
 
-**四条授予路径全部发通知**（2026-11-13 补齐后三条），出口是领域侧端口，`Badges` 不 import
-`Notifications`：
+**五条授予路径全部发通知**（2026-11-13 补齐后三条，2026-11-14 补上规则回扫），出口是领域侧
+端口，`Badges` 不 import `Notifications`：
 
 | 路径 | 出口 | 上限 |
 | --- | --- | --- |
@@ -336,15 +336,27 @@ return，接口 200、前端弹「已佩戴」，面板仍是「未佩戴徽章�
 | 管理员手动 `AdminService.Grant` | `badgesDomainGrantedNotifier` | 无 |
 | 批量 `BatchGrant` | 同上，**只发 `grantedUsers`** | 无 |
 | 全量 `Recompute` | 同上，`notifyRecomputeGrants` | `recomputeNotifyLimit = 200`，超限**整体不发** + warn |
+| **规则回扫**（`badges.backfill_rules` job） | `badgesRuleBackfillRunner.notifyGranted` | 无（异步、每页 500 用户、逐用户批量） |
 
 `grantFromRulesCollectLimit = 1000` 是 `RETURNING` 行的收集上限，**不是第二道产品阈值**：
 它只需「足够判出 200 已被突破」。唯一判据永远是 200。
+
+**回扫必须发通知**（2026-11-14 修）：早期 `badgesRuleBackfillRunner` 把 `EvaluateUser` 的
+返回值直接丢掉，症状是「运营改严规则 → 回扫补出几百枚徽章 → 收件箱一片安静」，运营侧只
+看到回执。回扫通知**失败只 warn、不中断本页**，理由与 D2 不同且更硬：授予已落库，把通知
+失败上抛会让 river 重跑整页，而重跑时这些授予已存在、`EvaluateUser` 返回空，通知就**永远
+不会再发**——错被重试洗掉。评估错误仍然上抛（授予状态未知，重试才安全）。
+装配守卫在 `bootstrap/badges_wiring_test.go`：回扫 worker 的 runner 必须带非 nil 的
+`users` / `evaluator` / `notifier`，且 notifier 复用调用方传入的同一个 outbox。
 
 **端口与失败语义**：`GrantedBadge{ID,Slug,Name}` + `GrantNotifier` +
 `AdminService.SetGrantNotifier`；`notifyGranted` 失败只 `slog.Warn`，**不回滚授予**
 （每条 grant 都是自动提交的独立语句，没有可回滚的事务边界）。未注入 = 不发通知且不是错误。
 
-**投影口径**：去重键仍是 `badge:{slug}`（同一用户同一徽章终身一条通知，收回再授予不再通知）。
+**投影口径**：去重键是 `badge:{recipientUserID}:{slug}`（同一用户同一徽章终身一条通知，收回再授予不再通知）。
+**收件人必须进键**：`notifications.dedupe_key` 全局唯一，只带 slug 的键会被全站第一个获得者
+永久占住，之后所有人的投影被静默吞掉（dev 实证：`first-topic` 授予 13 人、通知 1 条）。
+历史行由 `202611140001_badge_grant_notification_dedupe_scope.sql` 改写，**不补发**被吞掉的通知。
 `notifyRecomputeGrants` 按用户聚合**只减少出口调用次数**，`badgeGrantedNotifier.notify` 仍逐枚写行，
 所以「同一用户拿到 3 枚」是 **3 条通知行**，不是 1 条。
 

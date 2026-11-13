@@ -830,6 +830,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **自动授予的徽章不发通知（2026-11-14，最新）**：两处缺口。① `notifications.dedupe_key`
+  全局唯一，而徽章授予键写成 `badge:{slug}` → **全站第一个**获得者永久占住该键，之后所有人的
+  投影被 `ON CONFLICT DO NOTHING` 静默吞掉（dev 实证：`first-topic` 授予 13 人、通知 1 条）；
+  改为 `badge:{recipientUserID}:{slug}`，历史行由 `202611140001` 改写、**不补发**。
+  ② 规则回扫（`badgesRuleBackfillRunner`）丢弃 `EvaluateUser` 返回值，第五条授予路径全程静默；
+  现逐用户批量通知、失败只 warn 不中断本页、评估错误仍上抛。**未提交**。见
+  `sessions/2026-11-14-badge-grant-notification-fix-handoff.md`、决策
+  `decisions/2026-11-14-badge-grant-notification-scope.md`（D12–D16，修订 2026-11-13 D5 的键格式）、
+  模块 `modules/notifications.md`、`modules/badges.md`。
 - **徽章 chip 点击改为「徽章说明弹窗」（2026-11-14，最新）**：昵称旁的 chip 不再是链接，改成
   `<button aria-haspopup="dialog">`，点击开全局徽章说明弹窗（`SFBadgeDetailDialogHost` 挂 `app.vue`，
   复用 `SFBadgeDetailModal`/`SFBadgeDetailBody`，与徽章墙弹窗同源），**不再跳** `/u/x?tab=badges`。
