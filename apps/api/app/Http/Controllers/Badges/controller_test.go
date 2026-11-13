@@ -37,6 +37,9 @@ func TestMapBadgeErrorKeepsTwoForbiddenPathsApart(t *testing.T) {
 		{"not found", badges.ErrBadgeNotFound, fiber.StatusNotFound, badges.CodeBadgeNotFound},
 		{"slug taken", badges.ErrBadgeSlugTaken, fiber.StatusConflict, badges.CodeBadgeSlugTaken},
 		{"already granted", badges.ErrBadgeAlreadyGranted, fiber.StatusConflict, badges.CodeBadgeAlreadyGranted},
+		// 「手动却带规则」是状态冲突，不是规则本身不合法：两码必须能分开。
+		// 顺序敏感——这条 case 同时钉住「mode 冲突不会被 rule_invalid 抢走」。
+		{"rule mode conflict", badges.ErrBadgeRuleModeConflict, fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleModeConflict},
 		{"rule invalid", badges.ErrBadgeRuleInvalid, fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleInvalid},
 		{"manual only", badges.ErrBadgeManualOnly, fiber.StatusUnprocessableEntity, badges.CodeBadgeManualOnly},
 	}
@@ -60,6 +63,23 @@ func TestMapBadgeErrorKeepsTwoForbiddenPathsApart(t *testing.T) {
 	sentinel := errors.New("boom")
 	if got := mapBadgeError(sentinel); !errors.Is(got, sentinel) {
 		t.Fatalf("unknown error must pass through, got %v", got)
+	}
+}
+
+// TestMapBadgeErrorPutsModeConflictBeforeRuleInvalid 钉住 switch 的顺序。
+//
+// 单错误表测不出这条：每个夹具只包一个 sentinel。真正的风险是将来有人把两条链一起包
+// （`errors.Is` 对多 %w 都成立），那时**先命中的 case 决定错误码**——顺序错了，
+// 状态冲突就会被报成「请检查指标与阈值的组合」，运维会去改一个没问题的指标。
+func TestMapBadgeErrorPutsModeConflictBeforeRuleInvalid(t *testing.T) {
+	both := fmt.Errorf("%w: %w", badges.ErrBadgeRuleInvalid, badges.ErrBadgeRuleModeConflict)
+	mapped, ok := mapBadgeError(both).(*fiber.Error)
+	if !ok {
+		t.Fatalf("expected *fiber.Error, got %T", mapped)
+	}
+	if mapped.Message != badges.CodeBadgeRuleModeConflict {
+		t.Fatalf("code = %q, want %q (mode conflict must win over rule invalid)",
+			mapped.Message, badges.CodeBadgeRuleModeConflict)
 	}
 }
 

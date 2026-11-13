@@ -114,6 +114,7 @@ const tabProps = computed(() => {
     factCandidates: badgeConditions.factCandidates.value,
     factCandidatesFailed: badgeConditions.factCandidatesFailed.value,
     refCandidates: badgeConditions.refCandidates.value,
+    refCandidatesMissingKinds: badgeConditions.refCandidatesMissingKinds.value,
     ruleHealth: badgeRuleHealth.items.value,
     ruleHealthFailed: badgeRuleHealth.failed.value,
     backfillSummary: backfillSummary.value,

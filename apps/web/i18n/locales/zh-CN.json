@@ -621,7 +621,10 @@
         "factKeyPlaceholder": "选择事实来源",
         "factStaleHint": "该事实来源已不可用（扩展可能已停用或卸载）。原值会保留，规则健康检查会继续提示。",
         "refCandidatesPlaceholder": "搜索并选择",
-        "refManualHint": "候选暂时读不到，请直接填写标识（slug / key）。保存后规则健康检查会告诉你它是否存在。",
+        "refUnavailableHint": "候选取不到，请直接填写标识（slug / key）。保存后规则健康检查会告诉你它是否存在。",
+        "refEmptyHint": "该类型目前没有任何候选项，可直接填写标识（slug / key）。保存后规则健康检查会告诉你它是否存在。",
+        "refUnknownKind": "引用类型「{kind}」未注册：后端或插件版本不一致，候选无法加载。手填的值仍会保存，但可能不被识别。",
+        "refMissingKinds": "候选目录不完整：缺少 {kinds}。这通常意味着后端与插件版本不一致，请检查升级状态。",
         "refTruncated": "候选太多，这里只显示前 500 条；用搜索缩小范围即可。",
         "refStale": "（失效）",
         "refFlagHidden": "（已隐藏）",
@@ -940,7 +943,8 @@
           "scopeHint": "按当前已保存的规则估算，不是本次编辑的草稿。",
           "title": "保存前确认影响面",
           "unestimable": "无法估算",
-          "unsupportedTitle": "以下条件无法参与估算："
+          "unsupportedTitle": "以下条件无法参与估算：",
+          "manualHint": "这枚徽章当前是手动授予，没有可评估的规则；改成自动授予并保存后才会按新规则估算。"
         }
       },
       "sort": {

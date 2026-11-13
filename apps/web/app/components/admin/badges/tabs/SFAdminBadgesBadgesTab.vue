@@ -47,6 +47,11 @@ const props = withDefaults(defineProps<{
   factCandidatesFailed?: boolean
   /** objectRef 参数候选：一路带到规则编辑器的参数控件（不可用时那边退文本输入）。 */
   refCandidates?: BadgeRefCandidateMap
+  /**
+   * 「响应给了数组却缺了目录已声明的 kind」= 真回归，规则区给可见诊断。
+   * 老后端（整个字段都没有）为 `[]`，不报任何东西。
+   */
+  refCandidatesMissingKinds?: string[]
   /** 规则健康清单（只含引用/条件失效的徽章；空数组 = 全站健康）。 */
   ruleHealth?: BadgeRuleHealthRow[]
   ruleHealthFailed?: boolean
@@ -68,6 +73,7 @@ const props = withDefaults(defineProps<{
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({}),
+  refCandidatesMissingKinds: () => [],
   ruleHealth: () => [],
   ruleHealthFailed: false,
   backfillSummary: null,
@@ -428,6 +434,7 @@ defineOptions({ name: 'SFAdminBadgesBadgesTab' })
       :fact-candidates="props.factCandidates"
       :fact-candidates-failed="props.factCandidatesFailed"
       :ref-candidates="props.refCandidates"
+      :ref-candidates-missing-kinds="props.refCandidatesMissingKinds"
       :rule-health="props.ruleHealth"
       :rule-health-failed="props.ruleHealthFailed"
       @saved="onSaved"

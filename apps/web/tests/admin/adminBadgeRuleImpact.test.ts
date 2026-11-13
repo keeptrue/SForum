@@ -3,6 +3,7 @@ import { computed, defineComponent, ref } from 'vue'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
+import { shouldLoadRuleImpact } from '../../app/composables/admin/badges/useAdminBadgeRuleImpact'
 
 /**
  * 影响面确认弹窗的呈现契约（2-3）。
@@ -70,7 +71,7 @@ function impact(overrides: Partial<Impact> = {}): Impact {
 }
 
 function mountDialog(value: Impact | null, options: {
-  status?: 'idle' | 'loading' | 'error' | 'ready'
+  status?: 'idle' | 'loading' | 'error' | 'ready' | 'manual'
   ruleTouched?: boolean
   catalog?: Array<Record<string, unknown>>
 } = {}) {
@@ -210,6 +211,8 @@ describe('SFAdminBadgeRuleImpactDialog · 三种呈现', () => {
     const wrapper = mountDialog(null, { status: 'error' })
     try {
       expect(wrapper.get('[data-impact-failed]').text()).toBe(t('admin.badges.rule.impact.loadFailed'))
+      // 真错误用红色；「无法估算」是中性事实，两者不许长成同一个样子。
+      expect(wrapper.get('[data-impact-failed]').classes().join(' ')).toContain('text-red-600')
       const confirm = wrapper.get('[data-impact-confirm]')
       expect(confirm.text()).toBe(t('admin.badges.rule.impact.confirmAnyway'))
       expect(confirm.attributes('disabled')).toBeUndefined()
@@ -219,6 +222,49 @@ describe('SFAdminBadgeRuleImpactDialog · 三种呈现', () => {
     } finally {
       wrapper.unmount()
     }
+  })
+
+  test('manual（库里是手动徽章）是中性态：说「无法估算」，不是「获取失败」', async () => {
+    const wrapper = mountDialog(null, { status: 'manual' })
+    try {
+      // 中性态：没有红色错误块，也没有「获取失败」字样。
+      expect(wrapper.find('[data-impact-failed]').exists()).toBe(false)
+      expect(wrapper.text()).not.toContain(t('admin.badges.rule.impact.loadFailed'))
+      expect(wrapper.get('[data-impact-unestimable]').text()).toBe(t('admin.badges.rule.impact.unestimable'))
+      // 原因要写在脸上：手动徽章没有规则，不是「算不出来」。
+      expect(wrapper.get('[data-impact-manual-hint]').text()).toBe(t('admin.badges.rule.impact.manualHint'))
+      // 中性态不给「不可估条件」清单（那是 null 读数的呈现，用错了会指向不存在的条件）。
+      expect(wrapper.find('[data-impact-unsupported-fallback]').exists()).toBe(false)
+      expect(wrapper.find('[data-impact-null-hint]').exists()).toBe(false)
+      // 按钮是普通确认：手动徽章本来就没有数，不是「明知未知仍继续」。
+      expect(wrapper.get('[data-impact-confirm]').text()).toBe(t('admin.badges.rule.impact.confirm'))
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('manual 与 error 互斥：两种状态不会同时渲染对方的块', () => {
+    const manual = mountDialog(null, { status: 'manual' })
+    const failed = mountDialog(null, { status: 'error' })
+    try {
+      expect(manual.find('[data-impact-failed]').exists()).toBe(false)
+      expect(failed.find('[data-impact-manual-hint]').exists()).toBe(false)
+      expect(failed.find('[data-impact-unestimable]').exists()).toBe(false)
+    } finally {
+      manual.unmount()
+      failed.unmount()
+    }
+  })
+
+  test('shouldLoadRuleImpact：只有「库里已是自动」才请求估算', () => {
+    const base = { isEdit: true, badgeId: 11, draftMode: 'automatic' as const }
+    expect(shouldLoadRuleImpact({ ...base, savedMode: 'automatic' })).toBe(true)
+    // 本刀的缺陷：「手动 → 自动」也去请求 → 库里 rule 为 NULL → 422 → 红字假故障。
+    expect(shouldLoadRuleImpact({ ...base, savedMode: 'manual' })).toBe(false)
+    // 新建（没有 id）从不请求；草稿仍是手动时也没什么可确认的。
+    expect(shouldLoadRuleImpact({ ...base, badgeId: null, savedMode: 'automatic' })).toBe(false)
+    expect(shouldLoadRuleImpact({ ...base, isEdit: false, savedMode: 'automatic' })).toBe(false)
+    expect(shouldLoadRuleImpact({ ...base, draftMode: 'manual', savedMode: 'automatic' })).toBe(false)
   })
 
   test('cancel emits cancel so the host can skip the PATCH', async () => {

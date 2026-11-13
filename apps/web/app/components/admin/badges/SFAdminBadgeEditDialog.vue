@@ -10,11 +10,11 @@ import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRuleError } from '~/utils/admin/badgeRule'
 import type { BadgeRuleHealthIssue, BadgeRuleHealthRow } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
 import { useBadgeRuleDraft } from '~/composables/admin/badges/useBadgeRuleDraft'
-import { useAdminBadgeRuleImpact } from '~/composables/admin/badges/useAdminBadgeRuleImpact'
+import { shouldLoadRuleImpact, useAdminBadgeRuleImpact } from '~/composables/admin/badges/useAdminBadgeRuleImpact'
 import { useBadgeRuleTextPreview } from '~/composables/admin/badges/useBadgeRuleTextPreview'
 import { apiErrorFields, apiErrorMessage } from '~/composables/useApiClient'
 import { excludeBadgeSlug } from '~/utils/admin/badgeRefCandidates'
-import { FIELD_SLOT_KEYS } from '~/utils/admin/badgeFieldSlots'
+import { unmappedFieldMessages } from '~/utils/admin/badgeFieldSlots'
 
 /**
  * 新建 / 编辑徽章弹窗。
@@ -37,6 +37,8 @@ const props = withDefaults(defineProps<{
   factCandidatesFailed?: boolean
   /** objectRef 参数候选：编辑已有徽章时先剔掉它自己（自引用永不成立）。 */
   refCandidates?: BadgeRefCandidateMap
+  /** 「响应有数组却缺目录已声明的 kind」= 真回归；规则区给可见诊断。 */
+  refCandidatesMissingKinds?: string[]
   /** 条件目录加载失败（端点未上线/网络错）：条件区给可见提示，不静默降级。 */
   catalogFailed?: boolean
   /** 规则健康清单：只含引用/条件失效的徽章，空数组表示全站健康（不渲染任何提示）。 */
@@ -48,6 +50,7 @@ const props = withDefaults(defineProps<{
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({}),
+  refCandidatesMissingKinds: () => [],
   ruleHealth: () => [],
   ruleHealthFailed: false
 })
@@ -86,17 +89,6 @@ const confirmDelete = ref(false)
 const errorMessage = ref('')
 const fieldErrors = ref<Record<string, string[]>>({})
 // 展示位清单与模板里的 `fieldErrors.<key>` 一一对应（含 Section 的 `rule`）。
-
-/**
- * 没有展示位的字段错误 → 一行可读文本，并进通用提示。
- * 这些键没有本地化 label（控件已删），所以直接带原始键名：运营/开发都能定位到字段，
- * 总好过一条 422 在界面上完全不存在。
- */
-function unmappedFieldMessages(fields: Record<string, string[]>) {
-  return Object.entries(fields)
-    .filter(([key]) => !FIELD_SLOT_KEYS.has(key))
-    .flatMap(([key, messages]) => messages.map(message => `${key}: ${message}`))
-}
 
 const isEdit = computed(() => Boolean(props.badge?.id))
 const title = computed(() => (isEdit.value ? t('admin.badges.form.editTitle') : t('admin.badges.form.createTitle')))
@@ -204,7 +196,8 @@ const {
   status: ruleImpactStatus,
   impact: ruleImpact,
   load: loadRuleImpact,
-  reset: resetRuleImpact
+  reset: resetRuleImpact,
+  markManual: markRuleImpactManual
 } = useAdminBadgeRuleImpact()
 const impactOpen = ref(false)
 
@@ -263,7 +256,16 @@ async function submit() {
   // 仅「编辑既有自动徽章」才谈得上影响面：先取估算再弹确认，确认后才发 PATCH。
   // 新建徽章没有 id → 端点无法估算 → 不弹窗、不编假数字，直接保存。
   if (isEdit.value && automatic.value && props.badge?.id) {
-    await loadRuleImpact(props.badge.id)
+    // 判据看**库里**这枚徽章的授予方式（`shouldLoadRuleImpact`），不是本次编辑后的
+    // `form.grantMode`：「手动 → 自动」时库里仍是手动、`rule` 恒为 NULL，端点只能 422。
+    // 已知没有规则就别问，直接给中性的「无法估算」。
+    if (shouldLoadRuleImpact({
+      isEdit: true,
+      badgeId: props.badge.id,
+      draftMode: form.grantMode,
+      savedMode: props.badge.grantMode
+    })) await loadRuleImpact(props.badge.id)
+    else markRuleImpactManual()
     impactOpen.value = true
     return
   }
@@ -434,6 +436,7 @@ async function removeBadge() {
             :fact-candidates="factCandidates"
             :fact-candidates-failed="factCandidatesFailed"
             :ref-candidates="ruleRefCandidates"
+            :ref-candidates-missing-kinds="refCandidatesMissingKinds"
             :draft-rule="draftRule"
             :rule-missing="ruleMissing"
             :health-issues="healthIssues"

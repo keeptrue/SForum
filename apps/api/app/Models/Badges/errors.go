@@ -13,6 +13,12 @@ var (
 	ErrBadgeSlugTaken = errors.New("badges: slug already taken")
 	// ErrBadgeRuleInvalid 表示规则不合法（tier / grant_mode / metric / threshold / icon）。
 	ErrBadgeRuleInvalid = errors.New("badges: invalid rule")
+	// ErrBadgeRuleModeConflict 表示「授予方式与规则」自相矛盾（manual 却带 rule）。
+	//
+	// 它与 ErrBadgeRuleInvalid 刻意分开：修法完全不同——前者要运营改**授予方式或清空规则**，
+	// 后者要改**指标/阈值/条件**。共用一码时运维只会看到「请检查指标与阈值的组合」，
+	// 而指标根本没问题（plan §13 #19 的同族教训）。
+	ErrBadgeRuleModeConflict = errors.New("badges: rule mode conflict")
 	// ErrBadgeManualOnly 表示该徽章不是手动徽章，不能手动授予或收回。
 	ErrBadgeManualOnly = errors.New("badges: manual grant required")
 	// ErrBadgeAlreadyGranted 表示该用户已持有该徽章。
@@ -43,12 +49,13 @@ var (
 
 // HTTP 错误码。与 contracts/openapi 的 error.code 取值逐字一致。
 const (
-	CodeBadgesDisabled      = "forum.badges_disabled"
-	CodeBadgeNotFound       = "forum.badge_not_found"
-	CodeBadgeSlugTaken      = "forum.badge_slug_taken"
-	CodeBadgeRuleInvalid    = "forum.badge_rule_invalid"
-	CodeBadgeManualOnly     = "forum.badge_manual_only"
-	CodeBadgeAlreadyGranted = "forum.badge_already_granted"
+	CodeBadgesDisabled        = "forum.badges_disabled"
+	CodeBadgeNotFound         = "forum.badge_not_found"
+	CodeBadgeSlugTaken        = "forum.badge_slug_taken"
+	CodeBadgeRuleInvalid      = "forum.badge_rule_invalid"
+	CodeBadgeRuleModeConflict = "forum.badge_rule_mode_conflict"
+	CodeBadgeManualOnly       = "forum.badge_manual_only"
+	CodeBadgeAlreadyGranted   = "forum.badge_already_granted"
 	// CodeBadgeTierNotFound 等五个码由「徽章等级表」这一刀新增；
 	// 中英双语文案在 app/Support/Localization/messages.go，缺一条本地化测试就会红。
 	CodeBadgeTierNotFound      = "forum.badge_tier_not_found"
@@ -76,6 +83,9 @@ func ErrorCode(err error) string {
 		return CodeBadgeNotFound
 	case errors.Is(err, ErrBadgeSlugTaken):
 		return CodeBadgeSlugTaken
+	// 顺序敏感：mode 冲突必须排在 rule_invalid 之前（errors.Is 匹配的是同一条链）。
+	case errors.Is(err, ErrBadgeRuleModeConflict):
+		return CodeBadgeRuleModeConflict
 	case errors.Is(err, ErrBadgeRuleInvalid):
 		return CodeBadgeRuleInvalid
 	case errors.Is(err, ErrBadgeManualOnly):

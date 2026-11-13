@@ -7,6 +7,9 @@
  * - 三种呈现互斥：有值（含 0）→「≈ N 人」+ 依据句；`estimated === null` →「无法估算」
  *   + 逐个列出不可估的条件；`partial` → 追加「只算了部分条件，是上界」；
  * - `null` 与 `0` 是两件事：`0` 是读数为零，`null` 是算不出来，两者不许互相顶替。
+ * - **`manual`（库里这枚是手动徽章）与 `error` 必须分开呈现**：「无法估算」是中性事实
+ *   （手动徽章本来就没有规则），「获取失败」才是红色错误。上一版把两者压成一个 422，
+ *   于是「手动 → 自动」这条最常见的路径每次保存前都报一次假故障。
  *
  * `method` 用显式分支而不是按 method 名拼 i18n 键：拼出来的键既躲不过静态 i18n 扫描
  * （会被当成动态前缀），也只能靠运行时才发现拼错。
@@ -38,11 +41,16 @@ const { t, locale } = useI18n()
 
 const failed = computed(() => props.status === 'error')
 const loading = computed(() => props.status === 'loading')
+/** 库里这枚徽章此刻是手动授予：没有规则可估，这不是错误。 */
+const manual = computed(() => props.status === 'manual')
 /** 有读数（含 0）才算「可估」；`null` 走「无法估算」分支。 */
 const estimable = computed(() => props.impact !== null && props.impact.estimated !== null)
 
-/** 估算没拿到数时按钮改成「仍然保存」：这不是正常确认，而是明知未知仍继续。 */
-const confirmLabel = computed(() => (estimable.value
+/**
+ * 按钮措辞只有一种分界：**本该有数却没拿到**（null / 失败）才说「仍然保存」。
+ * 手动徽章本来就没有规则，那是正常确认，不该被写成「明知未知仍继续」。
+ */
+const confirmLabel = computed(() => (estimable.value || manual.value
   ? t('admin.badges.rule.impact.confirm')
   : t('admin.badges.rule.impact.confirmAnyway')))
 
@@ -81,9 +89,19 @@ function cancel() {
 
           <p v-if="loading" data-impact-loading>{{ t('admin.badges.rule.impact.loading') }}</p>
 
-          <p v-else-if="failed" class="text-amber-600 dark:text-amber-400" data-impact-failed>
+          <p v-else-if="failed" class="text-red-600 dark:text-red-400" data-impact-failed>
             {{ t('admin.badges.rule.impact.loadFailed') }}
           </p>
+
+          <!-- 中性态：库里这枚是手动授予 → 没有规则，也就没有影响面。 -->
+          <template v-else-if="manual">
+            <p class="text-lg font-bold text-slate-900 dark:text-white" data-impact-unestimable>
+              {{ t('admin.badges.rule.impact.unestimable') }}
+            </p>
+            <p class="text-slate-500 dark:text-zinc-400" data-impact-manual-hint>
+              {{ t('admin.badges.rule.impact.manualHint') }}
+            </p>
+          </template>
 
           <template v-else-if="props.impact">
             <template v-if="estimable">

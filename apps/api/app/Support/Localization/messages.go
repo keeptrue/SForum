@@ -58,12 +58,13 @@ var messages = map[string]map[string]string{
 		// 错误码的双语文案，导致 TestAPIErrorCodesHaveLocalizedMessages 长期红。
 		// 由信任等级这一刀补上（纯增量、零行为变更）。徽章域下次动 i18n 时请连它
 		// 一起核——那一刀的 84 条断言不覆盖 i18n，全绿推不出可用。
-		"forum.badge_not_found":       "徽章不存在。",
-		"forum.badge_slug_taken":      "该徽章标识已被占用，请换一个。",
-		"forum.badge_already_granted": "该用户已拥有此徽章。",
-		"forum.badge_manual_only":     "自动徽章不能手动收回，请停用规则。",
-		"forum.badge_rule_invalid":    "徽章规则无效：请检查指标与阈值的组合。",
-		"forum.badges_disabled":       "徽章功能未启用。",
+		"forum.badge_not_found":          "徽章不存在。",
+		"forum.badge_slug_taken":         "该徽章标识已被占用，请换一个。",
+		"forum.badge_already_granted":    "该用户已拥有此徽章。",
+		"forum.badge_manual_only":        "自动徽章不能手动收回，请停用规则。",
+		"forum.badge_rule_invalid":       "徽章规则无效：请检查指标与阈值的组合。",
+		"forum.badge_rule_mode_conflict": "授予方式与规则冲突：手动徽章不能携带规则，请改回自动授予或清空规则。",
+		"forum.badges_disabled":          "徽章功能未启用。",
 		// 徽章等级表（202611120001）：等级从写死枚举变成可管理数据，
 		// 于是「找不到档/档名占用/档非法/档仍被引用/批量授予非法」都需要自己的码。
 		"forum.badge_tier_not_found":                     "徽章等级不存在。",
@@ -433,6 +434,7 @@ var messages = map[string]map[string]string{
 		"forum.badge_already_granted":        "This user already holds that badge.",
 		"forum.badge_manual_only":            "Automatic badges cannot be revoked manually; disable the rule instead.",
 		"forum.badge_rule_invalid":           "Invalid badge rule: check the metric and threshold combination.",
+		"forum.badge_rule_mode_conflict":     "The grant mode conflicts with the rule: a manual badge must not carry a rule. Switch it back to automatic or clear the rule.",
 		"forum.badges_disabled":              "Badges are not enabled.",
 		"forum.badge_tier_not_found":         "This badge tier does not exist.",
 		"forum.badge_tier_key_taken":         "That badge tier key is already taken; choose another.",

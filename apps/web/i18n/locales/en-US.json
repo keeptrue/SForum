@@ -581,7 +581,10 @@
         "factKeyPlaceholder": "Select a fact source",
         "factStaleHint": "This fact source is no longer available (the extension may be disabled or uninstalled). The original value is kept and the rule health check keeps reporting it.",
         "refCandidatesPlaceholder": "Search and select",
-        "refManualHint": "Candidates are unavailable right now. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
+        "refUnavailableHint": "Candidates are unavailable right now. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
+        "refEmptyHint": "No candidates of this type exist yet. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
+        "refUnknownKind": "Reference type \"{kind}\" is not registered: the backend and plugin versions disagree, so candidates cannot load. A hand-typed value still saves but may not be understood.",
+        "refMissingKinds": "The candidate catalog is incomplete: {kinds} is missing. This usually means the backend and plugin versions disagree; check the upgrade state.",
         "refTruncated": "Too many candidates: only the first 500 are listed. Use search to narrow it down.",
         "refStale": " (stale)",
         "refFlagHidden": " (hidden)",
@@ -900,7 +903,8 @@
           "scopeHint": "Estimated from the rule saved right now, not from this edit's draft.",
           "title": "Confirm the rule impact before saving",
           "unestimable": "Cannot estimate",
-          "unsupportedTitle": "These conditions cannot take part in the estimate:"
+          "unsupportedTitle": "These conditions cannot take part in the estimate:",
+          "manualHint": "This badge is granted manually right now, so there is no rule to estimate. The audience is estimated only after it becomes automatic and is saved."
         }
       },
       "sort": {

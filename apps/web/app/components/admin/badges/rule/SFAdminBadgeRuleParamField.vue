@@ -25,9 +25,10 @@ import {
   type FactOption
 } from '~/utils/admin/badgeFactCandidates'
 import {
+  isBadgeRefKind,
   refKindGroup,
   refKindItems,
-  refKindManual,
+  refKindMode,
   refOptionLabel,
   type BadgeRefCandidateMap,
   type BadgeRefKind
@@ -84,10 +85,28 @@ const refKind = computed<BadgeRefKind | undefined>(() => {
 })
 const refGroup = computed(() => refKindGroup(props.refCandidates, refKind.value))
 /**
- * 候选不可用**或**为空 → 文本输入。两种情形都拿不出可选项，对运营的后果一样：
- * 曾经这里渲染一个只含占位 option 的下拉，值永远为空，保存必报「缺少必填参数」。
+ * 控件形态三态（`select` / `unavailable` / `empty`）：渲染只有两叉（后两者都出文本框），
+ * 但**提示文案必须分开**——「取不到」是故障，「本来就没有」是正常状态，说成同一句话
+ * 会让运营去查一个没坏的后端。曾经这里渲染一个只含占位 option 的下拉，值永远为空，
+ * 保存必报「缺少必填参数」。
  */
-const refManual = computed(() => refKindManual(props.refCandidates, refKind.value))
+const refMode = computed(() => refKindMode(props.refCandidates, refKind.value))
+const refManual = computed(() => refMode.value !== 'select')
+const refManualHint = computed(() => (refMode.value === 'empty'
+  ? t('admin.badges.conditions.refEmptyHint')
+  : t('admin.badges.conditions.refUnavailableHint')))
+/**
+ * 目录声明了一个白名单外的 `refKind`（插件拼错 / 前后端版本不一致）。
+ *
+ * 这种情况**不能静默退成文本框**：候选必然取不到，而文本框什么都不会说，运营会以为
+ * 自己手填的值是对的。旧版的表现就是「只有一句候选读不到」，没有任何目录诊断。
+ * 值仍然可见可改（旧规则可能已经存了这个参数），但提示先讲清根因。
+ */
+const refUnknownKind = computed(() => {
+  const kind = props.spec.refKind
+  if (!kind || kind === 'fact') return ''
+  return isBadgeRefKind(kind) ? '' : String(kind)
+})
 const refTruncated = computed(() => !refManual.value && refGroup.value.truncated)
 /** 下拉项 = 后端候选（+ 必要时的失效项）；显示文案在这里拼标记后缀。 */
 const refItems = computed<Array<{ value: string, label: string }>>(() =>
@@ -253,19 +272,23 @@ function setFactKey(event: Event) {
       </template>
 
       <template v-else>
-        <!-- 候选不可用 / 为空：文本输入 + 提示。绝不渲染只有占位项的空下拉。 -->
+        <!-- 候选不可用 / 为空：文本输入 + 提示（两句分开）。绝不渲染只有占位项的空下拉。 -->
         <template v-if="refManual">
           <input
             class="sf-rule-control"
             data-ref-manual
             :data-ref-kind="spec.refKind"
+            :data-ref-manual-state="refMode"
             type="text"
             :value="textValue"
             :aria-label="label"
             @input="setText"
           >
-          <p class="sf-rule-field__flag" data-ref-manual-hint>
-            {{ t('admin.badges.conditions.refManualHint') }}
+          <p v-if="refUnknownKind" class="sf-rule-field__flag" data-ref-unknown-kind :data-ref-kind="refUnknownKind">
+            {{ t('admin.badges.conditions.refUnknownKind', { kind: refUnknownKind }) }}
+          </p>
+          <p v-else class="sf-rule-field__flag" data-ref-manual-hint>
+            {{ refManualHint }}
           </p>
         </template>
 

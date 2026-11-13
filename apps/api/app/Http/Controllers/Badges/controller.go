@@ -751,6 +751,10 @@ func mapBadgeError(err error) error {
 		return fiber.NewError(fiber.StatusConflict, badges.CodeBadgeSlugTaken)
 	case errors.Is(err, badges.ErrBadgeAlreadyGranted):
 		return fiber.NewError(fiber.StatusConflict, badges.CodeBadgeAlreadyGranted)
+	// 顺序敏感：这条必须排在 `ErrBadgeRuleInvalid` 之前。授予方式与规则冲突与
+	// 规则本身是否合法是两件事，共用一码会让运维去改一个没问题的指标。
+	case errors.Is(err, badges.ErrBadgeRuleModeConflict):
+		return fiber.NewError(fiber.StatusUnprocessableEntity, badges.CodeBadgeRuleModeConflict)
 	case errors.Is(err, badges.ErrBadgeRuleInvalid):
 		// 规则引擎的错误按**引擎错误码**细分：前端有
 		// `admin.badges.rule.errors.<code>` 文案，笼统返回 badge_rule_invalid

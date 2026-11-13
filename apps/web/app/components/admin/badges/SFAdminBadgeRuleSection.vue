@@ -22,6 +22,11 @@ const props = withDefaults(defineProps<{
   factCandidatesFailed?: boolean
   /** objectRef 参数候选：与目录降级互相独立，缺失时参数控件退文本输入。 */
   refCandidates?: BadgeRefCandidateMap
+  /**
+   * 响应给了 `refCandidates` 数组、却缺了目录已声明的 kind = 后端/插件版本不一致的**真回归**。
+   * 空数组是常态（老后端根本没有这个字段，那时不出任何诊断）。
+   */
+  refCandidatesMissingKinds?: string[]
   draftRule: BadgeRule | null
   ruleMissing: boolean
   healthIssues: BadgeRuleHealthIssue[]
@@ -36,6 +41,7 @@ const props = withDefaults(defineProps<{
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({}),
+  refCandidatesMissingKinds: () => [],
   draftRule: null,
   ruleMissing: false,
   healthIssues: () => [],
@@ -82,6 +88,14 @@ function issueText(issue: BadgeRuleHealthIssue) {
     <!-- 健康清单只报「引用/条件失效」，不报「暂时没人达标」：后者是正常状态。 -->
     <p v-if="healthFailed" class="text-sm text-amber-600 dark:text-amber-400" data-rule-health-failed>
       {{ t('admin.badges.rule.healthUnavailable') }}
+    </p>
+    <!-- 目录声明了某类引用参数，响应却没给这类候选：这是回归，不是降级——必须说出来。 -->
+    <p
+      v-if="refCandidatesMissingKinds.length > 0"
+      class="text-sm text-amber-600 dark:text-amber-400"
+      data-ref-candidates-incomplete
+    >
+      {{ t('admin.badges.conditions.refMissingKinds', { kinds: refCandidatesMissingKinds.join(', ') }) }}
     </p>
     <ul v-else-if="healthIssues.length > 0" class="space-y-1" data-rule-health>
       <li

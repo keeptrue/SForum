@@ -26,7 +26,8 @@ import {
 import {
   refKindGroup,
   refKindItems,
-  refKindManual,
+  isBadgeRefKind,
+  refKindMode,
   refOptionLabel,
   type BadgeRefCandidateMap
 } from '../../app/utils/admin/badgeRefCandidates'
@@ -97,7 +98,8 @@ const ParamField = await compileVueSfc(
     factVariantOptions,
     refKindGroup,
     refKindItems,
-    refKindManual,
+    isBadgeRefKind,
+    refKindMode,
     refOptionLabel
   }
 )
@@ -418,14 +420,26 @@ describe('SFAdminBadgeRuleLeaf params', () => {
     const empty: BadgeRefCandidateMap = {
       category: { kind: 'category', candidates: [], unavailable: false, truncated: false }
     }
-    for (const map of [unavailable, empty, {} as BadgeRefCandidateMap]) {
+    // 三态在 DOM 上必须可分辨：判据走 `data-ref-manual-state`，不靠文案字符串。
+    const cases: Array<[BadgeRefCandidateMap, 'unavailable' | 'empty']> = [
+      [unavailable, 'unavailable'],
+      [empty, 'empty'],
+      // 整个字段缺失（老后端）：`{}` → 每一项都是「取不到」，不是「本来没有」。
+      [{} as BadgeRefCandidateMap, 'unavailable']
+    ]
+    for (const [map, state] of cases) {
       const wrapper = mountLeaf(refNode(), catalog, { refCandidates: map })
       try {
         const target = wrapper.find('[data-param="targetSlug"]')
         const manual = target.find('input[data-ref-manual]')
         expect(manual.exists()).toBe(true)
         expect(manual.attributes('data-ref-kind')).toBe('category')
-        expect(target.find('[data-ref-manual-hint]').text()).toBe('admin.badges.conditions.refManualHint')
+        expect(manual.attributes('data-ref-manual-state')).toBe(state)
+        // 「取不到」与「本来就没有」必须说两句不同的话（上一版共用一句 = 把正常状态说成故障）。
+        expect(target.find('[data-ref-manual-hint]').text()).toBe(state === 'empty'
+          ? 'admin.badges.conditions.refEmptyHint'
+          : 'admin.badges.conditions.refUnavailableHint')
+        expect(target.find('[data-ref-unknown-kind]').exists()).toBe(false)
         // 不再有任何下拉（含只带占位 option 的那种）。
         expect(target.find('[data-ref-select]').exists()).toBe(false)
         expect(target.find('select').exists()).toBe(false)
@@ -434,6 +448,35 @@ describe('SFAdminBadgeRuleLeaf params', () => {
       } finally {
         wrapper.unmount()
       }
+    }
+  })
+
+  test('白名单外的 refKind：给可见诊断，不是静默文本框', () => {
+    // 插件把 refKind 拼成 `categories`（或用了前端还不认识的类型）：候选永远取不到。
+    const odd: BadgeConditionCatalogEntry[] = [{
+      key: 'object.authoring',
+      valueKind: 'count',
+      compare: ['gte'],
+      labelZh: '分类发文',
+      labelEn: 'Topics in category',
+      params: [
+        { name: 'targetKind', kind: 'enum', required: true, options: ['category', 'tag'] },
+        { name: 'targetSlug', kind: 'objectRef', required: true, refKind: 'categories' }
+      ]
+    }]
+    const wrapper = mountLeaf(refNode(), odd, { refCandidates: refMap() })
+    try {
+      const target = wrapper.find('[data-param="targetSlug"]')
+      const unknown = target.find('[data-ref-unknown-kind]')
+      expect(unknown.exists()).toBe(true)
+      expect(unknown.text()).toContain('admin.badges.conditions.refUnknownKind')
+      expect(unknown.attributes('data-ref-kind')).toBe('categories')
+      // 值仍可见可改（老规则可能已经存了这个参数），但提示先讲清根因。
+      expect(target.find('input[data-ref-manual]').exists()).toBe(true)
+      // 一句笼统的「候选读不到」会盖掉根因，这里不许同时出现。
+      expect(target.find('[data-ref-manual-hint]').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
     }
   })
 

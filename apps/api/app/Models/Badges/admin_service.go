@@ -139,7 +139,7 @@ func (a *AdminService) normalizeNewBadge(ctx context.Context, input BadgeInput) 
 		return Badge{}, fmt.Errorf("%w: automatic badge requires a rule", ErrBadgeRuleInvalid)
 	}
 	if input.GrantMode == GrantManual && len(input.RuleRaw) > 0 {
-		return Badge{}, fmt.Errorf("%w: manual badge must not carry a rule", ErrBadgeRuleInvalid)
+		return Badge{}, fmt.Errorf("%w: manual badge must not carry a rule", ErrBadgeRuleModeConflict)
 	}
 	// 创建时还没有 badge id，跳过 badge.owned 的环检测（新徽章不可能被别人引用），
 	// 但形状与引用存在性照样校验。ValidateBadgeRule 的签名要求 badgeID，
@@ -194,7 +194,7 @@ func (a *AdminService) UpdateBadge(ctx context.Context, actor identity.Actor, ba
 		return Badge{}, fmt.Errorf("%w: automatic badge requires a rule", ErrBadgeRuleInvalid)
 	}
 	if effectiveMode == GrantManual && len(effectiveRule) > 0 {
-		return Badge{}, fmt.Errorf("%w: manual badge must not carry a rule", ErrBadgeRuleInvalid)
+		return Badge{}, fmt.Errorf("%w: manual badge must not carry a rule", ErrBadgeRuleModeConflict)
 	}
 
 	// 规则三态里「对象」这一态要在这里过一遍保存校验：AST 形状（严格 Decode）、
@@ -584,6 +584,12 @@ func (a *AdminService) RuleHealth(ctx context.Context, actor identity.Actor) ([]
 }
 
 // EstimateRuleImpact 估算某枚徽章规则的影响面（语义是「≈」）。
+//
+// **手动徽章不是「读不到规则」，而是「本来就没有规则可估」**：库里 `rule` 为 NULL，
+// 若继续往下走 `GetBadgeRule` 就会拿到 `ErrBadgeRuleInvalid` → 422 → 前端渲染成红色
+// 「影响面估算获取失败」。而「手动徽章 → 改成自动」正是编辑弹窗里最常见的路径，
+// 于是每次正常操作都报一次假故障。这里直接返回「无法估算」的中性结果：
+// 契约本来就允许 `estimated: null`（与 `0` 是两件事）。
 func (a *AdminService) EstimateRuleImpact(ctx context.Context, actor identity.Actor, badgeID int64) (RuleImpact, error) {
 	if err := requireBadgePermission(actor, PermissionBadgeView); err != nil {
 		return RuleImpact{}, err
@@ -591,6 +597,19 @@ func (a *AdminService) EstimateRuleImpact(ctx context.Context, actor identity.Ac
 	store, ok := a.store.(RuleAdminStore)
 	if !ok {
 		return RuleImpact{}, ErrBadgeNotFound
+	}
+	// 先看授予方式：只有 automatic 才可能有一条规则。
+	badge, err := a.store.GetBadge(ctx, badgeID)
+	if err != nil {
+		return RuleImpact{}, err
+	}
+	if badge.GrantMode == GrantManual {
+		return RuleImpact{
+			Estimated:             nil,
+			Method:                impactMethodUnsupported,
+			Partial:               false,
+			UnsupportedConditions: []string{},
+		}, nil
 	}
 	rule, err := store.GetBadgeRule(ctx, badgeID)
 	if err != nil {

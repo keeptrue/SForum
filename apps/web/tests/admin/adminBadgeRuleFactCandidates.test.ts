@@ -17,7 +17,8 @@ import {
 import {
   refKindGroup,
   refKindItems,
-  refKindManual,
+  isBadgeRefKind,
+  refKindMode,
   refOptionLabel
 } from '../../app/utils/admin/badgeRefCandidates'
 
@@ -49,7 +50,8 @@ const ParamField = await compileVueSfc(
     factVariantOptions,
     refKindGroup,
     refKindItems,
-    refKindManual,
+    isBadgeRefKind,
+    refKindMode,
     refOptionLabel
   }
 )

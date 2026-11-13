@@ -4,6 +4,7 @@ import { normalizeFactCandidates } from '~/utils/admin/badgeFactCandidates'
 import {
   normalizeRefCandidates,
   refCandidatesInvariantBroken,
+  refCandidatesMissingKinds as missingRefKinds,
   type BadgeRefCandidateMap
 } from '~/utils/admin/badgeRefCandidates'
 
@@ -21,7 +22,12 @@ import {
  * `refCandidates` 也是顶层新增字段（M3）：分类 / 标签 / 角色 / 提供方 / 徽章的可选项，
  * 供 `objectRef` 参数渲染可搜索选择。它**没有失败标志**——读不到就退成 `{}`，
  * 每个 kind 由读侧按 `unavailable` 处理（退文本输入），所以 `failed` 语义不变。
- * `refCandidatesIncomplete` 只是诊断（后端未升级时会天生命中），不参与任何 UI 分支。
+ *
+ * 两条诊断必须分开（合并就分不清「老后端」与「真回归」）：
+ * - `refCandidatesIncomplete`：目录声明了 objectRef 参数，响应里**整个字段都没有**。
+ *   老后端必然命中 → 只记录，不参与 UI。
+ * - `refCandidatesMissingKinds`：响应**给了数组**却缺某个目录已声明的 kind → 真回归，
+ *   界面要给可见诊断（`SFAdminBadgeRuleSection` 的 `data-ref-candidates-incomplete`）。
  *
  * `loader` 是测试注入点：默认实现走 `useApiClient()`（Nuxt 自动导入），
  * 传了 loader 就不再触碰网络层。
@@ -91,6 +97,8 @@ export function useAdminBadgeConditions(loader?: BadgeConditionsLoader) {
   const refCandidates = ref<BadgeRefCandidateMap>({})
   /** 仅诊断：目录声明了 objectRef 参数却没拿到 `refCandidates` 数组。 */
   const refCandidatesIncomplete = ref(false)
+  /** 真回归诊断：响应有数组，却缺了目录已声明的 kind（老后端时为 `[]`）。 */
+  const refCandidatesMissingKinds = ref<string[]>([])
   const pending = ref(false)
   const loaded = ref(false)
 
@@ -114,12 +122,14 @@ export function useAdminBadgeConditions(loader?: BadgeConditionsLoader) {
       const rawRefs = (payload as { refCandidates?: unknown } | null)?.refCandidates
       refCandidates.value = normalizeRefCandidates(rawRefs)
       refCandidatesIncomplete.value = refCandidatesInvariantBroken(items, rawRefs)
+      refCandidatesMissingKinds.value = missingRefKinds(items, rawRefs)
     } catch {
       // 端点未上线 / 网络失败 / 形状不符：空目录让 ruleReady 保持 false，失败态交给 UI 提示。
       catalog.value = []
       factCandidates.value = []
       refCandidates.value = {}
       refCandidatesIncomplete.value = false
+      refCandidatesMissingKinds.value = []
       failed.value = true
       factCandidatesFailed.value = true
     } finally {
@@ -134,6 +144,7 @@ export function useAdminBadgeConditions(loader?: BadgeConditionsLoader) {
     factCandidatesFailed,
     refCandidates,
     refCandidatesIncomplete,
+    refCandidatesMissingKinds,
     failed,
     pending,
     loaded,

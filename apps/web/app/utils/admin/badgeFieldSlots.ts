@@ -21,3 +21,20 @@ export const FIELD_SLOT_KEYS: ReadonlySet<string> = new Set([
   'grantMode',
   'rule'
 ])
+
+/**
+ * 把**没有展示位**的字段错误拼成一组可读文本（`key: message`）。
+ *
+ * 这些键没有本地化 label（控件已删），所以直接带原始键名：运营能定位到字段，
+ * 开发能顺着键名查契约。静默丢掉一条 422 等于让运营对着「没反应」的保存按钮猜。
+ *
+ * `slotKeys` 可注入只是为了测试能构造「未知键」；生产路径只传 `fields`。
+ */
+export function unmappedFieldMessages(
+  fields: Record<string, string[]>,
+  slotKeys: ReadonlySet<string> = FIELD_SLOT_KEYS
+): string[] {
+  return Object.entries(fields)
+    .filter(([key]) => !slotKeys.has(key))
+    .flatMap(([key, messages]) => messages.map(message => `${key}: ${message}`))
+}

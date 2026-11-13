@@ -252,11 +252,51 @@ Forum ─╳→ Badges      （Forum 不认识徽章域）
 | 控件 | `SFAdminBadgeRuleParamField.vue`：有候选 → `USelectMenu`（`search-input` + `filter-fields=['label','value']` + `value-key`/`label-key`）；候选不可用或为空 → `input[data-ref-manual]` + 提示 | **任何情况下都不许渲染只有占位项的空下拉**——它表达的是「不能选」，而运营需要的是「先手填」 |
 | 自引用 | `SFAdminBadgeEditDialog.vue` 用 `excludeBadgeSlug` 剔掉当前徽章自身的 slug | 放到后端做 → 端点得知道「正在编辑哪枚」，签名被绑死；两层都不做 → 规则能存但保存期环检测报 422 |
 
-**`unavailable` 与「空候选」刻意分开记录、渲染相同**：对运营后果一致（都没有可选项），
-所以都退文本输入；映射里分开是为了联调能区分「没取到」与「真的没有」。前端
-`refCandidatesInvariantBroken` **只作诊断不升级为失败**——内置条件恒带 objectRef，
-老后端必然命中，升级成硬失败就是假故障（与 `factCandidatesInvariantBroken` 的方向相反，
-那边「声称有 fact.count 却没给候选」是真回归）。
+**`unavailable` 与「空候选」刻意分开记录、渲染相同、提示不同（2026-11-13 残留收口）**：
+对运营后果一致（都没有可选项），所以都退文本输入；但**提示文案必须分开**——把正常状态
+说成故障会让运营去查一个没坏的后端。读侧是三态纯函数
+`refKindMode(map, kind): 'select' | 'unavailable' | 'empty'`（`utils/admin/badgeRefCandidates.ts`），
+渲染仍只有两叉，文本框带 `data-ref-manual-state="empty|unavailable"` 供断言定位
+（**不要只靠文案字符串断言**）。两句文案：`conditions.refEmptyHint`「该类型目前没有任何候选项…」
+与 `conditions.refUnavailableHint`「候选取不到…」；旧的合并键 `refManualHint` 已删除，
+`adminBadgesI18n.test.ts` 的「缺键 / 死键」双向断言会拦住残留。
+
+**目录诊断分三条，不许合并（同批收口）**：
+
+| 情况 | 判据（纯函数） | 表现 |
+| --- | --- | --- |
+| 响应**整个没有** `refCandidates`（老后端） | `refCandidatesMissingKinds` 返回 `[]` | 合法静默：逐类退文本输入，不报任何错 |
+| 响应**有数组却缺**目录已声明的 kind | `refCandidatesMissingKinds(items, raw)` 非空（按 `BADGE_REF_KINDS` 顺序） | 规则区横幅 `data-ref-candidates-incomplete`（`conditions.refMissingKinds`，带 `{kinds}`） |
+| `refKind` **不在** `BADGE_REF_KINDS` 白名单 | `declaredRefKinds(items).unknown` 非空 | 参数控件出 `data-ref-unknown-kind`（`conditions.refUnknownKind`，带 `{kind}`），**并压掉**那句笼统的「候选取不到」——根因先说话 |
+
+`fact` 不进这两个桶（它走 `factCandidates`，是另一个面）。`refCandidatesInvariantBroken`
+仍**只作非 UI 记账**（「整个字段都没有」），不升级成失败：内置条件恒带 objectRef，
+老后端必然命中（与 `factCandidatesInvariantBroken` 的方向相反，那边「声称有 fact.count
+却没给候选」是真回归）。
+
+**手动徽章的 `rule-impact` 是中性事实，不是错误（2026-11-13）**：`grant_mode='manual'` 时库里
+`rule` 恒为 NULL，`AdminService.EstimateRuleImpact` 直接返回
+`{estimated:null, method:"unsupported_condition", partial:false, unsupportedConditions:[]}`（200），
+不再走 `GetBadgeRule` 的 `ErrBadgeRuleInvalid` → 422。前端**也不问**：判据是纯函数
+`shouldLoadRuleImpact({isEdit, badgeId, draftMode, savedMode})`，读**库里**这枚徽章的授予方式，
+不是草稿的 `grantMode`（原缺陷就是拿草稿 `automatic` 去问库里 `rule IS NULL` 的徽章）。
+呈现上 `status='error'`（红，「获取失败」）与 `status='manual'`（中性，「无法估算」+ `impact.manualHint`）
+互斥，`0` / `null` / `manual` / `error` 四态各自独立。
+**别去 `GetBadgeRule` 里放宽**：它对 NULL 规则报 `ErrBadgeRuleInvalid` 是「读不到规则」的正确语义，
+中性返回只加在知道授予方式的 service 层。
+
+**`forum.badge_rule_mode_conflict`（2026-11-13 新增）**：`grantMode` 与 `rule` 自相矛盾
+（`manual` 却带 `rule`）原本与「规则本身不合法」共用 `forum.badge_rule_invalid`，
+文案是「请检查指标与阈值的组合」——指标根本没问题，运维会去改错地方。现在分开：
+
+| 码 | 触发条件 | 前端/文案键 |
+| --- | --- | --- |
+| `forum.badge_rule_mode_conflict` | `POST`/`PATCH` 提交 `grantMode:"manual"` 且 `rule` 非空（创建路径 `normalizeNewBadge`、更新路径 `UpdateBadge` 的 mode×rule 组合校验） | API 文案 `Support/Localization/messages.go`（zh/en）；HTTP 422；`ErrorCode()` 与 `mapBadgeError` 都**排在 `ErrBadgeRuleInvalid` 之前**（`errors.Is` 顺序敏感） |
+| `forum.badge_rule_invalid` | `automatic` 没有规则、规则解不开、形状/指标/图标非法 | 同上；这句「请检查指标与阈值的组合」只对回归里的这一类成立 |
+
+判据三条同批有测试：`TestManualBadgeWithRuleIsModeConflict`（三组合 ①mode_conflict ②rule_invalid ③200）、
+`TestMapBadgeErrorPutsModeConflictBeforeRuleInvalid`（同时包两条链时 mode 冲突必须胜出）、
+真机 `POST` 双码 curl。**新错误码不与 `mapBadgeError` 同批 = 落到 default → 500**（plan §13 #19）。
 
 **`identity.account_age` 的日界（2026-11-13 修，本刀挖出的历史缺陷）**：
 旧写法 `GREATEST($2::date - users.created_at::date, 0)` 把**Go 进程本地日**和
@@ -340,6 +380,12 @@ teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得
 
 ## Known Residuals（不要当 bug 修）
 
+> **2026-11-13 收口**：`reports/2026-11-13-badge-ref-candidates-acceptance-run.md` §9-A 的
+> R1（两句提示合并）、R2（未知 refKind 静默 + 目录不变量只查数组）、R3（手动徽章 rule-impact 422）、
+> R4（mode 冲突用泛码）与 R5 的两条覆盖缺口（A5-c 长列表滚动、A3-b 服务端真失败）**全部已闭**，
+> 证据与变异记录在 `reports/2026-11-13-badge-ref-candidates-residuals.md`。
+> 下面清单里仍然有效的是与它们无关的条目；本刀新发现的两条是 32 / 33。
+
 1. `Recompute` 的 `granted`（新插入行数）与 `refreshed`（`top_badge_id` 实际变化人数）相互独立，`{0,0}` 是正常幂等结果。
 2. `revoked: false` 表示本来就没持有，不是失败。
 3. 删当前最高级徽章后 chip 消失直到重算（见失真窗口 2）。
@@ -404,6 +450,20 @@ teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得
 30. **`Badges/conditions` 有两条在干净 HEAD 也红的日期敏感测试**：`TestIdentityConditions` 与
     `TestActivityStreakEndsTodayOrYesterday`。与本刀（解释器）无关，终审已复核；**别为了跑绿去改断言**，
     要单独修（真实原因是「按日取界」对系统时钟/时区的依赖，与残留 12 的 `site.timezone` 同源）。
+
+32. **鉴权层与 `roles` 表强耦合，导致「单类候选失败」无法用改表名注入**（2026-11-13 实测）：
+    `ALTER TABLE roles RENAME TO roles_qa_tmp` 之后 `GET /api/v1/profile` 直接 500
+    （`identity.sql` 的 `ListUserRoleKeys` / `ListUserPermissions` 每请求都 `JOIN roles`），
+    于是「只有 role 组 unavailable、其余照常」在这条注入下结构上不可达。等价注入是
+    「改名 + 缺 `alias` 列的同名视图顶替」：鉴权只读 `id/key/is_enabled`，照常工作；
+    只有候选那条 `SELECT key, alias, is_enabled FROM roles` 报 42703，
+    端到端就能看到 `role unavailable:true` 而其余四类照常有值（证据：
+    `reports/2026-11-13-badge-ref-candidates-residuals.md` §5.2）。**别再把「改表名」当成
+    「制造单类故障」的通用手法**——先确认鉴权路径读了哪些表。
+33. **手动徽章的 `rule-impact` 中性返回只加在 service 层**（见上「objectRef 候选」节）：
+    `PostgresStore.GetBadgeRule` 对 NULL 规则仍返回 `ErrBadgeRuleInvalid`。那是「读不到规则」
+    的正确语义，**不要为了「统一语义」在 store 里放宽**——放宽后任何调用方都拿不到
+    「这条规则不存在」这个信号了。
 
 ## Reconcile SQL（对账靠这两段）
 

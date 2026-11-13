@@ -6,9 +6,11 @@ import {
   excludeBadgeSlug,
   normalizeRefCandidates,
   refCandidatesInvariantBroken,
+  declaredRefKinds,
+  refCandidatesMissingKinds,
   refKindGroup,
   refKindItems,
-  refKindManual,
+  refKindMode,
   refOptionLabel,
   type BadgeRefCandidateMap
 } from '../../app/utils/admin/badgeRefCandidates'
@@ -95,7 +97,7 @@ describe('normalizeRefCandidates', () => {
   })
 })
 
-describe('refKindManual / refKindItems', () => {
+describe('refKindMode：三态（select / unavailable / empty）', () => {
   const map: BadgeRefCandidateMap = {
     category: {
       kind: 'category',
@@ -110,14 +112,18 @@ describe('refKindManual / refKindItems', () => {
     role: { kind: 'role', candidates: [], unavailable: true, truncated: false }
   }
 
-  test('不可用与空列表都只能手填（两者给不出可选项，后果一样）', () => {
-    expect(refKindManual(map, 'role')).toBe(true)
-    expect(refKindManual(map, 'tag')).toBe(true)
-    expect(refKindManual(map, 'category')).toBe(false)
-    // 缺失 kind（`{}` 或老后端）同样只能手填。
-    expect(refKindManual({}, 'category')).toBe(true)
-    expect(refKindManual(undefined, 'category')).toBe(true)
-    expect(refKindManual(map, undefined)).toBe(true)
+  test('有候选 → select；取不到 → unavailable；取到了但为空 → empty', () => {
+    expect(refKindMode(map, 'category')).toBe('select')
+    expect(refKindMode(map, 'role')).toBe('unavailable')
+    expect(refKindMode(map, 'tag')).toBe('empty')
+  })
+
+  test('缺失 kind / 未知 kind / undefined 一律 unavailable（不能冒充 empty）', () => {
+    // 把「没取到」说成「本来就没有」会误导运营去建分类，而真实原因是后端没下发。
+    expect(refKindMode({}, 'category')).toBe('unavailable')
+    expect(refKindMode(undefined, 'category')).toBe('unavailable')
+    expect(refKindMode(map, undefined)).toBe('unavailable')
+    expect(refKindMode(map, 'categories' as never)).toBe('unavailable')
   })
 
   test('refKindItems：有候选就列候选；不可用时返回空（此时走文本输入）', () => {
@@ -171,7 +177,8 @@ describe('excludeBadgeSlug：规则不能引用自身', () => {
     }
     const filtered = excludeBadgeSlug(onlySelf, 'self-badge')
     expect(filtered.badge?.candidates).toEqual([])
-    expect(refKindManual(filtered, 'badge')).toBe(true)
+    // 剔掉自身后为空 = 真的没有可选对象（当前这枚是库里唯一的徽章），是 `empty` 不是 `unavailable`。
+    expect(refKindMode(filtered, 'badge')).toBe('empty')
   })
 
   test('slug 为空 / 没有 badge 组时原样返回', () => {
@@ -198,7 +205,82 @@ describe('refCandidatesInvariantBroken：只作诊断，不升级硬失败', () 
   })
 })
 
+describe('declaredRefKinds / refCandidatesMissingKinds：三种情况必须区别对待', () => {
+  const declaresCategory: BadgeConditionCatalogEntry[] = [catalogWithRef]
+
+  test('完整响应 → 没有缺失 kind', () => {
+    const raw = [
+      { kind: 'category', candidates: [{ value: 'news', label: '新闻', flags: [] }] },
+      { kind: 'badge', candidates: [] },
+      { kind: 'tag', candidates: [] },
+      { kind: 'role', candidates: [] },
+      { kind: 'provider', candidates: [] }
+    ]
+    expect(refCandidatesMissingKinds(declaresCategory, raw)).toEqual([])
+  })
+
+  test('缺了目录已声明的 kind → 报出来（按 BADGE_REF_KINDS 顺序，稳定可比）', () => {
+    const raw = [{ kind: 'badge', candidates: [] }]
+    expect(refCandidatesMissingKinds(declaresCategory, raw)).toEqual(['category'])
+    // 目录声明两类都缺时，顺序由 BADGE_REF_KINDS 决定，不是响应顺序。
+    const twoKinds: BadgeConditionCatalogEntry[] = [{
+      ...catalogWithRef,
+      params: [
+        { name: 'roleKey', kind: 'objectRef', required: true, refKind: 'role' },
+        { name: 'targetSlug', kind: 'objectRef', required: true, refKind: 'category' }
+      ]
+    }]
+    expect(refCandidatesMissingKinds(twoKinds, raw)).toEqual(['category', 'role'])
+  })
+
+  test('老后端（不是数组）→ 空：合法，不许报缺失', () => {
+    expect(refCandidatesMissingKinds(declaresCategory, undefined)).toEqual([])
+    expect(refCandidatesMissingKinds(declaresCategory, { nope: 1 })).toEqual([])
+    expect(refCandidatesMissingKinds(declaresCategory, '[]')).toEqual([])
+  })
+
+  test('白名单外的 refKind 不进「缺失」桶（它不可能出现在响应里），单独报 unknown', () => {
+    const odd: BadgeConditionCatalogEntry[] = [{
+      ...catalogWithRef,
+      params: [{ name: 'targetSlug', kind: 'objectRef', required: true, refKind: 'categories' }]
+    }]
+    expect(declaredRefKinds(odd)).toEqual({ registered: [], unknown: ['categories'] })
+    // 报「缺失」只会误导（后端根本不发这一类）；未知类型是另一条诊断。
+    expect(refCandidatesMissingKinds(odd, [{ kind: 'badge', candidates: [] }])).toEqual([])
+  })
+
+  test('`fact` 不进这两个桶：它走 factCandidates，是另一个面', () => {
+    const factOnly: BadgeConditionCatalogEntry[] = [{
+      ...catalogWithRef,
+      params: [{ name: 'factKey', kind: 'objectRef', required: true, refKind: 'fact' }]
+    }]
+    expect(declaredRefKinds(factOnly)).toEqual({ registered: [], unknown: [] })
+  })
+})
+
 describe('useAdminBadgeConditions 暴露 refCandidates', () => {
+  test('老后端（字段整个缺失）：合法静默——failed=false、无可见诊断、无缺失 kind', async () => {
+    const conditions = useAdminBadgeConditions(async () => ({ items: [catalogWithRef] }))
+    await conditions.load()
+    expect(conditions.failed.value).toBe(false)
+    expect(conditions.refCandidatesMissingKinds.value).toEqual([])
+    // `refCandidatesIncomplete` 仍是非 UI 记账（模块笔记写明「不参与 UI 分支」），不当作诊断。
+    expect(conditions.refCandidates.value).toEqual({})
+  })
+
+  test('响应有数组却缺了目录已声明的 kind → 可见诊断（真回归）', async () => {
+    const conditions = useAdminBadgeConditions(async () => ({
+      items: [catalogWithRef],
+      refCandidates: [
+        // 目录声明 category，响应只给了 badge。
+        { kind: 'badge', candidates: [{ value: 'a', label: 'A', flags: [] }], unavailable: false, truncated: false }
+      ]
+    }))
+    await conditions.load()
+    expect(conditions.refCandidatesMissingKinds.value).toEqual(['category'])
+    expect(conditions.failed.value).toBe(false)
+  })
+
   test('成功：解析 refCandidates，且不影响 factCandidates / failed 语义', async () => {
     const conditions = useAdminBadgeConditions(async () => ({
       items: [catalogWithRef],
@@ -239,8 +321,21 @@ describe('useAdminBadgeConditions 暴露 refCandidates', () => {
       new URL('../../app/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue', import.meta.url),
       'utf8'
     )
+    const dialog = readFileSync(
+      new URL('../../app/components/admin/badges/SFAdminBadgeEditDialog.vue', import.meta.url),
+      'utf8'
+    )
+    const section = readFileSync(
+      new URL('../../app/components/admin/badges/SFAdminBadgeRuleSection.vue', import.meta.url),
+      'utf8'
+    )
     expect(shell).toContain('refCandidates: badgeConditions.refCandidates.value')
     expect(tab).toContain(':ref-candidates="props.refCandidates"')
+    // R2 的真回归诊断要走同一条链（少接一根，界面上的诊断永远不会出现）。
+    expect(shell).toContain('refCandidatesMissingKinds: badgeConditions.refCandidatesMissingKinds.value')
+    expect(tab).toContain(':ref-candidates-missing-kinds="props.refCandidatesMissingKinds"')
+    expect(dialog).toContain(':ref-candidates-missing-kinds="refCandidatesMissingKinds"')
+    expect(section).toContain('data-ref-candidates-incomplete')
     // 组件与组合式函数之间没有第二份状态：`refCandidates` 只由 composable 持有。
     expect(typeof useAdminBadgeConditions).toBe('function')
   })

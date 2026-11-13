@@ -384,6 +384,16 @@ BadgeCreateInput:
     `enabled: true` and `icon: i-lucide-award` when omitted. The four fields
     below are nevertheless required for a successful create — omitting one
     fails domain validation with `422 forum.badge_rule_invalid`.
+
+    Two `422` reasons are kept apart on purpose, because the operator fixes them
+    differently:
+
+    - `forum.badge_rule_mode_conflict`: `grantMode` and `rule` contradict each
+      other (`grantMode: manual` with a non-null `rule`). Change the grant mode
+      or drop the rule.
+    - `forum.badge_rule_invalid`: the rule itself is missing where it is
+      required (`grantMode: automatic` without a rule) or unusable. Edit the
+      rule.
   required:
   - slug
   - name

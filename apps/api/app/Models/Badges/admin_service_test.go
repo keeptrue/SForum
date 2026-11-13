@@ -56,8 +56,12 @@ func TestAdminCreateBadgeRejectsInvalidRules(t *testing.T) {
 	}
 	for _, tc := range cases {
 		want := ErrBadgeRuleInvalid
-		if tc.name == "bad tier" {
+		switch tc.name {
+		case "bad tier":
 			want = ErrBadgeTierInvalid
+		case "manual with rule":
+			// 状态冲突有自己的码：它那句「请检查指标与阈值的组合」对这里完全指错方向。
+			want = ErrBadgeRuleModeConflict
 		}
 		if _, err := admin.CreateBadge(context.Background(), manageActor(), tc.input); !errors.Is(err, want) {
 			t.Fatalf("%s: err = %v, want %v", tc.name, err, want)

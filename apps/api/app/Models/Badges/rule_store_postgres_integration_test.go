@@ -2,6 +2,7 @@ package badges
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -508,5 +509,121 @@ func TestUpdateBadgeRuleNullCombinations(t *testing.T) {
 	toAutomatic.GrantMode = GrantAutomatic
 	if _, err := admin.UpdateBadge(ctx, manageActor(), badgeID, toAutomatic); !errors.Is(err, ErrBadgeRuleInvalid) {
 		t.Fatalf("automatic + rule:null 必须报 ErrBadgeRuleInvalid，得到 %v", err)
+	}
+}
+
+// insertManualBadge 插一枚手动徽章（`rule` 为 NULL）并返回 id。
+//
+// 手动徽章是「没有规则」的合法形态，不是脏数据：`badges_rule_check` 允许 manual + NULL。
+func (f *badgesPGFixture) insertManualBadge(t *testing.T, slug string) int64 {
+	t.Helper()
+	var id int64
+	if err := f.pool.QueryRow(f.ctx, `
+		INSERT INTO badges (slug, name, tier, grant_mode, metric, threshold, rule, enabled, position)
+		VALUES ($1,$1,'bronze','manual',NULL,NULL,NULL,TRUE,0) RETURNING id`, slug).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+// TestEstimateRuleImpactOnManualBadgeIsNeutral 钉住 R3：手动徽章没有规则可估，
+// 这不是错误。
+//
+// 旧行为：`GetBadgeRule` 对 NULL 规则返回 `ErrBadgeRuleInvalid` → 422 → 前端渲染成红色
+// 「影响面估算获取失败」。而「手动徽章 → 改成自动」是编辑弹窗里最常见的路径，于是每次
+// 正常保存前都报一次假故障。新行为：200 + `estimated:null` + `method:unsupported_condition`
+// （契约本来就允许 null，与 `0` 是两件事）。
+func TestEstimateRuleImpactOnManualBadgeIsNeutral(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	ctx := fixture.ctx
+	store := NewPostgresStore(fixture.pool)
+	badgeID := fixture.insertManualBadge(t, "manual-impact")
+	admin := NewAdminService(store)
+
+	impact, err := admin.EstimateRuleImpact(ctx, viewActor(), badgeID)
+	if err != nil {
+		t.Fatalf("手动徽章的影响面必须成功返回（旧实现是 ErrBadgeRuleInvalid → 422），得到 %v", err)
+	}
+	if impact.Estimated != nil {
+		t.Fatalf("estimated = %v，手动徽章没有规则可估，必须是 nil（不是 0 人）", *impact.Estimated)
+	}
+	if impact.Method != impactMethodUnsupported {
+		t.Fatalf("method = %q, want %q", impact.Method, impactMethodUnsupported)
+	}
+	if impact.Partial {
+		t.Fatal("manual impact must not be marked partial")
+	}
+	// 空清单不能是 nil：前端按数组遍历，JSON 里必须是 `[]`。
+	if impact.UnsupportedConditions == nil || len(impact.UnsupportedConditions) != 0 {
+		t.Fatalf("unsupportedConditions = %v, want empty non-nil slice", impact.UnsupportedConditions)
+	}
+
+	// 回归对照：自动徽章照旧走估算（这条保证上面的早退没把正常路径也短路掉）。
+	autoID := fixture.badge(t, "auto-impact", "bronze", 1, "topic_count", 1)
+	autoImpact, err := admin.EstimateRuleImpact(ctx, viewActor(), autoID)
+	if err != nil {
+		t.Fatalf("自动徽章的估算路径必须不变，得到 %v", err)
+	}
+	if autoImpact.Method == "" {
+		t.Fatal("自动徽章的估算必须给出 method")
+	}
+}
+
+// TestManualBadgeWithRuleIsModeConflict 钉住 R4：三种组合必须报两条**不同**的码。
+//
+//   - manual + 带规则     → ErrBadgeRuleModeConflict（状态冲突：改授予方式或清空规则）
+//   - automatic + 无规则  → ErrBadgeRuleInvalid（规则缺失：去写规则）
+//   - manual + 无规则     → 200
+//
+// 旧行为把前两者都报成 ErrBadgeRuleInvalid，文案是「请检查指标与阈值的组合」——
+// 对手动徽章指错方向：指标根本没问题。
+func TestManualBadgeWithRuleIsModeConflict(t *testing.T) {
+	fixture := newBadgesPGFixture(t)
+	ctx := fixture.ctx
+	store := NewPostgresStore(fixture.pool)
+	badgeID := fixture.insertManualBadge(t, "mode-conflict")
+	admin := NewAdminService(store)
+
+	previous, err := store.GetBadge(ctx, badgeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := BadgeInput{
+		Slug: previous.Slug, Name: previous.Name, Description: previous.Description,
+		GroupID: previous.GroupID, Tier: previous.Tier, Icon: previous.Icon,
+		Enabled: previous.Enabled, Position: previous.Position,
+	}
+	rule := json.RawMessage(`{"v":1,"root":{"type":"activity.count","params":{"metric":"topic_count","window":{"kind":"all"}},"cmp":{"op":"gte","value":1}}}`)
+
+	// ① 手动徽章带规则 → 状态冲突（精确码，不是笼统的 rule_invalid）。
+	conflict := base
+	conflict.GrantMode = GrantManual
+	conflict.RuleSet = true
+	conflict.RuleRaw = rule
+	_, err = admin.UpdateBadge(ctx, manageActor(), badgeID, conflict)
+	if !errors.Is(err, ErrBadgeRuleModeConflict) {
+		t.Fatalf("manual + rule 必须报 ErrBadgeRuleModeConflict，得到 %v", err)
+	}
+	// 反向：它**不是** rule_invalid —— 两个码必须能分开（前端文案靠这条区分）。
+	if errors.Is(err, ErrBadgeRuleInvalid) {
+		t.Fatal("mode 冲突不许同时命中 ErrBadgeRuleInvalid：那会把「请检查指标与阈值」的文案重新带回来")
+	}
+
+	// ② automatic 但没规则 → 仍然报规则本身的问题（那句文案是对的，不许被新码吞掉）。
+	missing := base
+	missing.GrantMode = GrantAutomatic
+	missing.RuleSet = true
+	missing.RuleRaw = nil
+	if _, err := admin.UpdateBadge(ctx, manageActor(), badgeID, missing); !errors.Is(err, ErrBadgeRuleInvalid) {
+		t.Fatalf("automatic + 无规则必须仍报 ErrBadgeRuleInvalid，得到 %v", err)
+	}
+
+	// ③ 手动 + 无规则 → 200（最常见的手动徽章形态，不许因为新校验变红）。
+	plain := base
+	plain.GrantMode = GrantManual
+	plain.RuleSet = true
+	plain.RuleRaw = nil
+	if _, err := admin.UpdateBadge(ctx, manageActor(), badgeID, plain); err != nil {
+		t.Fatalf("manual + 无规则必须成功，得到 %v", err)
 	}
 }

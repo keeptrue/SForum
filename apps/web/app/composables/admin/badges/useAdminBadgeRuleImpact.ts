@@ -26,7 +26,34 @@ export interface AdminBadgeRuleImpact {
   unsupportedConditions: string[]
 }
 
-export type AdminBadgeRuleImpactStatus = 'idle' | 'loading' | 'error' | 'ready'
+/**
+ * `manual` = **库里这枚徽章此刻是手动授予**，没有规则可估。
+ *
+ * 它必须是独立状态，不能压成 `error`：手动 → 自动是编辑弹窗里最常见的路径，
+ * 把它显示成「获取失败」（红）等于每次正常操作都报一次假故障。也不压成 `ready`：
+ * 那要求我们编一个假的 impact 对象。
+ */
+export type AdminBadgeRuleImpactStatus = 'idle' | 'loading' | 'error' | 'ready' | 'manual'
+
+/**
+ * 「保存前要不要向 `/rule-impact` 要估算」的唯一判据。
+ *
+ * 端点估的是**库里已保存的规则**，所以判据必须读**已保存的授予方式**，不能读草稿里的
+ * `grantMode`。否则「手动 → 自动」这条最常见的路径每次都会：库里规则为 NULL → 422 →
+ * 弹窗红字「影响面估算获取失败」。手动徽章本就无规则可估 → 不请求，直接给中性态。
+ */
+export function shouldLoadRuleImpact(params: {
+  isEdit: boolean
+  badgeId: number | null | undefined
+  /** 草稿当前的授予方式（本次编辑后想变成什么）。 */
+  draftMode: 'automatic' | 'manual'
+  /** 库里这枚徽章此刻的授予方式。 */
+  savedMode: 'automatic' | 'manual' | undefined
+}): boolean {
+  if (!params.isEdit || !params.badgeId) return false
+  if (params.draftMode !== 'automatic') return false
+  return params.savedMode === 'automatic'
+}
 
 /**
  * 影响面读取器。
@@ -44,6 +71,17 @@ export function useAdminBadgeRuleImpact() {
   function reset() {
     status.value = 'idle'
     impact.value = null
+  }
+
+  /**
+   * 标记「这一枚没有规则可估」：不发请求，也不编数字。
+   *
+   * 手动徽章在库里 `rule` 恒为 NULL，端点只能 422 —— 前端已知这个事实时就别问，
+   * 与后端「手动徽章返回 estimated:null」是同一条语义的两个入口，不是两份真相。
+   */
+  function markManual() {
+    impact.value = null
+    status.value = 'manual'
   }
 
   async function load(badgeId: number): Promise<AdminBadgeRuleImpact | null> {
@@ -75,5 +113,5 @@ export function useAdminBadgeRuleImpact() {
     }
   }
 
-  return { status, impact, load, reset }
+  return { status, impact, load, reset, markManual }
 }

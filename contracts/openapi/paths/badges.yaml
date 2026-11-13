@@ -89,8 +89,13 @@ adminBadges:
         their own — never validate this against a client-side enum.
       - `icon` must start with `i-lucide-` or `i-tabler-`.
 
-      Violations return `422` reason `forum.badge_rule_invalid`; a duplicate
-      slug returns `409` reason `forum.badge_slug_taken`.
+      Violations return `422` with one of two reasons, and the distinction is
+      deliberate: `forum.badge_rule_mode_conflict` means `grantMode` and `rule`
+      contradict each other (`grantMode: manual` with a non-null `rule`), while
+      `forum.badge_rule_invalid` means the rule itself is unusable (missing,
+      malformed, unknown condition). Fixing the first means changing the grant
+      mode or clearing the rule; fixing the second means editing the rule.
+      A duplicate slug returns `409` reason `forum.badge_slug_taken`.
     requestBody:
       required: true
       content:
@@ -126,6 +131,12 @@ adminBadgeByID:
 
       Disabling a badge keeps existing grants but triggers a `top_badge_id`
       recompute for affected users, so the badge stops rendering next to posts.
+
+      Sending a `rule` together with `grantMode: manual` is a state conflict and
+      returns `422` reason `forum.badge_rule_mode_conflict` (not
+      `forum.badge_rule_invalid`: the rule may be perfectly valid, the
+      combination is not). Declaring `grantMode: automatic` without a rule, or
+      with an unusable one, keeps returning `forum.badge_rule_invalid`.
     parameters:
     - "$ref": "../components/parameters.yaml#/BadgeID"
     requestBody:

@@ -14,13 +14,13 @@ import {
   type BadgeRule
 } from '../../app/utils/admin/badgeRule'
 import { useBadgeRuleDraft } from '../../app/composables/admin/badges/useBadgeRuleDraft'
-import { useAdminBadgeRuleImpact } from '../../app/composables/admin/badges/useAdminBadgeRuleImpact'
+import { shouldLoadRuleImpact, useAdminBadgeRuleImpact } from '../../app/composables/admin/badges/useAdminBadgeRuleImpact'
 import { useBadgeRuleTextPreview } from '../../app/composables/admin/badges/useBadgeRuleTextPreview'
 import type { BadgeRuleHealthRow } from '../../app/composables/admin/badges/useAdminBadgeRuleHealth'
 import { forumBadgeTier, pickTierName } from '../../app/utils/forum/forumBadge'
 import { tierColorVar } from '../../app/utils/theme/tierColor'
 import { apiErrorFields, apiErrorMessage } from '../../app/composables/useApiClient'
-import { FIELD_SLOT_KEYS } from '../../app/utils/admin/badgeFieldSlots'
+import { FIELD_SLOT_KEYS, unmappedFieldMessages } from '../../app/utils/admin/badgeFieldSlots'
 import { excludeBadgeSlug } from '../../app/utils/admin/badgeRefCandidates'
 
 /**
@@ -162,6 +162,7 @@ const EditDialog = await compileVueSfc(dialogPath, 'badge-edit-dialog', {
   apiErrorMessage,
   excludeBadgeSlug,
   FIELD_SLOT_KEYS,
+  unmappedFieldMessages,
   computed,
   reactive,
   ref,
@@ -170,6 +171,7 @@ const EditDialog = await compileVueSfc(dialogPath, 'badge-edit-dialog', {
   useApiClient: useApiClientStub,
   useToast: useToastStub,
   useAdminBadgeRuleImpact,
+  shouldLoadRuleImpact,
   useBadgeRuleTextPreview,
   SFAdminBadgeIconField: IconFieldStub,
   SFAdminBadgeRuleSection: RuleSection,

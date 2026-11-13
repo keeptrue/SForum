@@ -818,7 +818,20 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **徽章「获得条件」改为服务端生成（2026-11-13，最新）**：公开说明不再由运营手填，改由规则树现算双语
+- **徽章 objectRef 候选残留收口（2026-11-13，最新）**：上一刀 accepted 带 5 条残留，本刀全部关闭 ——
+  ① `refKindManual` 布尔 → **三态 `refKindMode`**（`select`/`unavailable`/`empty`），「候选取不到」与
+  「该类型没有候选项」拆成两句（旧键 `refManualHint` 删除），文本框带 `data-ref-manual-state`；
+  ② 目录诊断分三条：老后端（无字段）**静默**、有数组缺类 → 规则区横幅、白名单外 `refKind` →
+  `data-ref-unknown-kind`（`declaredRefKinds` / `refCandidatesMissingKinds` 两个纯函数）；
+  ③ 手动徽章 `rule-impact` 不再 422（service 层返回 `estimated:null`，前端改按**库里的授予方式**决定
+  问不问，中性「无法估算」与红色「获取失败」互斥）；④ 新码 `forum.badge_rule_mode_conflict`
+  （sentinel/常量/两处 wrap/`mapBadgeError` 顺序/zh+en/OpenAPI 五件同批）；⑤ 两条覆盖缺口补实测
+  （390×844 注入 35 条候选滚动到底；服务端真失败用「缺 `alias` 的同名视图顶替」——**单纯改 `roles`
+  表名会让 `/profile` 也 500**，因为鉴权每请求都 `JOIN roles`）。门禁三线 PASS（api 347s / web 50s /
+  static 16s），验收脚本 20/0/53（无库，API 在跑）与 78/0/9（带库）。**未提交**。
+  见 `sessions/2026-11-13-badge-ref-candidates-residuals.md`、
+  `reports/2026-11-13-badge-ref-candidates-residuals.md`、`modules/badges.md`「objectRef 候选」节（含错误码小表）。
+- **徽章「获得条件」改为服务端生成（2026-11-13）**：公开说明不再由运营手填，改由规则树现算双语
   （`conditions/phrases.go` 13 条措辞 + `requirement_text_render.go` 树遍历：子句 >4 压成「满足全部 N 个
   条件，例如…」、单句 ≤100 / 整段 ≤160 超限降级）；手工徽章「由管理员手动授予」、脏规则给泛称句、
   **永不空白**；引用走 `RefNameLoader` 一次 `= ANY($1)` 解析真名。后台两个 textarea → 只读预览 +
@@ -842,6 +855,9 @@ load archived sessions or completed plans as current context.
   `sessions/2026-11-13-badge-ref-candidates.md`、`decisions/2026-11-13-badge-ref-candidates.md`、
   `modules/badges.md`「objectRef 候选」节。顺带补正 HEAD 上本就红的路由 tripwire（`7c07edf9d`
   漏计数，422 → 423）与 `verify-badge-rules-acceptance.sh` 的 `expected=421` 手工账。
+  **残留已收口（同日第二刀）**：三态提示、目录诊断、手动徽章 `rule-impact` 中性返回、
+  `forum.badge_rule_mode_conflict`、两条覆盖缺口 —— 见
+  `sessions/2026-11-13-badge-ref-candidates-residuals.md` 与同名 reports 文件。
 - **徽章规则：条件表达式 + 插件事实层（M1–M3 收口，2026-11-12）**：`badges.rule` JSONB 成为自动徽章的
   唯一判定来源（`metric`/`threshold` 降 legacy 只读）；七层协作方（`Support/RuleEngine` 纯 AST + Kleene
   三值 → `conditions` 13 条 → `rule_store`/`rule_eval`/`rule_health`/`rule_impact`/`facts_store` →

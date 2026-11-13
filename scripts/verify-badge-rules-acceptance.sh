@@ -904,7 +904,9 @@ fi
 
 # X-03 新错误码 zh/en（先确认常量已加，再跑本地化测试）
 CODES_FILE="$API_DIR/app/Models/Badges/errors.go"
-new_codes='forum.badge_rule_too_complex forum.badge_rule_unknown_condition forum.badge_rule_cycle forum.badge_rule_reference_invalid forum.badge_fact_write_denied'
+# `forum.badge_rule_mode_conflict` 是 R4（2026-11-13 残留收口）新增的码：它必须与
+# 「manual 却带 rule」的校验同批落地，否则会落到 mapBadgeError 的 default → 500。
+new_codes='forum.badge_rule_too_complex forum.badge_rule_unknown_condition forum.badge_rule_cycle forum.badge_rule_reference_invalid forum.badge_fact_write_denied forum.badge_rule_mode_conflict'
 missing_codes=''
 for code in $new_codes; do
   grep -rq "\"$code\"" "$API_DIR/app" 2>/dev/null || missing_codes="$missing_codes $code"

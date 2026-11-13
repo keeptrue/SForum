@@ -33,7 +33,8 @@ import {
 import {
   refKindGroup,
   refKindItems,
-  refKindManual,
+  isBadgeRefKind,
+  refKindMode,
   refOptionLabel
 } from '../../app/utils/admin/badgeRefCandidates'
 import {
@@ -100,7 +101,8 @@ const ParamField = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRulePa
   factVariantOptions,
   refKindGroup,
   refKindItems,
-  refKindManual,
+  isBadgeRefKind,
+  refKindMode,
   refOptionLabel
 })
 

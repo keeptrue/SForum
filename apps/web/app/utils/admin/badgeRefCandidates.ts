@@ -11,8 +11,9 @@
  *    等于告诉运营「不能选」，而运营真正需要的是「先手填 slug，后端健康检查会校验」。
  *    这条正是线上那个 bug（`candidatesPending` 空下拉，值永远为空，保存必报缺参）。
  * 3. 因此 `unavailable` 与「空列表」在这里按**同一种**处理（都走文本兜底）：
- *    两者都不会给出任何可选项，对运营的后果完全一样。目录侧仍分开记录，
- *    便于后端联调时区分「没取到」和「真的没有」。
+ *    两者都不会给出任何可选项，对运营的后果完全一样。**但提示文案必须分开**
+ *    （`refKindMode` 的三态就是为这句话服务的）：「候选取不到，请直接填写」与
+ *    「这一类目前没有候选项」是两件不同的事，把正常状态说成故障会让运营去查后端。
  *
  * 失效值（当前值不在候选里）不静默清空：追加一个标记为失效的选项，原值保留可见，
  * 与 `factKeyMissing` 同一条原则。
@@ -127,12 +128,21 @@ export function refKindGroup(
 }
 
 /**
- * 是否只能手填：候选取不到、或候选为空。两者都给不出可选项，必须给文本输入——
- * 这是本文件存在的理由，别在这里加「至少渲染一个占位 option」的分支。
+ * 某一类引用参数的控件形态，三态：
+ * - `select`：有候选，渲染可搜索选择器；
+ * - `unavailable`：候选取不到（后端降级 / 老后端 / 未注册的 kind）；
+ * - `empty`：取到了，但这一类确实一条候选都没有（例如新站点还没有任何分类）。
+ *
+ * 渲染只有两叉（后两者都出文本框）——这条读侧契约的理由见文件头；三态存在的唯一目的
+ * 是让提示文案说真话。**别把后两者合并回一个布尔值**：那正是上一版的缺陷
+ * （「候选暂时读不到」把正常状态说成故障）。
  */
-export function refKindManual(map: BadgeRefCandidateMap | undefined, kind: BadgeRefKind | undefined): boolean {
+export type BadgeRefMode = 'select' | 'unavailable' | 'empty'
+
+export function refKindMode(map: BadgeRefCandidateMap | undefined, kind: BadgeRefKind | undefined): BadgeRefMode {
   const group = refKindGroup(map, kind)
-  return group.unavailable || group.candidates.length === 0
+  if (group.unavailable) return 'unavailable'
+  return group.candidates.length === 0 ? 'empty' : 'select'
 }
 
 /**
@@ -182,7 +192,7 @@ export function refOptionLabel(
  * 去掉 `badge` 类候选里的**自身**：徽章规则不能要求「拥有自己」（自引用永不成立，
  * 而且会绕过授予链路）。其余 kind 原样返回引用。
  *
- * 过滤后为空**不补任何占位项**：`refKindManual` 会看到空列表并退成文本输入——
+ * 过滤后为空**不补任何占位项**：`refKindMode` 会看到空列表并退成文本输入——
  * 这正是新建徽章时的正常状态（还没有任何其它徽章可选）。
  */
 export function excludeBadgeSlug(
@@ -212,10 +222,62 @@ export function refCandidatesInvariantBroken(
   items: readonly BadgeConditionCatalogEntry[],
   raw: unknown
 ): boolean {
-  const declaresObjectRef = items.some(entry =>
-    (entry.params ?? []).some(param => param.kind === 'objectRef' && param.refKind !== 'fact')
-  )
-  if (!declaresObjectRef) return false
-  if (Array.isArray(raw)) return false
-  return true
+  const declared = declaredRefKinds(items)
+  if (declared.registered.length === 0 && declared.unknown.length === 0) return false
+  return !Array.isArray(raw)
+}
+
+/** 目录里声明的 `objectRef` 参数按 `refKind` 去重后的两个桶。 */
+export interface DeclaredRefKinds {
+  /** 落在 `BADGE_REF_KINDS` 白名单里的声明：这些必须由 `refCandidates` 覆盖。 */
+  registered: BadgeRefKind[]
+  /** 白名单外的声明（插件把 refKind 拼错 / 用了前端还不认识的类型）。 */
+  unknown: string[]
+}
+
+/**
+ * 从条件目录的 `items[].params[]` 收集声明过的 `refKind`（`fact` 不算：它走
+ * `factCandidates`，是另一个面）。
+ *
+ * 去重 + 按 `BADGE_REF_KINDS` 顺序输出：调用方要拿它跟响应做差集，顺序必须稳定，
+ * 否则断言只能比集合、比不了列表。
+ */
+export function declaredRefKinds(items: readonly BadgeConditionCatalogEntry[]): DeclaredRefKinds {
+  const seen = new Set<string>()
+  for (const entry of items) {
+    for (const param of entry.params ?? []) {
+      if (param.kind !== 'objectRef') continue
+      const refKind = param.refKind
+      if (typeof refKind !== 'string') continue
+      const trimmed = refKind.trim()
+      if (trimmed === '' || trimmed === 'fact') continue
+      seen.add(trimmed)
+    }
+  }
+  const registered = BADGE_REF_KINDS.filter(kind => seen.has(kind))
+  const unknown = [...seen].filter(value => !isBadgeRefKind(value)).sort()
+  return { registered, unknown }
+}
+
+/**
+ * 「目录声明了、响应却没给」的 kind 列表 —— 真回归的判据。
+ *
+ * 三种情况必须区别对待（合并任何一种都会让下一个人误判）：
+ * 1. 响应**整体没有** `refCandidates`（老后端）→ 合法，返回 `[]`，静默走文本兜底；
+ * 2. 响应有数组但缺了某个目录已声明的 kind → 返回该 kind，调用方给**可见诊断**；
+ * 3. 声明的 kind 不在白名单里 → **不**进这个列表（它不可能出现在响应里，报「缺失」
+ *    只会误导），由 `declaredRefKinds().unknown` 单独报「类型未注册」。
+ */
+export function refCandidatesMissingKinds(
+  items: readonly BadgeConditionCatalogEntry[],
+  raw: unknown
+): BadgeRefKind[] {
+  if (!Array.isArray(raw)) return []
+  const present = new Set<string>()
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const kind = (row as Record<string, unknown>).kind
+    if (isBadgeRefKind(kind)) present.add(kind)
+  }
+  return declaredRefKinds(items).registered.filter(kind => !present.has(kind))
 }
