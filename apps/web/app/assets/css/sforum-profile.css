@@ -459,6 +459,12 @@
   gap: 0;
 }
 
+/* 右栏列宽固定 270px。grid item 默认 min-width:auto，内容的 min-content 一旦超过列宽，
+   整块就被外层 overflow-x 按 padding box 裁掉右侧（卡片右边框、TL、右对齐文字消失）。 */
+.sf-profile-right-content {
+  min-width: 0;
+}
+
 .sf-profile-right-content--drawer {
   padding: 16px;
 }
