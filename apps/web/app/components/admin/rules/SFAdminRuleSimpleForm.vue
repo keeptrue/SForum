@@ -18,6 +18,7 @@ import {
   type BadgeRuleLeaf
 } from '~/utils/admin/rule'
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
+import type { BadgeRuleLabelFamily } from '~/utils/admin/badgeRuleParams'
 import { buildFlatAllRule, flattenAllLeaves, leafSentence } from '~/utils/admin/badgeRuleSentence'
 import SFAdminRuleParamField from '~/components/admin/rules/SFAdminRuleParamField.vue'
 
@@ -30,12 +31,17 @@ const props = withDefaults(defineProps<{
   /** objectRef 参数候选：只有 objectRef 参数行消费。 */
   refCandidates?: BadgeRefCandidateMap
   /**
-   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章规则族（`admin.badges` 下的 `rule`）；
    * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
    */
   i18nKeyPrefix?: string
+  /** 条件族前缀（提示句/占位符/参数名）：默认徽章族，信任等级传自己那一份。 */
+  conditionI18nPrefix?: string
+  /** 参数取值文案的三元组：默认徽章族，信任等级传自己那一份。 */
+  labelFamily?: BadgeRuleLabelFamily
 }>(), {
   i18nKeyPrefix: 'admin.badges.rule',
+  conditionI18nPrefix: 'admin.badges.conditions',
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({})
@@ -48,6 +54,9 @@ const { t: rawT, te: rawTE, locale } = useI18n()
 // 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
 const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
 const te = (key: string) => rawTE(`${props.i18nKeyPrefix}.${key}`)
+// 条件族的短键包装：提示句走宿主域的条件族，不跟按钮/句子/错误码混族。
+const cc = (key: string, params?: Record<string, unknown>) =>
+  rawT(`${props.conditionI18nPrefix}.${key}`, params as never)
 
 const zh = computed(() => String(locale.value ?? '').toLowerCase().startsWith('zh'))
 const leaves = computed(() => flattenAllLeaves(props.rule))
@@ -62,7 +71,8 @@ const errors = computed(() => validateRuleDraft(props.rule, props.catalog).error
 const sentenceI18n = {
   t: (key: string, params?: Record<string, unknown>) => rawT(key, params as never),
   te: (key: string) => rawTE(key),
-  i18nKeyPrefix: props.i18nKeyPrefix
+  i18nKeyPrefix: props.i18nKeyPrefix,
+  labelFamily: props.labelFamily
 }
 
 function entryOf(type: string) {
@@ -214,6 +224,8 @@ function removeCondition(index: number) {
         <!-- 参数控件只有一份实现（ParamField）：简单模式与高级模式渲染同一个组件。 -->
         <SFAdminRuleParamField
           :i18n-key-prefix="i18nKeyPrefix"
+          :condition-i18n-prefix="conditionI18nPrefix"
+          :label-family="labelFamily"
           v-for="spec in rowParams(leaf)"
           :key="spec.name"
           :spec="spec"
@@ -229,7 +241,7 @@ function removeCondition(index: number) {
       </div>
 
       <p v-if="factCandidatesFailed && leaf.type === 'fact.count'" class="sf-simple-rule__flag">
-        {{ rawT('admin.badges.conditions.factCandidatesFailed') }}
+        {{ cc('factCandidatesFailed') }}
       </p>
       <ul v-if="rowErrors(index).length > 0" class="sf-simple-rule__errors" data-simple-row-error>
         <li v-for="message in rowErrors(index)" :key="message">{{ message }}</li>

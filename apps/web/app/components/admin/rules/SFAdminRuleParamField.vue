@@ -16,7 +16,7 @@ import type {
   BadgeFactCandidate,
   BadgeRuleLeaf
 } from '~/utils/admin/rule'
-import { resolveParamOptionLabel } from '~/utils/admin/badgeRuleParams'
+import { BADGE_LABEL_FAMILY, resolveParamOptionLabel, type BadgeRuleLabelFamily } from '~/utils/admin/badgeRuleParams'
 import {
   applyFactKeySelection,
   factKeyMissing,
@@ -54,18 +54,28 @@ const props = withDefaults(defineProps<{
    */
   simpleMode?: boolean
   /**
-   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章规则族（`admin.badges` 下的 `rule`）；
    * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
    */
   i18nKeyPrefix?: string
   /**
-   * 「事实来源已不可用」这句的**完整键**（不是短键）：它属于宿主域的条件族，
-   * 不在规则族里。默认徽章族；信任等级传自己的那份，避免跨族取词。
+   * 条件族的 i18n 键前缀（提示句 / 占位符 / 参数名文案的父级）：默认徽章条件族。
+   *
+   * 它和 `i18nKeyPrefix` 是**两个族**：规则族只放按钮、句子模板与错误码；条件族放
+   * 「候选读不到」「事实已失效」这类跟条件目录绑在一起的提示。信任等级传自己那份，避免跨族取词。
    */
-  factStaleHintKey?: string
+  conditionI18nPrefix?: string
+  /**
+   * 参数取值文案的三个前缀族（参数专属选项 / 共享指标名 / 共享枚举值名）。
+   *
+   * `paramOptionLabelKey` 只认前缀、不认域：徽章编辑器用默认的徽章三元组，信任等级
+   * 传自己那一份。缺省时行为与旧版逐字一致（徽章族绝对键）。
+   */
+  labelFamily?: BadgeRuleLabelFamily
 }>(), {
   i18nKeyPrefix: 'admin.badges.rule',
-  factStaleHintKey: 'admin.badges.conditions.factStaleHint',
+  conditionI18nPrefix: 'admin.badges.conditions',
+  labelFamily: () => BADGE_LABEL_FAMILY,
   entry: null,
   factCandidates: () => [],
   factCandidatesFailed: false,
@@ -81,6 +91,9 @@ const { t: rawT, te: rawTE } = useI18n()
 // 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
 const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
 const te = (key: string) => rawTE(`${props.i18nKeyPrefix}.${key}`)
+// 条件族的短键包装：提示句/占位符/参数名都归宿主域的条件族（不是规则族）。
+const cc = (key: string, params?: Record<string, unknown>) =>
+  rawT(`${props.conditionI18nPrefix}.${key}`, params as never)
 
 const currentFactKey = computed(() => paramText('factKey'))
 const isFactCount = computed(() => props.entry?.key === 'fact.count')
@@ -109,8 +122,8 @@ const refGroup = computed(() => refKindGroup(props.refCandidates, refKind.value)
 const refMode = computed(() => refKindMode(props.refCandidates, refKind.value))
 const refManual = computed(() => refMode.value !== 'select')
 const refManualHint = computed(() => (refMode.value === 'empty'
-  ? rawT('admin.badges.conditions.refEmptyHint')
-  : rawT('admin.badges.conditions.refUnavailableHint')))
+  ? cc('refEmptyHint')
+  : cc('refUnavailableHint')))
 /**
  * 目录声明了一个白名单外的 `refKind`（插件拼错 / 前后端版本不一致）。
  *
@@ -130,9 +143,9 @@ const refItems = computed<Array<{ value: string, label: string }>>(() =>
   .map(option => ({
     value: option.value,
     label: refOptionLabel(option, {
-      stale: rawT('admin.badges.conditions.refStale'),
-      hidden: rawT('admin.badges.conditions.refFlagHidden'),
-      disabled: rawT('admin.badges.conditions.refFlagDisabled')
+      stale: cc('refStale'),
+      hidden: cc('refFlagHidden'),
+      disabled: cc('refFlagDisabled')
     })
   })))
 
@@ -146,9 +159,9 @@ const enumOptions = computed<FactOption[]>(() => {
   if (props.spec.name === 'variant') return variantItems.value
   return (props.spec.options ?? []).map(value => ({
     value,
-    // 这条 util 返回的是**全键**（`admin.badges.conditions.params.<name>.options.<v>`），
+    // 这条 util 返回的是**全键**（`<family.params>.<name>.options.<v>`），族由宿主注入；
     // 直接喂前缀化 `t` 会双前缀，所以这里走 rawT/rawTE。
-    label: resolveParamOptionLabel(props.spec.name, value, key => rawT(key), key => rawTE(key))
+    label: resolveParamOptionLabel(props.spec.name, value, key => rawT(key), key => rawTE(key), props.labelFamily)
   }))
 })
 
@@ -172,10 +185,10 @@ const windowDays = computed(() => {
 
 /** 参数文案走共享键；插件自定义参数没有文案时回退原始 name，不显示裸 i18n key。 */
 const label = computed(() => {
-  // 参数名文案属于条件族（不是规则族，见 props 注释）；这里用全键 + rawT，
-  // 前缀化 `t` 只服务规则族。插件自定义参数没有文案时回退原始 name。
+  // 参数名文案属于条件族（不是规则族，见 props 注释）：`cc` 只补条件族前缀。
+  // 插件自定义参数没有文案时回退原始 name。
   const key = `params.${props.spec.name}`
-  return rawTE(key) ? rawT(key) : props.spec.name
+  return rawTE(`${props.conditionI18nPrefix}.${key}`) ? cc(key) : props.spec.name
 })
 
 const textValue = computed(() => paramText(props.spec.name))
@@ -279,15 +292,15 @@ function setFactKey(event: Event) {
           :aria-label="label"
           @change="setFactKey"
         >
-          <option value="">{{ rawT('admin.badges.conditions.factKeyPlaceholder') }}</option>
+          <option value="">{{ cc('factKeyPlaceholder') }}</option>
           <option v-for="item in factItems" :key="item.value" :value="item.value">{{ item.label }}</option>
           <option v-if="factStale" :value="currentFactKey">{{ currentFactKey }}</option>
         </select>
         <p v-if="factStale" class="sf-rule-field__flag" data-fact-stale>
-          {{ t('health.missing_fact_key') }} · {{ rawT(props.factStaleHintKey) }}
+          {{ t('health.missing_fact_key') }} · {{ cc('factStaleHint') }}
         </p>
         <p v-else-if="factCandidatesFailed" class="sf-rule-field__flag" data-fact-candidates-failed>
-          {{ rawT('admin.badges.conditions.factCandidatesFailed') }}
+          {{ cc('factCandidatesFailed') }}
         </p>
       </template>
 
@@ -305,7 +318,7 @@ function setFactKey(event: Event) {
             @input="setText"
           >
           <p v-if="refUnknownKind" class="sf-rule-field__flag" data-ref-unknown-kind :data-ref-kind="refUnknownKind">
-            {{ rawT('admin.badges.conditions.refUnknownKind', { kind: refUnknownKind }) }}
+            {{ cc('refUnknownKind', { kind: refUnknownKind }) }}
           </p>
           <p v-else class="sf-rule-field__flag" data-ref-manual-hint>
             {{ refManualHint }}
@@ -327,12 +340,12 @@ function setFactKey(event: Event) {
             :filter-fields="['label', 'value']"
             :clear="false"
             size="sm"
-            :placeholder="rawT('admin.badges.conditions.refCandidatesPlaceholder')"
+            :placeholder="cc('refCandidatesPlaceholder')"
             :aria-label="label"
             @update:model-value="setRefValue"
           />
           <p v-if="refTruncated" class="sf-rule-field__flag" data-ref-truncated>
-            {{ rawT('admin.badges.conditions.refTruncated') }}
+            {{ cc('refTruncated') }}
           </p>
         </template>
       </template>

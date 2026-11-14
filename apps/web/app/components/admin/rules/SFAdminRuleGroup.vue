@@ -28,6 +28,7 @@ import {
   type BadgeRuleOp
 } from '~/utils/admin/rule'
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
+import type { BadgeRuleLabelFamily } from '~/utils/admin/badgeRuleParams'
 import SFAdminRuleLeaf from '~/components/admin/rules/SFAdminRuleLeaf.vue'
 
 const props = withDefaults(defineProps<{
@@ -42,12 +43,17 @@ const props = withDefaults(defineProps<{
   /** objectRef 参数候选：递归往下带，直到参数控件。 */
   refCandidates?: BadgeRefCandidateMap
   /**
-   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章规则族（`admin.badges` 下的 `rule`）；
    * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
    */
   i18nKeyPrefix?: string
+  /** 条件族前缀：本层不直接用，只负责把它带到叶子的参数控件。 */
+  conditionI18nPrefix?: string
+  /** 参数取值文案的三元组：同上，只往下带。 */
+  labelFamily?: BadgeRuleLabelFamily
 }>(), {
-  i18nKeyPrefix: 'admin.badges.rule'
+  i18nKeyPrefix: 'admin.badges.rule',
+  conditionI18nPrefix: 'admin.badges.conditions'
 })
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
@@ -228,6 +234,8 @@ function opLabel(op: BadgeRuleOp) {
         <SFAdminRuleGroup
           v-if="row.group"
           :i18n-key-prefix="i18nKeyPrefix"
+          :condition-i18n-prefix="conditionI18nPrefix"
+          :label-family="labelFamily"
           :rule="rule"
           :node="row.group"
           :path="[...path, row.index]"
@@ -241,6 +249,8 @@ function opLabel(op: BadgeRuleOp) {
         <SFAdminRuleLeaf
           v-else-if="row.leaf"
           :i18n-key-prefix="i18nKeyPrefix"
+          :condition-i18n-prefix="conditionI18nPrefix"
+          :label-family="labelFamily"
           :rule="rule"
           :node="row.leaf"
           :path="[...path, row.index]"

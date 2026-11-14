@@ -10,7 +10,7 @@ import type { BadgeRule } from '~/utils/admin/rule'
 const props = withDefaults(defineProps<{
   rule: BadgeRule
   /**
-   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章规则族（`admin.badges` 下的 `rule`）；
    * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
    */
   i18nKeyPrefix?: string

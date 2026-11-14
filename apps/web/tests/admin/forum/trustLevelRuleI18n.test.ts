@@ -42,6 +42,54 @@ const pick = (doc: Record<string, unknown>, path: string) => {
 const zh = load('zh-CN')
 const en = load('en-US')
 
+/**
+ * 共享规则编辑器的**条件族**（提示句 / 参数名 / 指标名 / 枚举值名）。
+ *
+ * 缺陷原状（M3b-F1）：`paramOptionLabelKey` 硬编码 `admin.badges.*` 全键，信任侧没有
+ * 对应族，于是信任编辑器的下拉与句子里的指标名**永远读徽章族**。修法是把族显式注入，
+ * 信任宿主传自己这一份 `admin.forum.trustLevels.ruleConditions`。
+ *
+ * 这一族是徽章 `admin.badges.conditions` + `admin.badges.metrics` 的**逐字副本**。
+ * 死键棘轮对注入族整族放行（族名不是叶子键），补偿就是这里：键集与值都必须逐条相等，
+ * 少一条 = 该提示在信任页显示原始 key；多一条 = 自造文案。
+ */
+describe('信任等级规则编辑器的条件族（admin.forum.trustLevels.ruleConditions）', () => {
+  const trustPath = 'admin.forum.trustLevels.ruleConditions'
+
+  test('中英键集完全一致', () => {
+    const zhKeys = [...pick(zh, trustPath).keys()].sort()
+    const enKeys = [...pick(en, trustPath).keys()].sort()
+    expect(zhKeys).toEqual(enKeys)
+  })
+
+  test('= 徽章 conditions 族的逐字副本（键集与值，两侧语言都比）', () => {
+    for (const [locale, doc] of [['zh-CN', zh], ['en-US', en]] as const) {
+      const trust = pick(doc, trustPath)
+      const badge = pick(doc, 'admin.badges.conditions')
+      // `metrics` 在徽章侧是 `conditions` 的**兄弟**（`admin.badges.metrics`），
+      // 信任侧统一收在 `ruleConditions` 下，所以比对前先从这一族里摘出去。
+      const trustWithoutMetrics = [...trust.entries()].filter(([key]) => !key.startsWith('metrics.'))
+      // 徽章**宿主独占**的键：`refMissingKinds` 只喂徽章页自己的「候选目录不完整」诊断，
+      // 共享编辑器不消费它。复制过去就是一条没人读的文案（死键棘轮也会红）。
+      const BADGE_HOST_ONLY = ['refMissingKinds']
+      const badgeShared = [...badge.entries()].filter(([key]) => !BADGE_HOST_ONLY.includes(key))
+      expect({ locale, conditions: trustWithoutMetrics.sort() })
+        .toEqual({ locale, conditions: badgeShared.sort() })
+    }
+  })
+
+  test('指标名 = 徽章 metrics 族的逐字副本', () => {
+    for (const [locale, doc] of [['zh-CN', zh], ['en-US', en]] as const) {
+      const trust = pick(doc, trustPath)
+      const metrics = [...trust.entries()]
+        .filter(([key]) => key.startsWith('metrics.'))
+        .map(([key, value]) => [key.slice('metrics.'.length), value] as const)
+      const badge = pick(doc, 'admin.badges.metrics')
+      expect({ locale, metrics: metrics.sort() }).toEqual({ locale, metrics: [...badge.entries()].sort() })
+    }
+  })
+})
+
 describe('信任等级规则族（admin.forum.trustLevels.rule）', () => {
   test('中英键集完全一致（缺一边 = 一边站点会看到原始 key）', () => {
     const zhKeys = [...pick(zh, 'admin.forum.trustLevels.rule').keys()].sort()

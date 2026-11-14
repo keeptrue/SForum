@@ -22,7 +22,7 @@ import {
   validateRuleDraft,
   wrapWithGroup
 } from '../../app/utils/admin/badgeRule'
-import { resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
+import { BADGE_LABEL_FAMILY, resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
 import {
   applyFactKeySelection,
   factCandidateUnit,
@@ -94,6 +94,7 @@ const ruleDir = new URL('../../app/components/admin/rules/', import.meta.url)
 const ParamField = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleParamField.vue', ruleDir)), 'simple-param-field', {
   computed,
   useI18n: i18nStub,
+  BADGE_LABEL_FAMILY,
   resolveParamOptionLabel,
   applyFactKeySelection,
   factKeyMissing,

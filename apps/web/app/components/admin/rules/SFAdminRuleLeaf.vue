@@ -16,6 +16,7 @@ import {
   type BadgeRuleLeaf
 } from '~/utils/admin/rule'
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
+import type { BadgeRuleLabelFamily } from '~/utils/admin/badgeRuleParams'
 import { factCandidateUnit } from '~/utils/admin/badgeFactCandidates'
 import SFAdminRuleParamField from '~/components/admin/rules/SFAdminRuleParamField.vue'
 
@@ -32,12 +33,17 @@ const props = withDefaults(defineProps<{
   /** objectRef 参数候选：不可用/为空时参数控件退成文本输入。 */
   refCandidates?: BadgeRefCandidateMap
   /**
-   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章规则族（`admin.badges` 下的 `rule`）；
    * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
    */
   i18nKeyPrefix?: string
+  /** 条件族前缀（提示句/占位符/参数名）：默认徽章族，信任等级传自己那一份。 */
+  conditionI18nPrefix?: string
+  /** 参数取值文案的三元组：默认徽章族，信任等级传自己那一份。 */
+  labelFamily?: BadgeRuleLabelFamily
 }>(), {
   i18nKeyPrefix: 'admin.badges.rule',
+  conditionI18nPrefix: 'admin.badges.conditions',
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({})
@@ -49,6 +55,9 @@ const { t: rawT, locale } = useI18n()
 
 // 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
 const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
+// 条件族的短键包装：与规则族分开（提示句不属于按钮/句子/错误码那一族）。
+const cc = (key: string, params?: Record<string, unknown>) =>
+  rawT(`${props.conditionI18nPrefix}.${key}`, params as never)
 
 const entry = computed(() => props.catalog.find(item => item.key === props.node.type) ?? null)
 const params = computed<BadgeConditionParam[]>(() => entry.value?.params ?? [])
@@ -116,9 +125,9 @@ function setValue(event: Event) {
   <article class="sf-rule-leaf" :data-rule-leaf="node.type" :data-depth="depth">
     <!-- 目录里没有这个条件（插件卸载 / 版本回退）：显示原始 key + 只读提示，不渲染空控件。 -->
     <div v-if="!entry" class="sf-rule-leaf__missing" data-rule-leaf-missing>
-      <p class="sf-rule-leaf__missing-title">{{ rawT('admin.badges.conditions.unknown', { type: node.type }) }}</p>
+      <p class="sf-rule-leaf__missing-title">{{ cc('unknown', { type: node.type }) }}</p>
       <code class="sf-rule-leaf__missing-key">{{ node.type }}</code>
-      <p class="sf-rule-leaf__missing-hint">{{ rawT('admin.badges.conditions.unknownHint') }}</p>
+      <p class="sf-rule-leaf__missing-hint">{{ cc('unknownHint') }}</p>
     </div>
 
     <template v-else>

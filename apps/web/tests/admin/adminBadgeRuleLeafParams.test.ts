@@ -15,7 +15,7 @@ import {
   validateRuleDraft
 } from '../../app/utils/admin/badgeRule'
 import { buildFlatAllRule, flattenAllLeaves, leafSentence } from '../../app/utils/admin/badgeRuleSentence'
-import { paramOptionLabelKey, resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
+import { BADGE_LABEL_FAMILY, paramOptionLabelKey, resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
 import {
   applyFactKeySelection,
   factCandidateUnit,
@@ -91,6 +91,7 @@ const ParamField = await compileVueSfc(
   {
     computed,
     useI18n: i18nStub,
+    BADGE_LABEL_FAMILY,
     resolveParamOptionLabel,
     applyFactKeySelection,
     factKeyMissing,

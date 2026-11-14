@@ -12,7 +12,7 @@
  *    `all` 会改变判定结果，等于让运营发错徽章。
  */
 import { isGroupNode, type BadgeConditionCatalogEntry, type BadgeRule, type BadgeRuleLeaf, type BadgeRuleNode } from './badgeRule'
-import { resolveParamOptionLabel } from './badgeRuleParams'
+import { resolveParamOptionLabel, type BadgeRuleLabelFamily } from './badgeRuleParams'
 
 /**
  * 句子要用的最小 i18n 面。注入而不是全局 import：纯函数才可单测，也才不会被
@@ -29,6 +29,13 @@ export interface RuleSentenceI18n {
    * 只参数化组件里的 `t` 会让缺键时静默显示原始 key。
    */
   i18nKeyPrefix?: string
+  /**
+   * 指标名的文案族，默认徽章族（`admin.badges.*` 三元组）。
+   *
+   * 句子里的指标名与下拉选项走**同一条**解析链（`resolveParamOptionLabel`），
+   * 所以族必须一起注入：只参数化选项、不参数化句子，两处文案会读不同族。
+   */
+  labelFamily?: BadgeRuleLabelFamily
 }
 
 /** 句子键族的默认前缀（徽章）。 */
@@ -103,7 +110,7 @@ export function leafSentence(
 
   const params = (leaf.params ?? {}) as Record<string, unknown>
   const metric = typeof params.metric === 'string' && params.metric !== ''
-    ? resolveParamOptionLabel('metric', params.metric, i18n.t, i18n.te)
+    ? resolveParamOptionLabel('metric', params.metric, i18n.t, i18n.te, i18n.labelFamily)
     : ''
   const symbol = leaf.cmp.op === 'lte' ? '≤' : '≥'
   const unit = unitPhrase(entry, params, zh)

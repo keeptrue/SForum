@@ -18,7 +18,14 @@ import { normalizeRefCandidates, type BadgeRefCandidateMap } from '~/utils/admin
 export type TrustLevelConditionsLoader = () => Promise<unknown>
 
 export type TrustLevelConditionCatalog = {
-  /** 服务端裁剪后的 12 条可用条件（14 条减去内容质量两条）。 */
+  /**
+   * 服务端裁剪后的可用条件：共享目录减去内容质量两条（`content.pinned` / `content.hidden`），
+   * 再按候选可用性过滤。
+   *
+   * 这里刻意不写条数：共享目录会增长（`identity.profile` 这类条件还在落地），
+   * 写死任何数字都只能在某一刻正确，随后就变成误导。口径来源：
+   * `apps/api/app/Models/TrustLevels/rule_catalog.go` 的排除表。
+   */
   items: BadgeConditionCatalogEntry[]
   factCandidates: BadgeFactCandidate[]
   refCandidates: BadgeRefCandidateMap

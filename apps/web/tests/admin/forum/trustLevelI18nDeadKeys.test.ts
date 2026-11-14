@@ -122,6 +122,17 @@ describe('admin.forum.trustLevels 死键棘轮', () => {
 
     const used = new Set<string>(literal)
     for (const key of DYNAMIC_KEYS) used.add(key)
+    // 族注入（M3b-F1）：共享编辑器的条件族与标签三元组经 prop 注入，源码里出现的是
+    // **族名**（`admin.forum.trustLevels.ruleConditions`、`.params`…），没有叶子键可匹配。
+    // 族名是某些已定义键的祖先，就整族算已使用——这不是把哨兵改成记录簿：那两族由
+    // `trustLevelRuleI18n.test.ts` **逐键**与徽章族比对（键集 + 值），族内多一条自造
+    // 文案、少一条副本都会在那里红。
+    for (const key of [...literal]) {
+      if (!defined.some(definedKey => definedKey.startsWith(`${key}.`))) continue
+      for (const definedKey of defined) {
+        if (definedKey.startsWith(`${key}.`)) used.add(definedKey)
+      }
+    }
     for (const family of [...DYNAMIC_FAMILIES, ...prefixed]) {
       for (const key of defined) {
         if (key === family || key.startsWith(`${family}.`)) used.add(key)

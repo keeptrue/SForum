@@ -50,6 +50,34 @@ export interface BadgeConditionParam {
 const WINDOW_KINDS: readonly string[] = ['all', 'recent_days']
 
 /**
+ * 参数取值文案的三个**前缀族**（显式注入，不假定宿主域）。
+ *
+ * 共享编辑器同时服务徽章与信任等级，两族的键位形状不同（徽章的 `metrics` 在
+ * `admin.badges` 下，信任等级那份在自己的子族里），所以这里只认前缀，不认具体域。
+ * 每个前缀都指向一个**命名空间**（`<prefix>.<param>.options.<value>` 这种拼法才有意义）。
+ */
+export interface BadgeRuleLabelFamily {
+  /** 参数专属选项文案：`<params>.<paramName>.options.<value>`。 */
+  params: string
+  /** 共享指标名：`<metrics>.<value>`（多个条件的同名指标只写一份）。 */
+  metrics: string
+  /** 共享枚举值名：`<enums>.<value>`。 */
+  enums: string
+}
+
+/**
+ * 徽章族的默认三元组（共享编辑器的历史行为，逐字不变）。
+ *
+ * 徽章侧的消费方不传 `labelFamily` 时用的就是这三个前缀；任何一次徽章族改名
+ * 只影响徽章侧，信任侧读自己的族（契约见 `tests/admin/forum/trustLevelRuleI18n.test.ts`）。
+ */
+export const BADGE_LABEL_FAMILY: BadgeRuleLabelFamily = {
+  params: 'admin.badges.conditions.params',
+  metrics: 'admin.badges.metrics',
+  enums: 'admin.badges.conditions.enums'
+}
+
+/**
  * 参数取值的候选 i18n 键，**按命中优先级**排列：
  * 1) 参数专属的选项文案（`metric.options.topic_count`）；
  * 2) 共享指标名（`metrics.topic_count`，多个条件的同名指标只写一份）；
@@ -57,12 +85,18 @@ const WINDOW_KINDS: readonly string[] = ['all', 'recent_days']
  *
  * 返回数组而不是单个键，是为了让调用方只做一次「第一个存在的键」决策，
  * 文案顺序不会因为实现细节在不同控件里漂移。
+ *
+ * `family` 由宿主注入：**这一层不认任何域**，硬编码一个族会让另一族静默读错文案。
  */
-export function paramOptionLabelKey(paramName: string, value: string): string[] {
+export function paramOptionLabelKey(
+  paramName: string,
+  value: string,
+  family: BadgeRuleLabelFamily = BADGE_LABEL_FAMILY
+): string[] {
   return [
-    `admin.badges.conditions.params.${paramName}.options.${value}`,
-    `admin.badges.metrics.${value}`,
-    `admin.badges.conditions.enums.${value}`
+    `${family.params}.${paramName}.options.${value}`,
+    `${family.metrics}.${value}`,
+    `${family.enums}.${value}`
   ]
 }
 
@@ -76,9 +110,10 @@ export function resolveParamOptionLabel(
   paramName: string,
   value: string,
   t: (key: string) => string,
-  te: (key: string) => boolean
+  te: (key: string) => boolean,
+  family: BadgeRuleLabelFamily = BADGE_LABEL_FAMILY
 ): string {
-  for (const key of paramOptionLabelKey(paramName, value)) {
+  for (const key of paramOptionLabelKey(paramName, value, family)) {
     if (te(key)) return t(key)
   }
   return value

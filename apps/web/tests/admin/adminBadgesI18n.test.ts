@@ -105,6 +105,25 @@ const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
   'admin.badges.rule.compare': ['gte', 'lte'],
   'admin.badges.rule.window': ['all', 'recent_days'],
   'admin.badges.conditions.enums': ['like', 'bookmark', 'comment', 'category', 'tag'],
+  // 共享规则编辑器经 `conditionI18nPrefix` 读的条件族提示句（徽章侧默认值）。
+  // 这些短键在 `components/admin/rules/*` 里以 `cc('<short>')` 出现，扫不到全键，
+  // 所以整族在这里逐值登记；族内多一条无消费者文案仍会被本断言判成 extra。
+  'admin.badges.conditions': [
+    'empty',
+    'unknown',
+    'unknownHint',
+    'factCandidatesFailed',
+    'factKeyPlaceholder',
+    'factStaleHint',
+    'refCandidatesPlaceholder',
+    'refUnavailableHint',
+    'refEmptyHint',
+    'refUnknownKind',
+    'refTruncated',
+    'refStale',
+    'refFlagHidden',
+    'refFlagDisabled',
+  ],
   'admin.badges.rule.health': [
     'missing_topic',
     'missing_category',
@@ -168,6 +187,18 @@ const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
 describe('admin.badges i18n namespace', () => {
   test('defines every referenced key in both locales, and nothing more', () => {
     const { literal, prefixes } = referencedBadgeKeys()
+    // 族引用 = 前缀：共享编辑器把「条件族 / 标签三元组」经 prop 注入，源码里出现的是
+    // **族名**（`admin.badges.conditions`、`admin.badges.metrics`…）而不是叶子键。
+    // 族名是某些已定义键的祖先，就把它当整族前缀交给 DYNAMIC_ENUMERATIONS 逐值枚举。
+    const definedAll = new Set(
+      [...flatten(lookup(zh, 'admin.badges'))].map(key => `admin.badges.${key}`)
+    )
+    for (const key of [...literal]) {
+      if (definedAll.has(key)) continue
+      if (![...definedAll].some(defined => defined.startsWith(`${key}.`))) continue
+      literal.delete(key)
+      prefixes.add(key)
+    }
     const used = new Set(literal)
     for (const prefix of prefixes) {
       const values = DYNAMIC_ENUMERATIONS[prefix]

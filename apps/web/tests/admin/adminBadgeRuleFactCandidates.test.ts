@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { compileVueSfc, mount } from '../helpers/vueSfc'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRuleLeaf } from '../../app/utils/admin/badgeRule'
 import { createDefaultLeaf, replaceNode } from '../../app/utils/admin/badgeRule'
-import { resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
+import { BADGE_LABEL_FAMILY, resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
 import {
   applyFactKeySelection,
   factCandidateLabel,
@@ -43,6 +43,7 @@ const ParamField = await compileVueSfc(
   {
     computed,
     useI18n: i18nStub,
+    BADGE_LABEL_FAMILY,
     resolveParamOptionLabel,
     applyFactKeySelection,
     factKeyMissing,

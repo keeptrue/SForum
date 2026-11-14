@@ -6168,7 +6168,52 @@
             "recent_days": "最近 N 天"
           },
           "wrapNot": "包进「非」"
+        },
+      "ruleConditions": {
+        "empty": "没有可用的条件目录，暂时无法编辑规则。",
+        "unknown": "条件「{type}」不在当前目录中。",
+        "unknownHint": "该条件已不在目录中（插件可能已卸载）。删除这个节点，或恢复对应插件后再编辑。",
+        "factCandidatesFailed": "插件事实候选暂时读不到，现在无法选择事实来源；已有规则不受影响。",
+        "factKeyPlaceholder": "选择事实来源",
+        "factStaleHint": "该事实来源已不可用（扩展可能已停用或卸载）。原值会保留，规则健康检查会继续提示。",
+        "refCandidatesPlaceholder": "搜索并选择",
+        "refUnavailableHint": "候选取不到，请直接填写标识（slug / key）。保存后规则健康检查会告诉你它是否存在。",
+        "refEmptyHint": "该类型目前没有任何候选项，可直接填写标识（slug / key）。保存后规则健康检查会告诉你它是否存在。",
+        "refUnknownKind": "引用类型「{kind}」未注册：后端或插件版本不一致，候选无法加载。手填的值仍会保存，但可能不被识别。",
+        "refTruncated": "候选太多，这里只显示前 500 条；用搜索缩小范围即可。",
+        "refStale": "（失效）",
+        "refFlagHidden": "（已隐藏）",
+        "refFlagDisabled": "（已停用）",
+        "metrics": {
+          "bookmark_count": "收藏数",
+          "comment_count": "回复数",
+          "days_visited": "访问天数",
+          "like_received_count": "获赞数",
+          "topic_count": "主题数",
+          "like_given_count": "送出赞"
+        },
+        "enums": {
+          "like": "点赞",
+          "bookmark": "收藏",
+          "comment": "评论",
+          "category": "分类",
+          "tag": "标签"
+        },
+        "params": {
+          "metric": "指标",
+          "window": "时间窗口",
+          "minDays": "连续天数",
+          "action": "互动方式",
+          "topicId": "主题 ID",
+          "targetKind": "对象类型",
+          "targetSlug": "对象标识",
+          "days": "天数",
+          "providerId": "登录方式",
+          "roleKey": "角色",
+          "slug": "徽章标识",
+          "variant": "变体"
         }
+      }
       }
     },
     "form": {

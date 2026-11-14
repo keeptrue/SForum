@@ -11,6 +11,7 @@
  * 压平会直接改变判定结果、误发授予，属于数据事故而不是体验问题。
  */
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
+import type { BadgeRuleLabelFamily } from '~/utils/admin/badgeRuleParams'
 import { isGroupNode, type BadgeConditionCatalogEntry, type BadgeFactCandidate, type BadgeRule } from '~/utils/admin/rule'
 import { isSimpleRule, ruleSentence } from '~/utils/admin/badgeRuleSentence'
 import SFAdminRuleGroup from '~/components/admin/rules/SFAdminRuleGroup.vue'
@@ -36,17 +37,25 @@ const props = withDefaults(defineProps<{
    */
   initialMode?: RuleMode
   /**
-   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章族 `admin.badges.rule`；
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章规则族（`admin.badges` 下的 `rule`）；
    * 信任等级传 `admin.forum.trustLevels.rule`。两份文案一致是**有意的重复**——
    * 跨族取词会让一处改名静默改掉另一处（copy-spec §3.3.2 同一裁决）。
    */
   i18nKeyPrefix?: string
+  /**
+   * 条件族前缀：提示句 / 占位符 / 参数名文案的父级。默认徽章条件族；
+   * 信任等级传自己的逐字副本（禁止跨族取词）。
+   */
+  conditionI18nPrefix?: string
+  /** 参数取值文案的三元组（参数专属选项 / 共享指标名 / 共享枚举值名）。 */
+  labelFamily?: BadgeRuleLabelFamily
 }>(), {
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({}),
   initialMode: undefined,
-  i18nKeyPrefix: 'admin.badges.rule'
+  i18nKeyPrefix: 'admin.badges.rule',
+  conditionI18nPrefix: 'admin.badges.conditions'
 })
 
 type RuleMode = 'simple' | 'advanced'
@@ -58,6 +67,9 @@ const { t: rawT, te: rawTE, locale: rawLOCALE } = useI18n()
 // 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
 const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
 const te = (key: string) => rawTE(`${props.i18nKeyPrefix}.${key}`)
+// 条件族的短键包装：与规则族分开，宿主决定读哪一族。
+const cc = (key: string, params?: Record<string, unknown>) =>
+  rawT(`${props.conditionI18nPrefix}.${key}`, params as never)
 const locale = rawLOCALE
 
 /**
@@ -73,7 +85,8 @@ const degraded = computed(() => mode.value === 'simple' && !simple.value)
 const sentenceI18n = {
   t: (key: string, params?: Record<string, unknown>) => rawT(key, params as never),
   te: (key: string) => rawTE(key),
-  i18nKeyPrefix: props.i18nKeyPrefix
+  i18nKeyPrefix: props.i18nKeyPrefix,
+  labelFamily: props.labelFamily
 }
 
 /** 常显的一句话预览：两种模式下都看得到「这条规则到底在说什么」。 */
@@ -106,7 +119,7 @@ function update(next: BadgeRule) {
     :aria-label="t('title')"
   >
     <p v-if="catalog.length === 0" class="sf-rule-editor__notice">
-      {{ rawT('admin.badges.conditions.empty') }}
+      {{ cc('empty') }}
     </p>
 
     <template v-else>
@@ -140,6 +153,8 @@ function update(next: BadgeRule) {
       <SFAdminRuleSimpleForm
         v-if="mode === 'simple' && simple"
         :i18n-key-prefix="i18nKeyPrefix"
+        :condition-i18n-prefix="conditionI18nPrefix"
+        :label-family="labelFamily"
         :rule="modelValue"
         :catalog="catalog"
         :fact-candidates="factCandidates ?? []"
@@ -152,6 +167,8 @@ function update(next: BadgeRule) {
         <SFAdminRuleGroup
           v-if="rootGroup"
           :i18n-key-prefix="i18nKeyPrefix"
+          :condition-i18n-prefix="conditionI18nPrefix"
+          :label-family="labelFamily"
           :rule="modelValue"
           :node="rootGroup"
           :path="rootPath"
@@ -165,6 +182,8 @@ function update(next: BadgeRule) {
         <SFAdminRuleLeaf
           v-else-if="rootLeaf"
           :i18n-key-prefix="i18nKeyPrefix"
+          :condition-i18n-prefix="conditionI18nPrefix"
+          :label-family="labelFamily"
           :rule="modelValue"
           :node="rootLeaf"
           :path="rootPath"

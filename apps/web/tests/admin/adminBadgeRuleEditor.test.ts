@@ -8,7 +8,7 @@ import type {
   BadgeRuleGroup,
   BadgeRuleNode
 } from '../../app/utils/admin/badgeRule'
-import { resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
+import { BADGE_LABEL_FAMILY, resolveParamOptionLabel } from '../../app/utils/admin/badgeRuleParams'
 import { isSimpleRule, ruleSentence } from '../../app/utils/admin/badgeRuleSentence'
 import {
   applyFactKeySelection,
@@ -68,6 +68,7 @@ const ParamField = await compileVueSfc(
   {
     computed,
     useI18n: i18nStub,
+    BADGE_LABEL_FAMILY,
     resolveParamOptionLabel,
     applyFactKeySelection,
     factKeyMissing,
