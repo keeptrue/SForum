@@ -474,6 +474,40 @@ consumers/tests that depend on the shape. Run
 - Initial queue names are `critical`, `default`, `search`, `mail`,
   `notifications`, and `maintenance`.
 
+## Security And Dependency Governance
+
+仓库级安全门禁与依赖告警的当前口径（2026-11-14 实测）。处置细节见
+`../sessions/2026-11-14-security-alert-remediation.md`。
+
+**告警台账（GitHub `keeptrue/SForum`，public）**
+
+| 告警 | 规则 | 处置 | 结果 |
+| --- | --- | --- | --- |
+| Dependabot #612 | otel CVE-2026-128085 | 合并 PR #209（squash `3563b2055`），`tools/proto` 的 `otel/trace` 1.44.0 → 1.47.0 | fixed |
+| CodeQL #45 / #47 / #48 | `go/allocation-size-overflow` | 改代码（`af18ef94e`，容量改 `max`），见 `trust-levels.md` | 修复已推送，重新分析待复查 |
+| CodeQL #46 | `js/clear-text-logging` | 删除一次性 QA 脚本 `setup-account.mjs`（`52fb2b50a`） | fixed |
+| Dependabot #610 | katex prototype pollution（low） | **有意保持 dismissed** | 仍 dismissed，待后续 |
+
+Dependabot **open 安全告警现为 0**；仍有 **19 个 open Dependabot PR**（#208 core-go 组、
+#207 compose-images 组、#205 github-actions 组、#202 builtin-go 组、
+#201/#200/#199/#198/#197/#196/#195/#194/#193/#192/#191、#188/#187/#186/#185）——它们是
+常规版本升级，**不对应任何 open 安全告警**，用户已明确本次不合并。
+
+**仓库安全设置**：`secret_scanning` 与 `secret_scanning_push_protection` 已由
+disabled 改为 **enabled**（public 仓库免费）；`secret_scanning_non_provider_patterns`
+与 `secret_scanning_validity_checks` 仍 disabled（本次未触碰），
+`dependabot_security_updates` 仍 enabled。历史 secret scanning 扫描实测无告警。
+
+**扫描覆盖边界（重要，别当成「已全覆盖」）**：`.github/workflows/security.yml` 的
+CodeQL 作业是 `build-mode: manual` + `working-directory: apps/api`（workflow 第
+49 / 71 行），仓库**无 `go.work`**、`apps/api/go.mod` **无 `replace`**。因此
+**8 个 `extensions/builtin/plugins/*/backend` 独立 Go module 与 `tools/proto` 不在
+CodeQL 的 Go 数据库里**，不会产生该类告警；govulncheck 同理（`work-dir: apps/api`
++ `go-package: ./...`，只覆盖 core）。workflow 里「内建插件与 apps/api 共享同一依赖
+树，core 绿即代表可达漏洞面已覆盖」那句**只对依赖可达性成立，对插件自身源码不
+成立**。2026-11-14 用 Go AST 补扫这两个范围**命中 0 处**（结论是「实测无此类漏洞」，
+不是「扫不到所以认为没有」）。**消除盲区要扩 workflow 构建范围，属后续项。**
+
 ## Open Questions
 
 - Final deployment target and runtime process model.

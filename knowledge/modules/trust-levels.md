@@ -779,6 +779,42 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
 **历史保留**：最早的 FAIL 证据 `20261111-184009` 跑在通道切换之前，已作废——不删，是因为
 「修了两轮」本身就是事实。
 
+## 预分配容量与 CodeQL 分配溢出告警（2026-11-14）
+
+CodeQL `go/allocation-size-overflow` 在本模块报了 **3 条** open 告警，本次**改代码**
+消警（提交 `af18ef94e`，不是 dismiss）：#47 / #48 指向
+`apps/api/app/Http/Controllers/TrustLevels/controller.go:459-460`（原
+`make(map[string]struct{}, len(configKeys)+len(declaredKeys))` 与
+`make([]earnableState, 0, len(configKeys)+len(declaredKeys))`），#45 指向
+`apps/api/app/Models/TrustLevels/policy.go:111`（原
+`make([]string, 0, len(previous.DeletedTierIDs)+len(previous.Tiers))`）。
+
+**改法**：`make` 的容量实参从「两段长度相加」改为「两段长度的较大值」——
+`controller.go:470` `capHint := max(len(configKeys), len(declaredKeys))`
+（`seen` map 与 `out` 切片共用），`policy.go:122`
+`max(len(previous.DeletedTierIDs), len(previous.Tiers))`。该查询的 sink 判据要求
+容量实参由整型 `+`/`*` 产生；改成 `max` 后表达式里不再出现加法，
+`DefaultSink → OverflowProneOperand → AllocationSize` 链条断裂，告警必然关闭。
+`max` 是 Go 1.21+ 内建，`apps/api/go.mod` 为 `go 1.26.10`，仓库内已有同款用法。
+
+**业务语义零改动**（只影响这一次分配多少）：`appendKey` / `appendID` 的
+判空 → 去重 → 写入顺序、返回顺序、墓碑保序并集语义都没动；容量只是**提示**，
+实际长度两个方向都可能偏离 `max`（更大：并集最多是两边之和，append 自动扩容；
+更小：controller 侧空串被 `appendKey` 过滤，policy 侧内置档位 id 不是 `tier_<n>`
+不进墓碑），两种偏离都不影响正确性。
+
+**残留 nit（本次刻意不修）**：`policy.go:123` 的
+`seen := make(map[string]bool, len(deleted))`——`deleted` 是 `make([]string, 0, ...)`
+创建的切片，此刻 `len(deleted)` 恒为 0，这个 map 因此拿不到任何容量提示。小审
+建议写成 `max(len(previous.DeletedTierIDs), len(previous.Tiers))`；本次为保持
+diff 最小未改（只影响一次分配多少，不影响正确性）。
+
+**同类模式的全仓结论**：本模块另有 2 处同族写法
+（`Http/Controllers/TrustLevels/payload.go:20` 与 `:37`，`len(policy.ActiveTiers())+1`，
+上界 `MaxTiers=8`），CodeQL 未报，也**无需并入本次修复**。全仓 109 处同族命中点的
+可达性判定见 `../reports/security-2026-11-14/overflow-pattern-audit.md`（结论：无一
+可达溢出）。
+
 ## Known Residuals（不要当 bug 修）
 
 > **N 档改造一并修复，不是遗留（别当债捡起来）。** 「TL4 是最高档」的三处残留假设已全部改走

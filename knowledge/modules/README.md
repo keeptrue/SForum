@@ -8,7 +8,7 @@ implementing or debugging.
 | File | Owns |
 | --- | --- |
 | `frontend.md` | Nuxt app, Page Registry themes, admin UI, SF components, SSR |
-| `backend.md` | Go API layout, bootstrap, cross-cutting HTTP/runtime |
+| `backend.md` | Go API layout, bootstrap, cross-cutting HTTP/runtime, security & dependency governance |
 | `forum.md` | Topics, comments, taxonomy, content model, public read models |
 | `identity.md` | Users, sessions, RBAC, registration/login, verification |
 | `profile.md` | Public profiles and profile settings |

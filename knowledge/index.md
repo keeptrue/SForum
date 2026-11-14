@@ -838,6 +838,21 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **安全告警处置（2026-11-14，最新）**：处理 5 条 open 告警——Dependabot #612
+  （otel CVE-2026-128085）合 PR #209（squash `3563b2055`，`tools/proto` 的
+  `otel/trace` 1.44.0 → 1.47.0）转 fixed；CodeQL #45/#47/#48
+  （`go/allocation-size-overflow`，TrustLevels 预分配容量改 `max`，提交 `af18ef94e`，
+  **业务语义零改动**，不 dismiss）；CodeQL #46（`js/clear-text-logging`）删除一次性
+  QA 脚本 `setup-account.mjs`（`52fb2b50a`）转 fixed。仓库 `secret_scanning` 与
+  `secret_scanning_push_protection` 由 disabled 改为 **enabled**（另两个 secret
+  开关仍 disabled，未触碰），历史扫描告警为空。Dependabot **open 安全告警现为 0**。
+  **仍遗留**：#610（katex prototype pollution，low）**有意保持 dismissed**，需后续
+  明确处置；19 个 open Dependabot PR 用户明确本次不合并；**CodeQL 流程盲区**——
+  `.github/workflows/security.yml` 只在 `apps/api` 构建（无 `go.work`、无 `replace`），
+  8 个内置插件后端 module 与 `tools/proto` 不在 Go 数据库里（AST 补扫命中 0 处，
+  但「扫不到」≠「没有」），扩 workflow 覆盖范围是后续项。见
+  `sessions/2026-11-14-security-alert-remediation.md`、模块 `modules/backend.md`
+  「Security And Dependency Governance」、`modules/trust-levels.md`。
 - **话题页原生 confirm → 站内 Modal（2026-11-14，最新）**：公共话题详情页
   `SFTopicShowPage.vue` 的 4 处 `window.confirm`（评论删除、话题删除、话题扩展动作、评论扩展动作）
   全换成站内 Nuxt UI Modal。新增通用弹窗 `SFConfirmDialog.vue`（props `request` / emits
@@ -1437,15 +1452,6 @@ load archived sessions or completed plans as current context.
   `pnpm-workspace.yaml`。详见
   `sessions/2026-10-19-error-page-i18n-resilience.md`、
   `decisions/2026-10-19-error-page-must-not-depend-on-plugins.md`。
-- **Code Scanning #43/#44 修复（2026-10-19）**：两条 open 告警同属
-  `js/incomplete-multi-character-sanitization`，都由提交 `1da2b5da0` 引入——同一提交
-  用「剥离到不动点」修好了 #41、抽出 h1 标题函数修好了 #42，却把单次正则写法留在了
-  抽出的新函数（#43）和测试辅助函数（#44）里。修法：#43 改成逐字符线性扫描
-  （`stripMarkupToText`，任意中间值不含标签边界、无 O(n²) 迭代面）；#44 抽成
-  `tests/helpers/sourceText.ts` 的 `stripHtmlComments`，迭代到不动点且**用空格替换**
-  （空串删除会拼出 `v-`+`html` 这类被断言禁止的 token）。验证：web 1331 用例全绿、
-  typecheck 0 错、架构门禁通过、40006 例随机/对抗输入零尖括号泄漏。详见
-  `sessions/2026-10-19-code-scanning-43-44-remediation.md`。
 - **AI 观测层与能力层（2026-10-19）**：让 AI 工具循环对运营者第一次可见，并在这个基础上扩容能力。A 批：`ToolTraceEntry`（参数脱敏 + 结果摘要 + 五种失败结局，工具明细只进日志不进 `ai_executions`）、run 级关联 id（`RunResult.RunID` 复合字面量一次写入，7 处 `g.record` 全透传，迁移 001）、`GET /admin/ai/runs/:runId` 回放（服务层判 `ai.manage`，缓存命中单条记录必须标注）、`CompletionOutput` 四项透出 + 结构化 `tool_trace` 日志。G：`sforum ai:eval` 基线门禁（10 条 fixture、真实装配、只跑不发布、`--diff`/`--only`、成本保护；两条纪律：`TriggerUserID=0` 防配额自噬、带 `error` 的快照必须补跑）。B 批：预算默认步数 3→5、三个新只读工具（`forum-comment-thread` / `forum-attachment-read` / `ai-self-history`，提示词版本 `forum-reply@8`）、两条派生用途 （`forum.digest`/`forum.tour`，落新表 `ai_derived_artifacts`，只 CLI 手动触发）、证据链（`[[cite:]]` 解析隔离 + 逐条校验 + 发布后落 `ai_citations` + 公开读端点）、会话状态（`ai_topic_state`，三重失效 + 四条防丢失）。验证：L1/L2/L4/L5 绿、L3 仍为 9 条既有告警、L6/L7 有运行时与浏览器证据。详见 `sessions/2026-10-19-ai-observability-and-capabilities.md`、`plans/archive/2026-10/2026-10-19-ai-observability-and-capabilities.md`（含 D1–D24 偏离登记）、`modules/ai.md`。
 - **扩展设置保存提速（2026-10-19）**：保存设置不是纯写库（实测 `put_ms=5`），耗时全在「重启插件」；80% 以上的 CPU 花在对同一份不可变扩展包反复做整树 SHA-256。根因是 `bootstrap` 里每 5 秒一轮的 `GuardPolicyCatalog.RunRefresh`（16 个 uploaded 扩展 × 2 次可信身份 = 约 32 次整树哈希 / 5 秒，独占 27.39 s / 40 s 窗口）。修复为包校验指纹记忆化（`app/Support/ExtensionPackage/verification_cache.go`，只读元数据、共用同一文件集合、TTL 5 分钟、dev 构建显式失效）＋同一 gate 内共享 `ArtifactLoader` 消除重复 registry 校验。实测单次保存 **24.5–39 s → ≈3.0 s**，后台循环 **27.39 s → 0.18 s**。详见 `sessions/2026-10-19-extension-settings-save-latency.md`、`decisions/2026-10-19-package-verification-memoization.md`。
 - **控制台 AI 保存 422 与上限放宽（2026-10-19）**：定位到六条触发路径（`v-model.number` 清空产生空串、闸门/预算无上界、供应商「非空但不合法」、自动裁决空动作、数值入口分散、错误不可诊断）。修复方向是「前端永不产出非法形状 + 服务端说清哪个字段」：新增 `Settings.Issues()` 与字段级 422（`ai.settings_malformed` / `ai.settings_invalid` + `data.fields`），控制台改走 `coerceInteger`/`profileIssue` 并在保存前拦截；同时把 `Support/AI` 天花板按模型能力重定标（输出 128k、输入总预算 12 MiB、工具步数 12、月度预算 1000 万元，默认值不变），经 `limits` 下发前端；同步 SDK 镜像常量、gRPC 16 MiB 与插件 `GOMEMLIMIT` 96 MiB。详见 `sessions/2026-10-19-admin-ai-save-422-and-limits.md`、`decisions/2026-10-19-ai-context-and-budget-ceilings.md`。
@@ -2234,15 +2240,6 @@ challenge 200（64 字符 token、5 分钟 TTL、`sforum.trust-impact@2` 影响�
   `plans/2026-10-02-ai-assist-platform.md`，
   `decisions/2026-10-02-ai-provider-gateway.md`
 
-- Dependabot 告警收敛（2026-10-02）：94 条 open 告警拆解为 3 个 grpc advisory
-  × 18 个 Go module（54 条）与 4 个废弃 PHP 分支遗留 `composer.lock`（40 条）。
-  18 个 module 的 grpc 统一升至 `v1.83.2`，删除 `v2`/`dev`/`php82`/
-  `zhuchunshu-patch-1` 并以 `archive/php-*-final` tag 归档，关闭 14 个被取代的
-  依赖 PR；Go 全量构建、`apps/api` 全量测试（ok=119, fail=0）与架构边界门禁
-  通过，Dependabot open 告警已归零（94 → 0，其中 40 条 composer 由分支清理
-  触发自动修复），7 个 builtin 插件按共享 SDK 规则递增补丁版本：
-  `sessions/2026-10-02-dependabot-alert-triage-handoff.md`
-
 - 容器镜像扫描修复（2026-10-02）：`sforum-web:ci` 镜像 Trivy 报出 6 个 HIGH。
   `@tiptap/*` 12 个包 3.27.1 → 3.31.3，`devalue` 5.8.1 → 5.9.4、`sharp`
   0.35.3 → 0.35.5 经 `overrides` 强制；同时收敛 `prosemirror-model`
@@ -2264,15 +2261,6 @@ challenge 200（64 字符 token、5 分钟 TTL、`sforum.trust-impact@2` 影响�
   `registration-status` 仍恒定 `false`。聚焦回归、Web 全量 905 测试、类型
   检查与架构门禁通过，渲染态 Browser QA 未做：
   `sessions/2026-10-02-first-registration-super-admin-notice.md`
-
-- Code scanning 与 CI 整改（2026-08-20）：修复 CodeQL #24 的切片容量加法
-  溢出与 #25 的 `int64` 到 `int` 未界定转换；Web Docker 构建补齐
-  `plugin-ui` workspace，SDK 离线消费者所需 Vite 工具改为直接依赖，并补齐
-  component asset contextual-guard 目录契约。7 个内置插件按共享 SDK 规则递增
-  补丁版本并刷新发布基线；Go 全套、Web prod 容器、staging extension test、
-  兼容性、类型检查和其余门禁通过。单次 `test.sh` 仅受本地沙箱禁止 `/bin/ps`
-  限制，失败前后步骤已分别验证：
-  `sessions/2026-08-20-code-scanning-ci-remediation.md`
 
 - 插件运行时内存优化（2026-08-20）：Protocol V2 插件侧传输已从旧 Host runtime
   解耦，SDK 非标准依赖从 396 降至 164；SMTP 从 397 降至 165，Linux stripped
@@ -3026,6 +3014,11 @@ challenge 200（64 字符 token、5 分钟 TTL、`sforum.trust-impact@2` 影响�
 
 ## Recently Completed
 
+- 早前的安全/依赖治理轨迹已收口，其 handoff 从 Latest Handoff 移到这里（当前口径见
+  `sessions/2026-11-14-security-alert-remediation.md` 与 `modules/backend.md`）：
+  2026-10-02 Dependabot 收敛（94 → 0，`sessions/2026-10-02-dependabot-alert-triage-handoff.md`）、
+  2026-08-20 CodeQL #24/#25 与 CI 整改（`sessions/2026-08-20-code-scanning-ci-remediation.md`）、
+  2026-10-19 Code Scanning #43/#44 修复（`sessions/2026-10-19-code-scanning-43-44-remediation.md`）。
 - Tri-state color mode reliability: shared Automatic/Light/Dark authority and
   public/admin menus, resolved-only extension bridge, cache-neutral SSR, and
   safe local canonical origin completed. See
