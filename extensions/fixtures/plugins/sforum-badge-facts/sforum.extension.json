@@ -104,5 +104,29 @@
   "sforumVersion": ">=0.1.0",
   "type": "plugin",
   "url": "https://sforum.local/plugins/badge-facts",
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "permissionDefinitions": [
+    {
+      "key": "sforum.badge-facts.fact-read",
+      "contractVersion": "sforum.badge-facts.fact-read@1",
+      "label": "读取徽章事实审计",
+      "description": "读取本插件写入的用户徽章事实与审计记录。",
+      "assignmentPolicy": "host",
+      "trustLevelEarnable": true
+    },
+    {
+      "key": "sforum.badge-facts.fact-write",
+      "contractVersion": "sforum.badge-facts.fact-write@1",
+      "label": {
+        "zh-CN": "写入徽章事实",
+        "en-US": "Write badge facts"
+      },
+      "description": {
+        "zh-CN": "为站点写入用户徽章事实计数，并触发一次重算。",
+        "en-US": "Write user badge fact counters for this site and trigger a recompute."
+      },
+      "assignmentPolicy": "host",
+      "trustLevelEarnable": true
+    }
+  ]
 }
