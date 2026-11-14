@@ -5901,14 +5901,13 @@
             "earnable_missing": "缺少能力解锁数组：每档都必须显式给出，空数组也要写。",
             "earnable_key_empty": "能力解锁里有空字符串：请移除该项或填入权限键。",
             "earnable_not_whitelisted": "权限「{permission}」不在可授予白名单内，不能按等级解锁。",
-            "earnable_not_declared": "这个权限从未被任何插件声明，不能按等级解锁：请取消勾选，或换成插件声明过的权限。",
+            "earnable_not_declared": "该权限键没有任何已启用的扩展声明，不能按等级解锁：请安装并启用对应扩展，或取消这个勾选。",
             "rule_too_complex": "条件的层数或条数超上限：请把「并且/或者」嵌套减到 5 层、条件减到 32 条以内，阈值不超过 10 亿。",
             "rule_unknown_condition": "有一条条件已不在可用目录里（可能是插件卸载后消失）：请删除它，或换成目录里还在的条件。",
             "rule_shape_invalid": "条件的组合写得不成形：「并且/或者」至少要有一个条件，「非」必须恰好一个，计数条件要填阈值。",
             "rule_reference_invalid": "引用的对象已找不到（分类、标签、角色、登录方式、徽章或主题可能已被删除）：请重新选一项。",
             "rule_condition_not_available": "这条条件不能用于信任等级（内容质量类条件不参与等级判定）：请删除它，或换成别的条件。",
-            "color_not_whitelisted": "颜色「{color}」不可用：请从推荐颜色里选一个，或填 #RRGGBB 形式的色值。",
-            "earnable_not_declared_plugin_disabled": "声明这个权限的插件「{plugin}」当前已停用，勾选暂时不生效：请启用该插件后重试。"
+            "color_not_whitelisted": "颜色「{color}」不可用：请从推荐颜色里选一个，或填 #RRGGBB 形式的色值。"
           },
           "field": {
             "unknown": "该字段",

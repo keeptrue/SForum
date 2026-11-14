@@ -154,7 +154,7 @@ export const SPECIFIC_ERROR_CODES = [
   'earnable_missing',
   'earnable_key_empty',
   'earnable_not_whitelisted',
-  // M3：插件权限的写路径拒绝（按 `params.cause` 分两句，见 `saveErrorText` 的同码变体分支）。
+  // M3：插件权限的写路径拒绝（单一成因，见 `saveErrorText` 的说明）。
   'earnable_not_declared',
   // M3：条件树的 5 条规则码。全部是 tier 级（带 `rank`/`tierId`），修法各不相同，不能合并。
   'rule_too_complex',
@@ -256,30 +256,22 @@ function humanizeParams(
 }
 
 /**
- * 同码两种成因的变体后缀：**同一个稳定码**，不是第 40 个码。
+ * 一个码一句话。
  *
- * `earnable_not_declared` 的修法取决于成因，两句必须分开给（copy-spec §1.2）：
- * - `plugin_disabled` → 「启用插件」，配置不用动；
- * - 默认（`undeclared` / 字段缺失）→ 「删掉这个勾选」。
+ * `earnable_not_declared` 曾经按成因分成两句（「从未被声明」/「声明它的扩展已停用」），
+ * 那条**变体通道已删除**（M4a 审查 F1）：后端写路径只产单一成因，而停用扩展的键走 200
+ * 惰性失效、根本不会触发这个码——多出来的分支永远不可达，只会让两侧的字段名漂移
+ * （后端写一个字段、前端读另一个字段，谁都没发现）。
  *
- * 合并成一句的后果是实测过的：写成「从未被声明」，运营会去删勾选，等插件恢复时配置
- * 已被自己删掉。所以这里按 `params.cause` 选键，不在码表里加第 40 条（那会把三处同步面
- * 扩大到四处）。
+ * 现在通用文案就是**单一成因**：该权限键没有任何已启用的扩展声明。
  */
-function variantSuffix(error: TrustLevelSaveError): string {
-  if (error.reasonCode === 'earnable_not_declared' && error.params.cause === 'plugin_disabled') {
-    return '_plugin_disabled'
-  }
-  return ''
-}
-
 export function saveErrorText(
   error: TrustLevelSaveError,
   translate: (key: string, params?: Record<string, string | number>) => string,
   isKnown: (key: string) => boolean
 ): string {
   if (error.reasonCode && isSpecificErrorCode(error.reasonCode)) {
-    const key = `admin.forum.trustLevels.errors.code.${error.reasonCode}${variantSuffix(error)}`
+    const key = `admin.forum.trustLevels.errors.code.${error.reasonCode}`
     if (isKnown(key)) return translate(key, humanizeParams(error.reasonCode, error.params, translate, isKnown))
   }
   if (error.reasonCode && isConfigBucketErrorCode(error.reasonCode)) {

@@ -5861,14 +5861,13 @@
             "earnable_missing": "The earnable array is missing: every tier must send it explicitly, even when empty.",
             "earnable_key_empty": "The earnable list contains an empty string: remove it or fill in a permission key.",
             "earnable_not_whitelisted": "The permission “{permission}” is not in the grantable allow-list and cannot be unlocked by tier.",
-            "earnable_not_declared": "No plugin declares this permission, so it cannot unlock by level: uncheck it, or pick a permission a plugin declares.",
+            "earnable_not_declared": "No enabled extension declares this permission key, so it cannot unlock by level: install and enable the extension that declares it, or uncheck it.",
             "rule_too_complex": "Too much nesting or too many conditions: keep to 5 levels and 32 conditions, with values under 1,000,000,000.",
             "rule_unknown_condition": "A condition is no longer in the catalog, usually because a plugin was removed: delete it or pick one that still exists.",
             "rule_shape_invalid": "The group is incomplete: “and/or” needs at least one item, “not” exactly one, and count conditions need a value.",
             "rule_reference_invalid": "What it points at is gone (category, tag, role, sign-in provider, badge, or topic may be deleted): choose again.",
             "rule_condition_not_available": "That condition cannot be used for trust levels (content-quality conditions are excluded): delete it or use another one.",
-            "color_not_whitelisted": "The color “{color}” is not available: choose a recommended color or enter a #RRGGBB value.",
-            "earnable_not_declared_plugin_disabled": "Plugin “{plugin}” declares this permission but is disabled, so the check does nothing: enable it and try again."
+            "color_not_whitelisted": "The color “{color}” is not available: choose a recommended color or enter a #RRGGBB value."
           },
           "field": {
             "unknown": "This field",
