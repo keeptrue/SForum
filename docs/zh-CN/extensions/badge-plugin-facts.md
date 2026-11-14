@@ -20,7 +20,7 @@
 
 | 概念 | 归属 | 位置 |
 | --- | --- | --- |
-| `fact.count` 条件类型 | 核心 | `Models/Conditions` 注册表（13 条白名单条件之一） |
+| `fact.count` 条件类型 | 核心 | `Models/Conditions` 注册表（14 条白名单条件之一） |
 | 合法 `factKey` 与 `variant` 候选 | 插件 | Manifest V3 的 `badgeConditions[]` |
 | 事实行与累计计数 | 核心 | `badge_facts`（append-only）+ `user_fact_counters`（聚合） |
 | 写入入口 | 核心 | Host 命令 `badges.fact.record` |

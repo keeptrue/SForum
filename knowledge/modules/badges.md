@@ -32,7 +32,7 @@ the first consumer.
 | 层 | 位置 | 职责 | 不许做 |
 | --- | --- | --- | --- |
 | 纯 AST | `Support/RuleEngine/`（`types`/`decode`/`validate`/`eval`/`catalog`） | 解码（未知字段报错）、校验（深度≤5、叶子≤32、节点≤64、`days`∈1..3650、`value`∈1..1e9）、**Kleene 三值求值** | import 任何 `Models/` 包、任何 SQL、任何 i18n |
-| 条件取数 | `Models/Conditions/`（`registry` + `batch` + 5 个 `resolve_*`） | 13 条条件元数据；`Resolver.Prepare` 按 `type` 分组**每类一条 SQL** 并 memo，`Resolve` 逐叶子读 memo | 自己判「树是否成立」（那是 eval 的事） |
+| 条件取数 | `Models/Conditions/`（`registry` + `batch` + 5 个 `resolve_*`） | 14 条条件元数据；`Resolver.Prepare` 按 `type` 分组**每类一条 SQL** 并 memo，`Resolve` 逐叶子读 memo | 自己判「树是否成立」（那是 eval 的事） |
 | 规则存储 | `Models/Badges/rule_store.go` | 规则读写 + 保存校验（AST + 引用存在性 + `badge.owned` **环检测 DFS**） | 在 HTTP 里跑全量 |
 | 求值接线 | `Models/Badges/rule_eval.go` | `EvaluateRule` 把 `Resolver` 接进 store，并把**已声明 factKey 集合**透传给 `NewResolver(pool, userID, factKeys...)` | 吞掉 resolver 的错误 |
 | 健康检查 | `Models/Badges/rule_health.go` | 失效引用清单（保存校验共用同一份引用检查） | 把「零授予」当失效 |
@@ -43,7 +43,7 @@ the first consumer.
 
 `evaluate.go` 保留签名，内部双分支：**快路径**只认「单 `activity.count` + `window.all` + `gte`」直接读计数器（10 枚内置徽章零回归、零额外查询）；其余走引擎。**判 `Rule == nil` 而不是判 `Metric == nil`**——纯 rule 徽章的 `metric` 是 NULL，先过旧 `ruleSatisfied` 会让新徽章「保存成功、达标、永不发、零报错」（P-04）。
 
-## 条件目录（13 条 = 12 内置 + `fact.count`）
+## 条件目录（14 条 = 13 内置 + `fact.count`）
 
 元数据在 `conditions/registry.go`，文案（双语 label/describe/unit）**直接写 Go**，不进 locale JSON——条件目录是服务端下发的数据，走 `t()` 会撞 `adminBadgesI18n.test.ts` 的双向断言。
 
@@ -57,13 +57,14 @@ the first consumer.
 | `identity.email_verified` / `identity.avatar` | 布尔 | 无 |
 | `identity.oauth_link` | 布尔 | `providerId` objectRef(provider) |
 | `identity.role` | 布尔 | `roleKey` objectRef(role) |
+| `identity.profile` | 布尔 | `field` enum(bio/signature/website/location)，判对应资料列非空 |
 | `content.pinned` / `content.hidden` | 计数 | 无 |
 | `badge.owned` | 布尔 | `slug` objectRef(badge)，保存时做环检测 |
 | **`fact.count`** | 计数 | `factKey` objectRef(**fact**) + `variant` enum(可选) + `window` |
 
 **`fact.count` 是插件条件的唯一入口**，M3 的 `badgeConditions[]` 不新增条件类型，只给它注册 `factKey`/`variant` 候选。两个面必须分开：
 
-- `conditions.Core()` = **校验与求值全集**（13 条，含 `fact.count`）。从这里删掉它 → M3 存下的规则保存时 `unknown_condition`。
+- `conditions.Core()` = **校验与求值全集**（14 条，含 `fact.count`）。从这里删掉它 → M3 存下的规则保存时 `unknown_condition`。
 - `PublishableDefinitions(factKeys)` = **展示子集**（后台 `GET /admin/badges/conditions`）。M1 传 nil → `fact.count` 不出现（空 options 的 enum 是陷阱）。控制器只调它，**绝不回退 `Definitions()`**。
 
 `ParamSpec.RefKind` ∈ `category|tag|role|provider|badge|fact`；数字一律 `int`，**绝不混进 objectRef**。`variant` 的 `Options: nil` 表示「候选由事实目录运行时填」，不是空下拉。
@@ -846,7 +847,7 @@ WHERE NOT EXISTS (
 
 `badgeConditions[]` **不是新条件类型**：它是给 Core 已有的 `fact.count` 注册合法 `factKey`
 与 `variant` 候选。规则叶子恒为 `{"type":"fact.count","params":{"factKey","variant","window"}}`，
-引擎白名单仍是 13 条，不随插件数量增长。
+引擎白名单仍是 14 条，不随插件数量增长。
 
 | 层 | 落点 | 行为 |
 | --- | --- | --- |
@@ -889,7 +890,7 @@ D-01（未声明 → unknown 成对）与 D-02（variant 三态，含「卸载�
 ## Important Paths
 
 - 规则引擎：`apps/api/app/Support/RuleEngine/`（`types` / `decode` / `validate` / `eval` / `catalog`）
-- 条件与规则：`apps/api/app/Models/Conditions/`（`registry` / `batch` / `phrases`（13 条双语措辞）/ `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
+- 条件与规则：`apps/api/app/Models/Conditions/`（`registry` / `batch` / `phrases`（14 条双语措辞）/ `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
 - 公开说明生成：`requirement_text.go`（`BuildRequirementText` / `BuildRuleRequirementText` 唯一入口）、`requirement_text_render.go`（树遍历 + 压缩 + 降级）、`ref_names.go`（`CollectRefs` / `RefSet` / `RefNameLoader` / `ResolveRefNames`）、`admin_requirement_text.go`（预览端点域层）
 - 领域：`apps/api/app/Models/Badges/`（`types.go` / `service.go` / `admin_service.go` / `evaluate.go` / `postgres_store.go` / `activity_store.go` / `visits.go` / `badge_reader.go` / `tiers_store.go` / `tiers.go` / `grant_candidates.go`）
 - 通知与进度（2026-11-13）：`grant_notifications.go`（`GrantedBadge` / `GrantNotifier` / `notifyGranted`）、`notification_targets.go`（`ResolveNotificationBadgeTarget`）、`progress_measure.go`（`measureForRule` / `ProgressMeasurer`）、`progress_measure_postgres.go`（批量 `Prepare`）、`public_catalog.go`（`ViewerCatalogProgress`）

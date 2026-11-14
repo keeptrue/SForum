@@ -72,8 +72,8 @@
 
 - `app/Models/TrustLevels/config.go:845` 的注释仍写「全站等级掉回默认策略」，与实测口径
   （未解析 / 等同 TL0）不一致。改它是一行，等下一次碰该文件的单顺手改。
-- `apps/web/tests/admin/forum/trustLevelI18nDeadKeys.test.ts` 的注释仍写「这个族有 360 个键」，
-  实测 394；在 `apps/web` 里，归属下一次碰该测试的单。
+- ~~`apps/web/tests/admin/forum/trustLevelI18nDeadKeys.test.ts` 的注释写「这个族有 360 个键」~~
+  **已消（`f770b17fa`）**：注释已按实测改成 394 键。
 - copy-spec 的叶键数与测试行号：**已在 task-9 修正**（叶键按实测 394、禁第二族的断言在
   `847-848`），并给三份把旧族写死的历史报告加了作废横幅。
 - 运行期取证的可重放性：包级门禁常跑，但「装进 dev 库 → 真实弹窗截正样本」仍无脚本化路径，
