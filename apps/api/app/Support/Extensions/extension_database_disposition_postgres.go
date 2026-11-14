@@ -101,10 +101,22 @@ func applyExtensionDatabasePhysicalDisposition(
 
 	schemaRetained := request.CleanupMode == LifecycleBoundaryCleanupPreserve
 	if !schemaRetained {
+		// DROP SCHEMA 与 DROP OWNED BY owner 都要以扩展 owner 的身份执行（INHERIT 即可），
+		// 而 DROP ROLE owner 只需要 CREATEROLE 留下的 ADMIN。窗口必须卡在两者之间：
+		// release 放在 DROP ROLE 之前，否则 REVOKE 会打在已删除的角色上。
+		if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, identifiers.OwnerRole); err != nil {
+			return extensionDatabaseDispositionProofResource{}, err
+		}
 		if _, err := tx.Exec(
 			ctx, `DROP SCHEMA IF EXISTS `+pgx.Identifier{identifiers.Schema}.Sanitize()+` CASCADE`,
 		); err != nil {
 			return extensionDatabaseDispositionProofResource{}, fmt.Errorf("drop extension database schema: %w", err)
+		}
+		if err := dropExtensionDatabaseOwnerObjects(ctx, tx, identifiers.OwnerRole); err != nil {
+			return extensionDatabaseDispositionProofResource{}, err
+		}
+		if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, identifiers.OwnerRole); err != nil {
+			return extensionDatabaseDispositionProofResource{}, err
 		}
 		if err := dropExtensionDatabaseOwnerRole(ctx, tx, identifiers.OwnerRole); err != nil {
 			return extensionDatabaseDispositionProofResource{}, err
@@ -438,15 +450,28 @@ func reassignAndDropExtensionDatabaseRole(
 	return nil
 }
 
+// DROP OWNED BY 要清理 owner 名下的对象与授权，因此需要以 owner 身份执行；
+// 调用方负责在其前后成对 acquire/release 接收者权限。
+func dropExtensionDatabaseOwnerObjects(ctx context.Context, tx pgx.Tx, roleName string) error {
+	if err := lockExtensionDatabasePhysicalAuthority(ctx, tx); err != nil {
+		return err
+	}
+	role := pgx.Identifier{roleName}.Sanitize()
+	if _, err := tx.Exec(ctx, `DROP OWNED BY `+role); err != nil {
+		return fmt.Errorf("drop extension database owner objects %s: %w", roleName, err)
+	}
+	return nil
+}
+
+// DROP ROLE 只依赖 CREATEROLE 建 role 时留下的 ADMIN 行，不需要冒充 owner，
+// 因此必须排在 release 之后，避免 REVOKE 打在已删除的角色上。
 func dropExtensionDatabaseOwnerRole(ctx context.Context, tx pgx.Tx, roleName string) error {
 	if err := lockExtensionDatabasePhysicalAuthority(ctx, tx); err != nil {
 		return err
 	}
 	role := pgx.Identifier{roleName}.Sanitize()
-	for _, query := range []string{`DROP OWNED BY ` + role, `DROP ROLE ` + role} {
-		if _, err := tx.Exec(ctx, query); err != nil {
-			return fmt.Errorf("drop extension database owner role %s: %w", roleName, err)
-		}
+	if _, err := tx.Exec(ctx, `DROP ROLE `+role); err != nil {
+		return fmt.Errorf("drop extension database owner role %s: %w", roleName, err)
 	}
 	return nil
 }

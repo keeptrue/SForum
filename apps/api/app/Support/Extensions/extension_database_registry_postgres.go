@@ -180,10 +180,20 @@ func ensureExtensionDatabaseSchema(
 		WHERE pg_namespace.nspname = $1
 	`, schemaName).Scan(&existingOwner)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// PG 16 起 CREATE SCHEMA ... AUTHORIZATION 就要求调用者能 SET ROLE 到 owner
+		// （17.12 起 REASSIGN OWNED 同规则，CVE-2026-120146）。宿主对扩展 owner 只有
+		// CREATEROLE 建 role 留下的 ADMIN 行（inherit=false, set=false），因此必须在
+		// 同一事务内临时取得接收者权限，建完立即归还。
+		if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+			return err
+		}
 		query := `CREATE SCHEMA ` + pgx.Identifier{schemaName}.Sanitize() +
 			` AUTHORIZATION ` + pgx.Identifier{ownerRoleName}.Sanitize()
 		if _, err := tx.Exec(ctx, query); err != nil {
 			return fmt.Errorf("create extension database schema %s: %w", schemaName, err)
+		}
+		if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+			return err
 		}
 		return nil
 	}
