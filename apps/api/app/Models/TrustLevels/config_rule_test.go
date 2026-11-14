@@ -247,15 +247,15 @@ func TestPerTierRuleLimitsAreNotAggregated(t *testing.T) {
 func TestRuleConditionSubset(t *testing.T) {
 	subset := trustlevels.RuleConditions()
 	shared := conditions.Core().Definitions()
-	// 子集 = 共享目录 − 2。今天共享目录 13 条（`identity.profile` 由另一单加进共享目录），
-	// 所以子集是 **11**，不是计划里写的 12——差的那一条是 `identity.profile` 还没落地。
-	// 这里按「共享 − 2」断而不是写死 11/12：加完那条条件，这条断言自动跟着走，不需要
-	// 再来改一次数字（改数字的测试等于没测试）。
+	// 子集 = 共享目录 − 2。今天共享目录 14 条（含 `identity.profile`），所以子集是 **12**。
+	// 第一条按「共享 − 2」断而不是写死数字：加条件时它自动跟着走，不需要再来改一次
+	// （改数字的测试等于没测试）。第二条写死的数字是**今日快照**：共享目录变了而子集
+	// 没跟着变（例如误把新条件塞进排除清单）时它才红。
 	if len(subset) != len(shared)-2 {
 		t.Fatalf("子集应有 %d 条（共享 %d − 2），得到 %d", len(shared)-2, len(shared), len(subset))
 	}
-	if len(subset) != 11 {
-		t.Fatalf("今日子集应为 11 条（共享 13 − 内容质量 2），得到 %d；若已加 identity.profile 请同批更新本断言", len(subset))
+	if len(subset) != 12 {
+		t.Fatalf("今日子集应为 12 条（共享 14 − 内容质量 2），得到 %d", len(subset))
 	}
 	for _, excluded := range []string{"content.pinned", "content.hidden"} {
 		if trustlevels.RuleConditionAllowed(excluded) {
@@ -270,6 +270,9 @@ func TestRuleConditionSubset(t *testing.T) {
 	}
 	if !trustlevels.RuleConditionAllowed("activity.count") {
 		t.Fatal("activity.count 必须在子集里")
+	}
+	if !trustlevels.RuleConditionAllowed("identity.profile") {
+		t.Fatal("identity.profile 必须进子集：新条件默认可用，被排除的只有内容质量那两条")
 	}
 }
 

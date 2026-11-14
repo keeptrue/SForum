@@ -120,6 +120,78 @@ func TestIdentityConditions(t *testing.T) {
 	}
 }
 
+// profileRule 造一条 `identity.profile` 规则。
+func profileRule(field string) string {
+	return fmt.Sprintf(`{"v":1,"root":{"type":"identity.profile","params":{"field":%q}}}`, field)
+}
+
+// profileColumns 是取值 → 列名。测试侧独立写一份：生产的列名写错时，这里会红，
+// 而不是跟着一起错（`website` 落 `website_url` 是本条件唯一的不同名列）。
+var profileColumns = map[string]string{
+	"bio":       "bio",
+	"signature": "signature",
+	"website":   "website_url",
+	"location":  "location",
+}
+
+// TestIdentityProfileCondition 钉住 `identity.profile` 的列映射与两条 NULL 语义。
+//
+// 这个条件最贵的两个实现错误都在这里：
+//   - 资料行「不存在」必须判 **false**（行是按需 upsert 的，注册期不插行，所以无行
+//     是常态）；若让 ErrNoRows 冒出去，整条规则变 unknown，对大多数用户永久失效。
+//   - 未知 `field`（脏规则）必须判 **unknown**；静默 false 会在 `not` 子树下反转成
+//     true，那是 fail-open。
+func TestIdentityProfileCondition(t *testing.T) {
+	f := newFixture(t)
+	userID := f.user(t, "profiled", 10)
+	fields := []string{"bio", "signature", "website", "location"}
+
+	// ① 没有资料行：四个取值都是**确定的 false**，不是「查不到」。
+	for _, field := range fields {
+		if matched, result := f.eval(t, userID, profileRule(field)); matched || result.Incomplete {
+			t.Fatalf("没有资料行时 %q 应为确定的 false，得到 %+v", field, result)
+		}
+	}
+
+	// ② 列映射：每次只填一列，只有对应取值成立（钉住 website ↔ website_url）。
+	f.exec(t, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
+	for _, field := range fields {
+		f.exec(t, `UPDATE user_profiles SET bio='', signature='', website_url='', location='' WHERE user_id = $1`, userID)
+		f.exec(t, `UPDATE user_profiles SET `+profileColumns[field]+` = 'x' WHERE user_id = $1`, userID)
+		for _, candidate := range fields {
+			want := candidate == field
+			if matched, result := f.eval(t, userID, profileRule(candidate)); matched != want || result.Incomplete {
+				t.Fatalf("只填 %q 时 %q 应为 %v，得到 %+v", field, candidate, want, result)
+			}
+		}
+	}
+
+	// ③ 「填了就算」：只填一个空格也算已填写（判据是非空串，不 trim）。
+	// 若将来改成 trim，句子文案必须同批改——这条让「悄悄加 trim」当场变红。
+	f.exec(t, `UPDATE user_profiles SET bio='   ' WHERE user_id = $1`, userID)
+	if matched, result := f.eval(t, userID, profileRule("bio")); !matched || result.Incomplete {
+		t.Fatalf("只填空格的简介按「填了就算」应满足，得到 %+v", result)
+	}
+
+	// ④ 未知 field：绕过 Validate 直接 Prepare（保存期会挡住它，但存量脏规则与
+	// 未来枚举收缩仍会走到求值，这里钉住 fail-closed）。
+	dirty, err := ruleengine.Decode([]byte(profileRule("nickname")))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	resolver := f.resolver(t, userID)
+	if err := resolver.Prepare(f.ctx, dirty); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	result, err := ruleengine.Eval(f.ctx, dirty, resolver)
+	if err != nil {
+		t.Fatalf("Eval: %v", err)
+	}
+	if !result.Incomplete || result.Matched {
+		t.Fatalf("未知 field 必须判 unknown（不能静默 false）：%+v", result)
+	}
+}
+
 func TestContentAndBadgeConditions(t *testing.T) {
 	f := newFixture(t)
 	userID := f.user(t, "content", 30)

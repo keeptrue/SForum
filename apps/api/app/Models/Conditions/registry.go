@@ -29,6 +29,7 @@ const (
 	KeyIdentityOAuthLink   = "identity.oauth_link"
 	KeyIdentityRole        = "identity.role"
 	KeyIdentityAvatar      = "identity.avatar"
+	KeyIdentityProfile     = "identity.profile"
 	KeyContentPinned       = "content.pinned"
 	KeyContentHidden       = "content.hidden"
 	KeyBadgeOwned          = "badge.owned"
@@ -53,6 +54,25 @@ func Metrics() []string {
 		MetricTopicCount, MetricCommentCount, MetricLikeReceivedCount,
 		MetricLikeGivenCount, MetricBookmarkCount, MetricDaysVisited,
 	}
+}
+
+// identity.profile 的四个资料项取值。
+//
+// `website` 是**契约字面量**，落到 `user_profiles.website_url` 列：取值与列名不同名
+// 是既有契约，不要为了「对齐列名」把它改成 `website_url`（那会破坏已存下的规则）。
+const (
+	profileFieldBio       = "bio"
+	profileFieldSignature = "signature"
+	profileFieldWebsite   = "website"
+	profileFieldLocation  = "location"
+)
+
+// profileFieldOptions 返回资料项的稳定顺序（= 编辑器下拉顺序）。
+//
+// 注册项的 `Options` 与解析器的白名单都取自这里：枚举只写一份，否则「目录里有、
+// 解析器不认」这种半实现会以「保存成功、永不成立、零报错」的形式上线。
+func profileFieldOptions() []string {
+	return []string{profileFieldBio, profileFieldSignature, profileFieldWebsite, profileFieldLocation}
 }
 
 // 定向对象的两类目标。
@@ -305,6 +325,16 @@ func newCoreRegistry() *Registry {
 			ValueKind: ruleengine.ValueBoolean,
 			LabelZh:   "已设置头像", LabelEn: "Avatar set",
 			DescribeZh: "是否上传过头像。", DescribeEn: "Whether the user has uploaded an avatar.",
+		},
+		{
+			Key:       KeyIdentityProfile,
+			Phrase:    phraseIdentityProfile,
+			ValueKind: ruleengine.ValueBoolean,
+			Params: ruleengine.ParamsSchema{Specs: []ruleengine.ParamSpec{
+				{Name: "field", Kind: ruleengine.ParamEnum, Required: true, Options: profileFieldOptions()},
+			}},
+			LabelZh: "资料已填写", LabelEn: "Profile filled in",
+			DescribeZh: "资料里的简介、签名、个人网站或所在地是否已填写。填了就算，不看内容质量。", DescribeEn: "Whether the profile bio, signature, website or location is filled in. Any content counts; quality is not judged.",
 		},
 		{
 			Key:       KeyContentPinned,

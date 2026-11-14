@@ -8,7 +8,7 @@ import (
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
-// loadIdentity 处理五个身份类条件。它们各自是「一次查询」，按 type 分派。
+// loadIdentity 处理六个身份类条件。它们各自是「一次查询」，按 type 分派。
 func (r *Resolver) loadIdentity(ctx context.Context, typ string, leaves []ruleengine.Leaf) (map[string]ruleengine.Value, error) {
 	switch typ {
 	case KeyIdentityAccountAge:
@@ -21,6 +21,8 @@ func (r *Resolver) loadIdentity(ctx context.Context, typ string, leaves []ruleen
 		return r.loadRole(ctx, leaves)
 	case KeyIdentityAvatar:
 		return r.loadAvatar(ctx, leaves)
+	case KeyIdentityProfile:
+		return r.loadProfile(ctx, leaves)
 	default:
 		return nil, fmt.Errorf("conditions: 未知身份条件 %q", typ)
 	}
@@ -222,4 +224,88 @@ func (r *Resolver) loadAvatar(ctx context.Context, leaves []ruleengine.Leaf) (ma
 		out[memo] = boolValue(hasAvatar)
 	}
 	return out, nil
+}
+
+// profileFilledSQL：资料行的四个文本列都是 TEXT NOT NULL DEFAULT 空串（迁移
+// 202607070004），所以判据只能是**非空串**——`IS NOT NULL` 对它们恒真，等于每个
+// 用户都满足；也不加 `trim`（文案是「填了就算，不看内容质量」）。
+//
+// 这里的 NULL 有两个来源，必须显式区分，这是本条件最容易写错的地方：
+//   - **没有资料行**：行是「按需 upsert」的，注册期不插行（同一迁移的说明），所以
+//     「无行」是常态而不是故障。子查询无行 → NULL → coalesce 到 FALSE，即「确定不
+//     满足」。若让 ErrNoRows 冒出去，整条规则会变成 unknown，对大多数用户永久失效；
+//   - **field 不在白名单**（脏规则）：在 Go 侧查询前就返回 error（引擎转 unknown）。
+//     **不靠扫描 NULL 猜**：把未知取值当 FALSE 会在 `not` 子树下反转成 true，那是
+//     fail-open，比条件不成立更贵。
+//
+// 形状与 oauthLinkSQL / roleSQL 一致（unnest + 每行一个 bool）：同一个 type 的多个
+// 叶子只查一次，`Prepare` 的「查询数 = type 数」口径不变。
+const profileFilledSQL = `
+SELECT candidates.field,
+       coalesce((
+         SELECT CASE candidates.field
+                  WHEN 'bio'       THEN profiles.bio         <> ''
+                  WHEN 'signature' THEN profiles.signature   <> ''
+                  WHEN 'website'   THEN profiles.website_url <> ''
+                  WHEN 'location'  THEN profiles.location    <> ''
+                END
+           FROM user_profiles AS profiles
+          WHERE profiles.user_id = $1), FALSE)
+FROM unnest($2::text[]) AS candidates(field)
+`
+
+func (r *Resolver) loadProfile(ctx context.Context, leaves []ruleengine.Leaf) (map[string]ruleengine.Value, error) {
+	fields := make([]string, 0, len(leaves))
+	for _, leaf := range leaves {
+		field := stringParam(leaf, "field")
+		if !isProfileField(field) {
+			// 脏规则：未知取值无法判定 → error（引擎转 unknown）。见 profileFilledSQL
+			// 的注释：静默 false 会在 `not` 子树下反转成 true。
+			return nil, fmt.Errorf("conditions: identity.profile 的 field 取值未知：%q", field)
+		}
+		fields = append(fields, field)
+	}
+	rows, err := r.pool.Query(ctx, profileFilledSQL, r.userID, fields)
+	if err != nil {
+		return nil, fmt.Errorf("conditions: 查询 identity.profile 失败：%w", err)
+	}
+	defer rows.Close()
+
+	filled := make(map[string]bool, len(fields))
+	for rows.Next() {
+		var field string
+		var hit bool
+		if err := rows.Scan(&field, &hit); err != nil {
+			return nil, fmt.Errorf("conditions: 读取 identity.profile 结果失败：%w", err)
+		}
+		filled[field] = hit
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("conditions: 遍历 identity.profile 结果失败：%w", err)
+	}
+
+	out := make(map[string]ruleengine.Value, len(leaves))
+	for _, leaf := range leaves {
+		field := stringParam(leaf, "field")
+		hit, ok := filled[field]
+		if !ok {
+			return nil, fmt.Errorf("conditions: identity.profile 缺少 %q 的结果", field)
+		}
+		memo, err := valueKey(leaf.Type, leaf.Params)
+		if err != nil {
+			return nil, err
+		}
+		out[memo] = boolValue(hit)
+	}
+	return out, nil
+}
+
+// isProfileField 判断 `field` 是否在枚举白名单里（白名单与注册项的 Options 同源）。
+func isProfileField(field string) bool {
+	for _, candidate := range profileFieldOptions() {
+		if candidate == field {
+			return true
+		}
+	}
+	return false
 }

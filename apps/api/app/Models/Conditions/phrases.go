@@ -8,7 +8,7 @@ import (
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
-// 本文件是 13 种条件的「运营口吻句子」。它是**唯一实现**：公开面与后台预览端点
+// 本文件是 14 种条件的「运营口吻句子」。它是**唯一实现**：公开面与后台预览端点
 // 都只走这里（经 `BuildRuleRequirementText`）。
 //
 // 三条硬约束（测试逐条钉住）：
@@ -233,6 +233,29 @@ func phraseIdentityRole(params map[string]any, _ *ruleengine.Compare, names RefN
 // phraseIdentityAvatar：`identity.avatar`。
 func phraseIdentityAvatar(map[string]any, *ruleengine.Compare, RefNames) (string, string) {
 	return "已设置头像", "avatar set"
+}
+
+// profileFieldPhrases 是 `identity.profile` 的名词表。
+//
+// 与 `metricPhrases` 同一个理由：名词来自文案表，不来自参数取值。未命中时回落
+// 「资料 / profile」而不是拼裸 slug——公开面不出现 `nickname` 这类取值。
+//
+// 中文用「所在地」而不是「地区」：与 `admin.users.location` 同一个词。
+var profileFieldPhrases = map[string][2]string{
+	profileFieldBio:       {"简介", "bio"},
+	profileFieldSignature: {"签名", "signature"},
+	profileFieldWebsite:   {"个人网站", "website"},
+	profileFieldLocation:  {"所在地", "location"},
+}
+
+// phraseIdentityProfile：`identity.profile`。
+func phraseIdentityProfile(params map[string]any, _ *ruleengine.Compare, _ RefNames) (string, string) {
+	labels, ok := profileFieldPhrases[paramString(params, "field")]
+	if !ok {
+		labels = [2]string{"资料", "profile"}
+	}
+	return fmt.Sprintf("已填写「%s」", labels[0]),
+		fmt.Sprintf("\"%s\" filled in", labels[1])
 }
 
 // phraseContentPinned：`content.pinned`。

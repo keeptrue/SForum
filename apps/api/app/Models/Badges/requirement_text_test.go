@@ -12,7 +12,7 @@ import (
 )
 
 // 本文件是「公开说明自动生成」的主测试。三条不可退让的性质：
-//  1. 13 种条件**全部**有句子，新增条件不写句子直接判红；
+//  1. 14 种条件**全部**有句子，新增条件不写句子直接判红；
 //  2. 任何形状的规则（深嵌套、超宽、脏数据）都给得出**非空**文案；
 //  3. 文案是公开可见的：不含 AST 词汇、不含参数 slug、长度有上限。
 
@@ -48,7 +48,7 @@ func leaf(typ string, params map[string]any, cmp *ruleengine.Compare) ruleengine
 	return ruleengine.Node{Type: typ, Params: params, Cmp: cmp}
 }
 
-// phraseSamples 是 13 种条件的代表叶子 + 期望句子（golden）。
+// phraseSamples 是 14 种条件的代表叶子 + 期望句子（golden）。
 //
 // 期望句逐字写死：这正是「运营读到的措辞」的唯一可审位置；改措辞就必须改这里，
 // 于是措辞变更不可能悄悄发生。
@@ -131,6 +131,12 @@ func phraseSamples() []struct {
 			wantEn: "avatar set",
 		},
 		{
+			name:   "identity.profile/location",
+			rule:   leaf(conditions.KeyIdentityProfile, map[string]any{"field": "location"}, nil),
+			wantZh: "已填写「所在地」",
+			wantEn: `"location" filled in`,
+		},
+		{
 			name:   "content.pinned",
 			rule:   leaf(conditions.KeyContentPinned, nil, gte(1)),
 			wantZh: "主题被置顶 ≥ 1 篇",
@@ -165,8 +171,8 @@ func phraseSamples() []struct {
 // 于是「加了条件但忘了 Phrase」不可能等到公开面空白才被发现。
 func TestEveryConditionHasPhrase(t *testing.T) {
 	definitions := conditions.Core().Definitions()
-	if len(definitions) != 13 {
-		t.Fatalf("条件目录应为 13 种，得到 %d 种", len(definitions))
+	if len(definitions) != 14 {
+		t.Fatalf("条件目录应为 14 种，得到 %d 种", len(definitions))
 	}
 	samples := make(map[string]ruleengine.Node, len(phraseSamples()))
 	for _, sample := range phraseSamples() {
@@ -192,7 +198,7 @@ func TestEveryConditionHasPhrase(t *testing.T) {
 	}
 }
 
-// TestPhraseGolden 逐条固定 13 种条件的措辞，并同时验证「干净」：
+// TestPhraseGolden 逐条固定 14 种条件的措辞，并同时验证「干净」：
 // 非空、无 AST 词汇、无原始 slug、单句长度在上限内。
 func TestPhraseGolden(t *testing.T) {
 	names := resolvedNames()

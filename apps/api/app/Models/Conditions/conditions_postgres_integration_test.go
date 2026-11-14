@@ -102,7 +102,16 @@ CREATE TABLE identity_external_links (
 
 CREATE TABLE roles (id BIGSERIAL PRIMARY KEY, key TEXT NOT NULL UNIQUE, is_enabled BOOLEAN NOT NULL DEFAULT TRUE);
 CREATE TABLE user_roles (user_id BIGINT NOT NULL, role_id BIGINT NOT NULL, PRIMARY KEY (user_id, role_id));
-CREATE TABLE user_profiles (user_id BIGINT PRIMARY KEY, avatar_attachment_id BIGINT);
+-- 与生产同形：四列都是 TEXT NOT NULL DEFAULT ''（迁移 202607070004），
+-- identity.profile 的判据是「非空串」，列名漂移会在这里直接报错。
+CREATE TABLE user_profiles (
+  user_id BIGINT PRIMARY KEY,
+  bio TEXT NOT NULL DEFAULT '',
+  signature TEXT NOT NULL DEFAULT '',
+  location TEXT NOT NULL DEFAULT '',
+  website_url TEXT NOT NULL DEFAULT '',
+  avatar_attachment_id BIGINT
+);
 
 CREATE TABLE badges (id BIGSERIAL PRIMARY KEY, slug TEXT NOT NULL UNIQUE);
 CREATE TABLE user_badges (user_id BIGINT NOT NULL, badge_id BIGINT NOT NULL, PRIMARY KEY (user_id, badge_id));
@@ -261,8 +270,8 @@ func (f *fixture) eval(t *testing.T, userID int64, rule string, factKeys ...stri
 // TestRegistryCatalogIsCompleteAndValidatable 固定「目录里每条条件都能被引擎校验」。
 func TestRegistryCatalogIsCompleteAndValidatable(t *testing.T) {
 	registry := conditions.Core()
-	if len(registry.Definitions()) != 13 {
-		t.Fatalf("内置条件应为 13 条，实际 %d", len(registry.Definitions()))
+	if len(registry.Definitions()) != 14 {
+		t.Fatalf("内置条件应为 14 条，实际 %d", len(registry.Definitions()))
 	}
 	for _, def := range registry.Definitions() {
 		if def.LabelZh == "" || def.LabelEn == "" {

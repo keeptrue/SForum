@@ -57,9 +57,9 @@ func TestPublishableRuleConditionsRefKindBranches(t *testing.T) {
 		if containsKey(keys, "fact.count") {
 			t.Fatal("没有事实候选时不该发布 fact.count")
 		}
-		// 剩下的是不依赖任何候选的条件：6 条。
-		if len(keys) != 6 {
-			t.Fatalf("应剩 6 条无候选依赖的条件，得到 %d：%v", len(keys), keys)
+		// 剩下的是不依赖任何候选的条件：7 条。
+		if len(keys) != 7 {
+			t.Fatalf("应剩 7 条无候选依赖的条件，得到 %d：%v", len(keys), keys)
 		}
 		// 反向：校验面完全不受影响。
 		if len(trustlevels.RuleConditions()) != subset {

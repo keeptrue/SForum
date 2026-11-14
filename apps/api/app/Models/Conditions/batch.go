@@ -157,7 +157,7 @@ func (r *Resolver) load(ctx context.Context, typ string, leaves []ruleengine.Lea
 		return r.loadObjectEngagement(ctx, leaves)
 	case KeyObjectAuthoring:
 		return r.loadObjectAuthoring(ctx, leaves)
-	case KeyIdentityAccountAge, KeyIdentityEmailVerify, KeyIdentityOAuthLink, KeyIdentityRole, KeyIdentityAvatar:
+	case KeyIdentityAccountAge, KeyIdentityEmailVerify, KeyIdentityOAuthLink, KeyIdentityRole, KeyIdentityAvatar, KeyIdentityProfile:
 		return r.loadIdentity(ctx, typ, leaves)
 	case KeyContentPinned, KeyContentHidden:
 		return r.loadContent(ctx, typ, leaves)
