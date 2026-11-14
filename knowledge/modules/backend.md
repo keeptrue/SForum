@@ -483,10 +483,12 @@ consumers/tests that depend on the shape. Run
 
 | 告警 | 规则 | 处置 | 结果 |
 | --- | --- | --- | --- |
-| Dependabot #612 | otel CVE-2026-128085 | 合并 PR #209（squash `3563b2055`），`tools/proto` 的 `otel/trace` 1.44.0 → 1.47.0 | fixed |
-| CodeQL #45 / #47 / #48 | `go/allocation-size-overflow` | 改代码（`af18ef94e`，容量改 `max`），见 `trust-levels.md` | 修复已推送，重新分析待复查 |
-| CodeQL #46 | `js/clear-text-logging` | 删除一次性 QA 脚本 `setup-account.mjs`（`52fb2b50a`） | fixed |
+| Dependabot #612 | otel CVE-2026-128085 | 合并 PR #209（squash `3563b2055`），`tools/proto` 的 `otel/trace` 1.44.0 → 1.47.0 | fixed（fixed_at 2026-11-14T10:18:04Z） |
+| CodeQL #45 / #47 / #48 | `go/allocation-size-overflow` | 改代码（`af18ef94e`，容量改 `max`），见 `trust-levels.md` | fixed（fixed_at 均 2026-11-14T10:48:31Z） |
+| CodeQL #46 | `js/clear-text-logging` | 删除一次性 QA 脚本 `setup-account.mjs`（`52fb2b50a`） | fixed（fixed_at 2026-11-14T10:24:36Z） |
 | Dependabot #610 | katex prototype pollution（low） | **有意保持 dismissed** | 仍 dismissed，待后续 |
+
+5 条 open 告警**已全部转 fixed**；仓库 code-scanning 现无 open 告警。
 
 Dependabot **open 安全告警现为 0**；仍有 **19 个 open Dependabot PR**（#208 core-go 组、
 #207 compose-images 组、#205 github-actions 组、#202 builtin-go 组、

@@ -838,16 +838,18 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **安全告警处置（2026-11-14，最新）**：处理 5 条 open 告警——Dependabot #612
-  （otel CVE-2026-128085）合 PR #209（squash `3563b2055`，`tools/proto` 的
-  `otel/trace` 1.44.0 → 1.47.0）转 fixed；CodeQL #45/#47/#48
+- **安全告警处置（2026-11-14，最新）**：5 条 open 告警**已全部转 fixed**——Dependabot
+  #612（otel CVE-2026-128085）合 PR #209（squash `3563b2055`，`tools/proto` 的
+  `otel/trace` 1.44.0 → 1.47.0，fixed_at 2026-11-14T10:18:04Z）；CodeQL #45/#47/#48
   （`go/allocation-size-overflow`，TrustLevels 预分配容量改 `max`，提交 `af18ef94e`，
-  **业务语义零改动**，不 dismiss）；CodeQL #46（`js/clear-text-logging`）删除一次性
-  QA 脚本 `setup-account.mjs`（`52fb2b50a`）转 fixed。仓库 `secret_scanning` 与
+  **业务语义零改动**，不 dismiss，fixed_at 均 2026-11-14T10:48:31Z）；CodeQL #46
+  （`js/clear-text-logging`）删除一次性 QA 脚本 `setup-account.mjs`（`52fb2b50a`，
+  fixed_at 2026-11-14T10:24:36Z）。仓库 `secret_scanning` 与
   `secret_scanning_push_protection` 由 disabled 改为 **enabled**（另两个 secret
-  开关仍 disabled，未触碰），历史扫描告警为空。Dependabot **open 安全告警现为 0**。
-  **仍遗留**：#610（katex prototype pollution，low）**有意保持 dismissed**，需后续
-  明确处置；19 个 open Dependabot PR 用户明确本次不合并；**CodeQL 流程盲区**——
+  开关仍 disabled，未触碰），历史扫描告警为空。Dependabot **open 安全告警现为 0**，
+  code-scanning **无 open 告警**。**仍待处理（告警本身已闭合）**：#610（katex
+  prototype pollution，low）**有意保持 dismissed**，需后续明确处置；19 个 open
+  Dependabot PR 用户明确本次不合并；**CodeQL 流程盲区**——
   `.github/workflows/security.yml` 只在 `apps/api` 构建（无 `go.work`、无 `replace`），
   8 个内置插件后端 module 与 `tools/proto` 不在 Go 数据库里（AST 补扫命中 0 处，
   但「扫不到」≠「没有」），扩 workflow 覆盖范围是后续项。见

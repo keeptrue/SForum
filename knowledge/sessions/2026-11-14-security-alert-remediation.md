@@ -4,26 +4,28 @@
   CodeQL / Secret scanning 告警收敛；本次只动告警处置与仓库安全设置，**未改任何产品行为**。
 - 证据：`reports/security-2026-11-14/overflow-pattern-audit.md`（全仓扫描与覆盖边界）；
   模块 `modules/backend.md`（Security And Dependency Governance）、`modules/trust-levels.md`。
+- 状态更正（2026-11-14 晚）：5 条 open 告警**已全部转 fixed**（fixed_at 见 Changed 一节）；
+  `reports/security-2026-11-14/overflow-pattern-audit.md` 已随 task-11 提交入库。
 
 ## Changed
 
 - **Dependabot #612（otel CVE-2026-128085 / GHSA-q7gw-24fr-5p69）→ fixed**：合并
   PR #209（squash，commit `3563b2055`），`tools/proto/go.mod` 的
   `go.opentelemetry.io/otel/trace` 1.44.0 → **1.47.0**（otel / otel-log / otel-metric
-  同步），go.sum 已同步，`go mod verify` 通过。
+  同步），go.sum 已同步，`go mod verify` 通过。告警 fixed_at **2026-11-14T10:18:04Z**。
 - **CodeQL #45 / #47 / #48（`go/allocation-size-overflow`）→ 改代码**：commit
   `af18ef94e`。`apps/api/app/Http/Controllers/TrustLevels/controller.go:470` 改为
   `capHint := max(len(configKeys), len(declaredKeys))`；
   `apps/api/app/Models/TrustLevels/policy.go:122` 改为
   `max(len(previous.DeletedTierIDs), len(previous.Tiers))`。业务语义、判空顺序、去重
-  与返回顺序零改动。**截至写稿，三条告警在 GitHub 侧仍是 `open`**（push 后重新分析
-  未完成），需再复查。
+  与返回顺序零改动。三条告警**已全部转 `fixed`**（fixed_at 均
+  **2026-11-14T10:48:31Z**），仓库 code-scanning 现无 open 告警。
 - **CodeQL #46（`js/clear-text-logging`）→ 删脚本**：commit `52fb2b50a` 删除
   `knowledge/reports/qa-2026-11-12-badge-pend-conversion/390/setup-account.mjs`
   （一次性验收账号脚本，文件头自述「跑完必须删干净」）。同目录 `account.json`
   （password / sessionCookie 已脱敏）与 `cleanup.log`（userId 498 已从 users /
   user_roles / user_sessions / user_credentials 删除）作为「未泄漏」证据保留未改。
-  该告警已确认转 `fixed`（2026-11-14T10:24:36Z）。
+  该告警已确认转 `fixed`（fixed_at **2026-11-14T10:24:36Z**）。
 - **仓库安全设置**：`secret_scanning` 与 `secret_scanning_push_protection` 由
   disabled 改为 **enabled**（public 仓库免费）；`secret_scanning_non_provider_patterns`
   与 `secret_scanning_validity_checks` 仍 disabled（未触碰），
@@ -45,30 +47,33 @@
 
 ## Next
 
-1. **复查 CodeQL #45/#47/#48 是否转 fixed**（`af18ef94e` 推送后重新分析未结束；上一条
-   push 约 2.5 分钟闭合）。若仍 open 说明分析未完成，**不要改代码**。
-2. **复查 secret scanning 历史扫描最终结果**：大仓库历史扫描可能需数十分钟到数小时；本次
+1. **Dependabot #610 的处置**（见 Open Questions 2）：要么升级 katex 让它转 fixed，要么
+   把 dismiss 理由写清楚——不要让它一直靠 dismissed 状态躺着。
+2. **19 个 open Dependabot PR**（用户明确本次不合并）：#208 core-go 组、#207 compose-images
+   组、#205 github-actions 组、#202 builtin-go 组、#201/#200/#199/#198/#197/#196/#195/#194/
+   #193/#192/#191、#188/#187/#186/#185。它们是常规版本升级，**不对应任何 open 安全告警**。
+3. **CodeQL / govulncheck 覆盖盲区**（见 Open Questions 1）：扩 workflow 构建范围属
+   后续项，本次未动 workflow。
+4. **TrustLevels 容量 nit**（见 Open Questions 3）：`policy.go:123` 的
+   `seen := make(map[string]bool, len(deleted))` 拿不到容量提示，小审建议改用
+   `max(len(previous.DeletedTierIDs), len(previous.Tiers))`；本次为最小 diff 未改。
+5. **复查 secret scanning 历史扫描最终结果**：大仓库历史扫描可能需数十分钟到数小时；本次
    26 分钟内轮询 32 次均为空，最终结果仍需收口。已知项（若出现即这两项，**不应误判为
    真实泄漏**）：`apps/api/app/Support/Crypto/option_test.go:24` 的 AWS 官方示例 key
    `AKIAIOSFODNN7EXAMPLE`；`.../qa-2026-11-12-.../390/account.json` 的 password /
    sessionCookie（已脱敏为 `<redacted>`）。
-3. **19 个 open Dependabot PR**（用户明确本次不合并）：#208 core-go 组、#207 compose-images
-   组、#205 github-actions 组、#202 builtin-go 组、#201/#200/#199/#198/#197/#196/#195/#194/
-   #193/#192/#191、#188/#187/#186/#185。它们是常规版本升级，**不对应任何 open 安全告警**。
-4. **CodeQL / govulncheck 覆盖盲区**（见 Open Questions 1）：扩 workflow 构建范围属
-   后续项，本次未动 workflow。
 
 ## Open Questions
 
-1. **CodeQL 流程盲区（新发现，影响面大）**：`.github/workflows/security.yml` 的 CodeQL
-   作业是 `build-mode: manual` + `working-directory: apps/api`（第 49 / 71 行），仓库
-   **无 `go.work`**、`apps/api/go.mod` **无 `replace`**，因此 **8 个
+1. **CodeQL 流程盲区（新发现，影响面大）**：workflow 的 CodeQL 作业是
+   `build-mode: manual` + `working-directory: apps/api`（`security.yml` 第 49 / 71 行），
+   仓库**无 `go.work`**、`apps/api/go.mod` **无 `replace`**，因此 **8 个
    `extensions/builtin/plugins/*/backend` 独立 Go module 与 `tools/proto` 根本不在
-   CodeQL 的 Go 数据库里**，永远不会产生该类告警；govulncheck 同理（`work-dir: apps/api`
-   + `go-package: ./...`，只覆盖 core）。workflow 里「内建插件与 apps/api 共享同一依赖树」
-   只对**依赖可达性**成立，对**插件自身源码**不成立。小研已用 Go AST 补扫这两个范围：
-   **命中 0 处**（结论是「实测无此类漏洞」而非「扫不到所以认为没有」）。**消除盲区需
-   扩展 workflow 构建范围——后续项，本次未改。**
+   CodeQL 的 Go 数据库里**（govulncheck 同理，`work-dir: apps/api` + `go-package: ./...`
+   只覆盖 core）；workflow 里「内建插件与 apps/api 共享同一依赖树」只对**依赖可达性**
+   成立，对**插件自身源码**不成立。小研已用 Go AST 补扫这两个范围：**命中 0 处**
+   （结论是「实测无此类漏洞」而非「扫不到所以认为没有」）。**消除盲区需扩展 workflow
+   构建范围——后续项，本次未改。** 详见 `modules/backend.md` 与审计报告 §三。
 2. **Dependabot #610 仍在 dismissed（有意保留，不要让它无声消失）**：katex prototype
    pollution（CVE-2026-103923 / GHSA-238p-pmpm-9mq7，**low**，`apps/web/package.json`），
    state=dismissed、dismissed_reason=`fix_started`。本次**有意未处理**（low 等级 + 前端
