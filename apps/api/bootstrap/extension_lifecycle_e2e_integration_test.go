@@ -330,6 +330,7 @@ func insertProductionLifecycleE2EActor(
 	suffix string,
 ) identity.Actor {
 	t.Helper()
+	repairUsersIDSequence(t, ctx, pool)
 	username := "p4_e2e_" + suffix
 	var actorID int64
 	if err := pool.QueryRow(ctx, `

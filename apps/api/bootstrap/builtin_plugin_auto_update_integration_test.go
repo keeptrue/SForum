@@ -250,6 +250,7 @@ func builtinAutoIntegrationHasEvent(
 
 func TestBuiltinAutoRestartRealLegacyArtifact(t *testing.T) {
 	ctx, pool := openBuiltinAutoUpdateDatabase(t)
+	repairUsersIDSequence(t, ctx, pool)
 	var userID int64
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO users (username, username_lower, email, email_lower, display_name)

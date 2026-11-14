@@ -228,6 +228,7 @@ func themeE2EActivationInput(current, target extensions.Extension, actorID int64
 
 func createThemeE2EActor(t *testing.T, pool *pgxpool.Pool) int64 {
 	t.Helper()
+	repairUsersIDSequence(t, context.Background(), pool)
 	username := fmt.Sprintf("p8_theme_actor_%d", time.Now().UnixNano())
 	var actorID int64
 	if err := pool.QueryRow(context.Background(), `

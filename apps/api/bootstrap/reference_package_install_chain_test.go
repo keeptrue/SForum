@@ -318,6 +318,7 @@ func TestReferenceSEOFormalZipUploadTrustEnableRestartDisableUpgradeUninstall(t 
 func seedFormalZipActors(t *testing.T, ctx context.Context, pool *pgxpool.Pool) (super, tech identity.Actor) {
 	t.Helper()
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	repairUsersIDSequence(t, ctx, pool)
 	var superID, techID int64
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO users (username, username_lower, email, email_lower, display_name)

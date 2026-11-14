@@ -27,14 +27,9 @@ func TestProfileActivityCountersAdapterReadsUserActivityColumns(t *testing.T) {
 	}
 	defer pool.Close()
 
-	// 共享测试库里 users_id_seq 可能落后于 max(id)（有测试夹具显式插入 id）。
-	// 先把序列对齐到 max(id)，否则下面的 nextval 会撞上既有行——这是夹具健壮性，
-	// 不是产品行为；对齐后本测试在任何包之后运行都稳定。
-	if _, err := pool.Exec(ctx, `
-		SELECT setval(pg_get_serial_sequence('users', 'id'),
-		              GREATEST((SELECT COALESCE(max(id), 0) FROM users), 1))`); err != nil {
-		t.Fatalf("对齐 users 序列失败：%v", err)
-	}
+	// 共享测试库里 users_id_seq 可能落后于 max(id)（有测试夹具显式插入 id），
+	// 对齐逻辑与原因见 test_users_sequence_test.go。
+	repairUsersIDSequence(t, ctx, pool)
 	username := fmt.Sprintf("profile_counts_%d", time.Now().UnixNano())
 	var userID int64
 	if err := pool.QueryRow(ctx, `

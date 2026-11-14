@@ -47,6 +47,10 @@ func newLifecyclePurgeFixture(t *testing.T, pinned bool) *lifecyclePurgeFixture 
 	cleanupID := strings.ReplaceAll(extensionID, ".", "-")
 	username := strings.ReplaceAll(extensionID, ".", "_")
 
+	// 共享测试库里 users.id 是 BIGSERIAL，别的包用显式 id 插过 users 却不推进序列，
+	// 直接按默认 id 插入会撞 users_pkey（见 test_users_sequence_test.go）。
+	repairUsersIDSequence(t, ctx, pool)
+
 	var actorUserID int64
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO users (username, username_lower, email, email_lower, display_name)

@@ -59,6 +59,7 @@ func newBadgeGrantFixture(t *testing.T) badgeGrantFixture {
 	}
 	t.Cleanup(pool.Close)
 
+	repairUsersIDSequence(t, ctx, pool)
 	stamp := time.Now().UnixNano()
 	username := fmt.Sprintf("badge_notify_%d", stamp)
 	var userID int64

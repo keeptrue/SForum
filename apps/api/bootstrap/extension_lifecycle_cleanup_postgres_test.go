@@ -35,6 +35,7 @@ func TestProductionLifecycleCleanupIdentityExactCASAndEvidenceRetention(t *testi
 	extensionID := fmt.Sprintf("bootstrap.cleanup.%d", time.Now().UnixNano())
 	cleanupID := strings.ReplaceAll(extensionID, ".", "-")
 	username := strings.ReplaceAll(extensionID, ".", "_")
+	repairUsersIDSequence(t, ctx, pool)
 	var actorUserID int64
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO users (username, username_lower, email, email_lower, display_name)
