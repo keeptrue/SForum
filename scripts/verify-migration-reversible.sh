@@ -16,6 +16,7 @@
 #   7  再次 up 失败
 #   8  up 之后的对象断言失败（对象没重建全）
 #   9  X-04b 负向断言失败：多条件规则下 down 本应拒绝，却成功了（或拒绝时留下了残留）
+#  10  没有为目标版本定义 down 断言分支（拒绝用兜底断言假装验证过）
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -317,19 +318,24 @@ elif [[ "$TARGET_VERSION" == "202611100004" ]]; then
   assert_value '权限行 trust.manage 已删除' "SELECT NOT EXISTS (SELECT 1 FROM permissions WHERE key = 'trust.manage')" t || down_failures=$((down_failures + 1))
   assert_value '角色授权 trust.manage 已全部删除' "SELECT NOT EXISTS (SELECT 1 FROM role_permissions WHERE permission_key = 'trust.manage')" t || down_failures=$((down_failures + 1))
   assert_value "goose 版本回退到 $EXPECTED_PREVIOUS" "SELECT max(version_id) FROM goose_db_version WHERE is_applied" "$EXPECTED_PREVIOUS" || down_failures=$((down_failures + 1))
+elif [[ "$TARGET_VERSION" == "202611140002" ]]; then
+  # user_trust_levels：Up 段建「表 + 视图 + owner 自对齐」，Down 段是严格逆序的两句 DROP。
+  # 断言三件事：表没了（含随表消失的 PK 索引）、视图没了、goose 版本退回上一条。
+  #
+  # 另外**反向**断言一条：更早域的 forum_user_activity 必须仍在。
+  # 这是本分支存在的理由——只回滚最新一条迁移时，更早域的对象本就不该消失；
+  # 上一版脚本没有这个分支，掉进「徽章时代」的兜底断言，于是把 11 个「本不该消失」
+  # 的对象报成残留（H10 的 11 项红）。断言方向必须跟目标迁移走。
+  assert_value '表 user_trust_levels 已删除' "SELECT to_regclass('public.user_trust_levels') IS NULL" t || down_failures=$((down_failures + 1))
+  assert_value '主键索引 user_trust_levels_pkey 已删除' "SELECT to_regclass('public.user_trust_levels_pkey') IS NULL" t || down_failures=$((down_failures + 1))
+  assert_value '视图 sforum_core_v1.forum_user_trust_levels 已删除' "SELECT to_regclass('sforum_core_v1.forum_user_trust_levels') IS NULL" t || down_failures=$((down_failures + 1))
+  assert_value '更早域的视图 forum_user_activity 仍在（不该被这条 Down 波及）' "SELECT to_regclass('sforum_core_v1.forum_user_activity') IS NOT NULL" t || down_failures=$((down_failures + 1))
+  assert_value "goose 版本回退到 $EXPECTED_PREVIOUS" "SELECT max(version_id) FROM goose_db_version WHERE is_applied" "$EXPECTED_PREVIOUS" || down_failures=$((down_failures + 1))
 else
-assert_value '表 user_activity 已删除' "SELECT to_regclass('public.user_activity') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '表 user_visits 已删除' "SELECT to_regclass('public.user_visits') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '表 badge_groups 已删除' "SELECT to_regclass('public.badge_groups') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '表 badges 已删除' "SELECT to_regclass('public.badges') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '表 user_badges 已删除' "SELECT to_regclass('public.user_badges') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '列 users.top_badge_id 已删除' "SELECT NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'top_badge_id')" t || down_failures=$((down_failures + 1))
-assert_value '视图 sforum_core_v1.forum_badges 已删除' "SELECT to_regclass('sforum_core_v1.forum_badges') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '视图 sforum_core_v1.forum_user_badges 已删除' "SELECT to_regclass('sforum_core_v1.forum_user_badges') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '视图 sforum_core_v1.forum_user_activity 已删除' "SELECT to_regclass('sforum_core_v1.forum_user_activity') IS NULL" t || down_failures=$((down_failures + 1))
-assert_value '通知描述符 badge_granted 已删除' "SELECT NOT EXISTS (SELECT 1 FROM notification_type_descriptors WHERE type = 'badge_granted')" t || down_failures=$((down_failures + 1))
-assert_value '通知通道策略 badge_granted 已删除' "SELECT NOT EXISTS (SELECT 1 FROM notification_type_policies WHERE type = 'badge_granted')" t || down_failures=$((down_failures + 1))
-assert_value "goose 版本回退到 $EXPECTED_PREVIOUS" "SELECT max(version_id) FROM goose_db_version WHERE is_applied" "$EXPECTED_PREVIOUS" || down_failures=$((down_failures + 1))
+  # 没有为该版本定义分支时**直接失败**，不再回落到「徽章时代」的兜底断言。
+  # 兜底曾经把「更早域对象还在」误报成残留（H10 的 11 项红就是这么来的）；
+  # 更糟的是它会让新迁移看起来「验过了」。宁可红在这句话上，也不要假装验过。
+  die 10 "没有为 $TARGET_VERSION 定义 down 断言分支：本脚本只验证最新那条，新增迁移时必须在这里加分支（通用断言覆盖不了表/视图/权限键这些不同形态）。"
 fi
 if [[ "$down_failures" -ne 0 ]]; then
   die 6 "down 之后有 $down_failures 项残留，迁移不可逆（Down 段漏删）。"
