@@ -2243,6 +2243,9 @@
           "lifecycle": "生命周期计划与执行",
           "openapi": "OpenAPI 片段",
           "packageFiles": "包文件声明"
+        },
+        "trustLevelEarnable": {
+          "title": "可被信任等级授予的权限：等级达到后自动获得"
         }
       },
       "stats": {

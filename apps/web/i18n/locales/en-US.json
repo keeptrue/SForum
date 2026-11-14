@@ -2203,6 +2203,9 @@
           "lifecycle": "Lifecycle plan and execution",
           "openapi": "OpenAPI fragments",
           "packageFiles": "Package file declarations"
+        },
+        "trustLevelEarnable": {
+          "title": "Permissions grantable by trust level: granted automatically at that tier"
         }
       },
       "stats": {

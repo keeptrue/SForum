@@ -39,6 +39,48 @@ function capabilityDisclosure(row: { key: string }) {
   const key = CAPABILITY_DISCLOSURES[row.key]
   return key ? t(key) : ''
 }
+/**
+ * 「可被信任等级授予的权限」（M4a 披露，计划 §4.5 M4.1）。
+ *
+ * 为什么必须在**启用前**看：勾进某一档 = 该档及以上自动获得这项能力，不是「可以手动授予」。
+ * 标题本身就把这层语义写清（`trustLevelEarnable.title`），因为本弹窗的既有约束是
+ * **只渲染 label、不渲染 description** —— 逐条 description 在这里是噪声，靠标题自解释。
+ *
+ * 三条边界：
+ * 1. 只认 `trustLevelEarnable === true`（缺省 false 是后端刻意的安全默认）；
+ * 2. `label` 是 Go 的 `LocalizedText`：wire 上**可能是字符串，也可能是 locale map**
+ *    （`MarshalJSON` 按 `ByLocale` 是否为空二选一），两种都要吃；
+ * 3. 一条都没有时**整段不渲染** —— 空段会让运营以为功能坏了或数据没加载。
+ */
+type TrustLevelEarnableRow = { key: string, label: string }
+
+const trustLevelEarnableRows = computed<TrustLevelEarnableRow[]>(() => {
+  const list = Array.isArray(props.impact.permissionDefinitions) ? props.impact.permissionDefinitions : []
+  return list
+    .filter(row => row && (row as Record<string, unknown>).trustLevelEarnable === true)
+    .map(row => ({
+      key: String((row as Record<string, unknown>).key ?? ''),
+      label: localizedText((row as Record<string, unknown>).label)
+    }))
+    .filter(row => row.key !== '')
+})
+
+/** `LocalizedText` 的两种 wire 形态（字符串 / locale map）统一取当前语言。 */
+function localizedText(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (!value || typeof value !== 'object') return ''
+  const map = value as Record<string, unknown>
+  const order = zh.value
+    ? ['zh-CN', 'zh', 'en-US', 'en']
+    : ['en-US', 'en', 'zh-CN', 'zh']
+  for (const key of order) {
+    const candidate = map[key]
+    if (typeof candidate === 'string' && candidate.trim() !== '') return candidate.trim()
+  }
+  const fallback = Object.values(map).find(entry => typeof entry === 'string' && entry.trim() !== '')
+  return typeof fallback === 'string' ? fallback.trim() : ''
+}
+
 const showBackupGuidance = ref(true)
 let backupGuidanceTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -389,6 +431,32 @@ function formatted(value: unknown) {
           <p v-else-if="row.description" class="mt-1 text-[11px] leading-5 text-slate-600 dark:text-zinc-300">
             {{ row.description }}
           </p>
+        </li>
+      </ul>
+    </section>
+
+    <!--
+      可被信任等级授予的权限：与上面 capability 清单同风格（卡片网格 + key 小字），
+      但**不渲染 description**（见 script 里的说明）。一条都没有时整段不渲染。
+    -->
+    <section
+      v-if="trustLevelEarnableRows.length"
+      class="space-y-2 border-y border-slate-200 py-4 dark:border-zinc-800"
+      data-testid="extension-trust-level-earnable"
+    >
+      <h3 class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-zinc-100">
+        <UIcon name="i-lucide-trending-up" class="size-5 shrink-0 text-slate-500 dark:text-zinc-400" />
+        {{ t('admin.extensions.trust.trustLevelEarnable.title') }}
+      </h3>
+      <ul class="grid gap-2 lg:grid-cols-2">
+        <li
+          v-for="row in trustLevelEarnableRows"
+          :key="row.key"
+          class="min-w-0 rounded-md border border-slate-200 px-3 py-2.5 dark:border-zinc-700"
+          :data-trust-level-earnable-key="row.key"
+        >
+          <p class="truncate text-xs font-medium text-slate-900 dark:text-zinc-100">{{ row.label || row.key }}</p>
+          <p class="mt-1 break-all font-mono text-[11px] text-slate-500 dark:text-zinc-400">{{ row.key }}</p>
         </li>
       </ul>
     </section>
