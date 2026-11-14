@@ -247,6 +247,9 @@
           "backend"
         ],
         "properties": {
+          "type": {
+            "const": "plugin"
+          },
           "backend": {
             "type": "object",
             "required": [
@@ -399,6 +402,71 @@
                 "const": 2
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "aiTools"
+        ],
+        "properties": {
+          "aiTools": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "backend"
+        ],
+        "properties": {
+          "type": {
+            "const": "plugin"
+          },
+          "backend": {
+            "type": "object",
+            "required": [
+              "entry",
+              "protocolVersion"
+            ],
+            "properties": {
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "protocolVersion": {
+                "const": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "notificationTypes"
+        ],
+        "properties": {
+          "notificationTypes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "const": "plugin"
           }
         }
       }
