@@ -38,7 +38,7 @@ const i18nStub = () => ({
 })
 
 const ParamField = await compileVueSfc(
-  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue', import.meta.url)),
+  fileURLToPath(new URL('../../app/components/admin/rules/SFAdminRuleParamField.vue', import.meta.url)),
   'rule-param-field-facts',
   {
     computed,
@@ -57,7 +57,7 @@ const ParamField = await compileVueSfc(
 )
 
 const Leaf = await compileVueSfc(
-  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue', import.meta.url)),
+  fileURLToPath(new URL('../../app/components/admin/rules/SFAdminRuleLeaf.vue', import.meta.url)),
   'rule-leaf-facts',
   {
     createDefaultLeaf,
@@ -70,7 +70,7 @@ const Leaf = await compileVueSfc(
     factKeyMissing,
     factKeyOptions,
     factVariantOptions,
-    SFAdminBadgeRuleParamField: ParamField
+    SFAdminRuleParamField: ParamField
   }
 )
 

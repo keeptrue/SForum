@@ -2,7 +2,7 @@
 /**
  * 规则树的条件组（`all` / `any` / `not`），递归渲染自身与叶子。
  *
- * 每个节点都持有整份 `rule` 与自己的 `path`，所以增删改直接用 `badgeRule.ts` 的
+ * 每个节点都持有整份 `rule` 与自己的 `path`，所以增删改直接用 `rule.ts` 的
  * 不可变原语算出新文档再向上 emit —— 组件里不拼 JSON，也不做本地可变状态。
  *
  * 两处 UI 层护栏：
@@ -26,9 +26,9 @@ import {
   type BadgeRuleGroup,
   type BadgeRuleLeaf,
   type BadgeRuleOp
-} from '~/utils/admin/badgeRule'
+} from '~/utils/admin/rule'
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
-import SFAdminBadgeRuleLeaf from '~/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue'
+import SFAdminRuleLeaf from '~/components/admin/rules/SFAdminRuleLeaf.vue'
 
 const props = defineProps<{
   rule: BadgeRule
@@ -215,7 +215,7 @@ function opLabel(op: BadgeRuleOp) {
           </button>
         </div>
 
-        <SFAdminBadgeRuleGroup
+        <SFAdminRuleGroup
           v-if="row.group"
           :rule="rule"
           :node="row.group"
@@ -227,7 +227,7 @@ function opLabel(op: BadgeRuleOp) {
         :ref-candidates="refCandidates ?? {}"
           @update:rule="update"
         />
-        <SFAdminBadgeRuleLeaf
+        <SFAdminRuleLeaf
           v-else-if="row.leaf"
           :rule="rule"
           :node="row.leaf"

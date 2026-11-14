@@ -11,7 +11,7 @@ import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import type { BadgeConditionCatalogEntry, BadgeFactCandidate, BadgeRule } from '~/utils/admin/badgeRule'
 import type { BadgeRuleText, BadgeRuleTextStatus } from '~/composables/admin/badges/useBadgeRuleTextPreview'
 import type { BadgeRuleHealthIssue } from '~/composables/admin/badges/useAdminBadgeRuleHealth'
-import SFAdminBadgeRuleEditor from '~/components/admin/badges/rule/SFAdminBadgeRuleEditor.vue'
+import SFAdminRuleEditor from '~/components/admin/rules/SFAdminRuleEditor.vue'
 
 const props = withDefaults(defineProps<{
   fieldErrors: Record<string, string[]>
@@ -115,7 +115,7 @@ function issueText(issue: BadgeRuleHealthIssue) {
       <p v-if="ruleMissing" class="mb-1.5 text-sm text-amber-600 dark:text-amber-400" data-rule-missing>
         {{ t('admin.badges.rule.missingHint') }}
       </p>
-      <SFAdminBadgeRuleEditor
+      <SFAdminRuleEditor
         v-if="draftRule"
         :model-value="draftRule"
         :catalog="catalog"

@@ -86,7 +86,7 @@ const i18nStub = () => ({
 })
 
 const ParamField = await compileVueSfc(
-  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue', import.meta.url)),
+  fileURLToPath(new URL('../../app/components/admin/rules/SFAdminRuleParamField.vue', import.meta.url)),
   'rule-param-field',
   {
     computed,
@@ -105,7 +105,7 @@ const ParamField = await compileVueSfc(
 )
 
 const Leaf = await compileVueSfc(
-  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue', import.meta.url)),
+  fileURLToPath(new URL('../../app/components/admin/rules/SFAdminRuleLeaf.vue', import.meta.url)),
   'rule-leaf-params',
   {
     createDefaultLeaf,
@@ -119,7 +119,7 @@ const Leaf = await compileVueSfc(
     factKeyMissing,
     factKeyOptions,
     factVariantOptions,
-    SFAdminBadgeRuleParamField: ParamField
+    SFAdminRuleParamField: ParamField
   }
 )
 
@@ -128,7 +128,7 @@ const Leaf = await compileVueSfc(
  * 任何一边退化（多出兜底文本框 / 少了候选）都要在这里红。
  */
 const SimpleForm = await compileVueSfc(
-  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleSimpleForm.vue', import.meta.url)),
+  fileURLToPath(new URL('../../app/components/admin/rules/SFAdminRuleSimpleForm.vue', import.meta.url)),
   'rule-simple-form-drift',
   {
     BADGE_RULE_LIMITS,
@@ -140,7 +140,7 @@ const SimpleForm = await compileVueSfc(
     leafSentence,
     computed,
     useI18n: i18nStub,
-    SFAdminBadgeRuleParamField: ParamField
+    SFAdminRuleParamField: ParamField
   }
 )
 
@@ -227,7 +227,7 @@ function lastEmittedLeaf(wrapper: ReturnType<typeof mountLeaf>): BadgeRuleLeaf {
   return rule.root as BadgeRuleLeaf
 }
 
-describe('SFAdminBadgeRuleLeaf params', () => {
+describe('SFAdminRuleLeaf params', () => {
   test('按目录 params 渲染枚举、窗口与比较/阈值控件', () => {
     const wrapper = mountLeaf(activityLeaf())
     try {

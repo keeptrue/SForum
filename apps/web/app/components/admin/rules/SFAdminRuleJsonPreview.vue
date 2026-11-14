@@ -5,7 +5,7 @@
  * 只读是刻意的：可视化树是唯一编辑入口，JSON 用来核对与贴给后端排查。
  * 复制成功/失败都走 Toast（5 秒自动消失的成功态），不在这里做第二套提示。
  */
-import type { BadgeRule } from '~/utils/admin/badgeRule'
+import type { BadgeRule } from '~/utils/admin/rule'
 
 const props = defineProps<{ rule: BadgeRule }>()
 

@@ -15,7 +15,7 @@ import type {
   BadgeConditionParam,
   BadgeFactCandidate,
   BadgeRuleLeaf
-} from '~/utils/admin/badgeRule'
+} from '~/utils/admin/rule'
 import { resolveParamOptionLabel } from '~/utils/admin/badgeRuleParams'
 import {
   applyFactKeySelection,

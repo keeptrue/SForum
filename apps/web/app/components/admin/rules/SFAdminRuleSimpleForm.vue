@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 简单模式表单：一行一个条件，行间用「并且」连接，产出仍是 `badgeRule.ts` 的同一份 AST。
+ * 简单模式表单：一行一个条件，行间用「并且」连接，产出仍是 `rule.ts` 的同一份 AST。
  *
  * 刻意不持有第二套模型：行 = `flattenAllLeaves(rule)`，任何编辑都用
  * `buildFlatAllRule` 算出一棵新树再 emit。组件只管渲染与事件，句子生成在
@@ -16,10 +16,10 @@ import {
   type BadgeFactCandidate,
   type BadgeRule,
   type BadgeRuleLeaf
-} from '~/utils/admin/badgeRule'
+} from '~/utils/admin/rule'
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import { buildFlatAllRule, flattenAllLeaves, leafSentence } from '~/utils/admin/badgeRuleSentence'
-import SFAdminBadgeRuleParamField from '~/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue'
+import SFAdminRuleParamField from '~/components/admin/rules/SFAdminRuleParamField.vue'
 
 const props = withDefaults(defineProps<{
   rule: BadgeRule
@@ -113,7 +113,7 @@ function compareOps(leaf: BadgeRuleLeaf) {
   return entryOf(leaf.type)?.compare ?? []
 }
 
-/** 该行条件的参数声明（原样给 `SFAdminBadgeRuleParamField`，隐藏判定由它自己做）。 */
+/** 该行条件的参数声明（原样给 `SFAdminRuleParamField`，隐藏判定由它自己做）。 */
 function rowParams(leaf: BadgeRuleLeaf) {
   return entryOf(leaf.type)?.params ?? []
 }
@@ -199,7 +199,7 @@ function removeCondition(index: number) {
         </label>
 
         <!-- 参数控件只有一份实现（ParamField）：简单模式与高级模式渲染同一个组件。 -->
-        <SFAdminBadgeRuleParamField
+        <SFAdminRuleParamField
           v-for="spec in rowParams(leaf)"
           :key="spec.name"
           :spec="spec"

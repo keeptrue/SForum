@@ -89,9 +89,9 @@ const toastCalls: unknown[] = []
 const useToastStub = () => ({ add: (payload: unknown) => { toastCalls.push(payload) } })
 const UIconStub = defineComponent({ name: 'UIcon', props: { name: String }, template: '<i />' })
 
-const ruleDir = new URL('../../app/components/admin/badges/rule/', import.meta.url)
+const ruleDir = new URL('../../app/components/admin/rules/', import.meta.url)
 
-const ParamField = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleParamField.vue', ruleDir)), 'simple-param-field', {
+const ParamField = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleParamField.vue', ruleDir)), 'simple-param-field', {
   computed,
   useI18n: i18nStub,
   resolveParamOptionLabel,
@@ -106,7 +106,7 @@ const ParamField = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRulePa
   refOptionLabel
 })
 
-const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue', ruleDir)), 'simple-leaf', {
+const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleLeaf.vue', ruleDir)), 'simple-leaf', {
   createDefaultLeaf,
   replaceNode,
   computed,
@@ -118,10 +118,10 @@ const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue
   factKeyMissing,
   factKeyOptions,
   factVariantOptions,
-  SFAdminBadgeRuleParamField: ParamField
+  SFAdminRuleParamField: ParamField
 })
 
-const Group = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleGroup.vue', ruleDir)), 'simple-group', {
+const Group = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleGroup.vue', ruleDir)), 'simple-group', {
   BADGE_RULE_LIMITS,
   createDefaultLeaf,
   createGroup,
@@ -134,10 +134,10 @@ const Group = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleGroup.v
   computed,
   ref,
   useI18n: i18nStub,
-  SFAdminBadgeRuleLeaf: Leaf
+  SFAdminRuleLeaf: Leaf
 })
 
-const SimpleForm = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleSimpleForm.vue', ruleDir)), 'simple-form', {
+const SimpleForm = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleSimpleForm.vue', ruleDir)), 'simple-form', {
   BADGE_RULE_LIMITS,
   createDefaultLeaf,
   isGroupNode,
@@ -152,27 +152,27 @@ const SimpleForm = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleSi
   computed,
   ref,
   useI18n: i18nStub,
-  SFAdminBadgeRuleParamField: ParamField
+  SFAdminRuleParamField: ParamField
 })
 
-const JsonPreview = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleJsonPreview.vue', ruleDir)), 'simple-json', {
+const JsonPreview = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleJsonPreview.vue', ruleDir)), 'simple-json', {
   computed,
   ref,
   useI18n: i18nStub,
   useToast: useToastStub
 })
 
-const Editor = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleEditor.vue', ruleDir)), 'simple-editor', {
+const Editor = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleEditor.vue', ruleDir)), 'simple-editor', {
   isGroupNode,
   isSimpleRule,
   ruleSentence,
   computed,
   ref,
   useI18n: i18nStub,
-  SFAdminBadgeRuleGroup: Group,
-  SFAdminBadgeRuleLeaf: Leaf,
-  SFAdminBadgeRuleSimpleForm: SimpleForm,
-  SFAdminBadgeRuleJsonPreview: JsonPreview
+  SFAdminRuleGroup: Group,
+  SFAdminRuleLeaf: Leaf,
+  SFAdminRuleSimpleForm: SimpleForm,
+  SFAdminRuleJsonPreview: JsonPreview
 })
 
 const catalog: BadgeConditionCatalogEntry[] = [

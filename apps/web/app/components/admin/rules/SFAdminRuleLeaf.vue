@@ -2,7 +2,7 @@
 /**
  * 规则树的一片叶子：条件选择 + 比较符/阈值 + 目录声明的参数控件。
  *
- * 参数控件本身**不在这个文件里**：`SFAdminBadgeRuleParamField` 是唯一实现，
+ * 参数控件本身**不在这个文件里**：`SFAdminRuleParamField` 是唯一实现，
  * 简单模式表单与高级模式树都渲染它。这里只负责「叶子这一行」的头部（条件 / 比较符 /
  * 阈值 / 单位）与把参数改动合并回本节点。
  */
@@ -14,10 +14,10 @@ import {
   type BadgeFactCandidate,
   type BadgeRule,
   type BadgeRuleLeaf
-} from '~/utils/admin/badgeRule'
+} from '~/utils/admin/rule'
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import { factCandidateUnit } from '~/utils/admin/badgeFactCandidates'
-import SFAdminBadgeRuleParamField from '~/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue'
+import SFAdminRuleParamField from '~/components/admin/rules/SFAdminRuleParamField.vue'
 
 const props = withDefaults(defineProps<{
   rule: BadgeRule
@@ -147,7 +147,7 @@ function setValue(event: Event) {
     </div>
 
     <div v-if="params.length > 0" class="sf-rule-params">
-      <SFAdminBadgeRuleParamField
+      <SFAdminRuleParamField
         v-for="spec in params"
         :key="spec.name"
         :spec="spec"

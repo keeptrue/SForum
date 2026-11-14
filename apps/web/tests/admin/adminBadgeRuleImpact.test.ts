@@ -46,7 +46,7 @@ const UButtonStub = defineComponent({
 })
 
 const dialogPath = fileURLToPath(
-  new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleImpactDialog.vue', import.meta.url)
+  new URL('../../app/components/admin/badges/SFAdminBadgeRuleImpactDialog.vue', import.meta.url)
 )
 const ImpactDialog = await compileVueSfc(dialogPath, 'badge-rule-impact-dialog', {
   computed,

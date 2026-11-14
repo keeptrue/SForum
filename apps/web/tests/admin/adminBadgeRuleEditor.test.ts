@@ -54,16 +54,16 @@ const UIconStub = defineComponent({ name: 'UIcon', props: { name: String }, temp
 
 /** 简单模式表单是另一个文件的契约，这里只验「高级模式下不该出现它」。 */
 const SimpleFormStub = defineComponent({
-  name: 'SFAdminBadgeRuleSimpleForm',
+  name: 'SFAdminRuleSimpleForm',
   props: ['rule', 'catalog'],
   emits: ['update:rule'],
   template: '<div data-simple-form />'
 })
 
-const ruleDir = new URL('../../app/components/admin/badges/rule/', import.meta.url)
+const ruleDir = new URL('../../app/components/admin/rules/', import.meta.url)
 
 const ParamField = await compileVueSfc(
-  fileURLToPath(new URL('../../app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue', import.meta.url)),
+  fileURLToPath(new URL('../../app/components/admin/rules/SFAdminRuleParamField.vue', import.meta.url)),
   'rule-param-field-editor',
   {
     computed,
@@ -81,7 +81,7 @@ const ParamField = await compileVueSfc(
   }
 )
 
-const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue', ruleDir)), 'rule-leaf', {
+const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleLeaf.vue', ruleDir)), 'rule-leaf', {
   createDefaultLeaf,
   replaceNode,
   computed,
@@ -94,17 +94,17 @@ const Leaf = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleLeaf.vue
   factKeyMissing,
   factKeyOptions,
   factVariantOptions,
-  SFAdminBadgeRuleParamField: ParamField
+  SFAdminRuleParamField: ParamField
 })
 
-const JsonPreview = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleJsonPreview.vue', ruleDir)), 'rule-json', {
+const JsonPreview = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleJsonPreview.vue', ruleDir)), 'rule-json', {
   computed,
   ref,
   useI18n: i18nStub,
   useToast: useToastStub
 })
 
-const Group = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleGroup.vue', ruleDir)), 'rule-group', {
+const Group = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleGroup.vue', ruleDir)), 'rule-group', {
   BADGE_RULE_LIMITS,
   createDefaultLeaf,
   createGroup,
@@ -117,20 +117,20 @@ const Group = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleGroup.v
   computed,
   ref,
   useI18n: i18nStub,
-  SFAdminBadgeRuleLeaf: Leaf
+  SFAdminRuleLeaf: Leaf
 })
 
-const Editor = await compileVueSfc(fileURLToPath(new URL('SFAdminBadgeRuleEditor.vue', ruleDir)), 'rule-editor', {
+const Editor = await compileVueSfc(fileURLToPath(new URL('SFAdminRuleEditor.vue', ruleDir)), 'rule-editor', {
   isGroupNode,
   computed,
   ref,
   useI18n: i18nStub,
   isSimpleRule,
   ruleSentence,
-  SFAdminBadgeRuleGroup: Group,
-  SFAdminBadgeRuleLeaf: Leaf,
-  SFAdminBadgeRuleSimpleForm: SimpleFormStub,
-  SFAdminBadgeRuleJsonPreview: JsonPreview
+  SFAdminRuleGroup: Group,
+  SFAdminRuleLeaf: Leaf,
+  SFAdminRuleSimpleForm: SimpleFormStub,
+  SFAdminRuleJsonPreview: JsonPreview
 })
 
 const catalog: BadgeConditionCatalogEntry[] = [
@@ -199,7 +199,7 @@ function mountEditor(rule: BadgeRule, items: BadgeConditionCatalogEntry[] = cata
     props: { modelValue: rule, catalog: items, initialMode: 'advanced' },
     global: {
       // 组组件递归渲染自身：编译后的对象按名字注册，运行时 resolveComponent 才能找到。
-      components: { SFAdminBadgeRuleGroup: Group },
+      components: { SFAdminRuleGroup: Group },
       stubs: { UIcon: UIconStub }
     }
   })
@@ -221,7 +221,7 @@ function childrenOf(rule: BadgeRule): BadgeRuleNode[] {
   return rule.root.children
 }
 
-describe('SFAdminBadgeRuleEditor tree', () => {
+describe('SFAdminRuleEditor tree', () => {
   test('三层嵌套按 all → any → not 递归渲染，深度逐层 +1', () => {
     const rule = ruleOf(group('all', [group('any', [group('not', [leaf('identity.email_verified')])])]))
     const wrapper = mountEditor(rule)
@@ -329,7 +329,7 @@ describe('SFAdminBadgeRuleEditor tree', () => {
   })
 })
 
-describe('SFAdminBadgeRuleEditor limits', () => {
+describe('SFAdminRuleEditor limits', () => {
   function chain(depth: number): BadgeRuleNode {
     let node: BadgeRuleNode = leaf('activity.count', 1, { metric: 'topic_count', window: { kind: 'all' } })
     for (let remaining = depth - 1; remaining > 0; remaining -= 1) node = group('all', [node])
@@ -399,7 +399,7 @@ describe('SFAdminBadgeRuleEditor limits', () => {
   })
 })
 
-describe('SFAdminBadgeRuleJsonPreview', () => {
+describe('SFAdminRuleJsonPreview', () => {
   test('只读渲染当前规则并复制到剪贴板', async () => {
     const written: string[] = []
     Object.defineProperty(globalThis.navigator, 'clipboard', {

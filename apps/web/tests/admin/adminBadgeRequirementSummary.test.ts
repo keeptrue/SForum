@@ -303,8 +303,8 @@ describe('手填判据的源码残留（必须为零）', () => {
     expect(section).not.toContain('requirement-summary-en')
   })
 
-  test('badgeRule.ts 不再有前端侧「能否自动生成」判据', () => {
-    const source = readFileSync(new URL('../../app/utils/admin/badgeRule.ts', import.meta.url), 'utf8')
+  test('rule.ts 不再有前端侧「能否自动生成」判据', () => {
+    const source = readFileSync(new URL('../../app/utils/admin/rule.ts', import.meta.url), 'utf8')
     expect(source).not.toContain('badgeRuleNeedsSummary')
     expect(source).not.toContain('AUTO_SUMMARY_METRICS')
   })

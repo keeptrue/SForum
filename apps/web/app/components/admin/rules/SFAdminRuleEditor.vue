@@ -1,22 +1,22 @@
 <script setup lang="ts">
 /**
- * 徽章规则编辑器：整棵条件树的入口，带「简单 / 高级」双模式。
+ * 共享条件规则编辑器（徽章 / 信任等级）：整棵条件树的入口，带「简单 / 高级」双模式。
  *
  * 受控组件：`modelValue` 进、`update:modelValue` 出新文档；组件内部没有可变副本，
- * 所有增删改都由子节点用 `badgeRule.ts` 的不可变原语算完再逐层 emit 上来。
+ * 所有增删改都由子节点用 `rule.ts` 的不可变原语算完再逐层 emit 上来。
  * 目录（条件清单 + 参数形状）由宿主注入，本组件不取数。
  *
  * 两种模式写的是**同一份 AST**：简单模式 = 扁平 `all`（`badgeRuleSentence.ts`
  * 的 `isSimpleRule`），高级模式 = 完整布尔树。切模式**绝不迁移语义**——把 `any`
- * 压平会直接改变判定结果、误发徽章，属于数据事故而不是体验问题。
+ * 压平会直接改变判定结果、误发授予，属于数据事故而不是体验问题。
  */
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
-import { isGroupNode, type BadgeConditionCatalogEntry, type BadgeFactCandidate, type BadgeRule } from '~/utils/admin/badgeRule'
+import { isGroupNode, type BadgeConditionCatalogEntry, type BadgeFactCandidate, type BadgeRule } from '~/utils/admin/rule'
 import { isSimpleRule, ruleSentence } from '~/utils/admin/badgeRuleSentence'
-import SFAdminBadgeRuleGroup from '~/components/admin/badges/rule/SFAdminBadgeRuleGroup.vue'
-import SFAdminBadgeRuleLeaf from '~/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue'
-import SFAdminBadgeRuleSimpleForm from '~/components/admin/badges/rule/SFAdminBadgeRuleSimpleForm.vue'
-import SFAdminBadgeRuleJsonPreview from '~/components/admin/badges/rule/SFAdminBadgeRuleJsonPreview.vue'
+import SFAdminRuleGroup from '~/components/admin/rules/SFAdminRuleGroup.vue'
+import SFAdminRuleLeaf from '~/components/admin/rules/SFAdminRuleLeaf.vue'
+import SFAdminRuleSimpleForm from '~/components/admin/rules/SFAdminRuleSimpleForm.vue'
+import SFAdminRuleJsonPreview from '~/components/admin/rules/SFAdminRuleJsonPreview.vue'
 
 const props = withDefaults(defineProps<{
   modelValue: BadgeRule
@@ -121,7 +121,7 @@ function update(next: BadgeRule) {
         {{ t('admin.badges.rule.modeAdvancedOnly') }}
       </p>
 
-      <SFAdminBadgeRuleSimpleForm
+      <SFAdminRuleSimpleForm
         v-if="mode === 'simple' && simple"
         :rule="modelValue"
         :catalog="catalog"
@@ -132,7 +132,7 @@ function update(next: BadgeRule) {
       />
 
       <template v-else-if="!degraded">
-        <SFAdminBadgeRuleGroup
+        <SFAdminRuleGroup
           v-if="rootGroup"
           :rule="modelValue"
           :node="rootGroup"
@@ -144,7 +144,7 @@ function update(next: BadgeRule) {
           :ref-candidates="refCandidates ?? {}"
           @update:rule="update"
         />
-        <SFAdminBadgeRuleLeaf
+        <SFAdminRuleLeaf
           v-else-if="rootLeaf"
           :rule="modelValue"
           :node="rootLeaf"
@@ -158,7 +158,7 @@ function update(next: BadgeRule) {
         />
       </template>
 
-      <SFAdminBadgeRuleJsonPreview :rule="modelValue" />
+      <SFAdminRuleJsonPreview :rule="modelValue" />
     </template>
   </section>
 </template>

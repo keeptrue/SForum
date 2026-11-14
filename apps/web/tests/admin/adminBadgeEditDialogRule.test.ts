@@ -131,7 +131,7 @@ const ImpactDialogStub = defineComponent({
 })
 
 const RuleEditorStub = defineComponent({
-  name: 'SFAdminBadgeRuleEditor',
+  name: 'SFAdminRuleEditor',
   props: { modelValue: { type: Object, required: true }, catalog: { type: Array, default: () => [] } },
   emits: ['update:modelValue'],
   template: '<div data-rule-editor />'
@@ -144,7 +144,7 @@ const RuleSection = await compileVueSfc(RuleSectionPath, 'badge-rule-section', {
   BADGE_METRIC_OPTIONS,
   computed,
   useI18n: i18nStub,
-  SFAdminBadgeRuleEditor: RuleEditorStub
+  SFAdminRuleEditor: RuleEditorStub
 })
 
 const dialogPath = fileURLToPath(
