@@ -13,7 +13,7 @@ Status: **已定稿**（2026-11-14，v2）。基线 HEAD `e4f8c3b1f`（M0 条件
 
 | # | 简报原话 | 实测 | 证据 |
 | --- | --- | --- | --- |
-| C1 | 后台键族是 `admin.settings.trustLevels.*` | 真实族是 **`admin.forum.trustLevels.*`**（243 叶键）；`admin.settings.trustLevels` = 0 键，且被测试断言**必须不存在** | `apps/web/i18n/locales/zh-CN.json:5684`；`apps/web/tests/admin/forum/trustLevels.test.ts:833-839` |
+| C1 | 后台键族是 `admin.settings.trustLevels.*` | 真实族是 **`admin.forum.trustLevels.*`**（**394** 叶键，zh-CN / en-US 同数）；`admin.settings.trustLevels` 为 **`undefined`**，且被测试断言**必须不存在** | `apps/web/i18n/locales/zh-CN.json:5684`；`apps/web/tests/admin/forum/trustLevels.test.ts:847-848` |
 | C2 | 「`trustLevels.test.ts` 的双向断言连多出来的键都判红」 | **部分成立**。usage 扫描式双向断言（多出键即红）只存在于 `adminBadgesI18n.test.ts:169-176`，**不覆盖** `admin.forum.trustLevels`。trustLevels 侧真会红的只有 4 类，见 §4.3 | 同上两组文件 |
 | C3 | 有值态文案「按当前**已保存**的规则估算」 | 该句来自徽章弹窗（徽章是 GET-by-id，只能估已存规则）。本域 `rule-impact` 是 **POST 草稿请求体**，估的是即将保存的配置。照抄即事实错误 | 计划 §3.5 请求形状 `{tiers:[{tierId, requirements, rule}]}` |
 
@@ -430,7 +430,7 @@ C 部分（= A 那一行 + 追加两行，不是新页面）
 
 | 族 | 用途 | 证据 | 状态 |
 | --- | --- | --- | --- |
-| `admin.forum.trustLevels.*` | 后台信任等级页全部文案 | `zh-CN.json:5684`（243 叶键） | **唯一后台族** |
+| `admin.forum.trustLevels.*` | 后台信任等级页全部文案 | `zh-CN.json:5684`（**394** 叶键；`en-US` 同数） | **唯一后台族** |
 | `profile.trustLevel.*` | 资料页信任等级卡 | 21 叶键 | **唯一公开族** |
 | `admin.settings.trustLevels.*` | — | 测试断言必须 `undefined` | **不得新增**（C1） |
 
@@ -487,7 +487,7 @@ C 部分（= A 那一行 + 追加两行，不是新页面）
 | `trustLevels.test.ts:606-613` | 每条 SPECIFIC 码在**两份** locale 都有 `errors.code.<code>` | 只写 zh-CN；或把 `earnable_not_declared` 漏进 SPECIFIC |
 | `trustLevels.test.ts:615-643` | 桶内码在 locale 里**必须没有**专属文案 | 给桶内码顺手加一句「更友好」的文案 → **红**（这就是 C2 说的「多出来也判红」的真实落点） |
 | `trustLevels.test.ts:803-804` | `section.metric` 键集合 `toEqual` 六项 | 给 metric 加第七项 |
-| `trustLevels.test.ts:833-839` | `admin.settings.trustLevels` 与 `admin.settings.tabs.trustLevels` 必须 `undefined` | 把新键挂到 `admin.settings.*`（C1 的坑） |
+| `trustLevels.test.ts:847-848` | `admin.settings.tabs.trustLevels`（`:847`）与 `admin.settings.trustLevels`（`:848`）必须 `undefined` | 把新键挂到 `admin.settings.*`（C1 的坑） |
 | `adminBadgesI18n.test.ts:169-176` | `admin.badges` 族 usage 双向（多出键即红）+ zh/en 键集完全相等 | 往 `admin.badges.*` 加本域要用的键 |
 
 结论：**`admin.forum.trustLevels` 的 `conditions.*` 新键没有自动的「未使用即红」护栏**（C2）。

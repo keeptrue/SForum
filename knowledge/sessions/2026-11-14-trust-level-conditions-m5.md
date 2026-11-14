@@ -72,8 +72,8 @@
 - `app/Models/TrustLevels/config.go:845` 的注释仍写「全站等级掉回默认策略」，与实测口径
   （未解析 / 等同 TL0）不一致。改它是一行，等下一次碰该文件的单顺手改。
 - `apps/web/tests/admin/forum/trustLevelI18nDeadKeys.test.ts` 的注释仍写「这个族有 360 个键」，
-  实测 394；`knowledge/reports/2026-11-14-trust-level-conditions-copy-spec.md` 里两处
-  `trustLevels.test.ts:833-839` 实为 `847-848`。两处都在本单写权之外（`apps/web` / 非本单路径），
-  归属下一次碰它们的单。
+  实测 394；在 `apps/web` 里，归属下一次碰该测试的单。
+- copy-spec 的叶键数与测试行号：**已在 task-9 修正**（叶键按实测 394、禁第二族的断言在
+  `847-848`），并给三份把旧族写死的历史报告加了作废横幅。
 - 运行期取证的可重放性：包级门禁常跑，但「装进 dev 库 → 真实弹窗截正样本」仍无脚本化路径，
   由 task-4 补。

@@ -1,3 +1,5 @@
+> **已作废（2026-11-14）**：本文关于后台 i18n 键族的说法错误。真实族是 `admin.forum.trustLevels.*`（394 叶键），`admin.settings.trustLevels.*` 在两份 locale 里均为 `undefined`。见 `../modules/trust-levels.md` §命名与 i18n 三条硬约定。
+
 # 能力解锁（earnable）勾选矩阵 — 视觉与措辞规范（M10 施工版）
 
 Status: **ready**（2026-11-11 09:18–09:30 +08:00 读码后定稿）

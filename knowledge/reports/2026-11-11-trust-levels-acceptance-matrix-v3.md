@@ -1,3 +1,5 @@
+> **已作废（2026-11-14）**：本文关于后台 i18n 键族的说法错误。真实族是 `admin.forum.trustLevels.*`（394 叶键），`admin.settings.trustLevels.*` 在两份 locale 里均为 `undefined`。见 `../modules/trust-levels.md` §命名与 i18n 三条硬约定。
+
 # 信任等级 — 验收执行矩阵 v3（M9–M13 增量）
 
 Owner: pm（阿策）
