@@ -278,6 +278,7 @@ const TOP_LEVEL_COMMANDS = {
   'newUsersResetPasswordCommand': 'users:reset-password',
   'newPrivacyEraseUserCommand': 'privacy:erase-user',
   'newRevisionsCommand': 'revisions',
+  'newRoleTemplatesCommand': 'roles:templates',
   'newExtensionCommand': 'extension',
   'newExtensionRecoveryCommand': 'recovery',
   'newDevCleanupOrphanPluginsCommand': 'dev:cleanup-orphan-plugins',

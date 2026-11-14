@@ -27,6 +27,7 @@ go run ./cmd/sforum --version
 | `users:reset-password` | Reset a user's password (interactive by default; `--email/--password/--yes` for automation; alias `user:reset-password`) |
 | `privacy:erase-user` | Erase a user's privacy data (production entry of `privacy.Registry.EraseUser`; `--actor-user-id` must be super_admin / `user.manage`; `--user-id`/`--user-email` pick one; automation requires `--yes`) |
 | `revisions backfill` | Backfill the forum content revision ledger in batches |
+| `roles:templates` | Render or verify the web role-template catalog from `Identity/seeds.go` (`--write`, `--check`, `--out`) |
 | `extension build` | Build author frontend assets, refresh digests, and run all package gates |
 | `extension validate` | Validate an extension package (includes/template preflight) |
 | `extension digest` | Inspect or refresh Manifest V3 `packageFiles` digests |

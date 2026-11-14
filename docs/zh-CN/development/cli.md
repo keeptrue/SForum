@@ -26,6 +26,7 @@ go run ./cmd/sforum --version
 | `users:reset-password` | 重置用户密码（默认交互式；`--email/--password/--yes` 非交互，别名 `user:reset-password`） |
 | `privacy:erase-user` | 擦除一个用户的隐私数据（`privacy.Registry.EraseUser` 的生产入口；`--actor-user-id` 须为 super_admin / `user.manage`；`--user-id/--user-email` 二选一，自动化须 `--yes`） |
 | `revisions backfill` | 分批回填论坛内容修订台账 |
+| `roles:templates` | 由 `Identity/seeds.go` 渲染 web 角色模板生成物（`--write` 写盘、`--check` 校验、`--out` 覆盖输出路径） |
 | `extension build` | 一键构建作者前端、刷新摘要并执行全部包门禁 |
 | `extension validate` | 校验扩展包（含 includes / 模板预检） |
 | `extension digest` | 查看或刷新 Manifest V3 `packageFiles` 摘要 |
