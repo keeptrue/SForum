@@ -29,7 +29,7 @@ M3 后台 UI + M3b 条件折叠面板与影响面确认、M4 插件扩展面：�
 | 求值时机 | `LoadActor` 装载期，固定 +1 条 `user_activity` 读 | `Identity/postgres_store_roles.go:228` |
 | `LoadActor` 调用点 | **55** | `rg -o "LoadActor\(" apps/api -g '*.go' -g '!*_test.go' \| wc -l` |
 | 徽章规则引擎 | 纯 AST，深度 ≤5 / 叶子 ≤32 / 节点 ≤64，Kleene 三值 | `apps/api/app/Support/RuleEngine/` |
-| 徽章条件目录 | **13** 条 | `rg -o 'Key[A-Za-z]+ += +"' apps/api/app/Models/Badges/conditions/registry.go \| wc -l` |
+| 徽章条件目录 | **14** 条（`identity.profile` 落地前为 13） | `rg -o 'Key[A-Za-z]+ += +"' apps/api/app/Models/Conditions/registry.go \| wc -l`（包已从 `Models/Badges/conditions/` 迁到 `Models/Conditions/`，旧路径的命令现在返回 0） |
 | 条件包被引用文件数 | **41** | `rg -l "Models/Badges/conditions" apps/api --glob '*.go' \| wc -l` |
 | 路由 tripwire 现值 | **433** | `apps/api/app/Support/Routes/registry_test.go:536` |
 | 配置错误码 | **33**（前端分桶断言 33 / 15 / 18） | `config.go` + `apps/web/tests/admin/forum/trustLevels.test.ts:595-600` |
@@ -148,7 +148,7 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 
 ### 3.3 条件目录
 
-共享目录 = 徽章现有 **13 条 + 新增 1 条** = 14；信任等级取子集 **12 条**，排除 `content.pinned` / `content.hidden`。
+共享目录 = **落地前 13 条 + 新增 1 条 = 14**（`identity.profile` 已落地，`9169ba30d`；见下方新增表与 `../modules/trust-levels.md` 残留 5）；信任等级取子集 **12 条**，排除 `content.pinned` / `content.hidden`。
 
 新增（补齐「身份与资料」里的简介/签名，徽章也同时获得）：
 
