@@ -759,12 +759,36 @@ else
   pass 'C-1 users 表没有 trust_level 列（D4 不落列）'
 fi
 
-# C-2 本刀不新增迁移（§4 / §12.9）
-trust_ddl="$(grep -rlE 'trust_level|trust\.level' "$API_DIR/database/migrations" --include='*.sql' 2>/dev/null | wc -l | tr -d ' ')"
-if [[ "$trust_ddl" == 0 ]]; then
-  pass 'C-2 迁移目录里没有 trust_level 相关 DDL'
+# C-2 信任等级在 schema 侧的唯一允许项：M4b 的变更账本迁移。
+#
+# 原始意图（2026-11-10 计划 §12.9「迁移可逆性：本刀无迁移」+ §4「本刀不新增表、不新增列」）：
+# 等级的授权真相是**每请求现算**的，schema 里一旦出现 trust_level 相关 DDL，就意味着有人把
+# 真相搬进了库（当时被否掉的正是不落列方案 `users.trust_level`，见同计划 §3.2）。
+# M4b 按新计划 §4.5 M4.3 引入了**非权威**账本表（只做变更检测、不参与授权），所以它成为
+# 唯一白名单项。白名单是精确文件名：第二份含 trust_level 的迁移会红并点名；把这一份改名或
+# 拆分会红——让门禁跟着改，等于强制一次 review。
+# 具名文件在时再核内容：必须是「台账表 + sforum_core_v1 视图」，且 users 表不动。
+TL_LEDGER_MIGRATION='202611140002_user_trust_levels.sql'
+TL_MIGRATION_DIR="$API_DIR/database/migrations"
+tl_ledger_path="$TL_MIGRATION_DIR/$TL_LEDGER_MIGRATION"
+tl_hits="$(grep -rlE 'trust_level|trust\.level' "$TL_MIGRATION_DIR" --include='*.sql' 2>/dev/null | xargs -r -n1 basename | LC_ALL=C sort)"
+tl_unexpected="$(printf '%s\n' "$tl_hits" | grep -vx "$TL_LEDGER_MIGRATION" | grep -v '^$' || true)"
+c2_reason=''
+if [[ -n "$tl_unexpected" ]]; then
+  c2_reason="多出未登记的迁移：$(printf '%s' "$tl_unexpected" | tr '\n' ' ')"
+elif [[ -f "$tl_ledger_path" ]]; then
+  if ! grep -q 'CREATE TABLE IF NOT EXISTS public\.user_trust_levels' "$tl_ledger_path"; then
+    c2_reason='台账迁移里找不到 CREATE TABLE public.user_trust_levels'
+  elif ! grep -q 'CREATE VIEW sforum_core_v1\.forum_user_trust_levels' "$tl_ledger_path"; then
+    c2_reason='台账迁移里找不到 sforum_core_v1.forum_user_trust_levels 视图'
+  elif grep -qE 'ALTER[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?public\.users' "$tl_ledger_path"; then
+    c2_reason='台账迁移改了 users 表（等级保持现算，授权列不进库）'
+  fi
+fi
+if [[ -n "$c2_reason" ]]; then
+  fail "C-2 含 trust_level 的迁移只有具名账本那一份（$TL_LEDGER_MIGRATION）" "$c2_reason"
 else
-  fail 'C-2 迁移目录里没有 trust_level 相关 DDL' "命中 $trust_ddl 个文件：$(grep -rlE 'trust_level|trust\.level' "$API_DIR/database/migrations" --include='*.sql' | xargs -r -n1 basename | tr '\n' ' ')"
+  pass "C-2 含 trust_level 的迁移只有具名账本那一份（${tl_hits:-无}）"
 fi
 
 expect_present 'C-3 threshold-1/threshold/threshold+1 三点边界测试存在' tl1 \
