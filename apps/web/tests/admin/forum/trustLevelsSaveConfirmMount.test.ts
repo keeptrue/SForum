@@ -1,4 +1,4 @@
-import { describe, expect, test, mock } from 'bun:test'
+import { afterAll, describe, expect, test, mock } from 'bun:test'
 import { computed, defineComponent, onMounted, reactive, ref, watch } from 'vue'
 import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
@@ -30,11 +30,18 @@ function adminPayload(config: string) {
   }
 }
 
+/**
+ * 只换掉**网络层**（`useApiClient`），`apiError*` 这些**纯解析**函数保持真实实现。
+ *
+ * 上一版把 `apiErrorReason` / `apiErrorStatusCode` / `apiErrorDetails` 也一起换成了自写的
+ * stub，且语义与真实实现分叉（stub 读 `error.reason`，真实读 `error.data.reason`）——
+ * 这正是「泄漏一旦跨文件生效，别的测试会拿到 `request_failed`」的根因：租出去的
+ * `apiErrorReason` 对真实信封返回空串。现在 mock 面收窄到网络层，差异面只剩「不发真实请求」。
+ */
+const realApiClient = await import('~/composables/useApiClient')
+
 mock.module('~/composables/useApiClient', () => ({
-  apiErrorReason: (error: unknown) => (error as { reason?: string })?.reason ?? '',
-  apiErrorStatusCode: (error: unknown) => (error as { status?: number })?.status ?? 0,
-  // 与真实实现同语义：从 `data.details` 取结构化诊断。
-  apiErrorDetails: (error: unknown) => (error as { details?: unknown })?.details,
+  ...realApiClient,
   useApiClient: () => ({
     request: async (path: string, options: { method?: string, body?: unknown } = {}) => {
       const method = (options.method ?? 'GET').toUpperCase()
@@ -89,6 +96,17 @@ mock.module('~/composables/admin/settings/useAdminOptionTab', () => ({
   adminOptionMap: (items: Array<{ name: string, value: string }>) =>
     Object.fromEntries(items.map(item => [item.name, item]))
 }))
+
+/**
+ * 还原所有模块 mock：本文件把 5 个 Nuxt 运行时协作者换成了本地替身，而 `mock.module`
+ * 改的是**模块注册表**（进程级）而不是本文件作用域。不还原，后面任何一个文件
+ * import `~/composables/*` 拿到的都可能是这份替身——`trustLevels.test.ts` 的
+ * `resolveTrustLevelWhitelist` 用例就是这样在全量跑时拿到 `request_failed` 的。
+ * 放在 `afterAll`：本文件内部的断言仍跑在替身之上。
+ */
+afterAll(() => {
+  mock.restore()
+})
 
 // Nuxt 自动导入的最小替身：只提供编排层真正调用到的几个。
 Object.assign(globalThis as Record<string, unknown>, {
@@ -442,8 +460,16 @@ describe('save confirmation is a real gate, not just a predicate (P1-4)', () => 
     try {
       nextFailure = {
         status: 422,
-        reason: 'trust_levels.invalid',
-        details: { errors: [{ rank: 0, tierId: '', field: 'schemaVersion', reason: '版本不受支持', reasonCode: 'schema_version_unsupported', params: {} }] }
+        // 真实信封形状（`apiErrorEnvelope` 认 `error.data` 或裸 `{code,message,data}`）：
+        // 诊断载荷在 `data.details`，不是顶层 `details`。夹具照真形状写，才能用真解析函数。
+        data: {
+          code: 422,
+          message: 'trust_levels.invalid',
+          data: {
+            reason: 'trust_levels.invalid',
+            details: { errors: [{ rank: 0, tierId: '', field: 'schemaVersion', reason: '版本不受支持', reasonCode: 'schema_version_unsupported', params: {} }] }
+          }
+        }
       }
       await wrapper.find('[data-stub-threshold]').trigger('click')
       await flushPromises()
