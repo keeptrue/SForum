@@ -194,11 +194,12 @@ const label = computed(() => {
   //    （`identity.profile` 的 `field`：标签「字段」+ `options.{bio,signature,website,location}`）；
   // 2) 扁平字符串 `params.<name>`：参数只有标签时用（其余 12 个内置参数）。
   //
-  // **顺序是有意的：先探 `.label`。** 对扁平参数探 `.label` 只是缺键（安静返回 false）；
-  // 反过来先探命名空间节点 `params.<name>` 会走到「对一个对象求键」的路径上——那条路径
-  // 在写错的调用里会打出 `[intlify] Not found '…' key`（实测 vue-i18n 11.4.6：
-  // `te(对象)=false` 无输出、`t(对象)` 会告警），而渲染路径每帧都会跑这条 computed。
-  // 先探 `.label` 之后，对象参数直接命中第一支，命名空间节点根本不被求值。
+  // **不变量：任何标签路径都不得对命名空间节点求 `t()`。** 实测（vue-i18n 11.4.6）：
+  // `te(<对象节点>)` 恒为 false 且不告警，只有 `t(<命名空间>)` 会打出
+  // `[intlify] Not found '…' key`；而这条 computed 每帧都跑，一条告警就是控制台洪水。
+  // 两条分支都是「先 `te` 命中、再 `cc` 取值」，所以 `cc` 永远只接收叶子键。
+  // 先探 `.label` 只是让对象参数少做一次无谓的 `te`（风格，不是保证）；真正拦住告警的是
+  // 扁平分支上那道 `te` 闸——把它去掉、让 `cc(base)` 在对象参数上被求值，守测立刻红。
   const base = `params.${props.spec.name}`
   if (rawTE(`${props.conditionI18nPrefix}.${base}.label`)) return cc(`${base}.label`)
   if (rawTE(`${props.conditionI18nPrefix}.${base}`)) return cc(base)

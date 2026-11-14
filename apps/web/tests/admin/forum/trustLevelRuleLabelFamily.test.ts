@@ -403,13 +403,16 @@ describe('identity.profile 的 field 取值文案', () => {
   })
 
   /**
-   * 标签读取不能打出 intlify 告警。
+   * 守的是**不变量**：任何标签路径都不得对命名空间节点求 `t()`。
    *
-   * 对象形态的 `params.<name>` 是**命名空间节点**：对命名空间求 `t()` 会输出
-   * `[intlify] Not found '…' key`（实测 vue-i18n 11.4.6），而标签是每帧渲染的 computed，
-   * 一条告警会变成控制台洪水。所以先探 `.label`、扁平参数回落时才探命名空间。
+   * 对象形态的 `params.<name>` 是命名空间节点；`te(命名空间)` 恒 false 且不告警，
+   * 只有 `t(命名空间)` 会输出 `[intlify] Not found '…' key`（实测 vue-i18n 11.4.6）。
+   * 标签是每帧渲染的 computed，一条告警就是控制台洪水。
+   *
+   * 能红的变异是**去掉扁平分支的 `te` 闸**（让 `cc(命名空间)` 被求值 → 出现告警行）；
+   * 把两个分支的顺序换回去**不会红**——那只是风格，不是这条守测保护的东西。
    */
-  test('两种形状的参数标签都不产生 intlify 告警', async () => {
+  test('两种形状的参数标签都不对命名空间求 t（零 intlify 告警）', async () => {
     const warnings: string[] = []
     const originalWarn = console.warn
     console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')) }
