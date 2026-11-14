@@ -2,6 +2,7 @@ package hostapi
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -29,6 +30,15 @@ func (f *fakeTrustLevelSource) TrustLevelCatalog(context.Context) ([]map[string]
 
 func (f *fakeTrustLevelSource) UserTrustLevel(_ context.Context, userID int64) ([]map[string]any, error) {
 	f.askedUserIDs = append(f.askedUserIDs, userID)
+	// 收严：真实实现里 incomplete / disabled 的 level 与 tier_id 恒为 nil。
+	// 若 fake 允许摆出「state=incomplete 且 level=3」这种真实源永远产不出的行，
+	// 用它写的用例就会给下一个人假信号（task-34 正是 fake 比真实源宽松的后果）。
+	for _, row := range f.userRows {
+		state, _ := row["state"].(string)
+		if state != "" && state != "resolved" && (row["level"] != nil || row["tier_id"] != nil) {
+			return nil, errors.New("fake trust level source: state=" + state + " 必须 level/tier_id 为 nil（与真实源口径不一致）")
+		}
+	}
 	return f.userRows, f.userRowsErr
 }
 
