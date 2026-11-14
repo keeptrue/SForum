@@ -906,6 +906,43 @@ HAVING c.public_bookmark_count <> COUNT(b.id);
   `list_topics.go` hydrate、`search_live.go` 使用。本刀在这里踩过一次 P0（抄了三份
   列清单、两处漏列导致首页全站 500），细节见计划 §12 T1–T5。
 
+## Topic Confirm Dialog（公共话题页确认弹窗）— 2026-11-14
+
+公共话题详情页 `apps/web/app/components/forum/SFTopicShowPage.vue` 的 **4 处浏览器原生
+`window.confirm` 全部换成站内 Nuxt UI Modal**（评论删除、话题删除、话题扩展动作、评论扩展动作）。
+纯前端改动：后端、OpenAPI、管理员页与编辑器/导航编辑器的原生 confirm 一律未动。
+
+- **组件** `apps/web/app/components/forum/SFConfirmDialog.vue`：通用确认弹窗（`UModal`，
+  title/description 走 props，按钮放 `#footer`）。props `request: ConfirmDialogRequest`，
+  emits `settle: [boolean]`。底部顺序固定「取消（`neutral`/`ghost`）在前、确认
+  （`error`/`solid`）在后」；组件**不给任何元素设置自动聚焦**，破坏性按钮因此不会成为
+  默认焦点。ESC / 点遮罩 / 右上角关闭统一 emit `settle(false)`（按取消结算）。
+- **组合式** `apps/web/app/composables/forum/useConfirmDialog.ts`：Promise 语义的确认状态机。
+  `confirm(options): Promise<boolean>`、`resolveConfirm(value)`、`request`（reactive 的
+  `{ open, title, description, confirmLabel, cancelLabel }`）。同一时刻只允许一个待结算请求：
+  连续两次 `confirm` 时**前一个按 false 结算**，不让旧 Promise 悬空；结算后 `request.open` 归 false。
+  纯逻辑、不依赖 i18n，文案由调用方给。
+- **页面接线**：两个新文件在页面里**显式 import**（嵌套目录组件不能靠自动导入改名），
+  模板只挂一次 `<SFConfirmDialog :request="confirmRequest" @settle="resolveConfirm" />`，
+  4 处 `await confirm({...})`。删除流程其余逻辑（`deletingCommentId` 守卫、软删、刷新列表、
+  Toast、失败报错）原样保留。
+- **i18n**：新增 `topicDetail.confirmDialog.commentDeleteTitle` / `topicDeleteTitle` /
+  `extensionActionTitle` 三键，zh-CN 与 en-US 成对；正文与按钮复用既有键
+  （`topicDetail.confirmCommentDelete` / `confirmDelete` / `confirmExtensionAction` /
+  `cancel` / `delete`），未新增无消费者的死键。
+- **架构基线（双向棘轮）**：为让出净空，`mergeCommentReplies` 整段挪到
+  `apps/web/app/utils/forum/forumCommentTree.ts`（新），三个扩展动作 helper
+  （`topicExtensionActionKey` / `commentExtensionActionKey` / `topicExtensionActionLabel`）挪到
+  `apps/web/app/utils/forum/forumTopicPresentation.ts`。`SFTopicShowPage.vue` 由 **1127 行降到
+  1124 行**，`tests/architecture-boundaries-baseline.json` 的 `legacyLargeFiles` 同项同步下调为
+  **1124**（与实际行数严格相等）。helper 的标签签名改为显式传 locale，工具层不依赖运行时。
+- **验收**：`cd apps/web && bun test` **3070 pass / 0 fail**（全量，改了公共页 island 不能跑切片）、
+  `bun run typecheck` exit 0、`node tests/validate-architecture-boundaries.mjs` passed、
+  `bun run build` exit 0；测试文件 `apps/web/tests/forum/topicConfirmDialog.test.ts`（13 用例）。
+  浏览器实测（127.0.0.1:3000 话题页）：站内 Modal 出现、浏览器原生对话框未触发、
+  取消/ESC/X/点遮罩四条关闭路径均生效且数据未变、初始焦点在关闭按钮（破坏性按钮不是默认焦点）。
+- 会话：`../sessions/2026-11-14-topic-confirm-modal.md`。
+
 ## Next Steps
 
 1. Keep comment composer behavior consolidated in

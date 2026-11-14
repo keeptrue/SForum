@@ -102,6 +102,72 @@ frontend moderator workbench.
   remain the server-side scale boundary.
 - The public report dialog remains available on topics and comments.
 
+### Public Report Dialog Reactivity Regression (2026-11-14)
+
+- **Symptom**: on the topic detail page, both the per-comment **Report**
+  action and the topic header dropdown **Report** action did nothing — no
+  dialog, no error, no network call.
+- **Root cause**: `apps/web/app/composables/moderation/useModerationReportDialog.ts`
+  returned its state machine wrapped in `reactive({...})`. `reactive` unwraps
+  refs on property read, so the caller
+  (`apps/web/app/components/forum/SFTopicShowPage.vue`, which destructures the
+  returned object) received **one-shot snapshots** instead of refs:
+  `target` was permanently `null`, `reason`/`body`/`submitting`/`error`/
+  `success`/`reasonOptions` were frozen at their initial values. The compiled
+  template emitted `open: Boolean(_unref(reportingTarget))` (always `false`),
+  so `SFReportDialog.vue`'s root `v-if="open"` never rendered the dialog.
+  The same unwrapping also compiled `@update:body` into
+  `reportBody.value = $event` while `reportBody` was the plain string `''`,
+  which throws a `TypeError` in strict mode.
+- **Regression origin**: commit `60fe97305` (2026-10-03) extracted the inline
+  page state machine into the composable. The feature never worked after that
+  refactor; the breakage predates any recent change.
+- **Fix**: the composable now returns the ref contract directly
+  (`target`, `reason`, `body`, `submitting`, `error`, `success`,
+  `reasonOptions`, `open`, `close`, `setReason`, `submit`) with no `reactive`
+  wrapper. The page's existing destructuring keeps working, and its template
+  bindings became live again. No behavior, field name, or reason allowlist
+  changed; the page diff is a comment correction only.
+- **Regression guard**: `apps/web/tests/moderation/moderationReportDialog.test.ts`
+  — contract level (the destructured values must stay refs; `open()` must set
+  `target.value`), render level (a harness that mirrors the page's template
+  bindings must open the dialog, accept a reason and body, and submit the
+  correct `{targetType, targetId, reasonCode, body}` payload into the success
+  state, asserted as the real outbound shape `path '/moderation/reports'` +
+  `method 'POST'` + that body), the `canReport() === false` no-op case, and a
+  guard that the test double refuses to overwrite a foreign stub.
+- **Verified end to end**: on a real dev server the comment-row Report action
+  opens the dialog, `POST /api/v1/moderation/reports` returns 201, the success
+  state closes the dialog after 2 seconds, a duplicate report returns the
+  business error "你已经举报过该内容。" inline while the dialog stays open, the
+  topic header dropdown opens the same dialog for a topic target, and both
+  records appear in the `/moderation` workbench's **User reports** tab (count
+  2, status "进入审阅").
+
+### Reusable Rule: Composable State Machines Return Refs
+
+- A composable that exposes a **state machine** must return refs. Wrapping the
+  result in `reactive()` and then letting callers destructure it is forbidden:
+  `reactive` unwraps refs on property read, so the destructured values become
+  one-shot snapshots and every later mutation is invisible to the template.
+- When a caller destructures a composable's return value, the composable must
+  return refs (`const { target } = useSomething()` keeps `target` reactive).
+  The failure mode is silent: the UI renders, but reads the initial value
+  forever (e.g. a dialog whose `v-if="open"` never becomes true).
+- Fix pattern: drop the `reactive()` wrapper and return the refs directly, or
+  return a `reactive` object that callers must **not** destructure. Never mix
+  the two. State the chosen contract in the composable's header comment and
+  guard it with a test that asserts `isRef(...)` after destructuring.
+- Repo-wide sweep (2026-11-14): `return reactive(` occurs in only two places
+  under `apps/web/app/composables` and `apps/web/app/utils` —
+  `useModerationReportDialog.ts` (fixed here) and `useTopicCommentLive.ts`.
+  The latter's consumers hold the object as a whole
+  (`const commentLive = useTopicCommentLive({...})` in
+  `SFTopicShowPage.vue:470`; `SFCommentStreamNotice.vue` only imports the
+  type), so its ref unwrapping is safe — **no second instance of this bug** —
+  and its header now states the positive rule: a composable that returns a
+  `reactive` object must always be held as a whole and never destructured.
+
 ## Non-Goals
 
 - No task claiming, assignment, internal moderator discussion, SLA, custom

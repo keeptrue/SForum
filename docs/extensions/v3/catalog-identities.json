@@ -2624,6 +2624,16 @@
       "source": "apps/web/app/components/profile/SFBadgeWall.vue"
     },
     {
+      "id": "core.component.public.s_f_confirm_dialog",
+      "contractVersion": "sforum.component.public.s_f_confirm_dialog@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFConfirmDialog.vue"
+    },
+    {
       "id": "core.component.shared.sf_badge_catalog_page",
       "contractVersion": "sforum.component.shared.sf_badge_catalog_page@1",
       "kind": "component",

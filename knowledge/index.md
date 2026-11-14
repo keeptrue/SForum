@@ -838,6 +838,48 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **话题页原生 confirm → 站内 Modal（2026-11-14，最新）**：公共话题详情页
+  `SFTopicShowPage.vue` 的 4 处 `window.confirm`（评论删除、话题删除、话题扩展动作、评论扩展动作）
+  全换成站内 Nuxt UI Modal。新增通用弹窗 `SFConfirmDialog.vue`（props `request` / emits
+  `settle`，取消在前删除在后、不设自动聚焦、ESC/遮罩/关闭统一按取消结算）与 Promise 语义组合式
+  `useConfirmDialog.ts`（`confirm()` / `resolveConfirm()`；连续两次请求时前一个按 false 结算）。
+  为守住架构基线（双向棘轮），`mergeCommentReplies` 挪到 `utils/forum/forumCommentTree.ts`、
+  三个扩展动作 helper 挪到 `utils/forum/forumTopicPresentation.ts`，页面由 1127 行降到 **1124 行**，
+  baseline 同步下调为 1124。i18n 新增 `topicDetail.confirmDialog.*` 三键（zh-CN + en-US 成对）。
+  门禁：`bun test` 全量 **3070 pass / 0 fail**、`bun run typecheck` exit 0、架构边界门 passed、
+  `bun run build` exit 0；浏览器实测站内 Modal 出现、原生对话框未触发、四条关闭路径生效且数据未变、
+  初始焦点在关闭按钮。**未提交**。见
+  `sessions/2026-11-14-topic-confirm-modal.md`、模块 `modules/forum.md`。
+- **资料页头部移除个人简介（bio）行（2026-11-14，最新）**：头部 `sf-profile-intro` 里两段 bio `<p>`
+  （正文段 + `--empty` 空态段）删除，头部身份块由「昵称行 → 身份行 → 简介 → meta」收敛为
+  「昵称行（h1 + 佩戴徽章 chip）+ 身份行（@handle / UID n / TL 等级）」，其后是 meta 行
+  （位置 / 网站 / 加入时间）；bio 只在「关于」tab 出现一次。CSS 同步删掉 `.sf-profile-intro__bio` 与
+  `.sf-profile-intro__bio--empty`；「关于」tab 的 bio、SEO description（仍读 `profile.profile.bio`）、
+  右栏组件均未动，i18n `profile.bioEmpty` 键保留（关于 tab 与资料设置预览共用）。新增
+  `tests/profile/profileHeaderBio.test.ts`（7 用例静态源契约，断言对空白不敏感：模板换行或属性顺序
+  调整不误报，去掉「关于」tab 的 bio 则变红）。门禁：`bun test` 全量 **3057 pass / 0 fail**、
+  `bun test tests/profile/` **160 pass / 0 fail**、`bun run typecheck` 无本次引入的新错误、架构边界门
+  不新增基线；浏览器证据（1440×900 与 390×844 头部 `.sf-profile-intro__bio` 数量 = 0，「关于」tab
+  仍显示 bio）见 `work-team/evidence/`。**未提交**。见
+  `sessions/2026-11-14-profile-header-bio.md`、模块 `modules/profile.md`。
+- **公开举报入口失效：reactive 解包导致状态快照（2026-11-14）**：主题详情页评论行与顶部下拉的
+  「举报」都点了没反应。根因是 `apps/web/app/composables/moderation/useModerationReportDialog.ts`
+  用 `reactive({...})` 包装后返回，`reactive` 在属性读取时解包 ref，调用方
+  `SFTopicShowPage.vue` 一解构就拿到一次性快照（`target` 恒为 null）；编译产物
+  `open: Boolean(_unref(reportingTarget))` 恒 false，`SFReportDialog.vue` 的 `v-if="open"`
+  于是永不渲染，`@update:body` 还被编译成 `reportBody.value = $event` 而 `reportBody` 是字符串
+  `''`（严格模式 TypeError）。回归起点 `60fe97305`（2026-10-03 抽 composable），**功能自上线起
+  从未工作过**。修复：composable 改为直接返回 ref 契约（不再包 `reactive`），页面按 ref 解构，
+  模板既有绑定随即恢复（页面只改了那段失真注释）；新增回归守卫
+  `apps/web/tests/moderation/moderationReportDialog.test.ts`（4 用例：契约级 `isRef` + 渲染级 harness
+  断言真实出网形状 + `canReport=false` 空操作 + 替身还原守卫；替身用可还原的
+  `globalThis.useApiClient`，不用会跨文件泄漏的 `mock.module`）。门禁：聚焦 **4 pass / 0 fail**、
+  `bun test` 全量 **3057 pass / 0 fail**、`bun run typecheck` exit 0、架构边界门 exit 0。
+  **浏览器实测已通过**：POST 201、成功态 2 秒后自动关闭、重复举报内联报错「你已经举报过该内容。」、
+  审核工作台「用户举报」计数 2 且入队。**未提交**。可复用规则：composable 暴露状态机
+  必须返回 ref，**禁止 `reactive()` 包装后再被调用方解构**（解包成快照，界面静默停在初始值）；
+  全仓 `return reactive(` 只有两处，另一处消费方不解构因而安全。
+  见 `sessions/2026-11-14-topic-report-dialog-reactivity-fix.md`、模块 `modules/moderation.md`。
 - **信任等级条件化门槛 · M5 收口（2026-11-14）**：条件引擎复用徽章规则引擎（`rule` 挂在档位上，5 层 / 32 叶；无规则站点零新增查询），后台加「更多条件（N）」折叠面板 + 保存前影响面估算；插件扩展面四条全部落地：事实条件 `userFactConditions`、可授予权限 `permissionDefinitions[].trustLevelEarnable`、`trust_level.changed` 事件、两条公开 HostQuery（目录 / 单用户**现算**，`incomplete|disabled` 时 `level` 为 null）+ 每日 sweep。**本轮已提交**：模块笔记 Extension Surface 从 `TODO(核实)` 写实、新增「回滚口径」「9 条已知残留（含每条核验命令）」「还剩什么没做」、纠正后台 i18n 族为 `admin.forum.trustLevels.*` 且叶键数按实测改 **394**（旧 243 不可复现）、ui-spec 的「深度阶梯 / 170」标注作废并同步 S1/S2 口径、六条变异矩阵落盘 `reports/2026-11-14-m5-acceptance-matrix.md`、生成物 `docs/extensions/v3/catalogs/*` 补 `trust_level.changed` + `trustlevels.sweep`（`generate.mjs --check` 18 files current）。未落 0 笔：`identity.profile` 条件已实施（`9169ba30d`，共享目录 14 / 信任子集 12）；并行单 1 个：夹具正样本可重放（task-4 在办）；审查 1 项：各家族 validator 的 kind 判据是否第二入口（task-3）。7 家族清单的主题侧缺口（`manifest.go:485` 抢在清单之前）与 notificationTypes 主题侧测试被删，均已由 `bcbe314ff`（task-7）修掉——清单提到 `validateManifest` 里、主题闸之前，7 家族全部由清单先拒。另记 `identity.profile` 不参与影响面估算，理由是「不引入与求值 SQL 不同源的第二份 count 口径」。见 `sessions/2026-11-14-trust-level-conditions-m5.md`、`decisions/2026-11-14-trust-level-earnable-plugin-keys.md` / `-synthetic-rule-root.md` / `-hostquery-computed-definitions.md`、模块 `modules/trust-levels.md`。
 - **自动授予的徽章不发通知（2026-11-14，最新）**：两处缺口。① `notifications.dedupe_key`
   全局唯一，而徽章授予键写成 `badge:{slug}` → **全站第一个**获得者永久占住该键，之后所有人的

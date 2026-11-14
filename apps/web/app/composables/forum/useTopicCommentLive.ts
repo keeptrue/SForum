@@ -43,6 +43,15 @@ const RECONCILE_FALLBACK_MS = 30_000
  * 主题评论区免刷新加载：
  * 服务端只发「修订号变了」的轻信号（SSE），这里用 revision 事实对账，
  * 再按阅读状态决定静默追加、出胶囊提示，还是只做静默对齐。
+ *
+ * 契约：本 composable 返回的是 **reactive 对象**，消费方必须整体持有、**不得解构**。
+ * reactive 在属性读取时会把内部的 ref 解包成一次性快照，一旦消费方写下
+ * `const { notice } = useTopicCommentLive(...)`，拿到的就是初始值，之后再也读不到变更。
+ * 同类事故参考 `useModerationReportDialog`：它当年也是 reactive 包装 + 页面解构，
+ * 导致公开页「举报」按钮点了完全没反应。
+ *
+ * 正确用法：整体持有（`const commentLive = useTopicCommentLive(...)`），在模板里读
+ * `commentLive.notice`；需要子组件消费时传对象或用 `toRefs` 显式转回 ref。
  */
 export function useTopicCommentLive(options: TopicCommentLiveOptions) {
   const forumApi = useForumApi()

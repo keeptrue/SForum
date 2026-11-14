@@ -284,6 +284,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfcomment_stream_controls` | `sforum.component.shared.sfcomment_stream_controls@1` | component | `public` | — | `apps/web/app/components/forum/SFCommentStreamControls.vue` | P9 Component Registry |
 | `core.component.shared.sfcomment_stream_notice` | `sforum.component.shared.sfcomment_stream_notice@1` | component | `public` | — | `apps/web/app/components/forum/SFCommentStreamNotice.vue` | P9 Component Registry |
 | `core.component.shared.sfcomment_user_preview` | `sforum.component.shared.sfcomment_user_preview@1` | component | `public` | — | `apps/web/app/components/forum/SFCommentUserPreview.vue` | P9 Component Registry |
+| `core.component.public.s_f_confirm_dialog` | `sforum.component.public.s_f_confirm_dialog@1` | component | `public` | — | `apps/web/app/components/forum/SFConfirmDialog.vue` | P9 Component Registry |
 | `core.component.shared.sfcontent_column_footer` | `sforum.component.shared.sfcontent_column_footer@1` | component | `public` | — | `apps/web/app/components/forum/SFContentColumnFooter.vue` | P9 Component Registry |
 | `core.component.shared.sf_declarative_settings_field` | `sforum.component.shared.sf_declarative_settings_field@1` | component | `public` | — | `apps/web/app/components/settings/shared/SFDeclarativeSettingsField.vue` | P9 Component Registry |
 | `core.component.shared.sfeditor` | `sforum.component.shared.sfeditor@1` | component | `public` | — | `apps/web/app/components/SFEditor.vue` | P9 Component Registry |

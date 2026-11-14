@@ -10,7 +10,9 @@ import { useTopicCommentAnchor } from '~/composables/forum/useTopicCommentAnchor
 import { useTopicCommentLive } from '~/composables/forum/useTopicCommentLive'
 import { useTopicSelectionQuoteReply } from '~/composables/forum/useTopicSelectionQuoteReply'
 import { useForumImageViewer } from '~/composables/forum/useForumImageViewer'
+import { useConfirmDialog } from '~/composables/forum/useConfirmDialog'
 import SFReportDialog from '~/components/moderation/SFReportDialog.vue'
+import SFConfirmDialog from '~/components/forum/SFConfirmDialog.vue'
 import SFTopicSideCard from '~/components/forum/SFTopicSideCard.vue'
 import SFTopicMobileInfoDrawer from '~/components/forum/SFTopicMobileInfoDrawer.vue'
 import SFTopicReplyComposer from '~/components/forum/SFTopicReplyComposer.vue'
@@ -34,14 +36,18 @@ import { buildAuthPageLink } from '~/utils/identity/authReturn'
 import {
   commentFloorLabel, forumAuthorName, forumCategoryPath,
   forumTagPath, forumTopicEditPath,
-  forumTopicExtensionActionLabel, forumTopicPath, forumUserProfilePath,
+  forumTopicPath, forumUserProfilePath,
   parseTopicPath, topicPathLookupCandidates, FORUM_TOPIC_ACTIONS,
   type ForumCategoryGroup, type ForumComment,
   type ForumCommentExtensionAction, type ForumCommentList,
   type ForumTopicDetail, type ForumTopicExtensionAction,
   type TopicPathLookup
 } from '~/utils/forum/forumTaxonomy'
-import { buildCommentActionLabels, buildCommentActionMenuItems, buildTopicActionLabels, buildTopicActionMenuItems } from '~/utils/forum/forumTopicPresentation'
+import {
+  buildCommentActionLabels, buildCommentActionMenuItems, buildTopicActionLabels, buildTopicActionMenuItems,
+  commentExtensionActionKey, topicExtensionActionKey, topicExtensionActionLabel
+} from '~/utils/forum/forumTopicPresentation'
+import { mergeCommentReplies } from '~/utils/forum/forumCommentTree'
 import { useForumContentTime } from '~/composables/forum/useForumContentTime'
 import { useTopicCommentClipboard } from '~/composables/forum/useTopicCommentClipboard'
 import { useTopicReaction } from '~/composables/forum/useTopicReaction'
@@ -59,6 +65,8 @@ const { can, canEditTopic, canDeleteTopic } = usePermissions()
 const { user: reportUser } = useAuthSession()
 const toast = useToast()
 const { copyCommentLink, copyCommentShortcode } = useTopicCommentClipboard()
+// 站内确认弹窗：删除与扩展动作都走同一个 Promise 语义的状态机。
+const { request: confirmRequest, confirm, resolveConfirm } = useConfirmDialog()
 const replyActorName = computed(() => userDisplayName(reportUser.value, ''))
 
 function showSuccessToast(title: string) {
@@ -530,21 +538,19 @@ async function runTopicAction(action: keyof typeof FORUM_TOPIC_ACTIONS, successM
   actionState.value = 'idle'
 }
 
-function topicExtensionActionKey(action: ForumTopicExtensionAction) {
-  return `${action.extensionId}:${action.id}`
-}
-
-function topicExtensionActionLabel(action: ForumTopicExtensionAction) {
-  return forumTopicExtensionActionLabel(action, String(locale.value || 'zh-CN'))
-}
-
 async function runTopicExtensionAction(action: ForumTopicExtensionAction) {
   if (!topic.value) {
     return
   }
-  const label = topicExtensionActionLabel(action)
-  if (action.confirm && !window.confirm(t('topicDetail.confirmExtensionAction', { action: label }))) {
-    return
+  const label = topicExtensionActionLabel(action, locale.value)
+  if (action.confirm) {
+    const confirmed = await confirm({
+      title: t('topicDetail.confirmDialog.extensionActionTitle'),
+      description: t('topicDetail.confirmExtensionAction', { action: label }),
+      confirmLabel: label,
+      cancelLabel: t('topicDetail.cancel')
+    })
+    if (!confirmed) return
   }
   actionState.value = 'pending'
   actionError.value = ''
@@ -569,9 +575,13 @@ async function deleteTopic() {
   if (!topic.value) {
     return
   }
-  if (!window.confirm(t('topicDetail.confirmDelete'))) {
-    return
-  }
+  const confirmed = await confirm({
+    title: t('topicDetail.confirmDialog.topicDeleteTitle'),
+    description: t('topicDetail.confirmDelete'),
+    confirmLabel: t('topicDetail.delete'),
+    cancelLabel: t('topicDetail.cancel')
+  })
+  if (!confirmed) return
   actionState.value = 'pending'
   actionError.value = ''
   showActionError.value = false
@@ -594,7 +604,7 @@ function commentActions(comment: ForumComment) {
     canReport: canReportComment(),
     labels: buildCommentActionLabels(t, { deleting: deletingCommentId.value === comment.id }),
     extensions: visibleCommentExtensionActions.value.map(action => ({
-      label: forumTopicExtensionActionLabel(action, String(locale.value || 'zh-CN')),
+      label: topicExtensionActionLabel(action, locale.value),
       value: `extension:${action.extensionId}:${action.id}`,
       icon: action.icon
     }))
@@ -606,17 +616,19 @@ const visibleCommentExtensionActions = computed(() => {
   return commentExtensionActions.value.filter(action => !action.requiresAuth || loggedIn)
 })
 
-function commentExtensionActionKey(action: ForumCommentExtensionAction) {
-  return `${action.extensionId}:${action.id}`
-}
-
 async function runCommentExtensionAction(comment: ForumComment, action: ForumCommentExtensionAction) {
   if (!topic.value) {
     return
   }
-  const label = forumTopicExtensionActionLabel(action, String(locale.value || 'zh-CN'))
-  if (action.confirm && !window.confirm(t('topicDetail.confirmExtensionAction', { action: label }))) {
-    return
+  const label = topicExtensionActionLabel(action, locale.value)
+  if (action.confirm) {
+    const confirmed = await confirm({
+      title: t('topicDetail.confirmDialog.extensionActionTitle'),
+      description: t('topicDetail.confirmExtensionAction', { action: label }),
+      confirmLabel: label,
+      cancelLabel: t('topicDetail.cancel')
+    })
+    if (!confirmed) return
   }
   commentExtensionActionRunning.value = commentExtensionActionKey(action)
   try {
@@ -679,9 +691,13 @@ async function deleteComment(comment: ForumComment) {
   if (deletingCommentId.value) {
     return
   }
-  if (!window.confirm(t('topicDetail.confirmCommentDelete'))) {
-    return
-  }
+  const confirmed = await confirm({
+    title: t('topicDetail.confirmDialog.commentDeleteTitle'),
+    description: t('topicDetail.confirmCommentDelete'),
+    confirmLabel: t('topicDetail.delete'),
+    cancelLabel: t('topicDetail.cancel')
+  })
+  if (!confirmed) return
   deletingCommentId.value = comment.id
   try {
     await forumApi.deleteComment(comment.id)
@@ -693,30 +709,6 @@ async function deleteComment(comment: ForumComment) {
   } finally {
     deletingCommentId.value = null
   }
-}
-
-// D2：树视图截断后，用 ListCommentReplies 合并直系回复到本地树。
-function mergeCommentReplies(items: ForumComment[], parentId: number, replies: ForumComment[]): ForumComment[] {
-  return items.map((item) => {
-    if (item.id === parentId) {
-      const existing = new Map((item.children || []).map(child => [child.id, child]))
-      const merged: ForumComment[] = []
-      for (const reply of replies) {
-        const prev = existing.get(reply.id)
-        merged.push(prev ? { ...reply, children: prev.children, hasMoreChildren: prev.hasMoreChildren } : reply)
-        existing.delete(reply.id)
-      }
-      // 保留 API 未返回、但本地已有的深层节点（path 序可能被 cap 截断过）。
-      for (const leftover of existing.values()) {
-        merged.push(leftover)
-      }
-      return { ...item, children: merged, hasMoreChildren: false }
-    }
-    if (item.children?.length) {
-      return { ...item, children: mergeCommentReplies(item.children, parentId, replies) }
-    }
-    return item
-  })
 }
 
 async function loadMoreCommentReplies(comment: ForumComment) {
@@ -746,7 +738,7 @@ async function loadMoreCommentReplies(comment: ForumComment) {
 }
 
 // 举报对话框状态机（目标/原因/提交/错误）见 composables/moderation/useModerationReportDialog；
-// 这里保持原有短名解构，模板绑定与视觉契约不变。
+// 本页按 ref 解构它的返回值，所以那个 composable 必须返回 ref（用 reactive() 包装会把 ref 解包成快照）。
 const {
   target: reportingTarget,
   reason: reportReason,
@@ -778,7 +770,7 @@ const topicActionItems = computed(() => {
     extensions: extensionActions.value.map(action => ({
       extensionId: action.extensionId,
       id: action.id,
-      label: topicExtensionActionLabel(action),
+      label: topicExtensionActionLabel(action, locale.value),
       icon: action.icon,
       confirm: action.confirm
     }))
@@ -1105,6 +1097,11 @@ async function shareTopic() {
       @update:reason="updateComposerReason"
       @submit="submitComposer"
       @dismiss-error="dismissComposerError"
+    />
+
+    <SFConfirmDialog
+      :request="confirmRequest"
+      @settle="resolveConfirm"
     />
 
     <SFReportDialog

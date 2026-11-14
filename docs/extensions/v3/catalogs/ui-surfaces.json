@@ -2862,6 +2862,16 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.public.s_f_confirm_dialog",
+    "contractVersion": "sforum.component.public.s_f_confirm_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/SFConfirmDialog.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfcontent_column_footer",
     "contractVersion": "sforum.component.shared.sfcontent_column_footer@1",
     "kind": "component",

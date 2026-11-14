@@ -6973,6 +6973,11 @@
     "commentsLoadFailed": "Comments could not be loaded. Existing comments remain available.",
     "retryComments": "Reload comments",
     "confirmCommentDelete": "Delete this comment?",
+    "confirmDialog": {
+      "commentDeleteTitle": "Delete comment",
+      "topicDeleteTitle": "Delete topic",
+      "extensionActionTitle": "Confirm extension action"
+    },
     "editPlaceholder": "Edit your comment...",
     "saveEdit": "Save",
     "cancel": "Cancel",

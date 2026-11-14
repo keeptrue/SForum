@@ -7013,6 +7013,11 @@
     "commentsLoadFailed": "评论加载失败，已显示的内容不会丢失。",
     "retryComments": "重新加载评论",
     "confirmCommentDelete": "确定要删除这条评论吗？",
+    "confirmDialog": {
+      "commentDeleteTitle": "删除评论",
+      "topicDeleteTitle": "删除话题",
+      "extensionActionTitle": "确认扩展操作"
+    },
     "editPlaceholder": "编辑评论内容...",
     "saveEdit": "保存修改",
     "cancel": "取消",

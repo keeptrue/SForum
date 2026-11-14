@@ -1,3 +1,9 @@
+import {
+  forumTopicExtensionActionLabel,
+  type ForumCommentExtensionAction,
+  type ForumTopicExtensionAction
+} from './forumTaxonomy'
+
 export type TopicActionTone = 'default' | 'danger'
 
 export type TopicActionLabels = {
@@ -168,4 +174,25 @@ export function buildCommentActionLabels(
     delete: state.deleting ? t('topicDetail.deleting') : t('topicDetail.delete'),
     report: t('topicDetail.report')
   }
+}
+
+/**
+ * 扩展动作的运行态标识：扩展 ID + 动作 ID。
+ * 同一扩展内的动作 ID 唯一，加上扩展 ID 后即可全局唯一定位一个动作。
+ */
+export function topicExtensionActionKey(action: Pick<ForumTopicExtensionAction, 'extensionId' | 'id'>): string {
+  return `${action.extensionId}:${action.id}`
+}
+
+/** 评论扩展动作与话题扩展动作共用同一套标识规则。 */
+export function commentExtensionActionKey(action: Pick<ForumCommentExtensionAction, 'extensionId' | 'id'>): string {
+  return `${action.extensionId}:${action.id}`
+}
+
+/**
+ * 扩展动作的展示文案：按当前语言取值，缺省回落到动作 ID。
+ * 语言由调用方传入（页面读 i18n 的 locale），工具层不依赖运行时。
+ */
+export function topicExtensionActionLabel(action: ForumTopicExtensionAction, locale = 'zh-CN'): string {
+  return forumTopicExtensionActionLabel(action, locale)
 }
