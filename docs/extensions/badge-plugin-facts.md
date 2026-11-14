@@ -20,7 +20,7 @@ they register the legal values of that condition:
 
 | Concept | Owner | Where it lives |
 | --- | --- | --- |
-| `fact.count` condition type | Core | `Models/Badges/conditions` registry (one of the 13 whitelisted conditions) |
+| `fact.count` condition type | Core | `Models/Conditions` registry (one of the 13 whitelisted conditions) |
 | Legal `factKey` values + `variant` candidates | Plugin | Manifest V3 `badgeConditions[]` |
 | Fact rows + running totals | Core | `badge_facts` (append-only) + `user_fact_counters` (aggregate) |
 | Write entry point | Core | Host Command `badges.fact.record` |
@@ -417,7 +417,7 @@ plugin-conditioned badge into “unknown” site-wide.
 - Capability catalog (generated): [catalogs/capabilities.md](./catalogs/capabilities.md)
 - Host Command model: [host-api-v2.md](./host-api-v2.md)
 - Fact store implementation: `apps/api/app/Models/Badges/facts_store.go`
-- Condition registry and fact candidates: `apps/api/app/Models/Badges/conditions/`
+- Condition registry and fact candidates: `apps/api/app/Models/Conditions/`
 - Contract decision record (internal): `knowledge/reports/2026-11-12-badge-conditions-manifest-spec.md`
 
 ## 9. Errata 3 (contract clarifications)

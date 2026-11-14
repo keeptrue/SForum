@@ -87,7 +87,7 @@ trap 'rm -rf "$work"' EXIT
 
 MIGRATION_FILE="$API_DIR/database/migrations/202611120002_badge_rules.sql"
 RULEENGINE_FILE="$API_DIR/app/Support/RuleEngine/eval.go"
-CONDITIONS_FILE="$API_DIR/app/Models/Badges/conditions/registry.go"
+CONDITIONS_FILE="$API_DIR/app/Models/Conditions/registry.go"
 RULE_STORE_FILE="$API_DIR/app/Models/Badges/rule_store.go"
 ROUTES_TEST="$API_DIR/app/Support/Routes/registry_test.go"
 REVERSIBLE_SCRIPT="$ROOT_DIR/scripts/verify-migration-reversible.sh"
@@ -426,7 +426,7 @@ if [[ "$slice_m13" != 1 ]]; then
     '17|fact.count 不在 PublishableDefinitions(nil)' \
     '18|fact.count 的 factKey Options 内容' \
     '19|bookmark 三面口径一致（累计/窗口/object）'; do
-    pend "M1.3-${pair%%|*}" "${pair#*|}：条件解析器未落地（缺 app/Models/Badges/conditions/registry.go）"
+    pend "M1.3-${pair%%|*}" "${pair#*|}：条件解析器未落地（缺 app/Models/Conditions/registry.go）"
   done
 elif [[ -z "$DB_URL" ]]; then
   for pair in \
@@ -449,7 +449,7 @@ elif [[ -z "$DB_URL" ]]; then
   note 'M1.3-15 / M1.3-19 的行为级孪生（days_visited 日界 / bookmark 三面）需 DATABASE_URL，本轮跳过。'
 else
   # 条件解析器是 PG 集成测试：走一次性集群，不碰 DATABASE_URL 指向的库。
-  ./scripts/test-api-isolated.sh -v -run '^(TestRegistryCatalogIsCompleteAndValidatable|TestActivityCountCumulativeAndWindow|TestActivityCountWindowedLikeReceived|TestActivityCountExcludesSelfLikes|TestActivityStreakEndsTodayOrYesterday|TestDaysVisitedWindowUsesProcessLocalDate|TestActivityCountWindowCountsSoftDeleted|TestBookmarkCountWindowIgnoresVisibility|TestPrepareServesFromMemo|TestObjectEngagement|TestObjectAuthoring|TestIdentityConditions|TestContentAndBadgeConditions|TestFactCountCumulativeWindowAndClamp)$' ./app/Models/Badges/conditions/... >"$work/m13.out" 2>&1
+  ./scripts/test-api-isolated.sh -v -run '^(TestRegistryCatalogIsCompleteAndValidatable|TestActivityCountCumulativeAndWindow|TestActivityCountWindowedLikeReceived|TestActivityCountExcludesSelfLikes|TestActivityStreakEndsTodayOrYesterday|TestDaysVisitedWindowUsesProcessLocalDate|TestActivityCountWindowCountsSoftDeleted|TestBookmarkCountWindowIgnoresVisibility|TestPrepareServesFromMemo|TestObjectEngagement|TestObjectAuthoring|TestIdentityConditions|TestContentAndBadgeConditions|TestFactCountCumulativeWindowAndClamp)$' ./app/Models/Conditions/... >"$work/m13.out" 2>&1
   if ! grep -qE '^(ok|FAIL|--- (PASS|FAIL): )' "$work/m13.out"; then
     tail -15 "$work/m13.out" >&2
     for id in 01 02 04 05 06 07 08 09 11 13; do
@@ -487,8 +487,8 @@ fi
 # （M1.3-15 / M1.3-19 的 expect_test），静态检查只负责快速失败。
 #
 # 每条都先过 `require_static_target`：单文件 absence-grep 在文件改名后会恒真。
-if require_static_target "$API_DIR/app/Models/Badges/conditions/registry.go" 'M1.3-12'; then
-  if grep -qE '违规|处罚|封禁' "$API_DIR/app/Models/Badges/conditions/registry.go" 2>/dev/null; then
+if require_static_target "$API_DIR/app/Models/Conditions/registry.go" 'M1.3-12'; then
+  if grep -qE '违规|处罚|封禁' "$API_DIR/app/Models/Conditions/registry.go" 2>/dev/null; then
     fail 'M1.3-12 content.hidden 文案' '条件说明出现「违规/处罚/封禁」，库里没有处罚记录，属误导'
   else
     pass 'M1.3-12 content.hidden 文案中性（无违规/处罚/封禁）'
@@ -496,8 +496,8 @@ if require_static_target "$API_DIR/app/Models/Badges/conditions/registry.go" 'M1
 fi
 
 # M1.3-14 streak 日期来源：不得用 CURRENT_DATE；streak/account_age 必须收 $2::date。
-if require_static_target "$API_DIR/app/Models/Badges/conditions" 'M1.3-14'; then
-  cd_hits="$(grep -rnE 'CURRENT_DATE|current_date' "$API_DIR/app/Models/Badges/conditions/" --include='*.go' 2>/dev/null \
+if require_static_target "$API_DIR/app/Models/Conditions" 'M1.3-14'; then
+  cd_hits="$(grep -rnE 'CURRENT_DATE|current_date' "$API_DIR/app/Models/Conditions/" --include='*.go' 2>/dev/null \
     | grep -v '_test.go' | grep -vE ':[0-9]+:[[:space:]]*//' | wc -l)"
   if [[ "${cd_hits:-0}" == 0 ]]; then
     pass 'M1.3-14 streak/account_age 的今天由 Go 传入（$2::date），无 CURRENT_DATE'
@@ -507,8 +507,8 @@ if require_static_target "$API_DIR/app/Models/Badges/conditions" 'M1.3-14'; then
 fi
 
 # M1.3-19 bookmark 三面一致：窗口分支若按 visibility 过滤，就与累计/object 分叉。
-if require_static_target "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" 'M1.3-19'; then
-  if grep -q "b.visibility = 'public'" "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" 2>/dev/null; then
+if require_static_target "$API_DIR/app/Models/Conditions/resolve_activity.go" 'M1.3-19'; then
+  if grep -q "b.visibility = 'public'" "$API_DIR/app/Models/Conditions/resolve_activity.go" 2>/dev/null; then
     fail 'M1.3-19 bookmark 三面一致' "窗口 SQL 过滤 b.visibility='public'，而 user_activity.bookmark_count 与 object.engagement 都不过滤（private 收藏被计入）→ 同一指标累计与窗口分叉"
   else
     pass 'M1.3-19 bookmark 三面一致（窗口不再按 visibility 过滤）'
@@ -516,8 +516,8 @@ if require_static_target "$API_DIR/app/Models/Badges/conditions/resolve_activity
 fi
 
 # M1.3-15 窗口日界：`(now() - interval)::date` 与 visited_on 的写入日界不同源。
-if require_static_target "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" 'M1.3-15'; then
-  pgdate_hits="$(grep -rn 'now() - make_interval' "$API_DIR/app/Models/Badges/conditions/resolve_activity.go" | grep -c '::date' || true)"
+if require_static_target "$API_DIR/app/Models/Conditions/resolve_activity.go" 'M1.3-15'; then
+  pgdate_hits="$(grep -rn 'now() - make_interval' "$API_DIR/app/Models/Conditions/resolve_activity.go" | grep -c '::date' || true)"
   if [[ "${pgdate_hits:-0}" == 0 ]]; then
     pass 'M1.3-15 窗口日界不依赖 PG 时区'
   else

@@ -20,7 +20,7 @@
 
 | 概念 | 归属 | 位置 |
 | --- | --- | --- |
-| `fact.count` 条件类型 | 核心 | `Models/Badges/conditions` 注册表（13 条白名单条件之一） |
+| `fact.count` 条件类型 | 核心 | `Models/Conditions` 注册表（13 条白名单条件之一） |
 | 合法 `factKey` 与 `variant` 候选 | 插件 | Manifest V3 的 `badgeConditions[]` |
 | 事实行与累计计数 | 核心 | `badge_facts`（append-only）+ `user_fact_counters`（聚合） |
 | 写入入口 | 核心 | Host 命令 `badges.fact.record` |
@@ -378,7 +378,7 @@ _ = result // inserted / total 在结果文档里，见 §4.2
 - 能力目录（生成）：[catalogs/capabilities.md](../../extensions/catalogs/capabilities.md)
 - Host 命令模型：[host-api-v2.md](../../extensions/host-api-v2.md)
 - 事实存储实现：`apps/api/app/Models/Badges/facts_store.go`
-- 条件注册表与事实候选：`apps/api/app/Models/Badges/conditions/`
+- 条件注册表与事实候选：`apps/api/app/Models/Conditions/`
 - 契约决策记录（内部）：`knowledge/reports/2026-11-12-badge-conditions-manifest-spec.md`
 
 ## 9. Errata 3（契约澄清）

@@ -131,7 +131,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 	em "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	capabilities "github.com/keeptrue/sforum/apps/api/app/Support/Capabilities"
 )
@@ -436,7 +436,7 @@ if [[ $RUN_TESTS -eq 1 ]]; then
   else
     fail 'D-02 variant 三态' "$(grep -E '^(--- FAIL|FAIL)' "$work/variant.out" | head -2 | tr '\n' ' ' | cut -c1-200)"
   fi
-  if ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" -run 'BadgeCondition|FactCandidate|FactDeclaration|MergeFact|PublishableDefinitionsHides' ./app/Support/ExtensionManifest/... ./app/Models/Badges/conditions/... ./app/Http/Controllers/Badges/... ) >"$work/unit.out" 2>&1; then
+  if ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" -run 'BadgeCondition|FactCandidate|FactDeclaration|MergeFact|PublishableDefinitionsHides' ./app/Support/ExtensionManifest/... ./app/Models/Conditions/... ./app/Http/Controllers/Badges/... ) >"$work/unit.out" 2>&1; then
     pass 'D-03 manifest/候选/DTO 单测包 exit 0'
   else
     fail 'D-03 单测' "$(grep -E '^(--- FAIL|FAIL)' "$work/unit.out" | head -2 | tr '\n' ' ' | cut -c1-200)"
@@ -521,7 +521,7 @@ step 'M 变异自检'
 run_mutation_cmd() {
   case "$1" in
     manifest) ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" ./app/Support/ExtensionManifest/... ) ;;
-    conditions) ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" ./app/Models/Badges/conditions/... ) ;;
+    conditions) ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" ./app/Models/Conditions/... ) ;;
     models) ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" ./app/Models/Badges/... ) ;;
     dto) ( cd "$API_DIR" && "$ROOT_DIR/scripts/test-api-isolated.sh" ./app/Http/Controllers/Badges/... ) ;;
     static) ( cd "$ROOT_DIR" && ./scripts/verify-badge-m3-manifest.sh --no-tests ) ;;

@@ -10,7 +10,7 @@
 #   * **自己造数据**，不读 dev 库。夹具永远从一个空的一次性集群 + 完整迁移链开始，
 #     所以数字可复现，也不会把开发库的残留当成基线（矩阵 §9.1 的教训）。
 #   * 三态 ok / FAIL / pend：EXPLAIN 类断言现在就能跑；P50/P95 与吞吐要等
-#     `Models/Badges/conditions` 落地（窗口解析器），未落地一律 pend。
+#     `Models/Conditions` 落地（窗口解析器），未落地一律 pend。
 #   * **不接** `./scripts/test.sh`，也不属于 `tests/validate-*` 门禁。`--strict` 才把 pend 转 exit 4。
 #   * **默认 10k 规模就是矩阵里的 `M1-EXIT-PERF` 收口门**：M1 结项前必须跑一次并把 EXPLAIN 原文
 #     贴进 `knowledge/reports/2026-11-12-badge-rule-engine-acceptance.md` §9.4。它不是日常循环，
@@ -89,11 +89,11 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   note '继承的 DATABASE_URL 被忽略：本脚本只在自己的一次性集群上跑，绝不动开发库。'
 fi
 
-CONDITIONS_FILE="$API_DIR/app/Models/Badges/conditions/registry.go"
+CONDITIONS_FILE="$API_DIR/app/Models/Conditions/registry.go"
 if [[ -f "$CONDITIONS_FILE" ]]; then
   note '窗口解析器已落地：P50/P95 与吞吐段会尝试执行（当前骨架仍记 pend，接探针见 §TODO）。'
 else
-  note '窗口解析器未落地（缺 app/Models/Badges/conditions/registry.go）：计时断言将 pend。'
+  note '窗口解析器未落地（缺 app/Models/Conditions/registry.go）：计时断言将 pend。'
 fi
 
 step '启动一次性 PostgreSQL 集群'
