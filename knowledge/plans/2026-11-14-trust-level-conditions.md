@@ -1,16 +1,19 @@
 # 信任等级：条件化门槛（复用徽章规则引擎）+ 插件扩展面
 
-Status: **active（M0–M4 已落地，M5 收口完成；1 笔未落 + 2 个并行单）**。M0–M4 全部落地（M1 条件引擎、M2 求值链路、
+Status: **active（M0–M4 已落地，M5 收口完成；0 笔未落 + 2 个并行单）**。M0–M4 全部落地（M1 条件引擎、M2 求值链路、
 M3 后台 UI + M3b 条件折叠面板与影响面确认、M4 插件扩展面：事实条件 / 可授予权限 /
 `trust_level.changed` 事件 / 两条 HostQuery / 每日 sweep）。M5 收口的实物：
 `../modules/trust-levels.md` 的 Extension Surface 与 9 条残留、
 `../reports/2026-11-14-m5-acceptance-matrix.md` 的六条变异矩阵、
 三份决策记录（earnable-plugin-keys / synthetic-rule-root / hostquery-computed-definitions）。
-**未落 1 笔**：§3.3 的 `identity.profile` 条件（共享目录 13→14、信任子集 11→12），本轮在办
-（task-2）。**并行单 2 个**：夹具正样本可重放（task-4，在办）、0b38458bd 的家族清单审查
-（task-3，在办；清单本身已落，见下）。逐条见模块笔记的「9 条已知残留」。
-7 家族手写清单**已由 `0b38458bd` 收口**（`v3PluginOnlyDeclarationFamilies` 成运行期唯一来源 +
-清单⇄schema 双向比对），不再算未落；残留的只是「各家族 validator 是否第二入口」的审查结论。
+**未落 0 笔**：§3.3 的 `identity.profile` 条件已实施（`9169ba30d`，task-2）——共享目录 **14**、
+信任子集 **12**，4 处硬编码计数同批改、七处相对式断言未动。**并行单 2 个**：夹具正样本可重放
+（task-4，在办）、7 家族清单的已知缺口修复（task-7，在办；审查 task-3 并行）。逐条见模块笔记的
+「9 条已知残留」。
+7 家族手写清单**已由 `0b38458bd` 收口**（`v3PluginOnlyDeclarationFamilies` 成清单本体 + 清单⇄schema
+双向比对），但**「运行期唯一事实源」对 identity / seo / permissionDefinitions 3 个家族不成立**
+（`manifest.go:485` 的主题闸先拒），且 `0b38458bd` 删掉了 notificationTypes 的主题侧测试——
+修复在办（task-7），所以本计划**不按「已彻底解决」结项**。
 前置计划：`2026-11-10-trust-levels.md`（D1–D32）、`2026-11-11-trust-levels-n-tiers.md`、
 `2026-11-12-badge-rule-engine.md`（规则引擎本体，已收口）。
 
