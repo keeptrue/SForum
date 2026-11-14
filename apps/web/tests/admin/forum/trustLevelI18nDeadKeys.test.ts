@@ -6,22 +6,23 @@ import { SPECIFIC_ERROR_CODES, saveErrorText } from '../../../app/composables/ad
 /**
  * `admin.forum.trustLevels` 的**死键棘轮**。
  *
- * 为什么需要它：这个族有 360 个键，而唯一的双向断言（`adminBadgesI18n.test.ts`）只覆盖
- * `admin.badges`。pm 的 copy-spec §3.2 那三条键（面板标题 / 空态标题 / `impact.row`）
- * 就是因为「没人能自动发现它们是死键」被否掉的——本轮 F1 删了 `earnable_not_declared` 的
- * 变体键，如果只删文案不加闸门，下一次还会留下孤儿键。
+ * 为什么需要它：这个族有 394 个键，而现有的双向断言（`adminBadgesI18n.test.ts` 管
+ * `admin.badges`、`badges/publicBadgeCatalog.test.ts` 管 `badges.catalog`）都不覆盖它。
+ * pm 的 copy-spec §3.2 那三条键（面板标题 / 空态标题 / `impact.row`）就是因为「没人能自动
+ * 发现它们是死键」被否掉的——本轮 F1 删了 `earnable_not_declared` 的变体键，如果只删文案
+ * 不加闸门，下一次还会留下孤儿键。
  *
  * 做法与徽章那份同源：把 locale 键集合与代码里实际取值的集合比对。
- * 两个必然的「非字面量消费」必须显式声明，否则会误判成死键：
+ * 三个必然的「非字面量消费」必须显式声明，否则会误判成死键：
  * 1. **动态族**（`metric.${key}` / `errors.code.${code}` 这类）→ 整族算已使用；
  * 2. **三元拼接**（`${mode === 'delete' ? 'tierDelete' : 'tiers.retireConfirm'}.cancel`）
  *    → 静态扫描拿不到具体键，这里列出解析后的 4 条；
- * 3. **前缀 prop**：共享规则编辑器读 `admin.forum.trustLevels.rule.*`（整族由 prop 注入，
- *    键清单在 `trustLevelRuleI18n.test.ts` 里逐键钉死）。
+ * 3. **前缀 prop**：共享规则编辑器读 `admin.forum.trustLevels.rule.*` 与 `…ruleConditions.*`
+ *    （整族由 prop 注入，两族的键清单在 `trustLevelRuleI18n.test.ts` 里逐键钉死）。
  *
- * `KNOWN_DEAD_KEYS` 是本轮盘点出的**存量**孤儿键（≥ `9396dd155` 之前就在，不是 F1 引入的）。
- * 它们是棘轮：只许减不许增。谁给它们接上消费者，就把对应行从这里删掉；谁新增一条无消费的
- * locale 键，这个测试立刻红。
+ * `KNOWN_DEAD_KEYS` 是**存量**孤儿键的登记表（≥ `9396dd155` 之前就在，不是 F1 引入的）；
+ * 现已清零（见下）。它是棘轮：只许减不许增——谁给表里的键接上消费者，就删掉对应行；
+ * 谁新增一条无消费的 locale 键，这个测试立刻红。
  */
 const NAMESPACE = ['admin', 'forum', 'trustLevels'] as const
 
