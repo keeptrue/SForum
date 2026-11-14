@@ -18,12 +18,13 @@
   本轮按事实改写的四条：
   - 残留 5：`identity.profile` **已实施（`9169ba30d`，task-2）**——共享目录 **14** / 信任子集 **12**，
     4 处硬编码计数同批改、七处相对式断言未动；遗留边界是「不参与影响面估算」（见 §Extension Surface 8）。
-  - 残留 6：7 家族清单**已收口但有已知缺口**——`0b38458bd` 让 `v3PluginOnlyDeclarationFamilies`
-    成为清单本体 + 清单⇄schema 双向比对，但「运行期唯一事实源」对 **identity / seo /
-    permissionDefinitions 3 个家族不成立**（`manifest.go:485` 的 `isThemeManifestSupported` 在
-    `validateV3Manifest` 之前就拒主题），且该提交**静默删掉**了 notificationTypes 的主题侧双侧测试
-    （现存 `TestManifestV3SchemaKindFamiliesRejectThemes` 只跑 seo / aiTools）。修复在办（task-7），
-    审查 task-3。**不写「已彻底解决」。**
+  - 残留 6：7 家族清单**已收口**——`0b38458bd` 让 `v3PluginOnlyDeclarationFamilies` 成为清单本体
+    + 清单⇄schema 双向比对；它留下的两处缺口（主题侧 `isThemeManifestSupported` 抢在清单之前，
+    使 identity / seo / permissionDefinitions 3 个家族走不到清单；notificationTypes 的主题侧双侧测试
+    被删）**已由 `bcbe314ff`（task-7）修掉**：清单提到 `validateManifest` 里、主题闸之前，
+    7 个家族全部由清单先拒且报错带家族名，`TestManifestV3SchemaRequiresPluginForNotificationTypes`
+    恢复（`:376`），新增 `:323` 行为判据跑满 7 家族（`go test ./app/Support/ExtensionManifest/` ok）。
+    剩「各家族 validator 里的 kind 判据是否第二入口」由 **task-3** 出结论。**不写「已彻底解决」。**
   - 残留 7：gofmt 点名 4 个仍在列，全仓今天实测 **26** 个（`go1.27.1` 口径）。
   - 残留 8：`batches==2` **确实存在**于 `bootstrap/trust_levels_policy_watch_test.go:94-95`，
     钉的是设置写钩子的批量转发（不退化成逐条 `Upsert`）；原句「未覆盖」不成立，真正的空档是
@@ -60,11 +61,11 @@
 
 ## Next
 
-1. **task-7**（老后）：7 家族清单的 3/7 运行期缺口 + notificationTypes 主题侧测试补回；
-   收口后把残留 6 从「已收口但有已知缺口」改成「已收口」，并写明主题闸与清单的先后关系。
-2. **task-3**（小审）：各家族 validator 残留 kind 判据是否构成第二入口；结论回来后回写残留 6。
-3. **task-4**（老运）：夹具正样本可重放；落地后把残留 3 改成「一条命令可重放」并贴命令。
-4. 用可用 QA 账号重跑验收脚本的 HTTP 段，把 `H3 / I-09 / I-11 / I-13 / I-24` 的 pend 清掉
+1. **task-3**（小审）：各家族 validator 残留 kind 判据是否构成第二入口；结论回来后回写残留 6。
+   （task-7 已落 `bcbe314ff`：清单成为首个 kind 判据 + notificationTypes 主题侧测试恢复，
+   本文件与模块笔记已按它回写。）
+2. **task-4**（老运）：夹具正样本可重放；落地后把残留 3 改成「一条命令可重放」并贴命令。
+3. 用可用 QA 账号重跑验收脚本的 HTTP 段，把 `H3 / I-09 / I-11 / I-13 / I-24` 的 pend 清掉
    （残留 9：`pend` 不能当绿）。
 
 ## Open Questions

@@ -8,12 +8,13 @@ M3 后台 UI + M3b 条件折叠面板与影响面确认、M4 插件扩展面：�
 三份决策记录（earnable-plugin-keys / synthetic-rule-root / hostquery-computed-definitions）。
 **未落 0 笔**：§3.3 的 `identity.profile` 条件已实施（`9169ba30d`，task-2）——共享目录 **14**、
 信任子集 **12**，4 处硬编码计数同批改、七处相对式断言未动。**并行单 2 个**：夹具正样本可重放
-（task-4，在办）、7 家族清单的已知缺口修复（task-7，在办；审查 task-3 并行）。逐条见模块笔记的
+（task-4，在办）+ 审查 task-3（各家族 validator 的 kind 判据是否第二入口）。逐条见模块笔记的
 「9 条已知残留」。
 7 家族手写清单**已由 `0b38458bd` 收口**（`v3PluginOnlyDeclarationFamilies` 成清单本体 + 清单⇄schema
-双向比对），但**「运行期唯一事实源」对 identity / seo / permissionDefinitions 3 个家族不成立**
-（`manifest.go:485` 的主题闸先拒），且 `0b38458bd` 删掉了 notificationTypes 的主题侧测试——
-修复在办（task-7），所以本计划**不按「已彻底解决」结项**。
+双向比对）；它留下的两处缺口——主题侧 `isThemeManifestSupported` 抢在清单之前、notificationTypes
+的主题侧测试被删——**已由 `bcbe314ff`（task-7）修掉**：清单提到 `validateManifest` 里、主题闸之前，
+7 个家族全部由清单先拒且报错带家族名，主题侧测试恢复并新增跑满 7 家族的行为判据。
+**本计划仍不按「已彻底解决」结项**，因为「第二入口」结论要等 task-3。
 前置计划：`2026-11-10-trust-levels.md`（D1–D32）、`2026-11-11-trust-levels-n-tiers.md`、
 `2026-11-12-badge-rule-engine.md`（规则引擎本体，已收口）。
 

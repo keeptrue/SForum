@@ -634,22 +634,26 @@ Host 的可观测面。
 测试做**双向比对**（清单 ⇄ schema 分支，任一多出即红并指名，
 `v3_schema_kind_families_test.go:190-200`）。
 
-> **但「运行期唯一事实源」只对 4/7 家族成立**：`manifest.go:485` 的 `isThemeManifestSupported`
-> （定义 `:688-712`）在 `validateV3Manifest` **之前**就拒主题，而它显式查
-> `SEO` / `Identity` / `PermissionDefinitions` / `Backend`——所以 identity / seo /
-> permissionDefinitions 这 3 个家族在主题侧根本走不到清单判断。见残留 6 的缺口与修复（task-7）。
+> **曾经的缺口（已修，`bcbe314ff` / task-7）**：`manifest.go` 的 `isThemeManifestSupported`
+> （定义 `:688-712`）原先在 `validateV3Manifest` **之前**就拒主题，而它显式查
+> `SEO` / `Identity` / `PermissionDefinitions` / `Backend`——identity / seo / permissionDefinitions
+> 这 3 个家族在主题侧走不到清单判断。修复把 `validatePluginOnlyFamilies(manifest)` 提到
+> `validateManifest` 里、`isThemeManifestSupported` **之前**判一次，**7 个家族全部由清单先拒**且
+> 报错带家族名。见残留 6。
 
 `notificationTypes` 刻意**只补 kind、不加 backend 要求**：Go 侧只要求 plugin，schema 若同时要求
-backend 会拒掉 Go 会放行的包。**双侧判据的测试在 `0b38458bd` 里被删了**
-（原 `TestManifestV3SchemaRequiresPluginForNotificationTypes`，它同时断「Go 拒 + schema 拒」主题声明
-notificationTypes），现存只剩 `v3_schema_kind_families_test.go:101` 的
-`TestManifestV3SchemaKindFamiliesRejectThemes`，而它只跑 `seo` 与 `aiTools` 两个家族——
-**notificationTypes 的主题侧断言现在是空的**。修复在办（task-7），见残留 6。
+backend 会拒掉 Go 会放行的包。它的主题侧双侧判据（Go 拒 + schema 拒）在 `0b38458bd` 里被删过一次，
+**已由 `bcbe314ff` 恢复**：`v3_schema_kind_families_test.go:376` 的
+`TestManifestV3SchemaRequiresPluginForNotificationTypes`；另加 `:323` 的
+`TestManifestV3PluginOnlyFamiliesBehaviourallyRejectThemes`，逐个跑满 7 个家族
+（aiTools / notificationTypes / seo / identity / badgeConditions / userFactConditions /
+permissionDefinitions）。
 
 **没有任何生产路径只跑 `ValidateV3JSONSchema` 而不跑 `Validate`**：装载路径两处 schema 校验
 （`load.go:99` 原始 body、`:116` canonical 重编码后）之后，`:120` 必定调用 Go 侧 `Validate`。
-注意这不等于「Go 侧判据一定跑到」：主题在 `manifest.go:485` 就被拒，`validateV3Manifest` 及其
-家族清单不会执行——schema 与 Go 两侧都拒，但**理由不同**，读错误信息时别把两者当成同一道闸。
+主题侧的顺序现在是：清单（`validateManifest`，带家族名）→ `isThemeManifestSupported` →
+`validateV3Manifest`。所以主题声明 plugin-only 家族时，**第一条报错来自清单**；schema 层的拒绝
+理由指向 `type=plugin`。两侧都拒，但**理由不同**，读错误信息时别把它们当成同一道闸。
 
 ### 8. 条件与影响面估算的边界（`identity.profile` 不参与估算）
 
@@ -958,7 +962,7 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
    **为什么留着**：不再留着——本条已消，保留在此只为记「13→14 / 11→12 的迁移已完成」。
    **谁负责/何时消**：已消；**遗留边界**（不是缺口）：它**不参与影响面估算**，
    见 §Extension Surface 第 8 条。
-6. **7 家族手写清单 —— 已收口，但「运行期唯一事实源」对 3/7 家族不成立（修复在办 task-7）。**
+6. **7 家族手写清单 —— 已收口（`0b38458bd`）+ 主题侧缺口已修（`bcbe314ff`）；只剩「第二入口」待审（task-3）。**
    **现状**：`v3PluginOnlyDeclarationFamilies`（`app/Support/ExtensionManifest/v3_validate_platform.go:95-106`）
    是「只允许插件声明」家族的**运行期唯一清单**（家族名 + `Declared` 谓词），
    `validatePluginOnlyFamilies()`（`:112-124`）在 `validatePlatform` 入口集中判一次 kind；
@@ -970,16 +974,15 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
    `validateAITools`（`:130`）、`validateNotificationTypes`（`:232`）、`validateSEO`（`:316`）、
    声明侧 backend 要求（`:578`）、可执行 provider（`:790`）。它们还管字段级规则，但与清单判的是
    同一个 kind，**是否构成「第二入口」**（清单删了、validator 仍拒 ⇒ 行为不变而清单失真）由小审独立裁决。
-   **另一处已知缺口（2026-11-14 小审指出，老后核实）**：清单在运行期**并不是** 7 个家族的唯一判据。
+   **曾经的缺口（2026-11-14 小审指出）—— 已修（`bcbe314ff`，task-7）**：清单原先是**第二个**判据，
    `manifest.go:485` 的 `isThemeManifestSupported` 在 `validateV3Manifest` **之前**就拒主题
-   （它显式查 `SEO` / `Identity` / `PermissionDefinitions` 与 `Backend`，见 `manifest.go:688-712`），
-   所以对 **identity / seo / permissionDefinitions** 这 3 个家族，主题侧真正生效的是那道更早的闸，
-   清单判不到——「删了清单项就没人守」这句话对它们不成立。另外 `0b38458bd` **静默删掉了**父提交里的
-   `TestManifestV3SchemaRequiresPluginForNotificationTypes`（notificationTypes 的主题侧双侧判据），
-   现存 `TestManifestV3SchemaKindFamiliesRejectThemes` 只覆盖 seo / aiTools。
-   **谁负责/何时消**：缺口修复在办（**task-7**，老后）；独立审查结论由 **task-3** 出。
-   若判为第二入口，修法是把 kind 判据收到清单一处。**在修复与审查都收口前，本条只写到
-   「已收口但有已知缺口，修复在办」，不写「已彻底解决」。**
+   （显式查 `SEO` / `Identity` / `PermissionDefinitions` / `Backend`，`:688-712`），使
+   identity / seo / permissionDefinitions 3 个家族在主题侧走不到清单；`0b38458bd` 还静默删掉了
+   `TestManifestV3SchemaRequiresPluginForNotificationTypes`。修复后 `validatePluginOnlyFamilies(manifest)`
+   在 `validateManifest` 里、主题闸**之前**判一次（7 家族全部由清单先拒、报错带家族名），
+   notificationTypes 的主题侧测试已恢复（`:376`），并新增 `:323` 的行为判据跑满 7 家族。
+   **仍开的部分**：各家族 validator 里残留的 kind 判断是否构成「第二入口」，**审查 task-3** 出结论；
+   在它出来前本条不写「已彻底解决」。
 7. **`gofmt` 既有漂移：本刀点名 4 个，今天全仓实测 26 个。**
    **现状**：点名的 4 个仍在列——`bootstrap/badges_backfill_notification_test.go`、
    `app/Models/Forum/service_trust_limits.go`、`app/Models/Forum/service_trust_limits_test.go`、
@@ -1041,9 +1044,10 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
 - `identity.profile` 条件：**已实施（`9169ba30d`，task-2）**，共享目录 **14** / 信任子集 **12**，
   见残留 5。它的「不参与影响面估算」是边界裁决，见 §Extension Surface 第 8 条。
 - 夹具正样本的运行期重放路径：**本轮在办（task-4）**，见残留 3。
-- 7 家族清单：清单本体已落（`0b38458bd`），但「运行期唯一事实源」对 identity / seo /
-  permissionDefinitions 3 个家族不成立（`manifest.go:485` 的主题闸先拒），且 notificationTypes 的
-  主题侧测试被删——**修复在办（task-7）**，审查结论由 task-3 出，见残留 6。
+- 7 家族清单：清单本体已落（`0b38458bd`），主题侧「清单不是首个判据」与 notificationTypes 测试被删
+  这两处缺口**已修（`bcbe314ff`，task-7）**——清单提到 `validateManifest` 里、主题闸之前，
+  7 家族全部由清单先拒，主题侧测试恢复并新增跑满 7 家族的行为判据。剩「各家族 validator 里的 kind
+  判断是否第二入口」由 **task-3** 出结论，见残留 6。
 - `config.go:845` 那条注释仍写「全站等级掉回默认策略」；准确口径见 §回滚口径
   （未解析 / 等同 TL0，不涉及 `DefaultPolicy()` 替换）。**归属**：下一次碰该文件的单顺手改。
 
