@@ -17,6 +17,25 @@ BLUE_GREEN_COMPOSE=()
 RELEASE_IMAGE_SERVICES=()
 APP_SERVICES=()
 
+# 环境契约键：deploy.sh 会逐项校验这些值，而容器实际拿到的值必须与校验值完全一致。
+# 它们正是 compose.yaml / compose.prod.yaml 里 `${KEY:-...}` 插值的生产必需项。
+ENV_CONTRACT_KEYS=(
+  APP_ENV
+  APP_URL
+  NUXT_PUBLIC_API_BASE_URL
+  NUXT_PUBLIC_ADMIN_ROUTE_PREFIX
+  POSTGRES_DB
+  POSTGRES_USER
+  POSTGRES_PASSWORD
+  DATABASE_URL
+  REDIS_ADDR
+  REDIS_PASSWORD
+  SESSION_HASH_SECRET
+  IDENTITY_SUBJECT_HMAC_SECRET
+  APP_OPTION_ENC_KEY
+  ALTCHA_SECRET
+)
+
 usage() {
   cat <<'EOF'
 Usage: ./deploy.sh [options]
@@ -29,7 +48,7 @@ Options:
   --version VERSION     Release tag, or latest stable release (default: latest)
   --channel CHANNEL     Update channel: stable (default) or prerelease
   --action ACTION       deploy, install, update, backup, restore, status,
-                        logs, restart, stop, rollback
+                        logs, restart, stop, rollback, check-env
   --yes, --defaults     Accept recommended configuration defaults
   -h, --help            Show this help
 
@@ -37,6 +56,8 @@ Actions:
   deploy|install|update Resolve the target release, back up an existing
                         database, run migrations, start the release images, and
                         verify health before recording .deployrc.
+  check-env             Validate .env.production against the values the
+                        containers will receive, then exit. Needs no Docker.
   backup                Create a PostgreSQL backup under backups/ (0600).
   restore               Restore a backup after typing RESTORE.
   status|logs           Inspect the currently recorded deployment.
@@ -113,6 +134,59 @@ env_file_value() {
   printf '%s' "${value:-$fallback}"
 }
 
+# docker compose --env-file 的插值顺序是「shell 环境 > --env-file > compose 文件默认」。
+# shell 里 export 的同名变量会静默盖掉 .env.production，容器拿到的值就可能和
+# validate_env_contract 校验的值不是同一个（审计 OPS2-05）。所以校验一律走
+# effective 取值，并在拼装 compose 命令前清掉这些 shell 覆盖。
+env_contract_value() {
+  local key="$1"
+  local fallback="${2:-}"
+  local value=""
+  if [ -n "${!key+set}" ]; then
+    printf '%s' "${!key}"
+    return 0
+  fi
+  value="$(env_file_value .env.production "$key")"
+  printf '%s' "${value:-$fallback}"
+}
+
+# 校验值来自哪里：shell 覆盖、.env.production，还是 compose 文件里的默认值。
+env_contract_source() {
+  local key="$1"
+  if [ -n "${!key+set}" ]; then
+    printf 'shell'
+  elif [ -n "$(env_file_value .env.production "$key")" ]; then
+    printf 'file'
+  else
+    printf 'default'
+  fi
+}
+
+# 在调用 compose 之前清掉契约键的 shell 覆盖，让「校验的值」就是「容器拿到的值」。
+# 被忽略的导出显式告警：静默忽略会让人以为自己 export 的值生效了。
+sanitize_env_contract_overrides() {
+  local key
+  local ignored=()
+  for key in "${ENV_CONTRACT_KEYS[@]}"; do
+    [ -n "${!key+set}" ] || continue
+    ignored+=("$key")
+    unset "$key"
+  done
+  if [ "${#ignored[@]}" -gt 0 ]; then
+    printf '%s %s\n' "$(t env_override_ignored)" "${ignored[*]}" >&2
+  fi
+}
+
+# 校验失败必须指向运维真正能改的地方：.env.production。只有在 shell 覆盖没被清掉
+# （sanitize 被绕过）时才点名 shell，避免让人去改错误的文件。
+die_env_contract() {
+  local key="$1"
+  if [ "$(env_contract_source "$key")" = shell ]; then
+    die "$(t invalid_env) ${key} ($(t env_source_shell))"
+  fi
+  die "$(t invalid_env) ${key} (.env.production)"
+}
+
 load_language() {
   if [ -z "$LANGUAGE" ]; then
     LANGUAGE="$(rc_value lang)"
@@ -156,6 +230,9 @@ t() {
       env_missing) echo ".env.production is missing. Run the install/update action first." ;;
       invalid_public_api_base) echo "NUXT_PUBLIC_API_BASE_URL must be /api/v1." ;;
       invalid_env) echo "The production configuration is incomplete or unsafe. Move it aside and rerun the installer, or fix the named value." ;;
+      env_override_ignored) echo "Ignoring these shell environment overrides; production configuration comes from .env.production:" ;;
+      env_source_shell) echo "exported in the shell environment and overriding .env.production; unset it or update .env.production" ;;
+      env_contract_ok) echo "Production configuration is valid and matches the values the containers receive." ;;
       port_busy) echo "A required loopback port is already used by another process:" ;;
       deploy_locked) echo "Another deployment operation is running. Wait for it to finish and retry." ;;
       pulling_release) echo "Pulling the required SForum release images before changing the database:" ;;
@@ -203,6 +280,9 @@ t() {
       env_missing) echo "缺少 .env.production，请先选择 '安装或更新'。" ;;
       invalid_public_api_base) echo "NUXT_PUBLIC_API_BASE_URL 必须是 /api/v1。" ;;
       invalid_env) echo "生产配置不完整或不安全。请移走旧文件后重新运行安装，或修复提示中的配置项。" ;;
+      env_override_ignored) echo "已忽略以下 shell 环境变量；生产配置一律以 .env.production 为准：" ;;
+      env_source_shell) echo "来自 shell 环境变量并覆盖了 .env.production；请 unset 该变量或更新 .env.production" ;;
+      env_contract_ok) echo "生产配置校验通过：容器取值与 .env.production 一致。" ;;
       port_busy) echo "以下本机端口已被其他程序占用：" ;;
       deploy_locked) echo "另一个部署操作正在运行，请等待其结束后重试。" ;;
       pulling_release) echo "先拉取所需的 SForum 发布镜像，成功后才会改动数据库：" ;;
@@ -295,8 +375,19 @@ validate_release_version() {
   fi
 }
 
+# 百分号解码（只解一层，与 Go 的 url.Parse 对 userinfo 的处理一致）。
+# 口令里的 %XX 在 URL 里是合法转义，Go 侧解码后才比对占位口令；shell 侧不解码
+# 就会漏掉 `change%2Dme` 这类写法，check-env 通过而容器启动 panic。
+percent_decode() {
+  local input="$1"
+  printf '%b' "${input//%/\\x}"
+}
+
 configure_compose() {
   export SFORUM_VERSION="$RELEASE_VERSION"
+  # compose 插值里 shell 优先于 --env-file：先清掉契约键的 shell 覆盖，
+  # preflight 校验的值才会等于容器实际取值（OPS2-05）。
+  sanitize_env_contract_overrides
   COMPOSE=(docker compose --env-file .env.production -f compose.yaml -f compose.prod.yaml -f compose.release.yaml)
   RELEASE_IMAGE_SERVICES=(migrate api web)
   APP_SERVICES=(postgres redis api web)
@@ -351,39 +442,50 @@ compose_version_supported() {
 validate_env_contract() {
   local public_api_base app_env app_url admin_prefix postgres_db postgres_user postgres_password database_url
   local redis_addr redis_password session_secret identity_secret option_key altcha_secret
-  public_api_base="$(env_file_value .env.production NUXT_PUBLIC_API_BASE_URL /api/v1)"
+  # 全部走 env_contract_value：它按 compose 的插值顺序取值，所以校验的就是容器
+  # 真正会拿到的值，而不是「文件里写了什么」。
+  public_api_base="$(env_contract_value NUXT_PUBLIC_API_BASE_URL /api/v1)"
   [ "$public_api_base" = "/api/v1" ] || die "$(t invalid_public_api_base)"
 
-  app_env="$(env_file_value .env.production APP_ENV)"
-  app_url="$(env_file_value .env.production APP_URL)"
-  admin_prefix="$(env_file_value .env.production NUXT_PUBLIC_ADMIN_ROUTE_PREFIX /control-panel)"
-  postgres_db="$(env_file_value .env.production POSTGRES_DB)"
-  postgres_user="$(env_file_value .env.production POSTGRES_USER)"
-  postgres_password="$(env_file_value .env.production POSTGRES_PASSWORD)"
-  database_url="$(env_file_value .env.production DATABASE_URL)"
-  redis_addr="$(env_file_value .env.production REDIS_ADDR)"
-  redis_password="$(env_file_value .env.production REDIS_PASSWORD)"
-  session_secret="$(env_file_value .env.production SESSION_HASH_SECRET)"
-  identity_secret="$(env_file_value .env.production IDENTITY_SUBJECT_HMAC_SECRET)"
-  option_key="$(env_file_value .env.production APP_OPTION_ENC_KEY)"
-  altcha_secret="$(env_file_value .env.production ALTCHA_SECRET)"
+  app_env="$(env_contract_value APP_ENV)"
+  app_url="$(env_contract_value APP_URL)"
+  admin_prefix="$(env_contract_value NUXT_PUBLIC_ADMIN_ROUTE_PREFIX /control-panel)"
+  postgres_db="$(env_contract_value POSTGRES_DB)"
+  postgres_user="$(env_contract_value POSTGRES_USER)"
+  postgres_password="$(env_contract_value POSTGRES_PASSWORD)"
+  database_url="$(env_contract_value DATABASE_URL)"
+  redis_addr="$(env_contract_value REDIS_ADDR)"
+  redis_password="$(env_contract_value REDIS_PASSWORD)"
+  session_secret="$(env_contract_value SESSION_HASH_SECRET)"
+  identity_secret="$(env_contract_value IDENTITY_SUBJECT_HMAC_SECRET)"
+  option_key="$(env_contract_value APP_OPTION_ENC_KEY)"
+  altcha_secret="$(env_contract_value ALTCHA_SECRET)"
 
-  [ "$app_env" = "production" ] || die "$(t invalid_env) APP_ENV"
-  [[ "$app_url" =~ ^https?://[^[:space:]]+$ ]] || die "$(t invalid_env) APP_URL"
-  [[ "$admin_prefix" =~ ^/[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || die "$(t invalid_env) NUXT_PUBLIC_ADMIN_ROUTE_PREFIX"
+  [ "$app_env" = "production" ] || die_env_contract APP_ENV
+  [[ "$app_url" =~ ^https?://[^[:space:]]+$ ]] || die_env_contract APP_URL
+  [[ "$admin_prefix" =~ ^/[A-Za-z0-9][A-Za-z0-9._/-]*$ ]] || die_env_contract NUXT_PUBLIC_ADMIN_ROUTE_PREFIX
   case "$admin_prefix" in
-    *'//'|*/./*|*/../*|/.|/..|*/.|*/..) die "$(t invalid_env) NUXT_PUBLIC_ADMIN_ROUTE_PREFIX" ;;
+    *'//'|*/./*|*/../*|/.|/..|*/.|*/..) die_env_contract NUXT_PUBLIC_ADMIN_ROUTE_PREFIX ;;
   esac
-  [[ "$postgres_db" =~ ^[A-Za-z0-9_.-]+$ ]] || die "$(t invalid_env) POSTGRES_DB"
-  [[ "$postgres_user" =~ ^[A-Za-z0-9_.-]+$ ]] || die "$(t invalid_env) POSTGRES_USER"
-  [[ "$postgres_password" =~ ^[A-Za-z0-9._~-]{32,}$ ]] || die "$(t invalid_env) POSTGRES_PASSWORD"
-  [[ "$database_url" == postgres://*"@postgres:5432/${postgres_db}"* ]] || die "$(t invalid_env) DATABASE_URL"
-  [ "$redis_addr" = "redis:6379" ] || die "$(t invalid_env) REDIS_ADDR"
-  [[ "$redis_password" =~ ^[A-Za-z0-9._~-]{32,}$ ]] || die "$(t invalid_env) REDIS_PASSWORD"
-  [ "${#session_secret}" -ge 32 ] || die "$(t invalid_env) SESSION_HASH_SECRET"
-  [ "${#identity_secret}" -ge 32 ] || die "$(t invalid_env) IDENTITY_SUBJECT_HMAC_SECRET"
-  [[ "$option_key" =~ ^[0-9A-Fa-f]{64}$ ]] || die "$(t invalid_env) APP_OPTION_ENC_KEY"
-  [ "${#altcha_secret}" -ge 32 ] || die "$(t invalid_env) ALTCHA_SECRET"
+  [[ "$postgres_db" =~ ^[A-Za-z0-9_.-]+$ ]] || die_env_contract POSTGRES_DB
+  [[ "$postgres_user" =~ ^[A-Za-z0-9_.-]+$ ]] || die_env_contract POSTGRES_USER
+  [[ "$postgres_password" =~ ^[A-Za-z0-9._~-]{32,}$ ]] || die_env_contract POSTGRES_PASSWORD
+  [[ "$database_url" == postgres://*"@postgres:5432/${postgres_db}"* ]] || die_env_contract DATABASE_URL
+  # 与 config.ValidateProductionDatabaseURL 同口径：占位口令的 URL 在容器里会让
+  # config.Load 直接 panic，校验阶段放行就等于「check-env 通过、API 起不来」。
+  # 口令先做一层百分号解码——Go 的 url.Parse 会解码 userinfo，`change%2Dme`
+  # 在两边必须是同一个判定。
+  if [[ "$database_url" =~ ^postgres://[^:/@]*:([^@]*)@ ]]; then
+    case "$(percent_decode "${BASH_REMATCH[1]}")" in
+      ""|change-me|sforum|postgres) die_env_contract DATABASE_URL ;;
+    esac
+  fi
+  [ "$redis_addr" = "redis:6379" ] || die_env_contract REDIS_ADDR
+  [[ "$redis_password" =~ ^[A-Za-z0-9._~-]{32,}$ ]] || die_env_contract REDIS_PASSWORD
+  [ "${#session_secret}" -ge 32 ] || die_env_contract SESSION_HASH_SECRET
+  [ "${#identity_secret}" -ge 32 ] || die_env_contract IDENTITY_SUBJECT_HMAC_SECRET
+  [[ "$option_key" =~ ^[0-9A-Fa-f]{64}$ ]] || die_env_contract APP_OPTION_ENC_KEY
+  [ "${#altcha_secret}" -ge 32 ] || die_env_contract ALTCHA_SECRET
 }
 
 legacy_worker_container_ids() {
@@ -715,6 +817,16 @@ restart_services() {
 }
 stop_services() { acquire_deploy_lock; preflight; "${COMPOSE[@]}" stop; release_deploy_lock; }
 
+# 只校验生产配置：不启动容器、不需要 Docker daemon，供 CI 与运维本地自检。
+# 与 preflight 共用同一套 effective 取值，所以「这里通过」等价于「容器会拿到这些值」。
+check_env_contract() {
+  [ -f .env.production ] || die "$(t env_missing)"
+  chmod 600 .env.production
+  sanitize_env_contract_overrides
+  validate_env_contract
+  printf '%s\n' "$(t env_contract_ok)"
+}
+
 run_action() {
   case "$1" in
     deploy|install|update) deploy_update ;;
@@ -725,6 +837,7 @@ run_action() {
     restart) restart_services ;;
     stop) stop_services ;;
     rollback) preflight; t rollback_later ;;
+    check-env) check_env_contract ;;
     *) die "Unknown action: $1" ;;
   esac
 }
@@ -758,10 +871,13 @@ main_menu() {
 
 load_language
 if [ -n "$ACTION" ]; then
-  case "$ACTION" in
-    deploy|install|update) resolve_target_version ;;
-    *) resolve_current_version ;;
-  esac
+  # check-env 只读 .env.production：不解析版本，也不碰 Docker。
+  if [ "$ACTION" != "check-env" ]; then
+    case "$ACTION" in
+      deploy|install|update) resolve_target_version ;;
+      *) resolve_current_version ;;
+    esac
+  fi
   run_action "$ACTION"
 else
   main_menu

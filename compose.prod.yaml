@@ -34,8 +34,19 @@ services:
     build:
       target: api
     environment:
+      # api 段必须自己钉 production：compose.yaml 的 api 默认是 development，
+      # 只写 web/migrate 会让生产 API 以开发态启动，validateProductionSecrets
+      # 整段被跳过（占位密钥、相对 EXTENSION_ROOT 都会静默放行）。
+      APP_ENV: ${APP_ENV:-production}
       APP_URL: ${APP_URL:-https://forum.example.com}
       SFORUM_V3_TRUST_CHALLENGES: ${SFORUM_V3_TRUST_CHALLENGES:-true}
+      # 进入 production 后 config.Load 会拒绝 compose.yaml 的开发默认密钥。
+      # 与 migrate 一致用 `:?` 前置失败：缺哪一项就报哪一项，而不是把
+      # sforum-dev-* 带进容器里再 panic。
+      SESSION_HASH_SECRET: ${SESSION_HASH_SECRET:?SESSION_HASH_SECRET is required in production}
+      IDENTITY_SUBJECT_HMAC_SECRET: ${IDENTITY_SUBJECT_HMAC_SECRET:?IDENTITY_SUBJECT_HMAC_SECRET is required in production}
+      APP_OPTION_ENC_KEY: ${APP_OPTION_ENC_KEY:?APP_OPTION_ENC_KEY is required in production}
+      ALTCHA_SECRET: ${ALTCHA_SECRET:?ALTCHA_SECRET is required in production}
     restart: unless-stopped
     ports:
       # Host reverse proxies use this loopback-only ingress for WebSocket

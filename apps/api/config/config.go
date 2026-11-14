@@ -241,16 +241,41 @@ func Load() Config {
 // 生产启动必须显式覆盖；该值本身属于 insecure 默认。
 const IdentitySubjectHMACDevDefault = "sforum-dev-identity-subject-hmac-v1-not-for-prod!!"
 
+// IdentitySubjectHMACComposeDevDefault 是 compose.yaml 给 api 段的开发默认值。
+// 它与 IdentitySubjectHMACDevDefault 不是同一个字符串：容器路径拿到的是这一个，
+// 所以黑名单必须同时覆盖两者，否则「在 compose 里启动的生产 API」会带着公开默认值跑起来。
+const IdentitySubjectHMACComposeDevDefault = "sforum-dev-identity-subject-hmac-secret"
+
 // IdentitySubjectHMACMinKeyBytes 是主体 HMAC 密钥最小字节数（256-bit）。
 const IdentitySubjectHMACMinKeyBytes = 32
 
 // insecureSecretValues 是已知的不安全默认/占位值，生产环境不得使用。
 var insecureSecretValues = map[string]bool{
-	"":                               true,
-	"change-me":                      true,
-	"sforum-dev-session-hash-secret": true,
-	"sforum-dev-altcha-secret":       true,
-	IdentitySubjectHMACDevDefault:    true,
+	"":                                   true,
+	"change-me":                          true,
+	"sforum-dev-session-hash-secret":     true,
+	"sforum-dev-altcha-secret":           true,
+	IdentitySubjectHMACDevDefault:        true,
+	IdentitySubjectHMACComposeDevDefault: true,
+}
+
+// insecureDatabaseURLValues 是仓库里公开的数据库连接串默认值（compose.yaml 与
+// compose.prod.yaml 的 migrate 段）。生产连上它们不会报错，只会把数据写进另一个库，
+// 排查成本远高于启动失败。
+var insecureDatabaseURLValues = map[string]bool{
+	"": true,
+	"postgres://sforum:sforum@postgres:5432/sforum?sslmode=disable":    true,
+	"postgres://sforum:sforum@postgres:5432/sforum?sslmode=require":    true,
+	"postgres://sforum:change-me@postgres:5432/sforum?sslmode=disable": true,
+}
+
+// insecureDatabasePasswords 是占位/开发默认口令。URL 里出现任意一个都视为没配置：
+// 只校验用户名没有意义（compose 的 POSTGRES_USER 本来就是 sforum）。
+var insecureDatabasePasswords = map[string]bool{
+	"":          true,
+	"change-me": true,
+	"sforum":    true,
+	"postgres":  true,
 }
 
 // validateProductionSecrets 在生产环境校验关键密钥非空且非占位词。
@@ -276,6 +301,12 @@ func validateProductionSecrets(cfg Config) {
 	}
 	if err := ValidateIdentitySubjectHMACSecret(cfg.IdentitySubjectHMACSecret, true); err != nil {
 		panic(fmt.Sprintf("config: IDENTITY_SUBJECT_HMAC_SECRET %v", err))
+	}
+	// DATABASE_URL 也要进生产闸门：compose.yaml 的 api 默认值是公开的开发连接串
+	// （sforum:sforum@postgres），compose.prod.yaml 的 migrate 默认值是 change-me。
+	// 少了这一项，生产 API 会在没有任何提示的情况下连上开发/占位库。
+	if err := ValidateProductionDatabaseURL(cfg.DatabaseURL); err != nil {
+		panic(fmt.Sprintf("config: DATABASE_URL %v", err))
 	}
 	// EXTENSION_ROOT 在非生产有相对默认值（../../storage/extensions），生产下相对路径会随
 	// 进程工作目录漂移：容器里会解析成 /storage，报出「mkdir /storage: permission denied」
@@ -336,6 +367,35 @@ func ValidateIdentitySubjectHMACSecret(secret string, production bool) error {
 	if len(parseIdentitySubjectHMACKeyBytes(secret)) < IdentitySubjectHMACMinKeyBytes && !insecureSecretValues[secret] {
 		// 开发允许短密钥仅为本地调试，但明确短于最小值的自定义值仍接受（与历史测试兼容）。
 		return nil
+	}
+	return nil
+}
+
+// ValidateProductionDatabaseURL 校验生产数据库连接串不是空值、不是仓库公开的默认值，
+// 且没有使用占位口令。它只看「能不能确定这是一个真实部署的连接串」，不校验可达性：
+// 连接失败会由启动时的 ping 给出更准确的错误。
+func ValidateProductionDatabaseURL(raw string) error {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fmt.Errorf("must be set in production")
+	}
+	if insecureDatabaseURLValues[trimmed] {
+		return fmt.Errorf("must not use the repository default in production (got %q)", trimmed)
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return fmt.Errorf("must be a valid URL in production (got %q)", trimmed)
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "postgres", "postgresql":
+	default:
+		return fmt.Errorf("must use the postgres:// or postgresql:// scheme in production (got %q)", parsed.Scheme)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("must include a host in production (got %q)", trimmed)
+	}
+	if password, ok := parsed.User.Password(); ok && insecureDatabasePasswords[password] {
+		return fmt.Errorf("must not use a placeholder password in production (got %q)", password)
 	}
 	return nil
 }

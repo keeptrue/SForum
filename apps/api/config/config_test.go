@@ -262,6 +262,8 @@ func setValidProductionSecrets(t *testing.T) {
 		"ALTCHA_SECRET":                "prod-valid-altcha-secret",
 		"APP_OPTION_ENC_KEY":           "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 		"IDENTITY_SUBJECT_HMAC_SECRET": "prod-valid-identity-subject-hmac-secret-32b",
+		// 生产闸门同样拒绝仓库公开的数据库默认值，测试必须显式给出真实形态的连接串。
+		"DATABASE_URL": "postgres://sforum:prod-valid-database-password@postgres:5432/sforum?sslmode=disable",
 		// 生产要求绝对路径（compose 与本仓库镜像都用这个值）；测试要显式给出，
 		// 不能依赖开发用的相对默认值。
 		"EXTENSION_ROOT": "/var/lib/sforum/extensions",
@@ -722,6 +724,90 @@ func TestLoadDoesNotValidateSecretsInDevelopment(t *testing.T) {
 	}
 	if cfg.IdentitySubjectHMACSecret != IdentitySubjectHMACDevDefault {
 		t.Fatalf("expected stable identity subject hmac dev default, got %q", cfg.IdentitySubjectHMACSecret)
+	}
+}
+
+// RV-17：生产闸门必须覆盖 DATABASE_URL。空值、compose 里的公开默认连接串、
+// change-me 占位口令都会让 API 静默连到开发/占位库，数据写错库比启动失败更难排查。
+func TestValidateProductionDatabaseURL(t *testing.T) {
+	cases := []struct {
+		name string
+		url  string
+		ok   bool
+	}{
+		{"empty", "", false},
+		{"whitespace only", "   ", false},
+		{"compose api default", "postgres://sforum:sforum@postgres:5432/sforum?sslmode=disable", false},
+		{"config default", "postgres://sforum:sforum@postgres:5432/sforum?sslmode=require", false},
+		{"compose migrate placeholder", "postgres://sforum:change-me@postgres:5432/sforum?sslmode=disable", false},
+		{"placeholder password on another host", "postgres://sforum:change-me@db.internal:5432/sforum?sslmode=require", false},
+		// url.Parse 会解码 userinfo，所以编码写法与字面写法必须同判（deploy.sh 的
+		// check-env 也要先解码，两边不能有缝）。
+		{"percent-encoded placeholder password", "postgres://sforum:change%2Dme@db.internal:5432/sforum", false},
+		{"default postgres password", "postgres://sforum:postgres@db.internal:5432/sforum", false},
+		{"wrong scheme", "mysql://sforum:strong-password@db.internal:3306/sforum", false},
+		{"missing host", "postgres:///sforum", false},
+		{"real deployment", "postgres://sforum:prod-valid-database-password@postgres:5432/sforum?sslmode=disable", true},
+		{"postgresql scheme", "postgresql://app:strong-password@db.internal:5432/sforum?sslmode=require", true},
+		{"passwordless peer auth", "postgres://sforum@db.internal:5432/sforum", true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			err := ValidateProductionDatabaseURL(testCase.url)
+			if testCase.ok && err != nil {
+				t.Fatalf("expected %q to be accepted, got %v", testCase.url, err)
+			}
+			if !testCase.ok && err == nil {
+				t.Fatalf("expected %q to be rejected", testCase.url)
+			}
+		})
+	}
+}
+
+// 生产启动路径：占位 DATABASE_URL 必须 panic，且错误信息点名 DATABASE_URL。
+func TestProductionRejectsPlaceholderDatabaseURL(t *testing.T) {
+	placeholders := map[string]string{
+		"compose api default":       "postgres://sforum:sforum@postgres:5432/sforum?sslmode=disable",
+		"compose migrate default":   "postgres://sforum:change-me@postgres:5432/sforum?sslmode=disable",
+		"placeholder on other host": "postgres://sforum:change-me@db.internal:5432/sforum?sslmode=require",
+	}
+	for name, value := range placeholders {
+		t.Run(name, func(t *testing.T) {
+			setValidProductionSecrets(t)
+			t.Setenv("APP_ENV", "production")
+			t.Setenv("DATABASE_URL", value)
+			assertPanicsWith(t, "DATABASE_URL", func() { Load() })
+		})
+	}
+
+	t.Run("unset falls back to the development default", func(t *testing.T) {
+		setValidProductionSecrets(t)
+		t.Setenv("APP_ENV", "production")
+		os.Unsetenv("DATABASE_URL")
+		assertPanicsWith(t, "DATABASE_URL", func() { Load() })
+	})
+}
+
+// compose.yaml:81 的 api 开发默认值是另一个字符串，必须单独进黑名单。
+func TestProductionRejectsComposeIdentitySubjectHMACDefault(t *testing.T) {
+	setValidProductionSecrets(t)
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("IDENTITY_SUBJECT_HMAC_SECRET", IdentitySubjectHMACComposeDevDefault)
+	assertPanicsWith(t, "IDENTITY_SUBJECT_HMAC_SECRET", func() { Load() })
+}
+
+// 开发环境保持开发友好：占位连接串不触发生产闸门。
+func TestDevelopmentAllowsPlaceholderDatabaseURL(t *testing.T) {
+	t.Setenv("APP_ENV", "development")
+	t.Setenv("DATABASE_URL", "postgres://sforum:sforum@postgres:5432/sforum?sslmode=disable")
+	t.Setenv("IDENTITY_SUBJECT_HMAC_SECRET", IdentitySubjectHMACComposeDevDefault)
+
+	cfg := Load() // 不应 panic
+	if cfg.DatabaseURL != "postgres://sforum:sforum@postgres:5432/sforum?sslmode=disable" {
+		t.Fatalf("expected the development database URL to be kept, got %q", cfg.DatabaseURL)
+	}
+	if cfg.IdentitySubjectHMACSecret != IdentitySubjectHMACComposeDevDefault {
+		t.Fatalf("expected the compose development hmac default to be kept, got %q", cfg.IdentitySubjectHMACSecret)
 	}
 }
 
