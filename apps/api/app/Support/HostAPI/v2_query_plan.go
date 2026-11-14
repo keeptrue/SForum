@@ -1,6 +1,7 @@
 package hostapi
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -33,6 +34,20 @@ type protocolV2QuerySortDefinition struct {
 	Expression string
 }
 
+// protocolV2QueryCompute 产出一份「字段名 → 未归一化值」的行。
+//
+// 它**只**负责取值：归一化（normalizeProtocolV2QueryValue）、按 Fields 投影、
+// Offset/Limit 截断、schema 与错误码仍由执行器统一处理——计算形态没有第二条
+// 造响应的路。传入 plan 是为了让计算定义读得到 filters（单用户查询必须靠它）。
+type protocolV2QueryCompute func(ctx context.Context, plan protocolV2QueryPlan, deps protocolV2QueryComputeDeps) ([]map[string]any, error)
+
+// protocolV2QueryComputeDeps 是计算定义能访问的宿主读面。
+//
+// 只放**已注入**的读面：nil 表示装配缺失，计算定义必须报错（不能静默返回空表）。
+type protocolV2QueryComputeDeps struct {
+	TrustLevels TrustLevelQuerySource
+}
+
 type protocolV2QueryDefinition struct {
 	ID                  string
 	PlanVersion         string
@@ -54,6 +69,13 @@ type protocolV2QueryDefinition struct {
 	// grant. The actorless stable entry always refuses such a definition; the
 	// delegated Query Registry projection is the only executable outlet.
 	ConsentGated bool
+	// Compute 让定义以**计算**而不是 SQL 求值（M4b-3）。非 nil 时 From/Expression
+	// 不参与执行，但归一化、分页、schema 校验、trace、错误码仍走既有那条路径。
+	//
+	// 决策与降回条件见 knowledge/decisions/2026-11-14-hostquery-computed-definitions.md。
+	// 不进摘要：函数无法参与 JSON 序列化，而 catalog digest 是用 json.Marshal
+	// 算出来的（Compute 只是执行器内部实现，不是契约的一部分）。
+	Compute protocolV2QueryCompute `json:"-"`
 }
 
 type protocolV2QueryFilter struct {
@@ -366,13 +388,21 @@ func protocolV2QueryShapeDigest(definition protocolV2QueryDefinition, fields []p
 
 func validateProtocolV2QueryDefinition(definition protocolV2QueryDefinition) error {
 	if definition.ID == "" || definition.PlanVersion == "" || definition.ResultSchemaID == "" ||
-		definition.ResultSchemaVersion == "" || definition.From == "" || len(definition.Fields) == 0 {
+		definition.ResultSchemaVersion == "" || len(definition.Fields) == 0 {
 		return errors.New("hostapi: query identity, schema, source, and fields are required")
+	}
+	// 计算形态不读 SQL：没有 From 是正常的，但字段名仍然必须唯一且非空
+	// （schema properties 与 Fields 等长那条断言靠它）。
+	if definition.Compute == nil && definition.From == "" {
+		return errors.New("hostapi: query source is required for SQL-backed definitions")
 	}
 	seen := make(map[string]struct{})
 	for _, field := range definition.Fields {
-		if field.Name == "" || field.Expression == "" {
-			return errors.New("hostapi: query field name and expression are required")
+		if field.Name == "" {
+			return errors.New("hostapi: query field name is required")
+		}
+		if definition.Compute == nil && field.Expression == "" {
+			return errors.New("hostapi: query field expression is required for SQL-backed definitions")
 		}
 		if _, exists := seen[field.Name]; exists {
 			return fmt.Errorf("hostapi: duplicate query field %s", field.Name)

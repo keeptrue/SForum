@@ -159,6 +159,20 @@ func TestQueryRegistryCoreCatalogSealsPublicationsBindingsAndSchemas(t *testing.
 			ResultSchema:     QueryPublicUserBadgeFactSchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		},
+		QueryPublicTrustLevelCatalogList: {
+			HostQueryID: QueryPublicTrustLevelCatalogList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_trust_level_catalog.list", ContractVersion: "core.query.public_trust_level_catalog.list@1",
+			Entity: "core.query.public_trust_level_catalog", PlanVersion: "core.query.public_trust_level_catalog.list.plan@1",
+			ResultSchema:     QueryPublicTrustLevelCatalogSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		},
+		QueryPublicUserTrustLevelGet: {
+			HostQueryID: QueryPublicUserTrustLevelGet, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_trust_level.get", ContractVersion: "core.query.public_user_trust_level.get@1",
+			Entity: "core.query.public_user_trust_level", PlanVersion: "core.query.public_user_trust_level.get.plan@1",
+			ResultSchema:     QueryPublicTrustLevelSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationNone,
+		},
 		QueryPublicCategoriesList: {
 			HostQueryID: QueryPublicCategoriesList, HostPlanVersion: QueryStableCorePlanVersion,
 			QueryID: "core.query.public_categories.list", ContractVersion: "core.query.public_categories.list@1",

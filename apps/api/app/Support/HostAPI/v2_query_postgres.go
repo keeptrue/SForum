@@ -19,6 +19,9 @@ import (
 
 type postgresProtocolV2QueryExecutor struct {
 	pool *pgxpool.Pool
+	// trustLevels 是两条信任等级计算查询（M4b-3）的现算读面。nil 时这两条查询
+	// 返回 host.query_unavailable——注册了但没装配，是显式失败，不是静默空表。
+	trustLevels TrustLevelQuerySource
 }
 
 type postgresProtocolV2QueryAuthorityResolver struct {
@@ -37,19 +40,20 @@ func NewPostgresProtocolV2QueryRuntime(
 	if pool == nil || authority == nil {
 		return nil, errors.New("hostapi: PostgreSQL query pool and authority resolver are required")
 	}
-	runtime, err := newProtocolV2QueryRuntime(
-		&postgresProtocolV2QueryExecutor{pool: pool},
-		authority,
-		stableCoreProtocolV2QueryDefinitions()...,
-	)
-	if err != nil {
-		return nil, err
-	}
+	// options 先于执行器应用：注入型读面（信任等级现算）要在构造执行器时就位。
 	configured := protocolV2QueryRuntimeOptions{}
 	for _, option := range options {
 		if option != nil {
 			option.applyProtocolV2QueryRuntime(&configured)
 		}
+	}
+	runtime, err := newProtocolV2QueryRuntime(
+		&postgresProtocolV2QueryExecutor{pool: pool, trustLevels: configured.trustLevels},
+		authority,
+		stableCoreProtocolV2QueryDefinitions()...,
+	)
+	if err != nil {
+		return nil, err
 	}
 	runtime.queryEngine().traceSink = configured.traceSink
 	return runtime, nil
@@ -264,7 +268,15 @@ func (e *postgresProtocolV2QueryExecutor) ExecuteProtocolV2Query(
 	ctx context.Context,
 	plan protocolV2QueryPlan,
 ) ([]map[string]any, error) {
-	if e == nil || e.pool == nil {
+	if e == nil {
+		return nil, errors.New("Host Query PostgreSQL executor is unavailable")
+	}
+	// 计算形态（M4b-3）：不建 SQL、不开事务、也不需要连接池，但仍走同一份
+	// 归一化/投影/分页。判定放在 pool 检查之前是刻意的：它证明这条路径真的不碰 SQL。
+	if plan.Definition.Compute != nil {
+		return e.executeComputedProtocolV2Query(ctx, plan)
+	}
+	if e.pool == nil {
 		return nil, errors.New("Host Query PostgreSQL executor is unavailable")
 	}
 	tx, err := e.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
@@ -309,6 +321,53 @@ func (e *postgresProtocolV2QueryExecutor) ExecuteProtocolV2Query(
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+// executeComputedProtocolV2Query 执行一条计算定义。
+//
+// 它刻意只做三件事：调 Compute、按 Fields 投影、按 Offset/FetchLimit 截断。
+// **归一化用 SQL 侧同一个 normalizeProtocolV2QueryValue**，字段缺失或类型不支持
+// 直接报错（schema 校验因此对两种形态一致）；分页也在这一层真截断，HasMore 由
+// 引擎照旧按行数判断——计算形态没有第二套响应装配。
+func (e *postgresProtocolV2QueryExecutor) executeComputedProtocolV2Query(
+	ctx context.Context,
+	plan protocolV2QueryPlan,
+) ([]map[string]any, error) {
+	if plan.Definition.Compute == nil {
+		return nil, errors.New("Host Query computed definition is missing its compute function")
+	}
+	rows, err := plan.Definition.Compute(ctx, plan, protocolV2QueryComputeDeps{TrustLevels: e.trustLevels})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]any, 0, plan.FetchLimit)
+	for _, row := range rows {
+		item := make(map[string]any, len(plan.Fields))
+		for _, field := range plan.Fields {
+			raw, ok := row[field.Name]
+			if !ok {
+				return nil, fmt.Errorf("Host Query computed row is missing field %q", field.Name)
+			}
+			value, normalizeErr := normalizeProtocolV2QueryValue(raw)
+			if normalizeErr != nil {
+				return nil, normalizeErr
+			}
+			item[field.Name] = value
+		}
+		result = append(result, item)
+	}
+	// Offset/FetchLimit 与 SQL 的 LIMIT/OFFSET 同义：先丢前 Offset 行，再取 FetchLimit 行。
+	start := plan.Offset
+	if start > 0 {
+		if start >= len(result) {
+			return []map[string]any{}, nil
+		}
+		result = result[start:]
+	}
+	if plan.FetchLimit > 0 && len(result) > plan.FetchLimit {
+		result = result[:plan.FetchLimit]
 	}
 	return result, nil
 }
@@ -369,6 +428,24 @@ func postgresProtocolV2Query(plan protocolV2QueryPlan, actorUserID int64) (strin
 	builder.WriteString(" OFFSET $")
 	builder.WriteString(strconv.Itoa(len(args)))
 	return builder.String(), args
+}
+
+// protocolV2QueryInt64Filter 读一个 int64 过滤条件的值（计算定义用）。
+//
+// 值已经过引擎的过滤条件校验，所以这里只做类型取用，不重复校验。
+func protocolV2QueryInt64Filter(plan protocolV2QueryPlan, field string) (int64, bool) {
+	for _, filter := range plan.Filters {
+		if filter.Definition.Field != field {
+			continue
+		}
+		switch typed := filter.Value.(type) {
+		case int64:
+			return typed, true
+		case float64:
+			return int64(typed), true
+		}
+	}
+	return 0, false
 }
 
 func normalizeProtocolV2QueryValue(value any) (any, error) {
@@ -760,6 +837,54 @@ func stableCoreProtocolV2QueryDefinitions() []protocolV2QueryDefinition {
 			DefaultSorts: []protocolV2QuerySort{{Field: "id", Expression: "stable.id"}},
 		},
 	}
+	// 两条信任等级计算查询（M4b-3）：不建 SQL，走 Compute 形态。
+	//
+	// 目录：真源是 trust.levels 单键 JSON；公开面只给展示字段 + 六个数值门槛，
+	// **不含 rule（判定逻辑）与 limits（运营限额）**。
+	// 单用户：现算（Evaluate），incomplete/disabled 用 state 表达，绝不退化成 level=0。
+	definitions = append(definitions,
+		protocolV2QueryDefinition{
+			ID: QueryPublicTrustLevelCatalogList, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicTrustLevelCatalogSchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			Fields: []protocolV2QueryField{
+				{Name: "tier_id"}, {Name: "rank"}, {Name: "name_zh"}, {Name: "name_en"},
+				{Name: "icon"}, {Name: "color"},
+				{Name: "days_visited"}, {Name: "topic_count"}, {Name: "comment_count"},
+				{Name: "like_received_count"}, {Name: "like_given_count"}, {Name: "bookmark_count"},
+			},
+			Sorts:        []protocolV2QuerySortDefinition{{Field: "rank", Expression: "stable.rank"}},
+			DefaultSorts: []protocolV2QuerySort{{Field: "rank", Expression: "stable.rank"}},
+			Compute: func(ctx context.Context, _ protocolV2QueryPlan, deps protocolV2QueryComputeDeps) ([]map[string]any, error) {
+				if deps.TrustLevels == nil {
+					return nil, errors.New("Host Query trust level catalog source is not configured")
+				}
+				return deps.TrustLevels.TrustLevelCatalog(ctx)
+			},
+		},
+		protocolV2QueryDefinition{
+			ID: QueryPublicUserTrustLevelGet, PlanVersion: QueryStableCorePlanVersion,
+			ResultSchemaID: QueryPublicTrustLevelSchemaID, ResultSchemaVersion: QueryStableCoreResultSchemaV1,
+			Fields: []protocolV2QueryField{
+				{Name: "user_id"}, {Name: "level"}, {Name: "tier_id"}, {Name: "state"},
+			},
+			Filters: []protocolV2QueryFilterDefinition{{
+				Field: "user_id", Operator: "eq", Expression: "stable.user_id",
+				SchemaID: QueryInt64ParameterSchemaID, Kind: "int64",
+			}},
+			RequiredFilters: []string{"user_id"},
+			Single:          true,
+			Compute: func(ctx context.Context, plan protocolV2QueryPlan, deps protocolV2QueryComputeDeps) ([]map[string]any, error) {
+				if deps.TrustLevels == nil {
+					return nil, errors.New("Host Query user trust level source is not configured")
+				}
+				userID, ok := protocolV2QueryInt64Filter(plan, "user_id")
+				if !ok {
+					return nil, errors.New("Host Query user trust level requires the user_id filter")
+				}
+				return deps.TrustLevels.UserTrustLevel(ctx, userID)
+			},
+		},
+	)
 	// consent-gated 定义只在这里声明一次；actorless 稳定入口拒绝执行它，
 	// 委派执行走它在 Query Registry 的显式投影。
 	definitions = append(definitions, selfEmailQueryDefinition())

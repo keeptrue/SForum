@@ -37,33 +37,41 @@ const (
 	// QueryPublicUserBadgeFactsList 是插件事实累计值的公开读面（forum_user_badge_facts）。
 	// 只含 active 用户的 total；delta 行、dedupe_key、来源扩展都不出现。
 	QueryPublicUserBadgeFactsList = "sforum.core.public_user_badge_facts.list"
+	// QueryPublicTrustLevelCatalogList 是信任等级档位目录的公开读面（M4b-3）。
+	// 真源是 options 的 trust.levels 单键 JSON；公开面**不含** rule 与 limits。
+	QueryPublicTrustLevelCatalogList = "sforum.core.public_trust_level_catalog.list"
+	// QueryPublicUserTrustLevelGet 是单用户当前等级的公开读面（M4b-3）。
+	// **现算**（TrustLevels.Evaluate），不读变更账本——账本只是快照，不是权威。
+	QueryPublicUserTrustLevelGet = "sforum.core.public_user_trust_level.get"
 	// QuerySelfEmail 只由 host 签发的 actor 委派驱动执行；actorless 稳定入口
 	// 一律拒绝（见 consent_query_definitions.go）。
-	QuerySelfEmail                   = "sforum.core.identity.self_email"
-	QueryStableCorePlanVersion       = "1"
-	QuerySafeUserResultSchemaID      = "sforum.core.safe_user"
-	QueryPublicTopicResultSchemaID   = "sforum.core.public_topic"
-	QueryPublicAttachmentSchemaID    = "sforum.core.public_attachment_metadata"
-	QuerySiteStatsResultSchemaID     = "sforum.core.site_stats"
-	QueryPublicCommentResultSchemaID = "sforum.core.public_comment"
-	QuerySafeUserAvatarSchemaID      = "sforum.core.safe_user_avatar"
-	QueryPublicCategorySchemaID      = "sforum.core.public_category"
-	QueryPublicReactionSchemaID      = "sforum.core.public_reaction"
-	QueryPublicBookmarkSchemaID      = "sforum.core.public_bookmark"
-	QueryPublicBadgeSchemaID         = "sforum.core.public_badge"
-	QueryPublicUserBadgeSchemaID     = "sforum.core.public_user_badge"
-	QueryPublicUserActivitySchemaID  = "sforum.core.public_user_activity"
-	QueryPublicUserBadgeFactSchemaID = "sforum.core.public_user_badge_fact"
-	QuerySelfEmailSchemaID           = "sforum.core.self_email"
-	QueryStableCoreResultSchemaV1    = "1"
-	QueryInt64ParameterSchemaID      = "sforum.core.query.int64"
-	QueryTextParameterSchemaID       = "sforum.core.query.text"
-	QueryStableCoreParameterSchemaV1 = "1"
-	protocolV2QueryDefaultLimit      = 20
-	protocolV2QueryMaximumLimit      = 100
-	protocolV2QueryMaximumOffset     = 1_000_000
-	protocolV2QueryMaxBatchIDs       = 100
-	protocolV2QueryExecutionTimeout  = 5 * time.Second
+	QuerySelfEmail                       = "sforum.core.identity.self_email"
+	QueryStableCorePlanVersion           = "1"
+	QuerySafeUserResultSchemaID          = "sforum.core.safe_user"
+	QueryPublicTopicResultSchemaID       = "sforum.core.public_topic"
+	QueryPublicAttachmentSchemaID        = "sforum.core.public_attachment_metadata"
+	QuerySiteStatsResultSchemaID         = "sforum.core.site_stats"
+	QueryPublicCommentResultSchemaID     = "sforum.core.public_comment"
+	QuerySafeUserAvatarSchemaID          = "sforum.core.safe_user_avatar"
+	QueryPublicCategorySchemaID          = "sforum.core.public_category"
+	QueryPublicReactionSchemaID          = "sforum.core.public_reaction"
+	QueryPublicBookmarkSchemaID          = "sforum.core.public_bookmark"
+	QueryPublicBadgeSchemaID             = "sforum.core.public_badge"
+	QueryPublicUserBadgeSchemaID         = "sforum.core.public_user_badge"
+	QueryPublicUserActivitySchemaID      = "sforum.core.public_user_activity"
+	QueryPublicUserBadgeFactSchemaID     = "sforum.core.public_user_badge_fact"
+	QueryPublicTrustLevelSchemaID        = "sforum.core.public_trust_level"
+	QueryPublicTrustLevelCatalogSchemaID = "sforum.core.public_trust_level_catalog"
+	QuerySelfEmailSchemaID               = "sforum.core.self_email"
+	QueryStableCoreResultSchemaV1        = "1"
+	QueryInt64ParameterSchemaID          = "sforum.core.query.int64"
+	QueryTextParameterSchemaID           = "sforum.core.query.text"
+	QueryStableCoreParameterSchemaV1     = "1"
+	protocolV2QueryDefaultLimit          = 20
+	protocolV2QueryMaximumLimit          = 100
+	protocolV2QueryMaximumOffset         = 1_000_000
+	protocolV2QueryMaxBatchIDs           = 100
+	protocolV2QueryExecutionTimeout      = 5 * time.Second
 )
 
 var ErrProtocolV2QueryRuntimeStale = errors.New("Host Query exact runtime identity is stale")
@@ -154,7 +162,7 @@ func isStableProtocolV2QueryID(queryID string) bool {
 		QuerySiteStats, QueryPublicCommentsList, QuerySafeUserByUsername, QuerySafeUsersBatch, QueryPublicCategoriesList,
 		QueryPublicReactionsList, QueryPublicBookmarksList, QuerySelfEmail,
 		QueryPublicBadgesList, QueryPublicUserBadgesList, QueryPublicUserActivityList,
-		QueryPublicUserBadgeFactsList:
+		QueryPublicUserBadgeFactsList, QueryPublicTrustLevelCatalogList, QueryPublicUserTrustLevelGet:
 		return true
 	default:
 		return false

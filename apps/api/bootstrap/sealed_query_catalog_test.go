@@ -33,6 +33,8 @@ var sealedCoreQueryCatalogIDs = []string{
 	"core.query.public_user_activity.list",
 	"core.query.public_user_badge_facts.list",
 	"core.query.public_user_badges.list",
+	"core.query.public_trust_level_catalog.list",
+	"core.query.public_user_trust_level.get",
 	"core.query.safe_user.by_id",
 	"core.query.safe_user.by_username",
 	"core.query.safe_users.batch",

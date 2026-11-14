@@ -49,6 +49,8 @@ type QueryTraceSink interface {
 
 type protocolV2QueryRuntimeOptions struct {
 	traceSink QueryTraceSink
+	// trustLevels 供两条信任等级计算查询（M4b-3）使用；nil 时它们返回 unavailable。
+	trustLevels TrustLevelQuerySource
 }
 
 type ProtocolV2QueryRuntimeOption interface {

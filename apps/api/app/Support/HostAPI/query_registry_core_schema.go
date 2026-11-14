@@ -205,6 +205,33 @@ func queryRegistryCoreResultSchemaProperties(definition protocolV2QueryDefinitio
 			"variant":      schemaString(),
 			"total":        schemaString(),
 		}
+	case QueryPublicTrustLevelCatalogSchemaID:
+		// 档位目录公开面：**不含** rule（判定逻辑）与 limits（运营限额）。
+		// 数值门槛是「公示的升级条件」，属于公开信息；rank 是 decimal string（同其它计数）。
+		properties = map[string]any{
+			"tier_id":             schemaString(),
+			"rank":                schemaString(),
+			"name_zh":             schemaString(),
+			"name_en":             schemaString(),
+			"icon":                schemaString(),
+			"color":               schemaString(),
+			"days_visited":        schemaString(),
+			"topic_count":         schemaString(),
+			"comment_count":       schemaString(),
+			"like_received_count": schemaString(),
+			"like_given_count":    schemaString(),
+			"bookmark_count":      schemaString(),
+		}
+	case QueryPublicTrustLevelSchemaID:
+		// 现算面：state 区分 resolved / incomplete / disabled。
+		// incomplete 与 disabled 时 level 与 tier_id 为 null——**不能**用 0 冒充，
+		// 否则「等级是 0」与「算不出来」在调用方那里长得一样。
+		properties = map[string]any{
+			"user_id": schemaString(),
+			"level":   schemaStringOrNull(),
+			"tier_id": schemaStringOrNull(),
+			"state":   schemaString(),
+		}
 	case QuerySelfEmailSchemaID:
 		// 只暴露展示形态的 email、布尔验证位与更新时间；email_lower 是唯一性/
 		// 登录匹配列，永远不进 schema。属性数必须与 Host 字段数严格相等。

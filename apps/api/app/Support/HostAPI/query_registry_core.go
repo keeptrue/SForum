@@ -438,6 +438,22 @@ func queryRegistryCoreMappingFor(definition protocolV2QueryDefinition) (queryReg
 			ResultSchema:     QueryPublicCategorySchemaID + "@" + QueryStableCoreResultSchemaV1,
 			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
 		}
+	case QueryPublicTrustLevelCatalogList:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicTrustLevelCatalogList, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_trust_level_catalog.list", ContractVersion: "core.query.public_trust_level_catalog.list@1",
+			Entity: "core.query.public_trust_level_catalog", PlanVersion: "core.query.public_trust_level_catalog.list.plan@1",
+			ResultSchema:     QueryPublicTrustLevelCatalogSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationOffset,
+		}
+	case QueryPublicUserTrustLevelGet:
+		mapping = queryRegistryCoreMapping{
+			HostQueryID: QueryPublicUserTrustLevelGet, HostPlanVersion: QueryStableCorePlanVersion,
+			QueryID: "core.query.public_user_trust_level.get", ContractVersion: "core.query.public_user_trust_level.get@1",
+			Entity: "core.query.public_user_trust_level", PlanVersion: "core.query.public_user_trust_level.get.plan@1",
+			ResultSchema:     QueryPublicTrustLevelSchemaID + "@" + QueryStableCoreResultSchemaV1,
+			PermissionPolicy: queryregistry.PermissionPolicyPublic, Pagination: queryregistry.PaginationNone,
+		}
 	case QuerySelfEmail:
 		// 同意式读取：login 策略强制活 actor，真正的门在 consent gate（精确制品
 		// 能力 + 限流）与 host 签发的单次委派上；永不走 public 策略。

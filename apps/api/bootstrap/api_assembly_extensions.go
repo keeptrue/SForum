@@ -162,9 +162,14 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 	}
 	queryTraceSink := hostapi.NewSlogQueryTraceSink(logger)
 	queryAuthority := hostapi.NewPostgresProtocolV2QueryAuthorityResolver(pool)
+	// M4b-3：两条信任等级 HostQuery 是**计算**形态（非要 SQL）。注入的 resolver 是
+	// infrastructure 阶段那个唯一实例（M8），不在这里新建第二个。
 	queryRuntime, err := hostapi.NewPostgresProtocolV2QueryRuntime(
 		pool, queryAuthority,
 		hostapi.WithProtocolV2QueryTraceSink(queryTraceSink),
+		hostapi.WithTrustLevelQuerySource(hostapi.NewTrustLevelQuerySource(
+			infrastructure.trustLevelResolver, optionsService, pool,
+		)),
 	)
 	if err == nil {
 		err = hostAPIGateway.BindProtocolV2QueryRuntime(queryRuntime)
