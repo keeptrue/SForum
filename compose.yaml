@@ -16,7 +16,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7.4.10-alpine
+    image: redis:8.10.2-alpine
     # 启用 AOF 持久化与密码认证。默认开发密码与 .env.production.example 保持一致，
     # 外部无密码 Redis 时需将 REDIS_PASSWORD 置空并同步移除 --requirepass。
     command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
@@ -35,7 +35,7 @@ services:
   # 启用：docker compose --profile search up -d meilisearch
   # 并安装/扫描独立仓库中的 sforum-search-meilisearch（非内置）。
   meilisearch:
-    image: getmeili/meilisearch:v1.53.1
+    image: getmeili/meilisearch:v1.56.1
     profiles: ["search"]
     environment:
       MEILI_ENV: ${APP_ENV:-development}
