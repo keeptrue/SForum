@@ -213,6 +213,23 @@ TrustLevelViewer:
       type: integer
     bottleneck:
       "$ref": "#/TrustLevelBottleneck"
+    conditions:
+      type: array
+      description: |
+        「离下一档还差哪几项」的逐条**双语句子**（进度提示）。出现条件：
+        - 只有**本人**视角（他人视角永远没有本字段）；
+        - 只有**下一档**配了规则时才出现；
+        - 只有**扁平 AND**（`{"op":"all","children":[叶子…]}`）才逐条给出。
+          `any` / `not` / 嵌套一律不给逐条句子——把 `any` 的叶子列出来会让读者以为
+          「满足其中一条即可升级」。
+
+        每条只有 `satisfied` 与句子，**不含条件标识、参数或比较符**：公开面的读者是
+        终端用户，AST 形状（`children` / `cmp` / `params`）在本响应里任何位置都不出现。
+
+        与 `nextLevel`/`bottleneck` 并列而非替代：数值快筛的瓶颈仍走 `bottleneck`，
+        规则条件不参与数值进度条。
+      items:
+        "$ref": "#/TrustLevelConditionProgress"
 
 TrustLevelCatalog:
   type: object
@@ -651,8 +668,18 @@ TrustLevelConditionCatalog:
     conditions:
       type: array
       description: |
-        信任等级可用的条件子集（共享目录排除内容质量两条）。条数随共享目录增长，
-        **本契约不写死数字**：前端按数组渲染，不按数量断言。
+        信任等级可用的条件子集（共享目录排除内容质量两条），并**按候选过滤**：
+        - `fact.count` 只在 `factCandidates` 非空时出现（没有插件声明事实时，它的
+          `factKey` 是一个空下拉，运营点进去是死路）；
+        - 某个 `refKind` 的候选**读到为空**时，用到它的条件同样不出现；
+        - **取不到**候选（`unavailable`）时照常出现：编辑器按 `unavailable` 退回文本
+          输入，条件仍然可配。
+
+        **目录条数不等于子集条数**：校验白名单（`RuleConditionAllowed` /
+        `RuleConditions`）**不受过滤影响**，始终接受子集里的全部条件。否则插件停用
+        期间存量规则会读不出来——那是把「暂时没候选」当成了「条件不存在」，两者的
+        修法完全不同（启用插件 vs 换条件）。所以前端既不能按条数断言，也不能把
+        「目录里没有」当成「这条规则非法」。
       items:
         "$ref": "#/TrustLevelCondition"
     factCandidates:
@@ -761,3 +788,14 @@ ApiResponseTrustLevelRuleImpactResponse:
   properties:
     data:
       "$ref": "#/TrustLevelRuleImpactResponse"
+
+TrustLevelConditionProgress:
+  type: object
+  description: 一条「还差哪几项」的规则条件句子（双语，取当前 locale）。
+  required: [satisfied, text]
+  properties:
+    satisfied:
+      type: boolean
+      description: 该条是否已满足（未满足的条目就是「还差的事」）。
+    text:
+      "$ref": "#/TrustLevelName"

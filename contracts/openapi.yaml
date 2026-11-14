@@ -1199,6 +1199,7 @@ components:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactTierInput"
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactResponse"
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactTierResult"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConditionProgress"
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelConditionCatalog"
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelRuleImpactResponse"
       "$ref": "./openapi/schemas/badges.yaml#/BadgeTier"

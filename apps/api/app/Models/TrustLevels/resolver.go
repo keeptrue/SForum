@@ -2,6 +2,7 @@ package trustlevels
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
@@ -41,7 +42,16 @@ type Resolver struct {
 	activity ActivityReader
 	policy   PolicySource
 	now      func() time.Time
+	// ruleEvaluators 为「一个用户」构造规则求值器。未注入时配了规则的档位一律不成立
+	// （fail-closed），而不是忽略规则——那会把「忘了装配」变成「规则静默失效」。
+	ruleEvaluators RuleEvaluatorFactory
 }
+
+// RuleEvaluatorFactory 为一个用户构造规则求值器（装配层注入；测试用 fake）。
+//
+// 工厂而不是实例：求值器内部持「用户 ID + 条件解析器」，天生是一用户一实例。
+// 返回 error 表示构造失败（池不可用等），调用方按 fail-closed 处理该档。
+type RuleEvaluatorFactory func(ctx context.Context, userID int64) (RuleEvaluator, error)
 
 // NewResolver 构造解析器；now 为 nil 时用 time.Now。
 //
@@ -49,6 +59,17 @@ type Resolver struct {
 // 这里再查一次就是同一请求读两遍同一行，G 组预算从 4→5 会变成 4→6。
 func NewResolver(activity ActivityReader, policy PolicySource) *Resolver {
 	return &Resolver{activity: activity, policy: policy, now: time.Now}
+}
+
+// WithRuleEvaluators 注入规则求值器工厂（M2）。
+//
+// 不注入 = 规则档位一律不成立（fail-closed）。这条默认值很重要：`LevelOf`（纯函数、
+// 无 ctx）与所有既有测试都走这条路，语义与「没有任何档位配规则」逐字节一致。
+func (r *Resolver) WithRuleEvaluators(factory RuleEvaluatorFactory) *Resolver {
+	if r != nil {
+		r.ruleEvaluators = factory
+	}
+	return r
 }
 
 // WithClock 注入时钟（测试用）。返回自身以便链式装配。
@@ -68,26 +89,122 @@ func (r *Resolver) Grants(ctx context.Context, userID int64, kind identity.UserK
 	if r == nil || r.activity == nil || r.policy == nil {
 		return 0, nil, ErrDisabled
 	}
-	// 机器人不进等级判定（D25）：论坛限额层对 bot 有 IsBot() 旁路，如果 bot 也能
-	// 挣到 TL4，就会出现「不受限额 + 最高等级」的组合。
-	// 空串按人类处理（零值语义与 identity.UserKind 一致）。
+	policy, activity, judge, err := r.inputs(ctx, userID, kind)
+	if err != nil || !judge {
+		return 0, nil, err
+	}
+	evaluation := r.judge(ctx, userID, activity, createdAt, policy)
+	return int(evaluation.Level), policy.Earnable.Grants(evaluation.Level), nil
+}
+
+// Evaluation 是一次等级判定的完整结论。
+//
+// 它是给**本域内部消费者**（M4 的 `trust_level.changed` job、进度读面、验收脚本）用的：
+// `TrustLevelSource.Grants` 依旧只回 (level, granted, err)，一个字节没改（D18）。
+// 扩接口要动 Identity 的两个 loader 与全部 fake，收益为零。
+type Evaluation struct {
+	Level  Level
+	TierID string
+	// Incomplete 表示本次判定里有档位的规则**判不了**（查询失败 / 未声明 factKey /
+	// 脏规则 / 缺少求值器）。此时那些档位按不成立处理（fail-closed）。
+	//
+	// 语义边界：`incomplete` 只是「结论可能偏低」，不是「结论无效」。所以它不影响
+	// Grants 的返回值，只用于抑制副作用——M4 的 job 在 incomplete 时**不发**事件，
+	// 否则一次 DB 抖动会让全站用户收到一条「等级变了」（而其实没变）。
+	//
+	// **HTTP 装载路径不发事件**，所以这个字段对装载路径没有意义；它只有 job 路径需要。
+	Incomplete bool
+	// Errors 是规则求值期的逐条问题（叶子级），进日志用。
+	Errors []error
+}
+
+// Evaluate 现算一个用户的等级（含规则），并带回 incomplete 与逐条问题。
+//
+// 与 `Grants` 共用同一份判定实现（`levelOfWithRules`），差别只有返回值形状：
+//   - 失败姿态一致：policy/activity 读失败 → 返回 error（整次未解析，不减扣、不发事件）；
+//   - 规则失败**不**升级成 error：该档不成立 + `Incomplete=true`，其余照常判定。
+func (r *Resolver) Evaluate(ctx context.Context, userID int64, kind identity.UserKind, createdAt time.Time) (Evaluation, error) {
+	if r == nil || r.activity == nil || r.policy == nil {
+		return Evaluation{}, ErrDisabled
+	}
+	policy, activity, shouldJudge, err := r.inputs(ctx, userID, kind)
+	if err != nil {
+		return Evaluation{}, err
+	}
+	if !shouldJudge {
+		// 机器人不进等级判定（D25）：TL0、无规则、不算不完整。
+		return Evaluation{Level: LevelNewcomer, TierID: NewcomerID}, nil
+	}
+	return r.judge(ctx, userID, activity, createdAt, policy), nil
+}
+
+// inputs 读取判定所需的两份输入，并回答「这个用户要不要参与判定」。
+//
+// 机器人不进等级判定（D25）：论坛限额层对 bot 有 IsBot() 旁路，如果 bot 也能挣到
+// TL4，就会出现「不受限额 + 最高等级」的组合。空串按人类处理（零值语义与
+// identity.UserKind 一致）。
+func (r *Resolver) inputs(ctx context.Context, userID int64, kind identity.UserKind) (Policy, Activity, bool, error) {
 	if kind != "" && kind != identity.UserKindHuman {
-		return 0, nil, nil
+		return Policy{}, Activity{}, false, nil
 	}
 	policy, err := r.policy.Policy(ctx)
 	if err != nil {
-		return 0, nil, err
+		return Policy{}, Activity{}, false, err
 	}
 	activity, err := r.activity.ActivityFor(ctx, userID)
 	if err != nil {
-		return 0, nil, err
+		return Policy{}, Activity{}, false, err
 	}
+	return policy, activity, true, nil
+}
+
+// judge 是判定本体：两份输入已就绪，这里只决定「要不要构造求值器」并调唯一遍历。
+func (r *Resolver) judge(ctx context.Context, userID int64, activity Activity, createdAt time.Time, policy Policy) Evaluation {
 	now := time.Now
 	if r.now != nil {
 		now = r.now
 	}
-	level := LevelOfAt(activity, createdAt, now(), policy)
-	return int(level), policy.Earnable.Grants(level), nil
+	var evaluator RuleEvaluator
+	// 只有真存在带规则的档位才构造求值器：无规则站点必须**零新增查询**（§6.1），
+	// 而构造 conditions.Resolver 本身不查库、但后续 Prepare 会——所以这道闸必须在
+	// 构造之前，不能靠「Prepare 时发现没叶子」来兜。
+	if r.ruleEvaluators != nil && policy.HasRules() {
+		if built, err := r.ruleEvaluators(ctx, userID); err == nil {
+			evaluator = built
+		}
+	}
+	level, incomplete, problems := levelOfWithRules(ctx, activity, accountAge(createdAt, now()), policy, evaluator)
+	return Evaluation{
+		Level:      level,
+		TierID:     policy.TierID(level),
+		Incomplete: incomplete,
+		Errors:     problems,
+	}
+}
+
+// NextTierConditions 返回「离下一档还差哪几项」的逐条双语句子。
+//
+// 只公开**扁平 AND**的逐条句子：`any` / `not` / 嵌套一律返回 nil（前端只显示
+// satisfied/total 计数）。理由是可读性即正确性——把 `any` 的叶子逐条列出来，读者会
+// 以为「满足其中一条就能升级」，而实际要满足整棵表达式。
+//
+// 只允许对**本人**调用（调用方在控制器里已经限定了 owner 视角）。
+func (r *Resolver) NextTierConditions(ctx context.Context, userID int64, policy Policy, level Level) []TierCondition {
+	if r == nil || r.ruleEvaluators == nil || !level.Valid() || level >= policy.LastRank() {
+		return nil
+	}
+	next := level + 1
+	rule := policy.RuleOf(next)
+	if len(rule) == 0 {
+		return nil
+	}
+	evaluator, err := r.ruleEvaluators(ctx, userID)
+	if err != nil || evaluator == nil {
+		return nil
+	}
+	// 单棵树的 Prepare：只有这一棵树要句子，不值得走合成根。
+	evaluator.Prepare(ctx, []json.RawMessage{rule})
+	return evaluator.LeafConditions(ctx, rule)
 }
 
 // Activity 返回该用户的行为统计。

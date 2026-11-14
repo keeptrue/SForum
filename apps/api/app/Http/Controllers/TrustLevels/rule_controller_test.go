@@ -290,6 +290,25 @@ func TestConditionsEndpointFiltersByCandidates(t *testing.T) {
 		if len(payload.FactCandidates) != 0 {
 			t.Fatalf("没有插件声明时 factCandidates 应为空，得到 %d", len(payload.FactCandidates))
 		}
+		// 候选组的**形状**断言（A2-1）：五类恒五项、固定顺序、字段齐全。
+		// 只断 conditions 的测试会让「端点返回 `refCandidates: []`」也绿——那等于把编辑器
+		// 的对象下拉整个弄丢，而运营只会看到「分类选不了」。
+		if len(payload.RefCandidates) != 5 {
+			t.Fatalf("候选组应为 5 项（固定顺序），得到 %d", len(payload.RefCandidates))
+		}
+		wantKinds := []string{"badge", "category", "tag", "role", "provider"}
+		for index, group := range payload.RefCandidates {
+			if group.Kind != wantKinds[index] {
+				t.Fatalf("候选组[%d] = %q（期望 %q）", index, group.Kind, wantKinds[index])
+			}
+			if group.Candidates == nil {
+				t.Fatalf("%s 的 candidates 必须是 [] 而不是 null", group.Kind)
+			}
+			if !group.Unavailable {
+				// 这个子测试的 source 给的就是 UnavailableRefCandidateSet。
+				t.Fatalf("%s 应标记 unavailable（取不到候选 ≠ 候选为空）", group.Kind)
+			}
+		}
 		// 反向证据：发布面过滤 ≠ 校验面收紧。
 		if !trustlevels.RuleConditionAllowed("fact.count") {
 			t.Fatal("RuleConditionAllowed(fact.count) 必须仍为 true：过滤只能作用于发布面")
@@ -484,5 +503,126 @@ func TestPutReferenceCheckFailureReturns500(t *testing.T) {
 	}
 	if written != 0 {
 		t.Fatalf("校验失败仍写库了 %d 次", written)
+	}
+}
+
+// ---- M2：公开面「还差哪几项」的逐条句子 ----
+
+// stubActivityReader / stubPolicySource / stubEvaluator 让公开面测试不碰数据库。
+type stubActivityReader struct{ activity trustlevels.Activity }
+
+func (s stubActivityReader) ActivityFor(context.Context, int64) (trustlevels.Activity, error) {
+	return s.activity, nil
+}
+
+type stubPolicySource struct{ policy trustlevels.Policy }
+
+func (s stubPolicySource) Policy(context.Context) (trustlevels.Policy, error) { return s.policy, nil }
+
+type stubEvaluator struct{ leaves []trustlevels.TierCondition }
+
+func (s stubEvaluator) Prepare(context.Context, []json.RawMessage) {}
+
+func (s stubEvaluator) Match(context.Context, json.RawMessage) trustlevels.RuleOutcome {
+	return trustlevels.RuleOutcome{Matched: true}
+}
+
+func (s stubEvaluator) LeafConditions(context.Context, json.RawMessage) []trustlevels.TierCondition {
+	return s.leaves
+}
+
+// policyWithTwoTierRule 造一份「TL1 无规则、TL2 带扁平 all 规则」的策略。
+func policyWithTwoTierRule(t *testing.T) trustlevels.Policy {
+	t.Helper()
+	base := func(rule string) string {
+		body := `{"id":"","name":{"zh":"档","en":"Tier"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]`
+		if rule == "" {
+			return body + `}`
+		}
+		return body + `,"rule":` + rule + `}`
+	}
+	policy, err := trustlevels.DecodeConfig(
+		`{"schemaVersion":2,"tiers":[` + base("") + `,` + base(ruleDoc(`{"op":"all","children":[`+verifiedLeaf+`]}`)) + `]}`,
+	)
+	if err != nil {
+		t.Fatalf("decode policy: %v", err)
+	}
+	return policy
+}
+
+// TestPublicViewerConditionsAreSentencesWithoutAST 断言公开面句子的三条硬约束（验收 6）。
+//
+//  1. 只有**本人**、只有**下一档**才有 `conditions`；
+//  2. 每条句子双语非空（服务端是唯一文案来源，前端不拼句子）；
+//  3. 序列化全文**不含** AST 词汇（`children` / `cmp` / `params` / `type` / `rule`）。
+//
+// 第 3 条必须是**值级**断言（整段响应字节）：徽章那刀证明过「键在值空」会假绿。
+func TestPublicViewerConditionsAreSentencesWithoutAST(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess)
+	resolver := trustlevels.NewResolver(
+		stubActivityReader{},
+		stubPolicySource{policy: policyWithTwoTierRule(t)},
+	).WithRuleEvaluators(func(context.Context, int64) (trustlevels.RuleEvaluator, error) {
+		return stubEvaluator{leaves: []trustlevels.TierCondition{
+			{Satisfied: true, Text: trustlevels.LocalizedName{Zh: "邮箱已验证", En: "email verified"}},
+			{Satisfied: false, Text: trustlevels.LocalizedName{Zh: "发布主题 ≥ 3", En: "topics published ≥ 3"}},
+		}}, nil
+	})
+	app := newTestApp(t, NewController(nil, resolver, nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policyWithTwoTierRule(t), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }))
+
+	status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/trust-levels", "")
+	if status != fiber.StatusOK {
+		t.Fatalf("公开读 status = %d，body=%s", status, body)
+	}
+	var envelope struct {
+		Data struct {
+			Viewer struct {
+				Level      int `json:"level"`
+				Conditions []struct {
+					Satisfied bool `json:"satisfied"`
+					Text      struct {
+						Zh string `json:"zh"`
+						En string `json:"en"`
+					} `json:"text"`
+				} `json:"conditions"`
+			} `json:"viewer"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &envelope); err != nil {
+		t.Fatalf("响应不是合法 JSON：%v", err)
+	}
+	viewer := envelope.Data.Viewer
+	if len(viewer.Conditions) != 2 {
+		t.Fatalf("本人下一档配了规则时应给出 2 条句子，得到 %d（body=%s）", len(viewer.Conditions), body)
+	}
+	for index, condition := range viewer.Conditions {
+		if condition.Text.Zh == "" || condition.Text.En == "" {
+			t.Fatalf("第 %d 条句子缺语言：%+v", index, condition)
+		}
+	}
+	if viewer.Conditions[0].Satisfied != true || viewer.Conditions[1].Satisfied != false {
+		t.Fatalf("satisfied 未透传：%+v", viewer.Conditions)
+	}
+	for _, forbidden := range []string{`"children"`, `"cmp"`, `"params"`, `"type"`, `"rule"`} {
+		if strings.Contains(body, forbidden) {
+			t.Fatalf("公开响应出现 AST 词汇 %s：\n%s", forbidden, body)
+		}
+	}
+
+	// 他人/未解析视角：没有 viewer、也就没有句子。
+	anonymous := identity.Actor{}
+	appAnon := newTestApp(t, NewController(nil, resolver, nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policyWithTwoTierRule(t), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return anonymous, nil }))
+	status, body = doRequest(t, appAnon, fiber.MethodGet, "/api/v1/trust-levels", "")
+	if status != fiber.StatusOK {
+		t.Fatalf("匿名读 status = %d", status)
+	}
+	if strings.Contains(body, `"conditions"`) {
+		t.Fatalf("匿名响应不该有 conditions：\n%s", body)
 	}
 }

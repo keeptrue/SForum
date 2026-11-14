@@ -139,6 +139,11 @@ type viewerTrustLevel struct {
 	LevelSlug  string                `json:"levelSlug"`
 	NextLevel  int                   `json:"nextLevel,omitempty"`
 	Bottleneck *trustLevelBottleneck `json:"bottleneck,omitempty"`
+	// Conditions 是「离下一档还差哪几项」的**逐条句子**（只在下一档配了扁平规则时出现）。
+	//
+	// 与 Bottleneck 并存：Bottleneck 是数值快筛里第一项没达标的指标，Conditions 是规则树
+	// 的逐条清单。两者都不含 AST 词汇（见 viewerCondition）。
+	Conditions []viewerCondition `json:"conditions,omitempty"`
 }
 
 type trustLevelBottleneck struct {
@@ -281,4 +286,14 @@ type ruleImpactTierResult struct {
 	Method                string   `json:"method"`
 	Partial               bool     `json:"partial"`
 	UnsupportedConditions []string `json:"unsupportedConditions"`
+}
+
+// viewerCondition 是公开面「还差哪几项」里的一条。
+//
+// 只有 `satisfied` 与双语句子：**没有条件 key、没有参数、没有比较符**。给终端用户看的
+// 是「还差哪一类事」，把 `activity.count{metric:"topic_count"} >= 3` 的形状发出去等于
+// 把判定逻辑印在公告板上（验收 6 的值级断言钉的就是这个）。
+type viewerCondition struct {
+	Satisfied bool           `json:"satisfied"`
+	Text      trustLevelName `json:"text"`
 }

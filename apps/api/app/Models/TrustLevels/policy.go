@@ -1,5 +1,7 @@
 package trustlevels
 
+import "encoding/json"
+
 // builtinTierIdentity 是内置档位的**身份**（id + 双语名）。
 type builtinTierIdentity struct {
 	ID   string
@@ -143,4 +145,43 @@ func newDefaultTier(rank Level, requirement Requirements) Tier {
 		Earnable:     nil,
 		Retired:      false,
 	}
+}
+
+// RuleOf 返回某 rank 的可选规则树；无规则 / 越界返回 nil。
+//
+// rank 与档位下标的折算规则只有一处：**只数 active 档位**（停用档不占 rank，D-N2）。
+// 这与 `RequirementsOf` / `TierAt` 同一套，任何一格错位都会让规则挂到别的档上——
+// 而那种错位在阈值相近时几乎看不出来。
+func (p Policy) RuleOf(rank Level) json.RawMessage {
+	if !rank.Valid() || rank <= LevelNewcomer {
+		return nil
+	}
+	index := Level(0)
+	for _, tier := range p.Tiers {
+		if tier.Retired {
+			continue
+		}
+		index++
+		if index == rank {
+			return tier.Rule
+		}
+	}
+	return nil
+}
+
+// HasRules 报告策略里是否有**启用档位**带了规则。
+//
+// 它是「要不要为这次判定构造求值器」的唯一判据：无规则站点必须零新增查询（验收 §6.1），
+// 所以构造求值器（= 建一个 conditions.Resolver）之前先看这一眼。停用档不算——它不参与
+// 判定，规则也不会被求值。
+func (p Policy) HasRules() bool {
+	for _, tier := range p.Tiers {
+		if tier.Retired {
+			continue
+		}
+		if len(tier.Rule) > 0 {
+			return true
+		}
+	}
+	return false
 }

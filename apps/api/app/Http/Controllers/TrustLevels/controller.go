@@ -142,6 +142,9 @@ func (h *Controller) viewerPayload(ctx context.Context, actor identity.Actor) *v
 		viewer.NextLevel = actor.TrustLevel + 1
 		viewer.Bottleneck = &trustLevelBottleneck{Metric: metric, Current: current, Threshold: threshold}
 	}
+	// 规则条件的逐条清单（D15/D6）：**仅下一档、仅扁平 AND、仅本人**。
+	// 数值瓶颈（progress）与它并存且互不影响：规则条件不参与数值进度条。
+	viewer.Conditions = toViewerConditions(h.resolver.NextTierConditions(ctx, actor.ID, policy, rank))
 	return viewer
 }
 
@@ -242,7 +245,7 @@ func (h *Controller) ruleReferenceDetails(ctx context.Context, policy trustlevel
 	if h.refCandidates == nil {
 		// 只在「本来该校验」时吵（策略里真带了规则）：没有规则的站点即使漏注入也无可校验，
 		// 每次保存都打一条 warn 只会训练运维忽略日志。
-		if policyHasRules(policy) {
+		if policy.HasRules() {
 			slog.WarnContext(ctx, "trust_levels rule reference check skipped: candidate source not wired",
 				"hint", "bootstrap 必须调用 providers.TrustLevelsProvider.WithRuleEditing 注入 RefCandidateSource；未注入时写路径不校验规则引用（fail-open）")
 		}
@@ -255,20 +258,6 @@ func (h *Controller) ruleReferenceDetails(ctx context.Context, policy trustlevel
 		return nil, err
 	}
 	return details, nil
-}
-
-// policyHasRules 报告策略里是否有启用档位带了规则（停用档不算：它不参与判定，
-// 引用失效也不挡保存）。
-func policyHasRules(policy trustlevels.Policy) bool {
-	for _, tier := range policy.Tiers {
-		if tier.Retired {
-			continue
-		}
-		if len(tier.Rule) > 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func (h *Controller) restoreDefaults(c fiber.Ctx) error {

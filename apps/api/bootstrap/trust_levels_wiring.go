@@ -5,7 +5,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
@@ -83,11 +86,62 @@ func (r trustLevelActivityReader) ActivityFor(ctx context.Context, userID int64)
 // server 启动前完成注入；不是 lazy 首次请求才装。所有消费者（identity store、
 // Host Command 后端、用户字段 store）共享同一个实例，否则同一个人会在两条路径
 // 上得到两个答案（D22）。
-func newTrustLevelSource(optionsService *options.Service, activity *badges.PostgresActivityStore) *trustlevels.Resolver {
+func newTrustLevelSource(
+	optionsService *options.Service,
+	activity *badges.PostgresActivityStore,
+	pool *pgxpool.Pool,
+	factKeys func() []string,
+) *trustlevels.Resolver {
 	return trustlevels.NewResolver(
 		trustLevelActivityReader{store: activity},
 		trustLevelPolicySource{options: optionsService},
-	)
+	).WithRuleEvaluators(conditionsRuleEvaluatorFactory(pool, factKeys))
+}
+
+// conditionsRuleEvaluatorFactory 把「一个用户 + 条件解析器」装成 M2 的求值器。
+//
+// 每个用户一个 `conditions.Resolver`（它带 userID），所以这里必须是工厂而不是实例。
+// `factKeys` 是**闭包**（D20）：事实目录在 domains 阶段才建好，infra 阶段只能先拿到
+// 一个读口。未绑定时返回空集 → `fact.count` 叶子求值返 error → 引擎转 unknown →
+// 该档不成立（fail-closed），与「未声明即无法判定」的既有语义一致。
+//
+// 构造失败（池不可用/用户 ID 非法）返回 error：`Resolver.judge` 会按「没有求值器」
+// 处理 —— 配了规则的档位一律不成立，而不是忽略规则放行。
+func conditionsRuleEvaluatorFactory(
+	pool *pgxpool.Pool,
+	factKeys func() []string,
+) trustlevels.RuleEvaluatorFactory {
+	return func(ctx context.Context, userID int64) (trustlevels.RuleEvaluator, error) {
+		conditionResolver, err := conditions.NewResolver(pool, userID, factKeys()...)
+		if err != nil {
+			return nil, err
+		}
+		return trustlevels.NewRuleEvaluator(conditionResolver), nil
+	}
+}
+
+// deferredFactKeys 是「已声明插件事实 key」的延迟绑定读口（D20）。
+//
+// 与 `deferredBackfillEnqueuer` 同款：infra 阶段 resolver 已经造好，而事实目录要等
+// extensions service 就绪（domains 阶段）。未 Bind 时返回 nil 切片 = 没有插件声明，
+// 于是 `fact.count` 恒 unknown（fail-closed），不会误判成立。
+type deferredFactKeys struct {
+	source func() []string
+}
+
+// Bind 注入事实 key 来源（domains 阶段调用）。
+func (d *deferredFactKeys) Bind(source func() []string) {
+	if d != nil {
+		d.source = source
+	}
+}
+
+// Keys 返回当前已声明的事实 key；未绑定返回 nil。
+func (d *deferredFactKeys) Keys() []string {
+	if d == nil || d.source == nil {
+		return nil
+	}
+	return d.source()
 }
 
 // 编译期确认实现满足 identity 侧的窄接口（D18）。

@@ -220,3 +220,18 @@ func toRefCandidateGroups(set conditions.RefCandidateSet) []refCandidateGroup {
 	}
 	return groups
 }
+
+// toViewerConditions 把领域结论投影成公开面形状。
+func toViewerConditions(items []trustlevels.TierCondition) []viewerCondition {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]viewerCondition, 0, len(items))
+	for _, item := range items {
+		out = append(out, viewerCondition{
+			Satisfied: item.Satisfied,
+			Text:      trustLevelName{Zh: item.Text.Zh, En: item.Text.En},
+		})
+	}
+	return out
+}

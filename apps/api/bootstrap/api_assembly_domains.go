@@ -654,6 +654,11 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		badgesFactCatalog.Candidates,
 		badgesRuleImpactEstimator{store: badgesStore},
 	)
+	// 信任等级求值器的 factKey 来源：同一份 5s 快照（D20 延迟绑定）。infra 阶段先造
+	// resolver、到这里才 Bind —— 顺序不变，未绑定期间 `fact.count` 恒 unknown（fail-closed）。
+	if infrastructure.trustLevelFactKeys != nil {
+		infrastructure.trustLevelFactKeys.Bind(badgesFactCatalog.FactKeys)
+	}
 	badgesService := badges.NewService(badgesStore, badgeActivityStore)
 	// 进度测量走存储层的批量 Prepare（每类条件一条 SQL）。Service 自己没有 pool，
 	// 也不该有：装配在这里把同一个 store 同时当成读面与测量器。
