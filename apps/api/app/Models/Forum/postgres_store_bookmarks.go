@@ -44,7 +44,7 @@ func (s *PostgresStore) ApplyBookmark(ctx context.Context, input BookmarkApplyIn
 	}
 	// D2：收藏/取消后触发评估（收藏家徽章依赖 bookmark_count）。
 	if applied.relationDelta != 0 {
-		s.enqueueBadgeEvaluation(ctx, input.ActorUserID)
+		s.enqueueUserEvaluations(ctx, input.ActorUserID)
 	}
 	return BookmarkState{
 		TargetType:          input.TargetType,

@@ -98,11 +98,19 @@ whole `trust.levels` value undecodable. A decode failure leaves the whole site *
 no earned permissions at all (effectively TL0), no tier card on profile pages, and one warn per
 resolution attempt on the `identity` side.
 
-## 4. Not here yet
+## 4. Events and remaining surfaces
 
 Landing plan and ownership: `knowledge/plans/2026-11-14-trust-level-conditions.md`.
 
-- `trust_level.changed` events (M4b, plan §4.3).
+Provided (M4b):
+
+- `trust_level.changed` — observe, fail-open. Payload: `userId`, `fromLevel`, `toLevel`,
+  `fromTierId`, `toTierId`, `computedAt`. Emitted only when a complete recompute differs from
+  the change ledger; an incomplete evaluation emits nothing and does not touch the ledger, and a
+  user's first sighting records the ledger without emitting.
+
+Not here yet:
+
 - HostQuery surfaces for the tier catalog / a user's current level (M4b, plan §4.5).
 - Any runtime RPC that lets a plugin evaluate rule conditions (plan §6 item 4: evaluation stays
   in the Host).

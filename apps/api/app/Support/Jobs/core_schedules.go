@@ -24,6 +24,12 @@ const (
 	// ScheduleExtensionsFinalizeUninstallCleanup 周期收敛「台账已 succeeded 但
 	// tombstone 仍 pending」的卸载物理清理；仅 embed worker 注册执行器。
 	ScheduleExtensionsFinalizeUninstallCleanup = "extensions.finalize_uninstall_cleanup"
+	// ScheduleTrustLevelsSweep 每日按账本陈旧度重算信任等级（M4b-2）。
+	//
+	// 它兜住的是**没有活动事件**的那些等级变化：角色变更（identity.role 规则）、
+	// OAuth 解绑（identity.oauth_link 规则）、徽章收回（badge.owned 规则）——
+	// 这些都不经过 6 个活动触发点，只有按账本 computed_at 兜底才看得见。
+	ScheduleTrustLevelsSweep = "trustlevels.sweep"
 )
 
 // CoreScheduleDefinitions 返回宿主内置 schedule 目录模板（无 Constructor）。
@@ -109,6 +115,16 @@ func CoreScheduleDefinitions() []ScheduleDefinition {
 			Enabled:     true,
 			Description: "核对并修复当前搜索 provider 的缺失、过期和幽灵文档",
 			RunOnStart:  true,
+		},
+		{
+			ID:          ScheduleTrustLevelsSweep,
+			JobKind:     ScheduleTrustLevelsSweep,
+			Queue:       QueueMaintenance,
+			Interval:    24 * time.Hour,
+			Owner:       "trustlevels",
+			Enabled:     true,
+			Description: "按变更账本陈旧度重算信任等级（mode=stale；覆盖角色变更/OAuth 解绑/徽章收回这类无活动事件的变化）",
+			RunOnStart:  false,
 		},
 		{
 			ID:          ScheduleExtensionsFinalizeUninstallCleanup,

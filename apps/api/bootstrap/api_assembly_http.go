@@ -197,6 +197,8 @@ func finishAPIHTTP(ctx context.Context, cfg config.Config, logger *slog.Logger, 
 			// AI 派生（话题蒸馏 / 长楼导览）复用同一份网关与论坛读取路径；
 			// 产物只写 ai_derived_artifacts，不发布、不写评论。
 			AIDerivedGenerator: newAIDerivedGenerator(core),
+			// M4b-2：信任等级重算 worker（复用 API 的 resolver 与同一条事件 publisher）。
+			TrustLevels: newTrustLevelWorkers(core, logger),
 			// 卸载物理清理收敛复用 API 已装配的宿主边界（聚焦协作对象）；
 			// 独立 worker 侧无此装配，能力随 nil 依赖整体关闭。
 			UninstallCleanupSweeper: extensions.NewCleanupConvergenceService(core.extensionService),

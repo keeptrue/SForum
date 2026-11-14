@@ -86,10 +86,11 @@ func NewVisitRecorderWithDeduper(store ActivityStore, dedupe VisitDeduper, logge
 	}
 }
 
-// EvaluationEnqueuer 在 days_visited 真的变化后触发一次徽章评估。
+// EvaluationEnqueuer 在 days_visited 真的变化后触发一次用户状态评估
+// （徽章 + 信任等级；两者去重维度各自独立）。
 // 实现必须 fail-open；未装配时静默跳过。
 type EvaluationEnqueuer interface {
-	EnqueueBadgeEvaluation(ctx context.Context, userID int64)
+	EnqueueUserEvaluations(ctx context.Context, userID int64)
 }
 
 // WithEvaluationEnqueuer 注入评估入队器。
@@ -133,7 +134,7 @@ func (r *VisitRecorder) Record(ctx context.Context, userID int64) {
 	}
 	// D2：days_visited 真的变了才触发评估（常客/老住户/元老依赖它）。
 	if r.evaluator != nil {
-		r.evaluator.EnqueueBadgeEvaluation(ctx, userID)
+		r.evaluator.EnqueueUserEvaluations(ctx, userID)
 	}
 }
 

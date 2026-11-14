@@ -11,6 +11,7 @@ import (
 	notificationscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Notifications"
 	aireplyjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/AIReply"
 	attachmentjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Attachments"
+	trustlevelsjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/TrustLevels"
 	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
 	aitools "github.com/keeptrue/sforum/apps/api/app/Models/AITools"
 	apitokens "github.com/keeptrue/sforum/apps/api/app/Models/APITokens"
@@ -28,6 +29,7 @@ import (
 	profile "github.com/keeptrue/sforum/apps/api/app/Models/Profile"
 	sitechrome "github.com/keeptrue/sforum/apps/api/app/Models/SiteChrome"
 	systemupdates "github.com/keeptrue/sforum/apps/api/app/Models/SystemUpdates"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
 	providers "github.com/keeptrue/sforum/apps/api/app/Providers"
 	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
@@ -329,10 +331,20 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		optionsService, infrastructure.trustLevelResolver, identityStore, authSessions,
 	)
 	// 徽章评估入队器：写路径（Forum 事务提交后、访问采集成功写入后）fail-open 触发。
-	badgeEvaluationEnqueuer := newBadgeEvaluationEnqueuer(jobDispatcher, logger)
-	forumStore.WithBadgeEvaluation(badgeEvaluationEnqueuer)
+	// M4b-2：策略键（trust.levels / trust.new_user_days）写成功后批量重算一次。
+	// 入队失败只记日志：策略已经落库，不为一次队列抖动把设置保存变成失败；
+	// 每日 sweep（mode=stale）兜底。
+	if infrastructure.trustPolicyHook != nil {
+		infrastructure.trustPolicyHook.Bind(func(ctx context.Context) error {
+			args := trustlevelsjobs.RecomputeBatchArgs{Mode: trustlevels.RecomputeModeAll}
+			_, err := jobDispatcher.Enqueue(ctx, args, args.EnqueueOptions())
+			return err
+		})
+	}
+	userEvaluationEnqueuer := newUserEvaluationEnqueuer(jobDispatcher, logger)
+	forumStore.WithBadgeEvaluation(userEvaluationEnqueuer)
 	userVisitRecorder := badges.NewVisitRecorder(badgeActivityStore, sharedRedisClient, logger).
-		WithEvaluationEnqueuer(badgeEvaluationEnqueuer)
+		WithEvaluationEnqueuer(userEvaluationEnqueuer)
 	contentProtocolRuntime, err := extensionsruntime.NewContentRegistryProtocolRuntime(lifecycleStack.RuntimeManager)
 	if err != nil {
 		return nil, fmt.Errorf("create Content Registry Protocol V2 runtime: %w", err)
@@ -897,6 +909,8 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	})
 
 	return &apiCoreStack{
+		trustLevelResolver:        infrastructure.trustLevelResolver,
+		trustLevelEventPublisher:  eventPublisher,
 		adminOverviewProvider:     adminOverviewProvider,
 		aiProvider:                aiProvider,
 		aiOrchestrator:            aiOrchestrator,

@@ -67,7 +67,9 @@ type apiInfrastructure struct {
 	// infra 阶段先造 resolver，domains 阶段才建出事实目录（依赖 extensions service）。
 	trustLevelFactKeys *deferredFactKeys
 	// trustLevelEarnables 是「插件声明的可授予权限」的延迟绑定入口（同一个 5s 快照）。
-	trustLevelEarnables   *deferredEarnables
+	trustLevelEarnables *deferredEarnables
+	// trustPolicyHook 观察 trust.levels / trust.new_user_days 的写入（M4b-2 批量重算）。
+	trustPolicyHook       *trustPolicyWriteHook
 	sessionPolicyRenewal  *sessionPolicyRenewalGate
 	identityAuthorityGate *deferredIdentityAuthorityMutationGate
 	adminOverviewStore    *adminoverview.PostgresStore
@@ -158,7 +160,10 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 	queryCacheOwnership := newQueryResultCacheStageHandoff(queryResultCache, logger)
 	defer queryCacheOwnership.CloseUnlessHandedOff()
 	humanVerifyStore := humanverify.NewRedisStore(sharedRedisClient)
-	optionStore := options.NewPostgresStore(pool)
+	// 信任策略写观察：策略键落库成功后批量重算一次（M4b-2）。装饰器只加观察，
+	// 不改 Options.Service 的任何语义；enqueue 在 domains 阶段才 Bind（dispatcher 那时才有）。
+	trustPolicyHook := newTrustPolicyWriteHook(options.NewPostgresStore(pool), logger)
+	optionStore := options.Store(trustPolicyHook)
 	// H2a：构造敏感值加密器；未配置 APP_OPTION_ENC_KEY 时为透明模式（开发环境），生产由 C2 强制要求。
 	optionCipher, err := crypto.NewOptionCipher(cfg.OptionEncryptionKey)
 	if err != nil {
@@ -327,6 +332,7 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 		trustLevelSource:         trustLevelResolver,
 		trustLevelFactKeys:       trustLevelFactKeys,
 		trustLevelEarnables:      trustLevelEarnables,
+		trustPolicyHook:          trustPolicyHook,
 		sessionPolicyRenewal:     sessionPolicyRenewal,
 		identityAuthorityGate:    identityAuthorityGate,
 		adminOverviewStore:       adminOverviewStore,

@@ -33,6 +33,7 @@ Authoring/catalog only — no honest callable transport from the plugin process.
 | `forum.bookmark_reminders` | `forum.bookmark_reminders` | maintenance | 1m | forum | true | 扫描到期的收藏提醒并写入站内/邮件通知（每轮最多 200 条） |
 | `forum.flush_view_counts` | `forum.flush_view_counts` | maintenance | 45s | forum | true | 将 Redis 主题浏览增量刷入 PG view_count/hot_score（D3） |
 | `search.reconcile` | `search.reconcile` | maintenance | 15m | search | true | 核对并修复当前搜索 provider 的缺失、过期和幽灵文档 |
+| `trustlevels.sweep` | `trustlevels.sweep` | maintenance | 1d | trustlevels | true | 按变更账本陈旧度重算信任等级（mode=stale；覆盖角色变更/OAuth 解绑/徽章收回这类无活动事件的变化） |
 | `extensions.finalize_uninstall_cleanup` | `extensions.finalize_uninstall_cleanup` | maintenance | 5m | extensions | true | 收敛卸载后仍未完成的宿主物理清理（pending tombstone 自动重放） |
 
 ## Plugin schedule declaration (Manifest V3)

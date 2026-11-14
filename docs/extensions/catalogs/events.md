@@ -48,6 +48,7 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `reaction.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `reaction`, `actorUserId` | — |
 | `bookmark.created` | observe | 5000 | fail_open | `targetType`, `targetId`, `visibility`, `actorUserId` | — |
 | `bookmark.removed` | observe | 5000 | fail_open | `targetType`, `targetId`, `visibility`, `actorUserId` | — |
+| `trust_level.changed` | observe | 5000 | fail_open | `userId`, `fromLevel`, `toLevel`, `fromTierId`, `toTierId`, `computedAt` | — |
 
 ### Descriptions
 
@@ -174,4 +175,8 @@ Emitted after a bookmark is committed on a visible topic or comment.
 #### `bookmark.removed`
 
 Emitted after a bookmark is removed from a visible topic or comment.
+
+#### `trust_level.changed`
+
+Emitted after a user's trust level is recomputed and differs from the change ledger. Never emitted for incomplete evaluations.
 

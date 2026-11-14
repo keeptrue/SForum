@@ -131,7 +131,7 @@ func (s *PostgresStore) CreateComment(ctx context.Context, input CreateCommentRe
 		return Comment{}, fmt.Errorf("commit create comment: %w", err)
 	}
 	// D2：提交后触发一次自动徽章评估（fail-open，失败不影响本次写入）。
-	s.enqueueBadgeEvaluation(ctx, input.AuthorUserID)
+	s.enqueueUserEvaluations(ctx, input.AuthorUserID)
 	return comment, nil
 }
 

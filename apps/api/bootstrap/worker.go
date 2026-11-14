@@ -23,6 +23,7 @@ import (
 	notificationjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Notifications"
 	queryregistryjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/QueryRegistry"
 	searchjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Search"
+	trustlevelsjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/TrustLevels"
 	webhookjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Webhooks"
 	aiderived "github.com/keeptrue/sforum/apps/api/app/Models/AIDerived"
 	aireply "github.com/keeptrue/sforum/apps/api/app/Models/AIReply"
@@ -34,6 +35,7 @@ import (
 	moderation "github.com/keeptrue/sforum/apps/api/app/Models/Moderation"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
@@ -113,6 +115,9 @@ type workerRuntimeDeps struct {
 	// QueryInvalidation is worker-owned in both standalone and embedded modes.
 	// It must never reuse the API execution-cache client.
 	QueryInvalidation *productionQueryInvalidationRuntime
+	// TrustLevels 是 embed 路径注入的 recompute 三件套（M4b-2）。standalone 不支持，
+	// 因此为 nil 时只 warn，不静默——job 会入队但没人消费。
+	TrustLevels *trustLevelWorkers
 	// AIReplyGenerator 由 embed 路径注入，复用 API 已装配的论坛服务与网关。
 	//
 	// 独立 worker 刻意不提供它：那边没有论坛装配，临时重建一份会得到独立的
@@ -738,6 +743,9 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	// AI 派生（话题蒸馏 / 长楼导览）：同样只有 embed 路径注入生成器。注册逻辑
 	// 在独立文件里，因为这个文件的 1000 行闸门已经逼近。
 	registerAIDerivedWorker(registry, deps.AIDerivedGenerator)
+	// M4b-2：信任等级重算 worker（user + batch）。与 badgesjobs.RegisterEvaluateUser
+	// 同一装配面；deps 由 embed 路径注入（standalone worker 不受支持）。
+	registerTrustLevelWorkers(registry, deps.TrustLevels, logger)
 	// F2.2：插件经 Host API 入队的 extension.plugin_job。
 	pluginJobEnqueuer := &hostapi.RiverJobEnqueuer{}
 	registry.Add(func(workers *river.Workers) error {
@@ -806,6 +814,15 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 			supportjobs.ScheduleForumFlushViewCounts,
 			func() (river.JobArgs, *river.InsertOpts) {
 				return forumjobs.FlushViewCountsArgs{}, nil
+			},
+		),
+		supportjobs.ScheduleTrustLevelsSweep: wrapEnabled(
+			supportjobs.ScheduleTrustLevelsSweep,
+			func() (river.JobArgs, *river.InsertOpts) {
+				// mode=stale：只碰账本缺失或 24h 没算过的人。sweep 的意义是兜住
+				// 没有活动事件的变化（角色变更 / OAuth 解绑 / 徽章收回），不是全表重算。
+				args := trustlevelsjobs.RecomputeBatchArgs{Mode: trustlevels.RecomputeModeStale}
+				return args, args.EnqueueOptions().RiverInsertOpts()
 			},
 		),
 		supportjobs.ScheduleSearchReconcile: wrapEnabled(

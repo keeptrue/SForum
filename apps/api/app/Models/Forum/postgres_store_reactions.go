@@ -59,8 +59,8 @@ func (s *PostgresStore) ApplyReaction(ctx context.Context, input ApplyReactionRe
 	}
 	// D2：目标作者与操作者各评估一次（同一次入队会被 river 的 ByArgs 去重合并）。
 	if applied {
-		s.enqueueBadgeEvaluation(ctx, input.RecipientUserID)
-		s.enqueueBadgeEvaluation(ctx, input.ActorUserID)
+		s.enqueueUserEvaluations(ctx, input.RecipientUserID)
+		s.enqueueUserEvaluations(ctx, input.ActorUserID)
 	}
 	return ReactionState{
 		TargetType: input.TargetType,

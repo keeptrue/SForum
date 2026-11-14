@@ -89,11 +89,18 @@
 整站按「未解析」处理——没有任何已挣得权限（效果等同 TL0），资料页不渲染等级卡，
 `identity` 侧每次求值记一条 warn。
 
-## 4. 尚未提供
+## 4. 已提供的事件与尚未提供的读面
 
 落地计划与归属：`knowledge/plans/2026-11-14-trust-level-conditions.md`。
 
-- `trust_level.changed` 事件（M4b，计划 §4.3）；
+已提供（M4b）：
+
+- `trust_level.changed` —— observe、fail-open。载荷：`userId`、`fromLevel`、`toLevel`、
+  `fromTierId`、`toTierId`、`computedAt`。只在**完整**求值结果与变更账本不一致时发出；
+  incomplete 时既不发送也不动账本；用户首次出现只落账本、不发事件。
+
+尚未提供：
+
 - 等级目录与单用户当前等级的 HostQuery 读面（M4b，计划 §4.5）；
 - 任何让插件在运行期自行求值规则条件的 RPC（计划 §6 第 4 条：求值留在 Host）。
 

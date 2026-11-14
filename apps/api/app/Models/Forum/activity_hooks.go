@@ -88,19 +88,23 @@ func activityDeltaForReaction(actorUserID, recipientUserID int64, add bool) (rec
 	return delta, delta
 }
 
-// BadgeEvaluationEnqueuer 在写事务提交后请求一次徽章评估（计划 D2）。
+// BadgeEvaluationEnqueuer 在写事务提交后请求一次「用户状态评估」（计划 D2）。
+//
+// 语义是「这个人的统计/权限输入变了」，实现负责入队徽章评估与信任等级重算
+// 两件事（见 bootstrap 的 userEvaluationEnqueuer）。名字沿用历史类型名，
+// 方法名 EnqueueUserEvaluations 已经是准的。
 //
 // 约定：实现必须 fail-open（入队失败只记日志、不返回错误），
 // 因此接口没有 error 返回值——统计已经落库，评估迟到几秒是可接受的，
 // 让请求因为「队列抖动」失败不可接受。
 type BadgeEvaluationEnqueuer interface {
-	EnqueueBadgeEvaluation(ctx context.Context, userID int64)
+	EnqueueUserEvaluations(ctx context.Context, userID int64)
 }
 
-// enqueueBadgeEvaluation 是 PostgresStore 的 fail-open 包装：未装配时静默跳过。
-func (s *PostgresStore) enqueueBadgeEvaluation(ctx context.Context, userID int64) {
+// enqueueUserEvaluations 是 PostgresStore 的 fail-open 包装：未装配时静默跳过。
+func (s *PostgresStore) enqueueUserEvaluations(ctx context.Context, userID int64) {
 	if s == nil || s.badgeEvaluation == nil || userID <= 0 {
 		return
 	}
-	s.badgeEvaluation.EnqueueBadgeEvaluation(ctx, userID)
+	s.badgeEvaluation.EnqueueUserEvaluations(ctx, userID)
 }

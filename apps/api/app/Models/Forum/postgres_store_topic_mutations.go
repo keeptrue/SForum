@@ -119,7 +119,7 @@ func (s *PostgresStore) CreateTopic(ctx context.Context, input CreateTopicRecord
 		return TopicDetail{}, fmt.Errorf("commit create topic: %w", err)
 	}
 	// D2：提交后触发一次自动徽章评估（fail-open）。
-	s.enqueueBadgeEvaluation(ctx, input.AuthorUserID)
+	s.enqueueUserEvaluations(ctx, input.AuthorUserID)
 	return topic, nil
 }
 

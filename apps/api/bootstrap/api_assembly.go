@@ -12,10 +12,12 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	providers "github.com/keeptrue/sforum/apps/api/app/Providers"
 	supportai "github.com/keeptrue/sforum/apps/api/app/Support/AI"
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
@@ -30,46 +32,51 @@ import (
 // apiCoreStack 是 foundation+domain 装配完成后交给 HTTP/worker 阶段的依赖包。
 // 失败路径由各阶段自己的收尾逻辑释放已取得的资源；成功后由 API.close 统一收尾。
 type apiCoreStack struct {
-	adminOverviewProvider        *providers.AdminOverviewProvider
-	aiProvider                   *providers.AIProvider
-	aiOrchestrator               *supportai.Orchestrator
-	systemUpdatesProvider        *providers.SystemUpdatesProvider
-	apiTokenService              *apitokens.Service
-	attachmentsProvider          *providers.AttachmentsProvider
-	attachmentService            *attachments.Service
-	auditWriter                  audit.Writer
-	authSessions                 *authsession.Manager
-	closePluginRuntime           func()
-	closeRouteFailureRecorder    func()
-	closeCommentRevisionHub      func()
-	databaseLeaseRegistry        *extensionsruntime.PostgresExtensionDatabaseRegistry
-	databaseProvider             *providers.DatabaseProvider
-	entityMetaProvider           *providers.EntityMetaProvider
-	extensionGuardPolicy         *extensions.GuardPolicyCatalog
-	extensionRuntime             extensionRuntime
-	extensionService             *extensions.Service
-	extensionStore               *extensions.PostgresStore
-	extensionsProvider           *providers.ExtensionsProvider
-	forumProvider                *providers.ForumProvider
-	heartbeatStore               *health.RedisHeartbeatStore
-	hostAPIGateway               *hostapi.Gateway
-	hostInstallationID           string
-	identityProvider             *providers.IdentityProvider
-	identityStore                *identity.PostgresStore
-	jobClient                    *supportjobs.Client
-	jobsProvider                 *providers.JobsProvider
-	lifecycleStack               *productionLifecycleStack
-	mailProvider                 *providers.MailProvider
-	moderationProvider           *providers.ModerationProvider
-	notificationsProvider        *providers.NotificationsProvider
-	closeNotificationStore       func()
-	optionsProvider              *providers.OptionsProvider
-	optionsService               *options.Service
-	pagesProvider                *providers.PagesProvider
-	pluginRuntimeCoordinator     *pluginRuntimeCoordinatorRuntime
-	pluginRuntimeRecovery        *health.RecoveryRequirement
-	pluginRuntimeStopTimeout     time.Duration
-	pool                         *pgxpool.Pool
+	adminOverviewProvider     *providers.AdminOverviewProvider
+	aiProvider                *providers.AIProvider
+	aiOrchestrator            *supportai.Orchestrator
+	systemUpdatesProvider     *providers.SystemUpdatesProvider
+	apiTokenService           *apitokens.Service
+	attachmentsProvider       *providers.AttachmentsProvider
+	attachmentService         *attachments.Service
+	auditWriter               audit.Writer
+	authSessions              *authsession.Manager
+	closePluginRuntime        func()
+	closeRouteFailureRecorder func()
+	closeCommentRevisionHub   func()
+	databaseLeaseRegistry     *extensionsruntime.PostgresExtensionDatabaseRegistry
+	databaseProvider          *providers.DatabaseProvider
+	entityMetaProvider        *providers.EntityMetaProvider
+	extensionGuardPolicy      *extensions.GuardPolicyCatalog
+	extensionRuntime          extensionRuntime
+	extensionService          *extensions.Service
+	extensionStore            *extensions.PostgresStore
+	extensionsProvider        *providers.ExtensionsProvider
+	forumProvider             *providers.ForumProvider
+	heartbeatStore            *health.RedisHeartbeatStore
+	hostAPIGateway            *hostapi.Gateway
+	hostInstallationID        string
+	identityProvider          *providers.IdentityProvider
+	identityStore             *identity.PostgresStore
+	jobClient                 *supportjobs.Client
+	jobsProvider              *providers.JobsProvider
+	lifecycleStack            *productionLifecycleStack
+	mailProvider              *providers.MailProvider
+	moderationProvider        *providers.ModerationProvider
+	notificationsProvider     *providers.NotificationsProvider
+	closeNotificationStore    func()
+	optionsProvider           *providers.OptionsProvider
+	optionsService            *options.Service
+	pagesProvider             *providers.PagesProvider
+	pluginRuntimeCoordinator  *pluginRuntimeCoordinatorRuntime
+	pluginRuntimeRecovery     *health.RecoveryRequirement
+	pluginRuntimeStopTimeout  time.Duration
+	pool                      *pgxpool.Pool
+	// trustLevelResolver 是 infrastructure 阶段那个唯一实例（M8：全仓一处 NewResolver）。
+	trustLevelResolver *trustlevels.Resolver
+	// trustLevelEventPublisher 是 API 正在用的 extensionRuntime（plugin event bus），
+	// M4b-2 的 trust_level.changed 复用它，不新建第二份。
+	trustLevelEventPublisher     appevents.Publisher
 	productionSEO                *productionSEORegistry
 	profileProvider              *providers.ProfileProvider
 	queryResultCache             *productionQueryResultCacheRuntime

@@ -8,36 +8,51 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	badgesjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Badges"
+	trustlevelsjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/TrustLevels"
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
-// badgeEvaluationEnqueuer 把 Forum / Badges 侧的 fail-open 入队契约落到 River。
+// userEvaluationEnqueuer 把 Forum / Badges 侧的 fail-open 入队契约落到 River。
+//
+// 一个名字承载**同一件事的两个派生**：这个用户的状态变了，所以要重算
+//   - badges.evaluate_user（徽章授予）；
+//   - trustlevels.recompute_user（信任等级变更事件）。
+//
+// 为什么合成一个方法而不是让 6 个调用点各记两件事：调用点表达的是「状态变了」，
+// 不是「我要算徽章」。拆成两个方法，第 7 个调用点出现时必然只写一个（历史证明如此）。
 //
 // 契约本身没有 error 返回值（见 forum.BadgeEvaluationEnqueuer）：统计已经落库，
 // 评估迟到几秒可以接受，让写请求因为队列抖动失败不可接受。所以这里只记日志。
-type badgeEvaluationEnqueuer struct {
+type userEvaluationEnqueuer struct {
 	dispatcher *supportjobs.Dispatcher
 	logger     *slog.Logger
 }
 
-func newBadgeEvaluationEnqueuer(dispatcher *supportjobs.Dispatcher, logger *slog.Logger) badgeEvaluationEnqueuer {
-	return badgeEvaluationEnqueuer{dispatcher: dispatcher, logger: logger}
+func newUserEvaluationEnqueuer(dispatcher *supportjobs.Dispatcher, logger *slog.Logger) userEvaluationEnqueuer {
+	return userEvaluationEnqueuer{dispatcher: dispatcher, logger: logger}
 }
 
-// EnqueueBadgeEvaluation 入队一次 badges.evaluate_user。
+// EnqueueUserEvaluations 入队徽章评估 + 信任等级重算各一次。
 //
-// 去重键等价于 badges:evaluate:{userID}：args 只有 UserID，配合 river 的
-// ByArgs 唯一性，同一用户短时间内的多次触发会被合并成一次。
-func (e badgeEvaluationEnqueuer) EnqueueBadgeEvaluation(ctx context.Context, userID int64) {
+// **两个入队互相独立**：一个失败绝不能吞掉另一个。它们去重维度也不同
+// （badges:evaluate:{userID} / trustlevels:recompute:{userID}），一条队列抖动
+// 没有理由连带另一条。
+func (e userEvaluationEnqueuer) EnqueueUserEvaluations(ctx context.Context, userID int64) {
 	if e.dispatcher == nil || userID <= 0 {
 		return
 	}
-	args := badgesjobs.EvaluateUserArgs{UserID: userID}
-	if _, err := e.dispatcher.Enqueue(ctx, args, args.EnqueueOptions()); err != nil {
+	badgeArgs := badgesjobs.EvaluateUserArgs{UserID: userID}
+	if _, err := e.dispatcher.Enqueue(ctx, badgeArgs, badgeArgs.EnqueueOptions()); err != nil {
 		if e.logger != nil {
 			e.logger.Warn("enqueue badge evaluation failed", "user_id", userID, "error", err)
+		}
+	}
+	trustArgs := trustlevelsjobs.RecomputeUserArgs{UserID: userID}
+	if _, err := e.dispatcher.Enqueue(ctx, trustArgs, trustArgs.EnqueueOptions()); err != nil {
+		if e.logger != nil {
+			e.logger.Warn("enqueue trust level recompute failed", "user_id", userID, "error", err)
 		}
 	}
 }
