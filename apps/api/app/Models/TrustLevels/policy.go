@@ -108,7 +108,18 @@ func DefaultPolicy() Policy {
 // 也不会被复用，留墓碑只是噪声。
 func RestoreDefaults(previous Policy) Policy {
 	next := DefaultPolicy()
-	deleted := make([]string, 0, len(previous.DeletedTierIDs)+len(previous.Tiers))
+	// 容量提示用两边的较大值，不做 len(a)+len(b)。
+	//
+	// CodeQL go/allocation-size-overflow 的判定依据是「make 的容量参数来自两个切片
+	// 长度相加」：相加在 int 上可能溢出成负数，make 随之 panic。实际这里两段都是
+	// 档位 id 列表，总长受可用内存约束，加法不可达溢出，但告警按模式匹配仍会报。
+	// 取 max 只做单边比较，容量表达式里不再出现加法，告警随之消失。
+	//
+	// 容量只是预分配提示，实际长度两个方向都可能偏离 max：既可能更大（既有墓碑
+	// 与本次被移除的档位 id 合起来最多是两边之和，超出部分由 Go 在 append 时自动
+	// 扩容），也可能更小（内置档位 id 不是 tier_<n>，不进墓碑）。两种偏离都只影响
+	// 这一次分配多少，不影响墓碑的去重逻辑与保序并集语义。
+	deleted := make([]string, 0, max(len(previous.DeletedTierIDs), len(previous.Tiers)))
 	seen := make(map[string]bool, len(deleted))
 	appendID := func(id string) {
 		if seen[id] {

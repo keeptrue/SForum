@@ -456,8 +456,20 @@ func declaredEarnableKeys(registry trustlevels.EarnableRegistry) []string {
 // **不用 `orphan`**：既有 i18n 的 `earnable.orphan.*` 指的是「键不在白名单」，与本处
 // 的 unknown 是两件事；同词会让提示写成「等插件启用」。
 func toEarnableStates(configKeys, declaredKeys []string, registry trustlevels.EarnableRegistry) []earnableState {
-	seen := make(map[string]struct{}, len(configKeys)+len(declaredKeys))
-	out := make([]earnableState, 0, len(configKeys)+len(declaredKeys))
+	// 容量提示用两边的较大值，不做 len(a)+len(b)。
+	//
+	// CodeQL go/allocation-size-overflow 的判定依据是「make 的容量参数来自两个切片
+	// 长度相加」：相加在 int 上可能溢出成负数，make 随之 panic。实际这里两段都是
+	// 站内键名列表，总长受可用内存约束，加法不可达溢出，但告警按模式匹配仍会报。
+	// 取 max 只做单边比较，容量表达式里不再出现加法，告警随之消失。
+	//
+	// 容量只是预分配提示，实际长度两个方向都可能偏离 max：既可能更大（并集最多
+	// 是两边之和，超出部分由 Go 在 append 时自动扩容），也可能更小（configKeys
+	// 里的空串会被 appendKey 过滤，不进结果）。两种偏离都只影响这一次分配多少，
+	// 不影响去重逻辑、判空顺序与返回顺序。
+	capHint := max(len(configKeys), len(declaredKeys))
+	seen := make(map[string]struct{}, capHint)
+	out := make([]earnableState, 0, capHint)
 	appendKey := func(key string) {
 		if key == "" {
 			return
