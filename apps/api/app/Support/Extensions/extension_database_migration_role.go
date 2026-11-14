@@ -109,6 +109,11 @@ func revokeExtensionDatabaseMigrationRole(
 	`, roleName, databaseName); err != nil {
 		return fmt.Errorf("terminate extension migration sessions: %w", err)
 	}
+	// REASSIGN OWNED 在 PG 17.12 起要求调用者能 SET ROLE 到接收者，
+	// 先临时获得扩展 owner 的转移权限，回收结束后立即归还。
+	if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+		return err
+	}
 	for _, query := range []string{
 		`REASSIGN OWNED BY ` + role + ` TO ` + owner,
 		`REVOKE ` + owner + ` FROM ` + role,
@@ -118,6 +123,9 @@ func revokeExtensionDatabaseMigrationRole(
 		if _, err := tx.Exec(ctx, query); err != nil {
 			return fmt.Errorf("retire extension migration role: %w", err)
 		}
+	}
+	if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+		return err
 	}
 	return validateExtensionDatabaseRoleIsolation(
 		ctx, tx, roleName, schemaName, "", databaseName, false,

@@ -139,15 +139,9 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 	if err := setup.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
-	var hostInheritsExtensionOwner bool
-	if err := hostPool.QueryRow(ctx,
-		`SELECT pg_has_role($1, $2, 'USAGE')`, hostRoleName, extensionOwnerName,
-	).Scan(&hostInheritsExtensionOwner); err != nil {
-		t.Fatal(err)
-	}
-	if hostInheritsExtensionOwner {
-		t.Fatal("non-super Host retained extension-owner inheritance before lease retirement")
-	}
+	assertNonSuperHostCannotActAsExtensionOwner(
+		t, ctx, hostPool, hostRoleName, extensionOwnerName, "before lease retirement",
+	)
 
 	leaseURL := *targetURL
 	leaseURL.User = url.UserPassword(leaseRoleName, leasePassword)
@@ -180,13 +174,18 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 	if err := lockExtensionDatabasePhysicalAuthority(ctx, retirement); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := retirement.Exec(ctx,
-		`GRANT `+leaseRole+` TO `+hostRole+` WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`,
+	if err := acquireExtensionDatabaseKernelOwnerAuthority(
+		ctx, retirement, map[string]struct{}{leaseRoleName: {}},
 	); err != nil {
 		t.Fatalf("acquire non-super kernel retirement authority: %v", err)
 	}
 	if err := reassignExtensionDatabaseKernelCoreObjects(ctx, retirement, leaseRoleName); err != nil {
 		t.Fatalf("transfer non-super kernel Core objects: %v", err)
+	}
+	// 生产回收路径用同一对 helper 临时获得「把对象交给扩展 owner」的 SET ROLE
+	// 权限（PG 17.12 起 REASSIGN OWNED 要求，CVE-2026-120146），用完立刻归还。
+	if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, retirement, extensionOwnerName); err != nil {
+		t.Fatalf("acquire non-super kernel object recipient authority: %v", err)
 	}
 	for _, query := range []string{
 		`REASSIGN OWNED BY ` + leaseRole + ` TO ` + extensionOwner,
@@ -196,6 +195,9 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 		if _, err := retirement.Exec(ctx, query); err != nil {
 			t.Fatalf("retire non-super kernel lease: %v", err)
 		}
+	}
+	if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, retirement, extensionOwnerName); err != nil {
+		t.Fatalf("release non-super kernel object recipient authority: %v", err)
 	}
 	if err := retirement.Commit(ctx); err != nil {
 		t.Fatal(err)
@@ -214,5 +216,35 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 	}
 	if roleExists {
 		t.Fatal("non-super kernel lease role survived exact retirement")
+	}
+	assertNonSuperHostCannotActAsExtensionOwner(
+		t, ctx, hostPool, hostRoleName, extensionOwnerName, "after lease retirement",
+	)
+}
+
+// CREATEROLE 建 role 时 PostgreSQL 会留下一条 admin=true, inherit=false, set=false
+// 的 creator 成员行，因此单查 USAGE 恒为 false，证明不了「没有残留授权」。
+// USAGE（可继承）与 SET（可 SET ROLE）才是 CVE-2026-120146 收紧的那两个权限位，
+// 也是宿主能拿扩展 owner 身份动手的全部前提。
+func assertNonSuperHostCannotActAsExtensionOwner(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	hostRoleName string,
+	extensionOwnerName string,
+	stage string,
+) {
+	t.Helper()
+	var usable, settable bool
+	if err := pool.QueryRow(ctx, `
+		SELECT pg_has_role($1, $2, 'USAGE'), pg_has_role($1, $2, 'SET')
+	`, hostRoleName, extensionOwnerName).Scan(&usable, &settable); err != nil {
+		t.Fatal(err)
+	}
+	if usable || settable {
+		t.Fatalf(
+			"non-super Host could act as the extension owner %s (usage=%t set=%t)",
+			stage, usable, settable,
+		)
 	}
 }
