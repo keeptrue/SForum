@@ -24,10 +24,22 @@ import (
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
-// 本文件不含 Test*，只提供「装载路径」A/B 的共享夹具与别名 SQL 断言：
+// 本文件不含 Test*，只提供「装载路径」A/B 的共享夹具与别名 SQL 断言。
+// 两个消费方：
 //
 //   - loader_queries_postgres_integration_test.go  常开段：只断 SQL 条数与形状，进 CI；
 //   - loader_latency_postgres_integration_test.go  可选段：10k 夹具，只做分位与 5ms 预算。
+//
+// 分区索引（按出现顺序，改这块时先看这里）：
+//  1. 常量与「不能消失的 SQL」点名表       loaderBaselineSQL / loaderRequiredSQL
+//  2. SQL tracer                          loaderQueryTracer
+//  3. 夹具数据与 Reader（真读/stub 变异）   loaderActivity / loaderActivityReader
+//  4. 策略来源（bootstrap 同形副本）        loaderPolicySource
+//  5. 夹具本体（建库/迁移/连接池）           loaderFixture / newLoaderFixture / createLoaderDatabase
+//  6. seed 与策略写入                      seed / setFeatureEnabled / setPolicy
+//  7. 观察面（游标取样/单次装载/条数探针）     sampleIDs / load* / traceOneLoad / countQueries*
+//  8. 策略形状构造                         loaderTierJSON / loaderPolicies
+//  9. 条数断言                             assertLoaderQueries
 //
 // 口径边界（M5-P 的骨头，别混）：
 //   - `TestRuleEvaluationLatency`（rule_eval_postgres_integration_test.go）两侧把
@@ -274,15 +286,35 @@ func createLoaderDatabase(t *testing.T, ctx context.Context, baseURL, databaseNa
 		_ = admin.Close(context.Background())
 	}
 
+	fastPath := false
 	if templateDatabase != "" && templateDatabase != "postgres" {
+		// 模板路径**继承模板库的行**：今天的断言只看 SQL 条数与形状，所以免疫；
+		// 将来若在这里加行数/内容断言，模板路径会变成 flaky 源（别人留下的行会进来）。
 		if _, err := admin.Exec(ctx, "CREATE DATABASE "+quoted+" TEMPLATE "+pgx.Identifier{templateDatabase}.Sanitize()); err == nil {
-			return drop
+			fastPath = true
 		}
 	}
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+quoted); err != nil {
-		drop()
-		t.Fatalf("create loader fixture database: %v", err)
+	if !fastPath {
+		if _, err := admin.Exec(ctx, "CREATE DATABASE "+quoted); err != nil {
+			drop()
+			t.Fatalf("create loader fixture database: %v", err)
+		}
 	}
+	// 不论哪条路径，都在副本上补一次 Up 并断言 schema 版本：
+	//   - 模板落后（上一次跑用的是旧 checkout）时，Up 会把副本补齐，而不是让失败信息
+	//     指到「SQL 条数不对」上（那会把下一个人带偏半天）；
+	//   - 版本号进日志，出问题第一眼就能看出「库是旧的」还是「断言错了」。
+	t.Logf("fastPath=%v template=%q", fastPath, templateDatabase)
+	ensureLoaderSchemaCurrent(t, ctx, baseURL, databaseName, drop)
+	return drop
+}
+
+// ensureLoaderSchemaCurrent 把副本迁到本 checkout 的最新版本并断言没有残留 pending。
+//
+// 它就是 R7 的版本断言：**先把库补齐，再证明补齐了**。失败信息带版本号，
+// 因为「模板库落后」与「SQL 条数变了」在旧实现里长得一模一样。
+func ensureLoaderSchemaCurrent(t *testing.T, ctx context.Context, baseURL, databaseName string, drop func()) {
+	t.Helper()
 	migrationConfig, err := pgx.ParseConfig(baseURL)
 	if err != nil {
 		drop()
@@ -290,24 +322,32 @@ func createLoaderDatabase(t *testing.T, ctx context.Context, baseURL, databaseNa
 	}
 	migrationConfig.Database = databaseName
 	sqlDB := stdlib.OpenDB(*migrationConfig)
+	defer func() { _ = sqlDB.Close() }()
 	provider, err := goose.NewProvider(
 		goose.DialectPostgres, sqlDB, migrations.Files(), goose.WithDisableGlobalRegistry(true),
 	)
 	if err != nil {
-		_ = sqlDB.Close()
 		drop()
 		t.Fatal(err)
 	}
 	if _, err := provider.Up(ctx); err != nil {
-		_ = sqlDB.Close()
 		drop()
 		t.Fatalf("migrate loader fixture database: %v", err)
 	}
-	if err := sqlDB.Close(); err != nil {
+	current, target, err := provider.GetVersions(ctx)
+	if err != nil {
 		drop()
-		t.Fatal(err)
+		t.Fatalf("read loader fixture schema version: %v", err)
 	}
-	return drop
+	t.Logf("schema version=%d target=%d", current, target)
+	if pending, err := provider.HasPending(ctx); err != nil {
+		drop()
+		t.Fatalf("check loader fixture schema pending: %v", err)
+	} else if pending {
+		drop()
+		t.Fatalf("夹具库 schema 仍是旧版（current=%d target=%d）：模板库落后于本 checkout。"+
+			"先重跑 ./scripts/test-api-isolated.sh 让共享库迁移到最新，不要先去改 SQL 条数断言", current, target)
+	}
 }
 
 // seed 造夹具：users + user_activity + 每人一个内置 member 角色 + 产品开关落库。
