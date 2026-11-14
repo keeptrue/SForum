@@ -224,26 +224,63 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 
 ### 4.4 M3：后台 UI
 
-> **规范更正（2026-11-14，M3b 实施期实测；与 ui-spec / copy-spec 冲突处以此为准）**
+> **规范更正（2026-11-14，M3b 实施期 + M5 QA 实测；与 ui-spec / copy-spec 冲突处以此为准）**
 >
 > | # | 规范原写法 | 实测后 |
 > | --- | --- | --- |
-> | S1 | ui-spec Q-02「恰好 1 个纵向滚动容器」 | **全站不成立**：`/control-panel/users`（未改动页）同样有 2 个（侧栏导航列 + `.sforum-admin-scroll-area`），390 下侧栏收起才恰好 1 个。判据改为「**面板不给 shell 基线新增 scroller**」（shell 基线可能是 1 或 2，取决于断点与侧栏状态）。 |
-> | S2 | ui-spec Q-03「面板子树内 `overflow≠visible` 元素数为 0」 | 会误判：面板子树里唯一 `overflow:auto` 是共享编辑器 JSON 预览的 `<pre>`，它在默认收起的 `<details>` 里（M3a 原样搬来）。改它＝改徽章编辑器行为。判据改为「排除收起 `<details>` 子树后为 0」。 |
+> | S1 | ui-spec Q-02「恰好 1 个纵向滚动容器」 | **全站不成立**：`/control-panel/users`（未改动页）同样有 2 个（侧栏导航列 + `.sforum-admin-scroll-area`），390 下侧栏收起才恰好 1 个。判据改为「**面板不给 shell 基线新增 scroller**」（shell 基线可能是 1 或 2，取决于断点与侧栏状态）。**M5 QA 补实测**：390×844 同源 iframe 内 `overflow-x ∈ {auto,scroll}` 的容器 3 个（`.sforum-admin-tabs` / `.sforum-admin-scroll-area` / `.shrink-0`）全属 shell，**其中真正会滚的（scrollWidth > clientWidth）= 0**。 |
+> | S2 | ui-spec Q-03「面板子树内 `overflow≠visible` 元素数为 0」 | **两次更正**。第一次（M3b 实施期）：面板子树里唯一 `overflow:auto` 是共享编辑器 JSON 预览的 `<pre>`，它在默认收起的 `<details>` 里（M3a 原样搬来），改它＝改徽章编辑器行为 → 判据暂改为「排除收起 `<details>` 子树后为 0」。第二次（M5 QA，2026-11-14）：这条**在本仓永远不可能为 0**——排除 `details` 后仍有上面那 3 个 shell 容器；按字面统计 `overflow ≠ visible`（含 `hidden` / `clip`）共 **109 个**，shell 到处 `overflow-hidden` / `clip`（含 `IMG`）。所以 S2 与 S1 同构：「**面板不给 shell 基线新增 scroller / 新增 `overflow≠visible` 元素**」——基线本身不是 0，比的是「面板带来的增量」。证据：`work-team/review/t13-qa/REPORT.md` §2。 |
 > | S3 | copy-spec §3.2 的 `panel.title` / `empty.title` / `impact.row` | **不落地**：ui-spec §1.9 明令面板不渲染自己的标题（避免一档两个视觉起点），`impact.row` 无消费者。三条落地即死键，而死键判据（§4.3）没有自动护栏 → 直接从文案表删除。 |
 > | S4 | 「数字全屏只出现一次」 | 语义澄清：**每个档位的数字只出现一次**，不是「整个弹窗只有一个数字」。多档带规则时各档各有自己的数字是正确行为（弹窗只列**带规则**的档，纯数值档已滤掉，否则会出现 4 个数字）。 |
 
 ### 4.4-b M3b 未覆盖项（**M5 收口必补，不许沉掉**）
 
 三项浏览器 QA 因「要写 dev 库」而未做，实施方已诚实标注。补法已给，M5 收口单必须原样带上：
+证据来源：`work-team/review/t13-qa/REPORT.md`（reviewer，2026-11-14）。三项均已 PASS，
+但那次 QA 同时翻出**本表自己写错的三处**（U2 判据不可达 / U3 配方不成立 / S2 口径不成立），
+下面按「原写法 → 实测后」逐条回写。
 
 | # | 项 | 现在为什么测不了 | 补法 |
 | --- | --- | --- | --- |
 | U1 | Q-10 深色派生（自定义 hex） | dev 库 4 档都是 token 色，无自定义 hex；改它要写库 | 夹具档设 `#7c3aed` → `html.classList.add('dark')` → 断言 `panel.borderLeftColor` 浅/深两值不等 |
-| U2 | Q-12 深度 5 嵌套不溢出（390 期望最内层 `clientWidth ≈ 170`） | 需要往 `trust.levels` 写一棵 5 层 `any/not` 树 | 用 `rule-impact` 同一套草稿体构造，或在 QA 环境写一档再回滚 |
-| U3 | Q-14/Q-16 的 `null` 与 `0` 现场 | 真实数据造不出 `estimated: null`（要不可估条件如 `object.engagement` 指向某主题）；`0` 要求全站无人满足 | QA 环境加一档只含 `object.engagement` 的规则 → 断言无 `≈`；另一档阈值调到无人够 → 断言 `≈ 0 人` 而非「无法估算」 |
+| U2 | Q-12 深度嵌套不溢出（390）。**原写法「期望最内层 `clientWidth ≈ 170`」作废**，推错过程见下方专段 | 需要往 `trust.levels` 写一棵嵌套 `any/not` 树 | 写入 **4 组 + 1 叶（5 层）**：`not → any → all → not → leaf`（叶子 `activity.count`）→ 390×844 载页 → 展开「更多条件（1）」→ 断言 **最深层 `clientWidth ≥ 200` 且 `scrollWidth == clientWidth`**，且 `document.scrollWidth == document.clientWidth`（页面无横向溢出）。实测：`[data-rule-group]` 4 个深度 1–4、最内层 `clientWidth=208 / scrollWidth=208`、叶子 182、文档 `390 == 390` |
+| U3 | Q-14/Q-16 的 `null` 与 `0` 现场。**原写法「加一档只含 `object.engagement` 的规则 → 断言无 `≈`」不成立**（见下方专段） | 真实数据造不出 `estimated: null`（要不可估条件如 `object.engagement` 指向某主题）；`0` 要求全站无人满足 | **null 端**：该档**六项数值门槛同时清零** + 规则只留 `object.engagement`（`{action:'like',topicId:1}`）→ 断言 `{status:ready, unestimable:无法估算, estimate:null, partial:false}`、全屏 `≈` 计数 0、`partial` 行不渲染。**零端**：另一档阈值调到无人够 → 断言渲染「≈ 0 人」而非「无法估算」 |
 
 > 两态目前由 SFC 夹具钉死（`trustLevelRuleImpact.test.ts` 的 CP-1/CP-2），但**夹具不等于现场**：`0` 与 `null` 走的是同一条三元分支，只有真数据能证明归一化没把 0 变成 null。
+
+**U2 的 `170` 是怎么推错的（别只删数字，下一个人要看到错在哪）**
+
+出处是 ui-spec §1.2/§1.3 的缩进阶梯（`reports/2026-11-14-trust-level-conditions-ui-spec.md:104`）：
+`组 d1 274 ｜ d2 248 ｜ d3 222 ｜ d4 196 ｜ d5 叶子内容 = 170`——即从 390 宽下的 274 起、按
+**26px/层**减五次。三处错叠在一起：
+
+1. **层级口径错**：产品硬上限 `BADGE_RULE_LIMITS.maxDepth = 5`（`apps/web/app/utils/admin/rule.ts:105`）
+   是**总层数**，最深合法结构是「4 组 + 1 叶」；阶梯却按「5 组 + 叶」再减一次。实测把 6 层写进去，
+   `PUT /admin/trust-levels` 直接 `422 rule_too_complex`——**那条路径在产品里不存在**，所以 170 永远不可达。
+2. **步长假设偏大**：阶梯按 **26px/层**推（274→248→222→196 每步都是 26）。用 ui-spec 的 d1=274
+   与实测的 d4=208 反推，实际约 **22px/层**（66px 跨 3 层；这是**反推值**，QA 只逐层记了最内层与叶子）。
+3. **量错了对象**：170 标的是「叶子**内容**宽」，计划却把它写成「最内层 `clientWidth`」；
+   实测这两个量分别是 182 与 208，本来就不是同一个数。
+
+结论：`≈170` 在合法配置下不可达，判据换成与深度无关的「`clientWidth ≥ 200` + 无横向溢出」。
+注：那条缩进阶梯在 ui-spec（`reports/2026-11-14-trust-level-conditions-ui-spec.md:104`）里**仍然是错的**，
+本单只改计划；ui-spec 的更正挂到 M5 收口（task-14），别再拿那张阶梯当依据反推别的宽度。
+
+**U3 的配方为什么不成立**
+
+档位**自己的六项数值门槛会被折进合成根**：只要还有一条可估条件，「可估条件集」就非空。
+第一次照计划原话做（只加 `object.engagement` 规则、门槛维持默认）拿到的是
+`≈ 0 人` + `partial: true`（依据：取最严格的一条可估条件，其余条件无法估算）——看着像走了 null 分支，
+其实是零端。要把「可估条件集」清空，必须**同时把该档六项门槛清零**（零值指标不折叶子）。
+实测正确配方下：`{"status":"ready","unestimable":"无法估算","estimate":null,"partial":false,"approxCount":0}`，
+弹窗全文「资深用户 无法估算 / 这里没有人数：表示无法估算，不代表 0 人。以下条件无法参与估算：与主题互动」，
+**全屏 `≈` = 0、`partial` 行不渲染**。
+
+> **协作提示（2026-11-14 QA 实测）：dev 库的 `trust.levels` 是多 agent 共享写资源。**
+> task-13 期间写进去的 `member.color=#7c3aed` + resident 规则，在两次读之间被别的任务**整份回滚成原始值**
+> （读回 sha256 等于 QA 自己的 dump）。凡是要写 dev 库的单（QA / 性能采样 / 截图取证）按这条执行：
+> **跑前** dump `GET /api/v1/admin/trust-levels` 的 `data.config` 并记 sha256；**写完立刻用**（不要隔一步再读）；
+> **用完** PUT 复原并读回比对同一 sha256。中间态被别人覆盖时以「读回值」为准，别以「PUT 返回 200」为准。
 
 ### 4.4-c 存量死键 9 条（**M5 收口必判定，不许无主悬着**）
 
