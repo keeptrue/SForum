@@ -71,6 +71,7 @@ cd apps/api && go run ./cmd/sforum extension docs generate --check
 | `templates` | array \| null | no | yes |
 | `type` | string | yes | no |
 | `url` | string | yes | no |
+| `userFactConditions` | array \| null | no | no |
 | `version` | string | yes | no |
 
 ## Declaration families

@@ -4237,7 +4237,7 @@
     "handler": "getAdmin",
     "method": "GET",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:91",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:92",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -4255,7 +4255,7 @@
     "handler": "updateAdmin",
     "method": "PUT",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:92",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:93",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -4273,7 +4273,7 @@
     "handler": "adminListRuleConditions",
     "method": "GET",
     "path": "/api/v1/admin/trust-levels/conditions",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:89",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:90",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -4291,7 +4291,7 @@
     "handler": "restoreDefaults",
     "method": "POST",
     "path": "/api/v1/admin/trust-levels/restore-defaults",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:93",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:94",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -4309,7 +4309,7 @@
     "handler": "adminEstimateRuleImpact",
     "method": "POST",
     "path": "/api/v1/admin/trust-levels/rule-impact",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:90",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:91",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -7115,7 +7115,7 @@
     "handler": "getPublic",
     "method": "GET",
     "path": "/api/v1/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:86",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:87",
     "access": "public",
     "policy": "trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled",
     "guard": {
