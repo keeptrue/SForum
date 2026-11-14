@@ -344,12 +344,22 @@ func cleanupExtensionDatabaseRuntimeLeaseRole(
 	}
 	retirementQueries := make([]string, 0, 3)
 	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantOwnSchema) {
+		// REASSIGN OWNED 在 PG 17.12 起要求调用者能 SET ROLE 到接收者，
+		// 先临时获得扩展 owner 的转移权限，回收结束后立即归还。
+		if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+			return err
+		}
 		retirementQueries = append(retirementQueries, `REASSIGN OWNED BY `+role+` TO `+owner)
 	}
 	retirementQueries = append(retirementQueries, `DROP OWNED BY `+role, `DROP ROLE `+role)
 	for _, query := range retirementQueries {
 		if err := executeExtensionDatabaseRuntimeLeaseRetirement(ctx, tx, query); err != nil {
 			return fmt.Errorf("%w: retire runtime lease role: %v", ErrExtensionDatabaseCredential, err)
+		}
+	}
+	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantOwnSchema) {
+		if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+			return err
 		}
 	}
 	delete(retirementOwners, roleName)

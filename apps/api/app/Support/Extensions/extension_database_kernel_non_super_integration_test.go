@@ -180,13 +180,18 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 	if err := lockExtensionDatabasePhysicalAuthority(ctx, retirement); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := retirement.Exec(ctx,
-		`GRANT `+leaseRole+` TO `+hostRole+` WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`,
+	if err := acquireExtensionDatabaseKernelOwnerAuthority(
+		ctx, retirement, map[string]struct{}{leaseRoleName: {}},
 	); err != nil {
 		t.Fatalf("acquire non-super kernel retirement authority: %v", err)
 	}
 	if err := reassignExtensionDatabaseKernelCoreObjects(ctx, retirement, leaseRoleName); err != nil {
 		t.Fatalf("transfer non-super kernel Core objects: %v", err)
+	}
+	// 生产回收路径用同一对 helper 临时获得「把对象交给扩展 owner」的 SET ROLE
+	// 权限（PG 17.12 起 REASSIGN OWNED 要求，CVE-2026-120146），用完立刻归还。
+	if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, retirement, extensionOwnerName); err != nil {
+		t.Fatalf("acquire non-super kernel object recipient authority: %v", err)
 	}
 	for _, query := range []string{
 		`REASSIGN OWNED BY ` + leaseRole + ` TO ` + extensionOwner,
@@ -196,6 +201,9 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 		if _, err := retirement.Exec(ctx, query); err != nil {
 			t.Fatalf("retire non-super kernel lease: %v", err)
 		}
+	}
+	if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, retirement, extensionOwnerName); err != nil {
+		t.Fatalf("release non-super kernel object recipient authority: %v", err)
 	}
 	if err := retirement.Commit(ctx); err != nil {
 		t.Fatal(err)
@@ -214,5 +222,14 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 	}
 	if roleExists {
 		t.Fatal("non-super kernel lease role survived exact retirement")
+	}
+	var hostRetainsRecipient bool
+	if err := hostPool.QueryRow(ctx,
+		`SELECT pg_has_role($1, $2, 'USAGE')`, hostRoleName, extensionOwnerName,
+	).Scan(&hostRetainsRecipient); err != nil {
+		t.Fatal(err)
+	}
+	if hostRetainsRecipient {
+		t.Fatal("non-super Host retained object recipient authority after lease retirement")
 	}
 }

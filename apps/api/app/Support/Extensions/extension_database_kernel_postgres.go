@@ -73,6 +73,58 @@ func sortedExtensionDatabaseRoleNames(roles map[string]struct{}) []string {
 	return names
 }
 
+// PostgreSQL 16 起「把对象交给另一个 role」就要求调用者能 SET ROLE 到接收者；
+// 17.12 起 REASSIGN OWNED 也遵循同一规则（CVE-2026-120146，此前 INHERIT TRUE,
+// SET FALSE 的成员关系即可绕过）。回收租约/迁移 role 时要把对象交给扩展 owner，
+// 因此必须在同一事务内临时获得该权限，用完立即收回，不留下常驻成员关系。
+func acquireExtensionDatabaseObjectRecipientAuthority(
+	ctx context.Context,
+	tx pgx.Tx,
+	roleName string,
+) error {
+	if !validPostgresIdentifier(roleName) {
+		return ErrExtensionDatabaseRegistryInvalid
+	}
+	var sessionRole string
+	if err := tx.QueryRow(ctx, `SELECT session_user`).Scan(&sessionRole); err != nil {
+		return fmt.Errorf("inspect object recipient management identity: %w", err)
+	}
+	if !validPostgresIdentifier(sessionRole) {
+		return ErrExtensionDatabaseResourceConflict
+	}
+	role := pgx.Identifier{roleName}.Sanitize()
+	session := pgx.Identifier{sessionRole}.Sanitize()
+	if _, err := tx.Exec(ctx,
+		`GRANT `+role+` TO `+session+` WITH ADMIN FALSE, INHERIT TRUE, SET TRUE`,
+	); err != nil {
+		return fmt.Errorf("%w: acquire object recipient authority: %v", ErrExtensionDatabaseCredential, err)
+	}
+	return nil
+}
+
+func releaseExtensionDatabaseObjectRecipientAuthority(
+	ctx context.Context,
+	tx pgx.Tx,
+	roleName string,
+) error {
+	if !validPostgresIdentifier(roleName) {
+		return ErrExtensionDatabaseRegistryInvalid
+	}
+	var sessionRole string
+	if err := tx.QueryRow(ctx, `SELECT session_user`).Scan(&sessionRole); err != nil {
+		return fmt.Errorf("inspect object recipient management identity: %w", err)
+	}
+	if !validPostgresIdentifier(sessionRole) {
+		return ErrExtensionDatabaseResourceConflict
+	}
+	role := pgx.Identifier{roleName}.Sanitize()
+	session := pgx.Identifier{sessionRole}.Sanitize()
+	if _, err := tx.Exec(ctx, `REVOKE `+role+` FROM `+session+` GRANTED BY CURRENT_USER`); err != nil {
+		return fmt.Errorf("%w: release object recipient authority: %v", ErrExtensionDatabaseCredential, err)
+	}
+	return nil
+}
+
 // kernel 继承必须锚定 K1 确定性 owner；Core schema 只允许精确存活租约临时持有对象。
 func validateExtensionDatabaseKernelCoreState(
 	ctx context.Context,
