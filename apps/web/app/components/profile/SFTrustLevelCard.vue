@@ -5,6 +5,10 @@
  * 纯展示：取数在 `useTrustLevel`（M4 公开等级查询），本组件只渲染。
  * class / `data-*` / `aria-*` 是冻结契约（reports/2026-11-10-trust-level-visual-spec.md §1.3），
  * 改名先改规范。刻度条是 `aria-hidden` 的装饰冗余，信息由档位名 + TL 编号 + aria 承载。
+ *
+ * `interactive`（可选，默认 false）只追加一层**透明覆盖按钮**，整卡内容与既有契约零改动：
+ * 不把根节点换成 `<button>` —— 那样 `role="progressbar"` 会被吞进按钮的可访问名，读屏会念成
+ * 「查看信任等级详情 信任等级进度：常驻用户 → 资深用户」。
  */
 import {
   FALLBACK_LADDER,
@@ -27,10 +31,15 @@ const props = withDefaults(defineProps<{
    * 就会被拼成两条 TL0，整张卡错位一档。不传时名字/图标走内置回退，但**不渲染刻度**。
    */
   ladder?: TrustLevelTier[]
+  /** true = 整卡可点（覆盖层按钮）；默认 false，纯展示契约与既有调用点不变。 */
+  interactive?: boolean
 }>(), {
   metrics: () => [],
-  ladder: () => []
+  ladder: () => [],
+  interactive: false
 })
+
+const emit = defineEmits<{ open: [] }>()
 
 const { t, locale } = useI18n()
 
@@ -149,6 +158,17 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
         :data-earned="rung.earned ? 'true' : 'false'"
       />
     </ol>
+
+    <!-- 整卡入口：透明覆盖按钮是**最后一个子节点**（`:has()` 够不到前面的兄弟），
+         卡面内容与冻结契约一行未动。 -->
+    <button
+      v-if="props.interactive"
+      type="button"
+      class="sf-trust-level-card__hit"
+      aria-haspopup="dialog"
+      :aria-label="t('profile.trustLevel.detail.open')"
+      @click="emit('open')"
+    />
   </section>
 </template>
 
@@ -159,6 +179,7 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
   /* 不在这里声明 --tl-accent：真正色相来自 :style="accentStyle"（D-C6）。
      自定义 hex 档靠全局 [data-sf-tl-accent] 把 --tl-accent-light/-dark 落成 --tl-accent，
      而这条选择器的特异度（0,2,0）高于那条属性规则 —— 声明在这里会把 hex 档静默打回 slate。 */
+  position: relative;
   margin: 0;
   padding: 14px;
   border: 1px solid var(--sf-border);
@@ -287,5 +308,28 @@ const rungColumns = computed(() => `repeat(${Math.max(1, rungs.value.length)}, m
 /* 不用 --sf-muted：paper / parchment 下 muted 与卡面几乎同色，刻度会消失。 */
 .sf-trust-level-card__rung[data-earned="false"] {
   background: color-mix(in srgb, var(--sf-fg) 16%, transparent);
+}
+
+/* 覆盖层按钮：透明、铺满卡面，`border-radius: inherit` 让焦点环贴着圆角走。 */
+.sf-trust-level-card__hit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* 100% 档位色，不是 34% 混色：后者在 parchment 上只有 1.63:1，等于没有反馈
+   （100% 起 4.38:1，见规范 §3 的实测表）。 */
+.sf-trust-level-card__hit:focus-visible {
+  outline: 2px solid var(--tl-accent, var(--sf-tl-slate));
+  outline-offset: 2px;
+}
+
+/* 整卡 hover 反馈只能从 `:has()` 拿：按钮是最后一个子节点，兄弟选择器够不到卡面。
+   `:has()` 的特异度按参数算（0,3,0），压得住卡面那条 0,2,0 的 border 声明。 */
+.sf-trust-level-card:has(.sf-trust-level-card__hit:hover) {
+  border-color: var(--tl-accent, var(--sf-tl-slate));
 }
 </style>

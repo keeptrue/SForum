@@ -22,7 +22,9 @@ const components = [
   'admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue',
   'admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue',
   'admin/forum/trust-levels/tabs/SFAdminTrustLevelsOverviewTab.vue',
-  'profile/SFTrustLevelCard.vue'
+  'profile/SFTrustLevelCard.vue',
+  'profile/SFTrustLevelBadge.vue',
+  'profile/SFTrustLevelDetailModal.vue'
 ] as const
 
 const ACCENT_ATTR = 'data-sf-tl-accent'
@@ -79,12 +81,14 @@ describe('every accent-carrying element opts into the global --tl-accent rule', 
   for (const component of components) {
     test(`${component} binds accent style and data-sf-tl-accent on the same element`, () => {
       const bindings = accentBindings(component)
-      // 每个组件恰好一处：多一处意味着有元素在写 --tl-accent 却没被这条护栏看到。
-      expect(bindings).toHaveLength(1)
-      const [binding] = bindings
-      expect(binding!.hasAttribute).toBe(true)
+      // 至少一处：组件确实把 accent 落到某个元素上，否则它不该出现在这张清单里。
+      expect(bindings.length).toBeGreaterThan(0)
+      // **每一处**都必须带属性。徽章是 button / span 两条互斥分支，两处都绑了 accent style；
+      // 只检查第一处会让另一条分支在自定义 hex 档下静默退回 slate —— 而那条分支恰好
+      // 只在「可点 / 只读」切换时才渲染，肉眼更难发现。
+      expect(bindings.filter(binding => !binding.hasAttribute)).toEqual([])
       // 反过来也守一次：漏了属性时，报错信息要指出是哪个元素、哪条表达式。
-      expect(binding!.expression.length).toBeGreaterThan(0)
+      expect(bindings.every(binding => binding.expression.length > 0)).toBe(true)
     })
   }
 

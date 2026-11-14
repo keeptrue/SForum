@@ -4,7 +4,8 @@
  * 数据来源：
  * - **他人视角**：`PublicProfile.trustLevel = { level, levelSlug }`（`Profile/types.go` 的
  *   `PublicTrustLevel`，`omitempty`）。**没有 progress / bottleneck** —— 刻意裁决（D1）。
- * - **本人视角**：`GET /api/v1/trust-levels` 的 `viewer` 字段（等级 + `nextLevel` + `bottleneck`）。
+ * - **本人视角**：`GET /api/v1/trust-levels` 的 `viewer` 字段（等级 + `nextLevel` + `bottleneck`
+ *   + 逐条 `conditions`）。
  * - **档位目录**：同一读面的 `tiers`（v2 存储形状）。档位数、名字、图标由运营定义，
  *   所以本文件里的五档常量**只剩兜底用途**（读面不可用时的 TL{rank} + 默认图标）。
  *
@@ -105,6 +106,17 @@ export type TrustLevelMetric = {
   threshold: number
 }
 
+/**
+ * 一条「离下一档还差哪几项」的规则条件（`viewer.conditions[]` 的投影）。
+ *
+ * 句子是**服务端下发**的双语文本：公开面刻意不含条件标识、参数与比较符（见 OpenAPI
+ * `TrustLevelConditionProgress`），所以这里没有 key 可拼、也不许前端自己造。
+ */
+export type TrustLevelCondition = {
+  satisfied: boolean
+  text: TrustLevelTierName
+}
+
 export type TrustLevelView = {
   level: number
   /**
@@ -121,6 +133,19 @@ export type TrustLevelView = {
    * 卡片据此决定是否渲染进度块：空数组 = 不渲染（规范 §1.4-2b）。
    */
   metrics: TrustLevelMetric[]
+  /**
+   * 下一档 rank；`null` = 已达最高档（阶梯只有 TL0 时同样是 `null`）。
+   *
+   * 本人优先用 `viewer.nextLevel`（后端只在未满级时下发）；他人视角没有这个字段，
+   * 按阶梯邻位推算 —— 弹窗对他人的门槛区块就靠它定位「下一档」。
+   */
+  nextLevel: number | null
+  /**
+   * 逐条规则条件。
+   * - 他人视角：恒为 `[]`（后端只对本人下发）；
+   * - 本人视角：`viewer.conditions` 的原样投影（仅下一档配了扁平 AND 规则时非空）。
+   */
+  conditions: TrustLevelCondition[]
 }
 
 export type TrustLevelProgress = {
@@ -144,6 +169,8 @@ export type PublicTrustLevel = {
 type ViewerTrustLevel = PublicTrustLevel & {
   nextLevel?: number
   bottleneck?: { metric?: string, current?: number, threshold?: number }
+  /** 原始 wire 值：`{ satisfied, text: { zh, en } }[]`，解析在 `parseViewerConditions`。 */
+  conditions?: unknown
 }
 
 type TrustLevelsResponse = {
@@ -229,12 +256,16 @@ export function builtinTierI18nKey(id: string): string | null {
 }
 
 /** 存储名（不含 i18n 回退）：命中当前语言优先，另一语言兜次。 */
-export function trustLevelTierName(tier: TrustLevelTier | null | undefined, locale: string): string {
-  if (!tier) return ''
-  const zh = (tier.name?.zh ?? '').trim()
-  const en = (tier.name?.en ?? '').trim()
+export function localizedTierName(name: TrustLevelTierName | null | undefined, locale: string): string {
+  const zh = (name?.zh ?? '').trim()
+  const en = (name?.en ?? '').trim()
   const preferZh = locale.toLowerCase().startsWith('zh')
   return preferZh ? (zh || en) : (en || zh)
+}
+
+/** 档位名的存储层回退（不含 i18n）：规则条件的双语句子与档位名共用这一条。 */
+export function trustLevelTierName(tier: TrustLevelTier | null | undefined, locale: string): string {
+  return tier ? localizedTierName(tier.name, locale) : ''
 }
 
 type Translate = (key: string) => string
@@ -278,6 +309,21 @@ export function trustLevelLadder(tiers: readonly TrustLevelTier[] | null | undef
 /** 阶梯最高 rank（TL0 单独时返回 0）。 */
 export function trustLevelLadderMax(ladder: readonly TrustLevelTier[]): number {
   return Math.max(0, ladder.length - 1)
+}
+
+/**
+ * 下一档 rank：后端下发的 `nextLevel` 优先（合法 = 严格高于当前档且不越过阶梯顶端），
+ * 越界/缺失时按阶梯邻位推算，已到顶端返回 `null`。
+ *
+ * 为什么还要推算：`viewer` 只对本人且只在读面成功时存在；他人视角完全没有这个字段，
+ * 但「下一档门槛」是公开信息（阈值随目录下发），弹窗不能因为少一个字段就整块不渲染。
+ */
+export function trustLevelNextLevel(level: number, maxLevel: number, viewerNext?: unknown): number | null {
+  const current = Math.max(0, Math.trunc(Number(level) || 0))
+  const top = Math.max(0, Math.trunc(Number(maxLevel) || 0))
+  const candidate = Math.trunc(Number(viewerNext))
+  if (Number.isFinite(candidate) && candidate > current && candidate <= top) return candidate
+  return current + 1 <= top ? current + 1 : null
 }
 
 /**
@@ -361,6 +407,51 @@ export function trustLevelViewerMetrics(viewer: ViewerTrustLevel | null | undefi
   const threshold = Number(bottleneck.threshold)
   if (!Number.isFinite(current) || !Number.isFinite(threshold) || threshold <= 0) return []
   return [{ key, current, threshold }]
+}
+
+/**
+ * `viewer.conditions` → 弹窗的规则条件行。
+ *
+ * 刻意宽容：`satisfied` 必须是布尔、句子至少一侧非空，否则整条丢弃 —— 一条坏条件
+ * 不该让「还差哪几项」整块消失，也不该渲染出一个没有句子的空行。
+ */
+export function parseViewerConditions(raw: unknown): TrustLevelCondition[] {
+  if (!Array.isArray(raw)) return []
+  const conditions: TrustLevelCondition[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const item = entry as Record<string, unknown>
+    if (typeof item.satisfied !== 'boolean') continue
+    const text = readTierName(item.text)
+    // 两侧都只有空白 = 没有句子可渲染（与档位名的「空串」同义，别留一个空行）。
+    if (!text.zh.trim() && !text.en.trim()) continue
+    conditions.push({ satisfied: item.satisfied, text })
+  }
+  return conditions
+}
+
+/**
+ * 一档的门槛清单：只保留 `threshold > 0` 的指标（与后端「0 = 该指标不参与判定」同语义），
+ * 顺序固定为 `TRUST_LEVEL_METRIC_KEYS`（= Go `Metrics` 顺序），与等级卡的六件套同序。
+ *
+ * 反查 `METRIC_KEY_BY_SUFFIX` 而不是正向遍历：目录里出现未知 snake_case 键时直接丢弃，
+ * 而不是渲染成一个没有 i18n 文案的指标名。
+ */
+export function trustLevelRequirementRows(
+  tier: TrustLevelTier | null | undefined
+): Array<{ key: TrustLevelMetricKey, threshold: number }> {
+  const requirements = tier?.requirements
+  if (!requirements || typeof requirements !== 'object') return []
+  const rows: Array<{ key: TrustLevelMetricKey, threshold: number }> = []
+  for (const [suffix, rawThreshold] of Object.entries(requirements)) {
+    const key = METRIC_KEY_BY_SUFFIX[suffix]
+    if (!key) continue
+    const threshold = Math.trunc(Number(rawThreshold))
+    if (!Number.isFinite(threshold) || threshold <= 0) continue
+    rows.push({ key, threshold })
+  }
+  const order = (key: TrustLevelMetricKey) => TRUST_LEVEL_METRIC_KEYS.indexOf(key)
+  return rows.sort((a, b) => order(a.key) - order(b.key))
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -503,7 +594,10 @@ export function useTrustLevel(
       // 服务端说什么就是什么：这里曾经用本地五元素数组按 rank 重算 slug，那会把运营自定义的
       // 档位 id 静默改写回内置 slug —— 公开面第一个消费者就断了，还不报错。
       levelSlug: base.levelSlug,
-      metrics: trustLevelViewerMetrics(ownViewer)
+      metrics: trustLevelViewerMetrics(ownViewer),
+      // 他人视角没有 nextLevel/conditions（后端只对本人下发），两者都退到「阶梯邻位 + 空条件」。
+      nextLevel: trustLevelNextLevel(level, maxLevel, ownViewer?.nextLevel),
+      conditions: ownViewer ? parseViewerConditions(ownViewer.conditions) : []
     }
   })
 

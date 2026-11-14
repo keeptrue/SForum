@@ -433,3 +433,74 @@ describe('tier color reaches the card accent (D-C1)', () => {
     expect(wrapper.find('.sf-trust-level-card__fill').exists()).toBe(true)
   })
 })
+
+/**
+ * 整卡入口（规范 §5 / §10）：`interactive` 只追加一层透明覆盖按钮。
+ *
+ * 刻意**不**把根节点换成 `<button>`：那样 `role="progressbar"` 会被吞进按钮的可访问名，
+ * 读屏会念成「查看信任等级详情 信任等级进度：常驻用户 → 资深用户」。
+ * 不传 `interactive` 时卡片仍是纯展示，既有调用点与既有断言零变化。
+ */
+describe('SFTrustLevelCard · 整卡入口', () => {
+  function mountEntryCard(level: number, interactive: boolean) {
+    return mount(SFTrustLevelCard, {
+      props: { level, metrics: residentMetrics, ladder: FALLBACK_LADDER, interactive },
+      global: { components: { UIcon: UIconStub } }
+    })
+  }
+
+  test('without interactive there is no overlay button at all', () => {
+    const wrapper = mountEntryCard(2, false)
+    try {
+      expect(wrapper.find('.sf-trust-level-card__hit').exists()).toBe(false)
+      // 纯展示契约不变：根仍是 section，进度条照常。
+      expect(wrapper.get('.sf-trust-level-card').element.tagName).toBe('SECTION')
+      expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('interactive appends one transparent button that opens the dialog', async () => {
+    const wrapper = mountEntryCard(2, true)
+    try {
+      const card = wrapper.get('.sf-trust-level-card')
+      // 根节点不换：冻结的 data-* / aria-* 全部原样保留。
+      expect(card.element.tagName).toBe('SECTION')
+      expect(card.attributes('data-level')).toBe('2')
+      expect(card.attributes('data-earned')).toBe('true')
+      expect(card.attributes('aria-label')).toBe('信任等级 常驻用户，已获得')
+
+      const hit = wrapper.get('.sf-trust-level-card__hit')
+      expect(hit.element.tagName).toBe('BUTTON')
+      expect(hit.attributes('type')).toBe('button')
+      expect(hit.attributes('aria-haspopup')).toBe('dialog')
+      expect(hit.attributes('aria-label')).toBe(t('profile.trustLevel.detail.open'))
+      // 覆盖层是最后一个子节点：`:has()` 只能向前找，兄弟选择器够不到。
+      expect(card.element.lastElementChild?.className).toBe('sf-trust-level-card__hit')
+
+      await hit.trigger('click')
+      expect(wrapper.emitted('open')).toHaveLength(1)
+      // 进度条仍在：按钮没有把它包进去。
+      expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('the overlay keeps the card frozen contract and uses the 100% tier accent for feedback', () => {
+    const source = readFileSync(cardPath, 'utf8')
+    // 根 section 需要 position: relative 才能承载 absolute inset:0 的覆盖层。
+    expect(source).toMatch(/\.sf-profile-side-section\.sf-trust-level-card \{[^}]*position: relative/)
+    expect(source).toMatch(/\.sf-trust-level-card__hit \{[^}]*position: absolute/)
+    expect(source).toMatch(/\.sf-trust-level-card__hit \{[^}]*inset: 0/)
+    expect(source).toMatch(/\.sf-trust-level-card__hit \{[^}]*border-radius: inherit/)
+    // hover / focus 用 100% 档位色：34% 混色在 parchment 上只有 1.63:1，等于没有反馈。
+    expect(source).toMatch(/\.sf-trust-level-card__hit:focus-visible \{[^}]*outline: 2px solid var\(--tl-accent/)
+    expect(source).toContain('.sf-trust-level-card:has(.sf-trust-level-card__hit:hover)')
+    expect(source).not.toContain('var(--sf-accent)')
+    // 冻结契约：整卡不换标签、不删默认阶梯、不自己拼阶梯。
+    expect(source).toContain('ladder: () => []')
+    expect(source).not.toContain('trustLevelLadder(')
+  })
+})

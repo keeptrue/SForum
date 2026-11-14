@@ -20,6 +20,8 @@ import SFProfileBookmarkTab from '~/components/profile/SFProfileBookmarkTab.vue'
 import SFProfileBadgeTab from '~/components/profile/SFProfileBadgeTab.vue'
 import SFProfileFeedTab from '~/components/profile/SFProfileFeedTab.vue'
 import SFProfileRightRail from '~/components/profile/SFProfileRightRail.vue'
+import SFTrustLevelBadge from '~/components/profile/SFTrustLevelBadge.vue'
+import SFTrustLevelDetailModal from '~/components/profile/SFTrustLevelDetailModal.vue'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
 import SFBadgeChip from '~/components/forum/SFBadgeChip.vue'
 import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsivePublicSidebar.vue'
@@ -117,6 +119,13 @@ const showHandle = computed(() => shouldShowUserHandle(displayName.value, profil
 const isSelf = computed(() => Boolean(profile.value && authUser.value?.id === profile.value.userId))
 // 等级卡数据：他人视角只有 profile.trustLevel；本人额外读 /trust-levels 的 viewer 拿进度。
 const { trustLevel, ladder: trustLevelLadder } = useTrustLevel(computed(() => profile.value?.trustLevel), () => isSelf.value)
+// 等级详情弹窗是**页面级唯一一份**：头部徽章与右栏卡片都打开它。
+const trustDetailOpen = ref(false)
+function openTrustDetail() {
+  // 移动端右栏在抽屉里：先关抽屉再开弹窗，避免两层 overlay 叠在一起（规范 §9）。
+  closeMobileDrawers()
+  trustDetailOpen.value = true
+}
 const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
 const navCategories = computed(() => categoryGroups.value.flatMap(group => group.categories || []))
 const navTotalTopics = computed(() => navCategories.value.reduce((sum, category) => sum + category.topicCount, 0))
@@ -369,6 +378,15 @@ async function shareProfile() {
               <div class="sf-profile-intro__identity-meta">
                 <span v-if="showHandle" class="sf-profile-handle">@{{ profile.username }}</span>
                 <span class="sf-profile-uid">UID {{ profile.userId }}</span>
+                <!-- 等级徽章紧贴 UID：身份行空间充足，与昵称旁的佩戴徽章同一族语法。
+                     `trustLevel` 为 null（功能关闭/读面缺失）时整枚不渲染，不留空位。 -->
+                <SFTrustLevelBadge
+                  v-if="trustLevel"
+                  :level="trustLevel.level"
+                  :ladder="trustLevelLadder"
+                  interactive
+                  @open="openTrustDetail"
+                />
               </div>
               <p v-if="profile.profile.bio" class="sf-profile-intro__bio">{{ profile.profile.bio }}</p>
               <p v-else class="sf-profile-intro__bio sf-profile-intro__bio--empty">{{ t('profile.bioEmpty') }}</p>
@@ -547,6 +565,8 @@ async function shareProfile() {
             :recent-topics="recentTopics"
             :trust-level="trustLevel"
             :trust-level-ladder="trustLevelLadder"
+            :trust-level-interactive="Boolean(trustLevel)"
+            @open-trust-detail="openTrustDetail"
           />
           <SFRegionOutlet page="forum.profile.show" region="sidebar" />
         </aside>
@@ -575,8 +595,23 @@ async function shareProfile() {
         :recent-topics="recentTopics"
         :trust-level="trustLevel"
         :trust-level-ladder="trustLevelLadder"
+        :trust-level-interactive="Boolean(trustLevel)"
+        @open-trust-detail="openTrustDetail"
         drawer
       />
     </aside>
+
+    <!-- 等级详情弹窗：页面级唯一一份。`trustLevel` 为 null 时连入口都没有（规范 §8），
+         所以这里与徽章/卡片用同一个守卫。 -->
+    <SFTrustLevelDetailModal
+      v-if="trustLevel"
+      v-model:open="trustDetailOpen"
+      :level="trustLevel.level"
+      :next-level="trustLevel.nextLevel"
+      :ladder="trustLevelLadder"
+      :metrics="trustLevel.metrics"
+      :conditions="trustLevel.conditions"
+      :self="isSelf"
+    />
   </main>
 </template>

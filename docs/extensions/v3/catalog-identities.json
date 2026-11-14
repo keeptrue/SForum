@@ -6549,6 +6549,26 @@
       "source": "apps/web/app/components/profile/SFTrustLevelCard.vue"
     },
     {
+      "id": "core.component.public.s_f_trust_level_badge",
+      "contractVersion": "sforum.component.public.s_f_trust_level_badge@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFTrustLevelBadge.vue"
+    },
+    {
+      "id": "core.component.public.s_f_trust_level_detail_modal",
+      "contractVersion": "sforum.component.public.s_f_trust_level_detail_modal@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFTrustLevelDetailModal.vue"
+    },
+    {
       "id": "core.component.page.admin.badges",
       "contractVersion": "sforum.component.page.admin.badges@1",
       "kind": "page",

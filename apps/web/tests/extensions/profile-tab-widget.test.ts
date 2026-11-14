@@ -196,6 +196,9 @@ const bindings: Record<string, unknown> = {
     props: { level: { type: Number, default: 0 }, metrics: { type: Array, default: () => [] } },
     render: () => null
   }),
+  // 等级徽章与详情弹窗同样受 `trustLevel` 守卫：这里只需要名字可解析。
+  SFTrustLevelBadge: nullRender,
+  SFTrustLevelDetailModal: nullRender,
   useSiteDateTime: () => ({
     format: (value: string) => value,
     formatDateOnly: (value: string) => value,

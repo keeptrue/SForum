@@ -35,8 +35,16 @@ load archived sessions or completed plans as current context.
   「自由 hex 被否」一条）；handoff `sessions/2026-11-12-trust-level-appearance-modal.md`；
   设计源 `reports/2026-11-12-trust-level-appearance-modal-spec.md`。门禁六项全绿 + v3 目录 `--check` exit 0。
   **回滚风险**：旧 API 二进制读到 hex / 全名图标会 422，回滚需同时回退配置值。
-- Handoff：`sessions/2026-11-11-trust-levels-admin-page.md`（hot；收尾刀
-  `sessions/2026-11-11-trust-levels-closing.md`，上一刀已归档到
+- **资料页等级标识（2026-11-14 landed）**：头部身份行加档位色小牌（`SFTrustLevelBadge`，`图标 + TL{n}`，
+  20px 与 `.sf-profile-uid` 同高），右栏 `SFTrustLevelCard` 加可选 `interactive` 透明覆盖按钮，两者打开
+  同一个页面级 `SFTrustLevelDetailModal`（当前档 + 下一档门槛 + 本人进度 + 规则条件；他人视角只有前两项）。
+  **本条推翻 2026-11-11 的「个人中心也不再加新徽章」**（论坛读面仍不显示等级）。后端与 OpenAPI 零改动：
+  `viewer.conditions` / `viewer.nextLevel` 原本就在契约里，本次补上前端消费。规格
+  `reports/2026-11-14-profile-trust-level-badge-modal-spec.md`；handoff
+  `sessions/2026-11-14-profile-trust-level-badge.md`。
+- Handoff：`sessions/2026-11-14-profile-trust-level-badge.md`（hot；上一刀
+  `sessions/2026-11-11-trust-levels-admin-page.md`，收尾刀
+  `sessions/2026-11-11-trust-levels-closing.md`，更早的已归档到
   `sessions/archive/2026-11/`）；模块：`modules/trust-levels.md`；
   计划：`plans/2026-11-10-trust-levels.md`（§3 决断 D1–D32、§10 陷阱 T1–T19）+
   `plans/2026-11-11-trust-levels-closing.md`（M9–M13 收尾、D33）；

@@ -7559,6 +7559,19 @@
       "earned": "已获得",
       "notEarned": "尚未获得",
       "ariaLabel": "信任等级 {name}，{state}",
+      "badge": {
+        "ariaLabel": "信任等级 {name}，{code}，{state}"
+      },
+      "detail": {
+        "title": "信任等级详情",
+        "open": "查看信任等级详情",
+        "nextTitle": "升到「{next}」的门槛",
+        "threshold": "≥ {threshold}",
+        "progressTitle": "我的进度",
+        "conditionsTitle": "规则条件",
+        "met": "已满足",
+        "unmet": "未满足"
+      },
       "progress": {
         "ariaLabel": "信任等级进度：{current} → {next}",
         "valueText": "{metric} {current} / {threshold}",

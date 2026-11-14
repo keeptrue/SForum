@@ -7519,6 +7519,19 @@
       "earned": "earned",
       "notEarned": "not earned",
       "ariaLabel": "Trust level {name}, {state}",
+      "badge": {
+        "ariaLabel": "Trust level {name}, {code}, {state}"
+      },
+      "detail": {
+        "title": "Trust level details",
+        "open": "View trust level details",
+        "nextTitle": "Requirements to reach {next}",
+        "threshold": "≥ {threshold}",
+        "progressTitle": "Your progress",
+        "conditionsTitle": "Rule conditions",
+        "met": "Met",
+        "unmet": "Not met"
+      },
       "progress": {
         "ariaLabel": "Trust level progress: {current} → {next}",
         "valueText": "{metric} {current} / {threshold}",

@@ -4210,10 +4210,30 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.public.s_f_trust_level_badge",
+    "contractVersion": "sforum.component.public.s_f_trust_level_badge@1",
+    "kind": "component",
+    "source": "apps/web/app/components/profile/SFTrustLevelBadge.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.public.s_f_trust_level_card",
     "contractVersion": "sforum.component.public.s_f_trust_level_card@1",
     "kind": "component",
     "source": "apps/web/app/components/profile/SFTrustLevelCard.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.public.s_f_trust_level_detail_modal",
+    "contractVersion": "sforum.component.public.s_f_trust_level_detail_modal@1",
+    "kind": "component",
+    "source": "apps/web/app/components/profile/SFTrustLevelDetailModal.vue",
     "owners": [
       "public"
     ],

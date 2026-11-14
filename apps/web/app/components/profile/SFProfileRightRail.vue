@@ -16,8 +16,12 @@ const props = defineProps<{
   trustLevel?: TrustLevelView | null
   /** 档位阶梯（运营自定义的 N 档）；不传时卡片回落内置五档展示兜底。 */
   trustLevelLadder?: TrustLevelTier[]
+  /** true = 等级卡整卡可点（覆盖层按钮），点击回发 `open-trust-detail`。 */
+  trustLevelInteractive?: boolean
   drawer?: boolean
 }>()
+
+const emit = defineEmits<{ 'open-trust-detail': [] }>()
 
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
@@ -86,12 +90,15 @@ function extensionTabTo(tab: NonNullable<PublicProfile['extensionTabs']>[number]
       </div>
     </section>
 
-    <!-- 等级是身份元数据，不是 tab 内容：放右栏让每个 tab 下都可见。 -->
+    <!-- 等级是身份元数据，不是 tab 内容：放右栏让每个 tab 下都可见。
+         可点性由页面决定（弹窗是页面级唯一一份，右栏只回发意图）。 -->
     <SFTrustLevelCard
       v-if="props.trustLevel"
       :level="props.trustLevel.level"
       :metrics="props.trustLevel.metrics"
       :ladder="props.trustLevelLadder"
+      :interactive="Boolean(props.trustLevelInteractive)"
+      @open="emit('open-trust-detail')"
     />
 
     <section class="sf-profile-side-section">
