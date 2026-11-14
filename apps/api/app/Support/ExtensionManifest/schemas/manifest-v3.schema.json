@@ -402,6 +402,20 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "required": [
+          "permissionDefinitions"
+        ]
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "const": "plugin"
+          }
+        }
+      }
     }
   ],
   "$defs": {
