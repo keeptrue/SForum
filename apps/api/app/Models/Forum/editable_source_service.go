@@ -25,7 +25,7 @@ func (s *EditableSourceService) GetTopicEditSource(ctx context.Context, actor id
 	if err != nil {
 		return EditableContentSource{}, err
 	}
-	if topic.Status == TopicStatusHidden || topic.Status == TopicStatusDeleted || !canEditTopic(actor, topic) {
+	if topicEditStateError(topic) != nil || !canEditTopic(actor, topic) {
 		return EditableContentSource{}, ErrTopicNotFound
 	}
 	settings, err := s.service.resolvedSettings(ctx)
@@ -46,11 +46,11 @@ func (s *EditableSourceService) GetCommentEditSource(ctx context.Context, actor 
 	if err != nil {
 		return EditableContentSource{}, err
 	}
-	if comment.Status == CommentStatusHidden || comment.Status == CommentStatusDeleted || !canEditComment(actor, comment) {
+	if commentEditStateError(comment) != nil || !canEditComment(actor, comment) {
 		return EditableContentSource{}, ErrCommentNotFound
 	}
 	topic, err := s.service.store.GetTopicForAction(ctx, comment.TopicID)
-	if err != nil || topic.Status == TopicStatusHidden || topic.Status == TopicStatusDeleted {
+	if err != nil || topicEditStateError(topic) != nil {
 		return EditableContentSource{}, ErrCommentNotFound
 	}
 	settings, err := s.service.resolvedSettings(ctx)

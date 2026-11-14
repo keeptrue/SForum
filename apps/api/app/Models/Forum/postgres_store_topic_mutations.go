@@ -328,12 +328,13 @@ func (s *PostgresStore) DeleteTopic(ctx context.Context, topicID int64) (TopicDe
 
 	var categoryID int64
 	var prevStatus string
+	var contentID int64
 	if err := tx.QueryRow(ctx, `
-		SELECT category_id, status
+		SELECT category_id, status, content_id
 		FROM topics
 		WHERE id = $1 AND status <> 'deleted'
 		FOR UPDATE
-	`, topicID).Scan(&categoryID, &prevStatus); err != nil {
+	`, topicID).Scan(&categoryID, &prevStatus, &contentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TopicDetail{}, ErrTopicNotFound
 		}
@@ -345,6 +346,9 @@ func (s *PostgresStore) DeleteTopic(ctx context.Context, topicID int64) (TopicDe
 		WHERE id = $1
 	`, topicID); err != nil {
 		return TopicDetail{}, fmt.Errorf("soft delete topic: %w", err)
+	}
+	if err := bumpContentRevisionOnDeleteTx(ctx, tx, contentID); err != nil {
+		return TopicDetail{}, err
 	}
 	// 仅曾计入公开计数的 active 主题才回滚 category.topic_count。
 	if prevStatus == TopicStatusActive {

@@ -666,6 +666,9 @@ func (s *Service) UpdateTopic(ctx context.Context, actor identity.Actor, input U
 	if err != nil {
 		return TopicDetail{}, err
 	}
+	if err := assertTopicEditable(topic, input.Operation); err != nil {
+		return TopicDetail{}, err
+	}
 	if !canEditTopic(actor, topic) {
 		return TopicDetail{}, identity.ErrPermissionDenied
 	}
@@ -803,18 +806,6 @@ func (s *Service) UpdateTopic(ctx context.Context, actor identity.Actor, input U
 		s.deleteTopicIndex(ctx, updated.ID)
 	}
 	return applyTopicEditMark(updated, settings.ShowTopicEditMark), nil
-}
-
-func matchesExpectedRevision(expected, current int64) bool {
-	if expected <= 0 {
-		return false
-	}
-	// current_revision=0 只会出现在 M1 回填未完成的旧行；公开读模型将它
-	// 表示为 version 1，写事务仍会在锁内以真实值二次确认。
-	if current <= 0 {
-		current = 1
-	}
-	return expected == current
 }
 
 func validateEditReason(actorID, authorID int64, reason string) error {

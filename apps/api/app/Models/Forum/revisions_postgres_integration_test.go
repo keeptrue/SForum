@@ -813,7 +813,8 @@ CREATE TABLE topics (
   ip_address TEXT NOT NULL DEFAULT '',
   last_edit_ip TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE comments (
@@ -832,7 +833,8 @@ CREATE TABLE comments (
   ip_address TEXT NOT NULL DEFAULT '',
   last_edit_ip TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
 );
 
 CREATE TABLE post_revisions (

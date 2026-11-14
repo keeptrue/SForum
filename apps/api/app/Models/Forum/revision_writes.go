@@ -142,8 +142,12 @@ func (s *PostgresStore) UpdateTopic(ctx context.Context, input UpdateTopicRecord
 		if err != nil {
 			return TopicDetail{}, fmt.Errorf("encode topic moderation triggers: %w", err)
 		}
-		if _, err := tx.Exec(ctx, `UPDATE topics SET status = 'pending', moderation_triggers = $2, updated_at = now() WHERE id = $1`, input.TopicID, triggers); err != nil {
+		tag, err := tx.Exec(ctx, `UPDATE topics SET status = 'pending', moderation_triggers = $2, updated_at = now() WHERE id = $1`+requeueGuardSQL, input.TopicID, triggers)
+		if err != nil {
 			return TopicDetail{}, fmt.Errorf("requeue topic pending: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return TopicDetail{}, ErrTopicNotFound
 		}
 		if state.status == TopicStatusActive {
 			if _, err := tx.Exec(ctx, `UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0), updated_at = now() WHERE id = $1`, categoryID); err != nil {
@@ -241,8 +245,12 @@ func (s *PostgresStore) UpdateComment(ctx context.Context, input UpdateCommentRe
 		if err != nil {
 			return Comment{}, fmt.Errorf("encode comment moderation triggers: %w", err)
 		}
-		if _, err := tx.Exec(ctx, `UPDATE comments SET status = 'pending', moderation_triggers = $2, updated_at = now() WHERE id = $1`, input.CommentID, triggers); err != nil {
+		tag, err := tx.Exec(ctx, `UPDATE comments SET status = 'pending', moderation_triggers = $2, updated_at = now() WHERE id = $1`+requeueGuardSQL, input.CommentID, triggers)
+		if err != nil {
 			return Comment{}, fmt.Errorf("requeue comment pending: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return Comment{}, ErrCommentNotFound
 		}
 		if state.status == CommentStatusActive {
 			if state.parentID != nil {

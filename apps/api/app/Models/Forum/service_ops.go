@@ -315,6 +315,9 @@ func (s *Service) UpdateComment(ctx context.Context, actor identity.Actor, input
 	if err != nil {
 		return Comment{}, err
 	}
+	if err := assertCommentEditable(summary, input.Operation); err != nil {
+		return Comment{}, err
+	}
 	if !canEditComment(actor, summary) {
 		return Comment{}, identity.ErrPermissionDenied
 	}
@@ -916,37 +919,6 @@ func normalizeTagStatus(value string) (string, bool) {
 	default:
 		return "", false
 	}
-}
-
-func canEditComment(actor identity.Actor, comment CommentSummary) bool {
-	if actor.Can(identity.PermissionPostEditAny) {
-		return true
-	}
-	return comment.AuthorUserID == actor.ID && actor.Can(identity.PermissionPostEditOwn)
-}
-
-func canDeleteComment(actor identity.Actor, comment CommentSummary) bool {
-	if actor.Can(identity.PermissionPostDeleteAny) {
-		return true
-	}
-	return comment.AuthorUserID == actor.ID && actor.Can(identity.PermissionPostDeleteOwn)
-}
-
-// canEditTopic: 作者凭 topic.edit_own；版主凭 topic.edit_any。
-func canEditTopic(actor identity.Actor, topic TopicSummary) bool {
-	if actor.Can(identity.PermissionTopicEditAny) {
-		return true
-	}
-	return topic.AuthorUserID == actor.ID && actor.Can(identity.PermissionTopicEditOwn)
-}
-
-// canDeleteTopic: 作者凭 topic.delete_own；版主凭 topic.delete_any。
-// 站点策略 AllowAuthorDelete=false 时作者删除被禁止（版主仍可删）。
-func canDeleteTopic(actor identity.Actor, topic TopicSummary) bool {
-	if actor.Can(identity.PermissionTopicDeleteAny) {
-		return true
-	}
-	return topic.AuthorUserID == actor.ID && actor.Can(identity.PermissionTopicDeleteOwn)
 }
 
 func (s *Service) canDeleteTopicWithPolicy(ctx context.Context, actor identity.Actor, topic TopicSummary) bool {
