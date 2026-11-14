@@ -530,7 +530,11 @@ function normalizeTierList(raw: unknown, fallbackRequirements?: (index: number) 
       requirements,
       limits: normalizeLimits(record.limits),
       earnable: normalizeEarnable(record.earnable),
-      retired: record.retired === true
+      retired: record.retired === true,
+      // 规则树**原样透传**：这里不 decode、不重建，脏值也照带（写路径由后端权威校验）。
+      rule: record.rule && typeof record.rule === 'object'
+        ? record.rule as Record<string, unknown>
+        : null
     })
   }
   return tiers
@@ -569,7 +573,9 @@ function upgradeLegacyLevels(raw: unknown): TierForm[] {
       requirements,
       limits: normalizeLimits(record.limits),
       earnable: normalizeEarnable(record.earnable),
-      retired: false
+      retired: false,
+      // v1 存量配置没有规则字段：新档一律 null（写载荷时省略）。
+      rule: null
     })
   })
   return tiers
@@ -696,7 +702,10 @@ export function trustLevelsPayload(
       requirements,
       limits: tier.limits ? { ...EMPTY_TIER_LIMITS, ...tier.limits } : null,
       earnable: whitelist ? sanitizeEarnableKeys(stored, whitelist) : stored,
-      retired: tier.retired === true
+      retired: tier.retired === true,
+      // 规则树原样透传：`null`/缺省时**不写这个键**（`omitempty` 是回滚口径，没配规则的档位
+      // 写出字节必须与引入本字段之前逐字节相同）。
+      ...(tier.rule ? { rule: tier.rule } : {})
     }
   })
   const payload: Record<string, unknown> = { schemaVersion: TRUST_LEVELS_SCHEMA_VERSION, tiers }

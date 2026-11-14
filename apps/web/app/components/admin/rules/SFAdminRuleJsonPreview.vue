@@ -7,9 +7,21 @@
  */
 import type { BadgeRule } from '~/utils/admin/rule'
 
-const props = defineProps<{ rule: BadgeRule }>()
+const props = withDefaults(defineProps<{
+  rule: BadgeRule
+  /**
+   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
+   */
+  i18nKeyPrefix?: string
+}>(), {
+  i18nKeyPrefix: 'admin.badges.rule'
+})
 
-const { t } = useI18n()
+const { t: rawT } = useI18n()
+
+// 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
+const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
 const toast = useToast()
 
 const json = computed(() => JSON.stringify(props.rule, null, 2))
@@ -18,9 +30,9 @@ async function copy() {
   try {
     if (!navigator.clipboard?.writeText) throw new Error('clipboard unavailable')
     await navigator.clipboard.writeText(json.value)
-    toast.add({ color: 'success', icon: 'i-lucide-check', title: t('admin.badges.rule.copied'), duration: 5000 })
+    toast.add({ color: 'success', icon: 'i-lucide-check', title: t('copied'), duration: 5000 })
   } catch {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: t('admin.badges.rule.copyFailed') })
+    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: t('copyFailed') })
   }
 }
 </script>
@@ -30,17 +42,17 @@ async function copy() {
   <details class="sf-rule-json">
     <!-- 复制按钮放在 summary 里：折叠态也能一次点到，不必先展开再去内容区找。 -->
     <summary class="sf-rule-json__summary">
-      <span class="sf-rule-json__title">{{ t('admin.badges.rule.jsonTitle') }}</span>
+      <span class="sf-rule-json__title">{{ t('jsonTitle') }}</span>
       <button
         type="button"
         class="sf-rule-json__copy"
         data-rule-copy
-        :aria-label="t('admin.badges.rule.copy')"
-        :title="t('admin.badges.rule.copy')"
+        :aria-label="t('copy')"
+        :title="t('copy')"
         @click.stop.prevent="copy"
       >
         <UIcon name="i-lucide-copy" aria-hidden="true" />
-        <span>{{ t('admin.badges.rule.copy') }}</span>
+        <span>{{ t('copy') }}</span>
       </button>
     </summary>
     <pre class="sf-rule-json__code"><code>{{ json }}</code></pre>

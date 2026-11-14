@@ -125,15 +125,19 @@ export function saveErrorFieldLabel(
 }
 
 /**
- * `reasonCode` 分线（老后 33 条，OpenAPI enum 与 Go 常量表同序）：
+ * `reasonCode` 分线（39 条，OpenAPI enum 与 Go 常量表同序）：
  *
- * - **specific**（15 条）：运营在后台表单里真的能造出来 —— 名字超长、图标不在白名单、
- *   想清空但后端要求必须给数组……每条都值得一句准确的话。
+ * - **specific**（21 条）：运营在后台表单里真的能造出来 —— 名字超长、图标不在白名单、
+ *   想清空但后端要求必须给数组、条件树超上限 / 引用了被删对象……每条都值得一句准确的话。
  * - **config**（18 条）：配置体本身坏了（类型错、语法错、v1 存量迁移的 `level_*`）。
  *   这些走一个通用桶：主句说「格式不被接受」，`reason` 只作为技术细节出现。
  *
- * 两张表是**互斥且穷尽** 33 条的护栏；`trustLevels.test.ts` 里的完整性测试会比对后端枚举，
- * 后端加第 30 个 code 而前端没登记时测试直接红 —— 这是唯一能防「en-US 站点悄悄显示中文」的办法。
+ * 两张表是**互斥且穷尽** 39 条的护栏；`trustLevels.test.ts` 里的完整性测试会比对后端枚举，
+ * 后端加第 40 个 code 而前端没登记时测试直接红 —— 这是唯一能防「en-US 站点悄悄显示中文」的办法。
+ *
+ * M3 新增的 6 条（`earnable_not_declared` + 5 条规则码）全部进 **specific**：它们都是运营
+ * 在后台能主动造出来的形态，修法各不相同（删一条条件 / 减一层嵌套 / 重选引用 / 启用插件）。
+ * 规则码的定位坐标在 `params.path`（`ruleengine.Error.Path`），文案不再复述「第几档」。
  */
 export const SPECIFIC_ERROR_CODES = [
   'tier_count_out_of_range',
@@ -150,6 +154,14 @@ export const SPECIFIC_ERROR_CODES = [
   'earnable_missing',
   'earnable_key_empty',
   'earnable_not_whitelisted',
+  // M3：插件权限的写路径拒绝（按 `params.cause` 分两句，见 `saveErrorText` 的同码变体分支）。
+  'earnable_not_declared',
+  // M3：条件树的 5 条规则码。全部是 tier 级（带 `rank`/`tierId`），修法各不相同，不能合并。
+  'rule_too_complex',
+  'rule_unknown_condition',
+  'rule_shape_invalid',
+  'rule_reference_invalid',
+  'rule_condition_not_available',
   // D-C1：运营在色板里选不到白名单外的值，这个码只会来自并发/旧载荷，值得一句准确的话。
   'color_not_whitelisted'
 ] as const
@@ -243,13 +255,31 @@ function humanizeParams(
   return next
 }
 
+/**
+ * 同码两种成因的变体后缀：**同一个稳定码**，不是第 40 个码。
+ *
+ * `earnable_not_declared` 的修法取决于成因，两句必须分开给（copy-spec §1.2）：
+ * - `plugin_disabled` → 「启用插件」，配置不用动；
+ * - 默认（`undeclared` / 字段缺失）→ 「删掉这个勾选」。
+ *
+ * 合并成一句的后果是实测过的：写成「从未被声明」，运营会去删勾选，等插件恢复时配置
+ * 已被自己删掉。所以这里按 `params.cause` 选键，不在码表里加第 40 条（那会把三处同步面
+ * 扩大到四处）。
+ */
+function variantSuffix(error: TrustLevelSaveError): string {
+  if (error.reasonCode === 'earnable_not_declared' && error.params.cause === 'plugin_disabled') {
+    return '_plugin_disabled'
+  }
+  return ''
+}
+
 export function saveErrorText(
   error: TrustLevelSaveError,
   translate: (key: string, params?: Record<string, string | number>) => string,
   isKnown: (key: string) => boolean
 ): string {
   if (error.reasonCode && isSpecificErrorCode(error.reasonCode)) {
-    const key = `admin.forum.trustLevels.errors.code.${error.reasonCode}`
+    const key = `admin.forum.trustLevels.errors.code.${error.reasonCode}${variantSuffix(error)}`
     if (isKnown(key)) return translate(key, humanizeParams(error.reasonCode, error.params, translate, isKnown))
   }
   if (error.reasonCode && isConfigBucketErrorCode(error.reasonCode)) {

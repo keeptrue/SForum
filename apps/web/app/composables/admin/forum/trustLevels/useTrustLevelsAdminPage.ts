@@ -49,6 +49,17 @@ import {
   saveErrorsFromError,
   type TrustLevelSaveError
 } from '~/composables/admin/forum/trustLevels/useTrustLevelSaveErrors'
+import {
+  catalogUsabilityFor,
+  anyTierRuleDirty,
+  firstRuleErrorTierId
+} from '~/composables/admin/forum/trustLevels/useTrustLevelRuleDraft'
+import {
+  hasRulePayload,
+  useTrustLevelRuleImpact
+} from '~/composables/admin/forum/trustLevels/useTrustLevelRuleImpact'
+import { useAdminTrustLevelConditions } from '~/composables/admin/forum/trustLevels/useAdminTrustLevelConditions'
+import type { TrustLevelRuleDocument } from '~/composables/admin/forum/trustLevels/useTrustLevelsTiers'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useSettingsSection } from '~/composables/settings/useSettingsSection'
 
@@ -170,7 +181,21 @@ export function useTrustLevelsAdminPage() {
     void loadWhitelist()
   }
 
+  /**
+   * 条件目录的加载时机：功能开关打开 + 页面 ready。**开关关闭时一次请求都不发**
+   * （与白名单同口径：后端 `requireAdmin` 会先短路，请求必然 404）。
+   */
+  function maybeLoadConditions() {
+    if (!trustLevelsEnabled.value) return
+    if (conditions.status.value === 'loading' || conditions.status.value === 'ready') return
+    void conditions.load()
+  }
+
   onMounted(maybeLoadWhitelist)
+  onMounted(maybeLoadConditions)
+  watch(pageState, (state) => {
+    if (state === 'ready') maybeLoadConditions()
+  })
   watch(items, maybeLoadWhitelist)
   watch(trustLevelsEnabled, enabled => {
     if (!shouldLoadWhitelist(enabled)) return
@@ -326,6 +351,68 @@ export function useTrustLevelsAdminPage() {
    */
   const saveErrors = ref<TrustLevelSaveError[]>([])
   const saveErrorBuckets = computed(() => bucketSaveErrors(saveErrors.value, form.value))
+
+  /* ────────────────────────── 规则面板与保存闸门（M3b / D21） ────────────────────────── */
+
+  /**
+   * 条件目录（三态）。**失败不阻塞页面**：阈值、档位、限额照常可用，只有「写规则」这条
+   * 分支被闸门拦住（见下面 `saveBlockedByCatalog`）。
+   */
+  const conditions = useAdminTrustLevelConditions()
+  const conditionsState = computed(() => ({
+    status: conditions.status.value,
+    items: conditions.items.value,
+    factCandidates: conditions.factCandidates.value,
+    refCandidates: conditions.refCandidates.value
+  }))
+
+  /** D21 的唯一实现点：组件与按钮都读它，不各算一遍。 */
+  const catalogUsability = computed(() => catalogUsabilityFor(
+    conditionsState.value,
+    form.value.tiers.map(tier => tier.rule ?? null)
+  ))
+  /** 本次会话是否真的动过规则字节（与「载荷里有没有 rule」不是一回事）。 */
+  const tierRuleDirty = computed(() => anyTierRuleDirty(form.value.tiers, initial.value.tiers))
+  const saveBlockedByCatalog = computed(() => tierRuleDirty.value && !catalogUsability.value.usable)
+
+  /**
+   * 单开手风琴：只记「哪一档展开」，**不进表单状态、不进 `trust.levels` JSON**
+   * （进去会改变配置字节，破坏计划 §3.1 的回滚口径），刷新后全部折叠。
+   */
+  const expandedRuleTierId = ref<string | null>(null)
+
+  function toggleRulePanel(tierId: string) {
+    expandedRuleTierId.value = expandedRuleTierId.value === tierId ? null : tierId
+  }
+
+  /** 规则写入：整份 clone 后替换，避免像 `setThreshold` 那样只写 `{tiers}` 把墓碑抹掉。 */
+  function setTierRule(tierId: string, rule: TrustLevelRuleDocument) {
+    if (!canManage.value) return
+    const current = cloneTrustLevelsForm(form.value)
+    form.value = {
+      ...current,
+      tiers: current.tiers.map(tier => (tier.id === tierId ? { ...tier, rule } : tier))
+    }
+  }
+
+  const retryConditions = () => { void conditions.load() }
+
+  /* ────────────────────────── 影响面估算（保存前一步） ────────────────────────── */
+
+  const ruleImpact = useTrustLevelRuleImpact()
+  const impactOpen = ref(false)
+
+  /**
+   * 弹窗只列**带规则的档位**。
+   *
+   * 后端会为请求里的每一档返回结论（纯数值档也会给一个「按阈值估」的数），但运营点这个弹窗
+   * 是为了确认「这次加/改的条件会影响多少人」——把 4 个没条件的档也列出来只是噪声，
+   * 而且会让屏幕上出现 4 个 `≈`（copy-spec §3.3.2 的口径是「数字全屏只出现一次」）。
+   */
+  const impactRows = computed(() => {
+    const ruleTierIds = new Set(form.value.tiers.filter(tier => tier.rule != null).map(tier => tier.id))
+    return ruleImpact.results.value.filter(row => ruleTierIds.has(row.tierId))
+  })
   /** 恢复默认是服务端动作（POST），与保存分开的忙碌态，避免 UI 提前报成功。 */
   const restoring = ref(false)
 
@@ -355,15 +442,23 @@ export function useTrustLevelsAdminPage() {
     saveErrors.value = []
   }
 
-  /** 保存入口：结构变了先开阻塞式确认，没变直接写。 */
+  /**
+   * 保存入口（D21 / 计划 §4.4 的完整链路）：
+   *
+   *   结构变了？→ 结构确认 → 有规则？→ 影响面弹窗 → PUT
+   *
+   * 闸门只在「改过规则字节 ∧ 目录不可用」时拦；只改阈值的提交照常走 —— 那种提交不会写出
+   * 任何 `rule` 字节，不存在「配置缺失时静默清空 rule」的路径。
+   */
   async function save() {
     // 没有写权限时按钮已禁用；这里再挡一次，避免 Enter 提交绕过。
     if (!canManage.value) return
+    if (saveBlockedByCatalog.value) return
     if (structureChanged.value) {
       structureConfirmOpen.value = true
       return
     }
-    await performSave()
+    await beginImpactFlow()
   }
 
   function cancelStructureConfirm() {
@@ -372,7 +467,27 @@ export function useTrustLevelsAdminPage() {
 
   async function confirmStructureSave() {
     structureConfirmOpen.value = false
+    await beginImpactFlow()
+  }
+
+  /** 有规则就估一次（草稿体，新档也估）；纯数值编辑不打扰运营。 */
+  async function beginImpactFlow() {
+    if (!hasRulePayload(form.value.tiers)) {
+      await performSave()
+      return
+    }
+    impactOpen.value = true
+    await ruleImpact.estimate(form.value.tiers)
+  }
+
+  async function confirmImpact() {
+    impactOpen.value = false
     await performSave()
+  }
+
+  function cancelImpact() {
+    impactOpen.value = false
+    ruleImpact.reset()
   }
 
   async function performSave() {
@@ -400,6 +515,10 @@ export function useTrustLevelsAdminPage() {
           if (errors.some(error => error.reasonCode === 'id_duplicate' || error.reasonCode === 'id_derivation_conflict')) {
             void loadWhitelist()
           }
+          // 规则域的错误要把那一档的面板自动展开（否则运营只看到行首一句「有 1 处需要修正」，
+          // 却不知道该展开哪一档去修）。滚动由 shell 在 `expandedRuleTierId` 变化时做。
+          const ruleTierId = firstRuleErrorTierId(bucketSaveErrors(errors, form.value))
+          if (ruleTierId) expandedRuleTierId.value = ruleTierId
           if (errors.length > 0) {
             toast.add({
               color: 'warning',
@@ -535,6 +654,20 @@ export function useTrustLevelsAdminPage() {
     requestDelete,
     confirmDelete,
     cancelDelete,
+    // 规则面板 + 影响面（M3b）
+    conditions,
+    catalogUsability,
+    saveBlockedByCatalog,
+    tierRuleDirty,
+    expandedRuleTierId,
+    toggleRulePanel,
+    setTierRule,
+    retryConditions,
+    impactOpen,
+    impactStatus: ruleImpact.status,
+    impactResults: impactRows,
+    confirmImpact,
+    cancelImpact,
     // 阈值 / 限额 / 解锁 / 保存
     setThreshold,
     setLimitsMode,

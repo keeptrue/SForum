@@ -65,8 +65,22 @@ function referencedBadgeKeys(): { literal: Set<string>, prefixes: Set<string> } 
     }
   }
   walk(appRoot.pathname)
+  // 前缀化族：`components/admin/rules/*`（M3a 抽出的共享规则编辑器）把键前缀参数化了，
+  // 这些键不再逐条以字面量出现，而是运行时拼 `${prefix}.${shortKey}`。整族由编辑器消费，
+  // 所以按整族登记——族内单键变成死键时本断言不再能发现，补偿断言在
+  // `tests/admin/forum/trustLevels.test.ts`（信任等级族的键清单被逐键钉死并与本族比对值，
+  // 重复的文案不允许漂移）。
+  for (const family of PREFIXED_FAMILIES) {
+    literal.delete(family)
+    prefixes.delete(family)
+    for (const key of [...literal]) if (key.startsWith(`${family}.`)) literal.delete(key)
+    for (const key of [...prefixes]) if (key.startsWith(`${family}.`)) prefixes.delete(key)
+  }
   return { literal, prefixes }
 }
+
+/** 由共享编辑器整体消费的前缀化族（整族计入已使用）。 */
+const PREFIXED_FAMILIES = ['admin.badges.rule'] as const
 
 // 动态前缀的枚举来源：`grantMode.` 来自 EditDialog 的 `['automatic','manual']`，
 // `metrics.` 是服务端六个指标的稳定顺序（`conditions.Metrics()`）：**不**从
@@ -164,9 +178,14 @@ describe('admin.badges i18n namespace', () => {
     for (const [name, locale] of [['zh-CN', zh], ['en-US', en]] as const) {
       // flatten 从传入节点起算，这里补回命名空间前缀，两侧才同一基准。
       const defined = new Set([...flatten(lookup(locale, 'admin.badges'))].map(key => `admin.badges.${key}`))
-      const missing = [...used].filter(key => !defined.has(key)).sort()
+      // 前缀化族的全部键都算已使用（见 PREFIXED_FAMILIES）。
+      const usedInLocale = new Set(used)
+      for (const family of PREFIXED_FAMILIES) {
+        for (const key of defined) if (key === family || key.startsWith(`${family}.`)) usedInLocale.add(key)
+      }
+      const missing = [...usedInLocale].filter(key => !defined.has(key)).sort()
       // 多余键 = 死文案：上一刀就是没人查这一侧。
-      const extra = [...defined].filter(key => !used.has(key)).sort()
+      const extra = [...defined].filter(key => !usedInLocale.has(key)).sort()
       expect({ locale: name, missing, extra }).toEqual({ locale: name, missing: [], extra: [] })
     }
   })

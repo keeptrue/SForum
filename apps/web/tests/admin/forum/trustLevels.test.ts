@@ -189,7 +189,8 @@ describe('standalone page registration (admin registry + shell)', () => {
     expect(page).toContain("t('admin.forum.trustLevels.saveScope')")
     // 提交走表单 submit + 按钮 click 两条路，Enter 提交也不会漏保存。
     expect(page).toContain('@submit.prevent="save"')
-    expect(page).toContain(':disabled="!canManage || !hasChanges"')
+    // M3b：闸门在既有两项之后追加 `saveBlockedByCatalog`（D21：改过规则字节 ∧ 目录不可用）。
+    expect(page).toContain(':disabled="!canManage || !hasChanges || saveBlockedByCatalog"')
   })
 
   test('derives the five page states from one source and gates each on its own', () => {
@@ -546,7 +547,7 @@ describe('trust.levels payload contract (schemaVersion 2)', () => {
   })
 })
 
-describe('reasonCode coverage: 33 backend codes, 15 specific + 18 bucket (P2 guardrail)', () => {
+describe('reasonCode coverage: 39 backend codes, 21 specific + 18 bucket (P2 guardrail)', () => {
   /** 后端枚举的字面抄本（OpenAPI enum 与 Go 常量表同序）。**加第 34 条时这里必须跟着加**。 */
   const BACKEND_CODES = [
     'tier_count_out_of_range',
@@ -574,6 +575,13 @@ describe('reasonCode coverage: 33 backend codes, 15 specific + 18 bucket (P2 gua
     'limits_unparseable',
     'earnable_unparseable',
     'earnable_invalid',
+    // M3：按 Go 常量表 CodeEarnableNotDeclared…CodeRuleConditionNotAvailable 的相邻顺序插入。
+    'earnable_not_declared',
+    'rule_too_complex',
+    'rule_unknown_condition',
+    'rule_shape_invalid',
+    'rule_reference_invalid',
+    'rule_condition_not_available',
     'id_derivation_conflict',
     'level_unknown',
     'level_reserved_for_tl0',
@@ -592,11 +600,11 @@ describe('reasonCode coverage: 33 backend codes, 15 specific + 18 bucket (P2 gua
     path.reduce<unknown>((node, key) => (node && typeof node === 'object' ? (node as Record<string, unknown>)[key] : undefined), doc) !== undefined
 
   test('the two lists are disjoint and together cover exactly the backend enum', () => {
-    expect(BACKEND_CODES).toHaveLength(33)
-    expect(SPECIFIC_ERROR_CODES).toHaveLength(15)
+    expect(BACKEND_CODES).toHaveLength(39)
+    expect(SPECIFIC_ERROR_CODES).toHaveLength(21)
     expect(CONFIG_BUCKET_ERROR_CODES).toHaveLength(18)
     const union = [...SPECIFIC_ERROR_CODES, ...CONFIG_BUCKET_ERROR_CODES]
-    expect(new Set(union).size).toBe(33)
+    expect(new Set(union).size).toBe(39)
     expect(new Set(union)).toEqual(new Set(BACKEND_CODES))
     // 分线本身也要稳：专属码不能同时被登记进通用桶。
     expect(SPECIFIC_ERROR_CODES.filter(code => (CONFIG_BUCKET_ERROR_CODES as readonly string[]).includes(code)))

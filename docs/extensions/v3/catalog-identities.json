@@ -6659,6 +6659,26 @@
       "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_trust_level_rule_section",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_section@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleSection.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_rule_impact_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_impact_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleImpactDialog.vue"
+    },
+    {
       "id": "core.component.admin.sfadmin_badges_badges_tab",
       "contractVersion": "sforum.component.admin.sfadmin_badges_badges_tab@1",
       "kind": "component",

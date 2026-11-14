@@ -66,6 +66,8 @@ export type TrustLevelTier = {
   limits?: Record<string, number | null> | null
   earnable?: string[]
   retired?: boolean
+  /** 后台读面下发的可选规则树（公开面**没有**这个字段，前端只透传不解码）。 */
+  rule?: unknown
 }
 
 /**

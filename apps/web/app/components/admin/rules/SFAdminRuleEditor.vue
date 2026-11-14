@@ -35,18 +35,30 @@ const props = withDefaults(defineProps<{
    * 不 emit、不压平 AST——见 `adminBadgeRuleSimpleMode.test.ts` 的降级用例。
    */
   initialMode?: RuleMode
+  /**
+   * i18n 键前缀：共享编辑器不假定宿主域。默认徽章族 `admin.badges.rule`；
+   * 信任等级传 `admin.forum.trustLevels.rule`。两份文案一致是**有意的重复**——
+   * 跨族取词会让一处改名静默改掉另一处（copy-spec §3.3.2 同一裁决）。
+   */
+  i18nKeyPrefix?: string
 }>(), {
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({}),
-  initialMode: undefined
+  initialMode: undefined,
+  i18nKeyPrefix: 'admin.badges.rule'
 })
 
 type RuleMode = 'simple' | 'advanced'
 
 const emit = defineEmits<{ 'update:modelValue': [value: BadgeRule] }>()
 
-const { t, te, locale } = useI18n()
+const { t: rawT, te: rawTE, locale: rawLOCALE } = useI18n()
+
+// 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
+const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
+const te = (key: string) => rawTE(`${props.i18nKeyPrefix}.${key}`)
+const locale = rawLOCALE
 
 /**
  * 切到简单模式时的降级：规则本身超出表达能力（`any` / `not` / 嵌套组）就只显示
@@ -56,9 +68,12 @@ const mode = ref<RuleMode>(props.initialMode ?? (isSimpleRule(props.modelValue) 
 const simple = computed(() => isSimpleRule(props.modelValue))
 const degraded = computed(() => mode.value === 'simple' && !simple.value)
 
+// 句子生成器拿到的是**已前缀化**的 t/te，且前缀一起传下去（它内部按 `${prefix}.sentence.*` 拼键）：
+// 只参数化组件里的 t 不改这里，缺键时 `te` 会在错族里查、静默回落到原始 key。
 const sentenceI18n = {
-  t: (key: string, params?: Record<string, unknown>) => t(key, params as Record<string, unknown>),
-  te: (key: string) => te(key)
+  t: (key: string, params?: Record<string, unknown>) => rawT(key, params as never),
+  te: (key: string) => rawTE(key),
+  i18nKeyPrefix: props.i18nKeyPrefix
 }
 
 /** 常显的一句话预览：两种模式下都看得到「这条规则到底在说什么」。 */
@@ -85,16 +100,17 @@ function update(next: BadgeRule) {
 <template>
   <section
     class="sf-rule-editor"
+    data-sf-rule-editor
     data-sf-badge-rule-editor
     :data-rule-mode="mode"
-    :aria-label="t('admin.badges.rule.title')"
+    :aria-label="t('title')"
   >
     <p v-if="catalog.length === 0" class="sf-rule-editor__notice">
-      {{ t('admin.badges.conditions.empty') }}
+      {{ rawT('admin.badges.conditions.empty') }}
     </p>
 
     <template v-else>
-      <div class="sf-rule-editor__modes" role="group" :aria-label="t('admin.badges.rule.title')">
+      <div class="sf-rule-editor__modes" role="group" :aria-label="t('title')">
         <button
           type="button"
           class="sf-rule-editor__mode"
@@ -102,7 +118,7 @@ function update(next: BadgeRule) {
           :aria-pressed="mode === 'simple'"
           @click="setMode('simple')"
         >
-          {{ t('admin.badges.rule.mode.simple') }}
+          {{ t('mode.simple') }}
         </button>
         <button
           type="button"
@@ -111,18 +127,19 @@ function update(next: BadgeRule) {
           :aria-pressed="mode === 'advanced'"
           @click="setMode('advanced')"
         >
-          {{ t('admin.badges.rule.mode.advanced') }}
+          {{ t('mode.advanced') }}
         </button>
       </div>
 
       <p class="sf-rule-editor__sentence" data-rule-sentence>{{ sentence }}</p>
 
       <p v-if="degraded" class="sf-rule-editor__notice" data-rule-mode-advanced-only>
-        {{ t('admin.badges.rule.modeAdvancedOnly') }}
+        {{ t('modeAdvancedOnly') }}
       </p>
 
       <SFAdminRuleSimpleForm
         v-if="mode === 'simple' && simple"
+        :i18n-key-prefix="i18nKeyPrefix"
         :rule="modelValue"
         :catalog="catalog"
         :fact-candidates="factCandidates ?? []"
@@ -134,6 +151,7 @@ function update(next: BadgeRule) {
       <template v-else-if="!degraded">
         <SFAdminRuleGroup
           v-if="rootGroup"
+          :i18n-key-prefix="i18nKeyPrefix"
           :rule="modelValue"
           :node="rootGroup"
           :path="rootPath"
@@ -146,6 +164,7 @@ function update(next: BadgeRule) {
         />
         <SFAdminRuleLeaf
           v-else-if="rootLeaf"
+          :i18n-key-prefix="i18nKeyPrefix"
           :rule="modelValue"
           :node="rootLeaf"
           :path="rootPath"
@@ -158,7 +177,7 @@ function update(next: BadgeRule) {
         />
       </template>
 
-      <SFAdminRuleJsonPreview :rule="modelValue" />
+      <SFAdminRuleJsonPreview :i18n-key-prefix="i18nKeyPrefix" :rule="modelValue" />
     </template>
   </section>
 </template>

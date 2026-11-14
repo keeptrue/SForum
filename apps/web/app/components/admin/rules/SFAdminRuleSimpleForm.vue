@@ -29,7 +29,13 @@ const props = withDefaults(defineProps<{
   factCandidatesFailed?: boolean
   /** objectRef 参数候选：只有 objectRef 参数行消费。 */
   refCandidates?: BadgeRefCandidateMap
+  /**
+   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
+   */
+  i18nKeyPrefix?: string
 }>(), {
+  i18nKeyPrefix: 'admin.badges.rule',
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({})
@@ -37,7 +43,11 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
 
-const { t, te, locale } = useI18n()
+const { t: rawT, te: rawTE, locale } = useI18n()
+
+// 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
+const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
+const te = (key: string) => rawTE(`${props.i18nKeyPrefix}.${key}`)
 
 const zh = computed(() => String(locale.value ?? '').toLowerCase().startsWith('zh'))
 const leaves = computed(() => flattenAllLeaves(props.rule))
@@ -48,9 +58,11 @@ const maxValue = BADGE_RULE_LIMITS.maxValue
 /** 行内错误直接来自 `validateRuleDraft` 的 `error.path`，不另立一套校验口径。 */
 const errors = computed(() => validateRuleDraft(props.rule, props.catalog).errors)
 
+// 句子生成器拿到的是**已前缀化**的 t/te，且前缀一起传下去（它内部按 `${prefix}.sentence.*` 拼键）。
 const sentenceI18n = {
-  t: (key: string, params?: Record<string, unknown>) => t(key, params as Record<string, unknown>),
-  te: (key: string) => te(key)
+  t: (key: string, params?: Record<string, unknown>) => rawT(key, params as never),
+  te: (key: string) => rawTE(key),
+  i18nKeyPrefix: props.i18nKeyPrefix
 }
 
 function entryOf(type: string) {
@@ -71,8 +83,9 @@ function rowErrors(index: number) {
     // （too_many_leaves / too_many_nodes），不能误挂到第一行上。
     .filter(error => (error.path.length === 0 ? rootIsLeaf.value && index === 0 : error.path[0] === index))
     .map((error) => {
-      const key = `admin.badges.rule.errors.${error.code.replace('rule.', '')}`
-      return te(key) ? t(key, error.params as Record<string, unknown>) : t('admin.badges.rule.errors.generic', { code: error.code })
+      // 短键：`te` / `t` 是同族前缀化包装，这里再拼全键会前缀两次。
+      const key = `errors.${error.code.replace('rule.', '')}`
+      return te(key) ? t(key, error.params as Record<string, unknown>) : t('errors.generic', { code: error.code })
     })
 }
 
@@ -146,11 +159,11 @@ function removeCondition(index: number) {
 <template>
   <div class="sf-simple-rule" data-simple-rule>
     <p v-if="leaves.length === 0" class="sf-simple-rule__empty" data-simple-empty>
-      {{ t('admin.badges.rule.simple.empty') }}
+      {{ t('simple.empty') }}
     </p>
 
     <div v-for="(leaf, index) in leaves" :key="index" class="sf-simple-rule__row" :data-simple-row="index">
-      <p v-if="index > 0" class="sf-simple-rule__joiner">{{ t('admin.badges.rule.simple.allOf') }}</p>
+      <p v-if="index > 0" class="sf-simple-rule__joiner">{{ t('simple.allOf') }}</p>
       <!-- 卡片头：一句人话 + 删除。删除不跟字段抢同一行，窄屏也不会变成孤立图标。 -->
       <div class="sf-simple-rule__head">
         <p class="sf-simple-rule__sentence" data-simple-sentence>{{ rowSentence(leaf) }}</p>
@@ -158,8 +171,8 @@ function removeCondition(index: number) {
           type="button"
           class="sf-simple-rule__remove"
           data-simple-remove
-          :aria-label="t('admin.badges.rule.simple.delete')"
-          :title="t('admin.badges.rule.simple.delete')"
+          :aria-label="t('simple.delete')"
+          :title="t('simple.delete')"
           @click="removeCondition(index)"
         >
           <UIcon name="i-lucide-trash-2" aria-hidden="true" />
@@ -168,21 +181,21 @@ function removeCondition(index: number) {
 
       <div class="sf-simple-rule__controls">
         <label class="sf-simple-field sf-simple-field--condition">
-          <span class="sf-simple-field__label">{{ t('admin.badges.rule.condition') }}</span>
+          <span class="sf-simple-field__label">{{ t('condition') }}</span>
           <select class="sf-simple-control" data-simple-condition :value="leaf.type" @change="setCondition(index, $event)">
             <option v-for="item in catalog" :key="item.key" :value="item.key">{{ zh ? item.labelZh : item.labelEn }}</option>
           </select>
         </label>
 
         <label v-if="leaf.cmp && compareOps(leaf).length > 0" class="sf-simple-field sf-simple-field--compare">
-          <span class="sf-simple-field__label">{{ t('admin.badges.rule.compareOp') }}</span>
+          <span class="sf-simple-field__label">{{ t('compareOp') }}</span>
           <select class="sf-simple-control" data-simple-compare :value="leaf.cmp.op" @change="setCompareOp(index, leaf, $event)">
-            <option v-for="op in compareOps(leaf)" :key="op" :value="op">{{ t(`admin.badges.rule.compare.${op}`) }}</option>
+            <option v-for="op in compareOps(leaf)" :key="op" :value="op">{{ t(`compare.${op}`) }}</option>
           </select>
         </label>
 
         <label v-if="leaf.cmp" class="sf-simple-field sf-simple-field--value">
-          <span class="sf-simple-field__label">{{ t('admin.badges.rule.value') }}</span>
+          <span class="sf-simple-field__label">{{ t('value') }}</span>
           <!-- 单位是 input 的行内后缀，不是第三行：字段高度才与其它字段一致。 -->
           <span class="sf-simple-field__value">
             <input
@@ -200,6 +213,7 @@ function removeCondition(index: number) {
 
         <!-- 参数控件只有一份实现（ParamField）：简单模式与高级模式渲染同一个组件。 -->
         <SFAdminRuleParamField
+          :i18n-key-prefix="i18nKeyPrefix"
           v-for="spec in rowParams(leaf)"
           :key="spec.name"
           :spec="spec"
@@ -215,7 +229,7 @@ function removeCondition(index: number) {
       </div>
 
       <p v-if="factCandidatesFailed && leaf.type === 'fact.count'" class="sf-simple-rule__flag">
-        {{ t('admin.badges.conditions.factCandidatesFailed') }}
+        {{ rawT('admin.badges.conditions.factCandidatesFailed') }}
       </p>
       <ul v-if="rowErrors(index).length > 0" class="sf-simple-rule__errors" data-simple-row-error>
         <li v-for="message in rowErrors(index)" :key="message">{{ message }}</li>
@@ -228,11 +242,11 @@ function removeCondition(index: number) {
         class="sf-simple-rule__add"
         data-simple-add
         :disabled="!canAdd"
-        :title="canAdd ? t('admin.badges.rule.simple.addCondition') : t('admin.badges.rule.limitLeaves')"
+        :title="canAdd ? t('simple.addCondition') : t('limitLeaves')"
         @click="addCondition"
       >
         <UIcon name="i-lucide-plus" aria-hidden="true" />
-        <span>{{ t('admin.badges.rule.simple.addCondition') }}</span>
+        <span>{{ t('simple.addCondition') }}</span>
       </button>
     </div>
   </div>

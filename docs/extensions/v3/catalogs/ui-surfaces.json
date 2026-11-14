@@ -1250,6 +1250,26 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
+    "id": "core.component.admin.sfadmin_trust_level_rule_impact_dialog",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_impact_dialog@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleImpactDialog.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.sfadmin_trust_level_rule_section",
+    "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_section@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleSection.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.admin.sfadmin_trust_level_thresholds_tab",
     "contractVersion": "sforum.component.admin.sfadmin_trust_level_thresholds_tab@1",
     "kind": "component",

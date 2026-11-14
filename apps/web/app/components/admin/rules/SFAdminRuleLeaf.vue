@@ -31,7 +31,13 @@ const props = withDefaults(defineProps<{
   factCandidatesFailed?: boolean
   /** objectRef 参数候选：不可用/为空时参数控件退成文本输入。 */
   refCandidates?: BadgeRefCandidateMap
+  /**
+   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
+   */
+  i18nKeyPrefix?: string
 }>(), {
+  i18nKeyPrefix: 'admin.badges.rule',
   factCandidates: () => [],
   factCandidatesFailed: false,
   refCandidates: () => ({})
@@ -39,7 +45,10 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
 
-const { t, locale } = useI18n()
+const { t: rawT, locale } = useI18n()
+
+// 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
+const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
 
 const entry = computed(() => props.catalog.find(item => item.key === props.node.type) ?? null)
 const params = computed<BadgeConditionParam[]>(() => entry.value?.params ?? [])
@@ -68,7 +77,7 @@ function entryLabel(item: BadgeConditionCatalogEntry) {
 }
 
 function compareLabel(op: string) {
-  return t(`admin.badges.rule.compare.${op}`)
+  return t(`compare.${op}`)
 }
 
 function paramText(name: string) {
@@ -107,29 +116,29 @@ function setValue(event: Event) {
   <article class="sf-rule-leaf" :data-rule-leaf="node.type" :data-depth="depth">
     <!-- 目录里没有这个条件（插件卸载 / 版本回退）：显示原始 key + 只读提示，不渲染空控件。 -->
     <div v-if="!entry" class="sf-rule-leaf__missing" data-rule-leaf-missing>
-      <p class="sf-rule-leaf__missing-title">{{ t('admin.badges.conditions.unknown', { type: node.type }) }}</p>
+      <p class="sf-rule-leaf__missing-title">{{ rawT('admin.badges.conditions.unknown', { type: node.type }) }}</p>
       <code class="sf-rule-leaf__missing-key">{{ node.type }}</code>
-      <p class="sf-rule-leaf__missing-hint">{{ t('admin.badges.conditions.unknownHint') }}</p>
+      <p class="sf-rule-leaf__missing-hint">{{ rawT('admin.badges.conditions.unknownHint') }}</p>
     </div>
 
     <template v-else>
     <div class="sf-rule-leaf__head">
       <label class="sf-rule-field">
-        <span class="sf-rule-field__label">{{ t('admin.badges.rule.condition') }}</span>
+        <span class="sf-rule-field__label">{{ t('condition') }}</span>
         <select class="sf-rule-control" data-rule-condition :value="node.type" @change="setType">
           <option v-for="item in catalog" :key="item.key" :value="item.key">{{ entryLabel(item) }}</option>
         </select>
       </label>
 
       <label v-if="node.cmp && entry" class="sf-rule-field">
-        <span class="sf-rule-field__label">{{ t('admin.badges.rule.compareOp') }}</span>
+        <span class="sf-rule-field__label">{{ t('compareOp') }}</span>
         <select class="sf-rule-control" data-rule-compare :value="node.cmp.op" @change="setCompareOp">
           <option v-for="op in entry.compare" :key="op" :value="op">{{ compareLabel(op) }}</option>
         </select>
       </label>
 
       <label v-if="node.cmp && entry" class="sf-rule-field">
-        <span class="sf-rule-field__label">{{ t('admin.badges.rule.value') }}</span>
+        <span class="sf-rule-field__label">{{ t('value') }}</span>
         <!-- 单位是 input 的行内后缀（与简单模式同一套语言），不再独占第三行。 -->
         <span class="sf-rule-field__value">
           <input
@@ -148,6 +157,7 @@ function setValue(event: Event) {
 
     <div v-if="params.length > 0" class="sf-rule-params">
       <SFAdminRuleParamField
+        :i18n-key-prefix="i18nKeyPrefix"
         v-for="spec in params"
         :key="spec.name"
         :spec="spec"

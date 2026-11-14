@@ -5901,7 +5901,14 @@
             "earnable_missing": "缺少能力解锁数组：每档都必须显式给出，空数组也要写。",
             "earnable_key_empty": "能力解锁里有空字符串：请移除该项或填入权限键。",
             "earnable_not_whitelisted": "权限「{permission}」不在可授予白名单内，不能按等级解锁。",
-            "color_not_whitelisted": "颜色「{color}」不可用：请从推荐颜色里选一个，或填 #RRGGBB 形式的色值。"
+            "earnable_not_declared": "这个权限从未被任何插件声明，不能按等级解锁：请取消勾选，或换成插件声明过的权限。",
+            "rule_too_complex": "条件的层数或条数超上限：请把「并且/或者」嵌套减到 5 层、条件减到 32 条以内，阈值不超过 10 亿。",
+            "rule_unknown_condition": "有一条条件已不在可用目录里（可能是插件卸载后消失）：请删除它，或换成目录里还在的条件。",
+            "rule_shape_invalid": "条件的组合写得不成形：「并且/或者」至少要有一个条件，「非」必须恰好一个，计数条件要填阈值。",
+            "rule_reference_invalid": "引用的对象已找不到（分类、标签、角色、登录方式、徽章或主题可能已被删除）：请重新选一项。",
+            "rule_condition_not_available": "这条条件不能用于信任等级（内容质量类条件不参与等级判定）：请删除它，或换成别的条件。",
+            "color_not_whitelisted": "颜色「{color}」不可用：请从推荐颜色里选一个，或填 #RRGGBB 形式的色值。",
+            "earnable_not_declared_plugin_disabled": "声明这个权限的插件「{plugin}」当前已停用，勾选暂时不生效：请启用该插件后重试。"
           },
           "field": {
             "unknown": "该字段",
@@ -6012,6 +6019,153 @@
             "icon": "图标",
             "color": "档位颜色"
           }
+        },
+        "conditions": {
+          "toggle": {
+            "more": "更多条件（{count}）",
+            "add": "添加条件"
+          },
+          "panel": {
+            "description": "数值阈值之外再加一层：只有数值与这里全部满足，才升到这一档。",
+            "loading": "正在读取条件目录…",
+            "empty": {
+              "description": "现在只按上面的数值阈值判定。要加条件，点「添加条件」。"
+            },
+            "loadFailed": {
+              "title": "条件目录加载失败，规则暂不可编辑",
+              "description": "编辑器已锁定，避免在目录缺失时改坏已保存的条件。数值阈值不受影响，仍可正常保存。",
+              "reason": "失败原因：{reason}",
+              "retry": "重试"
+            },
+            "readOnly": {
+              "title": "当前账号只能查看",
+              "description": "修改条件需要「信任等级管理」权限。"
+            },
+            "featureOff": "功能关闭时读不到条件目录，附加条件暂不可编辑；开关打开后会自动加载。",
+            "retired": "已停用：这一档不参与判定，条件原样保留。"
+          },
+          "impact": {
+            "title": "保存前确认影响面",
+            "scopeHint": "按这次要保存的配置估算。",
+            "estimate": "≈ {count} 人",
+            "meaningHint": "数的是满足这一档条件的人数，不是会升级或降级的人数。",
+            "unestimable": "无法估算",
+            "nullHint": "这里没有人数：表示无法估算，不代表 0 人。",
+            "unsupportedTitle": "以下条件无法参与估算：",
+            "partialHint": "只算了部分条件，这个数字是上界，真实人数可能更少。",
+            "loading": "正在估算影响面…",
+            "loadFailed": "影响面估算获取失败，仍可继续保存。",
+            "consequence": "保存后，不再满足条件的用户可能被降级，其已解锁的能力会一并收回。",
+            "confirm": "继续保存",
+            "confirmAnyway": "仍然保存",
+            "cancel": "取消",
+            "unsupportedMore": "还有 {count} 条",
+            "unsupportedLess": "收起",
+            "method": {
+              "single_leaf": "依据：这一档只有一个条件，按它估算。",
+              "strictest_leaf": "依据：多个必须同时满足的条件里，取最严格的一条估算。",
+              "strictest_leaf_partial": "依据：取最严格的一条可估条件，其余条件无法估算。",
+              "sum_of_leaves": "依据：多个「或」的条件相加，真实人数通常少于这个数。",
+              "complement_of_leaf": "依据：按「排除某一条条件」估算。",
+              "unsupported_condition": "依据：这一档有无法估算的条件。"
+            }
+          }
+        },
+        "rule": {
+          "addCondition": "添加条件",
+          "addGroup": "添加条件组",
+          "compare": {
+            "gte": "大于等于（≥）",
+            "lte": "小于等于（≤）"
+          },
+          "compareOp": "比较",
+          "condition": "条件",
+          "copied": "规则 JSON 已复制",
+          "copy": "复制",
+          "copyFailed": "复制失败，请手动选择文本。",
+          "emptyGroup": "这个条件组还没有子节点，至少需要 1 个条件才能保存。",
+          "errors": {
+            "boolean_cmp": "布尔条件不能带比较阈值。",
+            "catalogMissing": "条件目录尚未加载，暂时无法编辑规则。",
+            "cmp_not_allowed": "该条件不允许使用这个比较符。",
+            "cmp_value_range": "阈值必须在 1 到 1000000000 之间。",
+            "count_cmp_missing": "计数条件必须填写比较阈值。",
+            "days_range": "天数必须在 1 到 3650 之间。",
+            "depth_exceeded": "嵌套深度超过上限。",
+            "empty_group": "条件组至少要有一个子节点。",
+            "engine": {
+              "catalog_invalid": "条件目录声明不合法。",
+              "compare_forbidden": "布尔条件不能带比较阈值。",
+              "compare_invalid": "比较符不合法。",
+              "compare_missing": "计数条件必须填写比较阈值。",
+              "compare_not_allowed": "该条件不允许使用这个比较符。",
+              "decode_failed": "规则数据无法解析。",
+              "param_missing": "缺少必填参数。",
+              "resolve_failed": "规则求值失败。",
+              "shape_invalid": "规则结构不合法（例如条件组缺少子节点）。",
+              "too_deep": "嵌套深度超过上限。",
+              "unknown_condition": "条件不在当前目录中。",
+              "value_out_of_range": "阈值超出允许范围。",
+              "version_unsupported": "规则版本不受支持。"
+            },
+            "generic": "规则校验未通过（{code}）。",
+            "not_children": "「非」必须恰好有 1 个子节点。",
+            "param_enum": "参数取值不在允许集合内。",
+            "param_invalid": "参数类型不正确。",
+            "param_range": "参数超出允许范围。",
+            "param_required": "缺少必填参数。",
+            "param_unknown": "存在未声明的参数。",
+            "param_window": "时间窗口的取值不合法。",
+            "too_many_leaves": "条件数超过上限。",
+            "too_many_nodes": "节点数超过上限。",
+            "unknown_type": "条件「{type}」不在当前目录中。"
+          },
+          "groupOp": "组合方式",
+          "health": {
+            "missing_fact_key": "插件事实条件已失效"
+          },
+          "jsonTitle": "开发者视图 · 规则 JSON",
+          "limitDepth": "已达最大嵌套深度（{max} 层），不能再嵌套。",
+          "limitLeaves": "条件数已达上限（{max} 个），不能再加条件。",
+          "limitNodes": "节点数已达上限（{max} 个），不能再添加。",
+          "mode": {
+            "advanced": "高级",
+            "simple": "简单"
+          },
+          "modeAdvancedOnly": "这条规则包含「任一满足 / 排除」这类高级逻辑，简单模式表达不了。切到高级模式继续编辑；切换模式本身不会改动规则。",
+          "notNeedsOneChild": "「非」只能有 1 个子节点",
+          "ops": {
+            "all": "全部满足",
+            "any": "任一满足",
+            "not": "取反"
+          },
+          "paramUnsupported": "不支持的参数类型 {kind}",
+          "remove": "删除节点",
+          "sentence": {
+            "allTime": "累计",
+            "empty": "还没有设置条件",
+            "joinAll": " 且 ",
+            "joinAny": " 或 ",
+            "negate": "非（{inner}）",
+            "tpl": "{when}{label} {symbol} {value}",
+            "withinDays": "最近 {days} 天内"
+          },
+          "simple": {
+            "addCondition": "添加条件",
+            "allOf": "并且",
+            "delete": "删除这条条件",
+            "empty": "还没有条件，先添加一条吧。",
+            "windowAll": "累计（不限时间）",
+            "windowRecent": "最近 N 天"
+          },
+          "title": "条件规则",
+          "unwrap": "解包「非」",
+          "value": "阈值",
+          "window": {
+            "all": "累计",
+            "recent_days": "最近 N 天"
+          },
+          "wrapNot": "包进「非」"
         }
       }
     },

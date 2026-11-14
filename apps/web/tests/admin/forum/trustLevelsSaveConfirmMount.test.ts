@@ -1,5 +1,5 @@
 import { describe, expect, test, mock } from 'bun:test'
-import { computed, reactive, ref, watch, onMounted } from 'vue'
+import { computed, defineComponent, onMounted, reactive, ref, watch } from 'vue'
 import { fileURLToPath } from 'node:url'
 import { readFileSync } from 'node:fs'
 import { compileVueSfc, flushPromises, mount } from '../../helpers/vueSfc'
@@ -201,9 +201,10 @@ const TiersStub = {
 }
 const ThresholdsStub = {
   name: 'SFAdminTrustLevelThresholdsTab',
-  emits: ['threshold', 'restore'],
+  emits: ['threshold', 'restore', 'toggle-rule', 'rule', 'retry-conditions'],
   template: `<div>
     <button type="button" data-stub-threshold @click="$emit('threshold', 'member', 'days_visited', 42)">threshold</button>
+    <button type="button" data-stub-rule @click="$emit('rule', 'member', { v: 1, root: { type: 'activity.count', params: { metric: 'topic_count', window: { kind: 'all' } }, cmp: { op: 'gte', value: 3 } } })">rule</button>
     <button type="button" data-stub-restore @click="$emit('restore')">restore</button>
   </div>`
 }
@@ -264,6 +265,15 @@ async function mountPage(tab: 'tiers' | 'thresholds') {
     ref,
     watch,
     onMounted,
+    nextTick: async () => {},
+    // 影响面弹窗（M3b）：本文件断言的是「保存链路开不开弹窗」，弹窗自身的三态渲染
+    // 由 `trustLevelRuleImpact.test.ts` 覆盖，这里只要一个能确认/取消的壳。
+    SFAdminTrustLevelRuleImpactDialog: defineComponent({
+      name: 'SFAdminTrustLevelRuleImpactDialog',
+      props: { open: Boolean, status: String, results: Array, tiers: Array, catalog: Array },
+      emits: ['confirm', 'cancel'],
+      template: '<div data-impact-dialog :data-status="status" :data-open="String(open)" />'
+    }),
     useAdminPage: () => ({ icon: 'i-lucide-gauge' }),
     useTrustLevelsAdminPage,
     SFAdminFixedTabNav: SFAdminFixedTabNavStub,
@@ -625,6 +635,54 @@ describe('tier color and deletion gates (D-C1 / D-C2 / D-C3)', () => {
       await flushPromises()
       await submit(wrapper)
       expect(lastConfig(writeCalls).deletedTierIds).toEqual(['resident'])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})
+
+/**
+ * D21 保存闸门的正反用例（ui-spec Q-21 / Q-22）。
+ *
+ * 这里用**真实编排层**：闸门 `saveBlockedByCatalog` 与 `save()` 的短路都在
+ * `useTrustLevelsAdminPage()` 里，所以断言的是真行为而不是某个布尔的名字。
+ * 本文件的 `useApiClient` 替身对所有 GET 都返回 admin 载荷，条件目录归一化必然失败
+ * → `¬catalogUsable` 成立。这正是 Q-21 需要的场景（目录挂掉）。
+ */
+describe('保存闸门：改过规则 ∧ 目录不可用 → 禁用并给可见原因（Q-21 / Q-22）', () => {
+  test('Q-21 改过规则后保存被禁用，且页面上有可读原因（不是只有 title）', async () => {
+    const { wrapper, writeCalls } = await mountPage('thresholds')
+    try {
+      // 先只改数值：保存应可用（证明闸门不是「目录挂了就全禁」）。
+      await wrapper.find('[data-stub-threshold]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-sf-trust-levels-save]').attributes('disabled')).toBeUndefined()
+
+      // 再碰规则字节：同一次会话里立刻变成禁用。
+      await wrapper.find('[data-stub-rule]').trigger('click')
+      await flushPromises()
+
+      const save = wrapper.find('[data-sf-trust-levels-save]')
+      expect(save.attributes('disabled')).toBeDefined()
+      const reason = wrapper.find('[data-sf-trust-levels-save-blocked]')
+      expect(reason.exists()).toBe(true)
+      expect(reason.text()).toBe(t('admin.forum.trustLevels.conditions.panel.loadFailed.title'))
+      // 被闸门挡住时点下去也一个写请求都不发（按钮 disabled 之外的第二道）。
+      await save.trigger('click')
+      await flushPromises()
+      expect(writeCalls).toHaveLength(0)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('Q-22 只改数值（没碰规则）时保存照常可用 —— 闸门不误伤', async () => {
+    const { wrapper } = await mountPage('thresholds')
+    try {
+      await wrapper.find('[data-stub-threshold]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-sf-trust-levels-save]').attributes('disabled')).toBeUndefined()
+      expect(wrapper.find('[data-sf-trust-levels-save-blocked]').exists()).toBe(false)
     } finally {
       wrapper.unmount()
     }

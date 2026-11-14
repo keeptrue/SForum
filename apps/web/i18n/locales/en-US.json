@@ -5861,7 +5861,14 @@
             "earnable_missing": "The earnable array is missing: every tier must send it explicitly, even when empty.",
             "earnable_key_empty": "The earnable list contains an empty string: remove it or fill in a permission key.",
             "earnable_not_whitelisted": "The permission “{permission}” is not in the grantable allow-list and cannot be unlocked by tier.",
-            "color_not_whitelisted": "The color “{color}” is not available: choose a recommended color or enter a #RRGGBB value."
+            "earnable_not_declared": "No plugin declares this permission, so it cannot unlock by level: uncheck it, or pick a permission a plugin declares.",
+            "rule_too_complex": "Too much nesting or too many conditions: keep to 5 levels and 32 conditions, with values under 1,000,000,000.",
+            "rule_unknown_condition": "A condition is no longer in the catalog, usually because a plugin was removed: delete it or pick one that still exists.",
+            "rule_shape_invalid": "The group is incomplete: “and/or” needs at least one item, “not” exactly one, and count conditions need a value.",
+            "rule_reference_invalid": "What it points at is gone (category, tag, role, sign-in provider, badge, or topic may be deleted): choose again.",
+            "rule_condition_not_available": "That condition cannot be used for trust levels (content-quality conditions are excluded): delete it or use another one.",
+            "color_not_whitelisted": "The color “{color}” is not available: choose a recommended color or enter a #RRGGBB value.",
+            "earnable_not_declared_plugin_disabled": "Plugin “{plugin}” declares this permission but is disabled, so the check does nothing: enable it and try again."
           },
           "field": {
             "unknown": "This field",
@@ -5972,6 +5979,153 @@
             "icon": "Icon",
             "color": "Tier color"
           }
+        },
+        "conditions": {
+          "toggle": {
+            "more": "More conditions ({count})",
+            "add": "Add conditions"
+          },
+          "panel": {
+            "description": "A second gate on top of the numeric thresholds: a user reaches this tier only when both pass.",
+            "loading": "Loading the condition catalog…",
+            "empty": {
+              "description": "Only the numeric thresholds decide this tier right now. Use “Add conditions” to add more."
+            },
+            "loadFailed": {
+              "title": "The condition catalog failed to load; conditions cannot be edited",
+              "description": "The editor is locked so stored conditions cannot be damaged while the catalog is missing. Thresholds are unaffected and still save normally.",
+              "reason": "Reason: {reason}",
+              "retry": "Retry"
+            },
+            "readOnly": {
+              "title": "Your account can view this only",
+              "description": "Changing conditions requires the trust-level management permission."
+            },
+            "featureOff": "The catalog cannot be read while the feature is off, so conditions are not editable here; it loads once the flag is on.",
+            "retired": "Retired: this tier takes no part in evaluation; its conditions are kept as they are."
+          },
+          "impact": {
+            "title": "Confirm the impact before saving",
+            "scopeHint": "Estimated from the configuration about to be saved.",
+            "estimate": "≈ {count} people",
+            "meaningHint": "This counts people who meet this tier's conditions, not how many will move up or down.",
+            "unestimable": "Cannot estimate",
+            "nullHint": "No number here means the audience is unknown, not zero.",
+            "unsupportedTitle": "These conditions cannot take part in the estimate:",
+            "partialHint": "Only some conditions were counted, so this is an upper bound; the real number may be smaller.",
+            "loading": "Estimating the impact…",
+            "loadFailed": "The impact estimate could not be loaded. You can still save.",
+            "consequence": "After saving, users who no longer qualify may drop a tier, and the abilities it unlocked are withdrawn with it.",
+            "confirm": "Continue to save",
+            "confirmAnyway": "Save anyway",
+            "cancel": "Cancel",
+            "unsupportedMore": "{count} more",
+            "unsupportedLess": "Show less",
+            "method": {
+              "single_leaf": "Basis: this tier has a single condition, estimated from it.",
+              "strictest_leaf": "Basis: the strictest of the conditions that must all hold.",
+              "strictest_leaf_partial": "Basis: the strictest estimateable condition; the rest cannot be estimated.",
+              "sum_of_leaves": "Basis: a sum over any-of conditions, so the real audience is usually smaller.",
+              "complement_of_leaf": "Basis: estimated by excluding a single condition.",
+              "unsupported_condition": "Basis: this tier contains conditions that cannot be estimated."
+            }
+          }
+        },
+        "rule": {
+          "addCondition": "Add condition",
+          "addGroup": "Add group",
+          "compare": {
+            "gte": "At least (≥)",
+            "lte": "At most (≤)"
+          },
+          "compareOp": "Compare",
+          "condition": "Condition",
+          "copied": "Rule JSON copied",
+          "copy": "Copy",
+          "copyFailed": "Copy failed — select the text manually.",
+          "emptyGroup": "This group has no children yet; at least one condition is required to save.",
+          "errors": {
+            "boolean_cmp": "A boolean condition cannot carry a threshold.",
+            "catalogMissing": "The condition catalog is not loaded yet; the rule cannot be edited.",
+            "cmp_not_allowed": "This condition does not allow that comparison.",
+            "cmp_value_range": "The threshold must be between 1 and 1000000000.",
+            "count_cmp_missing": "A count condition needs a comparison threshold.",
+            "days_range": "Days must be between 1 and 3650.",
+            "depth_exceeded": "Nesting is too deep.",
+            "empty_group": "A group needs at least one child.",
+            "engine": {
+              "catalog_invalid": "The condition catalog declaration is invalid.",
+              "compare_forbidden": "A boolean condition cannot carry a threshold.",
+              "compare_invalid": "The comparison operator is invalid.",
+              "compare_missing": "A count condition needs a comparison threshold.",
+              "compare_not_allowed": "This condition does not allow that comparison.",
+              "decode_failed": "The rule payload cannot be decoded.",
+              "param_missing": "A required parameter is missing.",
+              "resolve_failed": "Rule evaluation failed.",
+              "shape_invalid": "The rule shape is invalid (for example a group without children).",
+              "too_deep": "Nesting is too deep.",
+              "unknown_condition": "The condition is not in the current catalog.",
+              "value_out_of_range": "The threshold is out of range.",
+              "version_unsupported": "The rule version is not supported."
+            },
+            "generic": "Rule validation failed ({code}).",
+            "not_children": "“not” takes exactly one child.",
+            "param_enum": "A parameter value is not allowed.",
+            "param_invalid": "A parameter has the wrong type.",
+            "param_range": "A parameter is out of range.",
+            "param_required": "A required parameter is missing.",
+            "param_unknown": "The rule contains an undeclared parameter.",
+            "param_window": "The time window value is invalid.",
+            "too_many_leaves": "Too many conditions.",
+            "too_many_nodes": "Too many nodes.",
+            "unknown_type": "Condition “{type}” is not in the current catalog."
+          },
+          "groupOp": "Combine with",
+          "health": {
+            "missing_fact_key": "Plugin fact condition is no longer available"
+          },
+          "jsonTitle": "Developer view · rule JSON",
+          "limitDepth": "Maximum nesting depth ({max}) reached.",
+          "limitLeaves": "Condition limit ({max}) reached.",
+          "limitNodes": "Node limit ({max}) reached.",
+          "mode": {
+            "advanced": "Advanced",
+            "simple": "Simple"
+          },
+          "modeAdvancedOnly": "This rule uses advanced logic (any / not) that simple mode cannot express. Switch to Advanced to keep editing — switching modes never changes the rule.",
+          "notNeedsOneChild": "“not” takes exactly one child",
+          "ops": {
+            "all": "All of",
+            "any": "Any of",
+            "not": "Not"
+          },
+          "paramUnsupported": "Unsupported parameter type {kind}",
+          "remove": "Remove node",
+          "sentence": {
+            "allTime": "All-time",
+            "empty": "No conditions yet",
+            "joinAll": " and ",
+            "joinAny": " or ",
+            "negate": "not ({inner})",
+            "tpl": "{when} {label} {symbol} {value}",
+            "withinDays": "In the last {days} days"
+          },
+          "simple": {
+            "addCondition": "Add condition",
+            "allOf": "and",
+            "delete": "Remove this condition",
+            "empty": "No conditions yet — add one to start.",
+            "windowAll": "All time",
+            "windowRecent": "Last N days"
+          },
+          "title": "Rule",
+          "unwrap": "Unwrap “not”",
+          "value": "Threshold",
+          "window": {
+            "all": "All time",
+            "recent_days": "Last N days"
+          },
+          "wrapNot": "Wrap in “not”"
         }
       }
     },

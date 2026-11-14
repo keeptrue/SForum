@@ -30,7 +30,7 @@ import {
 import type { BadgeRefCandidateMap } from '~/utils/admin/badgeRefCandidates'
 import SFAdminRuleLeaf from '~/components/admin/rules/SFAdminRuleLeaf.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   rule: BadgeRule
   node: BadgeRuleGroup
   path: number[]
@@ -41,11 +41,21 @@ const props = defineProps<{
   factCandidatesFailed?: boolean
   /** objectRef 参数候选：递归往下带，直到参数控件。 */
   refCandidates?: BadgeRefCandidateMap
-}>()
+  /**
+   * i18n 键前缀：共享编辑器不假定宿主域。默认 `admin.badges.rule`；
+   * 信任等级传 `admin.forum.trustLevels.rule`（两份文案一致是有意的重复，禁止跨族取词）。
+   */
+  i18nKeyPrefix?: string
+}>(), {
+  i18nKeyPrefix: 'admin.badges.rule'
+})
 
 const emit = defineEmits<{ 'update:rule': [rule: BadgeRule] }>()
 
-const { t } = useI18n()
+const { t: rawT } = useI18n()
+
+// 前缀化包装：调用点继续写短键，宿主域由 prop 决定。
+const t = (key: string, params?: Record<string, unknown>) => rawT(`${props.i18nKeyPrefix}.${key}`, params as never)
 
 const isNot = computed(() => props.node.op === 'not')
 const stats = computed(() => ruleStats(props.rule))
@@ -53,13 +63,13 @@ const stats = computed(() => ruleStats(props.rule))
 /** 到顶原因只给第一个命中的上限，`title` 一句话说清，不堆三个数字。 */
 const limitReason = computed(() => {
   if (props.depth + 1 > BADGE_RULE_LIMITS.maxDepth) {
-    return t('admin.badges.rule.limitDepth', { max: BADGE_RULE_LIMITS.maxDepth })
+    return t('limitDepth', { max: BADGE_RULE_LIMITS.maxDepth })
   }
   if (stats.value.leaves >= BADGE_RULE_LIMITS.maxLeaves) {
-    return t('admin.badges.rule.limitLeaves', { max: BADGE_RULE_LIMITS.maxLeaves })
+    return t('limitLeaves', { max: BADGE_RULE_LIMITS.maxLeaves })
   }
   if (stats.value.nodes >= BADGE_RULE_LIMITS.maxNodes) {
-    return t('admin.badges.rule.limitNodes', { max: BADGE_RULE_LIMITS.maxNodes })
+    return t('limitNodes', { max: BADGE_RULE_LIMITS.maxNodes })
   }
   return ''
 })
@@ -124,7 +134,7 @@ function unwrap() {
 }
 
 function opLabel(op: BadgeRuleOp) {
-  return t(`admin.badges.rule.ops.${op}`)
+  return t(`ops.${op}`)
 }
 </script>
 
@@ -132,14 +142,14 @@ function opLabel(op: BadgeRuleOp) {
   <div class="sf-rule-group" :data-rule-group="node.op" :data-depth="depth">
     <div class="sf-rule-group__head">
       <label class="sf-rule-group__op">
-        <span class="sf-rule-group__label">{{ t('admin.badges.rule.groupOp') }}</span>
+        <span class="sf-rule-group__label">{{ t('groupOp') }}</span>
         <select class="sf-rule-group__select" data-rule-group-op :value="node.op" @change="setOp">
           <option value="all">{{ opLabel('all') }}</option>
           <option value="any">{{ opLabel('any') }}</option>
           <option
             value="not"
             :disabled="!isNot && node.children.length !== 1"
-            :title="!isNot && node.children.length !== 1 ? t('admin.badges.rule.notNeedsOneChild') : undefined"
+            :title="!isNot && node.children.length !== 1 ? t('notNeedsOneChild') : undefined"
           >
             {{ opLabel('not') }}
           </option>
@@ -151,8 +161,8 @@ function opLabel(op: BadgeRuleOp) {
           v-if="isNot && node.children.length === 1"
           type="button"
           class="sf-rule-action"
-          :aria-label="t('admin.badges.rule.unwrap')"
-          :title="t('admin.badges.rule.unwrap')"
+          :aria-label="t('unwrap')"
+          :title="t('unwrap')"
           @click="unwrap"
         >
           <UIcon name="i-lucide-undo-2" aria-hidden="true" />
@@ -162,32 +172,32 @@ function opLabel(op: BadgeRuleOp) {
             type="button"
             class="sf-rule-add"
             data-rule-add-condition
-            :aria-label="t('admin.badges.rule.addCondition')"
-            :title="canAdd ? t('admin.badges.rule.addCondition') : limitReason"
+            :aria-label="t('addCondition')"
+            :title="canAdd ? t('addCondition') : limitReason"
             :disabled="!canAdd"
             @click="addLeaf"
           >
             <UIcon name="i-lucide-plus" aria-hidden="true" />
-            <span>{{ t('admin.badges.rule.addCondition') }}</span>
+            <span>{{ t('addCondition') }}</span>
           </button>
           <button
             type="button"
             class="sf-rule-add"
             data-rule-add-group
-            :aria-label="t('admin.badges.rule.addGroup')"
-            :title="canAdd ? t('admin.badges.rule.addGroup') : limitReason"
+            :aria-label="t('addGroup')"
+            :title="canAdd ? t('addGroup') : limitReason"
             :disabled="!canAdd"
             @click="addGroup"
           >
             <UIcon name="i-lucide-brackets" aria-hidden="true" />
-            <span>{{ t('admin.badges.rule.addGroup') }}</span>
+            <span>{{ t('addGroup') }}</span>
           </button>
         </template>
       </div>
     </div>
 
     <p v-if="node.children.length === 0" class="sf-rule-group__empty">
-      {{ t('admin.badges.rule.emptyGroup') }}
+      {{ t('emptyGroup') }}
     </p>
 
     <ul v-else class="sf-rule-group__children">
@@ -197,8 +207,8 @@ function opLabel(op: BadgeRuleOp) {
             type="button"
             class="sf-rule-action"
             data-rule-wrap-not
-            :aria-label="t('admin.badges.rule.wrapNot')"
-            :title="t('admin.badges.rule.wrapNot')"
+            :aria-label="t('wrapNot')"
+            :title="t('wrapNot')"
             @click="wrapChild(row.index)"
           >
             <UIcon name="i-lucide-ban" aria-hidden="true" />
@@ -207,8 +217,8 @@ function opLabel(op: BadgeRuleOp) {
             type="button"
             class="sf-rule-action"
             data-rule-remove
-            :aria-label="t('admin.badges.rule.remove')"
-            :title="t('admin.badges.rule.remove')"
+            :aria-label="t('remove')"
+            :title="t('remove')"
             @click="removeChild(row.index)"
           >
             <UIcon name="i-lucide-trash-2" aria-hidden="true" />
@@ -217,6 +227,7 @@ function opLabel(op: BadgeRuleOp) {
 
         <SFAdminRuleGroup
           v-if="row.group"
+          :i18n-key-prefix="i18nKeyPrefix"
           :rule="rule"
           :node="row.group"
           :path="[...path, row.index]"
@@ -229,6 +240,7 @@ function opLabel(op: BadgeRuleOp) {
         />
         <SFAdminRuleLeaf
           v-else-if="row.leaf"
+          :i18n-key-prefix="i18nKeyPrefix"
           :rule="rule"
           :node="row.leaf"
           :path="[...path, row.index]"

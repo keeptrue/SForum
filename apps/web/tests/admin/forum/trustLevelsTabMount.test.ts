@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { computed, ref } from 'vue'
+import { computed, defineComponent, ref } from 'vue'
 import {
   earnableMatrixState,
   earnableOrphanText,
@@ -222,8 +222,33 @@ const SFAdminTrustLevelFieldErrors = await compileVueSfc(fieldErrorsPath, 'sf-tr
 const thresholdsPath = fileURLToPath(
   new URL('../../../app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue', import.meta.url)
 )
+/**
+ * 规则面板（M3b）在本文件里只需要「存在且可点击」：它的内容契约由
+ * `trustLevelRulePanel.test.ts` 单独覆盖，这里只挡住编译期绑定缺失。
+ */
+const SFAdminTrustLevelRuleSectionStub = defineComponent({
+  name: 'SFAdminTrustLevelRuleSection',
+  props: { tierId: String, rule: { type: Object, default: null } },
+  emits: ['update:rule', 'retry'],
+  template: '<div data-rule-section-stub :data-tier-id="tierId" />'
+})
+
 const SFAdminTrustLevelThresholdsTab = await compileVueSfc(thresholdsPath, 'sf-trust-levels-thresholds', {
   SFAdminTrustLevelFieldErrors,
+  SFAdminTrustLevelRuleSection: SFAdminTrustLevelRuleSectionStub,
+  ruleLeaves: (raw: unknown) => {
+    // 与真实实现同形（足够本文件断言「条数」用）
+    const out: unknown[] = []
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return
+      if (Array.isArray(node)) { node.forEach(walk); return }
+      if (typeof node.type === 'string') { out.push(node); return }
+      if (Array.isArray(node.children)) { node.children.forEach(walk); return }
+      if ('root' in node) walk(node.root)
+    }
+    walk(raw)
+    return out
+  },
   blockNonIntegerKey,
   TRUST_LEVEL_THRESHOLD_METRICS,
   activeRankOf,

@@ -6,6 +6,7 @@ import SFAdminTrustLevelEarnableTab from '~/components/admin/forum/trust-levels/
 import SFAdminTrustLevelLimitsTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue'
 import SFAdminTrustLevelTiersTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelTiersTab.vue'
 import SFAdminTrustLevelThresholdsTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue'
+import SFAdminTrustLevelRuleImpactDialog from '~/components/admin/forum/trust-levels/SFAdminTrustLevelRuleImpactDialog.vue'
 import SFAdminTrustLevelsOverviewTab from '~/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelsOverviewTab.vue'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { useTrustLevelsAdminPage } from '~/composables/admin/forum/trustLevels/useTrustLevelsAdminPage'
@@ -90,13 +91,37 @@ const {
   usingFallbackRecommended,
   pageState,
   loadErrorReason,
-  savedRequirements
+  savedRequirements,
+  conditions,
+  saveBlockedByCatalog,
+  expandedRuleTierId,
+  toggleRulePanel,
+  setTierRule,
+  retryConditions,
+  impactOpen,
+  impactStatus,
+  impactResults,
+  confirmImpact,
+  cancelImpact
 } = useTrustLevelsAdminPage()
 
 const tabIds: TrustLevelsTab[] = ['overview', 'tiers', 'thresholds', 'limits', 'earnable']
 /** 恢复默认会覆盖的五类内容（与文案一一对应，顺序即严重性）。 */
 const restoreLossItems = ['tiers', 'thresholds', 'limits', 'earnable', 'appearance'] as const
 const activeTab = ref<TrustLevelsTab>(normalizeTab(route.query.tab))
+
+/**
+ * 展开面板后把那一档滚进视野（`block: 'nearest'`）。
+ *
+ * 只有「展开」这个动作会滚动，收起不滚：422 之后要滚到出错档，手动折叠时把页面拽走
+ * 反而让人失去位置。滚动容器仍是 `.sforum-admin-scroll-area`（这里不新建 scroller）。
+ */
+watch(expandedRuleTierId, async (tierId) => {
+  if (!tierId) return
+  await nextTick()
+  const fieldset = document.querySelector<HTMLElement>(`[data-tier-id="${tierId}"]`)
+  fieldset?.scrollIntoView({ block: 'nearest' })
+})
 
 const tabIcons: Record<TrustLevelsTab, string> = {
   overview: 'i-lucide-list',
@@ -389,6 +414,20 @@ function setActiveTab(value: string) {
       </UModal>
 
       <!--
+        D8 的第二步：保存前的影响面确认。弹窗本身**就是**第二步，不再叠一层确认
+        （套两层会让人闭眼点确定）。估算失败不拦保存。
+      -->
+      <SFAdminTrustLevelRuleImpactDialog
+        :open="impactOpen"
+        :status="impactStatus"
+        :results="impactResults"
+        :tiers="tiers"
+        :catalog="conditions.items.value"
+        @confirm="confirmImpact"
+        @cancel="cancelImpact"
+      />
+
+      <!--
         P1-4：档位结构变化（新增/停用/恢复/插序/上移下移）会让所有人按新阶梯重新判定，
         所以保存前必须阻塞式确认。只改阈值/名字/图标/能力解锁不弹 —— 那些不改变谁落在哪一档。
         Toast 不能代替这条披露：它是「保存后会发生什么」的唯一告知点。
@@ -531,8 +570,19 @@ function setActiveTab(value: string) {
                 :using-fallback-recommended="usingFallbackRecommended"
                 :save-errors="saveErrorBuckets.byTierId"
                 :restoring="restoring"
+                :expanded-tier-id="expandedRuleTierId"
+                :conditions-status="conditions.status.value"
+                :conditions-error="conditions.error.value"
+                :conditions-catalog="conditions.items.value"
+                :fact-candidates="conditions.factCandidates.value"
+                :fact-candidates-failed="conditions.status.value === 'failed'"
+                :ref-candidates="conditions.refCandidates.value"
+                :trust-levels-enabled="trustLevelsEnabled"
                 @threshold="setThreshold"
                 @restore="restoreThresholds"
+                @toggle-rule="toggleRulePanel"
+                @retry-conditions="retryConditions"
+                @rule="setTierRule"
               />
               <SFAdminTrustLevelLimitsTab
                 v-else-if="activeTab === 'limits'"
@@ -574,6 +624,18 @@ function setActiveTab(value: string) {
                       {{ t('admin.forum.trustLevels.saveScope') }}
                     </span>
                   </div>
+                  <!--
+                    保存被目录闸门拦住时，原因必须**可见**（`disabled` 按钮不可聚焦，`title` 读不到）：
+                    这里给完整句，面板内首行给同一句 + 重试入口。
+                  -->
+                  <p
+                    v-if="saveBlockedByCatalog"
+                    class="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400"
+                    data-sf-trust-levels-save-blocked
+                  >
+                    <UIcon name="i-lucide-circle-alert" class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    <span>{{ t('admin.forum.trustLevels.conditions.panel.loadFailed.title') }}</span>
+                  </p>
                 </template>
                 <template #actions>
                   <UButton
@@ -592,7 +654,7 @@ function setActiveTab(value: string) {
                     type="submit"
                     leading-icon="i-lucide-save"
                     :loading="saving"
-                    :disabled="!canManage || !hasChanges"
+                    :disabled="!canManage || !hasChanges || saveBlockedByCatalog"
                     class="bg-[var(--sf-accent)] font-semibold text-white hover:bg-[var(--sf-accent-hover)]"
                     data-sf-trust-levels-save
                   >

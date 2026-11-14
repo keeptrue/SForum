@@ -49,6 +49,15 @@ export const EMPTY_TIER_LIMITS: TrustLevelLimits = {
 
 export type TrustLevelRequirements = Record<string, number>
 
+/**
+ * 一档的可选规则树（M3）。
+ *
+ * **刻意保持「原样 JSON」而不是解码后的 `BadgeRule`**：没被编辑过的规则必须逐字节回传读面
+ * 拿到的值（后端 `TierConfig.Rule` 是 `json.RawMessage`，重新序列化会重排键、丢未知键，
+ * 脏规则还可能变成 `null`——徽章那刀已证）。编辑过的档位会整份换成编辑器产出的新对象。
+ */
+export type TrustLevelRuleDocument = Record<string, unknown> | null
+
 /** 表单里的一档（= v2 存储的一档，`earnable` 永远是数组，省略会被后端 422）。 */
 export type TierForm = {
   id: string
@@ -60,6 +69,8 @@ export type TierForm = {
   limits: TrustLevelLimits | null
   earnable: string[]
   retired: boolean
+  /** 可选规则树：`null` = 该档无规则（载荷里**不写**这个键，保持与引入前的字节一致）。 */
+  rule: TrustLevelRuleDocument
 }
 
 /** 六个判定指标全 0：新插入的档位默认不设门槛（运营随后按需填）。 */
@@ -78,7 +89,9 @@ export function cloneTier(tier: TierForm): TierForm {
     requirements: { ...tier.requirements },
     limits: tier.limits ? { ...tier.limits } : null,
     earnable: [...tier.earnable],
-    retired: tier.retired
+    retired: tier.retired,
+    // 引用复制：规则树只整份替换，从不原地改，所以共享同一份即可（深拷贝会白花一次全树遍历）。
+    rule: tier.rule ?? null
   }
 }
 
@@ -152,7 +165,8 @@ export function makeTier(id: string, icon: string | null = null): TierForm {
     requirements: zeroRequirements(),
     limits: { ...EMPTY_TIER_LIMITS },
     earnable: [],
-    retired: false
+    retired: false,
+    rule: null
   }
 }
 
@@ -387,6 +401,10 @@ export function toTierForm(tier: TrustLevelTier): TierForm {
     requirements: { ...zeroRequirements(), ...(tier.requirements ?? {}) },
     limits: tier.limits ? { ...EMPTY_TIER_LIMITS, ...tier.limits } : null,
     earnable: [...(tier.earnable ?? [])],
-    retired: tier.retired === true
+    retired: tier.retired === true,
+    // 读面来的规则**不解码、不重建**：`undefined`/`null` 都归一成 null（该档无规则）。
+    rule: (tier as { rule?: unknown }).rule && typeof (tier as { rule?: unknown }).rule === 'object'
+      ? (tier as { rule?: Record<string, unknown> }).rule ?? null
+      : null
   }
 }
