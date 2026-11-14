@@ -9,6 +9,18 @@ on:
       - deploy/**
       - tests/validate-docs_test.sh
       - tests/validate-builtin-plugin-versions.mjs
+      # validate-builtin-plugin-versions.mjs 的输入面：sourceContractFiles()（该文件
+      # 107-113 行）+ digestSharedRuntime()。缺了这些，插件 source digest 或共享运行时
+      # 漂移时本工作流根本不触发，门禁只在本地 test.sh 里红（v3.1.0 发版前踩过一次）。
+      - extensions/builtin/plugins/*/sforum.extension.json
+      - extensions/builtin/plugins/*/backend/**
+      - extensions/builtin/plugins/*/manifest/**
+      - extensions/builtin/plugins/*/schemas/**
+      - apps/api/go.mod
+      - apps/api/sdk/plugin/**
+      - apps/api/app/Support/PluginBootstrap/contract.go
+      - contracts/proto/**
+      - tests/builtin-plugin-release-baseline.json
       - tests/validate-sforum-latest.sh
       - sforum-latest.sh
       - sforum-latest.sh.sha256
@@ -22,6 +34,18 @@ on:
       - deploy/**
       - tests/validate-docs_test.sh
       - tests/validate-builtin-plugin-versions.mjs
+      # validate-builtin-plugin-versions.mjs 的输入面：sourceContractFiles()（该文件
+      # 107-113 行）+ digestSharedRuntime()。缺了这些，插件 source digest 或共享运行时
+      # 漂移时本工作流根本不触发，门禁只在本地 test.sh 里红（v3.1.0 发版前踩过一次）。
+      - extensions/builtin/plugins/*/sforum.extension.json
+      - extensions/builtin/plugins/*/backend/**
+      - extensions/builtin/plugins/*/manifest/**
+      - extensions/builtin/plugins/*/schemas/**
+      - apps/api/go.mod
+      - apps/api/sdk/plugin/**
+      - apps/api/app/Support/PluginBootstrap/contract.go
+      - contracts/proto/**
+      - tests/builtin-plugin-release-baseline.json
       - tests/validate-sforum-latest.sh
       - sforum-latest.sh
       - sforum-latest.sh.sha256
@@ -49,7 +73,7 @@ jobs:
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.4
 
       - name: Install web dependencies
         working-directory: apps/web
