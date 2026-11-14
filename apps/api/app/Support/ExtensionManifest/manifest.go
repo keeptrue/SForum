@@ -694,32 +694,6 @@ func DeclaredEvents(manifest Manifest) []ManifestEvent {
 	return items
 }
 
-func isThemeManifestSupported(manifest Manifest) bool {
-	// 主题的公开页面贡献只来自 theme.json；管理端设置使用 Settings Document。
-	if manifest.Backend != (ManifestBackend{}) ||
-		len(manifest.Permissions) != 0 ||
-		len(manifest.Capabilities) != 0 ||
-		len(manifest.Migrations) != 0 ||
-		len(manifest.Routes) != 0 ||
-		len(manifest.Hooks) != 0 ||
-		len(manifest.Events) != 0 ||
-		len(manifest.Jobs) != 0 ||
-		len(manifest.Providers) != 0 ||
-		len(manifest.Contributions) != 0 {
-		return false
-	}
-	if len(manifest.Guards) != 0 || len(manifest.Schedules) != 0 ||
-		len(manifest.Content) != 0 || len(manifest.Editor) != 0 || len(manifest.Entities) != 0 ||
-		manifest.Database != nil || len(manifest.Cache) != 0 || len(manifest.SEO) != 0 ||
-		len(manifest.Services) != 0 || len(manifest.Commands) != 0 ||
-		len(manifest.AdminSurfaces) != 0 || len(manifest.Queries) != 0 || len(manifest.QueryResultFilters) != 0 ||
-		manifest.Identity != nil || len(manifest.PermissionDefinitions) != 0 ||
-		len(manifest.Media) != 0 || manifest.Lifecycle != nil || len(manifest.OpenAPI) != 0 {
-		return false
-	}
-	return true
-}
-
 func validHTTPURL(value string) bool {
 	parsed, err := url.ParseRequestURI(value)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
