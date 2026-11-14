@@ -1,5 +1,6 @@
 # Managed by upgrade.sh. The committed example documents the stable ingress;
 # deploy/runtime/Caddyfile is generated locally and intentionally gitignored.
+# 它必须与 upgrade.sh 的 write_router_config() 逐行同口径：手工部署者会直接照抄。
 :3000 {
 	header X-SForum-Active-Slot blue
 	# 公开只读资产：QQ 内置浏览器（X5 云加速）、CDN 换源后仍要能加载。
@@ -12,10 +13,17 @@
 		Timing-Allow-Origin "*"
 		Cross-Origin-Resource-Policy "cross-origin"
 	}
-	reverse_proxy web-blue:3000
+	# 客户端 IP 一律在本层按 {client_ip} 重新计算：限流键、登录锁定 IP 和审计
+	# 来源地址都读 X-Real-IP；缺了这一行上游只能看到 web 容器的地址，客户端
+	# 自带的同名头也不会被覆盖。
+	reverse_proxy web-blue:3000 {
+		header_up X-Real-IP {client_ip}
+	}
 }
 
 :18080 {
 	header X-SForum-Active-Slot blue
-	reverse_proxy api-blue:8080
+	reverse_proxy api-blue:8080 {
+		header_up X-Real-IP {client_ip}
+	}
 }

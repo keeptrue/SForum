@@ -637,11 +637,18 @@ write_router_config() {
     printf '\t\tTiming-Allow-Origin "*"\n'
     printf '\t\tCross-Origin-Resource-Policy "cross-origin"\n'
     printf '\t}\n'
-    printf '\treverse_proxy web-%s:3000\n' "$slot"
+    # 客户端 IP 必须在本层按 {client_ip} 重新计算：限流键、登录锁定 IP 和审计
+    # 来源地址都读 X-Real-IP，缺了这一行上游只能看到 web 容器的地址，客户端
+    # 自带的同名头也不会被覆盖（审计 RV-02）。
+    printf '\treverse_proxy web-%s:3000 {\n' "$slot"
+    printf '\t\theader_up X-Real-IP {client_ip}\n'
+    printf '\t}\n'
     printf '}\n\n'
     printf ':18080 {\n'
     printf '\theader X-SForum-Active-Slot %s\n' "$slot"
-    printf '\treverse_proxy api-%s:8080\n' "$slot"
+    printf '\treverse_proxy api-%s:8080 {\n' "$slot"
+    printf '\t\theader_up X-Real-IP {client_ip}\n'
+    printf '\t}\n'
     printf '}\n'
   } > "$destination"
   chmod 600 "$destination"
