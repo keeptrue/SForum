@@ -47,6 +47,7 @@ export const ROLE_TEMPLATE_DEFINITIONS = [
       'admin.access',
       'user.view',
       'user.manage',
+      'moderation.manage',
       'settings.site.manage',
       'settings.mail.manage',
       'settings.avatar.manage',

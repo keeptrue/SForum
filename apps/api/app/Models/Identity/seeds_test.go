@@ -319,3 +319,62 @@ func TestSeedPermissionsCoverCurrentAdminAndForumSurfaces(t *testing.T) {
 		t.Fatalf("seed catalog size drifted: got %d want %d", len(found), len(required))
 	}
 }
+
+// TestPermissionKeysWithoutBuiltinGrantStayDeliberate 是「没有内置角色授予的权限键」白名单闸门。
+//
+// 口径：SeedPermissions −（SeedRoleTemplates 全部权限 ∪ SeedMemberPermissions）。
+// 空集才是理想状态；现实里 4 个键有意不给内置角色模板，理由与改动入口见
+// knowledge/decisions/2026-11-14-permission-key-ownership.md：
+//   - role.manage / user.permission_override：高风险授权与个人例外，按需单独授予；
+//   - settings.manage / extension.manage：legacy 父权限，授予即展开全部子权限，
+//     等于绕过细粒度岗位边界。
+//
+// 「不给内置模板」≠「不可授予」：它们仍是守卫里的 OR 备选
+// （app/Http/core_guard_authorizer.go），也可经 user_permission_overrides 单独授予。
+// 新增一个谁都不持有的权限键必须改这份白名单并补决策记录，否则它会成为死权限：
+// 端点永远 403、运行时零报错。
+func TestPermissionKeysWithoutBuiltinGrantStayDeliberate(t *testing.T) {
+	// 归属先钉住：moderation.manage 是运营岗的站点策略面，版主只做内容审核。
+	for _, template := range SeedRoleTemplates {
+		holds := slices.Contains(template.PermissionKeys, PermissionModerationManage)
+		switch template.Key {
+		case RoleOperator:
+			if !holds {
+				t.Fatal("operator must hold moderation.manage (audit settings + history)")
+			}
+		case RoleModerator:
+			if holds {
+				t.Fatal("moderator must not hold moderation.manage; it only reviews content")
+			}
+		}
+	}
+
+	granted := map[string]bool{}
+	for _, template := range SeedRoleTemplates {
+		for _, permission := range template.PermissionKeys {
+			granted[permission] = true
+		}
+	}
+	for _, permission := range SeedMemberPermissions {
+		granted[permission] = true
+	}
+
+	unassigned := make([]string, 0, 4)
+	for _, permission := range SeedPermissions {
+		if !granted[permission.Key] {
+			unassigned = append(unassigned, permission.Key)
+		}
+	}
+	want := []string{
+		PermissionExtensionManage,
+		PermissionRoleManage,
+		PermissionSettingsManage,
+		PermissionUserPermissionOverride,
+	}
+	slices.Sort(unassigned)
+	slices.Sort(want)
+	if !slices.Equal(unassigned, want) {
+		t.Fatalf("permission keys without a built-in grant drifted\n  got:  %v\n  want: %v\n"+
+			"新增权限键要么给内置岗位，要么改这份白名单并补 knowledge/decisions/2026-11-14-permission-key-ownership.md", unassigned, want)
+	}
+}

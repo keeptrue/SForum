@@ -466,6 +466,18 @@ Initial identity foundation is implemented.
   fixed with an add-only migration, never by loosening an assertion.
   `202611140003_role_template_grants_parity.sql` converged the last two
   operator gaps (`trust.manage` in DB, `entity_meta.manage` in seeds).
+- Every permission key needs an owner. `moderation.manage` (moderation settings
+  + audit history) belongs to `operator` — `moderator` stays content-review
+  only — converged by `202611140004_moderation_manage_operator.sql`. Four keys
+  are deliberately **not** pre-granted to any template (`role.manage`,
+  `user.permission_override`, `settings.manage`, `extension.manage`); they
+  remain grantable on demand (guard OR alternatives, `user_permission_overrides`)
+  — see `knowledge/decisions/2026-11-14-permission-key-ownership.md`.
+- Gate: `app/Models/Identity/seeds_test.go` →
+  `TestPermissionKeysWithoutBuiltinGrantStayDeliberate` pins that exact
+  four-key set (strict equality, not a subset) and the `moderation.manage`
+  ownership. A new key with no built-in grant must either get a home or update
+  that allowlist **and** the decision record.
 - API exposes `/api/v1/auth/registration-status` for registration availability
   only: `nextUserIsInitialSuperAdmin` is always `false` on that public endpoint
   so the bootstrap window stays hidden, while `registrationEnabled` carries the

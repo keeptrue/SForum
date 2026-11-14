@@ -196,6 +196,9 @@ var SeedRoleTemplates = []SeedRoleTemplate{
 			PermissionAdminAccess,
 			PermissionUserView,
 			PermissionUserManage,
+			// 审核设置与审核审计历史（/admin/moderation/* 的 6 条声明）是站点策略面，归运营；
+			// 版主只做内容审核（moderation.review / moderation.view_ip），拿设置与审计属于越界。
+			PermissionModerationManage,
 			// 有意不含 user.permission_override：个人权限例外留给超管或单独授权。
 			PermissionSettingsSiteManage,
 			PermissionSettingsMailManage,
