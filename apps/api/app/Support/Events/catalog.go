@@ -41,6 +41,12 @@ const (
 	// 与 reaction 同姿态：payload 只含公开安全字段，私密收藏不外泄内容摘要。
 	BookmarkCreated = "bookmark.created"
 	BookmarkRemoved = "bookmark.removed"
+	// TrustLevelChanged M4b-2：一个用户的信任等级真的变了之后发出（observe）。
+	//
+	// 「真的变了」的口径由 `trustlevels.RecomputeUser` 决定：与变更账本
+	// `user_trust_levels` 比较，且本次求值 **不是** incomplete。求值判不了的时候
+	// 不发——否则一次 DB 抖动就会让全站用户收到一条「等级变了」（而其实没变）。
+	TrustLevelChanged = "trust_level.changed"
 )
 
 // 目录约定（F1.3）：
@@ -102,6 +108,10 @@ var definitions = []Definition{
 	observe(ReactionRemoved, "Emitted after a like is removed from a visible topic or comment.", []string{"targetType", "targetId", "reaction", "actorUserId"}),
 	observe(BookmarkCreated, "Emitted after a bookmark is committed on a visible topic or comment.", []string{"targetType", "targetId", "visibility", "actorUserId"}),
 	observe(BookmarkRemoved, "Emitted after a bookmark is removed from a visible topic or comment.", []string{"targetType", "targetId", "visibility", "actorUserId"}),
+	// 等级变更事件只带「从哪档到哪档」：userId 是主体，两个 tierId 让订阅方不必
+	// 重新拉策略就能渲染「升到 X 档」。computedAt 是本次求值时刻（ISO8601），
+	// 与账本 user_trust_levels.computed_at 同源，便于对账。
+	observe(TrustLevelChanged, "Emitted after a user's trust level is recomputed and differs from the change ledger. Never emitted for incomplete evaluations.", []string{"userId", "fromLevel", "toLevel", "fromTierId", "toTierId", "computedAt"}),
 }
 
 func topicObservePayload(extra ...string) []string {
