@@ -126,3 +126,7 @@ extensions/fixtures/plugins/*/backend/plugin
 
 # 开发者本地构建的 sforum CLI 二进制产物，不入库
 apps/api/sforum
+
+# 本机 DSH 会话状态与团队编排产物（不入库）
+.dsh/
+work-team/
