@@ -181,6 +181,14 @@ func DeclaredPermissionKeys() []string { return EarnableWhitelist() }
 // M1 的已声明集合 = 核心七键，因此这条码在当前版本**经由 HTTP 不可达**：解码期的
 // `earnable_not_whitelisted` 会先拒绝同一批输入。这不是遗漏，而是 M4.2 的切换点
 // ——那一步会把解码期的硬拒改成「保留 + 运行期过滤」，这条码才开始接手。
+//
+// **M4.2 的接手条件（可执行，别只留在对话里）**：一旦 `config.go` 的
+// `validateEarnableInto` 不再因 `!IsWhitelisted(key)` 拒绝，就必须在
+// `Http/Controllers/TrustLevels/rule_controller_test.go` 里新增一条 HTTP 断言——
+// PUT 一份 `earnable` 含未声明键的配置，期望 422 且
+// `details.errors[].reasonCode == "earnable_not_declared"`，并同步把本条注释里
+// 「M1 经由 HTTP 不可达」改成「已接通」。**没加那条断言 = 这个码永久不可达**，
+// 而码表看上去完全正常（只在读码表的人眼里它像已经实现了）。
 func ValidateEarnableDeclared(keys []string, declared []string) []FieldError {
 	known := make(map[string]struct{}, len(declared))
 	for _, key := range declared {
