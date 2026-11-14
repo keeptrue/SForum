@@ -54,6 +54,7 @@ var messages = map[string]map[string]string{
 		"site.maintenance":                          "站点维护中，请稍后再访问。",
 		"service.not_ready":                         "服务尚未就绪，请稍后重试。",
 		"route.probe_invalid":                       "路由探测请求无效。",
+		"route.probe_forbidden":                     "内部路由探针仅限宿主内部调用。",
 		// 跨域修复：徽章那刀（2026-11-10 badges-and-user-activity）漏了这六个
 		// 错误码的双语文案，导致 TestAPIErrorCodesHaveLocalizedMessages 长期红。
 		// 由信任等级这一刀补上（纯增量、零行为变更）。徽章域下次动 i18n 时请连它
@@ -110,6 +111,7 @@ var messages = map[string]map[string]string{
 		"user.role_unknown":                              "所选用户组不存在，请重新选择。",
 		"role.invalid":                                   "用户组不存在，请检查后重试。",
 		"role.invalid_input":                             "请填写用户组标识和别名；标识只能使用小写字母、数字、点号、短横线或下划线。",
+		"role.grant_exceeds_actor":                       "不能授予超出你自身权限的角色。",
 		"options.invalid":                                "站点设置不正确，请检查后重试。",
 		"options.invalid_value":                          "该项设置的值不合法（格式或范围不符），请按提示修改后重试。",
 		"options.invalid_value_set":                      "该项设置与站点其他设置冲突，请对照相关设置项修改后重试。",
@@ -510,6 +512,7 @@ var messages = map[string]map[string]string{
 		"site.maintenance":                               "The site is under maintenance. Please try again later.",
 		"service.not_ready":                              "The service is not ready yet. Please try again shortly.",
 		"route.probe_invalid":                            "The route probe request is invalid.",
+		"route.probe_forbidden":                          "The internal route probe is only available to the host.",
 		"forum.outbound_link_forbidden":                  "New users cannot post outbound links yet.",
 		"forum.mentions_limit":                           "Too many mentions in one post.",
 		"forum.guest_login_required":                     "Please sign in to browse content.",
@@ -537,6 +540,7 @@ var messages = map[string]map[string]string{
 		"user.role_unknown":                              "The selected user group does not exist. Choose another one.",
 		"role.invalid":                                   "The user group does not exist. Check it and try again.",
 		"role.invalid_input":                             "Enter a user group key and alias. The key may contain lowercase letters, numbers, dots, hyphens, or underscores.",
+		"role.grant_exceeds_actor":                       "You cannot grant a role that exceeds your own permissions.",
 		"options.invalid":                                "The site setting is invalid. Check it and try again.",
 		"options.invalid_value":                          "This setting's value is invalid (wrong format or out of range). Fix it and try again.",
 		"options.invalid_value_set":                      "This setting conflicts with another site setting. Check the related settings and try again.",
@@ -863,23 +867,6 @@ var messages = map[string]map[string]string{
 		"not_found":                                     "The requested resource does not exist.",
 		"method_not_allowed":                            "This request method is not supported.",
 		"internal_error":                                "The server is temporarily unavailable. Please try again later.",
-	},
-}
-
-var trustedRuntimeMessages = map[string]map[string]string{
-	"zh-CN": {
-		"extension.frontend_runtime_unavailable": "可信前端运行时暂不可用，请稍后重试。",
-		"extension.frontend_digest_invalid":      "扩展前端摘要无效，请刷新扩展信息后重试。",
-		"extension.frontend_package_changed":     "扩展组件文件已变化，旧授权已失效，请重新确认。",
-		"extension.frontend_trust_not_found":     "该扩展没有可撤销的可信前端授权。",
-		"extension.public_frontend_bridge_stale": "公开前端桥接授权已失效，请刷新页面后重试。",
-	},
-	"en-US": {
-		"extension.frontend_runtime_unavailable": "The trusted frontend runtime is temporarily unavailable. Try again later.",
-		"extension.frontend_digest_invalid":      "The extension frontend digest is invalid. Refresh the extension details and try again.",
-		"extension.frontend_package_changed":     "The extension component changed, so its previous grant is no longer valid. Confirm it again.",
-		"extension.frontend_trust_not_found":     "This extension has no trusted frontend grant to revoke.",
-		"extension.public_frontend_bridge_stale": "The public frontend bridge grant is stale. Refresh the page and try again.",
 	},
 }
 

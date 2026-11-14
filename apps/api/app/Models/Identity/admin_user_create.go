@@ -128,6 +128,11 @@ func (c *AdminUserCreator) Create(ctx context.Context, actor Actor, input AdminC
 	if err := c.validateRoles(ctx, roleKeys); err != nil {
 		return AdminCreateUserResult{}, err
 	}
+	// 授权不变量：只能授予自己持有的权限（外加默认注册基线）。否则持有
+	// user.manage 的 operator 可以铸出带 database.manage 的 tech_admin。
+	if err := NewRoleGrantGuard(c.store).Check(ctx, actor, roleKeys); err != nil {
+		return AdminCreateUserResult{}, err
+	}
 
 	// 预检冲突给字段级错误；并发竞态由 users 的唯一索引兜底。
 	conflicts, err := c.store.FindRegistrationConflicts(ctx, normalized.Username, normalized.Email)
