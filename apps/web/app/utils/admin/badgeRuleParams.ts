@@ -66,10 +66,15 @@ export interface BadgeRuleLabelFamily {
 }
 
 /**
- * 徽章族的默认三元组（共享编辑器的历史行为，逐字不变）。
+ * 徽章族的默认三元组：徽章侧**取值来源**不变——不传 `labelFamily` 时读的还是这三个
+ * 前缀，与参数名文案修复之前完全一致。
  *
- * 徽章侧的消费方不传 `labelFamily` 时用的就是这三个前缀；任何一次徽章族改名
- * 只影响徽章侧，信任侧读自己的族（契约见 `tests/admin/forum/trustLevelRuleI18n.test.ts`）。
+ * 注意别把这句读成「徽章侧一处可见文本都没变」：参数名（`params.<name>`）以前读的是
+ * locale 根下的 `params`，那儿没有这个对象，所以**一直回落成裸 name**（下拉标签写着
+ * `metric` 而不是「指标」）。那次修复让徽章与信任两边同时显示出正确文案，属于修缺陷。
+ * 族隔离本身只影响「去哪一族取值」，不影响徽章侧的取词结果。
+ *
+ * 信任侧的契约见 `tests/admin/forum/trustLevelRuleI18n.test.ts`。
  */
 export const BADGE_LABEL_FAMILY: BadgeRuleLabelFamily = {
   params: 'admin.badges.conditions.params',

@@ -66,10 +66,11 @@ const rulePrefix = 'admin.forum.trustLevels.rule'
  * 一次改名静默改掉信任侧的指标名与下拉标签（M3b-F1 修的就是这个缺陷）。
  */
 const trustConditionPrefix = 'admin.forum.trustLevels.ruleConditions'
+// 三元组由族前缀拼出来：族只有一个来源（`trustConditionPrefix`），子族名不重复写三遍。
 const trustLabelFamily: BadgeRuleLabelFamily = {
-  params: 'admin.forum.trustLevels.ruleConditions.params',
-  metrics: 'admin.forum.trustLevels.ruleConditions.metrics',
-  enums: 'admin.forum.trustLevels.ruleConditions.enums'
+  params: `${trustConditionPrefix}.params`,
+  metrics: `${trustConditionPrefix}.metrics`,
+  enums: `${trustConditionPrefix}.enums`
 }
 
 /** 目录是否**可用**：`failed` 与「成功但 0 条」都算不可用（后者等于没有可选条件）。 */

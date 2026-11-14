@@ -59,27 +59,25 @@ const DYNAMIC_KEYS = [
   'tiers.retireConfirm.confirm'
 ] as const
 
-/** 共享编辑器经前缀 prop 读取的整族。 */
-const PREFIXED_FAMILIES = ['rule'] as const
-
 /**
- * **允许被整族放行**的族名清单（M3b-F1 的族注入）。
+ * 被**整族放行**的族名 → 接住这批键的补偿测试文件。
  *
- * 规则：源码里以「族名」出现（而不是叶子键）的引用，若它是某些已定义键的祖先，
- * 该族整体算已使用。这会吞掉族内孤儿键——所以放行名单必须是**固定的、显式的**，
- * 而不是「扫到什么就放行什么」。
+ * 为什么必须放行：共享编辑器把条件族与标签三元组经 prop 注入，源码里出现的是**族名**
+ * （`admin.forum.trustLevels.rule`、`…ruleConditions`），没有叶子键可匹配。
+ * 代价（2026-11-14 实测）：这两族合计 **118 个叶子键**（`rule` 76 + `ruleConditions` 42）
+ * 在**本棘轮里**失去分辨力 —— 往族里塞一条没人读的文案，这里看不见。
  *
- * 这张表是**集合相等**断言的一部分（见下面的测试）：多一项红（有人新引入一个会被
- * 整族放行的族名），少一项也红（有人悄悄拆掉了族注入）。新增一项时必须同时去
- * `trustLevelRuleI18n.test.ts` 补逐键等值断言，否则那一族就真的没人看着了。
+ * 所以这张表记的是「事实 + 责任人」，不是「算已使用」：放行 ≠ 有人读。族内新增孤儿键
+ * 由 owner 文件里的**逐键等值**断言接住（`trustLevelRuleI18n.test.ts` 把 `rule` 与
+ * `ruleConditions` 两族逐键对照徽章族：键集与值都必须相等）。本文件负责两件事：
+ * 1) 放行名单必须**精确等于**这张表的键集（多一个族名 = 又有一族没人看着 → 红；
+ *    少一个 = 有人把族注入偷偷拆成字面量 → 也红）；
+ * 2) 每个 owner 文件必须真实存在（补偿断言被删/改名时红）。
  */
-const INJECTED_FAMILIES = [
-  'rule',
-  'ruleConditions',
-  'ruleConditions.enums',
-  'ruleConditions.metrics',
-  'ruleConditions.params'
-].sort()
+const ANCESTOR_PASSED_FAMILIES: Record<string, string> = {
+  rule: 'trustLevelRuleI18n.test.ts',
+  ruleConditions: 'trustLevelRuleI18n.test.ts'
+}
 
 const zh = JSON.parse(
   readFileSync(new URL('../../../i18n/locales/zh-CN.json', import.meta.url), 'utf8')
@@ -141,26 +139,33 @@ describe('admin.forum.trustLevels 死键棘轮', () => {
 
     const used = new Set<string>(literal)
     for (const key of DYNAMIC_KEYS) used.add(key)
-    // 族注入（M3b-F1）：共享编辑器的条件族与标签三元组经 prop 注入，源码里出现的是
-    // **族名**（`admin.forum.trustLevels.ruleConditions`、`.params`…），没有叶子键可匹配。
-    // 族名是某些已定义键的祖先就整族算已使用；放行名单必须与 `INJECTED_FAMILIES` 相等。
-    // 族内孤儿键由 `trustLevelRuleI18n.test.ts` 的逐键副本断言接住（键集 + 值）。
-    const injected = [...literal].filter(key => defined.some(entry => entry.startsWith(`${key}.`))).sort()
-    expect(injected).toEqual([...INJECTED_FAMILIES])
-    for (const family of injected) {
-      for (const definedKey of defined) {
-        if (definedKey.startsWith(`${family}.`)) used.add(definedKey)
-      }
+    // 族注入（M3b-F1）：源码里以**族名**出现的引用（不是叶子键）无法逐键匹配。
+    // 这些族不并进 `used`——`used` 的语义是「有消费者」，整族放行不等于有人读；
+    // 它们单独记成 `excluded`，并在这条断言里要求放行名单与登记表**精确相等**。
+    const ancestorPassed = [...literal]
+      .filter(key => defined.some(entry => entry.startsWith(`${key}.`)))
+      .sort()
+    expect(ancestorPassed).toEqual(Object.keys(ANCESTOR_PASSED_FAMILIES).sort())
+    // 补偿断言也要在场：owner 文件被删/改名时，这一族就真的没人看着了。
+    for (const [family, owner] of Object.entries(ANCESTOR_PASSED_FAMILIES)) {
+      const ownerUrl = new URL(owner, import.meta.url)
+      expect({ family, owner, exists: statSync(ownerUrl, { throwIfNoEntry: false })?.isFile() ?? false })
+        .toEqual({ family, owner, exists: true })
     }
-    for (const family of [...DYNAMIC_FAMILIES, ...prefixed]) {
+    const excluded = new Set<string>()
+    for (const family of ancestorPassed) {
+      for (const key of defined) if (key.startsWith(`${family}.`)) excluded.add(key)
+    }
+    for (const family of DYNAMIC_FAMILIES) {
       for (const key of defined) {
         if (key === family || key.startsWith(`${family}.`)) used.add(key)
       }
     }
     // 家族声明本身（`errors.code` 这类）不是叶子键，从 defined 侧不会出现，无需特判。
 
-    const unused = defined.filter(key => !used.has(key)).sort()
+    const unused = defined.filter(key => !used.has(key) && !excluded.has(key)).sort()
     // 棘轮：集合必须与登记表**完全相等** —— 新增孤儿键红，已接上消费者的存量键没删也红。
+    // 被整族放行的键（`excluded`）不在这一侧判定，它们由 owner 文件的逐键等值断言接住。
     expect(unused).toEqual([...KNOWN_DEAD_KEYS])
   })
 
