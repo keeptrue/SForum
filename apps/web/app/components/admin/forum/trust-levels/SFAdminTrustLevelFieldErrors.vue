@@ -44,20 +44,38 @@ function text(error: TrustLevelSaveError) {
 </script>
 
 <template>
-  <ul v-if="props.errors.length > 0" class="sf-field-errors" :data-compact="compact ? 'true' : 'false'" data-sf-tier-errors>
-    <li v-for="(error, index) in props.errors" :key="`${error.field}-${index}`" class="sf-field-errors__item">
-      <UIcon name="i-lucide-circle-alert" class="sf-field-errors__icon" aria-hidden="true" />
-      <span class="min-w-0">
-        <span class="sf-field-errors__field">{{ fieldLabel(error.field) }}</span>
-        <span class="sf-field-errors__text">{{ text(error) }}</span>
-      </span>
-    </li>
-  </ul>
+  <div v-if="props.errors.length > 0" class="sf-field-errors__block" :data-compact="compact ? 'true' : 'false'">
+    <!-- 抬头：一档同时报几条时，只看到一串红字会以为是页面级故障；先给一句「这一档有几处」。 -->
+    <p class="sf-field-errors__title" data-sf-tier-errors-title>
+      {{ t('admin.forum.trustLevels.errors.tierTitle', { count: props.errors.length }) }}
+    </p>
+    <ul class="sf-field-errors" :data-compact="compact ? 'true' : 'false'" data-sf-tier-errors>
+      <li v-for="(error, index) in props.errors" :key="`${error.field}-${index}`" class="sf-field-errors__item">
+        <UIcon name="i-lucide-circle-alert" class="sf-field-errors__icon" aria-hidden="true" />
+        <span class="min-w-0">
+          <span class="sf-field-errors__field">{{ fieldLabel(error.field) }}</span>
+          <span class="sf-field-errors__text">{{ text(error) }}</span>
+        </span>
+      </li>
+    </ul>
+  </div>
 </template>
 
 <style scoped>
-.sf-field-errors {
+.sf-field-errors__block {
   margin: 8px 0 0;
+}
+
+.sf-field-errors__title {
+  margin: 0 0 4px;
+  color: var(--sf-danger, #dc2626);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.sf-field-errors {
+  margin: 0;
   padding: 0;
   list-style: none;
   display: grid;
@@ -74,6 +92,11 @@ function text(error: TrustLevelSaveError) {
 }
 
 .sf-field-errors[data-compact="true"] .sf-field-errors__item {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.sf-field-errors__block[data-compact="true"] .sf-field-errors__title {
   font-size: 11px;
   line-height: 16px;
 }

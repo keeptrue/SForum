@@ -5761,8 +5761,7 @@
             "description": "修改信任等级需要「信任等级管理」权限。这里的勾选与保存都已禁用；需要修改请联系有该权限的管理员。"
           },
           "aria": {
-            "cell": "{level} 新增解锁：{permission}",
-            "cumulative": "该档及以上各档同时解锁"
+            "cell": "{level} 新增解锁：{permission}"
           },
           "loadFailed": {
             "title": "可勾选的权限键读取失败",
@@ -5783,13 +5782,6 @@
         },
         "zeroUnlimited": "0 表示该指标不参与本档判定。",
         "resetChanges": "已重置信任等级更改",
-        "level": {
-          "newcomer": "新用户",
-          "member": "正式用户",
-          "resident": "常驻用户",
-          "veteran": "资深用户",
-          "leader": "领袖"
-        },
         "metric": {
           "topicCount": "主题数",
           "commentCount": "回复数",
@@ -5856,7 +5848,6 @@
           "nameEn": "English name",
           "namePlaceholder": "留空则回退内置名称",
           "namePool": "命名建议",
-          "icon": "图标",
           "idHint": "档位 id 是稳定身份：插入、排序、改名都不会改变它。",
           "defaultIconHint": "未选图标时按位次取默认序列：{icons}",
           "lastTierLocked": "至少保留一档，最后一档不能停用。",
@@ -5878,9 +5869,6 @@
           "tombstones": "已删除的档位 id：{ids}。这些 id 永不复用。",
           "appearance": "外观",
           "color": "「{name}」的颜色"
-        },
-        "icons": {
-          "label": "「{name}」的图标"
         },
         "restoreFallback": {
           "title": "正在使用本地兜底推荐值",

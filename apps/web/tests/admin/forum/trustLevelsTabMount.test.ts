@@ -1000,6 +1000,31 @@ describe('field-level save errors (P2)', () => {
     expect(mountTiers({ saveErrors: {} }).findAll('[data-sf-tier-errors]')).toHaveLength(0)
   })
 
+  test('抬头：一档两条错误时给出「这一档有 2 处需要修正」，三个挂点都能看到', () => {
+    const form = recommendedTrustLevelsForm()
+    const tierId = form.tiers[1]!.id
+    const errors = [
+      error({ rank: 2, field: 'name.zh', reasonCode: 'name_empty' }),
+      error({ rank: 2, field: 'icon', reasonCode: 'icon_not_whitelisted' })
+    ]
+    const expected = t('admin.forum.trustLevels.errors.tierTitle', { count: 2 })
+    const mounts = [
+      mountThresholds({ form, saveErrors: { [tierId]: errors } }),
+      mountTiers({ form, saveErrors: { [tierId]: errors } }),
+      mountLimits({ form, saveErrors: { [tierId]: errors } })
+    ]
+    try {
+      for (const wrapper of mounts) {
+        const title = wrapper.find(`[data-sf-tier-errors-title]`)
+        expect({ exists: title.exists(), text: title.exists() ? title.text() : '' })
+          .toEqual({ exists: true, text: expected })
+        expect(title.text()).toContain('2')
+      }
+    } finally {
+      for (const wrapper of mounts) wrapper.unmount()
+    }
+  })
+
   test('a rank-keyed error lands on that tier row, not on row one', () => {
     const form = recommendedTrustLevelsForm()
     const wrapper = mountTiers({

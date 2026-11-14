@@ -805,8 +805,11 @@ describe('trust level locale keys', () => {
       }
       // 工具栏左槽仍在用 `page.description`：退役不得误伤。
       expect(section.page.description).toBeTruthy()
+      // 档名文案的真相在服务端 payload，前端回落族是 `profile.trustLevel.name.*`
+      // （`builtinTierI18nKey()` 从不读 admin 族）。`admin.forum.trustLevels.level.*`
+      // 那 5 条重复文案已按判定表删除，这里改钉**回落族**：它才是在用的那一族。
       for (const slug of ['newcomer', 'member', 'resident', 'veteran', 'leader']) {
-        expect(section.level[slug]).toBeTruthy()
+        expect(locale.profile.trustLevel.name[slug]).toBeTruthy()
       }
       expect(Object.keys(section.metric).sort())
         .toEqual(['bookmarkCount', 'commentCount', 'daysVisited', 'likeGiven', 'likeReceived', 'topicCount'])

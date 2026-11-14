@@ -5721,8 +5721,7 @@
             "description": "Changing trust levels requires the trust-level management permission. Checking and saving are disabled here; ask an administrator who holds it to make the change."
           },
           "aria": {
-            "cell": "Adds for {level}: {permission}",
-            "cumulative": "Unlocks at this level and above"
+            "cell": "Adds for {level}: {permission}"
           },
           "loadFailed": {
             "title": "Could not load the eligible permission keys",
@@ -5743,13 +5742,6 @@
         },
         "zeroUnlimited": "0 means this metric does not participate for this level.",
         "resetChanges": "Trust level changes reset.",
-        "level": {
-          "newcomer": "Newcomer",
-          "member": "Member",
-          "resident": "Resident",
-          "veteran": "Veteran",
-          "leader": "Leader"
-        },
         "metric": {
           "topicCount": "Topics",
           "commentCount": "Replies",
@@ -5816,7 +5808,6 @@
           "nameEn": "English name",
           "namePlaceholder": "Leave empty to fall back to the built-in name",
           "namePool": "Name suggestions",
-          "icon": "Icon",
           "idHint": "The tier id is a stable identity: inserting, reordering or renaming never changes it.",
           "defaultIconHint": "Without an explicit icon, the default sequence is used by position: {icons}",
           "lastTierLocked": "At least one tier must stay active; the last one cannot be retired.",
@@ -5838,9 +5829,6 @@
           "tombstones": "Deleted tier ids: {ids}. These ids are never reused.",
           "appearance": "Appearance",
           "color": "Color for “{name}”"
-        },
-        "icons": {
-          "label": "Icon for “{name}”"
         },
         "restoreFallback": {
           "title": "Using the local fallback defaults",

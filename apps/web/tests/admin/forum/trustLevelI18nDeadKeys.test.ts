@@ -25,17 +25,10 @@ import { SPECIFIC_ERROR_CODES, saveErrorText } from '../../../app/composables/ad
  */
 const NAMESPACE = ['admin', 'forum', 'trustLevels'] as const
 
-const KNOWN_DEAD_KEYS = [
-  'earnable.aria.cumulative',
-  'errors.tierTitle',
-  'icons.label',
-  'level.leader',
-  'level.member',
-  'level.newcomer',
-  'level.resident',
-  'level.veteran',
-  'tiers.icon'
-].sort()
+/** 存量孤儿键已清零：删 8 条（`level.*` / `icons.label` / `tiers.icon` /
+ * `earnable.aria.cumulative`），`errors.tierTitle` 接上档位错误抬头。
+ * 这张表现在是**空表**，所以任何新增孤儿键当场红 —— 那才是这条棘轮的收益。 */
+const KNOWN_DEAD_KEYS: string[] = []
 
 /** 模板拼接的静态头（`X.${...}` → 记 `X`），整族算已使用。 */
 const DYNAMIC_FAMILIES = [
