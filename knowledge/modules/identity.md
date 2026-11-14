@@ -453,6 +453,19 @@ Initial identity foundation is implemented.
   apply the same packs when creating custom groups
   (`apps/web/app/config/roleTemplates.ts`, `admin.roleCatalog.*` i18n).
   Decision: `knowledge/decisions/2026-07-12-builtin-role-templates.md`.
+- Role templates have **one** authority: `SeedRoleTemplates` in
+  `apps/api/app/Models/Identity/seeds.go`. `apps/web/app/config/roleTemplates.ts`
+  is a generated artifact — regenerate with
+  `cd apps/api && go run ./cmd/sforum roles:templates --write` (verify with
+  `--check`), never hand-edit it.
+- Three gates keep it converged: the generated-file equality test
+  (`apps/api/internal/roletemplates`), the DB parity test
+  (`app/Models/Identity/role_template_parity_test.go`, strict set equality per
+  role, no allowlists), and the migration shape/idempotency test
+  (`database/migrations/role_template_grants_parity_test.go`). DB drift is
+  fixed with an add-only migration, never by loosening an assertion.
+  `202611140003_role_template_grants_parity.sql` converged the last two
+  operator gaps (`trust.manage` in DB, `entity_meta.manage` in seeds).
 - API exposes `/api/v1/auth/registration-status` for registration availability
   only: `nextUserIsInitialSuperAdmin` is always `false` on that public endpoint
   so the bootstrap window stays hidden, while `registrationEnabled` carries the

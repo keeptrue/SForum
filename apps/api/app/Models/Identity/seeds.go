@@ -215,6 +215,10 @@ var SeedRoleTemplates = []SeedRoleTemplate{
 			// 徽章是运营资产：站点运营可配置规则并手动授予。
 			PermissionBadgeView,
 			PermissionBadgeManage,
+			// 信任等级阈值与逐级额度是站点策略，和 badge.manage 同一批岗位：运营可配、超管全能。
+			// 版主不拿（只做内容审核，改站点策略属于越界）。此键是 seeds 的权威声明，
+			// 数据库侧由 202611140003_role_template_grants_parity.sql 收敛。
+			PermissionTrustManage,
 		},
 	},
 	{
