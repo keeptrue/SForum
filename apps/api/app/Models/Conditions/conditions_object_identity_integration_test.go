@@ -2,6 +2,8 @@ package conditions_test
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
@@ -134,6 +136,44 @@ var profileColumns = map[string]string{
 	"location":  "location",
 }
 
+// identityProfileFields 从**生产目录**取 `identity.profile` 的取值，而不是在测试里再抄
+// 一份：抄一份就等于允许「目录加了取值、测试没跟上」这种静默缺口（2026-11-14 审查 §5.2）。
+func identityProfileFields(t *testing.T) []string {
+	t.Helper()
+	def, ok := conditions.Core().Definition(conditions.KeyIdentityProfile)
+	if !ok {
+		t.Fatal("identity.profile 未注册")
+	}
+	if len(def.Params.Specs) != 1 || def.Params.Specs[0].Name != "field" {
+		t.Fatalf("identity.profile 应只有 field 一个参数，得到 %+v", def.Params.Specs)
+	}
+	options := def.Params.Specs[0].Options
+	if len(options) == 0 {
+		t.Fatal("identity.profile 的 field 没有取值")
+	}
+	return options
+}
+
+// profileColumnOf 返回取值对应的列名；缺映射时立刻判红并指名该取值。
+func profileColumnOf(t *testing.T, field string) string {
+	t.Helper()
+	column, ok := profileColumns[field]
+	if !ok {
+		t.Fatalf("取值 %q 没有列映射：新增取值必须同时补 profileColumns 与 SQL 的 CASE 分支", field)
+	}
+	return column
+}
+
+// resetProfileColumnsSQL 把 profileColumns 里的列全部清空（同样派生，不另抄一份）。
+func resetProfileColumnsSQL() string {
+	assignments := make([]string, 0, len(profileColumns))
+	for _, column := range profileColumns {
+		assignments = append(assignments, column+" = ''")
+	}
+	sort.Strings(assignments)
+	return "UPDATE user_profiles SET " + strings.Join(assignments, ", ") + " WHERE user_id = $1"
+}
+
 // TestIdentityProfileCondition 钉住 `identity.profile` 的列映射与两条 NULL 语义。
 //
 // 这个条件最贵的两个实现错误都在这里：
@@ -144,7 +184,10 @@ var profileColumns = map[string]string{
 func TestIdentityProfileCondition(t *testing.T) {
 	f := newFixture(t)
 	userID := f.user(t, "profiled", 10)
-	fields := []string{"bio", "signature", "website", "location"}
+	fields := identityProfileFields(t)
+	if len(profileColumns) != len(fields) {
+		t.Fatalf("profileColumns 与目录枚举不同源：%v vs %v", profileColumns, fields)
+	}
 
 	// ① 没有资料行：四个取值都是**确定的 false**，不是「查不到」。
 	for _, field := range fields {
@@ -156,8 +199,8 @@ func TestIdentityProfileCondition(t *testing.T) {
 	// ② 列映射：每次只填一列，只有对应取值成立（钉住 website ↔ website_url）。
 	f.exec(t, `INSERT INTO user_profiles (user_id) VALUES ($1)`, userID)
 	for _, field := range fields {
-		f.exec(t, `UPDATE user_profiles SET bio='', signature='', website_url='', location='' WHERE user_id = $1`, userID)
-		f.exec(t, `UPDATE user_profiles SET `+profileColumns[field]+` = 'x' WHERE user_id = $1`, userID)
+		f.exec(t, resetProfileColumnsSQL(), userID)
+		f.exec(t, `UPDATE user_profiles SET `+profileColumnOf(t, field)+` = 'x' WHERE user_id = $1`, userID)
 		for _, candidate := range fields {
 			want := candidate == field
 			if matched, result := f.eval(t, userID, profileRule(candidate)); matched != want || result.Incomplete {

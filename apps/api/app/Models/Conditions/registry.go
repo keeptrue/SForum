@@ -67,12 +67,36 @@ const (
 	profileFieldLocation  = "location"
 )
 
-// profileFieldOptions 返回资料项的稳定顺序（= 编辑器下拉顺序）。
+// profileFields 是 `identity.profile` 的 `field` 枚举的**唯一来源**（顺序 = 编辑器
+// 下拉顺序）。Column 只被解析器的 SQL 生成器消费，放在同一张表里是刻意的：取值与
+// 存储列必须一起改，拆成两处就又回到「加取值、忘了列」的老路。
 //
-// 注册项的 `Options` 与解析器的白名单都取自这里：枚举只写一份，否则「目录里有、
-// 解析器不认」这种半实现会以「保存成功、永不成立、零报错」的形式上线。
+// 一个取值同时决定四件事，全部由本表派生：
+//   - 注册项的 `Options`（profileFieldOptions）；
+//   - 解析器白名单（isProfileField）；
+//   - `profileFilledSQL` 的 CASE 分支与列名（buildProfileFilledSQL）；
+//   - 文案表的覆盖率由测试断言（profileFieldPhrases 必须每个取值都有条目）。
+//
+// 2026-11-14 审查 §5.2 的教训：CASE 曾经是手写字面量，加第 5 个取值时整包测试全绿、
+// 运行期静默恒 false（在 `not` 子树下还会反转成 true）。派生取代了「记得同时改两处」
+// 这种纪律要求。
+var profileFields = []struct {
+	Field  string
+	Column string
+}{
+	{profileFieldBio, "bio"},
+	{profileFieldSignature, "signature"},
+	{profileFieldWebsite, "website_url"},
+	{profileFieldLocation, "location"},
+}
+
+// profileFieldOptions 返回资料项的稳定顺序（= 编辑器下拉顺序），由 profileFields 派生。
 func profileFieldOptions() []string {
-	return []string{profileFieldBio, profileFieldSignature, profileFieldWebsite, profileFieldLocation}
+	options := make([]string, 0, len(profileFields))
+	for _, field := range profileFields {
+		options = append(options, field.Field)
+	}
+	return options
 }
 
 // 定向对象的两类目标。

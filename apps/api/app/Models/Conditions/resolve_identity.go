@@ -3,6 +3,7 @@ package conditions
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
@@ -226,9 +227,16 @@ func (r *Resolver) loadAvatar(ctx context.Context, leaves []ruleengine.Leaf) (ma
 	return out, nil
 }
 
-// profileFilledSQL：资料行的四个文本列都是 TEXT NOT NULL DEFAULT 空串（迁移
-// 202607070004），所以判据只能是**非空串**——`IS NOT NULL` 对它们恒真，等于每个
-// 用户都满足；也不加 `trim`（文案是「填了就算，不看内容质量」）。
+// buildProfileFilledSQL 生成 `identity.profile` 的查询。
+//
+// 资料行的四个文本列都是 TEXT NOT NULL DEFAULT 空串（迁移 202607070004），所以判据
+// 只能是**非空串**——`IS NOT NULL` 对它们恒真，等于每个用户都满足；也不加 `trim`
+// （文案是「填了就算，不看内容质量」）。
+//
+// **CASE 分支由 profileFields 生成**（见 registry.go）：枚举只有一个来源，加取值时
+// SQL 不可能漏掉对应分支。手写这四个 WHEN 的旧写法在 2026-11-14 审查 §5.2 里被实证为
+// 「加第 5 个取值后整包测试全绿、运行期静默恒 false」——拼接的值全是编译期常量，
+// 没有注入面。
 //
 // 这里的 NULL 有两个来源，必须显式区分，这是本条件最容易写错的地方：
 //   - **没有资料行**：行是「按需 upsert」的，注册期不插行（同一迁移的说明），所以
@@ -240,19 +248,22 @@ func (r *Resolver) loadAvatar(ctx context.Context, leaves []ruleengine.Leaf) (ma
 //
 // 形状与 oauthLinkSQL / roleSQL 一致（unnest + 每行一个 bool）：同一个 type 的多个
 // 叶子只查一次，`Prepare` 的「查询数 = type 数」口径不变。
-const profileFilledSQL = `
-SELECT candidates.field,
+func buildProfileFilledSQL() string {
+	var arms strings.Builder
+	for _, field := range profileFields {
+		fmt.Fprintf(&arms, "\n                  WHEN '%s' THEN profiles.%s <> ''", field.Field, field.Column)
+	}
+	return `SELECT candidates.field,
        coalesce((
-         SELECT CASE candidates.field
-                  WHEN 'bio'       THEN profiles.bio         <> ''
-                  WHEN 'signature' THEN profiles.signature   <> ''
-                  WHEN 'website'   THEN profiles.website_url <> ''
-                  WHEN 'location'  THEN profiles.location    <> ''
+         SELECT CASE candidates.field` + arms.String() + `
                 END
            FROM user_profiles AS profiles
           WHERE profiles.user_id = $1), FALSE)
 FROM unnest($2::text[]) AS candidates(field)
 `
+}
+
+var profileFilledSQL = buildProfileFilledSQL()
 
 func (r *Resolver) loadProfile(ctx context.Context, leaves []ruleengine.Leaf) (map[string]ruleengine.Value, error) {
 	fields := make([]string, 0, len(leaves))

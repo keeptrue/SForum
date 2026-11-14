@@ -1,6 +1,7 @@
 package conditions
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
@@ -75,6 +76,27 @@ func TestProfileFieldTablesCoverSameEnum(t *testing.T) {
 	for _, dirty := range []string{"", "nickname", "Bio", "website_url"} {
 		if isProfileField(dirty) {
 			t.Fatalf("%q 不该通过白名单：未知取值必须转 unknown，不能静默 false", dirty)
+		}
+	}
+}
+
+// TestProfileFilledSQLCoversEveryProfileField 钉住「枚举 ⇄ SQL」同源。
+//
+// 红判据：profileFields 加了取值而生成的 SQL 没有对应 WHEN（或列名写错）→ 指名该取值。
+// 2026-11-14 审查 §5.2 的实证：CASE 曾是手写字面量，加第 5 个取值后整包测试全绿、
+// 运行期静默恒 false（在 `not` 子树下反转成 true）。派生 + 这条断言取代了「记得
+// 同时改两处」的纪律要求。
+func TestProfileFilledSQLCoversEveryProfileField(t *testing.T) {
+	if got := strings.Count(profileFilledSQL, "WHEN '"); got != len(profileFields) {
+		t.Fatalf("SQL 的 CASE 分支数 %d 与枚举数 %d 不一致：\n%s", got, len(profileFields), profileFilledSQL)
+	}
+	for _, field := range profileFields {
+		if field.Column == "" {
+			t.Fatalf("取值 %q 没有列名：SQL 会生成 profiles. 空标识符", field.Field)
+		}
+		want := "WHEN '" + field.Field + "' THEN profiles." + field.Column + " <> ''"
+		if !strings.Contains(profileFilledSQL, want) {
+			t.Fatalf("SQL 缺少取值 %q 的分支（期望包含 %q）：\n%s", field.Field, want, profileFilledSQL)
 		}
 	}
 }
