@@ -11,8 +11,10 @@ import {
 /**
  * 启用弹窗的「可被信任等级授予的权限」披露（M4a，计划 §4.5 M4.1）。
  *
- * 这一段的语义是**自动获得**而不是「可以手动授予」——所以标题必须自解释（本弹窗只渲染
- * label、不渲染 description），并且**一条都没有时整段不渲染**（空段会让运营以为功能坏了）。
+ * 这一段的语义是**自动获得**而不是「可以手动授予」——所以标题必须自解释。每张卡片只给
+ * label + key，`description` **刻意不渲染**：自动授予时它讲的是「什么时候会用到这项能力」，
+ * 摆在启用前确认这一步会被读成「勾上之后还要人工开启」（相邻 capability 段相反，那里
+ * description 正好补足调用面语义）。**一条都没有时整段不渲染**（空段会让运营以为功能坏了）。
  *
  * 夹具直接给 `permissionDefinitions[]`，与 `/admin/extensions/{id}/trust` 的
  * `impact.permissionDefinitions` 同形（后端 `TrustImpact.PermissionDefinitions`
@@ -175,13 +177,17 @@ describe('可被信任等级授予的权限 · 披露段', () => {
       await flushPromises()
       const row = wrapper.find('[data-trust-level-earnable-key="acme.nolabel"]')
       expect(row.exists()).toBe(true)
-      expect(row.text()).toContain('acme.nolabel')
+      // 断言必须落在 **label 节点**上：同一张卡片第二行恒定渲染 key，所以
+      // `row.text()` 在 `|| row.key` 回落被删掉时仍然绿（小审的变异 3 就是这样存活的）。
+      const label = wrapper.find('[data-trust-level-earnable-label="acme.nolabel"]')
+      expect(label.exists()).toBe(true)
+      expect(label.text()).toBe('acme.nolabel')
     } finally {
       wrapper.unmount()
     }
   })
 
-  test('不渲染 description（既有约束：弹窗靠 label 自解释）', async () => {
+  test('不渲染 description（刻意取舍：自动授予语义下它会读成「需要人工开启」）', async () => {
     const wrapper = mountImpact([
       {
         key: 'acme.export',

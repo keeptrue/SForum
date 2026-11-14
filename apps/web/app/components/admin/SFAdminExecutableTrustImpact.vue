@@ -2,6 +2,7 @@
 import {
   executableDatabaseGrants,
   executableDatabaseMigrationRisk,
+  type ExtensionLocalizedText,
   type ExecutableGuardAuthorization,
   type ExecutableTrustImpact,
   type ExecutableTrustMigrationDeclaration
@@ -43,8 +44,14 @@ function capabilityDisclosure(row: { key: string }) {
  * 「可被信任等级授予的权限」（M4a 披露，计划 §4.5 M4.1）。
  *
  * 为什么必须在**启用前**看：勾进某一档 = 该档及以上自动获得这项能力，不是「可以手动授予」。
- * 标题本身就把这层语义写清（`trustLevelEarnable.title`），因为本弹窗的既有约束是
- * **只渲染 label、不渲染 description** —— 逐条 description 在这里是噪声，靠标题自解释。
+ * 标题本身就把这层语义写清（`trustLevelEarnable.title`）。
+ *
+ * 每张卡片只给 **label + key**，`description` 刻意不渲染，这是这一段的取舍而不是通用规则：
+ * 等级授予是**自动生效**的（勾进某档，该档及以上立刻拿到这个键），而 manifest 的
+ * `description` 讲的是调用时机与作用范围（例如「只在清单声明过的 job kind 上入队」）。
+ * 把它摆在「启用前确认自动授予」这一步，会被读成「勾上之后还要人工开启某个开关」，
+ * 与自动授予正好相反。label + key 已经足够让运营认出「这是哪一个权限键」。
+ * 相邻的 capability 段相反：那一栏披露的是**扩展的调用面**，description 正好补足语义。
  *
  * 三条边界：
  * 1. 只认 `trustLevelEarnable === true`（缺省 false 是后端刻意的安全默认）；
@@ -57,19 +64,16 @@ type TrustLevelEarnableRow = { key: string, label: string }
 const trustLevelEarnableRows = computed<TrustLevelEarnableRow[]>(() => {
   const list = Array.isArray(props.impact.permissionDefinitions) ? props.impact.permissionDefinitions : []
   return list
-    .filter(row => row && (row as Record<string, unknown>).trustLevelEarnable === true)
-    .map(row => ({
-      key: String((row as Record<string, unknown>).key ?? ''),
-      label: localizedText((row as Record<string, unknown>).label)
-    }))
+    .filter(row => row?.trustLevelEarnable === true)
+    .map(row => ({ key: String(row.key ?? ''), label: localizedText(row.label) }))
     .filter(row => row.key !== '')
 })
 
 /** `LocalizedText` 的两种 wire 形态（字符串 / locale map）统一取当前语言。 */
-function localizedText(value: unknown): string {
+function localizedText(value: ExtensionLocalizedText | undefined): string {
   if (typeof value === 'string') return value.trim()
   if (!value || typeof value !== 'object') return ''
-  const map = value as Record<string, unknown>
+  const map = value
   const order = zh.value
     ? ['zh-CN', 'zh', 'en-US', 'en']
     : ['en-US', 'en', 'zh-CN', 'zh']
@@ -437,7 +441,8 @@ function formatted(value: unknown) {
 
     <!--
       可被信任等级授予的权限：与上面 capability 清单同风格（卡片网格 + key 小字），
-      但**不渲染 description**（见 script 里的说明）。一条都没有时整段不渲染。
+      但**刻意不渲染 description**（自动授予语义下它会被读成「需要人工开启」，见 script）。
+      一条都没有时整段不渲染。
     -->
     <section
       v-if="trustLevelEarnableRows.length"
@@ -455,7 +460,10 @@ function formatted(value: unknown) {
           class="min-w-0 rounded-md border border-slate-200 px-3 py-2.5 dark:border-zinc-700"
           :data-trust-level-earnable-key="row.key"
         >
-          <p class="truncate text-xs font-medium text-slate-900 dark:text-zinc-100">{{ row.label || row.key }}</p>
+          <p
+            class="truncate text-xs font-medium text-slate-900 dark:text-zinc-100"
+            :data-trust-level-earnable-label="row.key"
+          >{{ row.label || row.key }}</p>
           <p class="mt-1 break-all font-mono text-[11px] text-slate-500 dark:text-zinc-400">{{ row.key }}</p>
         </li>
       </ul>
