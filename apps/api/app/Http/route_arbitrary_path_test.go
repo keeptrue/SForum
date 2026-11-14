@@ -184,6 +184,8 @@ func TestNewAppInternalRouteProbeNeverExecutesPluginOrLoadsActor(t *testing.T) {
 	harness := newArbitraryRouteHarness(t, false, true)
 
 	matched := httptest.NewRequest(stdhttp.MethodHead, "/plugin/docs/intro?preview=1", nil)
+	// 探针只对宿主内部调用方生效：夹具模拟 SSR 反代从环回直连 API。
+	matched.RemoteAddr = "127.0.0.1:51234"
 	matched.Header.Set(internalRouteProbeHeader, internalRouteProbeVersion)
 	matched.Header.Set(internalRouteProbeMethodHeader, stdhttp.MethodGet)
 	matchedResponse, err := harness.app.Test(matched)
@@ -197,6 +199,7 @@ func TestNewAppInternalRouteProbeNeverExecutesPluginOrLoadsActor(t *testing.T) {
 	}
 
 	miss := httptest.NewRequest(stdhttp.MethodHead, "/admin/host-owned-page", nil)
+	miss.RemoteAddr = "127.0.0.1:51234"
 	miss.Header.Set(internalRouteProbeHeader, internalRouteProbeVersion)
 	miss.Header.Set(internalRouteProbeMethodHeader, stdhttp.MethodPost)
 	missResponse, err := harness.app.Test(miss)
@@ -225,6 +228,7 @@ func TestNewAppSafeModeBypassesArbitraryPluginRoutes(t *testing.T) {
 	}
 
 	probe := httptest.NewRequest(stdhttp.MethodHead, "/plugin/docs/intro", nil)
+	probe.RemoteAddr = "127.0.0.1:51234"
 	probe.Header.Set(internalRouteProbeHeader, internalRouteProbeVersion)
 	probe.Header.Set(internalRouteProbeMethodHeader, stdhttp.MethodGet)
 	probeResponse, err := harness.app.Test(probe)
