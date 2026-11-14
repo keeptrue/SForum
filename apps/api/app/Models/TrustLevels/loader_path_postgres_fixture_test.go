@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -210,6 +211,9 @@ type loaderFixture struct {
 	tracer  *loaderQueryTracer
 	store   *identity.PostgresStore
 	options *options.Service
+	// userIDs 是 seed **自己插入**的用户（升序）。模板路径会克隆别人的 users 行，
+	// 所以「表里第一行」不是夹具的契约：所有观察面都只认这个集合。
+	userIDs []int64
 }
 
 // newLoaderFixture 造夹具。users 只影响表的行数：SQL 条数与形状是常数，
@@ -288,8 +292,16 @@ func createLoaderDatabase(t *testing.T, ctx context.Context, baseURL, databaseNa
 
 	fastPath := false
 	if templateDatabase != "" && templateDatabase != "postgres" {
-		// 模板路径**继承模板库的行**：今天的断言只看 SQL 条数与形状，所以免疫；
-		// 将来若在这里加行数/内容断言，模板路径会变成 flaky 源（别人留下的行会进来）。
+		// 模板路径**继承模板库的行**（模板就是共享测试库，别的包往里写过数据），所以夹具的
+		// 观察面必须只认自己 seed 出来的 id：firstUserID / sampleIDs 都从 f.userIDs 取，
+		// 不再查「表里第一行」。旧注释写「今天的断言只看条数与形状，所以免疫」是错的——
+		// 2026-11-14 的 `./scripts/test.sh --fast` 分片里就是这么红的（单包绿、分片红：
+		// `user 1 解析出 TL1，期望 TL3`）。
+		//
+		// 为什么不直接清表（TRUNCATE users CASCADE）：三张事件账本带 `BEFORE TRUNCATE` 的
+		// 只增守卫（迁移 202607190040 等），CASCADE 会被它们拒掉；逐张关触发器是打地鼠，
+		// 也把产品不变量当成测试可协商的东西。收窄读面更便宜，顺带免疫「外来用户已有
+		// user_activity 行 → seed 批量插入撞主键」这类同源故障。
 		if _, err := admin.Exec(ctx, "CREATE DATABASE "+quoted+" TEMPLATE "+pgx.Identifier{templateDatabase}.Sanitize()); err == nil {
 			fastPath = true
 		}
@@ -351,22 +363,46 @@ func ensureLoaderSchemaCurrent(t *testing.T, ctx context.Context, baseURL, datab
 }
 
 // seed 造夹具：users + user_activity + 每人一个内置 member 角色 + 产品开关落库。
+//
+// 它只写**自己插入的行**（RETURNING id → f.userIDs），后面的 activity / role 回填与
+// 所有观察面都按这批 id 收敛。模板路径克隆进来的别人家的 users 行因此既不会被回填、
+// 也不会被当成探针。
 func (f *loaderFixture) seed(t *testing.T, users int) error {
 	t.Helper()
-	if _, err := f.pool.Exec(f.ctx, `
+	rows, err := f.pool.Query(f.ctx, `
 		INSERT INTO users (username, username_lower, email, email_lower, display_name,
 		                   status, email_verified_at, created_at, kind)
 		SELECT 'perf_' || i, 'perf_' || i, 'perf_' || i || '@example.test',
 		       'perf_' || i || '@example.test', 'Perf ' || i,
 		       'active', now(), now() - interval '400 days', 'human'
-		FROM generate_series(1, $1) AS i`, users); err != nil {
+		FROM generate_series(1, $1) AS i
+		RETURNING id`, users)
+	if err != nil {
 		return fmt.Errorf("seed users: %w", err)
 	}
+	ids := make([]int64, 0, users)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return fmt.Errorf("seed users: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("seed users: %w", err)
+	}
+	if len(ids) == 0 {
+		return fmt.Errorf("seed users: 没有插入任何用户")
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	f.userIDs = ids
 	if _, err := f.pool.Exec(f.ctx, `
 		INSERT INTO user_activity (user_id, topic_count, comment_count, like_received_count,
 		                           like_given_count, bookmark_count, days_visited, last_visited_on)
-		SELECT id, $1, $2, $3, $4, $5, $6, current_date FROM users`,
-		loaderActivity.TopicCount, loaderActivity.CommentCount, loaderActivity.LikeReceivedCount,
+		SELECT id, $2, $3, $4, $5, $6, $7, current_date FROM users WHERE id = ANY($1)`,
+		ids, loaderActivity.TopicCount, loaderActivity.CommentCount, loaderActivity.LikeReceivedCount,
 		loaderActivity.LikeGivenCount, loaderActivity.BookmarkCount, loaderActivity.DaysVisited,
 	); err != nil {
 		return fmt.Errorf("seed user_activity: %w", err)
@@ -374,7 +410,8 @@ func (f *loaderFixture) seed(t *testing.T, users int) error {
 	// 真 RBAC 读：每人挂一个内置 member 角色（迁移链已播种该角色及其权限）。
 	if _, err := f.pool.Exec(f.ctx, `
 		INSERT INTO user_roles (user_id, role_id)
-		SELECT users.id, roles.id FROM users CROSS JOIN roles WHERE roles.key = 'member'`); err != nil {
+		SELECT users.id, roles.id FROM users CROSS JOIN roles
+		 WHERE roles.key = 'member' AND users.id = ANY($1)`, ids); err != nil {
 		return fmt.Errorf("seed user_roles: %w", err)
 	}
 	// 产品开关显式落库：A/B 两侧都必须「功能开着」，否则量的就是关闭态。
@@ -407,28 +444,37 @@ func (f *loaderFixture) setPolicy(t *testing.T, raw string) {
 	f.options.Invalidate()
 }
 
-// firstUserID 返回夹具里的一个用户（条数探针用，规模无关）。
+// firstUserID 返回夹具自己插入的第一个用户（条数探针用，规模无关）。
+//
+// 刻意不查 `SELECT id FROM users ORDER BY id LIMIT 1`：模板库克隆进来的外来行可能占着
+// 更小的 id，那个账号没有夹具的 activity/created_at，等级断言会指到它身上。
 func (f *loaderFixture) firstUserID() int64 {
-	var id int64
-	if err := f.pool.QueryRow(f.ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&id); err != nil {
-		panic(fmt.Sprintf("load fixture user: %v", err))
+	if len(f.userIDs) == 0 {
+		panic("loader fixture 尚未 seed：userIDs 为空")
 	}
-	return id
+	return f.userIDs[0]
 }
 
-// sampleIDs 沿主键均匀取样，避免「只取前 N 个」把索引页热情形测成同一页。
+// sampleIDs 在**夹具自己插入的用户**里沿主键均匀取样（每 10 个取 1 个），避免「只取
+// 前 N 个」把索引页热情形测成同一页；外来行连进来的 id 不参与，取样因此与克隆内容无关。
 func (f *loaderFixture) sampleIDs(t *testing.T, limit int) []int64 {
 	t.Helper()
-	ids := make([]int64, 0, limit)
-	rows, err := f.pool.Query(f.ctx, `SELECT id FROM users WHERE id % 10 = 0 ORDER BY id LIMIT $1`, limit)
-	if err != nil {
-		t.Fatal(err)
+	if limit <= 0 {
+		t.Fatalf("sampleIDs: limit 必须为正，收到 %d", limit)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			t.Fatal(err)
+	ids := make([]int64, 0, limit)
+	for _, id := range f.userIDs {
+		if id%10 == 0 {
+			ids = append(ids, id)
+			if len(ids) == limit {
+				return ids
+			}
+		}
+	}
+	// 兜底：id 段恰好不含 10 的倍数时退回前 limit 个，保证调用方拿到确定的样本。
+	for _, id := range f.userIDs {
+		if len(ids) == limit {
+			break
 		}
 		ids = append(ids, id)
 	}
