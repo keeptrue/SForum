@@ -6766,7 +6766,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleEditor.vue"
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleEditor.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_group",
@@ -6776,7 +6776,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleGroup.vue"
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleGroup.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_leaf",
@@ -6786,7 +6786,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue"
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleLeaf.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_param_field",
@@ -6796,7 +6796,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue"
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleParamField.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
@@ -6806,7 +6806,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleSimpleForm.vue"
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleSimpleForm.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
@@ -6816,7 +6816,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleJsonPreview.vue"
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleJsonPreview.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_rule_impact_dialog",
@@ -6826,7 +6826,7 @@
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleImpactDialog.vue"
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleImpactDialog.vue"
     },
     {
       "id": "core.component.admin.s_f_admin_badge_backfill_row",

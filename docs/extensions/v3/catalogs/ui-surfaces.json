@@ -240,60 +240,10 @@
     "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
-    "id": "core.component.admin.s_f_admin_badge_rule_editor",
-    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_editor@1",
-    "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleEditor.vue",
-    "owners": [
-      "admin"
-    ],
-    "targetRegistry": "P7/P9 Admin and Component Registries"
-  },
-  {
-    "id": "core.component.admin.s_f_admin_badge_rule_group",
-    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_group@1",
-    "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleGroup.vue",
-    "owners": [
-      "admin"
-    ],
-    "targetRegistry": "P7/P9 Admin and Component Registries"
-  },
-  {
     "id": "core.component.admin.s_f_admin_badge_rule_impact_dialog",
     "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_impact_dialog@1",
     "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleImpactDialog.vue",
-    "owners": [
-      "admin"
-    ],
-    "targetRegistry": "P7/P9 Admin and Component Registries"
-  },
-  {
-    "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
-    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_json_preview@1",
-    "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleJsonPreview.vue",
-    "owners": [
-      "admin"
-    ],
-    "targetRegistry": "P7/P9 Admin and Component Registries"
-  },
-  {
-    "id": "core.component.admin.s_f_admin_badge_rule_leaf",
-    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_leaf@1",
-    "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleLeaf.vue",
-    "owners": [
-      "admin"
-    ],
-    "targetRegistry": "P7/P9 Admin and Component Registries"
-  },
-  {
-    "id": "core.component.admin.s_f_admin_badge_rule_param_field",
-    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_param_field@1",
-    "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleParamField.vue",
+    "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleImpactDialog.vue",
     "owners": [
       "admin"
     ],
@@ -304,16 +254,6 @@
     "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_section@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleSection.vue",
-    "owners": [
-      "admin"
-    ],
-    "targetRegistry": "P7/P9 Admin and Component Registries"
-  },
-  {
-    "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
-    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_simple_form@1",
-    "kind": "component",
-    "source": "apps/web/app/components/admin/badges/rule/SFAdminBadgeRuleSimpleForm.vue",
     "owners": [
       "admin"
     ],
@@ -924,6 +864,66 @@
     "contractVersion": "sforum.component.admin.sf_admin_route_catalog_group@1",
     "kind": "component",
     "source": "apps/web/app/components/admin/SFAdminRouteCatalogGroup.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_editor",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_editor@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/rules/SFAdminRuleEditor.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_group",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_group@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/rules/SFAdminRuleGroup.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_json_preview@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/rules/SFAdminRuleJsonPreview.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_leaf",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_leaf@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/rules/SFAdminRuleLeaf.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_param_field",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_param_field@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/rules/SFAdminRuleParamField.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
+    "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
+    "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_simple_form@1",
+    "kind": "component",
+    "source": "apps/web/app/components/admin/rules/SFAdminRuleSimpleForm.vue",
     "owners": [
       "admin"
     ],

@@ -414,7 +414,7 @@ return，接口 200、前端弹「已佩戴」，面板仍是「未佩戴徽章�
 - **等级配色字段（2026-11-13）**：`components/admin/shared/SFAdminTierColorField.vue` 是徽章等级配色的唯一实现（消费者只有 `SFAdminBadgeTierDialog.vue`）。取色器 `input` **即时写入**表单（同值短路），所以拖动过程中色块 / hex 框 / 低对比度提示 / 图标强调色一起变；文本框仍是「草稿 + 应用」（手打 hex 打到一半就重算配色反而干扰）。取色块显示的是**有效色**：token 运行时读 CSS `--sf-tl-<token>-light`（SSR 回落 `#475569`，禁止前端第二份色表），「按位置自动」由调用方传 `defaultColor`。**与信任等级那个字段（`SFAdminTrustLevelColorField.vue`，仍是草稿→应用）行为不同是有意的**，别为了统一改成 change-only——用户报过的原话就是「拖动时颜色显示不动」。
 - `grants` 分区：先选徽章再懒加载，来源列按三来源着色，收回只对手动来源行渲染。
 - 授予弹窗三态（`granted`/`skipped`/`failed`）**不能合并成一个成功 toast**；`skipped` 是「已持有」不是错误；失败项才给「重试这一批」。
-- 规则编辑器（2026-11-12 新增，同日二轮改造）：`components/admin/badges/rule/SFAdminBadgeRule{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview}.vue` + 纯函数 `utils/admin/badgeRule.ts` / `badgeRuleParams.ts` / `badgeRuleSentence.ts`。编辑器只渲染 `PublishableDefinitions` 下发的目录。
+- 规则编辑器（2026-11-12 新增，同日二轮改造）：`components/admin/rules/SFAdminRule{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview}.vue`（域无关共享编辑器，与信任等级共用）+ 纯函数 `utils/admin/rule.ts`（`badgeRule.ts` 为 re-export 兼容层）/ `badgeRuleParams.ts` / `badgeRuleSentence.ts`。编辑器只渲染 `PublishableDefinitions` 下发的目录。
 - **回扫进度行（2026-11-12 第一刀）**：`components/admin/badges/SFAdminBadgeBackfillRow.vue` 渲染在 `badges` 分区**筛选区上方一行**（不新增卡片/页头），`data-testid="badge-backfill-progress"`。三态：进行中「已扫描到用户 #N」/ 已完成 / **失败于用户 #N**（失败必须带徽章名 + 用户 id）；刷新按钮 `aria-label`/`title` 齐全；`queued>0` 的 recompute 后自动刷一次、`queued==0`/`undefined` 不刷。端点失败 → `[]` + 可见提示（`admin.badges.backfill.unavailable`），筛选区与表格照常渲染。数据源是 `GET /admin/badges/backfill-status`。
 
 ### 条件规则编辑器（2026-11-12 二轮改造）
@@ -703,7 +703,7 @@ teleport 到 body，不受 Modal `overflow` 裁切——这是读组件源码得
     `activity.count` 六个 `metric` 枚举）。改指标名仍要两地同改，应收敛到单一来源（生成物或 OpenAPI 派生）。
 29. **`normalizeConditionsPayload` 会静默丢弃非字符串 `options`**：后端若真把 `options` 改成对象型，
     表现是**空下拉**而不是显式报错；眼下唯一兜底是 OpenAPI 契约 + 测试。改 wire 形状时先改这里。
-30. **`Badges/conditions` 有两条在干净 HEAD 也红的日期敏感测试**：`TestIdentityConditions` 与
+30. **`Models/Conditions`（原 `Badges/conditions`，2026-11-14 迁出）有两条在干净 HEAD 也红的日期敏感测试**：`TestIdentityConditions` 与
     `TestActivityStreakEndsTodayOrYesterday`。与本刀（解释器）无关，终审已复核；**别为了跑绿去改断言**，
     要单独修（真实原因是「按日取界」对系统时钟/时区的依赖，与残留 12 的 `site.timezone` 同源）。
 
@@ -898,7 +898,7 @@ D-01（未声明 → unknown 成对）与 D-02（variant 三态，含「卸载�
 - HTTP：`apps/api/app/Http/Controllers/Badges/`（`controller.go` 路由 + `dto.go` wire 形状唯一来源 + `rule_controller.go`）
 - 装配：`apps/api/bootstrap/badges_wiring.go`、`apps/api/app/Providers/badges.go`
 - 前端（论坛面）：`components/profile/SFProfileBadgeTab.vue`、`components/forum/badges/SFBadgeCard.vue`、`components/forum/SFBadgeChip.vue`
-- 前端（后台）：壳 `pages/admin/badges.vue`；四分区 `components/admin/badges/tabs/SFAdminBadges{Badges,Groups,Tiers,Grants}Tab.vue`；共享 `SFAdminBadge{Table,EditDialog,GrantDialog,UserPicker}.vue`；规则区 `SFAdminBadgeRuleSection.vue`（从编辑弹窗抽出）；规则编辑器与影响弹窗 `components/admin/badges/rule/{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview,ImpactDialog}.vue`；数据层 `composables/admin/badges/{useAdminBadges,useBadgeRuleDraft,useBadgeRuleTextPreview,useAdminBadgeConditions,useAdminBadgeRuleHealth,useAdminBadgeRuleImpact}.ts` + 纯函数 `utils/admin/{adminBadges,badgeRule,badgeRuleParams,badgeRuleSentence,badgeFieldSlots}.ts`
+- 前端（后台）：壳 `pages/admin/badges.vue`；四分区 `components/admin/badges/tabs/SFAdminBadges{Badges,Groups,Tiers,Grants}Tab.vue`；共享 `SFAdminBadge{Table,EditDialog,GrantDialog,UserPicker}.vue`；规则区 `SFAdminBadgeRuleSection.vue`（从编辑弹窗抽出）；规则编辑器 `components/admin/rules/{Editor,Group,Leaf,ParamField,SimpleForm,JsonPreview}.vue`、影响弹窗 `components/admin/badges/SFAdminBadgeRuleImpactDialog.vue`；数据层 `composables/admin/badges/{useAdminBadges,useBadgeRuleDraft,useBadgeRuleTextPreview,useAdminBadgeConditions,useAdminBadgeRuleHealth,useAdminBadgeRuleImpact}.ts` + 纯函数 `utils/admin/{adminBadges,badgeRule,badgeRuleParams,badgeRuleSentence,badgeFieldSlots}.ts`
 - 前端（公开面）：`components/forum/badges/{SFBadgeCard,SFBadgeCatalogPage,SFBadgeDetailModal}.vue`、`components/profile/SFProfileBadgeTab.vue`、`composables/profile/{useProfileBadges,useBadgeDetailQuery}.ts`、`utils/forum/forumBadge.ts`（`forumBadgeRequirementText` 是公开面唯一句子解析入口，只选语言、不生成句子；`forumBadgeTierColor` 缺外观落 `slate`，**不猜等级色**）
 - 前端（佩戴 + 庆祝）：`composables/forum/badges/useBadgeWorn.ts`（乐观更新 + 失败回滚）、`components/notifications/SFCelebrationHost.vue`（**居中 modal**，2026-11-13 起不再是左下角浮卡）、`composables/notifications/useCelebrations.ts`（`dismiss` ack 已消费条目的**最大 id**，不是服务端返回的读取前游标）、`utils/notifications/celebrationPresentation.ts`（纯函数，`celebrationDialogModel` 复用 `celebrationPresentation` 的文案链）
 - 验收与证据：`scripts/verify-badge-rules-acceptance.sh`（值级双向，`requirementText` 按规则形状取样）、`knowledge/reports/2026-11-12-badge-m2-remaining-acceptance.md`、`knowledge/reports/2026-11-12-badge-m2-visual-qa.md` + `qa-2026-11-12-badge-m2/`
