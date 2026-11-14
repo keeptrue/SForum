@@ -73,11 +73,9 @@ A plugin may allow one of **its own** permissions to be granted by a trust level
 | `inactive` | declared by a disabled/installed-only plugin | no | yes |
 | `unknown` | never declared by anything | no | no → `422 earnable_not_declared` |
 
-`earnable_not_declared` carries a `params.variant`:
-
-- `undeclared` — nothing ever declared the key: remove the checkbox;
-- `plugin_disabled` — the plugin that declares it is not enabled: enable it (or remove the
-  checkbox if the plugin is gone for good).
+`earnable_not_declared` has exactly **one cause**: nothing currently declares the key (and it
+is not a core permission). Fix: remove the checkbox. There is no `plugin_disabled` variant —
+a disabled plugin only makes the key `inactive`, which stays savable.
 
 Decoding never rejects an undeclared key. If it did, one disabled plugin would make the whole
 `trust.levels` value undecodable and the site would silently fall back to the default policy.

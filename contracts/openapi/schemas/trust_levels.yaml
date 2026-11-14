@@ -297,7 +297,9 @@ TrustLevelAdmin:
           只是不授予——「先停用插件、稍后修配置」是合规路径；
         - `unknown`：从未被任何插件声明。写路径会 422 `earnable_not_declared`。
 
-        写路径只拒 `unknown`（变体 `undeclared`）；`inactive` 的键可以原样保存。
+        写路径只拒 `unknown`，且**只有一种成因**：该键没有任何已启用扩展声明（也不在核心
+        白名单）。`inactive` 的键可以原样保存——「插件停用导致保存失败」这条路不存在，
+        所以明细里也不再有成因变体字段。
       items:
         type: object
         required: [key, state]

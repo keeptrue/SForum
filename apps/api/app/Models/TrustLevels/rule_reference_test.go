@@ -187,8 +187,18 @@ func TestValidateEarnableDeclared(t *testing.T) {
 	if details[0].Params["permission"] != "acme.gone.thing" {
 		t.Fatalf("params.permission = %v", details[0].Params["permission"])
 	}
-	if details[0].Params["variant"] != "undeclared" {
-		t.Fatalf("params.variant = %v（期望 undeclared）", details[0].Params["variant"])
+	// **反向断言**：params 里不得出现 variant / cause。
+	//
+	// 这一支只有一种成因（从未声明），变体字段是死枚举；曾经后端写 `variant`、前端读
+	// `cause`，两层漂移叠在一起。删掉之后靠这条断言守住：将来真需要区分成因时，
+	// 先加「谁会让它取第二个值」的测试，再动这里——而不是悄悄塞回一个永远同值的键。
+	for _, forbidden := range []string{"variant", "cause"} {
+		if value, present := details[0].Params[forbidden]; present {
+			t.Fatalf("params 里出现了 %q=%v：该成因唯一，变体通道已删除", forbidden, value)
+		}
+	}
+	if details[0].Params["permission"] != "acme.gone.thing" {
+		t.Fatalf("params.permission 必须保留（前端靠它定位勾选）：%v", details[0].Params)
 	}
 	// inactive 的键**允许保存**（不产生明细）；它只在运行期不授予。
 	if got := trustlevels.ValidateEarnableDeclared([]string{"acme.wiki.pages"}, registry); len(got) != 0 {

@@ -662,8 +662,37 @@ func TestPutRejectsUndeclaredEarnableKey(t *testing.T) {
 	if !strings.Contains(response, `"reasonCode":"earnable_not_declared"`) {
 		t.Fatalf("缺少 earnable_not_declared：\n%s", response)
 	}
-	if !strings.Contains(response, `"variant":"undeclared"`) {
-		t.Fatalf("缺少 variant=undeclared（前端按变体分支渲染修法）：\n%s", response)
+	// **反向断言**：422 明细的 params 不得带 variant / cause。
+	//
+	// 这条是删除变体通道后的守卫：将来有人把变体加回来，会先撞这条断言，而不是又一次
+	// 让前后端各读一个不同的键名。用「解析后无该键」而不是字符串匹配——字符串匹配对
+	// `"variant":null` 或转义形态会漏。
+	var envelope struct {
+		Data struct {
+			Details struct {
+				Errors []struct {
+					ReasonCode string         `json:"reasonCode"`
+					Params     map[string]any `json:"params"`
+				} `json:"errors"`
+			} `json:"details"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(response), &envelope); err != nil {
+		t.Fatalf("422 响应不是合法 JSON：%v", err)
+	}
+	errors := envelope.Data.Details.Errors
+	if len(errors) == 0 {
+		t.Fatalf("422 缺少字段级明细：\n%s", response)
+	}
+	for _, item := range errors {
+		for _, forbidden := range []string{"variant", "cause"} {
+			if value, present := item.Params[forbidden]; present {
+				t.Fatalf("params 里出现了 %q=%v：该成因唯一，变体通道已删除（%s）", forbidden, value, response)
+			}
+		}
+		if item.Params["permission"] != "acme.gone.thing" {
+			t.Fatalf("params.permission 丢了（前端靠它定位勾选）：%v", item.Params)
+		}
 	}
 	if written != 0 {
 		t.Fatalf("被拒的配置仍写库 %d 次", written)

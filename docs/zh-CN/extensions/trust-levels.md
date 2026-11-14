@@ -67,10 +67,9 @@
 | `inactive` | 声明它的插件已停用/仅安装 | 不会 | 能 |
 | `unknown` | 从未被任何扩展声明 | 不会 | 不能 → `422 earnable_not_declared` |
 
-`earnable_not_declared` 带 `params.variant`：
-
-- `undeclared`——从来没有谁声明过这个键：取消勾选；
-- `plugin_disabled`——声明它的插件未启用：启用它（插件确实没了就取消勾选）。
+`earnable_not_declared` **只有一种成因**：当前没有任何扩展声明这个键（也不在核心白名单）。
+修法是取消勾选。**没有** `plugin_disabled` 变体——插件停用只会让该键变成 `inactive`，
+它仍然可以保存。
 
 解码期**绝不**拒绝未声明键。否则一次插件停用就让整份 `trust.levels` 解不开，全站等级静默
 退回默认策略。

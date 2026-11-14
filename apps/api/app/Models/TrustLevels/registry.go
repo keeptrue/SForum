@@ -184,15 +184,6 @@ const (
 	EarnableStateUnknown = "unknown"
 )
 
-// 写期拒绝的**变体**（不进 BACKEND_CODES：对外仍是 `earnable_not_declared` 一个码，
-// 前端按变体分支渲染不同修法）。两种成因的修法相反，合并会让运营做错事：
-//   - plugin_disabled → 等插件启用（或恢复插件）；
-//   - undeclared      → 把这枚勾选删掉。
-const (
-	EarnableVariantPluginDisabled = "plugin_disabled"
-	EarnableVariantUndeclared     = "undeclared"
-)
-
 // EarnableDeclaration 是一条「某扩展声明了某权限可被等级授予」的事实。
 //
 // **包含停用扩展**：区分 `inactive`（曾声明、扩展停用）与 `unknown`（从未声明）
@@ -326,8 +317,12 @@ func DeclaredPermissionKeys() []string { return DefaultEarnableRegistry().Keys()
 
 // ValidateEarnableDeclared 校验一组可挣得键**现在**是否都被声明覆盖。
 //
-// 只报 `undeclared`：inactive 的键允许保存（先停用插件、稍后修配置是合规路径），
-// 只是不授予。这就是「解码保留 + 运行期惰性 + 写期拒绝」里的「写期拒绝」。
+// **只有一个成因**：该键没有任何已启用扩展声明（且不在核心白名单）。因此明细里
+// **不出现变体字段**——「插件停用导致保存失败」这条路不存在：停用插件的键是
+// `inactive`，写路径放行 200，运营在读面看到 `state: inactive` 自行决定。
+//
+// 这是「解码保留 + 运行期惰性 + 写期拒绝」里的第三段；`inactive` 的键允许保存
+// （先停用插件、稍后修配置是合规路径），只是不授予。
 func ValidateEarnableDeclared(keys []string, registry EarnableRegistry) []FieldError {
 	details := make([]FieldError, 0, 1)
 	seen := make(map[string]struct{}, len(keys))
@@ -345,10 +340,11 @@ func ValidateEarnableDeclared(keys []string, registry EarnableRegistry) []FieldE
 		details = append(details, FieldError{
 			Field: "earnable",
 			Code:  CodeEarnableNotDeclared,
-			Params: map[string]any{
-				"permission": key,
-				"variant":    EarnableVariantUndeclared,
-			},
+			// 只带 `permission`：前端靠它显示「哪一个勾选要取消」。
+			// **不要加回 variant/cause**：能到这个分支的只有一种成因（从未声明），
+			// 加回来就是一个永远取到同一个值的死枚举。真需要区分成因时，
+			// 先加一条「谁会让它取到第二个值」的测试，再加字段。
+			Params: map[string]any{"permission": key},
 			Reason: fmt.Sprintf("%q 没有被任何扩展声明为「可被等级授予」；请取消这一项勾选", key),
 		})
 	}
