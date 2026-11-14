@@ -28,7 +28,7 @@
     "@iconify/vue": "^5.0.1",
     "@nuxt/image": "^2.1.0",
     "@nuxt/ui": "^4.9.0",
-    "@nuxtjs/i18n": "^10.4.0",
+    "@nuxtjs/i18n": "^10.6.0",
     "@nuxtjs/seo": "^5.3.6",
     "@sforum/admin-sdk": "workspace:*",
     "@sforum/plugin-ui": "workspace:*",
