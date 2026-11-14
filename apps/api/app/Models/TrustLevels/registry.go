@@ -116,7 +116,9 @@ func (e Earnable) Validate() error {
 				return fmt.Errorf("trustlevels: rank TL%d 的可挣得权限键为空", level)
 			}
 			// **不再按白名单硬拒**（D24 修订，M4a）。原因是一次插件停用会让整份
-			// `trust.levels` 解码失败 → 全站掉回默认策略：那是灾难性失败，不是保守。
+			// `trust.levels` 解码失败；而解码失败按**未解析**结算（`Policy()` 返错 →
+			// resolver 上抛 → identity 落 `err != nil`，等级 0 + warn），权限面等同
+			// 全员 TL0。那是灾难性失败，不是保守。
 			//
 			// 现在的姿态是「解码保留 + 运行期惰性 + 写期拒绝」：
 			//   - 运行期：未声明键不授予（`EarnableRegistry` 里 state != valid）；

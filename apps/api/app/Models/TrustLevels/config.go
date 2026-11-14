@@ -373,6 +373,10 @@ func classifyDecodeError(err error) (code, field string) {
 // 解码失败整体拒绝，不做部分修正：静默修正会让「保存成功但策略不是运营以为的那份」
 // 变成常态。拒绝时返回 *ConfigErrors（最多 MaxConfigErrorDetails 条明细），
 // errors.Is(err, ErrInvalidConfig) 仍成立。
+//
+// `DefaultPolicy()` 只在入参 `bytes.TrimSpace(raw)` 为空串时兜底（下面的 `len(trimmed)==0`
+// 分支）。解码失败**不会**落到默认策略：错误原样返给调用方，装载路径按未解析处理
+// （权限面等同全员 TL0，见下方 earnable 校验处的注释）。
 func DecodeConfig(raw string) (Policy, error) {
 	trimmed := bytes.TrimSpace([]byte(raw))
 	if len(trimmed) == 0 {
@@ -842,7 +846,14 @@ func validateEarnableInto(collector *configErrorCollector, rank Level, id string
 		//
 		// 旧行为是 `!IsWhitelisted(key)` 直接拒。它的问题是：`IsWhitelisted` 只看核心
 		// 七键，插件声明的键永远过不去；而一旦把插件键接进白名单，插件停用又会让整份配置
-		// 解码失败 —— 全站等级掉回默认策略。
+		// 解码失败。
+		//
+		// 解码失败的后果按**未解析**算，不是「换一份默认策略」：`Resolver.Grants/Evaluate`
+		// 把错误往上传（`resolver.go` 的 `inputs`），`identity.resolveTrustGrants` 落
+		// `case err != nil`（`level=0, ok=false` + 每次求值一条 warn），装载器据此把 Actor
+		// 标成未解析。于是权限面等同**全员 TL0**（一个已挣得都拿不到）、资料页
+		// `publicTrustLevel` 返 nil 不渲染等级卡。默认策略是一条兜底**等级**，未解析是
+		// 连兜底都没有——两者不是同一量级的降级。
 		//
 		// 现在的分工：
 		//   - 解码期只判结构（空键）；

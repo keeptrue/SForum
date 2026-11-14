@@ -145,7 +145,7 @@ func TestDisabledPluginKeepsConfigDecodable(t *testing.T) {
 	)
 	policy, err := trustlevels.DecodeConfig(raw)
 	if err != nil {
-		t.Fatalf("插件停用不该让配置解码失败（否则全站等级掉默认策略）：%v", err)
+		t.Fatalf("插件停用不该让配置解码失败（否则装载路径按未解析处理，权限面等同全员 TL0）：%v", err)
 	}
 	registry := trustlevels.NewEarnableRegistry([]trustlevels.EarnableDeclaration{
 		{Key: "acme.wiki.pages", ExtensionID: "acme.wiki", Enabled: false},

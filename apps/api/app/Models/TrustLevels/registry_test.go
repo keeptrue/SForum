@@ -84,7 +84,8 @@ func TestEarnableValidateRejectsDangerousKeys(t *testing.T) {
 			if granted := registry.FilterGranted([]string{testCase.key}); len(granted) != 0 {
 				t.Fatalf("运行期授予了危险键 %q", testCase.key)
 			}
-			// 配置本身仍可解码（D24：解码保留，否则插件停用即全站掉默认策略）。
+			// 配置本身仍可解码（D24：解码保留；解码失败会让装载路径按未解析处理，
+			// 权限面等同全员 TL0）。
 			if err := earnable.Validate(); err != nil {
 				t.Fatalf("解码期不该因 %q 拒绝整份配置：%v", testCase.key, err)
 			}

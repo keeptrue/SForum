@@ -731,13 +731,14 @@ func TestDecodeConfigAcceptsConfigWithoutNewFields(t *testing.T) {
 // **解码期不再硬拒未声明键**。
 //
 // 为什么这条必须存在：若保留旧硬拒，一次插件停用 → 整份 `trust.levels` 解码失败 →
-// 全站等级掉回默认策略。那是灾难性失败，不是保守。安全边界改由两处兜住：
-// 写期（`ValidateEarnableDeclared` → 422）与运行期（`EarnableRegistry` 不授予）。
+// 装载路径按未解析处理（权限面等同全员 TL0，不是换一份默认策略）。那是灾难性失败，
+// 不是保守。安全边界改由两处兜住：写期（`ValidateEarnableDeclared` → 422）与
+// 运行期（`EarnableRegistry` 不授予）。
 func TestDecodeConfigKeepsUndeclaredEarnableKeys(t *testing.T) {
 	raw := `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["user.ban","acme.shop.orders"]}]}`
 	policy, err := trustlevels.DecodeConfig(raw)
 	if err != nil {
-		t.Fatalf("解码期不该因未声明键失败（插件停用会让整站掉默认策略）：%v", err)
+		t.Fatalf("解码期不该因未声明键失败（插件停用会让整站等级未解析）：%v", err)
 	}
 	if got := policy.Earnable.Permissions(trustlevels.LevelMember); len(got) != 2 {
 		t.Fatalf("配置必须原样保留两枚键（否则运营重开插件后发现勾选被清了），得到 %v", got)
