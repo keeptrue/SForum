@@ -3,6 +3,7 @@ package identity
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -159,5 +160,99 @@ func TestCreateAdminUserKeepsDefaultMemberAndSuperAdminGuards(t *testing.T) {
 	})
 	if !errors.Is(err, ErrSuperAdminGrantRestricted) {
 		t.Fatalf("expected ErrSuperAdminGrantRestricted, got %v", err)
+	}
+}
+
+func TestRoleGrantGuardCheckPermissionSet(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		actor       Actor
+		permissions []string
+		wantErr     bool
+	}{
+		{
+			name:        "operator can write their own subset",
+			actor:       operatorActor(10),
+			permissions: []string{PermissionAdminAccess, PermissionUserManage},
+		},
+		{
+			name:        "operator cannot write database.manage",
+			actor:       operatorActor(10),
+			permissions: []string{PermissionDatabaseManage},
+			wantErr:     true,
+		},
+		{
+			name:        "one denied key fails the whole set",
+			actor:       operatorActor(10),
+			permissions: []string{PermissionUserManage, PermissionDatabaseManage},
+			wantErr:     true,
+		},
+		{
+			name:        "member baseline keys are allowed",
+			actor:       operatorActor(10),
+			permissions: []string{PermissionTopicCreate, PermissionPostCreate},
+		},
+		{
+			name:        "super admin can write anything",
+			actor:       superAdminActor(1),
+			permissions: []string{PermissionDatabaseManage, PermissionRoleManage},
+		},
+		{name: "empty permission set is allowed", actor: operatorActor(10)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service, store := newTestService(t)
+			seedGrantGuardRoles(t, store)
+			guard := NewRoleGrantGuard(service.store)
+
+			err := guard.CheckPermissionSet(testContext(t), tt.actor, tt.permissions)
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if !errors.Is(err, ErrRoleGrantExceedsActor) {
+				t.Fatalf("expected ErrRoleGrantExceedsActor, got %v", err)
+			}
+			// 权限集路径没有目标角色，提示必须落到请求体字段 permissions 而不是 roleKeys。
+			var fieldsErr *AdminUserFieldsError
+			if !errors.As(err, &fieldsErr) {
+				t.Fatalf("error must expose *AdminUserFieldsError, got %T", err)
+			}
+			if fieldsErr.Reason != CodeRoleGrantExceedsActor {
+				t.Fatalf("reason=%q, want %q", fieldsErr.Reason, CodeRoleGrantExceedsActor)
+			}
+			if messages := fieldsErr.Fields[FieldPermissions]; !slices.Contains(messages, CodeRoleGrantExceedsActor) {
+				t.Fatalf("permissions messages=%v", messages)
+			}
+			if _, leaked := fieldsErr.Fields[FieldRoleKeys]; leaked {
+				t.Fatalf("permission set errors must not claim roleKeys: %v", fieldsErr.Fields)
+			}
+		})
+	}
+}
+
+func TestRoleGrantGuardPermissionSetNamesTheMissingPermission(t *testing.T) {
+	t.Parallel()
+	service, store := newTestService(t)
+	seedGrantGuardRoles(t, store)
+
+	err := NewRoleGrantGuard(service.store).CheckPermissionSet(testContext(t), operatorActor(10), []string{PermissionDatabaseManage})
+	var grantErr *RoleGrantExceedsActorError
+	if !errors.As(err, &grantErr) {
+		t.Fatalf("expected *RoleGrantExceedsActorError, got %v", err)
+	}
+	if grantErr.RoleKey != "" || grantErr.Field != FieldPermissions || grantErr.Permission != PermissionDatabaseManage {
+		t.Fatalf("role=%q field=%q permission=%q", grantErr.RoleKey, grantErr.Field, grantErr.Permission)
+	}
+	// 字段键必须等于请求体 JSON tag，否则前端表单拿不到落点。
+	if FieldPermissions != "permissions" {
+		t.Fatalf("FieldPermissions=%q, want the request body tag %q", FieldPermissions, "permissions")
+	}
+	// RoleKey 为空时 Error() 仍要可读，不能出现 %!q(<nil>) 之类的格式化垃圾。
+	if message := grantErr.Error(); !strings.Contains(message, PermissionDatabaseManage) {
+		t.Fatalf("error message lost the permission: %q", message)
 	}
 }

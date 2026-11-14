@@ -756,7 +756,7 @@ func (s *Service) ReplaceRolePermissions(ctx context.Context, actor Actor, roleK
 		return ErrSystemRoleLocked
 	}
 	normalized := normalizeKeyList(permissions)
-	if err := s.validatePermissions(ctx, normalized); err != nil {
+	if err := checkRolePermissionGrant(ctx, s, actor, normalized); err != nil {
 		return err
 	}
 	return s.store.ReplaceRolePermissions(ctx, actor.ID, roleKey, normalized)
@@ -787,8 +787,8 @@ func (s *Service) ReplaceUserRoles(ctx context.Context, actor Actor, targetUserI
 	if targetIsSuperAdmin != nextIsSuperAdmin && !actor.IsSuperAdmin() {
 		return AdminUserDetail{}, ErrSuperAdminGrantRestricted
 	}
-	if err := s.validateRoles(ctx, normalized); err != nil {
-		return AdminUserDetail{}, mapAdminRoleValidationError(err)
+	if err := checkUserRoleGrant(ctx, s, actor, normalized); err != nil {
+		return AdminUserDetail{}, err
 	}
 
 	return s.store.ReplaceUserRoles(ctx, actor.ID, targetUserID, normalized)
