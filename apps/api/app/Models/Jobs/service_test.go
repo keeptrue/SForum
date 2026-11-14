@@ -44,6 +44,59 @@ func TestServiceEnforcesViewAndManagePermissionsBeforeDataAccess(t *testing.T) {
 	}
 }
 
+// coreScheduleExpectedIDs 是服务目录必须暴露的 schedule 清单（**逐项点名**）。
+//
+// 与 `app/Support/Jobs/core_schedules_test.go` 的同名清单同源：那边管「注册表 ⇄ 常量」，
+// 这边管「服务视图 ⇄ 常量」。元素用兄弟包的常量而不是字符串字面量，所以改名会编译失败
+// 而不是悄悄变绿；但**成员**仍要两处都改——M4b-2 加了第 10 条 trustlevels.sweep 时只改
+// 了注册表那份，本包还写着 9 条，HEAD 因此红了一整轮门禁。
+//
+// 为什么不用 `len(items) != 10` 的裸计数（判据与 core_schedules_test.go 同口径）：裸计数
+// 只把红推后一次，红的时候只说「expected 9, got 10」，不告诉任何人多了哪条；逐项比对
+// 表达的是「服务视图 ⇄ 常量目录」的对应关系本身，漏暴露、多暴露、改名都指名道姓。
+//
+// 第 10 条是 M4b-2 的 trustlevels.sweep：24h、maintenance 队列、`mode=stale`（只碰账本
+// 缺失或 24h 没算过的人），兜住角色变更 / OAuth 解绑 / 徽章收回这类没有活动事件、
+// 也就不会经过 6 个活动触发点的等级变化。
+var coreScheduleExpectedIDs = []string{
+	supportjobs.ScheduleIdentityCleanupSessions,
+	supportjobs.ScheduleAttachmentsCleanupOrphans,
+	supportjobs.ScheduleAttachmentsReconcileCompression,
+	supportjobs.ScheduleAuditCleanupEvents,
+	supportjobs.ScheduleForumAutoLockIdle,
+	supportjobs.ScheduleForumBookmarkReminders,
+	supportjobs.ScheduleForumFlushViewCounts,
+	supportjobs.ScheduleSearchReconcile,
+	supportjobs.ScheduleExtensionsFinalizeUninstallCleanup,
+	supportjobs.ScheduleTrustLevelsSweep,
+}
+
+// assertCoreScheduleCatalog 把服务返回的目录与上面的清单按集合比对，双向报差异。
+//
+// 重复 ID 由末尾的条数比对兜住（集合会吞掉重复，条数不会）。
+func assertCoreScheduleCatalog(t *testing.T, items []Schedule) {
+	t.Helper()
+	got := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		got[item.ID] = struct{}{}
+	}
+	want := make(map[string]struct{}, len(coreScheduleExpectedIDs))
+	for _, id := range coreScheduleExpectedIDs {
+		want[id] = struct{}{}
+		if _, exists := got[id]; !exists {
+			t.Errorf("服务目录缺少 schedule %q（常量在、Schedules() 没暴露）", id)
+		}
+	}
+	for id := range got {
+		if _, exists := want[id]; !exists {
+			t.Errorf("服务目录多出 schedule %q（清单需要同步更新）", id)
+		}
+	}
+	if len(items) != len(coreScheduleExpectedIDs) {
+		t.Errorf("schedule 数=%d，清单=%d（重复暴露也会落在这里）", len(items), len(coreScheduleExpectedIDs))
+	}
+}
+
 func TestServiceSchedulesReturnsCoreCatalog(t *testing.T) {
 	service := NewService(nil, nil)
 	actor := identity.Actor{
@@ -57,13 +110,8 @@ func TestServiceSchedulesReturnsCoreCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("schedules: %v", err)
 	}
-	// 9 = 8 + forum.bookmark_reminders（到期收藏提醒，60s / maintenance）。
-	if len(items) != 9 {
-		t.Fatalf("expected 9 core schedules, got %d", len(items))
-	}
-	ids := map[string]bool{}
+	assertCoreScheduleCatalog(t, items)
 	for _, item := range items {
-		ids[item.ID] = true
 		if item.JobKind == "" || item.Owner == "" || item.IntervalSeconds <= 0 {
 			t.Fatalf("incomplete schedule: %+v", item)
 		}
@@ -73,20 +121,6 @@ func TestServiceSchedulesReturnsCoreCatalog(t *testing.T) {
 		// 无历史时 next 应有粗估值
 		if item.NextRunAt == nil {
 			t.Fatalf("expected nextRunAt for enabled schedule %s", item.ID)
-		}
-	}
-	for _, id := range []string{
-		"identity.cleanup_sessions",
-		"attachments.cleanup_orphans",
-		supportjobs.ScheduleAttachmentsReconcileCompression,
-		"audit.cleanup_events",
-		"forum.auto_lock_idle",
-		"forum.flush_view_counts",
-		supportjobs.ScheduleForumBookmarkReminders,
-		"search.reconcile",
-	} {
-		if !ids[id] {
-			t.Fatalf("missing schedule %s", id)
 		}
 	}
 }
