@@ -123,7 +123,7 @@ func TestProductionCoreGuardEvaluatorRegistryIsExplicitAndVersioned(t *testing.T
 		t.Fatal(err)
 	}
 	bindings := registry.Bindings()
-	if len(bindings) != len(registrations) || len(bindings) != 32 {
+	if len(bindings) != len(registrations) || len(bindings) != 34 {
 		t.Fatalf("bindings = %#v", bindings)
 	}
 	for _, binding := range bindings {
@@ -2351,4 +2351,125 @@ func productionGuardRequest(permissions ...string) routes.DispatchRequest {
 		request.Permissions[permission] = true
 	}
 	return request
+}
+
+// TestProductionForumContentReadGuardMatchesRuntimePolicy 钉住后台内容读取的运行时判定：
+// admin.access 且（编辑任意 或 查看任意修订）。PRD2-01/02 之前 catalog 只写后者，
+// 把「进不了后台」的账号声明成允许，与真实 403 不一致。
+func TestProductionForumContentReadGuardMatchesRuntimePolicy(t *testing.T) {
+	authorizer := NewProductionRouteGuardAuthorizer()
+	descriptor := routes.CoreGuardDescriptor{
+		Kind: routes.CoreGuardContextual, EvaluatorID: "core.guard.forum.content_read",
+	}
+	tests := []struct {
+		name        string
+		routeID     string
+		permissions []string
+		want        error
+	}{
+		{
+			name: "topic list allows admin.access plus edit any", routeID: "core.route.forum.admin_content_topics",
+			permissions: []string{identity.PermissionAdminAccess, identity.PermissionTopicEditAny},
+		},
+		{
+			name: "topic detail allows admin.access plus revision view", routeID: "core.route.forum.admin_content_topic",
+			permissions: []string{identity.PermissionAdminAccess, identity.PermissionTopicRevisionViewAny},
+		},
+		{
+			name: "comment list allows admin.access plus post edit any", routeID: "core.route.forum.admin_content_comments",
+			permissions: []string{identity.PermissionAdminAccess, identity.PermissionPostEditAny},
+		},
+		{
+			name: "comment detail allows admin.access plus post revision view", routeID: "core.route.forum.admin_content_comment",
+			permissions: []string{identity.PermissionAdminAccess, identity.PermissionPostRevisionViewAny},
+		},
+		{
+			name: "content permission without admin.access is denied", routeID: "core.route.forum.admin_content_topics",
+			permissions: []string{identity.PermissionTopicEditAny}, want: ErrRoutePermissionDenied,
+		},
+		{
+			name: "admin.access alone is denied", routeID: "core.route.forum.admin_content_topics",
+			permissions: []string{identity.PermissionAdminAccess}, want: ErrRoutePermissionDenied,
+		},
+		{
+			name: "topic permission does not satisfy comment reads", routeID: "core.route.forum.admin_content_comments",
+			permissions: []string{identity.PermissionAdminAccess, identity.PermissionTopicEditAny}, want: ErrRoutePermissionDenied,
+		},
+		{
+			name: "unauthenticated is denied", routeID: "core.route.forum.admin_content_topics", want: ErrRouteLoginRequired,
+		},
+		{
+			name: "unknown route fails closed", routeID: "core.route.forum.admin_content_unknown",
+			permissions: []string{identity.PermissionAdminAccess, identity.PermissionTopicEditAny}, want: ErrRouteGuardUnavailable,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plan, step := productionInheritedGuardPlan(t, test.routeID, descriptor)
+			var request routes.DispatchRequest
+			if test.want == ErrRouteLoginRequired {
+				request = routes.DispatchRequest{Method: plan.Method(), Path: plan.Path(), Permissions: map[string]bool{}}
+			} else {
+				request = productionGuardRequest(test.permissions...)
+			}
+			request.Method, request.Path = plan.Method(), plan.Path()
+			err := authorizer.Authorize(context.Background(), plan, step, request)
+			if !errors.Is(err, test.want) || test.want == nil && err != nil {
+				t.Fatalf("error = %v, want %v", err, test.want)
+			}
+		})
+	}
+}
+
+// TestProductionAttachmentUploadPolicyUserGuardMatchesRuntimePolicy 钉住用户级上传策略的
+// 「manage 且 user.view」：角色级（.../roles*）仍然只要 manage，走另一条声明。
+func TestProductionAttachmentUploadPolicyUserGuardMatchesRuntimePolicy(t *testing.T) {
+	authorizer := NewProductionRouteGuardAuthorizer()
+	descriptor := routes.CoreGuardDescriptor{
+		Kind: routes.CoreGuardContextual, EvaluatorID: "core.guard.attachments.upload_policy",
+	}
+	tests := []struct {
+		name        string
+		routeID     string
+		permissions []string
+		want        error
+	}{
+		{
+			name: "get user policy allows manage plus user view", routeID: "core.route.attachments.get_user_upload_policy",
+			permissions: []string{identity.PermissionAttachmentUploadPolicyManage, identity.PermissionUserView},
+		},
+		{
+			name: "set user policy allows manage plus user view", routeID: "core.route.attachments.set_user_upload_policy",
+			permissions: []string{identity.PermissionAttachmentUploadPolicyManage, identity.PermissionUserView},
+		},
+		{
+			name: "delete user policy allows manage plus user view", routeID: "core.route.attachments.delete_user_upload_policy",
+			permissions: []string{identity.PermissionAttachmentUploadPolicyManage, identity.PermissionUserView},
+		},
+		{
+			name: "missing user.view is denied", routeID: "core.route.attachments.get_user_upload_policy",
+			permissions: []string{identity.PermissionAttachmentUploadPolicyManage}, want: ErrRoutePermissionDenied,
+		},
+		{
+			name: "missing manage is denied", routeID: "core.route.attachments.set_user_upload_policy",
+			permissions: []string{identity.PermissionUserView}, want: ErrRoutePermissionDenied,
+		},
+		{
+			// 角色级策略只要 manage，不能被这条求值器顺手放行成「manage + user.view」。
+			name: "role scoped route is not served by this evaluator", routeID: "core.route.attachments.list_role_upload_policies",
+			permissions: []string{identity.PermissionAttachmentUploadPolicyManage, identity.PermissionUserView},
+			want:        ErrRouteGuardUnavailable,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			plan, step := productionInheritedGuardPlan(t, test.routeID, descriptor)
+			request := productionGuardRequest(test.permissions...)
+			request.Method, request.Path = plan.Method(), plan.Path()
+			err := authorizer.Authorize(context.Background(), plan, step, request)
+			if !errors.Is(err, test.want) || test.want == nil && err != nil {
+				t.Fatalf("error = %v, want %v", err, test.want)
+			}
+		})
+	}
 }

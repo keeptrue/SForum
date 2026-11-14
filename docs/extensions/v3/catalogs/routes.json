@@ -494,13 +494,14 @@
     "path": "/api/v1/admin/attachment-upload-policies/users/:userID",
     "source": "apps/api/app/Http/Controllers/Attachments/routes.go:20",
     "access": "permission",
-    "policy": "attachment.upload_policy.manage",
+    "policy": "attachment upload policy user scope: attachment.upload_policy.manage plus user.view",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
-        "attachment.upload_policy.manage"
+        "attachment.upload_policy.manage",
+        "user.view"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.attachments.upload_policy"
     }
   },
   {
@@ -512,13 +513,14 @@
     "path": "/api/v1/admin/attachment-upload-policies/users/:userID",
     "source": "apps/api/app/Http/Controllers/Attachments/routes.go:18",
     "access": "permission",
-    "policy": "attachment.upload_policy.manage",
+    "policy": "attachment upload policy user scope: attachment.upload_policy.manage plus user.view",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
-        "attachment.upload_policy.manage"
+        "attachment.upload_policy.manage",
+        "user.view"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.attachments.upload_policy"
     }
   },
   {
@@ -530,13 +532,14 @@
     "path": "/api/v1/admin/attachment-upload-policies/users/:userID",
     "source": "apps/api/app/Http/Controllers/Attachments/routes.go:19",
     "access": "permission",
-    "policy": "attachment.upload_policy.manage",
+    "policy": "attachment upload policy user scope: attachment.upload_policy.manage plus user.view",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
-        "attachment.upload_policy.manage"
+        "attachment.upload_policy.manage",
+        "user.view"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.attachments.upload_policy"
     }
   },
   {
@@ -2480,11 +2483,13 @@
     "path": "/api/v1/admin/forum/categories",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:85",
     "access": "permission",
-    "policy": "category.manage",
+    "policy": "forum admin read: category.manage, tag.manage, or forum.settings.manage",
     "guard": {
       "kind": "permission_any",
       "permissions": [
-        "category.manage"
+        "category.manage",
+        "tag.manage",
+        "forum.settings.manage"
       ],
       "evaluatorId": ""
     }
@@ -2552,11 +2557,13 @@
     "path": "/api/v1/admin/forum/category-groups",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:81",
     "access": "permission",
-    "policy": "category.manage",
+    "policy": "forum admin read: category.manage, tag.manage, or forum.settings.manage",
     "guard": {
       "kind": "permission_any",
       "permissions": [
-        "category.manage"
+        "category.manage",
+        "tag.manage",
+        "forum.settings.manage"
       ],
       "evaluatorId": ""
     }
@@ -2624,14 +2631,15 @@
     "path": "/api/v1/admin/forum/content/comments",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:97",
     "access": "permission",
-    "policy": "post.edit_any or post.revision.view_any",
+    "policy": "admin content read: admin.access plus post.edit_any or post.revision.view_any",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
+        "admin.access",
         "post.edit_any",
         "post.revision.view_any"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.forum.content_read"
     }
   },
   {
@@ -2643,14 +2651,15 @@
     "path": "/api/v1/admin/forum/content/comments/:commentID",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:98",
     "access": "permission",
-    "policy": "post.edit_any or post.revision.view_any",
+    "policy": "admin content read: admin.access plus post.edit_any or post.revision.view_any",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
+        "admin.access",
         "post.edit_any",
         "post.revision.view_any"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.forum.content_read"
     }
   },
   {
@@ -2662,14 +2671,15 @@
     "path": "/api/v1/admin/forum/content/topics",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:95",
     "access": "permission",
-    "policy": "topic.edit_any or topic.revision.view_any",
+    "policy": "admin content read: admin.access plus topic.edit_any or topic.revision.view_any",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
+        "admin.access",
         "topic.edit_any",
         "topic.revision.view_any"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.forum.content_read"
     }
   },
   {
@@ -2681,14 +2691,15 @@
     "path": "/api/v1/admin/forum/content/topics/:topicID",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:96",
     "access": "permission",
-    "policy": "topic.edit_any or topic.revision.view_any",
+    "policy": "admin content read: admin.access plus topic.edit_any or topic.revision.view_any",
     "guard": {
-      "kind": "permission_any",
+      "kind": "contextual",
       "permissions": [
+        "admin.access",
         "topic.edit_any",
         "topic.revision.view_any"
       ],
-      "evaluatorId": ""
+      "evaluatorId": "core.guard.forum.content_read"
     }
   },
   {
@@ -2868,11 +2879,13 @@
     "path": "/api/v1/admin/forum/tags",
     "source": "apps/api/app/Http/Controllers/Forum/routes.go:89",
     "access": "permission",
-    "policy": "tag.manage",
+    "policy": "forum admin read: category.manage, tag.manage, or forum.settings.manage",
     "guard": {
       "kind": "permission_any",
       "permissions": [
-        "tag.manage"
+        "category.manage",
+        "tag.manage",
+        "forum.settings.manage"
       ],
       "evaluatorId": ""
     }

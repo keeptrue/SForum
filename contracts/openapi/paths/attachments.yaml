@@ -230,6 +230,7 @@ adminAttachmentUploadPolicyUser:
   get:
     summary: Get one user's effective attachment upload policy
     operationId: getAttachmentUploadUserPolicy
+    x-sforum-route-id: core.route.attachments.get_user_upload_policy
     description: Requires attachment.upload_policy.manage and user.view.
     responses:
       '200':
@@ -243,6 +244,8 @@ adminAttachmentUploadPolicyUser:
   put:
     summary: Set a user-specific attachment upload size limit
     operationId: setAttachmentUploadUserPolicy
+    x-sforum-route-id: core.route.attachments.set_user_upload_policy
+    description: Requires attachment.upload_policy.manage and user.view.
     requestBody:
       required: true
       content:
@@ -260,6 +263,8 @@ adminAttachmentUploadPolicyUser:
   delete:
     summary: Restore a user's upload size limit to role inheritance
     operationId: deleteAttachmentUploadUserPolicy
+    x-sforum-route-id: core.route.attachments.delete_user_upload_policy
+    description: Requires attachment.upload_policy.manage and user.view.
     responses:
       '200':
         description: User policy restored to role or site inheritance.

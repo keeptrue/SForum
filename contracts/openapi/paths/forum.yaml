@@ -253,6 +253,8 @@ adminForumCategoryGroups:
   get:
     summary: List category groups for admin management
     operationId: adminListForumCategoryGroups
+    x-sforum-route-id: core.route.forum.admin_category_groups
+    description: Requires `category.manage`, `tag.manage`, or `forum.settings.manage` (any one).
     responses:
       '200':
         description: Category groups.
@@ -344,6 +346,8 @@ adminForumCategories:
   get:
     summary: List categories for admin management
     operationId: adminListForumCategories
+    x-sforum-route-id: core.route.forum.admin_categories
+    description: Requires `category.manage`, `tag.manage`, or `forum.settings.manage` (any one).
     responses:
       '200':
         description: Categories.
@@ -436,6 +440,8 @@ adminForumTags:
   get:
     summary: List tags for admin management
     operationId: adminListForumTags
+    x-sforum-route-id: core.route.forum.admin_tags
+    description: Requires `category.manage`, `tag.manage`, or `forum.settings.manage` (any one).
     responses:
       '200':
         description: Tags including pending and disabled entries.
@@ -558,6 +564,7 @@ adminForumContentTopics:
   get:
     summary: List admin forum topics for content management
     operationId: adminListForumContentTopics
+    x-sforum-route-id: core.route.forum.admin_content_topics
     description: |
       Read-only admin content workbench model for topics. Requires `admin.access`
       plus either `topic.edit_any` or `topic.revision.view_any`. Filters avoid
@@ -632,6 +639,7 @@ adminForumContentTopicByID:
   get:
     summary: Get admin forum topic detail
     operationId: adminGetForumContentTopic
+    x-sforum-route-id: core.route.forum.admin_content_topic
     description: Requires `admin.access` plus either `topic.edit_any` or `topic.revision.view_any`.
     security:
     - cookieAuth: []
@@ -655,6 +663,7 @@ adminForumContentComments:
   get:
     summary: List admin forum comments for content management
     operationId: adminListForumContentComments
+    x-sforum-route-id: core.route.forum.admin_content_comments
     description: |
       Read-only admin content workbench model for comments. Requires `admin.access`
       plus either `post.edit_any` or `post.revision.view_any`. Filters avoid body
@@ -721,6 +730,7 @@ adminForumContentCommentByID:
   get:
     summary: Get admin forum comment detail
     operationId: adminGetForumContentComment
+    x-sforum-route-id: core.route.forum.admin_content_comment
     description: Requires `admin.access` plus either `post.edit_any` or `post.revision.view_any`.
     security:
     - cookieAuth: []

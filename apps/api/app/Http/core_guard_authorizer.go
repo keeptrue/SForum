@@ -156,6 +156,7 @@ func productionCoreGuardEvaluatorRegistrationsWithPolicies(policies ProductionRo
 	return []routes.CoreGuardEvaluatorRegistration{
 		productionCoreGuardEvaluator("core.guard.attachments.read", attachmentReadGuardEvaluator(policies.AttachmentReads, policies.ForumRead)),
 		productionCoreGuardEvaluator("core.guard.attachments.upload", requireDeclaredCoreGuardPermission),
+		productionCoreGuardEvaluator("core.guard.attachments.upload_policy", requireAttachmentUploadPolicyUserAuthority),
 		productionCoreGuardEvaluator("core.guard.extensions.mutation", extensionsMutationGuardEvaluator(policies.Extensions)),
 		productionCoreGuardEvaluator("core.guard.extensions.read", extensionsReadGuardEvaluator(policies.Extensions)),
 		productionCoreGuardEvaluator("core.guard.extensions.declared_route", declaredExtensionRouteGuardEvaluator(policies.DeclaredRoutes)),
@@ -164,6 +165,7 @@ func productionCoreGuardEvaluatorRegistrationsWithPolicies(policies ProductionRo
 		productionCoreGuardEvaluator("core.guard.forum.author_review", requireAuthenticatedCoreGuardActor),
 		productionCoreGuardEvaluator("core.guard.forum.comment_write", forumCommentWriteGuardEvaluator(policies.ForumResources)),
 		productionCoreGuardEvaluator("core.guard.forum.comment_create", forumCommentCreateGuardEvaluator(policies.ForumComments)),
+		productionCoreGuardEvaluator("core.guard.forum.content_read", requireForumContentReadAuthority),
 		productionCoreGuardEvaluator("core.guard.forum.read", forumReadGuardEvaluator(policies.ForumRead)),
 		productionCoreGuardEvaluator("core.guard.forum.settings", requireForumSettingsAuthority),
 		productionCoreGuardEvaluator("core.guard.forum.topic_create", requireDeclaredCoreGuardPermission),

@@ -135,7 +135,14 @@ function routePolicy(route) {
   if (path.startsWith('/api/v1/admin/settings/')) return ['permission', 'admin.access plus extension.view for site settings plugin tabs']
   if (path.startsWith('/api/v1/admin/pages')) return ['permission', 'extension.view for inspection; theme/plugin manage and super_admin approval where required']
   if (path.startsWith('/api/v1/admin/ai')) return ['permission', 'ai.manage']
-  if (path.startsWith('/api/v1/admin/attachment-upload-policies/')) return ['permission', 'attachment.upload_policy.manage']
+  // 用户级上传策略：运行时是 manage AND user.view（UploadPolicy.GetUser/SetUser/DeleteUser），
+  // 角色级（.../roles*）仍只要 manage。两者共用一个前缀，必须按子路径分开声明。
+  if (path.startsWith('/api/v1/admin/attachment-upload-policies/')) {
+    if (path.startsWith('/api/v1/admin/attachment-upload-policies/users/')) {
+      return ['permission', 'attachment upload policy user scope: attachment.upload_policy.manage plus user.view']
+    }
+    return ['permission', 'attachment.upload_policy.manage']
+  }
   if (path.startsWith('/api/v1/admin/attachment-settings') || path.startsWith('/api/v1/admin/attachment-compression-settings') || path.startsWith('/api/v1/admin/attachment-storage-instances') || path === '/api/v1/admin/attachments/compression-stats') return ['permission', 'attachment.settings.manage']
   if (path.startsWith('/api/v1/admin/attachments')) return ['permission', 'attachment.manage']
   // 徽章：读 badge.view、写 badge.manage。公开的资料页徽章墙走 /api/v1/profiles/ 的 public 分支。
@@ -163,10 +170,27 @@ function routePolicy(route) {
   if (path.startsWith('/api/v1/admin/database')) return ['permission', 'database.manage']
   if (path.startsWith('/api/v1/admin/entity-meta')) return ['permission', 'entity_meta.manage or settings.manage']
   if (path.startsWith('/api/v1/admin/forum/search')) return ['permission', 'search.manage']
-  if (path.startsWith('/api/v1/admin/forum/content/topics')) return ['permission', 'topic.edit_any or topic.revision.view_any']
-  if (path.startsWith('/api/v1/admin/forum/content/comments')) return ['permission', 'post.edit_any or post.revision.view_any']
-  if (path.startsWith('/api/v1/admin/forum/categories') || path.startsWith('/api/v1/admin/forum/category-groups')) return ['permission', 'category.manage']
-  if (path.startsWith('/api/v1/admin/forum/tags')) return ['permission', 'tag.manage']
+  // 后台内容读取：运行时 canReadAdminTopicContent/canReadAdminCommentContent 要求
+  // admin.access 且（编辑任意 或 查看任意修订）。写操作（restore 等）不在这个前缀下，
+  // 因此这里按 GET 声明 AND 语义，其余方法保持原有的单键/修订分支。
+  if (path.startsWith('/api/v1/admin/forum/content/topics')) {
+    if (method === 'GET') return ['permission', 'admin content read: admin.access plus topic.edit_any or topic.revision.view_any']
+    return ['permission', 'topic.edit_any or topic.revision.view_any']
+  }
+  if (path.startsWith('/api/v1/admin/forum/content/comments')) {
+    if (method === 'GET') return ['permission', 'admin content read: admin.access plus post.edit_any or post.revision.view_any']
+    return ['permission', 'post.edit_any or post.revision.view_any']
+  }
+  // 后台读分类/标签：运行时先过 ForumSettings，即 category.manage、tag.manage、
+  // forum.settings.manage 三选一（canManageForumSettings）；写操作各自单键。
+  if (path.startsWith('/api/v1/admin/forum/categories') || path.startsWith('/api/v1/admin/forum/category-groups')) {
+    if (method === 'GET') return ['permission', 'forum admin read: category.manage, tag.manage, or forum.settings.manage']
+    return ['permission', 'category.manage']
+  }
+  if (path.startsWith('/api/v1/admin/forum/tags')) {
+    if (method === 'GET') return ['permission', 'forum admin read: category.manage, tag.manage, or forum.settings.manage']
+    return ['permission', 'tag.manage']
+  }
   if (path.startsWith('/api/v1/admin/forum/settings')) return ['permission', 'category.manage, tag.manage, or forum.settings.manage; field owner recheck']
   if (path.startsWith('/api/v1/admin/jobs')) return ['permission', method === 'GET' ? 'jobs.view' : 'jobs.manage']
   if (path.startsWith('/api/v1/admin/mail')) return ['permission', 'settings.mail.manage or settings.manage compatibility policy']
@@ -341,6 +365,13 @@ const reviewedGuardPolicies = new Map([
   ['post.edit_own or post.edit_any', { kind: 'contextual', permissions: ['post.edit_own', 'post.edit_any'], evaluatorId: 'core.guard.forum.comment_edit' }],
   ['post.create plus topic/publication policy', { kind: 'contextual', permissions: ['post.create'], evaluatorId: 'core.guard.forum.comment_create' }],
   ['topic.create plus forum publication policy', { kind: 'contextual', permissions: ['topic.create'], evaluatorId: 'core.guard.forum.topic_create' }],
+  // 后台内容读取：admin.access 且（edit_any 或 revision_view_any），AND 语义写在求值器里。
+  ['admin content read: admin.access plus topic.edit_any or topic.revision.view_any', { kind: 'contextual', permissions: ['admin.access', 'topic.edit_any', 'topic.revision.view_any'], evaluatorId: 'core.guard.forum.content_read' }],
+  ['admin content read: admin.access plus post.edit_any or post.revision.view_any', { kind: 'contextual', permissions: ['admin.access', 'post.edit_any', 'post.revision.view_any'], evaluatorId: 'core.guard.forum.content_read' }],
+  // 后台读分类/标签：三键任一（运行时 canManageForumSettings）。
+  ['forum admin read: category.manage, tag.manage, or forum.settings.manage', { kind: 'permission_any', permissions: ['category.manage', 'tag.manage', 'forum.settings.manage'] }],
+  // 用户级上传策略：manage 且 user.view（运行时 UploadPolicy.GetUser/SetUser/DeleteUser）。
+  ['attachment upload policy user scope: attachment.upload_policy.manage plus user.view', { kind: 'contextual', permissions: ['attachment.upload_policy.manage', 'user.view'], evaluatorId: 'core.guard.attachments.upload_policy' }],
   ['topic.delete_any plus state policy', { kind: 'contextual', permissions: ['topic.delete_any'], evaluatorId: 'core.guard.forum.topic_state' }],
   ['topic.delete_own or topic.delete_any', { kind: 'contextual', permissions: ['topic.delete_own', 'topic.delete_any'], evaluatorId: 'core.guard.forum.topic_delete' }],
   ['topic.edit_own or topic.edit_any', { kind: 'contextual', permissions: ['topic.edit_own', 'topic.edit_any'], evaluatorId: 'core.guard.forum.topic_edit' }],
