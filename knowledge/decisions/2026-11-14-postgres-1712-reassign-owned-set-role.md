@@ -104,13 +104,27 @@ helper 实现在 `extension_database_kernel_postgres.go`，与既有
   若临时授权改成 `INHERIT FALSE, SET TRUE`，`USAGE` 会漏，而宿主仍可 `SET ROLE` 到扩展 owner。
 - 风险与后续：如果将来某条回收路径在 `REASSIGN OWNED` 之外再引入「把对象交给其他 role」的语句，
   同样需要这对 helper；`rg -n "REASSIGN OWNED" apps/api --glob '!*_test.go'` 是当前的全部调用点。
-- 同一权限窗口在另外两处同样必要，本次一并修复（reviewer 复核发现）：
-  - provisioning：`ensureExtensionDatabaseSchema` 的 `CREATE SCHEMA ... AUTHORIZATION <owner>`
-    在 PG 16 起就要求接收者 `SET ROLE`，与 17.12 无关 —— 非超级用户宿主在 17.11/17.12 上同样失败；
-    此前该缺口被测试里手工补的 `GRANT ... SET TRUE` 盖住。
+- 同一权限窗口在另外三处同样必要，本次一并修复（reviewer 复核发现）：
+  - provisioning（建 schema）：`ensureExtensionDatabaseSchema` 的
+    `CREATE SCHEMA ... AUTHORIZATION <owner>` 在 PG 16 起就要求接收者 `SET ROLE`，
+    与 17.12 无关 —— 非超级用户宿主在 17.11/17.12 上同样失败；此前该缺口被测试里手工补的
+    `GRANT ... SET TRUE` 盖住。
+  - provisioning（configure）：紧随其后的 `configureExtensionDatabaseOwnership`
+    （`REVOKE ALL ON SCHEMA`、`GRANT USAGE, CREATE ON SCHEMA`、4 条
+    `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>`）同样要以 owner 身份执行。窗口开在
+    **函数内部**而不是调用方，避免将来多一个调用方就漏；窗口不前移到隔离校验之前，
+    因为那两句查的是 owner 的出边成员关系，与接收者特权无关。
+  - 运行时租约：`createExtensionDatabaseRuntimeLeaseRole` 的
+    `ALTER DEFAULT PRIVILEGES FOR ROLE <lease>` 需要租约 role 的特权（宿主对它只有 creator 行），
+    窗口开在 `configureExtensionDatabaseRuntimeLeaseDefaultPrivileges` 内部，
+    同时覆盖 kernel 分支的 `REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`。
+    该缺口意味着 F1 修完之前非超级用户宿主仍然发不出运行时租约。
   - 卸载：`DROP SCHEMA ... CASCADE` 与 `DROP OWNED BY <owner>` 都要以 owner 身份执行（`INHERIT` 即可），
     而 `DROP ROLE <owner>` 只依赖 creator 行的 `ADMIN`。窗口因此卡在两者之间：acquire 在
     `DROP SCHEMA` 之前，release 在 `DROP ROLE` 之前 —— 否则 REVOKE 会打在已删除的角色上。
-  - 回归覆盖：新增 `TestPostgresExtensionDatabaseSchemaProvisioningWorksForNonSuperCreateRoleHost`，
-    宿主全程不手工补任何 GRANT；把 provisioning 的 acquire 注释掉即报
-    `must be able to SET ROLE ... (SQLSTATE 42501)`。
+  - 回归覆盖：`TestPostgresExtensionDatabaseProvisioningWorksForNonSuperCreateRoleHost`
+    走真正的生产入口 `ensureExtensionDatabaseResources`（自然覆盖 configure），
+    再覆盖运行时租约默认权限那半边；宿主全程不补任何**接收者** GRANT，只有部署权限
+    （数据库 `CREATE`、注册表读写）由管理员代授 —— 真实部署里 API 用户是数据库属主，本就具备。
+    反证：把 configure 的 acquire 注释掉报 `permission denied for schema ... (SQLSTATE 42501)`；
+    把租约默认权限的 acquire 注释掉报 `permission denied to change default privileges`。

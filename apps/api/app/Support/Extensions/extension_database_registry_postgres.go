@@ -344,6 +344,13 @@ func configureExtensionDatabaseOwnership(
 	owner := pgx.Identifier{identifiers.OwnerRole}.Sanitize()
 	runtime := pgx.Identifier{identifiers.RuntimeRole}.Sanitize()
 	schema := pgx.Identifier{identifiers.Schema}.Sanitize()
+	// 这批语句要么改扩展 schema 的 ACL，要么改 owner 名下的默认权限，都要以 owner
+	// 身份执行；宿主对刚建出的 owner 只有 CREATEROLE 留下的 creator 行
+	// （admin=true, inherit=false, set=false），因此窗口开在函数内部，
+	// 任何调用方都不需要自己记得补。
+	if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, identifiers.OwnerRole); err != nil {
+		return err
+	}
 	queries := []string{
 		`ALTER ROLE ` + owner + ` NOLOGIN`,
 		`ALTER ROLE ` + runtime + ` INHERIT`,
@@ -359,6 +366,9 @@ func configureExtensionDatabaseOwnership(
 		if _, err := tx.Exec(ctx, query); err != nil {
 			return fmt.Errorf("configure extension database ownership: %w", err)
 		}
+	}
+	if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, identifiers.OwnerRole); err != nil {
+		return err
 	}
 	return nil
 }
