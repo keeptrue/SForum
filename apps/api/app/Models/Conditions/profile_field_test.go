@@ -82,10 +82,15 @@ func TestProfileFieldTablesCoverSameEnum(t *testing.T) {
 
 // TestProfileFilledSQLCoversEveryProfileField 钉住「枚举 ⇄ SQL」同源。
 //
-// 红判据：profileFields 加了取值而生成的 SQL 没有对应 WHEN（或列名写错）→ 指名该取值。
+// 红判据：枚举加了取值而 SQL 没有对应 WHEN → 指名该取值与分支数差。
 // 2026-11-14 审查 §5.2 的实证：CASE 曾是手写字面量，加第 5 个取值后整包测试全绿、
 // 运行期静默恒 false（在 `not` 子树下反转成 true）。派生 + 这条断言取代了「记得
 // 同时改两处」的纪律要求。
+//
+// 边界（别高估它）：列名**取值**对不对不归这条管——SQL 由同一张表生成，自己跟自己对
+// 账必然一致。列名的真值由集成测试的独立映射表（profileColumns）抓：列名写错时
+// 真库会报 `column profiles.<x> does not exist`。这里只保证生成器用的是 Column
+// 而不是 Field，以及没有分支被漏掉。
 func TestProfileFilledSQLCoversEveryProfileField(t *testing.T) {
 	// 分支数按**目录取值**对账，不是按 profileFields：后者是 SQL 的生成输入，用它
 	// 对账等于自证——「枚举绕开表另加一项」这种漂移必须由这条抓住。
