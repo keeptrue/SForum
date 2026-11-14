@@ -482,6 +482,15 @@ func validateManifest(manifest Manifest, points []ContributionPointDefinition) e
 	if err := validateAdminDeclaration(manifest); err != nil {
 		return err
 	}
+	// plugin-only 家族必须在**任何其它 kind 判据之前**判一次。
+	//
+	// 主题侧还有一张手写的 `isThemeManifestSupported` 枚举，它就在下面几行；如果让它
+	// 先返回，清单里的 seo / identity / permissionDefinitions 三行就永远不可达
+	// （2026-11-14 审查 §2 探针：移除清单行后报错一字不变）。放在这里，7 个家族全部
+	// 由清单先拒、报错带家族名，清单才是**首个判据**，而不是「只决定报错文本」。
+	if err := validatePluginOnlyFamilies(manifest); err != nil {
+		return err
+	}
 	if manifest.Type == TypeTheme && !isThemeManifestSupported(manifest) {
 		return ErrInvalidManifest
 	}

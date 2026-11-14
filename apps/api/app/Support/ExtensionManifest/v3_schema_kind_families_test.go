@@ -216,3 +216,192 @@ func TestManifestV3SchemaKindFamiliesMatchDeclarationTable(t *testing.T) {
 		}
 	}
 }
+
+// notificationTypeDeclarationFixture 是 demo.v3 命名空间下的合规通知类型声明。
+//
+// 不复用真实通知夹具的 ID：`versionedID` 要求 `<manifest.id>.` 前缀，把
+// `sforum.notification-reference.*` 挂到 demo.v3 上会被 Go 侧拒，反而让「插件侧必须
+// 合法」这条前提失效。真实夹具的双侧判据由
+// `TestManifestV3SchemaRequiresPluginForNotificationTypes` 单独覆盖。
+func notificationTypeDeclarationFixture() ManifestNotificationType {
+	return ManifestNotificationType{
+		ID:              "demo.v3.notification.order_ready",
+		ContractVersion: "demo.v3.notification.order_ready@1",
+		PayloadVersion:  1,
+		Category:        "commerce",
+		PayloadSchema:   "demo.v3.notification.order_ready.schema@1",
+		Label: LocalizedText{
+			Default:  "Order ready",
+			ByLocale: map[string]string{"zh-CN": "订单已就绪", "en-US": "Order ready"},
+		},
+		Body: LocalizedText{
+			Default:  "Your order is ready.",
+			ByLocale: map[string]string{"zh-CN": "你的订单已就绪。", "en-US": "Your order is ready."},
+		},
+		Icon:       "i-lucide-package-check",
+		TargetKind: "none",
+		Channels:   []string{"in_app"},
+	}
+}
+
+// factConditionDeclarationFixture 造一条合规的事实条件声明（两个数组共用一套规则）。
+func factConditionDeclarationFixture(key string) ManifestBadgeCondition {
+	return ManifestBadgeCondition{
+		Key:             key,
+		ContractVersion: key + "@1",
+		Label:           map[string]string{"zh-CN": "页数", "en-US": "Pages"},
+		Compare:         []string{"gte"},
+	}
+}
+
+// pluginOnlyBaseManifest 是「只留一个家族」的基座。
+//
+// `completeV3Manifest` 本身能过 Validate；这里把 7 个 plugin-only 家族清空，
+// 让观察点只有被测家族（其余声明原样保留，避免误删出「形状不合法」的第二个变量）。
+func pluginOnlyBaseManifest() Manifest {
+	base := completeV3Manifest()
+	base.Type = TypePlugin
+	base.Content = nil
+	base.SEO = nil
+	base.Identity = nil
+	base.AITools, base.NotificationTypes = nil, nil
+	base.BadgeConditions, base.UserFactConditions = nil, nil
+	base.PermissionDefinitions = nil
+	return base
+}
+
+// v3PluginOnlyFamilyAppliers 给清单里的每个家族配一个「只声明该家族」的夹具。
+//
+// 每个声明都逐字合规：插件侧必须两侧都过，否则主题侧的「schema 拒」可能只是形状
+// 不合规，那条断言会变成空转。
+func v3PluginOnlyFamilyAppliers(t *testing.T) map[string]func(*Manifest) {
+	t.Helper()
+	return map[string]func(*Manifest){
+		"aiTools": func(m *Manifest) { m.AITools = []ManifestAITool{aiToolFixture(t)} },
+		"notificationTypes": func(m *Manifest) {
+			m.NotificationTypes = []ManifestNotificationType{notificationTypeDeclarationFixture()}
+			// 通知类型的 payloadSchema 必须落在同包 schema 文件上（validateUIAndPackage
+			// rule #11），所以这条声明要自带一个 packageFile 才在插件侧合法。
+			m.PackageFiles = append(m.PackageFiles, ManifestPackageFile{
+				ID:   "demo.v3.notification.order_ready.schema",
+				Kind: "schema", Path: "schemas/order-ready.json", Digest: v3FixtureDigest(), Version: "1",
+			})
+		},
+		"seo": func(m *Manifest) { m.SEO = []ManifestSEO{seoDeclarationFixture()} },
+		"identity": func(m *Manifest) {
+			// 刻意**不带 providers**：这正是 schema 条件分支的洞——旧分支只在
+			// 「identity 且带 providers」时才要求 plugin，主题不带 providers 时放行。
+			m.Identity = &ManifestIdentity{ContractVersion: "demo.v3.identity@1"}
+		},
+		"badgeConditions": func(m *Manifest) {
+			m.BadgeConditions = []ManifestBadgeCondition{factConditionDeclarationFixture("demo.v3.condition.badges")}
+		},
+		"userFactConditions": func(m *Manifest) {
+			m.UserFactConditions = []ManifestBadgeCondition{factConditionDeclarationFixture("demo.v3.condition.facts")}
+		},
+		"permissionDefinitions": func(m *Manifest) {
+			m.PermissionDefinitions = []ManifestPermissionDefinition{{
+				Key: "demo.v3.manage", ContractVersion: "demo.v3.permission.manage@1",
+				Label:            LocalizedText{Default: "Manage demo"},
+				Description:      LocalizedText{Default: "Manage the demo plugin."},
+				RecommendedRoles: []string{"administrator"}, AssignmentPolicy: "host",
+			}}
+		},
+	}
+}
+
+// TestManifestV3PluginOnlyFamiliesBehaviourallyRejectThemes 是「清单 ⇄ 行为」的判据。
+//
+// 每个家族四件事一起断：
+//  1. `Declared` 认得出本家族的声明（谓词读错字段 → 红）；
+//  2. 插件声明该家族时两侧都过（证明夹具合规，第 3 条才有意义）；
+//  3. 主题声明该家族时 schema 拒（分支缺失，或分支带额外条件 → 红）；
+//  4. 主题声明该家族时 Go 侧**首个**报错指名该家族（清单不是首个判据 → 红）。
+//
+// 第 4 条是「清单真的第一」的证据：`isThemeManifestSupported` 抢先返回时，报错是裸
+// `extensions: invalid manifest`，不含任何家族名。
+func TestManifestV3PluginOnlyFamiliesBehaviourallyRejectThemes(t *testing.T) {
+	appliers := v3PluginOnlyFamilyAppliers(t)
+	for _, family := range v3PluginOnlyDeclarationFamilies {
+		t.Run(family.Family, func(t *testing.T) {
+			apply, ok := appliers[family.Family]
+			if !ok {
+				t.Fatalf("家族 %q 没有行为夹具：清单新增家族必须同时补一条", family.Family)
+			}
+
+			plugin := pluginOnlyBaseManifest()
+			apply(&plugin)
+			if !family.Declared(plugin) {
+				t.Fatalf("家族 %q 的 Declared 谓词没有识别出本家族的声明（谓词读错字段？）", family.Family)
+			}
+			pluginBody, err := json.Marshal(plugin)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := Validate(plugin); err != nil {
+				t.Fatalf("插件声明 %q 必须合法：%v", family.Family, err)
+			}
+			if err := ValidateV3JSONSchema(pluginBody); err != nil {
+				t.Fatalf("插件声明 %q 在 schema 层也必须合法：%v", family.Family, err)
+			}
+
+			theme := pluginOnlyBaseManifest()
+			theme.Type = TypeTheme
+			apply(&theme)
+			themeBody, err := json.Marshal(theme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if schemaErr := ValidateV3JSONSchema(themeBody); schemaErr == nil {
+				t.Fatalf("主题声明 %q 时 schema 层放行（分支可能带额外条件）", family.Family)
+			} else {
+				t.Logf("%s: schema → %v", family.Family, schemaErr)
+			}
+			goErr := Validate(theme)
+			if goErr == nil {
+				t.Fatalf("Go Validate 必须拒绝主题声明 %q", family.Family)
+			}
+			if !strings.Contains(goErr.Error(), family.Family) {
+				t.Fatalf("主题声明 %q 时首个报错应指名该家族（清单不是首个判据？），得到 %v", family.Family, goErr)
+			}
+		})
+	}
+}
+
+// TestManifestV3SchemaRequiresPluginForNotificationTypes 是 notificationTypes 的双侧判据。
+//
+// 用**真实通知夹具包**（Go 侧本来就能装载）当插件侧证据，再把它翻成 theme 看两侧是否都拒。
+// 这条在 0b38458bd 里被静默删除过（helper 因此零调用），恢复它是本次修的一部分：
+// notificationTypes 是唯一有真实包夹具的家族，删掉就只剩手搓声明。
+func TestManifestV3SchemaRequiresPluginForNotificationTypes(t *testing.T) {
+	plugin := loadNotificationReferenceFixture(t)
+	pluginBody, err := json.Marshal(plugin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(plugin); err != nil {
+		t.Fatalf("真实通知夹具在 Go 侧必须合法：%v", err)
+	}
+	if err := ValidateV3JSONSchema(pluginBody); err != nil {
+		t.Fatalf("真实通知夹具在 schema 层也必须合法：%v", err)
+	}
+
+	theme := plugin
+	theme.Type = TypeTheme
+	themeBody, err := json.Marshal(theme)
+	if err != nil {
+		t.Fatal(err)
+	}
+	goErr := Validate(theme)
+	schemaErr := ValidateV3JSONSchema(themeBody)
+	t.Logf("notificationTypes: theme → Validate=%v | ValidateV3JSONSchema=%v", goErr, schemaErr)
+	if goErr == nil {
+		t.Fatal("Go Validate 必须拒绝主题声明 notificationTypes")
+	}
+	if schemaErr == nil {
+		t.Fatal("schema 层必须拒绝主题声明 notificationTypes")
+	}
+	if !strings.Contains(schemaErr.Error(), "plugin") {
+		t.Fatalf("schema 的拒绝理由应指向 type=plugin，得到 %v", schemaErr)
+	}
+}

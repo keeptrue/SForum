@@ -325,6 +325,20 @@
     {
       "if": {
         "required": [
+          "identity"
+        ]
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "const": "plugin"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
           "badgeConditions"
         ],
         "properties": {

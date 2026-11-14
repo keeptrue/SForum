@@ -49,10 +49,10 @@ const (
 )
 
 func (v *v3Validator) validatePlatform() error {
-	// kind 判据集中在清单里；各家族自己的 validator 仍然负责字段级规则。
-	if err := v.validatePluginOnlyFamilies(); err != nil {
-		return err
-	}
+	// kind 判据不在这里：它在 `validateManifest` 里、`isThemeManifestSupported` 之前
+	// 判一次（见 manifest.go 的注释），否则主题侧那张手写枚举会先返回，把清单里的
+	// seo / identity / permissionDefinitions 变成死行。各家族自己的 validator 仍然
+	// 负责字段级规则。
 	if err := v.validateNotificationTypes(); err != nil {
 		return err
 	}
@@ -109,12 +109,15 @@ var v3PluginOnlyDeclarationFamilies = []struct {
 //
 // 各家族自己的校验仍然保留（它们还管字段级规则与 backend 需求），但 kind 这一条
 // 从此由清单驱动：新增家族只加一行，不必再去每个 validator 里补同一个 if。
-func (v *v3Validator) validatePluginOnlyFamilies() error {
-	if v.manifest.Type == TypePlugin {
+//
+// 调用点是 `validateManifest`（在 `isThemeManifestSupported` 之前），不是
+// `validatePlatform`：主题侧那张手写枚举先返回会让清单对 3 个家族不可达。
+func validatePluginOnlyFamilies(manifest Manifest) error {
+	if manifest.Type == TypePlugin {
 		return nil
 	}
 	for _, family := range v3PluginOnlyDeclarationFamilies {
-		if family.Declared(v.manifest) {
+		if family.Declared(manifest) {
 			return fmt.Errorf("%w: v3 family %s is plugin-only", ErrInvalidManifest, family.Family)
 		}
 	}
