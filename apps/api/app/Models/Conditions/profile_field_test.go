@@ -87,8 +87,17 @@ func TestProfileFieldTablesCoverSameEnum(t *testing.T) {
 // 运行期静默恒 false（在 `not` 子树下反转成 true）。派生 + 这条断言取代了「记得
 // 同时改两处」的纪律要求。
 func TestProfileFilledSQLCoversEveryProfileField(t *testing.T) {
-	if got := strings.Count(profileFilledSQL, "WHEN '"); got != len(profileFields) {
-		t.Fatalf("SQL 的 CASE 分支数 %d 与枚举数 %d 不一致：\n%s", got, len(profileFields), profileFilledSQL)
+	// 分支数按**目录取值**对账，不是按 profileFields：后者是 SQL 的生成输入，用它
+	// 对账等于自证——「枚举绕开表另加一项」这种漂移必须由这条抓住。
+	options := profileFieldOptions()
+	if got := strings.Count(profileFilledSQL, "WHEN '"); got != len(options) {
+		t.Fatalf("SQL 的 CASE 分支数 %d 与枚举数 %d 不一致（新增取值必须同步生成分支）：\n%s",
+			got, len(options), profileFilledSQL)
+	}
+	for _, field := range options {
+		if !strings.Contains(profileFilledSQL, "WHEN '"+field+"'") {
+			t.Fatalf("SQL 缺少取值 %q 的分支：\n%s", field, profileFilledSQL)
+		}
 	}
 	for _, field := range profileFields {
 		if field.Column == "" {
@@ -96,7 +105,7 @@ func TestProfileFilledSQLCoversEveryProfileField(t *testing.T) {
 		}
 		want := "WHEN '" + field.Field + "' THEN profiles." + field.Column + " <> ''"
 		if !strings.Contains(profileFilledSQL, want) {
-			t.Fatalf("SQL 缺少取值 %q 的分支（期望包含 %q）：\n%s", field.Field, want, profileFilledSQL)
+			t.Fatalf("取值 %q 的列名与 SQL 不一致（期望包含 %q）：\n%s", field.Field, want, profileFilledSQL)
 		}
 	}
 }
