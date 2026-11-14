@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )

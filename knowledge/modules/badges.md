@@ -32,7 +32,7 @@ the first consumer.
 | 层 | 位置 | 职责 | 不许做 |
 | --- | --- | --- | --- |
 | 纯 AST | `Support/RuleEngine/`（`types`/`decode`/`validate`/`eval`/`catalog`） | 解码（未知字段报错）、校验（深度≤5、叶子≤32、节点≤64、`days`∈1..3650、`value`∈1..1e9）、**Kleene 三值求值** | import 任何 `Models/` 包、任何 SQL、任何 i18n |
-| 条件取数 | `Models/Badges/conditions/`（`registry` + `batch` + 5 个 `resolve_*`） | 13 条条件元数据；`Resolver.Prepare` 按 `type` 分组**每类一条 SQL** 并 memo，`Resolve` 逐叶子读 memo | 自己判「树是否成立」（那是 eval 的事） |
+| 条件取数 | `Models/Conditions/`（`registry` + `batch` + 5 个 `resolve_*`） | 13 条条件元数据；`Resolver.Prepare` 按 `type` 分组**每类一条 SQL** 并 memo，`Resolve` 逐叶子读 memo | 自己判「树是否成立」（那是 eval 的事） |
 | 规则存储 | `Models/Badges/rule_store.go` | 规则读写 + 保存校验（AST + 引用存在性 + `badge.owned` **环检测 DFS**） | 在 HTTP 里跑全量 |
 | 求值接线 | `Models/Badges/rule_eval.go` | `EvaluateRule` 把 `Resolver` 接进 store，并把**已声明 factKey 集合**透传给 `NewResolver(pool, userID, factKeys...)` | 吞掉 resolver 的错误 |
 | 健康检查 | `Models/Badges/rule_health.go` | 失效引用清单（保存校验共用同一份引用检查） | 把「零授予」当失效 |
@@ -851,7 +851,7 @@ WHERE NOT EXISTS (
 | 层 | 落点 | 行为 |
 | --- | --- | --- |
 | 清单校验 | `Support/ExtensionManifest/v3_badge_conditions.go` | 仅 `type:plugin` + Protocol V2 backend；`≤32` 条、`variants≤16`；`compare` 非空且 ⊆ 五 op（无 `ne`）；`contractVersion == key@N`；`label`（给了 `unit` 时同）双语必填 |
-| 候选模型 | `Models/Badges/conditions/facts.go` | `FactCandidate` / `FactVariant` / `FactDeclaration` / `MergeFactDeclarations` / `FactConflict`；输出按 `Key` 排序（下拉顺序要稳定） |
+| 候选模型 | `Models/Conditions/facts.go` | `FactCandidate` / `FactVariant` / `FactDeclaration` / `MergeFactDeclarations` / `FactConflict`；输出按 `Key` 排序（下拉顺序要稳定） |
 | 合并规则 | 同上 `MergeFactDeclarations` | 只取**已启用**插件（`StatusEnabled` + `TypePlugin`）；三条拒绝：与 Core 条件重名、缺 `<id>.` 前缀、重复 key（保留第一条，其余进 `FactConflict`） |
 | 候选来源 | `bootstrap/badges_fact_catalog.go` | 5s TTL 快照；读失败**回退旧快照**（一次 DB 抖动不该让全站插件条件变 unknown）；冲突只 `slog.Warn`，不覆盖 |
 | 发布面 | `conditions.Registry.PublishableDefinitions(candidates)` | 有候选才发布 `fact.count`（12 条内置恒在）；HTTP `items` + **additive** `factCandidates`，两个面不混 |
@@ -889,7 +889,7 @@ D-01（未声明 → unknown 成对）与 D-02（variant 三态，含「卸载�
 ## Important Paths
 
 - 规则引擎：`apps/api/app/Support/RuleEngine/`（`types` / `decode` / `validate` / `eval` / `catalog`）
-- 条件与规则：`apps/api/app/Models/Badges/conditions/`（`registry` / `batch` / `phrases`（13 条双语措辞）/ `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
+- 条件与规则：`apps/api/app/Models/Conditions/`（`registry` / `batch` / `phrases`（13 条双语措辞）/ `resolve_{activity,object,identity,content,facts}`）、`rule_store.go`、`rule_eval.go`、`rule_health.go`、`rule_impact.go`、`facts_store.go`
 - 公开说明生成：`requirement_text.go`（`BuildRequirementText` / `BuildRuleRequirementText` 唯一入口）、`requirement_text_render.go`（树遍历 + 压缩 + 降级）、`ref_names.go`（`CollectRefs` / `RefSet` / `RefNameLoader` / `ResolveRefNames`）、`admin_requirement_text.go`（预览端点域层）
 - 领域：`apps/api/app/Models/Badges/`（`types.go` / `service.go` / `admin_service.go` / `evaluate.go` / `postgres_store.go` / `activity_store.go` / `visits.go` / `badge_reader.go` / `tiers_store.go` / `tiers.go` / `grant_candidates.go`）
 - 通知与进度（2026-11-13）：`grant_notifications.go`（`GrantedBadge` / `GrantNotifier` / `notifyGranted`）、`notification_targets.go`（`ResolveNotificationBadgeTarget`）、`progress_measure.go`（`measureForRule` / `ProgressMeasurer`）、`progress_measure_postgres.go`（批量 `Prepare`）、`public_catalog.go`（`ViewerCatalogProgress`）

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 )
 
 // 本文件验证 `(*PostgresStore).RefCandidates` 的四条硬约束（计划 §5.2.1）：

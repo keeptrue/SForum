@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 )
 
 // TestRefCandidateGroupWireShape 钉住 `refCandidates[]` 的键集合与值级内容。

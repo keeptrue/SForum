@@ -5,7 +5,7 @@ import (
 	"time"
 
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 )
 
 // 本文件只做「领域结构 → 扁平 JSON」的映射，不写任何业务逻辑：

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 )
 
 // refCandidateStoreFake 在 fakeStore 之上只加一个读口，用来验「有实现 / 没实现」

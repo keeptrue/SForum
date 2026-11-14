@@ -89,7 +89,7 @@ type Value struct {
 // Leaf 是交给 Resolver 的一次求值请求：叶子去掉比较子句后的部分。
 //
 // 引擎**逐叶子**调用 Resolver，不提供批量接口——「一次评估内按 type 分组、每类型
-// 一次查询」是 `Models/Badges/conditions/batch.go` 的实现细节。把批量塞进接口会逼着
+// 一次查询」是 `Models/Conditions/batch.go` 的实现细节。把批量塞进接口会逼着
 // 引擎理解条件的查询语义，那就不是纯布尔引擎了。
 type Leaf struct {
 	Type   string

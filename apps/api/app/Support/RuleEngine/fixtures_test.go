@@ -10,7 +10,7 @@ import (
 )
 
 // testCatalog 是只覆盖引擎语义的最小目录：一个带嵌套对象参数的计数条件 +
-// 一个布尔条件 + 一个只有整型参数的条件。真实目录在 `Models/Badges/conditions`。
+// 一个布尔条件 + 一个只有整型参数的条件。真实目录在 `Models/Conditions`。
 func testCatalog() ruleengine.CatalogMap {
 	return ruleengine.CatalogMap{
 		"activity.count": {

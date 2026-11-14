@@ -1,9 +1,9 @@
-// Package conditions 是徽章规则的条件目录与解析器：把 `ruleengine.Leaf` 翻译成
+// Package conditions 是规则引擎的条件目录与解析器：把 `ruleengine.Leaf` 翻译成
 // Core 数据面上的一次查询。
 //
 // 依赖方向刻意是单向的：`conditions` → `Support/RuleEngine`（AST/校验）与 pgx；
-// 它**不** import `Models/Badges` 本身，所以规则引擎的求值不需要理解徽章存储，
-// 徽章存储也不需要理解条件 SQL。
+// 它**不** import 任何领域存储包，所以规则引擎的求值不需要理解领域存储，
+// 领域存储也不需要理解条件 SQL。
 //
 // 两条口径贯穿全包（与 `knowledge/modules/badges.md` 一致）：
 //   - 软删内容仍计入「做过什么」（成就口径）：除 `content.hidden` 外，没有任何
@@ -89,7 +89,7 @@ type Definition struct {
 	UnitEn     string
 	// Phrase 把叶子翻成公开面可读的双语句子。
 	//
-	// **每个条件都必须有**：缺一条就是「公开面这枚徽章没有说明」，而手填已被移除，
+	// **每个条件都必须有**：缺一条就是「公开面这个条件没有说明」，而手填已被移除，
 	// 没有兜底来源。注册测试（`TestEveryConditionHasPhrase`）按 key 数量比对这个
 	// 字段，新增条件忘了写句子会直接判红，而不是上线后显示半句话。
 	Phrase PhraseFunc
@@ -202,7 +202,7 @@ func hasCandidates(def Definition, candidates []FactCandidate) bool {
 }
 
 func countCompare() []ruleengine.CompareOp {
-	// 计数条件只允许 gte / lte：徽章是「达到某条线」，「恰好不等于」不是运营会
+	// 计数条件只允许 gte / lte：阈值条件是「达到某条线」，「恰好不等于」不是运营会
 	// 表达的需求，而且会让 all/not 的组合更难读。
 	return []ruleengine.CompareOp{ruleengine.CompareGTE, ruleengine.CompareLTE}
 }

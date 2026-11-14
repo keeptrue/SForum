@@ -8,8 +8,8 @@ import (
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
-// 本文件是 13 种条件的「运营口吻句子」。它是**唯一实现**：公开面（徽章目录、
-// 资料页徽章墙）与后台预览端点都只走这里（经 `BuildRuleRequirementText`）。
+// 本文件是 13 种条件的「运营口吻句子」。它是**唯一实现**：公开面与后台预览端点
+// 都只走这里（经 `BuildRuleRequirementText`）。
 //
 // 三条硬约束（测试逐条钉住）：
 //   - 每种条件都必须有句子；新增条件不写 `Phrase` 由注册测试判红。

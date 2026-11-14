@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
@@ -390,7 +390,7 @@ func TestActivityCountWindowedLikeReceived(t *testing.T) {
 }
 
 // TestActivityCountExcludesSelfLikes 是 §5.2.2 第 1 条的证据：窗口「获赞」必须
-// 排除自赞。写路径对自赞返 0（累计列本来就不含），窗口版若含，同一枚徽章会出现
+// 排除自赞。写路径对自赞返 0（累计列本来就不含），窗口版若含，同一用户会出现
 // 「累计 0 但最近 30 天 5」的自相矛盾。
 func TestActivityCountExcludesSelfLikes(t *testing.T) {
 	f := newFixture(t)

@@ -33,7 +33,7 @@ const RefCandidatesLimit = 500
 // 候选标记。值是契约的一部分（OpenAPI enum），改名即破坏前端。
 const (
 	// RefFlagHidden 表示该对象当前不可公开访问（分类 visibility<>'public'、
-	// 标签 status<>'active'）。规则引用它仍然合法：徽章记录的是历史事实。
+	// 标签 status<>'active'）。规则引用它仍然合法：成就判定记录的是历史事实。
 	RefFlagHidden = "hidden"
 	// RefFlagDisabled 表示该对象当前被停用（角色 is_enabled=false、徽章 enabled=false）。
 	RefFlagDisabled = "disabled"

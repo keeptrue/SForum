@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/keeptrue/sforum/apps/api/app/Models/Badges/conditions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 )
 
 // 本文件是 `RefNameLoader` 的 Postgres 实现：**每一类引用一次查询**。

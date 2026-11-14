@@ -1,7 +1,7 @@
 package ruleengine
 
 // 本文件只描述「条件长什么样」，不含 i18n 文案、不含 SQL、不含任何领域知识。
-// 领域注册表（`Models/Badges/conditions`）负责把 key 填进来并实现 Catalog。
+// 领域注册表（`Models/Conditions`）负责把 key 填进来并实现 Catalog。
 
 // MaxWindowDays 是窗口类条件的最大回溯天数（约十年）。
 //

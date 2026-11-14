@@ -274,7 +274,7 @@ func (r *Resolver) nowTime() time.Time {
 
 // today 返回「按 API 进程本地时区」的今天（`YYYY-MM-DD`）。
 //
-// 徽章域的日界以进程时区为准：`user_visits.visited_on` 是 `time.Now()` 写进去的，
+// 条件求值的日界以进程时区为准：`user_visits.visited_on` 是 `time.Now()` 写进去的，
 // 任何用数据库 `CURRENT_DATE` 的比较都会在两者时区不一致时跨零点错一天。
 func (r *Resolver) today() string {
 	// 返回 `YYYY-MM-DD` 字符串而不是 time.Time：后者交给驱动后，Postgres 会按**会话
