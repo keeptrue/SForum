@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -152,17 +153,22 @@ func TestManifestV3SchemaKindFamiliesRejectThemes(t *testing.T) {
 	}
 }
 
-// TestManifestV3SchemaDeclaresKindForAllDeclarationFamilies 是结构断言：
-// 每个「只允许插件」的声明家族都必须有一条 `if required <family> → then.type.const=plugin`。
+// TestManifestV3SchemaKindFamiliesMatchDeclarationTable 是「新增家族忘写 schema」的判据。
 //
-// 它盯的是**目录级完整性**：新增一个 plugin-only 家族却忘了写 schema 分支时，
-// 这条会指名缺哪个家族，而不是等到某个夹具偶然红。
-func TestManifestV3SchemaDeclaresKindForAllDeclarationFamilies(t *testing.T) {
+// 比对的两侧都不再手写：左侧是生产侧的 `v3PluginOnlyDeclarationFamilies`（运行期判据
+// 的唯一清单），右侧是从 schema 分支扫出来的家族集合。于是：
+//   - 「清单里加了家族、schema 没加分支」→ 红并指名；
+//   - 「schema 加了分支、清单没加」→ 也红（防止两边各自漂移）。
+//
+// 选 A（与 Go 校验入口同源）而不是 B（手写清单 + 维护说明）的理由：手写清单只能抓
+// 「已登记家族丢分支」，抓不到「新增家族根本不进清单」——后者正是下一个加 plugin-only
+// 字段的人会踩的坑，而运行期判据已经从清单来，清单就是唯一事实源。
+func TestManifestV3SchemaKindFamiliesMatchDeclarationTable(t *testing.T) {
 	var schema map[string]any
 	if err := json.Unmarshal(ManifestV3JSONSchema(), &schema); err != nil {
 		t.Fatalf("schema 不是合法 JSON：%v", err)
 	}
-	kindByFamily := map[string]string{}
+	schemaFamilies := map[string]string{}
 	branches, _ := schema["allOf"].([]any)
 	for _, branch := range branches {
 		entry, _ := branch.(map[string]any)
@@ -176,48 +182,37 @@ func TestManifestV3SchemaDeclaresKindForAllDeclarationFamilies(t *testing.T) {
 		properties, _ := consequence["properties"].(map[string]any)
 		kind, _ := properties["type"].(map[string]any)
 		if value, ok := kind["const"].(string); ok {
-			kindByFamily[family] = value
+			schemaFamilies[family] = value
 		}
 	}
-	for _, family := range []string{"identity", "badgeConditions", "userFactConditions", "permissionDefinitions", "seo", "aiTools", "notificationTypes"} {
-		if kindByFamily[family] != "plugin" {
-			t.Errorf("家族 %q 缺少 if/then 的 type.const=plugin（现有：%q）", family, kindByFamily[family])
+
+	tableFamilies := map[string]struct{}{}
+	for _, family := range v3PluginOnlyDeclarationFamilies {
+		tableFamilies[family.Family] = struct{}{}
+		if kind, exists := schemaFamilies[family.Family]; !exists {
+			t.Errorf("家族 %q 在 plugin-only 清单里，但 schema 没有 if/then 的 type.const=plugin 分支", family.Family)
+		} else if kind != "plugin" {
+			t.Errorf("家族 %q 的 schema 约束是 %q，期望 plugin", family.Family, kind)
 		}
 	}
-}
-
-// TestManifestV3SchemaRequiresPluginForNotificationTypes 是 notificationTypes 的双侧判据。
-//
-// 用**真实通知夹具包**（Go 侧本来就能装载）当插件侧证据，再把它翻成 theme 看两侧是否都拒。
-func TestManifestV3SchemaRequiresPluginForNotificationTypes(t *testing.T) {
-	plugin := loadNotificationReferenceFixture(t)
-	pluginBody, err := json.Marshal(plugin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Validate(plugin); err != nil {
-		t.Fatalf("真实通知夹具在 Go 侧必须合法：%v", err)
-	}
-	if err := ValidateV3JSONSchema(pluginBody); err != nil {
-		t.Fatalf("真实通知夹具在 schema 层也必须合法：%v", err)
+	for family := range schemaFamilies {
+		if _, exists := tableFamilies[family]; !exists {
+			t.Errorf("schema 有 %q 的 plugin-only 分支，但生产清单 v3PluginOnlyDeclarationFamilies 里没有它（两边漂移）", family)
+		}
 	}
 
-	theme := plugin
-	theme.Type = TypeTheme
-	themeBody, err := json.Marshal(theme)
-	if err != nil {
-		t.Fatal(err)
+	// 清单里的家族名必须是真的 manifest 字段（JSON 名），否则 Declared 谓词是死代码。
+	fields := map[string]struct{}{}
+	manifestType := reflect.TypeOf(Manifest{})
+	for index := 0; index < manifestType.NumField(); index++ {
+		name := strings.Split(manifestType.Field(index).Tag.Get("json"), ",")[0]
+		if name != "" && name != "-" {
+			fields[name] = struct{}{}
+		}
 	}
-	goErr := Validate(theme)
-	schemaErr := ValidateV3JSONSchema(themeBody)
-	t.Logf("notificationTypes: theme → Validate=%v | ValidateV3JSONSchema=%v", goErr, schemaErr)
-	if goErr == nil {
-		t.Fatal("Go Validate 必须拒绝主题声明 notificationTypes")
-	}
-	if schemaErr == nil {
-		t.Fatal("schema 层必须拒绝主题声明 notificationTypes")
-	}
-	if !strings.Contains(schemaErr.Error(), "plugin") {
-		t.Fatalf("schema 的拒绝理由应指向 type=plugin，得到 %v", schemaErr)
+	for family := range tableFamilies {
+		if _, exists := fields[family]; !exists {
+			t.Errorf("清单里的家族 %q 不是 Manifest 的 JSON 字段", family)
+		}
 	}
 }

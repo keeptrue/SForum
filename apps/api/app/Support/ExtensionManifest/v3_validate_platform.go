@@ -49,6 +49,10 @@ const (
 )
 
 func (v *v3Validator) validatePlatform() error {
+	// kind 判据集中在清单里；各家族自己的 validator 仍然负责字段级规则。
+	if err := v.validatePluginOnlyFamilies(); err != nil {
+		return err
+	}
 	if err := v.validateNotificationTypes(); err != nil {
 		return err
 	}
@@ -75,6 +79,44 @@ func (v *v3Validator) validatePlatform() error {
 	}
 	if err := v.validateFactConditions(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// v3PluginOnlyDeclarationFamilies 是「只允许插件声明」家族的**唯一清单**。
+//
+// 它同时是三样东西的来源：运行期判据（validatePluginOnlyFamilies）、JSON schema
+// 分支的对照表（v3_schema_kind_families_test.go 双向比对）、以及文档里「哪些家族
+// 是 plugin-only」的答案。新增一个 plugin-only 家族时**只改这里**：
+// 校验立即生效；忘了给 schema 补 if/then 分支，测试会指名报缺。
+//
+// Declared 只回答「清单声明了这个家族吗」，与各家族自己的结构校验正交——
+// 这里只判 kind，不重复它们的字段级规则。
+var v3PluginOnlyDeclarationFamilies = []struct {
+	Family   string
+	Declared func(Manifest) bool
+}{
+	{"aiTools", func(m Manifest) bool { return len(m.AITools) > 0 }},
+	{"notificationTypes", func(m Manifest) bool { return len(m.NotificationTypes) > 0 }},
+	{"seo", func(m Manifest) bool { return len(m.SEO) > 0 }},
+	{"identity", func(m Manifest) bool { return m.Identity != nil }},
+	{"badgeConditions", func(m Manifest) bool { return len(m.BadgeConditions) > 0 }},
+	{"userFactConditions", func(m Manifest) bool { return len(m.UserFactConditions) > 0 }},
+	{"permissionDefinitions", func(m Manifest) bool { return len(m.PermissionDefinitions) > 0 }},
+}
+
+// validatePluginOnlyFamilies 把「这些家族只对 plugin 合法」集中判一次。
+//
+// 各家族自己的校验仍然保留（它们还管字段级规则与 backend 需求），但 kind 这一条
+// 从此由清单驱动：新增家族只加一行，不必再去每个 validator 里补同一个 if。
+func (v *v3Validator) validatePluginOnlyFamilies() error {
+	if v.manifest.Type == TypePlugin {
+		return nil
+	}
+	for _, family := range v3PluginOnlyDeclarationFamilies {
+		if family.Declared(v.manifest) {
+			return fmt.Errorf("%w: v3 family %s is plugin-only", ErrInvalidManifest, family.Family)
+		}
 	}
 	return nil
 }
