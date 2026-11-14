@@ -96,12 +96,21 @@ helper 实现在 `extension_database_kernel_postgres.go`，与既有
   （`GRANT`/`REVOKE` 对超级用户同样成立）。
 - 回归测试 `TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost`
   保留原有严格前提（回收前宿主不得继承扩展 owner），改为调用生产同款 helper，
-  并把「不得残留权限」的断言从 `pg_has_role(..., 'USAGE')` 改成同时检查 `USAGE` 与 `SET`：
-  creator 行本身就是 `inherit=false`，只查 `USAGE` 恒为 false，是空断言。
-  反证：把 `release` 注释掉后该断言报
-  `non-super Host could act as the extension owner after lease retirement (usage=true set=true)`。
+  并把「不得残留权限」的断言从只查 `pg_has_role(..., 'USAGE')` 扩到同时检查 `USAGE` 与 `SET`。
+  机制说明（此前一版写反了，以此为准）：creator 行是 `admin=true, inherit=false, set=false`，
+  只有那一行时 `USAGE` 为 false；但 helper 的临时授权是 `INHERIT TRUE, SET TRUE`，
+  泄漏时 `USAGE` 与 `SET` 会同时翻成 true —— 反证实测 `usage=true set=true`，
+  所以单查 `USAGE` 并不是空断言，它能抓住这次回归。加查 `SET` 是为了另一种将来变体：
+  若临时授权改成 `INHERIT FALSE, SET TRUE`，`USAGE` 会漏，而宿主仍可 `SET ROLE` 到扩展 owner。
 - 风险与后续：如果将来某条回收路径在 `REASSIGN OWNED` 之外再引入「把对象交给其他 role」的语句，
   同样需要这对 helper；`rg -n "REASSIGN OWNED" apps/api --glob '!*_test.go'` 是当前的全部调用点。
-- 未处理（本次范围外）：非超级用户宿主 `CREATE SCHEMA ... AUTHORIZATION <owner>` 同样需要
-  接收者 `SET ROLE`（PG 16 起），现有 provisioning 代码没有对应 acquire；这一条在 17.11 上就已存在，
-  与本 CVE 无关，另行评估。
+- 同一权限窗口在另外两处同样必要，本次一并修复（reviewer 复核发现）：
+  - provisioning：`ensureExtensionDatabaseSchema` 的 `CREATE SCHEMA ... AUTHORIZATION <owner>`
+    在 PG 16 起就要求接收者 `SET ROLE`，与 17.12 无关 —— 非超级用户宿主在 17.11/17.12 上同样失败；
+    此前该缺口被测试里手工补的 `GRANT ... SET TRUE` 盖住。
+  - 卸载：`DROP SCHEMA ... CASCADE` 与 `DROP OWNED BY <owner>` 都要以 owner 身份执行（`INHERIT` 即可），
+    而 `DROP ROLE <owner>` 只依赖 creator 行的 `ADMIN`。窗口因此卡在两者之间：acquire 在
+    `DROP SCHEMA` 之前，release 在 `DROP ROLE` 之前 —— 否则 REVOKE 会打在已删除的角色上。
+  - 回归覆盖：新增 `TestPostgresExtensionDatabaseSchemaProvisioningWorksForNonSuperCreateRoleHost`，
+    宿主全程不手工补任何 GRANT；把 provisioning 的 acquire 注释掉即报
+    `must be able to SET ROLE ... (SQLSTATE 42501)`。

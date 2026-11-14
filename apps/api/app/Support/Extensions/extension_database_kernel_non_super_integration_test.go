@@ -223,9 +223,11 @@ func TestPostgresExtensionDatabaseKernelCleanupWorksForNonSuperCreateRoleHost(t 
 }
 
 // CREATEROLE 建 role 时 PostgreSQL 会留下一条 admin=true, inherit=false, set=false
-// 的 creator 成员行，因此单查 USAGE 恒为 false，证明不了「没有残留授权」。
-// USAGE（可继承）与 SET（可 SET ROLE）才是 CVE-2026-120146 收紧的那两个权限位，
-// 也是宿主能拿扩展 owner 身份动手的全部前提。
+// 的 creator 成员行；只有那一行时 USAGE 与 SET 都是 false。但 helper 的临时授权是
+// INHERIT TRUE, SET TRUE，一旦泄漏两者会同时翻成 true（反证实测 usage=true set=true），
+// 所以单查 USAGE 已经能抓住这次回归，不是空断言。
+// 仍然同时检查 SET：若将来有人把临时授权改成 INHERIT FALSE, SET TRUE，
+// USAGE 会漏，而宿主依旧可以 SET ROLE 到扩展 owner —— 那正是 CVE-2026-120146 收紧的权限位。
 func assertNonSuperHostCannotActAsExtensionOwner(
 	t *testing.T,
 	ctx context.Context,
