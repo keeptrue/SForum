@@ -64,6 +64,47 @@ describe('admin route rendering', () => {
       query: { redirect: '/control-panel/extensions?page=2' }
     }])
   })
+
+  test('renders the shared 403 state instead of silently bouncing home without admin.access', async () => {
+    const user = ref({ id: 1, roleKeys: ['member'], permissions: ['topic.create'] })
+    const actions = {
+      navigations: [] as unknown[],
+      errors: [] as unknown[],
+      aborts: [] as unknown[]
+    }
+    const middleware = loadAdminMiddleware({
+      useAuthSession: () => ({
+        user,
+        status: ref('authenticated'),
+        refresh: async () => user.value,
+        can: () => false
+      }),
+      navigateTo: async (route: unknown) => {
+        actions.navigations.push(route)
+        return { type: 'navigate', route }
+      },
+      createError: (error: unknown) => {
+        actions.errors.push(error)
+        return error
+      },
+      abortNavigation: (error: unknown) => {
+        actions.aborts.push(error)
+        return { type: 'abort', error }
+      }
+    })
+
+    // 权限不足要落到共享 403 态：静默弹回首页会让「没有后台权限」和「链接失效」长得一样。
+    let thrown: unknown
+    try {
+      await middleware({ fullPath: '/control-panel/users' })
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toMatchObject({ statusCode: 403 })
+    expect(actions.navigations).toEqual([])
+    expect(actions.aborts).toEqual([])
+  })
 })
 
 function loadAdminMiddleware(globals: {

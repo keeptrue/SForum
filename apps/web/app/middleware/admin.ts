@@ -16,6 +16,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!can('admin.access')) {
-    return navigateTo(localePath('/'))
+    // 前端中间件只是 UX 守卫，权限权威始终在后端策略：这里不替后端下结论，
+    // 也不静默弹回首页 —— 那会让「没有后台权限」和「链接失效」长得一模一样。
+    // 落到共享的 403 态（error.vue → errors.page.forbidden.*），操作者才知道是权限问题。
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'admin.access'
+    })
   }
 })

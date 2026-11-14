@@ -133,11 +133,13 @@ function installGlobals(requests: Call[], toasts: Record<string, unknown>[], sce
         if (path.startsWith('/admin/admin-surfaces')) {
           return { revision: 'r1', surfaces: [], resolved: [], failures: [] }
         }
+        // `/roles`、`/permissions` 只是筛选器与抽屉的可选项目录，恒成功；
+        // 「列表加载失败」必须由列表自己的端点决定，否则测的就不是列表契约了。
         if (path === '/roles' || path === '/permissions') {
-          if (failList) throw { code: 500, message: '列表加载失败：服务暂时不可用。', data: { reason: 'internal_error' } }
           return []
         }
         if (path.startsWith('/users?')) {
+          if (failList) throw { code: 500, message: '列表加载失败：服务暂时不可用。', data: { reason: 'internal_error' } }
           return { items: [summary], total: 1, page: 1, perPage: 20 }
         }
         if (options?.method === 'PATCH' && patchFails) {

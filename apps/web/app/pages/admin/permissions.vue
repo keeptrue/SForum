@@ -2,6 +2,7 @@
 import { usePermissionText } from '~/composables/identity/usePermissionText'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
+import { useAdminAccessState } from '~/composables/admin/identity/useAdminAccessState'
 
 definePageMeta({
   middleware: 'admin',
@@ -55,6 +56,10 @@ const selectedRoleKeys = ref<string[]>([])
 const showOnlyDifferences = ref(false)
 const pending = ref(false)
 const errorMessage = ref('')
+const rolesUnavailable = ref(false)
+const matrixFailed = ref(false)
+// 后端才是权限权威：这里不按 can() 预判，只把真实的 403 画成可操作的状态。
+const { forbidden: matrixForbidden, noteFailure: noteAccessFailure, reset: resetAccess } = useAdminAccessState()
 
 onMounted(() => {
   void loadData()
@@ -72,13 +77,35 @@ const groupedPermissions = computed(() => {
 
 const roleSearchKeyword = computed(() => roleSearch.value.trim().toLowerCase())
 
-const selectableRoles = computed(() => {
-  const keyword = roleSearchKeyword.value
-  if (!keyword) {
+/**
+ * 用户组列的可读名称。`/roles` 不可用时退回矩阵自带的 `roleKey`：
+ * 矩阵本身仍然可读，不能把「读不到用户组」画成「没有用户组」。
+ */
+const roleList = computed<Role[]>(() => {
+  if (roles.value.length > 0) {
     return roles.value
   }
 
-  return roles.value.filter((role) => {
+  return matrix.value.roles.map(set => ({
+    id: 0,
+    key: set.roleKey,
+    alias: set.roleKey,
+    description: '',
+    isSystem: false,
+    isDefault: false,
+    isDeletable: false,
+    isEnabled: true,
+    permissionKeys: [...set.permissionKeys]
+  }))
+})
+
+const selectableRoles = computed(() => {
+  const keyword = roleSearchKeyword.value
+  if (!keyword) {
+    return roleList.value
+  }
+
+  return roleList.value.filter((role) => {
     return [role.key, role.alias, role.description]
       .some(value => value.toLowerCase().includes(keyword))
   })
@@ -88,7 +115,7 @@ const selectedRoleKeySet = computed(() => new Set(selectedRoleKeys.value))
 
 const visibleRoles = computed(() => {
   if (selectedRoleKeys.value.length > 0) {
-    return roles.value.filter(role => selectedRoleKeySet.value.has(role.key))
+    return roleList.value.filter(role => selectedRoleKeySet.value.has(role.key))
   }
 
   return selectableRoles.value.slice(0, ROLE_COMPARE_LIMIT)
@@ -96,7 +123,7 @@ const visibleRoles = computed(() => {
 
 const hiddenRoleCount = computed(() => {
   if (selectedRoleKeys.value.length > 0) {
-    return Math.max(roles.value.length - selectedRoleKeys.value.length, 0)
+    return Math.max(roleList.value.length - selectedRoleKeys.value.length, 0)
   }
 
   return Math.max(selectableRoles.value.length - visibleRoles.value.length, 0)
@@ -132,17 +159,37 @@ useSeoMeta({
 async function loadData() {
   pending.value = true
   errorMessage.value = ''
+  matrixFailed.value = false
+  resetAccess()
   try {
-    const [roleItems, matrixData] = await Promise.all([
+    // `/roles` 只提供列别名与对比选择：它 403 时矩阵仍然可读（列名退回 roleKey），
+    // 所以两个请求各自结算，绝不让用户组列表的权限问题连坐矩阵本身。
+    const [roleResult, matrixResult] = await Promise.allSettled([
       request<Role[]>('/roles'),
       request<PermissionMatrix>('/permissions/matrix')
     ])
-    roles.value = roleItems
-    matrix.value = matrixData
-    const availableRoleKeys = new Set(roleItems.map(role => role.key))
+
+    if (roleResult.status === 'fulfilled') {
+      roles.value = roleResult.value
+      rolesUnavailable.value = false
+    } else {
+      roles.value = []
+      rolesUnavailable.value = true
+    }
+
+    if (matrixResult.status === 'rejected') {
+      matrix.value = { permissions: [], roles: [] }
+      // 403 是「权限不足」，不是「没有权限项」：既不能落进空态，也不能报成加载失败。
+      if (noteAccessFailure(matrixResult.reason) !== 'forbidden') {
+        matrixFailed.value = true
+        errorMessage.value = apiErrorMessage(matrixResult.reason) || t('admin.permissions.loadFailed')
+      }
+      return
+    }
+
+    matrix.value = matrixResult.value
+    const availableRoleKeys = new Set(roleList.value.map(role => role.key))
     selectedRoleKeys.value = selectedRoleKeys.value.filter(key => availableRoleKeys.has(key))
-  } catch (error) {
-    errorMessage.value = apiErrorMessage(error) || t('admin.permissions.loadFailed')
   } finally {
     pending.value = false
   }
@@ -168,7 +215,7 @@ function toggleRoleSelection(roleKey: string) {
     selected.add(roleKey)
   }
 
-  selectedRoleKeys.value = roles.value
+  selectedRoleKeys.value = roleList.value
     .map(role => role.key)
     .filter(key => selected.has(key))
 }
@@ -219,7 +266,12 @@ function permissionHasVisibleDifference(permissionKey: string) {
         >
           {{ t('admin.permissions.refresh') }}
         </UButton>
-        <UBadge color="neutral" variant="soft" class="border border-slate-200 dark:border-zinc-800 font-medium">
+        <UBadge
+          v-if="!matrixForbidden && !matrixFailed"
+          color="neutral"
+          variant="soft"
+          class="border border-slate-200 dark:border-zinc-800 font-medium"
+        >
           {{ t('admin.permissions.count', { count: matrix.permissions.length }) }}
         </UBadge>
       </div>
@@ -227,18 +279,55 @@ function permissionHasVisibleDifference(permissionKey: string) {
   </UDashboardToolbar>
 
   <div class="flex flex-col gap-4">
-    <UAlert
-      v-if="errorMessage"
-      color="error"
-      variant="soft"
-      icon="i-lucide-triangle-alert"
-      :title="errorMessage"
-    />
-
     <UCard class="border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
       <div v-if="pending" class="flex items-center justify-center py-16 text-slate-400 dark:text-zinc-500">
         <UIcon name="i-lucide-loader-circle" class="mr-2 size-5 animate-spin" />
         <span class="text-sm">{{ t('admin.permissions.loading') }}</span>
+      </div>
+
+      <div
+        v-else-if="matrixForbidden"
+        data-testid="admin-permissions-forbidden"
+        class="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-zinc-500"
+      >
+        <UIcon name="i-lucide-shield-alert" class="size-12 mb-4" />
+        <p class="text-base font-semibold text-slate-900 dark:text-zinc-100">
+          {{ t('errors.page.forbidden.title') }}
+        </p>
+        <p class="mt-1 max-w-md text-center text-sm">
+          {{ t('errors.permissionDenied') }}
+        </p>
+        <UButton
+          class="mt-4"
+          color="neutral"
+          variant="outline"
+          leading-icon="i-lucide-refresh-cw"
+          :loading="pending"
+          @click="loadData"
+        >
+          {{ t('common.retry') }}
+        </UButton>
+      </div>
+
+      <div
+        v-else-if="matrixFailed"
+        data-testid="admin-permissions-failed"
+        class="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-zinc-500"
+      >
+        <UIcon name="i-lucide-triangle-alert" class="size-12 mb-4" />
+        <p class="max-w-md text-center text-sm text-slate-600 dark:text-zinc-300">
+          {{ errorMessage || t('admin.permissions.loadFailed') }}
+        </p>
+        <UButton
+          class="mt-4"
+          color="neutral"
+          variant="outline"
+          leading-icon="i-lucide-refresh-cw"
+          :loading="pending"
+          @click="loadData"
+        >
+          {{ t('common.retry') }}
+        </UButton>
       </div>
 
       <div v-else-if="matrix.permissions.length === 0" class="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-zinc-500">
@@ -258,7 +347,7 @@ function permissionHasVisibleDifference(permissionKey: string) {
               </p>
             </div>
             <UBadge color="neutral" variant="soft" class="w-fit border border-slate-200 dark:border-zinc-800">
-              {{ t('admin.permissions.displayedRoles', { shown: visibleRoles.length, total: roles.length }) }}
+              {{ t('admin.permissions.displayedRoles', { shown: visibleRoles.length, total: roleList.length }) }}
             </UBadge>
           </div>
 
@@ -266,12 +355,14 @@ function permissionHasVisibleDifference(permissionKey: string) {
             <UInput
               v-model="roleSearch"
               icon="i-lucide-search"
+              :disabled="rolesUnavailable"
               :placeholder="t('admin.permissions.roleSearchPlaceholder')"
             />
             <label class="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 transition hover:border-[var(--sf-accent-soft-border)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
               <input
                 v-model="showOnlyDifferences"
                 type="checkbox"
+                :disabled="rolesUnavailable"
                 class="size-4 accent-[var(--sf-accent)]"
               >
               <span>{{ t('admin.permissions.onlyDifferences') }}</span>
@@ -286,6 +377,15 @@ function permissionHasVisibleDifference(permissionKey: string) {
               {{ t('admin.permissions.clearFilters') }}
             </UButton>
           </div>
+
+          <p
+            v-if="rolesUnavailable"
+            data-testid="admin-permissions-roles-degraded"
+            class="mt-4 flex items-center gap-2 rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
+          >
+            <UIcon name="i-lucide-shield-alert" class="size-3.5 shrink-0" />
+            <span>{{ t('admin.roles.loadFailed') }}</span>
+          </p>
 
           <div v-if="selectableRoles.length > 0" class="mt-4 max-h-40 overflow-y-auto pr-1">
             <div class="flex flex-wrap gap-2">
@@ -309,7 +409,7 @@ function permissionHasVisibleDifference(permissionKey: string) {
               </button>
             </div>
           </div>
-          <p v-else class="mt-4 rounded-md border border-dashed border-slate-200 bg-white px-3 py-3 text-sm text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+          <p v-else-if="!rolesUnavailable" class="mt-4 rounded-md border border-dashed border-slate-200 bg-white px-3 py-3 text-sm text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
             {{ t('admin.permissions.noMatchingRoles') }}
           </p>
 

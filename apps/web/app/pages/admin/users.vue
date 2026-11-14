@@ -53,6 +53,8 @@ const {
   perPage,
   roles,
   permissions,
+  catalogDegradedMessage,
+  forbidden,
   pending,
   totalPages,
   userListSurfaces,
@@ -151,6 +153,7 @@ onMounted(() => {
   </SFAdminUserListToolbar>
 
   <div class="flex flex-col gap-4">
+    <!-- 页面级红条是持久失败通道：403 与其它失败都走这里，成功后必须被撤掉。 -->
     <UAlert
       v-if="errorMessage"
       color="error"
@@ -158,31 +161,65 @@ onMounted(() => {
       icon="i-lucide-triangle-alert"
       :title="errorMessage"
     />
-    <UAlert
-      v-if="userListSurfaces.failureMessage.value"
-      color="error"
-      variant="soft"
-      icon="i-lucide-triangle-alert"
-      :title="t('admin.surfaces.loadFailed')"
-      :description="userListSurfaces.failureMessage.value"
-    />
 
-    <SFAdminUserTable
-      :users="visibleUsers"
-      :roles="roles"
-      :surfaces="userListSurfaces"
-      :pending="pending"
-      :total="total"
-      :page="page"
-      :per-page="perPage"
-      :total-pages="totalPages"
-      :highlight-user-id="highlightUserId"
-      :detail-pending="detailDrawer?.pending ?? false"
-      :detail-target-id="detailDrawer?.targetId ?? null"
-      @preview="user => previewModal?.open(user)"
-      @manage="user => detailDrawer?.open(user)"
-      @update:page="goToPage"
-    />
+    <!-- 真无权限时给明确态：空表会被读成「本站没有用户」。 -->
+    <div
+      v-if="forbidden"
+      data-testid="admin-users-forbidden"
+      class="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white py-16 text-slate-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500"
+    >
+      <UIcon name="i-lucide-shield-alert" class="size-12 mb-4" />
+      <p class="text-base font-semibold text-slate-900 dark:text-zinc-100">
+        {{ t('errors.page.forbidden.title') }}
+      </p>
+      <!-- 原因由上面的页面级红条承载：同一句话不在两处重复。 -->
+      <UButton
+        class="mt-4"
+        color="neutral"
+        variant="outline"
+        leading-icon="i-lucide-refresh-cw"
+        :loading="pending"
+        @click="loadInitialData"
+      >
+        {{ t('common.retry') }}
+      </UButton>
+    </div>
+
+    <template v-else>
+      <UAlert
+        v-if="catalogDegradedMessage"
+        color="warning"
+        variant="soft"
+        icon="i-lucide-shield-alert"
+        data-testid="admin-users-catalog-degraded"
+        :title="catalogDegradedMessage"
+      />
+      <UAlert
+        v-if="userListSurfaces.failureMessage.value"
+        color="error"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        :title="t('admin.surfaces.loadFailed')"
+        :description="userListSurfaces.failureMessage.value"
+      />
+
+      <SFAdminUserTable
+        :users="visibleUsers"
+        :roles="roles"
+        :surfaces="userListSurfaces"
+        :pending="pending"
+        :total="total"
+        :page="page"
+        :per-page="perPage"
+        :total-pages="totalPages"
+        :highlight-user-id="highlightUserId"
+        :detail-pending="detailDrawer?.pending ?? false"
+        :detail-target-id="detailDrawer?.targetId ?? null"
+        @preview="user => previewModal?.open(user)"
+        @manage="user => detailDrawer?.open(user)"
+        @update:page="goToPage"
+      />
+    </template>
   </div>
 
   <SFAdminUserDetailDrawer

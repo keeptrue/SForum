@@ -605,7 +605,7 @@
     "rowActions": false,
     "bulkActions": false,
     "forms": true,
-    "notices": true,
+    "notices": false,
     "editorPanels": false,
     "detailRegions": false,
     "importer": true,

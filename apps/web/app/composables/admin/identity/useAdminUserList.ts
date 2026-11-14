@@ -8,11 +8,15 @@ import type {
   Role
 } from '~/utils/admin/adminUsers'
 import { useAdminListSurfaces } from '~/composables/admin/useAdminListSurfaces'
+import { useAdminAccessState } from '~/composables/admin/identity/useAdminAccessState'
 
 export const ADMIN_USERS_DEFAULT_PER_PAGE = 20
 
 export type AdminUserListDeps = {
-  /** 列表加载/筛选失败：这是唯一还该出现页面级红条的场景。 */
+  /**
+   * 列表加载/筛选失败：这是唯一还该出现页面级红条的场景。
+   * 传空串表示**清除**（成功后必须撤掉上一次的红条，错误不能常驻）。
+   */
   onError: (message: string) => void
 }
 
@@ -22,6 +26,7 @@ export type AdminUserListSurfaces = ReturnType<typeof useAdminListSurfaces>
 export function useAdminUserList(deps: AdminUserListDeps) {
   const { request } = useApiClient()
   const { t } = useI18n()
+  const access = useAdminAccessState()
 
   const search = ref('')
   const status = ref('')
@@ -34,11 +39,28 @@ export function useAdminUserList(deps: AdminUserListDeps) {
   const perPage = ref(ADMIN_USERS_DEFAULT_PER_PAGE)
   const roles = ref<Role[]>([])
   const permissions = ref<Permission[]>([])
+  const rolesUnavailable = ref(false)
+  const permissionsUnavailable = ref(false)
   const pending = ref(false)
   // 创建成功后要清空筛选并只刷新一次；watcher 的自动刷新在这段时间内让位。
   let suppressFilterReload = false
 
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / Math.max(perPage.value, 1))))
+
+  /**
+   * 用户组 / 权限目录只服务于筛选下拉与详情抽屉的可选项。任一不可用都只是**降级**，
+   * 不是页面失败：用户表照常渲染，由这里给出可读提示（复用既有键，不新增 i18n）。
+   */
+  const catalogDegradedMessage = computed(() => {
+    if (rolesUnavailable.value) {
+      return t('admin.roles.loadFailed')
+    }
+    if (permissionsUnavailable.value) {
+      return t('admin.permissions.loadFailed')
+    }
+
+    return ''
+  })
 
   const userSurfaceResources = computed(() => users.value.map(user => ({
     id: String(user.id),
@@ -104,25 +126,68 @@ export function useAdminUserList(deps: AdminUserListDeps) {
     pending.value = true
     try {
       await loadUsers()
+      // 只有真的拿到数据才清位：先清位会让重试期间 403 面板先消失（闪成空表）。
+      access.reset()
+      deps.onError('')
     } catch (error) {
-      deps.onError(apiErrorMessage(error) || t('admin.users.loadFailed'))
+      reportListFailure(error)
     } finally {
       pending.value = false
     }
   }
 
+  /** 列表取数失败：403 说清是权限问题，其余沿用后端消息/兜底文案。 */
+  function reportListFailure(error: unknown) {
+    if (access.noteFailure(error) === 'forbidden') {
+      deps.onError(t('errors.permissionDenied'))
+      return
+    }
+
+    deps.onError(apiErrorMessage(error) || t('admin.users.loadFailed'))
+  }
+
   async function loadInitialData() {
     pending.value = true
     try {
-      const [roleItems, permissionItems] = await Promise.all([
+      // `/roles`、`/permissions` 只给筛选器与抽屉提供可选项。operator 常只有 `user.view`
+      // （给了用户管理但没给角色管理），它们的 403 不该连坐用户列表：用 allSettled 让
+      // 用户表照常渲染，目录降级由 catalogDegradedMessage 告知页面。
+      const [roleResult, permissionResult] = await Promise.allSettled([
         request<Role[]>('/roles'),
         request<Permission[]>('/permissions')
       ])
-      roles.value = roleItems
-      permissions.value = permissionItems
+
+      if (roleResult.status === 'fulfilled') {
+        roles.value = roleResult.value
+        rolesUnavailable.value = false
+      } else {
+        roles.value = []
+        rolesUnavailable.value = true
+      }
+
+      if (permissionResult.status === 'fulfilled') {
+        permissions.value = permissionResult.value
+        permissionsUnavailable.value = false
+      } else {
+        permissions.value = []
+        permissionsUnavailable.value = true
+      }
+
+      // 用户组不可用时不能保留一个指向读不到的用户组的筛选条件。
+      // 用 suppress 挡住 watcher：这次清空不该再换一次请求。
+      if (rolesUnavailable.value && roleKey.value) {
+        suppressFilterReload = true
+        roleKey.value = ''
+        await nextTick()
+        suppressFilterReload = false
+      }
+
       await loadUsers()
+      // 同上：403 面板上的重试走的就是这里，成功后才清位 + 撤红条。
+      access.reset()
+      deps.onError('')
     } catch (error) {
-      deps.onError(apiErrorMessage(error) || t('admin.users.loadFailed'))
+      reportListFailure(error)
     } finally {
       pending.value = false
     }
@@ -172,6 +237,10 @@ export function useAdminUserList(deps: AdminUserListDeps) {
     perPage,
     roles,
     permissions,
+    rolesUnavailable,
+    permissionsUnavailable,
+    catalogDegradedMessage,
+    forbidden: access.forbidden,
     pending,
     totalPages,
     userListSurfaces,

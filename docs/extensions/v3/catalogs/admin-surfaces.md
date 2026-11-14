@@ -39,7 +39,7 @@
 | `core.admin.page.dashboard` | `apps/web/app/pages/admin/index.vue` | yes | yes | yes | no | no | yes | no | no | yes | no | no | yes | no |
 | `core.admin.page.jobs` | `apps/web/app/pages/admin/jobs.vue` | yes | no | yes | no | yes | yes | no | yes | no | no | yes | yes | no |
 | `core.admin.page.moderation` | `apps/web/app/pages/admin/moderation.vue` | yes | no | yes | no | no | no | no | yes | yes | no | yes | yes | no |
-| `core.admin.page.permissions` | `apps/web/app/pages/admin/permissions.vue` | yes | no | yes | no | yes | no | no | yes | yes | no | no | yes | no |
+| `core.admin.page.permissions` | `apps/web/app/pages/admin/permissions.vue` | yes | no | yes | no | yes | no | no | yes | no | no | no | yes | no |
 | `core.admin.page.personalization` | `apps/web/app/pages/admin/personalization.vue` | yes | no | yes | no | yes | no | no | no | yes | no | no | yes | no |
 | `core.admin.page.roles` | `apps/web/app/pages/admin/roles.vue` | yes | no | yes | no | yes | no | no | yes | no | no | no | yes | no |
 | `core.admin.page.schedules` | `apps/web/app/pages/admin/schedules.vue` | yes | no | yes | no | no | yes | no | no | yes | no | no | yes | no |
