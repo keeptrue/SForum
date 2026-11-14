@@ -626,3 +626,134 @@ func TestPublicViewerConditionsAreSentencesWithoutAST(t *testing.T) {
 		t.Fatalf("匿名响应不该有 conditions：\n%s", body)
 	}
 }
+
+// ---- M4a：可挣得白名单运行期化 ----
+
+// earnableResolver 造一个带可挣得声明来源的 resolver。
+func earnableResolver(policy trustlevels.Policy, declarations []trustlevels.EarnableDeclaration) *trustlevels.Resolver {
+	return trustlevels.NewResolver(
+		stubActivityReader{},
+		stubPolicySource{policy: policy},
+	).WithEarnables(func(context.Context) ([]trustlevels.EarnableDeclaration, error) {
+		return declarations, nil
+	})
+}
+
+// TestPutRejectsUndeclaredEarnableKey 是 M1 遗留口的**接通证据**（验收 5）。
+//
+// M1 时这条码经由 HTTP 不可达（解码期的 `earnable_not_whitelisted` 先拒）。M4a 把解码期
+// 硬拒去掉之后，它才真正接管——所以这条断言既是新功能的验收，也是那段注释的替代物。
+func TestPutRejectsUndeclaredEarnableKey(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	policy := trustlevels.DefaultPolicy()
+	written := 0
+	controller := NewController(nil, earnableResolver(policy, nil), nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policy, nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error { written++; return nil })
+	app := newTestApp(t, controller)
+
+	config := `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["acme.gone.thing"]}]}`
+	status, response := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels", `{"config":`+mustJSONString(config)+`}`)
+	if status != fiber.StatusUnprocessableEntity {
+		t.Fatalf("status = %d（期望 422），body=%s", status, response)
+	}
+	if !strings.Contains(response, `"reasonCode":"earnable_not_declared"`) {
+		t.Fatalf("缺少 earnable_not_declared：\n%s", response)
+	}
+	if !strings.Contains(response, `"variant":"undeclared"`) {
+		t.Fatalf("缺少 variant=undeclared（前端按变体分支渲染修法）：\n%s", response)
+	}
+	if written != 0 {
+		t.Fatalf("被拒的配置仍写库 %d 次", written)
+	}
+
+	// 对照组：核心七键必须能存（反向证据，否则「一律拒绝」也会绿）。
+	okConfig := `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["topic.create"]}]}`
+	if status, response := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels", `{"config":`+mustJSONString(okConfig)+`}`); status != fiber.StatusOK {
+		t.Fatalf("核心键存不进去：status=%d body=%s", status, response)
+	}
+}
+
+// TestPutAllowsInactiveEarnableKey 钉住变体分支的另一半：插件停用的键**允许保存**。
+//
+// 只测 422 那一半会把「先停用插件、稍后修配置」这条合规路径堵死——运营改任何一档都会被
+// 一枚他改不了的勾选挡住。
+func TestPutAllowsInactiveEarnableKey(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	policy := trustlevels.DefaultPolicy()
+	written := 0
+	controller := NewController(nil, earnableResolver(policy, []trustlevels.EarnableDeclaration{
+		{Key: "acme.wiki.pages", ExtensionID: "acme.wiki", Enabled: false},
+	}), nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policy, nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error { written++; return nil })
+	app := newTestApp(t, controller)
+
+	config := `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["acme.wiki.pages"]}]}`
+	if status, response := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels", `{"config":`+mustJSONString(config)+`}`); status != fiber.StatusOK {
+		t.Fatalf("插件停用的键必须允许保存，status=%d body=%s", status, response)
+	}
+	if written != 1 {
+		t.Fatalf("应写库一次，实际 %d", written)
+	}
+}
+
+// TestAdminPayloadEarnableStates 钉住后台读面三态（验收 4 的读面部分）。
+func TestAdminPayloadEarnableStates(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess)
+	policy, err := trustlevels.DecodeConfig(`{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["topic.create","acme.shop.orders","acme.wiki.pages","acme.gone.thing"]}]}`)
+	if err != nil {
+		t.Fatalf("decode policy: %v", err)
+	}
+	controller := NewController(nil, earnableResolver(policy, []trustlevels.EarnableDeclaration{
+		{Key: "acme.shop.orders", ExtensionID: "acme.shop", Enabled: true},
+		{Key: "acme.wiki.pages", ExtensionID: "acme.wiki", Enabled: false},
+	}), nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return policy, nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil })
+	status, body := doRequest(t, newTestApp(t, controller), fiber.MethodGet, "/api/v1/admin/trust-levels", "")
+	if status != fiber.StatusOK {
+		t.Fatalf("后台读 status = %d，body=%s", status, body)
+	}
+	var envelope struct {
+		Data struct {
+			Eligible       []string `json:"eligiblePermissions"`
+			EarnableStates []struct {
+				Key   string `json:"key"`
+				State string `json:"state"`
+			} `json:"earnableStates"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &envelope); err != nil {
+		t.Fatalf("响应不是合法 JSON：%v", err)
+	}
+	states := map[string]string{}
+	for _, item := range envelope.Data.EarnableStates {
+		states[item.Key] = item.State
+	}
+	want := map[string]string{
+		"topic.create":     "valid",
+		"acme.shop.orders": "valid",
+		"acme.wiki.pages":  "inactive",
+		"acme.gone.thing":  "unknown",
+	}
+	for key, state := range want {
+		if states[key] != state {
+			t.Fatalf("%q 的状态 = %q（期望 %q）；完整 %v", key, states[key], state, states)
+		}
+	}
+	// eligiblePermissions = 核心 7 + 已声明 valid 的 1 条；inactive/unknown 不进。
+	if len(envelope.Data.Eligible) != len(trustlevels.EarnableWhitelist())+1 {
+		t.Fatalf("eligiblePermissions = %d 条（期望 %d）：%v", len(envelope.Data.Eligible), len(trustlevels.EarnableWhitelist())+1, envelope.Data.Eligible)
+	}
+	for _, key := range envelope.Data.Eligible {
+		if key == "acme.wiki.pages" || key == "acme.gone.thing" {
+			t.Fatalf("不可授予的键 %q 出现在 eligiblePermissions 里", key)
+		}
+	}
+}

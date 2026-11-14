@@ -1,8 +1,10 @@
 package trustlevels
 
 import (
+	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
@@ -113,9 +115,13 @@ func (e Earnable) Validate() error {
 			if key == "" {
 				return fmt.Errorf("trustlevels: rank TL%d 的可挣得权限键为空", level)
 			}
-			if !IsWhitelisted(key) {
-				return fmt.Errorf("trustlevels: %q 不在可挣得白名单内", key)
-			}
+			// **不再按白名单硬拒**（D24 修订，M4a）。原因是一次插件停用会让整份
+			// `trust.levels` 解码失败 → 全站掉回默认策略：那是灾难性失败，不是保守。
+			//
+			// 现在的姿态是「解码保留 + 运行期惰性 + 写期拒绝」：
+			//   - 运行期：未声明键不授予（`EarnableRegistry` 里 state != valid）；
+			//   - 写期：`PUT` 对从未被声明过的键报 422 `earnable_not_declared`。
+			// 结构性判据（空键）留在这里，因为它与「谁声明了」无关。
 		}
 	}
 	return nil
@@ -165,42 +171,171 @@ func (e Earnable) Normalize() Earnable {
 	return out
 }
 
-// DeclaredPermissionKeys 返回「当前可被信任等级授予」的键全集。
-//
-// M1 的形态就是正白名单：插件声明（manifest `permissionDefinitions[].trustLevelEarnable`）
-// 要等 M4.1/M4.2 才接进来。写成函数而不是直接读 `earnableWhitelist`，是为了让调用方
-// 从第一天起就走「已声明集合」这个概念——M4 换实现时不用改调用点。
-func DeclaredPermissionKeys() []string { return EarnableWhitelist() }
+// EarnableState 是一个可挣得权限键的当前状态（D22：**不用 orphan**——那个词在既有
+// i18n 里是另一种含义，混用会让 unknown 的提示写成「等插件启用」）。
+const (
+	// EarnableStateValid：核心七键，或某个**已启用**扩展声明为 trustLevelEarnable。
+	EarnableStateValid = "valid"
+	// EarnableStateInactive：曾被声明，但声明它的扩展已停用（或仅安装未启用）。
+	// 配置保留、不授予——「先停用插件、稍后修配置」是合规路径，不能因为停用就拒存。
+	EarnableStateInactive = "inactive"
+	// EarnableStateUnknown：没有任何扩展声明过，也不在核心白名单里。
+	// 语义与既有的 `earnable.orphan.*` 文案对齐（读面保持不动）。
+	EarnableStateUnknown = "unknown"
+)
 
-// ValidateEarnableDeclared 校验一组可挣得键是否都被**已声明**集合覆盖。
+// 写期拒绝的**变体**（不进 BACKEND_CODES：对外仍是 `earnable_not_declared` 一个码，
+// 前端按变体分支渲染不同修法）。两种成因的修法相反，合并会让运营做错事：
+//   - plugin_disabled → 等插件启用（或恢复插件）；
+//   - undeclared      → 把这枚勾选删掉。
+const (
+	EarnableVariantPluginDisabled = "plugin_disabled"
+	EarnableVariantUndeclared     = "undeclared"
+)
+
+// EarnableDeclaration 是一条「某扩展声明了某权限可被等级授予」的事实。
 //
-// 它对应 `earnable_not_declared`（M4.2 的写期拒绝）：解码期**不**做这件事（见
-// config.go 里那条码的注释——一次插件停用会让整份配置解码失败，全站等级退回默认
-// 策略，那是灾难性失败）。所以判据的形状在这里、调用时机在写路径。
+// **包含停用扩展**：区分 `inactive`（曾声明、扩展停用）与 `unknown`（从未声明）
+// 全靠它。只传已启用的声明，两者会被抹平成同一个状态。
+type EarnableDeclaration struct {
+	Key         string
+	ExtensionID string
+	// Enabled 表示声明它的扩展当前已启用（enabled）。仅安装/停用的声明不算。
+	Enabled bool
+}
+
+// EarnableSource 返回全部扩展的可授予权限声明（含停用者）。
 //
-// M1 的已声明集合 = 核心七键，因此这条码在当前版本**经由 HTTP 不可达**：解码期的
-// `earnable_not_whitelisted` 会先拒绝同一批输入。这不是遗漏，而是 M4.2 的切换点
-// ——那一步会把解码期的硬拒改成「保留 + 运行期过滤」，这条码才开始接手。
+// 由 bootstrap 注入（复用 5s 快照，不新建第二份轮询）。未注入时按「只有核心七键」处理。
+type EarnableSource func(ctx context.Context) ([]EarnableDeclaration, error)
+
+// EarnableRegistry 是一次解析后的可挣得目录：core ∪ 已声明，按状态区分。
 //
-// **M4.2 的接手条件（可执行，别只留在对话里）**：一旦 `config.go` 的
-// `validateEarnableInto` 不再因 `!IsWhitelisted(key)` 拒绝，就必须在
-// `Http/Controllers/TrustLevels/rule_controller_test.go` 里新增一条 HTTP 断言——
-// PUT 一份 `earnable` 含未声明键的配置，期望 422 且
-// `details.errors[].reasonCode == "earnable_not_declared"`，并同步把本条注释里
-// 「M1 经由 HTTP 不可达」改成「已接通」。**没加那条断言 = 这个码永久不可达**，
-// 而码表看上去完全正常（只在读码表的人眼里它像已经实现了）。
-func ValidateEarnableDeclared(keys []string, declared []string) []FieldError {
-	known := make(map[string]struct{}, len(declared))
-	for _, key := range declared {
-		known[key] = struct{}{}
+// 它回答两个问题：
+//   - 这个键现在**能不能授予**（`Grantable`）——运行期惰性，非 valid 一律不授予；
+//   - 后台该怎么显示（`State`）——valid / inactive / unknown。
+type EarnableRegistry struct {
+	valid    map[string]struct{}
+	inactive map[string]struct{}
+}
+
+// NewEarnableRegistry 解析声明。
+//
+// 三条口径：
+//   - **核心键永远 valid**：插件对同名键的声明被忽略（核心说了算，不允许插件改写核心
+//     语义）——这就是「不得与核心权限键冲突」的落点；
+//   - 有任一**已启用**扩展声明 → valid；
+//   - 只有停用扩展声明 → inactive（不是 unknown：它曾经是合法的，修法是等启用）。
+func NewEarnableRegistry(declarations []EarnableDeclaration) EarnableRegistry {
+	registry := EarnableRegistry{
+		valid:    make(map[string]struct{}, len(earnableWhitelist)),
+		inactive: make(map[string]struct{}, 8),
 	}
+	for _, key := range earnableWhitelist {
+		registry.valid[key] = struct{}{}
+	}
+	disabledOnly := make(map[string]struct{}, 8)
+	for _, declaration := range declarations {
+		key := strings.TrimSpace(declaration.Key)
+		if key == "" {
+			continue
+		}
+		if IsWhitelisted(key) {
+			// 核心键：插件不能通过声明改变它的状态（已是 valid）。
+			continue
+		}
+		if declaration.Enabled {
+			registry.valid[key] = struct{}{}
+			delete(disabledOnly, key)
+			continue
+		}
+		if _, enabled := registry.valid[key]; enabled {
+			continue
+		}
+		disabledOnly[key] = struct{}{}
+	}
+	for key := range disabledOnly {
+		if _, enabled := registry.valid[key]; enabled {
+			continue
+		}
+		registry.inactive[key] = struct{}{}
+	}
+	return registry
+}
+
+// State 返回该键的当前状态。
+func (r EarnableRegistry) State(key string) string {
+	if _, ok := r.valid[key]; ok {
+		return EarnableStateValid
+	}
+	if _, ok := r.inactive[key]; ok {
+		return EarnableStateInactive
+	}
+	return EarnableStateUnknown
+}
+
+// Grantable 报告该键现在能否被授予（只有 valid 可以）。
+func (r EarnableRegistry) Grantable(key string) bool {
+	_, ok := r.valid[key]
+	return ok
+}
+
+// Keys 返回当前可授予的键（核心键在前，随后是已声明插件键，各自保序）。
+func (r EarnableRegistry) Keys() []string {
+	out := make([]string, 0, len(r.valid))
+	for _, key := range earnableWhitelist {
+		if _, ok := r.valid[key]; ok {
+			out = append(out, key)
+		}
+	}
+	extra := make([]string, 0, len(r.valid))
+	for key := range r.valid {
+		if IsWhitelisted(key) {
+			continue
+		}
+		extra = append(extra, key)
+	}
+	sort.Strings(extra)
+	return append(out, extra...)
+}
+
+// FilterGranted 从「配置里写了什么」里筛出「现在真的可以授予什么」。
+//
+// 运行期惰性：inactive / unknown 的键**保留在配置里**（不删库、不改写运营的选择），
+// 但不出现在已挣得集合里。下一次装载插件恢复后它们自动重新生效。
+func (r EarnableRegistry) FilterGranted(keys []string) []string {
+	if len(keys) == 0 {
+		return keys
+	}
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if r.Grantable(key) {
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
+// DefaultEarnableRegistry 是「没有插件」的目录（只有核心七键）。
+func DefaultEarnableRegistry() EarnableRegistry { return NewEarnableRegistry(nil) }
+
+// DeclaredPermissionKeys 返回「当前可被信任等级授予」的键全集（核心 ∪ 已声明）。
+//
+// 保留这个函数是给「没有声明来源」的调用方用的：等价于只取核心七键，与 M1 行为一致。
+func DeclaredPermissionKeys() []string { return DefaultEarnableRegistry().Keys() }
+
+// ValidateEarnableDeclared 校验一组可挣得键**现在**是否都被声明覆盖。
+//
+// 只报 `undeclared`：inactive 的键允许保存（先停用插件、稍后修配置是合规路径），
+// 只是不授予。这就是「解码保留 + 运行期惰性 + 写期拒绝」里的「写期拒绝」。
+func ValidateEarnableDeclared(keys []string, registry EarnableRegistry) []FieldError {
 	details := make([]FieldError, 0, 1)
 	seen := make(map[string]struct{}, len(keys))
 	for _, key := range keys {
 		if key == "" {
 			continue
 		}
-		if _, ok := known[key]; ok {
+		if registry.State(key) != EarnableStateUnknown {
 			continue
 		}
 		if _, duplicate := seen[key]; duplicate {
@@ -208,11 +343,25 @@ func ValidateEarnableDeclared(keys []string, declared []string) []FieldError {
 		}
 		seen[key] = struct{}{}
 		details = append(details, FieldError{
-			Field:  "earnable",
-			Code:   CodeEarnableNotDeclared,
-			Params: map[string]any{"permission": key},
-			Reason: fmt.Sprintf("%q 没有被任何已启用插件声明，不能被等级授予", key),
+			Field: "earnable",
+			Code:  CodeEarnableNotDeclared,
+			Params: map[string]any{
+				"permission": key,
+				"variant":    EarnableVariantUndeclared,
+			},
+			Reason: fmt.Sprintf("%q 没有被任何扩展声明为「可被等级授予」；请取消这一项勾选", key),
 		})
 	}
 	return details
+}
+
+// InactiveEarnableKeys 返回这组键里处于 inactive 的那些（后台读面标状态用）。
+func InactiveEarnableKeys(keys []string, registry EarnableRegistry) []string {
+	out := make([]string, 0, 2)
+	for _, key := range keys {
+		if registry.State(key) == EarnableStateInactive {
+			out = append(out, key)
+		}
+	}
+	return out
 }

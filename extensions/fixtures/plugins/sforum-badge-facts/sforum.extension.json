@@ -28,6 +28,23 @@
       }
     }
   ],
+  "userFactConditions": [
+    {
+      "compare": [
+        "gte"
+      ],
+      "contractVersion": "sforum.badge-facts.onboarding.tasks@1",
+      "key": "sforum.badge-facts.onboarding.tasks",
+      "label": {
+        "en-US": "Completed onboarding tasks",
+        "zh-CN": "完成新手任务数"
+      },
+      "unit": {
+        "en-US": "tasks",
+        "zh-CN": "个"
+      }
+    }
+  ],
   "capabilities": [
     "host.api",
     "badges.fact.write"
@@ -84,7 +101,7 @@
       "version": "1"
     }
   ],
-  "sforumVersion": "\u003e=0.1.0",
+  "sforumVersion": ">=0.1.0",
   "type": "plugin",
   "url": "https://sforum.local/plugins/badge-facts",
   "version": "1.0.0"

@@ -91,11 +91,37 @@ func newTrustLevelSource(
 	activity *badges.PostgresActivityStore,
 	pool *pgxpool.Pool,
 	factKeys func() []string,
+	earnables *deferredEarnables,
 ) *trustlevels.Resolver {
 	return trustlevels.NewResolver(
 		trustLevelActivityReader{store: activity},
 		trustLevelPolicySource{options: optionsService},
-	).WithRuleEvaluators(conditionsRuleEvaluatorFactory(pool, factKeys))
+	).WithRuleEvaluators(conditionsRuleEvaluatorFactory(pool, factKeys)).
+		WithEarnables(earnables.Declarations)
+}
+
+// deferredEarnables 是「扩展声明的可授予权限」的延迟绑定读口（D20 同款）。
+//
+// infra 阶段造 resolver 时扩展服务还没建好（它依赖 extensionPlatform），所以先给一个
+// 空壳、由 domains 阶段 Bind。未绑定期间 `Declarations` 返回 nil = 只有核心七键，
+// 与 M1 行为一致（fail-closed：插件键不授予）。
+type deferredEarnables struct {
+	source trustlevels.EarnableSource
+}
+
+// Bind 注入声明来源（domains 阶段调用，复用事实目录的 5s 快照）。
+func (d *deferredEarnables) Bind(source trustlevels.EarnableSource) {
+	if d != nil {
+		d.source = source
+	}
+}
+
+// Declarations 实现 trustlevels.EarnableSource。
+func (d *deferredEarnables) Declarations(ctx context.Context) ([]trustlevels.EarnableDeclaration, error) {
+	if d == nil || d.source == nil {
+		return nil, nil
+	}
+	return d.source(ctx)
 }
 
 // conditionsRuleEvaluatorFactory 把「一个用户 + 条件解析器」装成 M2 的求值器。

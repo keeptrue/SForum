@@ -659,6 +659,10 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	if infrastructure.trustLevelFactKeys != nil {
 		infrastructure.trustLevelFactKeys.Bind(badgesFactCatalog.FactKeys)
 	}
+	// 权限声明同样来自这份 5s 快照：停用扩展的声明也要看得到（区分 inactive/unknown）。
+	if infrastructure.trustLevelEarnables != nil {
+		infrastructure.trustLevelEarnables.Bind(badgesFactCatalog.EarnableDeclarations)
+	}
 	badgesService := badges.NewService(badgesStore, badgeActivityStore)
 	// 进度测量走存储层的批量 Prepare（每类条件一条 SQL）。Service 自己没有 pool，
 	// 也不该有：装配在这里把同一个 store 同时当成读面与测量器。

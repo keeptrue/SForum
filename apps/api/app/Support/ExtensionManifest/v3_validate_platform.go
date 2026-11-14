@@ -73,7 +73,7 @@ func (v *v3Validator) validatePlatform() error {
 	if err := v.validateAITools(); err != nil {
 		return err
 	}
-	if err := v.validateBadgeConditions(); err != nil {
+	if err := v.validateFactConditions(); err != nil {
 		return err
 	}
 	return nil
@@ -649,6 +649,14 @@ func (v *v3Validator) validateIdentityAndPermissions() error {
 		if err := v.versionedID(permission.Key, permission.ContractVersion, "permission"); err != nil {
 			return err
 		}
+		// trustLevelEarnable 的三条约束**都不在这里**，原因是它们各有更合适的落点：
+		//   - 「必须在 permissionDefinitions 内」由结构保证（字段就长在定义上），
+		//     运行时只从这份定义里取，不存在第二个声明入口；
+		//   - 「只允许插件」同样由结构保证：permissionDefinitions 只对 plugin 合法
+		//     （主题带它会在类型校验就被拒），所以本字段在主题上根本到不了这里；
+		//   - 「不得与核心权限键冲突」需要核心权限表，而本包是 Support 层，不能 import
+		//     `Models/Identity`（依赖方向）。落点在 trustlevels 解析声明时过滤：核心键
+		//     永远由核心说了算，插件的同名声明被忽略而不是覆盖。
 		if permission.Label.IsEmpty() || permission.Description.IsEmpty() || permission.AssignmentPolicy != "host" {
 			return ErrInvalidManifest
 		}

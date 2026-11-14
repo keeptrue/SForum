@@ -160,6 +160,11 @@ type adminPayload struct {
 	Config   string                 `json:"config"`
 	Levels   []adminLevelDefinition `json:"levels"`
 	Eligible []string               `json:"eligiblePermissions"`
+	// EarnableStates 标明每个可挣得键的当前状态（配置里出现的键 ∪ 当前可授予的键）。
+	//   - valid    = 核心键，或某个已启用插件声明为 trustLevelEarnable；
+	//   - inactive = 声明它的插件已停用/仅安装：**不授予、但允许保存**（D22 用词，不是 orphan）；
+	//   - unknown  = 从未被任何插件声明：写路径会 422 `earnable_not_declared`。
+	EarnableStates []earnableState `json:"earnableStates"`
 	// Baseline 是「系统基线门」的键（Z3-b″）：默认安装下 TL0 必须被扣掉、
 	// TL1 起自动生效的那几个键。与 Eligible 同级但语义相反——
 	// Eligible 回答「允许被等级授予什么」，Baseline 回答「TL0 会被扣掉什么」。
@@ -296,4 +301,13 @@ type ruleImpactTierResult struct {
 type viewerCondition struct {
 	Satisfied bool           `json:"satisfied"`
 	Text      trustLevelName `json:"text"`
+}
+
+// earnableState 是一个可挣得权限键的当前状态（D22：valid / inactive / unknown）。
+//
+// 后台据此把「已停用的插件键」标灰而不是清掉：运营需要看见「这枚勾选还在，只是
+// 插件停了」，否则一次停用会看起来像配置丢失。
+type earnableState struct {
+	Key   string `json:"key"`
+	State string `json:"state"`
 }

@@ -38,21 +38,8 @@ func normalizeV3Manifest(manifest *Manifest) {
 		item.DescriptionI18n = normalizeAIToolDescriptionI18n(item.DescriptionI18n)
 		item.Handler = strings.TrimSpace(item.Handler)
 	}
-	for index := range manifest.BadgeConditions {
-		item := &manifest.BadgeConditions[index]
-		item.Key = strings.TrimSpace(item.Key)
-		item.ContractVersion = strings.TrimSpace(item.ContractVersion)
-		for compareIndex := range item.Compare {
-			item.Compare[compareIndex] = strings.ToLower(strings.TrimSpace(item.Compare[compareIndex]))
-		}
-		for variantIndex := range item.Variants {
-			variant := &item.Variants[variantIndex]
-			variant.Value = strings.TrimSpace(variant.Value)
-			variant.Label = normalizeLocaleKeys(variant.Label)
-		}
-		item.Label = normalizeLocaleKeys(item.Label)
-		item.Unit = normalizeLocaleKeys(item.Unit)
-	}
+	normalizeFactConditions(manifest.BadgeConditions)
+	normalizeFactConditions(manifest.UserFactConditions)
 	for index := range manifest.Routes {
 		item := &manifest.Routes[index]
 		item.ID = NormalizeID(item.ID)
@@ -338,4 +325,27 @@ func normalizeLocaleKeys(values map[string]string) map[string]string {
 		return nil
 	}
 	return normalized
+}
+
+// normalizeFactConditions 归一化插件事实条件声明（两个数组各调一次）。
+//
+// 抽成一个函数而不是复制一段循环：`badgeConditions` 与 `userFactConditions` 是同一份
+// 事实层的两个名字，归一化规则一旦分叉（比如只给其中一个 trim），同一个 key 在两个
+// 数组里就会有两种字节形态，而它们共享同一个 id 注册表——报错会变得无法解释。
+func normalizeFactConditions(items []ManifestBadgeCondition) {
+	for index := range items {
+		item := &items[index]
+		item.Key = strings.TrimSpace(item.Key)
+		item.ContractVersion = strings.TrimSpace(item.ContractVersion)
+		for compareIndex := range item.Compare {
+			item.Compare[compareIndex] = strings.ToLower(strings.TrimSpace(item.Compare[compareIndex]))
+		}
+		for variantIndex := range item.Variants {
+			variant := &item.Variants[variantIndex]
+			variant.Value = strings.TrimSpace(variant.Value)
+			variant.Label = normalizeLocaleKeys(variant.Label)
+		}
+		item.Label = normalizeLocaleKeys(item.Label)
+		item.Unit = normalizeLocaleKeys(item.Unit)
+	}
 }

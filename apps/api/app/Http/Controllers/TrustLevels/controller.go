@@ -3,6 +3,7 @@ package trustlevelscontroller
 import (
 	"context"
 	"log/slog"
+	"sort"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -173,17 +174,19 @@ func (h *Controller) getAdmin(c fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "trust_levels.encode_failed")
 	}
+	registry := h.earnableRegistry(c.Context())
 	return apphttp.OK(c, adminPayload{
-		Config:       encoded,
-		Levels:       buildAdminLevels(policy),
-		Eligible:     nonNilStrings(trustlevels.EligiblePermissions()),
-		Baseline:     nonNilStrings(trustlevels.BaselineGrants()),
-		Recommended:  recommendedConfig(),
-		IconChoices:  nonNilStrings(trustlevels.TierIcons()),
-		ColorChoices: nonNilStrings(trustlevels.TierColors()),
-		NamePool:     toTrustLevelNamePool(trustlevels.TierNamePool()),
-		TierLimits:   tierCountBounds{Min: trustlevels.MinTiers, Max: trustlevels.MaxTiers},
-		NextTierSeq:  policy.NextTierSeq(),
+		Config:         encoded,
+		Levels:         buildAdminLevels(policy),
+		Eligible:       nonNilStrings(registry.Keys()),
+		EarnableStates: toEarnableStates(policyEarnableKeys(policy), declaredEarnableKeys(registry), registry),
+		Baseline:       nonNilStrings(trustlevels.BaselineGrants()),
+		Recommended:    recommendedConfig(),
+		IconChoices:    nonNilStrings(trustlevels.TierIcons()),
+		ColorChoices:   nonNilStrings(trustlevels.TierColors()),
+		NamePool:       toTrustLevelNamePool(trustlevels.TierNamePool()),
+		TierLimits:     tierCountBounds{Min: trustlevels.MinTiers, Max: trustlevels.MaxTiers},
+		NextTierSeq:    policy.NextTierSeq(),
 	})
 }
 
@@ -218,6 +221,11 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 	}
 	if len(referenceDetails) > 0 {
 		return configErrorResponse(c, &trustlevels.ConfigErrors{Details: referenceDetails})
+	}
+	// 写期拒绝未声明键（D24 修订的第三段）：解码保留、运行期惰性、写期拒绝。
+	// 只报 `undeclared`——inactive（插件停用）允许保存，否则一次停用就锁死所有编辑。
+	if earnableDetails := trustlevels.ValidateEarnableDeclared(policyEarnableKeys(policy), h.earnableRegistry(c.Context())); len(earnableDetails) > 0 {
+		return configErrorResponse(c, &trustlevels.ConfigErrors{Details: earnableDetails})
 	}
 	encoded, err := trustlevels.EncodeConfig(policy)
 	if err != nil {
@@ -403,4 +411,76 @@ func recommendedConfig() string {
 		return ""
 	}
 	return encoded
+}
+
+// policyEarnableKeys 收集策略里声明的全部可挣得键（去重，保序）。
+//
+// **含停用档位**：停用档的配置同样要能原样保存回去，所以它们也在校验范围内；
+// 校验只回答「这个键是否被声明过」，不回答「它现在会不会被授予」。
+func policyEarnableKeys(policy trustlevels.Policy) []string {
+	seen := make(map[string]struct{}, 8)
+	out := make([]string, 0, 8)
+	appendKeys := func(keys []string) {
+		for _, key := range keys {
+			if _, duplicate := seen[key]; duplicate {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, key)
+		}
+	}
+	for _, tier := range policy.Tiers {
+		appendKeys(tier.Earnable)
+	}
+	ranks := make([]int, 0, len(policy.Earnable))
+	for rank := range policy.Earnable {
+		ranks = append(ranks, int(rank))
+	}
+	sort.Ints(ranks)
+	for _, rank := range ranks {
+		appendKeys(policy.Earnable[trustlevels.Level(rank)])
+	}
+	return out
+}
+
+// declaredEarnableKeys 返回后台读面要标注状态的键全集：配置里出现的 ∪ 当前可授予的。
+//
+// 两边都要：只给配置里的，运营看不到「新装了插件、现在可以勾」的候选；只给可授予的，
+// 已停用的旧键在界面上会凭空消失（运营会以为自己的配置丢了）。
+func declaredEarnableKeys(registry trustlevels.EarnableRegistry) []string {
+	return registry.Keys()
+}
+
+// toEarnableStates 给每个键标注 valid / inactive / unknown（D22）。
+//
+// **不用 `orphan`**：既有 i18n 的 `earnable.orphan.*` 指的是「键不在白名单」，与本处
+// 的 unknown 是两件事；同词会让提示写成「等插件启用」。
+func toEarnableStates(configKeys, declaredKeys []string, registry trustlevels.EarnableRegistry) []earnableState {
+	seen := make(map[string]struct{}, len(configKeys)+len(declaredKeys))
+	out := make([]earnableState, 0, len(configKeys)+len(declaredKeys))
+	appendKey := func(key string) {
+		if key == "" {
+			return
+		}
+		if _, duplicate := seen[key]; duplicate {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, earnableState{Key: key, State: registry.State(key)})
+	}
+	for _, key := range configKeys {
+		appendKey(key)
+	}
+	for _, key := range declaredKeys {
+		appendKey(key)
+	}
+	return out
+}
+
+// earnableRegistry 读取当前可挣得目录；未装配 resolver 时退回「只有核心七键」。
+func (h *Controller) earnableRegistry(ctx context.Context) trustlevels.EarnableRegistry {
+	if h.resolver == nil {
+		return trustlevels.DefaultEarnableRegistry()
+	}
+	return h.resolver.EarnableRegistry(ctx)
 }

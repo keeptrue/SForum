@@ -161,18 +161,22 @@ func TestRuleReferenceSourceFailuresAreLoud(t *testing.T) {
 	}
 }
 
-// TestValidateEarnableDeclared 钉住 `earnable_not_declared` 的判据形状。
+// TestValidateEarnableDeclared 钉住 `earnable_not_declared` 的判据形状（M4a 接通后）。
 //
-// 这条码在 M1 **经由 HTTP 不可达**：解码期的 `earnable_not_whitelisted` 会先拒同一批
-// 输入（插件声明面是 M4 的事）。所以它的断言落在领域函数上——等 M4.2 把解码期的硬拒
-// 改成「保留 + 运行期过滤」，这个函数就是写路径的拒绝点，判据不变。
+// 现在这条码**经由 HTTP 可达**（解码期不再硬拒未声明键），所以断言从「领域函数能报」
+// 升级成「只报 undeclared、不报 inactive」——后者是本刀最容易写反的一条：插件停用时
+// 报 422 会让「先停用插件、稍后修配置」这条合规路径直接走不通。
 func TestValidateEarnableDeclared(t *testing.T) {
+	registry := trustlevels.NewEarnableRegistry([]trustlevels.EarnableDeclaration{
+		{Key: "acme.wiki.pages", ExtensionID: "acme.wiki", Enabled: false},
+		{Key: "acme.shop.orders", ExtensionID: "acme.shop", Enabled: true},
+	})
 	details := trustlevels.ValidateEarnableDeclared(
-		[]string{"topic.create", "acme.wiki.pages", "acme.wiki.pages", ""},
-		trustlevels.DeclaredPermissionKeys(),
+		[]string{"topic.create", "acme.shop.orders", "acme.gone.thing", "acme.gone.thing"},
+		registry,
 	)
 	if len(details) != 1 {
-		t.Fatalf("应只报 1 条未声明键（重复与空串不重复报），得到 %d：%+v", len(details), details)
+		t.Fatalf("只该报 1 条（未声明的那枚；重复与已声明/核心键都不报），得到 %d：%+v", len(details), details)
 	}
 	if details[0].Code != "earnable_not_declared" {
 		t.Fatalf("code = %q（期望 earnable_not_declared）", details[0].Code)
@@ -180,11 +184,20 @@ func TestValidateEarnableDeclared(t *testing.T) {
 	if details[0].Field != "earnable" {
 		t.Fatalf("field = %q（期望 earnable）", details[0].Field)
 	}
-	if details[0].Params["permission"] != "acme.wiki.pages" {
+	if details[0].Params["permission"] != "acme.gone.thing" {
 		t.Fatalf("params.permission = %v", details[0].Params["permission"])
 	}
-	// 已声明集合内的键必须放行（否则「一律拒绝」也会绿）。
-	if ok := trustlevels.ValidateEarnableDeclared([]string{"topic.create"}, trustlevels.DeclaredPermissionKeys()); len(ok) != 0 {
-		t.Fatalf("核心白名单键不该被判未声明：%+v", ok)
+	if details[0].Params["variant"] != "undeclared" {
+		t.Fatalf("params.variant = %v（期望 undeclared）", details[0].Params["variant"])
+	}
+	// inactive 的键**允许保存**（不产生明细）；它只在运行期不授予。
+	if got := trustlevels.ValidateEarnableDeclared([]string{"acme.wiki.pages"}, registry); len(got) != 0 {
+		t.Fatalf("插件停用的键不该被写期拒绝（否则停用即锁死编辑）：%+v", got)
+	}
+	// 核心键永远 valid。
+	for _, key := range trustlevels.EarnableWhitelist() {
+		if state := registry.State(key); state != trustlevels.EarnableStateValid {
+			t.Fatalf("核心键 %q 状态 = %q（期望 valid）", key, state)
+		}
 	}
 }

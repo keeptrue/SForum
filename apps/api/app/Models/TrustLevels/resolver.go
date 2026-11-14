@@ -45,6 +45,9 @@ type Resolver struct {
 	// ruleEvaluators 为「一个用户」构造规则求值器。未注入时配了规则的档位一律不成立
 	// （fail-closed），而不是忽略规则——那会把「忘了装配」变成「规则静默失效」。
 	ruleEvaluators RuleEvaluatorFactory
+	// earnables 返回全部扩展的可授予权限声明（含停用者，用于区分 inactive/unknown）。
+	// 未注入时按「只有核心七键」处理。
+	earnables EarnableSource
 }
 
 // RuleEvaluatorFactory 为一个用户构造规则求值器（装配层注入；测试用 fake）。
@@ -72,6 +75,31 @@ func (r *Resolver) WithRuleEvaluators(factory RuleEvaluatorFactory) *Resolver {
 	return r
 }
 
+// WithEarnables 注入可挣得权限声明来源（M4a）。
+//
+// 不注入 = 只有核心七键（与 M1 行为一致）。注入后，配置里由插件声明为
+// `trustLevelEarnable` 的键才会被授予；停用插件的键保留在配置里但不授予。
+func (r *Resolver) WithEarnables(source EarnableSource) *Resolver {
+	if r != nil {
+		r.earnables = source
+	}
+	return r
+}
+
+// EarnableRegistry 返回当前的可挣得目录（后台读面与写期校验共用）。
+func (r *Resolver) EarnableRegistry(ctx context.Context) EarnableRegistry {
+	if r == nil || r.earnables == nil {
+		return DefaultEarnableRegistry()
+	}
+	declarations, err := r.earnables(ctx)
+	if err != nil {
+		// 读不到声明 = 不知道插件键现在能不能给。只留核心键（fail-closed）：
+		// 宁可少授予，也不要把一个已停用插件的键继续发出去。
+		return DefaultEarnableRegistry()
+	}
+	return NewEarnableRegistry(declarations)
+}
+
 // WithClock 注入时钟（测试用）。返回自身以便链式装配。
 func (r *Resolver) WithClock(now func() time.Time) *Resolver {
 	if r != nil && now != nil {
@@ -94,7 +122,10 @@ func (r *Resolver) Grants(ctx context.Context, userID int64, kind identity.UserK
 		return 0, nil, err
 	}
 	evaluation := r.judge(ctx, userID, activity, createdAt, policy)
-	return int(evaluation.Level), policy.Earnable.Grants(evaluation.Level), nil
+	// 运行期惰性（D24 修订）：配置里写了的键不一定现在能授予（插件可停用）。
+	// FilterGranted 只筛**已挣得集合**，不动配置本身——插件恢复后自动重新生效。
+	granted := r.EarnableRegistry(ctx).FilterGranted(policy.Earnable.Grants(evaluation.Level))
+	return int(evaluation.Level), granted, nil
 }
 
 // Evaluation 是一次等级判定的完整结论。

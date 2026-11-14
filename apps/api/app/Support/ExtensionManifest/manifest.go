@@ -131,7 +131,14 @@ type Manifest struct {
 	OpenAPI               []ManifestOpenAPIFragment      `json:"openapi,omitempty"`
 	AITools               []ManifestAITool               `json:"aiTools,omitempty"`
 	BadgeConditions       []ManifestBadgeCondition       `json:"badgeConditions,omitempty"`
-	PackageFiles          []ManifestPackageFile          `json:"packageFiles,omitempty"`
+	// UserFactConditions 是「插件事实条件」的**通用别名**（canonical）。
+	//
+	// 同一个事实层同时喂徽章与信任等级，用徽章专属的名字声明「我的事实可供等级规则
+	// 引用」会让作者以为这是徽章专用通道。所以新增中性名，`badgeConditions` 保留为
+	// 兼容别名（存量清单不改也能用）。两个数组共享同一套校验与同一个上限（合计 ≤32），
+	// 见 validateFactConditions。
+	UserFactConditions []ManifestBadgeCondition `json:"userFactConditions,omitempty"`
+	PackageFiles       []ManifestPackageFile    `json:"packageFiles,omitempty"`
 }
 
 type ManifestAuthor struct {
@@ -633,13 +640,6 @@ func supportedSettingWidth(value string) bool {
 
 func NormalizeID(id string) string {
 	return strings.ToLower(strings.TrimSpace(id))
-}
-
-// ValidExtensionID reports whether value satisfies the manifest ID rule. Host
-// routes that accept a caller-declared extension identity reuse this instead of
-// re-implementing the pattern.
-func ValidExtensionID(value string) bool {
-	return manifestIDPattern.MatchString(value)
 }
 
 func DeclaredEvents(manifest Manifest) []ManifestEvent {

@@ -52,8 +52,14 @@ func TestEligiblePermissionsIsLiteralWhitelist(t *testing.T) {
 	}
 }
 
-// TestEarnableValidateRejectsDangerousKeys 是 D6 + D15 的配置面：
-// 任何一条危险键都必须被拒绝，而不是被静默忽略（T16 的坑）。
+// TestEarnableValidateRejectsDangerousKeys 是 D6 + D15 的**新落点**：
+//
+// M4a 之前「危险键」是在解码期由 `Earnable.Validate` 硬拒的。D24 修订后解码期只判
+// 结构（空键），安全边界拆成两处，所以这条测试也拆成两处一起断言——否则「解码期不拒」
+// 看上去就像安全边界消失了：
+//   - 写期：`ValidateEarnableDeclared` 对任何未声明键（管理类/父键/不存在的键）报
+//     `earnable_not_declared`；
+//   - 运行期：`EarnableRegistry.FilterGranted` 把非 valid 键全部筛掉（绝不授予）。
 func TestEarnableValidateRejectsDangerousKeys(t *testing.T) {
 	cases := []struct {
 		name string
@@ -65,40 +71,57 @@ func TestEarnableValidateRejectsDangerousKeys(t *testing.T) {
 		{"父权限键（extension）", "extension.manage"},
 		{"父权限键（user）", "user.manage"},
 		{"目录里不存在", "topic.create.nonexistent"},
-		{"空键", ""},
 	}
+	registry := trustlevels.DefaultEarnableRegistry()
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			earnable := trustlevels.Earnable{
-				trustlevels.Level(2): {testCase.key},
+			// 空键仍然由结构校验拒（它与「谁声明了」无关）。
+			earnable := trustlevels.Earnable{trustlevels.Level(2): {testCase.key}}
+			if len(trustlevels.ValidateEarnableDeclared([]string{testCase.key}, registry)) == 0 {
+				t.Fatalf("写期校验接受了危险键 %q", testCase.key)
 			}
-			if err := earnable.Validate(); err == nil {
-				t.Fatalf("Validate() 接受了危险键 %q", testCase.key)
+			// 运行期也绝不授予。
+			if granted := registry.FilterGranted([]string{testCase.key}); len(granted) != 0 {
+				t.Fatalf("运行期授予了危险键 %q", testCase.key)
+			}
+			// 配置本身仍可解码（D24：解码保留，否则插件停用即全站掉默认策略）。
+			if err := earnable.Validate(); err != nil {
+				t.Fatalf("解码期不该因 %q 拒绝整份配置：%v", testCase.key, err)
 			}
 		})
 	}
-
+	// 结构性判据仍在：空键必须拒。
+	if err := (trustlevels.Earnable{trustlevels.Level(2): {""}}).Validate(); err == nil {
+		t.Fatal("空键必须由结构校验拒绝")
+	}
 	// 反向证明：合法内容键必须通过，否则上面对照组没有意义（T10）。
 	valid := trustlevels.Earnable{trustlevels.Level(2): {"topic.create", "attachment.upload"}}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("Validate() 拒绝了合法键：%v", err)
 	}
+	if len(trustlevels.ValidateEarnableDeclared([]string{"topic.create"}, registry)) != 0 {
+		t.Fatal("核心白名单键不该被判未声明")
+	}
 }
 
-// TestEarnableValidateCoversWholeCatalog 把 D6/D15/D24 做成遍历**整个权限目录**的
-// 结构断言：白名单内的键必须通过，白名单外的一切键（含管理类、父键、edit_any）
-// 必须被拒绝。
 func TestEarnableValidateCoversWholeCatalog(t *testing.T) {
 	checked := 0
+	registry := trustlevels.DefaultEarnableRegistry()
 	for _, permission := range identity.SeedPermissions {
-		earnable := trustlevels.Earnable{trustlevels.Level(2): {permission.Key}}
-		err := earnable.Validate()
 		whitelisted := trustlevels.IsWhitelisted(permission.Key)
-		if whitelisted && err != nil {
-			t.Fatalf("白名单键 %q 被 Validate 拒绝了：%v", permission.Key, err)
+		// 写期：白名单外的键一个都不能过。
+		rejected := len(trustlevels.ValidateEarnableDeclared([]string{permission.Key}, registry)) > 0
+		if whitelisted == rejected {
+			t.Fatalf("键 %q：白名单=%v 但写期拒绝=%v（两者必须相反）", permission.Key, whitelisted, rejected)
 		}
-		if !whitelisted && err == nil {
-			t.Fatalf("白名单外的键 %q 被 Validate 接受了", permission.Key)
+		// 运行期：只有白名单键会被授予。
+		granted := len(registry.FilterGranted([]string{permission.Key})) > 0
+		if granted != whitelisted {
+			t.Fatalf("键 %q：可授予=%v 与白名单=%v 不一致", permission.Key, granted, whitelisted)
+		}
+		// 解码期：一律可解码（不因未知键整份失败）。
+		if err := (trustlevels.Earnable{trustlevels.Level(2): {permission.Key}}).Validate(); err != nil {
+			t.Fatalf("键 %q 让整份配置解码失败：%v", permission.Key, err)
 		}
 		checked++
 	}

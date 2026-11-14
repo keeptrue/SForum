@@ -833,15 +833,22 @@ func validateLimitsInto(collector *configErrorCollector, rank Level, id string, 
 // 有特权、无审计的键。
 func validateEarnableInto(collector *configErrorCollector, rank Level, id string, keys []string) {
 	for _, key := range keys {
-		switch {
-		case key == "":
+		if key == "" {
 			collector.add(CodeEarnableKeyEmpty, rank, id, "earnable", nil,
 				fmt.Sprintf("档位 %q 的可挣得权限键为空", id))
-		case !IsWhitelisted(key):
-			collector.add(CodeEarnableNotWhitelisted, rank, id, "earnable",
-				map[string]any{"permission": key},
-				fmt.Sprintf("%q 不在可挣得白名单内", key))
+			continue
 		}
+		// **解码期不再判「是否在白名单内」**（D24 修订，M4a）。
+		//
+		// 旧行为是 `!IsWhitelisted(key)` 直接拒。它的问题是：`IsWhitelisted` 只看核心
+		// 七键，插件声明的键永远过不去；而一旦把插件键接进白名单，插件停用又会让整份配置
+		// 解码失败 —— 全站等级掉回默认策略。
+		//
+		// 现在的分工：
+		//   - 解码期只判结构（空键）；
+		//   - 运行期由 `EarnableRegistry` 逐个键判 valid/inactive/unknown，非 valid 不授予；
+		//   - 写期由 `ValidateEarnableDeclared` 对「从未被声明」的键报 422。
+		// `CodeEarnableNotWhitelisted` 保留在码表里（契约稳定），但解码期不再产出它。
 	}
 }
 

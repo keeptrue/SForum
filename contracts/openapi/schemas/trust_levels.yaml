@@ -279,11 +279,34 @@ TrustLevelAdmin:
     eligiblePermissions:
       type: array
       description: |
-        后台可勾选的权限键正白名单（只有七个内容创建/管理自己内容的键）。
-        **顺序即 UI 展示顺序**（后台勾选矩阵按此顺序渲染），七键固定：增删必须同批改
-        前端矩阵、OpenAPI 与本字段的形状测试，不得在别处硬编码第二份副本。
+        后台**当前可勾选**的权限键 = 核心七键 ∪ 已启用插件声明 `trustLevelEarnable: true`
+        的键。核心七键在前且顺序固定（顺序即 UI 展示顺序）；插件键随后按字母序。
+
+        与 M4a 之前的差别：这里不再是「恒为七键的常量表」。前端不得按长度断言，也不得
+        缓存成本地常量——插件启停会让它变长变短。
       items:
         type: string
+    earnableStates:
+      type: array
+      description: |
+        每个可挣得键的当前状态（`valid` / `inactive` / `unknown`）。覆盖「配置里出现的键」
+        ∪「当前可授予的键」，所以运营既能看到自己勾过的旧键，也能看到新插件刚声明的候选。
+
+        - `valid`：核心七键，或某个**已启用**插件声明为 `trustLevelEarnable`；
+        - `inactive`：声明它的插件已停用或仅安装（**不是** orphan）。配置保留、允许保存、
+          只是不授予——「先停用插件、稍后修配置」是合规路径；
+        - `unknown`：从未被任何插件声明。写路径会 422 `earnable_not_declared`。
+
+        写路径只拒 `unknown`（变体 `undeclared`）；`inactive` 的键可以原样保存。
+      items:
+        type: object
+        required: [key, state]
+        properties:
+          key:
+            type: string
+          state:
+            type: string
+            enum: [valid, inactive, unknown]
     recommendedConfig:
       type: string
       description: 内置推荐值的 JSON 字符串（**v2 形状**；恢复默认写回它）。

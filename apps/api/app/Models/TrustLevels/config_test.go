@@ -81,7 +81,9 @@ func TestDecodeConfigValidation(t *testing.T) {
 		{"icon 不在白名单", `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"rocket","requirements":{},"limits":{},"earnable":[]}]}`},
 		{"负阈值", `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{"topic_count":-1},"limits":{},"earnable":[]}]}`},
 		{"负限额", `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{"dailyTopicLimit":-1},"earnable":[]}]}`},
-		{"earnable 含管理键", `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["user.ban"]}]}`},
+		// earnable 含管理键**不在这里**（M4a/D24 修订）：解码期只判结构，危险键
+		// 由写期的 `ValidateEarnableDeclared` 与运行期的 `EarnableRegistry` 拦住。
+		// 见 TestDecodeConfigKeepsUndeclaredEarnableKeys。
 		{"active 超过上限", newTiersJSON(trustlevels.MaxTiers + 1)},
 		{"全部停用（0 active）", `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":[],"retired":true}]}`},
 		{"尾随内容", builtinTiersJSON() + ` {}`},
@@ -329,7 +331,7 @@ func TestDecodeConfigReturnsFieldDetails(t *testing.T) {
 	raw := `{"schemaVersion":2,"tiers":[
 		{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":[]},
 		{"id":"resident","name":{"zh":"乙","en":"B"},"icon":"home","requirements":{},"earnable":[]},
-		{"id":"veteran","name":{"zh":"丙","en":"C"},"icon":"rocket","requirements":{"topic_count":-1},"limits":{},"earnable":["user.ban"]}]}`
+		{"id":"veteran","name":{"zh":"丙","en":"C"},"icon":"rocket","requirements":{"topic_count":-1},"limits":{},"earnable":[]}]}`
 	_, err := trustlevels.DecodeConfig(raw)
 	if err == nil {
 		t.Fatal("非法配置被接受了")
@@ -379,8 +381,10 @@ func TestDecodeConfigReturnsFieldDetails(t *testing.T) {
 			t.Fatalf("icon 明细缺少插值参数 icon=rocket：%+v", detail)
 		}
 	}
-	// 同一档的多个问题都要报（阈值负数 + earnable 白名单外），不要短路到第一条。
-	if len(details) < 4 {
+	// 同一档的多个问题都要报（veteran 的 icon + 阈值负数 + resident 缺 limits），
+	// 不要短路到第一条。M4a 后这份夹具不再含「earnable 白名单外」（解码期不判白名单），
+	// 所以期望条数是 3。
+	if len(details) < 3 {
 		t.Fatalf("明细只报了 %d 条，同一档的多个字段应各自成条：%+v", len(details), details)
 	}
 	if got := trustlevels.ConfigErrorDetails(err); !reflect.DeepEqual(got, details) {
@@ -720,5 +724,37 @@ func TestDecodeConfigAcceptsConfigWithoutNewFields(t *testing.T) {
 	}
 	if len(policy.Tiers) != 4 || len(policy.DeletedTierIDs) != 0 {
 		t.Fatalf("形状不对：tiers=%d deleted=%v", len(policy.Tiers), policy.DeletedTierIDs)
+	}
+}
+
+// TestDecodeConfigKeepsUndeclaredEarnableKeys 钉住 D24 修订的核心行为：
+// **解码期不再硬拒未声明键**。
+//
+// 为什么这条必须存在：若保留旧硬拒，一次插件停用 → 整份 `trust.levels` 解码失败 →
+// 全站等级掉回默认策略。那是灾难性失败，不是保守。安全边界改由两处兜住：
+// 写期（`ValidateEarnableDeclared` → 422）与运行期（`EarnableRegistry` 不授予）。
+func TestDecodeConfigKeepsUndeclaredEarnableKeys(t *testing.T) {
+	raw := `{"schemaVersion":2,"tiers":[{"id":"member","name":{"zh":"甲","en":"A"},"icon":"leaf","requirements":{},"limits":{},"earnable":["user.ban","acme.shop.orders"]}]}`
+	policy, err := trustlevels.DecodeConfig(raw)
+	if err != nil {
+		t.Fatalf("解码期不该因未声明键失败（插件停用会让整站掉默认策略）：%v", err)
+	}
+	if got := policy.Earnable.Permissions(trustlevels.LevelMember); len(got) != 2 {
+		t.Fatalf("配置必须原样保留两枚键（否则运营重开插件后发现勾选被清了），得到 %v", got)
+	}
+	// 编码回去也必须原样带着它们（读一次存一次不改写运营的选择）。
+	encoded, err := trustlevels.EncodeConfig(policy)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	for _, key := range []string{"user.ban", "acme.shop.orders"} {
+		if !strings.Contains(encoded, `"`+key+`"`) {
+			t.Fatalf("编码丢了 %q：%s", key, encoded)
+		}
+	}
+	// 运行期：两者都不授予（一个从未声明、一个插件未启用）。
+	registry := trustlevels.DefaultEarnableRegistry()
+	if granted := registry.FilterGranted([]string{"user.ban", "acme.shop.orders"}); len(granted) != 0 {
+		t.Fatalf("未声明的键不该被授予，得到 %v", granted)
 	}
 }

@@ -172,6 +172,9 @@
     "badgeConditions": {
       "$ref": "#/$defs/badgeConditions"
     },
+    "userFactConditions": {
+      "$ref": "#/$defs/badgeConditions"
+    },
     "packageFiles": {
       "$ref": "#/$defs/packageFiles"
     },
@@ -323,6 +326,48 @@
         ],
         "properties": {
           "badgeConditions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "backend"
+        ],
+        "properties": {
+          "type": {
+            "const": "plugin"
+          },
+          "backend": {
+            "type": "object",
+            "required": [
+              "entry",
+              "protocolVersion"
+            ],
+            "properties": {
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "protocolVersion": {
+                "const": 2
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "userFactConditions"
+        ],
+        "properties": {
+          "userFactConditions": {
             "type": [
               "array",
               "null"
@@ -2603,6 +2648,9 @@
           },
           "assignmentPolicy": {
             "const": "host"
+          },
+          "trustLevelEarnable": {
+            "type": "boolean"
           }
         }
       }

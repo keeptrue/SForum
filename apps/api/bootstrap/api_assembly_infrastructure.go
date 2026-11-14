@@ -65,7 +65,9 @@ type apiInfrastructure struct {
 	trustLevelResolver *trustlevels.Resolver
 	// trustLevelFactKeys 是「已声明插件事实 key」的延迟绑定入口（D20）：
 	// infra 阶段先造 resolver，domains 阶段才建出事实目录（依赖 extensions service）。
-	trustLevelFactKeys    *deferredFactKeys
+	trustLevelFactKeys *deferredFactKeys
+	// trustLevelEarnables 是「插件声明的可授予权限」的延迟绑定入口（同一个 5s 快照）。
+	trustLevelEarnables   *deferredEarnables
 	sessionPolicyRenewal  *sessionPolicyRenewalGate
 	identityAuthorityGate *deferredIdentityAuthorityMutationGate
 	adminOverviewStore    *adminoverview.PostgresStore
@@ -243,8 +245,9 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 	identityStore := identity.NewPostgresStoreWithAvatar(pool, avatarOptions)
 	// 信任等级来源只在这里构造一次（M8 断言：全仓唯一 NewResolver 调用点）。
 	trustLevelFactKeys := &deferredFactKeys{}
+	trustLevelEarnables := &deferredEarnables{}
 	trustLevelResolver := newTrustLevelSource(
-		optionsService, badges.NewPostgresActivityStore(pool), pool, trustLevelFactKeys.Keys,
+		optionsService, badges.NewPostgresActivityStore(pool), pool, trustLevelFactKeys.Keys, trustLevelEarnables,
 	)
 	// Session policy renewal gate is bound after the lifecycle stack publishes
 	// the Identity Registry and Session Policy Store. Until then renew is a
@@ -323,6 +326,7 @@ func wireAPIInfrastructure(ctx context.Context, cfg config.Config, logger *slog.
 		trustLevelResolver:       trustLevelResolver,
 		trustLevelSource:         trustLevelResolver,
 		trustLevelFactKeys:       trustLevelFactKeys,
+		trustLevelEarnables:      trustLevelEarnables,
 		sessionPolicyRenewal:     sessionPolicyRenewal,
 		identityAuthorityGate:    identityAuthorityGate,
 		adminOverviewStore:       adminOverviewStore,

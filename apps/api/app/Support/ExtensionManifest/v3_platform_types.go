@@ -221,6 +221,12 @@ type ManifestPermissionDefinition struct {
 	Description      LocalizedText `json:"description"`
 	RecommendedRoles []string      `json:"recommendedRoles,omitempty"`
 	AssignmentPolicy string        `json:"assignmentPolicy"`
+	// TrustLevelEarnable 声明「本权限允许被信任等级授予」（D10）。
+	//
+	// 缺省 false 是刻意的安全默认：插件必须显式声明，运营才能在后台把该键勾进某一档。
+	// 只有**已启用**扩展里声明为 true 的键才进运行时候选；扩展停用后该键变成
+	// `inactive`（不再授予，但配置保留——见 trustlevels.EarnableState）。
+	TrustLevelEarnable bool `json:"trustLevelEarnable,omitempty"`
 }
 
 type ManifestMediaPipeline struct {

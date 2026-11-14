@@ -3,11 +3,13 @@ package bootstrap
 import (
 	"context"
 	"log/slog"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 )
 
@@ -32,7 +34,10 @@ type badgesFactCatalog struct {
 	// byExtension 是「扩展 id → 它自己声明的 factKey」，服务 Host 命令的
 	// 所有权校验：前缀只能证明命名空间，证明不了「这条事实真被该扩展声明过」。
 	byExtension map[string][]string
-	loaded      bool
+	// earnable 是「扩展声明的可被等级授予的权限键」（含停用扩展：区分 inactive 与
+	// unknown 全靠它）。与事实候选共用同一份快照——同一个 5s 窗口内两处答案必须一致。
+	earnable []trustlevels.EarnableDeclaration
+	loaded   bool
 }
 
 // EnabledPackageLister 是本文件需要的唯一扩展读口（*extensions.Service 满足它）。
@@ -84,6 +89,7 @@ func (c *badgesFactCatalog) Candidates() []conditions.FactCandidate {
 	}
 	c.snapshot = candidates
 	c.byExtension = byExtension
+	c.earnable = earnableDeclarationsFromPackages(packages)
 	c.loadedAt = time.Now()
 	c.loaded = true
 	return c.snapshot
@@ -130,7 +136,13 @@ func mergeEnabledFactDeclarationsDetailed(packages []extensions.Extension) ([]co
 		if item.Status != extensions.StatusEnabled || item.Type != extensions.TypePlugin {
 			continue
 		}
-		for _, declared := range item.Manifest.BadgeConditions {
+		// 两个数组同一份事实层：`userFactConditions` 是中性名（canonical），
+		// `badgeConditions` 是兼容别名。只读一个数组，用新别名声明的插件在信任等级里
+		// 就会查不到自己的条件——而且不会报错，只是那个条件永远 unknown。
+		declarationsOf := make([]extensionmanifest.ManifestBadgeCondition, 0, len(item.Manifest.BadgeConditions)+len(item.Manifest.UserFactConditions))
+		declarationsOf = append(declarationsOf, item.Manifest.BadgeConditions...)
+		declarationsOf = append(declarationsOf, item.Manifest.UserFactConditions...)
+		for _, declared := range declarationsOf {
 			declarations = append(declarations, conditions.FactDeclaration{
 				ExtensionID: item.Manifest.ID,
 				Key:         declared.Key,
@@ -158,6 +170,51 @@ func mergeEnabledFactDeclarationsDetailed(packages []extensions.Extension) ([]co
 		byExtension[declaration.ExtensionID] = append(byExtension[declaration.ExtensionID], declaration.Key)
 	}
 	return candidates, conflicts, byExtension
+}
+
+// earnableDeclarationsFromPackages 收集「扩展声明的可被等级授予的权限键」。
+//
+// **包含非启用扩展**：trustlevels 要用它区分 active（enabled）与 inactive（仅安装/
+// 停用）。只传启用者会让停用插件的键在后台凭空变 unknown，运营看起来像配置坏了。
+func earnableDeclarationsFromPackages(packages []extensions.Extension) []trustlevels.EarnableDeclaration {
+	out := make([]trustlevels.EarnableDeclaration, 0, 8)
+	for _, item := range packages {
+		if item.Type != extensions.TypePlugin {
+			continue
+		}
+		enabled := item.Status == extensions.StatusEnabled
+		for _, permission := range item.Manifest.PermissionDefinitions {
+			if !permission.TrustLevelEarnable {
+				continue
+			}
+			out = append(out, trustlevels.EarnableDeclaration{
+				Key:         permission.Key,
+				ExtensionID: item.Manifest.ID,
+				Enabled:     enabled,
+			})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Key != out[j].Key {
+			return out[i].Key < out[j].Key
+		}
+		return out[i].ExtensionID < out[j].ExtensionID
+	})
+	return out
+}
+
+// EarnableDeclarations 返回当前快照里的可授予权限声明（实现 trustlevels.EarnableSource）。
+func (c *badgesFactCatalog) EarnableDeclarations(context.Context) ([]trustlevels.EarnableDeclaration, error) {
+	if c == nil || c.lister == nil {
+		return nil, nil
+	}
+	// 复用 Candidates 的刷新与缓存：同一份快照既喂事实候选也喂权限声明。
+	c.Candidates()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]trustlevels.EarnableDeclaration, len(c.earnable))
+	copy(out, c.earnable)
+	return out, nil
 }
 
 func factVariantsFromManifest(declared extensionmanifest.ManifestBadgeCondition) []conditions.FactVariant {
