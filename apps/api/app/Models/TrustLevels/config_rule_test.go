@@ -298,3 +298,55 @@ func TestRuleJSONIsOrdinaryObject(t *testing.T) {
 		t.Fatalf("rule 内容不是规则文档：%s", string(document.Tiers[0].Rule))
 	}
 }
+
+// TestRetiredTierRuleRoundTrip 钉住「停用档的规则真的被保留」（N1）。
+//
+// 「不报错」不等于「保留」：`retired` 档位不参与判定，但配置必须原样留在 JSON 里——
+// 运营恢复该档时不该发现自己配的规则没了（D-N2 的承诺）。所以判据是 encode → decode
+// 之后 `Rule` 仍在、且**逐字节相同**。
+func TestRetiredTierRuleRoundTrip(t *testing.T) {
+	rule := ruleDoc(topicCountLeaf)
+	retiredTier := `{"id":"tier_7","name":{"zh":"停用档","en":"Retired"},"icon":"crown","requirements":{},"limits":{},"earnable":[],"retired":true,"rule":` + rule + `}`
+	policy, err := trustlevels.DecodeConfig(tiersJSON(ruleTierJSON("member", ""), retiredTier))
+	if err != nil {
+		t.Fatalf("停用档带规则被拒：%v", err)
+	}
+	retired := retiredTierOf(t, policy)
+	if string(retired.Rule) != rule {
+		t.Fatalf("解码后停用档规则被改写：\n got=%s\nwant=%s", string(retired.Rule), rule)
+	}
+
+	encoded, err := trustlevels.EncodeConfig(policy)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	if !strings.Contains(encoded, `"rule":`+rule) {
+		t.Fatalf("编码丢了停用档的规则树：\n%s", encoded)
+	}
+	// round-trip：再解一次，规则仍逐字节相同（「读一次再存一次」不得改写它）。
+	again, err := trustlevels.DecodeConfig(encoded)
+	if err != nil {
+		t.Fatalf("decode encoded: %v", err)
+	}
+	if string(retiredTierOf(t, again).Rule) != rule {
+		t.Fatalf("round-trip 后停用档规则变了：\n got=%s\nwant=%s", string(retiredTierOf(t, again).Rule), rule)
+	}
+	// 对照组：新建/启用档位不受影响（停用档的规则不能串到别的档上）。
+	for _, tier := range again.Tiers {
+		if !tier.Retired && len(tier.Rule) != 0 {
+			t.Fatalf("启用档 %q 被写入了规则：%s", tier.ID, string(tier.Rule))
+		}
+	}
+}
+
+// retiredTierOf 取出唯一那条停用档。
+func retiredTierOf(t *testing.T, policy trustlevels.Policy) trustlevels.Tier {
+	t.Helper()
+	for _, tier := range policy.Tiers {
+		if tier.Retired {
+			return tier
+		}
+	}
+	t.Fatal("策略里没有停用档")
+	return trustlevels.Tier{}
+}

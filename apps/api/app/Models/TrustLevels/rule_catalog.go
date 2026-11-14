@@ -140,3 +140,104 @@ func buildRuleConditionSet() *RuleConditionSet {
 	}
 	return set
 }
+
+// PublishableRuleConditions 返回可以下发给编辑器的条件子集（**发布面**）。
+//
+// 与 `RuleConditions` 的差别只有一条：**引用的候选全空时不发布该条件**。理由与徽章侧
+// `conditions.Registry.PublishableDefinitions` / `hasCandidates` 逐字相同——一条
+// `objectRef` 参数没有候选的条件，编辑器只能渲染出空下拉：运营点进去既选不出值、也存
+// 不进去，等于在 UI 里摆一条死路。同一份共享目录，两个域必须同口径。
+//
+// 三种「空」必须分开，混起来就是两种事故：
+//   - **候选读到但确实为空**（该 kind 组装好、`Candidates: []`）→ 不发布；
+//   - **取不到候选**（`Unavailable: true`，读库失败或未注入）→ **照常发布**：编辑器
+//     会按 `unavailable` 退回文本输入，条件仍然可配。把「取不到」当「空」会让一次 DB
+//     抖动把运营的编辑器砍掉四条条件；
+//   - **校验白名单**（`RuleConditions` / `RuleConditionAllowed` / `sharedCondition`）
+//     → **永不受本函数影响**。否则插件停用期间存量规则会读不出来——那是把「暂时没候选」
+//     当成了「条件不存在」，而这两件事的修法完全不同（启用插件 vs 换条件）。
+func PublishableRuleConditions(
+	factCandidates []conditions.FactCandidate,
+	refCandidates conditions.RefCandidateSet,
+) []conditions.Definition {
+	factKeyCount := len(conditions.FactKeys(factCandidates))
+	groups := make(map[string]conditions.RefCandidateGroup, len(refCandidates))
+	for _, group := range refCandidates {
+		if _, exists := groups[group.Kind]; exists {
+			continue
+		}
+		groups[group.Kind] = group
+	}
+	factKeys := conditions.FactKeys(factCandidates)
+	set := ruleConditionSet()
+	out := make([]conditions.Definition, 0, len(set.order))
+	for _, key := range set.order {
+		def := set.defs[key]
+		if !hasPublishableCandidates(def, factKeyCount, groups) {
+			continue
+		}
+		out = append(out, withFactOptions(def, factKeys))
+	}
+	return out
+}
+
+// withFactOptions 把已声明的事实 key 填进 `factKey` 参数的 Options。
+//
+// 不填 = 条件发布了、下拉还是空的——比不发布更糟：运营看得见、点得进去、选不出来。
+// 与徽章侧 `conditions.withFactOptions` 同一条裁决、同一套做法（**必须复制 specs**：
+// `Core()` 是只读单例，原地写会污染校验用的全集，并在并发下产生数据竞争）。
+func withFactOptions(def conditions.Definition, factKeys []string) conditions.Definition {
+	if len(factKeys) == 0 {
+		return def
+	}
+	specs := make([]ruleengine.ParamSpec, len(def.Params.Specs))
+	copy(specs, def.Params.Specs)
+	changed := false
+	for index := range specs {
+		if specs[index].Kind == ruleengine.ParamObjectRef && specs[index].RefKind == "fact" {
+			specs[index].Options = append([]string(nil), factKeys...)
+			changed = true
+		}
+	}
+	if !changed {
+		return def
+	}
+	def.Params = ruleengine.ParamsSchema{Specs: specs}
+	return def
+}
+
+// hasPublishableCandidates 判一条条件的所有 objectRef 参数是否都有可用候选。
+//
+// 一个条件有多个 objectRef 参数时，**任一**参数的候选读到为空就不发布该条：只要有一格
+// 是空下拉，这条条件在编辑器里就填不完整。
+func hasPublishableCandidates(
+	def conditions.Definition,
+	factKeyCount int,
+	groups map[string]conditions.RefCandidateGroup,
+) bool {
+	for _, spec := range def.Params.Specs {
+		if spec.Kind != ruleengine.ParamObjectRef {
+			continue
+		}
+		// `fact` 不是 Core 对象：候选来自插件清单（fact catalog），不在 refCandidates 里。
+		if spec.RefKind == "fact" {
+			if factKeyCount == 0 {
+				return false
+			}
+			continue
+		}
+		group, present := groups[spec.RefKind]
+		if !present {
+			// 调用方没给这一类候选（例如只查了部分 kind）：无法判定，按「照常发布」处理。
+			// 判成「空」会把调用方的省事变成运营的缺功能。
+			continue
+		}
+		if group.Unavailable {
+			continue
+		}
+		if len(group.Candidates) == 0 {
+			return false
+		}
+	}
+	return true
+}

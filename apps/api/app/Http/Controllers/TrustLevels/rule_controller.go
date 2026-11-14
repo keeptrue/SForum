@@ -42,22 +42,21 @@ func (h *Controller) adminListRuleConditions(c fiber.Ctx) error {
 	if _, err := h.requireAdmin(c, identity.PermissionAdminAccess); err != nil {
 		return err
 	}
-	payload := trustLevelConditionCatalog{
-		Conditions:     toConditionDTOs(trustlevels.RuleConditions()),
-		FactCandidates: toFactCandidateDTOs(h.declaredFactCandidates()),
-		RefCandidates:  []refCandidateGroup{},
-	}
+	factCandidates := h.declaredFactCandidates()
+	refCandidates := conditions.UnavailableRefCandidateSet()
 	if h.refCandidates != nil {
-		set, err := h.refCandidates.RefCandidates(c.Context())
-		if err != nil {
-			// 候选取不到 ≠ 候选为空：响应里 `unavailable: true` 让编辑器退回文本输入，
-			// 而不是给运营一个空下拉并让他以为「库里没分类」。
-			payload.RefCandidates = toRefCandidateGroups(conditions.UnavailableRefCandidateSet())
-		} else {
-			payload.RefCandidates = toRefCandidateGroups(set)
+		if set, err := h.refCandidates.RefCandidates(c.Context()); err == nil {
+			refCandidates = set
 		}
-	} else {
-		payload.RefCandidates = toRefCandidateGroups(conditions.UnavailableRefCandidateSet())
+		// 读失败保持 `unavailable` 形状：候选取不到 ≠ 候选为空。
+	}
+	payload := trustLevelConditionCatalog{
+		// 发布面按候选过滤（事实候选全空 → 不下发 `fact.count`；某类引用候选读到为空 →
+		// 不下发用到它的条件）。**校验白名单不受影响**：`RuleConditionAllowed` 仍接受全部
+		// 条件，否则插件停用期间的存量规则会读不出来。判据在 `PublishableRuleConditions`。
+		Conditions:     toConditionDTOs(trustlevels.PublishableRuleConditions(factCandidates, refCandidates)),
+		FactCandidates: toFactCandidateDTOs(factCandidates),
+		RefCandidates:  toRefCandidateGroups(refCandidates),
 	}
 	return apphttp.OK(c, payload)
 }

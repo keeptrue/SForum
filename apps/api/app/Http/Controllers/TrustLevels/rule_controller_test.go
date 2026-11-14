@@ -1,8 +1,11 @@
 package trustlevelscontroller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -64,9 +67,16 @@ func policyWithGroupRule(t *testing.T) trustlevels.Policy {
 func enabledGate(context.Context) (bool, error) { return true, nil }
 
 // fakeRefSource 提供固定的候选集合（引用校验的 allowed/denied 两向都用它）。
-type fakeRefSource struct{ set conditions.RefCandidateSet }
+// `err` 非空时模拟读库失败（N3：环境故障必须与可修 422 分开）。
+type fakeRefSource struct {
+	set conditions.RefCandidateSet
+	err error
+}
 
 func (f fakeRefSource) RefCandidates(context.Context) (conditions.RefCandidateSet, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 	return f.set, nil
 }
 
@@ -233,54 +243,123 @@ func TestPutReferenceInvalidReturns422(t *testing.T) {
 	}
 }
 
-// TestConditionsEndpoint 断言目录端点：11 条条件 + 五组候选 + 权限。
+// TestConditionsEndpointFiltersByCandidates 断言目录端点**按候选过滤**（F1）。
 //
-// 11 而不是计划里的 12：`identity.profile` 还没进共享目录（另单）。这里断言的是
-// 「子集 = 共享 − 内容质量两条」这条规则，不是那个数字。
-func TestConditionsEndpoint(t *testing.T) {
-	admin := activeActor(identity.PermissionAdminAccess)
-	controller := NewController(nil, nil, nil, nil).
-		WithFeatureGate(enabledGate).
-		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
-		WithRuleEditingDeps(fakeRefSource{set: conditions.UnavailableRefCandidateSet()}, nil, nil)
-	app := newTestApp(t, controller)
-
-	status, body := doRequest(t, app, fiber.MethodGet, "/api/v1/admin/trust-levels/conditions", "")
-	if status != fiber.StatusOK {
-		t.Fatalf("status = %d，body=%s", status, body)
-	}
-	var envelope struct {
-		Data trustLevelConditionCatalog `json:"data"`
-	}
-	if err := json.Unmarshal([]byte(body), &envelope); err != nil {
-		t.Fatalf("响应不是合法 JSON：%v", err)
-	}
-	payload := envelope.Data
+// 判据是双向的，单向会放过两种错：
+//   - 只断「少了 1 条」→ 过滤掉了别的东西（比如把 role 条件也砍了）也绿；
+//   - 只断「注入后出现」→ 不注入时那条死路照样摆着也绿。
+//
+// 同时留**反向证据** `RuleConditionAllowed("fact.count") == true`：过滤只许动发布面，
+// 动了校验白名单就会让插件停用期间的存量规则读不出来（把「暂时没候选」当成了
+// 「条件不存在」）。
+func TestConditionsEndpointFiltersByCandidates(t *testing.T) {
 	shared := conditions.Core().Definitions()
-	if len(payload.Conditions) != len(shared)-2 {
-		t.Fatalf("条件数 = %d（期望共享 %d − 2）", len(payload.Conditions), len(shared))
-	}
-	for _, condition := range payload.Conditions {
-		if condition.Key == "content.pinned" || condition.Key == "content.hidden" {
-			t.Fatalf("子集外条件被下发：%s", condition.Key)
-		}
-		if condition.LabelZh == "" || condition.ValueKind == "" {
-			t.Fatalf("条件 %s 缺少展示元数据", condition.Key)
-		}
-	}
-	if len(payload.RefCandidates) != 5 {
-		t.Fatalf("候选组应为 5 项（固定顺序），得到 %d", len(payload.RefCandidates))
-	}
-	if payload.RefCandidates[0].Kind != "badge" {
-		t.Fatalf("候选组首项应为 badge，得到 %q", payload.RefCandidates[0].Kind)
-	}
 
-	// 缺 admin.access → 403。
+	t.Run("无候选：不下发 fact.count", func(t *testing.T) {
+		admin := activeActor(identity.PermissionAdminAccess)
+		controller := NewController(nil, nil, nil, nil).
+			WithFeatureGate(enabledGate).
+			WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+			WithRuleEditingDeps(fakeRefSource{set: conditions.UnavailableRefCandidateSet()}, nil, nil)
+		status, body := doRequest(t, newTestApp(t, controller), fiber.MethodGet, "/api/v1/admin/trust-levels/conditions", "")
+		if status != fiber.StatusOK {
+			t.Fatalf("status = %d，body=%s", status, body)
+		}
+		var envelope struct {
+			Data trustLevelConditionCatalog `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &envelope); err != nil {
+			t.Fatalf("响应不是合法 JSON：%v", err)
+		}
+		payload := envelope.Data
+		// 子集 11 条 − 无事实候选的 fact.count = 10 = 共享目录 − 3。
+		if len(payload.Conditions) != len(shared)-3 {
+			t.Fatalf("条件数 = %d（期望共享 %d − 3 = %d）", len(payload.Conditions), len(shared), len(shared)-3)
+		}
+		for _, condition := range payload.Conditions {
+			switch condition.Key {
+			case "fact.count":
+				t.Fatal("没有事实候选时不得下发 fact.count（空下拉死路）")
+			case "content.pinned", "content.hidden":
+				t.Fatalf("子集外条件被下发：%s", condition.Key)
+			}
+			if condition.LabelZh == "" || condition.ValueKind == "" {
+				t.Fatalf("条件 %s 缺少展示元数据", condition.Key)
+			}
+		}
+		if len(payload.FactCandidates) != 0 {
+			t.Fatalf("没有插件声明时 factCandidates 应为空，得到 %d", len(payload.FactCandidates))
+		}
+		// 反向证据：发布面过滤 ≠ 校验面收紧。
+		if !trustlevels.RuleConditionAllowed("fact.count") {
+			t.Fatal("RuleConditionAllowed(fact.count) 必须仍为 true：过滤只能作用于发布面")
+		}
+		if len(trustlevels.RuleConditions()) != len(shared)-2 {
+			t.Fatalf("校验用子集应保持 %d 条（共享 − 2），得到 %d", len(shared)-2, len(trustlevels.RuleConditions()))
+		}
+	})
+
+	t.Run("注入事实候选：fact.count 出现且候选非空", func(t *testing.T) {
+		admin := activeActor(identity.PermissionAdminAccess)
+		factCandidates := []conditions.FactCandidate{{
+			Key: "acme.wiki.pages", LabelZh: "页面数", LabelEn: "Pages", UnitZh: "个", UnitEn: "pages",
+			Compare: []string{"gte", "lte"},
+		}}
+		controller := NewController(nil, nil, nil, nil).
+			WithFeatureGate(enabledGate).
+			WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+			WithRuleEditingDeps(
+				fakeRefSource{set: conditions.UnavailableRefCandidateSet()},
+				func() []conditions.FactCandidate { return factCandidates },
+				nil,
+			)
+		status, body := doRequest(t, newTestApp(t, controller), fiber.MethodGet, "/api/v1/admin/trust-levels/conditions", "")
+		if status != fiber.StatusOK {
+			t.Fatalf("status = %d，body=%s", status, body)
+		}
+		var envelope struct {
+			Data trustLevelConditionCatalog `json:"data"`
+		}
+		if err := json.Unmarshal([]byte(body), &envelope); err != nil {
+			t.Fatalf("响应不是合法 JSON：%v", err)
+		}
+		payload := envelope.Data
+		if len(payload.Conditions) != len(shared)-2 {
+			t.Fatalf("注入候选后条件数 = %d（期望共享 %d − 2 = %d）", len(payload.Conditions), len(shared), len(shared)-2)
+		}
+		if len(payload.FactCandidates) == 0 {
+			t.Fatal("factCandidates 必须非空（否则编辑器仍拿到空下拉）")
+		}
+		var factCondition *trustLevelCondition
+		for index := range payload.Conditions {
+			if payload.Conditions[index].Key == "fact.count" {
+				factCondition = &payload.Conditions[index]
+			}
+		}
+		if factCondition == nil {
+			t.Fatal("注入事实候选后 fact.count 必须出现")
+		}
+		// 只是「出现」还不够：`factKey` 参数的 options 必须是已声明的 key，
+		// 否则条件在编辑器里仍然是一个空下拉（发布一条选不出来的条件）。
+		var options []string
+		for _, param := range factCondition.Params {
+			if param.Name == "factKey" {
+				options = param.Options
+			}
+		}
+		if len(options) != 1 || options[0] != "acme.wiki.pages" {
+			t.Fatalf("factKey 参数候选 = %v（期望 [acme.wiki.pages]）", options)
+		}
+	})
+}
+
+// TestConditionsEndpointRequiresAdmin 断言缺 admin.access 时 403。
+func TestConditionsEndpointRequiresAdmin(t *testing.T) {
 	nobody := activeActor()
-	app2 := newTestApp(t, NewController(nil, nil, nil, nil).
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
 		WithFeatureGate(enabledGate).
 		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return nobody, nil }))
-	if status, _ := doRequest(t, app2, fiber.MethodGet, "/api/v1/admin/trust-levels/conditions", ""); status != fiber.StatusForbidden {
+	if status, _ := doRequest(t, app, fiber.MethodGet, "/api/v1/admin/trust-levels/conditions", ""); status != fiber.StatusForbidden {
 		t.Fatalf("缺 admin.access 的目录读 status = %d（期望 403）", status)
 	}
 }
@@ -332,5 +411,78 @@ func TestRuleImpactEndpoint(t *testing.T) {
 		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }))
 	if status, response := doRequest(t, app3, fiber.MethodPost, "/api/v1/admin/trust-levels/rule-impact", body); status != fiber.StatusInternalServerError {
 		t.Fatalf("未装配估算器的 status = %d（期望 500），body=%s", status, response)
+	}
+}
+
+// TestReferenceCheckWithoutSourceWarns 钉住「跳过校验必须吵」（N2）。
+//
+// 未注入 `RefCandidateSource` 时写路径不校验引用（fail-open）。这个宽容点本身保留
+// （nil 时全拒更糟），但**静默**跳过等于装配漏注入时毫无症状——所以行为不变、日志必须有。
+func TestReferenceCheckWithoutSourceWarns(t *testing.T) {
+	var logs bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	written := 0
+	// 刻意**不**调用 WithRuleEditingDeps：模拟装配漏注入。
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error { written++; return nil }))
+
+	rule := ruleDoc(`{"type":"object.authoring","params":{"targetKind":"category","targetSlug":"general","window":{"kind":"all"}},"cmp":{"op":"gte","value":2}}`)
+	body := `{"config":` + mustJSONString(configWithRuleJSON(t, rule)) + `}`
+	if status, response := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels", body); status != fiber.StatusOK {
+		t.Fatalf("未注入候选来源时写路径应放行（保留宽容点），status = %d，body=%s", status, response)
+	}
+	if written != 1 {
+		t.Fatalf("写库次数 = %d（期望 1）", written)
+	}
+	output := logs.String()
+	if !strings.Contains(output, "rule reference check skipped") {
+		t.Fatalf("跳过引用校验时必须打 warn（否则装配漏注入无任何症状），日志=%q", output)
+	}
+	if !strings.Contains(output, "WithRuleEditing") {
+		t.Fatalf("warn 必须带装配提示（告诉运维该注入什么），日志=%q", output)
+	}
+	// 对照组：不带规则的配置不该刷这条 warn（否则日志噪声会训练运维忽略它）。
+	logs.Reset()
+	if status, _ := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels",
+		`{"config":`+mustJSONString(configWithRuleJSON(t, ""))+`}`); status != fiber.StatusOK {
+		t.Fatalf("无规则配置的写 status = %d（期望 200）", status)
+	}
+	if strings.Contains(logs.String(), "rule reference check skipped") {
+		t.Fatalf("没有规则的配置不该打跳过 warn，日志=%q", logs.String())
+	}
+}
+
+// TestPutReferenceCheckFailureReturns500 钉住「读候选失败 → 500 且未写库」（N3）。
+//
+// 读库失败是**环境故障**，与「引用的对象被删」这种可修 422 必须分开：报成 422 会让
+// 运营去改一份本来正确的配置。而且它绝不能落库——那条规则根本没被验证过。
+func TestPutReferenceCheckFailureReturns500(t *testing.T) {
+	admin := activeActor(identity.PermissionAdminAccess, identity.PermissionTrustManage)
+	written := 0
+	app := newTestApp(t, NewController(nil, nil, nil, nil).
+		WithFeatureGate(enabledGate).
+		WithPolicyReader(func(context.Context) (trustlevels.Policy, error) { return trustlevels.DefaultPolicy(), nil }).
+		WithActorLoader(func(fiber.Ctx) (identity.Actor, error) { return admin, nil }).
+		WithRuleEditingDeps(fakeRefSource{err: errors.New("candidate query failed")}, nil, nil).
+		WithConfigWriter(func(context.Context, identity.Actor, string) error { written++; return nil }))
+
+	rule := ruleDoc(`{"type":"object.authoring","params":{"targetKind":"category","targetSlug":"general","window":{"kind":"all"}},"cmp":{"op":"gte","value":2}}`)
+	body := `{"config":` + mustJSONString(configWithRuleJSON(t, rule)) + `}`
+	status, response := doRequest(t, app, fiber.MethodPut, "/api/v1/admin/trust-levels", body)
+	if status != fiber.StatusInternalServerError {
+		t.Fatalf("读候选失败时 status = %d（期望 500），body=%s", status, response)
+	}
+	if !strings.Contains(response, "trust_levels.reference_check_failed") {
+		t.Fatalf("500 的原因码不对：\n%s", response)
+	}
+	if written != 0 {
+		t.Fatalf("校验失败仍写库了 %d 次", written)
 	}
 }
