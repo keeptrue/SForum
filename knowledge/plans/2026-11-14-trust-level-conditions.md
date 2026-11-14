@@ -317,6 +317,12 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 
 > **基线更正（2026-11-14，研究刀 E2）**：本表原来的「现状 1 条」是错的。信任链自身是 **+2**（`applyTrustLevel` 无条件先读 `users.created_at,kind`，再 +1 `user_activity`），整条已认证路径固定 **5** 条（主查询 + 2 RBAC + users + user_activity），另 0~1 overrides。
 
+> **事实更正（2026-11-14，M5 收口）**：本计划早期版本写过「`features.trust_levels` 这个开关不存在」——**错**。
+> 错因：当时只 grep 了 `apps/api/config/*.go` 与 `apps/api/app/Support/Features/*.go` 两个**根本不存在的路径**，
+> 把「路径写错」当成了「开关不存在」。由老后（task-1）独立核实推翻：开关真实存在，常量 `NameFeatureTrustLevels = "features.trust_levels"`，
+> 定义在 `apps/api/app/Models/Options/feature_flags.go:35`（运行时 options 行；`Models/TrustLevels/resolver.go:11` 的 `ErrDisabled` 注释亦点名）。
+> **核这类「某开关/某键是否存在」，入口是 `app/Models/Options/`**，别从 `config/` 或 `Support/Features/` 起手。
+
 | 场景 | 规则侧新增（相对无规则） | 目标 |
 | --- | --- | --- |
 | 无规则站点 | 0 | **0 条条件 SQL**（闸在构造求值器之前） |
@@ -324,7 +330,7 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 | 有规则、数值过但规则未过 | +1 次 `Prepare` | 按 type 分组，**SQL 次数 = 出现的 type 数**（与档数无关） |
 | 8 档全配规则（最坏） | 1 次 `Prepare` | 仍是 type 数（memo 跨档复用，**不是** 8 次） |
 
-### 5.1 已证到哪、还差什么（**M2 收口时的诚实结论**）
+### 5.1 已证到哪、还差什么（**M5 收口更新**）
 
 | 判据 | 状态 | 证据 |
 | --- | --- | --- |
@@ -332,9 +338,27 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 | 8 档×32 叶 → SQL 次数 = type 数（4） | **已证** | `TestPrepareIssuesOneQueryPerConditionType`，tracer 挂 `pgxpool.Config.ConnConfig.Tracer` 统计整池、**含 Prepare** |
 | 数值不过 → 该档独有 type 零 SQL | **已证** | `TestNumericFailureSkipsUniqueConditionType`（`object.authoring` 全策略仅 TL2 一处） |
 | 规则求值增量 P95 | **已证 1.6ms**（真库 2000 用户） | `TestRuleEvaluationLatency` |
-| **装载路径 P95 增量 ≤ 5ms** | **未证** | 现有 fixture 两侧 stub 掉 activity/policy，`baseline 286ns` = 什么都没做，测的是**规则单因子成本**，不含那 5 条固定查询。 |
+| **装载路径 P95 增量 ≤ 5ms** | **已证**（区间口径，不写点值） | 真 loader（`GetCurrentUser` 全路径）+ 10k 夹具，8 次全量运行共同见证 **ΔP95 ∈ [−0.41ms, +1.0ms]**，最坏仍有 5 倍余量。机制另有一条不依赖时延样本的证据：常开段 `TestLoaderPathSQLCounts` 的 `B − A == 1`（+1 条主键点查）。抽样口径与失效姿态见下。 |
 
-**M5 必做证据项（不许用规则增量替代）**：真 loader（`GetCurrentUser` 全路径）+ 同一二进制翻 `features.trust_levels` 做 A/B，10k 夹具，报**装载 P50/P95 增量** ≤ 5ms。超了先查缺失索引，**不许**加缓存绕过（Cache 包明确不缓存鉴权状态）。
+**已证到什么程度（逐条，别压缩成一句「已证」）**
+
+1. **判据已证**：真 loader（`GetCurrentUser` 全路径）+ 10k 夹具，8 次全量运行的 ΔP95 全部落在 **[−0.41ms, +1.0ms]**，最坏值距 5ms 判据仍有 5 倍余量（区间上界 1.0ms 对 5ms）。为什么只认区间不认点值：单轮 16 个采样里 P50 与 P95 都出现过反向（同一配置跑两遍，差值符号会翻），**效应量与这台机器的尾噪同量级**；所以能引用的是区间与机制，不是某一轮的差值。夹具规模/样本数属实测条件，**复跑会漂**，不当规格写。
+2. **机制（首选证据，不依赖时延样本）**：系统成本 = 规则侧新增的条件类型数（本档夹具 1 个 type ⇒ **+1 条主键点查** `SELECT users.created_at`），由常开段 `TestLoaderPathSQLCounts` 的 `B − A == 1` 与「带规则档位 3 → 1 时条数不变」两条断言钉死。
+3. **A/B 只能按策略形状做**：`features.trust_levels` 开关存在（见 §5 顶部更正），但关掉它是 `ErrDisabled`——policy 与 activity 两段都短路，实测关闭态 **4** 条 SQL，比侧 A（5 条）少的正是 `FROM user_activity`。那是「本功能上线前」的基线，不是「有等级但无规则」；拿它当对照量出来的是「功能开 vs 关」，与本里程碑（加规则）的增量无关。侧 A / B / B1 三种策略形状由 `loaderPolicies` 提供。
+
+**反 stub：已证 ≠ 已加固（必须与上面并列读）**
+
+- **当时的防线状态**：那两个性能断言挂在人工环境变量后（`loader_latency_postgres_integration_test.go:37` 的 `SFORUM_TRUST_PERF=1`，今天仍是可选段）。M3 收口时「已证 ≤5ms」的成立条件是「有人手动跑过」，**CI 里没有任何一条会红**。
+- **现已补上常开段**：`TestLoaderPathSQLCounts`（`loader_queries_postgres_integration_test.go`）不读任何 `SFORUM_TRUST_PERF*`、随数据库测试套件跑，断 **A=5 / B=6 / B1=6 / 关闭态=4** 与「带规则档位 3→1 条数不变」「关闭态恰好少一条且不含 `FROM user_activity`」。20 个用户夹具足够——条数是**常数**，20 与 10k 逐字相同；整套 0.52s（单次实测值，随机器漂）。
+- **它挡的正是这个反例**：把 `bootstrap` 的 `trustLevelActivityReader` 换成缓存读（做性能优化时最自然的动作）→ SQL 5 掉到 4、`FROM user_activity` 整条消失；若这条断言还在 env 后面，CI 全绿，而**线上全员等级静默掉 TL0**。保险丝不能装进抽屉。
+- 所以措辞口径是：判据**已证**，防线**到 M5 才常开**。「已证」写的是「有人量过并留下区间」，不是「此后 CI 一直守着」。
+- **超了怎么办（口径不变，别因为「已证」就丢掉）**：先查缺失索引，**不许**加缓存绕过——Cache 包明确不缓存鉴权状态；而且今天的常开断言正是靠「每次装载都真的读那 5 条」才成立，加缓存等于先把断言变成假的，再让它继续绿。
+
+**装配类交付的教训（同一类静默失效，留着不删）**
+
+- M4b-2 第 1 段落地时，入队点（`bootstrap/badges_wiring.go`）、job 定义、事件载荷（`Support/Events/catalog.go` 的 `trust_level.changed`，`observe` 型）全在，唯独 **`RegisterRecomputeUser` / `RegisterRecomputeBatch` 只有定义、没有调用点**：job 入队成功、无消费者、`trust_level.changed` 运行期永不发出，**CI 全绿**。pm 独立核到时按「定义存在」搜了一遍，找不到任何调用者。
+- 现已补齐：`bootstrap/trust_levels_worker.go:116-127` 是 recompute 链路**唯一**注册面，`bootstrap/worker.go:748` 调用它。
+- 教训留在这里：**装配类交付必须配一条能红的注册/消费断言。** 今天能红的只有入队侧（`bootstrap/user_evaluations_enqueuer_test.go` 断言两种 job kind 都被入队）；**消费侧仍无断言**——把 `worker.go:748` 删掉，CI 依旧全绿。这一条与上面的「env 后面的断言」是同一个病：装配错误不归任何测试管。
 
 **措辞纪律**：任何报告/注释里出现「装载 P95 = 1.6ms」都是错的——那是规则求值成本。已据此要求修 `rule_eval_postgres_integration_test.go:305-309` 的仓库内注释（task-22）。
 
