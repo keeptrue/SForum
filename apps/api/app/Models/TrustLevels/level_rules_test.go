@@ -59,22 +59,24 @@ func rulesTierJSON(requirement string, rule string) string {
 	return base + `,"rule":` + rule + `}`
 }
 
-// policyWithTierRules 造一份 tiers 全部带规则的策略；requirements 全 0（数值不设门槛）。
-func policyWithTierRules(t *testing.T, tiers int) (trustlevels.Policy, []string) {
+// policyWithTierRules 造一份「每档都带规则」的策略：requirements 逐档给出，规则**恒真**。
+//
+// 规则恒真的判据交给调用方的 fake evaluator（默认 Matched=true），所以这份策略的语义
+// 必须与「同一批 requirements、不带规则」完全一致——等价性回归的第三个策略就是它。
+//
+// 每档的规则字节**互不相同**（逐档多包一层单子 `all`）：fake 按规则字节记录
+// 「哪一档被求值过」，字节相同就分不出档位（那会让「短路」类断言失去意义）。
+func policyWithTierRules(t *testing.T, requirements []string) (trustlevels.Policy, []string) {
 	t.Helper()
-	parts := make([]string, 0, tiers)
-	rules := make([]string, 0, tiers)
-	for index := 0; index < tiers; index++ {
+	parts := make([]string, 0, len(requirements))
+	rules := make([]string, 0, len(requirements))
+	for index, requirement := range requirements {
 		rule := ruleDoc(verifiedLeaf)
-		if index > 0 {
-			// 每档用不同的树，便于按字节区分「哪一档的规则被求值」。
+		for pad := 0; pad < index; pad++ {
 			rule = ruleDoc(fmt.Sprintf(`{"op":"all","children":[%s]}`, verifiedLeaf))
-			for pad := 0; pad < index; pad++ {
-				rule = ruleDoc(fmt.Sprintf(`{"op":"all","children":[%s]}`, verifiedLeaf))
-			}
 		}
 		rules = append(rules, rule)
-		parts = append(parts, rulesTierJSON(`{}`, rule))
+		parts = append(parts, rulesTierJSON(requirement, rule))
 	}
 	policy, err := trustlevels.DecodeConfig(tiersJSON(parts...))
 	if err != nil {
@@ -83,17 +85,78 @@ func policyWithTierRules(t *testing.T, tiers int) (trustlevels.Policy, []string)
 	return policy, rules
 }
 
+// policyWithoutTierRules 是 `policyWithTierRules` 的**孪生体**：同一批 requirements，
+// 但不挂任何规则。等价性回归拿它当基准——「带恒真规则」与「不带规则」必须逐组同结果。
+func policyWithoutTierRules(t *testing.T, requirements []string) trustlevels.Policy {
+	t.Helper()
+	parts := make([]string, 0, len(requirements))
+	for _, requirement := range requirements {
+		parts = append(parts, rulesTierJSON(requirement, ""))
+	}
+	return mustPolicy(t, tiersJSON(parts...))
+}
+
+// defaultRequirementsJSON 取内置推荐阈值，原样作为 JSON 字符串（逐档一个）。
+func defaultRequirementsJSON(t *testing.T) []string {
+	t.Helper()
+	defaults := trustlevels.DefaultPolicy().Tiers
+	out := make([]string, 0, len(defaults))
+	for _, tier := range defaults {
+		raw, err := json.Marshal(tier.Requirements)
+		if err != nil {
+			t.Fatalf("marshal requirements: %v", err)
+		}
+		out = append(out, string(raw))
+	}
+	return out
+}
+
 // TestLevelOfWithRulesEqualsLevelOfWithoutRules 是等价性回归（验收 2）。
 //
-// 未配规则的 policy 上，`LevelOf` 与 `LevelOfWithRules(nil)` 必须在**每一组**
-// Activity/账龄快照上逐个相等：这条守的是「M2 没有偷偷改变既有判定」。
+// 两个方向，缺一不可：
+//   - **无规则策略**：`LevelOf` 与 `LevelOfWithRules(nil)` 逐组相等——M2 没有偷偷改变
+//     既有判定；
+//   - **规则恒真策略**：`LevelOfWithRules(恒真求值器)` 仍逐组相等——带规则不改变判定。
+//
+// 第二条是本刀最关键的不变量，而它最容易漏：前两个策略都是 rule-free，本刀之前
+// **零覆盖**。少了它，一个「配了规则的档位永远不成立」的 bug 仍然能让全部既有测试绿。
 func TestLevelOfWithRulesEqualsLevelOfWithoutRules(t *testing.T) {
-	policies := []trustlevels.Policy{
-		trustlevels.DefaultPolicy(),
-		mustPolicy(t, tiersJSON(
+	// 第三个策略：与默认策略**同一批阈值**，但每档都挂一条恒真规则；它的基准是
+	// 同阈值的**无规则孪生体**。
+	//
+	// 为什么基准不能直接写 `trustlevels.LevelOf(rulePolicy)`：`LevelOf` 就是「没有求值器」
+	// 的那条路径，而它对**配了规则**的档位是 fail-closed（判不了 → 不成立）——那是刻意的
+	// 安全默认，不是等价性目标。真正的不变量是「恒真规则 ≡ 没有规则」。
+	requirements := defaultRequirementsJSON(t)
+	rulePolicy, rules := policyWithTierRules(t, requirements)
+	barePolicy := policyWithoutTierRules(t, requirements)
+	alwaysTrue := &fakeRuleEvaluator{}
+
+	// 孪生体必须真的同阈值，否则「等价」是在拿两份不同的策略比。
+	for rank := trustlevels.LevelMember; rank <= rulePolicy.LastRank(); rank++ {
+		if rulePolicy.RequirementsOf(rank) != barePolicy.RequirementsOf(rank) {
+			t.Fatalf("TL%d 的阈值不一致：rule=%+v bare=%+v", rank, rulePolicy.RequirementsOf(rank), barePolicy.RequirementsOf(rank))
+		}
+	}
+	if barePolicy.LastRank() != rulePolicy.LastRank() {
+		t.Fatalf("档数不一致：rule=%d bare=%d", rulePolicy.LastRank(), barePolicy.LastRank())
+	}
+
+	cases := []struct {
+		name       string
+		policy     trustlevels.Policy
+		wantPolicy trustlevels.Policy
+		evaluator  trustlevels.RuleEvaluator
+	}{
+		{"默认策略（无规则）", trustlevels.DefaultPolicy(), trustlevels.DefaultPolicy(), nil},
+		{"自定义无规则策略", mustPolicy(t, tiersJSON(
 			rulesTierJSON(`{"days_visited":1}`, ``),
 			rulesTierJSON(`{"comment_count":2}`, ``),
-		)),
+		)), mustPolicy(t, tiersJSON(
+			rulesTierJSON(`{"days_visited":1}`, ``),
+			rulesTierJSON(`{"comment_count":2}`, ``),
+		)), nil},
+		{"全档恒真规则 ≡ 同阈值无规则", rulePolicy, barePolicy, alwaysTrue},
 	}
 	activities := []trustlevels.Activity{
 		{},
@@ -104,16 +167,31 @@ func TestLevelOfWithRulesEqualsLevelOfWithoutRules(t *testing.T) {
 		{DaysVisited: 10000, TopicCount: 1000, CommentCount: 10000},
 	}
 	ages := []time.Duration{0, 6 * 24 * time.Hour, 7 * 24 * time.Hour, 30 * 24 * time.Hour, 3650 * 24 * time.Hour}
-	for pi, policy := range policies {
+	groups := 0
+	for _, testCase := range cases {
 		for ai, activity := range activities {
 			for _, age := range ages {
-				want := trustlevels.LevelOf(activity, age, policy)
-				got := trustlevels.LevelOfWithRules(context.Background(), activity, age, policy, nil)
+				want := trustlevels.LevelOf(activity, age, testCase.wantPolicy)
+				got := trustlevels.LevelOfWithRules(context.Background(), activity, age, testCase.policy, testCase.evaluator)
 				if got != want {
-					t.Fatalf("policy#%d activity#%d age=%v: LevelOfWithRules(nil)=%d ≠ LevelOf=%d", pi, ai, age, got, want)
+					t.Fatalf("%s: activity#%d age=%v: LevelOfWithRules=%d ≠ LevelOf=%d", testCase.name, ai, age, got, want)
 				}
+				groups++
 			}
 		}
+	}
+	// 网格规模自检：3 策略 × 6 Activity × 5 账龄。写死这个数是为了让「有人删了一行
+	// Activity 快照」也能被发现——等价性测试的价值全在网格密度上。
+	if groups != 90 {
+		t.Fatalf("等价性网格 = %d 组（期望 90 = 3×6×5）", groups)
+	}
+	// **规则真的被求值过**吗？恒真求值器若一次都没被调用，上面第三条就等于拿「无规则
+	// 策略」和它自己比——测试会假绿。所以这里要求至少有一次 Match。
+	if len(alwaysTrue.matched) == 0 {
+		t.Fatal("恒真策略下求值器从未被调用：等价性没有覆盖「带规则」这条路径")
+	}
+	if len(rules) != len(rulePolicy.ActiveTiers()) {
+		t.Fatalf("恒真策略应有 %d 条规则，得到 %d", len(rulePolicy.ActiveTiers()), len(rules))
 	}
 }
 

@@ -304,9 +304,16 @@ func TestNumericFailureSkipsUniqueConditionType(t *testing.T) {
 
 // TestRuleEvaluationLatency 是 §6.4 的 10k 夹具实测（默认不跑）。
 //
-// 门槛是**每个已认证请求**的装载期增量，所以这里量的是「一次 Evaluate」的耗时：
-//   - baseline：无规则策略（今天的 5 条固定查询口径的规则侧增量 = 0）；
-//   - rules：1 档带规则（2 条条件 SQL：users + user_activity 之外再加条件查询）。
+// **它量的是「规则求值本身的成本」，不是整条已认证请求的耗时**——两者别混：
+//   - 两侧都把 activity / policy 换成 stub（内存读），所以 baseline ≈ 几百 ns 就是
+//     「什么都没做」。**今天的装载路径那 5 条固定查询（主查询 + 2 RBAC + users +
+//     user_activity）不在这个基准里**，别把这里的数字当成「已认证请求的 P95」；
+//   - rules 侧 1 档带规则时只有 **1 条**条件 SQL：两档用的是同一个 `activity.count`
+//     type，`Prepare` 按 type 分组后同 type 只查一次（别按「档数」估算查询数）。
+//
+// 所以本测试能证明的是「规则求值只需 1 次往返、P95 远低于 5ms 预算」。
+// **要证明「已认证请求的 P95 增量 ≤ 5ms」必须另起一条走真 loader 的 A/B**（同一份
+// 夹具上开/关 `rule`，量 `GetCurrentUser` 端到端）——那是 M5 的验收动作，不在本文件。
 //
 // 用 `SFORUM_TRUST_PERF=1` 开启，`SFORUM_TRUST_PERF_USERS`（默认 10000）控制夹具规模。
 // 之所以默认不跑：它要插入上万行并跑上千次判定，是「结项前跑一次」的动作，不是日常循环。
