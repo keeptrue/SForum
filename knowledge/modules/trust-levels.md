@@ -958,7 +958,21 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
    13→14 与第 15 个样本、`conditions_postgres_integration_test.go` 13→14、
    `rule_catalog_test.go` 6→7、`config_rule_test.go` 11→12），七处相对式断言原样未动。
    判据要点：「资料行不存在」判 **false**（`user_profiles` 按需 upsert，无行是常态），
-   未知 field 才判 **unknown**。
+   未知 field 才判 **unknown**。**落点（注册项 / 解析器 / 批处理分派 / 文案 / 测试）与
+   「无行 → false」的判据依据见 `../reports/2026-11-14-identity-profile-condition-facts.md`**
+   （2026-11-14 只读核实，task-2 就是照它实施的）。
+   **实现后又补的第 5 处枚举（`b7acf2268` + `fdd881b9e`，task-11）**：这个条件的取值原本散在
+   注册项 `Options`、解析器白名单、`profileFilledSQL` 的**手写 CASE**、文案表与测试五处；手写 CASE
+   没跟枚举绑定，按 `registry.go:80-82` 记的审查 §5.2 实证——**加第 5 个取值时整包测试全绿、运行期
+   静默恒 `false`**（在 `not` 子树下还会反转成 `true`）。修法是把枚举收成**一处源表** `profileFields`
+   （取值 + 列名同一张表，`registry.go:83-91`），三处由它派生：`profileFieldOptions`
+   （`registry.go:94`，注册项 `Options` + 下拉顺序）、`isProfileField`（`resolve_identity.go:315`，
+   解析器白名单）、`buildProfileFilledSQL`（`resolve_identity.go:251`，CASE 分支与列名）。
+   **今日形态 = 一处源表 + 文案表 + 测试独立列映射**：文案表 `profileFieldPhrases`
+   （`phrases.go:244`，覆盖率由测试断）；测试侧 `profileColumns`
+   （`conditions_object_identity_integration_test.go:130-135`）**故意不派生**，好让源表把
+   `website` 的列写成 `website_url` 以外的东西时当场红。**加一个取值**：源表加一行（SQL 分支、
+   白名单、下拉自动跟随），文案表补一条（否则覆盖率断言红）。
    **为什么留着**：不再留着——本条已消，保留在此只为记「13→14 / 11→12 的迁移已完成」。
    **谁负责/何时消**：已消；**遗留边界**（不是缺口）：它**不参与影响面估算**，
    见 §Extension Surface 第 8 条。
