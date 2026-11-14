@@ -401,4 +401,29 @@ describe('identity.profile 的 field 取值文案', () => {
       wrapper.unmount()
     }
   })
+
+  /**
+   * 标签读取不能打出 intlify 告警。
+   *
+   * 对象形态的 `params.<name>` 是**命名空间节点**：对命名空间求 `t()` 会输出
+   * `[intlify] Not found '…' key`（实测 vue-i18n 11.4.6），而标签是每帧渲染的 computed，
+   * 一条告警会变成控制台洪水。所以先探 `.label`、扁平参数回落时才探命名空间。
+   */
+  test('两种形状的参数标签都不产生 intlify 告警', async () => {
+    const warnings: string[] = []
+    const originalWarn = console.warn
+    console.warn = (...args: unknown[]) => { warnings.push(args.map(String).join(' ')) }
+    const trust = mountFieldTrust()
+    const badge = mountBadgeEditor()
+    try {
+      await flushPromises()
+      expect(trust.find('[data-param="field"] .sf-rule-field__label').text()).toBe('字段')
+      expect(badge.find('[data-param="metric"] .sf-rule-field__label').text()).toBe('指标')
+    } finally {
+      trust.unmount()
+      badge.unmount()
+      console.warn = originalWarn
+    }
+    expect(warnings.filter(line => line.includes('[intlify]'))).toEqual([])
+  })
 })
