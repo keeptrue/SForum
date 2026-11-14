@@ -388,9 +388,8 @@ async function shareProfile() {
                   @open="openTrustDetail"
                 />
               </div>
-              <p v-if="profile.profile.bio" class="sf-profile-intro__bio">{{ profile.profile.bio }}</p>
-              <p v-else class="sf-profile-intro__bio sf-profile-intro__bio--empty">{{ t('profile.bioEmpty') }}</p>
-              <!-- 简介下 meta：位置 / 网站 / 加入时间，对齐 demo B1 profile-intro__meta -->
+              <!-- 身份行下 meta：位置 / 网站 / 加入时间，对齐 demo B1 profile-intro__meta。
+                   个人简介只在「关于」tab 出现一次，头部不再重复渲染（bioEmpty 键仍被关于 tab 用）。 -->
               <div class="sf-profile-intro__meta">
                 <span v-if="profile.profile.location">
                   <UIcon name="i-lucide-map-pin" class="size-3.5" aria-hidden="true" />

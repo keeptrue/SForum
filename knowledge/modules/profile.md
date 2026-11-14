@@ -182,9 +182,14 @@ editor in V1.
   applied to comments and notifications. `UID {n}` always stays, and hiding the
   handle leaves no leading `·` or doubled space. Account-handle contexts (user
   menu, profile settings preview) deliberately keep their `@username`.
-- The header identity block is three layers: `sf-profile-intro__name-row`
-  (`h1` + optional worn-badge chip), then `sf-profile-intro__identity-meta`
-  (`@handle` + `UID n`), then the bio. The chip is `SFBadgeChip` fed by
+- The header identity block is two layers: `sf-profile-intro__name-row`
+  (`h1` + optional worn-badge chip) and `sf-profile-intro__identity-meta`
+  (`@handle` + `UID n` + trust-level badge). The meta row (location /
+  website / joined) sits after the identity row and is not part of that
+  block. The bio is **not** part of the header: it renders only in the
+  `about` tab (`sf-profile-about`), so a page shows the same sentence once
+  instead of twice. The `profile.bioEmpty` key stays — the about tab and the
+  profile settings preview still use it. The chip is `SFBadgeChip` fed by
   `PublicProfile.topBadge` (source: `users.top_badge_id`, see
   `modules/badges.md`), and is 18px against a 32px
   (25px on ≤680px) h1 line box, so it adds no header height. On the owner's own

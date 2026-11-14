@@ -99,19 +99,6 @@
   white-space: nowrap;
 }
 
-.sf-profile-intro__bio {
-  max-width: 760px;
-  margin: 9px 0 0;
-  color: var(--sf-public-text-secondary);
-  font-size: 13px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-}
-
-.sf-profile-intro__bio--empty {
-  color: var(--sf-public-text-faint);
-}
-
 .sf-profile-intro__meta {
   display: flex;
   flex-wrap: wrap;
