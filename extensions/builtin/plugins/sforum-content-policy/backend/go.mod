@@ -4,7 +4,7 @@ go 1.26.10
 
 require (
 	github.com/keeptrue/sforum/apps/api v0.0.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
