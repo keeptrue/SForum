@@ -1909,42 +1909,55 @@ else
   c_finish H14 H FAIL "Identity 反向依赖：$h14"
 fi
 
-# --- H6/H17：i18n 两个内置名键族（双语、与角色目录不相交）
-# N 档口径：档名的**真相在服务端**（displayName/namePool），i18n 只兜底内置档位 id
-# （newcomer…leader）。所以这里断言「两个键族在 zh/en 都存在且不少于内置档位数」，
-# 不断言「键数 == 站点档数」——插一档不该要求翻译加键，删一档也不该让本项变红。
+# --- H6/H17：内置档名的 i18n 兜底（单族、逐 slug、与角色目录不相交）
+# 档名的**真相在服务端**（displayName / namePool），i18n 只兜底内置档位 id
+# （newcomer…leader，即 `builtinTierI18nKey()` 的第三层回落）。所以本项断的是
+# 「兜底链真的兜得住」：五个内置 slug 在 zh/en 两份 locale 里逐个存在且值非空；
+# 运营自定义出的额外档名只会让键数变多，不影响本项。
+# 判据取「逐个存在且非空」：少一个 slug 时若只断 keys|length，别的键照样能把数补回 5，
+# 那条断言继续绿而兜底链已经断了一条腿。本项要看见断腿，所以逐个点名。
+# 值集合只取 `profile.trustLevel.name` 一族：它是内置档名的唯一兜底族（admin 侧不留第二份）。
 ZH="$WEB_DIR/i18n/locales/zh-CN.json"; EN="$WEB_DIR/i18n/locales/en-US.json"
+BUILTIN_TL_SLUGS=(newcomer member resident veteran leader)
 if [[ -f "$ZH" && -f "$EN" ]]; then
-  h6="$(jq -r '
-    def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {});
-    [ {family:"profile.trustLevel.name", zh:(.profile.trustLevel.name|keys|length), vals:(.profile.trustLevel.name|to_entries|map("\(.key)=\(.value)")|join(" / "))},
-      {family:"admin.forum.trustLevels.level", zh:(adminFam|keys|length), vals:(adminFam|to_entries|map("\(.key)=\(.value)")|join(" / "))} ] | .[] | "\(.family)\t\(.zh) 键\t\(.vals)"' "$ZH" 2>&1)"
-  c "zh-CN："; c "$h6"
-  c "en-US："
-  c "$(jq -r 'def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {}); [.profile.trustLevel.name|keys|length, adminFam|keys|length] | "profile.trustLevel.name=\(.[0]) 键 · admin.forum.trustLevels.level=\(.[1]) 键"' "$EN" 2>&1)"
-  zh_a="$(jq -r '.profile.trustLevel.name|keys|length' "$ZH" 2>/dev/null || echo 0)"
-  zh_b="$(jq -r 'def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {}); adminFam|keys|length' "$ZH" 2>/dev/null || echo 0)"
-  en_a="$(jq -r '.profile.trustLevel.name|keys|length' "$EN" 2>/dev/null || echo 0)"
-  en_b="$(jq -r 'def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {}); adminFam|keys|length' "$EN" 2>/dev/null || echo 0)"
-  if [[ "${zh_a:-0}" -ge 5 && "${zh_b:-0}" -ge 5 && "${en_a:-0}" -ge 5 && "${en_b:-0}" -ge 5 ]]; then
-    c_finish H6 H ok "两个内置名键族 zh/en 双语齐全（zh $zh_a/$zh_b 键 · en $en_a/$en_b 键；N 档站点档名以服务端 displayName 为准，i18n 只兜底内置 id）"
+  c "zh-CN profile.trustLevel.name："
+  c "$(jq -r '.profile.trustLevel.name // {} | to_entries | map("\(.key)=\(.value)") | join(" · ")' "$ZH" 2>&1)"
+  c "en-US profile.trustLevel.name："
+  c "$(jq -r '.profile.trustLevel.name // {} | to_entries | map("\(.key)=\(.value)") | join(" · ")' "$EN" 2>&1)"
+  h6_missing=(); h6_empty=()
+  for slug in "${BUILTIN_TL_SLUGS[@]}"; do
+    for loc_file in "zh-CN:$ZH" "en-US:$EN"; do
+      loc="${loc_file%%:*}"; file="${loc_file#*:}"
+      if ! jq -e --arg s "$slug" '.profile.trustLevel.name | type == "object" and has($s)' "$file" >/dev/null 2>&1; then
+        h6_missing+=("$loc/$slug")
+        continue
+      fi
+      val="$(jq -r --arg s "$slug" '.profile.trustLevel.name[$s] | tostring' "$file" 2>/dev/null)"
+      [[ -n "${val//[[:space:]]/}" ]] || h6_empty+=("$loc/$slug")
+    done
+  done
+  c "缺键：${h6_missing[*]:-无} · 值为空：${h6_empty[*]:-无}"
+  if [[ "${#h6_missing[@]}" -eq 0 && "${#h6_empty[@]}" -eq 0 ]]; then
+    c_finish H6 H ok "五个内置档名 zh/en 逐个存在且非空（newcomer/member/resident/veteran/leader；N 档站点档名以服务端 displayName 为准，i18n 只兜底内置 id）"
   else
-    c_finish H6 H FAIL "键族不齐（profile.trustLevel.name zh=$zh_a en=$en_a · admin forum.trustLevels.level zh=$zh_b en=$en_b，期望各 ≥5）"
+    c_finish H6 H FAIL "内置档名兜底链断了（缺键：${h6_missing[*]:-无} · 值为空：${h6_empty[*]:-无}）"
   fi
-  h17="$(jq -r --slurpfile en "$EN" '
-    def adminFam: (.admin.forum.trustLevels.level // .admin.settings.trustLevels.level // {});
-    (.profile.trustLevel.name|to_entries|map(.value)) as $a
-    | (adminFam|to_entries|map(.value)) as $b
-    | ($a+$b) | unique | join("|")' "$ZH" 2>&1)"
   role_keys="$(jq -r '.admin.roleCatalog // {} | to_entries | map(.value) | map(if type=="string" then . else (.name // "") end) | join("|")' "$ZH" 2>/dev/null || true)"
-  c "内置档位 zh 值集合：$h17"
-  c "admin.roleCatalog 文案集合（片段）：$(printf '%s' "$role_keys" | cut -c1-160)"
-  c "交集检查：$(comm -12 <(printf '%s' "$h17" | tr '|' '\n' | sort -u) <(printf '%s' "$role_keys" | tr '|' '\n' | sort -u) | tr '\n' ' ')"
-  inter="$(comm -12 <(printf '%s' "$h17" | tr '|' '\n' | sort -u) <(printf '%s' "$role_keys" | tr '|' '\n' | sort -u) | tr '\n' ' ')"
-  if [[ -z "${inter// /}" ]]; then
-    c_finish H17 H ok '等级名文案与 admin.roleCatalog 文案零交集（等级 slug 不是角色键）'
+  # jq 读失败必须判红：读不出来时值集合是空串，交集永远为空，H17 会变成永真的摆设。
+  if ! h17="$(jq -r '.profile.trustLevel.name // {} | to_entries | map(.value) | map(select(type == "string" and length > 0)) | unique | join("|")' "$ZH" 2>&1)"; then
+    c_finish H17 H FAIL "内置档名 zh 值集合读不出来：$h17"
   else
-    c_finish H17 H FAIL "等级名与角色目录文案相交：$inter"
+    c "内置档名 zh 值集合（$ZH）：$h17"
+    c "admin.roleCatalog 文案集合（片段）：$(printf '%s' "$role_keys" | cut -c1-160)"
+    inter="$(LC_ALL=C comm -12 \
+      <(printf '%s' "$h17" | tr '|' '\n' | LC_ALL=C sort -u) \
+      <(printf '%s' "$role_keys" | tr '|' '\n' | LC_ALL=C sort -u) | tr '\n' ' ')"
+    c "交集检查：$inter"
+    if [[ -z "${inter// /}" ]]; then
+      c_finish H17 H ok '等级名文案与 admin.roleCatalog 文案零交集（等级 slug 不是角色键）'
+    else
+      c_finish H17 H FAIL "等级名与角色目录文案相交：$inter"
+    fi
   fi
 else
   c_finish H6 H pend 'locale 文件缺失'
