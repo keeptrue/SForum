@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.14-alpine AS deps
+FROM oven/bun:1.4.4-alpine AS deps
 
 WORKDIR /app/apps/web
 COPY apps/web/package.json apps/web/bun.lock ./
@@ -25,7 +25,7 @@ COPY apps/web/ ./
 COPY extensions/builtin /app/extensions/builtin
 RUN ln -sfn .nuxt-build .nuxt && bun run build
 
-FROM oven/bun:1.3.14-alpine AS prod
+FROM oven/bun:1.4.4-alpine AS prod
 
 # 升级 OpenSSL 运行时库以修复 CVE-2026-45447（libcrypto3/libssl3 3.5.6-r0 存在 HIGH
 # 漏洞，Alpine 3.22 仓库已提供 3.5.7-r0 修复版本）。仅影响最终运行镜像，不引入 Node。
