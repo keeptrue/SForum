@@ -19,7 +19,7 @@
 | --- | --- | --- | --- | --- |
 | D-1 | 展开开关位置 | A 图例行内右对齐 / B 数值网格下方独立一行 / C 行尾图标按钮 | **A** | 折叠态高度增量 = **0px**（塞进既有 24px 图例行）；B 给每档常驻加 40px；C 把图标按钮混进「外观/停用」命令组，语义被读成动作而非披露 |
 | D-2 | 展开后由谁滚动 | A 页面滚（面板无 `overflow`）/ B 面板内滚（`max-height` + `overflow-y:auto`）/ C 桌面内滚、390 页面滚 | **A** | B 与 C 都会造出与页面同轴的第二个 scroller（徽章那刀实测：外层 `scrollWidth == clientWidth` 滚不动、`tabindex` 落错元素）；C 让两档实测判据不同，QA 无法用一条断言覆盖 |
-| D-3 | 5 层嵌套的溢出策略 | A 横向滚动 / B 逐层压缩缩进 / C 截断层级 / D 不滚动、靠换行 | **D** | 390 最坏路径（深度 5 的叶子）仍有 **170px** 内容宽 ≥ 单字段最小基宽 140px，且规则树每个 flex/grid 子项都已 `min-width:0` → 物理上不会横向溢出；A/B/C 都是为了一个不存在的问题引入成本 |
+| D-3 | 5 层嵌套的溢出策略 | A 横向滚动 / B 逐层压缩缩进 / C 截断层级 / D 不滚动、靠换行 | **D** | 390 最坏路径（合法上限「4 组 + 1 叶」，实测最内层 `clientWidth` **208**、叶子内容 **182**）≥ 单字段最小基宽 140px，且规则树每个 flex/grid 子项都已 `min-width:0` → 物理上不会横向溢出；A/B/C 都是为了一个不存在的问题引入成本（原写的 170 已作废，见 §1.3 更正块） |
 | D-4 | 多档展开 | A 各自独立 / B 单开手风琴 | **B** | 32 叶满配时单棵树就是数千像素；8 档全开是数万像素的无意义长页。切换档不丢草稿（草稿在 composable），且 422 时自动展开出错档 |
 | D-5 | 影响弹窗宽度 | A `sm:max-w-md`（徽章影响弹窗现值）/ B `sm:max-w-lg`（本页三个确认弹窗现值） | **B** | 同页一致性优先于跨页一致性：本页 restore / structure / tier 三个弹窗都是 `lg`，影响弹窗是第四个同族确认框 |
 | D-6 | `≈` 与数字 | A 符号 + 数字同一行、符号只做视觉降级（当前裁决）/ B 只写「约 128 人」不要符号 / C 符号当数字前缀写进同一个 i18n 占位符 | **A** | B 在中文里「约」和 `≈` 语义重复但视觉层级不同，运营扫视时要的是数字；C 让 `≈` 无法单独降级颜色字号，且 `null` 态容易漏删 |
@@ -101,15 +101,34 @@
 ```
 390 − 32(p-4) − 32(card p-4) = 326      ← 与徽章那刀实测的 clientW==326 同值
 面板内容 326 − 26 = 300
-组 d1 274 ｜ d2 248 ｜ d3 222 ｜ d4 196 ｜ d5 叶子内容 = 170
+组 d1 274 ｜ d2 248 ｜ d3 222 ｜ d4 196 ｜ d5 叶子内容 = 170   ← **已作废，见下方更正块**
 ```
 
-1440 那一路的结论**不依赖** card padding 的猜测（可用宽 1136 已大于 `max-w-5xl` 的 1024 封顶，哪怕 card 无内边距也是 1024）；390 那一路的 326 有徽章 QA 的实测反证。两处都不是推演出来的单点依赖。QA 仍应按 Q-12 记录实测 `clientWidth`，本表给的是**期望值**（±1 容差）。
+> **更正（2026-11-14，M5 QA 实测；本条取代上面 390 阶梯的最后两格与「170」这个期望值）**
+>
+> 上面 390 阶梯的**最后两格（d4 196 / d5 叶子内容 170）作废**，错在三处叠加：
+>
+> 1. **层级口径错**：产品硬上限 `BADGE_RULE_LIMITS.maxDepth = 5`
+>    （`apps/web/app/utils/admin/rule.ts:105`）是**总层数**，最深合法结构是「4 组 + 1 叶」；
+>    阶梯却按「5 组 + 叶」再减一次。实测把 6 层写进 `PUT /admin/trust-levels` 直接
+>    `422 rule_too_complex`——那条路径在产品里不存在。
+> 2. **步长假设偏大**：阶梯按 26px/层推，用 d1=274 与实测 d4=208 反推，实际约 **22px/层**
+>    （反推值；QA 只逐层记了最内层与叶子）。
+> 3. **量错了对象**：170 标的是「叶子**内容**宽」，而 Q-12 把它当成「最内层 `clientWidth`」；
+>    实测这两个量分别是 **182** 与 **208**，本来就不是同一个数。
+>
+> 实测（390×844 同源 iframe、`not → any → all → not → leaf`、`[data-rule-group]` 4 个 depth 1–4）：
+> 最内层 `clientWidth=208 / scrollWidth=208`、叶子 `182`、`document.scrollWidth=390 == clientWidth`。
+> **Q-12 的判据改为「最深层 `clientWidth ≥ 200` 且 `scrollWidth == clientWidth`、页面无横向溢出」**
+> （与深度无关）。计划侧的同一处更正见
+> `../plans/2026-11-14-trust-level-conditions.md` §4.4-b「U2 的 170 是怎么推错的」。
+
+1440 那一路的结论**不依赖** card padding 的猜测（可用宽 1136 已大于 `max-w-5xl` 的 1024 封顶，哪怕 card 无内边距也是 1024）；390 那一路的 326 有徽章 QA 的实测反证。两处都不是推演出来的单点依赖。QA 的判据见上方更正块。
 
 结论：
 
 - 桌面：深度 5 的叶子拿到 **868px**，`.sf-rule-field`（`flex: 1 1 140px`）三个控件同排（各约 284px），规则树是「宽而扁平」。
-- 390：深度 5 的叶子只剩 **170px**，三个控件各占一行；**注意即使深度 1（274px）也已小于 `140+8+140=288`，所以 390 下叶子恒为单列堆叠，与嵌套深度无关** —— 嵌套只贡献 104px 的缩进视觉，不改变换行结果。
+- 390：合法 config 的最深层是「4 组 + 1 叶」，实测最内层 `clientWidth` **208**、叶子内容 **182**，三个控件各占一行；**注意即使深度 1（274px）也已小于 `140+8+140=288`，所以 390 下叶子恒为单列堆叠，与嵌套深度无关** —— 嵌套只贡献缩进视觉（按实测约 22px/层），不改变换行结果。
 
 ### 1.4 高度
 
@@ -131,7 +150,8 @@
 
 1. 会造出第二个滚动容器：徽章那刀实测过同形修法——在 `<UTable>` 外包 `overflow-x-auto` 后，外层 `scrollW == clientW == 326` 根本滚不动，真正的 scroller 在内层，`tabindex` 还落在滚不动的外层上（`knowledge/plans/2026-11-12-badge-rule-engine.md:556`、`knowledge/sessions/2026-11-12-badge-rule-engine-handoff.md:83`）。
 2. 触屏上「页面纵向 + 面板横向」是两个轴的手势争用，390 上最容易误触。
-3. 触发条件不存在：见 §1.3，最坏路径仍有 170px。
+3. 触发条件不存在：见 §1.3 更正块，合法最深结构（4 组 + 1 叶）实测最内层 `clientWidth` **208**、
+   叶子内容 **182**，都 ≥ 140px 单字段基宽（原写的 170 不可达）。
 
 **B. 逐层压缩缩进（否决）**
 
@@ -363,23 +383,30 @@
 390 实测判据（可直接粘贴到 QA 脚本）：
 
 ```js
-// 1) 可见表面上的纵向滚动容器恰好 1 个，且就是页面滚动区
+// 1) 面板不给 shell 基线**新增**纵向滚动容器（基线可能是 1 也可能是 2，见下方 S1 更正）
 const activeScrollers = [...document.querySelectorAll('*')].filter((el) => {
   if (el.closest('[aria-hidden="true"]')) return false;         // 模态打开时的背景层不计
   const s = getComputedStyle(el);
   return /auto|scroll/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 1;
 });
-// 期望：length === 1 且 activeScrollers[0].classList.contains('sforum-admin-scroll-area')
+// 期望：展开前后 length 不变（增量 0），且其中必有 .sforum-admin-scroll-area
 
-// 2) 面板子树内不存在任何 auto/scroll 轴
+// 2) 面板子树不给基线新增 auto/scroll 轴（基线本身不是 0，见下方 S2 更正）
 [...panel.querySelectorAll('*')].filter((el) => {
   const s = getComputedStyle(el);
   return [s.overflowX, s.overflowY].some(v => v === 'auto' || v === 'scroll');
-}).length === 0;
+}).length === panelBaselineCount;   // panelBaselineCount 在面板未挂载时同法量一次
 
 // 3) 页面无横向溢出
 document.documentElement.scrollWidth <= window.innerWidth + 1;
 ```
+
+> **S1/S2 更正（2026-11-14，M5 QA 实测；计划 §4.4 的同一张更正表，与本节冲突处以此为准）**
+>
+> | # | 本规范原写法 | 实测后 |
+> | --- | --- | --- |
+> | S1 | Q-02「恰好 1 个纵向滚动容器」 | **全站不成立**：`/control-panel/users`（未改动页）同样有 2 个（侧栏导航列 + `.sforum-admin-scroll-area`），390 下侧栏收起才恰好 1 个。判据改为「**面板不给 shell 基线新增 scroller**」。390×844 同源 iframe 内 `overflow-x ∈ {auto,scroll}` 的容器实测 3 个（`.sforum-admin-tabs` / `.sforum-admin-scroll-area` / `.shrink-0`）**全属 shell**，其中真正会滚的（`scrollWidth > clientWidth`）= **0**。 |
+> | S2 | Q-03「面板子树内 `overflow≠visible` 元素数为 0」 | **两次更正**。① M3b 实施期：面板子树里唯一 `overflow:auto` 是共享编辑器 JSON 预览的 `<pre>`，它在默认收起的 `<details>` 里（M3a 原样搬来），改它＝改徽章编辑器行为 → 判据暂改为「排除收起 `<details>` 子树后为 0」。② M5 QA：这条**在本仓永远不可能为 0**——排除 `details` 后仍有上面那 3 个 shell 容器；按字面统计 `overflow ≠ visible`（含 `hidden` / `clip`）共 **109 个**，shell 到处 `overflow-hidden` / `clip`（含 `IMG`）。所以 S2 与 S1 同构：「**面板不给 shell 基线新增 scroller / 新增 `overflow≠visible` 元素**」——基线本身不是 0，比的是**面板带来的增量**。证据：`work-team/review/t13-qa/REPORT.md` §2。 |
 
 为什么不让面板内滚（三条，任一都足以否决）：
 
@@ -395,7 +422,7 @@ document.documentElement.scrollWidth <= window.innerWidth + 1;
 [条件 ▾                      ]   ← 标签 11px，控制器 30px
 [比较符 ▾                    ]
 [值            ] [单位 11px  ]
-[参数控件 1                  ]   ← repeat(auto-fit, minmax(140px,1fr)) 在 170px 内自动退成 1 列
+[参数控件 1                  ]   ← repeat(auto-fit, minmax(140px,1fr)) 在 208px 内自动退成 1 列
 [参数控件 2                  ]
 ```
 
@@ -408,7 +435,7 @@ document.documentElement.scrollWidth <= window.innerWidth + 1;
 | 叶子内边距 | `10px 12px`（现值） |
 | 组内动作按钮 | ≤480 只留图标（`Group:357-362` 现值：`.sf-rule-add span { display:none }`），`aria-label` + `title` 必须保留 —— 本规范不改这条 |
 
-单位后缀（`Leaf:257-262`，11px `--sf-fg-tertiary`）在 390 保持同行；`flex: 1 1 auto` 的输入 + `flex: 0 0 auto` 的单位，在 170px 内仍放得下（输入最小 100px 左右）。
+单位后缀（`Leaf:257-262`，11px `--sf-fg-tertiary`）在 390 保持同行；`flex: 1 1 auto` 的输入 + `flex: 0 0 auto` 的单位，在最内层 208px（实测）内仍放得下（输入最小 100px 左右）。
 
 ### 3.3 键盘可达性与 `aria-*`
 
@@ -435,8 +462,8 @@ Tab 顺序（= DOM 顺序，见 §1.1）：
 | ID | 判据 | 断言（390×844 与 1440 各跑一次） |
 | --- | --- | --- |
 | Q-01 | 页面无横向溢出 | `document.documentElement.scrollWidth <= innerWidth + 1` |
-| Q-02 | **只有一个纵向滚动容器** | 见 §3.1 第 1 段；`activeScrollers.length === 1` 且 `classList.contains('sforum-admin-scroll-area')` |
-| Q-03 | 面板子树内无任何 scroller 轴 | 见 §3.1 第 2 段；`length === 0` |
+| Q-02 | **面板不给 shell 基线新增 scroller**（原「恰好 1 个」作废，见 §3.1 S1 更正） | 见 §3.1 第 1 段；展开前后 `activeScrollers.length` **增量 0**，且集合里含 `.sforum-admin-scroll-area` |
+| Q-03 | 面板子树**不给基线新增** scroller 轴（原「无任何 scroller 轴」作废，见 §3.1 S2 更正） | 见 §3.1 第 2 段；面板挂载前后同法计数，`length` **增量 0**（基线含 shell 的 `.sforum-admin-tabs` / `.sforum-admin-scroll-area` / `.shrink-0`） |
 | Q-04 | 折叠态零位移 | `legend.getBoundingClientRect().height === 24`；`toggle.height === 24`；`Math.abs(toggle.top - icon.top) <= 0.5` |
 | Q-05 | 展开不改相邻行基线 | 记录另一档输入框的 `{top,left,height}`；展开后再测：`left` 与 `height` 变化为 **0**，只有 `top` 整体下移（= 面板高度） |
 | Q-06 | 单开 | `document.querySelectorAll('[data-sf-tl-rule-panel]:not([hidden])').length <= 1` |
@@ -445,7 +472,7 @@ Tab 顺序（= DOM 顺序，见 §1.1）：
 | Q-09 | 面板**未**内联 `--tl-accent` | `!(/--tl-accent\s*:/.test(panel.getAttribute('style') || ''))` |
 | Q-10 | 深色派生生效 | 为某档设自定义 hex（如 `#7c3aed`）→ `html.classList.add('dark')` → `getComputedStyle(panel).borderLeftColor` 与浅色下的值**不相等**（证明吃到了 `--tl-accent-dark`，而不是原色直出） |
 | Q-11 | 无第二套强调色 | 面板子树内不存在 `background`/`border-color` 计算值为 `--sf-accent` 或其 `-soft` 的元素（焦点环 `outline-color` 例外） |
-| Q-12 | 深度 5 不溢出 | 构造 5 层嵌套夹具 → 最内层 `.sf-rule-leaf` 的 `scrollWidth <= clientWidth`（**期望 390 下 clientWidth ≈ 170**） |
+| Q-12 | 最深层不溢出 | 构造 **4 组 + 1 叶（5 层，合法上限）** → 最深层 `.sf-rule-group` 的 `scrollWidth == clientWidth` 且 `clientWidth >= 200`；`document.scrollingElement.scrollWidth == clientWidth`（**期望值 208 已由 M5 QA 实测；原写的「≈170」不可达，见 §1.3 更正块**） |
 | Q-13 | 叶子在 390 单列 | 深度 1 的叶子三个字段 `top` 两两不同（各占一行），`left` 相同 |
 | Q-14 | 弹窗 `null` 态无 `≈` | `dialog.textContent.includes('≈') === false`；`[data-sf-tl-impact-estimate]` 不存在；`[data-sf-tl-impact-unestimable]` 存在 |
 | Q-15 | 弹窗有值态 `≈` 唯一 | `[data-sf-tl-impact-estimate]` 文本匹配 `/≈\s?\d/`；`dialog.textContent.match(/≈/g).length === 1` |
@@ -476,7 +503,7 @@ Tab 顺序（= DOM 顺序，见 §1.1）：
 | `apps/web/app/composables/admin/forum/trustLevels/useTrustLevelRuleDraft.ts`（新） | 草稿 + 前端镜像校验 + 展开状态 | 展开状态**不进** `trust.levels` |
 | `apps/web/app/pages/admin/forum/trust-levels.vue` | 保存按钮的 `:disabled` 追加 `willWriteRule && !catalogUsable`（§6.2） | 只加一个布尔项，不改 footer 结构 |
 
-i18n：键族是 **`admin.forum.trustLevels.*`**（实测 243 个键）。不是 `admin.settings.trustLevels.*`（实测 0 个键）——`task-3` 的 §4 硬约束这条写错了，见 §6.5。
+i18n：键族是 **`admin.forum.trustLevels.*`**（实测 **394** 个叶键）。不是 `admin.settings.trustLevels.*`（实测 `undefined`）——`task-3` 的 §4 硬约束这条写错了，见 §6.5。
 
 ---
 
@@ -530,7 +557,17 @@ i18n：键族是 **`admin.forum.trustLevels.*`**（实测 243 个键）。不是
 
 ### 6.5 仍需他人动作的事实纠错（不是裁决）
 
-`task-3` 写「真实键族只有 `admin.settings.trustLevels.*`」。实测 `zh-CN.json`：`admin.forum.trustLevels.*` 有 **243** 个键，`admin.settings.trustLevels.*` 有 **0** 个。本规范全部按 `admin.forum.trustLevels.*` 写；`task-3` 的键表需按实际族名重出，否则前端照抄会全量 miss（`trustLevels.test.ts` 的双向断言只覆盖错误码键，兜不住这一层）。
+`task-3` 写「真实键族只有 `admin.settings.trustLevels.*`」。实测 `zh-CN.json`：`admin.forum.trustLevels.*`
+有 **394** 个叶键，`admin.settings.trustLevels.*` 为 **`undefined`**。本规范全部按
+`admin.forum.trustLevels.*` 写；`task-3` 的键表需按实际族名重出，否则前端照抄会全量 miss
+（`trustLevels.test.ts` 的双向断言只覆盖错误码键，兜不住这一层）。
+
+> **叶键数更正（2026-11-14 M5 收口复测）：243 → 394。** 本节与 §5、§7 原写的 243 **在任何已提交
+> 版本都不成立**：`git show 5a1d4083f:apps/web/i18n/locales/zh-CN.json` 同法计数 = **360**
+> （`rule` 76 / `conditions` 35 / `ruleConditions` 0），HEAD（`0b38458bd`）= **394**
+> （`ruleConditions` 补到 42，同时 F1 删掉 8 条孤儿键：360 + 42 − 8 = 394）。计数命令：
+> `cd apps/web && node -e 'const j=require("./i18n/locales/zh-CN.json");const f=(n,p="")=>n&&typeof n==="object"&&!Array.isArray(n)?Object.keys(n).flatMap(k=>f(n[k],p?p+"."+k:k)):[p];console.log(f(j.admin.forum.trustLevels).length, j.admin.settings?.trustLevels)'`
+> → `394 undefined`。`en-US` 同数。
 
 ---
 
@@ -538,7 +575,7 @@ i18n：键族是 **`admin.forum.trustLevels.*`**（实测 243 个键）。不是
 
 | 项 | 计划 / 其它任务的说法 | HEAD 实测 | 证据 |
 | --- | --- | --- | --- |
-| 后台 i18n 键族 | `task-3`：`admin.settings.trustLevels.*` | `admin.forum.trustLevels.*`（243 键；`admin.settings.trustLevels.*` = 0） | `apps/web/i18n/locales/zh-CN.json` 键路径枚举 |
+| 后台 i18n 键族 | `task-3`：`admin.settings.trustLevels.*` | `admin.forum.trustLevels.*`（**394** 叶键；`admin.settings.trustLevels.*` = `undefined`） | `apps/web/i18n/locales/{zh-CN,en-US}.json` 键路径枚举（命令见 §6.5 更正块） |
 | 阈值 tab 每档行元素 | 计划：`fieldset` 行 | 确实是 `<fieldset>` + `<legend>`，**不是** `SFAdminTrustLevelTierRow.vue`（那是「档位」tab 的行） | `SFAdminTrustLevelThresholdsTab.vue:111-129`；`TierRow` 只在 `SFAdminTrustLevelTiersTab` 用 |
 | 折叠面板落点 | 计划 §4.4：「每档行加折叠面板」 | 只能落在阈值 tab；档位 tab 的行已经有 8 个命令按钮，再加披露入口会挤爆 390 | 同上 + `TierRow:112-178` 命令组实测 |
 | 档位色驱动方式 | 计划：`data-step` + `--tl-accent` | `--tl-accent` 由**祖先内联**（`tierAccentStyle`），`data-step` 只驱动 `.sf-tl-mark` 图形；自定义 hex 走 `--tl-accent-light/-dark` 由 CSS 在 `.dark` 下挑一支 | `utils/theme/tierColor.ts:102-111`；`sforum-trust-colors.css:93-99` |
@@ -551,4 +588,4 @@ i18n：键族是 **`admin.forum.trustLevels.*`**（实测 243 个键）。不是
 
 ## 8. 一句话交付
 
-折叠面板塞进图例右端（24px 高、零位移）、落在数值网格之后（Tab 顺序 = 视觉顺序）、**不自带任何滚动容器**（唯一滚动容器是 `layouts/admin.vue:722` 的 `.sforum-admin-scroll-area`），5 层嵌套靠 `min-width:0` + 换行消化（390 最坏 170px ≥ 140px 基宽，不需要横向滚动/缩进压缩/截断）；颜色从祖先 `--tl-accent` 消费、绝不内联（内联会压过 `.dark` 的明暗选择），`--sf-accent` 只保留给焦点环；影响弹窗整段复用外观弹窗的冻结几何（`sm:max-w-lg` + `min(86dvh,720px)` + body 唯一滚动 + footer 吸底），三态互斥、`null` 态全屏不出现 `≈`、`≈` 与数字同基线且数字全屏只出现一次；可访问名：本轮**新增 0 个键**（开关只挂 `aria-expanded` + `aria-controls`，弹窗无图标按钮）；保存闸门只有一条：`willWriteRule ∧ ¬catalogUsable` → 禁用并给可见原因（§6.2）。
+折叠面板塞进图例右端（24px 高、零位移）、落在数值网格之后（Tab 顺序 = 视觉顺序）、**不给 shell 基线新增 scroller / 新增 `overflow≠visible` 元素**（页面层唯一的滚动容器仍是 `layouts/admin.vue:722` 的 `.sforum-admin-scroll-area`），5 层嵌套靠 `min-width:0` + 换行消化（390 实测最内层 `clientWidth` 208 ≥ 140px 基宽，不需要横向滚动/缩进压缩/截断）；颜色从祖先 `--tl-accent` 消费、绝不内联（内联会压过 `.dark` 的明暗选择），`--sf-accent` 只保留给焦点环；影响弹窗整段复用外观弹窗的冻结几何（`sm:max-w-lg` + `min(86dvh,720px)` + body 唯一滚动 + footer 吸底），三态互斥、`null` 态全屏不出现 `≈`、`≈` 与数字同基线且数字全屏只出现一次；可访问名：本轮**新增 0 个键**（开关只挂 `aria-expanded` + `aria-controls`，弹窗无图标按钮）；保存闸门只有一条：`willWriteRule ∧ ¬catalogUsable` → 禁用并给可见原因（§6.2）。

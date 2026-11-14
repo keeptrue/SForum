@@ -1,6 +1,16 @@
 # 信任等级：条件化门槛（复用徽章规则引擎）+ 插件扩展面
 
-Status: **实施中**（2026-11-14）。M0 已收口（`e4f8c3b1f` + `322f088e5`）；M1 进行中。
+Status: **active（M0–M4 已落地，M5 收口完成；1 笔未落 + 2 个并行单）**。M0–M4 全部落地（M1 条件引擎、M2 求值链路、
+M3 后台 UI + M3b 条件折叠面板与影响面确认、M4 插件扩展面：事实条件 / 可授予权限 /
+`trust_level.changed` 事件 / 两条 HostQuery / 每日 sweep）。M5 收口的实物：
+`../modules/trust-levels.md` 的 Extension Surface 与 9 条残留、
+`../reports/2026-11-14-m5-acceptance-matrix.md` 的六条变异矩阵、
+三份决策记录（earnable-plugin-keys / synthetic-rule-root / hostquery-computed-definitions）。
+**未落 1 笔**：§3.3 的 `identity.profile` 条件（共享目录 13→14、信任子集 11→12），本轮在办
+（task-2）。**并行单 2 个**：夹具正样本可重放（task-4，在办）、0b38458bd 的家族清单审查
+（task-3，在办；清单本身已落，见下）。逐条见模块笔记的「9 条已知残留」。
+7 家族手写清单**已由 `0b38458bd` 收口**（`v3PluginOnlyDeclarationFamilies` 成运行期唯一来源 +
+清单⇄schema 双向比对），不再算未落；残留的只是「各家族 validator 是否第二入口」的审查结论。
 前置计划：`2026-11-10-trust-levels.md`（D1–D32）、`2026-11-11-trust-levels-n-tiers.md`、
 `2026-11-12-badge-rule-engine.md`（规则引擎本体，已收口）。
 
@@ -21,8 +31,8 @@ Status: **实施中**（2026-11-14）。M0 已收口（`e4f8c3b1f` + `322f088e5`
 | 配置错误码 | **33**（前端分桶断言 33 / 15 / 18） | `config.go` + `apps/web/tests/admin/forum/trustLevels.test.ts:595-600` |
 | 多条件规则文案 | **已生成**（`renderRule` 用「并且/或」连接，手填已移除） | `requirement_text_render.go:75`、`rule_store_postgres_integration_test.go:457` |
 | 草稿规则文案预览端点 | 已有 `POST /admin/badges/rule-text` | `Http/Controllers/Badges/controller.go:123` |
-| 后台 i18n 键族（**实测，纠正模块笔记**） | `admin.forum.trustLevels.*` = **243** 叶键；`admin.settings.trustLevels.*` = **0**，且被断言必须 `undefined` | `node -e` 结构化计数 + `trustLevels.test.ts:833-839` |
-| 等级域插件暴露 | **零**（模块笔记明确 `TODO(核实)`） | `knowledge/modules/trust-levels.md` §Extension Surface |
+| 后台 i18n 键族（**实测，纠正模块笔记**） | `admin.forum.trustLevels.*` = **394** 叶键（2026-11-14 收口复测；**旧数 243 在任何一个已提交版本都不成立**，`5a1d4083f` 实测 360、HEAD 394）；`admin.settings.trustLevels.*` = **`undefined`**（被 `trustLevels.test.ts:848` 断言钉死） | `node -e` 结构化计数 + `trustLevels.test.ts:848` |
+| 等级域插件暴露 | 当时是 **零**（模块笔记写着 `TODO(核实)`）；M4a/M4b 落地后四类面各占一条，见模块笔记 §Extension Surface | `knowledge/modules/trust-levels.md` §Extension Surface |
 | 可挣得权限白名单 | **硬编码 7 个核心键**，插件权限永不可能 | `Models/TrustLevels/registry.go:33` |
 | 阅读行为数据源 | **不存在**（无 `user_topic_reads`） | 迁移全表扫描 |
 
@@ -166,8 +176,8 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 3. `apps/web/tests/admin/forum/trustLevels.test.ts:595-600` 的 `BACKEND_CODES` **39** / `SPECIFIC_ERROR_CODES` **21** / `CONFIG_BUCKET_ERROR_CODES` 18（并集 39，不重不漏）+ 两份 locale 的 6 条文案（`admin.forum.trustLevels.*` 族）。
 
 **注意两条口径（2026-11-14 实测纠正）**：
-- 后台键族是 **`admin.forum.trustLevels.*`**，不是 `admin.settings.trustLevels.*`——后者被 `trustLevels.test.ts:833-839` 断言必须 `undefined`，写成那样会全量 miss 且不会被双向断言兜住。`knowledge/modules/trust-levels.md` 的旧说法是错的，M5 必须改。
-- 「多出来的键会被双向断言判红」只在 `adminBadgesI18n.test.ts` 成立，**不覆盖** trustLevels。trustLevels 侧真正会红的是 4 处：`606-613`（specific 码两份 locale 都要有）、`615-643`（桶内码 locale **不得**有文案）、`803-804`（metric 键集合 toEqual 六项）、`833-839`（禁第二族）。
+- 后台键族是 **`admin.forum.trustLevels.*`**，不是 `admin.settings.trustLevels.*`——后者被 `trustLevels.test.ts:847-848` 断言必须 `undefined`，写成那样会全量 miss 且不会被双向断言兜住。`knowledge/modules/trust-levels.md` 的旧说法是错的，M5 必须改。
+- 「多出来的键会被双向断言判红」只在 `adminBadgesI18n.test.ts` 成立，**不覆盖** trustLevels。trustLevels 侧真正会红的是 4 处：`606-613`（specific 码两份 locale 都要有）、`615-643`（桶内码 locale **不得**有文案）、`803-804`（metric 键集合 toEqual 六项）、`847-848`（禁第二族：`admin.settings.tabs.trustLevels` / `admin.settings.trustLevels` 都必须 `undefined`）。
 
 ### 3.5 契约变更（OpenAPI）
 
@@ -263,8 +273,9 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
    实测这两个量分别是 182 与 208，本来就不是同一个数。
 
 结论：`≈170` 在合法配置下不可达，判据换成与深度无关的「`clientWidth ≥ 200` + 无横向溢出」。
-注：那条缩进阶梯在 ui-spec（`reports/2026-11-14-trust-level-conditions-ui-spec.md:104`）里**仍然是错的**，
-本单只改计划；ui-spec 的更正挂到 M5 收口（task-14），别再拿那张阶梯当依据反推别的宽度。
+注：那条缩进阶梯在 ui-spec（`reports/2026-11-14-trust-level-conditions-ui-spec.md:104`）里原本仍是错的，
+**M5 收口已在 ui-spec 侧同批更正**（同一文件 `:107-124` 的更正块 + Q-12 判据 + 正文里 5 处 `170`
+残留全部改成 208/182 口径）。别再拿那张阶梯当依据反推别的宽度。
 
 **U3 的配方为什么不成立**
 
@@ -284,7 +295,11 @@ tierSatisfied(t) = satisfies(activity, t.requirements)
 
 ### 4.4-c 存量死键 9 条（**M5 收口必判定，不许无主悬着**）
 
-`admin.forum.trustLevels` 族 360 键中 351 有消费者，9 条无。**棘轮测试已落**（`tests/admin/forum/trustLevelI18nDeadKeys.test.ts`，断言 `unused === KNOWN_DEAD_KEYS` 集合相等）：新增会红，**接上消费者却忘销号也会红**——登记表只许缩短。
+`admin.forum.trustLevels` 族**实测 394 叶键**（2026-11-14 收口复测；原文的 360 是 `5a1d4083f` 的旧值，
+差额 = `ruleConditions` 补到 42 − F1 删掉的 8 条孤儿键），**死键已清零**（登记表收缩到空数组）。
+**棘轮测试已落**（`tests/admin/forum/trustLevelI18nDeadKeys.test.ts`，断言 `unused === KNOWN_DEAD_KEYS`
+集合相等，实测 `4 pass / 0 fail`）：新增会红，**接上消费者却忘销号也会红**——登记表只许缩短。
+下表是**当时**的 9 条盘点（`errors.tierTitle` 已接上档位错误抬头，其余 8 条已删文案），保留作处置依据。
 
 | 键 | 实测依据 | M5 处置方向 |
 | --- | --- | --- |

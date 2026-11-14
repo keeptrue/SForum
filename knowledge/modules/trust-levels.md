@@ -542,17 +542,97 @@ super_admin + Down 回收）、前端 `apps/web/app/config/roleTemplates.ts:69`�
 
 ## Extension Surface
 
-`TODO(核实)`：计划未定等级域的稳定视图与 HostQuery，这里**不编**。M4/M5 落地后必须回答：
+口径按 `decisions/2026-10-18-extension-data-surface-policy.md` 的四类面（views / queries /
+commands / events）。信任等级在 2026-11-14 已把四类面各占一条，逐条如下。
 
-1. 等级要不要进 `sforum_core_v1`？派生值不落库，视图无法直接暴露；若暴露，只能在
-   HostQuery 里现算——那就得决定「按谁算」（请求者？目标用户？）以及是否接受
-   每次查询多读一行 `user_activity`。
-2. 公开资料页要展示等级时，走视图还是走独立只读接口。
-3. 插件是否需要「读取某用户等级」的稳定契约；若需要，等级名与阈值是否也进契约
-   （否则插件无法解释自己的判定）。
+### 1. 事实条件声明 → 走 **manifest 声明 + Host 命令**（M1–M2）
 
-明确**不做**（计划 §9）：等级专属徽章联动、等级影响搜索权重/排序、
-`trust_level` 反规范化列与后台重算按钮、阅读类指标、提名/晋升审批。
+插件用 `userFactConditions`（中性名，canonical）声明可上报的事实键，`badgeConditions` 是同一份
+东西的兼容别名：两个数组合计上限 **32**、`key` 跨数组唯一、`contractVersion` 必须恰好
+`key@N`、扩展必须有 `backend` 且 `protocolVersion: 2`
+（`app/Support/ExtensionManifest/v3_badge_conditions.go:61-146` 的 `validateFactConditions`，
+上限常量同名文件 `:27` 的 `BadgeConditionsMaximum`）。
+数据由 Host 命令 `badges.fact.record` 写入，调用方需声明能力 `badges.fact.write`
+（`app/Support/Capabilities/catalog.go:33`）。
+
+同一份声明**同时喂徽章规则与信任等级规则**（`app/Models/Conditions/facts.go` 的合并入口）。
+未声明的 factKey 让叶子变 *unknown* → 该档不成立（fail-closed），已声明的查不到行按 `0` 算。
+插件停用后它的 key 在 5 秒目录刷新窗口内从候选消失，引用过它的规则仍可解码、只是不再命中。
+
+### 2. 可被等级授予的权限 → 走 **manifest 声明 + 运行期白名单 + 写期拒绝**（M4a）
+
+插件在自己的 `permissionDefinitions[]` 上声明 `trustLevelEarnable: true`
+（`app/Support/ExtensionManifest/v3_platform_types.go:224-229`，缺省 `false` 是安全默认）。
+运行期白名单 = 核心七键 ∪ 已启用插件声明的键（`app/Models/TrustLevels/registry.go:31-39` 的
+`earnableWhitelist`、`:260-268` 的 `State`、`:299-308` 的 `FilterGranted`）；解码期只判结构；
+写期对「从未被声明」的键报 `422 earnable_not_declared`
+（`registry.go:328`、`app/Models/TrustLevels/config.go:98`）。读面三态 `valid / inactive / unknown`。
+
+**完整裁决与降回条件**：`decisions/2026-11-14-trust-level-earnable-plugin-keys.md`。
+
+### 3. 等级变更事件 → 走 **event 面（observe 型，只观察不拦截）**（M4b-2）
+
+事件名 `trust_level.changed`（常量 `app/Support/Events/catalog.go:49`，目录定义 `:114`），
+载荷 `userId / fromLevel / toLevel / fromTierId / toTierId / computedAt`。
+发事件的前置是「重算结果与变更账本不同」（`app/Models/TrustLevels/recompute.go:157`），因此
+**三种路径不发**：求值 `incomplete`（`recompute.go:117`）、该用户首次落账本（`:143`，只落账本）、
+结果未变化（`:148`）；产品面关闭时整段跳过（`Skipped: "disabled"`）。
+插件侧消费这条链的受支持路径是「事件 → 事实」（经 `badges.fact.record` 上报），事件本身是
+Host 的可观测面。
+
+**每日 sweep 兜底**：`app/Support/Jobs/core_schedules.go:27`（`ScheduleTrustLevelsSweep`，按账本
+陈旧度重算），装配在 `bootstrap/worker.go:819`；它覆盖「角色变更 / OAuth 解绑 / 徽章收回」
+这类没有活动事件的变化。
+
+### 4. 读等级目录与单用户等级 → 走 **HostQuery 面**（M4b-3）
+
+| Query ID | 语义 |
+| --- | --- |
+| `sforum.core.public_trust_level_catalog.list` | 档位目录（level / levelSlug / displayName / icon / color / requirements / earnable） |
+| `sforum.core.public_user_trust_level.get` | 单用户当前等级，**现算**（`Resolver.Evaluate`），不读账本表 |
+
+注册：`app/Support/HostAPI/query_registry_core.go:444` 与 `:452`；常量
+`query_registry_core.go` 同目录 `v2_query_runtime.go:42`/`:45`。
+`get` 的 `state ∈ {resolved, incomplete, disabled}`，后两者 `level` / `tier_id` 为 `null`——
+「等级是 0」与「算不出来」在调用方那里必须可区分（`app/Support/HostAPI/query_registry_core_schema.go:226-228`）。
+守门人：`app/Support/HostAPI/trust_level_queries_postgres_integration_test.go:211`
+（`TestUserTrustLevelSourceKeepsIncompleteAndDisabledNullable`）与 `:133`
+（`TestUserTrustLevelSourceComputesInsteadOfReadingLedger`）。
+
+**引擎侧新增的「计算形态」裁决**：`decisions/2026-11-14-hostquery-computed-definitions.md`。
+
+### 5. 求值路径的架构约束（插件不可见，但会影响插件观察到的时延与失败姿态）
+
+条件求值在 `TrustLevels` 侧拼一棵**合成 `all` 根**，只 `Prepare` 一次、逐档 `Eval` 复用 memo；
+合成根只装「数值预筛已过且带 rule」的档位，且不进入任何返回值。
+**完整裁决与降回条件**：`decisions/2026-11-14-trust-level-synthetic-rule-root.md`。
+
+### 6. 明确不做
+
+见计划 `plans/2026-11-14-trust-level-conditions.md` **§6「明确不做」的 7 条**
+（审核信号条件 / 内容质量条件 / 阅读行为 / RPC 条件求值器 / 等级反规范化列 / 公开的逐条清单 /
+规则改严后的追溯收回）与本文件上文 §「已作废结论 → D. 明确不做」。这里不重复解释。
+
+### 7. manifest-v3 schema 的 kind 分支（M4a-O1 结论，2026-11-14）
+
+七个「只允许插件」的声明家族在 schema 里各有 `if required <family> → then.type.const=plugin`
+分支：`identity` / `badgeConditions` / `userFactConditions` / `permissionDefinitions` / `seo` /
+`aiTools` / `notificationTypes`（`app/Support/ExtensionManifest/schemas/manifest-v3.schema.json`
+的 `allOf`，实测 7 条分支）。
+
+这七个家族**不再手写两份**：Go 侧清单 `v3PluginOnlyDeclarationFamilies`
+（`app/Support/ExtensionManifest/v3_validate_platform.go:95-106`）是运行期唯一来源，
+`validatePluginOnlyFamilies()`（同文件 `:112-124`）在 `validatePlatform` 入口集中判一次 kind；
+测试做**双向比对**（清单 ⇄ schema 分支，任一多出即红并指名，
+`v3_schema_kind_families_test.go:190-200`）。见下文残留 6 的现状与残留风险。
+
+`notificationTypes` 刻意**只补 kind、不加 backend 要求**：Go 侧只要求 plugin，schema 若同时要求
+backend 会拒掉 Go 会放行的包（双侧判据见
+`app/Support/ExtensionManifest/v3_schema_kind_families_test.go` 的
+`TestManifestV3SchemaRequiresPluginForNotificationTypes`）。
+
+**没有任何生产路径只跑 `ValidateV3JSONSchema` 而不跑 `Validate`**：装载路径两处 schema 校验
+（`load.go:99` 原始 body、`:116` canonical 重编码后）之后，`:120` 必定调用 Go 侧 `Validate`。
 
 ## 登记点：新增后台 tab 或公开组件是 **9 处**，不是 6 处
 
@@ -695,9 +775,27 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
    （`none` / `super_admin` / `static` / `earned`），`static` 刻意不区分「角色授予」与「用户
    allow 覆盖」——多一次查询不值得放在热路径。这是已定调的设计（D30），不是待补的 TODO。
 9. **命名与 i18n 有三条硬约定**：
-   - 真实键族只有两个：公开侧 `profile.trustLevel.*`、后台侧 `admin.settings.trustLevels.*`。
+   - 真实键族只有两个：公开侧 `profile.trustLevel.*`、后台侧 **`admin.forum.trustLevels.*`**。
      `trust.level.*` 与 `trustLevels.*` 都**不是** i18n 键族（前者已零命中，`NameKey()` /
      `DescriptionKey()` / `ThresholdOptionKey()` 三个死生成器都已删除）。
+     **旧说法「后台侧是 `admin.settings.trustLevels.*`」已作废**（2026-11-14 实测，三处证据）：
+     ① `apps/web/i18n/locales/{zh-CN,en-US}.json` 的 `admin.settings.trustLevels` 均为
+     `undefined`，`admin.forum.trustLevels` 在两份 locale 都存在；
+     ② 源码断言 `apps/web/tests/admin/forum/trustLevels.test.ts:848`
+     （`expect(locale.admin.settings.trustLevels).toBeUndefined()`）把这条钉成了红；
+     ③ 死键棘轮 `apps/web/tests/admin/forum/trustLevelI18nDeadKeys.test.ts` 以
+     `admin.forum.trustLevels` 为命名空间，登记表已收缩到空数组（任何新孤儿键当场红）。
+     **叶键数按实测：394**（`zh-CN` 与 `en-US` 同数）。计数命令：
+     `cd apps/web && node -e 'const j=require("./i18n/locales/zh-CN.json");const f=(n,p="")=>n&&typeof n==="object"&&!Array.isArray(n)?Object.keys(n).flatMap(k=>f(n[k],p?p+"."+k:k)):[p];console.log(f(j.admin.forum.trustLevels).length, j.admin.settings?.trustLevels)'`
+     → `394 undefined`。**两个旧数都不可复现，已按实测改正**：
+     `git show <rev>:apps/web/i18n/locales/zh-CN.json` 同法计数 → `5a1d4083f` = **360**
+     （`rule` 76 / `conditions` 35 / `ruleConditions` 0）、`0b38458bd` = **394**
+     （`ruleConditions` 补到 42，同时 F1 删掉 8 条孤儿键：360 + 42 − 8 = 394）。
+     所以 **243 在任何一个已提交版本都不成立**（写 ui-spec 的那一版就是 360）；
+     死键棘轮注释里的 360 是 `5a1d4083f` 的旧值。两处已在各自文件按实测改正，
+     `apps/web` 里那条注释归属下一次碰该测试的单。
+     旧族今天唯一的引用在 `scripts/verify-trust-levels-acceptance.sh` 的历史注释语境里，
+     该脚本的 H6/H17 已改为只断 `profile.trustLevel.name` 单族。
    - **「档位名 ∩ 角色名 == ∅」只对 zh 成立**：`admin.roleCatalog.member.alias` 的 **en 值也是
      `Member`**，与 TL1 en 值相同 ⇒ en 交集 = `{Member}`，**已知且接受**。机器断言只对 zh 生效，
      别写成双语。
@@ -740,6 +838,161 @@ N=8 桌面矩阵 `layout=cards`、390×844 `layout=cards rows=7` 且无横向溢
 19. 资料页等级卡的档位名走 `Providers/profile.go` 的 `trustTierCatalog`：options 侧命中进程内 30s TTL 缓存（`Options/service.go:657-698`），但 `DecodeConfig` **没有记忆化**，每次调用整份解码一次。实测（`decode_bench_test.go` / `trust_tier_catalog_bench_test.go`，`-benchmem`）：资料页实际路径 ≈73–81µs / 42.8KB / 126 allocs；其中约 15µs 是既有缓存命中模式，45–60µs 是本次新增的整份解码。开关关闭或等级未解析时一次都不调用。量级可接受、暂不优化；要压的最小改动是按 raw JSON 字符串做一层 30s memo。
     - 基准源码：`apps/api/app/Models/TrustLevels/decode_bench_test.go`、`apps/api/app/Providers/trust_tier_catalog_bench_test.go`；跑法 `cd apps/api && go test ./app/Models/TrustLevels/ ./app/Providers/ -run '^$' -bench 'BenchmarkDecodeConfig|BenchmarkTrustTierCatalog' -benchmem`。
     - 基准内断言了 `store.List` 调用数在循环中不变，证明量的是缓存命中态，不是每请求打库。
+
+## 本刀（2026-11-14 条件化门槛）的验收矩阵
+
+**权威清单在 `../reports/2026-11-14-m5-acceptance-matrix.md`**：计划 §4.6 要求的六条变异
+（数值预筛失效 / 规则错误被吞成成立 / 公开面泄露 AST / 未声明 factKey 返回 0 /
+`incomplete` 仍发事件 / 插件键绕过白名单）**全部由 pm 在本机重打一遍**并逐条指到测试函数，
+每条都贴了实际红出来的断言原文。**六条对应的测试名**（复跑命令见该报告 §4）：
+
+| # | 变异 | 该红的测试（能红） | 需要库？ |
+| --- | --- | --- | --- |
+| 1 | 数值预筛失效（删 `satisfies` 短路） | `app/Models/TrustLevels/level_rules_test.go` `TestNumericFailureSkipsRuleEvaluation` | 否 |
+| 2 | 规则错误被吞成成立（`Matched \|\| Incomplete`） | 同文件 `TestRuleFailureIsFailClosed` | 否 |
+| 3 | 公开面泄露 AST（`publicLevelDefinition` 加 `Rule`） | `app/Http/Controllers/TrustLevels/rule_controller_test.go` `TestPublicPayloadNeverCarriesRule` | 否 |
+| 4 | 未声明 factKey 返回 0（删「未声明 → error」） | `app/Models/Conditions/conditions_object_identity_integration_test.go` `TestFactCountUndeclaredKeyIsUnknown` | **是**（`test-api-isolated.sh`） |
+| 5 | `incomplete` 仍发事件（删 incomplete 闸的 `return`） | `app/Models/TrustLevels/recompute_postgres_integration_test.go` `TestRecomputeIncompleteNeitherEmitsNorOverwritesLedger` | **是** |
+| 6 | 插件键绕过白名单（`FilterGranted` 去掉 `Grantable`） | `app/Models/TrustLevels/earnable_registry_test.go` `TestGrantsDropsInactiveAndUnknown` | 否 |
+
+本文件不复述断言原文，只补该报告之后新增的两条：
+
+| # | 变异怎么打 | 该红的测试 | 状态 |
+| --- | --- | --- | --- |
+| 7 | `public_user_trust_level.get` 在 `incomplete` / `disabled` 时把 `level` / `tier_id` 写成 `0`（而不是 `null`） | `app/Support/HostAPI/trust_level_queries_postgres_integration_test.go:211` `TestUserTrustLevelSourceKeepsIncompleteAndDisabledNullable` | 已证（该测试同时守着「现算而非读账本」：`:133` `TestUserTrustLevelSourceComputesInsteadOfReadingLedger`） |
+| 8 | 让「徽章评估入队失败」连带吞掉信任等级重算入队（两个入队互相依赖） | `app/bootstrap/user_evaluations_enqueuer_test.go:64` `TestEnqueueUserEvaluationsKeepsJobsIndependent` | 已证（`:44` `TestEnqueueUserEvaluationsEnqueuesBothJobs` 管「两个都发」，`:64` 管「一个失败不吞另一个」） |
+
+## 回滚口径（**换二进制前必读**）
+
+`trust.levels` 是**单键 JSON**，解码走 `DisallowUnknownFields`：配置里出现当前二进制不认识的
+字段，**整份**配置被拒绝（不是跳过那一档，`app/Models/TrustLevels/config.go:376-390`）。
+解码失败的后果见 §「配置校验错误的文案边界」旁注与验收矩阵第 3 条：整站按未解析处理
+（没有任何已挣得权限，权限面等同 TL0）、资料页不渲染等级卡、`identity` 侧每次求值一条 warn。
+
+因此**从带条件的新版本回滚到不认识 `rule` 的旧版本**，顺序是：
+
+1. 用**新版本**把所有档位的 `rule` 清空并保存（`PUT /admin/trust-levels`，逐档 `rule` 置空）；
+2. 确认读回配置里 `rule` 全部消失；
+3. 再换回旧二进制。
+
+`color` 与 `deletedTierIds` 对更早的版本同理（`app/Models/TrustLevels/config.go:23-30` 记着
+同一口径：只有运营**真正用过**这些字段时旧二进制才整份拒绝，没用过则逐字节兼容）。
+
+## 本刀（2026-11-14 条件化门槛）的 9 条已知残留
+
+每条按**三件套**写，验收时一眼能判断过没过：**现状**（可复核的事实 + 命令）、
+**为什么留着**（取舍或依赖）、**谁负责/什么条件下消**（人或任务 + 消号条件）。
+「已收口」的条目也照样写残留风险，不许只写「已解决」。
+
+1. **`bootstrap/worker.go:748` 那处调用没有自动化断言。**
+   **现状**：`registerTrustLevelWorkers` 内部（`bootstrap/trust_levels_worker.go:116-127`）有测试
+   （重复注册撞车法），但把 `:748` 这一行删掉 CI 仍绿（实测 `grep -n` 命中 748）。
+   **为什么留着**：要覆盖得跑整个 `newWorkerWithPool`（需 pool / Redis / cfg 全套 harness），
+   为一行调用引入整套装配 harness 不划算。
+   **谁负责/何时消**：装配层回归由 review 兜底；消号条件 = 有人搭出 worker harness，或给 `:748`
+   补一条「删掉就红」的断言。
+2. **`fakeTrustLevelSource` 强化后，「执行器对不一致行的处理」不再可测。**
+   **现状**：夹具在 `app/Support/HostAPI/trust_level_queries_test.go:20-31`，它只记录被问到的
+   `user_id`，不再能构造「源返回不一致行」的现场。
+   **为什么留着**：那种用例本该测生产源（真库）；用假源测它只会得到一条自证断言。
+   **谁负责/何时消**：消号条件 = 真库集成测试覆盖「不一致行」分支，归属下一个碰
+   `trust_level_queries_*_test.go` 的单。
+3. **夹具正样本的运行期取证是一次性的。**
+   **现状**：包级可重放路径成立且常跑——`extensions/fixtures/plugins/sforum-badge-facts/`
+   （`README.md` 给了 `scripts/ci/reference-packages-gate.sh` 与 `extension validate` 两条命令）；
+   但「装进 dev 库 → 在真实弹窗里截正样本」这段**没有脚本化重放路径**，dev 库被清后原有证据
+   失效（`404 extension.not_found`）。
+   **为什么留着**：可重放路径当时由并行单补，收口时点仍未落地，所以按事实写「运行期取证不可重放，
+   只有包级门禁可重放」。
+   **谁负责/何时消**：**task-4** 在办；落地后本行改成「一条命令可重放」并贴命令。
+4. **CI 与本地 bun 版本不同。**
+   **现状**：CI 钉 `1.3.14`（`.github/workflows/ci.yml:80/112`）、本地 `1.4.2`，两边从未跑过同一份用例。
+   **为什么留着**：收口以 **CI 结论**为准，本地绿只作参考；`scripts/m5-gates.sh:101-107` 已把两边
+   版本号写进每份日志首行。
+   **谁负责/何时消**：无单独归属；出现「本地绿 / CI 红」时先看版本差异，CI 镜像与本地对齐时自然消。
+5. **`identity.profile` 条件尚未实施 —— 本轮在办（新板 task-2）。**
+   **现状（按 HEAD `0b38458bd` 计）**：共享条件目录 **13** 条、信任等级子集 **11** 条
+   （`git show HEAD:apps/api/app/Models/TrustLevels/config_rule_test.go` 的
+   `TestRuleConditionSubset` 注释与断言同时记着这件事；断言写成 `len(shared)-2` 相对式，
+   落地后自动跟随，不需要再改数字）；计划 §3.3 的 14 / 12 是**目标值**。
+   工作树里 task-2 的改动已推进到 14 / 12（未提交），所以**在脏工作树上直接数会先看到 14/12**——
+   那是未提交的实施进度，不是本条失效。
+   **为什么留着**：它是独立实施单，落在 `app/Models/Conditions` 等生产目录，不归 M5 收口的知识库写权。
+   **谁负责/何时消**：老后本轮实施（**task-2**）；该单落地后本行回写为「已实施 + commit id +
+   共享目录 13→14 / 信任子集 11→12」。**本文件在它落地前不得按 14/12 描述现状。**
+6. **7 家族手写清单 —— 已收口（`0b38458bd`，task-35）。**
+   **现状**：`v3PluginOnlyDeclarationFamilies`（`app/Support/ExtensionManifest/v3_validate_platform.go:95-106`）
+   是「只允许插件声明」家族的**运行期唯一清单**（家族名 + `Declared` 谓词），
+   `validatePluginOnlyFamilies()`（`:112-124`）在 `validatePlatform` 入口集中判一次 kind；
+   测试改成**双向比对**（清单 ⇄ schema 的 `if/then.type.const=plugin` 分支，两侧任一多出即红并指名，
+   `v3_schema_kind_families_test.go:190-200`），并用 reflect 断言每个家族名都是 Manifest 的真
+   JSON 字段（否则 `Declared` 谓词是死代码）。原缺口「新增家族忘了写分支」已无静默窗口：
+   忘改 schema 由测试指名，忘改清单则该家族根本不受 kind 约束。
+   **为什么留着（残留风险，不是清零）**：各家族自己的 validator 里**仍各自保留 kind 判断**——
+   `validateAITools`（`:130`）、`validateNotificationTypes`（`:232`）、`validateSEO`（`:316`）、
+   声明侧 backend 要求（`:578`）、可执行 provider（`:790`）。它们还管字段级规则，但与清单判的是
+   同一个 kind，**是否构成「第二入口」**（清单删了、validator 仍拒 ⇒ 行为不变而清单失真）由小审独立裁决。
+   **谁负责/何时消**：结论由 **task-3** 出；若判为第二入口，修法是把 kind 判据收到清单一处，
+   归属下一个碰 `v3_validate_platform.go` 的单。**在审查结论出来前，本条只写到「已收口 + 待审」，
+   不写「已彻底解决」。**
+7. **`gofmt` 既有漂移：本刀点名 4 个，今天全仓实测 26 个。**
+   **现状**：点名的 4 个仍在列——`bootstrap/badges_backfill_notification_test.go`、
+   `app/Models/Forum/service_trust_limits.go`、`app/Models/Forum/service_trust_limits_test.go`、
+   `app/Support/Jobs/plugin_schedule_periodic.go`；`cd apps/api && gofmt -l . | wc -l` → **26**
+   （本机 `go1.27.1` 口径，逐行清单见 §核验命令）。
+   **为什么留着**：这 26 个都在更早/别人的单里，漂移是**工具链口径**问题而不是本刀引入；
+   顺手全仓格式化会把无关 diff 卷进本单，破坏「一单一事」，也让小审没法按路径审。
+   **谁负责/何时消**：谁碰该文件谁格式化；本单只登记数字，不认领。
+8. **`batches==2` 这条原说法不可复核 —— 已按实测改写。**
+   **现状**：全仓**不存在** `batches` 计数器，也不存在 `batch.UpsertMany` 装饰器
+   （`rg -n 'batches' apps/api --glob '*.go'` 只命中 `app/Support/Search/reindex_test.go:165` 的
+   `expected 3 batches`，与本域无关；`rg -n 'UpsertMany' apps/api/app --glob '*.go'` 只命中
+   `Options`）。事实侧的真实写口是 `ProtocolV2BadgeFactRecorder.RecordFact`
+   （`app/Support/HostAPI/v2_command_badges.go:56`，**一次一条**，实现在
+   `app/Models/Badges/facts_store.go:38`）；「两键装在一次调用」在**声明侧**只是两个数组共用一套
+   校验（`v3_badge_conditions.go:61-146`：合计上限 32 / 跨数组唯一 / `contractVersion == key@N`）。
+   **为什么留着**：原句指向的符号在当前树里找不到，无法用变异复现，所以不能当「已证的结构性覆盖」写。
+   **谁负责/何时消**：降级为「无来源记录」；下一个碰事实写口的单要么补一条真能观察批次的夹具，
+   要么把本行删掉——不许原样留着当已接受缺口。
+9. **验收脚本 HTTP 段依赖 QA 账号登录。**
+   **现状**：`scripts/verify-trust-levels-acceptance.sh` 的登录链是 `戊 → 丁b → TLRW/TLRO`
+   （`:452-473`），脚本自己记着「`creds.txt` 的密码会随环境轮换而滞后（2026-11-11 实测 戊/丁b 401）」；
+   本刀收口当天 `戊 账号登录失败` 使 `H3 / I-09 / I-11 / I-13 / I-24` 五项 `pend`（其余 HTTP 项正常）。
+   **为什么留着**：凭据是运营侧资产，轮换节奏不受本单控制；脚本已经把退路写成代码而不是注释。
+   **谁负责/何时消**：运营侧提供可用账号后重跑这五项（**task-4** 的 seed 路径同时会缓解夹具侧取证）；
+   `pend` 不能当绿——证据里必须点名「因凭据 pend」。
+
+### 核验命令（上面 9 条与 §Extension Surface 的事实来源）
+
+| 事实 | 命令 | 输出（2026-11-14 本机） |
+| --- | --- | --- |
+| recompute 唯一注册面调用点 | `cd apps/api && grep -n 'registerTrustLevelWorkers(registry, deps.TrustLevels' bootstrap/worker.go` | `748:`（任务描述里写的 744 是笔误） |
+| 注册面内部两个 job | `grep -n 'RegisterRecompute' bootstrap/trust_levels_worker.go` | `126:` user / `127:` batch |
+| fake 源现状 | `grep -n 'fakeTrustLevelSource' app/Support/HostAPI/trust_level_queries_test.go` | `20:` 定义、`:31` `UserTrustLevel` |
+| 夹具包存在 | `ls extensions/fixtures/plugins/sforum-badge-facts/` | `README.md backend schemas sforum.extension.json` |
+| CI bun 钉值 vs 本地 | `grep -n 'bun-version' .github/workflows/ci.yml` + `bun --version` | `80/112: 1.3.14` + `1.4.2` |
+| 共享目录 13 / 子集 11（HEAD 口径） | `git show HEAD:apps/api/app/Models/TrustLevels/config_rule_test.go \| sed -n '248,258p'` | `共享目录 13 条` / `子集是 **11**`（工作树已被 task-2 推到 14/12，未提交） |
+| 7 家族唯一清单 | `grep -rn 'v3PluginOnlyDeclarationFamilies' apps/api/app/Support/ExtensionManifest/` | 生产侧 `v3_validate_platform.go:95` + 测试 `:190` |
+| schema 的 7 条 plugin-only 分支 | `node -e '<枚举 allOf 里 then.type.const=plugin>' apps/api/app/Support/ExtensionManifest/schemas/manifest-v3.schema.json` | `branches: 7`（seo/identity/badgeConditions/userFactConditions/aiTools/notificationTypes/permissionDefinitions） |
+| 残留 kind 判据 | `grep -n 'TypePlugin' apps/api/app/Support/ExtensionManifest/v3_validate_platform.go` | `113/130/232/316/578/790` |
+| gofmt 漂移面 | `cd apps/api && gofmt -l . \| wc -l` | `26` |
+| `batches` 无来源 | `rg -n 'batches' apps/api --glob '*.go'` | 仅 `Search/reindex_test.go:165`（无关） |
+| QA 凭据退路 | `grep -n 'login_any_admin_reader\\|401' scripts/verify-trust-levels-acceptance.sh` | `:452`、`:461` |
+| 后台 i18n 叶键数 | `cd apps/web && node -e '<枚举 leaves>'`（全文见 §命名与 i18n 三条硬约定） | `admin.forum.trustLevels = 394` / `admin.settings.trustLevels = undefined` |
+| 死键棘轮 | `cd apps/web && bun test tests/admin/forum/trustLevelI18nDeadKeys.test.ts` | `4 pass / 0 fail` |
+| 生成物一致性 | `node scripts/v3-catalog/generate.mjs --check` | `V3 P0 catalogs are current (18 files).` |
+
+## 本刀还剩什么没做
+
+- 计划 §6「明确不做」的 **7 条**（审核信号条件 / 内容质量条件 / 阅读行为 / RPC 条件求值器 /
+  等级反规范化列 / 公开的逐条清单 / 规则改严后的追溯收回）——是边界裁决，不是待办。
+- `identity.profile` 条件（共享目录 13→14、信任子集 11→12）：**本轮在办（task-2）**，见残留 5；
+  落地后本文件回写为已实施，不在此处提前按 14/12 写。
+- 夹具正样本的运行期重放路径：**本轮在办（task-4）**，见残留 3。
+- 7 家族清单的派生式断言：**已落**（`0b38458bd` 的 `v3PluginOnlyDeclarationFamilies` + 双向比对），
+  剩下的只是「各家族 validator 是否第二入口」的审查结论（task-3），见残留 6。
+- `config.go:845` 那条注释仍写「全站等级掉回默认策略」；准确口径见 §回滚口径
+  （未解析 / 等同 TL0，不涉及 `DefaultPolicy()` 替换）。**归属**：下一次碰该文件的单顺手改。
 
 ## 已作废结论（读旧版规范或旧讨论前先看这里）
 

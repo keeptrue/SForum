@@ -830,6 +830,7 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
+- **信任等级条件化门槛 · M5 收口（2026-11-14）**：条件引擎复用徽章规则引擎（`rule` 挂在档位上，5 层 / 32 叶；无规则站点零新增查询），后台加「更多条件（N）」折叠面板 + 保存前影响面估算；插件扩展面四条全部落地：事实条件 `userFactConditions`、可授予权限 `permissionDefinitions[].trustLevelEarnable`、`trust_level.changed` 事件、两条公开 HostQuery（目录 / 单用户**现算**，`incomplete|disabled` 时 `level` 为 null）+ 每日 sweep。**本轮已提交**：模块笔记 Extension Surface 从 `TODO(核实)` 写实、新增「回滚口径」「9 条已知残留（含每条核验命令）」「还剩什么没做」、纠正后台 i18n 族为 `admin.forum.trustLevels.*` 且叶键数按实测改 **394**（旧 243 不可复现）、ui-spec 的「深度阶梯 / 170」标注作废并同步 S1/S2 口径、六条变异矩阵落盘 `reports/2026-11-14-m5-acceptance-matrix.md`、生成物 `docs/extensions/v3/catalogs/*` 补 `trust_level.changed` + `trustlevels.sweep`（`generate.mjs --check` 18 files current）。未落 1 笔：`identity.profile` 条件（task-2 在办）；并行单 2 个：夹具正样本可重放（task-4 在办）、`0b38458bd` 家族清单审查（task-3 在办；7 家族手写清单本身已收口，不再是缺口）。见 `sessions/2026-11-14-trust-level-conditions-m5.md`、`decisions/2026-11-14-trust-level-earnable-plugin-keys.md` / `-synthetic-rule-root.md` / `-hostquery-computed-definitions.md`、模块 `modules/trust-levels.md`。
 - **自动授予的徽章不发通知（2026-11-14，最新）**：两处缺口。① `notifications.dedupe_key`
   全局唯一，而徽章授予键写成 `badge:{slug}` → **全站第一个**获得者永久占住该键，之后所有人的
   投影被 `ON CONFLICT DO NOTHING` 静默吞掉（dev 实证：`first-topic` 授予 13 人、通知 1 条）；

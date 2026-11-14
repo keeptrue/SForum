@@ -35,6 +35,7 @@
 - `reaction.removed`
 - `bookmark.created`
 - `bookmark.removed`
+- `trust_level.changed`
 
 ## contributionPoints
 
@@ -72,6 +73,7 @@
 - `forum.bookmark_reminders`
 - `forum.flush_view_counts`
 - `search.reconcile`
+- `trustlevels.sweep`
 - `extensions.finalize_uninstall_cleanup`
 
 ## jobKinds
