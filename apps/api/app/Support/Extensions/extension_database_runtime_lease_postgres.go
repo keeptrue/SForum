@@ -56,13 +56,8 @@ func createExtensionDatabaseRuntimeLeaseRole(
 	searchPath := extensionDatabaseRuntimeLeaseSearchPath(identifiers.Schema, powers)
 	queries := []string{`GRANT CONNECT ON DATABASE ` + database + ` TO ` + role}
 	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantOwnSchema) {
-		schema := pgx.Identifier{identifiers.Schema}.Sanitize()
 		queries = append(queries,
 			`GRANT `+owner+` TO `+role+` WITH ADMIN FALSE, INHERIT TRUE, SET TRUE`,
-			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT ALL ON TABLES TO `+owner,
-			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT ALL ON SEQUENCES TO `+owner,
-			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT ALL ON FUNCTIONS TO `+owner,
-			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT USAGE ON TYPES TO `+owner,
 		)
 	}
 	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantCoreViews) && !wantKernel {
@@ -76,7 +71,6 @@ func createExtensionDatabaseRuntimeLeaseRole(
 		coreOwner := pgx.Identifier{identity.ownerRole}.Sanitize()
 		queries = append(queries,
 			`GRANT `+coreOwner+` TO `+role+` WITH ADMIN FALSE, INHERIT TRUE, SET FALSE`,
-			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`,
 		)
 	}
 	queries = append(queries,
@@ -94,6 +88,13 @@ func createExtensionDatabaseRuntimeLeaseRole(
 			if _, err := tx.Exec(ctx, query); err != nil {
 				return fmt.Errorf("%w: configure runtime lease role: %v", ErrExtensionDatabaseCredential, err)
 			}
+		}
+		if err := configureExtensionDatabaseRuntimeLeaseDefaultPrivileges(
+			ctx, tx, roleName, identifiers.Schema, identifiers.OwnerRole,
+			containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantOwnSchema),
+			wantKernel,
+		); err != nil {
+			return err
 		}
 		if err := hardenExtensionDatabaseCoreRoutineAuthority(ctx, tx, kernelCoreOwners); err != nil {
 			return err
@@ -115,6 +116,52 @@ func createExtensionDatabaseRuntimeLeaseRole(
 		return "", err
 	}
 	return strings.ReplaceAll(searchPath, `"`, ""), nil
+}
+
+// configureExtensionDatabaseRuntimeLeaseDefaultPrivileges 写租约 role 名下的默认权限。
+// 这些语句都以租约 role 的名义执行（ALTER DEFAULT PRIVILEGES FOR ROLE <lease>），
+// 需要该 role 的特权；宿主对刚建出的租约 role 只有 CREATEROLE 留下的 creator 行
+// （admin=true, inherit=false, set=false），因此在此事务内临时取得，写完立即归还。
+func configureExtensionDatabaseRuntimeLeaseDefaultPrivileges(
+	ctx context.Context,
+	tx pgx.Tx,
+	roleName string,
+	schemaName string,
+	ownerRoleName string,
+	ownSchema bool,
+	kernel bool,
+) error {
+	if !validPostgresIdentifier(roleName) || !validPostgresIdentifier(schemaName) ||
+		!validPostgresIdentifier(ownerRoleName) {
+		return ErrExtensionDatabaseRegistryInvalid
+	}
+	role := pgx.Identifier{roleName}.Sanitize()
+	owner := pgx.Identifier{ownerRoleName}.Sanitize()
+	schema := pgx.Identifier{schemaName}.Sanitize()
+	queries := make([]string, 0, 5)
+	if ownSchema {
+		queries = append(queries,
+			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT ALL ON TABLES TO `+owner,
+			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT ALL ON SEQUENCES TO `+owner,
+			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT ALL ON FUNCTIONS TO `+owner,
+			`ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` IN SCHEMA `+schema+` GRANT USAGE ON TYPES TO `+owner,
+		)
+	}
+	if kernel {
+		queries = append(queries, `ALTER DEFAULT PRIVILEGES FOR ROLE `+role+` REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`)
+	}
+	if len(queries) == 0 {
+		return nil
+	}
+	if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, roleName); err != nil {
+		return err
+	}
+	for _, query := range queries {
+		if _, err := tx.Exec(ctx, query); err != nil {
+			return fmt.Errorf("%w: configure runtime lease default privileges: %v", ErrExtensionDatabaseCredential, err)
+		}
+	}
+	return releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, roleName)
 }
 
 func validateExtensionDatabaseRuntimeLeaseRole(
@@ -344,12 +391,22 @@ func cleanupExtensionDatabaseRuntimeLeaseRole(
 	}
 	retirementQueries := make([]string, 0, 3)
 	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantOwnSchema) {
+		// REASSIGN OWNED 在 PG 17.12 起要求调用者能 SET ROLE 到接收者，
+		// 先临时获得扩展 owner 的转移权限，回收结束后立即归还。
+		if err := acquireExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+			return err
+		}
 		retirementQueries = append(retirementQueries, `REASSIGN OWNED BY `+role+` TO `+owner)
 	}
 	retirementQueries = append(retirementQueries, `DROP OWNED BY `+role, `DROP ROLE `+role)
 	for _, query := range retirementQueries {
 		if err := executeExtensionDatabaseRuntimeLeaseRetirement(ctx, tx, query); err != nil {
 			return fmt.Errorf("%w: retire runtime lease role: %v", ErrExtensionDatabaseCredential, err)
+		}
+	}
+	if containsExtensionDatabasePower(powers, extensionmanifest.DatabaseGrantOwnSchema) {
+		if err := releaseExtensionDatabaseObjectRecipientAuthority(ctx, tx, ownerRoleName); err != nil {
+			return err
 		}
 	}
 	delete(retirementOwners, roleName)
