@@ -85,10 +85,13 @@ func activeActor(permissions ...string) identity.Actor {
 	}
 }
 
-// TestFeatureDisabledReturns404OnEveryRoute 断言四条路由**各一次** 404。
+// TestFeatureDisabledReturns404OnEveryRoute 断言六条路由**各一次** 404。
 //
-// 只测一条是这类守卫最常见的漏洞：三条里漏一条没人发现。
+// 只测一条是这类守卫最常见的漏洞：六条里漏一条没人发现。
 // 关闭态必须是 404（本刀之前这些端点不存在），不是 403、不是空对象。
+//
+// M1 起是六条：多出的 conditions / rule-impact 与同组四条同门控——运营关掉
+// features.trust_levels 之后，编辑器不该从别的入口读到条件目录或影响人数。
 func TestFeatureDisabledReturns404OnEveryRoute(t *testing.T) {
 	controller := NewController(nil, nil, nil, nil).
 		WithFeatureGate(func(context.Context) (bool, error) { return false, nil }).
@@ -105,6 +108,8 @@ func TestFeatureDisabledReturns404OnEveryRoute(t *testing.T) {
 		{fiber.MethodGet, "/api/v1/admin/trust-levels"},
 		{fiber.MethodPut, "/api/v1/admin/trust-levels"},
 		{fiber.MethodPost, "/api/v1/admin/trust-levels/restore-defaults"},
+		{fiber.MethodGet, "/api/v1/admin/trust-levels/conditions"},
+		{fiber.MethodPost, "/api/v1/admin/trust-levels/rule-impact"},
 	}
 	for _, route := range routes {
 		status, body := doRequest(t, app, route.method, route.path, `{"config":"{}"}`)

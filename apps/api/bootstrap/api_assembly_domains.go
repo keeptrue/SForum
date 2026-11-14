@@ -644,6 +644,16 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	}
 	badgesStore.SetFactKeyProvider(badgesFactCatalog.FactKeys)
 	badgesStore.SetFactCandidates(badgesFactCatalog.Candidates)
+	// 规则编辑面（M1）：信任等级的条件目录、引用校验、影响估算全部复用徽章侧的真实
+	// 查询（D17 窄接口 + 本文件的适配器，trustlevels 不 import Badges），事实候选复用
+	// 同一份 5s 快照——两处各建一份会让「徽章目录里有、等级目录里没有」变成常态。
+	// 晚绑定：provider 在 infra 阶段建好（api_assembly_infrastructure.go），而 store 与
+	// 事实目录到这里才存在；路由注册在全部装配之后。
+	trustLevelsProvider.WithRuleEditing(
+		badgesStore,
+		badgesFactCatalog.Candidates,
+		badgesRuleImpactEstimator{store: badgesStore},
+	)
 	badgesService := badges.NewService(badgesStore, badgeActivityStore)
 	// 进度测量走存储层的批量 Prepare（每类条件一条 SQL）。Service 自己没有 pool，
 	// 也不该有：装配在这里把同一个 store 同时当成读面与测量器。

@@ -19,7 +19,10 @@
 // 七键 + 基线门决定，本包不为它发明可配置项。
 package trustlevels
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Level 是信任等级，同时是 rank（序号）。零值是 TL0（新成员），与 Actor 零值语义一致。
 //
@@ -94,6 +97,12 @@ type Tier struct {
 	// retired 档位也保留这里的配置：软停用只让判定与 UI 跳过，配置全量保留，
 	// 恢复时不需要运营重新勾一遍。
 	Earnable []string
+	// Rule 是本档的可选规则树（M1）。nil 表示「无规则」，判定只看 Requirements。
+	//
+	// 存 **原始 JSON 字节**而不是 `*ruleengine.Node`：解码期校验通过的树要能原样写回，
+	// 重新序列化会重排键序并让「读一次再存一次」变成一次隐式改写（config.go 的
+	// TierConfig.Rule 注释里有完整理由）。
+	Rule json.RawMessage
 	// Retired 是软停用标记：配置保留，判定与 UI 跳过（D-N2）。
 	//
 	// 只软删除是 id 永不复用的前提（D-N6）：硬删除会让 tier_7 被后来者复用，

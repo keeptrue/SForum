@@ -109,14 +109,6 @@ TrustLevelDefinition:
           pattern: "^#[0-9a-f]{6}$"
     requirements:
       "$ref": "#/TrustLevelRequirements"
-    limits:
-      allOf:
-        - "$ref": "#/TrustLevelLimits"
-      description: |
-        只在**后台读面**出现（运营需要它来配）。公开目录不下发限流参数：公开「某档
-        冷却 60 秒、日限额 10 帖」等于把限流参数交给想绕过它的人。
-        写入时该字段**必须显式出现**（可写 `null` = 全继承），省略即 422。
-        TL0 没有对应档位，因此该项不出现。
     earnable:
       type: array
       description: |
@@ -135,6 +127,39 @@ TrustLevelDefinition:
       description: |
         该条是否对应 `trust.levels` 里可编辑的档位。TL0 恒为 `false`：它的阈值/限额
         由 `trust.new_user_*` 七键与基线门决定，`trust.levels` 里没有它的位置。
+
+TrustLevelAdminDefinition:
+  description: |
+    后台读面的档位形状 = 公开形状 + 两个只有运营才该看到的字段（`limits` / `rule`）。
+
+    **为什么必须是两个 schema 而不是一个带可选字段的 schema**：公开面与后台面曾经
+    共用同一个结构，靠「投影时记得不赋值」的运行期纪律区分；那种纪律在下一个改
+    `includeLimits` 的人手里就会破。拆开之后，公开面**没有** `rule` 字段可赋值，
+    规则树漏进公开响应在编译期就不可能发生（`TrustLevelDefinition` 里没有它）。
+  allOf:
+    - "$ref": "#/TrustLevelDefinition"
+    - type: object
+      properties:
+        limits:
+          allOf:
+            - "$ref": "#/TrustLevelLimits"
+          description: |
+            本档的发言限额；`null` 字段表示沿用站点默认（0 有语义，不能混用）。
+            只在后台读面出现：公开「某档冷却 60 秒、日限额 10 帖」等于把限流参数交给
+            想绕过它的人。写入时该字段**必须显式出现**（可写 `null`），省略即 422。
+            TL0 没有对应档位，因此该项不出现。
+        rule:
+          type: object
+          nullable: true
+          description: |
+            本档的可选规则树（M1）。**仅后台读面下发**：公开规则树等于把「怎么刷等级」
+            的判定逻辑印在公告板上，而且 AST 词汇（`children` / `cmp` / `params`）
+            本就不该进公开契约。
+
+            形状与 `trust.levels` 里 `tiers[].rule` 逐字节相同（`{"v":1,"root":…}`），
+            服务端**原样透传**未编辑的规则：读一次再存一次不会改写键序。无规则的档位
+            省略该键（不是 `null`）；解码期显式 `null` 与省略等价。
+          additionalProperties: true
 
 TrustLevelNamePool:
   type: object
@@ -221,9 +246,10 @@ TrustLevelAdmin:
       description: 当前 trust.levels 的 JSON 字符串（**v2 形状**：`schemaVersion` + `tiers[]`）。
     levels:
       type: array
-      description: 与公开目录同形的档位列表（带 `limits`，运营需要它来配）。
+      description: |
+        与公开目录同形的档位列表，另带 `limits` 与 `rule`（两者都只有运营需要）。
       items:
-        "$ref": "#/TrustLevelDefinition"
+        "$ref": "#/TrustLevelAdminDefinition"
     baselinePermissions:
       type: array
       description: |
@@ -349,7 +375,8 @@ TrustLevelConfigErrorDetail:
         稳定的字段路径，取值域固定为：
         `schemaVersion` / `tiers` / `levels` / `id` / `levelSlug` /
         `name.zh` / `name.en` / `icon` / `color` / `requirements.<metric>` /
-        `limits` / `limits.<limitKey>` / `earnable` / `deletedTierIds`；空串表示无法归因到字段
+        `limits` / `limits.<limitKey>` / `earnable` / `rule` / `deletedTierIds`；
+        空串表示无法归因到字段
         （例如整份 JSON 语法错误）。
     reasonCode:
       type: string
@@ -384,6 +411,12 @@ TrustLevelConfigErrorDetail:
         - earnable_key_empty
         - earnable_not_whitelisted
         - earnable_invalid
+        - earnable_not_declared
+        - rule_too_complex
+        - rule_unknown_condition
+        - rule_shape_invalid
+        - rule_reference_invalid
+        - rule_condition_not_available
         - level_unknown
         - level_reserved_for_tl0
         - level_duplicate
@@ -404,7 +437,11 @@ TrustLevelConfigErrorDetail:
         `deleted_tier_id_invalid` / `deleted_tier_id_duplicate` / `deleted_tier_id_present`
         → `id`；`level_unknown` / `level_reserved_for_tl0` / `level_duplicate` →
         `levelSlug`；`level_legacy_missing` → `level`；
-        `tier_count_out_of_range` → `active` + `min` + `max`。
+        `tier_count_out_of_range` → `active` + `min` + `max`；
+        规则类码（`rule_*`）→ `path`（规则树节点坐标，形如
+        `root.children[1].cmp`，与 `ruleengine.Error.Path` 同源）；其中
+        `rule_unknown_condition` / `rule_condition_not_available` 另有 `condition`
+        （出问题的条件 key），`rule_reference_invalid` 另有 `ref`（已失效的引用值）。
       additionalProperties: true
     reason:
       type: string
@@ -446,3 +483,281 @@ TrustLevelConfigValidationError:
               maxItems: 8
               items:
                 "$ref": "#/TrustLevelConfigErrorDetail"
+
+# ---- 规则编辑面（M1）：条件目录与影响估算 ----
+#
+# 两条端点的形状与徽章侧（`/admin/badges/conditions`、`/admin/badges/:badgeID/rule-impact`）
+# 逐字段对齐：前端共用同一套规则编辑器与同一套「≈ N 人」文案，另起一套字段名等于让
+# 那份组件需要两份适配。
+
+TrustLevelConditionParam:
+  type: object
+  description: 条件的一个参数。字段名与编辑器契约逐字一致（前端按 `kind` 选控件）。
+  required: [name, kind, required]
+  properties:
+    name:
+      type: string
+    kind:
+      type: string
+      enum: [int, enum, window, objectRef, string, bool]
+    required:
+      type: boolean
+    min:
+      type: integer
+      format: int64
+      description: 只对 `int` 生效；0 或缺席都表示「不限制」。
+    max:
+      type: integer
+      format: int64
+      description: 只对 `int` 生效；0 或缺席都表示「不限制」。
+    options:
+      type: array
+      description: |
+        `enum` 的候选。**空数组与缺席语义相反**：空数组 = 关闭集（一个都不合法），
+        缺席 = 开放集（值不受枚举约束，例如 `fact.count` 的 `variant`）。
+      items:
+        type: string
+    refKind:
+      type: string
+      description: 只对 `objectRef` 有意义，告诉编辑器该渲染哪类候选。
+
+TrustLevelCondition:
+  type: object
+  description: |
+    一条**信任等级可用**的条件。这是共享条件目录的子集（排除内容质量两条
+    `content.pinned` / `content.hidden`），不是共享目录本身——把子集外的条件下发，
+    等于让运营拖进一条保存必被拒的条件。
+  required: [key, valueKind, compare, labelZh, labelEn, params]
+  properties:
+    key:
+      type: string
+      description: 条件标识，写进规则叶子的 `type`。
+    valueKind:
+      type: string
+      enum: [count, boolean]
+      description: |
+        `count` 必须带 `cmp`；`boolean` **禁止**带 `cmp`（给了就是 422
+        `rule_shape_invalid`）。
+    compare:
+      type: array
+      description: 该条件允许的比较符；`boolean` 恒为空数组。
+      items:
+        type: string
+        enum: [gte, gt, lte, lt, eq]
+    labelZh:
+      type: string
+    labelEn:
+      type: string
+    describeZh:
+      type: string
+    describeEn:
+      type: string
+    unitZh:
+      type: string
+    unitEn:
+      type: string
+    params:
+      type: array
+      items:
+        "$ref": "#/TrustLevelConditionParam"
+
+TrustLevelFactVariant:
+  type: object
+  required: [value, label]
+  properties:
+    value:
+      type: string
+    label:
+      "$ref": "#/TrustLevelName"
+
+TrustLevelFactCandidate:
+  type: object
+  description: |
+    一个已被启用插件声明的插件事实（`fact.count` 的 `factKey` 候选）。
+
+    插件停用后候选消失，引用它的事实叶子求值转 `unknown`（fail-closed）；**解码不失败**
+    ——否则一次插件停用会让整份 `trust.levels` 解不开、全站等级退回默认策略。
+  required: [key, label, unit, compare, variants]
+  properties:
+    key:
+      type: string
+    label:
+      "$ref": "#/TrustLevelName"
+    unit:
+      allOf:
+        - "$ref": "#/TrustLevelName"
+      nullable: true
+      description: |
+        `null` 表示该事实没有计量单位（与「空字符串单位」不同）。
+    compare:
+      type: array
+      items:
+        type: string
+    variants:
+      type: array
+      items:
+        "$ref": "#/TrustLevelFactVariant"
+
+TrustLevelRefCandidate:
+  type: object
+  description: 一个 objectRef 参数的下拉候选。
+  required: [value, label, flags]
+  properties:
+    value:
+      type: string
+      description: 写进规则 `params` 的取值。
+    label:
+      type: string
+      description: 展示名（库里只有单串，不做双语）。
+    flags:
+      type: array
+      description: |
+        `hidden`（当前不可公开访问）/ `disabled`（当前被停用）。**只做标记、不过滤**：
+        被隐藏的分类与停用的角色仍可被规则引用（历史事实），运营需要看见后果。
+      items:
+        type: string
+        enum: [hidden, disabled]
+
+TrustLevelRefCandidateGroup:
+  type: object
+  description: |
+    一类候选。五类**恒为五项、固定顺序** `badge → category → tag → role → provider`，
+    由服务端保证顺序。
+  required: [kind, candidates, unavailable, truncated]
+  properties:
+    kind:
+      type: string
+      enum: [badge, category, tag, role, provider]
+    candidates:
+      type: array
+      items:
+        "$ref": "#/TrustLevelRefCandidate"
+    unavailable:
+      type: boolean
+      description: |
+        `true` = **取不到候选**（读库失败），编辑器应退回文本输入；
+        与「候选为空」（读到但确实没有）是两件事，不可合并。
+    truncated:
+      type: boolean
+      description: 该类候选超过服务端上限（500）已被截断；编辑器应提示「仅显示前 N 条」。
+
+TrustLevelConditionCatalog:
+  type: object
+  description: |
+    `GET /admin/trust-levels/conditions` 的响应体：编辑器要的全套静态数据。
+    本端点**不写库、不入队、不发事件**，权限是 `admin.access`。
+  required: [conditions, factCandidates, refCandidates]
+  properties:
+    conditions:
+      type: array
+      description: |
+        信任等级可用的条件子集（共享目录排除内容质量两条）。条数随共享目录增长，
+        **本契约不写死数字**：前端按数组渲染，不按数量断言。
+      items:
+        "$ref": "#/TrustLevelCondition"
+    factCandidates:
+      type: array
+      description: |
+        已被启用插件声明的事实候选。没有插件声明时为空数组（此时 `fact.count` 不会
+        出现在 `conditions` 里——空下拉对运营是死路）。
+      items:
+        "$ref": "#/TrustLevelFactCandidate"
+    refCandidates:
+      type: array
+      description: 五组对象候选，固定顺序。
+      minItems: 5
+      maxItems: 5
+      items:
+        "$ref": "#/TrustLevelRefCandidateGroup"
+
+ApiResponseTrustLevelConditionCatalog:
+  type: object
+  properties:
+    data:
+      "$ref": "#/TrustLevelConditionCatalog"
+
+TrustLevelRuleImpactTierInput:
+  type: object
+  description: |
+    一档的**草稿**输入。不依赖已保存的策略：新档（`tierId` 为空串）同样估算——
+    运营点开弹窗时通常还没保存，只给已保存档位估算会让这个功能在最需要它时缺席。
+  required: [tierId]
+  properties:
+    tierId:
+      type: string
+      description: 只用于把结果对回请求；新档为空串。
+    requirements:
+      allOf:
+        - "$ref": "#/TrustLevelRequirements"
+      description: |
+        本档的数值快筛。省略或全 0 = 不设数值门槛。
+        服务端会把非零指标折成 `activity.count`（累计 `gte`）叶子，与规则树 **AND**
+        后一起估算——只按规则估会把「数值门槛先砍掉 99%」的档位估成全员。
+    rule:
+      type: object
+      nullable: true
+      description: 草稿规则树（形状同 `trust.levels` 的 `tiers[].rule`）。省略 = 无规则。
+      additionalProperties: true
+
+TrustLevelRuleImpactRequest:
+  type: object
+  required: [tiers]
+  properties:
+    tiers:
+      type: array
+      items:
+        "$ref": "#/TrustLevelRuleImpactTierInput"
+
+TrustLevelRuleImpactTierResult:
+  type: object
+  description: |
+    一档的估算结论。`estimated: null` 与 `partial` 是**两个独立维度**：
+    `null` = 算不出来；`partial` = 算出来了但只用了部分条件，所以那个数是上界。
+  required: [tierId, estimated, method, partial, unsupportedConditions]
+  properties:
+    tierId:
+      type: string
+    estimated:
+      type: integer
+      format: int64
+      nullable: true
+      description: |
+        估算人数（上界）。`null` 表示**无法估算**，不是「0 人」——把算不出来写成 0 会
+        让运营读成「这规则没人能达标」然后去改一条本来正确的规则。
+    method:
+      type: string
+      description: |
+        估算方法，前端按它选文案（与徽章同名同义）：
+        `single_leaf`（单条件）、`strictest_leaf`（AND 取最严）、
+        `sum_of_leaves`（OR 求和）、`complement_of_leaf`（NOT 取补）、
+        `strictest_leaf_partial`（AND 里部分条件不可估，仍给上界）、
+        `unsupported_condition`（含不可估条件）、
+        `unconditional`（该档没有任何条件 = 全员达标）、
+        `no_rule`（刻意不估）、
+        `estimate_failed`（草稿规则解不开，不报错只是不估）。
+    partial:
+      type: boolean
+      description: 估算只用了部分条件（`true` 时前端必须补一句「这个数字是上界」）。
+    unsupportedConditions:
+      type: array
+      description: |
+        参与规则但无法估算的条件 key。`estimated: null` 时逐个列出，帮运营判断该删哪一个。
+        该数组恒为数组（可能为空），不是 `null`。
+      items:
+        type: string
+
+TrustLevelRuleImpactResponse:
+  type: object
+  required: [tiers]
+  properties:
+    tiers:
+      type: array
+      description: 与请求同序一一对应。
+      items:
+        "$ref": "#/TrustLevelRuleImpactTierResult"
+
+ApiResponseTrustLevelRuleImpactResponse:
+  type: object
+  properties:
+    data:
+      "$ref": "#/TrustLevelRuleImpactResponse"

@@ -2598,6 +2598,18 @@
       "contractVersion": "sforum.route.notifications.acknowledge_celebrations@1",
       "method": "POST",
       "path": "/api/v1/notifications/celebrations/seen"
+    },
+    {
+      "id": "core.route.trust_levels.admin_list_rule_conditions",
+      "contractVersion": "sforum.route.trust_levels.admin_list_rule_conditions@1",
+      "method": "GET",
+      "path": "/api/v1/admin/trust-levels/conditions"
+    },
+    {
+      "id": "core.route.trust_levels.admin_estimate_rule_impact",
+      "contractVersion": "sforum.route.trust_levels.admin_estimate_rule_impact@1",
+      "method": "POST",
+      "path": "/api/v1/admin/trust-levels/rule-impact"
     }
   ],
   "ui": [

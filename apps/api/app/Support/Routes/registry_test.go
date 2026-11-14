@@ -530,8 +530,12 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	//     没有「替别人佩戴」的可授予能力，所以不是 permission）
 	//   GET /notifications/celebrations 与 POST /notifications/celebrations/seen
 	//     （沿用 /api/v1/notifications 前缀的 contextual + core.guard.notifications.recipient）
+	// 435 = 433 + 信任等级条件化门槛（M1）那 2 条：
+	//   GET  /admin/trust-levels/conditions（admin.access：编辑器要读条件目录与候选）
+	//   POST /admin/trust-levels/rule-impact（trust.manage：保存前估算影响面，不写库）
+	//   两条都受 features.trust_levels 门控（关闭时 404，与同组其它 4 条一致）。
 	// 照旧：计数、catalog-identities.json 的 routes、core_catalog_gen.go 三者同一批。
-	if len(catalog) != 433 {
+	if len(catalog) != 435 {
 		t.Fatalf("generated core route count = %d", len(catalog))
 	}
 	kinds := make(map[CoreGuardKind]int)

@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Conditions"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
@@ -38,6 +39,14 @@ type Controller struct {
 	featureEnabled func(context.Context) (bool, error)
 	policyReader   func(context.Context) (trustlevels.Policy, error)
 	configWriter   func(context.Context, identity.Actor, string) error
+
+	// 规则编辑面依赖（M1，见 WithRuleEditingDeps）。三者都可能为 nil：
+	//   - refCandidates 为 nil → 目录端点下发 unavailable 候选、写路径跳过引用校验；
+	//   - factCandidates 为 nil → 没有插件事实候选（`fact.count` 不出现在目录里）；
+	//   - impactEstimator 为 nil → 估算端点返回 500（它会真的查库，不能假装算过）。
+	refCandidates   trustlevels.RefCandidateSource
+	factCandidates  func() []conditions.FactCandidate
+	impactEstimator trustlevels.RuleImpactEstimator
 }
 
 // WithActorLoader 替换 actor 装载（测试用）。
@@ -75,6 +84,10 @@ func NewController(
 
 func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Get("/trust-levels", h.getPublic)
+	// 两条静态段：与 `/admin/trust-levels` 同前缀但不同段数，Fiber 不会混淆；
+	// 仍排在裸路径之前，与徽章那刀「静态段永远先注册」的教训保持一致。
+	api.Get("/admin/trust-levels/conditions", h.adminListRuleConditions)
+	api.Post("/admin/trust-levels/rule-impact", h.adminEstimateRuleImpact)
 	api.Get("/admin/trust-levels", h.getAdmin)
 	api.Put("/admin/trust-levels", h.updateAdmin)
 	api.Post("/admin/trust-levels/restore-defaults", h.restoreDefaults)
@@ -159,7 +172,7 @@ func (h *Controller) getAdmin(c fiber.Ctx) error {
 	}
 	return apphttp.OK(c, adminPayload{
 		Config:       encoded,
-		Levels:       buildAdminPayload(policy).Levels,
+		Levels:       buildAdminLevels(policy),
 		Eligible:     nonNilStrings(trustlevels.EligiblePermissions()),
 		Baseline:     nonNilStrings(trustlevels.BaselineGrants()),
 		Recommended:  recommendedConfig(),
@@ -192,6 +205,17 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 		// 传输层只做投影，不重新判断业务规则：明细来自领域层的 *ConfigErrors。
 		return configErrorResponse(c, err)
 	}
+	// 引用存在性检查是**写路径专属**（DecodeConfig 无 ctx 无库，读路径也会调它）。
+	// 主题/分类/角色被删之后，旧规则仍要能读出来（运行时该叶子返回确定值 false/0）；
+	// 但新存一份引用已死对象的规则会立刻 422，否则那条条件永远不成立而没人知道为什么。
+	referenceDetails, referenceErr := h.ruleReferenceDetails(c.Context(), policy)
+	if referenceErr != nil {
+		slog.WarnContext(c.Context(), "trust_levels rule reference check failed", "error", referenceErr)
+		return fiber.NewError(fiber.StatusInternalServerError, "trust_levels.reference_check_failed")
+	}
+	if len(referenceDetails) > 0 {
+		return configErrorResponse(c, &trustlevels.ConfigErrors{Details: referenceDetails})
+	}
 	encoded, err := trustlevels.EncodeConfig(policy)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "trust_levels.encode_failed")
@@ -203,6 +227,27 @@ func (h *Controller) updateAdmin(c fiber.Ctx) error {
 		return apphttp.MapOptionsError(err)
 	}
 	return h.getAdmin(c)
+}
+
+// ruleReferenceDetails 在写路径校验规则里的对象引用是否仍然存在。
+//
+// 两个返回值分工明确：`details` 是**运营可修的 422**（引用的对象没了），`err` 是
+// **环境故障**（读候选失败 / 未装配），后者必须与前者走不同状态码——把读库失败
+// 报成 422 会让运营去改一份本来正确的配置。
+//
+// 未装配候选来源时**跳过**：生产装配一定会注入（bootstrap）；单元测试不必为一条
+// 422 用例去造整套 badges store。跳过是显式且唯一的宽容点。
+func (h *Controller) ruleReferenceDetails(ctx context.Context, policy trustlevels.Policy) ([]trustlevels.FieldError, error) {
+	if h.refCandidates == nil {
+		return nil, nil
+	}
+	details, err := trustlevels.RuleReferenceIssues(ctx, policy, h.refCandidates, conditions.FactKeys(h.declaredFactCandidates()))
+	if err != nil {
+		// 读候选失败 = 无法判定引用是否成立。必须吵，不能当成「没有失效引用」放行：
+		// 那会让「删了分类后仍能保存引用它的规则」变成默认行为。
+		return nil, err
+	}
+	return details, nil
 }
 
 func (h *Controller) restoreDefaults(c fiber.Ctx) error {

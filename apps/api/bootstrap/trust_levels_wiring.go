@@ -2,12 +2,14 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
+	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
 // trustLevelPolicySource 把 options 的两个键组合成一份等级策略。
@@ -95,3 +97,35 @@ var _ identity.TrustLevelSource = (*trustlevels.Resolver)(nil)
 func trustLevelClock(now time.Time) func() time.Time {
 	return func() time.Time { return now }
 }
+
+// badgesRuleImpactEstimator 把徽章的聚合估算器适配成信任等级的窄接口（D17）。
+//
+// 两个域的 `RuleImpact` 形状逐字段相同，这里仍做一次**显式转换**而不是共用类型：
+// 共用类型等于让 `Models/TrustLevels` 反向依赖 `Models/Badges` 的内部结构，下一次
+// 有人给徽章那份加字段，信任等级的契约就会跟着悄悄变。
+//
+// 估算 SQL 不复制第二份：`*badges.PostgresStore.EstimateRuleImpact` 已经是「按条件
+// 聚合数人数」的唯一实现（AND 取最严、OR 取和、NOT 取补，逐条写清了口径）。
+type badgesRuleImpactEstimator struct {
+	store *badges.PostgresStore
+}
+
+// EstimateRuleImpact 实现 `trustlevels.RuleImpactEstimator`。
+func (a badgesRuleImpactEstimator) EstimateRuleImpact(ctx context.Context, rule ruleengine.Node) (trustlevels.RuleImpact, error) {
+	if a.store == nil {
+		return trustlevels.RuleImpact{}, errImpactEstimatorUnavailable
+	}
+	impact, err := a.store.EstimateRuleImpact(ctx, rule)
+	if err != nil {
+		return trustlevels.RuleImpact{}, err
+	}
+	return trustlevels.RuleImpact{
+		Estimated:             impact.Estimated,
+		Method:                impact.Method,
+		Partial:               impact.Partial,
+		UnsupportedConditions: impact.UnsupportedConditions,
+	}, nil
+}
+
+// errImpactEstimatorUnavailable 是装配缺失时的显式失败（绝不返回「0 人」）。
+var errImpactEstimatorUnavailable = errors.New("bootstrap: rule impact estimator has no store")

@@ -115,3 +115,76 @@ adminTrustLevelsRestoreDefaults:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+
+adminTrustLevelConditions:
+  get:
+    summary: List the conditions available to trust level rules
+    operationId: listAdminTrustLevelConditions
+    description: |
+      规则编辑器的条件目录：**信任等级可用**的条件子集、插件事实候选与对象候选。
+
+      子集 = 共享条件目录（徽章与等级同一份实现、同 key、同 SQL 口径）排除内容质量
+      两条 `content.pinned` / `content.hidden`：它们量的是「内容被管理员怎么处理过」，
+      属审核信号。把它当等级门槛等于「被置顶过才配升级」，负向使用
+      （`not hidden`）更会把一次审核变成长期身份差异。
+
+      **本端点不写库、不入队、不发事件**，读权限是 `admin.access`（与本域其它读面
+      一致；不造 `trust.view`）。`features.trust_levels` 关闭时返回 404。
+
+      `refCandidates` 恒为五组、固定顺序 `badge → category → tag → role → provider`；
+      取不到候选时该组 `unavailable: true`（与「候选为空」是两件事）。
+    responses:
+      '200':
+        description: Condition catalog for the rule editor.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/ApiResponseTrustLevelConditionCatalog"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+
+adminTrustLevelRuleImpact:
+  post:
+    summary: Estimate how many users a draft tier rule would affect
+    operationId: estimateAdminTrustLevelRuleImpact
+    description: |
+      保存前的**影响面估算**（D8）。请求带**草稿**档位（含尚未保存的新档），响应逐档给
+      `estimated` / `method` / `partial` / `unsupportedConditions`。
+
+      口径（与徽章同一实现）：数值快筛折成 `activity.count`（累计 `gte`）叶子，与规则树
+      **AND** 后一起估算；AND 取最严叶子、OR 取和、NOT 取补。叶子之间通常相关，所以
+      这些数都是**上界**——`method` 存在的唯一目的就是让前端能如实说「≈ N 人」。
+
+      `estimated: null` 与 `partial: true` 是两件事：前者是**算不出来**（OR/NOT 里含不可估
+      条件，或草稿规则解不开），后者是算出来了但只用了部分条件。
+
+      **聚合 SQL，不逐用户跑引擎**：估算发生在运营点开弹窗的那一刻，逐用户求值会把一个
+      只读接口变成全表扫描。本端点不写库、不入队。
+
+      写权限是 `trust.manage`（不是 `admin.access`）：能读策略不等于需要知道「改这一档会
+      影响全站多少人」。`features.trust_levels` 关闭时返回 404。
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            "$ref": "../schemas/trust_levels.yaml#/TrustLevelRuleImpactRequest"
+    responses:
+      '200':
+        description: Per-tier estimate.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/trust_levels.yaml#/ApiResponseTrustLevelRuleImpactResponse"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"

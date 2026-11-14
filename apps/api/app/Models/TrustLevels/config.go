@@ -92,6 +92,18 @@ const (
 	CodeEarnableKeyEmpty         = "earnable_key_empty"
 	CodeEarnableNotWhitelisted   = "earnable_not_whitelisted"
 	CodeEarnableInvalid          = "earnable_invalid"
+	// CodeEarnableNotDeclared 是 M4.2 的写期拒绝：该键不被任何已启用插件声明。
+	// 解码期**不**拒（否则一次插件停用会让整份 trust.levels 解码失败 → 全站等级
+	// 退回默认策略，见 rule_reference.go 的同一条边界说明）。
+	CodeEarnableNotDeclared = "earnable_not_declared"
+
+	// 规则树（M1）的 4 条聚合码 + 引用失效码，映射表在 rule_errors.go。
+	// 一条规则树可能同时踩多种引擎细分错误，对外只给「该改哪一类」。
+	CodeRuleTooComplex            = "rule_too_complex"
+	CodeRuleUnknownCondition      = "rule_unknown_condition"
+	CodeRuleShapeInvalid          = "rule_shape_invalid"
+	CodeRuleReferenceInvalid      = "rule_reference_invalid"
+	CodeRuleConditionNotAvailable = "rule_condition_not_available"
 
 	CodeLevelUnknown        = "level_unknown"
 	CodeLevelReservedForTL0 = "level_reserved_for_tl0"
@@ -133,6 +145,12 @@ var configErrorReasonCodes = []string{
 	CodeEarnableKeyEmpty,
 	CodeEarnableNotWhitelisted,
 	CodeEarnableInvalid,
+	CodeEarnableNotDeclared,
+	CodeRuleTooComplex,
+	CodeRuleUnknownCondition,
+	CodeRuleShapeInvalid,
+	CodeRuleReferenceInvalid,
+	CodeRuleConditionNotAvailable,
 	CodeLevelUnknown,
 	CodeLevelReservedForTL0,
 	CodeLevelDuplicate,
@@ -197,6 +215,16 @@ type TierConfig struct {
 	Requirements Requirements    `json:"requirements"`
 	Limits       json.RawMessage `json:"limits"`
 	Earnable     json.RawMessage `json:"earnable"`
+	// Rule 是可选规则树（M1）。用 `json.RawMessage` 而不是 `*ruleengine.Node`：
+	//   - 与同级的 limits / earnable 一致，`DecodeConfig` 仍是纯函数（无 ctx、无库），
+	//     结构校验就地做，引用存在性留给写路径；
+	//   - **未编辑的规则必须原样透传**：前端的折叠面板可以「只看不改」，重新序列化
+	//     `*Node` 会重排键序、丢未知键（`Decode` 之后也丢不了，但写出时格式会变），
+	//     而脏规则一旦被重新序列化就可能变成 `null`——徽章那刀已经证过一次。
+	//
+	// omitempty 是回滚口径：没配规则的档位写出字节与引入本字段之前**逐字节相同**，
+	// 上一版二进制仍能解码（它不认识 rule，但只要没有档位真正写过规则就不会出现）。
+	Rule json.RawMessage `json:"rule,omitempty"`
 	// Retired 是软停用（D-N2）：配置保留、判定与 UI 跳过。
 	Retired bool `json:"retired"`
 }
@@ -514,6 +542,12 @@ func decodeV2(tierConfigs []TierConfig, deletedTierIDs []string) (Policy, error)
 			earnable = decoded
 			validateEarnableInto(collector, wouldBeRank, id, earnable)
 		}
+		// rule 是**可选**的：省略与显式 null 都表示「无规则」，不代表配置缺失
+		// （与 limits/earnable 相反——那两个省略等于「静默重置」，必须拒）。
+		rule, ruleViolations := decodeTierRule(tierConfig.Rule)
+		for _, violation := range ruleViolations {
+			collector.addDetail(violation.fieldError(wouldBeRank, id))
+		}
 
 		tier := Tier{
 			ID:           id,
@@ -523,6 +557,7 @@ func decodeV2(tierConfigs []TierConfig, deletedTierIDs []string) (Policy, error)
 			Requirements: tierConfig.Requirements,
 			Limits:       limits,
 			Earnable:     earnable,
+			Rule:         rule,
 			Retired:      tierConfig.Retired,
 		}
 		policy.Tiers = append(policy.Tiers, tier)
@@ -711,6 +746,7 @@ func EncodeConfig(policy Policy) (string, error) {
 			Requirements: tier.Requirements,
 			Limits:       encodedLimits,
 			Earnable:     encodedEarnable,
+			Rule:         tier.Rule,
 			Retired:      tier.Retired,
 		})
 	}

@@ -716,6 +716,10 @@ paths:
     "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevels"
   /admin/trust-levels/restore-defaults:
     "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelsRestoreDefaults"
+  /admin/trust-levels/conditions:
+    "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelConditions"
+  /admin/trust-levels/rule-impact:
+    "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelRuleImpact"
   "/admin/badges":
     "$ref": "./openapi/paths/badges.yaml#/adminBadges"
   "/admin/badges/{badgeID}":
@@ -1183,6 +1187,20 @@ components:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConfigInput"
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelCatalog"
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelAdmin"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelAdminDefinition"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConditionCatalog"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelCondition"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConditionParam"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelFactCandidate"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelFactVariant"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRefCandidate"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRefCandidateGroup"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactRequest"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactTierInput"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactResponse"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactTierResult"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelConditionCatalog"
+      "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelRuleImpactResponse"
       "$ref": "./openapi/schemas/badges.yaml#/BadgeTier"
     BadgeGrantMode:
       "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantMode"

@@ -164,3 +164,47 @@ func (e Earnable) Normalize() Earnable {
 	}
 	return out
 }
+
+// DeclaredPermissionKeys 返回「当前可被信任等级授予」的键全集。
+//
+// M1 的形态就是正白名单：插件声明（manifest `permissionDefinitions[].trustLevelEarnable`）
+// 要等 M4.1/M4.2 才接进来。写成函数而不是直接读 `earnableWhitelist`，是为了让调用方
+// 从第一天起就走「已声明集合」这个概念——M4 换实现时不用改调用点。
+func DeclaredPermissionKeys() []string { return EarnableWhitelist() }
+
+// ValidateEarnableDeclared 校验一组可挣得键是否都被**已声明**集合覆盖。
+//
+// 它对应 `earnable_not_declared`（M4.2 的写期拒绝）：解码期**不**做这件事（见
+// config.go 里那条码的注释——一次插件停用会让整份配置解码失败，全站等级退回默认
+// 策略，那是灾难性失败）。所以判据的形状在这里、调用时机在写路径。
+//
+// M1 的已声明集合 = 核心七键，因此这条码在当前版本**经由 HTTP 不可达**：解码期的
+// `earnable_not_whitelisted` 会先拒绝同一批输入。这不是遗漏，而是 M4.2 的切换点
+// ——那一步会把解码期的硬拒改成「保留 + 运行期过滤」，这条码才开始接手。
+func ValidateEarnableDeclared(keys []string, declared []string) []FieldError {
+	known := make(map[string]struct{}, len(declared))
+	for _, key := range declared {
+		known[key] = struct{}{}
+	}
+	details := make([]FieldError, 0, 1)
+	seen := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if _, ok := known[key]; ok {
+			continue
+		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		details = append(details, FieldError{
+			Field:  "earnable",
+			Code:   CodeEarnableNotDeclared,
+			Params: map[string]any{"permission": key},
+			Reason: fmt.Sprintf("%q 没有被任何已启用插件声明，不能被等级授予", key),
+		})
+	}
+	return details
+}

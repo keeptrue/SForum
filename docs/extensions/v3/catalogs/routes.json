@@ -4237,7 +4237,7 @@
     "handler": "getAdmin",
     "method": "GET",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:78",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:91",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -4255,7 +4255,7 @@
     "handler": "updateAdmin",
     "method": "PUT",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:79",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:92",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -4267,13 +4267,49 @@
     }
   },
   {
+    "id": "core.route.trust_levels.admin_list_rule_conditions",
+    "contractVersion": "sforum.route.trust_levels.admin_list_rule_conditions@1",
+    "module": "trust_levels",
+    "handler": "adminListRuleConditions",
+    "method": "GET",
+    "path": "/api/v1/admin/trust-levels/conditions",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:89",
+    "access": "permission",
+    "policy": "admin.access",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "admin.access"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.trust_levels.admin_restore_trust_level_defaults",
     "contractVersion": "sforum.route.trust_levels.admin_restore_trust_level_defaults@1",
     "module": "trust_levels",
     "handler": "restoreDefaults",
     "method": "POST",
     "path": "/api/v1/admin/trust-levels/restore-defaults",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:80",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:93",
+    "access": "permission",
+    "policy": "trust.manage",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "trust.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
+    "id": "core.route.trust_levels.admin_estimate_rule_impact",
+    "contractVersion": "sforum.route.trust_levels.admin_estimate_rule_impact@1",
+    "module": "trust_levels",
+    "handler": "adminEstimateRuleImpact",
+    "method": "POST",
+    "path": "/api/v1/admin/trust-levels/rule-impact",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:90",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -7079,7 +7115,7 @@
     "handler": "getPublic",
     "method": "GET",
     "path": "/api/v1/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:77",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:86",
     "access": "public",
     "policy": "trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled",
     "guard": {
