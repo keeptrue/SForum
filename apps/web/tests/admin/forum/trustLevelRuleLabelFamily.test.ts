@@ -310,3 +310,95 @@ describe('规则编辑器不跨族读标签文案（必红断言）', () => {
     }
   })
 })
+
+/**
+ * `identity.profile` 的 `field`：参数**取值**文案（`params.<name>.options.<value>`）。
+ *
+ * 形状说明：扁平字符串 `params.<name>` 只能放一个标签，放不下「标签 + 取值文案」两个维度，
+ * 所以 `field` 是对象（`label` + `options.*`）—— 也正好是 `paramOptionLabelKey`
+ * 优先级 1 认得的那条路径。其余 12 个内置参数仍是扁平字符串，读侧两种形状都吃。
+ *
+ * 没有文案的后果不是「少一行提示」，而是下拉里出现裸 `bio` / `signature`（运营看不懂的
+ * 插件内部取值），所以这一条要同时钉住 locale 与渲染两侧。
+ */
+const FIELD_SLUGS = ['bio', 'signature', 'website', 'location'] as const
+const FIELD_ZH: Record<string, string> = { bio: '简介', signature: '签名', website: '个人网站', location: '所在地' }
+const FIELD_EN: Record<string, string> = { bio: 'Bio', signature: 'Signature', website: 'Website', location: 'Location' }
+
+const fieldCatalog = [{
+  key: 'identity.profile',
+  valueKind: 'boolean',
+  compare: [],
+  labelZh: '资料已填写',
+  labelEn: 'Profile filled in',
+  params: [{ name: 'field', kind: 'enum', required: true, options: [...FIELD_SLUGS] }]
+}]
+
+const fieldRule = {
+  v: 1,
+  root: { type: 'identity.profile', params: { field: 'location' } }
+}
+
+function mountFieldTrust() {
+  return mount(TrustSection, {
+    props: { tierId: 'member', rule: fieldRule, conditionsStatus: 'ready', catalog: fieldCatalog },
+    global: { components: { UIcon: UIconStub, UButton: UButtonStub, USelectMenu: SelectMenuStub } }
+  })
+}
+
+function mountFieldBadge() {
+  return mount(Editor, {
+    props: { modelValue: fieldRule, catalog: fieldCatalog },
+    global: { components: { UIcon: UIconStub, UButton: UButtonStub, USelectMenu: SelectMenuStub } }
+  })
+}
+
+describe('identity.profile 的 field 取值文案', () => {
+  test('两语言、两族：四个取值都有非空文案（徽章族与信任族逐条一致）', () => {
+    for (const locale of ['zh-CN', 'en-US'] as const) {
+      const doc = JSON.parse(
+        readFileSync(new URL(`../../../i18n/locales/${locale}.json`, import.meta.url), 'utf8')
+      ) as Record<string, unknown>
+      const at = (path: string) => path.split('.').reduce<unknown>(
+        (node, part) => (node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined),
+        doc
+      )
+      const badge = at('admin.badges.conditions.params.field.options') as Record<string, string>
+      const trust = at('admin.forum.trustLevels.ruleConditions.params.field.options') as Record<string, string>
+      expect(Object.keys(badge).sort()).toEqual([...FIELD_SLUGS].sort())
+      expect(Object.keys(trust).sort()).toEqual([...FIELD_SLUGS].sort())
+      for (const slug of FIELD_SLUGS) {
+        expect({ locale, slug, value: badge[slug] }).toEqual({ locale, slug, value: trust[slug] })
+        expect(badge[slug].trim()).toBe((locale === 'zh-CN' ? FIELD_ZH : FIELD_EN)[slug]!)
+      }
+      // 参数标签也在这条路径上（对象形态的 `.label`）。
+      expect(at('admin.badges.conditions.params.field.label')).toBe(locale === 'zh-CN' ? '字段' : 'Field')
+    }
+  })
+
+  test('信任编辑器渲染中文取值，不出现裸 slug', async () => {
+    const wrapper = mountFieldTrust()
+    try {
+      await flushPromises()
+      const label = wrapper.find('[data-param="field"] .sf-rule-field__label').text()
+      expect(label).toBe('字段')
+      const options = wrapper.findAll('[data-param="field"] option').map(option => option.text())
+      expect(options).toEqual(FIELD_SLUGS.map(slug => FIELD_ZH[slug]!))
+      for (const slug of FIELD_SLUGS) expect(options).not.toContain(slug)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('徽章编辑器同样渲染中文取值（同一个控件实现）', async () => {
+    const wrapper = mountFieldBadge()
+    try {
+      await flushPromises()
+      expect(wrapper.find('[data-param="field"] .sf-rule-field__label').text()).toBe('字段')
+      const options = wrapper.findAll('[data-param="field"] option').map(option => option.text())
+      expect(options).toEqual(FIELD_SLUGS.map(slug => FIELD_ZH[slug]!))
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})

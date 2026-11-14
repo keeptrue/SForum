@@ -124,6 +124,16 @@ const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
     'refFlagHidden',
     'refFlagDisabled',
   ],
+  // `identity.profile` 的 `field` 参数：**既要有标签又要有四个取值文案**，扁平字符串
+  // 放不下第二维，所以它是对象（`label` + `options.*`）。族名由 `paramOptionLabelKey`
+  // 与组件标签逻辑运行时拼，源码里扫不到，只能在这里逐值登记。
+  'admin.badges.conditions.params.field': [
+    'label',
+    'options.bio',
+    'options.signature',
+    'options.website',
+    'options.location',
+  ],
   'admin.badges.rule.health': [
     'missing_topic',
     'missing_category',
@@ -184,6 +194,16 @@ const DYNAMIC_ENUMERATIONS: Record<string, readonly string[]> = {
   ]
 }
 
+/**
+ * 源码里**扫不到前缀**的参数族：`paramOptionLabelKey` 运行时才拼
+ * `params.<param>.options.<value>`，组件里只出现短键名，所以族名（前缀本身）
+ * 永远不出现在 `.ts/.vue` 里。每一项都必须在上面 `DYNAMIC_ENUMERATIONS` 里逐值登记，
+ * 否则这一族的死键不会被 `extra` 断言发现。
+ */
+const RUNTIME_ONLY_PREFIXES = [
+  'admin.badges.conditions.params.field'
+] as const
+
 describe('admin.badges i18n namespace', () => {
   test('defines every referenced key in both locales, and nothing more', () => {
     const { literal, prefixes } = referencedBadgeKeys()
@@ -200,7 +220,7 @@ describe('admin.badges i18n namespace', () => {
       prefixes.add(key)
     }
     const used = new Set(literal)
-    for (const prefix of prefixes) {
+    for (const prefix of [...prefixes, ...RUNTIME_ONLY_PREFIXES]) {
       const values = DYNAMIC_ENUMERATIONS[prefix]
       expect(values).toBeDefined()
       for (const value of values!) used.add(`${prefix}.${value}`)

@@ -62,6 +62,25 @@ const DYNAMIC_KEYS = [
 /** 共享编辑器经前缀 prop 读取的整族。 */
 const PREFIXED_FAMILIES = ['rule'] as const
 
+/**
+ * **允许被整族放行**的族名清单（M3b-F1 的族注入）。
+ *
+ * 规则：源码里以「族名」出现（而不是叶子键）的引用，若它是某些已定义键的祖先，
+ * 该族整体算已使用。这会吞掉族内孤儿键——所以放行名单必须是**固定的、显式的**，
+ * 而不是「扫到什么就放行什么」。
+ *
+ * 这张表是**集合相等**断言的一部分（见下面的测试）：多一项红（有人新引入一个会被
+ * 整族放行的族名），少一项也红（有人悄悄拆掉了族注入）。新增一项时必须同时去
+ * `trustLevelRuleI18n.test.ts` 补逐键等值断言，否则那一族就真的没人看着了。
+ */
+const INJECTED_FAMILIES = [
+  'rule',
+  'ruleConditions',
+  'ruleConditions.enums',
+  'ruleConditions.metrics',
+  'ruleConditions.params'
+].sort()
+
 const zh = JSON.parse(
   readFileSync(new URL('../../../i18n/locales/zh-CN.json', import.meta.url), 'utf8')
 ) as Record<string, unknown>
@@ -124,13 +143,13 @@ describe('admin.forum.trustLevels 死键棘轮', () => {
     for (const key of DYNAMIC_KEYS) used.add(key)
     // 族注入（M3b-F1）：共享编辑器的条件族与标签三元组经 prop 注入，源码里出现的是
     // **族名**（`admin.forum.trustLevels.ruleConditions`、`.params`…），没有叶子键可匹配。
-    // 族名是某些已定义键的祖先，就整族算已使用——这不是把哨兵改成记录簿：那两族由
-    // `trustLevelRuleI18n.test.ts` **逐键**与徽章族比对（键集 + 值），族内多一条自造
-    // 文案、少一条副本都会在那里红。
-    for (const key of [...literal]) {
-      if (!defined.some(definedKey => definedKey.startsWith(`${key}.`))) continue
+    // 族名是某些已定义键的祖先就整族算已使用；放行名单必须与 `INJECTED_FAMILIES` 相等。
+    // 族内孤儿键由 `trustLevelRuleI18n.test.ts` 的逐键副本断言接住（键集 + 值）。
+    const injected = [...literal].filter(key => defined.some(entry => entry.startsWith(`${key}.`))).sort()
+    expect(injected).toEqual([...INJECTED_FAMILIES])
+    for (const family of injected) {
       for (const definedKey of defined) {
-        if (definedKey.startsWith(`${key}.`)) used.add(definedKey)
+        if (definedKey.startsWith(`${family}.`)) used.add(definedKey)
       }
     }
     for (const family of [...DYNAMIC_FAMILIES, ...prefixed]) {

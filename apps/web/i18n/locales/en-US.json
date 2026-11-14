@@ -631,7 +631,16 @@
           "providerId": "Provider",
           "roleKey": "Role",
           "slug": "Badge slug",
-          "variant": "Variant"
+          "variant": "Variant",
+          "field": {
+            "label": "Field",
+            "options": {
+              "bio": "Bio",
+              "signature": "Signature",
+              "website": "Website",
+              "location": "Location"
+            }
+          }
         },
         "unknownHint": "This condition is not in the catalog (the plugin may be uninstalled). Remove this node, or restore the plugin before editing.",
         "enums": {
@@ -6129,51 +6138,60 @@
           },
           "wrapNot": "Wrap in “not”"
         },
-      "ruleConditions": {
-        "empty": "No condition catalog available; the rule cannot be edited yet.",
-        "unknown": "Condition “{type}” is not in the current catalog.",
-        "unknownHint": "This condition is not in the catalog (the plugin may be uninstalled). Remove this node, or restore the plugin before editing.",
-        "factCandidatesFailed": "Plugin fact candidates are unavailable right now, so no fact source can be selected. Existing rules are unaffected.",
-        "factKeyPlaceholder": "Select a fact source",
-        "factStaleHint": "This fact source is no longer available (the extension may be disabled or uninstalled). The original value is kept and the rule health check keeps reporting it.",
-        "refCandidatesPlaceholder": "Search and select",
-        "refUnavailableHint": "Candidates are unavailable right now. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
-        "refEmptyHint": "No candidates of this type exist yet. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
-        "refUnknownKind": "Reference type \"{kind}\" is not registered: the backend and plugin versions disagree, so candidates cannot load. A hand-typed value still saves but may not be understood.",
-        "refTruncated": "Too many candidates: only the first 500 are listed. Use search to narrow it down.",
-        "refStale": " (stale)",
-        "refFlagHidden": " (hidden)",
-        "refFlagDisabled": " (disabled)",
-        "metrics": {
-          "bookmark_count": "Bookmarks",
-          "comment_count": "Replies",
-          "days_visited": "Days visited",
-          "like_received_count": "Likes received",
-          "topic_count": "Topics",
-          "like_given_count": "Likes given"
-        },
-        "enums": {
-          "like": "like",
-          "bookmark": "bookmark",
-          "comment": "comment",
-          "category": "category",
-          "tag": "tag"
-        },
-        "params": {
-          "metric": "Metric",
-          "window": "Time window",
-          "minDays": "Consecutive days",
-          "action": "Action",
-          "topicId": "Topic ID",
-          "targetKind": "Target kind",
-          "targetSlug": "Target slug",
-          "days": "Days",
-          "providerId": "Provider",
-          "roleKey": "Role",
-          "slug": "Badge slug",
-          "variant": "Variant"
+        "ruleConditions": {
+          "empty": "No condition catalog available; the rule cannot be edited yet.",
+          "unknown": "Condition “{type}” is not in the current catalog.",
+          "unknownHint": "This condition is not in the catalog (the plugin may be uninstalled). Remove this node, or restore the plugin before editing.",
+          "factCandidatesFailed": "Plugin fact candidates are unavailable right now, so no fact source can be selected. Existing rules are unaffected.",
+          "factKeyPlaceholder": "Select a fact source",
+          "factStaleHint": "This fact source is no longer available (the extension may be disabled or uninstalled). The original value is kept and the rule health check keeps reporting it.",
+          "refCandidatesPlaceholder": "Search and select",
+          "refUnavailableHint": "Candidates are unavailable right now. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
+          "refEmptyHint": "No candidates of this type exist yet. Enter the identifier (slug / key) directly; the rule health check will tell you whether it exists.",
+          "refUnknownKind": "Reference type \"{kind}\" is not registered: the backend and plugin versions disagree, so candidates cannot load. A hand-typed value still saves but may not be understood.",
+          "refTruncated": "Too many candidates: only the first 500 are listed. Use search to narrow it down.",
+          "refStale": " (stale)",
+          "refFlagHidden": " (hidden)",
+          "refFlagDisabled": " (disabled)",
+          "metrics": {
+            "bookmark_count": "Bookmarks",
+            "comment_count": "Replies",
+            "days_visited": "Days visited",
+            "like_received_count": "Likes received",
+            "topic_count": "Topics",
+            "like_given_count": "Likes given"
+          },
+          "enums": {
+            "like": "like",
+            "bookmark": "bookmark",
+            "comment": "comment",
+            "category": "category",
+            "tag": "tag"
+          },
+          "params": {
+            "metric": "Metric",
+            "window": "Time window",
+            "minDays": "Consecutive days",
+            "action": "Action",
+            "topicId": "Topic ID",
+            "targetKind": "Target kind",
+            "targetSlug": "Target slug",
+            "days": "Days",
+            "providerId": "Provider",
+            "roleKey": "Role",
+            "slug": "Badge slug",
+            "variant": "Variant",
+            "field": {
+              "label": "Field",
+              "options": {
+                "bio": "Bio",
+                "signature": "Signature",
+                "website": "Website",
+                "location": "Location"
+              }
+            }
+          }
         }
-      }
       }
     },
     "form": {

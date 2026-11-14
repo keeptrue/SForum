@@ -187,8 +187,18 @@ const windowDays = computed(() => {
 const label = computed(() => {
   // 参数名文案属于条件族（不是规则族，见 props 注释）：`cc` 只补条件族前缀。
   // 插件自定义参数没有文案时回退原始 name。
-  const key = `params.${props.spec.name}`
-  return rawTE(`${props.conditionI18nPrefix}.${key}`) ? cc(key) : props.spec.name
+  //
+  // 两种形状都吃（这是唯一的两种，不再加第三种）：
+  // 1) 扁平字符串 `params.<name>`：参数只有标签时用（12 个内置参数都是这样）；
+  // 2) 对象 `params.<name>.label`：同一参数**既要有标签又要给取值文案**时用
+  //    （`identity.profile` 的 `field`：标签「字段」+ `options.{bio,signature,website,location}`）。
+  //    扁平字符串放不下第二个维度，而 `options` 又必须挂在 `params.<name>.options.*`
+  //    才能被 `paramOptionLabelKey` 的优先级 1 命中。
+  // `te` 对对象节点返回 false（vue-i18n 只认 string / AST / function），所以顺序不会误判。
+  const base = `params.${props.spec.name}`
+  if (rawTE(`${props.conditionI18nPrefix}.${base}`)) return cc(base)
+  if (rawTE(`${props.conditionI18nPrefix}.${base}.label`)) return cc(`${base}.label`)
+  return props.spec.name
 })
 
 const textValue = computed(() => paramText(props.spec.name))
