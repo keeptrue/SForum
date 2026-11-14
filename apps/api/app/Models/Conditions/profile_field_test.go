@@ -87,13 +87,15 @@ func TestProfileFieldTablesCoverSameEnum(t *testing.T) {
 // 运行期静默恒 false（在 `not` 子树下反转成 true）。派生 + 这条断言取代了「记得
 // 同时改两处」的纪律要求。
 //
-// 边界（别高估它）：列名**取值**对不对不归这条管——SQL 由同一张表生成，自己跟自己对
-// 账必然一致。列名的真值由集成测试的独立映射表（profileColumns）抓：列名写错时
-// 真库会报 `column profiles.<x> does not exist`。这里只保证生成器用的是 Column
-// 而不是 Field，以及没有分支被漏掉。
+// 边界（别高估它）：
+//   - 列名的**取值**对不对不归这条管——SQL 与列名由同一张表生成，自己跟自己对账必然
+//     一致。列名真值由集成测试的独立映射表（profileColumns）加真库抓：写错时报
+//     `column profiles.<x> does not exist`。本断言对列名是自证，只保证生成器用的是
+//     Column 而不是 Field。
 func TestProfileFilledSQLCoversEveryProfileField(t *testing.T) {
-	// 分支数按**目录取值**对账，不是按 profileFields：后者是 SQL 的生成输入，用它
-	// 对账等于自证——「枚举绕开表另加一项」这种漂移必须由这条抓住。
+	// 按 `profileFieldOptions()` 对账：它既是目录来源，也是**唯一可被绕开的手改点**
+	// （在它末尾 append 一个不进口袋表的取值，目录与 SQL 就同时漂移）。表内加取值时
+	// 两者天然相等，本条抓的是**派生函数被改写**，不是「表被加了一项」。
 	options := profileFieldOptions()
 	if got := strings.Count(profileFilledSQL, "WHEN '"); got != len(options) {
 		t.Fatalf("SQL 的 CASE 分支数 %d 与枚举数 %d 不一致（新增取值必须同步生成分支）：\n%s",
