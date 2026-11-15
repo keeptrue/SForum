@@ -422,11 +422,30 @@ assert(adminLayout.includes('adminTabs.activateTab(tabId)'), 'Admin layout shoul
 assert(adminLayout.includes('openExtensionRoutePlaceholderTab(tabId)'), 'Admin layout should open route-backed placeholder tabs for dynamic extension pages')
 assert(adminLayout.includes('overflow-y-auto'), 'Admin sidebar navigation should scroll independently when there are many menu items')
 assert(adminLayout.includes('min-h-0') && adminLayout.includes('flex-1'), 'Admin sidebar navigation container should flex-fill and allow independent scrolling')
-assert(adminLayout.includes('sforum-admin-tabs'), 'Admin layout should expose a dedicated multi-tab bar class')
-assert(adminLayout.includes('shrink-0'), 'Admin multi-tabs should not shrink when many pages are open')
-assert(adminLayout.includes('data-admin-tab-id'), 'Admin multi-tabs should expose stable tab ids for scroll-into-view')
+
+// 页签条已抽成独立组件：页签的 class/属性/几何跟着 markup 走，这些断言必须指向
+// 真正的所有者。留在 layout 上会假绿——layout 里另有 17 处 `shrink-0`（侧栏、主
+// 面板），`data-admin-tab-id` 也只是滚动逻辑里的选择器字符串，页签标记删光了它们
+// 照样通过。
+const adminTabStripPath = 'apps/web/app/components/admin/shell/SFAdminTabStrip.vue'
+assert(existsSync(file(adminTabStripPath)), 'Admin shell should have a dedicated multi-tab strip component')
+const adminTabStrip = read(adminTabStripPath)
+// 页签本体那一行：`h-[44px]` 只出现在页签按钮上（容器是 h-[52px]），用它定位后
+// 要求同一行带 `shrink-0`。这样删掉页签的 shrink-0 会红，而图标/关闭控件上的
+// `size-4.5 shrink-0` 蒙不过去；class 重排不影响。
+const adminTabButtonClassLine = adminTabStrip
+  .split('\n')
+  .find(line => line.includes('h-[44px]')) ?? ''
+
+// 装配断言：组件存在但 layout 不挂它，页签条就等于不存在。同时要求它拿到解析后的
+// 页签列表，否则挂上去也是个空壳。
+assert(adminLayout.includes('<SFAdminTabStrip') && adminLayout.includes(':tabs="adminTabStripItems"'),
+  'Admin layout should mount the dedicated multi-tab strip component with the resolved tab items')
+assert(adminTabStrip.includes('sforum-admin-tabs'), 'Admin multi-tab bar should expose a dedicated class')
+assert(adminTabButtonClassLine.includes('shrink-0'), 'Admin multi-tabs should not shrink when many pages are open')
+assert(adminTabStrip.includes('data-admin-tab-id'), 'Admin multi-tabs should expose stable tab ids for scroll-into-view')
 assert(adminLayout.includes('scrollActiveAdminTabIntoView'), 'Admin multi-tabs should scroll the active tab into view')
-assert(adminLayout.includes('whitespace-nowrap'), 'Admin multi-tab labels should stay on one line')
-assert(adminLayout.includes('max-w-[12.5rem]'), 'Admin multi-tab labels should cap width and truncate long titles')
+assert(adminTabStrip.includes('whitespace-nowrap'), 'Admin multi-tab labels should stay on one line')
+assert(adminTabStrip.includes('max-w-[12.5rem]'), 'Admin multi-tab labels should cap width and truncate long titles')
 
 console.log('Admin framework validation passed.')

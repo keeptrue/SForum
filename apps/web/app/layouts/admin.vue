@@ -7,6 +7,8 @@ import { useAdminSystemUpdates } from '~/composables/admin/useAdminSystemUpdates
 import { useColorModePreference } from '~/composables/appearance/useColorModePreference'
 import type { DropdownMenuItem } from '@nuxt/ui/components/DropdownMenu.vue'
 import SFAdminFooter from '~/components/admin/SFAdminFooter.vue'
+import SFAdminTabStrip, { type AdminTabStripItem } from '~/components/admin/shell/SFAdminTabStrip.vue'
+import { adminTabElementId } from '~/utils/admin/adminTabStrip'
 import SFAdminSurfaceOutlet from '~/components/admin/SFAdminSurfaceOutlet.vue'
 import SFAdminSystemUpdatePrompt from '~/components/admin/system/SFAdminSystemUpdatePrompt.vue'
 import {
@@ -491,6 +493,23 @@ function navigateAdminTab(tab: AdminTab) {
   void navigateTo(tab.to)
 }
 
+function navigateAdminTabById(id: string) {
+  const tab = adminTabs.tabs.value.find(item => item.id === id)
+  if (tab) {
+    navigateAdminTab(tab)
+  }
+}
+
+// 页签条只负责呈现：键盘导航与焦点搬运在 SFAdminTabStrip 里，文案在这里解析。
+const adminTabStripItems = computed<AdminTabStripItem[]>(() =>
+  adminTabs.tabs.value.map(tab => ({
+    id: tab.id,
+    label: tab.label || (tab.labelKey ? t(tab.labelKey) : ''),
+    icon: tab.icon,
+    closable: tab.closable
+  }))
+)
+
 // 页签过多时保持横向滚动，激活项滚入可视区，避免被 flex 挤压
 function scrollActiveAdminTabIntoView() {
   if (!import.meta.client) {
@@ -521,6 +540,13 @@ async function signOut() {
 
 <template>
   <UDashboardGroup storage-key="sforum-admin" class="sforum-admin-shell">
+    <!-- 键盘用户不必 Tab 过 50+ 个侧栏导航项：聚焦时才从视口上方滑入 -->
+    <a
+      href="#sforum-admin-main"
+      class="absolute -top-[200px] left-4 z-[60] rounded-md border border-[var(--border-admin)] bg-[var(--bg-admin-card)] px-4 py-2.5 text-sm font-semibold text-[var(--text-admin-main)] shadow-lg focus:top-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent)]"
+    >
+      {{ t('admin.shell.skipToContent') }}
+    </a>
     <UDashboardSidebar
       id="sforum-admin-sidebar"
       collapsible
@@ -682,44 +708,28 @@ async function signOut() {
         </div>
       </div>
 
-      <!-- 2. 多页签栏：单项不收缩，超出横向滚动，避免被压扁 -->
-      <div
-        class="sforum-admin-tabs flex min-w-0 shrink-0 items-end h-[52px] px-3 gap-1.5 bg-[var(--bg-admin-card)] border-b border-[var(--border-admin)] overflow-x-auto overflow-y-hidden select-none no-scrollbar z-15"
-        role="tablist"
-        :aria-label="t('admin.shell.tabsLabel')"
-      >
-        <div
-          v-for="tab in adminTabs.tabs.value"
-          :key="tab.id"
-          role="tab"
-          :data-admin-tab-id="tab.id"
-          :aria-selected="adminTabs.activeTabId.value === tab.id"
-          class="group relative z-10 inline-flex h-[44px] max-w-[12.5rem] shrink-0 items-center gap-2 whitespace-nowrap border border-b-0 border-[var(--border-admin)] mb-[-1px] rounded-t-lg px-3 sm:px-4 text-sm font-semibold cursor-pointer transition-colors"
-          :class="adminTabs.activeTabId.value === tab.id
-            ? 'bg-[var(--bg-admin-app)] text-[var(--sf-accent)] border-[var(--border-admin)]'
-            : 'bg-transparent text-slate-500 dark:text-zinc-400 border-transparent hover:text-[var(--text-admin-main)]'"
-          @click="navigateAdminTab(tab)"
-        >
-          <UIcon :name="tab.icon" class="size-4.5 shrink-0" />
-          <span class="min-w-0 truncate">{{ tab.label || (tab.labelKey ? t(tab.labelKey) : '') }}</span>
-
-          <span
-            v-if="tab.closable"
-            class="inline-flex size-4.5 shrink-0 items-center justify-center rounded-full text-slate-500 dark:text-zinc-400 hover:bg-red-500/20 hover:text-red-500 transition-colors"
-            :aria-label="t('admin.shell.closeTab')"
-            @click.stop="adminTabs.closeTab(tab.id)"
-          >
-            <UIcon name="i-lucide-x" class="size-3" />
-          </span>
-        </div>
-      </div>
+      <!-- 2. 多页签栏：结构/键盘/焦点都在 SFAdminTabStrip，这里只做装配 -->
+      <SFAdminTabStrip
+        :tabs="adminTabStripItems"
+        :active-id="adminTabs.activeTabId.value"
+        :label="t('admin.shell.tabsLabel')"
+        :close-label="t('admin.shell.closeTab')"
+        @navigate="navigateAdminTabById"
+        @close="adminTabs.closeTab"
+      />
 
       <!--
         3. 内容区滚动面板：footer 在区内随内容滚动，短页用 mt-auto 沉底。
         页面 slot 包一层 full-width 容器：多根页面（Fragment）的 UAlert/UCard 等
         不再与 footer 同为 flex 子项，避免宽度 shrink / 背景“没撑开”。
       -->
-      <div class="sforum-admin-scroll-area flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--bg-admin-app)] p-4 sm:p-6">
+      <div
+        id="sforum-admin-main"
+        role="tabpanel"
+        :aria-labelledby="adminTabElementId(adminTabs.activeTabId.value)"
+        tabindex="-1"
+        class="sforum-admin-scroll-area flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--bg-admin-app)] p-4 sm:p-6"
+      >
         <div class="sforum-admin-page min-w-0 w-full">
           <SFAdminSurfaceOutlet :page-id="currentAdminPageId" />
           <slot />

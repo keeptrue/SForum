@@ -1097,6 +1097,7 @@
       "signOut": "退出登录",
       "tabsLabel": "已打开的后台页面",
       "closeTab": "关闭页签",
+      "skipToContent": "跳到主内容",
       "footerCopyright": "© {year} SForum",
       "footerProductSummary": "高性能模块化开源论坛框架",
       "openAdvancedSettings": "打开系统高级设置",

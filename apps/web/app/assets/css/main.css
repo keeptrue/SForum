@@ -492,7 +492,7 @@ h1:not([data-slot="title"]) {
  * 后台多页签：单项禁止收缩，超出时由容器横向滚动。
  * 不设 min-width:max-content，以便超长标题可在 max-w 内 truncate。
  */
-.sforum-admin-tabs > [data-admin-tab-id] {
+.sforum-admin-tabs [data-admin-tab-id] {
   flex: 0 0 auto;
 }
 
