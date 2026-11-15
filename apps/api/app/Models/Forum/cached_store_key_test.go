@@ -91,7 +91,7 @@ func TestTopicsGenerationKeyUsesEncodedBoundedSegment(t *testing.T) {
 	}
 }
 
-// 评论列表 key 同样含 view 与 after// 评论列表 key 同样含 view 与 after：view 是枚举、after 是客户端游标。
+// 评论列表 key 同样含 view 与 after：view 是枚举、after 是客户端游标。
 func TestListCommentsCacheKeyBoundsClientCursor(t *testing.T) {
 	cache := &keyRecordingCache{}
 	cached := NewCachedStore(newCacheTestStore(), cache)

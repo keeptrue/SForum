@@ -231,6 +231,9 @@ func rejectInboundBody(c fiber.Ctx) error {
 //
 // 正常情况下（core-only 目标）dispatcher 不读体，这里走流式分支；只有该路径被
 // 插件计划包裹时上游才会预读请求体，此时仍要能回执而不是误报空 body。
+//
+// 口径：插件接管该路径后，1 MiB 上限退化为**事后判定**（读的是已缓冲切片，
+// 内存峰值由 dispatcher 的整包预读决定）；拒绝语义（413/422）不变。
 func inboundBodySize(c fiber.Ctx) (int64, bool, error) {
 	stream := c.Request().BodyStream()
 	if stream == nil {

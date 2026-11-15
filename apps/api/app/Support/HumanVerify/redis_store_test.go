@@ -1,6 +1,8 @@
 package humanverify
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -44,6 +46,18 @@ func TestNewRedisClientAppliesOptions(t *testing.T) {
 	}
 	if got.Addr != "localhost:6379" || got.Password != "secret" {
 		t.Fatalf("unexpected addr/password: %s / %s", got.Addr, got.Password)
+	}
+}
+
+// nil client 不能变成 typed-nil 接口：否则 MarkUsed/IncrementRate 会 panic。
+// 未装配存储时按「检查不了」返回错误（fail closed），而不是放行。
+func TestNewRedisStoreWithNilClientFailsClosedWithoutPanic(t *testing.T) {
+	store := NewRedisStore(nil)
+	if err := store.MarkUsed(context.Background(), "k", time.Minute); !errors.Is(err, ErrStoreUnavailable) {
+		t.Fatalf("MarkUsed with nil client = %v, want ErrStoreUnavailable", err)
+	}
+	if _, err := store.IncrementRate(context.Background(), "k", time.Minute, 5); !errors.Is(err, ErrStoreUnavailable) {
+		t.Fatalf("IncrementRate with nil client = %v, want ErrStoreUnavailable", err)
 	}
 }
 

@@ -322,6 +322,10 @@ func routeDispatcherMiddleware(dispatcher *routes.Dispatcher, actors RouteActorL
 		// core-only 目标（入站 webhook 就是）不读体：dispatcher 对它只会
 		// Handled=false 直落 Fiber，而 c.Body() 会关闭流式请求体、并把全局
 		// BodyLimit 变成每请求的内存上限（RV-06）。
+		//
+		// 注意口径：一旦该路径被插件步骤接管（PluginPlanned），这里仍然要预读整包
+		// 交给插件，流式内存上限随之失效 —— 此时入站端点的 1 MiB 只是**事后判定**
+		// （状态码与拒绝结果仍正确，但内存不由它兜底）。
 		if prepared.PluginPlanned {
 			request.Body = append([]byte(nil), c.Body()...)
 		}
@@ -375,6 +379,10 @@ func (i *fiberCoreRouteInvoker) InvokeCore(_ context.Context, step routes.RouteE
 	return response, nil
 }
 
+// Deprecated: 生产链路不再走这里 —— routeDispatcherMiddleware 用
+// routeDispatchRequestMetadata + 按计划判定是否读体（见该中间件与 RV-06）。
+// 保留它只为既有测试与兼容调用；新增装配不要拿它当范本，否则会用整包读体换掉
+// 入站端点的流式上限。
 func routeDispatchRequest(c fiber.Ctx, actor identity.Actor) routes.DispatchRequest {
 	request := routeDispatchRequestMetadata(c, actor)
 	request.Body = append([]byte(nil), c.Body()...)

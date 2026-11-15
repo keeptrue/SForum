@@ -84,7 +84,13 @@ type RedisTopicViewCounter struct {
 }
 
 func NewRedisTopicViewCounter(client *redis.Client) *RedisTopicViewCounter {
-	return &RedisTopicViewCounter{client: client, DedupTTL: viewDedupTTL}
+	counter := &RedisTopicViewCounter{DedupTTL: viewDedupTTL}
+	// client 为 nil 时不能把 typed-nil 塞进接口字段：接口非 nil 会让各方法的
+	// `c.client == nil` 判定失效、直接 panic，打破 worker 侧「nil → 空跑」契约。
+	if client != nil {
+		counter.client = client
+	}
+	return counter
 }
 
 func (c *RedisTopicViewCounter) WithLogger(logger *slog.Logger) *RedisTopicViewCounter {

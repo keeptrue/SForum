@@ -43,6 +43,21 @@ func TestMemoryTopicViewCounterDedupAndDrain(t *testing.T) {
 	}
 }
 
+// nil client 必须保持接口字段为 nil：typed-nil 会让方法内的 nil 判定失效并 panic，
+// 打破 worker 侧「nil Redis → 空跑」的契约（RV-52 复审项）。
+func TestNewRedisTopicViewCounterWithNilClientDoesNotPanic(t *testing.T) {
+	counter := NewRedisTopicViewCounter(nil)
+	ctx := context.Background()
+	counter.RecordView(ctx, 1, "u:1")
+	deltas, err := counter.ReadViewDeltas(ctx)
+	if err != nil || len(deltas) != 0 {
+		t.Fatalf("nil-client read = %v, %v; want empty and no error", deltas, err)
+	}
+	if err := counter.AckViewDeltas(ctx, map[int64]int64{1: 1}); err != nil {
+		t.Fatalf("nil-client ack: %v", err)
+	}
+}
+
 func TestMemoryTopicViewCounterFailRecordSkips(t *testing.T) {
 	c := NewMemoryTopicViewCounter()
 	c.FailRecord = true

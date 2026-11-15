@@ -184,9 +184,7 @@ func channelProviderResult(output map[string]any) (ok bool, classification, reas
 }
 
 func (w *DeliverChannelWorker) finish(ctx context.Context, delivery notifications.ChannelDelivery, status, reason, summary string) error {
-	if len(summary) > 160 {
-		summary = summary[:160]
-	}
+	summary = truncateUTF8(summary, errorSummaryLimit)
 	if err := w.Store.UpdateChannelDelivery(ctx, notifications.ChannelDeliveryUpdate{
 		ID: delivery.ID, Status: status, AttemptCount: delivery.AttemptCount + 1,
 		Reason: reason, ErrorSummary: summary,
@@ -225,11 +223,7 @@ func (w *DeliverChannelWorker) settleOrRetry(ctx context.Context, update notific
 }
 
 func truncateChannelSummary(value string) string {
-	const limit = 160
-	if len(value) <= limit {
-		return value
-	}
-	return value[:limit]
+	return truncateUTF8(value, errorSummaryLimit)
 }
 
 func RegisterChannels(registry *supportjobs.Registry, worker *DeliverChannelWorker) {

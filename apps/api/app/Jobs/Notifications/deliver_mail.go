@@ -138,11 +138,7 @@ func (w *DeliverMailWorker) settleOrRetry(ctx context.Context, update notificati
 
 // truncateDeliverySummary 把 provider 的错误文本裁到 error_summary 的列宽语义内。
 func truncateDeliverySummary(value string) string {
-	const limit = 160
-	if len(value) <= limit {
-		return value
-	}
-	return value[:limit]
+	return truncateUTF8(value, errorSummaryLimit)
 }
 
 func Register(registry *supportjobs.Registry, worker *DeliverMailWorker) {

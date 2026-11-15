@@ -92,7 +92,7 @@ func TestInboundAcceptsPrebufferedBody(t *testing.T) {
 	}
 }
 
-// 这条盯住「不全量 materialize」本身// 这条盯住「不全量 materialize」本身：消费者必须在 limit+1 字节处停下。
+// 这条盯住「不全量 materialize」本身：消费者必须在 limit+1 字节处停下。
 // 去掉 io.LimitReader 后，read 计数会等于整个 payload 长度。
 func TestCountInboundBodyStopsAtLimitPlusOne(t *testing.T) {
 	payload := bytes.Repeat([]byte("a"), int(MaxInboundBodyBytes)+4096)

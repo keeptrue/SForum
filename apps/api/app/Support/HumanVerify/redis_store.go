@@ -2,6 +2,7 @@ package humanverify
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -23,8 +24,18 @@ type RedisStore struct {
 }
 
 func NewRedisStore(client *redis.Client) *RedisStore {
-	return &RedisStore{client: client, prefix: "humanverify:"}
+	store := &RedisStore{prefix: "humanverify:"}
+	// 同 view counter：nil client 必须保持接口字段为 nil，否则 typed-nil 让
+	// `s.client == nil` 失效，MarkUsed/IncrementRate 直接 panic。
+	if client != nil {
+		store.client = client
+	}
+	return store
 }
+
+// ErrStoreUnavailable 表示 Redis 存储没有装配（nil client）。调用方按错误处理，
+// 不能把「检查不了」当成「通过」。
+var ErrStoreUnavailable = errors.New("humanverify: redis store is not configured")
 
 // RedisClientOptions 封装 go-redis 连接池与超时的可配置项。
 // 零值字段会走 go-redis 默认值，与改造前行为兼容。
@@ -71,6 +82,9 @@ func NewRedisClient(addr string, password string, opts RedisClientOptions) *redi
 }
 
 func (s *RedisStore) MarkUsed(ctx context.Context, key string, ttl time.Duration) error {
+	if s == nil || s.client == nil {
+		return ErrStoreUnavailable
+	}
 	ok, err := s.client.SetNX(ctx, s.prefix+"used:"+key, "1", ttl).Result()
 	if err != nil {
 		return err
@@ -82,6 +96,9 @@ func (s *RedisStore) MarkUsed(ctx context.Context, key string, ttl time.Duration
 }
 
 func (s *RedisStore) IncrementRate(ctx context.Context, key string, window time.Duration, limit int) (bool, error) {
+	if s == nil || s.client == nil {
+		return false, ErrStoreUnavailable
+	}
 	if limit <= 0 {
 		return false, nil
 	}
