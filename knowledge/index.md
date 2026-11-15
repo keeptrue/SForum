@@ -8,8 +8,8 @@ load archived sessions or completed plans as current context.
 
 ### 全仓审计修复（P0–P3，113 条）
 
-- Status: 进行中。已闭环 34 条（2026-11-14 两批 18 条 + 2026-11-15 本轮 16 条），剩余 79 条 = P1 0 / P2 42 / P3 37。本轮（簇 15 前端渲染安全 / 簇 9 的 admin.vue 切片 / 簇 10 契约 parity / 簇 18 文档债）改动在**工作树未提交**。
-- 本轮交接：`sessions/2026-11-15-audit-cluster15-9-10-18.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
+- Status: 进行中。总 **113**；§7 噪声 9 条 + F-D2 已摘出分母，**有效待修池 103**；已修 **48**，剩余 **55 = P2 30 / P3 25**（P1 0）。簇 12（扩展信任链）已收口：6 完成 / 2 部分（EX2-01、RV-03）。
+- 本轮交接：`sessions/2026-11-15-audit-cluster12-trust-chain.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
 - 唯一未闭环项：RV-04 / UX2-11 的**运行时**验收待 dev 栈起来后补（当前只有挂载级与结构级证据）。
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
@@ -847,7 +847,20 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **安全告警处置（2026-11-14，最新）**：5 条 open 告警**已全部转 fixed**——Dependabot
+- **扩展信任链收口（簇 12，2026-11-15，最新）**：8 条里 6 条闭环（EX2-04b / RV-12 / RV-05 /
+  EX2-05 / EX2-02 / EX2-07），2 条部分——EX2-01 已做进程级加固，但**没有内核级隔离**、exec 路径
+  TOCTOU 只覆盖读侧未闭环；RV-03 的三条 evaluator 已实现并被启动期门守住，但 core-only 请求仍不经
+  dispatcher 裁决（按设计不做）。**四项行为变更，升级前必读**：① `install-from-url` 的 `sha256`
+  改必填（缺值 422 `extension.remote_digest_required`，后台面板字段级拦截）；② `raw_core` 的 DML
+  面从 public 165 表 + 89 序列收到 3 张派生投影表 + 1 序列（越界 SQLSTATE 42501）；③ 插件
+  `global_middleware` 不再默认覆盖 Core terminal，要覆盖必须显式声明 `targetId`；④ 插件子进程 cwd
+  改为 `backend.entry` 所在目录，第三方插件的相对路径写法受影响。新登记残余 RV-05b（恢复态匿名
+  `/api/v1/ready` 仍给制品清单）与 EX2-05b（信任审阅 `TrustGuard` 看不到 global middleware 会包住
+  哪条 core 路由）。见 `sessions/2026-11-15-audit-cluster12-trust-chain.md` 与决策
+  `decisions/2026-11-15-ex2-01-plugin-process-trust-boundary.md`、
+  `decisions/2026-11-15-ex2-02-raw-core-explicit-allowlist.md`、
+  `decisions/2026-11-15-ex2-05-guard-catalog-and-global-scope.md`。
+- **安全告警处置（2026-11-14）**：5 条 open 告警**已全部转 fixed**——Dependabot
   #612（otel CVE-2026-128085）合 PR #209（squash `3563b2055`，`tools/proto` 的
   `otel/trace` 1.44.0 → 1.47.0，fixed_at 2026-11-14T10:18:04Z）；CodeQL #45/#47/#48
   （`go/allocation-size-overflow`，TrustLevels 预分配容量改 `max`，提交 `af18ef94e`，
@@ -864,7 +877,7 @@ load archived sessions or completed plans as current context.
   但「扫不到」≠「没有」），扩 workflow 覆盖范围是后续项。见
   `sessions/2026-11-14-security-alert-remediation.md`、模块 `modules/backend.md`
   「Security And Dependency Governance」、`modules/trust-levels.md`。
-- **话题页原生 confirm → 站内 Modal（2026-11-14，最新）**：公共话题详情页
+- **话题页原生 confirm → 站内 Modal（2026-11-14）**：公共话题详情页
   `SFTopicShowPage.vue` 的 4 处 `window.confirm`（评论删除、话题删除、话题扩展动作、评论扩展动作）
   全换成站内 Nuxt UI Modal。新增通用弹窗 `SFConfirmDialog.vue`（props `request` / emits
   `settle`，取消在前删除在后、不设自动聚焦、ESC/遮罩/关闭统一按取消结算）与 Promise 语义组合式
@@ -876,7 +889,7 @@ load archived sessions or completed plans as current context.
   `bun run build` exit 0；浏览器实测站内 Modal 出现、原生对话框未触发、四条关闭路径生效且数据未变、
   初始焦点在关闭按钮。**未提交**。见
   `sessions/2026-11-14-topic-confirm-modal.md`、模块 `modules/forum.md`。
-- **资料页头部移除个人简介（bio）行（2026-11-14，最新）**：头部 `sf-profile-intro` 里两段 bio `<p>`
+- **资料页头部移除个人简介（bio）行（2026-11-14）**：头部 `sf-profile-intro` 里两段 bio `<p>`
   （正文段 + `--empty` 空态段）删除，头部身份块由「昵称行 → 身份行 → 简介 → meta」收敛为
   「昵称行（h1 + 佩戴徽章 chip）+ 身份行（@handle / UID n / TL 等级）」，其后是 meta 行
   （位置 / 网站 / 加入时间）；bio 只在「关于」tab 出现一次。CSS 同步删掉 `.sf-profile-intro__bio` 与
@@ -907,7 +920,7 @@ load archived sessions or completed plans as current context.
   全仓 `return reactive(` 只有两处，另一处消费方不解构因而安全。
   见 `sessions/2026-11-14-topic-report-dialog-reactivity-fix.md`、模块 `modules/moderation.md`。
 - **信任等级条件化门槛 · M5 收口（2026-11-14）**：条件引擎复用徽章规则引擎（`rule` 挂在档位上，5 层 / 32 叶；无规则站点零新增查询），后台加「更多条件（N）」折叠面板 + 保存前影响面估算；插件扩展面四条全部落地：事实条件 `userFactConditions`、可授予权限 `permissionDefinitions[].trustLevelEarnable`、`trust_level.changed` 事件、两条公开 HostQuery（目录 / 单用户**现算**，`incomplete|disabled` 时 `level` 为 null）+ 每日 sweep。**本轮已提交**：模块笔记 Extension Surface 从 `TODO(核实)` 写实、新增「回滚口径」「9 条已知残留（含每条核验命令）」「还剩什么没做」、纠正后台 i18n 族为 `admin.forum.trustLevels.*` 且叶键数按实测改 **394**（旧 243 不可复现）、ui-spec 的「深度阶梯 / 170」标注作废并同步 S1/S2 口径、六条变异矩阵落盘 `reports/2026-11-14-m5-acceptance-matrix.md`、生成物 `docs/extensions/v3/catalogs/*` 补 `trust_level.changed` + `trustlevels.sweep`（`generate.mjs --check` 18 files current）。未落 0 笔：`identity.profile` 条件已实施（`9169ba30d`，共享目录 14 / 信任子集 12）；并行单 1 个：夹具正样本可重放（task-4 在办）；审查 1 项：各家族 validator 的 kind 判据是否第二入口（task-3）。7 家族清单的主题侧缺口（`manifest.go:485` 抢在清单之前）与 notificationTypes 主题侧测试被删，均已由 `bcbe314ff`（task-7）修掉——清单提到 `validateManifest` 里、主题闸之前，7 家族全部由清单先拒。另记 `identity.profile` 不参与影响面估算，理由是「不引入与求值 SQL 不同源的第二份 count 口径」。见 `sessions/2026-11-14-trust-level-conditions-m5.md`、`decisions/2026-11-14-trust-level-earnable-plugin-keys.md` / `-synthetic-rule-root.md` / `-hostquery-computed-definitions.md`、模块 `modules/trust-levels.md`。
-- **自动授予的徽章不发通知（2026-11-14，最新）**：两处缺口。① `notifications.dedupe_key`
+- **自动授予的徽章不发通知（2026-11-14）**：两处缺口。① `notifications.dedupe_key`
   全局唯一，而徽章授予键写成 `badge:{slug}` → **全站第一个**获得者永久占住该键，之后所有人的
   投影被 `ON CONFLICT DO NOTHING` 静默吞掉（dev 实证：`first-topic` 授予 13 人、通知 1 条）；
   改为 `badge:{recipientUserID}:{slug}`，历史行由 `202611140001` 改写、**不补发**。
@@ -916,7 +929,7 @@ load archived sessions or completed plans as current context.
   `sessions/2026-11-14-badge-grant-notification-fix-handoff.md`、决策
   `decisions/2026-11-14-badge-grant-notification-scope.md`（D12–D16，修订 2026-11-13 D5 的键格式）、
   模块 `modules/notifications.md`、`modules/badges.md`。
-- **徽章 chip 点击改为「徽章说明弹窗」（2026-11-14，最新）**：昵称旁的 chip 不再是链接，改成
+- **徽章 chip 点击改为「徽章说明弹窗」（2026-11-14）**：昵称旁的 chip 不再是链接，改成
   `<button aria-haspopup="dialog">`，点击开全局徽章说明弹窗（`SFBadgeDetailDialogHost` 挂 `app.vue`，
   复用 `SFBadgeDetailModal`/`SFBadgeDetailBody`，与徽章墙弹窗同源），**不再跳** `/u/x?tab=badges`。
   三处入口：资料页头部、主题作者行、评论作者行；用户预览卡里的 chip 仍是无 username 的 span。
