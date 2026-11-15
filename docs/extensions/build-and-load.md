@@ -246,7 +246,10 @@ publishes the new public assets
   checkpoint, which must not be automated (auto-bumping fought the exact-artifact
   system and was removed).
 - Production and Safe Mode never assemble the watcher (fail closed); the HTTP
-  install/enable/upgrade routes keep their super_admin gates.
+  install/enable/upgrade routes stay behind the delegated management permissions
+  (`extensions.plugin.manage` / `extensions.manage`; archive install also accepts
+  `extensions.theme.manage`), and the `super_admin` gate sits on the executable
+  trust and frontend-import surfaces.
 
 > Legacy: the CLI `sforum extension dev <root> --auto-upgrade` and
 > `extension dev-trust *` still exist but are only the credential-gated old path;

@@ -6,6 +6,12 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 全仓审计修复（P0–P3，113 条）
+
+- Status: 进行中。已闭环 34 条（2026-11-14 两批 18 条 + 2026-11-15 本轮 16 条），剩余 79 条 = P1 0 / P2 42 / P3 37。本轮（簇 15 前端渲染安全 / 簇 9 的 admin.vue 切片 / 簇 10 契约 parity / 簇 18 文档债）改动在**工作树未提交**。
+- 本轮交接：`sessions/2026-11-15-audit-cluster15-9-10-18.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
+- 唯一未闭环项：RV-04 / UX2-11 的**运行时**验收待 dev 栈起来后补（当前只有挂载级与结构级证据）。
+
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
 - Status: **landed（2026-11-11，有 residual）**。提交：`f63ad2cf9`（M1–M8 代码）→ `57a3de5ad`（M9–M13 收尾 + `host_commands` P0）→ `185be5701`（D34 基线门）+ 两笔 docs。验收：`reports/2026-11-11-trust-levels-acceptance-matrix-v3.md` **149** 条（ok 145 · FAIL 0 · pend 2 · 规则 1 · 作废 1 · 未实现 0）+ P0 条目 M-01 = **150**；D34 增量在 `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`（N-01..N-16 + M-02 residual）—— **两刀条目数不相加**。
@@ -15,11 +21,13 @@ load archived sessions or completed plans as current context.
   （`trustForActor`，七项 `trust.new_user*`）收编为 TL0。本刀不新增表、不新增列。
   **默认 earnable = ∅**，权限解锁是运营开启的框架能力；**D34 例外**：两个基线键由装载期减法门在
   TL0 扣下、TL1 起恢复（开箱即生效，不进 earnable，见 `decisions/2026-11-11-trust-level-baseline-narrowing.md`）。
-  M1/M2 已落地并**已装配**（`bootstrap/api_assembly_domains.go:321`）、`features.trust_levels`
-  五处注册已齐、M3 已收编新人阶梯（等级与限额均生效）；M4 公开面已落地（catalog 409 = 405 +
-  4 条信任等级路由、OpenAPI path 文件在、公开响应不含 `limits`）。施工细节与中间态看 handoff。
+  M1/M2 已落地并**已装配**（`bootstrap/api_assembly_infrastructure.go` 的 `newTrustLevelSource`
+  调用点）、`features.trust_levels` 五处注册已齐、M3 已收编新人阶梯（等级与限额均生效）；
+  M4 公开面已落地（catalog 435 = 429 + 6 条信任等级路由、OpenAPI path 文件在、公开响应不含
+  `limits`）。施工细节与中间态看 handoff。
   （M5 依据，2026-11-11 09:21 实测：`useTrustLevel.ts` 的 `loadViewer()` 真请求 `/trust-levels`，
-  `SFProfileShowPage.vue:110` 传 `profile.value?.trustLevel`；`rg -n "useTrustLevel" apps/web/app`。
+  `SFProfileShowPage.vue` 的 `useTrustLevel(computed(() => profile.value?.trustLevel), …)` 调用；
+  `rg -n "useTrustLevel" apps/web/app`。
   本行按「删过期否定句、不补新肯定句」改，证据留在模块笔记。）
 - **后台配置面已提为独立页（2026-11-11 landed）**：
   `/control-panel/forum/trust-levels`（论坛管理 → 信任等级），三 tab
@@ -51,9 +59,9 @@ load archived sessions or completed plans as current context.
   统计地基：`modules/badges.md`。
 - **动工前先读 handoff 的「计划 ≠ 代码」三条**：`LoadActor` 实测 4 次基线查询（计划写 2，
   且 `created_at`/`kind` 已合并进装载期，TL 再加 1 次 activity 读 → 4→5）、deny 的真实位置在
-  `database/queries/identity.sql`（计划指错函数）、`.Can(` 非测试调用点 **256**（命令：
-  `rg -o "\.Can\(" -g '*.go' -g '!*_test.go' | wc -l`；含测试 280）。deny 复活已由 D14 裁决
-  且 D28 已修，不再是未决项。
+  `database/queries/identity.sql`（计划指错函数）、`.Can(` 非测试调用点 **269**（命令：
+  `rg -o "\.Can\(" -g '*.go' -g '!*_test.go' | wc -l`；含测试 304）。计数随代码漂移，以命令为准；
+  deny 复活已由 D14 裁决且 D28 已修，不再是未决项。
 - **D34 基线门（landed，`185be5701`）**：默认安装下 TL0 不能开新主题、不能传附件，
   能回帖能改删自己的内容；机制走减法门（零迁移、不动白名单与关闭语义）。决策
   `decisions/2026-11-11-trust-level-baseline-narrowing.md`；计划
@@ -240,7 +248,8 @@ load archived sessions or completed plans as current context.
   ① core HEAD `8ab9f246b` 与商城 pin `10c2b21e8` 都不认识 `extension.install.enable`
   （`git log --all -S` 为空，只有工作区有），必须先 commit + push；
   ② store `sforumVersion` 仍 `>=1.0.0`，抬到 `>=3.0.17` 是**运行期**语义诚实
-  （`CheckSForumVersion` 唯一生产调用点 `Models/Extensions/lifecycle.go:720`），不是 CI 闸门；
+  （`CheckSForumVersion` 唯一生产调用点 `Models/Extensions/lifecycle.go` 的
+  `ensureCoreCompatible`），不是 CI 闸门；
   ③ 商城签名下载实测不稳定（同 token 一次 200 但截断、一次 503 `upstream_unavailable`）。
   清单：`sessions/2026-10-26-release-v3.0.17-readiness.md`（含门禁 G1–G6、两仓顺序、pin 形态、
   回滚点、两个开放问题的建议）。
@@ -1486,8 +1495,9 @@ load archived sessions or completed plans as current context.
   代码全部移除；host 进程内 fsnotify 监听 EXTERNAL_EXTENSION_ROOTS，保存即
   go build → digest（SRI 重算）→ stage → 逐摘要 grant → 启用/升级，插件子进程
   自动重启；0 管理员空库可用（合成无凭据 `dev-auto` 系统账号作审计归因，
-  禁用/删除即关闭通道）；生产与 Safe Mode 不装配（fail closed），HTTP 激活路由
-  super_admin 门原样。实机证据：dev 库自动出现 dev-auto 用户（id 157）、
+  禁用/删除即关闭通道）；生产与 Safe Mode 不装配（fail closed），HTTP 激活路由的
+  委托管理门（`extensions.plugin.manage` / `extensions.manage`）与可执行信任面的
+  `super_admin` 门原样。实机证据：dev 库自动出现 dev-auto 用户（id 157）、
   oauth2-provider/marketplace 自动 upgraded、touch 源文件 6 秒内自动重建
   （digest 7cc3d26b…）。详见 `sessions/2026-10-17-dev-live-activation-chain-handoff.md`
   与 `decisions/2026-10-17-dev-zero-command.md`。

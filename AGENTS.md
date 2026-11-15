@@ -68,7 +68,10 @@ knowledge base, and tests.
 - `docs/` — bilingual handbooks (`zh-CN/`, `en-US/`) plus path-stable extension
   reference under `docs/extensions/`; historical material in `docs/archive/`.
 - `deploy/`, `compose*.yaml`, `deploy.sh` — deployment and ops.
-- Runtime deps via Compose: PostgreSQL, Redis, Mailpit (Meilisearch optional via `--profile search`).
+- Runtime deps via Compose: PostgreSQL and Redis (`compose.yaml`, with
+  `compose.dev.yaml` / `compose.prod.yaml` overrides), Mailpit (`compose.dev.yaml`
+  only). Meilisearch is optional: `--profile search` in `compose.yaml` plus the
+  out-of-tree `sforum-search-meilisearch` plugin.
 
 ## Commands
 
@@ -296,11 +299,14 @@ contracts first.
   `sforum extension dev-trust *` remains only as a legacy credential-gated
   helper. Do not weaken production: the dev watcher and dev-auto grants are
   never injected outside `APP_ENV=development` (Safe Mode also blocks them),
-  install/enable/upgrade HTTP routes keep their super_admin gates, and any
-  unmet condition must fail closed to `ErrTrustChallengeRequired` / the manual
-  trust challenge path. Accepted tradeoff (operator decision, 2026-10-17): on
-  the dev machine, any process able to write a dev source root effectively acts
-  as the operator. See `knowledge/decisions/2026-10-17-dev-zero-command.md`.
+  install/enable/upgrade HTTP routes stay behind the delegated management
+  permissions (`extensions.plugin.manage` / `extensions.manage`; archive install
+  also accepts `extensions.theme.manage`), the `super_admin` gate sits on the
+  executable trust and frontend-import surfaces, and any unmet condition must
+  fail closed to `ErrTrustChallengeRequired` / the manual trust challenge path.
+  Accepted tradeoff (operator decision, 2026-10-17): on the dev machine, any
+  process able to write a dev source root effectively acts as the operator.
+  See `knowledge/decisions/2026-10-17-dev-zero-command.md`.
 - Upload/static installation only validates, previews, and stores an inert
   package; it must not execute package code. Existing delegated extension
   managers may perform that operation. Executable install hooks are deferred to

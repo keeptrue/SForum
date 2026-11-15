@@ -208,7 +208,10 @@ confirmation and state persistence. Candidate and stable Web readiness checks
 use `/health`; they do not render or warm the cached homepage through the
 internal loopback origin.
 See `decisions/2026-08-01-compose-blue-green-updates.md` and
-`decisions/2026-08-02-declared-online-core-migrations.md`.
+`decisions/2026-08-02-declared-online-core-migrations.md`. 那个 `OnlineSafe` 标记是**人工
+兼容契约**：`migrationDeclaresOnlineSafe` 只校验声明形态（指令在、事务性、有界超时），不校验
+schema 是否真的兼容旧二进制 —— 提交前的五条必查清单见
+`decisions/2026-11-15-online-safe-migration-human-contract.md`。
 
 Update channel semantics (2026-08-16): `deploy.sh` and `upgrade.sh` default to
 the **stable** channel; `latest` resolves through the GitHub `/releases/latest`

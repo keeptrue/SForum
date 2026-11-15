@@ -229,8 +229,9 @@ EXTERNAL_EXTENSION_ROOTS=/abs/path/to/sforum-plugins
   **接口声明**（props/schema 形状、换 `l2Component` 引用、增删组件 ID）才需手动把
   `components[].contractVersion` 提版（如 `@3`→`@4`）——这是正确的人工检查点，
   不应自动化（自动提版会与精确制品体系冲突，已被移除）。
-- 生产与 Safe Mode 不装配 watcher（fail closed）；HTTP install/enable/upgrade 路由的
-  super_admin 门原样保留。
+- 生产与 Safe Mode 不装配 watcher（fail closed）；HTTP install/enable/upgrade 路由走委托管理
+  权限（`extensions.plugin.manage` / `extensions.manage`；归档安装另接受
+  `extensions.theme.manage`），super_admin 门在可执行信任面与前端导入面上。
 
 > 遗留：CLI `sforum extension dev <root> --auto-upgrade` 与 `extension dev-trust *`
 > 仍在，但只是带凭据的旧路径；日常开发用上面的零命令 host 通道即可。

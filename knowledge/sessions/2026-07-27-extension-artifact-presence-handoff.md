@@ -35,7 +35,10 @@
 - `bun test tests/adminExtensions.test.ts`
 - `ruby scripts/validate-openapi-refs.rb`
 - `bun run typecheck` reaches `vue-tsc` but currently fails on the unrelated
-  existing handler return type at `app/pages/admin/settings/index.vue:1066`.
+  existing handler return type in the admin settings shell
+  (`app/pages/admin/settings/index.vue`; the old `:1066` line anchor is gone —
+  that page has since been rewritten as a 262-line route shell, look for the
+  tab-nav click handler).
 - User verified the rendered admin behavior against the running development
   environment.
 - Chrome QA on `/control-panel/extensions` confirmed 11 current candidates,

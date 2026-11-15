@@ -32,9 +32,11 @@
 - Focused Extensions restart/trust tests, the full Extensions controller
   package, Audit tests, Go build, 26 Bun extension/trust tests, OpenAPI refs,
   and `git diff --check` passed.
-- Nuxt typecheck reaches an unrelated pre-existing error at
-  `app/pages/admin/settings/index.vue:1066`: its click handler returns a string
-  instead of `void | Promise<void>`. The restart composable tests pass.
+- Nuxt typecheck reaches an unrelated pre-existing error in the admin settings
+  shell (`app/pages/admin/settings/index.vue`; the old `:1066` anchor no longer
+  exists after that page was rewritten as a route shell): its click handler
+  returned a string instead of `void | Promise<void>`. The restart composable
+  tests pass.
 - The broader Extensions model package still has pre-existing
   `extension.artifact_missing` failures from unfinished artifact-presence
   fixture updates; restart-focused tests pass.

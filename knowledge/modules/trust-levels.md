@@ -209,7 +209,8 @@
   只有公开面兜底 `FALLBACK_TIERS` 带默认色——那份颜色服务「目录读不到也要有色」的展示，
   钉进表单就会在第一次保存时把颜色写死、之后移档不再跟位次走。
 - **渲染单点**：`--sf-tl-<token>`（`assets/css/sforum-trust-colors.css`，`:root`/`.dark` 各一套）
-  → `tierAccentStyle` 落成 `--tl-accent`（`utils/profile/trustLevelColors.ts:68-78`）；
+  → `tierAccentStyle` 落成 `--tl-accent`（实现在 `utils/theme/tierColor.ts` 的同名函数；
+  `utils/profile/trustLevelColors.ts` 已降为只做 re-export 的兼容层，不留第二份实现）；
   后台档位行与资料页 `SFTrustLevelCard` 共用，不与站点主题的 5 套 accent 联动。
 - **渲染面共用共享块 `.sf-tl-mark`（D-C6，2026-11-11）**：五个后台分区（总览阶梯 / 档位管理 /
   门槛设置 / 发言限额 / 能力解锁）与资料页卡一律挂在 `assets/css/sforum-trust-colors.css` 的

@@ -44,7 +44,9 @@ Online migration is opt-in and target-artifact authoritative:
   operators should still expect bounded latency from row or catalog locks.
 - The declaration is a reviewable compatibility promise, not SQL inference.
   Destructive contraction belongs in a later maintenance release after old
-  binaries are outside the rollback window.
+  binaries are outside the rollback window. The author-facing pre-commit
+  checklist for that promise lives in
+  `2026-11-15-online-safe-migration-human-contract.md`.
 - Published images remain immutable. Targets built before the capability label,
   including `v3.0.7`, continue to require the maintenance path even if their SQL
   would qualify under the new contract.

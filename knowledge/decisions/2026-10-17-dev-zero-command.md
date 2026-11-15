@@ -35,7 +35,10 @@ dev 装配，host 启动即自动生效，连 wrapper 本身也删除。
 - dev 机器上「能写 dev 来源根的进程」等效宿主全权执行体（含任意包安装、路由
   注册、own_schema DB grant）。这是操作者明确接受的语义。
 - 生产不受影响：dev watcher/DevAutoRuntime 仅 development 非 Safe Mode 装配；
-  所有 HTTP 激活路由的 super_admin 门原样。
+  HTTP 激活路由的委托管理门（`extensions.plugin.manage` / `extensions.manage`）
+  原样，可执行信任面与前端导入面的 `super_admin` 门也在原处。**更正（2026-11-15）**：
+  路由门自 `b4315ef72`（细粒度权限）起就是委托管理权限，不是 `super_admin`；
+  原文「所有 HTTP 激活路由的 super_admin 门原样」把权限边界写宽了。
 - CLI `extension dev --auto-trust/--auto-upgrade` 成为遗留路径（无凭据时提示
   指向 host 自动化）。
 
