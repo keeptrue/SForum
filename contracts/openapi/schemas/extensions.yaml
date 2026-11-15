@@ -1893,6 +1893,7 @@ ExtensionRemoteInstallInput:
   additionalProperties: false
   required:
   - url
+  - sha256
   properties:
     url:
       type: string
@@ -1905,8 +1906,10 @@ ExtensionRemoteInstallInput:
       type: string
       pattern: '^[A-Fa-f0-9]{64}$'
       description: >-
-        Optional SHA-256 of the downloaded ZIP bytes (not the extracted package
-        tree digest). A mismatch aborts before installation.
+        Required SHA-256 of the downloaded ZIP bytes (not the extracted package
+        tree digest). An absent value is rejected with
+        extension.remote_digest_required before any outbound request; a mismatch
+        aborts before installation.
     expectedExtensionId:
       type: string
       maxLength: 81

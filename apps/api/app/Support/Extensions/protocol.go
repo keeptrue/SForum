@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/url"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -284,8 +281,13 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	}
 
 	// 子进程生命周期由 exact Stop/Discard 管理；调用 Start 的请求 context 只约束启动握手。
-	cmd := exec.Command(path)
-	cmd.Env = buildPluginProcessEnv(os.Environ())
+	// cwd 钉在制品目录、env 走白名单、独立进程组便于整组回收（EX2-01）。
+	cmd, releaseProcessGroup, err := preparePluginCommand(extension, path)
+	if err != nil {
+		return RouteTarget{}, err
+	}
+	// 启动失败的兜底：任何错误返回都按进程组回收，避免派生出的子进程变孤儿。
+	defer func() { releaseProcessGroup(resultErr) }()
 	protocolVersion := extension.Manifest.Backend.ProtocolVersion
 	instanceID, err := newProtocolV2RuntimeInstanceID()
 	if err != nil {
@@ -307,6 +309,12 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	}
 	clientConfig, protocolName, err := s.newPluginClientConfig(ctx, extension, cmd, instanceID)
 	if err != nil {
+		return RouteTarget{}, err
+	}
+	// exec 前的唯一门：受信 grant 已在 newPluginClientConfig 里解析完成，这里再按
+	// 内容复核后端入口摘要（EX2-04b / EX2-01a）。放在租约之前，摘要不一致时连
+	// 数据库租约都不会签发。
+	if err := verifyPluginExecutableArtifact(extension); err != nil {
 		return RouteTarget{}, err
 	}
 	databaseLease, databaseEnv, err := s.issueProtocolDatabaseLease(ctx, extension, instanceID)
@@ -333,6 +341,8 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 		}
 		return RouteTarget{}, pluginbootstrap.ClassifyStartError(err, diagnostic)
 	}
+	// 子进程已出现：立刻收紧可用上限（EX2-01b）。
+	applyPluginProcessLimits(cmd)
 	raw, err := rpcClient.Dispense(protocolName)
 	if err != nil {
 		client.Kill()
@@ -423,8 +433,8 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 		extensionVersion: extensionVersion, artifactDigest: extension.PackageDigest, manifestDigest: manifestDigest,
 		protocolVersion: protocolVersion, target: targetResult,
 		client: client, protocol: protocol, registrations: registrations, serviceRuntime: serviceRuntime,
-		databaseLease: databaseLease,
-		healthy:       true, ready: ready, readinessChecked: readinessChecked, startedAt: time.Now().UTC(),
+		databaseLease: databaseLease, processGroup: pluginProcessGroupID(cmd),
+		healthy: true, ready: ready, readinessChecked: readinessChecked, startedAt: time.Now().UTC(),
 	}
 	if err := s.retainProtocolInstanceLocked(instance); err != nil {
 		client.Kill()
@@ -448,58 +458,6 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	s.mu.Unlock()
 	keepDatabaseLease = true
 	return targetResult, nil
-}
-
-// isPluginRouteTargetNone 表示插件不提供可代理的 HTTP BaseURL。
-// 兼容旧哨兵 "disabled"（SSRF 加固前 SMTP 等插件使用）。
-func isPluginRouteTargetNone(raw string) bool {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "", "disabled", "none":
-		return true
-	default:
-		return false
-	}
-}
-
-// validatePluginRouteTarget 限制插件 RouteTarget 仅允许 loopback http(s)，阻断 SSRF。
-// 调用方应先用 isPluginRouteTargetNone 处理无路由插件。
-func validatePluginRouteTarget(raw string) error {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUnsafePluginRouteTarget, err)
-	}
-	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != "http" && scheme != "https" {
-		return fmt.Errorf("%w: scheme %q not allowed", ErrUnsafePluginRouteTarget, parsed.Scheme)
-	}
-	if parsed.User != nil {
-		return fmt.Errorf("%w: userinfo not allowed", ErrUnsafePluginRouteTarget)
-	}
-	host := parsed.Hostname()
-	if host == "" {
-		return fmt.Errorf("%w: empty host", ErrUnsafePluginRouteTarget)
-	}
-	// 字面量 loopback 主机名直接放行，避免依赖解析器。
-	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
-		return nil
-	}
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		return fmt.Errorf("%w: resolve %q: %v", ErrUnsafePluginRouteTarget, host, err)
-	}
-	if len(ips) == 0 {
-		return fmt.Errorf("%w: no addresses for %q", ErrUnsafePluginRouteTarget, host)
-	}
-	for _, ip := range ips {
-		if !ip.IsLoopback() {
-			return fmt.Errorf("%w: host %q resolves to non-loopback %s", ErrUnsafePluginRouteTarget, host, ip)
-		}
-		// 双保险：拒绝 link-local / 未指定地址（IsLoopback 通常已排除）。
-		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-			return fmt.Errorf("%w: host %q resolves to disallowed address %s", ErrUnsafePluginRouteTarget, host, ip)
-		}
-	}
-	return nil
 }
 
 func (s *ProtocolStarter) Stop(ctx context.Context, extension extensions.Extension) error {

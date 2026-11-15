@@ -53,6 +53,8 @@ func TestInstallFromURLRequiresPermissionBeforeFetch(t *testing.T) {
 	controller.installer = installer
 
 	cookie := loginExtensionUser(t, app, manager, 2)
+	// 故意不带 sha256：权限判定必须先于请求体校验，否则无权限的调用方可用错误码
+	// 差异探测请求体规则。
 	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip"}`)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", resp.StatusCode)
@@ -105,7 +107,7 @@ func TestInstallFromURLAllowsPluginOnlyActor(t *testing.T) {
 	controller.installer = &fakeArchiveInstaller{result: installedResult()}
 
 	cookie := loginExtensionUser(t, app, manager, 3)
-	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip"}`)
+	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","sha256":"`+validRemoteArchive().Digest+`"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201 for extension.plugin.manage, got %d", resp.StatusCode)
 	}
@@ -164,7 +166,7 @@ func TestInstallFromURLMapsFetchErrors(t *testing.T) {
 			controller.installer = &fakeArchiveInstaller{result: installedResult()}
 
 			cookie := loginExtensionUser(t, app, manager, 1)
-			resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip"}`)
+			resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","sha256":"`+validRemoteArchive().Digest+`"}`)
 			if resp.StatusCode != test.status {
 				t.Fatalf("expected %d, got %d", test.status, resp.StatusCode)
 			}
@@ -178,6 +180,8 @@ func TestInstallFromURLFailsClosedWithoutFetcher(t *testing.T) {
 	controller.installer = &fakeArchiveInstaller{result: installedResult()}
 
 	cookie := loginExtensionUser(t, app, manager, 1)
+	// 故意不带 sha256：未装配下载器属于部署错误，必须先在权限之后 fail closed，
+	// 不能因为缺摘要改报 422 把「这台机器没开链接安装」藏起来。
 	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip"}`)
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d", resp.StatusCode)
@@ -208,7 +212,7 @@ func TestInstallFromURLPropagatesInstallerErrors(t *testing.T) {
 	controller.installer = &fakeArchiveInstaller{err: extensions.ErrNotDeletable}
 
 	cookie := loginExtensionUser(t, app, manager, 1)
-	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip"}`)
+	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","sha256":"`+validRemoteArchive().Digest+`"}`)
 	if resp.StatusCode != http.StatusConflict {
 		t.Fatalf("expected 409, got %d", resp.StatusCode)
 	}
@@ -216,6 +220,14 @@ func TestInstallFromURLPropagatesInstallerErrors(t *testing.T) {
 }
 
 func newRemoteInstallTestApp(t *testing.T) (*fiber.App, *authsession.Manager, *Controller) {
+	t.Helper()
+	app, manager, controller, _ := newRemoteInstallTestAppWithStore(t)
+	return app, manager, controller
+}
+
+// newRemoteInstallTestAppWithStore 额外返回扩展存储，供「拒绝路径没有落库」类断言
+// 直接看 store，而不是只相信注入的 fake installer 没被调用。
+func newRemoteInstallTestAppWithStore(t *testing.T) (*fiber.App, *authsession.Manager, *Controller, *controllerFakeStore) {
 	t.Helper()
 	manager := authsession.NewManager(session.NewStore(), authsession.Config{HashSecret: "test-secret"})
 	users := controllerActors{actors: map[int64]identity.Actor{
@@ -249,7 +261,7 @@ func newRemoteInstallTestApp(t *testing.T) (*fiber.App, *authsession.Manager, *C
 	app := apphttp.NewApp(config.Config{AppName: "SForum", AppEnv: "test", CSRFEnabled: false, AppLocale: "zh-CN", SupportedLocales: []string{"zh-CN", "en-US"}}, slog.Default(), apphttp.Dependencies{
 		RouteProviders: []apphttp.RouteProvider{controller, loginProvider},
 	})
-	return app, manager, controller
+	return app, manager, controller, store
 }
 
 func validRemoteArchive() extensiondownload.Archive {
@@ -294,7 +306,7 @@ func TestInstallFromURLPassesDeclaredExpectations(t *testing.T) {
 	controller.installer = installer
 
 	cookie := loginExtensionUser(t, app, manager, 1)
-	body := `{"url":"https://example.com/demo.zip","expectedExtensionId":"Demo.Plugin","expectedVersion":"1.0.0","expectedType":"Plugin","source":"admin-page:sforum.store"}`
+	body := `{"url":"https://example.com/demo.zip","sha256":"` + validRemoteArchive().Digest + `","expectedExtensionId":"Demo.Plugin","expectedVersion":"1.0.0","expectedType":"Plugin","source":"admin-page:sforum.store"}`
 	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, body)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", resp.StatusCode, responseBody(t, resp))
@@ -314,10 +326,10 @@ func TestInstallFromURLRejectsInvalidExpectationsBeforeFetch(t *testing.T) {
 		name string
 		body string
 	}{
-		{name: "unknown type", body: `{"url":"https://example.com/demo.zip","expectedType":"widget"}`},
-		{name: "malformed id", body: `{"url":"https://example.com/demo.zip","expectedExtensionId":"Not An ID!"}`},
-		{name: "malformed version", body: `{"url":"https://example.com/demo.zip","expectedVersion":"1.0.0/../x"}`},
-		{name: "malformed source", body: `{"url":"https://example.com/demo.zip","source":"admin page"}`},
+		{name: "unknown type", body: `{"url":"https://example.com/demo.zip","sha256":"` + validRemoteArchive().Digest + `","expectedType":"widget"}`},
+		{name: "malformed id", body: `{"url":"https://example.com/demo.zip","sha256":"` + validRemoteArchive().Digest + `","expectedExtensionId":"Not An ID!"}`},
+		{name: "malformed version", body: `{"url":"https://example.com/demo.zip","sha256":"` + validRemoteArchive().Digest + `","expectedVersion":"1.0.0/../x"}`},
+		{name: "malformed source", body: `{"url":"https://example.com/demo.zip","sha256":"` + validRemoteArchive().Digest + `","source":"admin page"}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -352,7 +364,7 @@ func TestInstallFromURLMapsExpectationMismatch(t *testing.T) {
 	}}
 
 	cookie := loginExtensionUser(t, app, manager, 1)
-	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","expectedType":"theme"}`)
+	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","sha256":"`+validRemoteArchive().Digest+`","expectedType":"theme"}`)
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got %d", resp.StatusCode)
 	}
@@ -372,4 +384,61 @@ func TestInstallFromURLMapsExpectationMismatch(t *testing.T) {
 type testErrorDataWithFields struct {
 	Reason string              `json:"reason"`
 	Fields map[string][]string `json:"fields"`
+}
+
+// RV-12 denied：缺 sha256 必须在发出任何出站请求之前拒绝，并且不落库。
+func TestInstallFromURLRejectsMissingChecksum(t *testing.T) {
+	app, manager, controller, store := newRemoteInstallTestAppWithStore(t)
+	fetcher := &fakeArchiveFetcher{archive: validRemoteArchive()}
+	controller.remoteArchives = fetcher
+	// 用真实 service 作 installer：store 的变化就是「有没有落库」的直接证据。
+	cookie := loginExtensionUser(t, app, manager, 1)
+	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip"}`)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", resp.StatusCode, responseBody(t, resp))
+	}
+	assertErrorReason(t, resp, CodeRemoteDigestRequired)
+	if fetcher.calls != 0 {
+		t.Fatalf("fetcher called %d times for a request without sha256", fetcher.calls)
+	}
+	if len(store.items) != 0 {
+		t.Fatalf("rejected request persisted %d extensions", len(store.items))
+	}
+}
+
+// RV-12 allowed：带正确 sha256 的请求照常安装，provenance 取自归档摘要。
+func TestInstallFromURLAcceptsPinnedChecksum(t *testing.T) {
+	app, manager, controller, store := newRemoteInstallTestAppWithStore(t)
+	archive := validRemoteArchive()
+	controller.remoteArchives = &fakeArchiveFetcher{archive: archive}
+	installer := &fakeArchiveInstaller{result: installedResult()}
+	controller.installer = installer
+
+	cookie := loginExtensionUser(t, app, manager, 1)
+	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","sha256":"`+strings.ToUpper(archive.Digest)+`"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", resp.StatusCode, responseBody(t, resp))
+	}
+	if installer.calls != 1 || installer.input.SourceDigest != archive.Digest {
+		t.Fatalf("pinned install did not reach the installer with provenance: calls=%d input=%#v", installer.calls, installer.input)
+	}
+	if len(store.items) != 0 {
+		t.Fatalf("fake installer path must not write through the real store: %d items", len(store.items))
+	}
+}
+
+// RV-12 denied：摘要不匹配同样不落库，而且是在下载之后、安装之前停下。
+func TestInstallFromURLDigestMismatchDoesNotPersist(t *testing.T) {
+	app, manager, controller, store := newRemoteInstallTestAppWithStore(t)
+	controller.remoteArchives = &fakeArchiveFetcher{archive: validRemoteArchive()}
+
+	cookie := loginExtensionUser(t, app, manager, 1)
+	resp := performExtensionJSONRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/install-from-url", cookie, `{"url":"https://example.com/demo.zip","sha256":"`+strings.Repeat("0", 64)+`"}`)
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", resp.StatusCode, responseBody(t, resp))
+	}
+	assertErrorReason(t, resp, CodeRemoteDigestMismatch)
+	if len(store.items) != 0 {
+		t.Fatalf("digest mismatch persisted %d extensions", len(store.items))
+	}
 }

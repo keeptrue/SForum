@@ -760,9 +760,13 @@ adminExtensionInstallFromURL:
       targets, userinfo, private/loopback/link-local/cloud-metadata addresses,
       redirects to such addresses, responses that are not a ZIP archive, and
       bodies above 50 MB. The outbound request uses a 90-second timeout and never
-      follows more than three redirects. An optional sha256 pins the exact ZIP
-      bytes; a mismatch aborts before the package is stored. Installation does
-      not enable, activate, or execute the extension. Plugin archives require
+      follows more than three redirects. A required sha256 pins the exact ZIP
+      bytes; an absent digest is rejected before the outbound request (reason
+      extension.remote_digest_required) and a mismatch aborts before the package
+      is stored. The Host never derives the expected digest from the response
+      itself: computing it from the same bytes it is meant to vouch for would
+      only prove the response equals the response. Installation does not enable,
+      activate, or execute the extension. Plugin archives require
       extension.plugin.manage; theme archives require extension.theme.manage.
     operationId: installAdminExtensionFromURL
     requestBody:
@@ -798,11 +802,12 @@ adminExtensionInstallFromURL:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '422':
         description: >-
-          Invalid URL, malformed sha256, invalid declared expectations, digest
-          mismatch, non-ZIP response, archive/manifest rejection, or a package
-          whose manifest identity does not match the declared expectations.
-          Reasons include extension.remote_url_invalid,
-          extension.remote_digest_mismatch, extension.archive_invalid,
+          Invalid URL, missing sha256, malformed sha256, invalid declared
+          expectations, digest mismatch, non-ZIP response, archive/manifest
+          rejection, or a package whose manifest identity does not match the
+          declared expectations. Reasons include extension.remote_url_invalid,
+          extension.remote_digest_required, extension.remote_digest_mismatch,
+          extension.archive_invalid,
           extension.manifest_invalid, extension.expected_mismatch (which
           also reports the manifest id/type/version in data.fields), and
           extension.platform_incompatible (a plugin backend executable built

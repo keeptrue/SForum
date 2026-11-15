@@ -131,6 +131,8 @@ type protocolRuntimeInstance struct {
 	protocolVersion  int
 	target           RouteTarget
 	client           *plugin.Client
+	// processGroup 是插件子进程的进程组 id（Setpgid 独立组），用于整组回收。
+	processGroup     int
 	protocol         PluginProtocol
 	registrations    []hostapi.ServiceRegistration
 	serviceRuntime   hostapi.ServiceRuntimePublication
@@ -775,7 +777,7 @@ func (s *ProtocolStarter) DiscardInstance(ctx context.Context, identity RuntimeI
 	if instance.databaseLease != nil {
 		instance.databaseLease.stopHeartbeat()
 	}
-	instance.client.Kill()
+	instance.kill()
 	return s.revokeProtocolDatabaseLease(instance)
 }
 
@@ -943,7 +945,7 @@ func (s *ProtocolStarter) stopProtocolInstanceLocked(identity RuntimeInstanceIde
 	} else if s.hostAPI != nil {
 		s.hostAPI.UnregisterExtension(identity.ExtensionID)
 	}
-	instance.client.Kill()
+	instance.kill()
 	return s.revokeProtocolDatabaseLease(instance)
 }
 
@@ -1033,10 +1035,6 @@ func normalizeProtocolRuntimeInstanceSet(identities []RuntimeInstanceIdentity) (
 
 func manifestProtocolVersion(extension extensions.Extension) int {
 	return extension.Manifest.Backend.ProtocolVersion
-}
-
-func protocolInstanceNotFound(identity RuntimeInstanceIdentity) error {
-	return fmt.Errorf("%w: %s/%s", ErrRuntimeInstanceNotFound, identity.ExtensionID, identity.InstanceID)
 }
 
 func protocolRuntimeManifestDigest(manifest extensions.Manifest) (string, error) {

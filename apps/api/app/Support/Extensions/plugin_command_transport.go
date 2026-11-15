@@ -1,9 +1,25 @@
 package extensionsruntime
 
+// 本文件是「插件子进程边界」的落点：宿主怎么启动一个插件、给它什么环境、允许它
+// 回报什么样的 HTTP 目标，以及进程怎么被回收。
+//
+// 信任模型与残余风险写在文件末尾的 verifyPluginExecutableArtifact 与
+// knowledge/decisions/2026-11-15-ex2-01-plugin-process-trust-boundary.md 里。
+// 一句话：exec 前内容级复核 + 进程级加固；文件系统/网络/子进程仍不受限。
+
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
+
+	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Extensions/pluginprocess"
 )
 
 func (s *ProtocolStarter) InvokePluginCommand(
@@ -154,4 +170,199 @@ func pluginSettingEnvName(key string) string {
 		}
 	}
 	return value.String()
+}
+
+// --- 插件子进程的 exec 前信任门与启动约束（EX2-01 / EX2-04b） ---
+
+// ErrPluginExecutableUntrusted 表示 exec 被拒绝：制品与受信结论不一致，或启动
+// 环境落在不该允许的位置。
+var ErrPluginExecutableUntrusted = errors.New("plugin executable is not the trusted artifact")
+
+// 插件按设计拥有的能力（这是声明过的契约，不是漏洞）：
+//   - 与宿主同 uid 的完整文件系统读写；
+//   - 任意出站网络连接；
+//   - 派生子进程；
+//   - 通过 host API token 使用 Host 已注册的具体服务，以及自己的数据库 schema。
+//
+// 残余风险（本轮不消除）：文件系统、网络、子进程仍然不受限。内核级隔离
+// （namespace / seccomp / 用户命名空间）不在本轮范围，因此一个已启用的插件仍能
+// 读写其它插件的制品目录——正是这一点让「伪造 size+mtime」的缓存投毒在理论上
+// 可达，也是 exec 前必须按内容重算摘要的理由。
+//
+// 已实现的信任前提：
+//  1. 上传/下载只写入惰性制品，不执行包内代码；
+//  2. 第一次 enable/upgrade 之前，super_admin 必须对 exact artifact 做信任确认，
+//     运行时启动要求存在 exact live grant（见 protocolV2ClientConfig）；
+//  3. 本函数把「授权依据的摘要」与「按内容重算的真哈希」对齐后才允许 exec。
+func verifyPluginExecutableArtifact(extension extensions.Extension) error {
+	if strings.TrimSpace(extension.PackageDigest) == "" {
+		return fmt.Errorf("%w: extension %s has no package digest", ErrPluginExecutableUntrusted, extension.ID)
+	}
+	digest, err := extensions.VerifyRuntimeExecutableDigest(extension)
+	if err != nil {
+		return errors.Join(ErrPluginExecutableUntrusted, err)
+	}
+	if strings.TrimSpace(digest) == "" {
+		return fmt.Errorf("%w: extension %s produced an empty backend digest", ErrPluginExecutableUntrusted, extension.ID)
+	}
+	return nil
+}
+
+// preparePluginCommand 组装插件子进程的 exec.Cmd：cwd 钉在制品目录、env 走白名单、
+// 独立进程组。
+//
+// 返回的 release 必须在 startProtocolInstanceLocked 里 defer 调用：它只在启动
+// 失败（err != nil）时按进程组回收，避免插件派生的子进程变成孤儿。
+func preparePluginCommand(extension extensions.Extension, entryPath string) (*exec.Cmd, func(error), error) {
+	workDir, err := pluginWorkingDirectory(extension, entryPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	cmd := exec.Command(entryPath)
+	cmd.Dir = workDir
+	cmd.Env = buildPluginProcessEnv(os.Environ())
+	pluginprocess.Apply(cmd)
+	return cmd, func(resultErr error) {
+		if resultErr == nil {
+			return
+		}
+		pluginprocess.KillGroup(pluginprocess.GroupID(cmd))
+	}, nil
+}
+
+// applyPluginProcessLimits 在子进程出现之后收紧资源上限（见 pluginprocess.Limit）。
+func applyPluginProcessLimits(cmd *exec.Cmd) {
+	pluginprocess.Limit(cmd)
+}
+
+// pluginProcessGroupID 返回子进程的进程组 id；没有进程时返回 0。
+func pluginProcessGroupID(cmd *exec.Cmd) int {
+	return pluginprocess.GroupID(cmd)
+}
+
+// pluginWorkingDirectory 决定插件子进程的 cwd：钉在制品目录（后端入口所在目录），
+// 而不是继承宿主进程的 cwd。
+//
+// 两条硬约束：
+//   - 制品目录必须在包内容根之内（入口路径本身已由 installedFilePath 约束，这里
+//     再用绝对路径确认一次，避免 cwd 落到包外的相邻目录）；
+//   - 不得把插件的 cwd 设成宿主工作树本身或其祖先——那等于让插件的相对路径写入
+//     直接落进源码树。
+func pluginWorkingDirectory(extension extensions.Extension, entryPath string) (string, error) {
+	root := extensions.PackageContentRoot(extension)
+	if strings.TrimSpace(root) == "" {
+		return "", fmt.Errorf("%w: extension %s has no package content root", ErrPluginExecutableUntrusted, extension.ID)
+	}
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", fmt.Errorf("%w: resolve package root: %v", ErrPluginExecutableUntrusted, err)
+	}
+	entryAbs, err := filepath.Abs(entryPath)
+	if err != nil {
+		return "", fmt.Errorf("%w: resolve backend entry: %v", ErrPluginExecutableUntrusted, err)
+	}
+	dir := filepath.Dir(entryAbs)
+	if !withinDirectory(rootAbs, dir) {
+		return "", fmt.Errorf("%w: backend entry %s is outside its package root", ErrPluginExecutableUntrusted, entryAbs)
+	}
+	if dir == string(filepath.Separator) || dir == "." {
+		return "", fmt.Errorf("%w: refusing to use %q as a plugin working directory", ErrPluginExecutableUntrusted, dir)
+	}
+	if hostWorkingDirectory, err := os.Getwd(); err == nil && hostWorkingDirectory != "" {
+		if withinDirectory(dir, hostWorkingDirectory) {
+			return "", fmt.Errorf(
+				"%w: refusing to start a plugin with the host working tree (%s) inside its cwd %s",
+				ErrPluginExecutableUntrusted, hostWorkingDirectory, dir,
+			)
+		}
+	}
+	return dir, nil
+}
+
+// withinDirectory 报告 child 是否等于 parent 或位于 parent 之下。
+func withinDirectory(parent, child string) bool {
+	parent = filepath.Clean(parent)
+	child = filepath.Clean(child)
+	if parent == "" || child == "" {
+		return false
+	}
+	if parent == child {
+		return true
+	}
+	return strings.HasPrefix(child, parent+string(filepath.Separator))
+}
+
+// kill 先按进程组回收插件派生出的子进程，再回收插件自身。
+//
+// 顺序很重要：组内成员不一定是子进程的直接后代，等 client.Kill() 之后组 id 就随
+// 组长消失而失效，剩下的成员会被 init 收养。
+func (i *protocolRuntimeInstance) kill() {
+	if i == nil {
+		return
+	}
+	if i.processGroup > 0 {
+		pluginprocess.KillGroup(i.processGroup)
+	}
+	if i.client != nil {
+		i.client.Kill()
+	}
+}
+
+// --- 插件回报的 HTTP 目标约束（自 protocol.go 抽出；SSRF 边界） ---
+
+// isPluginRouteTargetNone 表示插件不提供可代理的 HTTP BaseURL。
+// 兼容旧哨兵 "disabled"（SSRF 加固前 SMTP 等插件使用）。
+func isPluginRouteTargetNone(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", "disabled", "none":
+		return true
+	default:
+		return false
+	}
+}
+
+// validatePluginRouteTarget 限制插件 RouteTarget 仅允许 loopback http(s)，阻断 SSRF。
+// 调用方应先用 isPluginRouteTargetNone 处理无路由插件。
+func validatePluginRouteTarget(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrUnsafePluginRouteTarget, err)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("%w: scheme %q not allowed", ErrUnsafePluginRouteTarget, parsed.Scheme)
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("%w: userinfo not allowed", ErrUnsafePluginRouteTarget)
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return fmt.Errorf("%w: empty host", ErrUnsafePluginRouteTarget)
+	}
+	// 字面量 loopback 主机名直接放行，避免依赖解析器。
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return nil
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return fmt.Errorf("%w: resolve %q: %v", ErrUnsafePluginRouteTarget, host, err)
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("%w: no addresses for %q", ErrUnsafePluginRouteTarget, host)
+	}
+	for _, ip := range ips {
+		if !ip.IsLoopback() {
+			return fmt.Errorf("%w: host %q resolves to non-loopback %s", ErrUnsafePluginRouteTarget, host, ip)
+		}
+		// 双保险：拒绝 link-local / 未指定地址（IsLoopback 通常已排除）。
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+			return fmt.Errorf("%w: host %q resolves to disallowed address %s", ErrUnsafePluginRouteTarget, host, ip)
+		}
+	}
+	return nil
+}
+
+// protocolInstanceNotFound 报告某 exact runtime instance 不存在。
+func protocolInstanceNotFound(identity RuntimeInstanceIdentity) error {
+	return fmt.Errorf("%w: %s/%s", ErrRuntimeInstanceNotFound, identity.ExtensionID, identity.InstanceID)
 }

@@ -16,10 +16,12 @@ import (
 )
 
 const (
-	CodeRemoteURLInvalid         = "extension.remote_url_invalid"
-	CodeRemoteFetchFailed        = "extension.remote_fetch_failed"
-	CodeRemoteArchiveTooLarge    = "extension.remote_archive_too_large"
-	CodeRemoteDigestMismatch     = "extension.remote_digest_mismatch"
+	CodeRemoteURLInvalid      = "extension.remote_url_invalid"
+	CodeRemoteFetchFailed     = "extension.remote_fetch_failed"
+	CodeRemoteArchiveTooLarge = "extension.remote_archive_too_large"
+	CodeRemoteDigestMismatch  = "extension.remote_digest_mismatch"
+	// CodeRemoteDigestRequired：链接安装必须由调用方给出 sha256（RV-12）。
+	CodeRemoteDigestRequired     = "extension.remote_digest_required"
 	CodeRemoteInstallUnavailable = "extension.remote_install_unavailable"
 )
 
@@ -72,7 +74,12 @@ func (h *Controller) installFromURL(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "validation.invalid")
 	}
 	expectedDigest := strings.ToLower(strings.TrimSpace(input.SHA256))
-	if expectedDigest != "" && !isSHA256Hex(expectedDigest) {
+	// RV-12：sha256 是这条路由的唯一来源性依据，缺省即拒绝。宿主不能替调用方
+	// 「随便算一个」再自己比对——那是拿响应证明响应，挡不住投毒的下载链路。
+	if expectedDigest == "" {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, CodeRemoteDigestRequired)
+	}
+	if !isSHA256Hex(expectedDigest) {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "validation.invalid")
 	}
 	expected, err := normalizeInstallExpectations(input)
@@ -84,7 +91,7 @@ func (h *Controller) installFromURL(c fiber.Ctx) error {
 	if err != nil {
 		return mapExtensionError(err)
 	}
-	if expectedDigest != "" && !strings.EqualFold(expectedDigest, archive.Digest) {
+	if !strings.EqualFold(expectedDigest, archive.Digest) {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, CodeRemoteDigestMismatch)
 	}
 
