@@ -1749,8 +1749,8 @@
         "label": "ZIP URL",
         "placeholder": "https://example.com/extension.zip",
         "hint": "HTTPS only. The URL must return the ZIP file directly, not a release page.",
-        "checksumLabel": "SHA-256 (optional)",
-        "checksumHint": "Paste the publisher's ZIP digest; the server verifies it before installing.",
+        "checksumLabel": "SHA-256",
+        "checksumHint": "Paste the publisher's ZIP digest (required); the server verifies it before installing.",
         "checksumPlaceholder": "64-character hexadecimal digest",
         "action": "Download and install",
         "fetching": "Downloading…",
@@ -1761,6 +1761,7 @@
         "errorScheme": "Only HTTPS URLs are supported.",
         "errorCredentials": "The URL must not contain a username or password.",
         "errorInvalid": "Enter a valid URL.",
+        "errorChecksumRequired": "Enter the SHA-256 digest of the ZIP file.",
         "errorChecksum": "SHA-256 must be 64 hexadecimal characters."
       },
       "result": {
@@ -1792,6 +1793,7 @@
         "remoteFetchFailed": "Download failed: the target did not return a usable archive.",
         "remoteArchiveTooLarge": "The archive exceeds the 50 MB limit.",
         "remoteDigestMismatch": "The SHA-256 does not match the downloaded bytes; nothing was installed.",
+        "remoteDigestRequired": "Installing from a URL requires the ZIP's SHA-256 (64 hex characters) so the server can pin the exact bytes it downloads.",
         "installUnavailable": "URL installation is not enabled in this deployment.",
         "expectedMismatch": "The archive does not match the declared identity (ID, version, or type); nothing was installed.",
         "archiveInvalid": "The archive is not a readable extension package.",

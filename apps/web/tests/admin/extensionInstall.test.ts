@@ -1,8 +1,11 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, flushPromises, mount, testVue } from '../helpers/vueSfc'
 import * as installUtils from '../../app/utils/admin/extensions/extensionInstall'
 import { adminExtensionInstallErrorMessage } from '../../app/utils/admin/extensions/hostActions'
+import { useAdminExtensionInstall } from '../../app/composables/admin/useAdminExtensionInstall'
 import type { AdminExtensionInstallResult } from '../../app/utils/admin/adminExtensions'
 
 const panelPath = fileURLToPath(new URL('../../app/components/admin/extensions/SFAdminExtensionInstallPanel.vue', import.meta.url))
@@ -82,6 +85,16 @@ function mountPanel() {
   return mount(Panel, { global: { stubs: uiStubs() } })
 }
 
+/** FormField root that owns `testId`; Nuxt UI renders exactly one per field. */
+function fieldRoot(wrapper: ReturnType<typeof mount>, testId: string) {
+  return wrapper.get(`[data-testid="${testId}"]`).element.closest('[data-slot="root"]')
+}
+
+/** That field's own field-level message, read from its `data-slot="error"` region. */
+function fieldErrorText(wrapper: ReturnType<typeof mount>, testId: string) {
+  return fieldRoot(wrapper, testId)?.querySelector('[data-slot="error"]')?.textContent?.trim() || ''
+}
+
 function uiStubs() {
   return {
     UCard: { template: '<section><slot name="header" /><slot /></section>' },
@@ -95,7 +108,22 @@ function uiStubs() {
       emits: ['update:modelValue'],
       template: '<input :value="modelValue" :disabled="disabled" @input="$emit(\'update:modelValue\', $event.target.value)">'
     },
-    UFormField: { props: ['label', 'error', 'description'], template: '<label><span v-if="error" data-form-error>{{ error }}</span><slot /></label>' },
+    // 与 Nuxt UI 4 的 FormField 同构：root > wrapper(labelWrapper>label, description)
+    // + container(slot, error)。错误是输入框的同级节点，不在 <label> 内 —— stub 若把它
+    // 塞进 label，`closest('label')` 在生产 DOM 上就会返回 null，断言等于没测。
+    UFormField: {
+      props: ['label', 'error', 'description'],
+      template: `<div data-slot="root">
+        <div data-slot="wrapper">
+          <div data-slot="labelWrapper"><span data-slot="label">{{ label }}</span></div>
+          <p v-if="description" data-slot="description">{{ description }}</p>
+        </div>
+        <div data-slot="container">
+          <slot />
+          <div v-if="typeof error === 'string' && error" data-slot="error" data-form-error>{{ error }}</div>
+        </div>
+      </div>`
+    },
     UAlert: { props: ['title', 'description'], template: '<div data-alert>{{ title }} {{ description }}</div>' },
     UBadge: { template: '<span><slot /></span>' },
     UIcon: { template: '<i />' }
@@ -132,13 +160,16 @@ describe('extension install panel', () => {
       expect(archiveCalls).toEqual([{ name: 'demo.zip', size: 4 }])
       expect(wrapper.get('[data-testid="extension-install-result"]').text()).toContain('Demo Plugin')
       expect(wrapper.get('[data-testid="extension-install-result"]').text()).toContain('demo.plugin')
+      // 上传没有摘要可校验：结果区不得顶着一个「已校验」徽标。
+      expect(wrapper.get('[data-testid="extension-install-result"]').text())
+        .not.toContain('admin.extensionInstall.result.checksumVerified')
       expect(toasts).toHaveLength(1)
     } finally {
       wrapper.unmount()
     }
   })
 
-  test('submits an https url with an optional sha256', async () => {
+  test('submits an https url with a pinned sha256', async () => {
     resetState()
     const wrapper = mountPanel()
     try {
@@ -148,6 +179,33 @@ describe('extension install panel', () => {
       await flushPromises()
       expect(urlCalls).toEqual([{ url: 'https://example.com/demo.zip', sha256: 'a'.repeat(64) }])
       expect(wrapper.get('[data-testid="extension-install-result"]').text()).toContain('Demo Plugin')
+      // 链接安装带着已校验的摘要，徽标成立。
+      expect(wrapper.get('[data-testid="extension-install-result"]').text())
+        .toContain('admin.extensionInstall.result.checksumVerified')
+      expect(fieldErrorText(wrapper, 'extension-url-checksum')).toBe('')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('drops the digest badge when a url install is followed by an upload', async () => {
+    resetState()
+    const wrapper = mountPanel()
+    try {
+      await wrapper.get('[data-testid="extension-url-input"]').setValue('https://example.com/demo.zip')
+      await wrapper.get('[data-testid="extension-url-checksum"]').setValue('a'.repeat(64))
+      await wrapper.get('[data-testid="extension-url-form"]').trigger('submit')
+      await flushPromises()
+      expect(wrapper.get('[data-testid="extension-install-result"]').text())
+        .toContain('admin.extensionInstall.result.checksumVerified')
+
+      // 小审的探针场景：同页接着上传本地包，结果区换成上传结果后徽标必须消失。
+      await chooseFile(wrapper, new File([new Uint8Array([0x50, 0x4b, 0x03, 0x04])], 'demo.zip', { type: 'application/zip' }))
+      await wrapper.get('[data-testid="extension-archive-submit"]').trigger('click')
+      await flushPromises()
+      const card = wrapper.get('[data-testid="extension-install-result"]').text()
+      expect(card).toContain('Demo Plugin')
+      expect(card).not.toContain('admin.extensionInstall.result.checksumVerified')
     } finally {
       wrapper.unmount()
     }
@@ -176,7 +234,26 @@ describe('extension install panel', () => {
       await wrapper.get('[data-testid="extension-url-form"]').trigger('submit')
       await flushPromises()
       expect(urlCalls).toHaveLength(0)
-      expect(wrapper.text()).toContain('admin.extensionInstall.url.errorChecksum')
+      expect(fieldErrorText(wrapper, 'extension-url-checksum')).toContain('admin.extensionInstall.url.errorChecksum')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('rejects an empty sha256 on the checksum field without any request', async () => {
+    resetState()
+    const wrapper = mountPanel()
+    try {
+      await wrapper.get('[data-testid="extension-url-input"]').setValue('https://example.com/demo.zip')
+      await wrapper.get('[data-testid="extension-url-form"]').trigger('submit')
+      await flushPromises()
+      // 空摘要是字段级错误：既不发起请求，也不弹 toast。
+      expect(urlCalls).toHaveLength(0)
+      expect(toasts).toHaveLength(0)
+      // stub 与生产结构一致：输入框不在 <label> 内，错误是它的同级节点。
+      expect(wrapper.get('[data-testid="extension-url-checksum"]').element.closest('label')).toBeNull()
+      expect(fieldErrorText(wrapper, 'extension-url-checksum')).toContain('admin.extensionInstall.url.errorChecksumRequired')
+      expect(fieldErrorText(wrapper, 'extension-url-input')).toBe('')
     } finally {
       wrapper.unmount()
     }
@@ -236,9 +313,10 @@ describe('extension install helpers', () => {
     expect(installUtils.normalizeRemoteArchiveUrl('https://example.com/demo.zip')).toEqual({ ok: true, url: 'https://example.com/demo.zip' })
   })
 
-  test('normalizes optional sha256 values', () => {
-    expect(installUtils.normalizeSha256('')).toEqual({ ok: true, value: '' })
-    expect(installUtils.normalizeSha256('not-a-digest')).toEqual({ ok: false })
+  test('treats sha256 as a required, well-formed digest', () => {
+    expect(installUtils.normalizeSha256('')).toEqual({ ok: false, reason: 'empty' })
+    expect(installUtils.normalizeSha256('   ')).toEqual({ ok: false, reason: 'empty' })
+    expect(installUtils.normalizeSha256('not-a-digest')).toEqual({ ok: false, reason: 'format' })
     expect(installUtils.normalizeSha256('A'.repeat(64))).toEqual({ ok: true, value: 'a'.repeat(64) })
   })
 
@@ -246,5 +324,47 @@ describe('extension install helpers', () => {
     expect(installUtils.formatFileSize(0)).toBe('0 B')
     expect(installUtils.formatFileSize(1024)).toBe('1 KB')
     expect(installUtils.formatFileSize(50 * 1024 * 1024)).toBe('50 MB')
+  })
+})
+
+describe('install transport', () => {
+  test('sends sha256 as a required body field instead of omitting it', async () => {
+    const requests: Array<{ path: string, body: Record<string, unknown> }> = []
+    Object.assign(globalThis, {
+      useApiClient: () => ({
+        request: async (path: string, config: { body: Record<string, unknown> }) => {
+          requests.push({ path, body: config.body })
+          return { upgraded: false, extension: {} }
+        }
+      })
+    })
+    const { installFromUrl } = useAdminExtensionInstall()
+    await installFromUrl('https://example.com/demo.zip', 'a'.repeat(64))
+    expect(requests.map(entry => entry.path)).toEqual(['/admin/extensions/install-from-url'])
+    expect(requests[0]?.body).toEqual({ url: 'https://example.com/demo.zip', sha256: 'a'.repeat(64) })
+  })
+})
+
+describe('required digest message', () => {
+  test('maps the 422 reason to its own bilingual message instead of the generic failure', () => {
+    const error = {
+      code: 422,
+      message: 'extension.remote_digest_required',
+      data: { reason: 'extension.remote_digest_required' }
+    }
+    expect(adminExtensionInstallErrorMessage(key => key, error, 'admin.extensionInstall.url.failed'))
+      .toBe('admin.extensionInstall.errors.remoteDigestRequired')
+
+    // 只补一种语言会被回退掩盖，所以两种语言都钉住；摘要也不再是「可选」。
+    const localeDir = join(import.meta.dir, '../../i18n/locales')
+    for (const name of ['zh-CN.json', 'en-US.json']) {
+      const locale = JSON.parse(readFileSync(join(localeDir, name), 'utf8')) as {
+        admin: { extensionInstall: { url: Record<string, string>, errors: Record<string, string> } }
+      }
+      const block = locale.admin.extensionInstall
+      expect(block.errors.remoteDigestRequired, `${name}: errors.remoteDigestRequired`).toBeTruthy()
+      expect(block.url.errorChecksumRequired, `${name}: url.errorChecksumRequired`).toBeTruthy()
+      expect(block.url.checksumLabel, `${name}: checksumLabel`).not.toMatch(/optional|可选/i)
+    }
   })
 })

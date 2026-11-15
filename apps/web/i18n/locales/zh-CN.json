@@ -1789,8 +1789,8 @@
         "label": "ZIP 链接",
         "placeholder": "https://example.com/extension.zip",
         "hint": "仅支持 https；链接必须直接返回 ZIP 文件，不能是 Release 页面。",
-        "checksumLabel": "SHA-256（可选）",
-        "checksumHint": "填写发布方提供的 ZIP 文件摘要；服务器会在安装前校验。",
+        "checksumLabel": "SHA-256",
+        "checksumHint": "填写发布方提供的 ZIP 文件摘要（必填）；服务器会在安装前校验。",
         "checksumPlaceholder": "64 位十六进制摘要",
         "action": "拉取并安装",
         "fetching": "正在下载…",
@@ -1801,6 +1801,7 @@
         "errorScheme": "仅支持 https 链接。",
         "errorCredentials": "链接不能包含用户名或密码。",
         "errorInvalid": "请输入有效的链接。",
+        "errorChecksumRequired": "请填写 ZIP 文件的 SHA-256 摘要。",
         "errorChecksum": "SHA-256 必须是 64 位十六进制字符。"
       },
       "result": {
@@ -1832,6 +1833,7 @@
         "remoteFetchFailed": "下载失败：对方没有返回可用的压缩包。",
         "remoteArchiveTooLarge": "压缩包超过 50 MB 上限。",
         "remoteDigestMismatch": "SHA-256 与下载内容不一致，已中止安装。",
+        "remoteDigestRequired": "链接安装必须提供 SHA-256（64 位十六进制），用它锁定下载的确切字节。",
         "installUnavailable": "本部署未启用链接安装。",
         "expectedMismatch": "压缩包与声明的扩展身份不一致（ID、版本或类型不符），已中止安装。",
         "archiveInvalid": "压缩包结构无效，无法作为扩展包读取。",

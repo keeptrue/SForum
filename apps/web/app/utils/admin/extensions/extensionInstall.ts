@@ -53,12 +53,14 @@ export function normalizeRemoteArchiveUrl(raw: string): RemoteUrlValidation {
 
 export type Sha256Validation =
   | { ok: true, value: string }
-  | { ok: false }
+  | { ok: false, reason: 'empty' | 'format' }
 
 export function normalizeSha256(raw: string): Sha256Validation {
   const value = String(raw ?? '').trim().toLowerCase()
-  if (!value) return { ok: true, value: '' }
-  if (!/^[a-f0-9]{64}$/.test(value)) return { ok: false }
+  // 链接安装靠摘要锁定确切字节；空值不是「不校验」，而是 Host 会直接拒绝的
+  // 无效请求，所以这里不给它一个合法的空值出口。
+  if (!value) return { ok: false, reason: 'empty' }
+  if (!/^[a-f0-9]{64}$/.test(value)) return { ok: false, reason: 'format' }
   return { ok: true, value }
 }
 

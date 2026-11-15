@@ -32,12 +32,12 @@ const remoteSha256 = ref('')
 const fetching = ref(false)
 const fileError = ref('')
 const urlError = ref('')
+const checksumError = ref('')
 const actionError = ref('')
 const result = ref<AdminExtensionInstallResult | null>(null)
 const resultSource = ref<InstallSource>('upload')
 const resultFileName = ref('')
 const resultUrlHost = ref('')
-const checksumVerified = ref(false)
 
 const accept = EXTENSION_ARCHIVE_ACCEPT
 const maxSizeLabel = formatFileSize(EXTENSION_ARCHIVE_MAX_BYTES)
@@ -147,15 +147,19 @@ async function submitUpload() {
 async function submitUrl() {
   if (busy.value) return
   urlError.value = ''
+  checksumError.value = ''
 
   const urlValidation = normalizeRemoteArchiveUrl(remoteUrl.value)
   if (!urlValidation.ok) {
     urlError.value = remoteUrlError(urlValidation.reason)
     return
   }
+  // 空摘要不是可选项：字段级拦下，避免把一个必然 422 的请求发出去。
   const digestValidation = normalizeSha256(remoteSha256.value)
   if (!digestValidation.ok) {
-    urlError.value = t('admin.extensionInstall.url.errorChecksum')
+    checksumError.value = digestValidation.reason === 'empty'
+      ? t('admin.extensionInstall.url.errorChecksumRequired')
+      : t('admin.extensionInstall.url.errorChecksum')
     return
   }
 
@@ -164,7 +168,6 @@ async function submitUrl() {
   try {
     const next = await installFromUrl(urlValidation.url, digestValidation.value)
     applyResult(next, 'url', '', remoteArchiveHost(urlValidation.url))
-    checksumVerified.value = Boolean(digestValidation.value)
   } catch (error) {
     actionError.value = adminExtensionInstallErrorMessage(t, error, 'admin.extensionInstall.url.failed')
     toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: actionError.value })
@@ -202,7 +205,6 @@ function applyResult(next: AdminExtensionInstallResult, source: InstallSource, f
 function resetResult() {
   result.value = null
   actionError.value = ''
-  checksumVerified.value = false
 }
 
 async function copyDigest() {
@@ -368,6 +370,7 @@ async function copyDigest() {
           <UFormField
             :label="t('admin.extensionInstall.url.checksumLabel')"
             :description="t('admin.extensionInstall.url.checksumHint')"
+            :error="checksumError || undefined"
           >
             <UInput
               v-model="remoteSha256"
@@ -472,8 +475,9 @@ async function copyDigest() {
           </div>
         </dl>
 
+        <!-- 摘要校验徽标只对链接安装成立：上传没有摘要可校验，所以归因跟着 resultSource 走。 -->
         <UAlert
-          v-if="checksumVerified"
+          v-if="resultSource === 'url'"
           color="success"
           variant="subtle"
           icon="i-lucide-shield-check"

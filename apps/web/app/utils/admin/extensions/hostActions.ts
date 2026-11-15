@@ -225,6 +225,7 @@ const INSTALL_ERROR_KEYS: Record<string, string> = {
   'extension.remote_fetch_failed': 'remoteFetchFailed',
   'extension.remote_archive_too_large': 'remoteArchiveTooLarge',
   'extension.remote_digest_mismatch': 'remoteDigestMismatch',
+  'extension.remote_digest_required': 'remoteDigestRequired',
   'extension.remote_install_unavailable': 'installUnavailable',
   'extension.expected_mismatch': 'expectedMismatch',
   'extension.archive_invalid': 'archiveInvalid',

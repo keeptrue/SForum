@@ -63,9 +63,13 @@ export const useAdminExtensionInstall = () => {
     })
   }
 
-  function installFromUrl(url: string, sha256 = '', options: AdminInstallFromUrlOptions = {}) {
-    const body: Record<string, unknown> = { url }
-    if (sha256) body.sha256 = sha256
+  /**
+   * `sha256` 是必填请求字段（Host 对缺摘要的链接安装直接回 422），因此这里
+   * 既不给默认值、也不按条件省略：调用方必须在提交前校验，否则一次注定
+   * 失败的请求会被发出去。
+   */
+  function installFromUrl(url: string, sha256: string, options: AdminInstallFromUrlOptions = {}) {
+    const body: Record<string, unknown> = { url, sha256 }
     const expectations = options.expectations
     if (expectations) {
       if (expectations.expectedExtensionId) body.expectedExtensionId = expectations.expectedExtensionId
