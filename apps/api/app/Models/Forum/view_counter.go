@@ -59,9 +59,25 @@ func HashVisitorKey(visitorKey string) string {
 	return hex.EncodeToString(sum[:16])
 }
 
+// redisViewCounterClient 是浏览量计数器用到的最小 Redis 面。
+//
+// Ack 必须是一次 EVAL（见 ackViewDeltasScript）；保留 DecrBy/Del/SRem 是为了让
+// 「拆成多步」的回归能被测试直接看见，而不是只靠读代码。
+type redisViewCounterClient interface {
+	redis.Scripter
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd
+	Incr(ctx context.Context, key string) *redis.IntCmd
+	SAdd(ctx context.Context, key string, members ...interface{}) *redis.IntCmd
+	SMembers(ctx context.Context, key string) *redis.StringSliceCmd
+	Get(ctx context.Context, key string) *redis.StringCmd
+	DecrBy(ctx context.Context, key string, decrement int64) *redis.IntCmd
+	Del(ctx context.Context, keys ...string) *redis.IntCmd
+	SRem(ctx context.Context, key string, members ...interface{}) *redis.IntCmd
+}
+
 // RedisTopicViewCounter 生产实现：SETNX 去重 + INCR 增量 + dirty set。
 type RedisTopicViewCounter struct {
-	client *redis.Client
+	client redisViewCounterClient
 	logger *slog.Logger
 	// DedupTTL 可测；默认 30m。
 	DedupTTL time.Duration
@@ -145,6 +161,23 @@ func (c *RedisTopicViewCounter) ReadViewDeltas(ctx context.Context) (map[int64]i
 	return out, nil
 }
 
+// ackViewDeltasScript 把「扣减」与「归零清理」压进一次 EVAL。
+//
+// 分成 DECRBY 再 DEL 两步时，夹在中间的并发 INCR 会被 DEL 直接吞掉——这正是
+// RV-52.3/52.4 修过的同类缺陷。脚本内先读当前值再决定：归零才清理，否则只扣减，
+// 并发 INCR 的残留在两种分支下都不会丢。
+var ackViewDeltasScript = redis.NewScript(`
+local current = redis.call('GET', KEYS[1])
+local left = tonumber(current or '0') - tonumber(ARGV[1])
+if left <= 0 then
+  redis.call('DEL', KEYS[1])
+  redis.call('SREM', KEYS[2], ARGV[2])
+  return 0
+end
+redis.call('DECRBY', KEYS[1], ARGV[1])
+return left
+`)
+
 // AckViewDeltas 扣减已落库的增量；并发 INCR 的残留留在 key 上，下一轮再刷。
 func (c *RedisTopicViewCounter) AckViewDeltas(ctx context.Context, applied map[int64]int64) error {
 	if c == nil || c.client == nil || len(applied) == 0 {
@@ -156,15 +189,9 @@ func (c *RedisTopicViewCounter) AckViewDeltas(ctx context.Context, applied map[i
 		}
 		raw := strconv.FormatInt(topicID, 10)
 		deltaKey := deltaKeyPrefix + raw
-		left, err := c.client.DecrBy(ctx, deltaKey, n).Result()
-		if err != nil {
-			return fmt.Errorf("decr view delta %d: %w", topicID, err)
+		if _, err := ackViewDeltasScript.Run(ctx, c.client, []string{deltaKey, dirtySetKey}, n, raw).Int64(); err != nil {
+			return fmt.Errorf("ack view delta %d: %w", topicID, err)
 		}
-		if left <= 0 {
-			_ = c.client.Del(ctx, deltaKey).Err()
-			_ = c.client.SRem(ctx, dirtySetKey, raw).Err()
-		}
-		// left > 0：保留 dirty 成员，下一轮再刷。
 	}
 	return nil
 }

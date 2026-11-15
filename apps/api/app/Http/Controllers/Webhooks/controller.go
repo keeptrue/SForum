@@ -199,7 +199,7 @@ func (h *Controller) inbound(c fiber.Ctx) error {
 	if declared := int64(c.Request().Header.ContentLength()); declared > MaxInboundBodyBytes {
 		return rejectInboundBody(c)
 	}
-	size, tooLarge, err := countInboundBody(c.Request().BodyStream(), MaxInboundBodyBytes)
+	size, tooLarge, err := inboundBodySize(c)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "webhook.inbound_invalid")
 	}
@@ -225,6 +225,19 @@ func (h *Controller) inbound(c fiber.Ctx) error {
 func rejectInboundBody(c fiber.Ctx) error {
 	c.Set(fiber.HeaderConnection, "close")
 	return fiber.NewError(fiber.StatusRequestEntityTooLarge, "webhook.inbound_too_large")
+}
+
+// inboundBodySize 在流式请求体上按上限计数；流已被上游消费时退回已缓冲切片。
+//
+// 正常情况下（core-only 目标）dispatcher 不读体，这里走流式分支；只有该路径被
+// 插件计划包裹时上游才会预读请求体，此时仍要能回执而不是误报空 body。
+func inboundBodySize(c fiber.Ctx) (int64, bool, error) {
+	stream := c.Request().BodyStream()
+	if stream == nil {
+		buffered := int64(len(c.Request().Body()))
+		return buffered, buffered > MaxInboundBodyBytes, nil
+	}
+	return countInboundBody(stream, MaxInboundBodyBytes)
 }
 
 // countInboundBody 按 limit 读取流，最多消费 limit+1 字节即停。

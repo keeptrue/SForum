@@ -73,18 +73,25 @@ func (w *DeliverChannelWorker) Work(ctx context.Context, job *river.Job[DeliverC
 	if delivery.Channel != "web_push" {
 		return w.finish(ctx, delivery, notifications.DeliveryFailed, "notification.channel_unsupported", "")
 	}
+	budget := channelAttemptBudget(job)
+	attemptNumber := channelAttempt(job, delivery.AttemptCount)
 	subscriptions, err := w.Store.ListWebPushSubscriptions(ctx, delivery.RecipientUserID, true)
 	if err != nil {
-		return err
+		return w.settleOrRetry(ctx, notifications.ChannelDeliveryUpdate{
+			ID: delivery.ID, AttemptCount: attemptNumber,
+			Reason: "notification.subscription_lookup_failed", ErrorSummary: truncateChannelSummary(err.Error()),
+		}, err, budget)
 	}
 	if len(subscriptions) == 0 {
 		return w.finish(ctx, delivery, notifications.DeliverySkipped, "notification.subscription_unavailable", "")
 	}
-	attemptNumber := delivery.AttemptCount + 1
 	if err := w.Store.UpdateChannelDelivery(ctx, notifications.ChannelDeliveryUpdate{
 		ID: delivery.ID, Status: notifications.DeliverySending, AttemptCount: attemptNumber,
 	}); err != nil {
-		return err
+		// 写 sending 失败也要收敛：最后一次调度时不能把记录留在旧状态。
+		return w.settleOrRetry(ctx, notifications.ChannelDeliveryUpdate{
+			ID: delivery.ID, AttemptCount: attemptNumber, Reason: "notification.state_write_failed",
+		}, err, budget)
 	}
 
 	var temporary bool
@@ -92,7 +99,10 @@ func (w *DeliverChannelWorker) Work(ctx context.Context, job *river.Job[DeliverC
 	for _, subscription := range subscriptions {
 		attempt, err := w.Store.GetWebPushDeliveryAttempt(ctx, delivery.ID, subscription.ID)
 		if err != nil {
-			return err
+			return w.settleOrRetry(ctx, notifications.ChannelDeliveryUpdate{
+				ID: delivery.ID, AttemptCount: attemptNumber,
+				Reason: "notification.attempt_lookup_failed", ErrorSummary: truncateChannelSummary(err.Error()),
+			}, err, budget)
 		}
 		if attempt.Status == notifications.DeliverySent {
 			continue
@@ -123,7 +133,10 @@ func (w *DeliverChannelWorker) Work(ctx context.Context, job *river.Job[DeliverC
 			}
 		}
 		if err := w.Store.UpdateWebPushDeliveryAttempt(ctx, attempt); err != nil {
-			return err
+			return w.settleOrRetry(ctx, notifications.ChannelDeliveryUpdate{
+				ID: delivery.ID, AttemptCount: attemptNumber,
+				Reason: "notification.attempt_write_failed", ErrorSummary: truncateChannelSummary(err.Error()),
+			}, err, budget)
 		}
 		if message != "" && !ok && classification == "temporary" {
 			_ = message // Provider text is deliberately never persisted or logged.
@@ -135,13 +148,8 @@ func (w *DeliverChannelWorker) Work(ctx context.Context, job *river.Job[DeliverC
 	}
 	if temporary {
 		// 与邮件同构：最后一次调度后不再有重试，必须写终态（RV-50）。
-		if outbox.ExhaustedAttempts(attemptNumber, channelAttemptBudget(job)) {
-			update.Status, update.Reason = notifications.DeliveryFailed, "notification.provider_temporary"
-			return w.Store.UpdateChannelDelivery(ctx, update)
-		}
-		update.Status, update.Reason = notifications.DeliverySending, "notification.provider_temporary"
-		_ = w.Store.UpdateChannelDelivery(ctx, update)
-		return errors.New("temporary Web Push provider failure")
+		update.Reason = "notification.provider_temporary"
+		return w.settleOrRetry(ctx, update, errors.New("temporary Web Push provider failure"), budget)
 	}
 	update.Status, update.Reason = notifications.DeliverySent, "web_push.sent"
 	return w.Store.UpdateChannelDelivery(ctx, update)
@@ -194,6 +202,34 @@ func channelAttemptBudget(job *river.Job[DeliverChannelArgs]) int {
 		return job.MaxAttempts
 	}
 	return 5
+}
+
+// channelAttempt 取 River 的真实调度次数：持久化的 AttemptCount 依赖上一次写库
+// 成功，失败时会落后，预算就永远用不完（RV-50 的连带项）。
+func channelAttempt(job *river.Job[DeliverChannelArgs], persisted int) int {
+	if job != nil && job.JobRow != nil && job.Attempt > 0 {
+		return job.Attempt
+	}
+	return persisted + 1
+}
+
+// settleOrRetry 与邮件同构：有预算写 sending 并返回错误；预算用尽写 failed 终态。
+func (w *DeliverChannelWorker) settleOrRetry(ctx context.Context, update notifications.ChannelDeliveryUpdate, retryErr error, maxAttempts int) error {
+	if outbox.ExhaustedAttempts(update.AttemptCount, maxAttempts) {
+		update.Status = notifications.DeliveryFailed
+		return w.Store.UpdateChannelDelivery(ctx, update)
+	}
+	update.Status = notifications.DeliverySending
+	_ = w.Store.UpdateChannelDelivery(ctx, update)
+	return retryErr
+}
+
+func truncateChannelSummary(value string) string {
+	const limit = 160
+	if len(value) <= limit {
+		return value
+	}
+	return value[:limit]
 }
 
 func RegisterChannels(registry *supportjobs.Registry, worker *DeliverChannelWorker) {

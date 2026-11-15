@@ -2,6 +2,7 @@ package notificationjobs
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
@@ -77,11 +78,52 @@ func TestDeliverChannelWorkerFailsTemporaryAfterAttemptBudget(t *testing.T) {
 	}
 }
 
+// 早退路径同样必须收敛：订阅查询失败发生在第 5 次调度时，旧实现直接 return，
+// 记录永久停在 sending（RV-50 的 err 分支）。
+func TestDeliverChannelWorkerSettlesTerminallyWhenSubscriptionLookupFails(t *testing.T) {
+	store := &channelWorkerStore{
+		delivery:         notifications.ChannelDelivery{ID: 7, RecipientUserID: 42, Channel: "web_push", Status: notifications.DeliverySending, AttemptCount: 0},
+		subscriptionsErr: errors.New("pg: connection refused"),
+	}
+	err := (&DeliverChannelWorker{Store: store, Invoker: &channelWorkerInvoker{}}).Work(context.Background(), &river.Job[DeliverChannelArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 5, MaxAttempts: 5},
+		Args:   DeliverChannelArgs{DeliveryID: 7},
+	})
+	if err != nil {
+		t.Fatalf("attempt 5 of 5 must settle terminally instead of staying retryable: %v", err)
+	}
+	if store.update.Status != notifications.DeliveryFailed || store.update.Reason != "notification.subscription_lookup_failed" {
+		t.Fatalf("unexpected terminal update: %#v", store.update)
+	}
+}
+
+// 逐订阅 attempt 读取失败同样要走终态收敛。
+func TestDeliverChannelWorkerSettlesTerminallyWhenAttemptLookupFails(t *testing.T) {
+	store := &channelWorkerStore{
+		delivery:      notifications.ChannelDelivery{ID: 7, RecipientUserID: 42, Channel: "web_push", Status: notifications.DeliverySending, AttemptCount: 4},
+		subscriptions: []notifications.WebPushSubscription{{ID: 1, Endpoint: "https://push.invalid/1"}},
+		attempts:      map[int64]notifications.WebPushDeliveryAttempt{},
+		attemptErr:    errors.New("pg: timeout"),
+	}
+	err := (&DeliverChannelWorker{Store: store, Invoker: &channelWorkerInvoker{}}).Work(context.Background(), &river.Job[DeliverChannelArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 5, MaxAttempts: 5},
+		Args:   DeliverChannelArgs{DeliveryID: 7},
+	})
+	if err != nil {
+		t.Fatalf("attempt 5 of 5 must settle terminally instead of staying retryable: %v", err)
+	}
+	if store.update.Status != notifications.DeliveryFailed || store.update.Reason != "notification.attempt_lookup_failed" {
+		t.Fatalf("unexpected terminal update: %#v", store.update)
+	}
+}
+
 type channelWorkerStore struct {
-	delivery      notifications.ChannelDelivery
-	subscriptions []notifications.WebPushSubscription
-	attempts      map[int64]notifications.WebPushDeliveryAttempt
-	update        notifications.ChannelDeliveryUpdate
+	delivery         notifications.ChannelDelivery
+	subscriptions    []notifications.WebPushSubscription
+	attempts         map[int64]notifications.WebPushDeliveryAttempt
+	update           notifications.ChannelDeliveryUpdate
+	subscriptionsErr error
+	attemptErr       error
 }
 
 func (s *channelWorkerStore) GetChannelDelivery(context.Context, int64) (notifications.ChannelDelivery, error) {
@@ -92,9 +134,15 @@ func (s *channelWorkerStore) UpdateChannelDelivery(_ context.Context, update not
 	return nil
 }
 func (s *channelWorkerStore) ListWebPushSubscriptions(context.Context, int64, bool) ([]notifications.WebPushSubscription, error) {
+	if s.subscriptionsErr != nil {
+		return nil, s.subscriptionsErr
+	}
 	return s.subscriptions, nil
 }
 func (s *channelWorkerStore) GetWebPushDeliveryAttempt(_ context.Context, deliveryID, subscriptionID int64) (notifications.WebPushDeliveryAttempt, error) {
+	if s.attemptErr != nil {
+		return notifications.WebPushDeliveryAttempt{}, s.attemptErr
+	}
 	if s.attempts == nil {
 		s.attempts = map[int64]notifications.WebPushDeliveryAttempt{}
 	}

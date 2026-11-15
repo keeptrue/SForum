@@ -2,6 +2,7 @@ package notificationjobs
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/riverqueue/river"
@@ -83,6 +84,46 @@ func TestDeliverMailFailsTemporaryDeliveryAfterAttemptBudget(t *testing.T) {
 	}
 }
 
+// SendMail 自己报错也必须收敛：最后一次调度走这条路时，旧实现直接 return，
+// 记录永久停在 sending（RV-50 的 err 分支）。
+func TestDeliverMailSettlesTerminallyWhenSenderErrorsOnFinalAttempt(t *testing.T) {
+	store := &fakeDeliveryStore{delivery: notifications.MailDelivery{ID: 41, Status: notifications.DeliverySending, Recipient: "u@example.com", AttemptCount: 4}}
+	worker := DeliverMailWorker{
+		Store:     store,
+		Providers: fakeProviderResolver{selection: extensionsruntime.MailProviderSelection{ExtensionID: "smtp"}, state: extensionsruntime.MailProviderReady},
+		Sender:    fakeSender{err: errors.New("smtp: connection reset by peer")},
+	}
+	if err := worker.Work(context.Background(), mailJob(5)); err != nil {
+		t.Fatalf("final attempt must settle terminally instead of staying retryable: %v", err)
+	}
+	if store.update.Status != notifications.DeliveryFailed || store.update.Reason != "provider_send_error" {
+		t.Fatalf("unexpected terminal update after a sender error: %#v", store.update)
+	}
+	if !outbox.IsTerminal(store.update.Status) {
+		t.Fatalf("delivery status %q is not terminal", store.update.Status)
+	}
+}
+
+// 预算必须按 River 的真实调度次数算：delivery.AttemptCount 是上一次写库成功的值，
+// 写 sending 失败时它会落后，旧实现因此永远凑不满预算。
+func TestDeliverMailUsesRiverAttemptWhenPersistedCountLags(t *testing.T) {
+	store := &fakeDeliveryStore{delivery: notifications.MailDelivery{ID: 41, Status: notifications.DeliverySending, Recipient: "u@example.com", AttemptCount: 0}}
+	worker := DeliverMailWorker{
+		Store:     store,
+		Providers: fakeProviderResolver{selection: extensionsruntime.MailProviderSelection{ExtensionID: "smtp"}, state: extensionsruntime.MailProviderReady},
+		Sender:    fakeSender{response: extensionsruntime.MailProviderResponse{Classification: "temporary", Reason: "smtp.transport_failed"}},
+	}
+	if err := worker.Work(context.Background(), mailJob(5)); err != nil {
+		t.Fatalf("attempt 5 of 5 must settle terminally even when the persisted count lags: %v", err)
+	}
+	if store.update.Status != notifications.DeliveryFailed {
+		t.Fatalf("delivery status = %q, want failed (job.Attempt=5 must drive the budget)", store.update.Status)
+	}
+	if store.update.AttemptCount != 5 {
+		t.Fatalf("persisted attempt count = %d, want River's 5", store.update.AttemptCount)
+	}
+}
+
 func TestDeliverMailSendsWhenProviderReady(t *testing.T) {
 	store := &fakeDeliveryStore{delivery: notifications.MailDelivery{ID: 41, Status: notifications.DeliveryQueued, Recipient: "u@example.com"}}
 	worker := DeliverMailWorker{
@@ -129,8 +170,9 @@ func (r fakeProviderResolver) Resolve(context.Context) (extensionsruntime.MailPr
 
 type fakeSender struct {
 	response extensionsruntime.MailProviderResponse
+	err      error
 }
 
 func (s fakeSender) SendMail(context.Context, string, extensionsruntime.MailProviderRequest) (extensionsruntime.MailProviderResponse, error) {
-	return s.response, nil
+	return s.response, s.err
 }

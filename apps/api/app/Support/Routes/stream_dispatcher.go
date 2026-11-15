@@ -34,8 +34,15 @@ type RouteStreamDispatch struct {
 }
 
 type RouteStreamPreparation struct {
-	Handled  bool
-	Dispatch *RouteStreamDispatch
+	Handled bool
+	// PluginPlanned 表示该请求的执行计划里存在插件步骤。
+	//
+	// HTTP 适配器用它决定「要不要在 dispatch 之前把请求体读进内存」：core-only
+	// 目标（例如入站 webhook）完全留在 Fiber 原路径上，提前 c.Body() 会在
+	// StreamRequestBody 下关闭请求体流——handler 再也拿不到流，匿名端点会把
+	// 每个非空请求当成空 body，全局 BodyLimit 也会变成事实上的每请求缓冲上限。
+	PluginPlanned bool
+	Dispatch      *RouteStreamDispatch
 }
 
 type RouteStreamChunk struct {
@@ -86,9 +93,11 @@ func (d *Dispatcher) PrepareStream(ctx context.Context, request DispatchRequest)
 	if !dispatchPlanHasPluginStep(chain) {
 		return RouteStreamPreparation{}, nil
 	}
+	// 从这里开始执行计划里一定有插件步骤：请求体随后会被 dispatch 使用。
+	prepared := RouteStreamPreparation{PluginPlanned: true}
 	terminal := plan.Terminal()
 	if terminal.Mode == extensionmanifest.RouteModeHTTP {
-		return RouteStreamPreparation{}, nil
+		return prepared, nil
 	}
 	if len(chain) != 1 {
 		return RouteStreamPreparation{}, fmt.Errorf("%w: composed stream chains are not available", ErrDispatchTransport)
@@ -111,7 +120,7 @@ func (d *Dispatcher) PrepareStream(ctx context.Context, request DispatchRequest)
 	request.Headers = cloneHTTPHeader(request.Headers)
 	request.Body = nil
 	request.Permissions = cloneDispatchPermissions(request.Permissions)
-	return RouteStreamPreparation{Handled: true, Dispatch: &RouteStreamDispatch{
+	return RouteStreamPreparation{Handled: true, PluginPlanned: true, Dispatch: &RouteStreamDispatch{
 		dispatcher: d, plan: plan, step: terminal, request: request,
 		commit: NewRouteCommitObserver(), started: time.Now(),
 	}}, nil

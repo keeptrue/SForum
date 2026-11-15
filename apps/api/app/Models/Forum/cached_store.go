@@ -67,12 +67,18 @@ const (
 	ttlCommentsP1  = 40 * time.Second // 评论第一页稍长
 )
 
+// 分片 generation 的 key 也走同一个编码器。
+//
+// 这一条是口径纠正：只编码「列表 key」而让 gen key 继续嵌原始 slug，等于把
+// 客户端输入的长度/字符集留在 Redis key 空间里（gen key 由读写两侧共用同一个
+// 编码，所以不会出现两侧不一致）。gen key 只存一个计数器、不承载任何数据，
+// 编码后旧计数器自然作废，最坏多缓存一个列表 TTL。
 func topicsGenCategory(slug string) string {
-	return genTopicsCatPref + strings.TrimSpace(slug)
+	return genTopicsCatPref + cacheKeyPart(slug, maxCacheSlugLen)
 }
 
 func topicsGenTag(slug string) string {
-	return genTopicsTagPref + strings.TrimSpace(slug)
+	return genTopicsTagPref + cacheKeyPart(slug, maxCacheSlugLen)
 }
 
 // NewCachedStore 包装底层 store。cache 为 nil 时直接返回底层 store（不装饰）。
@@ -155,6 +161,8 @@ const (
 	maxCacheSlugLen = 80
 	maxCacheSortLen = 16
 	maxCacheViewLen = 16
+	// cacheKeyHexDigits 是 _XX 转义的十六进制表。
+	cacheKeyHexDigits = "0123456789abcdef"
 )
 
 // cacheKeyPart 编码一个外部可控的短过滤值，用于拼缓存 key。
@@ -177,12 +185,16 @@ func cacheKeyPart(value string, limit int) string {
 	b.WriteByte(':')
 	for i := 0; i < len(trimmed); i++ {
 		char := trimmed[i]
+		// 只放行 slug/sort/view 实际用到的字符；其余（含作为转义引导符的 '_'）
+		// 一律写成 _XX。这样编码是单射的：a_b 与 a/b 不再折叠成同一个片段。
 		switch {
 		case char >= 'a' && char <= 'z', char >= 'A' && char <= 'Z', char >= '0' && char <= '9',
-			char == '-', char == '_', char == '.':
+			char == '-':
 			b.WriteByte(char)
 		default:
 			b.WriteByte('_')
+			b.WriteByte(cacheKeyHexDigits[char>>4])
+			b.WriteByte(cacheKeyHexDigits[char&0x0f])
 		}
 	}
 	return b.String()

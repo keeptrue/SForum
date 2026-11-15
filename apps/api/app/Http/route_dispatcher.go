@@ -319,7 +319,12 @@ func routeDispatcherMiddleware(dispatcher *routes.Dispatcher, actors RouteActorL
 		if prepared.Handled {
 			return serveRouteStream(c, prepared.Dispatch, hostHeaders)
 		}
-		request.Body = append([]byte(nil), c.Body()...)
+		// core-only 目标（入站 webhook 就是）不读体：dispatcher 对它只会
+		// Handled=false 直落 Fiber，而 c.Body() 会关闭流式请求体、并把全局
+		// BodyLimit 变成每请求的内存上限（RV-06）。
+		if prepared.PluginPlanned {
+			request.Body = append([]byte(nil), c.Body()...)
+		}
 		core := &fiberCoreRouteInvoker{ctx: c}
 		result, err := dispatcher.Dispatch(c.Context(), request, core)
 		if err != nil {

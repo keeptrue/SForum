@@ -54,16 +54,15 @@ func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMail
 	if err != nil {
 		return err
 	}
-	attempt := delivery.AttemptCount + 1
+	attempt := mailAttempt(job, delivery.AttemptCount)
+	budget := mailAttemptBudget(job)
 	switch state {
 	case extensionsruntime.MailProviderUnconfigured:
 		return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySkipped, Reason: "provider_unconfigured", AttemptCount: attempt})
 	case extensionsruntime.MailProviderUnavailable:
-		if outbox.ExhaustedAttempts(attempt, mailAttemptBudget(job)) {
-			return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliveryFailed, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt})
-		}
-		_ = w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySending, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt})
-		return fmt.Errorf("mail provider %s is temporarily unavailable", selection.ExtensionID)
+		return w.settleOrRetry(ctx, notifications.DeliveryUpdate{
+			ID: delivery.ID, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt,
+		}, fmt.Errorf("mail provider %s is temporarily unavailable", selection.ExtensionID), budget)
 	}
 	if w.Sender == nil {
 		return fmt.Errorf("mail provider sender is not configured")
@@ -75,12 +74,20 @@ func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMail
 		RefreshMailProvider(context.Context, string) error
 	}); ok {
 		if err := refresher.RefreshMailProvider(ctx, selection.ExtensionID); err != nil {
-			return err
+			return w.settleOrRetry(ctx, notifications.DeliveryUpdate{
+				ID: delivery.ID, ExtensionID: selection.ExtensionID, AttemptCount: attempt,
+				Reason: "provider_refresh_failed", ErrorSummary: truncateDeliverySummary(err.Error()),
+			}, err, budget)
 		}
 	}
 	response, err := w.Sender.SendMail(ctx, selection.ExtensionID, renderDelivery(delivery))
 	if err != nil {
-		return err
+		// 发送通道本身的错误（SMTP 断连、provider 崩溃）同样是可重试失败：
+		// 最后一次调度必须落终态，否则记录永久停在 sending（RV-50）。
+		return w.settleOrRetry(ctx, notifications.DeliveryUpdate{
+			ID: delivery.ID, ExtensionID: selection.ExtensionID, AttemptCount: attempt,
+			Reason: "provider_send_error", ErrorSummary: truncateDeliverySummary(err.Error()),
+		}, err, budget)
 	}
 	update := notifications.DeliveryUpdate{ID: delivery.ID, ExtensionID: selection.ExtensionID, AttemptCount: attempt, Reason: response.Reason, ErrorSummary: response.Message}
 	if response.OK {
@@ -88,17 +95,23 @@ func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMail
 		return w.Store.UpdateDelivery(ctx, update)
 	}
 	if response.Classification == "temporary" {
-		// 最后一次调度后 River 不会再重试；此时必须写终态，否则记录永久停在 sending，
-		// 既不是终态也不可 replay（RV-50）。还有预算时保持 sending 等待下一次调度。
-		if outbox.ExhaustedAttempts(attempt, mailAttemptBudget(job)) {
-			update.Status, update.Reason = notifications.DeliveryFailed, "provider_temporary"
-			return w.Store.UpdateDelivery(ctx, update)
-		}
-		_ = w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySending, ExtensionID: selection.ExtensionID, AttemptCount: attempt, Reason: response.Reason, ErrorSummary: response.Message})
-		return fmt.Errorf("temporary mail provider failure: %s", response.Reason)
+		providerReason := response.Reason
+		update.Reason = "provider_temporary"
+		return w.settleOrRetry(ctx, update, fmt.Errorf("temporary mail provider failure: %s", providerReason), budget)
 	}
 	update.Status = notifications.DeliveryFailed
 	return w.Store.UpdateDelivery(ctx, update)
+}
+
+// mailAttempt 取本次调度在 River 里的真实次数。
+//
+// 不能只用 delivery.AttemptCount+1：那是上一次「写 sending」成功后的持久值，
+// 写库失败时它会落后于 River 的真实次数，预算就永远用不完（RV-50 的连带项）。
+func mailAttempt(job *river.Job[DeliverMailArgs], persisted int) int {
+	if job != nil && job.JobRow != nil && job.Attempt > 0 {
+		return job.Attempt
+	}
+	return persisted + 1
 }
 
 // mailAttemptBudget 取自 River job 的 MaxAttempts；EnqueueOptions 默认也是 5。
@@ -108,6 +121,28 @@ func mailAttemptBudget(job *river.Job[DeliverMailArgs]) int {
 		return job.MaxAttempts
 	}
 	return 5
+}
+
+// settleOrRetry 统一处理可重试失败的落库：
+// 还有预算就写 sending 并返回错误交给 River；预算用尽则写 failed 终态并吞掉错误。
+// 终态是这里的硬要求：没有 reaper，停在 sending 的记录只能手工改库。
+func (w *DeliverMailWorker) settleOrRetry(ctx context.Context, update notifications.DeliveryUpdate, retryErr error, maxAttempts int) error {
+	if outbox.ExhaustedAttempts(update.AttemptCount, maxAttempts) {
+		update.Status = notifications.DeliveryFailed
+		return w.Store.UpdateDelivery(ctx, update)
+	}
+	update.Status = notifications.DeliverySending
+	_ = w.Store.UpdateDelivery(ctx, update)
+	return retryErr
+}
+
+// truncateDeliverySummary 把 provider 的错误文本裁到 error_summary 的列宽语义内。
+func truncateDeliverySummary(value string) string {
+	const limit = 160
+	if len(value) <= limit {
+		return value
+	}
+	return value[:limit]
 }
 
 func Register(registry *supportjobs.Registry, worker *DeliverMailWorker) {
