@@ -206,7 +206,9 @@ func routePolicyContributionApplies(terminal, contribution Route) bool {
 		return false
 	}
 	if contribution.Action == extensionmanifest.RouteActionGlobalMiddleware {
-		return true
+		// 与匹配、执行计划共用同一份作用域判定：Core terminal 默认不吃插件的
+		// global middleware，显式 TargetID 才算声明。
+		return globalMiddlewareScopeApplies(terminal, contribution)
 	}
 	targetID := terminal.ID
 	if terminal.Action == extensionmanifest.RouteActionReplace {

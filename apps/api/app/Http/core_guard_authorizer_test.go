@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	forum "github.com/keeptrue/sforum/apps/api/app/Models/Forum"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	pages "github.com/keeptrue/sforum/apps/api/app/Support/Pages"
@@ -123,7 +124,7 @@ func TestProductionCoreGuardEvaluatorRegistryIsExplicitAndVersioned(t *testing.T
 		t.Fatal(err)
 	}
 	bindings := registry.Bindings()
-	if len(bindings) != len(registrations) || len(bindings) != 34 {
+	if len(bindings) != len(registrations) || len(bindings) != 37 {
 		t.Fatalf("bindings = %#v", bindings)
 	}
 	for _, binding := range bindings {
@@ -2472,4 +2473,181 @@ func TestProductionAttachmentUploadPolicyUserGuardMatchesRuntimePolicy(t *testin
 			}
 		})
 	}
+}
+
+// TestProductionCoreGuardCatalogCoverage 是 RV-03 的棘轮：目录里每个 evaluator 都必须
+// 有实现（或落在带理由的白名单里）。扫全 catalog，不只盯这次补的三条。
+func TestProductionCoreGuardCatalogCoverage(t *testing.T) {
+	registry, err := routes.NewCoreGuardEvaluatorRegistry(productionCoreGuardEvaluatorRegistrations())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := routes.ValidateCoreGuardCatalogCoverage(routes.CoreRouteCatalog(), registry.Bindings()); err != nil {
+		t.Fatalf("core guard catalog coverage: %v", err)
+	}
+	if reasons := routes.UnboundCoreGuardCatalogEvaluatorReasons(); len(reasons) != 0 {
+		t.Fatalf("unbound evaluator allowlist must stay empty, got %#v", reasons)
+	}
+	// 反向：把其中一个绑定摘掉，闸门必须报出它的 id（否则这条棘轮是假绿）。
+	trimmed, err := routes.NewCoreGuardEvaluatorRegistry(
+		productionCoreGuardEvaluatorRegistrations()[:len(productionCoreGuardEvaluatorRegistrations())-1],
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = routes.ValidateCoreGuardCatalogCoverage(routes.CoreRouteCatalog(), trimmed.Bindings())
+	if !errors.Is(err, routes.ErrCoreGuardCatalogCoverage) {
+		t.Fatalf("coverage gate accepted a catalog with an unbound evaluator: %v", err)
+	}
+	if !strings.Contains(err.Error(), "core.guard.") {
+		t.Fatalf("coverage error does not name the missing evaluator: %v", err)
+	}
+}
+
+// TestProductionRevisionRestoreGuardsRequireEveryDeclaredPermission 证明这两条
+// revision restore 的守卫语义是 AND：只持其中一个权限必须被拒。
+func TestProductionRevisionRestoreGuardsRequireEveryDeclaredPermission(t *testing.T) {
+	tests := []struct {
+		name        string
+		routeID     string
+		permissions []string
+		only        string
+		wantDenied  bool
+	}{
+		{
+			name: "topic revision restore needs view_any and edit_any", routeID: "core.route.forum.restore_topic_revision",
+			permissions: []string{"topic.revision.view_any", "topic.edit_any"}, only: "topic.revision.view_any", wantDenied: true,
+		},
+		{
+			name: "topic revision restore denies edit_any alone", routeID: "core.route.forum.restore_topic_revision",
+			permissions: []string{"topic.revision.view_any", "topic.edit_any"}, only: "topic.edit_any", wantDenied: true,
+		},
+		{
+			name: "comment revision restore needs view_any and edit_any", routeID: "core.route.forum.restore_comment_revision",
+			permissions: []string{"post.revision.view_any", "post.edit_any"}, only: "post.revision.view_any", wantDenied: true,
+		},
+		{
+			name: "comment revision restore denies edit_any alone", routeID: "core.route.forum.restore_comment_revision",
+			permissions: []string{"post.revision.view_any", "post.edit_any"}, only: "post.edit_any", wantDenied: true,
+		},
+		{
+			name: "both permissions allow the restore", routeID: "core.route.forum.restore_topic_revision",
+			permissions: []string{"topic.revision.view_any", "topic.edit_any"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			authorizer := NewProductionRouteGuardAuthorizerWithPolicies(ProductionRouteGuardPolicies{})
+			descriptor := catalogGuardDescriptor(t, test.routeID)
+			plan, step := productionInheritedGuardPlan(t, test.routeID, descriptor)
+			granted := test.permissions
+			if test.only != "" {
+				granted = []string{test.only}
+			}
+			request := productionGuardRequest(granted...)
+			request.Method, request.Path = plan.Method(), plan.Path()
+			err := authorizer.Authorize(context.Background(), plan, step, request)
+			if test.wantDenied {
+				if !errors.Is(err, ErrRoutePermissionDenied) {
+					t.Fatalf("single permission %q was accepted: %v", test.only, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("both permissions were rejected: %v", err)
+			}
+		})
+	}
+}
+
+// TestProductionCommentEditGuardRequiresOwnershipOrAnyPermission 证明 comment_edit 的
+// 语义是「全局编辑权 OR（作者 + 自编辑权）」：非作者只持自编辑权必须被拒。
+func TestProductionCommentEditGuardRequiresOwnershipOrAnyPermission(t *testing.T) {
+	const method = "PATCH"
+	descriptor := catalogGuardDescriptor(t, "core.route.forum.comment_edit_source")
+	descriptor.Method = method
+	alias := extensionmanifest.ManifestRoute{
+		ID: "guard.production.comment_edit_alias", ContractVersion: "guard.production.comment_edit_alias@1",
+		Action: extensionmanifest.RouteActionAlias, TargetID: descriptor.RouteID,
+		Path: "/comments/:commentID/edit-source", Methods: []string{method},
+		Guard: extensionmanifest.GuardCoreInherit, Fallback: "closed", Mode: extensionmanifest.RouteModeHTTP,
+	}
+	registry := routes.NewRegistry()
+	if _, err := registry.Publish(routes.Publication{
+		Core: []routes.CoreRoute{{
+			ID: descriptor.RouteID, ContractVersion: descriptor.ContractVersion, Method: method,
+			Path: "/guard/comment-target", Guard: descriptor,
+		}},
+		Plugins: []routes.PluginRouteSet{{
+			Artifact: routes.PluginArtifact{
+				ExtensionID: "guard.production", ExtensionVersion: "1.0.0",
+				PackageDigest: strings.Repeat("a", 64), RuntimeInstanceID: "runtime-a",
+			},
+			Routes: []extensionmanifest.ManifestRoute{alias},
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := registry.BuildExecutionPlan(method, "/comments/42/edit-source")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Params()["commentID"] != "42" {
+		t.Fatalf("plan params=%#v", plan.Params())
+	}
+	step := plan.Terminal()
+	authorizer := NewProductionRouteGuardAuthorizerWithPolicies(ProductionRouteGuardPolicies{
+		ForumResources: staticForumResourcePolicy{
+			comment: forum.CommentResourceGuardSubject{
+				CommentID: 42, AuthorUserID: 7, Exists: true, Status: forum.CommentStatusActive,
+			},
+		},
+	})
+	authorize := func(actorID int64, permissions ...string) error {
+		request := routes.DispatchRequest{
+			ActorID: actorID, Authenticated: true, Permissions: map[string]bool{}, Params: plan.Params(),
+			Method: plan.Method(), Path: plan.Path(),
+		}
+		for _, permission := range permissions {
+			request.Permissions[permission] = true
+		}
+		return authorizer.Authorize(context.Background(), plan, step, request)
+	}
+
+	if err := authorize(8, "post.edit_own"); !errors.Is(err, ErrRoutePermissionDenied) {
+		t.Fatalf("non-author with only post.edit_own was accepted: %v", err)
+	}
+	if err := authorize(7, "post.edit_own"); err != nil {
+		t.Fatalf("author with post.edit_own was rejected: %v", err)
+	}
+	if err := authorize(8, "post.edit_any"); err != nil {
+		t.Fatalf("editor with post.edit_any was rejected: %v", err)
+	}
+	if err := authorize(9); !errors.Is(err, ErrRoutePermissionDenied) {
+		t.Fatalf("actor without any edit permission was accepted: %v", err)
+	}
+}
+
+func catalogGuardDescriptor(t *testing.T, routeID string) routes.CoreGuardDescriptor {
+	t.Helper()
+	for _, route := range routes.CoreRouteCatalog() {
+		if route.ID == routeID {
+			return route.Guard
+		}
+	}
+	t.Fatalf("route %s is not in the core catalog", routeID)
+	return routes.CoreGuardDescriptor{}
+}
+
+// staticForumResourcePolicy 是 ForumResourceGuardPolicy 的静态替身。
+type staticForumResourcePolicy struct {
+	comment forum.CommentResourceGuardSubject
+}
+
+func (p staticForumResourcePolicy) LoadTopicResourceGuardSubject(context.Context, int64) (forum.TopicResourceGuardSubject, error) {
+	return forum.TopicResourceGuardSubject{}, errors.New("topic subject is not part of this fixture")
+}
+
+func (p staticForumResourcePolicy) LoadCommentResourceGuardSubject(context.Context, int64) (forum.CommentResourceGuardSubject, error) {
+	return p.comment, nil
 }

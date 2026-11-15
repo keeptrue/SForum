@@ -69,8 +69,13 @@ func preparePluginRoute(
 		return nil, fmt.Errorf("%w: invalid mutable route fields", ErrInvalidRoute)
 	}
 	if declaration.Action == extensionmanifest.RouteActionGlobalMiddleware {
-		if declaration.Path != "" || declaration.TargetID != "" || len(declaration.Methods) != 0 {
+		// global middleware 的作用域由 TargetID 声明：空 = 只覆盖插件自己的 terminal；
+		// 写明 = 精确覆盖那一条 terminal。Path/Methods 不接受（global 不是前缀匹配）。
+		if declaration.Path != "" || len(declaration.Methods) != 0 {
 			return nil, fmt.Errorf("%w: invalid global middleware declaration", ErrInvalidRoute)
+		}
+		if declaration.TargetID != "" && !routeIDPattern.MatchString(declaration.TargetID) {
+			return nil, fmt.Errorf("%w: invalid global middleware target", ErrInvalidRoute)
 		}
 		return []preparedRoute{{route: routeFromManifest(artifact, declaration, guardBinding, "", "")}}, nil
 	}

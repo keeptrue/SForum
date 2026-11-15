@@ -11,8 +11,10 @@ func TestExecutionPlanBuildsDeterministicCompletePhaseChain(t *testing.T) {
 	registry := NewRegistry()
 	artifact := routeArtifact("plan.chain", "1.2.3", 'a')
 	targetID := "core.route.plan.topic"
-	globalHigh := executionGlobalRoute("plan.chain.global_high", 90)
-	globalLow := executionGlobalRoute("plan.chain.global_low", 10)
+	// Core terminal 默认不在插件 global middleware 的作用域内（EX2-05）；这里显式
+	// 声明 TargetID 才是「覆盖这一条 Core 路由」的唯一入口。
+	globalHigh := scopedExecutionGlobalRoute(targetID, "plan.chain.global_high", 90)
+	globalLow := scopedExecutionGlobalRoute(targetID, "plan.chain.global_low", 10)
 	beforeHigh := modifierRoute("plan.chain.before_high", targetID, "/topics/:slug", extensionmanifest.RouteActionBefore, "GET", 80)
 	beforeHigh.Guard = extensionmanifest.GuardCorePermission
 	beforeHigh.Permission = "forum.topic.view"
@@ -413,6 +415,15 @@ func TestExecutionPlanRejectsForgedOrAmbiguousMatchData(t *testing.T) {
 			}
 		})
 	}
+}
+
+// scopedExecutionGlobalRoute 声明一条只覆盖指定 terminal 的 global middleware。
+// Core terminal 默认不在插件 global middleware 作用域内（EX2-05），要覆盖必须显式
+// 写 TargetID——链组合类用例因此都得声明自己的作用域。
+func scopedExecutionGlobalRoute(targetID, id string, priority int) extensionmanifest.ManifestRoute {
+	route := executionGlobalRoute(id, priority)
+	route.TargetID = targetID
+	return route
 }
 
 func executionGlobalRoute(id string, priority int) extensionmanifest.ManifestRoute {

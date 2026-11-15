@@ -89,6 +89,11 @@ func NewProductionRouteGuardAuthorizer() ProductionRouteGuardAuthorizer {
 
 func NewProductionRouteGuardAuthorizerWithPolicies(policies ProductionRouteGuardPolicies) ProductionRouteGuardAuthorizer {
 	registry := routes.MustNewCoreGuardEvaluatorRegistry(productionCoreGuardEvaluatorRegistrationsWithPolicies(policies))
+	// 启动期一致性闸门（RV-03）：目录声明了 evaluator 就必须有实现。缺一个就
+	// fail boot，而不是等到某次请求才在运行期报 ErrCoreGuardEvaluatorUnavailable。
+	if err := routes.ValidateCoreGuardCatalogCoverage(routes.CoreRouteCatalog(), registry.Bindings()); err != nil {
+		panic(err)
+	}
 	return ProductionRouteGuardAuthorizer{authorizer: routes.CoreGuardAuthorizer{
 		Evaluators: registry, PluginGuards: policies.PluginGuards,
 	}}
@@ -164,6 +169,12 @@ func productionCoreGuardEvaluatorRegistrationsWithPolicies(policies ProductionRo
 		productionCoreGuardEvaluator("core.guard.entity_meta.write", entityMetaWriteGuardEvaluator(policies.EntityMetaValues)),
 		productionCoreGuardEvaluator("core.guard.forum.author_review", requireAuthenticatedCoreGuardActor),
 		productionCoreGuardEvaluator("core.guard.forum.comment_write", forumCommentWriteGuardEvaluator(policies.ForumResources)),
+		// 这三条此前只在目录里声明、没有实现（RV-03）。语义对齐服务层：
+		// 两个 revision restore 是 AND（服务层同样要求两者同时具备），
+		// comment_edit 是「全局编辑权 OR（作者 + 自编辑权）」。
+		productionCoreGuardEvaluator("core.guard.forum.comment_edit", forumCommentWriteGuardEvaluator(policies.ForumResources)),
+		productionCoreGuardEvaluator("core.guard.forum.comment_revision_restore", requireAllDeclaredCoreGuardPermissions),
+		productionCoreGuardEvaluator("core.guard.forum.topic_revision_restore", requireAllDeclaredCoreGuardPermissions),
 		productionCoreGuardEvaluator("core.guard.forum.comment_create", forumCommentCreateGuardEvaluator(policies.ForumComments)),
 		productionCoreGuardEvaluator("core.guard.forum.content_read", requireForumContentReadAuthority),
 		productionCoreGuardEvaluator("core.guard.forum.read", forumReadGuardEvaluator(policies.ForumRead)),
@@ -395,6 +406,15 @@ func declaredExtensionRouteGuardEvaluator(policy DeclaredExtensionRoutePolicy) r
 
 func requireDeclaredCoreGuardPermission(_ context.Context, evaluation routes.CoreGuardEvaluation) error {
 	return requireCoreGuardPermission(evaluation, evaluation.Descriptor.Permissions...)
+}
+
+// requireAllDeclaredCoreGuardPermissions 要求描述符里的权限**全部**具备。
+//
+// revision restore 这类操作在服务层就是 AND（同时要 revision 查看权与编辑权），
+// 目录的 Permissions 逐项列出，这里按 AND 求值——不能用 any 语义，否则守卫层会比
+// 服务层更宽。
+func requireAllDeclaredCoreGuardPermissions(_ context.Context, evaluation routes.CoreGuardEvaluation) error {
+	return requireAllCoreGuardPermissions(evaluation, evaluation.Descriptor.Permissions...)
 }
 
 func requireProfileSelfAuthority(_ context.Context, evaluation routes.CoreGuardEvaluation) error {

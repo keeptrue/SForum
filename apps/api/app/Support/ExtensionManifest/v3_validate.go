@@ -157,7 +157,15 @@ func (v *v3Validator) validateGuardsAndRoutes() error {
 			return ErrInvalidManifest
 		}
 		if route.Action == RouteActionGlobalMiddleware {
-			if route.Path != "" || route.TargetID != "" || len(route.Methods) != 0 || !validHandler(route.Handler) || !validSchemaRef(route.RequestSchema) || !validSchemaRef(route.ResponseSchema) || !validFallback(route.Fallback) {
+			// 作用域（EX2-05）：TargetID 是 global middleware 唯一的作用域声明——
+			// 留空 = 只覆盖插件自己的 terminal；写明 = 精确覆盖那一条 terminal
+			// （Core 路由靠它显式 opt-in）。Path/Methods 仍然禁止：global 不是前缀匹配。
+			if route.Path != "" || len(route.Methods) != 0 || !validHandler(route.Handler) ||
+				!validSchemaRef(route.RequestSchema) || !validSchemaRef(route.ResponseSchema) || !validFallback(route.Fallback) {
+				return ErrInvalidManifest
+			}
+			if route.TargetID != "" && (!manifestIDPattern.MatchString(route.TargetID) ||
+				manifestRouteTargetForbidden(route.TargetID)) {
 				return ErrInvalidManifest
 			}
 			continue
@@ -189,8 +197,7 @@ func (v *v3Validator) validateGuardsAndRoutes() error {
 		if routeTargetsExisting(route.Action) && route.TargetID == "" {
 			return ErrInvalidManifest
 		}
-		if route.TargetID == "core.route.system.health" || route.TargetID == "core.route.system.ready" ||
-			route.TargetID == "core.route.notifications.stream" {
+		if manifestRouteTargetForbidden(route.TargetID) {
 			return ErrInvalidManifest
 		}
 		if route.Action == RouteActionRedirect {
@@ -503,6 +510,16 @@ func validRouteModeMethod(mode string, method string) bool {
 		return method != "GET" && method != "HEAD" && method != "OPTIONS"
 	}
 	return true
+}
+
+// manifestRouteTargetForbidden 列出 Host 保留路由：插件路由不得指向或覆盖它们。
+func manifestRouteTargetForbidden(targetID string) bool {
+	switch targetID {
+	case "core.route.system.health", "core.route.system.ready", "core.route.notifications.stream":
+		return true
+	default:
+		return false
+	}
 }
 
 func routeTargetsExisting(action string) bool {

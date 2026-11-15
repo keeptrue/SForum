@@ -14,7 +14,7 @@ func TestRouteMutableFieldsPropagateThroughImmutableSnapshotsAndPlans(t *testing
 	registry := NewRegistry()
 	artifact := routeArtifact("mutable.contract", "1.0.0", 'a')
 	target := coreRoute("core.route.mutable.contract", "GET", "/mutable/:id")
-	global := executionGlobalRoute("mutable.contract.global", 90)
+	global := scopedExecutionGlobalRoute("core.route.mutable.contract", "mutable.contract.global", 90)
 	global.MutableRequestFields = []string{"/query"}
 	before := modifierRoute("mutable.contract.before", target.ID, target.Path, extensionmanifest.RouteActionBefore, "GET", 80)
 	before.MutableRequestFields = []string{"/body/title"}

@@ -41,6 +41,9 @@ func TestRouteDispatcherInvalidTargetModifiersFailBeforeAdmissionAndHTTP(t *test
 				modifier.Path = ""
 				modifier.Methods = nil
 				modifier.RequestSchema = modifier.ID + ".request@1"
+				// global middleware 也需要显式作用域（EX2-05），否则它根本不进链，
+				// 这条用例就测不到「非法 target 在执行前被拦」。
+				modifier.TargetID = coreID
 			} else {
 				modifier.TargetID = coreID
 			}

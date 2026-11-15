@@ -251,6 +251,18 @@ func registerRoutes(app *fiber.App, cfg config.Config, deps Dependencies) {
 	})
 }
 
+// recoveryPublicView 是恢复态 503 允许匿名输出的全部内容：人读三元组。
+//
+// 这里刻意用「白名单结构体」而不是直接序列化 RecoveryRequirement：以后给
+// requirement 加字段（例如新的制品清单）不会顺带扩大匿名可见面。artifacts 与
+// publicationRevision 只出现在 /api/v1/ready 的就绪报告里（运维探针），或经认证的
+// 管理面——恢复态本身不该把已装扩展的 ID / 版本 / digest 回显给匿名调用方。
+type recoveryPublicView struct {
+	Code      string `json:"code"`
+	Component string `json:"component"`
+	Message   string `json:"message"`
+}
+
 func recoveryOnlyMiddleware(requirement *health.RecoveryRequirement) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		if !requirement.Active() {
@@ -260,7 +272,11 @@ func recoveryOnlyMiddleware(requirement *health.RecoveryRequirement) fiber.Handl
 		case "/api/v1/health", "/api/v1/ready":
 			return c.Next()
 		default:
-			return JSON(c, fiber.StatusServiceUnavailable, "service.recovery_required", requirement)
+			return JSON(c, fiber.StatusServiceUnavailable, "service.recovery_required", recoveryPublicView{
+				Code:      requirement.Code,
+				Component: requirement.Component,
+				Message:   requirement.Message,
+			})
 		}
 	}
 }

@@ -22,7 +22,10 @@ func TestExecutionPlanOrdersModifierPhasesForSafeAndUnsafeMethods(t *testing.T) 
 	path := "/plan-methods/:slug"
 
 	// 同一份声明里，POST 专用修饰器与 GET 专用修饰器并存，全局中间件不声明方法。
-	global := executionGlobalRoute("plan.methods.global", 50)
+	// 两条 Core terminal 各需要一条显式声明的作用域（EX2-05）：global middleware 的
+	// 作用域是「哪一条 terminal」，它本身不参与方法匹配。
+	globalPost := scopedExecutionGlobalRoute(targetID, "plan.methods.global_post", 50)
+	globalGet := scopedExecutionGlobalRoute(getTargetID, "plan.methods.global_get", 50)
 	postBefore := modifierRoute("plan.methods.before_post", targetID, path, extensionmanifest.RouteActionBefore, "POST", 40)
 	postFilter := modifierRoute("plan.methods.filter_post", targetID, path, extensionmanifest.RouteActionFilter, "POST", 30)
 	postWrap := modifierRoute("plan.methods.wrap_post", targetID, path, extensionmanifest.RouteActionWrap, "POST", 20)
@@ -36,7 +39,7 @@ func TestExecutionPlanOrdersModifierPhasesForSafeAndUnsafeMethods(t *testing.T) 
 			coreRoute(getTargetID, "GET", path),
 		},
 		Plugins: []PluginRouteSet{{Artifact: artifact, Routes: []extensionmanifest.ManifestRoute{
-			postAfter, getAfter, global, postWrap, getBefore, postFilter, postBefore,
+			postAfter, getAfter, globalPost, globalGet, postWrap, getBefore, postFilter, postBefore,
 		}}},
 	}); err != nil {
 		t.Fatal(err)
@@ -53,14 +56,14 @@ func TestExecutionPlanOrdersModifierPhasesForSafeAndUnsafeMethods(t *testing.T) 
 		id    string
 		phase RouteExecutionPhase
 	}{
-		{"plan.methods.global", RoutePhaseGlobal},
+		{"plan.methods.global_post", RoutePhaseGlobal},
 		{"plan.methods.before_post", RoutePhaseBefore},
 		{"plan.methods.filter_post", RoutePhaseFilter},
 		{"plan.methods.wrap_post", RoutePhaseWrap},
 		{targetID, RoutePhaseHandler},
 		{"plan.methods.after_post", RoutePhaseAfter},
 	})
-	assertChainLacks(t, postPlan, "plan.methods.before_get", "plan.methods.after_get")
+	assertChainLacks(t, postPlan, "plan.methods.before_get", "plan.methods.after_get", "plan.methods.global_get")
 
 	getPlan, err := registry.BuildExecutionPlan("GET", "/plan-methods/welcome")
 	if err != nil {
@@ -74,13 +77,13 @@ func TestExecutionPlanOrdersModifierPhasesForSafeAndUnsafeMethods(t *testing.T) 
 		id    string
 		phase RouteExecutionPhase
 	}{
-		{"plan.methods.global", RoutePhaseGlobal},
+		{"plan.methods.global_get", RoutePhaseGlobal},
 		{"plan.methods.before_get", RoutePhaseBefore},
 		{getTargetID, RoutePhaseHandler},
 		{"plan.methods.after_get", RoutePhaseAfter},
 	})
 	assertChainLacks(t, getPlan, "plan.methods.before_post", "plan.methods.filter_post",
-		"plan.methods.wrap_post", "plan.methods.after_post")
+		"plan.methods.wrap_post", "plan.methods.after_post", "plan.methods.global_post")
 }
 
 func assertPhaseOrder(t *testing.T, plan RouteExecutionPlan, want []struct {

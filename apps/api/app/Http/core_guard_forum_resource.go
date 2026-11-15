@@ -45,7 +45,8 @@ func forumCommentWriteGuardEvaluator(policy ForumResourceGuardPolicy) routes.Cor
 	return func(ctx context.Context, evaluation routes.CoreGuardEvaluation) error {
 		var globalPermission, ownPermission string
 		switch evaluation.Descriptor.RouteID {
-		case "core.route.forum.update_comment":
+		case "core.route.forum.update_comment", "core.route.forum.comment_edit_source":
+			// 编辑源与更新评论同权：任何编辑权 OR（作者本人 + 自编辑权）。
 			globalPermission = identity.PermissionPostEditAny
 			ownPermission = identity.PermissionPostEditOwn
 		case "core.route.forum.delete_comment":

@@ -221,8 +221,20 @@ func buildRouteExecutionPlanView(
 			return RouteExecutionPlan{}, fmt.Errorf("%w: contribution action cannot enter the chain", ErrInvalidExecutionPlan)
 		}
 		if phase == RoutePhaseGlobal {
-			if contribution.TargetID != "" || contribution.Path != "" || contribution.Method != "" {
+			// 作用域是声明出来的：Path/Method 不接受（global 不是前缀匹配），
+			// TargetID 只允许等于本 terminal 的身份——Core 路由靠它显式 opt-in。
+			if contribution.Path != "" || contribution.Method != "" {
 				return RouteExecutionPlan{}, fmt.Errorf("%w: invalid global middleware", ErrInvalidExecutionPlan)
+			}
+			if contribution.TargetID != "" && contribution.TargetID != expectedTarget {
+				return RouteExecutionPlan{}, fmt.Errorf(
+					"%w: global middleware %s targets a different route", ErrInvalidExecutionPlan, contribution.ID,
+				)
+			}
+			if !globalMiddlewareScopeApplies(terminal, contribution) {
+				return RouteExecutionPlan{}, fmt.Errorf(
+					"%w: global middleware %s is outside this terminal scope", ErrInvalidExecutionPlan, contribution.ID,
+				)
 			}
 		} else {
 			if contribution.TargetID != expectedTarget {

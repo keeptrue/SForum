@@ -147,7 +147,9 @@ func TestRegistryPublishesEveryV1ActionAndTransportMode(t *testing.T) {
 	replace := modifierRoute("complete.routes.replace", "core.route.complete.create", "/topics", extensionmanifest.RouteActionReplace, "POST", 100)
 	global := extensionmanifest.ManifestRoute{
 		ID: "complete.routes.global", ContractVersion: "complete.routes.global@1",
-		Action: extensionmanifest.RouteActionGlobalMiddleware, Guard: extensionmanifest.GuardCoreLogin,
+		// 作用域显式声明：这条 global middleware 只覆盖 /topics 那条 Core 路由。
+		TargetID: "core.route.complete.topics",
+		Action:   extensionmanifest.RouteActionGlobalMiddleware, Guard: extensionmanifest.GuardCoreLogin,
 		Fallback: "closed", Mode: extensionmanifest.RouteModeHTTP, Handler: "route.global",
 		RequestSchema: "complete.routes.global.request@1", ResponseSchema: "complete.routes.global.response@1",
 	}

@@ -23,7 +23,7 @@ func TestProviderSelectionPlanFiltersContributionsByExactRuntimeAdmission(t *tes
 		"selection.shadow.replace", target.ID, target.Path,
 		extensionmanifest.RouteActionReplace, target.Method, 90,
 	)
-	global := executionGlobalRoute("selection.middleware.global", 40)
+	global := scopedExecutionGlobalRoute("core.route.selection.admission", "selection.middleware.global", 40)
 	before := modifierRoute(
 		"selection.middleware.before", target.ID, target.Path,
 		extensionmanifest.RouteActionBefore, target.Method, 30,

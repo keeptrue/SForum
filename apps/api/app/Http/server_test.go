@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	nethttp "net/http"
 	"net/http/httptest"
@@ -329,6 +330,10 @@ func TestRecoveryOnlyModeExposesOnlyHostHealthAndReadiness(t *testing.T) {
 	recovery := &health.RecoveryRequirement{
 		Code: health.PluginRuntimeRecoveryCode, Component: "plugin_runtime", Message: "stage failed",
 		PublicationRevision: 935,
+		Artifacts: []health.RecoveryArtifact{
+			{ExtensionID: "demo.secret.plugin", Version: "9.9.9", Digest: strings.Repeat("d1e5", 16)},
+			{ExtensionID: "demo.theme.alpha", Version: "1.0.0", Digest: strings.Repeat("0badc0de", 8)},
+		},
 	}
 	app := apphttp.NewApp(cfg, slog.Default(), apphttp.Dependencies{
 		Recovery: recovery,
@@ -358,15 +363,62 @@ func TestRecoveryOnlyModeExposesOnlyHostHealthAndReadiness(t *testing.T) {
 		t.Fatalf("health body=%#v", healthBody.Data)
 	}
 
-	for _, path := range []string{"/api/v1/ready", "/api/v1/probe", "/unmanaged"} {
+	// 恢复态下除健康/就绪探针外一律 503，且响应体里不能出现任何已装扩展的身份：
+	// 断言按内容比对真实制品清单，而不是只看状态码。
+	forbidden := []string{
+		"demo.secret.plugin", "demo.theme.alpha", "9.9.9", strings.Repeat("d1e5", 16),
+		strings.Repeat("0badc0de", 8), "artifacts", "publicationRevision", "935",
+	}
+	for _, path := range []string{
+		"/api/v1/probe", "/api/v1/topics", "/api/v1/auth/me", "/api/v1/admin/extensions", "/unmanaged",
+	} {
 		response, err := app.Test(httptest.NewRequest(nethttp.MethodGet, path, nil))
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
+		body, readErr := io.ReadAll(response.Body)
 		response.Body.Close()
+		if readErr != nil {
+			t.Fatalf("%s: read body: %v", path, readErr)
+		}
 		if response.StatusCode != nethttp.StatusServiceUnavailable {
 			t.Fatalf("%s status=%d", path, response.StatusCode)
 		}
+		var envelope apiEnvelope[map[string]any]
+		if err := json.Unmarshal(body, &envelope); err != nil {
+			t.Fatalf("%s: decode: %v (%s)", path, err, body)
+		}
+		if envelope.Code != nethttp.StatusServiceUnavailable ||
+			envelope.Data["code"] != health.PluginRuntimeRecoveryCode ||
+			envelope.Data["component"] != "plugin_runtime" ||
+			envelope.Data["message"] != "stage failed" {
+			t.Fatalf("%s envelope=%#v", path, envelope)
+		}
+		for _, value := range forbidden {
+			if strings.Contains(string(body), value) {
+				t.Fatalf("%s leaked %q in the anonymous 503 body: %s", path, value, body)
+			}
+		}
+		if _, ok := envelope.Data["artifacts"]; ok {
+			t.Fatalf("%s returned the artifact list", path)
+		}
+	}
+
+	// /ready 是运维探针：仍然返回结构化就绪报告（含制品清单），但 ready=false。
+	readyResp, err := app.Test(httptest.NewRequest(nethttp.MethodGet, "/api/v1/ready", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer readyResp.Body.Close()
+	readyBody, err := io.ReadAll(readyResp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readyResp.StatusCode != nethttp.StatusServiceUnavailable {
+		t.Fatalf("ready status=%d", readyResp.StatusCode)
+	}
+	if !strings.Contains(string(readyBody), "demo.secret.plugin") {
+		t.Fatalf("readiness probe lost the recovery artifact list: %s", readyBody)
 	}
 }
 

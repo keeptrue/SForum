@@ -30,7 +30,9 @@ func TestRouteActionV2FiberModifierChainOrderAndHostPatches(t *testing.T) {
 	artifact := routeDispatcherArtifact("v2.action.chain", 'a')
 	global := extensionmanifest.ManifestRoute{
 		ID: "v2.action.chain.global", ContractVersion: "v2.action.chain.global@1",
-		Action: extensionmanifest.RouteActionGlobalMiddleware, Priority: 50,
+		// 作用域显式声明（EX2-05）：Core terminal 默认不吃插件 global middleware。
+		TargetID: coreID,
+		Action:   extensionmanifest.RouteActionGlobalMiddleware, Priority: 50,
 		Guard: extensionmanifest.GuardCorePublic, Fallback: "closed",
 		Mode: extensionmanifest.RouteModeHTTP, Handler: "route.global",
 		RequestSchema: "v2.action.chain.global.request@1", ResponseSchema: "v2.action.chain.global.response@1",

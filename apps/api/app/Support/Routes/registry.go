@@ -349,7 +349,11 @@ func (r *Registry) resolveForPlanning(method, requestPath string) (*registrySnap
 			continue
 		}
 		if item.route.Action == extensionmanifest.RouteActionGlobalMiddleware {
-			contributions = append(contributions, item.route)
+			// 只有落在作用域里的 global middleware 才入链：默认只覆盖插件自己的
+			// terminal，Core 的 /api/v1 路由需要显式 TargetID 才会被覆盖。
+			if globalMiddlewareScopeApplies(best.prepared.route, item.route) {
+				contributions = append(contributions, item.route)
+			}
 			continue
 		}
 		if !compositionAction(item.route.Action) || item.route.TargetID != best.prepared.route.ID ||

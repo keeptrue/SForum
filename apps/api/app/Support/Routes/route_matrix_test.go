@@ -129,8 +129,8 @@ func TestP6RouteModifierAndGlobalChainSelection(t *testing.T) {
 	artifact := routeArtifact("matrix.chain", "1.0.0", 'b')
 	targetID := "core.route.matrix.topic"
 	targetPath := "/matrix/topics/:slug"
-	globalHigh := executionGlobalRoute("matrix.chain.global_high", 40)
-	globalLow := executionGlobalRoute("matrix.chain.global_low", 10)
+	globalHigh := scopedExecutionGlobalRoute("core.route.matrix.topic", "matrix.chain.global_high", 40)
+	globalLow := scopedExecutionGlobalRoute("core.route.matrix.topic", "matrix.chain.global_low", 10)
 	beforeHigh := modifierRoute("matrix.chain.before_high", targetID, targetPath, extensionmanifest.RouteActionBefore, "GET", 90)
 	beforeLow := modifierRoute("matrix.chain.before_low", targetID, targetPath, extensionmanifest.RouteActionBefore, "GET", 20)
 	filterHigh := modifierRoute("matrix.chain.filter_high", targetID, targetPath, extensionmanifest.RouteActionFilter, "GET", 70)
