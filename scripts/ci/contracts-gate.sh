@@ -15,6 +15,9 @@ node tests/validate-host-api-v2-docs.mjs
 echo "Running OpenAPI reference validation..."
 ruby scripts/validate-openapi-refs.rb
 
+echo "Running contract status-code parity validation..."
+node tests/validate-contract-status-parity.mjs
+
 echo "Running staged extension management contract validation..."
 node tests/validate-staged-extension-contracts.js
 

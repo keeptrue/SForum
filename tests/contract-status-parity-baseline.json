@@ -1,0 +1,54 @@
+{
+  "说明": "契约状态码 parity 门的例外登记表（见 tests/validate-contract-status-parity.mjs）。只登记两类：静态判定不了的 operation，以及人工复核后接受的实现多出状态码。每条例外必须写中文原因；条目过期（现在能映射 / 不再多出码）会被判红，必须删除。新增例外要人来判断，--refresh 只刷新「期望计数」，不会增删条目，且只有本次运行零失败时才落盘。「状态码集合为空的实现侧路由数」是只降不升的棘轮：助手函数白名单只含 respond/fail/send/write，空集路由越多，比对越是退化成 ∅ ⊆ 任意，所以这个数字只能变小，且这一行必须显式存在于「期望计数」里（被删掉等于关掉防护，门会直接判红）。新增 endpoint 若直接用 c.JSON / apphttp.OK 直出、没有显式状态常量，会让空集数 +1 并判红——这是预期行为：处置方式是在同一次改动里说明原因并手改基线数字，不许为凑够数字给路由加无意义的状态码噪音。",
+  "期望计数": {
+    "契约operation数": 436,
+    "已映射operation数": 432,
+    "未映射operation数": 4,
+    "已复核未声明状态码条数": 3,
+    "状态码集合为空的实现侧路由数": 211
+  },
+  "不可静态判定": [
+    {
+      "operation": "GET /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理路由：实现侧注册为 api.All(\"/extensions/:extensionId/*\", h.proxyExtensionRoute)，通配末段由 Route Dispatcher 在运行时按插件清单匹配，handler 与路径都不是静态的一对一关系。"
+    },
+    {
+      "operation": "POST /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理路由：与 GET 同一条 api.All(\"/extensions/:extensionId/*\") 注册，实际处理器由扩展运行时决定，静态扫描无法落到具体函数。"
+    },
+    {
+      "operation": "GET /api/v1/site/theme-assets/{extensionId}/{assetPath}",
+      "原因": "通配静态资源：实现侧是 api.Get(\"/site/theme-assets/:extensionId/*\", h.themeAsset)，末段为 Fiber 通配符而非具名参数，无法与契约的单段 {assetPath} 静态对齐。"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/{extensionID}/packages/{packageDigest}/{packagePath}",
+      "原因": "通配包资源：实现侧是 api.Get(\"/extensions/runtime/:extensionId/packages/:packageDigest/*\", h.publicFrontendPackageAsset)，末段为通配符，对应扩展包内任意层级文件。"
+    }
+  ],
+  "已复核未声明状态码": [
+    {
+      "operation": "GET /api/v1/attachments/{publicId}/content",
+      "codes": [
+        302
+      ],
+      "handler": "content",
+      "原因": "审计遗留（RV-38 未覆盖）：客户端带直连交付头时走 ResolveContentDelivery → sendAttachmentDelivery，会 302 跳到 provider 签名地址；契约只声明 200/401/403/404/503。补契约要改 contracts/openapi，超出本轮写域，登记后由契约侧跟进。"
+    },
+    {
+      "operation": "GET /api/v1/attachments/{publicId}/variants/{variant}/content",
+      "codes": [
+        302
+      ],
+      "handler": "variantContent",
+      "原因": "审计遗留（RV-38 未覆盖）：变体分支同样经 sendAttachmentDelivery，直连交付模式下 302 跳转，契约未声明 302。与上一条同源，等契约侧一次性补齐。"
+    },
+    {
+      "operation": "POST /api/v1/auth/email-verification/confirm",
+      "codes": [
+        303
+      ],
+      "handler": "emailVerificationConfirm",
+      "原因": "不可按方法拆分的静态假阳性：同一 handler 同时注册 GET 与 POST，只有 c.Method()==GET 分支才 Redirect 303，而契约的 GET operation 已声明 303、POST 只声明 200/422/503。属静态扫描的已知边界，不是真实契约缺口。"
+    }
+  ]
+}
