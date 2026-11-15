@@ -17,14 +17,33 @@ export function normalizeAuthReturnPath(candidate: unknown): string | null {
       return null
     }
 
-    const pathname = decodeURI(url.pathname)
-    decodeURI(url.search)
-    decodeURI(url.hash)
+    // URL 归一化会把 `/..//host`、`/a/../..//host` 这类输入塌陷成协议相对地址
+    // `//host`：原始输入并没有以 `//` 开头，但归一化后的 pathname 会。这种值交给
+    // navigateTo 会被判成外链直接抛错，登录成功后落到错误页，所以这里再判一次。
+    if (url.pathname.startsWith('//')) {
+      return null
+    }
+
+    // 非法百分号转义在 pathname/search/hash 任一处都视为不可信输入。
+    const pathname = decodePathPart(url.pathname)
+    if (pathname === null
+      || decodePathPart(url.search) === null
+      || decodePathPart(url.hash) === null) {
+      return null
+    }
     if (AUTH_PAGE_PATTERN.test(pathname)) {
       return null
     }
 
     return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return null
+  }
+}
+
+function decodePathPart(value: string): string | null {
+  try {
+    return decodeURI(value)
   } catch {
     return null
   }
