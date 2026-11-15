@@ -12,6 +12,8 @@ defineOptions({
 
 const route = useRoute()
 const adminRoutes = useAdminRoutes()
+// 跳转前的占位文案走 i18n：这层壳只是旧书签的落地页（UX2-19）。
+const { t } = useI18n()
 
 const tab = typeof route.query.tab === 'string' ? route.query.tab : 'brand'
 const target = adminRoutes.path('/personalization')
@@ -25,6 +27,6 @@ await navigateTo({
 
 <template>
   <div class="py-10 text-center text-sm text-slate-500 dark:text-zinc-400">
-    Redirecting…
+    {{ t('common.redirecting') }}
   </div>
 </template>

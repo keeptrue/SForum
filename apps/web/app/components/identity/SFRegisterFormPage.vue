@@ -162,16 +162,6 @@ useSForumSeo({
   noindex: true
 })
 
-function registerSuccessTitle() {
-  const title = t('auth.registerSuccess')
-  if (title !== 'auth.registerSuccess') {
-    return title
-  }
-  return locale.value.toLowerCase().startsWith('en')
-    ? 'Registration successful. Welcome aboard.'
-    : '注册成功，欢迎加入。'
-}
-
 function handleAltchaVerified(event: Event) {
   const detail = (event as CustomEvent<{ payload?: string }>).detail
   humanVerificationToken.value = detail?.payload || ''
@@ -242,7 +232,7 @@ async function finishRegistration(currentUser: CurrentUser) {
   toast.add({
     color: 'success',
     icon: needsEmailVerification ? 'i-lucide-mail-check' : 'i-lucide-check',
-    title: needsEmailVerification ? t('auth.emailVerificationActionRequired') : registerSuccessTitle(),
+    title: needsEmailVerification ? t('auth.emailVerificationActionRequired') : t('auth.registerSuccess'),
     duration: 5000
   })
   // 首注册者即初始 super_admin（服务端在注册事务内判定）。提示只发给真正拿到
@@ -415,7 +405,7 @@ async function startExternalRegistration(provider: PublicAuthProvider) {
   <div class="auth-form-wrap">
 
         <!-- 页面导航 tab -->
-        <nav class="auth-tabs" aria-label="登录或注册">
+        <nav class="auth-tabs" :aria-label="t('auth.loginOrRegister')">
           <NuxtLink :to="authPageLink('/login')" class="auth-tab">
             {{ t('auth.loginTitle') }}
           </NuxtLink>

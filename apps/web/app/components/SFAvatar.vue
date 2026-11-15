@@ -23,7 +23,7 @@ const props = withDefaults(defineProps<{
   status?: AvatarStatus
   loading?: AvatarLoading
 }>(), {
-  name: '匿名用户',
+  name: undefined,
   src: undefined,
   alt: undefined,
   size: 'md',
@@ -31,6 +31,11 @@ const props = withDefaults(defineProps<{
   status: undefined,
   loading: 'lazy'
 })
+
+const { t } = useI18n()
+
+/** 无名称时也不能把中文写死：首字母、alt、色板种子都从这里取（RV-28）。 */
+const displayName = computed(() => props.name?.trim() || t('common.anonymousUser'))
 
 // NuxtImg width/height 像素预设（list 与视觉 size-9 对齐）
 const sizePixels: Record<AvatarSize, number> = {
@@ -63,7 +68,7 @@ const statusClass: Record<AvatarStatus, string> = {
 }
 
 const initials = computed(() => {
-  const source = props.name.trim()
+  const source = displayName.value.trim()
   if (!source) {
     return 'U'
   }
@@ -82,7 +87,7 @@ const initials = computed(() => {
 
 const toneSeed = computed(() => {
   const fromAvatar = props.avatar?.alt || ''
-  return (fromAvatar || props.name || 'user').trim() || 'user'
+  return (fromAvatar || displayName.value || 'user').trim() || 'user'
 })
 
 // 原样使用 AvatarView / src
@@ -109,7 +114,7 @@ const avatarClass = computed(() => {
   return classes.join(' ')
 })
 
-const imageAlt = computed(() => props.alt ?? props.avatar?.alt ?? props.name)
+const imageAlt = computed(() => props.alt ?? props.avatar?.alt ?? displayName.value)
 const isDecorative = computed(() => props.alt === '')
 
 function resetImageFailure() {

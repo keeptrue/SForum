@@ -77,9 +77,7 @@ const props = withDefaults(defineProps<{
   floorLabel: '',
   avatar: undefined,
   replyTo: undefined,
-  actions: () => [
-    { label: '回复', value: 'reply', icon: 'i-lucide-reply' }
-  ],
+  actions: undefined,
   commentMetaBuilder: undefined,
   commentAuthorLinkBuilder: undefined,
   commentActionsBuilder: undefined,
@@ -97,11 +95,18 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { reactionsEnabled, bookmarksEnabled } = useWebOptions()
 
+/**
+ * 默认操作按钮的文案必须走 i18n：调用点不传 `actions` 时不能回落到写死的中文。
+ * 显式传 `[]` 仍然是「没有操作」——那是有意的空态，不能偷偷补一个回复按钮。
+ */
+const actionList = computed<CommentAction[]>(() => props.actions
+  ?? [{ label: t('topicDetail.reply'), value: 'reply', icon: 'i-lucide-reply' }])
+
 // 后端已用 bluemonday sanitize，前端可直接 v-html 渲染。
 const showHtml = computed(() => Boolean(props.htmlContent))
 const isDeletedComment = computed(() => props.comment?.status === 'deleted')
 const displayFloorLabel = computed(() => props.floorLabel?.trim() || '')
-const secondaryActions = computed(() => props.actions.filter(actionItem => !isPrimaryAction(actionItem)))
+const secondaryActions = computed(() => actionList.value.filter(actionItem => !isPrimaryAction(actionItem)))
 const mobileMenuItems = computed<CommentMenuEntry[][]>(() => [secondaryActions.value.map(actionItem => ({
   label: actionItem.label,
   icon: actionItem.icon,
@@ -222,7 +227,7 @@ function childAuthorLink(comment: ForumComment) {
 }
 
 function childActions(comment: ForumComment) {
-  return props.commentActionsBuilder?.(comment) || props.actions
+  return props.commentActionsBuilder?.(comment) ?? actionList.value
 }
 
 function childReplyTo(comment: ForumComment) {
@@ -419,7 +424,7 @@ const InlineEditorHost = () => {
         <InlineEditorHost v-if="injectedEditorRenderer" />
         <slot v-else name="editor" :comment="commentNode" />
 
-        <div v-if="actions.length || (comment && (reactionsEnabled || bookmarksEnabled))" class="sf-comment__actions">
+        <div v-if="actionList.length || (comment && (reactionsEnabled || bookmarksEnabled))" class="sf-comment__actions">
           <SFReactionControl
             v-if="comment"
             target-type="comment"
@@ -442,7 +447,7 @@ const InlineEditorHost = () => {
             size="sm"
           />
           <button
-            v-for="actionItem in actions"
+            v-for="actionItem in actionList"
             :key="actionItem.value"
             type="button"
             class="sf-comment__action"

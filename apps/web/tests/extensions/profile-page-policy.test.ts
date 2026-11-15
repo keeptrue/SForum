@@ -4,6 +4,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { compileVueSfc, flushPromises, mount, testVue } from '../helpers/vueSfc'
+import { useI18nFor } from '../helpers/locale'
 import {
   collectProfileWidgetRefs
 } from '../../app/utils/profile/profileExtensionTab'
@@ -224,7 +225,9 @@ describe('avatar rendering on a CSP-constrained profile page', () => {
     computed: testVue.computed,
     ref: testVue.ref,
     watch: testVue.watch,
-    forumAvatarToneClass
+    forumAvatarToneClass,
+    // 默认名称走 i18n（RV-28）：挂载真实组件就要给真实翻译器。
+    useI18n: useI18nFor('zh-CN')
   }
   const avatarPath = fileURLToPath(new URL('../../app/components/SFAvatar.vue', import.meta.url))
 

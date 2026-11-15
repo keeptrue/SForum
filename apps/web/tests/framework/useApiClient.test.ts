@@ -12,6 +12,7 @@ import {
   useApiClient
 } from '../../app/composables/useApiClient'
 import { isApiConnectionError, useApiConnectionError } from '../../app/composables/useApiConnectionError'
+import { translate } from '../helpers/locale'
 import { __resetApiConnectionRecoveryForTests } from '../../app/composables/errors/useApiConnectionRecovery'
 import { isUnauthenticatedAuthError } from '../../app/composables/identity/useAuthSession'
 import { registerErrorMessage } from '../../app/utils/identity/registerErrors'
@@ -751,7 +752,7 @@ async function loadRegisterPageForSubmitTest(options: { registerError?: unknown 
     {},
     {},
     () => {},
-    () => ({ t: (key: string) => key, locale: ref('zh-CN') }),
+    () => ({ t: (key: string, params?: Record<string, unknown>) => translate('zh-CN', key, params), locale: ref('zh-CN') }),
     () => ({ add: (toast: unknown) => toasts.push(toast) }),
     () => (path: string) => path,
     () => ({ public: { humanVerificationProvider: 'disabled' } }),
@@ -882,7 +883,7 @@ async function loadLoginPageForSubmitTest() {
     {},
     {},
     () => {},
-    () => ({ t: (key: string) => key, locale: ref('zh-CN') }),
+    () => ({ t: (key: string, params?: Record<string, unknown>) => translate('zh-CN', key, params), locale: ref('zh-CN') }),
     () => ({ add: (toast: unknown) => toasts.push(toast) }),
     () => (path: string) => path,
     () => ({ query: {} }),

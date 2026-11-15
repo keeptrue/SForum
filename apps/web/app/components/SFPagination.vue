@@ -16,6 +16,8 @@ const emit = defineEmits<{
   'update:page': [value: number]
 }>()
 
+const { t } = useI18n()
+
 const pages = computed(() => buildPaginationWindow(props.page, props.totalPages, props.siblingCount))
 
 function go(value: number) {
@@ -29,12 +31,12 @@ function linkTo(value: number) {
 </script>
 
 <template>
-  <nav class="sf-pagination" aria-label="分页">
+  <nav class="sf-pagination" :aria-label="t('common.pagination.label')">
     <NuxtLink
       v-if="pageTo && page > 1"
       :to="linkTo(page - 1)"
       class="sf-pagination__item"
-      aria-label="上一页"
+      :aria-label="t('common.pagination.previous')"
       aria-current="false"
     >
       <UIcon name="i-lucide-chevron-left" class="size-4" />
@@ -44,7 +46,7 @@ function linkTo(value: number) {
       type="button"
       class="sf-pagination__item"
       :disabled="page <= 1"
-      aria-label="上一页"
+      :aria-label="t('common.pagination.previous')"
       @click="go(page - 1)"
     >
       <UIcon name="i-lucide-chevron-left" class="size-4" />
@@ -75,7 +77,7 @@ function linkTo(value: number) {
       v-if="pageTo && page < totalPages"
       :to="linkTo(page + 1)"
       class="sf-pagination__item"
-      aria-label="下一页"
+      :aria-label="t('common.pagination.next')"
       aria-current="false"
     >
       <UIcon name="i-lucide-chevron-right" class="size-4" />
@@ -85,7 +87,7 @@ function linkTo(value: number) {
       type="button"
       class="sf-pagination__item"
       :disabled="page >= totalPages"
-      aria-label="下一页"
+      :aria-label="t('common.pagination.next')"
       @click="go(page + 1)"
     >
       <UIcon name="i-lucide-chevron-right" class="size-4" />

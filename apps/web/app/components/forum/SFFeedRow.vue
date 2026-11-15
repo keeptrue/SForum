@@ -42,6 +42,8 @@ const rowClass = computed(() => [
   props.layout === 'table' ? 'sf-feed-row--table' : 'sf-feed-row--compact'
 ].join(' '))
 
+const { t } = useI18n()
+
 const resolvedLastActor = computed(() => props.lastActor || props.author || '')
 const resolvedLastActivity = computed(() => props.lastActivityLabel || props.meta || '')
 </script>
@@ -59,11 +61,11 @@ const resolvedLastActivity = computed(() => props.lastActivityLabel || props.met
         </h3>
         <div v-if="layout === 'compact'" class="sf-feed-row__actions">
           <div class="sf-feed-row__vote">
-            <button class="sf-feed-row__vote-btn" aria-label="赞同">
+            <button class="sf-feed-row__vote-btn" :aria-label="t('forum.feed.upvote')" :title="t('forum.feed.upvote')">
               <UIcon name="i-lucide-chevron-up" class="size-3.5" />
             </button>
             <span class="sf-feed-row__vote-val">{{ score }}</span>
-            <button class="sf-feed-row__vote-btn" aria-label="反对">
+            <button class="sf-feed-row__vote-btn" :aria-label="t('forum.feed.downvote')" :title="t('forum.feed.downvote')">
               <UIcon name="i-lucide-chevron-down" class="size-3.5" />
             </button>
           </div>
@@ -89,19 +91,19 @@ const resolvedLastActivity = computed(() => props.lastActivityLabel || props.met
         <span v-if="meta" class="sf-feed-row__time">• {{ meta }}</span>
         <span v-if="views && layout === 'compact'" class="sf-feed-row__views">
           <UIcon name="i-lucide-eye" class="size-3.5" />
-          {{ views }} 浏览
+          {{ t('forum.feed.viewsWithCount', { count: views }) }}
         </span>
       </div>
     </div>
 
     <template v-if="layout === 'table'">
-      <div class="sf-feed-row__stat sf-feed-row__stat--replies" aria-label="回复数">
+      <div class="sf-feed-row__stat sf-feed-row__stat--replies" :aria-label="t('forum.feed.repliesLabel')">
         <span class="sf-feed-row__stat-value">{{ replies }}</span>
-        <span class="sf-feed-row__stat-label">回复</span>
+        <span class="sf-feed-row__stat-label">{{ t('forum.feed.replies') }}</span>
       </div>
-      <div class="sf-feed-row__stat sf-feed-row__stat--views" aria-label="浏览数">
+      <div class="sf-feed-row__stat sf-feed-row__stat--views" :aria-label="t('forum.feed.viewsLabel')">
         <span class="sf-feed-row__stat-value">{{ views }}</span>
-        <span class="sf-feed-row__stat-label">浏览</span>
+        <span class="sf-feed-row__stat-label">{{ t('forum.feed.views') }}</span>
       </div>
       <div class="sf-feed-row__last-activity">
         <SFAvatar v-if="resolvedLastActor" :name="resolvedLastActor" :avatar="lastActorAvatar || avatar" size="sm" />

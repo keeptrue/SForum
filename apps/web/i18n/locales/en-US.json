@@ -29,7 +29,19 @@
   "common": {
     "close": "Close",
     "back": "Back",
-    "retry": "Retry"
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "more": "More",
+    "redirecting": "Redirecting…",
+    "dismissAlert": "Dismiss alert",
+    "dismissNotification": "Dismiss notification",
+    "anonymousUser": "Anonymous user",
+    "sectionTabs": "Section tabs",
+    "pagination": {
+      "label": "Pagination",
+      "previous": "Previous page",
+      "next": "Next page"
+    }
   },
   "codeBlock": {
     "code": "code block",
@@ -213,7 +225,9 @@
     "metaTitle": "Site search",
     "metaDescription": "Search thread titles and content across the community.",
     "emptyTitle": "Search the community",
-    "emptyDescription": "Enter keywords in the search field above to view matching results."
+    "emptyDescription": "Enter keywords in the search field above to view matching results.",
+    "placeholder": "Search topics, users, or tags",
+    "filtersLabel": "Search filters"
   },
   "home": {
     "metaTitle": "{siteName} Community",
@@ -546,7 +560,8 @@
         "recentAuthRequired": "This action requires a recent re-authentication. Sign in again and retry.",
         "lastLoginMethodRequired": "This is the last usable login method for your account. Set a local password or link another method before unlinking."
       }
-    }
+    },
+    "loginOrRegister": "Log in or sign up"
   },
   "components": {
     "iconPicker": {
@@ -2435,7 +2450,8 @@
           "disabledToast": "Contribution disabled.",
           "reorderedToast": "Order updated.",
           "resetToast": "Restored the plugin-declared default.",
-          "saveFailed": "The governance change did not apply and was rolled back."
+          "saveFailed": "The governance change did not apply and was rolled back.",
+          "disabledBadge": "Disabled"
         }
       },
       "dynamic": {
@@ -6901,6 +6917,15 @@
       "you": "(you)",
       "rosterFailed": "Could not load the list",
       "retry": "Retry"
+    },
+    "feed": {
+      "upvote": "Upvote",
+      "downvote": "Downvote",
+      "replies": "Replies",
+      "views": "Views",
+      "repliesLabel": "Replies",
+      "viewsLabel": "Views",
+      "viewsWithCount": "{count} views"
     }
   },
   "topicDetail": {
@@ -7401,7 +7426,45 @@
     "tagMinRequired": "Select at least {min} tags.",
     "charCount": "{count} / {max}",
     "titleHintWithLimit": "Title length: {min}–{max} characters.",
-    "bodyHintWithLimit": "Body up to {max} characters."
+    "bodyHintWithLimit": "Body up to {max} characters.",
+    "editor": {
+      "placeholder": "Write your reply...",
+      "submit": "Post reply",
+      "ariaLabel": "Content editor",
+      "supportMarkdown": "Markdown supported",
+      "loading": "Loading editor",
+      "characterCount": "{count} characters",
+      "wordCount": "{count} words",
+      "structuredDocument": "Structured document",
+      "linkPrompt": "Enter a link URL",
+      "toolbarLabel": "Editing toolbar",
+      "undo": "Undo",
+      "redo": "Redo",
+      "formatLabel": "Paragraph format",
+      "format": {
+        "paragraph": "Paragraph",
+        "heading2": "Heading 2",
+        "heading3": "Heading 3"
+      },
+      "viewLabel": "Content view",
+      "mode": {
+        "write": "Write",
+        "preview": "Preview"
+      },
+      "action": {
+        "bold": "Bold",
+        "italic": "Italic",
+        "strike": "Strikethrough",
+        "code": "Inline code",
+        "bulletList": "Bulleted list",
+        "orderedList": "Numbered list",
+        "quote": "Quote",
+        "codeBlock": "Code block",
+        "link": "Link",
+        "image": "Insert image",
+        "table": "Insert table"
+      }
+    }
   },
   "bookmark": {
     "action": {
@@ -8353,5 +8416,45 @@
     "invalidBackLabel": "Back to home",
     "footerNote": "Operators can allowlist trusted domains; post links always open in a new tab.",
     "externalChip": "external domain"
+  },
+  "userAppearanceSettings": {
+    "metaTitle": "Appearance",
+    "metaDescription": "Choose your theme accent color and light-mode background.",
+    "title": "Appearance",
+    "intro": "Follow the site appearance, or save a color scheme that applies only to your account.",
+    "source": {
+      "title": "Appearance source",
+      "description": "While you follow the site, later appearance changes made by administrators also apply to your account.",
+      "site": {
+        "label": "Follow site settings",
+        "description": "Recommended. Use the accent color and light background currently configured in the admin."
+      },
+      "custom": {
+        "label": "Use my own settings",
+        "description": "Save a separate accent color and light background for this account."
+      }
+    },
+    "themeDescription": "Pick an accent preset, or enter a custom color.",
+    "backgroundDescription": "The light background only applies in light mode; dark mode keeps the theme dark scheme.",
+    "customColor": "Custom accent color",
+    "save": "Save appearance",
+    "saved": "Your appearance has been saved.",
+    "siteDefaultsSaved": "Following the site settings again.",
+    "saveFailed": "Could not save the appearance settings.",
+    "reset": "Unsaved appearance changes were discarded.",
+    "resetChanges": "Discard changes",
+    "unsaved": "This preview has not been saved yet.",
+    "savedState": "Your current appearance is saved.",
+    "status": {
+      "site": "Following site settings",
+      "personal": "Personal settings"
+    },
+    "rail": {
+      "ariaLabel": "Appearance settings help",
+      "open": "Open appearance settings help",
+      "title": "Current appearance source",
+      "description": "Your selection previews right away; it only sticks after you save.",
+      "currentSource": "Saved state"
+    }
   }
 }

@@ -18,8 +18,9 @@ describe('Forum Canvas editor surface', () => {
     expect(toolbar).toContain("{ action: 'strike' as const")
 
     expect(toolbar).toContain("export type SFEditorViewMode = 'write' | 'preview'")
-    expect(toolbar).toContain("{ value: 'write', label: '撰写' }")
-    expect(toolbar).toContain("{ value: 'preview', label: '预览' }")
+    // 视图模式文案走 i18n（RV-28）：源码里必须是键，不是写死的中文。
+    expect(toolbar).toContain("t('composer.editor.mode.write')")
+    expect(toolbar).toContain("t('composer.editor.mode.preview')")
     expect(toolbar).not.toContain("value: 'markdown'")
     expect(toolbar).not.toContain("value: 'native'")
     expect(editor).toContain('sf-editor__preview')

@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{
   kbd?: string
 }>(), {
   modelValue: '',
-  placeholder: '搜索主题、用户或标签',
+  placeholder: undefined,
   filters: () => [],
   selectedFilter: undefined,
   ariaLabel: undefined,
@@ -25,6 +25,12 @@ const emit = defineEmits<{
   'update:selectedFilter': [value: string]
   'submit': [value: string]
 }>()
+
+const { t } = useI18n()
+
+/** 占位文案同时也是可读名称：默认值必须走 i18n，不能写死中文（RV-28）。 */
+const resolvedPlaceholder = computed(() => props.placeholder ?? t('search.placeholder'))
+
 const inputElement = ref<HTMLInputElement | null>(null)
 
 function onInput(event: Event) {
@@ -52,8 +58,8 @@ function onKeydown(event: KeyboardEvent) {
         <button
           type="button"
           class="sf-search__submit"
-          :aria-label="ariaLabel || placeholder"
-          :title="ariaLabel || placeholder"
+          :aria-label="ariaLabel || resolvedPlaceholder"
+          :title="ariaLabel || resolvedPlaceholder"
           @click="submit"
         >
           <UIcon name="i-lucide-search" class="sf-search__icon size-4.5 shrink-0" aria-hidden="true" />
@@ -63,15 +69,15 @@ function onKeydown(event: KeyboardEvent) {
           class="sf-search__input"
           type="search"
           :value="modelValue"
-          :placeholder="placeholder"
-          :aria-label="ariaLabel || placeholder"
+          :placeholder="resolvedPlaceholder"
+          :aria-label="ariaLabel || resolvedPlaceholder"
           @input="onInput"
           @keydown="onKeydown"
         >
         <span v-if="kbd" class="sf-search__kbd">{{ kbd }}</span>
       </div>
     </form>
-    <div v-if="filters.length" class="sf-search__filters" aria-label="搜索过滤" role="group">
+    <div v-if="filters.length" class="sf-search__filters" :aria-label="t('search.filtersLabel')" role="group">
       <button
         v-for="filter in filters"
         :key="filter.value"

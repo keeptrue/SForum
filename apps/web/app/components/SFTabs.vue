@@ -12,7 +12,7 @@ const props = withDefaults(defineProps<{
   ariaLabel?: string
 }>(), {
   modelValue: undefined,
-  ariaLabel: '分区切换'
+  ariaLabel: undefined
 })
 
 const emit = defineEmits<{
@@ -20,6 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const activeValue = computed(() => props.modelValue || props.items[0]?.value || '')
+
+const { t } = useI18n()
 
 function select(item: TabItem) {
   if (!item.disabled) {
@@ -29,7 +31,7 @@ function select(item: TabItem) {
 </script>
 
 <template>
-  <div class="sf-tabs" role="tablist" :aria-label="ariaLabel">
+  <div class="sf-tabs" role="tablist" :aria-label="ariaLabel || t('common.sectionTabs')">
     <button
       v-for="item in items"
       :key="item.value"

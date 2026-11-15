@@ -6,6 +6,8 @@ defineOptions({ name: 'AdminNotificationSettings' })
 
 const route = useRoute()
 const adminRoutes = useAdminRoutes()
+// 跳转前的占位文案走 i18n（UX2-19）。
+const { t } = useI18n()
 const tab = route.query.tab === 'channels' ? 'channels' : 'policy'
 
 await navigateTo({
@@ -17,6 +19,6 @@ await navigateTo({
 
 <template>
   <div class="py-10 text-center text-sm text-slate-500 dark:text-zinc-400">
-    Redirecting…
+    {{ t('common.redirecting') }}
   </div>
 </template>

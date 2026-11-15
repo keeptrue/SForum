@@ -20,6 +20,8 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const { t } = useI18n()
+
 const toastClass = computed(() => [
   'sf-toast',
   `sf-toast--${props.variant}`
@@ -49,7 +51,8 @@ const toastClass = computed(() => [
       v-if="closable"
       type="button"
       class="sf-toast__close"
-      aria-label="关闭通知"
+      :aria-label="t('common.dismissNotification')"
+      :title="t('common.dismissNotification')"
       @click="emit('close')"
     >
       ×

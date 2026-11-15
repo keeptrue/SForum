@@ -44,7 +44,9 @@ describe('unified avatar rendering contract', () => {
     expect(avatar).toContain('上传头像由后端预处理')
     expect(avatar).not.toContain('new Image()')
     expect(avatar).not.toContain('import.meta.client')
-    expect(avatar).toContain('props.alt ?? props.avatar?.alt ?? props.name')
+    // 默认名称（匿名用户）走 i18n，所以 alt 链的最后一环是 displayName 而不是裸 prop。
+    expect(avatar).toContain('props.alt ?? props.avatar?.alt ?? displayName.value')
+    expect(avatar).toContain("t('common.anonymousUser')")
     expect(avatar).toContain(":aria-hidden=\"isDecorative ? 'true' : undefined\"")
     expect(avatar).not.toContain('preferInitials')
     expect(avatar).not.toContain('identicon')

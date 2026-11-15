@@ -225,8 +225,10 @@ describe('SFSearch contract', () => {
     expect(source).toContain('kbd: undefined')
     expect(source).toContain("'update:modelValue': [value: string]")
     expect(source).toContain("'update:selectedFilter': [value: string]")
-    expect(source).toContain(':aria-label="ariaLabel || placeholder"')
-    expect(source).toContain('class="sf-search__filters" aria-label="搜索过滤" role="group"')
+    // 占位与过滤组名称都走 i18n（RV-28）：默认占位不是写死中文，而是 locale 文案。
+    expect(source).toContain(':aria-label="ariaLabel || resolvedPlaceholder"')
+    expect(source).toContain("t('search.placeholder')")
+    expect(source).toContain('class="sf-search__filters" :aria-label="t(\'search.filtersLabel\')" role="group"')
     expect(source).toContain(':aria-pressed="selectedFilter === filter.value"')
   })
 })

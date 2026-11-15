@@ -47,39 +47,42 @@ const emit = defineEmits<{
 
 const full = computed(() => props.preset === 'full')
 
+const { t } = useI18n()
+
+// 按钮名既进 title 也进 aria-label：读屏与悬浮提示共用同一份 i18n 文案（RV-28）。
 const markActions = computed(() => [
-  { action: 'bold' as const, label: '加粗', icon: 'i-lucide-bold' },
-  { action: 'italic' as const, label: '斜体', icon: 'i-lucide-italic' },
+  { action: 'bold' as const, label: t('composer.editor.action.bold'), icon: 'i-lucide-bold' },
+  { action: 'italic' as const, label: t('composer.editor.action.italic'), icon: 'i-lucide-italic' },
   ...(full.value ? [
-    { action: 'strike' as const, label: '删除线', icon: 'i-lucide-strikethrough' },
-    { action: 'code' as const, label: '行内代码', icon: 'i-lucide-code-2' }
+    { action: 'strike' as const, label: t('composer.editor.action.strike'), icon: 'i-lucide-strikethrough' },
+    { action: 'code' as const, label: t('composer.editor.action.code'), icon: 'i-lucide-code-2' }
   ] : [])
 ])
 
 const blockActions = computed(() => [
-  { action: 'bulletList' as const, label: '无序列表', icon: 'i-lucide-list' },
-  { action: 'orderedList' as const, label: '有序列表', icon: 'i-lucide-list-ordered' },
+  { action: 'bulletList' as const, label: t('composer.editor.action.bulletList'), icon: 'i-lucide-list' },
+  { action: 'orderedList' as const, label: t('composer.editor.action.orderedList'), icon: 'i-lucide-list-ordered' },
   ...(full.value ? [
-    { action: 'blockquote' as const, label: '引用', icon: 'i-lucide-quote' },
-    { action: 'codeBlock' as const, label: '代码块', icon: 'i-lucide-square-code' }
+    { action: 'blockquote' as const, label: t('composer.editor.action.quote'), icon: 'i-lucide-quote' },
+    { action: 'codeBlock' as const, label: t('composer.editor.action.codeBlock'), icon: 'i-lucide-square-code' }
   ] : [])
 ])
 
 const insertActions = computed(() => [
-  { action: 'link' as const, label: '链接', icon: 'i-lucide-link-2' },
+  { action: 'link' as const, label: t('composer.editor.action.link'), icon: 'i-lucide-link-2' },
   ...(full.value ? [
-    { action: 'image' as const, label: '插入图片', icon: 'i-lucide-image' },
-    { action: 'table' as const, label: '插入表格', icon: 'i-lucide-table' }
+    { action: 'image' as const, label: t('composer.editor.action.image'), icon: 'i-lucide-image' },
+    { action: 'table' as const, label: t('composer.editor.action.table'), icon: 'i-lucide-table' }
   ] : [])
 ])
 
 // 表格按钮由 SFEditorTablePicker 自己渲染（触发器 + 尺寸网格），这里排除通用按钮。
 const insertButtonActions = computed(() => insertActions.value.filter(item => item.action !== 'table'))
 
-const modeItems: Array<{ value: SFEditorViewMode, label: string }> = [
-  { value: 'write', label: '撰写' },
-  { value: 'preview', label: '预览' }
-]
+const modeItems = computed<Array<{ value: SFEditorViewMode, label: string }>>(() => [
+  { value: 'write', label: t('composer.editor.mode.write') },
+  { value: 'preview', label: t('composer.editor.mode.preview') }
+])
 
 function selectBlockFormat(event: Event) {
   emit('block-format', (event.target as HTMLSelectElement).value as SFEditorBlockFormat)
@@ -88,13 +91,13 @@ function selectBlockFormat(event: Event) {
 
 <template>
   <div class="sf-editor__topbar">
-    <div class="sf-editor__toolbar" aria-label="编辑工具栏">
+    <div class="sf-editor__toolbar" :aria-label="t('composer.editor.toolbarLabel')">
       <div class="sf-editor__tool-group">
         <button
           type="button"
           class="sf-editor__tool"
-          title="撤销"
-          aria-label="撤销"
+          :title="t('composer.editor.undo')"
+          :aria-label="t('composer.editor.undo')"
           :disabled="disabled || !canUndo"
           @pointerdown.prevent
           @click="emit('action', 'undo')"
@@ -104,8 +107,8 @@ function selectBlockFormat(event: Event) {
         <button
           type="button"
           class="sf-editor__tool"
-          title="重做"
-          aria-label="重做"
+          :title="t('composer.editor.redo')"
+          :aria-label="t('composer.editor.redo')"
           :disabled="disabled || !canRedo"
           @pointerdown.prevent
           @click="emit('action', 'redo')"
@@ -121,12 +124,12 @@ function selectBlockFormat(event: Event) {
         class="sf-editor__format"
         :value="blockFormat"
         :disabled="disabled"
-        aria-label="段落格式"
+        :aria-label="t('composer.editor.formatLabel')"
         @change="selectBlockFormat"
       >
-        <option value="paragraph">正文</option>
-        <option value="heading-2">标题 2</option>
-        <option value="heading-3">标题 3</option>
+        <option value="paragraph">{{ t('composer.editor.format.paragraph') }}</option>
+        <option value="heading-2">{{ t('composer.editor.format.heading2') }}</option>
+        <option value="heading-3">{{ t('composer.editor.format.heading3') }}</option>
       </select>
 
       <div class="sf-editor__tool-group">
@@ -206,7 +209,7 @@ function selectBlockFormat(event: Event) {
       </div>
     </div>
 
-    <div v-if="full" class="sf-editor__modes" aria-label="内容视图">
+    <div v-if="full" class="sf-editor__modes" :aria-label="t('composer.editor.viewLabel')">
       <button
         v-for="mode in modeItems"
         :key="mode.value"

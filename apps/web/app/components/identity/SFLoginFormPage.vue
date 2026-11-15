@@ -107,16 +107,6 @@ onMounted(() => {
   void router.replace({ path: route.path, query: nextQuery })
 })
 
-function loginSuccessTitle() {
-  const title = t('auth.loginSuccess')
-  if (title !== 'auth.loginSuccess') {
-    return title
-  }
-  return locale.value.toLowerCase().startsWith('en')
-    ? 'Signed in successfully. Welcome back.'
-    : '登录成功，欢迎回来。'
-}
-
 function handleAltchaVerified(event: Event) {
   const detail = (event as CustomEvent<{ payload?: string }>).detail
   humanVerificationToken.value = detail?.payload || ''
@@ -179,7 +169,7 @@ async function submitLogin() {
   toast.add({
     color: 'success',
     icon: 'i-lucide-check',
-    title: loginSuccessTitle(),
+    title: t('auth.loginSuccess'),
     duration: 5000
   })
   await returnFromAuth()
@@ -209,7 +199,7 @@ async function startExternalLogin(provider: PublicAuthProvider) {
   <div class="auth-form-wrap">
 
         <!-- 页面导航 tab -->
-        <nav class="auth-tabs" aria-label="登录或注册">
+        <nav class="auth-tabs" :aria-label="t('auth.loginOrRegister')">
           <NuxtLink :to="localePath('/login')" class="auth-tab auth-tab--active">
             {{ t('auth.loginTitle') }}
           </NuxtLink>

@@ -19,6 +19,9 @@ const emit = defineEmits<{
   close: []
 }>()
 
+/** 关闭按钮的可读名称：en-US 下不能仍是中文（RV-28）。 */
+const { t } = useI18n()
+
 const alertClass = computed(() => [
   'sf-alert',
   `sf-alert--${props.variant}`,
@@ -46,7 +49,8 @@ const alertRole = computed(() => props.variant === 'danger' ? 'alert' : 'status'
       v-if="closable"
       type="button"
       class="sf-alert__close"
-      aria-label="关闭提示"
+      :aria-label="t('common.dismissAlert')"
+      :title="t('common.dismissAlert')"
       @click="emit('close')"
     >
       ×

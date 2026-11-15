@@ -29,7 +29,19 @@
   "common": {
     "close": "关闭",
     "back": "返回",
-    "retry": "重试"
+    "retry": "重试",
+    "cancel": "取消",
+    "more": "更多",
+    "redirecting": "正在跳转…",
+    "dismissAlert": "关闭提示",
+    "dismissNotification": "关闭通知",
+    "anonymousUser": "匿名用户",
+    "sectionTabs": "分区切换",
+    "pagination": {
+      "label": "分页",
+      "previous": "上一页",
+      "next": "下一页"
+    }
   },
   "codeBlock": {
     "code": "代码块",
@@ -253,7 +265,9 @@
     "metaTitle": "站内搜索",
     "metaDescription": "搜索社区中的帖子标题与内容。",
     "emptyTitle": "搜索社区内容",
-    "emptyDescription": "在顶部搜索框输入关键词后查看匹配结果。"
+    "emptyDescription": "在顶部搜索框输入关键词后查看匹配结果。",
+    "placeholder": "搜索主题、用户或标签",
+    "filtersLabel": "搜索过滤"
   },
   "home": {
     "metaTitle": "{siteName} 社区首页",
@@ -586,7 +600,8 @@
         "recentAuthRequired": "该操作需要近期重新验证身份，请重新登录后再试。",
         "lastLoginMethodRequired": "这是当前账号最后一种可用登录方式。请先设置本地密码或绑定其他登录方式后再解绑。"
       }
-    }
+    },
+    "loginOrRegister": "登录或注册"
   },
   "components": {
     "iconPicker": {
@@ -2475,7 +2490,8 @@
           "disabledToast": "已禁用该贡献项。",
           "reorderedToast": "顺序已更新。",
           "resetToast": "已恢复插件声明的默认状态。",
-          "saveFailed": "治理操作未生效，已回滚。"
+          "saveFailed": "治理操作未生效，已回滚。",
+          "disabledBadge": "已停用"
         }
       },
       "dynamic": {
@@ -6941,6 +6957,15 @@
       "you": "（你）",
       "rosterFailed": "名单加载失败",
       "retry": "重试"
+    },
+    "feed": {
+      "upvote": "赞同",
+      "downvote": "反对",
+      "replies": "回复",
+      "views": "浏览",
+      "repliesLabel": "回复数",
+      "viewsLabel": "浏览数",
+      "viewsWithCount": "{count} 浏览"
     }
   },
   "topicDetail": {
@@ -7441,7 +7466,45 @@
     "tagMinRequired": "请至少选择 {min} 个标签。",
     "charCount": "{count} / {max}",
     "titleHintWithLimit": "标题 {min}–{max} 字。",
-    "bodyHintWithLimit": "正文最多 {max} 字。"
+    "bodyHintWithLimit": "正文最多 {max} 字。",
+    "editor": {
+      "placeholder": "写下你的回复...",
+      "submit": "发布回复",
+      "ariaLabel": "正文编辑器",
+      "supportMarkdown": "支持 Markdown",
+      "loading": "编辑器加载中",
+      "characterCount": "{count} 字",
+      "wordCount": "{count} 词",
+      "structuredDocument": "结构化文档",
+      "linkPrompt": "输入链接地址",
+      "toolbarLabel": "编辑工具栏",
+      "undo": "撤销",
+      "redo": "重做",
+      "formatLabel": "段落格式",
+      "format": {
+        "paragraph": "正文",
+        "heading2": "标题 2",
+        "heading3": "标题 3"
+      },
+      "viewLabel": "内容视图",
+      "mode": {
+        "write": "撰写",
+        "preview": "预览"
+      },
+      "action": {
+        "bold": "加粗",
+        "italic": "斜体",
+        "strike": "删除线",
+        "code": "行内代码",
+        "bulletList": "无序列表",
+        "orderedList": "有序列表",
+        "quote": "引用",
+        "codeBlock": "代码块",
+        "link": "链接",
+        "image": "插入图片",
+        "table": "插入表格"
+      }
+    }
   },
   "bookmark": {
     "action": {

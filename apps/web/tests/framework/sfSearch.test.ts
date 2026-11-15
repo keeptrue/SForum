@@ -1,13 +1,20 @@
 import { describe, expect, test } from 'bun:test'
 import { fileURLToPath } from 'node:url'
 import { compileVueSfc, mount, testVue } from '../helpers/vueSfc'
+import { useI18nFor } from '../helpers/locale'
 
-Object.assign(globalThis, { ref: testVue.ref })
+// 组件内部用自动导入的 computed/ref/useI18n：显式注入，别依赖别的测试文件
+// `Object.assign(globalThis, ...)` 泄漏出来的全局（单独跑这个文件就会红）。
+Object.assign(globalThis, { ref: testVue.ref, computed: testVue.computed })
 
 const componentPath = fileURLToPath(
   new URL('../../app/components/SFSearch.vue', import.meta.url)
 )
-const SFSearch = await compileVueSfc(componentPath, 'sf-search-submit')
+const SFSearch = await compileVueSfc(componentPath, 'sf-search-submit', {
+  computed: testVue.computed,
+  ref: testVue.ref,
+  useI18n: useI18nFor('zh-CN')
+})
 
 describe('SFSearch submission', () => {
   test('submits the current trimmed input through Enter and the accessible command', async () => {

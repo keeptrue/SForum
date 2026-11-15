@@ -82,22 +82,22 @@ const props = withDefaults(defineProps<{
 }>(), {
   modelValue: '',
   initialContent: undefined,
-  placeholder: '写下你的回复...',
+  placeholder: undefined,
   rows: 6,
   hint: undefined,
   disabled: false,
   submitDisabled: false,
   error: undefined,
   maxCharacters: 12000,
-  submitLabel: '发布回复',
+  submitLabel: undefined,
   submitVisible: true,
   compact: false,
   preset: 'full',
   imageSurface: 'topic',
   enableMentions: false,
-  ariaLabel: '正文编辑器',
+  ariaLabel: undefined,
   cancelLabel: '',
-  supportLabel: '支持 Markdown',
+  supportLabel: undefined,
   trustedExtensions: () => [],
   loadTrustedCatalog: true
 })
@@ -119,6 +119,13 @@ const imageDialogOpen = ref(false)
 const imageInsertPosition = ref<number | null>(null)
 const toast = useToast()
 const { t } = useI18n()
+
+// 默认文案走 i18n：prop 默认值在 setup 之外求值，拿不到 t()，所以统一在这里兜底（RV-28）。
+const resolvedPlaceholder = computed(() => props.placeholder ?? t('composer.editor.placeholder'))
+const resolvedSubmitLabel = computed(() => props.submitLabel ?? t('composer.editor.submit'))
+const resolvedAriaLabel = computed(() => props.ariaLabel ?? t('composer.editor.ariaLabel'))
+const resolvedSupportLabel = computed(() => props.supportLabel ?? t('composer.editor.supportMarkdown'))
+
 const { fetchMentionSuggestions } = useMentionSuggestions()
 const { pendingUploadCount, uploadImages } = useEditorImageUpload({
   uploading: t('composer.imageUpload.uploading'),
@@ -194,7 +201,7 @@ const footerText = computed(() => {
 
   const count = currentPayload.value.characterCount
   const suffix = props.maxCharacters ? ` / ${props.maxCharacters}` : ''
-  return `${count}${suffix} 字`
+  return t('composer.editor.characterCount', { count: `${count}${suffix}` })
 })
 
 const shouldLoadTrustedCatalog = props.loadTrustedCatalog && props.preset === 'full'
@@ -255,7 +262,7 @@ onMounted(async () => {
     ...(typeof initialContent === 'string' ? { contentType: 'markdown' as const } : {}),
     editable: !props.disabled,
     extensions: createSFEditorExtensions({
-      placeholder: props.placeholder,
+      placeholder: resolvedPlaceholder.value,
       maxCharacters: props.maxCharacters,
       preset: props.preset,
       trustedExtensions: trusted,
@@ -287,7 +294,7 @@ onMounted(async () => {
     editorProps: {
       attributes: {
         class: 'sf-editor__content',
-        'aria-label': props.ariaLabel
+        'aria-label': resolvedAriaLabel.value
       },
       handlePaste: (_view, event) => {
         const files = imageFilesFromList(event.clipboardData?.files)
@@ -317,7 +324,7 @@ watch(() => props.disabled, disabled => {
   editor.value?.setEditable(!disabled)
 })
 
-watch(() => props.placeholder, placeholder => {
+watch(resolvedPlaceholder, placeholder => {
   const placeholderExtension = editor.value?.extensionManager.extensions
     .find(extension => extension.name === 'placeholder')
 
@@ -436,7 +443,7 @@ function setLink() {
   }
 
   const previousUrl = currentEditor.getAttributes('link').href || ''
-  const rawUrl = window.prompt('输入链接地址', previousUrl)
+  const rawUrl = window.prompt(t('composer.editor.linkPrompt'), previousUrl)
 
   if (rawUrl === null) {
     return
@@ -834,7 +841,7 @@ function submitContent() {
         />
         <template #fallback>
           <div class="sf-editor__loading">
-            编辑器加载中
+            {{ t('composer.editor.loading') }}
           </div>
         </template>
       </ClientOnly>
@@ -851,7 +858,7 @@ function submitContent() {
       <template v-if="compact">
         <span class="sf-editor__compact-support">
           <UIcon name="i-lucide-file-code-2" class="size-3.5" aria-hidden="true" />
-          {{ supportLabel }}
+          {{ resolvedSupportLabel }}
         </span>
         <div class="sf-editor__compact-actions">
           <SFButton
@@ -872,7 +879,7 @@ function submitContent() {
             <template #leading>
               <UIcon name="i-lucide-send" class="size-3.5" aria-hidden="true" />
             </template>
-            {{ submitLabel }}
+            {{ resolvedSubmitLabel }}
           </SFButton>
         </div>
       </template>
@@ -892,8 +899,8 @@ function submitContent() {
           {{ footerText }}
         </span>
         <div class="sf-editor__meta">
-          <span>{{ currentPayload.wordCount }} 词</span>
-          <span>结构化文档</span>
+          <span>{{ t('composer.editor.wordCount', { count: currentPayload.wordCount }) }}</span>
+          <span>{{ t('composer.editor.structuredDocument') }}</span>
         </div>
         <SFButton
           v-if="submitVisible"
@@ -901,7 +908,7 @@ function submitContent() {
           :disabled="disabled || submitDisabled || currentPayload.isEmpty || currentPayload.pendingUploadCount > 0"
           @click="submitContent"
         >
-          {{ submitLabel }}
+          {{ resolvedSubmitLabel }}
         </SFButton>
       </template>
     </div>

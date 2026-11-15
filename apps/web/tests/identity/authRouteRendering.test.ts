@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { compileScript, compileTemplate, parse, rewriteDefault } from '@vue/compiler-sfc'
 import { installTestDom } from '../helpers/dom'
+import { useI18nFor } from '../helpers/locale'
 
 import { buildAuthPageLink, resolveAuthReturnPath } from '../../app/utils/identity/authReturn'
 import {
@@ -127,7 +128,8 @@ describe('auth route support contracts', () => {
     }])
     Object.assign(globalThis, {
       computed: mountVue.computed, ref: mountVue.ref, reactive: mountVue.reactive, watch: mountVue.watch, onMounted: mountVue.onMounted,
-      useI18n: () => ({ locale, t: (key: string, values?: Record<string, string>) => key === 'auth.providers.continueWith' ? `Continue with ${values?.name}` : key }),
+      // 真 locale 翻译器：`aria-label` 之类的可读名称断言必须看到用户看到的字。
+      useI18n: () => ({ ...useI18nFor('en-US')(), locale }),
       useToast: () => ({ add: () => {} }), useLocalePath: () => (path: string) => path,
       useRoute: () => ({ query: { continuation_provider: 'source.provider.auth' } }),
       useRouter: () => ({ replace: async () => {} }),
@@ -151,6 +153,8 @@ describe('auth route support contracts', () => {
       await flushPromises()
       expect(wrapper.get('#login-input').exists()).toBe(true)
       expect(wrapper.get('#password-input').exists()).toBe(true)
+      // RV-28：登录/注册 tab 组是可读名称的唯一来源，en-US 下必须是英文（曾经写死「登录或注册」）。
+      expect(wrapper.get('nav.auth-tabs').attributes('aria-label')).toBe('Log in or sign up')
       const provider = wrapper.get('[data-provider-id="example.provider.auth"]')
       expect(wrapper.find('[data-provider-id="source.provider.auth"]').exists()).toBe(false)
       await provider.trigger('click')
@@ -233,7 +237,7 @@ describe('auth route support contracts', () => {
     }])
     Object.assign(globalThis, {
       computed: mountVue.computed, ref: mountVue.ref, reactive: mountVue.reactive, watch: mountVue.watch,
-      useI18n: () => ({ locale: mountVue.ref('en-US'), t: (key: string, values?: Record<string, string>) => key === 'auth.providers.continueWith' ? `Continue with ${values?.name}` : key }),
+      useI18n: () => ({ ...useI18nFor('en-US')(), locale: mountVue.ref('en-US') }),
       useToast: () => ({ add: () => {} }), useLocalePath: () => (path: string) => path,
       useRoute: () => ({ path: '/register', query: {} }), useRouter: () => ({ replace: async () => {} }),
       useApiClient: () => ({ apiBaseUrl: 'http://api.test', request: async (path: string) => path === '/auth/registration-status' ? { nextUserIsInitialSuperAdmin: false, registrationEnabled: true } : { id: 1 } }),
@@ -254,6 +258,7 @@ describe('auth route support contracts', () => {
     try {
       await flushPromises()
       expect(wrapper.get('#reg-password-input').exists()).toBe(true)
+      expect(wrapper.get('nav.auth-tabs').attributes('aria-label')).toBe('Log in or sign up')
       await wrapper.get('[data-provider-id="example.provider.auth"]').trigger('click')
       await flushPromises()
       expect(starts).toEqual([['example.provider.auth', 'registration']])
@@ -276,7 +281,7 @@ describe('auth route support contracts', () => {
     let sessionUser: { emailVerified?: boolean } | null = null
     Object.assign(globalThis, {
       computed: mountVue.computed, ref: mountVue.ref, reactive: mountVue.reactive, watch: mountVue.watch,
-      useI18n: () => ({ locale: mountVue.ref('zh-CN'), t: (key: string) => key }),
+      useI18n: () => ({ ...useI18nFor('zh-CN')(), locale: mountVue.ref('zh-CN') }),
       useToast: () => ({ add: () => {} }), useLocalePath: () => (path: string) => path,
       useRoute: () => ({ path: '/register', query: {} }),
       useRouter: () => ({ replace: async (target: unknown) => { navigations.push(target) } }),
@@ -313,6 +318,7 @@ describe('auth route support contracts', () => {
     })
     try {
       await flushPromises()
+      expect(wrapper.get('nav.auth-tabs').attributes('aria-label')).toBe('登录或注册')
       await wrapper.get('#username-input').setValue('new-user')
       await wrapper.get('#email-input').setValue('new-user@example.com')
       await wrapper.get('#displayname-input').setValue('New User')
