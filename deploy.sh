@@ -9,6 +9,7 @@ DEFAULT_RELEASE_VERSION="${SFORUM_DEFAULT_VERSION:-latest}"
 LANGUAGE=""
 ACTION=""
 ASSUME_DEFAULTS=false
+CONTRACT_MODE="strict"
 REQUESTED_RELEASE_VERSION="${SFORUM_VERSION:-}"
 RELEASE_VERSION=""
 CHANNEL="${SFORUM_DEPLOY_CHANNEL:-stable}"
@@ -34,6 +35,9 @@ ENV_CONTRACT_KEYS=(
   IDENTITY_SUBJECT_HMAC_SECRET
   APP_OPTION_ENC_KEY
   ALTCHA_SECRET
+  # 与上面各项同理：compose.yaml 的默认值都在不安全侧，漏写即静默取默认值（OPS2-08）。
+  TRUSTED_PROXIES
+  MIGRATE_ON_STARTUP
 )
 
 usage() {
@@ -48,8 +52,9 @@ Options:
   --version VERSION     Release tag, or latest stable release (default: latest)
   --channel CHANNEL     Update channel: stable (default) or prerelease
   --action ACTION       deploy, install, update, backup, restore, status,
-                        logs, restart, stop, rollback, check-env
+                        logs, restart, stop, rollback, check-env, unlock
   --yes, --defaults     Accept recommended configuration defaults
+  --force-unlock        Reclaim .deploy.lock after a crash (--action unlock)
   -h, --help            Show this help
 
 Actions:
@@ -63,10 +68,15 @@ Actions:
   status|logs           Inspect the currently recorded deployment.
   restart|stop          Restart or stop the managed Compose services.
   rollback              Print rollback guidance; it does not change versions.
+  unlock                Reclaim a stale .deploy.lock and log who held it.
+
+  status, logs, and stop treat production-configuration problems as warnings:
+  reading logs and stopping services must keep working while an operator is
+  fixing .env.production. Every other action validates strictly.
 
 State:
   .deployrc             Recorded version, topology, and recovery state (0600).
-  .deploy.lock          Prevents two deploy operations from running at once.
+  .deploy.lock          Prevents concurrent operations; stale locks self-heal.
   .env.production       Required production configuration (0600).
 
 Channels:
@@ -112,6 +122,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     --action=*) ACTION="${1#*=}"; shift ;;
     --yes|--defaults) ASSUME_DEFAULTS=true; shift ;;
+    --force-unlock) ACTION="unlock"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
   esac
@@ -182,9 +193,22 @@ sanitize_env_contract_overrides() {
 die_env_contract() {
   local key="$1"
   if [ "$(env_contract_source "$key")" = shell ]; then
-    die "$(t invalid_env) ${key} ($(t env_source_shell))"
+    contract_fail "$(t invalid_env) ${key} ($(t env_source_shell))"
+  else
+    contract_fail "$(t invalid_env) ${key} (.env.production)"
   fi
-  die "$(t invalid_env) ${key} (.env.production)"
+}
+
+# 生产配置闸门分级。strict 直接拒绝；advisory 只把同一条修法提示打到 stderr 并继续。
+# stop / logs / status 是事故中的止损与取证动作：新加的配置键（OPS2-08 的
+# MIGRATE_ON_STARTUP / TRUSTED_PROXIES）在存量安装里根本不存在，让它们因为「文件缺
+# 新键」而停不掉服务、读不到日志，是把闸门一致性排在可用性前面。
+contract_fail() {
+  if [ "$CONTRACT_MODE" = advisory ]; then
+    printf 'warning: %s\n' "$1" >&2
+    return 0
+  fi
+  die "$1"
 }
 
 load_language() {
@@ -234,7 +258,12 @@ t() {
       env_source_shell) echo "exported in the shell environment and overriding .env.production; unset it or update .env.production" ;;
       env_contract_ok) echo "Production configuration is valid and matches the values the containers receive." ;;
       port_busy) echo "A required loopback port is already used by another process:" ;;
-      deploy_locked) echo "Another deployment operation is running. Wait for it to finish and retry." ;;
+      deploy_locked) echo "Another deployment operation is running; wait for it to finish, or reclaim the lock with --force-unlock. Holder:" ;;
+      lock_recovered) echo "Reclaimed a stale deployment lock. Previous holder:" ;;
+      unlock_none) echo "No deployment lock is present." ;;
+      unlock_done) echo "Removed the deployment lock by force. Previous holder:" ;;
+      invalid_trusted_proxies) echo "TRUSTED_PROXIES must not trust every address; delete the full-range entry from .env.production. Under the standard Compose topology it stays empty; only a CDN or an extra proxy warrants concrete egress ranges:" ;;
+      missing_migrate_on_startup) echo "MIGRATE_ON_STARTUP must be declared explicitly in .env.production as true or false; compose.yaml would otherwise default it to true and the API would migrate at startup. Add MIGRATE_ON_STARTUP=false and let the deploy.sh migrate service run migrations." ;;
       pulling_release) echo "Pulling the required SForum release images before changing the database:" ;;
       verifying_images) echo "Verifying required backend image identities..." ;;
       starting_infra) echo "Starting the managed PostgreSQL and Redis services..." ;;
@@ -284,7 +313,12 @@ t() {
       env_source_shell) echo "来自 shell 环境变量并覆盖了 .env.production；请 unset 该变量或更新 .env.production" ;;
       env_contract_ok) echo "生产配置校验通过：容器取值与 .env.production 一致。" ;;
       port_busy) echo "以下本机端口已被其他程序占用：" ;;
-      deploy_locked) echo "另一个部署操作正在运行，请等待其结束后重试。" ;;
+      deploy_locked) echo "另一个部署操作正在运行；请等待其结束，或用 --force-unlock 回收残留锁。持有者：" ;;
+      lock_recovered) echo "已回收残留部署锁。原持有者：" ;;
+      unlock_none) echo "当前没有部署锁。" ;;
+      unlock_done) echo "已强制移除部署锁。原持有者：" ;;
+      invalid_trusted_proxies) echo "TRUSTED_PROXIES 不能信任所有地址；请从 .env.production 删掉全放通项。标准 Compose 拓扑下应留空，只有 CDN 或额外代理才写具体的出口网段：" ;;
+      missing_migrate_on_startup) echo "MIGRATE_ON_STARTUP 必须在 .env.production 中显式声明为 true 或 false；否则 compose.yaml 默认 true，API 会在启动时自行迁移。请写入 MIGRATE_ON_STARTUP=false，由 deploy.sh 的 migrate 服务统一执行迁移。" ;;
       pulling_release) echo "先拉取所需的 SForum 发布镜像，成功后才会改动数据库：" ;;
       verifying_images) echo "正在核对所需后端镜像的构建身份..." ;;
       starting_infra) echo "正在启动内置 PostgreSQL 和 Redis..." ;;
@@ -440,12 +474,14 @@ compose_version_supported() {
 }
 
 validate_env_contract() {
+  CONTRACT_MODE="${1:-strict}"
   local public_api_base app_env app_url admin_prefix postgres_db postgres_user postgres_password database_url
   local redis_addr redis_password session_secret identity_secret option_key altcha_secret
+  local trusted_proxies token
   # 全部走 env_contract_value：它按 compose 的插值顺序取值，所以校验的就是容器
   # 真正会拿到的值，而不是「文件里写了什么」。
   public_api_base="$(env_contract_value NUXT_PUBLIC_API_BASE_URL /api/v1)"
-  [ "$public_api_base" = "/api/v1" ] || die "$(t invalid_public_api_base)"
+  [ "$public_api_base" = "/api/v1" ] || contract_fail "$(t invalid_public_api_base)"
 
   app_env="$(env_contract_value APP_ENV)"
   app_url="$(env_contract_value APP_URL)"
@@ -486,6 +522,26 @@ validate_env_contract() {
   [ "${#identity_secret}" -ge 32 ] || die_env_contract IDENTITY_SUBJECT_HMAC_SECRET
   [[ "$option_key" =~ ^[0-9A-Fa-f]{64}$ ]] || die_env_contract APP_OPTION_ENC_KEY
   [ "${#altcha_secret}" -ge 32 ] || die_env_contract ALTCHA_SECRET
+
+  # OPS2-08：TRUSTED_PROXIES 声明「谁有权替我写 XFF / X-Real-IP」。全放通等于任何
+  # 客户端都能伪造来源 IP，限流键与审计记录按伪造值记账，所以生产直接拒绝。
+  trusted_proxies="$(env_contract_value TRUSTED_PROXIES)"
+  # 逐项切分而不是用数组：bash 3.2（macOS 自带）在 set -u 下展开空数组会报错。
+  while IFS= read -r token; do
+    token="${token//[[:space:]]/}"
+    case "$token" in
+      "") continue ;;
+      '*'|'0.0.0.0'|'::'|'0:0:0:0:0:0:0:0'|*/0) contract_fail "$(t invalid_trusted_proxies) TRUSTED_PROXIES=${token}" ;;
+    esac
+  done <<< "${trusted_proxies//,/$'\n'}"
+  # OPS2-08：compose.yaml 的 MIGRATE_ON_STARTUP 默认 true，漏写即「API 启动时自行
+  # 迁移」。这里要求显式声明而非静默兜底成 false：兜底会让「文件内容」与「容器取值」
+  # 不一致，破坏 env_contract「校验值即容器值」的契约。漏写时 effective 值为空。
+  case "$(env_contract_value MIGRATE_ON_STARTUP)" in
+    true|false) ;;
+    "") contract_fail "$(t missing_migrate_on_startup)" ;;
+    *) contract_fail "$(t missing_migrate_on_startup) MIGRATE_ON_STARTUP=$(env_contract_value MIGRATE_ON_STARTUP)" ;;
+  esac
 }
 
 legacy_worker_container_ids() {
@@ -544,6 +600,7 @@ validate_ports_available() {
 
 preflight() {
   local check_ports="${1:-false}"
+  local contract_mode="${2:-strict}"
   t preflight
   command -v docker >/dev/null 2>&1 || die "$(t no_docker)"
   docker info >/dev/null 2>&1 || die "$(t no_daemon)"
@@ -552,7 +609,7 @@ preflight() {
   command -v curl >/dev/null 2>&1 || die "$(t no_curl)"
   [ -f .env.production ] || die "$(t env_missing)"
   chmod 600 .env.production
-  validate_env_contract
+  validate_env_contract "$contract_mode"
   "${COMPOSE[@]}" config --quiet
   if [ "${#BLUE_GREEN_COMPOSE[@]}" -gt 0 ]; then
     "${BLUE_GREEN_COMPOSE[@]}" config --quiet
@@ -654,17 +711,121 @@ persist_recovery_state() {
   mv -f "$temp_file" "$DEPLOY_RC"
 }
 
+# 部署锁：目录是原子的互斥体，元数据说明「谁持有着」——.deploy.lock/pid 与 upgrade.sh 共用（纯 pid 文本），
+# owner 追加操作名、启动时间、进程启动时刻。OPS2-04：pid 已死或已被复用 → 自动回收；元数据缺失则锁龄超过 1 小时回收。
 DEPLOY_LOCK_DIR="$ROOT_DIR/.deploy.lock"
-acquire_deploy_lock() {
-  if ! mkdir "$DEPLOY_LOCK_DIR" 2>/dev/null; then
-    die "$(t deploy_locked)"
+DEPLOY_LOCK_PID="$DEPLOY_LOCK_DIR/pid"
+DEPLOY_LOCK_OWNER="$DEPLOY_LOCK_DIR/owner"
+DEPLOY_LOCK_LOG="$ROOT_DIR/.deployrc.lock.log"
+
+lock_event() {
+  printf '%s %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" >> "$DEPLOY_LOCK_LOG" 2>/dev/null || true
+  printf '%s\n' "$1" >&2
+}
+
+# 进程启动时刻：pid 被复用后必然不同，用它区分原持有进程与复用该 pid 的新进程。
+lock_proc_start() {
+  LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true
+}
+
+lock_field() { sed -n "s/^$1=//p" "$DEPLOY_LOCK_OWNER" 2>/dev/null | head -n 1 || true; }
+lock_pid_alive() { kill -0 "$1" 2>/dev/null || ps -p "$1" >/dev/null 2>&1; }
+
+# 读任意锁目录里的持有者 pid：认领副本不在 .deploy.lock 这个名字上，所以要能按目录读。
+lock_dir_pid() {
+  local dir="$1" pid
+  pid="$(sed -n 's/^pid=//p' "$dir/owner" 2>/dev/null | head -n 1 || true)"
+  if [ -z "$pid" ] && [ -f "$dir/pid" ]; then
+    pid="$(head -n 1 "$dir/pid" | tr -d '[:space:]')"
   fi
-  trap 'rmdir "$DEPLOY_LOCK_DIR" 2>/dev/null || true' EXIT HUP INT TERM
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  printf '%s' "$pid"
+}
+
+lock_holder_pid() { lock_dir_pid "$DEPLOY_LOCK_DIR"; }
+
+# 一行持有者摘要：die、warn、日志复用同一份格式，避免三处各写一套。
+lock_holder_summary() {
+  local pid action started_at state=unknown
+  pid="$(lock_holder_pid || true)"
+  action="$(lock_field action)"
+  started_at="$(lock_field started_at)"
+  if [ -n "$pid" ]; then
+    if lock_pid_alive "$pid"; then state=alive; else state=dead; fi
+  fi
+  printf 'pid=%s action=%s started_at=%s state=%s' "${pid:-?}" "${action:-?}" "${started_at:-?}" "$state"
+}
+
+lock_is_stale() {
+  local pid recorded current mtime
+  if pid="$(lock_holder_pid)"; then
+    if ! lock_pid_alive "$pid"; then LOCK_REASON=pid_gone; return 0; fi
+    recorded="$(lock_field proc_start)"
+    current="$(lock_proc_start "$pid")"
+    if [ -n "$recorded" ] && [ -n "$current" ] && [ "$recorded" != "$current" ]; then
+      LOCK_REASON=pid_reused
+      return 0
+    fi
+    return 1
+  fi
+  LOCK_REASON=no_owner
+  mtime="$(stat -c %Y "$DEPLOY_LOCK_DIR" 2>/dev/null || stat -f %m "$DEPLOY_LOCK_DIR" 2>/dev/null || echo 0)"
+  [ "$mtime" -gt 0 ] && [ $(($(date +%s) - mtime)) -gt 3600 ]
+}
+
+# 认领并销毁残留锁：rename 是 shell 里唯一的原子「取走」，谁先 mv 走谁负责这一段，
+# 所以只删自己认领到的副本，永远不对 .deploy.lock 直接 rm -rf（那会删掉别人刚建的活锁）。
+reclaim_stale_deploy_lock() {
+  local summary="$1" stale_pid="$2" claim
+  claim="$DEPLOY_LOCK_DIR.stale.$$"
+  # 同 pid 的上一次残留副本（pid 被回收过）先清掉，否则下面的 mv 会嵌套进去。
+  rm -rf "$claim" 2>/dev/null || true
+  mv "$DEPLOY_LOCK_DIR" "$claim" 2>/dev/null || die "$(t deploy_locked) $(lock_holder_summary)"
+  # 认领到的可能是别人在判定之后重建的活锁：比对副本里的 pid 与判定时那把是否同一把。
+  if [ "$(lock_dir_pid "$claim" || true)" = "$stale_pid" ]; then
+    rm -rf "$claim"
+    lock_event "$(t lock_recovered) ${summary} reason=${LOCK_REASON:-manual}"
+    return 0
+  fi
+  # 认领错了：还原，但必须先确认 .deploy.lock 没被再占 —— mv 到已存在的目录会把副本
+  # 塞进它里面（.deploy.lock/.deploy.lock.stale.N），锁就彻底乱了。还不了就保留副本
+  # 并 die：副本名不占 .deploy.lock，不阻塞任何人，运维手动删即可。
+  if [ -e "$DEPLOY_LOCK_DIR" ]; then
+    die "$(t deploy_locked) $(lock_holder_summary) (recovered copy left at $claim)"
+  fi
+  mv "$claim" "$DEPLOY_LOCK_DIR" 2>/dev/null || \
+    die "$(t deploy_locked) $(lock_holder_summary) (recovered copy left at $claim)"
+  die "$(t deploy_locked) $(lock_holder_summary)"
+}
+
+acquire_deploy_lock() {
+  local summary stale_pid
+  LOCK_ACTION="${1:-${ACTION:-console}}"
+  if ! mkdir "$DEPLOY_LOCK_DIR" 2>/dev/null; then
+    summary="$(lock_holder_summary)"
+    stale_pid="$(lock_holder_pid || true)"
+    lock_is_stale || die "$(t deploy_locked) ${summary}"
+    reclaim_stale_deploy_lock "$summary" "$stale_pid"
+    mkdir "$DEPLOY_LOCK_DIR" 2>/dev/null || die "$(t deploy_locked) $(lock_holder_summary)"
+  fi
+  printf '%s\n' "$$" > "$DEPLOY_LOCK_PID"
+  printf 'pid=%s\naction=%s\nstarted_at=%s\nproc_start=%s\n' "$$" "$LOCK_ACTION" \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(lock_proc_start "$$")" > "$DEPLOY_LOCK_OWNER"
+  trap 'release_deploy_lock' EXIT HUP INT TERM
 }
 
 release_deploy_lock() {
-  rmdir "$DEPLOY_LOCK_DIR" 2>/dev/null || true
+  rm -rf "$DEPLOY_LOCK_DIR" 2>/dev/null || true
   trap - EXIT HUP INT TERM
+}
+
+# 人工兜底：不猜 pid、不判活，直接清掉并留下「清了谁」的日志。
+force_unlock_deploy_lock() {
+  local summary
+  [ -e "$DEPLOY_LOCK_DIR" ] || { printf '%s\n' "$(t unlock_none)"; return 0; }
+  summary="$(lock_holder_summary)"
+  rm -rf "$DEPLOY_LOCK_DIR" 2>/dev/null || true
+  lock_event "$(t unlock_done) ${summary}"
 }
 
 # Absolute paths first: an operator should never have to guess where the
@@ -701,7 +862,7 @@ print_access_urls() {
 
 deploy_update() {
   local backup_output="" backup_file="" previous_version previous_running
-  acquire_deploy_lock
+  acquire_deploy_lock deploy
   configure_if_needed
   # configure_if_needed may have created the production file after initial
   # version resolution; rebuild the mode-aware Compose command from it.
@@ -779,7 +940,7 @@ deploy_update() {
 }
 
 create_backup() {
-  acquire_deploy_lock
+  acquire_deploy_lock backup
   preflight
   "${COMPOSE[@]}" up -d --wait postgres
   ./deploy/scripts/backup-postgres.sh
@@ -787,7 +948,7 @@ create_backup() {
 }
 
 restore_backup() {
-  acquire_deploy_lock
+  acquire_deploy_lock restore
   preflight
   t backup_path
   read -r backup_file
@@ -802,10 +963,10 @@ restore_backup() {
   release_deploy_lock
 }
 
-show_status() { preflight; print_install_location; "${COMPOSE[@]}" ps; }
-show_logs() { preflight; "${COMPOSE[@]}" logs -f --tail=200; }
+show_status() { preflight false advisory; print_install_location; "${COMPOSE[@]}" ps; }
+show_logs() { preflight false advisory; "${COMPOSE[@]}" logs -f --tail=200; }
 restart_services() {
-  acquire_deploy_lock
+  acquire_deploy_lock restart
   preflight true
   "${COMPOSE[@]}" restart
   wait_for_deployment
@@ -815,7 +976,7 @@ restart_services() {
   print_access_urls
   release_deploy_lock
 }
-stop_services() { acquire_deploy_lock; preflight; "${COMPOSE[@]}" stop; release_deploy_lock; }
+stop_services() { acquire_deploy_lock stop; preflight false advisory; "${COMPOSE[@]}" stop; release_deploy_lock; }
 
 # 只校验生产配置：不启动容器、不需要 Docker daemon，供 CI 与运维本地自检。
 # 与 preflight 共用同一套 effective 取值，所以「这里通过」等价于「容器会拿到这些值」。
@@ -838,6 +999,7 @@ run_action() {
     stop) stop_services ;;
     rollback) preflight; t rollback_later ;;
     check-env) check_env_contract ;;
+    unlock) force_unlock_deploy_lock ;;
     *) die "Unknown action: $1" ;;
   esac
 }
@@ -872,7 +1034,7 @@ main_menu() {
 load_language
 if [ -n "$ACTION" ]; then
   # check-env 只读 .env.production：不解析版本，也不碰 Docker。
-  if [ "$ACTION" != "check-env" ]; then
+  if [ "$ACTION" != "check-env" ] && [ "$ACTION" != "unlock" ]; then
     case "$ACTION" in
       deploy|install|update) resolve_target_version ;;
       *) resolve_current_version ;;

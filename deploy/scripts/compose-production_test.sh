@@ -14,7 +14,7 @@ trap cleanup EXIT
 unset APP_ENV APP_URL NUXT_PUBLIC_API_BASE_URL NUXT_PUBLIC_ADMIN_ROUTE_PREFIX \
   POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD DATABASE_URL \
   REDIS_ADDR REDIS_PASSWORD SESSION_HASH_SECRET IDENTITY_SUBJECT_HMAC_SECRET \
-  APP_OPTION_ENC_KEY ALTCHA_SECRET
+  APP_OPTION_ENC_KEY ALTCHA_SECRET TRUSTED_PROXIES MIGRATE_ON_STARTUP
 
 "$ROOT_DIR/deploy/scripts/configure-production.sh" \
   --lang en \
@@ -168,6 +168,7 @@ ruby -rjson -e '
 SHELL_OVERRIDES=(
   "APP_ENV=staging"
   "DATABASE_URL=postgres://sforum:change-me@db.internal:5432/sforum?sslmode=disable"
+  "TRUSTED_PROXIES=0.0.0.0/0"
 )
 env "${SHELL_OVERRIDES[@]}" docker compose \
   --env-file "$TEMP_DIR/.env.production" \
@@ -200,7 +201,7 @@ if ! env "${SHELL_OVERRIDES[@]}" bash "$DEPLOY_ROOT/deploy.sh" --lang en --actio
   cat "$TEMP_DIR/check-env.shell.out" >&2
   exit 1
 fi
-for key in APP_ENV DATABASE_URL; do
+for key in APP_ENV DATABASE_URL TRUSTED_PROXIES; do
   grep -Fq -- "$key" "$TEMP_DIR/check-env.shell.out" || {
     printf 'compose-production_test.sh: deploy.sh must report the ignored shell override for %s\n' "$key" >&2
     cat "$TEMP_DIR/check-env.shell.out" >&2
@@ -250,6 +251,69 @@ for placeholder in change-me sforum postgres change%2Dme %73forum; do
     cat "$TEMP_DIR/check-env.password.out" >&2
     exit 1
   }
+done
+
+# OPS2-08：TRUSTED_PROXIES 声明「谁有权替我写 XFF / X-Real-IP」，全放通等于任何
+# 客户端都能伪造来源 IP，生产必须直接拒绝，并指出具体那一项。
+for full_range in '0.0.0.0/0' '::/0' '*' '0.0.0.0' '::' '0:0:0:0:0:0:0:0' '10.0.0.0/8,0.0.0.0/0'; do
+  sed "s#^TRUSTED_PROXIES=.*#TRUSTED_PROXIES=${full_range}#" \
+    "$TEMP_DIR/.env.production" > "$DEPLOY_ROOT/.env.production"
+  if bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \
+    > "$TEMP_DIR/check-env.trust.out" 2>&1; then
+    printf 'compose-production_test.sh: deploy.sh accepted the full-range TRUSTED_PROXIES %s\n' \
+      "$full_range" >&2
+    exit 1
+  fi
+  grep -Fq -- "TRUSTED_PROXIES" "$TEMP_DIR/check-env.trust.out" || {
+    printf 'compose-production_test.sh: deploy.sh failure must name TRUSTED_PROXIES for %s\n' \
+      "$full_range" >&2
+    cat "$TEMP_DIR/check-env.trust.out" >&2
+    exit 1
+  }
+done
+
+# 具体的代理出口段（以及标准拓扑下的空值）必须继续放行。
+for allowed_range in '' '10.0.0.0/8,203.0.113.10'; do
+  sed "s#^TRUSTED_PROXIES=.*#TRUSTED_PROXIES=${allowed_range}#" \
+    "$TEMP_DIR/.env.production" > "$DEPLOY_ROOT/.env.production"
+  if ! bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \
+    > "$TEMP_DIR/check-env.trust-ok.out" 2>&1; then
+    printf 'compose-production_test.sh: deploy.sh rejected the proxy range %s\n' \
+      "${allowed_range:-<empty>}" >&2
+    cat "$TEMP_DIR/check-env.trust-ok.out" >&2
+    exit 1
+  fi
+done
+
+# MIGRATE_ON_STARTUP 必须显式声明：compose.yaml 的默认是 true，漏写等于 API 启动时
+# 自行迁移（与 deploy.sh 显式的 migrate 服务争用同一套迁移）。
+grep -v '^MIGRATE_ON_STARTUP=' "$TEMP_DIR/.env.production" > "$DEPLOY_ROOT/.env.production"
+if bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \
+  > "$TEMP_DIR/check-env.migrate.out" 2>&1; then
+  printf 'compose-production_test.sh: deploy.sh accepted a missing MIGRATE_ON_STARTUP\n' >&2
+  exit 1
+fi
+grep -Fq -- "MIGRATE_ON_STARTUP" "$TEMP_DIR/check-env.migrate.out" || {
+  printf 'compose-production_test.sh: the MIGRATE_ON_STARTUP failure must name the key\n' >&2
+  cat "$TEMP_DIR/check-env.migrate.out" >&2
+  exit 1
+}
+sed 's/^MIGRATE_ON_STARTUP=.*/MIGRATE_ON_STARTUP=maybe/' \
+  "$TEMP_DIR/.env.production" > "$DEPLOY_ROOT/.env.production"
+if bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \
+  > "$TEMP_DIR/check-env.migrate-bad.out" 2>&1; then
+  printf 'compose-production_test.sh: deploy.sh accepted a non-boolean MIGRATE_ON_STARTUP\n' >&2
+  exit 1
+fi
+for declared in false true; do
+  sed "s#^MIGRATE_ON_STARTUP=.*#MIGRATE_ON_STARTUP=${declared}#" \
+    "$TEMP_DIR/.env.production" > "$DEPLOY_ROOT/.env.production"
+  if ! bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \
+    > "$TEMP_DIR/check-env.migrate-ok.out" 2>&1; then
+    printf 'compose-production_test.sh: deploy.sh rejected MIGRATE_ON_STARTUP=%s\n' "$declared" >&2
+    cat "$TEMP_DIR/check-env.migrate-ok.out" >&2
+    exit 1
+  fi
 done
 
 printf 'compose-production_test.sh: all checks passed\n'
