@@ -6,6 +6,7 @@ import (
 
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
 func TestDeliverChannelWorkerSkipsUnavailableSubscription(t *testing.T) {
@@ -52,6 +53,27 @@ func TestDeliverChannelWorkerRetriesTemporaryProviderFailure(t *testing.T) {
 	err := (&DeliverChannelWorker{Store: store, Invoker: invoker}).Work(context.Background(), &river.Job[DeliverChannelArgs]{Args: DeliverChannelArgs{DeliveryID: 7}})
 	if err == nil || store.update.Status != notifications.DeliverySending || store.attempts[1].Status != notifications.DeliveryQueued {
 		t.Fatalf("err=%v update=%#v attempts=%#v", err, store.update, store.attempts)
+	}
+}
+
+// Web Push 与邮件同构：最后一次调度的 temporary 必须落终态，不能停在 sending（RV-50）。
+func TestDeliverChannelWorkerFailsTemporaryAfterAttemptBudget(t *testing.T) {
+	store := &channelWorkerStore{
+		delivery:      notifications.ChannelDelivery{ID: 7, RecipientUserID: 42, Type: "reply", Channel: "web_push", Status: notifications.DeliverySending, AttemptCount: 4},
+		subscriptions: []notifications.WebPushSubscription{{ID: 1, Endpoint: "https://push.invalid/1"}}, attempts: map[int64]notifications.WebPushDeliveryAttempt{},
+	}
+	invoker := &channelWorkerInvoker{result: ChannelProviderResult{Output: map[string]any{
+		"ok": false, "classification": "temporary", "reason": "web_push.service_unavailable",
+	}}}
+	err := (&DeliverChannelWorker{Store: store, Invoker: invoker}).Work(context.Background(), &river.Job[DeliverChannelArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 5, MaxAttempts: 5},
+		Args:   DeliverChannelArgs{DeliveryID: 7},
+	})
+	if err != nil {
+		t.Fatalf("final temporary attempt must not stay retryable: %v", err)
+	}
+	if store.update.Status != notifications.DeliveryFailed || store.update.Reason != "notification.provider_temporary" {
+		t.Fatalf("unexpected terminal update after exhausted temporary budget: %#v", store.update)
 	}
 }
 

@@ -59,11 +59,7 @@ func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMail
 	case extensionsruntime.MailProviderUnconfigured:
 		return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySkipped, Reason: "provider_unconfigured", AttemptCount: attempt})
 	case extensionsruntime.MailProviderUnavailable:
-		maxAttempts := 5
-		if job.JobRow != nil && job.MaxAttempts > 0 {
-			maxAttempts = job.MaxAttempts
-		}
-		if outbox.ExhaustedAttempts(attempt, maxAttempts) {
+		if outbox.ExhaustedAttempts(attempt, mailAttemptBudget(job)) {
 			return w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliveryFailed, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt})
 		}
 		_ = w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySending, Reason: "provider_unavailable", ErrorSummary: "mail provider is unavailable", AttemptCount: attempt})
@@ -92,11 +88,26 @@ func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMail
 		return w.Store.UpdateDelivery(ctx, update)
 	}
 	if response.Classification == "temporary" {
+		// 最后一次调度后 River 不会再重试；此时必须写终态，否则记录永久停在 sending，
+		// 既不是终态也不可 replay（RV-50）。还有预算时保持 sending 等待下一次调度。
+		if outbox.ExhaustedAttempts(attempt, mailAttemptBudget(job)) {
+			update.Status, update.Reason = notifications.DeliveryFailed, "provider_temporary"
+			return w.Store.UpdateDelivery(ctx, update)
+		}
 		_ = w.Store.UpdateDelivery(ctx, notifications.DeliveryUpdate{ID: delivery.ID, Status: notifications.DeliverySending, ExtensionID: selection.ExtensionID, AttemptCount: attempt, Reason: response.Reason, ErrorSummary: response.Message})
 		return fmt.Errorf("temporary mail provider failure: %s", response.Reason)
 	}
 	update.Status = notifications.DeliveryFailed
 	return w.Store.UpdateDelivery(ctx, update)
+}
+
+// mailAttemptBudget 取自 River job 的 MaxAttempts；EnqueueOptions 默认也是 5。
+// job row 缺失（直接构造的测试 job）时回落到默认值。
+func mailAttemptBudget(job *river.Job[DeliverMailArgs]) int {
+	if job != nil && job.JobRow != nil && job.MaxAttempts > 0 {
+		return job.MaxAttempts
+	}
+	return 5
 }
 
 func Register(registry *supportjobs.Registry, worker *DeliverMailWorker) {

@@ -7,8 +7,18 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// redisStoreClient 是 RedisStore 用到的最小 Redis 面。
+// 保留 Incr/Expire 是为了让「拆成两条命令」的回归能被测试直接看见。
+type redisStoreClient interface {
+	redis.Scripter
+	SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd
+	Incr(ctx context.Context, key string) *redis.IntCmd
+	Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
+	Close() error
+}
+
 type RedisStore struct {
-	client *redis.Client
+	client redisStoreClient
 	prefix string
 }
 
@@ -77,17 +87,25 @@ func (s *RedisStore) IncrementRate(ctx context.Context, key string, window time.
 	}
 
 	redisKey := s.prefix + "rate:" + key
-	count, err := s.client.Incr(ctx, redisKey).Result()
+	count, err := rateLimitScript.Run(ctx, s.client, []string{redisKey}, window.Milliseconds()).Int64()
 	if err != nil {
 		return false, err
 	}
-	if count == 1 {
-		if err := s.client.Expire(ctx, redisKey, window).Err(); err != nil {
-			return false, err
-		}
-	}
 	return count > int64(limit), nil
 }
+
+// rateLimitScript 把「自增」与「首次设置 TTL」压进一次 EVAL（RV-52）。
+//
+// 分成 INCR + EXPIRE 两条命令时，两者之间崩溃/断连会留下没有 TTL 的计数键：
+// 该 subject 被永久限流，且 key 永不过期。`PTTL < 0` 分支顺带修复历史遗留的
+// 无 TTL 键，而不必等它自然消失。
+var rateLimitScript = redis.NewScript(`
+local count = redis.call('INCR', KEYS[1])
+if count == 1 or redis.call('PTTL', KEYS[1]) < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`)
 
 func (s *RedisStore) Close() error {
 	if s == nil || s.client == nil {

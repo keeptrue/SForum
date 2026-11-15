@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
 	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
 )
 
@@ -89,6 +91,75 @@ func TestDeliverWorkerRetriesOn5xx(t *testing.T) {
 	}
 	if store.update.Status != webhooks.StatusSending {
 		t.Fatalf("status=%s", store.update.Status)
+	}
+}
+
+// 预算内的最后一次尝试必须真的发出去（RV-52）。
+// 旧实现先算 attempt = AttemptCount+1 再用 attempt >= max 判 dead，于是第 5 次
+// 进入即判死、一次请求都没发，实际最多只发 4 次。
+func TestDeliverWorkerSendsOnFinalBudgetedAttempt(t *testing.T) {
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer server.Close()
+	store := &fakeStore{
+		delivery: webhooks.Delivery{ID: 5, EndpointID: 1, Status: webhooks.StatusSending, AttemptCount: 4, Payload: []byte(`{}`)},
+		endpoint: webhooks.EndpointRecord{Endpoint: webhooks.Endpoint{ID: 1, TargetURL: "https://8.8.8.8/hook", Enabled: true}},
+	}
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.URL.Scheme = "http"
+			req.URL.Host = server.Listener.Addr().String()
+			return server.Client().Transport.RoundTrip(req)
+		}),
+	}
+	worker := &DeliverWorker{Store: store, Client: client}
+	err := worker.Work(context.Background(), &river.Job[DeliverArgs]{
+		JobRow: &rivertype.JobRow{Attempt: 5, MaxAttempts: 5},
+		Args:   DeliverArgs{DeliveryID: 5},
+	})
+	if calls != 1 {
+		t.Fatalf("final budgeted attempt issued %d HTTP requests, want 1", calls)
+	}
+	// 最后一次尝试失败后不再有调度：必须落终态 dead，而不是停在 sending。
+	if err != nil {
+		t.Fatalf("final budgeted attempt must settle terminally, got %v", err)
+	}
+	if store.update.Status != webhooks.StatusDead {
+		t.Fatalf("status after the final failed attempt = %s, want dead", store.update.Status)
+	}
+}
+
+// 预算用尽后（理论上不会再被调度）仍保持防御：不发出第 6 次请求。
+func TestDeliverWorkerDoesNotExceedAttemptBudget(t *testing.T) {
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	store := &fakeStore{
+		delivery: webhooks.Delivery{ID: 6, EndpointID: 1, Status: webhooks.StatusSending, AttemptCount: 5, Payload: []byte(`{}`)},
+		endpoint: webhooks.EndpointRecord{Endpoint: webhooks.Endpoint{ID: 1, TargetURL: "https://8.8.8.8/hook", Enabled: true}},
+	}
+	client := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			req.URL.Scheme = "http"
+			req.URL.Host = server.Listener.Addr().String()
+			return server.Client().Transport.RoundTrip(req)
+		}),
+	}
+	worker := &DeliverWorker{Store: store, Client: client}
+	if err := worker.Work(context.Background(), &river.Job[DeliverArgs]{Args: DeliverArgs{DeliveryID: 6}}); err != nil {
+		t.Fatalf("over-budget attempt: %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("over-budget attempt issued %d HTTP requests, want 0", calls)
+	}
+	if store.update.Status != webhooks.StatusDead {
+		t.Fatalf("status = %s, want dead", store.update.Status)
 	}
 }
 

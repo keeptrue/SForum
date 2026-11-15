@@ -57,9 +57,10 @@ func registerForumFlushViewCountsWorker(registry *supportjobs.Registry, pool *pg
 	forumStore := forum.NewPostgresStore(pool)
 	counter := forum.NewRedisTopicViewCounter(redisClient).WithLogger(logger)
 	forumjobs.RegisterFlushViewCounts(registry, &forumjobs.FlushViewCountsWorker{
-		Drainer: counter,
-		Store:   forumStore,
-		Logger:  logger,
+		Source: counter,
+		Acker:  counter,
+		Store:  forumStore,
+		Logger: logger,
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
 )
 
 func TestDeliverMailSkipsWithoutProvider(t *testing.T) {
@@ -59,6 +60,26 @@ func TestDeliverMailFailsAfterProviderUnavailableBudget(t *testing.T) {
 	}
 	if store.update.Status != notifications.DeliveryFailed || store.update.Reason != "provider_unavailable" {
 		t.Fatalf("unexpected terminal update: %#v", store.update)
+	}
+}
+
+// 第 5 次（即最后一次）调度仍收到 temporary 时，River 不会再重试。
+// 记录必须落终态 failed，否则邮件与投递记录会永久停在 sending（RV-50）。
+func TestDeliverMailFailsTemporaryDeliveryAfterAttemptBudget(t *testing.T) {
+	store := &fakeDeliveryStore{delivery: notifications.MailDelivery{ID: 41, Status: notifications.DeliverySending, Recipient: "u@example.com", AttemptCount: 4}}
+	worker := DeliverMailWorker{
+		Store:     store,
+		Providers: fakeProviderResolver{selection: extensionsruntime.MailProviderSelection{ExtensionID: "smtp"}, state: extensionsruntime.MailProviderReady},
+		Sender:    fakeSender{response: extensionsruntime.MailProviderResponse{Classification: "temporary", Reason: "smtp.transport_failed"}},
+	}
+	if err := worker.Work(context.Background(), mailJob(5)); err != nil {
+		t.Fatalf("final temporary attempt must not stay retryable: %v", err)
+	}
+	if store.update.Status != notifications.DeliveryFailed || store.update.Reason != "provider_temporary" {
+		t.Fatalf("unexpected terminal update after exhausted temporary budget: %#v", store.update)
+	}
+	if outbox.IsTerminal(store.update.Status) != true {
+		t.Fatalf("delivery status %q is not terminal", store.update.Status)
 	}
 }
 

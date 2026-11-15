@@ -28,6 +28,16 @@ type Cache interface {
 	Increment(ctx context.Context, key string) (int64, error)
 }
 
+// TTLIncrementer 是 Cache 的可选原子能力：自增并保证 key 带过期时间。
+//
+// 为什么不把 Increment 直接换掉：Redis 的 INCR 不设置 TTL，单用它会让 generation
+// 这类长期计数器永久驻留。读-改-写（Get→Set）又能让并发写者算出同一个版本号。
+// 需要同时满足「原子」与「有 TTL」的调用方（例如 CachedStore.bumpGen）通过这个
+// 可选接口拿能力，没有实现的 Cache 退回旧路径。
+type TTLIncrementer interface {
+	IncrementWithTTL(ctx context.Context, key string, ttl time.Duration) (int64, error)
+}
+
 // NoopCache 不缓存任何东西，所有读操作均 miss。用于显式关闭缓存的场景。
 type NoopCache struct{}
 
@@ -37,3 +47,6 @@ func (NoopCache) Set(_ context.Context, _ string, _ []byte, _ time.Duration) err
 }
 func (NoopCache) Delete(_ context.Context, _ ...string) error          { return nil }
 func (NoopCache) Increment(_ context.Context, _ string) (int64, error) { return 0, nil }
+func (NoopCache) IncrementWithTTL(_ context.Context, _ string, _ time.Duration) (int64, error) {
+	return 0, nil
+}

@@ -32,9 +32,20 @@ type TopicViewRecorder interface {
 	RecordView(ctx context.Context, topicID int64, visitorKey string)
 }
 
-// ViewDeltaDrainer 供 River 周期任务拉取待刷盘增量。
-type ViewDeltaDrainer interface {
-	DrainDeltas(ctx context.Context) (map[int64]int64, error)
+// ViewDeltaSource 读取待刷盘增量，但**不消费**。
+//
+// 消费必须等落库成功之后（见 ViewDeltaAcker）：先扣减再落库，落库失败就会把
+// 这段浏览永久丢掉，且没有归还路径（RV-52）。
+type ViewDeltaSource interface {
+	ReadViewDeltas(ctx context.Context) (map[int64]int64, error)
+}
+
+// ViewDeltaAcker 在增量成功写入 topics 之后扣减已应用的部分。
+//
+// 语义是 at-least-once：扣减失败时增量仍留在 Redis，下一轮会再次落库。
+// 浏览量是近似指标，宁可多算一次也不能丢——丢失没有任何补偿路径。
+type ViewDeltaAcker interface {
+	AckViewDeltas(ctx context.Context, applied map[int64]int64) error
 }
 
 // ViewCountApplier 将增量写入 topics.view_count 与 hot_score。
@@ -103,8 +114,8 @@ func (c *RedisTopicViewCounter) RecordView(ctx context.Context, topicID int64, v
 	}
 }
 
-// DrainDeltas 读取脏主题增量：GET 后 DECRBY 已读量，避免与并发 INCR 丢计数。
-func (c *RedisTopicViewCounter) DrainDeltas(ctx context.Context) (map[int64]int64, error) {
+// ReadViewDeltas 读取脏主题当前的增量快照，不扣减任何计数。
+func (c *RedisTopicViewCounter) ReadViewDeltas(ctx context.Context) (map[int64]int64, error) {
 	if c == nil || c.client == nil {
 		return nil, nil
 	}
@@ -129,19 +140,33 @@ func (c *RedisTopicViewCounter) DrainDeltas(ctx context.Context) (map[int64]int6
 		if getErr != nil {
 			return out, fmt.Errorf("get view delta %d: %w", topicID, getErr)
 		}
-		// 扣减已读量；并发 INCR 的残留留在 key 上。
-		left, decrErr := c.client.DecrBy(ctx, deltaKey, n).Result()
-		if decrErr != nil {
-			return out, fmt.Errorf("decr view delta %d: %w", topicID, decrErr)
-		}
 		out[topicID] = n
+	}
+	return out, nil
+}
+
+// AckViewDeltas 扣减已落库的增量；并发 INCR 的残留留在 key 上，下一轮再刷。
+func (c *RedisTopicViewCounter) AckViewDeltas(ctx context.Context, applied map[int64]int64) error {
+	if c == nil || c.client == nil || len(applied) == 0 {
+		return nil
+	}
+	for topicID, n := range applied {
+		if topicID <= 0 || n <= 0 {
+			continue
+		}
+		raw := strconv.FormatInt(topicID, 10)
+		deltaKey := deltaKeyPrefix + raw
+		left, err := c.client.DecrBy(ctx, deltaKey, n).Result()
+		if err != nil {
+			return fmt.Errorf("decr view delta %d: %w", topicID, err)
+		}
 		if left <= 0 {
 			_ = c.client.Del(ctx, deltaKey).Err()
 			_ = c.client.SRem(ctx, dirtySetKey, raw).Err()
 		}
 		// left > 0：保留 dirty 成员，下一轮再刷。
 	}
-	return out, nil
+	return nil
 }
 
 // MemoryTopicViewCounter 单测用内存实现（与 Redis 语义对齐）。
@@ -187,7 +212,7 @@ func (c *MemoryTopicViewCounter) RecordView(_ context.Context, topicID int64, vi
 	c.dirty[topicID] = struct{}{}
 }
 
-func (c *MemoryTopicViewCounter) DrainDeltas(_ context.Context) (map[int64]int64, error) {
+func (c *MemoryTopicViewCounter) ReadViewDeltas(_ context.Context) (map[int64]int64, error) {
 	if c == nil {
 		return nil, nil
 	}
@@ -202,10 +227,27 @@ func (c *MemoryTopicViewCounter) DrainDeltas(_ context.Context) (map[int64]int64
 			continue
 		}
 		out[id] = n
-		delete(c.deltas, id)
-		delete(c.dirty, id)
 	}
 	return out, nil
+}
+
+func (c *MemoryTopicViewCounter) AckViewDeltas(_ context.Context, applied map[int64]int64) error {
+	if c == nil {
+		return nil
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for id, n := range applied {
+		if n <= 0 {
+			continue
+		}
+		c.deltas[id] -= n
+		if c.deltas[id] <= 0 {
+			delete(c.deltas, id)
+			delete(c.dirty, id)
+		}
+	}
+	return nil
 }
 
 // Delta 测试辅助：当前未刷盘增量。

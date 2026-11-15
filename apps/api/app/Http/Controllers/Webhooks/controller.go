@@ -2,6 +2,7 @@ package webhookscontroller
 
 import (
 	"errors"
+	"io"
 	"strconv"
 	"strings"
 
@@ -180,6 +181,14 @@ func (h *Controller) listCatalogEvents(c fiber.Ctx) error {
 	return apphttp.OK(c, map[string]any{"items": items})
 }
 
+// MaxInboundBodyBytes 入站 webhook 单请求体上限。
+//
+// 这个端点是全仓唯一「无鉴权 + 主动读请求体」的公开写端点。服务端虽然开了
+// StreamRequestBody，但 HTTP_BODY_LIMIT 默认 64MB —— 只要处理器调用 c.Body()，
+// 匿名请求就能把每个请求的内存拉到全局上限。所以这里按自己的上限读流：先看
+// Content-Length 快速拒绝，再按 limit+1 字节截断读取，绝不把 body 复制成整块。
+const MaxInboundBodyBytes int64 = 1 << 20
+
 // inbound 入站骨架：记录来源并返回 accepted。
 // 插件 verify/parse 钩子将在后续扩展；当前拒绝空 body，避免被当开放中继。
 func (h *Controller) inbound(c fiber.Ctx) error {
@@ -187,16 +196,51 @@ func (h *Controller) inbound(c fiber.Ctx) error {
 	if source == "" || len(source) > 64 {
 		return fiber.NewError(fiber.StatusBadRequest, "webhook.inbound_invalid")
 	}
-	if len(c.Body()) == 0 {
+	if declared := int64(c.Request().Header.ContentLength()); declared > MaxInboundBodyBytes {
+		return rejectInboundBody(c)
+	}
+	size, tooLarge, err := countInboundBody(c.Request().BodyStream(), MaxInboundBodyBytes)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "webhook.inbound_invalid")
+	}
+	if tooLarge {
+		return rejectInboundBody(c)
+	}
+	if size == 0 {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "webhook.inbound_empty")
 	}
 	// v1：仅回执，不执行业务副作用。插件 hook 接入点见知识库 F3.3。
 	return apphttp.OK(c, map[string]any{
 		"accepted": true,
 		"source":   source,
-		"bytes":    len(c.Body()),
+		"bytes":    size,
 		"note":     "inbound gateway skeleton; plugin verify/parse hooks not yet wired",
 	})
+}
+
+// rejectInboundBody 拒绝超限 body。
+//
+// 超过上限的请求体不会被消费完，fasthttp 会把剩下的字节当成下一条请求去解析。
+// 所以这里显式关闭连接：413 之后不允许 keep-alive 复用这条连接。
+func rejectInboundBody(c fiber.Ctx) error {
+	c.Set(fiber.HeaderConnection, "close")
+	return fiber.NewError(fiber.StatusRequestEntityTooLarge, "webhook.inbound_too_large")
+}
+
+// countInboundBody 按 limit 读取流，最多消费 limit+1 字节即停。
+// 返回的 n 是实际读取长度；tooLarge 表示请求体超过上限。
+//
+// stream 为 nil 时说明请求体已被服务器缓冲（未启用流式请求的部署或测试环境），
+// 此时调用方仍须先做 Content-Length 预检；这里返回 0 表示「没有可读流」。
+func countInboundBody(stream io.Reader, limit int64) (n int64, tooLarge bool, err error) {
+	if stream == nil || limit <= 0 {
+		return 0, false, nil
+	}
+	written, copyErr := io.Copy(io.Discard, io.LimitReader(stream, limit+1))
+	if copyErr != nil {
+		return written, false, copyErr
+	}
+	return written, written > limit, nil
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {

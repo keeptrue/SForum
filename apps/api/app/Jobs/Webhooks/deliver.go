@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/riverqueue/river"
 	webhooks "github.com/keeptrue/sforum/apps/api/app/Models/Webhooks"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	outboundhttp "github.com/keeptrue/sforum/apps/api/app/Support/OutboundHTTP"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Outbox"
+	"github.com/riverqueue/river"
 )
 
 type DeliverArgs struct {
@@ -93,7 +93,8 @@ func (w *DeliverWorker) Work(ctx context.Context, job *river.Job[DeliverArgs]) e
 	}
 
 	attempt := delivery.AttemptCount + 1
-	if outbox.ExhaustedAttempts(attempt, webhooks.DefaultMaxAttempts) {
+	// 发送前只问「还有没有预算」：预算内的最后一次（attempt == max）必须真发。
+	if !outbox.HasAttemptBudget(attempt, webhooks.DefaultMaxAttempts) {
 		_ = w.Store.UpdateDelivery(ctx, webhooks.DeliveryUpdate{
 			ID: delivery.ID, Status: webhooks.StatusDead, AttemptCount: attempt,
 			Reason: "max_attempts", ErrorSummary: "delivery attempt budget exhausted",
@@ -160,12 +161,11 @@ func (w *DeliverWorker) Work(ctx context.Context, job *river.Job[DeliverArgs]) e
 		if errors.Is(err, outboundhttp.ErrUnsafeURL) || isUnsafeURLError(err) {
 			return w.failPermanent(ctx, delivery.ID, attempt, "ssrf_blocked", "target url is not allowed", 0, "")
 		}
-		// 网络临时失败：保持 sending，返回 error 让 River 重试。
-		_ = w.Store.UpdateDelivery(ctx, webhooks.DeliveryUpdate{
-			ID: delivery.ID, Status: webhooks.StatusSending, AttemptCount: attempt,
+		// 网络临时失败：还有预算时保持 sending 交给 River 重试，最后一次则落终态。
+		return w.retryOrSettle(ctx, webhooks.DeliveryUpdate{
+			ID: delivery.ID, AttemptCount: attempt,
 			Reason: "transport_error", ErrorSummary: truncate(err.Error(), 500),
-		})
-		return fmt.Errorf("webhook transport: %w", err)
+		}, fmt.Errorf("webhook transport: %w", err))
 	}
 	defer resp.Body.Close()
 	snippetBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
@@ -178,15 +178,27 @@ func (w *DeliverWorker) Work(ctx context.Context, job *river.Job[DeliverArgs]) e
 		})
 	}
 	if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
-		_ = w.Store.UpdateDelivery(ctx, webhooks.DeliveryUpdate{
-			ID: delivery.ID, Status: webhooks.StatusSending, AttemptCount: attempt,
+		return w.retryOrSettle(ctx, webhooks.DeliveryUpdate{
+			ID: delivery.ID, AttemptCount: attempt,
 			HTTPStatus: resp.StatusCode, ResponseSnippet: snippet,
 			Reason: "remote_temporary", ErrorSummary: fmt.Sprintf("http %d", resp.StatusCode),
-		})
-		return fmt.Errorf("webhook temporary http %d", resp.StatusCode)
+		}, fmt.Errorf("webhook temporary http %d", resp.StatusCode))
 	}
 	return w.failPermanent(ctx, delivery.ID, attempt, "remote_rejected",
 		fmt.Sprintf("http %d", resp.StatusCode), resp.StatusCode, snippet)
+}
+
+// retryOrSettle 统一处理「可重试失败」的落库：
+// 还有下一次调度就写 sending 并返回错误交给 River；最后一次则写终态 dead 并吞掉错误，
+// 否则记录会永久停在 sending —— 既不是终态，也没有任何 reaper 会收敛它。
+func (w *DeliverWorker) retryOrSettle(ctx context.Context, update webhooks.DeliveryUpdate, retryErr error) error {
+	if outbox.ExhaustedAttempts(update.AttemptCount, webhooks.DefaultMaxAttempts) {
+		update.Status = webhooks.StatusDead
+		return w.Store.UpdateDelivery(ctx, update)
+	}
+	update.Status = webhooks.StatusSending
+	_ = w.Store.UpdateDelivery(ctx, update)
+	return retryErr
 }
 
 func (w *DeliverWorker) failPermanent(ctx context.Context, id int64, attempt int, reason, summary string, status int, snippet string) error {

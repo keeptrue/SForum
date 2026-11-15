@@ -134,6 +134,11 @@ func (w *DeliverChannelWorker) Work(ctx context.Context, job *river.Job[DeliverC
 		ProviderArtifactDigest: provider.ArtifactDigest,
 	}
 	if temporary {
+		// 与邮件同构：最后一次调度后不再有重试，必须写终态（RV-50）。
+		if outbox.ExhaustedAttempts(attemptNumber, channelAttemptBudget(job)) {
+			update.Status, update.Reason = notifications.DeliveryFailed, "notification.provider_temporary"
+			return w.Store.UpdateChannelDelivery(ctx, update)
+		}
 		update.Status, update.Reason = notifications.DeliverySending, "notification.provider_temporary"
 		_ = w.Store.UpdateChannelDelivery(ctx, update)
 		return errors.New("temporary Web Push provider failure")
@@ -181,6 +186,14 @@ func (w *DeliverChannelWorker) finish(ctx context.Context, delivery notification
 		return fmt.Errorf("finish notification channel delivery: %w", err)
 	}
 	return nil
+}
+
+// channelAttemptBudget 与 DeliverChannelArgs.EnqueueOptions 的 MaxAttempts 对齐。
+func channelAttemptBudget(job *river.Job[DeliverChannelArgs]) int {
+	if job != nil && job.JobRow != nil && job.MaxAttempts > 0 {
+		return job.MaxAttempts
+	}
+	return 5
 }
 
 func RegisterChannels(registry *supportjobs.Registry, worker *DeliverChannelWorker) {

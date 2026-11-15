@@ -18,15 +18,22 @@ func TestMemoryTopicViewCounterDedupAndDrain(t *testing.T) {
 		t.Fatalf("delta want 2 got %d", got)
 	}
 
-	deltas, err := c.DrainDeltas(ctx)
+	deltas, err := c.ReadViewDeltas(ctx)
 	if err != nil {
-		t.Fatalf("drain: %v", err)
+		t.Fatalf("read: %v", err)
 	}
 	if deltas[42] != 2 {
-		t.Fatalf("drained want 2 got %v", deltas)
+		t.Fatalf("read want 2 got %v", deltas)
+	}
+	// 读取不消费：落库成功前增量必须还在。
+	if c.Delta(42) != 2 {
+		t.Fatalf("read must not consume the delta, got %d", c.Delta(42))
+	}
+	if err := c.AckViewDeltas(ctx, deltas); err != nil {
+		t.Fatalf("ack: %v", err)
 	}
 	if c.Delta(42) != 0 {
-		t.Fatalf("delta should be empty after drain")
+		t.Fatalf("delta should be empty after ack")
 	}
 
 	// 去重仍在：drain 后同访客仍不计

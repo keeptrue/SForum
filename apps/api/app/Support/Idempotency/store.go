@@ -24,6 +24,9 @@ const (
 
 	// DefaultTTL 推荐保留 24h，覆盖常见客户端重试窗口。
 	DefaultTTL = 24 * time.Hour
+	// DefaultPendingTTL 是 in-flight 租约：覆盖一次请求的正常处理时间，
+	// 而不是客户端重试窗口。两者混用会让崩溃的 Begin 把 key 锁 24h。
+	DefaultPendingTTL = 90 * time.Second
 	// MaxKeyLength 限制 key 长度，避免超大 Redis key。
 	MaxKeyLength = 128
 
@@ -52,9 +55,11 @@ type Backend interface {
 
 // Store 在 Backend 之上编码业务记录。
 type Store struct {
-	backend      Backend
-	ttl          time.Duration
-	prefix       string
+	backend    Backend
+	ttl        time.Duration
+	pendingTTL time.Duration
+	prefix     string
+	// replayCipher 可选：启用后回放响应必须能解密。
 	replayCipher *RequiredReplayCipher
 }
 
@@ -73,7 +78,7 @@ func NewStore(backend Backend, ttl time.Duration) *Store {
 	if ttl <= 0 {
 		ttl = DefaultTTL
 	}
-	return &Store{backend: backend, ttl: ttl, prefix: "idempotency:v1:"}
+	return &Store{backend: backend, ttl: ttl, pendingTTL: DefaultPendingTTL, prefix: "idempotency:v1:"}
 }
 
 // StorageKey 规范化 actor+route+key。
@@ -124,7 +129,8 @@ func (s *Store) Begin(ctx context.Context, storageKey string) (rec Record, start
 		}
 	}
 	pending, _ := json.Marshal(Record{State: statePending})
-	ok, err := s.backend.SetNX(ctx, s.fullKey(storageKey), pending, s.ttl)
+	// pending 用独立短租约：完成后的响应快照才用 s.ttl 保留 24h。
+	ok, err := s.backend.SetNX(ctx, s.fullKey(storageKey), pending, s.pendingTTL)
 	if err != nil {
 		return Record{}, false, false, err
 	}

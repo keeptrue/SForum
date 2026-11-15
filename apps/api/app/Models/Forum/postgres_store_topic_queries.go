@@ -213,11 +213,12 @@ func (s *PostgresStore) ApplyViewCountDeltas(ctx context.Context, deltas map[int
 		if topicID <= 0 || delta <= 0 {
 			continue
 		}
+		// 只动计数：updated_at 是「内容更新时间」的公开语义，浏览不是内容变更。
+		// 在这里写 now() 会让「看帖」把主题顶成刚更新（RV-52）。
 		tag, err := s.pool.Exec(ctx, `
 			UPDATE topics
 			SET view_count = view_count + $2,
-			    hot_score = hot_score + $2,
-			    updated_at = now()
+			    hot_score = hot_score + $2
 			WHERE id = $1
 		`, topicID, delta)
 		if err != nil {

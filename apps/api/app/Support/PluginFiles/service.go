@@ -12,9 +12,15 @@ import (
 
 // Service manages Host-rooted plugin file namespaces.
 type Service struct {
-	mu         sync.Mutex
+	mu sync.Mutex
+	// writeMu 串行化「配额校验 → 写临时文件 → rename」整段（RV-53）。
+	// 没有它时并发写各自按同一份旧用量判定，合计可以超过配额。
+	writeMu    sync.Mutex
 	baseDir    string
 	namespaces map[string]Namespace
+	// quotaCheckHook 仅供测试：在配额校验之后、落盘之前调用。
+	// 它用来把「校验与写入不在同一个临界区」的竞态变成可复现的断言；生产为 nil。
+	quotaCheckHook func()
 }
 
 // New creates a service rooted under baseDir (created if missing).
@@ -87,6 +93,11 @@ func (s *Service) Write(req WriteRequest) (FileInfo, error) {
 	if err != nil {
 		return FileInfo{}, err
 	}
+	// 用量判定到 rename 结束必须是一个临界区：否则两个并发写会按同一份旧用量
+	// 各自判定通过，落盘后合计超配额。
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
 	usage, err := s.Usage(req.ExtensionID)
 	if err != nil {
 		return FileInfo{}, err
@@ -125,14 +136,38 @@ func (s *Service) Write(req WriteRequest) (FileInfo, error) {
 	if st, stErr := os.Lstat(target); stErr == nil && st.Mode()&os.ModeSymlink != 0 {
 		return FileInfo{}, ErrSymlink
 	}
-	tmp := target + ".tmp-" + fmt.Sprintf("%d", time.Now().UnixNano())
-	if err := os.WriteFile(tmp, req.Data, 0o640); err != nil {
+	if s.quotaCheckHook != nil {
+		s.quotaCheckHook()
+	}
+	// 临时名随机 + O_EXCL：固定后缀既可能撞名，也会让 os.WriteFile 跟随攻击者
+	// 预先放好的符号链接（写穿到命名空间外）。
+	dir := filepath.Dir(target)
+	tmpFile, err := os.CreateTemp(dir, ".sforum-write-*")
+	if err != nil {
+		return FileInfo{}, err
+	}
+	tmp := tmpFile.Name()
+	keepTemp := true
+	defer func() {
+		if keepTemp {
+			_ = os.Remove(tmp)
+		}
+	}()
+	if _, err := tmpFile.Write(req.Data); err != nil {
+		_ = tmpFile.Close()
+		return FileInfo{}, err
+	}
+	if err := tmpFile.Chmod(0o640); err != nil {
+		_ = tmpFile.Close()
+		return FileInfo{}, err
+	}
+	if err := tmpFile.Close(); err != nil {
 		return FileInfo{}, err
 	}
 	if err := os.Rename(tmp, target); err != nil {
-		_ = os.Remove(tmp)
 		return FileInfo{}, err
 	}
+	keepTemp = false
 	return s.statInfo(req.ExtensionID, req.Kind, req.RelativePath, req.UserID, target)
 }
 

@@ -118,3 +118,19 @@ func ExhaustedAttempts(attemptCount, maxAttempts int) bool {
 	}
 	return attemptCount >= maxAttempts
 }
+
+// HasAttemptBudget 报告这次尝试是否仍在调度预算内 —— 即「还该不该发」。
+//
+// 它与 ExhaustedAttempts 是两个问题，混用会造成两种相反的错：
+//   - 发送前用 ExhaustedAttempts（attempt >= max）判断，会把预算内的最后一次
+//     调度直接判死、一次请求都不发（RV-52：5 次预算实际只发 4 次）；
+//   - 失败后用 HasAttemptBudget 判断，则永远等不到终态，记录卡在 sending。
+//
+// 所以：发送前问 HasAttemptBudget，失败后问 ExhaustedAttempts。
+// maxAttempts <= 0 表示不启用预算，永远允许发送。
+func HasAttemptBudget(attemptCount, maxAttempts int) bool {
+	if maxAttempts <= 0 {
+		return true
+	}
+	return attemptCount <= maxAttempts
+}

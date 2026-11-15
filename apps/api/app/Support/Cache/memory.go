@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -57,6 +58,20 @@ func (c *MemoryCache) Delete(_ context.Context, keys ...string) error {
 		delete(c.items, key)
 	}
 	return nil
+}
+
+// IncrementWithTTL 与 Redis 版同义：写在 Get 能读到的那份键空间里，
+// 并顺手刷新过期时间。
+func (c *MemoryCache) IncrementWithTTL(_ context.Context, key string, ttl time.Duration) (int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var n int64
+	if entry, ok := c.items[key]; ok && time.Now().Before(entry.expiresAt) {
+		n, _ = strconv.ParseInt(string(entry.value), 10, 64)
+	}
+	n++
+	c.items[key] = memoryEntry{value: []byte(strconv.FormatInt(n, 10)), expiresAt: time.Now().Add(ttl)}
+	return n, nil
 }
 
 func (c *MemoryCache) Increment(_ context.Context, key string) (int64, error) {

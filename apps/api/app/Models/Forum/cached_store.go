@@ -2,6 +2,8 @@ package forum
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -122,18 +124,75 @@ func (s *CachedStore) currentGen(ctx context.Context, key string) string {
 	return string(raw)
 }
 
+// genTTL 是 generation key 的过期时间：远长于列表 TTL，又不会永久驻留。
+const genTTL = 24 * time.Hour
+
 // bumpGen 递增 generation 版本号。
-// 采用 Get→Set 的非原子递增：对短 TTL 缓存（15-60s）可接受，最坏情况下
-// 并发写入产生相同版本号，导致旧列表多缓存一个 TTL 周期，数据最终一致。
-// 这避免了 Cache 接口必须暴露原子 Incr 的强约束，简化实现。
+//
+// 优先走 Cache 的原子 TTL 自增：Get→Set 的读-改-写在并发写路径上会让两个请求
+// 算出同一个版本号，旧列表因此多缓存一个 TTL（RV-52）。没有原子能力的 Cache
+// 实现退回旧路径，行为与此前一致。
 func (s *CachedStore) bumpGen(ctx context.Context, key string) {
+	if atomicBump, ok := s.cache.(cache.TTLIncrementer); ok {
+		if _, err := atomicBump.IncrementWithTTL(ctx, key, genTTL); err == nil {
+			return
+		} else {
+			slog.WarnContext(ctx, "forum cache: atomic generation bump failed, falling back", "key", key, "err", err)
+		}
+	}
 	current := s.currentGen(ctx, key)
 	n, err := strconv.ParseInt(current, 10, 64)
 	if err != nil {
 		n = 0
 	}
 	n++
-	_ = s.cache.Set(ctx, key, []byte(strconv.FormatInt(n, 10)), 24*time.Hour)
+	_ = s.cache.Set(ctx, key, []byte(strconv.FormatInt(n, 10)), genTTL)
+}
+
+// 缓存 key 片段的上限：slug/sort/view 都是短枚举或标识，超出的部分没有语义。
+// 游标（after）没有固定形态，用摘要而不是截断，避免两个不同游标折成同一个 key。
+const (
+	maxCacheSlugLen = 80
+	maxCacheSortLen = 16
+	maxCacheViewLen = 16
+)
+
+// cacheKeyPart 编码一个外部可控的短过滤值，用于拼缓存 key。
+//
+// 两件事必须同时成立：
+//   - 分隔符不能有歧义：categorySlug="a:b" + tagSlug="c" 与 "a" + "b:c" 曾经拼出
+//     同一个 key，于是两个不同的列表互相回放对方的结果（RV-52）；
+//   - 长度有界：客户端输入不能决定 key 的长度。
+//
+// 做法是「长度前缀 + 白名单折叠」：前缀让不同切分不再同形，白名单把分隔符与
+// 任意非标识字节折叠掉。
+func cacheKeyPart(value string, limit int) string {
+	trimmed := strings.TrimSpace(value)
+	if limit > 0 && len(trimmed) > limit {
+		trimmed = trimmed[:limit]
+	}
+	var b strings.Builder
+	b.Grow(len(trimmed) + 4)
+	b.WriteString(strconv.Itoa(len(trimmed)))
+	b.WriteByte(':')
+	for i := 0; i < len(trimmed); i++ {
+		char := trimmed[i]
+		switch {
+		case char >= 'a' && char <= 'z', char >= 'A' && char <= 'Z', char >= '0' && char <= '9',
+			char == '-', char == '_', char == '.':
+			b.WriteByte(char)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
+}
+
+// cacheKeyToken 把客户端游标折成定长摘要：游标是 base64url(JSON)，长度不可控，
+// 也不能被截断成同一形状（截断会让两个不同的合法游标共用缓存条目）。
+func cacheKeyToken(value string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(value)))
+	return "h" + hex.EncodeToString(sum[:12])
 }
 
 // --- 读方法：带缓存 ---
@@ -267,7 +326,11 @@ func (s *CachedStore) ListTopics(ctx context.Context, input TopicListInput) (Top
 	// key 含分片 gen + sort + after：不同 scope/排序/游标不能共用同一缓存条目。
 	gen := s.listTopicsCacheGen(ctx, input)
 	after := strings.TrimSpace(input.After)
-	key := fmt.Sprintf("%s%s:%s:%s:%s:%d:%d:%s", prefixTopicsList, gen, input.CategorySlug, input.TagSlug, input.Sort, input.Page, input.PerPage, after)
+	key := fmt.Sprintf("%s%s:%s:%s:%s:%d:%d:%s", prefixTopicsList, gen,
+		cacheKeyPart(input.CategorySlug, maxCacheSlugLen),
+		cacheKeyPart(input.TagSlug, maxCacheSlugLen),
+		cacheKeyPart(input.Sort, maxCacheSortLen),
+		input.Page, input.PerPage, cacheKeyToken(after))
 	var out TopicList
 	if s.loadJSON(ctx, key, &out) {
 		return out, nil
@@ -315,7 +378,8 @@ func (s *CachedStore) ListComments(ctx context.Context, input CommentListInput) 
 		capN = RecommendedTreeDescendantsPerRoot
 	}
 	after := strings.TrimSpace(input.After)
-	key := fmt.Sprintf("%s%s:%d:%s:%d:%d:%d:%s", prefixCommentsList, gen, input.TopicID, input.View, input.Page, input.PerPage, capN, after)
+	key := fmt.Sprintf("%s%s:%d:%s:%d:%d:%d:%s", prefixCommentsList, gen, input.TopicID,
+		cacheKeyPart(input.View, maxCacheViewLen), input.Page, input.PerPage, capN, cacheKeyToken(after))
 	var out CommentList
 	if s.loadJSON(ctx, key, &out) {
 		return out, nil

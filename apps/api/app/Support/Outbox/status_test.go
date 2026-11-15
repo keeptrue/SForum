@@ -69,6 +69,23 @@ func TestExhaustedAttempts(t *testing.T) {
 	}
 }
 
+// HasAttemptBudget 与 ExhaustedAttempts 是相反方向的两个问题（RV-52）：
+// 前者回答「这次还该不该发」，后者回答「这次失败后还会不会重试」。
+func TestHasAttemptBudgetVersusExhaustedAttempts(t *testing.T) {
+	if !HasAttemptBudget(5, 5) {
+		t.Fatal("the last budgeted attempt must still be allowed to send")
+	}
+	if HasAttemptBudget(6, 5) {
+		t.Fatal("an attempt beyond the budget must not send")
+	}
+	if !ExhaustedAttempts(5, 5) {
+		t.Fatal("after the last budgeted attempt there is no retry left")
+	}
+	if !HasAttemptBudget(3, 0) {
+		t.Fatal("maxAttempts 0 disables the budget")
+	}
+}
+
 func TestShouldSetCompletedAt(t *testing.T) {
 	if !ShouldSetCompletedAt(StatusFailed) || ShouldSetCompletedAt(StatusSending) {
 		t.Fatal("completed_at only on terminal")

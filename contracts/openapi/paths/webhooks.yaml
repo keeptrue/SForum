@@ -134,7 +134,9 @@ webhookInbound:
     description: |
       External systems POST to `/webhooks/inbound/{source}`. CSRF is skipped for
       this path. v1 only acknowledges non-empty bodies; plugin verify/parse hooks
-      are not wired yet.
+      are not wired yet. Bodies are capped at 1 MiB for this unauthenticated
+      route: the handler streams at most limit+1 bytes and answers 413 (closing
+      the connection) instead of materializing up to the global body limit.
     operationId: inboundWebhook
     parameters:
     - name: source
@@ -163,5 +165,7 @@ webhookInbound:
               "$ref": "../schemas/webhooks.yaml#/ApiResponseWebhookInbound"
       '400':
         "$ref": "../components/responses.yaml#/BadRequest"
+      '413':
+        "$ref": "../components/responses.yaml#/PayloadTooLarge"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
