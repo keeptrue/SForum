@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionobservability "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionObservability"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Extensions/pluginprocess"
 	hostapi "github.com/keeptrue/sforum/apps/api/app/Support/HostAPI"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 	pluginbootstrap "github.com/keeptrue/sforum/apps/api/app/Support/PluginBootstrap"
@@ -280,13 +281,11 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 		return RouteTarget{}, fmt.Errorf("backend entry %s is not available", extension.Manifest.Backend.Entry)
 	}
 
-	// 子进程生命周期由 exact Stop/Discard 管理；调用 Start 的请求 context 只约束启动握手。
-	// cwd 钉在制品目录、env 走白名单、独立进程组便于整组回收（EX2-01）。
+	// 子进程生命周期由 exact Stop/Discard 管理；Start 的 context 只约束启动握手（EX2-01）。
 	cmd, err := preparePluginCommand(extension, path)
 	if err != nil {
 		return RouteTarget{}, err
 	}
-	protocolVersion := extension.Manifest.Backend.ProtocolVersion
 	instanceID, err := newProtocolV2RuntimeInstanceID()
 	if err != nil {
 		return RouteTarget{}, err
@@ -315,6 +314,7 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 		return RouteTarget{}, err
 	}
 	defer executable.Close()
+	defer pluginprocess.DrainLaunchReport(cmd) // 租约失败分支也要收走报告（幂等；成功路径已在 applyPluginProcessLimits 取过）
 	databaseLease, databaseEnv, err := s.issueProtocolDatabaseLease(ctx, extension, instanceID)
 	if err != nil {
 		return RouteTarget{}, fmt.Errorf("issue plugin database runtime lease: %w", err)
@@ -332,7 +332,7 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	client := plugin.NewClient(clientConfig)
 	rpcClient, err := client.Client()
 	if err != nil {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		diagnostic := ""
 		if buffer, ok := clientConfig.Stderr.(*pluginbootstrap.DiagnosticBuffer); ok {
 			diagnostic = buffer.String()
@@ -343,12 +343,12 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	applyPluginProcessLimits(cmd)
 	raw, err := rpcClient.Dispense(protocolName)
 	if err != nil {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		return RouteTarget{}, err
 	}
 	protocol, ok := raw.(PluginProtocol)
 	if !ok {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		return RouteTarget{}, fmt.Errorf("plugin protocol implementation mismatch")
 	}
 	if v2, ok := protocol.(interface {
@@ -356,13 +356,13 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 		Readiness(context.Context) error
 	}); ok {
 		if err := v2.Handshake(ctx); err != nil {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, err
 		}
 	}
 	health, err := protocol.Health()
 	if err != nil || !health.OK {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		if err != nil {
 			return RouteTarget{}, err
 		}
@@ -373,19 +373,19 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	if publish {
 		v2, ok := protocol.(interface{ Readiness(context.Context) error })
 		if !ok {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, ErrProtocolInstanceUnsupported
 		}
 		readinessChecked = true
 		if err := v2.Readiness(ctx); err != nil {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, err
 		}
 		ready = true
 	}
 	target, err := protocol.RouteTarget()
 	if err != nil {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		return RouteTarget{}, err
 	}
 	// 纯 provider/RPC 插件（如 SMTP）不暴露 HTTP 路由：允许空或历史哨兵值。
@@ -393,7 +393,7 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	if isPluginRouteTargetNone(baseURL) {
 		baseURL = ""
 	} else if err := validatePluginRouteTarget(baseURL); err != nil {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		return RouteTarget{}, err
 	}
 	serviceRegistry := protocolV2ServiceRegistryFor(s.hostAPI)
@@ -402,22 +402,22 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	if v2, ok := protocol.(*protocolV2Client); ok {
 		if v2.identity != nil {
 			if v2.identity.GetInstanceId() != instanceID {
-				stopPluginProcess(pluginProcessGroupID(cmd), client)
+				abortPluginStart(cmd, client)
 				return RouteTarget{}, ErrRuntimeAdmissionInvalid
 			}
 		}
 		registrations, err = v2.serviceRegistrations(extension)
 		if err != nil {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, err
 		}
 		if len(registrations) > 0 && serviceRegistry == nil {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, fmt.Errorf("protocol v2 service registry is not configured")
 		}
 		serviceRuntime, err = v2.serviceRuntimePublication(extension, registrations)
 		if err != nil {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, err
 		}
 	}
@@ -429,30 +429,30 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	instance := &protocolRuntimeInstance{
 		identity:         RuntimeInstanceIdentity{ExtensionID: extension.ID, InstanceID: instanceID},
 		extensionVersion: extensionVersion, artifactDigest: extension.PackageDigest, manifestDigest: manifestDigest,
-		protocolVersion: protocolVersion, target: targetResult,
+		protocolVersion: extension.Manifest.Backend.ProtocolVersion, target: targetResult,
 		client: client, protocol: protocol, registrations: registrations, serviceRuntime: serviceRuntime,
 		databaseLease: databaseLease, processGroup: pluginProcessGroupID(cmd),
 		healthy: true, ready: ready, readinessChecked: readinessChecked, startedAt: time.Now().UTC(),
 	}
 	if err := s.retainProtocolInstanceLocked(instance); err != nil {
-		stopPluginProcess(pluginProcessGroupID(cmd), client)
+		abortPluginStart(cmd, client)
 		return RouteTarget{}, err
 	}
 	if databaseLease != nil {
 		databaseLease.startHeartbeat(s.databaseLeaseHeartbeat, s.databaseLeaseTimeout, func(error) {
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 		})
 	}
-	go s.watchClientExit(instance.identity, protocolVersion, protocol, client)
+	go s.watchClientExit(instance.identity, extension.Manifest.Backend.ProtocolVersion, protocol, client)
 	if publish {
 		if _, err := s.publishProtocolInstanceLocked(ctx, instance.identity, false); err != nil {
 			s.removeProtocolInstanceLocked(instance.identity)
-			stopPluginProcess(pluginProcessGroupID(cmd), client)
+			abortPluginStart(cmd, client)
 			return RouteTarget{}, err
 		}
 	}
 	s.mu.Lock()
-	s.recordProtocolStartLocked(extension.ID, protocolVersion)
+	s.recordProtocolStartLocked(extension.ID, extension.Manifest.Backend.ProtocolVersion)
 	s.mu.Unlock()
 	keepDatabaseLease = true
 	return targetResult, nil

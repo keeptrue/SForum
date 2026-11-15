@@ -8,9 +8,9 @@ load archived sessions or completed plans as current context.
 
 ### 全仓审计修复（P0–P3，113 条）
 
-- Status: 进行中。总 **113**；§7 噪声 9 条 + F-D2 + FE2-02（审计前提不成立）+ RV-46（判设计如此，见 `decisions/2026-11-15-admin-coarse-gate.md`）已摘出分母，**有效待修池 101**；已修 **99**，剩余 **2 = P2 2 / P3 0**（P1 0；EX2-01 / RV-03 为部分完成，均属架构改动）。除这两条架构尾巴外，全部 18 个动作簇已收口。
-- 本轮交接：`sessions/2026-11-15-audit-cluster7-i18n.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
-- 未闭环项：剩余 2 条 = 架构尾巴 EX2-01（内核级隔离）与 RV-03（core-only 裁决）；RV-54 已随第 12 轮收口（5 控制器 denied-path + `.env` 0600），RV-46 判设计如此（七条裁决与复位条件见 `decisions/2026-11-15-admin-coarse-gate.md`）；同类残留 `utils/editor/shortcodes.ts` 的 `fallbackLabel` 与 `utils/sfEditor.ts` 的 emoji label（RV-28 口径外，见交接）；GO-2026-5932（`x/crypto v0.58.0`，module 级未调用，属独立依赖轮次）；`SEVERITY_GATE: report` 仍为 `report`。
+- Status: 已收口。总 **113**；§7 噪声 9 条 + F-D2 + FE2-02（审计前提不成立）+ RV-46（判设计如此，见 `decisions/2026-11-15-admin-coarse-gate.md`）+ RV-03（判设计如此，见 `decisions/2026-11-15-core-guard-authority-boundary.md`）已摘出分母，**有效待修池 100**；已修 **100**，剩余 **0**（EX2-01 已随第 13 轮交付内核级沙箱）。全部 18 个动作簇已收口。
+- 本轮交接：`sessions/2026-11-15-audit-round13-closeout.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
+- 未闭环项（均不计入 113 分母）：EX2-01 的残余 = uid 映射未做（本机 EPERM）、seccomp 未上（缺插件能力声明）、网络策略默认 `off`（四个内置插件要出站）；沙箱侧 TMPDIR 回收只看 24h mtime、cgroup 落 `app.slice`、同插件两实例建组竞态；契约侧空集路由仍 194/435、3 条通配路径不可静态对齐；后端 `readActor` 把依赖故障答成 401、同源 `optionalActor` 读端点；RV-28 utils 残留仅 `utils/editor/shortcodes.ts` 的 `fallbackLabel`（作最后兜底）；GO-2026-5932（`x/crypto v0.58.0`，module 级未调用，属独立依赖轮次）；`SEVERITY_GATE: report` 仍为 `report`。
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
@@ -847,7 +847,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **供应链与 CI 收口（簇 14，2026-11-15，最新）**：9 条全闭环（RV-14 / RV-15 /
+- **审计全量收口（第 13 轮，2026-11-15/16，最新）**：EX2-01 交付内核级沙箱（Landlock
+  ABI 8 FS + 可配网络、cgroup v2 限额、`SkipHostEnv` 修 env 白名单、storage-fs 设置路径
+  自动可写），RV-03 判「设计如此」摘出分母；契约侧补 12×401 / 2×302 / 3 条通配形状并让
+  parity 门跟随 guard 助手（空集 211 → 194）+ 12 条定向棘轮；RV-28 扩到 utils 层。
+  **升级注意**：插件子进程默认 FS 受限（写自己制品旁/`HOME`/exec `sh` 会失败，用
+  `SFORUM_PLUGIN_SANDBOX_EXTRA_RW`/`EXTRA_RO`/`EXTRA_EXEC` 开口）；`SkipHostEnv` 后插件
+  只收到白名单 env；`protocol.go` 897/897、`protocol_v2_client.go` 1003/1003 零余量，
+  下轮增量先抽文件。见 `sessions/2026-11-15-audit-round13-closeout.md`。
+- **供应链与 CI 收口（簇 14，2026-11-15）**：9 条全闭环（RV-14 / RV-15 /
   RV-18 / RV-41 / RV-42 / RV-43 / FE2-01 / OPS2-07 / OPS2-09）+ 5 项同域遗留。
   **四项升级前必读**：① 镜像身份改内容 digest（拉取前 `buildx imagetools` 解析、
   拉取后核对 `RepoDigests`，`SFORUM_CADDY_IMAGE` 必须带 `@sha256:`）；② 升级机需要

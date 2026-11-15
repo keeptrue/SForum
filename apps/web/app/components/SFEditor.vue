@@ -267,6 +267,8 @@ onMounted(async () => {
       preset: props.preset,
       trustedExtensions: trusted,
       resourceKind: props.imageSurface,
+      // 短代码与表情的兜底文案由这里注入翻译器：扩展常量只存键，渲染时才取文案。
+      translate: (key: string) => t(key),
       ...(props.enableMentions ? {
         mentions: {
           fetch: fetchMentionSuggestions,

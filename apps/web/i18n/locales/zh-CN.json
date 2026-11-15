@@ -7316,6 +7316,13 @@
       "invalidProtectedDepth": "短代码最多嵌套 4 层。",
       "selectProtectedBody": "请先选中非空内容，或将光标放在有内容的段落中。",
       "disabled": "短代码插件当前不可用",
+      "fallback": {
+        "user": "用户引用暂不可用",
+        "topic": "主题引用暂不可用",
+        "comment": "评论引用暂不可用",
+        "category": "分类引用暂不可用",
+        "protected": "受保护内容暂不可用"
+      },
       "kinds": {
         "user": "用户",
         "topic": "主题",
@@ -7326,6 +7333,14 @@
         "reply": "回复后可见",
         "only-author": "仅作者可见"
       }
+    },
+    "emoji": {
+      "sparkles": "灵感",
+      "clap": "赞同",
+      "thinking": "思考",
+      "rocket": "推进",
+      "eyes": "关注",
+      "party": "庆祝"
     },
     "submit": "发布",
     "save": "保存",

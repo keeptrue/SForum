@@ -7276,6 +7276,13 @@
       "invalidProtectedDepth": "Shortcodes may nest at most 4 levels deep.",
       "selectProtectedBody": "Select non-empty content or place the cursor in a paragraph with content.",
       "disabled": "The shortcode plugin is unavailable",
+      "fallback": {
+        "user": "User reference unavailable",
+        "topic": "Topic reference unavailable",
+        "comment": "Comment reference unavailable",
+        "category": "Category reference unavailable",
+        "protected": "Protected content unavailable"
+      },
       "kinds": {
         "user": "User",
         "topic": "Topic",
@@ -7286,6 +7293,14 @@
         "reply": "Visible after replying",
         "only-author": "Authors only"
       }
+    },
+    "emoji": {
+      "sparkles": "Inspiration",
+      "clap": "Agree",
+      "thinking": "Thinking",
+      "rocket": "Onward",
+      "eyes": "Watching",
+      "party": "Celebrate"
     },
     "submit": "Publish",
     "save": "Save",

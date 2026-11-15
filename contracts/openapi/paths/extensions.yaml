@@ -492,7 +492,11 @@ publicExtensionPackageAsset:
       in: path
       required: true
       allowReserved: true
-      description: Slash-preserving package-relative path declared by packageFiles.
+      description: >-
+        Slash-preserving package-relative path declared by packageFiles.
+        该参数匹配多段（实现为 Fiber `*` 通配：
+        api.Get("/extensions/runtime/:extensionId/packages/:packageDigest/*")），
+        因此可以是包内任意层级文件；OpenAPI 3.1 无法表达多段 catch-all，路径形状以本描述披露。
       schema:
         type: string
         minLength: 1

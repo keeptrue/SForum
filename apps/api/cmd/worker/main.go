@@ -16,6 +16,8 @@ import (
 )
 
 func main() {
+	// 沙箱启动器调用必须在任何参数解析之前接管进程（见 sandbox.go）。
+	enterPluginSandboxLauncher()
 	if platformversion.PrintIfRequested(os.Stdout, os.Args[1:]) {
 		return
 	}

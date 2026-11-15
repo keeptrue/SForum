@@ -15,6 +15,10 @@
  *   按 `api := app.Group("/api/v1")` 起算的 group 链拼出完整路径；再定位同包 handler 函数体，
  *   收集 `fiber.StatusXxx` / `http.StatusXxx` / `c.Status(数字)` / `Status: 数字`，
  *   以及同包 `respond* / fail* / send* / write*` 响应辅助函数里的状态码。
+ *   另有一条**显式白名单**的 guard 助手（见 GUARD_HELPERS）：它们是实现里的鉴权分支，
+ *   语义等价于「可能产出的状态码」，但名字不带 respond/fail/send/write 前缀。
+ *   白名单手工维护、逐条核对语义，不做前缀泛匹配——泛匹配会把业务函数当真，
+ *   凭空给路由塞状态码。
  *
  * 两类例外必须逐条写进 tests/contract-status-parity-baseline.json 并带中文原因：
  * 1. 不可静态判定：通配/插件代理路由，契约 operation 无法静态落到某个 handler；
@@ -39,12 +43,29 @@ const CONTRACT_ENTRY = path.join(ROOT, 'contracts', 'openapi.yaml');
 const CONTRACT_ROOT = path.join(ROOT, 'contracts');
 const API_ROOT = path.join(ROOT, 'apps', 'api');
 const BASELINE_PATH = path.join(SCRIPT_DIR, 'contract-status-parity-baseline.json');
+const PUBLIC_READ_401_MANIFEST = path.join(SCRIPT_DIR, 'contract-public-read-401.json');
 
 const SERVER_PREFIX = '/api/v1'; // 与 apps/api/app/Http/server.go 的 app.Group("/api/v1") 对应
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'];
 const FIBER_METHODS = ['Get', 'Post', 'Put', 'Patch', 'Delete', 'Head', 'Options', 'All'];
 const HELPER_PATTERN = /^(respond|fail|send|write)/i;
 const HELPER_DEPTH = 2; // 辅助函数最多跟随两层，够覆盖 respond*/fail* 链，避免无限递归
+
+// 显式 guard 助手白名单：键是函数名，值是「为什么它可以被当响应辅助函数」的语义说明。
+// 只收**叶子守卫**：函数体自己就直接 return fiber.NewError(...) 决定状态码，不靠调用方
+// 的 mapXxxError 兜底。同名实现分布在多个控制器包时按包各自取（见 readCoreRoutes）。
+// 新增条目必须逐条核对：① 确实是鉴权/策略分支；② 状态码由它自己产出；③ 名字不加前缀
+// 会被误读成业务函数时，宁可不收。
+const GUARD_HELPERS = new Map([
+  [
+    'requireGuestRead',
+    '游客读策略守卫：forum.guest.read=login_required 时匿名读直接 401；Profile 的同名实现另含 503（读策略快照缺失）',
+  ],
+  [
+    'requireAdmin',
+    '后台读权限守卫：产品开关关闭 404、缺 admin.access 权限 403，二者都在守卫函数体内直接产出',
+  ],
+]);
 
 // fiber/v3 与 net/http 的 Status 常量（两者同名的值一致）。遇到表外常量直接失败，
 // 避免新常量被静默忽略。
@@ -72,6 +93,8 @@ const STATUS_CONSTANTS = {
 
 const failures = [];
 const unknownConstants = new Set();
+// 白名单里真正在实现侧找到函数体的 guard 名字；缺席即视为白名单过期（见 main）。
+const guardHelperHits = new Set();
 
 function fail(message) {
   failures.push(message);
@@ -505,6 +528,22 @@ function readCoreRoutes() {
         }
         const helperBodies = new Map();
         for (const bodies of pkg.bodies) for (const [k, v] of bodies) helperBodies.set(k, v);
+        // guard 守卫在实现里是 *Controller 的方法，functionBodies 只认顶层 func，
+        // 所以白名单名称要额外按方法签名补一次（只补白名单，不扩大既有 respond/fail 语义）。
+        for (const name of GUARD_HELPERS.keys()) {
+          if (helperBodies.has(name)) {
+            guardHelperHits.add(name);
+            continue;
+          }
+          for (const maskedText of pkg.masked) {
+            const guardBody = methodBody(maskedText, name);
+            if (guardBody) {
+              helperBodies.set(name, guardBody);
+              guardHelperHits.add(name);
+              break;
+            }
+          }
+        }
         codes = collectStatuses(body, helperBodies);
         handlerLabel = name;
       }
@@ -527,7 +566,10 @@ function readCoreRoutes() {
   return routes;
 }
 
-/** handler 函数体 + 同包 respond / fail / send / write 前缀辅助函数里的状态码。 */
+/**
+ * handler 函数体 + 同包 respond / fail / send / write 前缀辅助函数里的状态码，
+ * 以及 GUARD_HELPERS 白名单里的 guard 助手（后者按名字精确匹配，不走前缀）。
+ */
 function collectStatuses(body, helperBodies) {
   const codes = statusesIn(body);
   if (!helperBodies) return codes;
@@ -538,7 +580,8 @@ function collectStatuses(body, helperBodies) {
     for (const current of frontier) {
       for (const call of current.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
         const name = call[1];
-        if (visited.has(name) || !HELPER_PATTERN.test(name)) continue;
+        if (visited.has(name)) continue;
+        if (!HELPER_PATTERN.test(name) && !GUARD_HELPERS.has(name)) continue;
         const helper = helperBodies.get(name);
         if (!helper) continue;
         visited.add(name);
@@ -697,6 +740,92 @@ function applyBaseline(result, baseline) {
 // 棘轮计数：实测只能小于等于基线，变大即红（防比对覆盖面悄悄萎缩）。
 const RATCHET_COUNTS = new Set(['状态码集合为空的实现侧路由数']);
 
+// ---------------------------------------------------------------------------
+// 定向棘轮：公开读 operation 的 401
+// ---------------------------------------------------------------------------
+
+/**
+ * 12 条公开读 operation 的定向棘轮（清单见 tests/contract-public-read-401.json）。
+ *
+ * 为什么单列一条：这 12 条的 handler 第一步都是 requireGuestRead，游客读被设成
+ * login_required 时匿名读会 401，但它们曾全部漏声明 401。集合层面的 parity 门只保证
+ * 「实现产出 ⊆ 契约声明」，对「契约少声明、实现也扫不到」这种双盲区无能为力；这条棘轮
+ * 盯的是另一件事：**契约必须显式声明 401，且实现侧必须仍然扫得到 401**。
+ * 删除任意一条 '401' 会红，删除清单条目（低于最少条数）也会红。
+ */
+function checkPublicRead401Ratchet(contractOperations, result) {
+  if (!fs.existsSync(PUBLIC_READ_401_MANIFEST)) {
+    fail(`定向棘轮清单缺失：${path.relative(ROOT, PUBLIC_READ_401_MANIFEST)}（删掉清单等于关掉这条棘轮）`);
+    return 0;
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(PUBLIC_READ_401_MANIFEST, 'utf8'));
+  } catch (error) {
+    fail(`定向棘轮清单无法解析：${error.message}`);
+    return 0;
+  }
+  const entries = Array.isArray(manifest.operations) ? manifest.operations : [];
+  const minimum = Number.isInteger(manifest['最少条数']) ? manifest['最少条数'] : 0;
+  if (minimum <= 0) {
+    fail('定向棘轮清单缺少正整数「最少条数」：没有下限，删条目就能绕过棘轮');
+  }
+  if (entries.length < minimum) {
+    fail(`定向棘轮清单条目数 ${entries.length} 低于「最少条数」${minimum}：删条目不能代替补 401`);
+  }
+
+  const byNormalizedKey = new Map();
+  for (const operation of contractOperations) byNormalizedKey.set(operationKey(operation), operation);
+  const routeByNormalizedKey = new Map();
+  for (const entry of result.mapped) routeByNormalizedKey.set(operationKey(entry.operation), entry.route);
+
+  const seen = new Set();
+  let checked = 0;
+  for (const entry of entries) {
+    const key = typeof entry?.operation === 'string' ? entry.operation : '(缺少 operation)';
+    if (!/[\u4e00-\u9fff]/.test(entry?.['原因'] || '')) {
+      fail(`定向棘轮清单条目缺少中文原因：${key}`);
+    }
+    if (seen.has(key)) {
+      fail(`定向棘轮清单里重复登记同一条 operation：${key}`);
+      continue;
+    }
+    seen.add(key);
+    const [, method = '', ...rest] = /^([A-Z]+)\s+(.+)$/.exec(key) || [];
+    if (!method || rest.length === 0) {
+      fail(`定向棘轮清单条目不是「METHOD /path」形状：${key}`);
+      continue;
+    }
+    const normalizedKey = `${method} ${normalizePath(rest.join(' '))}`;
+    const operation = byNormalizedKey.get(normalizedKey);
+    if (!operation) {
+      fail(`定向棘轮清单条目在契约里找不到：${key}（operation 改名/删除后必须同步清单，不允许清单烂掉）`);
+      continue;
+    }
+    if (!operation.codes.includes(401)) {
+      fail(
+        `定向棘轮：${key} 未声明 401。该 handler 第一步是 requireGuestRead，` +
+          `forum.guest.read=login_required 时匿名读会被拒（当前已声明 ${operation.codes.join(',')}）`,
+      );
+      continue;
+    }
+    const route = routeByNormalizedKey.get(normalizedKey);
+    if (!route) {
+      fail(`定向棘轮：${key} 契约声明了 401，但实现侧映射不到路由，无法证明守卫还在`);
+      continue;
+    }
+    if (!route.codes.has(401)) {
+      fail(
+        `定向棘轮：${key} 契约声明了 401，但实现侧 handler=${route.handlers.join('/')} ` +
+          `扫不到 401（requireGuestRead 是否还在 guard 白名单/调用链上？）[${route.file}]`,
+      );
+      continue;
+    }
+    checked += 1;
+  }
+  return checked;
+}
+
 function checkCounts(result, baseline, contractOperations, refresh) {
   const actual = {
     契约operation数: contractOperations.length,
@@ -774,9 +903,19 @@ function main() {
   const baseline = loadBaseline();
   applyBaseline(result, baseline);
   const actualCounts = checkCounts(result, baseline, contractOperations, refresh);
+  const publicReadChecked = checkPublicRead401Ratchet(contractOperations, result);
 
   if (unknownConstants.size > 0) {
     fail(`出现脚本状态码常量表外的写法，需补表后重跑：${[...unknownConstants].join(', ')}`);
+  }
+  // 白名单过期同样是红的：名字对不上时守卫状态码会悄悄消失，空集路由数才会又涨回去。
+  for (const name of GUARD_HELPERS.keys()) {
+    if (!guardHelperHits.has(name)) {
+      fail(
+        `guard 白名单条目过期：实现侧找不到 "${name}" 的函数体（改名/删除后必须同步 GUARD_HELPERS，` +
+          '否则白名单静默失效、空集路由数会悄悄回升）',
+      );
+    }
   }
 
   const seconds = Number(process.hrtime.bigint() - started) / 1e9;
@@ -790,6 +929,13 @@ function main() {
   console.log(
     `[parity] 状态码集合为空的实现侧路由数：${result.emptyRouteCount}/${routes.size}` +
       `（其中已映射 operation ${result.emptyMappedCount} 条；这类路由的比对退化成 ∅ ⊆ 任意，计数是只降不升的棘轮）`,
+  );
+  console.log(
+    `[parity] guard 助手白名单：${[...GUARD_HELPERS.keys()].join(', ')}` +
+      `（命中 ${guardHelperHits.size}/${GUARD_HELPERS.size}）`,
+  );
+  console.log(
+    `[parity] 定向棘轮：公开读 401 已核对 ${publicReadChecked} 条（清单 tests/contract-public-read-401.json）`,
   );
 
   if (result.unmapped.length > 0) {

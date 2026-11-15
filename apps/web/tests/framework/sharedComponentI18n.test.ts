@@ -506,6 +506,59 @@ describe('SFEditor default copy', () => {
   })
 })
 
+describe('SFEditor shortcode fallback copy', () => {
+  // utils 层的兜底文案只有挂在真编辑器里才算「用户看见的」：短代码扩展由
+  // SFEditor.vue 创建，翻译器也在那里注入，所以这里挂整组件而不是单测扩展。
+  const editorStubs = {
+    ClientOnly: { template: '<div><slot /></div>' },
+    SFButton: { template: '<button class="sf-button-stub"><slot /></button>' },
+    UIcon: true,
+    UButton: { template: '<button><slot /></button>' }
+  }
+  const shortcodeDocument = [
+    '[topic topic_id="12"][/topic]',
+    '',
+    '[reply]',
+    'gated body',
+    '[/reply]'
+  ].join('\n')
+
+  for (const locale of LOCALES) {
+    test(`renders the reference and protected fallbacks in ${locale}`, async () => {
+      const wrapper = mountIn(locale, SFEditor, {
+        props: { preset: 'full', loadTrustedCatalog: false, initialContent: shortcodeDocument },
+        stubs: editorStubs,
+        directives: { highlight: {} },
+        mocks: { sanitizeHtml }
+      })
+      await flushPromises()
+      try {
+        // 写模式的可编辑面：没有 NodeView（未准入插件）时走 renderHTML 兜底卡片，
+        // 这就是用户看到的文案。预览面走同一份 renderHTML 输出，另由末尾的整页
+        // 零 CJK 断言覆盖。
+        const fallbacks = wrapper.get('.sf-editor__content').findAll('.sf-editor-fallback')
+        expect(fallbacks.map(node => node.attributes('data-fallback'))).toEqual([
+          'shortcode.topic.unavailable',
+          'shortcode.protected.unavailable'
+        ])
+        expect(fallbacks.map(node => node.text())).toEqual([
+          translate(locale, 'composer.shortcodes.fallback.topic'),
+          translate(locale, 'composer.shortcodes.fallback.protected')
+        ])
+        // zh 侧确实落地中文、en 侧零 CJK：两侧都不许停在「键」或「写死的中文」。
+        expect({ locale, han: HAN_PATTERN.test(fallbacks.map(node => node.text()).join('')) })
+          .toEqual({ locale, han: locale === 'zh-CN' })
+        // 预览面吃的是同一份 renderHTML 输出（经净化），文案同样必须跟随语言。
+        expect(wrapper.get('.sf-editor__preview').text())
+          .toContain(translate(locale, 'composer.shortcodes.fallback.topic'))
+        if (locale === 'en-US') expectNoHan(locale, wrapper.html())
+      } finally {
+        wrapper.unmount()
+      }
+    })
+  }
+})
+
 // SFComment 另有一个普通 <script> 只放类型与 inject key；compileVueSfc 只吃单个
 // script，这里在测试侧剥掉它（与 forumCommentActionRow.test.ts 同一手法）。
 const plainScript = /<script lang="ts">[\s\S]*?<\/script>\s*/

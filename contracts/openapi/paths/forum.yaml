@@ -9,6 +9,9 @@ categories:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseCategoryList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：论坛设置 forum.guest.read 被设为 login_required 时，匿名请求在查库前就被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时本接口对匿名开放。分类是公开导航的数据源，收紧游客读后不再向匿名返回内容。
 categoryGroups:
   get:
     summary: List public category groups
@@ -20,6 +23,9 @@ categoryGroups:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseCategoryGroupList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时公开可读。分类组与分类列表同一策略，不允许一紧一松。
 tags:
   get:
     summary: List public active tags
@@ -31,6 +37,9 @@ tags:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseTagList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时公开可读。标签云属于公开阅读面，随游客读策略一起收紧。
 composerToolbar:
   get:
     summary: List composer toolbar extension actions
@@ -144,6 +153,9 @@ search:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseSearchOutput"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。该判定发生在搜索服务可用性判定之前，所以游客读收紧时 401 优先于 503。
       '503':
         description: 搜索服务不可用（选中的外部引擎不可达等）。默认站内引擎通常可用。
 topics:
@@ -214,6 +226,9 @@ topics:
               "$ref": "../schemas/forum.yaml#/ApiResponseTopicList"
       '400':
         "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时列表对匿名开放。过滤器不改变游客读边界。
   post:
     summary: Create a topic
     operationId: createTopic
@@ -886,6 +901,9 @@ topicByID:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseTopicDetail"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required），判定早于主题查找与浏览计数；forum.guest.read=public 时详情对匿名开放。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
   patch:
@@ -982,6 +1000,9 @@ topicBySlug:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseTopicDetail"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。slug 寻址与 topicID 寻址同口径，不能成为绕过游客读策略的旁路。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
 topicContributionTimeline:
@@ -1016,6 +1037,9 @@ topicContributionTimeline:
               "$ref": "../schemas/forum.yaml#/ApiResponseTopicContributionTimeline"
       '400':
         "$ref": "../components/responses.yaml#/BadRequest"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。「免修订权限」不放宽游客读边界，本接口与主题详情同口径。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
 topicRevisions:
@@ -1324,6 +1348,9 @@ topicComments:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseCommentList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时评论列表对匿名开放。view/page/after 都不影响游客读判定。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
   post:
@@ -1384,6 +1411,9 @@ topicCommentPage:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseCommentPage"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。锚点翻页反查与评论列表同一策略，否则未登录用户能借页码接口探测隐藏主题。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
 commentReplies:
@@ -1399,6 +1429,9 @@ commentReplies:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseCommentArray"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时直接回复对匿名开放。与主题详情、评论列表保持同一边界。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
 commentCitations:
@@ -1435,6 +1468,9 @@ commentCitations:
           application/json:
             schema:
               "$ref": "../schemas/forum.yaml#/ApiResponseCommentCitationList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+        description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。本接口与评论回复列表同族、同一边界；forum.guest.read=public 时匿名可读。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
 commentRevisions:

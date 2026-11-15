@@ -1,3 +1,6 @@
+# 共享 parameter 定义（供 $ref 引用）。约定：这里只登记定义本身，header 参数在 operation 上声明
+# ——不要挂到 path item 的 parameters，否则同一路径的所有方法都会背上它；使用方在 operation
+# 自己的 `parameters:` 里逐条 $ref，并在相关响应（如 302）的描述里指回来。
 IdempotencyKey:
   name: Idempotency-Key
   in: header
@@ -38,6 +41,17 @@ AttachmentID:
     type: integer
     format: int64
   description: Numeric attachment id.
+MediaDeliveryHeader:
+  name: X-SForum-Media-Delivery
+  in: header
+  required: false
+  schema:
+    type: string
+    enum: [redirect-v1]
+  description: >-
+    仅 `redirect-v1` 触发直连交付；缺省/其他值走 200 流。命中 `redirect-v1` 且存储
+    provider 能给出签名地址时，附件内容 operation 返回 302 到该签名地址（见各自的 302）。
+    本文件只登记定义，该 header 参数在实际使用它的 operation 上声明。
 ExtensionID:
   name: id
   in: path
@@ -68,7 +82,12 @@ ExtensionPluginPath:
   required: true
   schema:
     type: string
-  description: Slash-separated plugin route path after the extension id. The host only proxies paths declared by that plugin manifest.
+  description: >-
+    Slash-separated plugin route path after the extension id. The host only
+    proxies paths declared by that plugin manifest. 该参数匹配多段（实现为
+    Fiber `*` 通配：api.All("/extensions/:extensionId/*")，末段由 Route
+    Dispatcher 按插件清单在运行时匹配），因此可以是任意层级；OpenAPI 3.1
+    无法表达多段 catch-all，路径形状以本描述披露。
 TopicID:
   name: topicID
   in: path

@@ -163,7 +163,6 @@ func (s *ProtocolStarter) newPluginClientConfig(
 	cmd *exec.Cmd,
 	instanceID string,
 ) (*plugin.ClientConfig, string, error) {
-	version := extension.Manifest.Backend.ProtocolVersion
 	diagnostics := pluginbootstrap.NewDiagnosticBuffer(pluginbootstrap.DefaultDiagnosticLimit)
 	base := &plugin.ClientConfig{
 		HandshakeConfig: pluginbootstrap.HandshakeV1(),
@@ -171,8 +170,9 @@ func (s *ProtocolStarter) newPluginClientConfig(
 		Cmd:             cmd,
 		Stderr:          diagnostics,
 		SyncStderr:      diagnostics,
+		SkipHostEnv:     true, // 白名单是插件 env 的唯一入口（go-plugin 默认会 append os.Environ()，见 EX2-01b）
 	}
-	switch version {
+	switch extension.Manifest.Backend.ProtocolVersion {
 	case 2:
 		if !supportsProtocolV2HostAPI(extension.Manifest.Backend.HostAPIVersion) {
 			return nil, "", fmt.Errorf("%w: host API %q", ErrUnsupportedProtocol, extension.Manifest.Backend.HostAPIVersion)

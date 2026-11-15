@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -87,6 +88,25 @@ var pluginEnvAllowlist = map[string]bool{
 	"APP_ENV": true,
 }
 
+// pluginTransportEnvAllowlist 是部署级的出站 TLS / 代理配置。
+//
+// 「非密钥」只适用于 SSL_CERT_*：它们是证书文件的**路径**，本身不是秘密。代理 URL
+// 不是——它可以内嵌凭据（http://user:pass@proxy），透传等于把该凭据交给插件；
+// 需要认证的代理请用免凭据代理或 IP ACL，不要把带凭据的 URL 放进宿主环境。
+//
+// 为什么必须透传：内置的 smtp / storage-s3 / auth-github / web-push 都直接 dial
+// 外部端点；在「信任库只挂了一份自签 CA」的部署里，插件拿不到 SSL_CERT_FILE 就会
+// `x509: certificate signed by unknown authority`，而插件侧没有任何 CA 设置项。
+//
+// 与 Landlock 的对应关系：沙箱会为 SSL_CERT_FILE / SSL_CERT_DIR 指向的路径追加
+// 只读规则（见 pluginprocess 的 CA 透传），所以「env 透传」与「FS 授权」必须成对
+// 存在——只做其中一边就是死路（有权限但拿不到路径，或拿到路径但读不了）。
+var pluginTransportEnvAllowlist = map[string]bool{
+	"SSL_CERT_FILE": true, "SSL_CERT_DIR": true,
+	"HTTPS_PROXY": true, "HTTP_PROXY": true, "NO_PROXY": true,
+	"https_proxy": true, "http_proxy": true, "no_proxy": true,
+}
+
 // githubAuthEndpointOverrideEnvKeys 仅在非 production 宿主环境可注入插件子进程。
 // 生产路径即使宿主误设这些变量也不得透传，避免 OAuth code/secret/token 打到任意端点。
 var githubAuthEndpointOverrideEnvKeys = map[string]bool{
@@ -129,7 +149,7 @@ func buildPluginProcessEnv(hostEnv []string) []string {
 			out = append(out, entry)
 			continue
 		}
-		if pluginEnvAllowlist[key] || strings.HasPrefix(key, "SFORUM_SETTING_") {
+		if pluginEnvAllowlist[key] || pluginTransportEnvAllowlist[key] || strings.HasPrefix(key, "SFORUM_SETTING_") {
 			out = append(out, entry)
 		}
 	}
@@ -217,7 +237,75 @@ func prepareVerifiedPluginExecutable(extension extensions.Extension, cmd *exec.C
 		_ = executable.Close()
 		return nil, err
 	}
+	attachPluginSandbox(cmd, extension)
 	return executable, nil
+}
+
+// attachPluginSandbox 把插件命令改写成「经内核级沙箱启动器 exec」（EX2-01）。
+//
+// 加固层与启动条件严格分离：任何一步不可用都只降级为直接 exec，并留下可诊断的
+// 原因。真正的降级明细由启动器在 exec 之前写回，宿主在子进程出现后通过
+// pluginprocess.DrainLaunchReport 落进现有 slog 审计落点（见 applyPluginProcessLimits）。
+//
+// 调用位置有约束：必须在 pinVerifiedExecutable 之后。此时 cmd.Path 已经是
+// /proc/self/fd/3，启动器会把这份已校验 inode 再 exec 一次，RV-53 的「校验与使用
+// 是同一个对象」因此穿过启动器仍然成立。
+func attachPluginSandbox(cmd *exec.Cmd, extension extensions.Extension) {
+	if cmd == nil {
+		return
+	}
+	options := pluginprocess.SandboxOptionsFromEnv(os.Getenv)
+	if !options.Enabled {
+		return
+	}
+	spec := pluginprocess.SandboxSpec{
+		PluginID:      extension.ID,
+		PackageDigest: extension.PackageDigest,
+		Entry:         cmd.Path,
+		Argv0:         pluginSandboxArgv0(extension, cmd),
+		ArtifactDir:   cmd.Dir,
+		PackageRoot:   extensions.PackageContentRoot(extension),
+		ExtraReadOnly: options.ExtraReadOnly,
+		ExtraExec:     options.ExtraExec,
+		// 运维显式配置的目录 + 「设置项里的绝对路径值」共同构成可写面（P0）。
+		// 后者之所以能自动纳入：那是运维通过设置表交给这个插件的数据目录，
+		// 不是插件自选路径；规则通用，不认插件名也不认键名。
+		ExtraReadWrite: append(
+			append([]string(nil), options.ExtraReadWrite...),
+			pluginprocess.SandboxWritableSettingPaths(cmd.Env)...,
+		),
+		TempRoot: os.TempDir(),
+		Policy: pluginprocess.SandboxPolicy{
+			Filesystem: options.Filesystem,
+			Network:    options.Network,
+			Cgroup:     options.Cgroup,
+		},
+		MemoryMax: options.MemoryMax,
+		PidsMax:   options.PidsMax,
+	}
+	if err := pluginprocess.WrapCommand(cmd, spec); err != nil {
+		if errors.Is(err, pluginprocess.ErrLauncherNotRegistered) || errors.Is(err, pluginprocess.ErrLauncherUnsupported) {
+			// 测试二进制等不启动插件的宿主没有声明启动器，非 Linux 平台没有启动器：
+			// 两者都是预期降级，不刷告警。
+			return
+		}
+		slog.Warn(
+			"plugin sandbox launcher unavailable; plugin starts without kernel confinement",
+			"extension", extension.ID, "event", "plugin.sandbox.unavailable", "error", err,
+		)
+	}
+}
+
+// pluginSandboxArgv0 给出插件进程的可读 argv[0]：ps 里应该看到入口名，而不是宿主
+// 的 /proc/self/fd/3。exec 目标仍然是被钉住的 inode，argv[0] 只是展示用。
+func pluginSandboxArgv0(extension extensions.Extension, cmd *exec.Cmd) string {
+	if entry := strings.TrimSpace(extension.Manifest.Backend.Entry); entry != "" {
+		return entry
+	}
+	if cmd != nil && len(cmd.Args) > 0 {
+		return filepath.Base(cmd.Args[0])
+	}
+	return extension.ID
 }
 
 // pinnedExecutablePath 是「已校验 inode」在 Linux 子进程里的地址：
@@ -298,9 +386,24 @@ func stopPluginProcess(processGroup int, client *plugin.Client) {
 	}
 }
 
-// applyPluginProcessLimits 在子进程出现之后收紧资源上限（见 pluginprocess.Limit）。
+// applyPluginProcessLimits 在子进程出现之后收紧资源上限（见 pluginprocess.Limit），
+// 并取走沙箱启动器的能力报告。
+//
+// 报告在 exec 之前就写好了，此时读是即时的；把「记录降级/已加固」放在这里，是因为
+// 这是启动成功路径上唯一一个「子进程已存在、插件尚未对外发布」的位置。
 func applyPluginProcessLimits(cmd *exec.Cmd) {
 	pluginprocess.Limit(cmd)
+	pluginprocess.DrainLaunchReport(cmd)
+}
+
+// abortPluginStart 是「启动失败」的唯一出口。
+//
+// 先取走沙箱能力报告再回收进程：失败路径同样要留下降级证据（网关/运维要能回答
+// 「这次启动到底有没有被内核约束」）。DrainLaunchReport 幂等，成功路径已经取过时
+// 这里是 no-op，不会重复写日志。
+func abortPluginStart(cmd *exec.Cmd, client *plugin.Client) {
+	pluginprocess.DrainLaunchReport(cmd)
+	stopPluginProcess(pluginProcessGroupID(cmd), client)
 }
 
 // pluginProcessGroupID 返回子进程的进程组 id；没有进程时返回 0。

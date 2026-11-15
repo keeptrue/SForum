@@ -43,6 +43,15 @@ export type SFShortcodeReferencePreview = {
 
 type SFShortcodeKind = 'reference' | 'protected'
 
+/**
+ * 渲染期文案解析器（通常是 `useI18n().t`）。
+ *
+ * 编辑器扩展在模块级创建，常量里不能调 `t()`——那样会把首次加载时的语言
+ * 冻进闭包。所以扩展只持有**键**，由调用点（组件 setup 内）注入翻译器，
+ * 兜底文案在实际渲染时按当前语言解析。
+ */
+export type SFEditorTranslate = (key: string) => string
+
 type SFShortcodeDeclaration = {
   name: string
   id: string
@@ -52,22 +61,72 @@ type SFShortcodeDeclaration = {
   bracketArgument?: string
   commentOnly?: boolean
   fallbackCode: string
+  /** 兜底文案的 i18n 键；空串表示该节点不渲染兜底（friend-links 静默消失）。 */
+  fallbackKey: string
+  /** 最后兜底：没有注入翻译器时（纯工具调用）才用的字面量。 */
   fallbackLabel: string
 }
 
 const declarations: SFShortcodeDeclaration[] = [
-  { name: 'user', id: 'sforum-shortcodes.user', contractVersion: 'sforum-shortcodes.user@1', kind: 'reference', canonicalArgument: 'userId', bracketArgument: 'user_id', fallbackCode: 'shortcode.user.unavailable', fallbackLabel: '用户引用暂不可用' },
-  { name: 'topic', id: 'sforum-shortcodes.topic', contractVersion: 'sforum-shortcodes.topic@1', kind: 'reference', canonicalArgument: 'topicId', bracketArgument: 'topic_id', fallbackCode: 'shortcode.topic.unavailable', fallbackLabel: '主题引用暂不可用' },
-  { name: 'comment', id: 'sforum-shortcodes.comment', contractVersion: 'sforum-shortcodes.comment@1', kind: 'reference', canonicalArgument: 'commentId', bracketArgument: 'comment_id', fallbackCode: 'shortcode.comment.unavailable', fallbackLabel: '评论引用暂不可用' },
-  { name: 'category', id: 'sforum-shortcodes.category', contractVersion: 'sforum-shortcodes.category@1', kind: 'reference', canonicalArgument: 'categoryId', bracketArgument: 'category_id', fallbackCode: 'shortcode.category.unavailable', fallbackLabel: '分类引用暂不可用' },
-  { name: 'friend-links', id: 'sforum-shortcodes.friend-links', contractVersion: 'sforum-shortcodes.friend-links@1', kind: 'reference', fallbackCode: 'shortcode.friend_links.omitted', fallbackLabel: '' },
-  { name: 'login', id: 'sforum-shortcodes.login', contractVersion: 'sforum-shortcodes.login@1', kind: 'protected', fallbackCode: 'shortcode.protected.unavailable', fallbackLabel: '受保护内容暂不可用' },
-  { name: 'reply', id: 'sforum-shortcodes.reply', contractVersion: 'sforum-shortcodes.reply@1', kind: 'protected', fallbackCode: 'shortcode.protected.unavailable', fallbackLabel: '受保护内容暂不可用' },
-  { name: 'only-author', id: 'sforum-shortcodes.only-author', contractVersion: 'sforum-shortcodes.only-author@1', kind: 'protected', commentOnly: true, fallbackCode: 'shortcode.protected.unavailable', fallbackLabel: '受保护内容暂不可用' }
+  { name: 'user', id: 'sforum-shortcodes.user', contractVersion: 'sforum-shortcodes.user@1', kind: 'reference', canonicalArgument: 'userId', bracketArgument: 'user_id', fallbackCode: 'shortcode.user.unavailable', fallbackKey: 'composer.shortcodes.fallback.user', fallbackLabel: '用户引用暂不可用' },
+  { name: 'topic', id: 'sforum-shortcodes.topic', contractVersion: 'sforum-shortcodes.topic@1', kind: 'reference', canonicalArgument: 'topicId', bracketArgument: 'topic_id', fallbackCode: 'shortcode.topic.unavailable', fallbackKey: 'composer.shortcodes.fallback.topic', fallbackLabel: '主题引用暂不可用' },
+  { name: 'comment', id: 'sforum-shortcodes.comment', contractVersion: 'sforum-shortcodes.comment@1', kind: 'reference', canonicalArgument: 'commentId', bracketArgument: 'comment_id', fallbackCode: 'shortcode.comment.unavailable', fallbackKey: 'composer.shortcodes.fallback.comment', fallbackLabel: '评论引用暂不可用' },
+  { name: 'category', id: 'sforum-shortcodes.category', contractVersion: 'sforum-shortcodes.category@1', kind: 'reference', canonicalArgument: 'categoryId', bracketArgument: 'category_id', fallbackCode: 'shortcode.category.unavailable', fallbackKey: 'composer.shortcodes.fallback.category', fallbackLabel: '分类引用暂不可用' },
+  { name: 'friend-links', id: 'sforum-shortcodes.friend-links', contractVersion: 'sforum-shortcodes.friend-links@1', kind: 'reference', fallbackCode: 'shortcode.friend_links.omitted', fallbackKey: '', fallbackLabel: '' },
+  { name: 'login', id: 'sforum-shortcodes.login', contractVersion: 'sforum-shortcodes.login@1', kind: 'protected', fallbackCode: 'shortcode.protected.unavailable', fallbackKey: 'composer.shortcodes.fallback.protected', fallbackLabel: '受保护内容暂不可用' },
+  { name: 'reply', id: 'sforum-shortcodes.reply', contractVersion: 'sforum-shortcodes.reply@1', kind: 'protected', fallbackCode: 'shortcode.protected.unavailable', fallbackKey: 'composer.shortcodes.fallback.protected', fallbackLabel: '受保护内容暂不可用' },
+  { name: 'only-author', id: 'sforum-shortcodes.only-author', contractVersion: 'sforum-shortcodes.only-author@1', kind: 'protected', commentOnly: true, fallbackCode: 'shortcode.protected.unavailable', fallbackKey: 'composer.shortcodes.fallback.protected', fallbackLabel: '受保护内容暂不可用' }
 ]
+
+/** 保护块在没有可识别声明时使用同一句兜底（`data-fallback` 也回落到它）。 */
+const SF_SHORTCODE_PROTECTED_FALLBACK_KEY = 'composer.shortcodes.fallback.protected'
+export const SF_SHORTCODE_PROTECTED_FALLBACK_LABEL = '受保护内容暂不可用'
+
+/**
+ * 兜底文案的唯一解析入口：有键且有翻译器时走 i18n（缺键回落到字面量），
+ * 否则用声明里的最后字面量。返回值空串表示「不渲染兜底」。
+ */
+function resolveFallbackLabel(
+  key: string,
+  label: string,
+  translate?: SFEditorTranslate
+): string {
+  if (!key || !translate) return label
+  const resolved = translate(key)
+  // 翻译器缺键时通常回显键本身；那比中文兜底更糟，直接退到字面量。
+  return resolved && resolved !== key ? resolved : label
+}
 
 const declarationsByName = new Map(declarations.map(item => [item.name, item]))
 const declarationsByID = new Map(declarations.map(item => [item.id, item]))
+
+/** 某个短代码节点在无 NodeView 时的兜底文案（编辑器 HTML / 纯文本出口）。 */
+export function sforumShortcodeFallbackLabel(
+  id: string,
+  translate?: SFEditorTranslate
+): string {
+  const declaration = declarationsByID.get(id)
+  if (!declaration) return ''
+  return resolveFallbackLabel(declaration.fallbackKey, declaration.fallbackLabel, translate)
+}
+
+/** 保护块的兜底文案。 */
+export function sforumProtectedFallbackLabel(translate?: SFEditorTranslate): string {
+  return resolveFallbackLabel(
+    SF_SHORTCODE_PROTECTED_FALLBACK_KEY,
+    SF_SHORTCODE_PROTECTED_FALLBACK_LABEL,
+    translate
+  )
+}
+
+/** 会渲染进界面的兜底文案键（键集闸门与回归测试的锚点）。 */
+export function sforumShortcodeFallbackKeys(): string[] {
+  return [...new Set(
+    [...declarations.map(item => item.fallbackKey), SF_SHORTCODE_PROTECTED_FALLBACK_KEY]
+      .filter(Boolean)
+  )].sort()
+}
+
 const bracketNamePattern = /^[a-z][a-z0-9-]*$/
 const bracketKeyPattern = /^[a-z][a-z0-9_]*$/
 const referenceRuleSource = String.raw`\[(?:user|topic|comment|category|friend-links|topic-tag)(?:[ \t]+[a-z_]+=(?:"\d+"|\d+))?\]\[\/(?:user|topic|comment|category|friend-links|topic-tag)\]`
@@ -165,22 +224,30 @@ export type SFShortcodeNodeViewHost = {
   unwrapProtected: (selection: EditorProtectedSelectionV1) => void
 }
 
+/** 创建短代码扩展时可注入的宿主能力。 */
+export type SFShortcodeExtensionOptions = {
+  /** 兜底文案的翻译器；不传则退到声明里的最后字面量。 */
+  translate?: SFEditorTranslate
+}
+
 export function createSForumShortcodeExtensions(
   resourceKind: SFShortcodeResourceKind = 'topic',
   referenceNodeView?: NodeViewRenderer,
   protectedNodeView?: NodeViewRenderer,
-  nodeViewHost?: SFShortcodeNodeViewHost
+  nodeViewHost?: SFShortcodeNodeViewHost,
+  options: SFShortcodeExtensionOptions = {}
 ) {
   return [
-    createSForumShortcodeRefExtension(resourceKind, referenceNodeView, nodeViewHost),
-    createSForumShortcodeBlockExtension(resourceKind, protectedNodeView, nodeViewHost)
+    createSForumShortcodeRefExtension(resourceKind, referenceNodeView, nodeViewHost, options),
+    createSForumShortcodeBlockExtension(resourceKind, protectedNodeView, nodeViewHost, options)
   ]
 }
 
 function createSForumShortcodeRefExtension(
   resourceKind: SFShortcodeResourceKind,
   referenceNodeView?: NodeViewRenderer,
-  nodeViewHost?: SFShortcodeNodeViewHost
+  nodeViewHost?: SFShortcodeNodeViewHost,
+  options: SFShortcodeExtensionOptions = {}
 ) {
   return Node.create({
     name: SF_SHORTCODE_REF_NODE,
@@ -200,16 +267,19 @@ function createSForumShortcodeRefExtension(
 
     renderHTML({ node, HTMLAttributes }) {
       const declaration = declarationsByID.get(String(node.attrs.id || ''))
-      if (!declaration?.fallbackLabel) return ['span', { hidden: 'hidden' }]
+      if (!declaration) return ['span', { hidden: 'hidden' }]
+      const label = resolveFallbackLabel(declaration.fallbackKey, declaration.fallbackLabel, options.translate)
+      // 没有兜底文案的节点（friend-links）静默消失，不产生空壳。
+      if (!label) return ['span', { hidden: 'hidden' }]
       return ['div', mergeAttributes(HTMLAttributes, {
         class: 'sf-editor-fallback',
         'data-fallback': declaration.fallbackCode,
         contenteditable: 'false'
-      }), declaration.fallbackLabel]
+      }), label]
     },
 
     renderText({ node }) {
-      return declarationsByID.get(String(node.attrs.id || ''))?.fallbackLabel || ''
+      return sforumShortcodeFallbackLabel(String(node.attrs.id || ''), options.translate)
     },
 
     markdownTokenName: SF_SHORTCODE_REF_NODE,
@@ -470,7 +540,8 @@ export function sforumCanInsertReference(state: EditorState) {
 function createSForumShortcodeBlockExtension(
   resourceKind: SFShortcodeResourceKind,
   protectedNodeView?: NodeViewRenderer,
-  nodeViewHost?: SFShortcodeNodeViewHost
+  nodeViewHost?: SFShortcodeNodeViewHost,
+  options: SFShortcodeExtensionOptions = {}
 ) {
   return Node.create({
     name: SF_SHORTCODE_BLOCK_NODE,
@@ -492,15 +563,18 @@ function createSForumShortcodeBlockExtension(
     // descendants, while client HTML and public previews cannot serialize them.
     renderHTML({ node, HTMLAttributes }) {
       const declaration = declarationsByID.get(String(node.attrs.id || ''))
+      const label = declaration
+        ? resolveFallbackLabel(declaration.fallbackKey, declaration.fallbackLabel, options.translate)
+        : sforumProtectedFallbackLabel(options.translate)
       return ['div', mergeAttributes(HTMLAttributes, {
         class: 'sf-editor-fallback',
         'data-fallback': declaration?.fallbackCode || 'shortcode.protected.unavailable',
         contenteditable: 'false'
-      }), declaration?.fallbackLabel || '受保护内容暂不可用']
+      }), label || sforumProtectedFallbackLabel(options.translate)]
     },
 
     renderText() {
-      return '受保护内容暂不可用'
+      return sforumProtectedFallbackLabel(options.translate)
     },
 
     markdownTokenName: SF_SHORTCODE_BLOCK_NODE,

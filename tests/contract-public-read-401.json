@@ -1,0 +1,54 @@
+{
+  "说明": "公开读 operation 的定向 401 棘轮清单（由 tests/validate-contract-status-parity.mjs 读取）。这 12 条是匿名可读的候选人：handler 第一步就是 requireGuestRead，forum.guest.read=login_required 时匿名请求直接 401。它们曾经全部漏声明 401，且因为实现侧状态码集合为空而让门看不见——所以单独钉一条棘轮，删掉任意一条 '401' 都会变红。新增条目要写清是哪个 handler、哪一行守卫；条目在契约里找不到（改名/删除 operation）同样判红，不允许清单烂掉。",
+  "最少条数": 12,
+  "operations": [
+    {
+      "operation": "GET /api/v1/categories",
+      "原因": "handler categories（apps/api/app/Http/Controllers/Forum/controller.go:340）第一行调 requireGuestRead：论坛游客读策略为 login_required 时匿名请求在查库前就 401。"
+    },
+    {
+      "operation": "GET /api/v1/category-groups",
+      "原因": "handler categoryGroups（controller.go:351）同样先走 requireGuestRead，游客读被收紧后匿名 401；分类组是公开导航的一部分，不能静默降级成空列表。"
+    },
+    {
+      "operation": "GET /api/v1/tags",
+      "原因": "handler tags（controller.go:377）同样先走 requireGuestRead：标签云属于公开阅读面，login_required 时匿名 401。"
+    },
+    {
+      "operation": "GET /api/v1/search",
+      "原因": "handler search（controller.go:410）先走 requireGuestRead 再判 searchService 是否装配，所以 401 早于 503；匿名检索在 login_required 下必须被拒。"
+    },
+    {
+      "operation": "GET /api/v1/topics",
+      "原因": "handler topics（controller.go:388）先走 requireGuestRead：主题列表是最典型的公开读，login_required 时匿名 401。"
+    },
+    {
+      "operation": "GET /api/v1/topics/by-slug/{slug}",
+      "原因": "handler topicBySlug（controller.go:498）先走 requireGuestRead：slug 寻址与 ID 寻址同口径，不能留下绕过游客读策略的入口。"
+    },
+    {
+      "operation": "GET /api/v1/topics/{topicID}",
+      "原因": "handler topic（controller.go:469）先走 requireGuestRead，再解析 OptionalActor 与计浏览；login_required 时匿名详情 401。"
+    },
+    {
+      "operation": "GET /api/v1/topics/{topicID}/contribution-timeline",
+      "原因": "handler topicContributionTimeline（controller.go:538）先走 requireGuestRead：公开贡献时间线不因「免修订权限」而放宽游客读边界。"
+    },
+    {
+      "operation": "GET /api/v1/topics/{topicID}/comments",
+      "原因": "handler comments（controller.go:715）先走 requireGuestRead：评论列表与主题详情同一边界，login_required 时匿名 401。"
+    },
+    {
+      "operation": "GET /api/v1/topics/{topicID}/comments/{commentID}/page",
+      "原因": "handler commentPage（controller.go:745）先走 requireGuestRead：锚点翻页反查与评论列表同口径，未登录且游客读收紧时 401。"
+    },
+    {
+      "operation": "GET /api/v1/comments/{commentID}/replies",
+      "原因": "handler replies（controller.go:789）先走 requireGuestRead：直接回复列表属于公开读面，login_required 时匿名 401。"
+    },
+    {
+      "operation": "GET /api/v1/comments/{commentID}/citations",
+      "原因": "handler commentCitations（apps/api/app/Http/Controllers/Forum/citations.go:20）与 replies 同族，第一行就是 requireGuestRead，会话语义一致地拒绝匿名。"
+    }
+  ]
+}

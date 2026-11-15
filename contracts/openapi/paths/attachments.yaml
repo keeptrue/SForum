@@ -74,18 +74,43 @@ attachmentContent:
     operationId: getAttachmentContent
     parameters:
     - "$ref": "../components/parameters.yaml#/AttachmentPublicID"
+    - "$ref": "../components/parameters.yaml#/MediaDeliveryHeader"
     responses:
       '200':
         description: >
           Attachment bytes streamed from the configured provider after the
-          same access policy as getAttachment is rechecked. The browser-facing
-          Host media route may opt into an internal signed-redirect delivery
-          mode; this public API operation keeps its byte-stream response.
+          same access policy as getAttachment is rechecked. This is the
+          default delivery mode and also the fallback when the storage
+          provider cannot produce a signed URL. Callers that set the
+          `X-SForum-Media-Delivery` header parameter (see this operation's
+          parameters) to `redirect-v1` get a 302 to the provider-signed
+          address instead, as declared below.
         content:
           application/octet-stream:
             schema:
               type: string
               format: binary
+      '302':
+        description: >
+          Direct delivery mode: the `X-SForum-Media-Delivery` header parameter
+          (declared on this operation, enum `redirect-v1`) was set to
+          `redirect-v1` and the storage provider produced a signed URL, so the
+          API answers 302 instead of streaming the bytes
+          (sendAttachmentDelivery → StatusFound). The location is
+          capability-bearing, therefore cacheable only privately — the
+          response is always sent with `Cache-Control: private, no-store`.
+          Providers without signed-URL support, and requests without that
+          header parameter, fall back to the 200 stream.
+        headers:
+          Location:
+            description: Provider-signed URL that serves the bytes for this attachment.
+            schema:
+              type: string
+              format: uri
+          Cache-Control:
+            description: Always `private, no-store`; the signed location must never be shared-cached.
+            schema:
+              type: string
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
@@ -106,16 +131,38 @@ attachmentVariantContent:
       schema:
         type: string
         enum: [display]
+    - "$ref": "../components/parameters.yaml#/MediaDeliveryHeader"
     responses:
       '200':
         description: >
           Streams the ready variant after applying the original attachment
           access policy. Missing, stale, or unavailable variants transparently
-          fall back to the immutable original. The browser-facing Host media
-          route may internally request signed-redirect delivery.
+          fall back to the immutable original. With the
+          `X-SForum-Media-Delivery` header parameter (see this operation's
+          parameters) set to `redirect-v1`, the same sendAttachmentDelivery
+          branch answers 302 to the provider-signed address instead of
+          streaming, as declared below.
         content:
           application/octet-stream:
             schema: { type: string, format: binary }
+      '302':
+        description: >
+          Direct delivery mode for the variant: the `X-SForum-Media-Delivery`
+          header parameter (declared on this operation, enum `redirect-v1`) was
+          set to `redirect-v1` plus a provider-signed URL, yielding 302
+          (StatusFound) to the signed address, with `Cache-Control: private,
+          no-store`. Without signed-URL support, or without that header
+          parameter, the variant falls back to the 200 stream.
+        headers:
+          Location:
+            description: Provider-signed URL that serves the variant bytes.
+            schema:
+              type: string
+              format: uri
+          Cache-Control:
+            description: Always `private, no-store`; the signed location must never be shared-cached.
+            schema:
+              type: string
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }

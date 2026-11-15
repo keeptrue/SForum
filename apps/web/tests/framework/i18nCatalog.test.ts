@@ -121,6 +121,8 @@ describe('locale key parity (RV-10)', () => {
       'forum.feed.',
       'auth.loginOrRegister',
       'composer.editor.',
+      'composer.shortcodes.fallback.',
+      'composer.emoji.',
       'admin.extensions.contributions.governance.disabledBadge'
     ]
     const offenders: string[] = []

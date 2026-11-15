@@ -272,7 +272,10 @@ siteThemeAsset:
         in: path
         required: true
         allowReserved: true
-        description: Slash-preserving package-relative asset path.
+        description: >-
+          Slash-preserving package-relative asset path. 该参数匹配多段（实现为
+          Fiber `*` 通配：api.Get("/site/theme-assets/:extensionId/*")），
+          因此可以是任意层级；OpenAPI 3.1 无法表达多段 catch-all，路径形状以本描述披露。
         schema: { type: string, minLength: 1, maxLength: 512 }
       - name: v
         in: query

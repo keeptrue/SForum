@@ -28,6 +28,7 @@ import {
 } from '~/utils/editor/mentions'
 import {
   createSForumShortcodeExtensions,
+  type SFEditorTranslate,
   type SFShortcodeNodeViewHost,
   type SFShortcodeResourceKind
 } from '~/utils/editor/shortcodes'
@@ -36,6 +37,19 @@ import { createSForumTableExtensions } from '~/utils/editor/table'
 export type SForumEmojiItem = {
   name: string
   label: string
+  native: string
+}
+
+/**
+ * 表情节点的默认插入项。
+ *
+ * 模块级常量不能调 `t()`（会把首次加载的语言冻进闭包），所以这里只存文案
+ * **键**，由插入点用 `sforumEmojiItem()` 在渲染期解析：`label` 会写进文档、
+ * `title` 与 `data-label`，必须按插入当时的语言落地。
+ */
+export type SForumEmojiPreset = {
+  name: string
+  labelKey: string
   native: string
 }
 
@@ -198,14 +212,27 @@ export const SForumEmoji = Node.create({
   ...sforumEmojiMarkdown
 })
 
-export const sforumEditorEmojiItems: SForumEmojiItem[] = [
-  { name: 'sparkles', label: '灵感', native: '✨' },
-  { name: 'clap', label: '赞同', native: '👏' },
-  { name: 'thinking', label: '思考', native: '🤔' },
-  { name: 'rocket', label: '推进', native: '🚀' },
-  { name: 'eyes', label: '关注', native: '👀' },
-  { name: 'party', label: '庆祝', native: '🎉' }
+export const sforumEditorEmojiPresets: SForumEmojiPreset[] = [
+  { name: 'sparkles', labelKey: 'composer.emoji.sparkles', native: '✨' },
+  { name: 'clap', labelKey: 'composer.emoji.clap', native: '👏' },
+  { name: 'thinking', labelKey: 'composer.emoji.thinking', native: '🤔' },
+  { name: 'rocket', labelKey: 'composer.emoji.rocket', native: '🚀' },
+  { name: 'eyes', labelKey: 'composer.emoji.eyes', native: '👀' },
+  { name: 'party', labelKey: 'composer.emoji.party', native: '🎉' }
 ]
+
+/** 把预设解析成节点属性：`label` 走 i18n；缺键时留空，渲染侧会回落到 `name`。 */
+export function sforumEmojiItem(
+  preset: SForumEmojiPreset,
+  translate: SFEditorTranslate
+): SForumEmojiItem {
+  const label = translate(preset.labelKey)
+  return {
+    name: preset.name,
+    label: label === preset.labelKey ? '' : label,
+    native: preset.native
+  }
+}
 
 export function createSFEditorExtensions(options: {
   placeholder: string
@@ -221,6 +248,13 @@ export function createSFEditorExtensions(options: {
   shortcodeNodeViewHost?: SFShortcodeNodeViewHost
   /** 论坛 @提及（候选 + 高亮）；不传则完全不注册，基础场景不受影响。 */
   mentions?: SForumMentionOptions
+  /**
+   * 渲染期文案翻译器（组件里传 `useI18n().t`）。
+   *
+   * 短代码/表情这类扩展在模块级定义，只能持有文案键；界面文案在这一层注入，
+   * 不传时退到模块内声明的最后兜底字面量（纯工具调用、单测）。
+   */
+  translate?: SFEditorTranslate
 }) {
   const full = options.preset !== 'basic-field'
   const trusted = Array.isArray(options.trustedExtensions)
@@ -260,7 +294,8 @@ export function createSFEditorExtensions(options: {
         options.resourceKind || 'topic',
         options.shortcodeReferenceNodeView,
         options.shortcodeProtectedNodeView,
-        options.shortcodeNodeViewHost
+        options.shortcodeNodeViewHost,
+        { translate: options.translate }
       ),
       SForumImage.configure({
         allowBase64: false,

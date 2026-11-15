@@ -452,6 +452,19 @@ Route registration rules:
   handlers. V3 trusted replacement handlers/custom guards own the explicitly
   declared policy contract and require trust disclosure, audit, and tests.
 
+### Core authorization authority boundary
+
+Core route authorization is decided in the handler/service layer, not by the
+Route Registry. The `CoreGuardDescriptor` in the generated core catalog is
+reviewed build-time policy data: a boot gate asserts every declared contextual
+evaluator is bound, and `catalog_guard_declarations_test.go` pins the ten
+highest-risk declarations, but no request path derives a decision from it.
+`Routes.Dispatcher` returns an empty authority for `ProviderCore` steps, and
+core-only plans never enter the dispatcher at all. Do not "fix" this by routing
+core steps through the dispatcher: the same answer would then depend on whether
+a plugin modifier happens to be in the chain. Decision, compensating controls,
+and reopening conditions: `../decisions/2026-11-15-core-guard-authority-boundary.md`.
+
 ## API Contract
 
 `contracts/openapi.yaml` is the stable OpenAPI entrypoint for documentation and
