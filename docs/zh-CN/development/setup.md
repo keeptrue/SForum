@@ -12,7 +12,7 @@ cd SForum
 安装：
 
 - Docker Desktop（或兼容的 Docker Engine + Compose）
-- Go 1.26.10+（工具链锚定于 `apps/api/go.mod`，文档要求以它为准）
+- Go 1.26.11+（工具链锚定于 `apps/api/go.mod`，文档要求以它为准）
 - Air：`go install github.com/air-verse/air@latest`
 - Bun（前端）
 - 可选：Ruby（校验 OpenAPI refs：`ruby scripts/validate-openapi-refs.rb`）

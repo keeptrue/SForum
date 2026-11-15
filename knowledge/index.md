@@ -8,9 +8,9 @@ load archived sessions or completed plans as current context.
 
 ### 全仓审计修复（P0–P3，113 条）
 
-- Status: 进行中。总 **113**；§7 噪声 9 条 + F-D2 已摘出分母，**有效待修池 103**；已修 **48**，剩余 **55 = P2 30 / P3 25**（P1 0）。簇 12（扩展信任链）已收口：6 完成 / 2 部分（EX2-01、RV-03）。
-- 本轮交接：`sessions/2026-11-15-audit-cluster12-trust-chain.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
-- 唯一未闭环项：RV-04 / UX2-11 的**运行时**验收待 dev 栈起来后补（当前只有挂载级与结构级证据）。
+- Status: 进行中。总 **113**；§7 噪声 9 条 + F-D2 + FE2-02（审计前提不成立）已摘出分母，**有效待修池 102**；已修 **69**，剩余 **33 = P2 21 / P3 12**（P1 0；EX2-01 / RV-03 为部分完成）。簇 12（扩展信任链）与簇 14（供应链与 CI）已收口。
+- 本轮交接：`sessions/2026-11-15-audit-cluster14-supply-chain.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
+- 未闭环项：EX2-01 的内核级隔离与 exec 路径 TOCTOU、RV-03 的 core-only 裁决边界；GO-2026-5932（`x/crypto v0.58.0`，module 级未调用，属独立依赖轮次）；`SEVERITY_GATE: report` 待前端清完 5 critical / 44 high 后翻 `fail`。
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
@@ -847,7 +847,17 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **插件子进程 exec 相对路径导致全站 503（2026-11-15，最新）**：dev 的 `EXTENSION_ROOT` 是
+- **供应链与 CI 收口（簇 14，2026-11-15，最新）**：9 条全闭环（RV-14 / RV-15 /
+  RV-18 / RV-41 / RV-42 / RV-43 / FE2-01 / OPS2-07 / OPS2-09）+ 5 项同域遗留。
+  **四项升级前必读**：① 镜像身份改内容 digest（拉取前 `buildx imagetools` 解析、
+  拉取后核对 `RepoDigests`，`SFORUM_CADDY_IMAGE` 必须带 `@sha256:`）；② 升级机需要
+  `buildx` 插件，缺插件在拉取前 fail closed；③ `api` / `web` 有 healthcheck 且
+  `web → api` 升为 `service_healthy`，冷启动首次 `compose up` 更久；④
+  `.env.production.example` 的 `MIGRATE_ON_STARTUP` 改为 `false`（Compose 缺省仍
+  `true`）。工具链抬到 Go 1.26.11，三处同源由 gate 断言。见
+  `sessions/2026-11-15-audit-cluster14-supply-chain.md` 与
+  `reports/2026-11-15-release-upgrade-notes.md`。
+- **插件子进程 exec 相对路径导致全站 503（2026-11-15）**：dev 的 `EXTENSION_ROOT` 是
   相对路径（`../../storage/extensions`），`installedFilePath` 因此返回相对入口；EX2-01 加了
   钉 `cmd.Dir` 却没绝对化 exec 路径，`execve` 按子进程 cwd 解析相对 entry →
   `fork/exec ../../storage/.../backend/plugin: no such file or directory`，Host 进

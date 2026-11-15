@@ -2,36 +2,36 @@
   "sharedRuntimeDigest": "9f42357a0f3f681294390999accfe5a14f90aafcb2937399d29ca4a78d8e63da",
   "plugins": {
     "sforum.auth-github": {
-      "version": "1.0.13",
-      "sourceDigest": "279f9e77dd80062936077617af1d881f9b501b2a655a6d49b2515365e41b0a4f"
+      "version": "1.0.14",
+      "sourceDigest": "89bbf8902b47b0a310a02c6ad1fb4bbf0fbb0db9ceda61288a744bd1dae6ca12"
     },
     "sforum.content-policy": {
-      "version": "1.1.12",
-      "sourceDigest": "9d198863e988d9a8253b741da788da73afa102ef61663f7f3a9da661efe19fda"
+      "version": "1.1.13",
+      "sourceDigest": "8e186f84c184dda86f8f4607edbf7b9a17daa7696bc83f4968fa558745dd3143"
     },
     "sforum.search-site": {
-      "version": "1.0.11",
-      "sourceDigest": "37566adf239b9390dee749f9367a305979645061577d70fb0c0410889f67a0ea"
+      "version": "1.0.12",
+      "sourceDigest": "3e64cbdecdc6be7dba50455b94789f73871edecb6495b70412d1825e4409a496"
     },
     "sforum-shortcodes": {
-      "version": "1.3.9",
-      "sourceDigest": "81628e90eaac9e26d9fd5a66cffd406a9b67df4c3aa35df0440e4e028d57a8b3"
+      "version": "1.3.10",
+      "sourceDigest": "15ab8c740be6d468d2fa049b6b80a102606f38d7098c285ba5215c2bcaaf983d"
     },
     "sforum.smtp": {
-      "version": "1.1.11",
-      "sourceDigest": "fad171010f9a665f0d35a9fdeba4aaf4a22aaf03f4a0f9a6c8f6f88c03aaa680"
+      "version": "1.1.12",
+      "sourceDigest": "69670bbfc789c8279794eb1961568ba1e86f9d3f714b159408b56a59c5b674f1"
     },
     "sforum.storage-fs": {
-      "version": "1.1.12",
-      "sourceDigest": "441162adbfd2b8f13cdd4c3a4f04127cced5302f62f4c1eff2ca29a26d7054c9"
+      "version": "1.1.13",
+      "sourceDigest": "19f8ccfbcda156c6f02b0516606b589822421ecb97a9825d8ef061cf46e82b6e"
     },
     "sforum.storage-s3": {
-      "version": "1.0.15",
-      "sourceDigest": "022fe28c2c18fcc211a700f74960f1e04aa7baff40c7ad9ce38389236486a970"
+      "version": "1.0.16",
+      "sourceDigest": "1ff787a492c5ef9d32f00d27429d93d2c80c128f47bc598384c2801de840c483"
     },
     "sforum.web-push": {
-      "version": "1.0.11",
-      "sourceDigest": "a327496afb918c4541d96860c96cee80c9c70657959d94948e2a55df60cad07c"
+      "version": "1.0.12",
+      "sourceDigest": "1963281512d4db87c1bacafe6a2ecc44342cbf9973484ee333645922285bdc77"
     }
   }
 }

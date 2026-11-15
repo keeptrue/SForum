@@ -1,6 +1,6 @@
 module github.com/keeptrue/sforum/extensions/fixtures/plugins/sforum-events-command-reference/backend
 
-go 1.26.10
+go 1.26.11
 
 require github.com/keeptrue/sforum/apps/api v0.0.0
 

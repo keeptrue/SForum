@@ -44,26 +44,119 @@ function normalizeRoutePath(...parts) {
   return value === '/' ? value : value.replace(/\/$/, '')
 }
 
-function validateRouteSource(route) {
-  const separator = route.source.lastIndexOf(':')
-  assert(separator > 0, `${route.id} source has no line number`)
-  const source = route.source.slice(0, separator)
-  const lineNumber = Number(route.source.slice(separator + 1))
-  const lines = readFileSync(resolve(root, source), 'utf8').split('\n')
-  assert(Number.isSafeInteger(lineNumber) && lineNumber > 0 && lineNumber <= lines.length, `${route.id} source line is invalid`)
+// 路由 source 的判据是 `path#symbol`，**不认行号**。
+//
+// 行号是脆的：任何在 RegisterRoutes 之前的 import 位移都会把整张表平移，让
+// routes.json / routes.md / --check 三条门槛一起变红（c9da91ea7 就是一次纯
+// import 位移的补行号提交）。符号是稳的。要守的不变量是「这个文件里仍有一条
+// method+path 匹配、且挂在那个 handler 上的注册」：文件消失、符号改名、路径
+// 改道都仍然红，import 位移不再红。内联 handler（server.go 的 /health、/ready）
+// 没有可引用的符号，此时只记文件，并要求该文件里这条 method+path 恰好一条。
+// 符号必须作为**完整标识符**出现在注册行上：`listDemo` 不能靠
+// `listDemoRenamed` 蒙过去（子串匹配会让改名这类真实漂移漏网）。
+function lineBindsSymbol(line, symbol) {
+  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`).test(line)
+}
 
+function routeSourceRegistrations(lines, route) {
   const routers = new Map([['api', '']])
-  for (let index = 0; index < lineNumber - 1; index++) {
-    const group = lines[index].match(/(\w+)\s*:=\s*(\w+)\.Group\("([^"]*)"\)/)
+  const registrations = []
+  for (const line of lines) {
+    const group = line.match(/(\w+)\s*:=\s*(\w+)\.Group\("([^"]*)"\)/)
     if (group && routers.has(group[2])) routers.set(group[1], normalizeRoutePath(routers.get(group[2]), group[3]))
+    const registration = line.match(/(\w+)\.(Get|Post|Put|Patch|Delete|All)\("([^"]*)"/)
+    if (!registration || !routers.has(registration[1])) continue
+    const method = registration[2] === 'All' ? '*' : registration[2].toUpperCase()
+    if (method !== route.method) continue
+    if (normalizeRoutePath('/api/v1', routers.get(registration[1]), registration[3]) !== route.path) continue
+    registrations.push(line)
   }
-  const registration = lines[lineNumber - 1].match(/(\w+)\.(Get|Post|Put|Patch|Delete|All)\("([^"]*)"/)
-  assert(registration, `${route.id} source line is not a route registration`)
-  const method = registration[2] === 'All' ? '*' : registration[2].toUpperCase()
-  assert(method === route.method, `${route.id} source method ${method} does not match ${route.method}`)
-  assert(routers.has(registration[1]), `${route.id} source router ${registration[1]} has no discoverable group`)
-  const path = normalizeRoutePath('/api/v1', routers.get(registration[1]), registration[3])
-  assert(path === route.path, `${route.id} source path ${path} does not match ${route.path}`)
+  return registrations
+}
+
+function validateRouteSource(route, baseRoot = root) {
+  assert(!/:\d+$/.test(route.source), `${route.id} source still carries a line number: ${route.source}`)
+  const separator = route.source.lastIndexOf('#')
+  const source = separator > 0 ? route.source.slice(0, separator) : route.source
+  const symbol = separator > 0 ? route.source.slice(separator + 1) : ''
+  assert(source && !source.includes('#'), `${route.id} source path is invalid: ${route.source}`)
+  assert(!symbol || /^[A-Za-z0-9_.]+$/.test(symbol), `${route.id} source symbol is invalid: ${symbol}`)
+  const lines = readFileSync(resolve(baseRoot, source), 'utf8').split('\n')
+  const registrations = routeSourceRegistrations(lines, route)
+  assert(registrations.length > 0, `${route.id} source ${source} has no ${route.method} ${route.path} registration`)
+  if (!symbol) {
+    assert(
+      registrations.length === 1,
+      `${route.id} source ${source} matches ${registrations.length} ${route.method} ${route.path} registrations; bind a handler symbol instead`
+    )
+    return
+  }
+  // 同一个 method+path 允许出现多条注册（例如 Forum 的 POST /topics 有带/不带
+  // 幂等中间件的两个分支），但它们必须**全部**挂在这个符号上：只要有一条注册
+  // 换成了别的 handler，目录就说不清这条路由到底由谁服务，必须红。
+  const unbound = registrations.filter(line => !lineBindsSymbol(line, symbol))
+  assert(
+    unbound.length === 0,
+    `${route.id} source ${source} has a ${route.method} ${route.path} registration that does not bind ${symbol}: ${unbound[0]?.trim()}`
+  )
+}
+
+// 自检：上面这套判据必须同时满足「对行号漂移免疫」和「真实漂移仍然红」。
+// 用临时目录里的假 routes.go 跑同一批函数，不依赖仓库当前状态。
+function assertRouteSourceJudgement() {
+  const directory = mkdtempSync(join(tmpdir(), 'sforum-v3-route-source-'))
+  const relative = 'apps/api/app/Http/Controllers/Demo/routes.go'
+  const file = join(directory, relative)
+  const manifest = (imports, handler, path) => [
+    'package demo',
+    '',
+    'import (',
+    ...imports.map(name => `\t"${name}"`),
+    ')',
+    '',
+    'func RegisterRoutes(api Router) {',
+    `\tapi.Get(${JSON.stringify(path)}, h.${handler})`,
+    '}',
+    ''
+  ].join('\n')
+  const route = { id: 'core.route.demo.get', method: 'GET', path: '/api/v1/demo', source: `${relative}#listDemo` }
+  const expectPass = label => {
+    try {
+      validateRouteSource(route, directory)
+    } catch (error) {
+      throw new Error(`${label} should have passed but failed: ${error.message}`)
+    }
+  }
+  const expectFailure = (label, fragment) => {
+    let message = ''
+    try {
+      validateRouteSource(route, directory)
+    } catch (error) {
+      message = error.message
+    }
+    assert(message, `${label} should have failed but passed`)
+    assert(message.includes(fragment), `${label} failed for the wrong reason: ${message}`)
+  }
+  try {
+    mkdirSync(dirname(file), { recursive: true })
+    writeFileSync(file, manifest(['fmt'], 'listDemo', '/demo'))
+    expectPass('baseline registration')
+    // 行号漂移：在 RegisterRoutes 之前插入 import 行，旧判据必红，新判据必绿。
+    writeFileSync(file, manifest(['fmt', 'strings', 'errors', 'io', 'os'], 'listDemo', '/demo'))
+    expectPass('import shift above RegisterRoutes')
+    // 真实漂移①：handler 符号改名。
+    writeFileSync(file, manifest(['fmt'], 'listDemoRenamed', '/demo'))
+    expectFailure('renamed handler symbol', 'does not bind listDemo')
+    // 真实漂移②：注册路径改道。
+    writeFileSync(file, manifest(['fmt'], 'listDemo', '/demos'))
+    expectFailure('re-pathed registration', 'has no GET /api/v1/demo registration')
+    // 真实漂移③：源文件消失。
+    rmSync(file)
+    expectFailure('missing source file', 'ENOENT')
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 }
 
 for (const [method, identity] of [
@@ -92,6 +185,8 @@ assert(generated.status === 0, generated.stderr || generated.stdout || 'V3 catal
 const routes = load('docs/extensions/v3/catalogs/routes.json')
 const identities = load('docs/extensions/v3/catalog-identities.json')
 const retiredIdentities = load('docs/extensions/v3/catalog-retired-identities.json')
+
+assertRouteSourceJudgement()
 
 function assertIdentityMutationRejected(name, mutate, expected) {
   const directory = mkdtempSync(join(tmpdir(), 'sforum-v3-identities-'))

@@ -26,7 +26,7 @@ forum, identity, admin, and extension systems.
 Monorepo with a Go API plus a Nuxt web app, plus shared contracts, extensions,
 knowledge base, and tests.
 
-- `apps/api` — Go 1.26.10 API + background worker (toolchain anchored in
+- `apps/api` — Go 1.26.11 API + background worker (toolchain anchored in
   `apps/api/go.mod`; do not let docs lag behind it). Module path
   `github.com/keeptrue/sforum/apps/api`. Laravel-style Go layout:
   - `cmd/` — `api` (HTTP server), `worker` (River queue worker), `migrate`

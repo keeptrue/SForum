@@ -46,7 +46,8 @@ make_release() {
     "$bundle/deploy/scripts" \
     "$bundle/deploy/caddy" \
     "$bundle/deploy/router" \
-    "$bundle/deploy/volumes"
+    "$bundle/deploy/volumes" \
+    "$bundle/deploy/runtime"
   cp "$ROOT_DIR/sforum-bootstrap.sh" "$RELEASE_ROOT/sforum-bootstrap.sh"
   cp "$ROOT_DIR/sforum-bootstrap.sh" "$bundle/sforum-bootstrap.sh"
 
@@ -78,12 +79,15 @@ EOF
     configure-production.sh \
     backup-postgres.sh \
     restore-postgres.sh \
-    wait-for-health.sh; do
+    wait-for-health.sh \
+    deploy-lock.sh; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bundle/deploy/scripts/$relative"
   done
   printf 'target caddy\n' > "$bundle/deploy/caddy/Caddyfile"
   printf 'target router\n' > "$bundle/deploy/router/Caddyfile.example"
   printf 'target volumes\n' > "$bundle/deploy/volumes/README.md"
+  printf '*\n!.gitignore\n!.gitkeep\n' > "$bundle/deploy/runtime/.gitignore"
+  : > "$bundle/deploy/runtime/.gitkeep"
   chmod 0755 \
     "$RELEASE_ROOT/sforum-bootstrap.sh" \
     "$bundle/sforum-bootstrap.sh" \

@@ -113,6 +113,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      # 镜像里没有 curl：alpine 自带 busybox wget。探针直接打 API 自己的就绪端点，
+      # PostgreSQL 不可用时 /api/v1/ready 返回 503，因此它同时代表依赖已就绪。
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api/v1/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      # 开发态 air 要先编译 Go；宽限期给足，避免本地 compose up 把正常冷启动判失败。
+      start_period: 120s
 
   web:
     build:
@@ -133,6 +142,14 @@ services:
       # 客户端 IP 由入口代理（Caddy）写入 X-Real-IP，web 只做单值化转发，不再解析
       # TCP 对端：Nitro 的请求管线（dev 与 bun preset 生产相同）拿不到 socket。
       # 因此这里不需要 TRUSTED_PROXIES；web 端口必须只发布到 loopback。
+    healthcheck:
+      # SSR 存活探针：/health 只读进程自身状态，不依赖 API 或数据库。
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      # Nuxt 首次编译（dev 与生产冷启动）比 API 更慢，宽限期单独放大。
+      start_period: 180s
 
 volumes:
   postgres_data:

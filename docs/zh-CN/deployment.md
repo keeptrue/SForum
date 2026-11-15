@@ -109,8 +109,9 @@ curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-in
 ```
 
 需要连整包工具链（`deploy.sh`、compose 文件、`deploy/scripts`、Caddy 示例、
-`VERSION`）一起重新同步时，用仓库侧的 `sforum-latest.sh` 包装器：每次运行都会
-解析最新 Release、下载并校验其完整部署包 `sforum-deploy.tar.gz`，把受管文件
+`VERSION`）一起重新同步时，用 `sforum-latest.sh` 包装器：它和 `.sha256` 是
+Release 的独立资产，从**同一个不可变标签**下载并先校验脚本字节。每次运行都会
+解析目标 Release、下载并校验其完整部署包 `sforum-deploy.tar.gz`，把受管文件
 全部同步到该版本，旧文件备份到 `.sforum/tooling-backups/`，然后才交给
 install/upgrade。`--check` 只列出缺失或过期的文件，不写入任何内容；在 Git
 检出目录里实际同步需要显式加 `--allow-git`，避免误覆盖源码。完整用法与失败
@@ -152,6 +153,11 @@ install/upgrade。`--check` 只列出缺失或过期的文件，不写入任何�
 刷新工具包不会修改 `.env.production`、`.deployrc`、`deploy/runtime/` 或数据
 卷；刷新前的受管工具文件会备份到 `.sforum/tooling-backups/`。
 
+升级机的前置条件：Docker Compose v2 与 `buildx` 插件。`upgrade.sh` 在拉取前
+把每个镜像 tag 解析成 manifest digest、拉取后核对 `RepoDigests`，缺 buildx 会在
+任何拉取动作之前失败；`SFORUM_CADDY_IMAGE` 的覆盖值必须带 `@sha256:`。细节见
+[一键安装与更新](./deployment/one-click.md)。
+
 首次从旧版直连端口拓扑更新时，脚本会要求确认一次性 blue/green 入口转换
 （输入 `BOOTSTRAP`，或传 `--bootstrap`）。这一步需要短暂停止旧服务并启动
 稳定 Caddy 入口。转换完成后，数据库不变或只含已声明向后兼容 Core 迁移的
@@ -174,6 +180,13 @@ install/upgrade。`--check` 只列出缺失或过期的文件，不写入任何�
 | --- | --- |
 | Web | `127.0.0.1:${WEB_PORT:-3000}` |
 | API / WebSocket Upgrade | `127.0.0.1:${API_PORT:-18080}` |
+
+`compose.yaml` 给 `api` 和 `web` 都声明了 healthcheck：`api` 打
+`/api/v1/ready`（`start_period` 120 秒），`web` 打 `/health`（180 秒）。
+`compose.prod.yaml` 与 `compose.zero-downtime.yaml` 的 `web → api` 依赖是
+`service_healthy`，所以 API 没就绪时 web 不会提前接流量；代价是全新
+`compose up` 的首次冷启动要多等一会儿，`docker compose ps` 会先显示
+`starting`、再变 `healthy`。
 
 普通 `/api/v1/*` 由 Nuxt 同域转发到 `api:8080`。宿主机 Caddy/Nginx 示例在
 部署包的 `deploy/caddy/Caddyfile`；WebSocket Upgrade 可直打 API 端口。
@@ -199,8 +212,8 @@ Caddy 的 `servers.trusted_proxies`，由 Caddy 剥掉 CDN 头并重算真实客
   管理 CLI；Windows 不在支持范围内。
 - `linux/amd64`、`linux/arm64` 后端运行包，包含 API、迁移、CLI 和从同一
   已扫描候选镜像提取的精确内置扩展。
-- 固定名称 `sforum-bootstrap.sh`、`sforum-deploy.tar.gz` 和兼容用
-  `upgrade.sh`。
+- 固定名称 `sforum-bootstrap.sh`、`sforum-install.sh`、`sforum-deploy.tar.gz`、
+  `upgrade.sh`，以及 `sforum-latest.sh` 与它的 `.sha256`。
 - 覆盖全部压缩包的 `SHA256SUMS` 和 GitHub 构建来源证明。
 
 后端运行包不包含 Nuxt Web、PostgreSQL 或 Redis，不是完整站点安装包；生产

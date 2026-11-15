@@ -88,7 +88,7 @@ openssl rand -hex 32
 | `POSTGRES_USER` | `sforum` | 数据库用户 |
 | `POSTGRES_PASSWORD` | 无安全默认 | 必须替换为高熵值 |
 | `DATABASE_URL` | `postgres://sforum:<密码>@postgres:5432/sforum?sslmode=disable` | 容器内连接串 |
-| `MIGRATE_ON_STARTUP` | `true` | `true` 时 API 启动迁移；向导与 `deploy.sh` 写 `false` 并显式迁移 |
+| `MIGRATE_ON_STARTUP` | `true` | `true` 时 API 启动迁移。这是 `compose.yaml` 的缺省值；`.env.production.example` 与向导写 `false` 并显式迁移，按模板部署要先跑 `migrate` |
 | `DATABASE_MAX_CONNS` | `10` | API 与内嵌 Worker 共用的连接池上限 |
 
 Compose 内部 PostgreSQL 网络不启用 TLS。外部数据库属于高级部署，需要按
@@ -274,6 +274,7 @@ override 注入。
 | --- | --- | --- |
 | `SFORUM_VERSION` | 无 | 目标不可变标签；`compose.release.yaml` 必需 |
 | `SFORUM_REGISTRY` | `ghcr.io/keeptrue` | 镜像仓库前缀 |
+| `SFORUM_CADDY_IMAGE` | `caddy:2.11-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0` | 蓝绿入口镜像；覆盖值必须写成 `name@sha256:...`，一次性入口转换会核对 `RepoDigests`，只写 tag 会 die |
 | `COMPOSE_PROJECT_NAME` | `sforum` | Compose 项目名；影响容器与卷命名 |
 | `SFORUM_BACKUP_DIR` | `./backups` | 备份归档目录 |
 | `SFORUM_BACKUP_KEY_FILE` | 空 | 备份加密口令文件，权限必须 `0600`；备份与升级前备份必需 |

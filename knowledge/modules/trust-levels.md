@@ -796,7 +796,7 @@ CodeQL `go/allocation-size-overflow` 在本模块报了 **3 条** open 告警，
 `max(len(previous.DeletedTierIDs), len(previous.Tiers))`。该查询的 sink 判据要求
 容量实参由整型 `+`/`*` 产生；改成 `max` 后表达式里不再出现加法，
 `DefaultSink → OverflowProneOperand → AllocationSize` 链条断裂，告警必然关闭。
-`max` 是 Go 1.21+ 内建，`apps/api/go.mod` 为 `go 1.26.10`，仓库内已有同款用法。
+`max` 是 Go 1.21+ 内建，`apps/api/go.mod` 为 `go 1.26.11`，仓库内已有同款用法。
 
 **业务语义零改动**（只影响这一次分配多少）：`appendKey` / `appendID` 的
 判空 → 去重 → 写入顺序、返回顺序、墓碑保序并集语义都没动；容量只是**提示**，

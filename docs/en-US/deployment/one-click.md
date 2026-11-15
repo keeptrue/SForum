@@ -3,9 +3,9 @@
 [← Production deployment](../deployment.md)
 
 This page covers three release scripts in depth: `sforum-bootstrap.sh`,
-`deploy.sh`, and `upgrade.sh`, plus the optional repository-side prefetch
-wrapper `sforum-latest.sh`. Responsibilities first, then the execution chains,
-and finally state files and failure semantics.
+`deploy.sh`, and `upgrade.sh`, plus the prefetch wrapper `sforum-latest.sh`,
+which ships as a Release asset too. Responsibilities first, then the execution
+chains, and finally state files and failure semantics.
 
 ## Deliverables and responsibilities
 
@@ -14,6 +14,8 @@ and finally state files and failure semantics.
 | `sforum-install.sh` | One-line entry (Release asset): resolves an immutable tag, verifies that tag's `sforum-bootstrap.sh`, promotes it, and execs it; carries no install logic |
 | `sforum-bootstrap.sh` | Online entry point: resolves an immutable tag, verifies and refreshes itself and the complete toolkit, then hands off to `deploy.sh` or `upgrade.sh` |
 | `sforum-deploy.tar.gz` | The complete deploy toolkit for the same Release |
+| `sforum-latest.sh` | Prefetch wrapper (standalone Release asset, not inside the bundle): resolves the target Release, verifies its complete deploy bundle, then hands off to the bootstrap of the same tag |
+| `sforum-latest.sh.sha256` | SHA-256 checksum of that script, a separate asset of the same Release |
 | `deploy.sh` | Install/update console, plus backup, restore, status, logs, restart, and stop |
 | `upgrade.sh` | Blue/green updater for existing installs |
 | `deploy/scripts/configure-production.sh` | `.env.production` configuration wizard and key generation |
@@ -28,12 +30,20 @@ and finally state files and failure semantics.
 | `deploy/router/Caddyfile.example` | Blue/green ingress Caddy example |
 | `VERSION` | The exact version the deploy bundle belongs to |
 
+`sforum-latest.sh` and its `.sha256` ship with each Release from this version
+on, but they are **not** part of `sforum-deploy.tar.gz` and are not refreshed
+by the bootstrap: the wrapper has to reach the network before any local script
+runs, so it can only be a separately downloaded layer. Each run resolves the
+target Release, verifies that Release's complete deploy bundle, and only then
+hands off to the bootstrap of the same tag.
+
 Call graph:
 
 ```text
 curl .../sforum-install.sh | bash ──> sforum-bootstrap.sh install|upgrade
 sforum-bootstrap.sh install ──> deploy.sh --action deploy
 sforum-bootstrap.sh upgrade ──> upgrade.sh
+sforum-latest.sh            ──> sforum-bootstrap.sh upgrade
 ./deploy.sh                  ──> interactive menu / --action ...
 ```
 
@@ -299,26 +309,50 @@ wrapper moves network resolution and verification ahead of any local script:
 Run this inside the install directory:
 
 ```sh
-# Rerunning replaces the wrapper atomically; no manual deletion is needed.
-tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
-mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
-mv -f "$tmp" sforum-latest.sh && \
+# Latest stable Release (recommended): script and checksum are two assets of
+# the same tag.
+curl -fsSLO https://github.com/keeptrue/SForum/releases/latest/download/sforum-latest.sh
+curl -fsSLO https://github.com/keeptrue/SForum/releases/latest/download/sforum-latest.sh.sha256
 { sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
-chmod 0755 sforum-latest.sh && \
-./sforum-latest.sh --check
+chmod 0755 sforum-latest.sh && ./sforum-latest.sh --check
+
+# Pinned version (fully immutable): replace <TAG> with a concrete tag such as
+# the vX.Y.Z shown on the release page.
+VERSION=<TAG>
+curl -fsSLO "https://github.com/keeptrue/SForum/releases/download/$VERSION/sforum-latest.sh"
+curl -fsSLO "https://github.com/keeptrue/SForum/releases/download/$VERSION/sforum-latest.sh.sha256"
+{ sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
+chmod 0755 sforum-latest.sh && ./sforum-latest.sh --check --version "$VERSION"
 ```
 
-Replace the last line with `./sforum-latest.sh` to run the install or update.
+Drop `--check` to run the install or update.
 
 `--check` performs only the first two steps plus the comparison and prints the
 target version, the bundle SHA-256, which files are missing or stale, and the
 planned action — useful before a maintenance window. A target older than the
-`.deployrc` record is reported as a warning first. The script lives in the
-repository root, is not shipped as a Release asset, and `--lang` applies only to
+`.deployrc` record is reported as a warning first. `--lang` applies only to
 install while `--bootstrap` applies only to upgrade. In a Git checkout, syncing
 requires the explicit `--allow-git` flag.
+
+#### Verification chain
+
+1. **`.sha256` anchors the script bytes**: the checksum and the script are two
+   Release assets of the same tag and must come from the same publication. If
+   the check fails, stop and do not run the script.
+2. **The script anchors the deploy bundle**: it resolves the tag once and then
+   downloads `SHA256SUMS` and `sforum-deploy.tar.gz` from **that tag**, verifying
+   the exact bundle listing, the in-archive paths, and `VERSION`. Any mismatch
+   fails the run, so a script from one version never drives tooling from
+   another.
+3. **Build provenance is verifiable**:
+   `gh attestation verify sforum-latest.sh --repo keeptrue/SForum` proves the
+   script came out of this repository's Release workflow; the deploy bundle can
+   be verified the same way.
+
+Earlier Releases do not carry these two assets; for those versions the only
+path is the raw `main` address, where the script and its checksum live on the
+same mutable branch and the checksum anchors nothing. Use a Release that ships
+both assets when the download must be immutable.
 
 ### Updater: `upgrade.sh`
 
@@ -330,18 +364,19 @@ requires the explicit `--allow-git` flag.
 3. Acquire `.deploy.lock`. The lock records a PID; a lock whose owning process
    has exited, or that is older than one hour, is cleaned up automatically.
 4. If `.deployrc` has no `active_slot`, perform the one-time ingress
-   conversion: pull the target images and Caddy, start PostgreSQL/Redis, check
-   migration compatibility, back up, migrate, start `api-blue`/`web-blue`,
-   health-check inside the slot, write `deploy/runtime/Caddyfile`, stop the old
-   `api`/`web`, start `edge`, and then health-check the ingress. Interactive
-   mode requires typing `BOOTSTRAP`; unattended runs require an explicit
-   `--bootstrap`.
-5. If an `active_slot` already exists, perform an online update: pull and
-   verify the three target images; check that all target migrations can run
-   online; back up the database; apply the declared compatible Core
-   migrations; start the standby slot; check `api/v1/ready`, `/health`, and
-   `api/v1/ready` forwarded through Web inside the slot; atomically switch
-   Caddy to the new slot; stop the old slot; record the new state.
+   conversion: resolve and pull the target images (see below) and Caddy, start
+   PostgreSQL/Redis, check migration compatibility, back up, migrate, start
+   `api-blue`/`web-blue`, health-check inside the slot, write
+   `deploy/runtime/Caddyfile`, stop the old `api`/`web`, start `edge`, and then
+   health-check the ingress. Interactive mode requires typing `BOOTSTRAP`;
+   unattended runs require an explicit `--bootstrap`.
+5. If an `active_slot` already exists, perform an online update: resolve the
+   digests, then pull and verify the three target images (see below); check
+   that all target migrations can run online; back up the database; apply the
+   declared compatible Core migrations; start the standby slot; check
+   `api/v1/ready`, `/health`, and `api/v1/ready` forwarded through Web inside
+   the slot; atomically switch Caddy to the new slot; stop the old slot; record
+   the new state.
    The in-slot check retries every 2 seconds for up to
    `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` (default 120) seconds: probes fail
    while the standby slot cold-starts, so the script only reports the final
@@ -358,6 +393,41 @@ requires the explicit `--allow-git` flag.
    slot; a failed ingress switch rolls the Caddy configuration back to the old
    slot. A failed standby slot during an online update never affects current
    traffic.
+
+### Image identity: content digest, not a tag
+
+`upgrade.sh` does not trust a tag; it verifies identity before and after the
+pull:
+
+1. **Resolve before pulling**: `docker buildx imagetools inspect` turns every
+   target tag into a manifest digest, which is recorded. This step needs the
+   `docker buildx` plugin; when it is missing the script fails closed **before
+   any pull** with `Could not resolve the manifest digest of <image>`, plus a
+   note that Docker with the buildx plugin (`docker buildx imagetools`) is
+   required to verify image identity.
+2. **Verify after pulling**: the local image's `RepoDigests` must still contain
+   that digest. A re-pushed tag (different content, different digest) dies with
+   `<image> image content identity mismatch: <reference> does not resolve to
+   <digest>`, so a different build never runs under the target version. The
+   version label is still checked, but only as a release-line self-test — it no
+   longer carries identity.
+3. **Caddy accepts a digest only**: an `SFORUM_CADDY_IMAGE` override must be
+   written as `name@sha256:...`. That check runs in the one-time ingress
+   conversion: the script pulls the ingress image, then verifies `RepoDigests`;
+   a bare tag dies with
+   `SFORUM_CADDY_IMAGE must pin a digest (name@sha256:...), got '<value>'.` —
+   by then the three application images may already be pulled. An online update
+   does not recreate `edge`, so it does not re-check the value; after changing
+   the override, confirm the format before the next ingress conversion. The
+   default is
+   `caddy:2.11-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0`,
+   byte-identical to `compose.zero-downtime.yaml`; the old drift where
+   `upgrade.sh` pulled `caddy:2.10.2-alpine` while Compose used `2.11-alpine`
+   is gone.
+
+Upgrade hosts therefore have one more prerequisite: a Docker with the `buildx`
+plugin (`docker buildx version` prints output). `deploy.sh` and the direct
+topology do not need it.
 
 Long-lived WebSocket connections may need to reconnect automatically during a
 switch. The standby slot and the old slot both embed their Worker, so they may

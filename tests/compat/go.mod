@@ -1,6 +1,6 @@
 module github.com/keeptrue/sforum/tests/compat
 
-go 1.26.10
+go 1.26.11
 
 require github.com/keeptrue/sforum/apps/api v0.0.0
 

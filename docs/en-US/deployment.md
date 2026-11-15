@@ -122,14 +122,16 @@ curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-in
 ```
 
 When the whole toolkit must be re-synced as well (`deploy.sh`, Compose files,
-`deploy/scripts`, Caddy examples, `VERSION`), use the repository-side
-`sforum-latest.sh` wrapper. Each run resolves the newest Release, downloads and
-verifies its complete `sforum-deploy.tar.gz`, syncs every managed toolkit file to
-that version, backs up the previous files under `.sforum/tooling-backups/`, and
-only then delegates to install or upgrade. `--check` lists exactly which files
-are missing or stale without writing anything; in a Git checkout, syncing
-requires the explicit `--allow-git` flag so source files are not replaced by
-accident. Full usage and failure semantics are in
+`deploy/scripts`, Caddy examples, `VERSION`), use the `sforum-latest.sh`
+wrapper: it and its `.sha256` are standalone Release assets, downloaded from
+**the same immutable tag** with the script bytes verified first. Each run
+resolves the target Release, downloads and verifies its complete
+`sforum-deploy.tar.gz`, syncs every managed toolkit file to that version, backs
+up the previous files under `.sforum/tooling-backups/`, and only then delegates
+to install or upgrade. `--check` lists exactly which files are missing or stale
+without writing anything; in a Git checkout, syncing requires the explicit
+`--allow-git` flag so source files are not replaced by accident. Full usage and
+failure semantics are in
 [One-click install and update](./deployment/one-click.md).
 
 When adopting the bootstrap for the first time, download and verify it inside
@@ -170,6 +172,12 @@ Refreshing the toolkit does not modify `.env.production`, `.deployrc`,
 `deploy/runtime/`, or data volumes; the managed tooling files replaced by the
 refresh are backed up to `.sforum/tooling-backups/`.
 
+Upgrade hosts need Docker Compose v2 plus the `buildx` plugin. `upgrade.sh`
+turns every image tag into a manifest digest before pulling and checks
+`RepoDigests` afterwards, so a missing buildx fails before any pull; an
+`SFORUM_CADDY_IMAGE` override must carry `@sha256:`. Details are in
+[One-click install and update](./deployment/one-click.md).
+
 The first update from a legacy direct-port topology asks you to confirm the
 one-time blue/green ingress conversion (type `BOOTSTRAP`, or pass
 `--bootstrap`). This step briefly stops the old services and starts the stable
@@ -195,6 +203,13 @@ The direct topology publishes only two loopback ports:
 | --- | --- |
 | Web | `127.0.0.1:${WEB_PORT:-3000}` |
 | API / WebSocket Upgrade | `127.0.0.1:${API_PORT:-18080}` |
+
+`compose.yaml` declares healthchecks for both `api` and `web`: `api` probes
+`/api/v1/ready` (`start_period` 120 s), `web` probes `/health` (180 s).
+`compose.prod.yaml` and `compose.zero-downtime.yaml` make `web` depend on `api`
+with `service_healthy`, so web never takes traffic before the API is ready; the
+cost is that a fresh `compose up` waits longer on first cold start, and
+`docker compose ps` shows `starting` before `healthy`.
 
 Ordinary `/api/v1/*` is forwarded same-origin by Nuxt to `api:8080`. Host
 Caddy/Nginx examples live in `deploy/caddy/Caddyfile` in the deploy bundle; the
@@ -226,8 +241,9 @@ GitHub Release publishes:
 - `linux/amd64` and `linux/arm64` backend runtime bundles with the API,
   migrator, CLI, and the exact built-in extensions extracted from the same
   scanned candidate image.
-- the fixed-name `sforum-bootstrap.sh`, `sforum-deploy.tar.gz`, and the
-  compatibility `upgrade.sh`.
+- the fixed-name `sforum-bootstrap.sh`, `sforum-install.sh`,
+  `sforum-deploy.tar.gz`, `upgrade.sh`, and `sforum-latest.sh` together with
+  its `.sha256`.
 - `SHA256SUMS` covering every archive, plus GitHub build provenance.
 
 The backend bundle is not a complete site installer: it has no Nuxt Web,

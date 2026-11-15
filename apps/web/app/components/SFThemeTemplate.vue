@@ -8,6 +8,7 @@ import {
 } from '~/composables/themes/useThemeRenderOutput'
 import { applyPublicPageDocumentPolicy, fetchPublicPagePolicy } from '~/composables/errors/usePublicPageDocumentPolicy'
 import type { PublicFrontendPolicy } from '~/runtime/public-extensions/pagePolicy'
+import { buildPublicL2StyleLinks } from '~/runtime/public-extensions/l2StyleLinks'
 import SFFooter from './SFFooter.vue'
 import SFNavbar from './SFNavbar.vue'
 import SFContentColumnFooter from './forum/SFContentColumnFooter.vue'
@@ -183,15 +184,11 @@ if (import.meta.client && publicL2Refs.value.length > 0) {
     if (policy) clientPolicy.value = policy
   })
 }
+// SSR 预注入与客户端换页共用同一份 link 描述（含 integrity），
+// 预注入的样式字节因此受与客户端加载同一条 digest 校验约束。
 const l2StyleLinks = computed(() => {
   const styles = publicPagePolicy?.styles ?? clientPolicy.value?.styles ?? []
-  return styles.map(style => ({
-    rel: 'stylesheet',
-    href: style.assetPath,
-    'data-sforum-extension': style.extensionId,
-    'data-sforum-asset': style.handle,
-    'data-sforum-digest': style.digest
-  }))
+  return buildPublicL2StyleLinks(styles)
 })
 useHead(() => ({ link: l2StyleLinks.value }))
 

@@ -1,0 +1,20 @@
+# Pre-existing shellcheck diagnostics that this change is not allowed to fix.
+#
+# Format: <file> <SCxxxx>   (comments and blank lines are ignored)
+#
+# scripts/ci/lint-shell.sh fails on any diagnostic that is not listed here, so
+# this file is a ratchet: remove an entry in the same change that fixes it.
+# A listed entry only suppresses that one code for that one file; every other
+# finding in the same file still fails the gate.
+#
+# sforum-install.sh is outside this change's write scope (it is a distributed
+# one-line installer owned by the release-tooling workstream). The three
+# diagnostics are:
+#   SC2088  "~/" is a literal case-pattern prefix on purpose, not a path that
+#           should expand; the fix is an explanatory disable at that line.
+#   SC2018  tr 'A-Z' 'a-z' -> tr '[:upper:]' '[:lower:]'
+#   SC2019  same line as SC2018
+# Remove these three entries once the installer owner lands those edits.
+sforum-install.sh SC2088
+sforum-install.sh SC2018
+sforum-install.sh SC2019

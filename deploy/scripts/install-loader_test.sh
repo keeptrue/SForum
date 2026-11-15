@@ -64,7 +64,8 @@ expect_failure() {
 }
 
 make_release() {
-  local version="$1" dir="$TEMP_DIR/releases/$1"
+  local version="$1"
+  local dir="$TEMP_DIR/releases/$version"
   mkdir -p "$dir"
   cat > "$dir/sforum-bootstrap.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -134,7 +135,7 @@ run_loader() {
       SFORUM_RELEASES_API_URL=mock://api/prerelease \
       SFORUM_SKIP_ATTESTATION=true \
       SFORUM_NONINTERACTIVE=1 \
-      LANG=C LC_MESSAGES=C LANGUAGE= \
+      LANG=C LC_MESSAGES=C LANGUAGE='' \
       bash "$ROOT_DIR/sforum-install.sh" "$@"
   )
 }

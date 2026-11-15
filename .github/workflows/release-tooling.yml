@@ -4,9 +4,27 @@ on:
   pull_request:
     paths:
       - .github/workflows/release-tooling.yml
+      # security.yml 里的 govulncheck 工具链是本 gate 断言的一部分
+      # （go.mod == Dockerfile == 扫描工具链），改它必须重跑。
+      - .github/workflows/security.yml
+      # gate 里 ruby scripts/ci/release_workflow_test.rb 直接 YAML.load_file 这两个
+      # 文件（release_workflow_test.rb:7-8），与 RV-14 同一形状：gate 跑得到、paths
+      # 覆盖不到。release.yml 还在被改动，属于活风险。
+      - .github/workflows/release.yml
+      - .github/workflows/ci.yml
       - scripts/release_test.sh
       - scripts/ci/**
       - deploy/**
+      # 根级发布/部署脚本：gate 里跑着 deploy_test.sh、upgrade-health-probe_test.sh、
+      # install-loader_test.sh、bootstrap_test.sh，scripts/ci/lint-shell.sh 也会
+      # shellcheck 这些文件。此前根目录 5 个 .sh 只有 sforum-latest.sh 在列，改
+      # deploy.sh / upgrade.sh / sforum-bootstrap.sh / sforum-install.sh 不触发任何
+      # CI（RV-14）。「仓库根 *.sh ⊆ 本列表」由 release-tooling-gate.sh 逐条断言，
+      # 下次新增根脚本忘了登记会直接红。
+      - deploy.sh
+      - upgrade.sh
+      - sforum-bootstrap.sh
+      - sforum-install.sh
       - tests/validate-docs_test.sh
       - tests/validate-builtin-plugin-versions.mjs
       # validate-builtin-plugin-versions.mjs 的输入面：sourceContractFiles()（该文件
@@ -17,8 +35,17 @@ on:
       - extensions/builtin/plugins/*/manifest/**
       - extensions/builtin/plugins/*/schemas/**
       - apps/api/go.mod
+      # gate 断言 Dockerfile 的 golang 基础镜像 == go.mod 的 go 指令，
+      # 所以 Dockerfile 也必须是触发面，否则抬工具链会漏跑这条断言。
+      - apps/api/Dockerfile
       - apps/api/sdk/plugin/**
       - apps/api/app/Support/PluginBootstrap/contract.go
+      # web-sdk-packages.mjs（publish-web-sdks_test.mjs / verify-web-sdks.mjs 的
+      # 输入面）真的读这些：apps/web/packages/{admin-sdk,plugin-ui} 的 package.json
+      # 与 src，以及生成器模板 generator_vue_admin.go。此前它们不在 paths 里，
+      # 改 SDK 包不会触发打包门禁。
+      - apps/web/packages/**
+      - apps/api/cmd/sforum/generator_vue_admin.go
       - contracts/proto/**
       - tests/builtin-plugin-release-baseline.json
       - tests/validate-sforum-latest.sh
@@ -29,9 +56,27 @@ on:
       - main
     paths:
       - .github/workflows/release-tooling.yml
+      # security.yml 里的 govulncheck 工具链是本 gate 断言的一部分
+      # （go.mod == Dockerfile == 扫描工具链），改它必须重跑。
+      - .github/workflows/security.yml
+      # gate 里 ruby scripts/ci/release_workflow_test.rb 直接 YAML.load_file 这两个
+      # 文件（release_workflow_test.rb:7-8），与 RV-14 同一形状：gate 跑得到、paths
+      # 覆盖不到。release.yml 还在被改动，属于活风险。
+      - .github/workflows/release.yml
+      - .github/workflows/ci.yml
       - scripts/release_test.sh
       - scripts/ci/**
       - deploy/**
+      # 根级发布/部署脚本：gate 里跑着 deploy_test.sh、upgrade-health-probe_test.sh、
+      # install-loader_test.sh、bootstrap_test.sh，scripts/ci/lint-shell.sh 也会
+      # shellcheck 这些文件。此前根目录 5 个 .sh 只有 sforum-latest.sh 在列，改
+      # deploy.sh / upgrade.sh / sforum-bootstrap.sh / sforum-install.sh 不触发任何
+      # CI（RV-14）。「仓库根 *.sh ⊆ 本列表」由 release-tooling-gate.sh 逐条断言，
+      # 下次新增根脚本忘了登记会直接红。
+      - deploy.sh
+      - upgrade.sh
+      - sforum-bootstrap.sh
+      - sforum-install.sh
       - tests/validate-docs_test.sh
       - tests/validate-builtin-plugin-versions.mjs
       # validate-builtin-plugin-versions.mjs 的输入面：sourceContractFiles()（该文件
@@ -42,8 +87,17 @@ on:
       - extensions/builtin/plugins/*/manifest/**
       - extensions/builtin/plugins/*/schemas/**
       - apps/api/go.mod
+      # gate 断言 Dockerfile 的 golang 基础镜像 == go.mod 的 go 指令，
+      # 所以 Dockerfile 也必须是触发面，否则抬工具链会漏跑这条断言。
+      - apps/api/Dockerfile
       - apps/api/sdk/plugin/**
       - apps/api/app/Support/PluginBootstrap/contract.go
+      # web-sdk-packages.mjs（publish-web-sdks_test.mjs / verify-web-sdks.mjs 的
+      # 输入面）真的读这些：apps/web/packages/{admin-sdk,plugin-ui} 的 package.json
+      # 与 src，以及生成器模板 generator_vue_admin.go。此前它们不在 paths 里，
+      # 改 SDK 包不会触发打包门禁。
+      - apps/web/packages/**
+      - apps/api/cmd/sforum/generator_vue_admin.go
       - contracts/proto/**
       - tests/builtin-plugin-release-baseline.json
       - tests/validate-sforum-latest.sh
@@ -65,6 +119,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 与 deploy.sh / upgrade.sh / sforum-*.sh 的 shellcheck 门禁同一入口
+      # （scripts/ci/lint-shell.sh，仓库根执行，退出码 0=通过）。放在最前面，
+      # shell 语法错误先于十几分钟的发布工具链测试暴露。
+      - name: Lint shell scripts
+        run: bash scripts/ci/lint-shell.sh
 
       # 这一段是必需的，不是可选优化：gate 的最后一步 verify-web-sdks.mjs 会真的
       # 起一个离线 consumer 构建来验证打出来的 SDK 包（vite + @vitejs/plugin-vue +

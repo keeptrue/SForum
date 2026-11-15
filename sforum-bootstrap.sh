@@ -184,9 +184,12 @@ deploy/scripts/configure-production.sh
 deploy/scripts/backup-postgres.sh
 deploy/scripts/restore-postgres.sh
 deploy/scripts/wait-for-health.sh
+deploy/scripts/deploy-lock.sh
 deploy/caddy/Caddyfile
 deploy/router/Caddyfile.example
 deploy/volumes/README.md
+deploy/runtime/.gitignore
+deploy/runtime/.gitkeep
 EOF
 }
 

@@ -30,8 +30,9 @@ assert_before() {
   local file="$1" first="$2" second="$3" first_line second_line
   first_line="$(grep -nF -- "$first" "$file" | head -n 1 | cut -d: -f1)"
   second_line="$(grep -nF -- "$second" "$file" | head -n 1 | cut -d: -f1)"
-  [ -n "$first_line" ] && [ -n "$second_line" ] && [ "$first_line" -lt "$second_line" ] || \
+  if [ -z "$first_line" ] || [ -z "$second_line" ] || [ "$first_line" -ge "$second_line" ]; then
     fail "expected '$first' before '$second'"
+  fi
 }
 
 source "$ROOT_DIR/upgrade.sh"

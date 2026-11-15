@@ -137,15 +137,16 @@ Every choice resolves to an immutable `vX.Y.Z` tag — floating `latest` images
 are never used in production Compose.
 
 For toolkit repair — re-syncing every managed file from a Release instead of
-only the bootstrap — use the repository-side `sforum-latest.sh` wrapper
-documented in
-[docs/en-US/deployment/one-click.md](./docs/en-US/deployment/one-click.md).
-It resolves the newest Release, downloads and verifies its complete
-`sforum-deploy.tar.gz`, syncs every managed toolkit file (`deploy.sh`,
-`upgrade.sh`, Compose files, `deploy/scripts`, Caddy examples, `VERSION`) to that
-version, backs up the previous files under `.sforum/tooling-backups/`, and only
-then delegates to install or upgrade. `--check` lists exactly which files are
-missing or stale without writing anything.
+only the bootstrap — use the `sforum-latest.sh` wrapper. It ships as a
+standalone Release asset together with `sforum-latest.sh.sha256`, both taken
+from the same immutable tag, so the checksum anchors the script bytes; the
+script then downloads and verifies that tag's complete `sforum-deploy.tar.gz`,
+syncs every managed toolkit file (`deploy.sh`, `upgrade.sh`, Compose files,
+`deploy/scripts`, Caddy examples, `VERSION`) to that version, backs up the
+previous files under `.sforum/tooling-backups/`, and only then delegates to
+install or upgrade. `--check` lists exactly which files are missing or stale
+without writing anything. Download commands and the full verification chain are
+in [docs/en-US/deployment/one-click.md](./docs/en-US/deployment/one-click.md).
 
 Production uses one API process with an embedded River worker, sharing the
 database pool, SecretStore-backed settings, and extension runtime. Existing

@@ -23,6 +23,9 @@ EXPECTED=(
   "sforum-bootstrap.sh"
   "upgrade.sh"
   "sforum-install.sh"
+  # RV-15：latest 包装器与它的校验和是 Release 资产，不再从 main 分支取。
+  "sforum-latest.sh"
+  "sforum-latest.sh.sha256"
 )
 
 for asset in "${EXPECTED[@]}"; do
@@ -85,8 +88,11 @@ for entry in \
   "sforum-deploy/deploy/scripts/backup-postgres.sh" \
   "sforum-deploy/deploy/scripts/restore-postgres.sh" \
   "sforum-deploy/deploy/scripts/wait-for-health.sh" \
+  "sforum-deploy/deploy/scripts/deploy-lock.sh" \
   "sforum-deploy/deploy/caddy/Caddyfile" \
-  "sforum-deploy/deploy/router/Caddyfile.example"; do
+  "sforum-deploy/deploy/router/Caddyfile.example" \
+  "sforum-deploy/deploy/runtime/.gitignore" \
+  "sforum-deploy/deploy/runtime/.gitkeep"; do
   grep -qx "$entry" <<< "$deploy_listing" || {
     echo "Deploy archive is missing $entry" >&2
     exit 1
@@ -98,7 +104,7 @@ done
 # own (release.yml must not need a chmod workaround), so content checks run
 # first, then the execute bit is restored before the -x post-check and
 # checksum generation.
-for script in sforum-bootstrap.sh upgrade.sh sforum-install.sh; do
+for script in sforum-bootstrap.sh upgrade.sh sforum-install.sh sforum-latest.sh; do
   [[ "$(head -n 1 "$ASSET_DIR/$script")" == "#!/usr/bin/env bash" ]] || {
     echo "Standalone $script asset is not a shell script" >&2
     exit 1
@@ -113,6 +119,14 @@ for script in sforum-bootstrap.sh upgrade.sh sforum-install.sh; do
     exit 1
   }
 done
+
+# RV-15：分发的 .sha256 必须与分发的脚本逐字节对应。仓库里这一对文件如果过期，
+# 这里就会在发布前失败，而不是把一个校验不过的资产发出去。
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$ASSET_DIR" && sha256sum -c sforum-latest.sh.sha256)
+else
+  (cd "$ASSET_DIR" && shasum -a 256 -c sforum-latest.sh.sha256)
+fi
 
 if command -v sha256sum >/dev/null 2>&1; then
   (cd "$ASSET_DIR" && sha256sum "${EXPECTED[@]}" > SHA256SUMS && sha256sum -c SHA256SUMS)

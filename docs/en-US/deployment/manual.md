@@ -87,7 +87,7 @@ The minimum required entries are below. For the full reference see
 | `CSRF_TRUSTED_ORIGINS` | the public site origin, for example `https://forum.example.com` |
 | `NUXT_PUBLIC_API_BASE_URL` | must be `/api/v1` |
 | `NUXT_PUBLIC_ADMIN_ROUTE_PREFIX` | a safe path, for example `/control-panel` |
-| `MIGRATE_ON_STARTUP` | `false` is recommended, then run migrations explicitly |
+| `MIGRATE_ON_STARTUP` | the template already writes `false`: run migrations explicitly (the Compose default is still `true`) |
 
 Generate secrets:
 
@@ -148,9 +148,11 @@ The order cannot be reversed: migrations must finish before the API starts.
 just verified, so no registry dependency appears after the old application
 stops.
 
-If you set `MIGRATE_ON_STARTUP` to `true`, the API also attempts migration at
-startup; either mode is fine, but do not set it to `false` and then skip
-running `migrate`.
+`.env.production.example` and the configuration wizard both write
+`MIGRATE_ON_STARTUP=false`, so the flow on this page runs `migrate` first. When
+no template is loaded and the key is absent, the `compose.yaml` default is
+still `true` and the API migrates itself at startup — either mode is fine, but
+do not set it to `false` and then skip running `migrate`.
 
 ## Step 6: Health checks
 
@@ -164,6 +166,12 @@ curl -fsS "http://127.0.0.1:${WEB_PORT:-3000}/health"
 
 `/api/v1/ready` depends on PostgreSQL; when Redis or Meili is unavailable it
 reports degraded readiness instead of taking the whole site down.
+
+`compose.yaml` already declares healthchecks for `api` and `web` (`api` probes
+`/api/v1/ready`, `web` probes `/health`), and `compose.prod.yaml` makes `web`
+depend on `api` with `service_healthy`: web takes no traffic before the API is
+ready. The `up -d --wait` above waits for that health, so a first cold start
+takes longer than it used to (`api` grace 120 s, `web` 180 s).
 
 ## Step 7: Reverse proxy and TLS
 

@@ -104,7 +104,12 @@ docker-compose.local.yml
 backups/
 deploy/backups/
 deploy/data/
-deploy/runtime/
+# Managed blue/green router state written by upgrade.sh. Ignore the generated
+# Caddyfile* files, but keep the directory itself tracked so a fresh clone does
+# not let Docker create a root-owned empty bind-mount source (RV-42).
+deploy/runtime/*
+!deploy/runtime/.gitignore
+!deploy/runtime/.gitkeep
 
 .superpowers
 .worktrees/

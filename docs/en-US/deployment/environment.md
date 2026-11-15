@@ -97,7 +97,7 @@ host reverse proxy.
 | `POSTGRES_USER` | `sforum` | database user |
 | `POSTGRES_PASSWORD` | no safe default | must be replaced with a high-entropy value |
 | `DATABASE_URL` | `postgres://sforum:<password>@postgres:5432/sforum?sslmode=disable` | connection string inside the container |
-| `MIGRATE_ON_STARTUP` | `true` | when `true` the API migrates at startup; the wizard and `deploy.sh` write `false` and migrate explicitly |
+| `MIGRATE_ON_STARTUP` | `true` | when `true` the API migrates at startup. This is the `compose.yaml` default; `.env.production.example` and the wizard write `false` and migrate explicitly, so a template-based deploy runs `migrate` first |
 | `DATABASE_MAX_CONNS` | `10` | pool limit shared by the API and its embedded Worker |
 
 PostgreSQL networking inside Compose does not enable TLS. An external database
@@ -316,6 +316,7 @@ container.
 | --- | --- | --- |
 | `SFORUM_VERSION` | none | target immutable tag; required by `compose.release.yaml` |
 | `SFORUM_REGISTRY` | `ghcr.io/keeptrue` | image registry prefix |
+| `SFORUM_CADDY_IMAGE` | `caddy:2.11-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0` | blue/green ingress image; an override must be written as `name@sha256:...` — the one-time ingress conversion verifies `RepoDigests` and a bare tag dies |
 | `COMPOSE_PROJECT_NAME` | `sforum` | Compose project name; affects container and volume naming |
 | `SFORUM_BACKUP_DIR` | `./backups` | backup archive directory |
 | `SFORUM_BACKUP_KEY_FILE` | empty | backup encryption passphrase file; must be mode `0600`; required for backups and pre-upgrade backups |

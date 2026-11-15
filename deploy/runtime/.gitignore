@@ -1,0 +1,12 @@
+# Managed blue/green router state (RV-42).
+#
+# upgrade.sh writes Caddyfile, Caddyfile.next and Caddyfile.previous here at
+# runtime and bind-mounts this directory into the edge container read-only.
+# None of that is generated output for review: keep it out of Git.
+#
+# The directory itself must be tracked so a fresh clone already has it; if it
+# were missing, Docker would create a root-owned empty directory on the first
+# `docker compose up` and the edge container would mount an empty config.
+*
+!.gitignore
+!.gitkeep

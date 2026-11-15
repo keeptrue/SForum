@@ -174,11 +174,14 @@ depend on GitHub availability. See
 `knowledge/decisions/2026-08-18-verified-release-bootstrap.md` and
 `knowledge/decisions/2026-10-27-one-line-install-loader.md`.
 
-An optional repository-side prefetch wrapper, `sforum-latest.sh`, resolves the
-newest Release before any local script runs, downloads and verifies that
-Release's bootstrap, and only then delegates to install or upgrade. It is
-repository tooling rather than a Release asset, so the bootstrap does not
-refresh it.
+An optional prefetch wrapper, `sforum-latest.sh`, resolves the target Release
+before any local script runs, downloads and verifies that Release's complete
+deploy bundle, and only then delegates to install or upgrade. Since RV-15 it
+ships as an immutable Release asset together with `sforum-latest.sh.sha256`
+(`scripts/ci/build-deploy-asset.sh` copies both, `finalize-release-assets.sh`
+fails the release when the pair disagrees), so the checksum anchors the script
+bytes instead of living on the same mutable branch. It stays outside
+`sforum-deploy.tar.gz`, and the bootstrap does not refresh it.
 
 Normal production deployment uses one API process with an embedded River
 worker. Worker ownership is not configurable; Compose exposes no standalone
@@ -344,7 +347,7 @@ beyond the earlier search/cache read-path work:
 
 ## Planned Stack
 
-- Go 1.26.10+ (the toolchain anchor is `apps/api/go.mod`; docs and CI must
+- Go 1.26.11+ (the toolchain anchor is `apps/api/go.mod`; docs and CI must
   follow it).
 - Go Fiber v3.
 - PostgreSQL with `pgx/v5`.

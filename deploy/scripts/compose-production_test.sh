@@ -64,6 +64,8 @@ docker compose \
   --profile tools \
   config --format json > "$TEMP_DIR/compose.off.json"
 
+# Ruby 侧要用 #{key} 插值；单引号是给 shell 的，不是给 Ruby 的。
+# shellcheck disable=SC2016
 ruby -rjson -e '
   env = File.readlines(ARGV.fetch(0), chomp: true).each_with_object({}) do |line, values|
     next if line.empty? || line.start_with?("#")
@@ -114,6 +116,20 @@ ruby -rjson -e '
   api_extension_root = api_env.fetch("EXTENSION_ROOT", "")
   if api_extension_root.empty? || !api_extension_root.start_with?("/")
     abort "compose-production_test.sh: API EXTENSION_ROOT must be absolute, got #{api_extension_root.inspect}"
+  end
+
+  # RV-41：生产拓扑同样要自带健康探针；否则 compose 的 service_healthy 条件
+  # 只能退回 service_started，健康语义就丢了。
+  api_health = api.fetch("healthcheck")
+  abort "compose-production_test.sh: API lost its healthcheck" unless api_health.fetch("test").to_s.include?("http://127.0.0.1:8080/api/v1/ready")
+  web = services.fetch("web")
+  web_health = web.fetch("healthcheck")
+  abort "compose-production_test.sh: web lost its healthcheck" unless web_health.fetch("test").to_s.include?("http://127.0.0.1:3000/health")
+  # compose.yaml 的 web 没有 depends_on：生产拓扑的 web→api 依赖只由
+  # compose.prod.yaml 定义，这里必须钉住它等到 API 真正 healthy。
+  web_api_condition = web.dig("depends_on", "api", "condition")
+  unless web_api_condition == "service_healthy"
+    abort "compose-production_test.sh: web must wait for a healthy API, got #{web_api_condition.inspect}"
   end
 
   # 真实客户端 IP：api 的对端是 web（Nuxt）容器，信任私网对端才是正确默认值；
@@ -193,6 +209,7 @@ ruby -rjson -e '
 DEPLOY_ROOT="$TEMP_DIR/deploy-root"
 mkdir -p "$DEPLOY_ROOT/deploy/scripts"
 cp "$ROOT_DIR/deploy.sh" "$DEPLOY_ROOT/"
+cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$DEPLOY_ROOT/deploy/scripts/"
 cp "$TEMP_DIR/.env.production" "$DEPLOY_ROOT/.env.production"
 
 if ! env "${SHELL_OVERRIDES[@]}" bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \
@@ -315,5 +332,17 @@ for declared in false true; do
     exit 1
   fi
 done
+
+# 模板必须给安全默认：迁移由 deploy.sh / upgrade.sh 的 migrate 服务显式执行，
+# API 启动时不再自行迁移。向导写入的值与模板必须一致，否则「照着模板手填」会
+# 退回 API 自迁移，并与显式 migrate 争用同一套 Goose 锁。
+grep -qx 'MIGRATE_ON_STARTUP=false' "$ROOT_DIR/.env.production.example" || {
+  printf 'compose-production_test.sh: .env.production.example must default MIGRATE_ON_STARTUP to false\n' >&2
+  exit 1
+}
+grep -q "'MIGRATE_ON_STARTUP=false'" "$ROOT_DIR/deploy/scripts/configure-production.sh" || {
+  printf 'compose-production_test.sh: configure-production.sh must write MIGRATE_ON_STARTUP=false\n' >&2
+  exit 1
+}
 
 printf 'compose-production_test.sh: all checks passed\n'

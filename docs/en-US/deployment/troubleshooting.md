@@ -69,6 +69,9 @@ COMPOSE=(docker compose --env-file .env.production \
 | `A required loopback port is already used by another process:` | `WEB_PORT`/`API_PORT` is taken | Stop the process holding it, or change the ports in `.env.production`; blue/green topologies must also check `edge` |
 | `Could not pull ghcr.io/... after 3 attempts.` | the registry is unreachable, packages are private, or the pull is rate limited | Confirm all packages are publicly readable; run `docker login ghcr.io` if needed; retry later |
 | `image version is '...', expected '...'` | the image tag does not match the build identity | Do not continue; confirm `SFORUM_VERSION` matches a tag in the registry |
+| `Could not resolve the manifest digest of ... Docker with the buildx plugin ...` | the host has no `docker buildx` plugin, or the image is missing/unreachable | Install the buildx plugin and retry (`docker buildx version` must print output); when buildx is fine, check registry permissions and that the tag exists |
+| `SFORUM_CADDY_IMAGE must pin a digest (name@sha256:...)` | the override in `.env.production` carries only a tag | Write `name@sha256:<digest>`, or delete the line and use the pinned default |
+| `... image content identity mismatch: ...` | the resolved digest and the pulled image disagree, usually because the tag was re-pushed | Re-run the upgrade; confirm the release was not republished, and switch to another immutable tag if it was |
 | `Standby slot failed internal health checks; live traffic was not changed.` | the standby slot failed its internal checks | Live traffic is unaffected; read the new slot's logs, fix the cause, and retry |
 | `Ingress switch failed and was rolled back to the active slot.` | the Caddy switch failed and was rolled back | Check `deploy/runtime/Caddyfile` and the `edge` logs; traffic is still on the old slot |
 | `Migration failed. The previous slot was restarted...` | the maintenance-window migration failed | The old slot was restarted; fix the migration problem, or restore the backup recorded in `.deployrc` |
@@ -100,6 +103,7 @@ application tables; any SQL error leaves the original database in place.
 | Symptom | Diagnosis | Action |
 | --- | --- | --- |
 | Reverse proxy returns 502/504 | wrong proxy target, or `web`/`api` is not running | Check `WEB_PORT`/`API_PORT`, `docker compose ps`, and the container logs |
+| First `compose up` leaves `web` in `starting` and the ingress on 502 | `web` depends on `api` reaching `service_healthy`, and the cold start has not finished | Wait out the grace period (`api` 120 s / `web` 180 s); watch health in `docker compose ps` and do not switch traffic before `healthy` |
 | Browser API returns 403 (CSRF) | `Origin` does not match `CSRF_TRUSTED_ORIGINS` | Put the public origin into `CSRF_TRUSTED_ORIGINS`; separate multiple sites with commas |
 | Admin panel returns 404 | the path used does not match `NUXT_PUBLIC_ADMIN_ROUTE_PREFIX` | Use `APP_URL + prefix`; restart `web` after changing the prefix |
 | WebSocket cannot connect | the proxy does not forward Upgrade, or the API port is wrong | Point Upgrade at `API_PORT` as `deploy/caddy/Caddyfile` does |

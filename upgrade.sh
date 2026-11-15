@@ -14,7 +14,6 @@ CHANNEL_EXPLICIT=false
 VERSION_EXPLICIT=false
 DEPLOY_RC=".deployrc"
 RUNTIME_DIR="$ROOT_DIR/deploy/runtime"
-LOCK_DIR="$ROOT_DIR/.deploy.lock"
 COMPOSE=()
 # 镜像前缀必须与 compose 插值出的前缀一致：pull/verify 用这个变量，
 # compose run migrate 读的是 .env.production 的同名变量。
@@ -139,6 +138,21 @@ say() {
   local zh="$1" en="$2"
   if [ "$(lang)" = "en" ]; then printf '%s\n' "$en"; else printf '%s\n' "$zh"; fi
 }
+
+# 部署锁与 deploy.sh 共用 deploy/scripts/deploy-lock.sh 的同一套判定：pid 存活用
+# ps -p 兜底（跨用户 kill -0 会 EPERM），并用 lstart 识别被复用的 pid。
+DEPLOY_LOCK_ROOT="$ROOT_DIR"
+lock_text() {
+  case "$1" in
+    deploy_locked) say "另一个部署或更新操作正在运行。" "Another deployment or update operation is running." ;;
+    lock_recovered) say "检测到残留的部署锁（持有进程已退出或锁龄超过 1 小时），已自动清理。" "Detected a stale deployment lock (holder exited or older than 1 hour); removed it automatically." ;;
+    unlock_none) say "当前没有部署锁。" "No deployment lock is present." ;;
+    unlock_done) say "已强制移除部署锁。原持有者：" "Removed the deployment lock by force. Previous holder:" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+# shellcheck source=deploy/scripts/deploy-lock.sh
+source "$ROOT_DIR/deploy/scripts/deploy-lock.sh"
 
 print_install_location() {
   say "安装目录：$ROOT_DIR" "Install directory: $ROOT_DIR"
@@ -320,44 +334,6 @@ confirm_target_version() {
   esac
 }
 
-acquire_lock() {
-  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    # 锁自愈：持有进程已退出或锁龄超过 1 小时时清理残留锁，而不是永久拒绝。
-    local lock_pid lock_age=false
-    if [ -f "$LOCK_DIR/pid" ]; then
-      lock_pid="$(cat "$LOCK_DIR/pid" 2>/dev/null || true)"
-      if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
-        lock_age=true
-      fi
-    fi
-    if [ "$lock_age" = true ]; then
-      : # 持有进程已死
-    else
-      local lock_mtime now mtime
-      lock_mtime="$(stat -c %Y "$LOCK_DIR" 2>/dev/null || stat -f %m "$LOCK_DIR" 2>/dev/null || echo 0)"
-      now="$(date +%s)"
-      if [ "$lock_mtime" -gt 0 ] && [ $((now - lock_mtime)) -gt 3600 ]; then
-        lock_age=true
-      fi
-    fi
-    if [ "$lock_age" = true ]; then
-      say "检测到残留的部署锁（持有进程已退出或锁龄超过 1 小时），已自动清理。" \
-        "Detected a stale deployment lock (holder exited or older than 1 hour); removed it automatically."
-      rm -rf "$LOCK_DIR"
-      mkdir "$LOCK_DIR" 2>/dev/null || die "Another deployment or update operation is running."
-    else
-      die "Another deployment or update operation is running."
-    fi
-  fi
-  printf '%s\n' "$$" > "$LOCK_DIR/pid"
-  trap 'release_lock' EXIT HUP INT TERM
-}
-
-release_lock() {
-  rm -rf "$LOCK_DIR" 2>/dev/null || true
-  trap - EXIT HUP INT TERM
-}
-
 configure_versions() {
   local active_slot="$1" active_version="$2" inactive_slot="$3" inactive_version="$4"
   if [ "$active_slot" = blue ]; then
@@ -377,33 +353,100 @@ init_compose() {
   )
 }
 
+# RV-43：镜像身份必须是内容 digest，不是 org.opencontainers.image.version 标签。
+# caddy 在本文件与 compose.zero-downtime.yaml 两处钉死同一个 digest（测试钉住一致）；
+# api/migrate/web 在拉取前把可变 tag 解析成 manifest digest，拉取后再核对本地
+# RepoDigests 是否仍是那个 digest —— 标签被重推即 die，不会静默跑别的镜像。
+CADDY_IMAGE_DEFAULT="caddy:2.11-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0"
+
+caddy_image() {
+  # 与 compose 的插值顺序一致：shell 覆盖 > .env.production > 默认 digest。
+  local configured="${SFORUM_CADDY_IMAGE:-}"
+  if [ -z "$configured" ]; then
+    configured="$(env_value SFORUM_CADDY_IMAGE "$CADDY_IMAGE_DEFAULT")"
+  fi
+  printf '%s' "${configured:-$CADDY_IMAGE_DEFAULT}"
+}
+
+PULLED_IMAGE_DIGESTS=""
+
+record_image_digest() {
+  PULLED_IMAGE_DIGESTS="${PULLED_IMAGE_DIGESTS}${1} ${2}"$'\n'
+}
+
+recorded_image_digest() {
+  printf '%s' "$PULLED_IMAGE_DIGESTS" | awk -v service="$1" '$1 == service { print $2; exit }'
+}
+
+resolve_image_digest() {
+  local image="$1" digest
+  digest="$(docker buildx imagetools inspect "$image" \
+    --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"[:space:]' || true)"
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  printf '%s' "$digest"
+}
+
+pull_with_retry() {
+  local reference="$1" label="$2" attempt
+  for attempt in 1 2 3; do
+    if docker pull "$reference"; then
+      return 0
+    fi
+    if [ "$attempt" -lt 3 ]; then
+      say "镜像 $label 拉取失败，正在重试（第 $((attempt + 1))/3 次）..." \
+        "Image $label pull failed; retrying (attempt $((attempt + 1))/3)..."
+      sleep $((attempt * 2))
+    fi
+  done
+  return 1
+}
+
 pull_target_images() {
-  local version="$1" image attempt ok
+  local version="$1" image reference digest
   say "正在拉取目标版本镜像：$version" "Pulling target release images: $version"
+  PULLED_IMAGE_DIGESTS=""
   for image in api migrate web; do
-    ok=false
-    for attempt in 1 2 3; do
-      if docker pull "${REGISTRY}/sforum-${image}:${version}"; then
-        ok=true
-        break
-      fi
-      if [ "$attempt" -lt 3 ]; then
-        say "镜像 $image 拉取失败，正在重试（第 $((attempt + 1))/3 次）..." \
-          "Image $image pull failed; retrying (attempt $((attempt + 1))/3)..."
-        sleep $((attempt * 2))
-      fi
-    done
-    [ "$ok" = true ] || die "Could not pull ${REGISTRY}/sforum-${image}:${version} after 3 attempts."
+    reference="${REGISTRY}/sforum-${image}:${version}"
+    digest="$(resolve_image_digest "$reference")" || \
+      die "Could not resolve the manifest digest of $reference. Docker with the buildx plugin (docker buildx imagetools) is required to verify image identity."
+    record_image_digest "$image" "$digest"
+    pull_with_retry "$reference" "$image" || \
+      die "Could not pull $reference after 3 attempts."
   done
 }
 
 verify_target_images() {
-  local version="$1" expected="${1#v}" image actual
+  local version="$1" expected="${1#v}" image reference digest digests label
   for image in api migrate web; do
-    actual="$(docker image inspect "${REGISTRY}/sforum-${image}:${version}" \
-      --format '{{index .Config.Labels "org.opencontainers.image.version"}}')"
-    [ "$actual" = "$expected" ] || die "$image image version is '$actual', expected '$expected'"
+    reference="${REGISTRY}/sforum-${image}:${version}"
+    digest="$(recorded_image_digest "$image")"
+    [ -n "$digest" ] || \
+      die "No verified manifest digest was recorded for $reference; pull the target release before verifying it."
+    digests="$(docker image inspect "$reference" --format '{{json .RepoDigests}}' 2>/dev/null || true)"
+    case "$digests" in
+      *"$digest"*) ;;
+      *) die "$image image content identity mismatch: $reference does not resolve to $digest" ;;
+    esac
+    # 版本标签保留为附加自检：它证明镜像自称的发布线，但不再承担身份职责。
+    label="$(docker image inspect "$reference" \
+      --format '{{index .Config.Labels "org.opencontainers.image.version"}}' 2>/dev/null || true)"
+    [ "$label" = "$expected" ] || die "$image image version is '$label', expected '$expected'"
   done
+}
+
+verify_caddy_image() {
+  local image digest digests
+  image="$(caddy_image)"
+  case "$image" in
+    *@sha256:*) ;;
+    *) die "SFORUM_CADDY_IMAGE must pin a digest (name@sha256:...), got '$image'." ;;
+  esac
+  digest="${image#*@}"
+  digests="$(docker image inspect "$image" --format '{{json .RepoDigests}}' 2>/dev/null || true)"
+  case "$digests" in
+    *"$digest"*) ;;
+    *) die "edge image content identity mismatch: $image" ;;
+  esac
 }
 
 target_migrator_supports_online_safe_check() {
@@ -415,7 +458,6 @@ target_migrator_supports_online_safe_check() {
 }
 
 ONLINE_MIGRATION_REQUIRED=false
-MAINTENANCE_MIGRATION_REQUIRED=false
 
 plan_schema_for_online_update() {
   local version="$1"
@@ -426,12 +468,10 @@ plan_schema_for_online_update() {
     return 0
   fi
   if ! target_migrator_supports_online_safe_check "$version"; then
-    MAINTENANCE_MIGRATION_REQUIRED=true
     return 1
   fi
   if ! SFORUM_VERSION="$version" "${COMPOSE[@]}" run --rm -T --no-deps --pull never \
     migrate sforum-migrate --check-online-safe; then
-    MAINTENANCE_MIGRATION_REQUIRED=true
     return 1
   fi
   ONLINE_MIGRATION_REQUIRED=true
@@ -723,7 +763,8 @@ bootstrap_topology() {
 
   configure_versions blue "$target_version" green "$target_version"
   pull_target_images "$target_version"
-  docker pull caddy:2.10.2-alpine
+  pull_with_retry "$(caddy_image)" edge || die "Could not pull $(caddy_image) after 3 attempts."
+  verify_caddy_image
   verify_target_images "$target_version"
   "${COMPOSE[@]}" up -d --wait postgres redis
   if ! plan_schema_for_online_update "$target_version"; then
@@ -834,8 +875,9 @@ main() {
     fi
   fi
   if ! [[ "$current_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
-    command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && \
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
       current_version="$(infer_running_version)" || true
+    fi
   fi
   validate_version "$current_version"
   select_target_version
@@ -846,7 +888,7 @@ main() {
   resolve_registry
   export SFORUM_VERSION="$TARGET_VERSION"
   init_compose
-  acquire_lock
+  acquire_deploy_lock upgrade
   active_slot="$(rc_value active_slot)"
   if [ -z "$active_slot" ]; then
     bootstrap_topology "$current_version" "$TARGET_VERSION"
@@ -854,7 +896,7 @@ main() {
     [ "$active_slot" = blue ] || [ "$active_slot" = green ] || die "Invalid active_slot in .deployrc"
     online_update "$active_slot" "$current_version" "$TARGET_VERSION"
   fi
-  release_lock
+  release_deploy_lock
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

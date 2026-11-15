@@ -59,7 +59,9 @@ services:
     restart: unless-stopped
     depends_on:
       api:
-        condition: service_started
+        # RV-41：api 现在自带 healthcheck；生产拓扑的 web→api 依赖只由这一处定义，
+        # 退回 service_started 会让 web 在 API 尚未就绪时就开始接流量。
+        condition: service_healthy
     environment:
       APP_NAME: ${APP_NAME:-SForum}
       APP_ENV: ${APP_ENV:-production}

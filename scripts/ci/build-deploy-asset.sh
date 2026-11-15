@@ -40,9 +40,15 @@ SOURCE_FILES=(
   "deploy/scripts/postgres-common.sh"
   "deploy/scripts/restore-postgres.sh"
   "deploy/scripts/wait-for-health.sh"
+  # deploy.sh 与 upgrade.sh 共用同一套锁判定；漏了它，两个入口都在第一条 source 就坏。
+  "deploy/scripts/deploy-lock.sh"
   "deploy/caddy/Caddyfile"
   "deploy/router/Caddyfile.example"
   "deploy/volumes/README.md"
+  # RV-42：受管路由状态目录必须随包分发，否则解包后首次 compose up 由 Docker
+  # 建出 root 属主的空目录。目录里的生成物由 .gitignore 排除。
+  "deploy/runtime/.gitignore"
+  "deploy/runtime/.gitkeep"
 )
 
 for relative in "${SOURCE_FILES[@]}"; do
@@ -60,7 +66,7 @@ trap cleanup EXIT
 
 ASSET_ROOT="$WORK_DIR/sforum-deploy"
 mkdir -p "$ASSET_ROOT/deploy/scripts" "$ASSET_ROOT/deploy/caddy" \
-  "$ASSET_ROOT/deploy/router" "$ASSET_ROOT/deploy/volumes"
+  "$ASSET_ROOT/deploy/router" "$ASSET_ROOT/deploy/volumes" "$ASSET_ROOT/deploy/runtime"
 
 for relative in "${SOURCE_FILES[@]}"; do
   cp "$ROOT_DIR/$relative" "$ASSET_ROOT/$relative"
@@ -83,11 +89,13 @@ SForum production installation without cloning the repository:
 - compose.yaml, compose.prod.yaml, compose.release.yaml,
   compose.zero-downtime.yaml — production Compose topology;
 - .env.production.example — production environment template;
-- deploy/scripts/ — configuration wizard, PostgreSQL backup/restore, and health
-  helpers used by the two entrypoints;
+- deploy/scripts/ — configuration wizard, PostgreSQL backup/restore, health
+  helpers, and the shared deployment lock used by the two entrypoints;
 - deploy/caddy/Caddyfile — host reverse proxy example;
 - deploy/router/Caddyfile.example — managed blue/green ingress example;
 - deploy/volumes/README.md — volume layout notes;
+- deploy/runtime/ — managed blue/green router state directory (generated
+  Caddyfile files are never shipped);
 - VERSION — the exact release this bundle belongs to.
 
 Quick start (resolves the latest stable release to an immutable tag):
@@ -119,9 +127,17 @@ cp "$ROOT_DIR/upgrade.sh" "$OUTPUT_DIR/upgrade.sh"
 chmod 0755 "$OUTPUT_DIR/upgrade.sh"
 cp "$ROOT_DIR/sforum-install.sh" "$OUTPUT_DIR/sforum-install.sh"
 chmod 0755 "$OUTPUT_DIR/sforum-install.sh"
+# RV-15：sforum-latest.sh 与它的校验和必须作为不可变 Release 资产分发。此前它只在
+# main 分支上，能改 main 的人可以同时换脚本和哈希，校验等于没有锚点。
+cp "$ROOT_DIR/sforum-latest.sh" "$OUTPUT_DIR/sforum-latest.sh"
+cp "$ROOT_DIR/sforum-latest.sh.sha256" "$OUTPUT_DIR/sforum-latest.sh.sha256"
+chmod 0755 "$OUTPUT_DIR/sforum-latest.sh"
+chmod 0644 "$OUTPUT_DIR/sforum-latest.sh.sha256"
 
 echo "Created deploy assets:"
 echo "  $ARCHIVE"
 echo "  $OUTPUT_DIR/sforum-bootstrap.sh"
 echo "  $OUTPUT_DIR/upgrade.sh"
 echo "  $OUTPUT_DIR/sforum-install.sh"
+echo "  $OUTPUT_DIR/sforum-latest.sh"
+echo "  $OUTPUT_DIR/sforum-latest.sh.sha256"

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# The RV-15 checks grep for literal "$ROOT_DIR" text, not a shell expansion.
+# shellcheck disable=SC2016
 # Guard the optional sforum-latest.sh wrapper: its published SHA-256 must match
 # the file, the script must parse, and the documented one-command entry must
 # keep pointing at the checksum.
@@ -19,6 +21,20 @@ grep -q 'sforum-deploy\.tar\.gz' sforum-latest.sh || \
   fail "sforum-latest.sh must sync the complete deploy bundle, not only the bootstrap"
 grep -q 'managed_files' sforum-latest.sh || \
   fail "sforum-latest.sh must read the bundle's managed-file list"
+
+# RV-15: the wrapper used to be fetched from the mutable main branch. It is only
+# trustworthy as a Release asset shipped together with its checksum, so the
+# release build must produce both and the finalizer must require both.
+grep -q 'cp "$ROOT_DIR/sforum-latest.sh" "$OUTPUT_DIR/sforum-latest.sh"' \
+  scripts/ci/build-deploy-asset.sh || \
+  fail "build-deploy-asset.sh must publish sforum-latest.sh as a Release asset"
+grep -q 'cp "$ROOT_DIR/sforum-latest.sh.sha256" "$OUTPUT_DIR/sforum-latest.sh.sha256"' \
+  scripts/ci/build-deploy-asset.sh || \
+  fail "build-deploy-asset.sh must publish sforum-latest.sh.sha256 next to the script"
+grep -q '"sforum-latest.sh.sha256"' scripts/ci/finalize-release-assets.sh || \
+  fail "finalize-release-assets.sh must require the wrapper checksum in the asset matrix"
+grep -q 'sha256sum -c sforum-latest.sh.sha256' scripts/ci/finalize-release-assets.sh || \
+  fail "finalize-release-assets.sh must verify the wrapper checksum before publishing"
 
 if command -v sha256sum >/dev/null 2>&1; then
   sha256sum -c sforum-latest.sh.sha256 >/dev/null || \

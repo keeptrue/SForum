@@ -9,7 +9,7 @@ Run SForum locally in development with the smallest number of steps.
 | Tool | Notes |
 | --- | --- |
 | Docker + Docker Compose | PostgreSQL, Redis, Mailpit |
-| Go **1.26.10+** | API / worker (anchored by `apps/api/go.mod`) |
+| Go **1.26.11+** | API / worker (anchored by `apps/api/go.mod`) |
 | [Air](https://github.com/air-verse/air) | API hot reload: `go install github.com/air-verse/air@latest` |
 | [Bun](https://bun.sh) | Frontend packages and dev server |
 | Git | Clone the repo |

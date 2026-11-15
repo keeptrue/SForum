@@ -67,6 +67,7 @@ cp "$ROOT_DIR/deploy.sh" "$TEST_ROOT/"
 cp "$ROOT_DIR/compose.yaml" "$ROOT_DIR/compose.prod.yaml" "$ROOT_DIR/compose.release.yaml" \
   "$ROOT_DIR/compose.zero-downtime.yaml" "$TEST_ROOT/"
 cp "$ROOT_DIR/deploy/scripts/configure-production.sh" "$TEST_ROOT/deploy/scripts/"
+cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$TEST_ROOT/deploy/scripts/"
 
 "$ROOT_DIR/deploy/scripts/configure-production.sh" \
   --lang en --defaults --version v3.0.0-alpha.9 \

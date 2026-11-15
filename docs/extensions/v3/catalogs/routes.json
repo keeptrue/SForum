@@ -6,7 +6,7 @@
     "handler": "listAdminSurfaces",
     "method": "GET",
     "path": "/api/v1/admin/admin-surfaces",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#listAdminSurfaces",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -24,7 +24,7 @@
     "handler": "invokeAdminSurface",
     "method": "POST",
     "path": "/api/v1/admin/admin-surfaces/:surfaceId/invoke",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#invokeAdminSurface",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -42,7 +42,7 @@
     "handler": "diagnose",
     "method": "POST",
     "path": "/api/v1/admin/ai/diagnose",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:17",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#diagnose",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -60,7 +60,7 @@
     "handler": "listExecutions",
     "method": "GET",
     "path": "/api/v1/admin/ai/executions",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#listExecutions",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -78,7 +78,7 @@
     "handler": "putProfileCredential",
     "method": "PUT",
     "path": "/api/v1/admin/ai/profiles/:profileId/credential",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#putProfileCredential",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -96,7 +96,7 @@
     "handler": "listProfileModels",
     "method": "POST",
     "path": "/api/v1/admin/ai/profiles/:profileId/models",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:21",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#listProfileModels",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -114,7 +114,7 @@
     "handler": "listReplyOutcomes",
     "method": "GET",
     "path": "/api/v1/admin/ai/reply-outcomes",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#listReplyOutcomes",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -132,7 +132,7 @@
     "handler": "getRunTimeline",
     "method": "GET",
     "path": "/api/v1/admin/ai/runs/:runId",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#getRunTimeline",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -150,7 +150,7 @@
     "handler": "getSettings",
     "method": "GET",
     "path": "/api/v1/admin/ai/settings",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#getSettings",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -168,7 +168,7 @@
     "handler": "updateSettings",
     "method": "PUT",
     "path": "/api/v1/admin/ai/settings",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:8",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#updateSettings",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -186,7 +186,7 @@
     "handler": "resetSettings",
     "method": "POST",
     "path": "/api/v1/admin/ai/settings/reset",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#resetSettings",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -204,7 +204,7 @@
     "handler": "getUsage",
     "method": "GET",
     "path": "/api/v1/admin/ai/usage",
-    "source": "apps/api/app/Http/Controllers/AI/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/AI/routes.go#getUsage",
     "access": "permission",
     "policy": "ai.manage",
     "guard": {
@@ -222,7 +222,7 @@
     "handler": "compressionSettings",
     "method": "GET",
     "path": "/api/v1/admin/attachment-compression-settings",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:21",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#compressionSettings",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -240,7 +240,7 @@
     "handler": "updateCompressionSettings",
     "method": "PUT",
     "path": "/api/v1/admin/attachment-compression-settings",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:22",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#updateCompressionSettings",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -258,7 +258,7 @@
     "handler": "settings",
     "method": "GET",
     "path": "/api/v1/admin/attachment-settings",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:12",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#settings",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -276,7 +276,7 @@
     "handler": "updateSettings",
     "method": "PUT",
     "path": "/api/v1/admin/attachment-settings",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#updateSettings",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -294,7 +294,7 @@
     "handler": "testSettings",
     "method": "POST",
     "path": "/api/v1/admin/attachment-settings/test",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#testSettings",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -312,7 +312,7 @@
     "handler": "listStorageInstances",
     "method": "GET",
     "path": "/api/v1/admin/attachment-storage-instances",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:23",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#listStorageInstances",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -330,7 +330,7 @@
     "handler": "createStorageInstance",
     "method": "POST",
     "path": "/api/v1/admin/attachment-storage-instances",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:24",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#createStorageInstance",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -348,7 +348,7 @@
     "handler": "deleteStorageInstance",
     "method": "DELETE",
     "path": "/api/v1/admin/attachment-storage-instances/:id",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:29",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#deleteStorageInstance",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -366,7 +366,7 @@
     "handler": "updateStorageInstance",
     "method": "PUT",
     "path": "/api/v1/admin/attachment-storage-instances/:id",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:27",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#updateStorageInstance",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -384,7 +384,7 @@
     "handler": "activateStorageInstance",
     "method": "POST",
     "path": "/api/v1/admin/attachment-storage-instances/:id/activate",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:28",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#activateStorageInstance",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -402,7 +402,7 @@
     "handler": "activateLocalStorage",
     "method": "POST",
     "path": "/api/v1/admin/attachment-storage-instances/local/activate",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:26",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#activateLocalStorage",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -420,7 +420,7 @@
     "handler": "probeStorageInstance",
     "method": "POST",
     "path": "/api/v1/admin/attachment-storage-instances/probe",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:25",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#probeStorageInstance",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -438,7 +438,7 @@
     "handler": "listRoleUploadPolicies",
     "method": "GET",
     "path": "/api/v1/admin/attachment-upload-policies/roles",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#listRoleUploadPolicies",
     "access": "permission",
     "policy": "attachment.upload_policy.manage",
     "guard": {
@@ -456,7 +456,7 @@
     "handler": "deleteRoleUploadPolicy",
     "method": "DELETE",
     "path": "/api/v1/admin/attachment-upload-policies/roles/:roleKey",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:17",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#deleteRoleUploadPolicy",
     "access": "permission",
     "policy": "attachment.upload_policy.manage",
     "guard": {
@@ -474,7 +474,7 @@
     "handler": "setRoleUploadPolicy",
     "method": "PUT",
     "path": "/api/v1/admin/attachment-upload-policies/roles/:roleKey",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#setRoleUploadPolicy",
     "access": "permission",
     "policy": "attachment.upload_policy.manage",
     "guard": {
@@ -492,7 +492,7 @@
     "handler": "deleteUserUploadPolicy",
     "method": "DELETE",
     "path": "/api/v1/admin/attachment-upload-policies/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#deleteUserUploadPolicy",
     "access": "permission",
     "policy": "attachment upload policy user scope: attachment.upload_policy.manage plus user.view",
     "guard": {
@@ -511,7 +511,7 @@
     "handler": "getUserUploadPolicy",
     "method": "GET",
     "path": "/api/v1/admin/attachment-upload-policies/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:18",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#getUserUploadPolicy",
     "access": "permission",
     "policy": "attachment upload policy user scope: attachment.upload_policy.manage plus user.view",
     "guard": {
@@ -530,7 +530,7 @@
     "handler": "setUserUploadPolicy",
     "method": "PUT",
     "path": "/api/v1/admin/attachment-upload-policies/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#setUserUploadPolicy",
     "access": "permission",
     "policy": "attachment upload policy user scope: attachment.upload_policy.manage plus user.view",
     "guard": {
@@ -549,7 +549,7 @@
     "handler": "listAdmin",
     "method": "GET",
     "path": "/api/v1/admin/attachments",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:30",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#listAdmin",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -567,7 +567,7 @@
     "handler": "deleteAdmin",
     "method": "DELETE",
     "path": "/api/v1/admin/attachments/:id",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:35",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#deleteAdmin",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -585,7 +585,7 @@
     "handler": "detailAdmin",
     "method": "GET",
     "path": "/api/v1/admin/attachments/:id",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:33",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#detailAdmin",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -603,7 +603,7 @@
     "handler": "updateAdmin",
     "method": "PATCH",
     "path": "/api/v1/admin/attachments/:id",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:34",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#updateAdmin",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -621,7 +621,7 @@
     "handler": "cleanupAdmin",
     "method": "POST",
     "path": "/api/v1/admin/attachments/cleanup",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:36",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#cleanupAdmin",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -639,7 +639,7 @@
     "handler": "compressionStats",
     "method": "GET",
     "path": "/api/v1/admin/attachments/compression-stats",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:31",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#compressionStats",
     "access": "permission",
     "policy": "attachment.settings.manage",
     "guard": {
@@ -657,7 +657,7 @@
     "handler": "backfillCompression",
     "method": "POST",
     "path": "/api/v1/admin/attachments/compression/backfill",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:32",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#backfillCompression",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -675,7 +675,7 @@
     "handler": "reconcileAdmin",
     "method": "POST",
     "path": "/api/v1/admin/attachments/reconcile",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:37",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#reconcileAdmin",
     "access": "permission",
     "policy": "attachment.manage",
     "guard": {
@@ -693,7 +693,7 @@
     "handler": "adminListBadges",
     "method": "GET",
     "path": "/api/v1/admin/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:127",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminListBadges",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -711,7 +711,7 @@
     "handler": "adminCreateBadge",
     "method": "POST",
     "path": "/api/v1/admin/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:128",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminCreateBadge",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -729,7 +729,7 @@
     "handler": "adminDeleteBadge",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/:badgeID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:130",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminDeleteBadge",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -747,7 +747,7 @@
     "handler": "adminUpdateBadge",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/:badgeID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:129",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminUpdateBadge",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -765,7 +765,7 @@
     "handler": "adminListBadgeGrants",
     "method": "GET",
     "path": "/api/v1/admin/badges/:badgeID/grants",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:136",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminListBadgeGrants",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -783,7 +783,7 @@
     "handler": "adminCreateBadgeGrant",
     "method": "POST",
     "path": "/api/v1/admin/badges/:badgeID/grants",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:137",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminCreateBadgeGrant",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -801,7 +801,7 @@
     "handler": "adminDeleteBadgeGrant",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/:badgeID/grants/:userID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:139",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminDeleteBadgeGrant",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -819,7 +819,7 @@
     "handler": "adminBatchGrantBadge",
     "method": "POST",
     "path": "/api/v1/admin/badges/:badgeID/grants/batch",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:138",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminBatchGrantBadge",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -837,7 +837,7 @@
     "handler": "adminBadgeRuleImpact",
     "method": "GET",
     "path": "/api/v1/admin/badges/:badgeID/rule-impact",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:135",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminBadgeRuleImpact",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -855,7 +855,7 @@
     "handler": "adminBadgeBackfillStatus",
     "method": "GET",
     "path": "/api/v1/admin/badges/backfill-status",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:126",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminBadgeBackfillStatus",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -873,7 +873,7 @@
     "handler": "adminListBadgeConditions",
     "method": "GET",
     "path": "/api/v1/admin/badges/conditions",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:121",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminListBadgeConditions",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -891,7 +891,7 @@
     "handler": "adminSearchGrantCandidates",
     "method": "GET",
     "path": "/api/v1/admin/badges/grant-candidates",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:118",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminSearchGrantCandidates",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -909,7 +909,7 @@
     "handler": "adminListBadgeGroups",
     "method": "GET",
     "path": "/api/v1/admin/badges/groups",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:131",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminListBadgeGroups",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -927,7 +927,7 @@
     "handler": "adminCreateBadgeGroup",
     "method": "POST",
     "path": "/api/v1/admin/badges/groups",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:132",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminCreateBadgeGroup",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -945,7 +945,7 @@
     "handler": "adminDeleteBadgeGroup",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:134",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminDeleteBadgeGroup",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -963,7 +963,7 @@
     "handler": "adminUpdateBadgeGroup",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:133",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminUpdateBadgeGroup",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -981,7 +981,7 @@
     "handler": "adminRecomputeBadges",
     "method": "POST",
     "path": "/api/v1/admin/badges/recompute",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:140",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminRecomputeBadges",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -999,7 +999,7 @@
     "handler": "adminBadgeRuleHealth",
     "method": "GET",
     "path": "/api/v1/admin/badges/rule-health",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:124",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminBadgeRuleHealth",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -1017,7 +1017,7 @@
     "handler": "adminBadgeRuleText",
     "method": "POST",
     "path": "/api/v1/admin/badges/rule-text",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:123",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminBadgeRuleText",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -1035,7 +1035,7 @@
     "handler": "adminListBadgeTiers",
     "method": "GET",
     "path": "/api/v1/admin/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:113",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminListBadgeTiers",
     "access": "permission",
     "policy": "badge.view",
     "guard": {
@@ -1053,7 +1053,7 @@
     "handler": "adminCreateBadgeTier",
     "method": "POST",
     "path": "/api/v1/admin/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:114",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminCreateBadgeTier",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1071,7 +1071,7 @@
     "handler": "adminDeleteBadgeTier",
     "method": "DELETE",
     "path": "/api/v1/admin/badges/tiers/:tierKey",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:117",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminDeleteBadgeTier",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1089,7 +1089,7 @@
     "handler": "adminUpdateBadgeTier",
     "method": "PATCH",
     "path": "/api/v1/admin/badges/tiers/:tierKey",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:116",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminUpdateBadgeTier",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1107,7 +1107,7 @@
     "handler": "adminReorderBadgeTiers",
     "method": "PUT",
     "path": "/api/v1/admin/badges/tiers/order",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:115",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#adminReorderBadgeTiers",
     "access": "permission",
     "policy": "badge.manage",
     "guard": {
@@ -1125,7 +1125,7 @@
     "handler": "listTables",
     "method": "GET",
     "path": "/api/v1/admin/database/tables",
-    "source": "apps/api/app/Http/Controllers/Database/routes.go:6",
+    "source": "apps/api/app/Http/Controllers/Database/routes.go#listTables",
     "access": "permission",
     "policy": "database.manage",
     "guard": {
@@ -1143,7 +1143,7 @@
     "handler": "detail",
     "method": "GET",
     "path": "/api/v1/admin/database/tables/:schema/:table",
-    "source": "apps/api/app/Http/Controllers/Database/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/Database/routes.go#detail",
     "access": "permission",
     "policy": "database.manage",
     "guard": {
@@ -1161,7 +1161,7 @@
     "handler": "exportCSV",
     "method": "GET",
     "path": "/api/v1/admin/database/tables/:schema/:table/export.csv",
-    "source": "apps/api/app/Http/Controllers/Database/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/Database/routes.go#exportCSV",
     "access": "permission",
     "policy": "database.manage",
     "guard": {
@@ -1179,7 +1179,7 @@
     "handler": "rows",
     "method": "GET",
     "path": "/api/v1/admin/database/tables/:schema/:table/rows",
-    "source": "apps/api/app/Http/Controllers/Database/routes.go:8",
+    "source": "apps/api/app/Http/Controllers/Database/routes.go#rows",
     "access": "permission",
     "policy": "database.manage",
     "guard": {
@@ -1197,7 +1197,7 @@
     "handler": "reveal",
     "method": "GET",
     "path": "/api/v1/admin/database/tables/:schema/:table/rows/reveal",
-    "source": "apps/api/app/Http/Controllers/Database/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/Database/routes.go#reveal",
     "access": "permission",
     "policy": "database.manage",
     "guard": {
@@ -1215,7 +1215,7 @@
     "handler": "listAdminDefinitions",
     "method": "GET",
     "path": "/api/v1/admin/entity-meta/definitions",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:36",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#listAdminDefinitions",
     "access": "permission",
     "policy": "entity_meta.manage or settings.manage",
     "guard": {
@@ -1234,7 +1234,7 @@
     "handler": "createDefinition",
     "method": "POST",
     "path": "/api/v1/admin/entity-meta/definitions",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:37",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#createDefinition",
     "access": "permission",
     "policy": "entity_meta.manage or settings.manage",
     "guard": {
@@ -1253,7 +1253,7 @@
     "handler": "deleteDefinition",
     "method": "DELETE",
     "path": "/api/v1/admin/entity-meta/definitions/:fieldKey",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:39",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#deleteDefinition",
     "access": "permission",
     "policy": "entity_meta.manage or settings.manage",
     "guard": {
@@ -1272,7 +1272,7 @@
     "handler": "updateDefinition",
     "method": "PATCH",
     "path": "/api/v1/admin/entity-meta/definitions/:fieldKey",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:38",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#updateDefinition",
     "access": "permission",
     "policy": "entity_meta.manage or settings.manage",
     "guard": {
@@ -1291,7 +1291,7 @@
     "handler": "list",
     "method": "GET",
     "path": "/api/v1/admin/extensions",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:23",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#list",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1307,7 +1307,7 @@
     "handler": "install",
     "method": "POST",
     "path": "/api/v1/admin/extensions",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:54",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#install",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1323,7 +1323,7 @@
     "handler": "uninstall",
     "method": "DELETE",
     "path": "/api/v1/admin/extensions/:id",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:65",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#uninstall",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1339,7 +1339,7 @@
     "handler": "activate",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/activate",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:75",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#activate",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1355,7 +1355,7 @@
     "handler": "devTrustRefresh",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/dev-trust-refresh",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:98",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#devTrustRefresh",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1371,7 +1371,7 @@
     "handler": "disable",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/disable",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:71",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#disable",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1387,7 +1387,7 @@
     "handler": "enable",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/enable",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:66",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#enable",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1403,7 +1403,7 @@
     "handler": "events",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/events",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:76",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#events",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1419,7 +1419,7 @@
     "handler": "frontendStatus",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/frontend",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:87",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#frontendStatus",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1435,7 +1435,7 @@
     "handler": "frontendAsset",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/frontend/assets/:digest/:asset",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:89",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#frontendAsset",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1451,7 +1451,7 @@
     "handler": "frontendComponentAsset",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/frontend/assets/:digest/:component/:asset",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:88",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#frontendComponentAsset",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1467,7 +1467,7 @@
     "handler": "frontendConfirmation",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/frontend/confirmation",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:90",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#frontendConfirmation",
     "access": "super_admin",
     "policy": "active super_admin challenge issuance",
     "guard": {
@@ -1483,7 +1483,7 @@
     "handler": "revokeFrontendTrust",
     "method": "DELETE",
     "path": "/api/v1/admin/extensions/:id/frontend/trust",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:92",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#revokeFrontendTrust",
     "access": "super_admin",
     "policy": "active super_admin trust revocation",
     "guard": {
@@ -1499,7 +1499,7 @@
     "handler": "grantFrontendTrust",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/frontend/trust",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:91",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#grantFrontendTrust",
     "access": "super_admin",
     "policy": "active super_admin plus actor-bound exact frontend artifact confirmation",
     "guard": {
@@ -1515,7 +1515,7 @@
     "handler": "lifecycleOperations",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/lifecycle",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:77",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#lifecycleOperations",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1531,7 +1531,7 @@
     "handler": "lifecycleOperation",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/lifecycle/:operationID",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:78",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#lifecycleOperation",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1547,7 +1547,7 @@
     "handler": "recoverLifecycleOperation",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/lifecycle/:operationID/recovery",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:79",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#recoverLifecycleOperation",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1563,7 +1563,7 @@
     "handler": "listMigrations",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/migrations",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:80",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#listMigrations",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1579,7 +1579,7 @@
     "handler": "applyMigrations",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/migrations/apply",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:81",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#applyMigrations",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1595,7 +1595,7 @@
     "handler": "pageBootstrap",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/page-bootstrap",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:82",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#pageBootstrap",
     "access": "permission",
     "policy": "extension.view for metadata pages; matching plugin/theme settings manage permission for declared settings views",
     "guard": {
@@ -1611,7 +1611,7 @@
     "handler": "restart",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/restart",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:67",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#restart",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1627,7 +1627,7 @@
     "handler": "rollback",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/rollback",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:73",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#rollback",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1643,7 +1643,7 @@
     "handler": "settings",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/settings",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:83",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#settings",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1659,7 +1659,7 @@
     "handler": "updateSettings",
     "method": "PUT",
     "path": "/api/v1/admin/extensions/:id/settings",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:84",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#updateSettings",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1675,7 +1675,7 @@
     "handler": "executeSettingsAction",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/settings/actions/:actionId",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:86",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#executeSettingsAction",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1691,7 +1691,7 @@
     "handler": "resetSettings",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/settings/reset",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:85",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#resetSettings",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1707,7 +1707,7 @@
     "handler": "revokeExecutableTrust",
     "method": "DELETE",
     "path": "/api/v1/admin/extensions/:id/trust",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:70",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#revokeExecutableTrust",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1723,7 +1723,7 @@
     "handler": "executableTrustStatus",
     "method": "GET",
     "path": "/api/v1/admin/extensions/:id/trust",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:68",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#executableTrustStatus",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1739,7 +1739,7 @@
     "handler": "issueExecutableTrustChallenge",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/trust/challenge",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:69",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#issueExecutableTrustChallenge",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1755,7 +1755,7 @@
     "handler": "finalizeUninstallCleanup",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/uninstall-cleanup/finalize",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:58",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#finalizeUninstallCleanup",
     "access": "super_admin",
     "policy": "super_admin keyless finalization of pending uninstall tombstones; service policy mirrors cleanup_missing_artifacts",
     "guard": {
@@ -1771,7 +1771,7 @@
     "handler": "upgrade",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/upgrade",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:72",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#upgrade",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1787,7 +1787,7 @@
     "handler": "verify",
     "method": "POST",
     "path": "/api/v1/admin/extensions/:id/verify",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:74",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#verify",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1803,7 +1803,7 @@
     "handler": "inspectAsset",
     "method": "GET",
     "path": "/api/v1/admin/extensions/asset-inspector",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:37",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectAsset",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1819,7 +1819,7 @@
     "handler": "inspectCache",
     "method": "GET",
     "path": "/api/v1/admin/extensions/cache-inspector",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:36",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectCache",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1835,7 +1835,7 @@
     "handler": "inspectComponentComposition",
     "method": "GET",
     "path": "/api/v1/admin/extensions/component-inspector",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:39",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectComponentComposition",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1851,7 +1851,7 @@
     "handler": "contributionPoints",
     "method": "GET",
     "path": "/api/v1/admin/extensions/contribution-points",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:25",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#contributionPoints",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1867,7 +1867,7 @@
     "handler": "contributions",
     "method": "GET",
     "path": "/api/v1/admin/extensions/contributions",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:26",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#contributions",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1883,7 +1883,7 @@
     "handler": "resetContributionGovernance",
     "method": "DELETE",
     "path": "/api/v1/admin/extensions/contributions/:point/:contributionId",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:30",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#resetContributionGovernance",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1899,7 +1899,7 @@
     "handler": "updateContributionGovernance",
     "method": "PUT",
     "path": "/api/v1/admin/extensions/contributions/:point/:contributionId",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:29",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#updateContributionGovernance",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1915,7 +1915,7 @@
     "handler": "resetContributionItemGovernance",
     "method": "DELETE",
     "path": "/api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:32",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#resetContributionItemGovernance",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1931,7 +1931,7 @@
     "handler": "updateContributionItemGovernance",
     "method": "PUT",
     "path": "/api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:31",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#updateContributionItemGovernance",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1947,7 +1947,7 @@
     "handler": "listDevTrustSessions",
     "method": "GET",
     "path": "/api/v1/admin/extensions/dev-trust-sessions",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:96",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#listDevTrustSessions",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -1963,7 +1963,7 @@
     "handler": "createDevTrustSession",
     "method": "POST",
     "path": "/api/v1/admin/extensions/dev-trust-sessions",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:95",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#createDevTrustSession",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1979,7 +1979,7 @@
     "handler": "revokeDevTrustSession",
     "method": "DELETE",
     "path": "/api/v1/admin/extensions/dev-trust-sessions/:id",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:97",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#revokeDevTrustSession",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -1995,7 +1995,7 @@
     "handler": "entityImportExportDryRun",
     "method": "GET",
     "path": "/api/v1/admin/extensions/entity-catalog/:entityId/import-export-dry-run",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:22",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#entityImportExportDryRun",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2011,7 +2011,7 @@
     "handler": "eventDefinitions",
     "method": "GET",
     "path": "/api/v1/admin/extensions/event-definitions",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:93",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#eventDefinitions",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2027,7 +2027,7 @@
     "handler": "eventDeliveries",
     "method": "GET",
     "path": "/api/v1/admin/extensions/event-deliveries",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:94",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#eventDeliveries",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2043,7 +2043,7 @@
     "handler": "installFromURL",
     "method": "POST",
     "path": "/api/v1/admin/extensions/install-from-url",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:55",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#installFromURL",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2059,7 +2059,7 @@
     "handler": "cleanupMissingArtifacts",
     "method": "POST",
     "path": "/api/v1/admin/extensions/missing-artifacts/uninstall",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:56",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#cleanupMissingArtifacts",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2075,7 +2075,7 @@
     "handler": "navigation",
     "method": "GET",
     "path": "/api/v1/admin/extensions/navigation",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:24",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#navigation",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2091,7 +2091,7 @@
     "handler": "inspectNavigation",
     "method": "GET",
     "path": "/api/v1/admin/extensions/navigation-inspector",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:40",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectNavigation",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2107,7 +2107,7 @@
     "handler": "routeOpenAPIAggregate",
     "method": "GET",
     "path": "/api/v1/admin/extensions/openapi/aggregate",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:45",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#routeOpenAPIAggregate",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2123,7 +2123,7 @@
     "handler": "routeGeneratedClientMetadata",
     "method": "GET",
     "path": "/api/v1/admin/extensions/openapi/generated-client",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:46",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#routeGeneratedClientMetadata",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2139,7 +2139,7 @@
     "handler": "inspectProviderSlots",
     "method": "GET",
     "path": "/api/v1/admin/extensions/provider-slots",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:49",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectProviderSlots",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2155,7 +2155,7 @@
     "handler": "providerSlotEvents",
     "method": "GET",
     "path": "/api/v1/admin/extensions/provider-slots/events",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:50",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#providerSlotEvents",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2171,7 +2171,7 @@
     "handler": "probeProviderSlot",
     "method": "POST",
     "path": "/api/v1/admin/extensions/provider-slots/probe",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:53",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#probeProviderSlot",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2187,7 +2187,7 @@
     "handler": "selectProviderSlot",
     "method": "POST",
     "path": "/api/v1/admin/extensions/provider-slots/selection",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:51",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#selectProviderSlot",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2203,7 +2203,7 @@
     "handler": "resetProviderSlot",
     "method": "POST",
     "path": "/api/v1/admin/extensions/provider-slots/selection/reset",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:52",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#resetProviderSlot",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2219,7 +2219,7 @@
     "handler": "queryCatalog",
     "method": "GET",
     "path": "/api/v1/admin/extensions/query-catalog",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:43",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#queryCatalog",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2235,7 +2235,7 @@
     "handler": "routeCatalog",
     "method": "GET",
     "path": "/api/v1/admin/extensions/route-catalog",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:42",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#routeCatalog",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2251,7 +2251,7 @@
     "handler": "inspectRouteIncidents",
     "method": "GET",
     "path": "/api/v1/admin/extensions/route-incidents",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:44",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectRouteIncidents",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2267,7 +2267,7 @@
     "handler": "inspectRoute",
     "method": "GET",
     "path": "/api/v1/admin/extensions/route-inspector",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:41",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectRoute",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2283,7 +2283,7 @@
     "handler": "routeProviderConflicts",
     "method": "GET",
     "path": "/api/v1/admin/extensions/route-providers/conflicts",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:33",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#routeProviderConflicts",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2299,7 +2299,7 @@
     "handler": "routeProviderEvents",
     "method": "GET",
     "path": "/api/v1/admin/extensions/route-providers/events",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:35",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#routeProviderEvents",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2315,7 +2315,7 @@
     "handler": "routeProviderCurrent",
     "method": "GET",
     "path": "/api/v1/admin/extensions/route-providers/selection",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:34",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#routeProviderCurrent",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2331,7 +2331,7 @@
     "handler": "selectRouteProvider",
     "method": "POST",
     "path": "/api/v1/admin/extensions/route-providers/selection",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:47",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#selectRouteProvider",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2347,7 +2347,7 @@
     "handler": "resetRouteProvider",
     "method": "POST",
     "path": "/api/v1/admin/extensions/route-providers/selection/reset",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:48",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#resetRouteProvider",
     "access": "permission",
     "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
     "guard": {
@@ -2363,7 +2363,7 @@
     "handler": "inspectTemplates",
     "method": "GET",
     "path": "/api/v1/admin/extensions/template-inspector",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:38",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#inspectTemplates",
     "access": "permission",
     "policy": "extension.view or matching manage permission",
     "guard": {
@@ -2379,7 +2379,7 @@
     "handler": "versionGcCandidates",
     "method": "GET",
     "path": "/api/v1/admin/extensions/version-gc/candidates",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:62",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#versionGcCandidates",
     "access": "super_admin_service_policy",
     "policy": "version GC candidates read: extensions read gate, super_admin authoritative service policy",
     "guard": {
@@ -2395,7 +2395,7 @@
     "handler": "createVersionGcConfirmation",
     "method": "POST",
     "path": "/api/v1/admin/extensions/version-gc/confirmations",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:63",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#createVersionGcConfirmation",
     "access": "super_admin",
     "policy": "explicit audited irreversible version reclamation; plan-bound one-time confirmation token",
     "guard": {
@@ -2411,7 +2411,7 @@
     "handler": "executeVersionGcSweep",
     "method": "POST",
     "path": "/api/v1/admin/extensions/version-gc/execute",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:64",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#executeVersionGcSweep",
     "access": "super_admin",
     "policy": "explicit audited irreversible version reclamation; plan-bound one-time confirmation token",
     "guard": {
@@ -2427,7 +2427,7 @@
     "handler": "listFeatures",
     "method": "GET",
     "path": "/api/v1/admin/features",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:12",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#listFeatures",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -2445,7 +2445,7 @@
     "handler": "updateFeatures",
     "method": "PUT",
     "path": "/api/v1/admin/features",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#updateFeatures",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -2463,7 +2463,7 @@
     "handler": "restoreFeatureDefaults",
     "method": "POST",
     "path": "/api/v1/admin/features/restore-defaults",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#restoreFeatureDefaults",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -2481,7 +2481,7 @@
     "handler": "adminCategories",
     "method": "GET",
     "path": "/api/v1/admin/forum/categories",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:85",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminCategories",
     "access": "permission",
     "policy": "forum admin read: category.manage, tag.manage, or forum.settings.manage",
     "guard": {
@@ -2501,7 +2501,7 @@
     "handler": "adminCreateCategory",
     "method": "POST",
     "path": "/api/v1/admin/forum/categories",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:86",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminCreateCategory",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2519,7 +2519,7 @@
     "handler": "adminDeleteCategory",
     "method": "DELETE",
     "path": "/api/v1/admin/forum/categories/:categoryID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:88",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminDeleteCategory",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2537,7 +2537,7 @@
     "handler": "adminUpdateCategory",
     "method": "PATCH",
     "path": "/api/v1/admin/forum/categories/:categoryID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:87",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminUpdateCategory",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2555,7 +2555,7 @@
     "handler": "adminCategoryGroups",
     "method": "GET",
     "path": "/api/v1/admin/forum/category-groups",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:81",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminCategoryGroups",
     "access": "permission",
     "policy": "forum admin read: category.manage, tag.manage, or forum.settings.manage",
     "guard": {
@@ -2575,7 +2575,7 @@
     "handler": "adminCreateCategoryGroup",
     "method": "POST",
     "path": "/api/v1/admin/forum/category-groups",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:82",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminCreateCategoryGroup",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2593,7 +2593,7 @@
     "handler": "adminDeleteCategoryGroup",
     "method": "DELETE",
     "path": "/api/v1/admin/forum/category-groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:84",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminDeleteCategoryGroup",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2611,7 +2611,7 @@
     "handler": "adminUpdateCategoryGroup",
     "method": "PATCH",
     "path": "/api/v1/admin/forum/category-groups/:groupID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:83",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminUpdateCategoryGroup",
     "access": "permission",
     "policy": "category.manage",
     "guard": {
@@ -2629,7 +2629,7 @@
     "handler": "adminContentComments",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/comments",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:97",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminContentComments",
     "access": "permission",
     "policy": "admin content read: admin.access plus post.edit_any or post.revision.view_any",
     "guard": {
@@ -2649,7 +2649,7 @@
     "handler": "adminContentComment",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/comments/:commentID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:98",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminContentComment",
     "access": "permission",
     "policy": "admin content read: admin.access plus post.edit_any or post.revision.view_any",
     "guard": {
@@ -2669,7 +2669,7 @@
     "handler": "adminContentTopics",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/topics",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:95",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminContentTopics",
     "access": "permission",
     "policy": "admin content read: admin.access plus topic.edit_any or topic.revision.view_any",
     "guard": {
@@ -2689,7 +2689,7 @@
     "handler": "adminContentTopic",
     "method": "GET",
     "path": "/api/v1/admin/forum/content/topics/:topicID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:96",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminContentTopic",
     "access": "permission",
     "policy": "admin content read: admin.access plus topic.edit_any or topic.revision.view_any",
     "guard": {
@@ -2709,7 +2709,7 @@
     "handler": "adminSelectSearchProvider",
     "method": "PUT",
     "path": "/api/v1/admin/forum/search/provider",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:100",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminSelectSearchProvider",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2727,7 +2727,7 @@
     "handler": "adminResetSearchProvider",
     "method": "POST",
     "path": "/api/v1/admin/forum/search/provider/reset",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:101",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminResetSearchProvider",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2745,7 +2745,7 @@
     "handler": "adminListSearchProviders",
     "method": "GET",
     "path": "/api/v1/admin/forum/search/providers",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:99",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminListSearchProviders",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2763,7 +2763,7 @@
     "handler": "adminReindexStatus",
     "method": "GET",
     "path": "/api/v1/admin/forum/search/reindex",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:103",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminReindexStatus",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2781,7 +2781,7 @@
     "handler": "adminReindexSearch",
     "method": "POST",
     "path": "/api/v1/admin/forum/search/reindex",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:102",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminReindexSearch",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2799,7 +2799,7 @@
     "handler": "adminReindexRuns",
     "method": "GET",
     "path": "/api/v1/admin/forum/search/reindex/runs",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:104",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminReindexRuns",
     "access": "permission",
     "policy": "search.manage",
     "guard": {
@@ -2817,7 +2817,7 @@
     "handler": "adminSettings",
     "method": "GET",
     "path": "/api/v1/admin/forum/settings",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:92",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminSettings",
     "access": "permission",
     "policy": "category.manage, tag.manage, or forum.settings.manage; field owner recheck",
     "guard": {
@@ -2837,7 +2837,7 @@
     "handler": "adminUpdateSettings",
     "method": "PUT",
     "path": "/api/v1/admin/forum/settings",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:93",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminUpdateSettings",
     "access": "permission",
     "policy": "category.manage, tag.manage, or forum.settings.manage; field owner recheck",
     "guard": {
@@ -2857,7 +2857,7 @@
     "handler": "adminResetSettings",
     "method": "POST",
     "path": "/api/v1/admin/forum/settings/reset",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:94",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminResetSettings",
     "access": "permission",
     "policy": "category.manage, tag.manage, or forum.settings.manage; field owner recheck",
     "guard": {
@@ -2877,7 +2877,7 @@
     "handler": "adminTags",
     "method": "GET",
     "path": "/api/v1/admin/forum/tags",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:89",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminTags",
     "access": "permission",
     "policy": "forum admin read: category.manage, tag.manage, or forum.settings.manage",
     "guard": {
@@ -2897,7 +2897,7 @@
     "handler": "adminCreateTag",
     "method": "POST",
     "path": "/api/v1/admin/forum/tags",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:90",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminCreateTag",
     "access": "permission",
     "policy": "tag.manage",
     "guard": {
@@ -2915,7 +2915,7 @@
     "handler": "adminUpdateTag",
     "method": "PATCH",
     "path": "/api/v1/admin/forum/tags/:tagID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:91",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#adminUpdateTag",
     "access": "permission",
     "policy": "tag.manage",
     "guard": {
@@ -2933,7 +2933,7 @@
     "handler": "adminListIdentityProviders",
     "method": "GET",
     "path": "/api/v1/admin/identity/providers",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:44",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminListIdentityProviders",
     "access": "permission",
     "policy": "identity.provider.manage",
     "guard": {
@@ -2951,7 +2951,7 @@
     "handler": "adminPatchIdentityProvider",
     "method": "PATCH",
     "path": "/api/v1/admin/identity/providers/:providerId",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:45",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminPatchIdentityProvider",
     "access": "permission",
     "policy": "identity.provider.manage",
     "guard": {
@@ -2969,7 +2969,7 @@
     "handler": "adminProbeIdentityProvider",
     "method": "POST",
     "path": "/api/v1/admin/identity/providers/:providerId/probe",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:46",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminProbeIdentityProvider",
     "access": "permission",
     "policy": "identity.provider.manage",
     "guard": {
@@ -2987,7 +2987,7 @@
     "handler": "adminResetIdentityProviders",
     "method": "POST",
     "path": "/api/v1/admin/identity/providers/reset",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:47",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminResetIdentityProviders",
     "access": "permission",
     "policy": "identity.provider.manage",
     "guard": {
@@ -3005,7 +3005,7 @@
     "handler": "list",
     "method": "GET",
     "path": "/api/v1/admin/jobs",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:33",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#list",
     "access": "permission",
     "policy": "jobs.view",
     "guard": {
@@ -3023,7 +3023,7 @@
     "handler": "detail",
     "method": "GET",
     "path": "/api/v1/admin/jobs/:id",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:34",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#detail",
     "access": "permission",
     "policy": "jobs.view",
     "guard": {
@@ -3041,7 +3041,7 @@
     "handler": "cancel",
     "method": "POST",
     "path": "/api/v1/admin/jobs/:id/cancel",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:36",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#cancel",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3059,7 +3059,7 @@
     "handler": "retry",
     "method": "POST",
     "path": "/api/v1/admin/jobs/:id/retry",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:35",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#retry",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3077,7 +3077,7 @@
     "handler": "overview",
     "method": "GET",
     "path": "/api/v1/admin/jobs/overview",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:27",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#overview",
     "access": "permission",
     "policy": "jobs.view",
     "guard": {
@@ -3095,7 +3095,7 @@
     "handler": "pause",
     "method": "POST",
     "path": "/api/v1/admin/jobs/queues/:name/pause",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:37",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#pause",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3113,7 +3113,7 @@
     "handler": "resume",
     "method": "POST",
     "path": "/api/v1/admin/jobs/queues/:name/resume",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:38",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#resume",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3131,7 +3131,7 @@
     "handler": "schedules",
     "method": "GET",
     "path": "/api/v1/admin/jobs/schedules",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:29",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#schedules",
     "access": "permission",
     "policy": "jobs.view",
     "guard": {
@@ -3149,7 +3149,7 @@
     "handler": "disableSchedule",
     "method": "POST",
     "path": "/api/v1/admin/jobs/schedules/:scheduleId/disable",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:31",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#disableSchedule",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3167,7 +3167,7 @@
     "handler": "enableSchedule",
     "method": "POST",
     "path": "/api/v1/admin/jobs/schedules/:scheduleId/enable",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:30",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#enableSchedule",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3185,7 +3185,7 @@
     "handler": "triggerSchedule",
     "method": "POST",
     "path": "/api/v1/admin/jobs/schedules/:scheduleId/trigger",
-    "source": "apps/api/app/Http/Controllers/Jobs/controller.go:32",
+    "source": "apps/api/app/Http/Controllers/Jobs/controller.go#triggerSchedule",
     "access": "permission",
     "policy": "jobs.manage",
     "guard": {
@@ -3203,7 +3203,7 @@
     "handler": "listDeliveries",
     "method": "GET",
     "path": "/api/v1/admin/mail/deliveries",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:34",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#listDeliveries",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3222,7 +3222,7 @@
     "handler": "getPolicy",
     "method": "GET",
     "path": "/api/v1/admin/mail/policy",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:35",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#getPolicy",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3241,7 +3241,7 @@
     "handler": "updatePolicy",
     "method": "PUT",
     "path": "/api/v1/admin/mail/policy",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:36",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#updatePolicy",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3260,7 +3260,7 @@
     "handler": "restorePolicy",
     "method": "POST",
     "path": "/api/v1/admin/mail/policy/restore",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:37",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#restorePolicy",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3279,7 +3279,7 @@
     "handler": "selectProvider",
     "method": "PUT",
     "path": "/api/v1/admin/mail/provider",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:32",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#selectProvider",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3298,7 +3298,7 @@
     "handler": "resetProvider",
     "method": "POST",
     "path": "/api/v1/admin/mail/provider/reset",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:33",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#resetProvider",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3317,7 +3317,7 @@
     "handler": "listProviders",
     "method": "GET",
     "path": "/api/v1/admin/mail/providers",
-    "source": "apps/api/app/Http/Controllers/Mail/controller.go:31",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#listProviders",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3336,7 +3336,7 @@
     "handler": "adminMailTest",
     "method": "POST",
     "path": "/api/v1/admin/mail/test",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:68",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminMailTest",
     "access": "permission",
     "policy": "settings.mail.manage or settings.manage compatibility policy",
     "guard": {
@@ -3355,7 +3355,7 @@
     "handler": "listAdminDecisions",
     "method": "GET",
     "path": "/api/v1/admin/moderation/decisions",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#listAdminDecisions",
     "access": "permission",
     "policy": "moderation.manage",
     "guard": {
@@ -3373,7 +3373,7 @@
     "handler": "listReports",
     "method": "GET",
     "path": "/api/v1/admin/moderation/reports",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#listReports",
     "access": "permission",
     "policy": "moderation.review",
     "guard": {
@@ -3391,7 +3391,7 @@
     "handler": "updateReport",
     "method": "PATCH",
     "path": "/api/v1/admin/moderation/reports/:reportID",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#updateReport",
     "access": "permission",
     "policy": "moderation.review",
     "guard": {
@@ -3409,7 +3409,7 @@
     "handler": "getSettings",
     "method": "GET",
     "path": "/api/v1/admin/moderation/settings",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:12",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#getSettings",
     "access": "permission",
     "policy": "moderation.manage",
     "guard": {
@@ -3427,7 +3427,7 @@
     "handler": "updateSettings",
     "method": "PUT",
     "path": "/api/v1/admin/moderation/settings",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#updateSettings",
     "access": "permission",
     "policy": "moderation.manage",
     "guard": {
@@ -3445,7 +3445,7 @@
     "handler": "resetSettings",
     "method": "POST",
     "path": "/api/v1/admin/moderation/settings/reset",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#resetSettings",
     "access": "permission",
     "policy": "moderation.manage",
     "guard": {
@@ -3463,7 +3463,7 @@
     "handler": "listChannels",
     "method": "GET",
     "path": "/api/v1/admin/notifications/channels",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:102",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listChannels",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3482,7 +3482,7 @@
     "handler": "selectChannel",
     "method": "PUT",
     "path": "/api/v1/admin/notifications/channels/:channel",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:103",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#selectChannel",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3501,7 +3501,7 @@
     "handler": "resetChannel",
     "method": "POST",
     "path": "/api/v1/admin/notifications/channels/:channel/reset",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:104",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#resetChannel",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3520,7 +3520,7 @@
     "handler": "testChannel",
     "method": "POST",
     "path": "/api/v1/admin/notifications/channels/:channel/test",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:105",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#testChannel",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3539,7 +3539,7 @@
     "handler": "listChannelDeliveries",
     "method": "GET",
     "path": "/api/v1/admin/notifications/deliveries",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:106",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listChannelDeliveries",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3558,7 +3558,7 @@
     "handler": "listAdminPolicy",
     "method": "GET",
     "path": "/api/v1/admin/notifications/policy",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:98",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listAdminPolicy",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3577,7 +3577,7 @@
     "handler": "replaceAdminPolicy",
     "method": "PUT",
     "path": "/api/v1/admin/notifications/policy",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:99",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#replaceAdminPolicy",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3596,7 +3596,7 @@
     "handler": "restoreAdminPolicy",
     "method": "POST",
     "path": "/api/v1/admin/notifications/policy/restore",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:100",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#restoreAdminPolicy",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3615,7 +3615,7 @@
     "handler": "adminTest",
     "method": "POST",
     "path": "/api/v1/admin/notifications/test",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:101",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#adminTest",
     "access": "permission",
     "policy": "settings.notifications.manage or settings.manage compatibility policy",
     "guard": {
@@ -3634,7 +3634,7 @@
     "handler": "overview",
     "method": "GET",
     "path": "/api/v1/admin/overview",
-    "source": "apps/api/app/Http/Controllers/AdminOverview/routes.go:6",
+    "source": "apps/api/app/Http/Controllers/AdminOverview/routes.go#overview",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -3652,7 +3652,7 @@
     "handler": "resources",
     "method": "GET",
     "path": "/api/v1/admin/overview/resources",
-    "source": "apps/api/app/Http/Controllers/AdminOverview/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/AdminOverview/routes.go#resources",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -3670,7 +3670,7 @@
     "handler": "adminList",
     "method": "GET",
     "path": "/api/v1/admin/pages",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:114",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#adminList",
     "access": "permission",
     "policy": "extension.view for inspection; theme/plugin manage and super_admin approval where required",
     "guard": {
@@ -3686,7 +3686,7 @@
     "handler": "adminGet",
     "method": "GET",
     "path": "/api/v1/admin/pages/:pageId",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:117",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#adminGet",
     "access": "permission",
     "policy": "extension.view for inspection; theme/plugin manage and super_admin approval where required",
     "guard": {
@@ -3702,7 +3702,7 @@
     "handler": "adminApprove",
     "method": "POST",
     "path": "/api/v1/admin/pages/:pageId/approve",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:118",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#adminApprove",
     "access": "permission",
     "policy": "extension.view for inspection; theme/plugin manage and super_admin approval where required",
     "guard": {
@@ -3718,7 +3718,7 @@
     "handler": "adminRestore",
     "method": "POST",
     "path": "/api/v1/admin/pages/:pageId/restore-core",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:119",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#adminRestore",
     "access": "permission",
     "policy": "extension.view for inspection; theme/plugin manage and super_admin approval where required",
     "guard": {
@@ -3734,7 +3734,7 @@
     "handler": "activatePreview",
     "method": "GET",
     "path": "/api/v1/admin/pages/activate-preview/:extensionId",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:116",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#activatePreview",
     "access": "permission",
     "policy": "extension.view for inspection; theme/plugin manage and super_admin approval where required",
     "guard": {
@@ -3750,7 +3750,7 @@
     "handler": "adminAdded",
     "method": "GET",
     "path": "/api/v1/admin/pages/added",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:115",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#adminAdded",
     "access": "permission",
     "policy": "extension.view for inspection; theme/plugin manage and super_admin approval where required",
     "guard": {
@@ -3766,7 +3766,7 @@
     "handler": "uploadAsset",
     "method": "POST",
     "path": "/api/v1/admin/seo/assets",
-    "source": "apps/api/app/Http/Controllers/SEO/controller.go:57",
+    "source": "apps/api/app/Http/Controllers/SEO/controller.go#uploadAsset",
     "access": "permission",
     "policy": "seo.manage",
     "guard": {
@@ -3784,7 +3784,7 @@
     "handler": "surfaceTabs",
     "method": "GET",
     "path": "/api/v1/admin/settings/surface-tabs",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:28",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#surfaceTabs",
     "access": "permission",
     "policy": "admin.access plus extension.view for site settings plugin tabs",
     "guard": {
@@ -3800,7 +3800,7 @@
     "handler": "adminAnnouncements",
     "method": "GET",
     "path": "/api/v1/admin/site/announcements",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:36",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminAnnouncements",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3818,7 +3818,7 @@
     "handler": "adminCreateAnnouncement",
     "method": "POST",
     "path": "/api/v1/admin/site/announcements",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:37",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminCreateAnnouncement",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3836,7 +3836,7 @@
     "handler": "adminDeleteAnnouncement",
     "method": "DELETE",
     "path": "/api/v1/admin/site/announcements/:announcementID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:39",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminDeleteAnnouncement",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3854,7 +3854,7 @@
     "handler": "adminUpdateAnnouncement",
     "method": "PATCH",
     "path": "/api/v1/admin/site/announcements/:announcementID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:38",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminUpdateAnnouncement",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3872,7 +3872,7 @@
     "handler": "adminUploadBrandAsset",
     "method": "POST",
     "path": "/api/v1/admin/site/brand-assets",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminUploadBrandAsset",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3890,7 +3890,7 @@
     "handler": "adminFriendLinks",
     "method": "GET",
     "path": "/api/v1/admin/site/friend-links",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:31",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminFriendLinks",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3908,7 +3908,7 @@
     "handler": "adminCreateFriendLink",
     "method": "POST",
     "path": "/api/v1/admin/site/friend-links",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:32",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminCreateFriendLink",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3926,7 +3926,7 @@
     "handler": "adminDeleteFriendLink",
     "method": "DELETE",
     "path": "/api/v1/admin/site/friend-links/:linkID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:34",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminDeleteFriendLink",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3944,7 +3944,7 @@
     "handler": "adminUpdateFriendLink",
     "method": "PATCH",
     "path": "/api/v1/admin/site/friend-links/:linkID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:33",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminUpdateFriendLink",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3962,7 +3962,7 @@
     "handler": "adminNavItems",
     "method": "GET",
     "path": "/api/v1/admin/site/nav-items",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminNavItems",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3980,7 +3980,7 @@
     "handler": "adminCreateNavItem",
     "method": "POST",
     "path": "/api/v1/admin/site/nav-items",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:17",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminCreateNavItem",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -3998,7 +3998,7 @@
     "handler": "adminDeleteNavItem",
     "method": "DELETE",
     "path": "/api/v1/admin/site/nav-items/:itemID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminDeleteNavItem",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4016,7 +4016,7 @@
     "handler": "adminUpdateNavItem",
     "method": "PATCH",
     "path": "/api/v1/admin/site/nav-items/:itemID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:18",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminUpdateNavItem",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4034,7 +4034,7 @@
     "handler": "adminNavigationDocument",
     "method": "GET",
     "path": "/api/v1/admin/site/navigation",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminNavigationDocument",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4052,7 +4052,7 @@
     "handler": "adminApplyNavigation",
     "method": "POST",
     "path": "/api/v1/admin/site/navigation/apply",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:21",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminApplyNavigation",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4070,7 +4070,7 @@
     "handler": "adminApplyNavigationPreview",
     "method": "POST",
     "path": "/api/v1/admin/site/navigation/defaults/apply",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:23",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminApplyNavigationPreview",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4088,7 +4088,7 @@
     "handler": "adminPreviewNavigationDefaults",
     "method": "POST",
     "path": "/api/v1/admin/site/navigation/defaults/preview",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:22",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminPreviewNavigationDefaults",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4106,7 +4106,7 @@
     "handler": "adminExportNavigation",
     "method": "GET",
     "path": "/api/v1/admin/site/navigation/export",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:27",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminExportNavigation",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4124,7 +4124,7 @@
     "handler": "adminApplyNavigationPreview",
     "method": "POST",
     "path": "/api/v1/admin/site/navigation/import/apply",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:29",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminApplyNavigationPreview",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4142,7 +4142,7 @@
     "handler": "adminPreviewNavigationImport",
     "method": "POST",
     "path": "/api/v1/admin/site/navigation/import/preview",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:28",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminPreviewNavigationImport",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4160,7 +4160,7 @@
     "handler": "adminNavigationSnapshots",
     "method": "GET",
     "path": "/api/v1/admin/site/navigation/snapshots",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:24",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminNavigationSnapshots",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4178,7 +4178,7 @@
     "handler": "adminNavigationSnapshot",
     "method": "GET",
     "path": "/api/v1/admin/site/navigation/snapshots/:snapshotID",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:25",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminNavigationSnapshot",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4196,7 +4196,7 @@
     "handler": "adminRestoreNavigationSnapshot",
     "method": "POST",
     "path": "/api/v1/admin/site/navigation/snapshots/:snapshotID/restore",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:26",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#adminRestoreNavigationSnapshot",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4214,7 +4214,7 @@
     "handler": "status",
     "method": "GET",
     "path": "/api/v1/admin/system-updates",
-    "source": "apps/api/app/Http/Controllers/SystemUpdates/routes.go:6",
+    "source": "apps/api/app/Http/Controllers/SystemUpdates/routes.go#status",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -4232,7 +4232,7 @@
     "handler": "check",
     "method": "POST",
     "path": "/api/v1/admin/system-updates/check",
-    "source": "apps/api/app/Http/Controllers/SystemUpdates/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/SystemUpdates/routes.go#check",
     "access": "permission",
     "policy": "settings.site.manage",
     "guard": {
@@ -4250,7 +4250,7 @@
     "handler": "getAdmin",
     "method": "GET",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:92",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go#getAdmin",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -4268,7 +4268,7 @@
     "handler": "updateAdmin",
     "method": "PUT",
     "path": "/api/v1/admin/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:93",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go#updateAdmin",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -4286,7 +4286,7 @@
     "handler": "adminListRuleConditions",
     "method": "GET",
     "path": "/api/v1/admin/trust-levels/conditions",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:90",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go#adminListRuleConditions",
     "access": "permission",
     "policy": "admin.access",
     "guard": {
@@ -4304,7 +4304,7 @@
     "handler": "restoreDefaults",
     "method": "POST",
     "path": "/api/v1/admin/trust-levels/restore-defaults",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:94",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go#restoreDefaults",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -4322,7 +4322,7 @@
     "handler": "adminEstimateRuleImpact",
     "method": "POST",
     "path": "/api/v1/admin/trust-levels/rule-impact",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:91",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go#adminEstimateRuleImpact",
     "access": "permission",
     "policy": "trust.manage",
     "guard": {
@@ -4340,7 +4340,7 @@
     "handler": "listAdmin",
     "method": "GET",
     "path": "/api/v1/admin/web-options",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#listAdmin",
     "access": "permission",
     "policy": "option-owner permission dispatch",
     "guard": {
@@ -4356,7 +4356,7 @@
     "handler": "updateAdmin",
     "method": "PUT",
     "path": "/api/v1/admin/web-options",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#updateAdmin",
     "access": "permission",
     "policy": "option-owner permission dispatch",
     "guard": {
@@ -4372,7 +4372,7 @@
     "handler": "listDeliveries",
     "method": "GET",
     "path": "/api/v1/admin/webhooks/deliveries",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:34",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#listDeliveries",
     "access": "permission",
     "policy": "settings.manage or settings.site.manage",
     "guard": {
@@ -4391,7 +4391,7 @@
     "handler": "listEndpoints",
     "method": "GET",
     "path": "/api/v1/admin/webhooks/endpoints",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:30",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#listEndpoints",
     "access": "permission",
     "policy": "settings.manage or settings.site.manage",
     "guard": {
@@ -4410,7 +4410,7 @@
     "handler": "createEndpoint",
     "method": "POST",
     "path": "/api/v1/admin/webhooks/endpoints",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:31",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#createEndpoint",
     "access": "permission",
     "policy": "settings.manage or settings.site.manage",
     "guard": {
@@ -4429,7 +4429,7 @@
     "handler": "deleteEndpoint",
     "method": "DELETE",
     "path": "/api/v1/admin/webhooks/endpoints/:endpointID",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:33",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#deleteEndpoint",
     "access": "permission",
     "policy": "settings.manage or settings.site.manage",
     "guard": {
@@ -4448,7 +4448,7 @@
     "handler": "updateEndpoint",
     "method": "PATCH",
     "path": "/api/v1/admin/webhooks/endpoints/:endpointID",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:32",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#updateEndpoint",
     "access": "permission",
     "policy": "settings.manage or settings.site.manage",
     "guard": {
@@ -4467,7 +4467,7 @@
     "handler": "listCatalogEvents",
     "method": "GET",
     "path": "/api/v1/admin/webhooks/events",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:35",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#listCatalogEvents",
     "access": "permission",
     "policy": "settings.manage or settings.site.manage",
     "guard": {
@@ -4486,7 +4486,7 @@
     "handler": "upload",
     "method": "POST",
     "path": "/api/v1/attachments",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:6",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#upload",
     "access": "permission",
     "policy": "attachment.upload plus upload/media policy",
     "guard": {
@@ -4504,7 +4504,7 @@
     "handler": "get",
     "method": "GET",
     "path": "/api/v1/attachments/:publicId",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:8",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#get",
     "access": "contextual",
     "policy": "attachment visibility and referenced resource read policy",
     "guard": {
@@ -4520,7 +4520,7 @@
     "handler": "content",
     "method": "GET",
     "path": "/api/v1/attachments/:publicId/content",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#content",
     "access": "contextual",
     "policy": "attachment visibility and referenced resource read policy",
     "guard": {
@@ -4536,7 +4536,7 @@
     "handler": "variantContent",
     "method": "GET",
     "path": "/api/v1/attachments/:publicId/variants/:variant/content",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#variantContent",
     "access": "contextual",
     "policy": "attachment visibility and referenced resource read policy",
     "guard": {
@@ -4552,7 +4552,7 @@
     "handler": "currentUploadPolicy",
     "method": "GET",
     "path": "/api/v1/attachments/upload-policy",
-    "source": "apps/api/app/Http/Controllers/Attachments/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/Attachments/routes.go#currentUploadPolicy",
     "access": "contextual",
     "policy": "attachment visibility and referenced resource read policy",
     "guard": {
@@ -4568,7 +4568,7 @@
     "handler": "clearCurrentUserAppearance",
     "method": "DELETE",
     "path": "/api/v1/auth/appearance",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#clearCurrentUserAppearance",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4584,7 +4584,7 @@
     "handler": "updateCurrentUserAppearance",
     "method": "PUT",
     "path": "/api/v1/auth/appearance",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#updateCurrentUserAppearance",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4600,7 +4600,7 @@
     "handler": "emailVerificationConfirm",
     "method": "GET",
     "path": "/api/v1/auth/email-verification/confirm",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#emailVerificationConfirm",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4616,7 +4616,7 @@
     "handler": "emailVerificationConfirm",
     "method": "POST",
     "path": "/api/v1/auth/email-verification/confirm",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:21",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#emailVerificationConfirm",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4632,7 +4632,7 @@
     "handler": "emailVerificationRequest",
     "method": "POST",
     "path": "/api/v1/auth/email-verification/request",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#emailVerificationRequest",
     "access": "login",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4648,7 +4648,7 @@
     "handler": "externalAuthContinuationLink",
     "method": "POST",
     "path": "/api/v1/auth/external-continuation/link",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:32",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalAuthContinuationLink",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4664,7 +4664,7 @@
     "handler": "externalAuthContinuationPreparation",
     "method": "POST",
     "path": "/api/v1/auth/external-continuation/prepare",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:31",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalAuthContinuationPreparation",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4680,7 +4680,7 @@
     "handler": "externalIdentities",
     "method": "GET",
     "path": "/api/v1/auth/external-identities",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:37",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalIdentities",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4696,7 +4696,7 @@
     "handler": "externalIdentityUnlink",
     "method": "DELETE",
     "path": "/api/v1/auth/external-identities/:linkId",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:38",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalIdentityUnlink",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4712,7 +4712,7 @@
     "handler": "externalRegistration",
     "method": "POST",
     "path": "/api/v1/auth/external-registration",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:35",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalRegistration",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4728,7 +4728,7 @@
     "handler": "externalRegistrationPreparation",
     "method": "POST",
     "path": "/api/v1/auth/external-registration/prepare",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:34",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalRegistrationPreparation",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4744,7 +4744,7 @@
     "handler": "updateCurrentUserLocale",
     "method": "PUT",
     "path": "/api/v1/auth/locale",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#updateCurrentUserLocale",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4760,7 +4760,7 @@
     "handler": "login",
     "method": "POST",
     "path": "/api/v1/auth/login",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#login",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4776,7 +4776,7 @@
     "handler": "logout",
     "method": "POST",
     "path": "/api/v1/auth/logout",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:12",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#logout",
     "access": "login",
     "policy": "current browser session",
     "guard": {
@@ -4792,7 +4792,7 @@
     "handler": "setupPassword",
     "method": "POST",
     "path": "/api/v1/auth/password",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:40",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#setupPassword",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4808,7 +4808,7 @@
     "handler": "passwordResetConfirm",
     "method": "POST",
     "path": "/api/v1/auth/password-reset/confirm",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:18",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#passwordResetConfirm",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4824,7 +4824,7 @@
     "handler": "passwordResetRequest",
     "method": "POST",
     "path": "/api/v1/auth/password-reset/request",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:17",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#passwordResetRequest",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4840,7 +4840,7 @@
     "handler": "listAuthProviders",
     "method": "GET",
     "path": "/api/v1/auth/providers",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:23",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listAuthProviders",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4856,7 +4856,7 @@
     "handler": "authProviderComplete",
     "method": "POST",
     "path": "/api/v1/auth/providers/:providerId/:operation/complete",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:25",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#authProviderComplete",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4872,7 +4872,7 @@
     "handler": "authProviderStart",
     "method": "POST",
     "path": "/api/v1/auth/providers/:providerId/:operation/start",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:24",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#authProviderStart",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4888,7 +4888,7 @@
     "handler": "externalAuthCallback",
     "method": "GET",
     "path": "/api/v1/auth/providers/:providerId/callback",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:29",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#externalAuthCallback",
     "access": "public",
     "policy": "Host-owned OAuth callback; reserved Core route closed to Route Registry replacement (state/PKCE/session integrity; plugins return assertions only)",
     "guard": {
@@ -4904,7 +4904,7 @@
     "handler": "register",
     "method": "POST",
     "path": "/api/v1/auth/register",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#register",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4920,7 +4920,7 @@
     "handler": "registrationStatus",
     "method": "GET",
     "path": "/api/v1/auth/registration-status",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#registrationStatus",
     "access": "public",
     "policy": "identity bootstrap, risk, rate-limit, and human-verification policy",
     "guard": {
@@ -4936,7 +4936,7 @@
     "handler": "session",
     "method": "GET",
     "path": "/api/v1/auth/session",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#session",
     "access": "login",
     "policy": "current browser session",
     "guard": {
@@ -4952,7 +4952,7 @@
     "handler": "listSessions",
     "method": "GET",
     "path": "/api/v1/auth/sessions",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:56",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listSessions",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4968,7 +4968,7 @@
     "handler": "revokeSession",
     "method": "DELETE",
     "path": "/api/v1/auth/sessions/:sessionId",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:58",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#revokeSession",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -4984,7 +4984,7 @@
     "handler": "revokeOtherSessions",
     "method": "POST",
     "path": "/api/v1/auth/sessions/revoke-others",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:57",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#revokeOtherSessions",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -5000,7 +5000,7 @@
     "handler": "listAPITokens",
     "method": "GET",
     "path": "/api/v1/auth/tokens",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:62",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listAPITokens",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -5016,7 +5016,7 @@
     "handler": "createAPIToken",
     "method": "POST",
     "path": "/api/v1/auth/tokens",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:63",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#createAPIToken",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -5032,7 +5032,7 @@
     "handler": "revokeAPIToken",
     "method": "DELETE",
     "path": "/api/v1/auth/tokens/:tokenID",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:64",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#revokeAPIToken",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -5048,7 +5048,7 @@
     "handler": "rotateAPIToken",
     "method": "POST",
     "path": "/api/v1/auth/tokens/:tokenID/rotate",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:65",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#rotateAPIToken",
     "access": "login",
     "policy": "current active actor; token/session ownership",
     "guard": {
@@ -5064,7 +5064,7 @@
     "handler": "publicCatalog",
     "method": "GET",
     "path": "/api/v1/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:96",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#publicCatalog",
     "access": "public",
     "policy": "badge catalog with viewer-only earned; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5080,7 +5080,7 @@
     "handler": "publicBadgeTiers",
     "method": "GET",
     "path": "/api/v1/badges/tiers",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:107",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#publicBadgeTiers",
     "access": "public",
     "policy": "badge tier catalog; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5096,7 +5096,7 @@
     "handler": "clearWornBadge",
     "method": "DELETE",
     "path": "/api/v1/badges/worn",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:103",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#clearWornBadge",
     "access": "login",
     "policy": "current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5112,7 +5112,7 @@
     "handler": "getWornBadge",
     "method": "GET",
     "path": "/api/v1/badges/worn",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:101",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#getWornBadge",
     "access": "login",
     "policy": "current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5128,7 +5128,7 @@
     "handler": "setWornBadge",
     "method": "PUT",
     "path": "/api/v1/badges/worn",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:102",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#setWornBadge",
     "access": "login",
     "policy": "current actor badge display ownership; 403 forum.badges_disabled when features.badges is disabled",
     "guard": {
@@ -5144,7 +5144,7 @@
     "handler": "categories",
     "method": "GET",
     "path": "/api/v1/categories",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#categories",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5160,7 +5160,7 @@
     "handler": "categoryGroups",
     "method": "GET",
     "path": "/api/v1/category-groups",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#categoryGroups",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5176,7 +5176,7 @@
     "handler": "deleteComment",
     "method": "DELETE",
     "path": "/api/v1/comments/:commentID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:78",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#deleteComment",
     "access": "permission",
     "policy": "post edit/delete own or any policy",
     "guard": {
@@ -5197,7 +5197,7 @@
     "handler": "updateComment",
     "method": "PATCH",
     "path": "/api/v1/comments/:commentID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:77",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#updateComment",
     "access": "permission",
     "policy": "post edit/delete own or any policy",
     "guard": {
@@ -5218,7 +5218,7 @@
     "handler": "unbookmarkComment",
     "method": "DELETE",
     "path": "/api/v1/comments/:commentID/bookmark",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:55",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#unbookmarkComment",
     "access": "login",
     "policy": "active actor bookmark policy; visibility rechecked by service",
     "guard": {
@@ -5234,7 +5234,7 @@
     "handler": "bookmarkComment",
     "method": "PUT",
     "path": "/api/v1/comments/:commentID/bookmark",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:54",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#bookmarkComment",
     "access": "login",
     "policy": "active actor bookmark policy; visibility rechecked by service",
     "guard": {
@@ -5250,7 +5250,7 @@
     "handler": "commentCitations",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/citations",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:71",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#commentCitations",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5266,7 +5266,7 @@
     "handler": "commentEditSource",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/edit-source",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:76",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#commentEditSource",
     "access": "permission",
     "policy": "post.edit_own or post.edit_any",
     "guard": {
@@ -5285,7 +5285,7 @@
     "handler": "unlikeComment",
     "method": "DELETE",
     "path": "/api/v1/comments/:commentID/like",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:57",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#unlikeComment",
     "access": "login",
     "policy": "active actor like/unlike policy; visibility rechecked by service",
     "guard": {
@@ -5301,7 +5301,7 @@
     "handler": "likeComment",
     "method": "POST",
     "path": "/api/v1/comments/:commentID/like",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:56",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#likeComment",
     "access": "login",
     "policy": "active actor like/unlike policy; visibility rechecked by service",
     "guard": {
@@ -5317,7 +5317,7 @@
     "handler": "commentLikes",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/likes",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:58",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#commentLikes",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5333,7 +5333,7 @@
     "handler": "replies",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/replies",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:69",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#replies",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5349,7 +5349,7 @@
     "handler": "commentRevisions",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/revisions",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:72",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#commentRevisions",
     "access": "permission",
     "policy": "post.revision.view_any",
     "guard": {
@@ -5367,7 +5367,7 @@
     "handler": "commentRevision",
     "method": "GET",
     "path": "/api/v1/comments/:commentID/revisions/:revisionNo",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:73",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#commentRevision",
     "access": "permission",
     "policy": "post.revision.view_any",
     "guard": {
@@ -5385,7 +5385,7 @@
     "handler": "redactCommentRevision",
     "method": "POST",
     "path": "/api/v1/comments/:commentID/revisions/:revisionNo/redact",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:75",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#redactCommentRevision",
     "access": "super_admin",
     "policy": "super_admin revision redaction policy",
     "guard": {
@@ -5401,7 +5401,7 @@
     "handler": "restoreCommentRevision",
     "method": "POST",
     "path": "/api/v1/comments/:commentID/revisions/:revisionNo/restore",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:74",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#restoreCommentRevision",
     "access": "permission",
     "policy": "post.revision.view_any plus post.edit_any",
     "guard": {
@@ -5420,7 +5420,7 @@
     "handler": "composerReferences",
     "method": "GET",
     "path": "/api/v1/composer/references",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#composerReferences",
     "access": "login",
     "policy": "current active actor; visibility-filtered composer references",
     "guard": {
@@ -5436,7 +5436,7 @@
     "handler": "composerToolbar",
     "method": "GET",
     "path": "/api/v1/composer/toolbar",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:18",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#composerToolbar",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -5452,7 +5452,7 @@
     "handler": "listValues",
     "method": "GET",
     "path": "/api/v1/entity-meta/:entityType/:entityID",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:31",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#listValues",
     "access": "contextual",
     "policy": "public definition visibility or actor/resource read policy",
     "guard": {
@@ -5468,7 +5468,7 @@
     "handler": "upsertValues",
     "method": "PUT",
     "path": "/api/v1/entity-meta/:entityType/:entityID",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:33",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#upsertValues",
     "access": "permission",
     "policy": "entity ownership plus field definition write policy",
     "guard": {
@@ -5484,7 +5484,7 @@
     "handler": "listPublicDefinitions",
     "method": "GET",
     "path": "/api/v1/entity-meta/definitions",
-    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go:29",
+    "source": "apps/api/app/Http/Controllers/EntityMeta/controller.go#listPublicDefinitions",
     "access": "contextual",
     "policy": "public definition visibility or actor/resource read policy",
     "guard": {
@@ -5500,7 +5500,7 @@
     "handler": "proxyExtensionRoute",
     "method": "*",
     "path": "/api/v1/extensions/:extensionId/*",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:100",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#proxyExtensionRoute",
     "access": "declared",
     "policy": "enabled plugin route declaration and manifest access policy",
     "guard": {
@@ -5516,7 +5516,7 @@
     "handler": "publicFrontendAsset",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/:extensionId/assets/:packageDigest/:digest/:handle",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicFrontendAsset",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5532,7 +5532,7 @@
     "handler": "publicFrontendComponent",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/:extensionId/components/:componentId",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicFrontendComponent",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5548,7 +5548,7 @@
     "handler": "publicFrontendPackageAsset",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/:extensionId/packages/:packageDigest/*",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:17",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicFrontendPackageAsset",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5564,7 +5564,7 @@
     "handler": "publicContentCatalog",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/content-catalog",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicContentCatalog",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5580,7 +5580,7 @@
     "handler": "publicContentStyles",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/content-styles",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicContentStyles",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5596,7 +5596,7 @@
     "handler": "publicEditorCatalog",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/editor-catalog",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicEditorCatalog",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5612,7 +5612,7 @@
     "handler": "publicEntityCatalog",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/entity-catalog",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:12",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicEntityCatalog",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5628,7 +5628,7 @@
     "handler": "publicMediaCatalog",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/media-catalog",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:14",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicMediaCatalog",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5644,7 +5644,7 @@
     "handler": "publicFrontendPagePolicy",
     "method": "GET",
     "path": "/api/v1/extensions/runtime/page-policy",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicFrontendPagePolicy",
     "access": "public",
     "policy": "exact public frontend artifact trust, digest, and live runtime policy",
     "guard": {
@@ -5660,7 +5660,7 @@
     "handler": "health",
     "method": "GET",
     "path": "/api/v1/health",
-    "source": "apps/api/app/Http/server.go:214",
+    "source": "apps/api/app/Http/server.go",
     "access": "public",
     "policy": "host liveness/readiness; non-overridable recovery prerequisite",
     "guard": {
@@ -5676,7 +5676,7 @@
     "handler": "humanVerificationChallenge",
     "method": "GET",
     "path": "/api/v1/human-verification/challenge",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:6",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#humanVerificationChallenge",
     "access": "public",
     "policy": "purpose allowlist and Redis rate/replay policy",
     "guard": {
@@ -5692,7 +5692,7 @@
     "handler": "authorReviewItems",
     "method": "GET",
     "path": "/api/v1/me/content-review",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:21",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#authorReviewItems",
     "access": "login",
     "policy": "current active author ownership",
     "guard": {
@@ -5708,7 +5708,7 @@
     "handler": "createReport",
     "method": "POST",
     "path": "/api/v1/moderation/reports",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#createReport",
     "access": "login",
     "policy": "active actor and report deduplication policy",
     "guard": {
@@ -5724,7 +5724,7 @@
     "handler": "getReviewContext",
     "method": "GET",
     "path": "/api/v1/moderation/workbench/context/:targetType/:targetID",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:22",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#getReviewContext",
     "access": "permission",
     "policy": "moderation.review; moderation.view_ip controls sensitive fields",
     "guard": {
@@ -5742,7 +5742,7 @@
     "handler": "queueCounts",
     "method": "GET",
     "path": "/api/v1/moderation/workbench/counts",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:18",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#queueCounts",
     "access": "permission",
     "policy": "moderation.review; moderation.view_ip controls sensitive fields",
     "guard": {
@@ -5760,7 +5760,7 @@
     "handler": "submitDecision",
     "method": "POST",
     "path": "/api/v1/moderation/workbench/decisions",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:23",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#submitDecision",
     "access": "permission",
     "policy": "moderation.review; moderation.view_ip controls sensitive fields",
     "guard": {
@@ -5778,7 +5778,7 @@
     "handler": "listWorkbenchHistory",
     "method": "GET",
     "path": "/api/v1/moderation/workbench/history",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:21",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#listWorkbenchHistory",
     "access": "permission",
     "policy": "moderation.review; moderation.view_ip controls sensitive fields",
     "guard": {
@@ -5796,7 +5796,7 @@
     "handler": "listPending",
     "method": "GET",
     "path": "/api/v1/moderation/workbench/pending",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#listPending",
     "access": "permission",
     "policy": "moderation.review; moderation.view_ip controls sensitive fields",
     "guard": {
@@ -5814,7 +5814,7 @@
     "handler": "listReportItems",
     "method": "GET",
     "path": "/api/v1/moderation/workbench/reports",
-    "source": "apps/api/app/Http/Controllers/Moderation/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/Moderation/routes.go#listReportItems",
     "access": "permission",
     "policy": "moderation.review; moderation.view_ip controls sensitive fields",
     "guard": {
@@ -5832,7 +5832,7 @@
     "handler": "listPreferences",
     "method": "GET",
     "path": "/api/v1/notification-preferences",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:94",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listPreferences",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5848,7 +5848,7 @@
     "handler": "replacePreferences",
     "method": "PUT",
     "path": "/api/v1/notification-preferences",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:95",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#replacePreferences",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5864,7 +5864,7 @@
     "handler": "restorePreferences",
     "method": "POST",
     "path": "/api/v1/notification-preferences/restore",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:96",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#restorePreferences",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5880,7 +5880,7 @@
     "handler": "list",
     "method": "GET",
     "path": "/api/v1/notifications",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:84",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#list",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5896,7 +5896,7 @@
     "handler": "detail",
     "method": "GET",
     "path": "/api/v1/notifications/:id",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:92",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#detail",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5912,7 +5912,7 @@
     "handler": "markRead",
     "method": "PATCH",
     "path": "/api/v1/notifications/:id/read",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:86",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#markRead",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5928,7 +5928,7 @@
     "handler": "listCelebrations",
     "method": "GET",
     "path": "/api/v1/notifications/celebrations",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:90",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listCelebrations",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5944,7 +5944,7 @@
     "handler": "acknowledgeCelebrations",
     "method": "POST",
     "path": "/api/v1/notifications/celebrations/seen",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:91",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#acknowledgeCelebrations",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5960,7 +5960,7 @@
     "handler": "markAllRead",
     "method": "POST",
     "path": "/api/v1/notifications/read-all",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:87",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#markAllRead",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5976,7 +5976,7 @@
     "handler": "stream",
     "method": "GET",
     "path": "/api/v1/notifications/stream",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:88",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#stream",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -5992,7 +5992,7 @@
     "handler": "unreadCount",
     "method": "GET",
     "path": "/api/v1/notifications/unread-count",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:85",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#unreadCount",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -6008,7 +6008,7 @@
     "handler": "publicCatalog",
     "method": "GET",
     "path": "/api/v1/pages/catalog",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:108",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#publicCatalog",
     "access": "public",
     "policy": "pages public read policy; visibility rechecked by service",
     "guard": {
@@ -6024,7 +6024,7 @@
     "handler": "resolve",
     "method": "GET",
     "path": "/api/v1/pages/resolve",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:106",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#resolve",
     "access": "contextual",
     "policy": "resolved Page Registry access enum; loader receives no raw session authority",
     "guard": {
@@ -6040,7 +6040,7 @@
     "handler": "resolvePath",
     "method": "GET",
     "path": "/api/v1/pages/resolve-path",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:107",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#resolvePath",
     "access": "contextual",
     "policy": "resolved Page Registry access enum; loader receives no raw session authority",
     "guard": {
@@ -6056,7 +6056,7 @@
     "handler": "listPermissions",
     "method": "GET",
     "path": "/api/v1/permissions",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:70",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listPermissions",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6072,7 +6072,7 @@
     "handler": "permissionMatrix",
     "method": "GET",
     "path": "/api/v1/permissions/matrix",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:71",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#permissionMatrix",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6088,7 +6088,7 @@
     "handler": "myProfile",
     "method": "GET",
     "path": "/api/v1/profile",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:13",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#myProfile",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6104,7 +6104,7 @@
     "handler": "updateMyProfile",
     "method": "PUT",
     "path": "/api/v1/profile",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#updateMyProfile",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6120,7 +6120,7 @@
     "handler": "deleteAvatar",
     "method": "DELETE",
     "path": "/api/v1/profile/avatar",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#deleteAvatar",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6136,7 +6136,7 @@
     "handler": "uploadAvatar",
     "method": "POST",
     "path": "/api/v1/profile/avatar",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:19",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#uploadAvatar",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6152,7 +6152,7 @@
     "handler": "myBookmarks",
     "method": "GET",
     "path": "/api/v1/profile/bookmarks",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:15",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#myBookmarks",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6168,7 +6168,7 @@
     "handler": "nicknameAvailability",
     "method": "GET",
     "path": "/api/v1/profile/nickname/availability",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:18",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#nicknameAvailability",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6184,7 +6184,7 @@
     "handler": "listProfileSections",
     "method": "GET",
     "path": "/api/v1/profile/sections",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:50",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listProfileSections",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6200,7 +6200,7 @@
     "handler": "updateProfileSection",
     "method": "PUT",
     "path": "/api/v1/profile/sections/:sectionId",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:51",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#updateProfileSection",
     "access": "login",
     "policy": "current active actor; attachment.upload for avatar upload",
     "guard": {
@@ -6216,7 +6216,7 @@
     "handler": "publicProfile",
     "method": "GET",
     "path": "/api/v1/profiles/:username",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#publicProfile",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6232,7 +6232,7 @@
     "handler": "publicActivities",
     "method": "GET",
     "path": "/api/v1/profiles/:username/activities",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#publicActivities",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6248,7 +6248,7 @@
     "handler": "publicProfileBadges",
     "method": "GET",
     "path": "/api/v1/profiles/:username/badges",
-    "source": "apps/api/app/Http/Controllers/Badges/controller.go:104",
+    "source": "apps/api/app/Http/Controllers/Badges/controller.go#publicProfileBadges",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6264,7 +6264,7 @@
     "handler": "publicBookmarks",
     "method": "GET",
     "path": "/api/v1/profiles/:username/bookmarks",
-    "source": "apps/api/app/Http/Controllers/Profile/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/Profile/routes.go#publicBookmarks",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6280,7 +6280,7 @@
     "handler": "listPushDevices",
     "method": "GET",
     "path": "/api/v1/push/devices",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:109",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listPushDevices",
     "access": "login",
     "policy": "current actor device ownership; ownership rechecked by service",
     "guard": {
@@ -6296,7 +6296,7 @@
     "handler": "registerPushDevice",
     "method": "POST",
     "path": "/api/v1/push/devices",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:110",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#registerPushDevice",
     "access": "login",
     "policy": "current actor device ownership; ownership rechecked by service",
     "guard": {
@@ -6312,7 +6312,7 @@
     "handler": "revokePushDevice",
     "method": "DELETE",
     "path": "/api/v1/push/devices/:deviceId",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:111",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#revokePushDevice",
     "access": "login",
     "policy": "current actor device ownership; ownership rechecked by service",
     "guard": {
@@ -6328,7 +6328,7 @@
     "handler": "ready",
     "method": "GET",
     "path": "/api/v1/ready",
-    "source": "apps/api/app/Http/server.go:233",
+    "source": "apps/api/app/Http/server.go",
     "access": "public",
     "policy": "host liveness/readiness; non-overridable recovery prerequisite",
     "guard": {
@@ -6344,7 +6344,7 @@
     "handler": "listRoles",
     "method": "GET",
     "path": "/api/v1/roles",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:73",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listRoles",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6360,7 +6360,7 @@
     "handler": "createRole",
     "method": "POST",
     "path": "/api/v1/roles",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:74",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#createRole",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6376,7 +6376,7 @@
     "handler": "deleteRole",
     "method": "DELETE",
     "path": "/api/v1/roles/:roleKey",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:76",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#deleteRole",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6392,7 +6392,7 @@
     "handler": "updateRole",
     "method": "PATCH",
     "path": "/api/v1/roles/:roleKey",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:75",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#updateRole",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6408,7 +6408,7 @@
     "handler": "replaceRolePermissions",
     "method": "PUT",
     "path": "/api/v1/roles/:roleKey/permissions",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:77",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#replaceRolePermissions",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -6424,7 +6424,7 @@
     "handler": "listRoleSuggestions",
     "method": "GET",
     "path": "/api/v1/roles/suggestions",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:96",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listRoleSuggestions",
     "access": "permission",
     "policy": "active cookie session with role.manage; PAT denied; Host explicit decision",
     "guard": {
@@ -6440,7 +6440,7 @@
     "handler": "decideRoleSuggestion",
     "method": "POST",
     "path": "/api/v1/roles/suggestions/:suggestionID/decision",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:97",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#decideRoleSuggestion",
     "access": "permission",
     "policy": "active cookie session with role.manage; PAT denied; Host explicit decision",
     "guard": {
@@ -6456,7 +6456,7 @@
     "handler": "search",
     "method": "GET",
     "path": "/api/v1/search",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:20",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#search",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6472,7 +6472,7 @@
     "handler": "list",
     "method": "GET",
     "path": "/api/v1/seo/sitemap-entries",
-    "source": "apps/api/app/Http/Controllers/SEO/controller.go:28",
+    "source": "apps/api/app/Http/Controllers/SEO/controller.go#list",
     "access": "public",
     "policy": "seo public read policy; visibility rechecked by service",
     "guard": {
@@ -6488,7 +6488,7 @@
     "handler": "accountSettingsNavigation",
     "method": "GET",
     "path": "/api/v1/site/account-navigation",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:9",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#accountSettingsNavigation",
     "access": "login",
     "policy": "current active actor; Host-filtered personal settings projection",
     "guard": {
@@ -6504,7 +6504,7 @@
     "handler": "publicActiveThemeSettings",
     "method": "GET",
     "path": "/api/v1/site/active-theme/settings",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#publicActiveThemeSettings",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6520,7 +6520,7 @@
     "handler": "activeSkin",
     "method": "GET",
     "path": "/api/v1/site/active-theme/skin",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:109",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#activeSkin",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6536,7 +6536,7 @@
     "handler": "publicAnnouncements",
     "method": "GET",
     "path": "/api/v1/site/announcements",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:11",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#publicAnnouncements",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6552,7 +6552,7 @@
     "handler": "publicFriendLinks",
     "method": "GET",
     "path": "/api/v1/site/friend-links",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:10",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#publicFriendLinks",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6568,7 +6568,7 @@
     "handler": "publicNavItems",
     "method": "GET",
     "path": "/api/v1/site/nav-items",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#publicNavItems",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6584,7 +6584,7 @@
     "handler": "publicNavigation",
     "method": "GET",
     "path": "/api/v1/site/navigation",
-    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go:8",
+    "source": "apps/api/app/Http/Controllers/SiteChrome/routes.go#publicNavigation",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6600,7 +6600,7 @@
     "handler": "pageRegions",
     "method": "GET",
     "path": "/api/v1/site/page-regions",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:111",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#pageRegions",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -6616,7 +6616,7 @@
     "handler": "themeAsset",
     "method": "GET",
     "path": "/api/v1/site/theme-assets/:extensionId/*",
-    "source": "apps/api/app/Http/Controllers/Pages/controller.go:110",
+    "source": "apps/api/app/Http/Controllers/Pages/controller.go#themeAsset",
     "access": "public",
     "policy": "active package containment, digest, MIME, and path policy",
     "guard": {
@@ -6632,7 +6632,7 @@
     "handler": "tags",
     "method": "GET",
     "path": "/api/v1/tags",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:16",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#tags",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6648,7 +6648,7 @@
     "handler": "topics",
     "method": "GET",
     "path": "/api/v1/topics",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:22",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topics",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6664,7 +6664,7 @@
     "handler": "createTopic",
     "method": "POST",
     "path": "/api/v1/topics",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:26",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#createTopic",
     "access": "permission",
     "policy": "topic.create plus forum publication policy",
     "guard": {
@@ -6682,7 +6682,7 @@
     "handler": "deleteTopic",
     "method": "DELETE",
     "path": "/api/v1/topics/:topicID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:39",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#deleteTopic",
     "access": "permission",
     "policy": "topic.delete_own or topic.delete_any",
     "guard": {
@@ -6701,7 +6701,7 @@
     "handler": "topic",
     "method": "GET",
     "path": "/api/v1/topics/:topicID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:37",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topic",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6717,7 +6717,7 @@
     "handler": "updateTopic",
     "method": "PATCH",
     "path": "/api/v1/topics/:topicID",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:38",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#updateTopic",
     "access": "permission",
     "policy": "topic.edit_own or topic.edit_any",
     "guard": {
@@ -6736,7 +6736,7 @@
     "handler": "unbookmarkTopic",
     "method": "DELETE",
     "path": "/api/v1/topics/:topicID/bookmark",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:53",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#unbookmarkTopic",
     "access": "login",
     "policy": "active actor bookmark policy; visibility rechecked by service",
     "guard": {
@@ -6752,7 +6752,7 @@
     "handler": "bookmarkTopic",
     "method": "PUT",
     "path": "/api/v1/topics/:topicID/bookmark",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:52",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#bookmarkTopic",
     "access": "login",
     "policy": "active actor bookmark policy; visibility rechecked by service",
     "guard": {
@@ -6768,7 +6768,7 @@
     "handler": "comments",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:46",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#comments",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6784,7 +6784,7 @@
     "handler": "createComment",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/comments",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:67",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#createComment",
     "access": "permission",
     "policy": "post.create plus topic/publication policy",
     "guard": {
@@ -6802,7 +6802,7 @@
     "handler": "commentPage",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments/:commentID/page",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:63",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#commentPage",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6818,7 +6818,7 @@
     "handler": "topicCommentRevision",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments/revision",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:60",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicCommentRevision",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6834,7 +6834,7 @@
     "handler": "topicCommentStream",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/comments/stream",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:61",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicCommentStream",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6850,7 +6850,7 @@
     "handler": "topicContributionTimeline",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/contribution-timeline",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:31",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicContributionTimeline",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6866,7 +6866,7 @@
     "handler": "topicEditSource",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/edit-source",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:36",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicEditSource",
     "access": "permission",
     "policy": "topic.edit_own or topic.edit_any",
     "guard": {
@@ -6885,7 +6885,7 @@
     "handler": "hideTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/hide",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:40",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#hideTopic",
     "access": "permission",
     "policy": "topic.delete_any plus state policy",
     "guard": {
@@ -6903,7 +6903,7 @@
     "handler": "unlikeTopic",
     "method": "DELETE",
     "path": "/api/v1/topics/:topicID/like",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:49",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#unlikeTopic",
     "access": "login",
     "policy": "active actor like/unlike policy; visibility rechecked by service",
     "guard": {
@@ -6919,7 +6919,7 @@
     "handler": "likeTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/like",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:48",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#likeTopic",
     "access": "login",
     "policy": "active actor like/unlike policy; visibility rechecked by service",
     "guard": {
@@ -6935,7 +6935,7 @@
     "handler": "topicLikes",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/likes",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:50",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicLikes",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -6951,7 +6951,7 @@
     "handler": "lockTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/lock",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:42",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#lockTopic",
     "access": "permission",
     "policy": "topic.lock or allowed author close policy",
     "guard": {
@@ -6969,7 +6969,7 @@
     "handler": "pinTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/pin",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:44",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#pinTopic",
     "access": "permission",
     "policy": "topic.pin",
     "guard": {
@@ -6987,7 +6987,7 @@
     "handler": "restoreTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/restore",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:41",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#restoreTopic",
     "access": "permission",
     "policy": "topic.delete_any plus state policy",
     "guard": {
@@ -7005,7 +7005,7 @@
     "handler": "topicRevisions",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/revisions",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:32",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicRevisions",
     "access": "permission",
     "policy": "topic.revision.view_any",
     "guard": {
@@ -7023,7 +7023,7 @@
     "handler": "topicRevision",
     "method": "GET",
     "path": "/api/v1/topics/:topicID/revisions/:revisionNo",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:33",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicRevision",
     "access": "permission",
     "policy": "topic.revision.view_any",
     "guard": {
@@ -7041,7 +7041,7 @@
     "handler": "redactTopicRevision",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/revisions/:revisionNo/redact",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:35",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#redactTopicRevision",
     "access": "super_admin",
     "policy": "super_admin revision redaction policy",
     "guard": {
@@ -7057,7 +7057,7 @@
     "handler": "restoreTopicRevision",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/revisions/:revisionNo/restore",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:34",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#restoreTopicRevision",
     "access": "permission",
     "policy": "topic.revision.view_any plus topic.edit_any",
     "guard": {
@@ -7076,7 +7076,7 @@
     "handler": "unlockTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/unlock",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:43",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#unlockTopic",
     "access": "permission",
     "policy": "topic.lock or allowed author close policy",
     "guard": {
@@ -7094,7 +7094,7 @@
     "handler": "unpinTopic",
     "method": "POST",
     "path": "/api/v1/topics/:topicID/unpin",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:45",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#unpinTopic",
     "access": "permission",
     "policy": "topic.pin",
     "guard": {
@@ -7112,7 +7112,7 @@
     "handler": "topicBySlug",
     "method": "GET",
     "path": "/api/v1/topics/by-slug/:slug",
-    "source": "apps/api/app/Http/Controllers/Forum/routes.go:29",
+    "source": "apps/api/app/Http/Controllers/Forum/routes.go#topicBySlug",
     "access": "public",
     "policy": "forum public read policy; visibility rechecked by service",
     "guard": {
@@ -7128,7 +7128,7 @@
     "handler": "getPublic",
     "method": "GET",
     "path": "/api/v1/trust-levels",
-    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go:87",
+    "source": "apps/api/app/Http/Controllers/TrustLevels/controller.go#getPublic",
     "access": "public",
     "policy": "trust level catalog and viewer-only progress; 404 when features.trust_levels is disabled",
     "guard": {
@@ -7144,7 +7144,7 @@
     "handler": "listUsers",
     "method": "GET",
     "path": "/api/v1/users",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:79",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#listUsers",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7160,7 +7160,7 @@
     "handler": "createUser",
     "method": "POST",
     "path": "/api/v1/users",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:81",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#createUser",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7176,7 +7176,7 @@
     "handler": "getUser",
     "method": "GET",
     "path": "/api/v1/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:82",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#getUser",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7192,7 +7192,7 @@
     "handler": "updateUser",
     "method": "PATCH",
     "path": "/api/v1/users/:userID",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:84",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#updateUser",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7208,7 +7208,7 @@
     "handler": "adminClearUserClientIPs",
     "method": "POST",
     "path": "/api/v1/users/:userID/client-ips/clear",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:93",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminClearUserClientIPs",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7224,7 +7224,7 @@
     "handler": "setUserEmailVerification",
     "method": "PUT",
     "path": "/api/v1/users/:userID/email-verification",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:85",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#setUserEmailVerification",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7240,7 +7240,7 @@
     "handler": "adminSetUserPassword",
     "method": "POST",
     "path": "/api/v1/users/:userID/password",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:91",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminSetUserPassword",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7256,7 +7256,7 @@
     "handler": "replaceUserPermissionOverrides",
     "method": "PUT",
     "path": "/api/v1/users/:userID/permission-overrides",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:87",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#replaceUserPermissionOverrides",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7272,7 +7272,7 @@
     "handler": "replaceUserRoles",
     "method": "PUT",
     "path": "/api/v1/users/:userID/roles",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:86",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#replaceUserRoles",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7288,7 +7288,7 @@
     "handler": "adminRevokeUserSessions",
     "method": "POST",
     "path": "/api/v1/users/:userID/sessions/revoke",
-    "source": "apps/api/app/Http/Controllers/Identity/routes.go:89",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminRevokeUserSessions",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {
@@ -7304,7 +7304,7 @@
     "handler": "listPublic",
     "method": "GET",
     "path": "/api/v1/web-options",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:6",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#listPublic",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -7320,7 +7320,7 @@
     "handler": "update",
     "method": "PUT",
     "path": "/api/v1/web-options",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:8",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#update",
     "access": "permission",
     "policy": "option-owner permission dispatch",
     "guard": {
@@ -7336,7 +7336,7 @@
     "handler": "getPublic",
     "method": "GET",
     "path": "/api/v1/web-options/:name",
-    "source": "apps/api/app/Http/Controllers/Options/routes.go:7",
+    "source": "apps/api/app/Http/Controllers/Options/routes.go#getPublic",
     "access": "public",
     "policy": "public read contract",
     "guard": {
@@ -7352,7 +7352,7 @@
     "handler": "webPushConfig",
     "method": "GET",
     "path": "/api/v1/web-push/config",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:114",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#webPushConfig",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7368,7 +7368,7 @@
     "handler": "listWebPushSubscriptions",
     "method": "GET",
     "path": "/api/v1/web-push/subscriptions",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:115",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#listWebPushSubscriptions",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7384,7 +7384,7 @@
     "handler": "createWebPushSubscription",
     "method": "POST",
     "path": "/api/v1/web-push/subscriptions",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:116",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#createWebPushSubscription",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7400,7 +7400,7 @@
     "handler": "revokeWebPushSubscription",
     "method": "DELETE",
     "path": "/api/v1/web-push/subscriptions/:id",
-    "source": "apps/api/app/Http/Controllers/Notifications/controller.go:117",
+    "source": "apps/api/app/Http/Controllers/Notifications/controller.go#revokeWebPushSubscription",
     "access": "login",
     "policy": "current recipient ownership",
     "guard": {
@@ -7416,7 +7416,7 @@
     "handler": "inbound",
     "method": "POST",
     "path": "/api/v1/webhooks/inbound/:source",
-    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go:38",
+    "source": "apps/api/app/Http/Controllers/Webhooks/controller.go#inbound",
     "access": "public",
     "policy": "source-specific signature/idempotency policy",
     "guard": {

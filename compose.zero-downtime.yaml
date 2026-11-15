@@ -1,6 +1,8 @@
 services:
   edge:
-    image: caddy:2.11-alpine
+    # RV-43：入口镜像按 digest 固定，不接受可变 tag。upgrade.sh 的
+    # CADDY_IMAGE_DEFAULT 必须与这里逐字一致（zero-downtime-compose_test.sh 钉住）。
+    image: ${SFORUM_CADDY_IMAGE:-caddy:2.11-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0}
     profiles: ["zero-downtime"]
     restart: unless-stopped
     command: ["caddy", "run", "--config", "/etc/sforum-router/Caddyfile", "--adapter", "caddyfile"]
@@ -30,7 +32,7 @@ services:
     restart: unless-stopped
     depends_on:
       api-blue:
-        condition: service_started
+        condition: service_healthy
     environment:
       APP_ENV: production
       NUXT_API_INTERNAL_BASE_URL: http://api-blue:8080/api/v1
@@ -55,7 +57,7 @@ services:
     restart: unless-stopped
     depends_on:
       api-green:
-        condition: service_started
+        condition: service_healthy
     environment:
       APP_ENV: production
       NUXT_API_INTERNAL_BASE_URL: http://api-green:8080/api/v1

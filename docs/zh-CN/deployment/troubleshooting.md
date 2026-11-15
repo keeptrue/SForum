@@ -67,6 +67,9 @@ COMPOSE=(docker compose --env-file .env.production \
 | `以下本机端口已被其他程序占用：` | `WEB_PORT`/`API_PORT` 被占 | 停掉占用进程，或在 `.env.production` 改端口；蓝绿拓扑还要检查 `edge` |
 | `Could not pull ghcr.io/... after 3 attempts.` | Registry 不可达、包私有或限流 | 确认三个包公开可读；必要时 `docker login ghcr.io`；稍后重试 |
 | `image version is '...', expected '...'` | 镜像标签与构建身份不一致 | 不要继续；确认 `SFORUM_VERSION` 与 Registry 中的标签一致 |
+| `Could not resolve the manifest digest of ... Docker with the buildx plugin ...` | 宿主机没有 `docker buildx` 插件，或镜像不存在/不可访问 | 装 buildx 插件后重试（`docker buildx version` 应有输出）；插件正常时再查 Registry 权限与标签是否存在 |
+| `SFORUM_CADDY_IMAGE must pin a digest (name@sha256:...)` | `.env.production` 的覆盖值只写了 tag | 改成 `name@sha256:<digest>`；不需要自定义就删掉该行，用默认钉版 |
+| `... image content identity mismatch: ...` | 解析出的 digest 与拉取到的镜像不一致，通常是标签被重推 | 重新执行升级；确认该版本没有被重新发布，必要时改用别的不可变标签 |
 | `Standby slot failed internal health checks; live traffic was not changed.` | 备用槽没通过槽内检查 | 当前流量未受影响；看新槽日志，修复后重试 |
 | `Ingress switch failed and was rolled back to the active slot.` | Caddy 切换失败并已回滚 | 检查 `deploy/runtime/Caddyfile` 与 `edge` 日志；当前流量仍在旧槽 |
 | `Migration failed. The previous slot was restarted...` | 维护窗口迁移失败 | 旧槽已重启；修复迁移问题，或恢复 `.deployrc` 里的备份 |
@@ -97,6 +100,7 @@ SQL 错误都不会替换原库。
 | 症状 | 判定 | 处置 |
 | --- | --- | --- |
 | 反代 502/504 | 反代目标错，或 `web`/`api` 没运行 | 检查 `WEB_PORT`/`API_PORT`、`docker compose ps`、容器日志 |
+| 首次 `compose up` 后 `web` 长时间 `starting`、入口 502 | `web` 依赖 `api` 的 `service_healthy`，冷启动还没到就绪 | 等宽限期（`api` 120 秒 / `web` 180 秒）；用 `docker compose ps` 看健康状态，别在 `healthy` 之前切流量 |
 | 浏览器 API 403（CSRF） | `Origin` 与 `CSRF_TRUSTED_ORIGINS` 不匹配 | 把公开 origin 写进 `CSRF_TRUSTED_ORIGINS`；多站点逗号分隔 |
 | 管理后台 404 | 访问路径与 `NUXT_PUBLIC_ADMIN_ROUTE_PREFIX` 不一致 | 用 `APP_URL + 前缀` 访问；改前缀后重启 `web` |
 | WebSocket 连不上 | 反代没有转发 Upgrade，或 API 端口不对 | 按 `deploy/caddy/Caddyfile` 把 Upgrade 指到 `API_PORT` |

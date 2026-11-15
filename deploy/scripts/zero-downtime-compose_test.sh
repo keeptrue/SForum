@@ -36,6 +36,12 @@ ruby -rjson -e '
   expected_ports = [["127.0.0.1", "3000", 3000], ["127.0.0.1", "18080", 18080]]
   abort "edge is not the stable loopback ingress: #{published.inspect}" unless published == expected_ports
 
+  # RV-42：挂载源必须真实存在于仓库，否则 fresh clone 会被 Docker 建成 root 属主空目录。
+  router_mount = edge.fetch("volumes").find { |volume| volume["target"] == "/etc/sforum-router" }
+  abort "edge lost the /etc/sforum-router mount" unless router_mount
+  abort "edge router mount must be read-only" unless router_mount["read_only"] == true
+  abort "edge router mount source is missing: #{router_mount["source"].inspect}" unless File.directory?(router_mount["source"])
+
   slots.each do |slot|
     api = services.fetch("api-#{slot}")
     web = services.fetch("web-#{slot}")
@@ -47,10 +53,65 @@ ruby -rjson -e '
     mounts = api.fetch("volumes").map { |volume| [volume["source"], volume["target"]] }
     abort "api-#{slot} lost attachment volume" unless mounts.include?(["attachment_uploads", "/app/storage/app/attachments"])
     abort "api-#{slot} lost extension volume" unless mounts.include?(["extension_packages", "/var/lib/sforum/extensions"])
+
+    # RV-41：槽容器必须自带健康探针，web 也必须等 API 真正 healthy 才启动。
+    api_health = api.fetch("healthcheck")
+    abort "api-#{slot} lost its healthcheck" unless api_health.fetch("test").to_s.include?("http://127.0.0.1:8080/api/v1/ready")
+    abort "api-#{slot} healthcheck start_period is too short: #{api_health["start_period"].inspect}" unless %w[120s 2m0s].include?(api_health["start_period"])
+    web_health = web.fetch("healthcheck")
+    abort "web-#{slot} lost its healthcheck" unless web_health.fetch("test").to_s.include?("http://127.0.0.1:3000/health")
+    abort "web-#{slot} healthcheck start_period is too short: #{web_health["start_period"].inspect}" unless %w[180s 3m0s].include?(web_health["start_period"])
+    api_condition = web.dig("depends_on", "api-#{slot}", "condition")
+    abort "web-#{slot} must wait for api-#{slot} to be healthy, got #{api_condition.inspect}" unless api_condition == "service_healthy"
   end
   abort "blue API tag mismatch" unless services.dig("api-blue", "image").end_with?(":v3.0.0-alpha.10")
   abort "green API tag mismatch" unless services.dig("api-green", "image").end_with?(":v3.0.0-alpha.11")
 ' "$TEMP_DIR/compose.json"
+
+# RV-43：edge 镜像必须按 digest 固定，且与 upgrade.sh 的常量逐字一致；否则两处
+# 任一漂移都会让「拉取的身份」和「运行的身份」不是同一个东西。
+compose_caddy_image="$(ruby -rjson -e 'print JSON.parse(File.read(ARGV.fetch(0))).fetch("services").fetch("edge").fetch("image")' "$TEMP_DIR/compose.json")"
+upgrade_caddy_image="$(sed -n 's/^CADDY_IMAGE_DEFAULT="\(.*\)"$/\1/p' "$ROOT_DIR/upgrade.sh")"
+case "$compose_caddy_image" in
+  *@sha256:*) ;;
+  *) printf 'zero-downtime-compose_test.sh: edge image is not digest-pinned: %s\n' "$compose_caddy_image" >&2; exit 1 ;;
+esac
+[ "$compose_caddy_image" = "$upgrade_caddy_image" ] || {
+  printf 'zero-downtime-compose_test.sh: compose pins %s but upgrade.sh pins %s\n' \
+    "$compose_caddy_image" "$upgrade_caddy_image" >&2
+  exit 1
+}
+
+# RV-42：生成的路由配置不入库，但目录本身必须在仓库里。
+RUNTIME_SOURCE="$ROOT_DIR/deploy/runtime"
+[ -d "$RUNTIME_SOURCE" ] || {
+  printf 'zero-downtime-compose_test.sh: deploy/runtime must be tracked so compose does not create it as root\n' >&2
+  exit 1
+}
+[ -f "$RUNTIME_SOURCE/.gitignore" ] || {
+  printf 'zero-downtime-compose_test.sh: deploy/runtime/.gitignore is missing\n' >&2
+  exit 1
+}
+for rule in '*' '!.gitkeep' '!.gitignore'; do
+  grep -qxF -- "$rule" "$RUNTIME_SOURCE/.gitignore" || {
+    printf 'zero-downtime-compose_test.sh: deploy/runtime/.gitignore must contain the rule %s\n' "$rule" >&2
+    exit 1
+  }
+done
+
+# 根 .gitignore 曾经整目录忽略 deploy/runtime/，那样占位文件根本进不了仓库。
+# 这里按「已跟踪或对 git 可见」判定，提交前后都成立；没有 .git 的导出包跳过。
+if command -v git >/dev/null 2>&1 && git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  for placeholder in deploy/runtime/.gitignore deploy/runtime/.gitkeep; do
+    if git -C "$ROOT_DIR" ls-files --error-unmatch "$placeholder" >/dev/null 2>&1; then
+      continue
+    fi
+    git -C "$ROOT_DIR" ls-files --others --exclude-standard -- "$placeholder" | grep -qx -- "$placeholder" || {
+      printf 'zero-downtime-compose_test.sh: %s is hidden by .gitignore and cannot be committed\n' "$placeholder" >&2
+      exit 1
+    }
+  done
+fi
 
 # RV-02：入口生成的两个 server 块都必须按 {client_ip} 重写 X-Real-IP。限流键、
 # 登录锁定 IP 和审计来源地址都读这个头；缺了它上游只能看到 web 容器的地址，
@@ -74,15 +135,26 @@ router_config_error() {
 
 RENDER_ROOT="$TEMP_DIR/render"
 mkdir -p "$RENDER_ROOT"
+
+# upgrade.sh 只在被直接执行时跑 main；source 进来只取生成函数。它会把 ROOT_DIR
+# 重设成仓库根并 cd 过去，所以在函数里 source、出来恢复调用方的路径与工作目录；
+# 循环变量叫 slot_name，避免覆盖 upgrade.sh 自己用的 slot。
+render_slot_config() {
+  local slot_name="$1" destination="$2" saved_root="$ROOT_DIR" saved_pwd="$PWD"
+  set --
+  # shellcheck disable=SC1090,SC1091
+  . "$ROOT_DIR/upgrade.sh"
+  ROOT_DIR="$saved_root"
+  cd "$saved_pwd" || return 1
+  RUNTIME_DIR="$RENDER_ROOT/runtime"
+  write_router_config "$slot_name" "$destination"
+}
+
 for slot in blue green; do
-  (
-    # upgrade.sh 只在被直接执行时跑 main；source 进来只取生成函数。
-    set --
-    # shellcheck disable=SC1090,SC1091
-    . "$ROOT_DIR/upgrade.sh"
-    RUNTIME_DIR="$RENDER_ROOT/runtime"
-    write_router_config "$slot" "$RENDER_ROOT/Caddyfile.$slot"
-  )
+  if ! render_slot_config "$slot" "$RENDER_ROOT/Caddyfile.$slot"; then
+    printf 'zero-downtime-compose_test.sh: could not render the %s router config\n' "$slot" >&2
+    exit 1
+  fi
   if ! reason="$(router_config_error "$RENDER_ROOT/Caddyfile.$slot" "$slot")"; then
     printf 'zero-downtime-compose_test.sh: %s\n' "$reason" >&2
     exit 1

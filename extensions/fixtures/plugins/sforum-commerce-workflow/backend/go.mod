@@ -1,6 +1,6 @@
 module github.com/keeptrue/sforum/extensions/fixtures/plugins/sforum-commerce-workflow/backend
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/jackc/pgx/v5 v5.10.0

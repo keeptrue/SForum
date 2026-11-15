@@ -143,14 +143,30 @@ chmod 0644 "$OUTPUT_DIR/sforum-bootstrap.sh" "$OUTPUT_DIR/upgrade.sh" "$OUTPUT_D
 [[ -x "$OUTPUT_DIR/upgrade.sh" ]] || fail "finalizer did not restore the upgrade.sh execute bit"
 [[ -x "$OUTPUT_DIR/sforum-install.sh" ]] || fail "finalizer did not restore the install loader execute bit"
 
-[[ "$(find "$OUTPUT_DIR" -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 11 ]] || fail "unexpected release asset count"
-[[ "$(wc -l < "$OUTPUT_DIR/SHA256SUMS" | tr -d ' ')" -eq 10 ]] || fail "unexpected checksum count"
+[[ "$(find "$OUTPUT_DIR" -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 13 ]] || fail "unexpected release asset count"
+[[ "$(wc -l < "$OUTPUT_DIR/SHA256SUMS" | tr -d ' ')" -eq 12 ]] || fail "unexpected checksum count"
 grep -q "sforum-server_${VERSION}_linux_amd64.tar.gz" "$OUTPUT_DIR/SHA256SUMS" || fail "server checksum is missing"
 grep -q "sforum-cli_${VERSION}_darwin_arm64.tar.gz" "$OUTPUT_DIR/SHA256SUMS" || fail "macOS CLI checksum is missing"
 grep -q "sforum-deploy.tar.gz" "$OUTPUT_DIR/SHA256SUMS" || fail "deploy bundle checksum is missing"
 grep -q "^[0-9a-f]\{64\}  sforum-bootstrap.sh$" "$OUTPUT_DIR/SHA256SUMS" || fail "bootstrap checksum is missing"
 grep -q "^[0-9a-f]\{64\}  upgrade.sh$" "$OUTPUT_DIR/SHA256SUMS" || fail "updater checksum is missing"
 grep -q "^[0-9a-f]\{64\}  sforum-install.sh$" "$OUTPUT_DIR/SHA256SUMS" || fail "install loader checksum is missing"
+grep -q "^[0-9a-f]\{64\}  sforum-latest.sh$" "$OUTPUT_DIR/SHA256SUMS" || fail "latest wrapper checksum is missing"
+grep -q "^[0-9a-f]\{64\}  sforum-latest.sh.sha256$" "$OUTPUT_DIR/SHA256SUMS" || fail "latest wrapper checksum file is missing"
+latest_checksum_lines="$(grep -c ' sforum-latest\.sh$' "$OUTPUT_DIR/SHA256SUMS" || true)"
+[[ "$latest_checksum_lines" -eq 1 ]] || fail "SHA256SUMS must contain exactly one sforum-latest.sh entry"
+latest_sha_checksum_lines="$(grep -c ' sforum-latest\.sh\.sha256$' "$OUTPUT_DIR/SHA256SUMS" || true)"
+[[ "$latest_sha_checksum_lines" -eq 1 ]] || fail "SHA256SUMS must contain exactly one sforum-latest.sh.sha256 entry"
+# RV-15: the standalone .sha256 asset has to verify against the script next to it,
+# otherwise the documented download-and-verify entry cannot work at all.
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$OUTPUT_DIR" && sha256sum -c sforum-latest.sh.sha256 >/dev/null) || \
+    fail "the distributed sforum-latest.sh.sha256 does not match the distributed script"
+else
+  (cd "$OUTPUT_DIR" && shasum -a 256 -c sforum-latest.sh.sha256 >/dev/null) || \
+    fail "the distributed sforum-latest.sh.sha256 does not match the distributed script"
+fi
+
 installer_checksum_lines="$(grep -c 'sforum-install.sh' "$OUTPUT_DIR/SHA256SUMS" || true)"
 [[ "$installer_checksum_lines" -eq 1 ]] || fail "SHA256SUMS must contain exactly one sforum-install.sh entry"
 upgrade_checksum_lines="$(grep -c 'upgrade.sh' "$OUTPUT_DIR/SHA256SUMS" || true)"
@@ -171,8 +187,11 @@ for entry in \
   "sforum-deploy/deploy/scripts/backup-postgres.sh" \
   "sforum-deploy/deploy/scripts/restore-postgres.sh" \
   "sforum-deploy/deploy/scripts/wait-for-health.sh" \
+  "sforum-deploy/deploy/scripts/deploy-lock.sh" \
   "sforum-deploy/deploy/caddy/Caddyfile" \
-  "sforum-deploy/deploy/router/Caddyfile.example"; do
+  "sforum-deploy/deploy/router/Caddyfile.example" \
+  "sforum-deploy/deploy/runtime/.gitignore" \
+  "sforum-deploy/deploy/runtime/.gitkeep"; do
   grep -qx "$entry" <<< "$deploy_listing" || fail "deploy archive is missing $entry"
 done
 grep -qx "sforum-deploy/VERSION" <<< "$deploy_listing" || fail "deploy archive is missing VERSION"
@@ -187,7 +206,8 @@ for entry in \
   "sforum-deploy/deploy/scripts/configure-production.sh" \
   "sforum-deploy/deploy/scripts/backup-postgres.sh" \
   "sforum-deploy/deploy/scripts/restore-postgres.sh" \
-  "sforum-deploy/deploy/scripts/wait-for-health.sh"; do
+  "sforum-deploy/deploy/scripts/wait-for-health.sh" \
+  "sforum-deploy/deploy/scripts/deploy-lock.sh"; do
   mode="$(awk -v name="$entry" '$NF == name { print $1; exit }' <<< "$deploy_verbose")"
   [[ "$mode" == "-rwxr-xr-x" ]] || fail "deploy archive entry does not have mode 0755: $entry ($mode)"
 done
@@ -223,6 +243,28 @@ while IFS= read -r entry; do
       fail "$entry sources deploy/scripts/$dependency but the deploy archive does not contain it"
   done < <(grep -E '^source "' "$ROOT_DIR/$entry" || true)
 done <<< "$deploy_script_entries"
+
+# RV-15 / deploy-lock extraction: the root entrypoints source deploy/scripts/*
+# too. The whitelist must ship every such dependency; otherwise the bundle only
+# breaks on the operator host, at the first `source` line.
+for root_entry in deploy.sh upgrade.sh sforum-bootstrap.sh sforum-latest.sh; do
+  while IFS= read -r source_line; do
+    dependency="${source_line%\"*}"
+    dependency="${dependency##*/}"
+    [[ -n "$dependency" ]] || continue
+    grep -qx "deploy/scripts/$dependency" <<< "$deploy_script_entries" || \
+      fail "$root_entry sources deploy/scripts/$dependency but the whitelist does not ship it"
+    grep -qx "sforum-deploy/deploy/scripts/$dependency" <<< "$deploy_listing" || \
+      fail "$root_entry sources deploy/scripts/$dependency but the deploy archive does not contain it"
+  done < <(grep -E '^(source|\.) "' "$ROOT_DIR/$root_entry" || true)
+done
+
+# RV-15 negative: a stale checksum next to the script must fail the finalizer.
+cp "$OUTPUT_DIR/sforum-latest.sh" "$TEMP_DIR/sforum-latest.sh.saved"
+printf '\n# tampered\n' >> "$OUTPUT_DIR/sforum-latest.sh"
+expect_failure "sforum-latest.sh" "$ROOT_DIR/scripts/ci/finalize-release-assets.sh" "$VERSION" "$OUTPUT_DIR"
+cp "$TEMP_DIR/sforum-latest.sh.saved" "$OUTPUT_DIR/sforum-latest.sh"
+"$ROOT_DIR/scripts/ci/finalize-release-assets.sh" "$VERSION" "$OUTPUT_DIR" >/dev/null
 
 expect_failure "Usage:" "$ROOT_DIR/scripts/ci/build-release-assets.sh" \
   invalid "$COMMIT" "$BUILD_TIME" "$IMAGE_TAG" linux amd64 "$OUTPUT_DIR"

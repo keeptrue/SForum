@@ -82,7 +82,7 @@ chmod 600 .env.production
 | `CSRF_TRUSTED_ORIGINS` | 公开站点 origin，例如 `https://forum.example.com` |
 | `NUXT_PUBLIC_API_BASE_URL` | 必须是 `/api/v1` |
 | `NUXT_PUBLIC_ADMIN_ROUTE_PREFIX` | 安全路径，例如 `/control-panel` |
-| `MIGRATE_ON_STARTUP` | 建议 `false`，然后显式执行迁移 |
+| `MIGRATE_ON_STARTUP` | 模板已写 `false`：显式执行迁移（Compose 缺省仍是 `true`） |
 
 生成密钥：
 
@@ -140,8 +140,10 @@ docker run --rm "ghcr.io/keeptrue/sforum-migrate:${SFORUM_VERSION}" sforum-migra
 顺序不能反：迁移要在 API 启动前完成。`--pull never` 确保迁移和启动使用
 刚刚核对过的本地镜像，不会在旧应用停止后再次依赖 Registry。
 
-如果你把 `MIGRATE_ON_STARTUP` 设为 `true`，API 启动时也会尝试迁移；两种
-模式二选一即可，但不要设为 `false` 又不执行 `migrate`。
+`.env.production.example` 与配置向导都写 `MIGRATE_ON_STARTUP=false`，所以按本页
+流程要先跑 `migrate`。完全不加载模板、也不设该键时，`compose.yaml` 的缺省仍是
+`true`，API 启动会自己迁移——两种模式二选一，但不要设为 `false` 又不执行
+`migrate`。
 
 ## 步骤 6：健康检查
 
@@ -155,6 +157,11 @@ curl -fsS "http://127.0.0.1:${WEB_PORT:-3000}/health"
 
 `/api/v1/ready` 依赖 PostgreSQL；Redis 或 Meili 不可用时是降级就绪，不会
 让整个站点不可用。
+
+`compose.yaml` 已给 `api` 与 `web` 声明 healthcheck（`api` 打 `/api/v1/ready`，
+`web` 打 `/health`），`compose.prod.yaml` 的 `web → api` 依赖是
+`service_healthy`：API 没就绪时 web 不会接流量。上面 `up -d --wait` 会等到健康，
+所以首次冷启动比旧版多等一会儿（`api` 宽限 120 秒、`web` 180 秒）。
 
 ## 步骤 7：反向代理与 TLS
 

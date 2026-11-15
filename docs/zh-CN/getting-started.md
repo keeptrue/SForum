@@ -9,7 +9,7 @@
 | 工具 | 说明 |
 | --- | --- |
 | Docker + Docker Compose | 启动 PostgreSQL、Redis、Mailpit |
-| Go **1.26.10+** | API / worker（版本锚定于 `apps/api/go.mod`） |
+| Go **1.26.11+** | API / worker（版本锚定于 `apps/api/go.mod`） |
 | [Air](https://github.com/air-verse/air) | API 热重载：`go install github.com/air-verse/air@latest` |
 | [Bun](https://bun.sh) | 前端依赖与 dev server |
 | Git | 克隆仓库 |

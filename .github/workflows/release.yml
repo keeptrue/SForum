@@ -474,6 +474,15 @@ jobs:
           "${{ needs.prepare.outputs.version }}"
           "$GITHUB_WORKSPACE/dist"
 
+      - name: Assert the checksum-pinned latest wrapper is published
+        # RV-15: the wrapper used to be fetched from the mutable main branch.
+        # It must leave this job as a Release asset together with its checksum,
+        # and the pair has to agree before it reaches the verified asset set.
+        run: |
+          test -s dist/sforum-latest.sh
+          test -s dist/sforum-latest.sh.sha256
+          (cd dist && { sha256sum -c sforum-latest.sh.sha256 || shasum -a 256 -c sforum-latest.sh.sha256; })
+
       - name: Upload deploy asset
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

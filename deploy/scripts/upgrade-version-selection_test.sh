@@ -31,6 +31,7 @@ assert_not_contains() {
 
 mkdir -p "$TEST_ROOT/deploy/scripts" "$MOCK_BIN"
 cp "$ROOT_DIR/upgrade.sh" "$TEST_ROOT/"
+cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$TEST_ROOT/deploy/scripts/"
 touch \
   "$TEST_ROOT/compose.yaml" \
   "$TEST_ROOT/compose.prod.yaml" \
@@ -64,11 +65,16 @@ case " $* " in
 esac
 EOF
 
+# RV-43：pull 之前先把 tag 解析成 manifest digest；mock 必须回答 buildx。
 cat > "$MOCK_BIN/docker" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
 if [ "${1:-}" = info ]; then
+  exit 0
+fi
+if [ "${1:-}" = buildx ]; then
+  printf '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n'
   exit 0
 fi
 if [ "${1:-}" = pull ]; then
@@ -200,6 +206,10 @@ printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
 if [ "${1:-}" = info ]; then
   exit 0
 fi
+if [ "${1:-}" = buildx ]; then
+  printf '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n'
+  exit 0
+fi
 if [ "${1:-}" = pull ]; then
   PULL_COUNT_FILE="${TEMP_DIR_PULL_COUNT:-/tmp/sforum-upgrade-pull-count}"
   count="$(cat "$PULL_COUNT_FILE" 2>/dev/null || echo 0)"
@@ -208,6 +218,21 @@ if [ "${1:-}" = pull ]; then
   if [ "$count" -le 2 ]; then
     exit 42
   fi
+  exit 0
+fi
+if [ "${1:-}" = image ]]; then
+  for arg in "$@"; do
+    case "$arg" in
+      *RepoDigests*)
+        printf '["ghcr.io/keeptrue/sforum-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]'
+        exit 0
+        ;;
+      *image.version*)
+        printf '3.0.0'
+        exit 0
+        ;;
+    esac
+  done
   exit 0
 fi
 exit 43
@@ -222,6 +247,82 @@ fi
 grep -q 'retrying (attempt 2/3)' "$TEMP_DIR/pull-retry.out" || \
   fail "docker pull retry output is missing"
 
+# RV-43：身份是内容 digest，不是版本标签。每次拉取前都要先解析 manifest digest，
+# 拉取后再核对本地 RepoDigests。
+assert_contains "$MOCK_LOG" 'docker buildx imagetools inspect ghcr.io/keeptrue/sforum-api:v3.0.0'
+assert_contains "$MOCK_LOG" 'image inspect ghcr.io/keeptrue/sforum-api:v3.0.0 --format {{json .RepoDigests}}'
+
+# RV-43 负向：tag 在解析后又被重推，本地 RepoDigests 与解析结果不一致 → 必须 die，
+# 且不能进入迁移或启动任何槽。
+cat > "$MOCK_BIN/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
+if [ "${1:-}" = info ]; then
+  exit 0
+fi
+if [ "${1:-}" = buildx ]; then
+  printf '"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"\n'
+  exit 0
+fi
+if [ "${1:-}" = pull ]; then
+  exit 0
+fi
+if [ "${1:-}" = image ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      *RepoDigests*)
+        printf '["ghcr.io/keeptrue/sforum-api@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]'
+        exit 0
+        ;;
+      *image.version*)
+        printf '3.0.0'
+        exit 0
+        ;;
+    esac
+  done
+  exit 0
+fi
+exit 43
+EOF
+chmod +x "$MOCK_BIN/docker"
+: > "$MOCK_LOG"
+if (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" MOCK_UPGRADE_LOG="$MOCK_LOG" ./upgrade.sh --yes v3.0.0 </dev/null
+) > "$TEMP_DIR/digest-mismatch.out" 2>&1; then
+  fail "a tag that moved after digest resolution was accepted"
+fi
+assert_contains "$TEMP_DIR/digest-mismatch.out" 'content identity mismatch'
+assert_not_contains "$MOCK_LOG" 'run --rm'
+
+# RV-43 负向：解析不出 digest 时必须在拉取前停住，不能退回「只看版本标签」。
+cat > "$MOCK_BIN/docker" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
+if [ "${1:-}" = info ]; then
+  exit 0
+fi
+if [ "${1:-}" = buildx ]; then
+  exit 1
+fi
+if [ "${1:-}" = pull ]; then
+  exit 0
+fi
+exit 43
+EOF
+chmod +x "$MOCK_BIN/docker"
+: > "$MOCK_LOG"
+if (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" MOCK_UPGRADE_LOG="$MOCK_LOG" ./upgrade.sh --yes v3.0.0 </dev/null
+) > "$TEMP_DIR/digest-unresolved.out" 2>&1; then
+  fail "an update without a resolved manifest digest was accepted"
+fi
+assert_contains "$TEMP_DIR/digest-unresolved.out" 'manifest digest'
+assert_not_contains "$MOCK_LOG" 'docker pull '
+
 # Interactive maintenance confirmation: when the target migrator cannot prove
 # online safety and the user declines, the update cancels without downtime.
 cat > "$MOCK_BIN/docker" <<'EOF'
@@ -231,6 +332,10 @@ printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
 if [ "${1:-}" = info ]; then
   exit 0
 fi
+if [ "${1:-}" = buildx ]; then
+  printf '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n'
+  exit 0
+fi
 if [ "${1:-}" = pull ]; then
   exit 0
 fi
@@ -238,6 +343,10 @@ if [ "${1:-}" = image ]; then
   # docker image inspect <image> --format <fmt>: reply via the format string.
   for arg in "$@"; do
     case "$arg" in
+      *RepoDigests*)
+        printf '["ghcr.io/keeptrue/sforum-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]'
+        exit 0
+        ;;
       *online-safe-check*)
         printf 'v1'
         exit 0
@@ -319,6 +428,42 @@ fi
 assert_contains "$TEMP_DIR/live-lock.out" 'Another deployment or update operation is running'
 rm -rf "$TEST_ROOT/.deploy.lock"
 
+# 跨用户活锁：kill -0 对别人家的进程返回 EPERM，锁判定必须靠 ps -p 兜底判活。
+# pid 1 由 root 持有（本测试以普通用户运行），因此它正好覆盖这条路径。
+mkdir -p "$TEST_ROOT/.deploy.lock"
+printf '1\n' > "$TEST_ROOT/.deploy.lock/pid"
+foreign_start="$(LC_ALL=C ps -o lstart= -p 1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+printf 'pid=1\naction=deploy\nstarted_at=2026-01-01T00:00:00Z\nproc_start=%s\n' "$foreign_start" \
+  > "$TEST_ROOT/.deploy.lock/owner"
+if (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" MOCK_UPGRADE_LOG="$MOCK_LOG" ./upgrade.sh --yes v3.0.0 </dev/null
+) > "$TEMP_DIR/foreign-live-lock.out" 2>&1; then
+  fail "a live lock owned by another user must refuse the update"
+fi
+assert_contains "$TEMP_DIR/foreign-live-lock.out" 'Another deployment or update operation is running'
+assert_not_contains "$TEMP_DIR/foreign-live-lock.out" 'stale deployment lock'
+[ -e "$TEST_ROOT/.deploy.lock/owner" ] || fail "the foreign live lock was removed"
+rm -rf "$TEST_ROOT/.deploy.lock"
+
+# pid 被复用：进程还活着但启动时刻不同 → 按残留锁回收，并在日志里写明原因。
+mkdir -p "$TEST_ROOT/.deploy.lock"
+printf '1\n' > "$TEST_ROOT/.deploy.lock/pid"
+printf 'pid=1\naction=deploy\nstarted_at=2026-01-01T00:00:00Z\nproc_start=Thu Jan  1 00:00:00 2026\n' \
+  > "$TEST_ROOT/.deploy.lock/owner"
+rm -f "$TEST_ROOT/.deployrc.lock.log"
+: > "$MOCK_LOG"
+if (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" MOCK_UPGRADE_LOG="$MOCK_LOG" ./upgrade.sh --yes v3.0.0 </dev/null
+) > "$TEMP_DIR/reused-pid-lock.out" 2>&1; then
+  fail "the fake compose should stop the reused-pid update"
+fi
+assert_contains "$TEMP_DIR/reused-pid-lock.out" 'stale deployment lock'
+assert_contains "$TEST_ROOT/.deployrc.lock.log" 'reason=pid_reused'
+[ ! -e "$TEST_ROOT/.deploy.lock" ] || fail "the reclaimed lock was left behind"
+rm -rf "$TEST_ROOT/.deploy.lock"
+
 # Registry namespace repair: an install still pinned to the pre-rename namespace
 # must be migrated to the canonical prefix before any pull or compose call. The
 # pull itself has to use the repaired prefix, otherwise the migrate step later
@@ -333,6 +478,10 @@ cat > "$MOCK_BIN/docker" <<'EOF'
 set -euo pipefail
 printf 'docker %s\n' "$*" >> "$MOCK_UPGRADE_LOG"
 if [ "${1:-}" = info ]; then
+  exit 0
+fi
+if [ "${1:-}" = buildx ]; then
+  printf '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\n'
   exit 0
 fi
 if [ "${1:-}" = pull ]; then

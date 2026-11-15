@@ -3,8 +3,8 @@
 [← 生产部署](../deployment.md)
 
 这页写透三个 Release 脚本：`sforum-bootstrap.sh`、`deploy.sh`、`upgrade.sh`，
-以及仓库侧可选的预取包装器 `sforum-latest.sh`。先看职责，再看执行链，最后看
-状态文件与失败语义。
+以及同样作为 Release 资产分发的预取包装器 `sforum-latest.sh`。先看职责，再看
+执行链，最后看状态文件与失败语义。
 
 ## 交付物与职责
 
@@ -13,6 +13,8 @@
 | `sforum-install.sh` | 一行入口（Release 资产）：解析不可变标签、校验该标签的 `sforum-bootstrap.sh`、落盘后 exec 交给它；不含安装逻辑 |
 | `sforum-bootstrap.sh` | 在线入口：解析不可变标签，校验并刷新自身和完整工具包，然后交给 `deploy.sh` 或 `upgrade.sh` |
 | `sforum-deploy.tar.gz` | 同一 Release 的完整部署工具包 |
+| `sforum-latest.sh` | 预取包装器（独立 Release 资产，不在部署包内）：先解析目标 Release 并校验完整部署包，再交给同一标签的 bootstrap |
+| `sforum-latest.sh.sha256` | 上面脚本的 SHA-256 校验和，同一 Release 的独立资产 |
 | `deploy.sh` | 安装/更新控制台，以及备份、恢复、状态、日志、重启、停止 |
 | `upgrade.sh` | 已有安装的 blue/green 更新器 |
 | `deploy/scripts/configure-production.sh` | `.env.production` 配置向导与密钥生成 |
@@ -27,9 +29,10 @@
 | `deploy/router/Caddyfile.example` | 蓝绿入口 Caddy 示例 |
 | `VERSION` | 部署包所属的精确版本 |
 
-`sforum-latest.sh` 不属于 Release 交付物，也不由 bootstrap 刷新。它是仓库提供的
-可选包装器：每次先解析最新 Release 并校验该 Release 的 bootstrap，再交给它执行
-install/upgrade。
+`sforum-latest.sh` 与它的 `.sha256` 从本版起随 Release 一起发布，但**不在**
+`sforum-deploy.tar.gz` 内，也不由 bootstrap 刷新：它必须在任何本地脚本执行之前
+联网，只能是独立下载的一层。每次先解析目标 Release 并校验该 Release 的完整部署
+包，再交给同一标签的 bootstrap 执行 install/upgrade。
 
 调用关系：
 
@@ -269,23 +272,40 @@ https://github.com/keeptrue/SForum/releases/download/<TAG>/SHA256SUMS
 在安装目录执行：
 
 ```sh
-# 重复运行会原子替换包装器，不需要先删除旧文件
-tmp="$(mktemp ./.sforum-latest.XXXXXX)" && \
-curl -fsSLo "$tmp" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh?$(date +%s)" && \
-curl -fsSLo "$tmp.sha256" "https://raw.githubusercontent.com/keeptrue/SForum/main/sforum-latest.sh.sha256?$(date +%s)" && \
-mv -f "$tmp.sha256" sforum-latest.sh.sha256 && \
-mv -f "$tmp" sforum-latest.sh && \
+# 最新稳定 Release（推荐）：脚本与校验和来自同一标签的两个资产
+curl -fsSLO https://github.com/keeptrue/SForum/releases/latest/download/sforum-latest.sh
+curl -fsSLO https://github.com/keeptrue/SForum/releases/latest/download/sforum-latest.sh.sha256
 { sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
-chmod 0755 sforum-latest.sh && \
-./sforum-latest.sh --check
+chmod 0755 sforum-latest.sh && ./sforum-latest.sh --check
+
+# 固定版本（完全不可变）：<TAG> 换成具体标签，例如发布页上的 vX.Y.Z
+VERSION=<TAG>
+curl -fsSLO "https://github.com/keeptrue/SForum/releases/download/$VERSION/sforum-latest.sh"
+curl -fsSLO "https://github.com/keeptrue/SForum/releases/download/$VERSION/sforum-latest.sh.sha256"
+{ sha256sum -c sforum-latest.sh.sha256 2>/dev/null || shasum -a 256 -c sforum-latest.sh.sha256; } && \
+chmod 0755 sforum-latest.sh && ./sforum-latest.sh --check --version "$VERSION"
 ```
 
-把最后一行换成 `./sforum-latest.sh` 即执行安装或更新。
+把 `--check` 去掉即执行安装或更新。
 
 `--check` 只执行前两步并对比清单，打印目标版本、部署包 SHA-256、哪些文件缺失或
 过期与计划动作，适合在维护窗口前预检；目标低于 `.deployrc` 记录时会先给出警告。
-脚本位于仓库根目录，不随 Release 分发；`--lang` 只在 install 生效，
-`--bootstrap` 只在 upgrade 生效；Git 检出目录里实际同步需要 `--allow-git`。
+`--lang` 只在 install 生效，`--bootstrap` 只在 upgrade 生效；Git 检出目录里实际
+同步需要 `--allow-git`。
+
+#### 校验链
+
+1. **`.sha256` 锚定脚本字节**：校验和与脚本是同一标签的两个 Release 资产，必须
+   来自同一次发布；校验不通过就停下，不要执行脚本。
+2. **脚本锚定部署包**：脚本只解析一次标签，再从**这个标签**下载 `SHA256SUMS` 与
+   `sforum-deploy.tar.gz`，逐条核对包内清单、包内路径与 `VERSION`。任一条不符
+   就失败，不会把两个版本的脚本和工具混在一起。
+3. **构建来源可验**：`gh attestation verify sforum-latest.sh --repo keeptrue/SForum`
+   验证脚本由本仓库的 Release 工作流产出；部署包同样可验。
+
+更早的 Release 没有这两个资产，只能继续按 `main` 分支的 raw 地址取脚本——脚本
+与哈希在同一个可变分支上，校验不构成锚点。要拿到不可变分发，用带这两个资产的
+Release。
 
 ### 更新器：`upgrade.sh`
 
@@ -294,13 +314,14 @@ chmod 0755 sforum-latest.sh && \
 2. 交互确认渠道和目标版本；`--yes` 跳过确认。目标同样解析为不可变标签。
 3. 获取 `.deploy.lock`。锁内记录 PID；持有进程已退出或锁龄超过一小时会
    自动清理。
-4. 如果 `.deployrc` 没有 `active_slot`，执行一次性入口转换：拉取目标镜像
-   和 Caddy，启动 PostgreSQL/Redis，检查迁移兼容性，备份，迁移，启动
-   `api-blue`/`web-blue`，槽内健康检查，写入 `deploy/runtime/Caddyfile`，
+4. 如果 `.deployrc` 没有 `active_slot`，执行一次性入口转换：解析并拉取目标
+   镜像（见下节）和 Caddy，启动 PostgreSQL/Redis，检查迁移兼容性，备份，
+   迁移，启动 `api-blue`/`web-blue`，槽内健康检查，写入 `deploy/runtime/Caddyfile`，
    停止旧 `api`/`web`，启动 `edge`，再做入口健康检查。交互模式要求输入
    `BOOTSTRAP`；无人值守需显式 `--bootstrap`。
-5. 如果已有 `active_slot`，执行在线更新：拉取并核对三个目标镜像；检查
-   目标迁移是否全部可在线执行；备份数据库；执行已声明兼容的 Core 迁移；
+5. 如果已有 `active_slot`，执行在线更新：先解析 digest，再拉取并核对三个
+   目标镜像（见下节）；检查目标迁移是否全部可在线执行；备份数据库；执行
+   已声明兼容的 Core 迁移；
    启动备用槽；槽内检查 `api/v1/ready`、`/health` 和经 Web 转发的
    `api/v1/ready`；原子切换 Caddy 到新槽；停止旧槽；记录新状态。
    槽内检查按 2 秒一轮重试，最多等待 `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS`
@@ -314,6 +335,33 @@ chmod 0755 sforum-latest.sh && \
 7. 失败处理：维护窗口迁移失败会重启旧槽；新槽健康检查失败会停掉新槽并
    重启旧槽；入口切换失败会把 Caddy 配置回滚到旧槽。在线更新的备用槽
    失败不会影响当前流量。
+
+### 镜像身份：内容 digest，不是标签
+
+`upgrade.sh` 不按标签信任镜像，拉取前后各校验一次：
+
+1. **拉取前解析**：用 `docker buildx imagetools inspect` 把每个目标 tag 解析成
+   manifest digest，并记下结果。这一步需要 `docker buildx` 插件；缺插件时在
+   **任何拉取动作之前** fail closed，报
+   `Could not resolve the manifest digest of <image>`，并说明需要带 buildx 插件
+   的 Docker（`docker buildx imagetools`）。
+2. **拉取后核对**：比对本地镜像的 `RepoDigests` 是否仍是那个 digest。标签被重推
+   （内容变了、digest 变了）直接 die：
+   `<image> image content identity mismatch: <reference> does not resolve to <digest>`，
+   不会把另一个构建当成目标版本跑起来。版本 label 仍然保留，但它只用于自检
+   发布线，不再承担身份职责。
+3. **Caddy 只认 digest**：`SFORUM_CADDY_IMAGE` 的覆盖值必须写成
+   `name@sha256:...`。这项核对在一次性入口转换里执行：脚本先拉入口镜像，随后
+   核对 `RepoDigests`；只写 tag 会 die 在
+   `SFORUM_CADDY_IMAGE must pin a digest (name@sha256:...), got '<value>'.`——
+   此时三个应用镜像可能已经拉完。在线更新不重建 `edge`，所以不会重新校验这个
+   值；改过覆盖值后，在下一次入口转换前确认格式。默认值是
+   `caddy:2.11-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0`，
+   与 `compose.zero-downtime.yaml` 逐字一致；旧版 `upgrade.sh` 拉
+   `caddy:2.10.2-alpine`、compose 用 `2.11-alpine` 的漂移已消除。
+
+升级机的前置条件因此多一条：Docker 要带 `buildx` 插件（`docker buildx version`
+有输出）。`deploy.sh` 与直连拓扑不需要它。
 
 WebSocket 长连接在切换时可能需要自动重连。备用槽和旧槽的 API 都内嵌
 Worker，切换期间可能短暂同时消费队列；任务领取和重试由 River 的数据库锁
@@ -371,7 +419,7 @@ Worker，切换期间可能短暂同时消费队列；任务领取和重试由 R
 | `.sforum-latest.lock` | `sforum-latest.sh` 预取并替换本地 bootstrap 时的锁 |
 | `.sforum/tooling-backups/` | 被替换的受管工具文件备份 |
 | `backups/` | PostgreSQL 备份归档（库 + 附件卷 + 扩展制品卷，加密），默认 `0600`；可用 `SFORUM_BACKUP_DIR` 改路径 |
-| `deploy/runtime/` | 蓝绿 Caddy 配置；不要手工编辑 |
+| `deploy/runtime/` | 蓝绿 Caddy 配置；仓库只入库 `.gitkeep` 与 `.gitignore` 两个占位文件，生成的 `Caddyfile*` 不入库，也不要手工编辑 |
 
 ## 失败语义
 
