@@ -117,6 +117,55 @@ func TestUpdateReportRejectsInvalidStatus(t *testing.T) {
 	}
 }
 
+func TestUpdateReportRejectsNegativeExpectedRevision(t *testing.T) {
+	service := NewService(&fakeStore{}, nil)
+	reviewer := identity.Actor{ID: 9, Status: identity.UserStatusActive, Permissions: map[string]bool{identity.PermissionModerationReportReview: true}}
+	_, err := service.UpdateReport(context.Background(), reviewer, UpdateReportInput{ReportID: 1, Status: StatusReviewing, ExpectedRevision: -1})
+	if !errors.Is(err, ErrReportInvalid) {
+		t.Fatalf("expected ErrReportInvalid, got %v", err)
+	}
+}
+
+// 改派审核人是管理动作：review 只能认领空缺，manage 才能覆盖已有归属。
+func TestUpdateReportGrantsReviewerOverrideOnlyToModerationManage(t *testing.T) {
+	store := &fakeStore{}
+	service := NewService(store, nil)
+	reviewer := identity.Actor{ID: 9, Status: identity.UserStatusActive, Permissions: map[string]bool{identity.PermissionModerationReportReview: true}}
+
+	if _, err := service.UpdateReport(context.Background(), reviewer, UpdateReportInput{ReportID: 1, Status: StatusReviewing}); err != nil {
+		t.Fatalf("review-only update: %v", err)
+	}
+	if store.updatedInput.ReviewerUserID != reviewer.ID {
+		t.Fatalf("reviewer attribution = %d, want %d", store.updatedInput.ReviewerUserID, reviewer.ID)
+	}
+	if store.updatedInput.AllowReviewerOverride {
+		t.Fatal("moderation.review must not be allowed to reassign the reviewer")
+	}
+
+	manager := identity.Actor{ID: 11, Status: identity.UserStatusActive, Permissions: map[string]bool{
+		identity.PermissionModerationReview: true,
+		identity.PermissionModerationManage: true,
+	}}
+	if _, err := service.UpdateReport(context.Background(), manager, UpdateReportInput{ReportID: 1, Status: StatusReviewing}); err != nil {
+		t.Fatalf("manage update: %v", err)
+	}
+	if !store.updatedInput.AllowReviewerOverride {
+		t.Fatal("moderation.manage must be allowed to reassign the reviewer")
+	}
+}
+
+func TestUpdateReportPropagatesTerminalAndRevisionConflict(t *testing.T) {
+	reviewer := identity.Actor{ID: 9, Status: identity.UserStatusActive, Permissions: map[string]bool{identity.PermissionModerationReportReview: true}}
+	for _, want := range []error{ErrReportTerminal, ErrReportConflict} {
+		store := &fakeStore{updateErr: want}
+		service := NewService(store, nil)
+		_, err := service.UpdateReport(context.Background(), reviewer, UpdateReportInput{ReportID: 1, Status: StatusResolved})
+		if !errors.Is(err, want) {
+			t.Fatalf("expected %v to reach the caller, got %v", want, err)
+		}
+	}
+}
+
 func TestModerationManagementAndReviewPermissionsRemainIndependent(t *testing.T) {
 	store := &fakeWorkbenchStore{}
 	service := NewServiceWithWorkbench(&fakeStore{}, nil, store, store)
@@ -262,7 +311,9 @@ func TestListPendingStripsIPWithoutViewIPPermission(t *testing.T) {
 
 type fakeStore struct {
 	createdInput CreateReportInput
+	updatedInput UpdateReportInput
 	createErr    error
+	updateErr    error
 	listResult   ReportList
 }
 
@@ -283,6 +334,10 @@ func (s *fakeStore) GetReport(context.Context, int64) (Report, error) {
 }
 
 func (s *fakeStore) UpdateReport(_ context.Context, input UpdateReportInput) (Report, error) {
+	if s.updateErr != nil {
+		return Report{}, s.updateErr
+	}
+	s.updatedInput = input
 	return Report{ID: input.ReportID, Status: input.Status, ReviewNote: input.ReviewNote}, nil
 }
 

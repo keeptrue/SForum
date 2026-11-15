@@ -223,7 +223,13 @@ func (s *Service) UpdateReport(ctx context.Context, actor identity.Actor, input 
 	if err := validateUpdateReportInput(input); err != nil {
 		return Report{}, err
 	}
+	if actor.ID <= 0 {
+		return Report{}, identity.ErrPermissionDenied
+	}
 	input.ReviewerUserID = actor.ID
+	// 审核人归属默认首占不变：moderation.review 只能填充空缺的 reviewer，不能把
+	// 别人留下的结论改成自己；改派审核人是 moderation.manage 的管理动作。
+	input.AllowReviewerOverride = actor.Can(identity.PermissionModerationManage)
 	return s.store.UpdateReport(ctx, input)
 }
 
@@ -260,6 +266,9 @@ func validateUpdateReportInput(input UpdateReportInput) error {
 		return ErrReportInvalid
 	}
 	if !isValidStatus(input.Status) {
+		return ErrReportInvalid
+	}
+	if input.ExpectedRevision < 0 {
 		return ErrReportInvalid
 	}
 	input.ReviewNote = strings.TrimSpace(input.ReviewNote)

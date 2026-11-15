@@ -30,8 +30,9 @@ type createReportRequest struct {
 }
 
 type updateReportRequest struct {
-	Status     string `json:"status"`
-	ReviewNote string `json:"reviewNote"`
+	Status           string `json:"status"`
+	ReviewNote       string `json:"reviewNote"`
+	ExpectedRevision int64  `json:"expectedRevision"`
 }
 
 type decisionRequest struct {
@@ -232,9 +233,10 @@ func (h *Controller) updateReport(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, moderation.CodeReportInvalid)
 	}
 	report, err := h.service.UpdateReport(c.Context(), actor, moderation.UpdateReportInput{
-		ReportID:   int64(paramInt(c, "reportID")),
-		Status:     req.Status,
-		ReviewNote: req.ReviewNote,
+		ReportID:         int64(paramInt(c, "reportID")),
+		Status:           req.Status,
+		ReviewNote:       req.ReviewNote,
+		ExpectedRevision: req.ExpectedRevision,
 	})
 	if err != nil {
 		return mapModerationError(err)
@@ -256,6 +258,10 @@ func mapModerationError(err error) error {
 		return fiber.NewError(fiber.StatusNotFound, moderation.CodeReportNotFound)
 	case errors.Is(err, moderation.ErrReportDuplicate):
 		return fiber.NewError(fiber.StatusConflict, moderation.CodeReportDuplicate)
+	case errors.Is(err, moderation.ErrReportTerminal):
+		return fiber.NewError(fiber.StatusConflict, moderation.CodeReportTerminal)
+	case errors.Is(err, moderation.ErrReportConflict):
+		return fiber.NewError(fiber.StatusConflict, moderation.CodeReportConflict)
 	case errors.Is(err, moderation.ErrReportTargetInvalid):
 		return fiber.NewError(fiber.StatusUnprocessableEntity, moderation.CodeReportTargetInvalid)
 	case errors.Is(err, moderation.ErrSettingsInvalid):

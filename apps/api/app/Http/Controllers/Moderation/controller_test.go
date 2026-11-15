@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	nethttp "net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -88,6 +90,53 @@ func TestControllerCreateReportRejectsInvalidTargetType(t *testing.T) {
 	resp := performModerationRequest(t, app, nethttp.MethodPost, "/api/v1/moderation/reports", body, cookie)
 	if resp.StatusCode != nethttp.StatusUnprocessableEntity {
 		t.Fatalf("expected 422 invalid target type, got %d", resp.StatusCode)
+	}
+}
+
+// 终态与版本冲突都映射成 409，但必须是可区分的错误码：前者不可重试，后者应重读再写。
+func TestControllerUpdateReportMapsClosedAndStaleReportsToConflict(t *testing.T) {
+	cases := []struct {
+		name     string
+		storeErr error
+		code     string
+	}{
+		{name: "closed report", storeErr: moderation.ErrReportTerminal, code: moderation.CodeReportTerminal},
+		{name: "stale revision", storeErr: moderation.ErrReportConflict, code: moderation.CodeReportConflict},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			app, _, store := newModerationTestApp()
+			store.updateErr = tc.storeErr
+			cookie := loginModerationUser(t, app, 2)
+			body := []byte(`{"status":"resolved","reviewNote":"handled","expectedRevision":2}`)
+			resp := performModerationRequest(t, app, nethttp.MethodPatch, "/api/v1/admin/moderation/reports/1", body, cookie)
+			defer resp.Body.Close()
+			if resp.StatusCode != nethttp.StatusConflict {
+				t.Fatalf("status = %d, want 409", resp.StatusCode)
+			}
+			payload, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("read body: %v", err)
+			}
+			if !strings.Contains(string(payload), tc.code) {
+				t.Fatalf("error payload %q does not carry %q", payload, tc.code)
+			}
+		})
+	}
+}
+
+// 客户端声明的期望版本必须原样到达 store：被中间层吞掉就等于没有乐观锁。
+func TestControllerUpdateReportForwardsExpectedRevision(t *testing.T) {
+	app, _, store := newModerationTestApp()
+	cookie := loginModerationUser(t, app, 2)
+	body := []byte(`{"status":"reviewing","reviewNote":"claimed","expectedRevision":7}`)
+	resp := performModerationRequest(t, app, nethttp.MethodPatch, "/api/v1/admin/moderation/reports/1", body, cookie)
+	defer resp.Body.Close()
+	if resp.StatusCode != nethttp.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if store.updatedInput.ExpectedRevision != 7 {
+		t.Fatalf("expectedRevision = %d, want 7", store.updatedInput.ExpectedRevision)
 	}
 }
 
@@ -196,6 +245,8 @@ func (f moderationRouteProviderFunc) RegisterRoutes(api fiber.Router) { f(api) }
 
 type moderationFakeStore struct {
 	createdInput moderation.CreateReportInput
+	updatedInput moderation.UpdateReportInput
+	updateErr    error
 }
 
 func (s *moderationFakeStore) CreateReport(_ context.Context, input moderation.CreateReportInput) (moderation.Report, error) {
@@ -212,6 +263,10 @@ func (s *moderationFakeStore) GetReport(context.Context, int64) (moderation.Repo
 }
 
 func (s *moderationFakeStore) UpdateReport(_ context.Context, input moderation.UpdateReportInput) (moderation.Report, error) {
+	if s.updateErr != nil {
+		return moderation.Report{}, s.updateErr
+	}
+	s.updatedInput = input
 	return moderation.Report{ID: input.ReportID, Status: input.Status, ReviewNote: input.ReviewNote}, nil
 }
 

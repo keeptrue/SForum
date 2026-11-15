@@ -184,38 +184,75 @@ func (s *PostgresStore) GetReport(ctx context.Context, reportID int64) (Report, 
 }
 
 func (s *PostgresStore) UpdateReport(ctx context.Context, input UpdateReportInput) (Report, error) {
-	// resolved/rejected 时记录 resolved_at。
-	resolvedExpr := "resolved_at"
-	switch input.Status {
-	case StatusResolved, StatusRejected:
-		resolvedExpr = "now()"
-	case StatusOpen, StatusReviewing:
-		resolvedExpr = "NULL"
-	}
+	// 四条不变式全部压进同一条 UPDATE 的谓词与表达式里，而不是「先读状态再写」：
+	// 单语句在行锁内完成判定与写入，检查与使用之间没有窗口，并发两次写只有一次命中。
+	//
+	//   1. 终态守卫：status NOT IN (resolved, rejected) —— 结案结论不可回退、不可改写。
+	//   2. 版本 CAS：($6 = 0 OR revision = $6) —— 0 表示旧客户端未声明期望版本。
+	//   3. resolved_at 只写一次：COALESCE(现有值, now())，首次进入终态才落时间。
+	//   4. reviewer 首占不被覆盖：非 moderation.manage 只能填充空缺，不能改派。
 	row := s.pool.QueryRow(ctx, `
 		WITH updated_report AS (
 			UPDATE moderation_reports
 			SET status = $2,
-			    reviewer_user_id = $3,
-			    review_note = $4,
-			    resolved_at = `+resolvedExpr+`,
+			    reviewer_user_id = CASE
+			      WHEN $4::boolean THEN $3::bigint
+			      ELSE COALESCE(moderation_reports.reviewer_user_id, $3::bigint)
+			    END,
+			    review_note = $5,
+			    resolved_at = CASE
+			      WHEN $2 IN ('resolved', 'rejected')
+			        THEN COALESCE(moderation_reports.resolved_at, now())
+			      ELSE moderation_reports.resolved_at
+			    END,
+			    revision = moderation_reports.revision + 1,
 			    updated_at = now()
 			WHERE id = $1
+			  AND status NOT IN ('resolved', 'rejected')
+			  AND ($6::bigint = 0 OR revision = $6::bigint)
 			RETURNING *
 		)
 		SELECT `+reportProjection("updated_report")+`
 		FROM updated_report
 		LEFT JOIN users reporter ON reporter.id = updated_report.reporter_user_id
 		LEFT JOIN users reviewer ON reviewer.id = updated_report.reviewer_user_id
-	`, input.ReportID, input.Status, nullableReporter(input.ReviewerUserID), input.ReviewNote)
+	`, input.ReportID, input.Status, nullableReporter(input.ReviewerUserID),
+		input.AllowReviewerOverride, input.ReviewNote, input.ExpectedRevision)
 	report, err := scanReport(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Report{}, ErrReportNotFound
+		return Report{}, classifyReportUpdateMiss(ctx, s.pool, input)
 	}
 	if err != nil {
 		return Report{}, fmt.Errorf("update report: %w", err)
 	}
 	return report, nil
+}
+
+// classifyReportUpdateMiss 把「UPDATE 命中 0 行」翻译成领域错误。
+//
+// 三类原因对应三种修复动作：举报不存在（换 id）、已结案（不能再改）、版本过期
+// （重新读取后再写）。合并成一个错误会让调用方无法自愈，也会让 404 与 409 混淆。
+//
+// 这里是尽力而为的分类，不是强一致快照：UPDATE 已经未命中，之后这次独立查询读到
+// 什么就报什么 —— 并发结案会让它报 ErrReportTerminal，并发硬删会报
+// ErrReportNotFound，只有读到活跃态才报 ErrReportConflict。它描述的是「读那一刻的
+// 行状态」，用途是给调用方一个可行动的修复方向，不要当成事务内的判定依据。
+func classifyReportUpdateMiss(ctx context.Context, pool *pgxpool.Pool, input UpdateReportInput) error {
+	var status string
+	var revision int64
+	err := pool.QueryRow(ctx, `
+		SELECT status, revision FROM moderation_reports WHERE id = $1
+	`, input.ReportID).Scan(&status, &revision)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrReportNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("inspect report after rejected update: %w", err)
+	}
+	if isTerminalStatus(status) {
+		return ErrReportTerminal
+	}
+	return ErrReportConflict
 }
 
 func reportSelectSQL() string {
@@ -231,7 +268,7 @@ func reportProjection(source string) string {
 	return fmt.Sprintf(`%[1]s.id, %[1]s.reporter_user_id,
 		reporter.username, reporter.display_name,
 		%[1]s.target_type, %[1]s.target_id,
-		%[1]s.reason_code, %[1]s.body, %[1]s.status,
+		%[1]s.reason_code, %[1]s.body, %[1]s.status, %[1]s.revision,
 		%[1]s.reviewer_user_id,
 		reviewer.username, reviewer.display_name,
 		%[1]s.review_note,
@@ -261,6 +298,7 @@ func scanReport(row reportScanner) (Report, error) {
 		&report.ReasonCode,
 		&report.Body,
 		&report.Status,
+		&report.Revision,
 		&reviewerID,
 		&reviewerUsername,
 		&reviewerDisplay,
