@@ -886,47 +886,17 @@ func digestInstalledFile(extension Extension, relative string) (string, error) {
 
 // VerifyRuntimeExecutableDigest 在子进程 exec 之前复核后端入口的内容级摘要。
 //
-// 这里刻意不复用「读一次就记住」的结论，而是把三份摘要对齐：
-//
-//	① digestInstalledFile：信任链实际用过的值（可信身份 / grant 查询走的就是它，
-//	  可能命中 size+mtime 指纹缓存）；
-//	② digestStableExtensionFile：按内容重算的真哈希，带句柄前后 TOCTOU 比对；
-//	③ manifest.Backend.Digest：构建期写入的 exact artifact 声明。
-//
-// ①与②不一致说明元数据指纹被伪造（同时改大小与 mtime 就能在 TTL 内骗过缓存），
-// ③与②不一致说明制品不是被声明、被授权的那一份。两种都必须拒绝启动，并且
-// 丢弃被污染的记忆化结果，避免后续读路径继续复用旧结论。
-//
-// 返回按内容重算的摘要；调用方只应把它用于日志与错误上下文，不要写回缓存。
+// 不变量与逐条理由见 OpenVerifiedRuntimeExecutable：这里只是「用完即关句柄」的
+// 薄包装，避免同一套摘要对齐逻辑出现第二份实现。
 func VerifyRuntimeExecutableDigest(extension Extension) (string, error) {
-	entry := strings.TrimSpace(extension.Manifest.Backend.Entry)
-	if entry == "" {
-		return "", fmt.Errorf("%w: backend entry is required", ErrFrontendPackageChanged)
+	handle, digest, err := OpenVerifiedRuntimeExecutable(extension)
+	if handle != nil {
+		_ = handle.Close()
 	}
-	target, ok := installedFilePath(extension, entry)
-	if !ok {
-		return "", fmt.Errorf("%w: unsafe executable path %s", ErrFrontendPackageChanged, entry)
-	}
-	trusted, err := digestInstalledFile(extension, entry)
 	if err != nil {
 		return "", err
 	}
-	fresh, err := digestStableExtensionFile(extension, entry, 0, true)
-	if err != nil {
-		return "", fmt.Errorf("%w: executable path %s is unavailable: %v", ErrFrontendPackageChanged, entry, err)
-	}
-	if !strings.EqualFold(trusted, fresh) {
-		extensionpackage.InvalidateVerification(target)
-		return "", fmt.Errorf("%w: backend entry content changed underneath a cached fingerprint: %s", ErrFrontendPackageChanged, entry)
-	}
-	declared := strings.TrimPrefix(
-		strings.ToLower(strings.TrimSpace(extension.Manifest.Backend.Digest)),
-		"sha256:",
-	)
-	if declared != "" && declared != fresh {
-		return "", fmt.Errorf("%w: declared backend digest does not match the installed artifact: %s", ErrFrontendPackageChanged, entry)
-	}
-	return fresh, nil
+	return digest, nil
 }
 
 func trustIdentity(impact TrustImpact) TrustIdentity {

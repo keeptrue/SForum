@@ -74,6 +74,45 @@ func TestProtocolStartLowersOpenFileLimit(t *testing.T) {
 	}
 }
 
+// TestProtocolStartAcceptsRelativePackagePath 是**正向冒烟**，不是回归守卫：
+// dev 的 PackagePath 是相对宿主 cwd 的（../../storage/extensions/<id>/<version>/<digest>），
+// 这条用例确认这种形状的包能正常冷启动（握手成功、拿到 pgid）。
+//
+// 为什么它当不了守卫（2026-11-15 返工实测）：把 exec 单行还原成相对路径后，这条用例
+// 在本树里**依然 PASS**。POSIX 路径解析会在 `/` 处钳制多余的 `..`：相对入口的 `..`
+// 段数恒等于宿主 cwd 层数（本树 10，随 checkout 深度变化），而 fixture 的制品目录只有
+// 8 层，多出的 `..` 被 `/` 吸收后，尾部的绝对段又拼回真实路径，文件照样找得到。只有
+// 「制品目录层数 > `..` 段数」时才 ENOENT（实测：层数 18 → ENOENT，层数 8 → RESOLVED）。
+// 也就是说这条用例的红绿取决于 checkout 深度，拿它当守卫等于用一个取决于环境的
+// 断言冒充证据。真正的守卫是命令组装层面的
+// TestPreparePluginCommandExecsAbsoluteEntryForRelativePackage：它在 `go test -overlay`
+// 还原 exec 一行时稳定 FAIL，与路径深度无关。
+func TestProtocolStartAcceptsRelativePackagePath(t *testing.T) {
+	extension := protocolDatabaseLeaseExtension(t, true)
+	extension.PackagePath = relativePackagePath(t, extension.PackagePath)
+
+	starter := NewProtocolStarter(ProtocolStarterConfig{
+		Trust:                          protocolDatabaseTrust{},
+		DatabaseLeases:                 newProtocolDatabaseLeaseRegistry(),
+		DatabaseLeaseHeartbeatInterval: 10 * time.Millisecond,
+		DatabaseLeaseOperationTimeout:  time.Second,
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	target, err := starter.Start(ctx, extension)
+	if err != nil {
+		t.Fatalf("start plugin process from a relative package path: %v", err)
+	}
+	t.Cleanup(func() { _ = starter.Stop(context.Background(), extension) })
+
+	instance := starter.protocolInstance(RuntimeInstanceIdentity{
+		ExtensionID: extension.ID, InstanceID: target.InstanceID,
+	})
+	if instance == nil || instance.processGroup <= 0 {
+		t.Fatalf("started runtime instance has no process group: %#v", instance)
+	}
+}
+
 // TestPluginProcessTeardownReapsGroupBeforeClient 用**一条**测试守住两个调用路径的
 // 回收顺序：
 //  1. protocolRuntimeInstance.kill()（Stop / Discard）；

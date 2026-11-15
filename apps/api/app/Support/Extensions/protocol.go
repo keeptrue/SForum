@@ -309,12 +309,12 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	if err != nil {
 		return RouteTarget{}, err
 	}
-	// exec 前的唯一门：受信 grant 已在 newPluginClientConfig 里解析完成，这里再按
-	// 内容复核后端入口摘要（EX2-04b / EX2-01a）。放在租约之前，摘要不一致时连
-	// 数据库租约都不会签发。
-	if err := verifyPluginExecutableArtifact(extension); err != nil {
+	// exec 前的唯一门：复核摘要，并把 exec 绑定到已校验的 inode（EX2-04b / RV-53）。
+	executable, err := prepareVerifiedPluginExecutable(extension, cmd)
+	if err != nil {
 		return RouteTarget{}, err
 	}
+	defer executable.Close()
 	databaseLease, databaseEnv, err := s.issueProtocolDatabaseLease(ctx, extension, instanceID)
 	if err != nil {
 		return RouteTarget{}, fmt.Errorf("issue plugin database runtime lease: %w", err)

@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 const providerSchemaMaximumBytes = 1 << 20

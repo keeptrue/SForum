@@ -847,7 +847,19 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **扩展信任链收口（簇 12，2026-11-15，最新）**：8 条里 6 条闭环（EX2-04b / RV-12 / RV-05 /
+- **插件子进程 exec 相对路径导致全站 503（2026-11-15，最新）**：dev 的 `EXTENSION_ROOT` 是
+  相对路径（`../../storage/extensions`），`installedFilePath` 因此返回相对入口；EX2-01 加了
+  钉 `cmd.Dir` 却没绝对化 exec 路径，`execve` 按子进程 cwd 解析相对 entry →
+  `fork/exec ../../storage/.../backend/plugin: no such file or directory`，Host 进
+  recovery-only、全部 `/api/v1/*` 503。修法：`resolvePluginCommandPaths` 用一次
+  `filepath.Abs` 同时产出 `{WorkDir, Entry}`，exec 走绝对路径（`installedFilePath` 的相对
+  语义不动）。回归守卫是命令组装层面的单元用例
+  （`TestPreparePluginCommandExecsAbsoluteEntryForRelativePackage`，`go test -overlay`
+  还原 exec 一行即 FAIL）；端到端探针用例只是正向冒烟，它当不了守卫——相对入口的 `..`
+  段数恒等于宿主 cwd 层数，POSIX 在 `/` 处钳制后仍可能拼回真实路径，红绿取决于 checkout
+  深度。触发面仅限 dev——生产启动闸门对相对 `EXTENSION_ROOT` 直接 panic。见
+  `sessions/2026-11-15-plugin-exec-relative-path-503.md`。
+- **扩展信任链收口（簇 12，2026-11-15）**：8 条里 6 条闭环（EX2-04b / RV-12 / RV-05 /
   EX2-05 / EX2-02 / EX2-07），2 条部分——EX2-01 已做进程级加固，但**没有内核级隔离**、exec 路径
   TOCTOU 只覆盖读侧未闭环；RV-03 的三条 evaluator 已实现并被启动期门守住，但 core-only 请求仍不经
   dispatcher 裁决（按设计不做）。**四项行为变更，升级前必读**：① `install-from-url` 的 `sha256`

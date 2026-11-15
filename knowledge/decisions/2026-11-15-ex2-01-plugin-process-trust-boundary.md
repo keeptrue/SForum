@@ -98,6 +98,29 @@ Accepted（2026-11-15，簇 12-A）
   `docs/zh-CN/extensions/build-and-load.md` 的「Runtime process contract / 运行时
   进程契约」小节。
 
+**exec 目标必须与 cwd 同源（补记，2026-11-15 二次返工）**：钉 cwd 的同时，exec 的
+目标必须与 `cmd.Dir` 来自**同一次** `filepath.Abs`——`preparePluginCommand` 现在用
+`resolvePluginCommandPaths` 一次解析出 `{WorkDir, Entry}`，`exec.Command` 拿 `Entry`。
+原因是 `execve` 对相对路径以**子进程 cwd** 为基准解析，而不是宿主 cwd：dev 的
+`EXTENSION_ROOT` 是相对路径（`../../storage/extensions`，`config.go` 的缺省值），
+`installedFilePath` 因此给出相对入口；只钉 cwd 而不绝对化 exec，内核就会在制品目录
+下面再拼一次相对前缀 → `fork/exec ../../storage/.../backend/plugin: no such file or
+directory`，插件一起不来 Host 即进 recovery-only，全站 `/api/v1/*` 503
+`plugin_runtime_convergence_failed`。回归守卫只有
+`TestPreparePluginCommandExecsAbsoluteEntryForRelativePackage`（字符串层断言 `cmd.Path`
+绝对，与路径深度无关；`go test -overlay` 还原 exec 一行即 FAIL）。
+**端到端冷启动不能当守卫**：POSIX 在 `/` 处钳制多余的 `..`，相对入口的 `..` 段数恒等于
+宿主 cwd 层数，只有「制品目录层数 > `..` 段数」才会 ENOENT——一条依赖 checkout 深度的
+用例会让不成立的断言冒充证据（首版就这样错过一次）。RV-53 接线后 exec 走
+`pinVerifiedExecutable` + `/proc/self/fd/3`，该端点在结构上更不可能再红。
+触发面仅限 dev——生产 `config.go` 的启动闸门对相对 `EXTENSION_ROOT` 直接 panic。
+
+**本边界仍未覆盖的测试缺口（2026-11-15 评审记录，非本轮交付）**：`resolvePluginCommandPaths`
+的「包内容根为空」与「拒绝 `/` 与 `.`」两条 deny 至今没有对应用例；路径包含性校验里的第二次
+`filepath.Abs(root)` 之所以没有窗口，是因为生产代码里 `os.Chdir` 命中数为 0、同包测试串行执行
+（`_test.go` 里 5 处 `t.Chdir` 会改进程 cwd，但串行且自动还原）。一旦引入并行测试或在生产路径
+里 `Chdir`，这两处要一起补。
+
 **没有做 uid 切换**：`SysProcAttr.Credential` 只在 euid==0 时可用，而非 root 环境
 会直接失败；更关键的是插件需要读自己的制品目录与宿主签发的凭证，降到无特权 uid
 需要一整套制品属主/chmod 模型，本轮没有交付。盲目在 root 下启用会让所有插件起不

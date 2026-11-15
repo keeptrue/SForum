@@ -17,6 +17,7 @@ import (
 
 	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	stablefile "github.com/keeptrue/sforum/apps/api/app/Support/StableFile"
 	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
@@ -750,6 +751,87 @@ func digestStableExtensionFile(extension Extension, manifestPath string, limit i
 		return "", err
 	}
 	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// OpenVerifiedRuntimeExecutable 打开后端入口、按内容复核摘要，并把**仍打开的句柄**
+// 交给调用方去启动进程。
+//
+// 为什么不是「校验路径，再按路径 exec」：摘要校验只能证明「这一刻路径上的内容」。
+// 从校验到 exec 之间还夹着数据库租约签发等步骤，这期间把文件替换掉不会被发现
+// （RV-53 的 TOCTOU）。把 exec 绑定到已校验的 inode（Linux 走 /proc/self/fd/N，
+// 由 Support/Extensions 的 pinVerifiedExecutable 完成），校验与使用才是同一个对象。
+//
+// 三份摘要必须对齐（与 VerifyRuntimeExecutableDigest 同一个不变量，实现只有这一处）：
+//
+//	① digestInstalledFile：信任链实际用过的值（可信身份 / grant 查询走的就是它，
+//	  可能命中 size+mtime 指纹缓存）；
+//	② 本函数从打开的句柄重算的真哈希，带句柄前后 TOCTOU 比对；
+//	③ manifest.Backend.Digest：构建期写入的 exact artifact 声明。
+//
+// ①与②不一致说明元数据指纹被伪造（同时改大小与 mtime 就能在 TTL 内骗过缓存），
+// ③与②不一致说明制品不是被声明、被授权的那一份。两种都必须拒绝启动，并且丢弃
+// 被污染的记忆化结果，避免后续读路径继续复用旧结论。
+//
+// 返回的句柄由调用方负责 Close（启动失败的分支同样要关）。返回的摘要只应用于
+// 日志与错误上下文，不要写回缓存。
+func OpenVerifiedRuntimeExecutable(extension Extension) (*os.File, string, error) {
+	entry := strings.TrimSpace(extension.Manifest.Backend.Entry)
+	if entry == "" {
+		return nil, "", fmt.Errorf("%w: backend entry is required", ErrFrontendPackageChanged)
+	}
+	target, ok := installedFilePath(extension, entry)
+	if !ok {
+		return nil, "", fmt.Errorf("%w: unsafe executable path %s", ErrFrontendPackageChanged, entry)
+	}
+	trusted, err := digestInstalledFile(extension, entry)
+	if err != nil {
+		return nil, "", err
+	}
+	opened, err := openStableExtensionRegularFile(extension, entry)
+	if err != nil {
+		return nil, "", fmt.Errorf("%w: executable path %s is unavailable: %v", ErrFrontendPackageChanged, entry, err)
+	}
+	fdBefore, readLimit, err := stableOpenedRegularFileBefore(
+		opened.file, opened.pathBefore, opened.lstat, 0, true,
+	)
+	if err != nil {
+		opened.close()
+		return nil, "", fmt.Errorf("%w: executable path %s is unavailable: %v", ErrFrontendPackageChanged, entry, err)
+	}
+	hasher := sha256.New()
+	written, err := io.CopyBuffer(
+		hasher,
+		io.LimitReader(opened.file, readLimit+1),
+		make([]byte, 32*1024),
+	)
+	if err != nil || written > readLimit || written != fdBefore.Size() {
+		opened.close()
+		return nil, "", fmt.Errorf("%w: executable path %s is unavailable", ErrFrontendPackageChanged, entry)
+	}
+	if err := stableOpenedRegularFileAfter(opened.file, opened.pathBefore, fdBefore, opened.lstat); err != nil {
+		opened.close()
+		return nil, "", fmt.Errorf("%w: executable path %s is unavailable: %v", ErrFrontendPackageChanged, entry, err)
+	}
+	fresh := hex.EncodeToString(hasher.Sum(nil))
+	if !strings.EqualFold(trusted, fresh) {
+		extensionpackage.InvalidateVerification(target)
+		opened.close()
+		return nil, "", fmt.Errorf("%w: backend entry content changed underneath a cached fingerprint: %s", ErrFrontendPackageChanged, entry)
+	}
+	declared := strings.TrimPrefix(
+		strings.ToLower(strings.TrimSpace(extension.Manifest.Backend.Digest)),
+		"sha256:",
+	)
+	if declared != "" && declared != fresh {
+		opened.close()
+		return nil, "", fmt.Errorf("%w: declared backend digest does not match the installed artifact: %s", ErrFrontendPackageChanged, entry)
+	}
+	// 目录句柄用完即关；文件句柄必须留给 exec 绑定（关闭 root 不影响已打开的 fd）。
+	if opened.root != nil {
+		_ = opened.root.Close()
+		opened.root = nil
+	}
+	return opened.file, fresh, nil
 }
 
 func stableOpenedRegularFileBefore(

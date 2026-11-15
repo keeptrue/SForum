@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/hashicorp/go-plugin"
@@ -196,29 +197,81 @@ var ErrPluginExecutableUntrusted = errors.New("plugin executable is not the trus
 //  2. 第一次 enable/upgrade 之前，super_admin 必须对 exact artifact 做信任确认，
 //     运行时启动要求存在 exact live grant（见 protocolV2ClientConfig）；
 //  3. 本函数把「授权依据的摘要」与「按内容重算的真哈希」对齐后才允许 exec。
-func verifyPluginExecutableArtifact(extension extensions.Extension) error {
+//
+// 返回值是**仍打开的后端入口句柄**：调用方必须把它交给 pinVerifiedExecutable，
+// 让 exec 绑定到已校验的 inode，并在 fork 之后关闭。只校验路径再按路径 exec 会
+// 留下「校验后替换文件」的窗口（RV-53）。
+func prepareVerifiedPluginExecutable(extension extensions.Extension, cmd *exec.Cmd) (*os.File, error) {
 	if strings.TrimSpace(extension.PackageDigest) == "" {
-		return fmt.Errorf("%w: extension %s has no package digest", ErrPluginExecutableUntrusted, extension.ID)
+		return nil, fmt.Errorf("%w: extension %s has no package digest", ErrPluginExecutableUntrusted, extension.ID)
 	}
-	digest, err := extensions.VerifyRuntimeExecutableDigest(extension)
+	executable, digest, err := extensions.OpenVerifiedRuntimeExecutable(extension)
 	if err != nil {
-		return errors.Join(ErrPluginExecutableUntrusted, err)
+		return nil, errors.Join(ErrPluginExecutableUntrusted, err)
 	}
 	if strings.TrimSpace(digest) == "" {
-		return fmt.Errorf("%w: extension %s produced an empty backend digest", ErrPluginExecutableUntrusted, extension.ID)
+		_ = executable.Close()
+		return nil, fmt.Errorf("%w: extension %s produced an empty backend digest", ErrPluginExecutableUntrusted, extension.ID)
 	}
+	if err := pinVerifiedExecutable(cmd, executable); err != nil {
+		_ = executable.Close()
+		return nil, err
+	}
+	return executable, nil
+}
+
+// pinnedExecutablePath 是「已校验 inode」在 Linux 子进程里的地址：
+// exec.Cmd.ExtraFiles[0] 固定是 fd 3，/proc/self/fd/3 在子进程里解析到的就是这份
+// inode，路径即使在校验之后被 rename 替换也不影响这次 exec（RV-53 的 TOCTOU）。
+const pinnedExecutablePath = "/proc/self/fd/3"
+
+// pinVerifiedExecutable 把 cmd 的执行目标绑定到已校验的句柄。
+//
+// Linux 走 /proc/self/fd/N；其他平台没有 /proc/self/fd，也没有可移植的 fexecve，
+// 只能保留按路径启动（残余窗口与修复前一致，见各自的平台说明）。这里用运行时分支
+// 而不是 build tag：同一份实现才能被同一条测试覆盖，也避免多开一个落地文件。
+func pinVerifiedExecutable(cmd *exec.Cmd, executable *os.File) error {
+	if cmd == nil || executable == nil {
+		return ErrPluginExecutableUntrusted
+	}
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	// fd 3 的推导依赖 ExtraFiles 从空开始；go-plugin 目前不设置它，但这是隐式契约。
+	if len(cmd.ExtraFiles) != 0 {
+		return fmt.Errorf("%w: plugin command already carries extra files", ErrPluginExecutableUntrusted)
+	}
+	cmd.ExtraFiles = append(cmd.ExtraFiles, executable)
+	cmd.Path = pinnedExecutablePath
 	return nil
+}
+
+// pluginCommandPaths 是一次解析同时产出的两条路径：子进程 cwd 与 exec 目标。
+//
+// 两者必须来自同一次 filepath.Abs。分开解析就可能出现「cwd 指向 A、exec 仍指向
+// 相对路径」的组合，那正是 EX2-01 的故障形态。
+type pluginCommandPaths struct {
+	// WorkDir 是插件子进程的 cwd：后端入口所在的制品目录（绝对路径）。
+	WorkDir string
+	// Entry 是 exec 的目标：后端入口的绝对路径。
+	Entry string
 }
 
 // preparePluginCommand 组装插件子进程的 exec.Cmd：cwd 钉在制品目录、env 走白名单、
 // 独立进程组。
+//
+// exec 的必须是**绝对路径**：execve 用相对路径时以子进程 cwd（下面钉住的 cmd.Dir）
+// 为基准解析，而不是宿主 cwd。dev 环境的 PackagePath 是相对的
+// （../../storage/extensions/<id>/<version>/<digest>），installedFilePath 因此返回
+// 相对入口；只钉 cwd 而不绝对化 exec，内核就会在制品目录下面再拼一次相对前缀 →
+// fork/exec .../backend/plugin: no such file or directory（EX2-01 回归）。
 func preparePluginCommand(extension extensions.Extension, entryPath string) (*exec.Cmd, error) {
-	workDir, err := pluginWorkingDirectory(extension, entryPath)
+	paths, err := resolvePluginCommandPaths(extension, entryPath)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(entryPath)
-	cmd.Dir = workDir
+	cmd := exec.Command(paths.Entry)
+	cmd.Dir = paths.WorkDir
 	cmd.Env = buildPluginProcessEnv(os.Environ())
 	pluginprocess.Apply(cmd)
 	return cmd, nil
@@ -255,43 +308,46 @@ func pluginProcessGroupID(cmd *exec.Cmd) int {
 	return pluginprocess.GroupID(cmd)
 }
 
-// pluginWorkingDirectory 决定插件子进程的 cwd：钉在制品目录（后端入口所在目录），
-// 而不是继承宿主进程的 cwd。
+// resolvePluginCommandPaths 一次解析出插件子进程的 cwd 与 exec 目标：cwd 钉在制品
+// 目录（后端入口所在目录），而不是继承宿主进程的 cwd。
 //
 // 两条硬约束：
 //   - 制品目录必须在包内容根之内（入口路径本身已由 installedFilePath 约束，这里
 //     再用绝对路径确认一次，避免 cwd 落到包外的相邻目录）；
 //   - 不得把插件的 cwd 设成宿主工作树本身或其祖先——那等于让插件的相对路径写入
 //     直接落进源码树。
-func pluginWorkingDirectory(extension extensions.Extension, entryPath string) (string, error) {
+//
+// 返回值里的 Entry 必须一路交给 exec.Command：调用方不要再拿原始 entryPath，否则
+// 相对路径会在子进程 cwd 下二次解析（见 preparePluginCommand 的说明）。
+func resolvePluginCommandPaths(extension extensions.Extension, entryPath string) (pluginCommandPaths, error) {
 	root := extensions.PackageContentRoot(extension)
 	if strings.TrimSpace(root) == "" {
-		return "", fmt.Errorf("%w: extension %s has no package content root", ErrPluginExecutableUntrusted, extension.ID)
+		return pluginCommandPaths{}, fmt.Errorf("%w: extension %s has no package content root", ErrPluginExecutableUntrusted, extension.ID)
 	}
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
-		return "", fmt.Errorf("%w: resolve package root: %v", ErrPluginExecutableUntrusted, err)
+		return pluginCommandPaths{}, fmt.Errorf("%w: resolve package root: %v", ErrPluginExecutableUntrusted, err)
 	}
 	entryAbs, err := filepath.Abs(entryPath)
 	if err != nil {
-		return "", fmt.Errorf("%w: resolve backend entry: %v", ErrPluginExecutableUntrusted, err)
+		return pluginCommandPaths{}, fmt.Errorf("%w: resolve backend entry: %v", ErrPluginExecutableUntrusted, err)
 	}
 	dir := filepath.Dir(entryAbs)
 	if !withinDirectory(rootAbs, dir) {
-		return "", fmt.Errorf("%w: backend entry %s is outside its package root", ErrPluginExecutableUntrusted, entryAbs)
+		return pluginCommandPaths{}, fmt.Errorf("%w: backend entry %s is outside its package root", ErrPluginExecutableUntrusted, entryAbs)
 	}
 	if dir == string(filepath.Separator) || dir == "." {
-		return "", fmt.Errorf("%w: refusing to use %q as a plugin working directory", ErrPluginExecutableUntrusted, dir)
+		return pluginCommandPaths{}, fmt.Errorf("%w: refusing to use %q as a plugin working directory", ErrPluginExecutableUntrusted, dir)
 	}
 	if hostWorkingDirectory, err := os.Getwd(); err == nil && hostWorkingDirectory != "" {
 		if withinDirectory(dir, hostWorkingDirectory) {
-			return "", fmt.Errorf(
+			return pluginCommandPaths{}, fmt.Errorf(
 				"%w: refusing to start a plugin with the host working tree (%s) inside its cwd %s",
 				ErrPluginExecutableUntrusted, hostWorkingDirectory, dir,
 			)
 		}
 	}
-	return dir, nil
+	return pluginCommandPaths{WorkDir: dir, Entry: entryAbs}, nil
 }
 
 // withinDirectory 报告 child 是否等于 parent 或位于 parent 之下。
