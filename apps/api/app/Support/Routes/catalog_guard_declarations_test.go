@@ -143,3 +143,53 @@ func TestRoleScopedUploadPoliciesKeepSinglePermission(t *testing.T) {
 		}
 	}
 }
+
+// TestModerationReportQueueDeclaresReviewGate 把举报队列的目录声明钉在运行时门上。
+//
+// 事实源是 app/Models/Moderation/service.go：ListReports 与 UpdateReport 只查
+// moderation.review，而设置与决策历史查 moderation.manage。两组路由共用一个
+// 前缀，目录若按前缀一刀切成 manage，就会把只有 moderation.review 的版主在
+// 路由目录里登记成「无权」，同时把 manage 谎报成举报队列的门。
+func TestModerationReportQueueDeclaresReviewGate(t *testing.T) {
+	type expectation struct {
+		method     string
+		permission string
+	}
+	expected := map[string]expectation{
+		// 举报队列：moderation.review（ListReports / UpdateReport）。
+		"core.route.moderation.list_reports":  {method: "GET", permission: "moderation.review"},
+		"core.route.moderation.update_report": {method: "PATCH", permission: "moderation.review"},
+		// 设置与决策历史：仍是 moderation.manage（GetSettings / UpdateSettings /
+		// ResetSettings，以及 ListDecisions(admin=true)）。
+		"core.route.moderation.get_settings":         {method: "GET", permission: "moderation.manage"},
+		"core.route.moderation.update_settings":      {method: "PUT", permission: "moderation.manage"},
+		"core.route.moderation.reset_settings":       {method: "POST", permission: "moderation.manage"},
+		"core.route.moderation.list_admin_decisions": {method: "GET", permission: "moderation.manage"},
+	}
+
+	seen := map[string]bool{}
+	for _, route := range CoreRouteCatalog() {
+		want, ok := expected[route.ID]
+		if !ok {
+			continue
+		}
+		seen[route.ID] = true
+		if route.Method != want.method {
+			t.Fatalf("%s: method = %q, want %q", route.ID, route.Method, want.method)
+		}
+		if route.Guard.Kind != CoreGuardPermissionAny {
+			t.Fatalf("%s: kind = %q, want permission_any", route.ID, route.Guard.Kind)
+		}
+		if !slices.Equal(route.Guard.Permissions, []string{want.permission}) {
+			t.Fatalf("%s: permissions = %v, want [%s]", route.ID, route.Guard.Permissions, want.permission)
+		}
+		if route.Guard.EvaluatorID != "" {
+			t.Fatalf("%s: evaluatorId = %q, want empty", route.ID, route.Guard.EvaluatorID)
+		}
+	}
+	for routeID := range expected {
+		if !seen[routeID] {
+			t.Fatalf("%s is missing from the catalog", routeID)
+		}
+	}
+}

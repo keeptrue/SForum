@@ -194,6 +194,11 @@ function routePolicy(route) {
   if (path.startsWith('/api/v1/admin/forum/settings')) return ['permission', 'category.manage, tag.manage, or forum.settings.manage; field owner recheck']
   if (path.startsWith('/api/v1/admin/jobs')) return ['permission', method === 'GET' ? 'jobs.view' : 'jobs.manage']
   if (path.startsWith('/api/v1/admin/mail')) return ['permission', 'settings.mail.manage or settings.manage compatibility policy']
+  // 举报队列：运行时门是 moderation.review（Moderation/service.go 的 ListReports /
+  // UpdateReport），只给 review 的人既能读也能改；设置与决策历史仍要 manage
+  // （GetSettings / UpdateSettings / ResetSettings，以及 ListDecisions(admin=true)）。
+  // 两者共用一个前缀，必须按子路径分开声明，否则目录把只读审核员登记成「无权」。
+  if (path.startsWith('/api/v1/admin/moderation/reports')) return ['permission', 'moderation.review']
   if (path.startsWith('/api/v1/admin/moderation')) return ['permission', 'moderation.manage']
   if (path.startsWith('/api/v1/moderation/workbench')) return ['permission', 'moderation.review; moderation.view_ip controls sensitive fields']
   if (path.startsWith('/api/v1/admin/notifications')) return ['permission', 'settings.notifications.manage or settings.manage compatibility policy']
@@ -311,6 +316,7 @@ const reviewedGuardPolicies = new Map([
   ['jobs.manage', { kind: 'permission_any', permissions: ['jobs.manage'] }],
   ['jobs.view', { kind: 'permission_any', permissions: ['jobs.view'] }],
   ['moderation.manage', { kind: 'permission_any', permissions: ['moderation.manage'] }],
+  ['moderation.review', { kind: 'permission_any', permissions: ['moderation.review'] }],
   ['search.manage', { kind: 'permission_any', permissions: ['search.manage'] }],
   ['seo.manage', { kind: 'permission_any', permissions: ['seo.manage'] }],
   ['settings.mail.manage or settings.manage compatibility policy', { kind: 'permission_any', permissions: ['settings.mail.manage', 'settings.manage'] }],

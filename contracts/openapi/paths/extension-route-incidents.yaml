@@ -2,6 +2,7 @@ adminExtensionRouteIncidents:
   get:
     summary: List durable route runtime incidents and quarantine results
     operationId: listAdminExtensionRouteIncidents
+    x-sforum-route-id: core.route.extensions.inspect_route_incidents
     description: >-
       Requires extension.view or the legacy extension.manage permission. Returns
       the durable crash-loop incident ledger (bounded to 200 rows, newest first)

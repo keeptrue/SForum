@@ -148,6 +148,7 @@ adminAIReplyOutcomes:
 
       记录里没有提示词与响应正文；`detail` 只是稳定短语。
     operationId: listAIReplyOutcomes
+    x-sforum-route-id: core.route.ai.list_reply_outcomes
     security: [{cookieAuth: []}]
     parameters:
     - name: limit

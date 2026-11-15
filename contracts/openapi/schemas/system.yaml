@@ -28,6 +28,17 @@ Health:
       type: string
       enum:
       - ok
+      - recovery_required
+      description: |
+        `recovery_required` means the Host booted into recovery-only mode and
+        every route except `/health`, `/ready`, and the out-of-band recovery
+        surfaces is refused. Liveness still answers 200: the process is alive,
+        which is exactly what a liveness probe must know.
+    recoveryRequired:
+      type: boolean
+      description: |
+        Mirrors `status: recovery_required`. Omitted when false, so a healthy
+        liveness response keeps its historical shape.
     environment:
       type: string
     locale:
@@ -95,6 +106,51 @@ Ready:
       type: array
       items:
         "$ref": "#/ReadyComponent"
+    recovery:
+      "$ref": "#/ReadyRecovery"
+      description: |
+        Present only when the Host booted into recovery-only mode. Its presence
+        is the machine-readable reason `ready` is false even though every
+        dependency check passed.
+ReadyRecovery:
+  type: object
+  description: |
+    Host-owned recovery-only boot requirement. Immutable after bootstrap; it
+    never changes extension lifecycle authority.
+  required:
+  - code
+  properties:
+    code:
+      type: string
+      description: Stable recovery reason code; a non-empty code is what makes the requirement active.
+      examples:
+      - plugin_runtime_convergence_failed
+    component:
+      type: string
+      description: Component name reported as a failed required component in `components`.
+    message:
+      type: string
+      description: Operator-facing explanation; also used as that component's `error`.
+    publicationRevision:
+      type: integer
+      format: int64
+      minimum: 0
+      description: Process-local theme publication revision the boot stopped at; omitted when unknown.
+    artifacts:
+      type: array
+      items:
+        "$ref": "#/ReadyRecoveryArtifact"
+      description: Exact artifacts the recovery boot could not converge.
+ReadyRecoveryArtifact:
+  type: object
+  required:
+  - extensionId
+  - version
+  - digest
+  properties:
+    extensionId: { type: string }
+    version: { type: string }
+    digest: { type: string }
 ReadyComponent:
   type: object
   required:

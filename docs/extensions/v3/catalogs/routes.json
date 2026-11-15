@@ -3375,11 +3375,11 @@
     "path": "/api/v1/admin/moderation/reports",
     "source": "apps/api/app/Http/Controllers/Moderation/routes.go:10",
     "access": "permission",
-    "policy": "moderation.manage",
+    "policy": "moderation.review",
     "guard": {
       "kind": "permission_any",
       "permissions": [
-        "moderation.manage"
+        "moderation.review"
       ],
       "evaluatorId": ""
     }
@@ -3393,11 +3393,11 @@
     "path": "/api/v1/admin/moderation/reports/:reportID",
     "source": "apps/api/app/Http/Controllers/Moderation/routes.go:11",
     "access": "permission",
-    "policy": "moderation.manage",
+    "policy": "moderation.review",
     "guard": {
       "kind": "permission_any",
       "permissions": [
-        "moderation.manage"
+        "moderation.review"
       ],
       "evaluatorId": ""
     }

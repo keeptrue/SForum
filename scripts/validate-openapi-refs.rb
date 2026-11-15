@@ -9,6 +9,68 @@ require 'yaml'
 ROOT = Pathname.new(__dir__).join('..').expand_path
 ENTRY = ROOT.join('contracts/openapi.yaml')
 
+# --- 重复键扫描 -----------------------------------------------------------------
+#
+# YAML 的「后键覆盖」会把同一 mapping 里的重复键静默吃掉。openapi.yaml 里把两个
+# $ref 写在同一个路径键下面时，第二个会顶掉第一个：结果一个文件还连着入口、另一个
+# 变成孤儿，而 $ref 解析和路由绑定两遍检查仍然全绿（RV-11 就是这样漏过去的）。
+# 解析成 Hash 之后再查已经太晚——重复键在 Hash 里根本不存在了，所以这里在解析之前
+# 直接走 AST，并打印文件、行号与键路径。
+class DuplicateKeyScanner
+  def initialize(root)
+    @root = root
+  end
+
+  # 返回 [{path:, line:, first_line:, key_path:, key:}]；空数组表示干净。
+  def scan(path)
+    stream = Psych.parse_stream(path.read, filename: path.to_s)
+    findings = []
+    walk(stream, [], findings, path)
+    findings
+  rescue Psych::SyntaxError => e
+    abort "OpenAPI YAML syntax error in #{relative(path)}: #{e.message}"
+  end
+
+  private
+
+  def walk(node, key_path, findings, path)
+    case node
+    when Psych::Nodes::Mapping
+      seen = {}
+      node.children.each_slice(2) do |key_node, value_node|
+        unless key_node.is_a?(Psych::Nodes::Scalar)
+          walk(value_node, key_path, findings, path)
+          next
+        end
+        key = key_node.value
+        line = key_node.start_line + 1
+        if seen.key?(key)
+          findings << {
+            path: path,
+            line: line,
+            first_line: seen[key],
+            key: key,
+            key_path: (key_path + [key]).join('.')
+          }
+        else
+          seen[key] = line
+        end
+        walk(value_node, key_path + [key], findings, path)
+      end
+    when Psych::Nodes::Sequence
+      node.children.each_with_index { |child, index| walk(child, key_path + ["[#{index}]"], findings, path) }
+    when Psych::Nodes::Stream, Psych::Nodes::Document
+      node.children.each { |child| walk(child, key_path, findings, path) }
+    end
+  end
+
+  def relative(path)
+    path.relative_path_from(@root)
+  rescue ArgumentError
+    path
+  end
+end
+
 # 这里只做本地拆分文件的 YAML/$ref 完整性检查；完整 OpenAPI 规范校验
 # 以后可以交给 Redocly CLI 或 OpenAPI Generator 这类专用工具。
 class RefValidator
@@ -97,6 +159,17 @@ class RefValidator
 end
 
 files = [ENTRY, *ROOT.glob('contracts/openapi/**/*.yaml')].uniq.sort
+
+duplicate_keys = files.flat_map { |path| DuplicateKeyScanner.new(ROOT).scan(path) }
+unless duplicate_keys.empty?
+  duplicate_keys.each do |finding|
+    warn "Duplicate OpenAPI mapping key: #{finding[:path].relative_path_from(ROOT)}:#{finding[:line]} " \
+         "key #{finding[:key].inspect} (key path #{finding[:key_path]}); first declared at line #{finding[:first_line]}"
+  end
+  abort "OpenAPI duplicate mapping keys: #{duplicate_keys.length}. " \
+        'A repeated key silently discards the earlier value (RV-11 class); merge or split the mapping instead.'
+end
+
 validator = RefValidator.new(ROOT)
 files.each { |path| validator.validate_file(path) }
 
@@ -143,6 +216,8 @@ binding_resolver = RefValidator.new(ROOT)
 annotated = 0
 seen_route_ids = Hash.new(0)
 
+# 先把每个路径项下的操作摊平：path item 本身也可以是 $ref。
+resolved_operations = []
 (entry_document['paths'] || {}).each do |contract_path, item|
   if item.is_a?(Hash) && item['$ref'].is_a?(String)
     item = binding_resolver.resolve_reference(ENTRY, item['$ref'])
@@ -153,35 +228,57 @@ seen_route_ids = Hash.new(0)
     next unless HTTP_OPERATIONS.include?(operation_key.to_s)
     next unless operation.is_a?(Hash)
 
-    route_id = operation['x-sforum-route-id']
-    next if route_id.nil?
+    resolved_operations << [contract_path, operation_key.to_s.upcase, operation]
+  end
+end
 
-    http_method = operation_key.to_s.upcase
-    annotated += 1
-    seen_route_ids[route_id] += 1
+# 重复 route-id 必须先查：一条目录路由只能指向一个契约操作。放在逐条校验之前，
+# 是因为重复本身是结构错误——两条标注里只要有一条路径写错，逐条校验会先报路径，
+# 把「同一个 id 出现两次」这个更根本的事实盖掉。
+route_id_locations = Hash.new { |hash, key| hash[key] = [] }
+resolved_operations.each do |contract_path, http_method, operation|
+  route_id = operation['x-sforum-route-id']
+  next if route_id.nil?
 
-    route = catalog[route_id]
-    if route.nil?
-      abort "x-sforum-route-id #{route_id} on #{http_method} #{contract_path} is not declared in docs/extensions/v3/catalogs/routes.json"
-    end
+  route_id_locations[route_id] << "#{http_method} #{contract_path}"
+end
 
-    unless route['method'] == http_method
-      abort "x-sforum-route-id #{route_id} is annotated on #{http_method} #{contract_path}, " \
-            "but the route catalog declares #{route['method']} #{contract_path_for(route['path'])}"
-    end
+duplicate_route_ids = route_id_locations.select { |_route_id, locations| locations.length > 1 }
+unless duplicate_route_ids.empty?
+  duplicate_route_ids.each do |route_id, locations|
+    warn "Duplicate x-sforum-route-id: #{route_id} annotated #{locations.length} times (#{locations.join('; ')})"
+  end
+  abort 'Duplicate x-sforum-route-id annotations: one catalog route must map to exactly one contract operation.'
+end
 
-    expected_path = contract_path_for(route['path'])
-    unless expected_path == contract_path
-      abort "x-sforum-route-id #{route_id} is annotated on path #{contract_path}, " \
-            "but the route catalog path is #{expected_path}"
-    end
+resolved_operations.each do |contract_path, http_method, operation|
+  route_id = operation['x-sforum-route-id']
+  next if route_id.nil?
 
-    Array(route.dig('guard', 'permissions')).each do |permission|
-      next if seeded_permissions.include?(permission)
+  annotated += 1
+  seen_route_ids[route_id] += 1
 
-      abort "x-sforum-route-id #{route_id} declares permission #{permission} " \
-            "that does not exist in apps/api/app/Models/Identity/seeds.go"
-    end
+  route = catalog[route_id]
+  if route.nil?
+    abort "x-sforum-route-id #{route_id} on #{http_method} #{contract_path} is not declared in docs/extensions/v3/catalogs/routes.json"
+  end
+
+  unless route['method'] == http_method
+    abort "x-sforum-route-id #{route_id} is annotated on #{http_method} #{contract_path}, " \
+          "but the route catalog declares #{route['method']} #{contract_path_for(route['path'])}"
+  end
+
+  expected_path = contract_path_for(route['path'])
+  unless expected_path == contract_path
+    abort "x-sforum-route-id #{route_id} is annotated on path #{contract_path}, " \
+          "but the route catalog path is #{expected_path}"
+  end
+
+  Array(route.dig('guard', 'permissions')).each do |permission|
+    next if seeded_permissions.include?(permission)
+
+    abort "x-sforum-route-id #{route_id} declares permission #{permission} " \
+          "that does not exist in apps/api/app/Models/Identity/seeds.go"
   end
 end
 

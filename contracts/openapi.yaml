@@ -315,6 +315,8 @@ paths:
     "$ref": "./openapi/paths/ai.yaml#/adminAIUsage"
   "/admin/ai/executions":
     "$ref": "./openapi/paths/ai.yaml#/adminAIExecutions"
+  "/admin/ai/reply-outcomes":
+    "$ref": "./openapi/paths/ai.yaml#/adminAIReplyOutcomes"
   "/admin/ai/runs/{runId}":
     "$ref": "./openapi/paths/ai.yaml#/adminAIRunTimeline"
   "/admin/ai/profiles/{profileId}/credential":
@@ -413,6 +415,8 @@ paths:
     "$ref": "./openapi/paths/pages.yaml#/siteActiveThemeSkin"
   "/site/page-regions":
     "$ref": "./openapi/paths/pages.yaml#/sitePageRegions"
+  "/site/theme-assets/{extensionId}/{assetPath}":
+    "$ref": "./openapi/paths/pages.yaml#/siteThemeAsset"
   "/pages/catalog":
     "$ref": "./openapi/paths/pages.yaml#/pagesCatalog"
   "/pages/resolve":
@@ -423,6 +427,10 @@ paths:
     "$ref": "./openapi/paths/pages.yaml#/adminPages"
   "/admin/pages/activate-preview/{extensionID}":
     "$ref": "./openapi/paths/pages.yaml#/adminThemeActivationPreview"
+  "/admin/pages/added":
+    "$ref": "./openapi/paths/pages.yaml#/adminPagesAdded"
+  "/admin/pages/{pageId}":
+    "$ref": "./openapi/paths/pages.yaml#/adminPageDetail"
   "/admin/pages/{pageId}/approve":
     "$ref": "./openapi/paths/pages.yaml#/adminPageApprove"
   "/admin/pages/{pageId}/restore-core":
@@ -595,6 +603,7 @@ paths:
     "$ref": "./openapi/paths/extension-route-catalog.yaml#/adminExtensionRouteCatalog"
   "/admin/extensions/query-catalog":
     "$ref": "./openapi/paths/extension-query-catalog.yaml#/adminExtensionQueryCatalog"
+  "/admin/extensions/route-incidents":
     "$ref": "./openapi/paths/extension-route-incidents.yaml#/adminExtensionRouteIncidents"
   "/admin/extensions/cache-inspector":
     "$ref": "./openapi/paths/extension-cache-inspector.yaml#/adminExtensionCacheInspector"
@@ -1176,32 +1185,60 @@ components:
       "$ref": "./openapi/schemas/identity.yaml#/UserRolesInput"
     UserPermissionOverridesInput:
       "$ref": "./openapi/schemas/identity.yaml#/UserPermissionOverridesInput"
-    BadgeTier:
+    # 每个 $ref 都必须有自己的键：25 条 $ref 挤在 BadgeTier 下面时（f63ad2cf94
+    # 的粘贴事故），YAML 后键覆盖只留下最后一条，24 个别名从入口消失，而旧校验器
+    # 仍然 PASS。别名键名与被引用 schema 同名，便于一眼对照。
+    TrustLevelDefinition:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelDefinition"
+    TrustLevelRequirements:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRequirements"
+    TrustLevelLimits:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelLimits"
+    TrustLevelBottleneck:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelBottleneck"
+    TrustLevelViewer:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelViewer"
+    TrustLevelCatalog:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelCatalog"
+    TrustLevelAdmin:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelAdmin"
+    TrustLevelConfigInput:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConfigInput"
+    ApiResponseTrustLevelCatalog:
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelCatalog"
+    ApiResponseTrustLevelAdmin:
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelAdmin"
+    TrustLevelAdminDefinition:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelAdminDefinition"
+    TrustLevelConditionCatalog:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConditionCatalog"
+    TrustLevelCondition:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelCondition"
+    TrustLevelConditionParam:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConditionParam"
+    TrustLevelFactCandidate:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelFactCandidate"
+    TrustLevelFactVariant:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelFactVariant"
+    TrustLevelRefCandidate:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRefCandidate"
+    TrustLevelRefCandidateGroup:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRefCandidateGroup"
+    TrustLevelRuleImpactRequest:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactRequest"
+    TrustLevelRuleImpactTierInput:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactTierInput"
+    TrustLevelRuleImpactResponse:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactResponse"
+    TrustLevelRuleImpactTierResult:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelRuleImpactTierResult"
+    TrustLevelConditionProgress:
       "$ref": "./openapi/schemas/trust_levels.yaml#/TrustLevelConditionProgress"
+    ApiResponseTrustLevelConditionCatalog:
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelConditionCatalog"
+    ApiResponseTrustLevelRuleImpactResponse:
       "$ref": "./openapi/schemas/trust_levels.yaml#/ApiResponseTrustLevelRuleImpactResponse"
+    BadgeTier:
       "$ref": "./openapi/schemas/badges.yaml#/BadgeTier"
     BadgeGrantMode:
       "$ref": "./openapi/schemas/badges.yaml#/BadgeGrantMode"

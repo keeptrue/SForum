@@ -376,3 +376,92 @@ ApiResponsePageRegions:
     code: { type: integer }
     message: { type: string }
     data: { "$ref": "#/PageRegionsPayload" }
+
+# 管理端页面详情：逐字段对应 pages.ResolvedPage（HTTP 层不做二次组装）。
+AdminResolvedPage:
+  type: object
+  required: [page, provider, fallback]
+  properties:
+    page: { "$ref": "#/PageDefinition" }
+    provider: { type: string }
+    extensionId: { type: string }
+    contributionId: { type: string }
+    action:
+      type: string
+      enum: [core, replace, add]
+      description: Stable provider action; omitted for a pure core fallback.
+    fallback: { type: boolean }
+    templatePath: { type: string }
+    templateHtml: { type: string }
+    view:
+      type: string
+      enum: [template, component, schema]
+      description: How the contribution supplies its body; empty means template.
+    component:
+      type: string
+      description: Public L2 component id when view=component.
+    label:
+      type: string
+      description: Declared display title used as a document.title fallback.
+    schemaDescriptorFile: { type: string }
+    schemaContractRef: { type: string }
+    dataSource: { type: string, enum: [core, plugin] }
+    dataRoute: { type: string }
+    dataSchema: { type: string }
+    version: { type: string }
+    packageDigest: { type: string }
+    runtimeInstanceId: { type: string }
+
+# 主题贡献的 added 页面：逐字段对应 pages.PageContribution。
+AdminAddedPage:
+  type: object
+  required: [id, action, extensionId, version]
+  properties:
+    id: { type: string }
+    action:
+      type: string
+      enum: [add, replace]
+    target:
+      type: string
+      description: Replace target page id; empty for add.
+    path:
+      type: string
+      description: Declared path for add.
+    template: { type: string }
+    label: { type: string }
+    view:
+      type: string
+      enum: [template, component, schema]
+    componentId: { type: string }
+    schemaDescriptorFile: { type: string }
+    schemaContractRef: { type: string }
+    contract: { type: string }
+    access: { type: string }
+    permission: { type: string }
+    layout:
+      type: string
+      enum: [site, bare]
+    dataSource: { type: string, enum: [core, plugin] }
+    dataRoute: { type: string }
+    dataSchema: { type: string }
+    extensionId: { type: string }
+    version: { type: string }
+    packageDigest: { type: string }
+    runtimeInstanceId: { type: string }
+    routeSignature: { type: string }
+
+ApiResponseAdminResolvedPage:
+  type: object
+  required: [code, message, data]
+  properties:
+    code: { type: integer }
+    message: { type: string }
+    data: { "$ref": "#/AdminResolvedPage" }
+
+ApiResponseAdminAddedPages:
+  type: object
+  required: [code, message, data]
+  properties:
+    code: { type: integer }
+    message: { type: string }
+    data: { type: array, items: { "$ref": "#/AdminAddedPage" } }

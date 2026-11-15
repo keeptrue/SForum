@@ -239,3 +239,129 @@ adminPageRestoreCore:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+
+siteThemeAsset:
+  get:
+    summary: Serve one asset from the active theme package
+    operationId: getSiteThemeAsset
+    tags: [Pages]
+    description: |
+      Serves one file from the **active** theme package. The requested
+      extension id must be the active theme, and that extension must be of type
+      `theme`; the relative path is resolved inside the package root with
+      symlink containment. Only CSS, fonts, and bitmap images are served:
+      JavaScript, HTML, and SVG are rejected with 403
+      `pages.asset_type_forbidden`, so a theme asset can never become script
+      authority. CSS is parsed before it is served (422 `pages.css_invalid`).
+
+      Passing the active package digest as `v` (or `digest`) pins the exact
+      artifact: a mismatch returns 404 `pages.asset_digest_mismatch`. A pinned
+      response is cacheable for a year as immutable; an unpinned one for five
+      minutes.
+    parameters:
+      - name: extensionId
+        in: path
+        required: true
+        schema: { type: string }
+        description: Stable theme extension id; must equal the active theme.
+      - name: assetPath
+        in: path
+        required: true
+        allowReserved: true
+        description: Slash-preserving package-relative asset path.
+        schema: { type: string, minLength: 1, maxLength: 512 }
+      - name: v
+        in: query
+        required: false
+        schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+        description: Exact active package digest, enabling immutable caching.
+      - name: digest
+        in: query
+        required: false
+        schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+        description: Alias of `v`.
+    responses:
+      '200':
+        description: Theme asset bytes.
+        headers:
+          Cache-Control:
+            schema: { type: string }
+          ETag:
+            schema: { type: string }
+          X-Content-Type-Options:
+            schema: { type: string, enum: [nosniff] }
+          Content-Security-Policy:
+            schema: { type: string }
+          X-Frame-Options:
+            schema: { type: string, enum: [DENY] }
+        content:
+          text/css:
+            schema: { type: string, format: binary }
+          font/woff:
+            schema: { type: string, format: binary }
+          font/woff2:
+            schema: { type: string, format: binary }
+          font/ttf:
+            schema: { type: string, format: binary }
+          font/otf:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/gif:
+            schema: { type: string, format: binary }
+          image/webp:
+            schema: { type: string, format: binary }
+          image/x-icon:
+            schema: { type: string, format: binary }
+      '403':
+        description: Asset extension is not servable (reason `pages.asset_type_forbidden`).
+      '404':
+        description: >-
+          Unknown path, non-active theme, non-theme extension, or digest
+          mismatch (reason `pages.asset_not_found` / `pages.asset_digest_mismatch`).
+      '422':
+        description: CSS failed validation (reason `pages.css_invalid`).
+
+adminPagesAdded:
+  get:
+    summary: List pages contributed by installed themes
+    operationId: listAdminAddedPages
+    tags: [Pages]
+    x-sforum-route-id: core.route.pages.admin_added
+    description: Requires `extension.view`, `extension.theme.manage`, or `extension.manage` (any one).
+    responses:
+      '200':
+        description: Every theme-contributed added page, empty when nothing is registered.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/pages.yaml#/ApiResponseAdminAddedPages"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+
+adminPageDetail:
+  get:
+    summary: Resolve one page with its current provider
+    operationId: getAdminPageDetail
+    tags: [Pages]
+    x-sforum-route-id: core.route.pages.admin_get
+    description: Requires `extension.view`, `extension.theme.manage`, or `extension.manage` (any one).
+    parameters:
+      - "$ref": "../components/parameters.yaml#/PageID"
+    responses:
+      '200':
+        description: Resolved catalog page plus the active provider tuple.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/pages.yaml#/ApiResponseAdminResolvedPage"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        description: Unknown page id (reason `pages.not_found`).
