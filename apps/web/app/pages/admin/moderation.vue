@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useModerationApi } from '~/composables/moderation/useModerationApi'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
+import { apiErrorMessage, apiErrorStatusCode } from '~/composables/useApiClient'
 import ModerationDecisionTable from '~/components/moderation/ModerationDecisionTable.vue'
 import ModerationSettingsForm from '~/components/moderation/ModerationSettingsForm.vue'
 import type { ModerationDecision, ModerationSettings } from '~/composables/moderation/useModerationApi'
@@ -18,11 +19,27 @@ const { data: settings, pending: settingsPending, refresh: refreshSettings, erro
   'admin-moderation-settings',
   () => moderationApi.getSettings()
 )
+// UX2-20：审核记录不能再固定截断在最近 30 条 —— 页码进状态，total 参与分页。
+const historyPage = ref(1)
+const historyPerPage = 30
 const { data: history, pending: historyPending, refresh: refreshHistory, error: historyError } = await useAsyncData(
   'admin-moderation-history',
-  () => moderationApi.listHistory({ page: 1, perPage: 30 }, true),
-  { default: () => ({ items: [] as ModerationDecision[], total: 0, page: 1, perPage: 30 }) }
+  () => moderationApi.listHistory({ page: historyPage.value, perPage: historyPerPage }, true),
+  {
+    default: () => ({ items: [] as ModerationDecision[], total: 0, page: 1, perPage: historyPerPage }),
+    watch: [historyPage]
+  }
 )
+const historyTotal = computed(() => history.value?.total ?? 0)
+const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyTotal.value / historyPerPage)))
+
+// UX2-04：弹窗三态。加载中给骨架；403 说明缺权限；其余给错误 + 重试。
+const settingsForbidden = computed(() => apiErrorStatusCode(settingsError.value) === 403)
+const settingsModalMessage = computed(() => {
+  if (!settingsError.value) return ''
+  if (settingsForbidden.value) return t('admin.moderation.settingsForbidden')
+  return apiErrorMessage(settingsError.value) || t('admin.moderation.settingsLoadFailed')
+})
 
 const loadError = computed(() => {
   const err = settingsError.value || historyError.value
@@ -135,6 +152,17 @@ useSeoMeta({
         </div>
       </template>
       <ModerationDecisionTable :items="history.items" :loading="historyPending" />
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <span class="text-xs text-slate-500 dark:text-zinc-400">
+          {{ t('admin.moderation.history.page', { page: historyPage, total: historyTotal }) }}
+        </span>
+        <SFPagination
+          v-if="historyTotalPages > 1"
+          :page="historyPage"
+          :total-pages="historyTotalPages"
+          @update:page="historyPage = $event"
+        />
+      </div>
     </UCard>
   </div>
 
@@ -161,9 +189,29 @@ useSeoMeta({
             @updated="settingsUpdated"
           />
         </div>
-        <div v-else class="space-y-3 px-5 py-8" aria-busy="true">
+        <div v-else-if="settingsPending" class="space-y-3 px-5 py-8" aria-busy="true">
           <SFSkeleton width="36%" />
           <SFSkeleton width="100%" height="180px" />
+        </div>
+        <!-- 失败/无权限不是「永久骨架」：给出原因与重试入口。 -->
+        <div v-else class="space-y-3 px-5 py-8" data-testid="admin-moderation-settings-error">
+          <UAlert
+            color="error"
+            variant="soft"
+            icon="i-lucide-triangle-alert"
+            :title="settingsModalMessage || t('admin.moderation.settingsLoadFailed')"
+          />
+          <div class="flex justify-end">
+            <UButton
+              icon="i-lucide-rotate-cw"
+              color="neutral"
+              variant="outline"
+              :loading="settingsPending"
+              @click="refreshSettings()"
+            >
+              {{ t('admin.common.refresh') }}
+            </UButton>
+          </div>
         </div>
       </div>
     </template>

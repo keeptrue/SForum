@@ -24,8 +24,9 @@ import { useTrustLevelsAdminPage } from '~/composables/admin/forum/trustLevels/u
  *    一次保存 = 整键覆盖；三个分区各一个保存按钮 = 三个写者对同一键全量覆盖（D-C）。
  * 2. **forbidden 态不渲染任何表单像素**：没有 `trust.manage` 时载荷里没有 `trust.levels` 键，
  *    回填出来的推荐默认值就是假现值（D-B）。
- * 3. **面板不写 `role="tabpanel"`**：`SFAdminFixedTabNav` 的按钮没有 `id`/`aria-controls`，
- *    只给面板加 role 是半套 ARIA；与 settings / forum settings 两页保持一致。
+ * 3. **面板不写 `role="tabpanel"`**：需要 ARIA 闭环时给 `SFAdminFixedTabNav` 传 `panelId`
+ *    —— 组件会为每个页签输出 `id`/`aria-controls`，把面板接回去。本页沿用 settings /
+ *    forum settings 两页的无闭环写法，不单独加只带 role 的半套 ARIA。
  */
 definePageMeta({
   middleware: 'admin',

@@ -67,7 +67,7 @@ async function fetchAttachments(page = list.value.page) {
     list.value = result
     announcePolite(t('admin.attachments.listLoaded', { total: result.total }))
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.listLoadFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.listLoadFailed') })
   } finally {
     loadingAttachments.value = false
   }
@@ -95,7 +95,7 @@ async function updateAttachmentStatus(item: AdminAttachment, status: 'active' | 
     if (selected.value?.id === updated.id) selected.value = { ...selected.value, ...updated }
     toast.add({ color: 'success', icon: 'i-lucide-check', title: t('admin.attachments.statusUpdated'), duration: 5000 })
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.updateFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.updateFailed') })
   }
 }
 
@@ -106,7 +106,7 @@ async function deleteAttachment(item: AdminAttachment) {
     if (selected.value?.id === updated.id) selected.value = { ...selected.value, ...updated }
     toast.add({ color: 'success', icon: 'i-lucide-check', title: t('admin.attachments.deleted'), duration: 5000 })
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.deleteFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.deleteFailed') })
   }
 }
 
@@ -201,7 +201,7 @@ async function selectAttachment(item: AdminAttachment, options: { focusDetail?: 
     selected.value = await request<AttachmentDetail>(`/admin/attachments/${item.id}`)
     announcePolite(t('admin.attachments.detailLoaded', { name: item.name }))
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.detailLoadFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.detailLoadFailed') })
   } finally {
     loadingDetail.value = false
   }

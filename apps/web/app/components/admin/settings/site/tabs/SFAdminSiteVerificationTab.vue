@@ -184,7 +184,7 @@ function restoreRecommended() {
 
 function generateSecret() {
   if (!globalThis.crypto?.getRandomValues) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: t('admin.settings.verification.secretGenerateUnavailable') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: t('admin.settings.verification.secretGenerateUnavailable') })
     return
   }
   const bytes = new Uint8Array(32)

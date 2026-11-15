@@ -109,7 +109,7 @@ async function saveSettings() {
   try {
     await persistSettings(t('admin.attachments.settingsSaved'))
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.settingsSaveFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.settingsSaveFailed') })
   } finally {
     saving.value = false
   }
@@ -123,7 +123,7 @@ async function restoreRecommendedSettings() {
     await persistSettings(t('admin.attachments.recommendedRestored'))
   } catch (error) {
     applySettings(previous)
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.recommendedRestoreFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.recommendedRestoreFailed') })
   } finally {
     restoring.value = false
   }
@@ -151,7 +151,7 @@ async function testConnection() {
       duration: 5000
     })
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.testFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.testFailed') })
   } finally {
     testing.value = false
   }

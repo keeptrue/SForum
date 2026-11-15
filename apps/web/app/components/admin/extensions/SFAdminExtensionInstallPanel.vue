@@ -138,7 +138,7 @@ async function submitUpload() {
     selectedFile.value = null
   } catch (error) {
     actionError.value = adminExtensionInstallErrorMessage(t, error, 'admin.extensionInstall.upload.failed')
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: actionError.value })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: actionError.value })
   } finally {
     uploading.value = false
   }
@@ -170,7 +170,7 @@ async function submitUrl() {
     applyResult(next, 'url', '', remoteArchiveHost(urlValidation.url))
   } catch (error) {
     actionError.value = adminExtensionInstallErrorMessage(t, error, 'admin.extensionInstall.url.failed')
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: actionError.value })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: actionError.value })
   } finally {
     fetching.value = false
   }
@@ -220,7 +220,7 @@ async function copyDigest() {
     })
   } catch {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: t('admin.extensionInstall.result.digestCopyFailed')
     })

@@ -670,7 +670,7 @@
     "list": true,
     "columns": true,
     "filters": true,
-    "rowActions": false,
+    "rowActions": true,
     "bulkActions": false,
     "forms": true,
     "notices": true,

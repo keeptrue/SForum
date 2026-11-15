@@ -141,7 +141,7 @@ export const useAdminExtensionsManager = async () => {
         toast.add({ color: 'success', icon: 'i-lucide-package-check', title: t('admin.extensions.uploaded') })
       }
     } catch (error) {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.extensions.uploadFailed') })
+      toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.extensions.uploadFailed') })
     } finally {
       uploading.value = false
     }
@@ -604,7 +604,7 @@ export const useAdminExtensionsManager = async () => {
       await loadEvents(verified.id)
       toast.add({ color: 'success', icon: 'i-lucide-shield-check', title: t('admin.extensions.verified') })
     } catch (error) {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.extensions.actionFailed') })
+      toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.extensions.actionFailed') })
     } finally {
       busyId.value = ''
     }

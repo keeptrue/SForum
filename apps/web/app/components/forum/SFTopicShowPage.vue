@@ -722,7 +722,7 @@ async function loadMoreCommentReplies(comment: ForumComment) {
     showSuccessToast(t('topicDetail.loadMoreReplies'))
   } catch (error) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: apiErrorMessage(error) || t('topicDetail.loadMoreRepliesFailed')
     })

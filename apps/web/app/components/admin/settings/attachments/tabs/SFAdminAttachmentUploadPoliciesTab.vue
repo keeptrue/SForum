@@ -278,7 +278,7 @@ function showSuccess(title: string) {
 }
 
 function showError(error: unknown, fallbackKey: string) {
-  toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t(fallbackKey) })
+  toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t(fallbackKey) })
 }
 </script>
 

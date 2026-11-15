@@ -184,7 +184,7 @@ function success(title: string) {
 }
 
 function failure(error: unknown) {
-  toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.siteChrome.announcements.saveFailed') })
+  toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.siteChrome.announcements.saveFailed') })
 }
 </script>
 

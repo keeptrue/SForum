@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { compileScript, compileTemplate, parse, rewriteDefault } from '@vue/compiler-sfc'
 import { installTestDom } from '../helpers/dom'
+import { compileSfcSource } from '../helpers/vueSfc'
 
 import { adminPageDefinitions } from '../../app/config/adminModules'
 import { ROLE_TEMPLATE_DEFINITIONS } from '../../app/config/roleTemplates'
@@ -98,6 +99,13 @@ describe('admin login-method catalog contracts', () => {
       definePageMeta: () => {}, defineOptions: () => {}, useSeoMeta: () => {},
       useI18n: () => ({ locale: adminVue.ref('en-US'), t: (key: string) => key }),
       useToast: () => ({ add: () => {} }), useAdminPage: () => ({ icon: 'i-lucide-key-round' }),
+      // UX2-15：页面现在把选中提供方同步进 `?tab=`，挂载需要路由替身。
+      useRoute: () => ({ query: {} }), useRouter: () => ({ replace: async () => {} }),
+      // UX2-15 全收：页面改用共享固定页签条（不再是自建 tablist），挂载需要真实组件。
+      SFAdminFixedTabNav: await compileSfcSource(
+        await Bun.file(join(adminRoot, 'app/components/admin/settings/shared/SFAdminFixedTabNav.vue')).text(),
+        'admin-login-methods-fixed-tab-nav'
+      ),
       useAdminRoutes: () => ({ path: (path: string) => path }),
       apiErrorMessage: () => '', apiErrorStatusCode: () => 0,
       recommendedExtensionSettingValues: () => ({ client_id: '' }),

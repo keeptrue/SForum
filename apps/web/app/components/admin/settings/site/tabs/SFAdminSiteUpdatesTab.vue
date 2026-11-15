@@ -74,14 +74,14 @@ async function checkNow(showSuccessToast = true) {
   try {
     const result = await updates.refresh({ force: true })
     if (result.state === 'unavailable') {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: t('admin.settings.updates.checkFailed') })
+      toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: t('admin.settings.updates.checkFailed') })
       return
     }
     if (showSuccessToast) {
       toast.add({ color: 'success', icon: 'i-lucide-check', title: t('admin.settings.updates.checked'), duration: 5000 })
     }
   } catch {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: t('admin.settings.updates.checkFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: t('admin.settings.updates.checkFailed') })
   }
 }
 

@@ -31,7 +31,7 @@ async function remove(item: SiteFriendLink) {
 }
 function sort(rows: SiteFriendLink[]) { return [...rows].sort((a, b) => a.position - b.position || a.id - b.id) }
 function success(title: string) { toast.add({ color: 'success', icon: 'i-lucide-check', title, duration: 5000 }) }
-function failure(error: unknown) { toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.siteChrome.friendLinks.saveFailed') }) }
+function failure(error: unknown) { toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.siteChrome.friendLinks.saveFailed') }) }
 </script>
 
 <template>

@@ -32,7 +32,7 @@ async function copy() {
     await navigator.clipboard.writeText(json.value)
     toast.add({ color: 'success', icon: 'i-lucide-check', title: t('copied'), duration: 5000 })
   } catch {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: t('copyFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: t('copyFailed') })
   }
 }
 </script>

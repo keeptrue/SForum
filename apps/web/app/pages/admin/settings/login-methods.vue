@@ -6,6 +6,7 @@ import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
  * 设置表单复用 SFExtensionSettingsRenderer（与扩展动态设置页同源）。
  */
 import SFExtensionSettingsRenderer from '~/components/extensions/settings/SFExtensionSettingsRenderer.vue'
+import SFAdminFixedTabNav from '~/components/admin/settings/shared/SFAdminFixedTabNav.vue'
 import { apiErrorMessage, apiErrorStatusCode } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import {
@@ -48,6 +49,8 @@ type ProviderPatch = {
 const { t, locale } = useI18n()
 const toast = useToast()
 const { request } = useApiClient()
+const route = useRoute()
+const router = useRouter()
 const adminPage = useAdminPage('/settings/login-methods')
 const adminRoutes = useAdminRoutes()
 
@@ -68,6 +71,25 @@ const actionLoading = reactive<Record<string, Record<string, boolean>>>({})
 const actionResults = reactive<Record<string, Record<string, AdminExtensionSettingsActionResult | undefined>>>({})
 
 const hasProviders = computed(() => providers.value.length > 0)
+
+// UX2-15：提供方页签与地址栏 `?tab=` 同步（可分享 / 可刷新）。
+// 未知 id 或无权访问时回落首个提供方，不把用户留在空白面板上。
+function requestedTabId(): string {
+  const raw = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+function resolveProviderId(preferred: string): string {
+  const ids = providers.value.map(item => item.id)
+  if (preferred && ids.includes(preferred)) return preferred
+  return ids[0] || ''
+}
+
+async function syncRouteTab(id: string) {
+  if (!id || !import.meta.client) return
+  if (requestedTabId() === id) return
+  await router.replace({ query: { ...route.query, tab: id } })
+}
 const anySafeMode = computed(() => providers.value.some(item => item.safeMode))
 
 const selectedProvider = computed(() => 
@@ -157,8 +179,10 @@ async function loadProviders() {
   try {
     const list = await request<AdminIdentityProvider[]>('/admin/identity/providers')
     providers.value = Array.isArray(list) ? list : []
-    if (!activeTabId.value && providers.value[0]) {
-      activeTabId.value = providers.value[0].id
+    const resolvedId = resolveProviderId(activeTabId.value || requestedTabId())
+    if (resolvedId) {
+      activeTabId.value = resolvedId
+      await syncRouteTab(resolvedId)
     }
     // 展开项设置在后台刷新，不阻塞列表。
     const selected = providers.value.find(item => item.id === activeTabId.value)
@@ -204,8 +228,21 @@ async function ensureSettings(extensionId: string) {
   }
 }
 
+/** 共享固定页签条只吃 `{ id, label, icon }`，展示名与图标仍由 Host catalog 决定。 */
+const providerTabs = computed(() => providers.value.map(item => ({
+  id: item.id,
+  label: providerTitle(item),
+  icon: providerIcon(item)
+})))
+
+function expandProviderById(id: string) {
+  const item = providers.value.find(provider => provider.id === id)
+  if (item) expandProvider(item)
+}
+
 function expandProvider(item: AdminIdentityProvider) {
   activeTabId.value = item.id
+  void syncRouteTab(item.id)
   if (item.ownerExtensionId) {
     void ensureSettings(item.ownerExtensionId)
   }
@@ -522,28 +559,22 @@ watch(locale, () => {
     </div>
 
     <div v-else class="w-full">
-      <div
-        role="tablist"
-        :aria-label="t('admin.loginMethods.title')"
-        class="relative z-0 mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-zinc-800"
-      >
-        <UButton
-          v-for="item in providers"
-          :key="item.id"
-          size="md"
-          class="min-h-10 px-4"
-          :color="activeTabId === item.id ? 'primary' : 'neutral'"
-          :variant="activeTabId === item.id ? 'solid' : 'ghost'"
-          :leading-icon="providerIcon(item)"
-          role="tab"
-          :aria-selected="activeTabId === item.id"
-          @click="expandProvider(item)"
-        >
-          {{ providerTitle(item) }}
-        </UButton>
-      </div>
+      <!-- 不再自建第二套 tablist：固定页签条是后台设置的唯一实现（UX2-15）。 -->
+      <SFAdminFixedTabNav
+        :items="providerTabs"
+        :model-value="activeTabId || ''"
+        :ariaLabel="t('admin.loginMethods.title')"
+        panelId="login-methods-panel"
+        @update:model-value="expandProviderById"
+      />
 
-      <div v-if="selectedProvider" class="space-y-4">
+      <div
+        v-if="selectedProvider"
+        id="login-methods-panel"
+        role="tabpanel"
+        :aria-labelledby="`login-methods-panel-tab-${selectedProvider.id}`"
+        class="space-y-4"
+      >
               <p v-if="fieldErrors[selectedProvider?.id]" class="text-sm text-red-600 dark:text-red-400">
                 {{ fieldErrors[selectedProvider?.id] }}
               </p>

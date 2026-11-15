@@ -189,7 +189,7 @@ async function copyName(tool: AdminAIToolAvailability) {
     })
   } catch {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: t('admin.ai.tools.copyFailed')
     })

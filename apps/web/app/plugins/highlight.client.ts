@@ -25,7 +25,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       duration: 5000
     }),
     onCopyError: () => toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: translate('codeBlock.copyFailed', '复制失败，请手动选择代码')
     })

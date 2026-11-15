@@ -304,7 +304,7 @@ async function executeSettingsAction(action: AdminExtensionSettingsAction) {
   } catch (error) {
     const message = apiErrorMessage(error) || t('admin.extensions.dynamic.actionFailed')
     actionResults[action.id] = { success: false, reason: 'request_failed', message, durationMs: 0 }
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: message })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: message })
   } finally {
     actionLoading[action.id] = false
   }

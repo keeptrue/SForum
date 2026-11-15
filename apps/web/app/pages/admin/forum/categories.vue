@@ -227,7 +227,7 @@ async function confirmTaxonomyDelete() {
     const key = forumTaxonomyDeleteErrorKey(apiErrorMessage(error))
     if (key) {
       toast.add({
-        color: 'error',
+        color: 'error', duration: 0,
         icon: 'i-lucide-triangle-alert',
         title: t(`admin.forum.categories.delete.errors.${key}`)
       })
@@ -264,7 +264,7 @@ function successToast(title: string) {
 
 function errorToast(error: unknown, fallback: string) {
   toast.add({
-    color: 'error',
+    color: 'error', duration: 0,
     icon: 'i-lucide-triangle-alert',
     title: apiErrorMessage(error) || fallback
   })

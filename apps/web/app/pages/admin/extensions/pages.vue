@@ -105,7 +105,7 @@ async function restoreCore(pageId: string) {
     await load()
   } catch (e) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-alert-circle',
       title: apiErrorMessage(e) || t('admin.extensions.pages.restoreFailed')
     })
@@ -144,7 +144,7 @@ async function approve(pageId: string, candidate: {
     await load()
   } catch (e) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-alert-circle',
       title: apiErrorMessage(e) || t('admin.extensions.pages.approveFailed')
     })

@@ -116,7 +116,7 @@ async function save() {
     emit('changed')
     toast.add({ color: 'success', icon: 'i-lucide-check', title: t('admin.attachments.storageInstances.saved'), duration: 5000 })
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.saveFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.saveFailed') })
   } finally {
     saving.value = false
   }
@@ -139,7 +139,7 @@ async function probeDraft() {
     if (editing.value) await refresh()
   } catch (cause) {
     draftProbeError.value = apiErrorMessage(cause) || t('admin.attachments.testFailed')
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: draftProbeError.value })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: draftProbeError.value })
   } finally {
     probing.value = false
   }
@@ -153,7 +153,7 @@ async function activate(item: StorageInstance) {
     await refresh()
     toast.add({ color: 'success', icon: 'i-lucide-circle-check', title: t('admin.attachments.storageInstances.activated', { name: item.name }), duration: 5000 })
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.activateFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.activateFailed') })
   } finally {
     activating.value = ''
   }
@@ -167,7 +167,7 @@ async function activateLocal() {
     await refresh()
     toast.add({ color: 'success', icon: 'i-lucide-hard-drive', title: t('admin.attachments.storageInstances.localActivated'), duration: 5000 })
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.activateFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.activateFailed') })
   } finally {
     activating.value = ''
   }
@@ -189,7 +189,7 @@ async function removeInstance() {
     emit('changed')
     toast.add({ color: 'success', icon: 'i-lucide-trash-2', title: t('admin.attachments.storageInstances.deleted'), duration: 5000 })
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.deleteFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(cause) || t('admin.attachments.storageInstances.deleteFailed') })
   } finally {
     deleting.value = false
   }

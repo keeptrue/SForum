@@ -47,7 +47,7 @@ export function useSettingsSection() {
       return true
     } catch (error) {
       toast.add({
-        color: 'error',
+        color: 'error', duration: 0,
         icon: 'i-lucide-triangle-alert',
         title: apiErrorMessage(error) || options.failureTitle
       })

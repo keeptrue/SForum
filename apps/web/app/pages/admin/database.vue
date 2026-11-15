@@ -223,7 +223,7 @@ async function revealCell(row: DatabaseRow, column: DatabaseColumn) {
         }
       : rows.value
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.database.revealFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.database.revealFailed') })
   } finally {
     revealing.value[key] = false
   }
@@ -260,7 +260,7 @@ async function exportCSV() {
     link.remove()
     URL.revokeObjectURL(url)
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.database.exportFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.database.exportFailed') })
   } finally {
     exporting.value = false
   }

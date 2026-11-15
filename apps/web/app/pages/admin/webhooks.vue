@@ -42,7 +42,9 @@ const canManage = computed(() => can('settings.manage') || can('settings.site.ma
 const pending = ref(true)
 const saving = ref(false)
 const createModalOpen = ref(false)
-const errorMessage = ref('')
+// UX2-13：加载类错误留在页级；新建失败必须在模态内可见（模态捕获焦点，页级提示看不到）。
+const loadError = ref('')
+const modalError = ref('')
 const endpoints = ref<Endpoint[]>([])
 const deliveries = ref<Delivery[]>([])
 const catalogEvents = ref<CatalogEvent[]>([])
@@ -65,17 +67,19 @@ function resetForm() {
 
 function openCreateModal() {
   resetForm()
+  modalError.value = ''
   createModalOpen.value = true
 }
 
 function closeCreateModal() {
   createModalOpen.value = false
+  modalError.value = ''
   resetForm()
 }
 
 async function load() {
   pending.value = true
-  errorMessage.value = ''
+  loadError.value = ''
   try {
     const [ep, del, events] = await Promise.all([
       request<{ items: Endpoint[] }>('/admin/webhooks/endpoints'),
@@ -86,7 +90,7 @@ async function load() {
     deliveries.value = del.items || []
     catalogEvents.value = events.items || []
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error) || t('admin.webhooks.loadFailed')
+    loadError.value = apiErrorMessage(error) || t('admin.webhooks.loadFailed')
   } finally {
     pending.value = false
   }
@@ -97,7 +101,7 @@ async function createEndpoint() {
     return
   }
   saving.value = true
-  errorMessage.value = ''
+  modalError.value = ''
   try {
     await request('/admin/webhooks/endpoints', {
       method: 'POST',
@@ -114,7 +118,7 @@ async function createEndpoint() {
     toast.add({ title: t('admin.webhooks.created'), color: 'primary', duration: 5000 })
     await load()
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error) || t('admin.webhooks.saveFailed')
+    modalError.value = apiErrorMessage(error) || t('admin.webhooks.saveFailed')
   } finally {
     saving.value = false
   }
@@ -135,7 +139,7 @@ async function setEnabled(item: Endpoint, enabled: boolean) {
     })
     await load()
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error) || t('admin.webhooks.saveFailed')
+    loadError.value = apiErrorMessage(error) || t('admin.webhooks.saveFailed')
   }
 }
 
@@ -148,7 +152,7 @@ async function removeEndpoint(item: Endpoint) {
     toast.add({ title: t('admin.webhooks.deleted'), color: 'primary' })
     await load()
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error) || t('admin.webhooks.saveFailed')
+    loadError.value = apiErrorMessage(error) || t('admin.webhooks.saveFailed')
   }
 }
 
@@ -211,12 +215,12 @@ onMounted(load)
   />
 
   <UAlert
-    v-if="errorMessage"
+    v-if="loadError"
     class="mb-5"
     color="error"
     variant="subtle"
     icon="i-lucide-circle-alert"
-    :title="errorMessage"
+    :title="loadError"
   />
 
   <section class="mb-5 border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
@@ -372,6 +376,14 @@ onMounted(load)
         </div>
 
         <div class="grid flex-1 gap-4 overflow-y-auto px-5 py-4">
+          <UAlert
+            v-if="modalError"
+            data-testid="admin-webhooks-create-error"
+            color="error"
+            variant="soft"
+            icon="i-lucide-triangle-alert"
+            :title="modalError"
+          />
           <div class="grid gap-3 md:grid-cols-2">
             <UFormField :label="t('admin.webhooks.fieldName')">
               <UInput v-model="form.name" class="w-full" />

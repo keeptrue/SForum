@@ -149,7 +149,7 @@ function successToast(title: string) {
 
 function errorToast(error: unknown, fallback: string) {
   toast.add({
-    color: 'error',
+    color: 'error', duration: 0,
     icon: 'i-lucide-triangle-alert',
     title: apiErrorMessage(error) || fallback
   })

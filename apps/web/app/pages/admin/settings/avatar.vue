@@ -129,7 +129,7 @@ async function saveSettings(successTitle = t('admin.avatar.saved')) {
     toast.add({ color: 'success', icon: 'i-lucide-check', title: successTitle, duration: 5000 })
   } catch (error) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: apiErrorMessage(error) || t('admin.avatar.saveFailed')
     })

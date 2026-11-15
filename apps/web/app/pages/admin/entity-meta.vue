@@ -39,11 +39,19 @@ const adminPage = useAdminPage('/entity-meta')
 const { can } = useAuthSession()
 const canManage = computed(() => can('entity_meta.manage') || can('settings.manage'))
 
+const route = useRoute()
+const router = useRouter()
+
 const pending = ref(true)
 const saving = ref(false)
 const loadError = ref('')
 const items = ref<FieldDefinition[]>([])
-const filterEntity = ref<'all' | 'user' | 'topic'>('all')
+// 连带项（Lead 裁决）：筛选页签与 `?entity=` 同步，非法值回落 all。
+function entityFromQuery(value: unknown): 'all' | 'user' | 'topic' {
+  const raw = Array.isArray(value) ? value[0] : value
+  return raw === 'user' || raw === 'topic' ? raw : 'all'
+}
+const filterEntity = ref<'all' | 'user' | 'topic'>(entityFromQuery(route.query.entity))
 
 const form = reactive({
   fieldKey: '',
@@ -153,7 +161,7 @@ async function createField() {
     await load()
   } catch (error) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: apiErrorMessage(error) || t('admin.entityMeta.saveFailed')
     })
@@ -196,7 +204,7 @@ async function toggleEnabled(item: FieldDefinition) {
     await load()
   } catch (error) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: apiErrorMessage(error) || t('admin.entityMeta.saveFailed')
     })
@@ -219,7 +227,7 @@ async function removeField(item: FieldDefinition) {
     await load()
   } catch (error) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: apiErrorMessage(error) || t('admin.entityMeta.saveFailed')
     })
@@ -228,6 +236,8 @@ async function removeField(item: FieldDefinition) {
 
 function setFilter(id: 'all' | 'user' | 'topic') {
   filterEntity.value = id
+  if (!import.meta.client) return
+  void router.replace({ query: { ...route.query, entity: id === 'all' ? undefined : id } })
 }
 
 watch(filterEntity, () => {

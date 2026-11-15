@@ -123,7 +123,7 @@ async function applySelection(conflict: RouteProviderConflict) {
     await load()
   } catch (cause) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-alert-circle',
       title: operationError(cause, 'admin.extensions.routeProviders.selectFailed')
     })
@@ -153,7 +153,7 @@ async function resetSelection(conflict: RouteProviderConflict) {
     await load()
   } catch (cause) {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-alert-circle',
       title: operationError(cause, 'admin.extensions.routeProviders.resetFailed')
     })

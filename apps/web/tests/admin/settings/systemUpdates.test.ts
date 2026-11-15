@@ -34,7 +34,9 @@ describe('admin system update surface', () => {
     expect(component).toContain("form.mirrorUrl = ''")
     expect(component).toContain('updates.refresh({ force: true })')
     expect(component).toContain("toast.add({ color: 'error'")
-    expect(component).not.toContain("color: 'error', duration:")
+    // RV-20：错误 toast 必须常驻（`duration: 0`）。旧断言把「不带 duration」当契约，
+    // 与本轮「错误提示不自动消失」相反，已随契约更新。
+    expect(component).toContain("color: 'error', duration: 0")
   })
 
   test('shows update availability in a modal and suppresses repeat prompts for six hours', () => {

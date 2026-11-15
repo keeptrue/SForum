@@ -180,7 +180,7 @@ export function useTopicCommentComposerDrawer(options: TopicCommentComposerDrawe
       editorVersion.value += 1
     } catch (cause) {
       toast.add({
-        color: 'error',
+        color: 'error', duration: 0,
         icon: 'i-lucide-circle-alert',
         title: apiErrorMessage(cause) || t('topicDetail.editFailed')
       })

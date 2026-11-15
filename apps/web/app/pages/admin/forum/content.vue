@@ -13,6 +13,10 @@ import type {
   ForumRevisionSummary
 } from '~/utils/admin/adminForumContent'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
+import {
+  buildAdminForumContentRouteQuery,
+  parseAdminForumContentRouteQuery
+} from '~/utils/admin/adminForumContentRouteQuery'
 import SFAdminForumCommentEditor from '~/components/admin/forum/SFAdminForumCommentEditor.vue'
 import SFAdminForumRevisionDiff from '~/components/admin/forum/SFAdminForumRevisionDiff.vue'
 import SFAdminForumRevisionTimeline from '~/components/admin/forum/SFAdminForumRevisionTimeline.vue'
@@ -39,8 +43,16 @@ const availableTabs = computed<AdminForumContentKind[]>(() => [
   ...(canTopics.value ? ['topics' as const] : []),
   ...(canComments.value ? ['comments' as const] : [])
 ])
-const activeTab = ref<AdminForumContentKind>(canTopics.value ? 'topics' : 'comments')
-const filters = reactive<AdminForumContentFilters>({ status: ALL_STATUS_VALUE, perPage: 20 })
+const route = useRoute()
+const router = useRouter()
+// UX2-14：tab 与筛选从地址栏派生（F5 / 分享后保持）。
+// 有意取舍：分页游标不入 query —— 刷新回到第一页，见 adminForumContentRouteQuery 的注释。
+const routeState = parseAdminForumContentRouteQuery(route.query, availableTabs.value)
+const activeTab = ref<AdminForumContentKind>(routeState.tab ?? (canTopics.value ? 'topics' : 'comments'))
+const filters = reactive<AdminForumContentFilters>({
+  ...routeState.filters,
+  status: routeState.filters.status || ALL_STATUS_VALUE
+})
 const list = ref<AdminForumContentRow[]>([])
 const pending = ref(false)
 const errorMessage = ref('')
@@ -141,8 +153,21 @@ function resetPagination() {
   cursorIndex.value = 0
 }
 
+// 状态变更后写回地址栏：replace 不污染历史，且不触发新的导航栈。
+async function syncRouteQuery() {
+  // SSR 没有浏览器历史；`watch(availableTabs, { immediate: true })` 可能在服务端触发
+  // `selectTab`，此时调 `router.replace` 会告警（与 entity-meta / login-methods 同一条守卫）。
+  if (!import.meta.client) return
+  const query = buildAdminForumContentRouteQuery(activeTab.value, {
+    ...filters,
+    status: filters.status === ALL_STATUS_VALUE ? '' : filters.status
+  })
+  await router.replace({ query })
+}
+
 async function applyFilters() {
   resetPagination()
+  await syncRouteQuery()
   await load()
 }
 
@@ -157,6 +182,7 @@ async function selectTab(tab: AdminForumContentKind) {
   selected.value = null
   conflict.value = null
   resetPagination()
+  await syncRouteQuery()
   await load()
 }
 

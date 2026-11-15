@@ -71,7 +71,7 @@ async function revokeDevice(session: LoginSession) {
     toast.add({ color: 'success', icon: 'i-lucide-check', title: t('accountSecurity.deviceRevoked') })
     await refreshSessionLists()
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accountSecurity.revokeFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accountSecurity.revokeFailed') })
   }
 }
 
@@ -90,7 +90,7 @@ async function revokeOthers() {
     })
     await refreshSessionLists()
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accountSecurity.revokeFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accountSecurity.revokeFailed') })
   } finally {
     revokingOthers.value = false
   }

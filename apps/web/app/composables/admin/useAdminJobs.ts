@@ -1,4 +1,5 @@
 import { ALL_ADMIN_JOBS_FILTER, adminJobFilterValue, type AdminJob, type AdminJobSchedule, type AdminJobScheduleTriggerResult, type AdminJobsOverview } from '~/utils/admin/adminJobs'
+import { apiErrorMessage } from '~/composables/useApiClient'
 
 export function useAdminJobs() {
   const { request } = useApiClient()
@@ -30,7 +31,7 @@ export function useAdminJobs() {
       toast.add({ color: 'success', icon: action === 'retry' ? 'i-lucide-refresh-cw' : 'i-lucide-ban', title: t(`admin.jobs.${action}Success`), duration: 5000 })
       await refresh()
     } catch (error) {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: `${error}`, duration: 0 })
+      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.jobs.actionFailed'), duration: 0 })
     } finally {
       busy.value = ''
     }
@@ -43,7 +44,7 @@ export function useAdminJobs() {
       toast.add({ color: 'success', icon: paused ? 'i-lucide-pause' : 'i-lucide-play', title: t(paused ? 'admin.jobs.pauseSuccess' : 'admin.jobs.resumeSuccess'), duration: 5000 })
       await refresh()
     } catch (error) {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: `${error}`, duration: 0 })
+      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.jobs.actionFailed'), duration: 0 })
     } finally {
       busy.value = ''
     }
@@ -61,7 +62,7 @@ export function useAdminJobs() {
       })
       await refreshSchedules()
     } catch (error) {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: `${error}`, duration: 0 })
+      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.jobs.actionFailed'), duration: 0 })
     } finally {
       busy.value = ''
     }
@@ -80,7 +81,7 @@ export function useAdminJobs() {
       await Promise.all([refreshSchedules(), jobs.refresh()])
       return result
     } catch (error) {
-      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: `${error}`, duration: 0 })
+      toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.jobs.actionFailed'), duration: 0 })
       return null
     } finally {
       busy.value = ''

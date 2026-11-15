@@ -3178,7 +3178,8 @@
       "retrySuccess": "Job queued for retry.",
       "cancelSuccess": "Job cancelled.",
       "pauseSuccess": "Queue paused.",
-      "resumeSuccess": "Queue resumed."
+      "resumeSuccess": "Queue resumed.",
+      "actionFailed": "Action failed. Try again later."
     },
     "schedules": {
       "title": "Scheduled jobs",
@@ -6530,6 +6531,11 @@
       "empty": {
         "title": "No reports",
         "description": "No pending reports match the current filters."
+      },
+      "settingsForbidden": "Missing permission to manage moderation settings.",
+      "settingsLoadFailed": "Could not load moderation settings. Try again.",
+      "history": {
+        "page": "Page {page} · {total} records"
       }
     },
     "search": {
@@ -6547,7 +6553,8 @@
         "remaining": "Remaining",
         "percent": "Progress",
         "startedAt": "Started At",
-        "finishedAt": "Finished At"
+        "finishedAt": "Finished At",
+        "empty": "No rebuild records yet. This search engine has never been rebuilt; you can start one now."
       },
       "action": {
         "reindex": "Rebuild Index",
@@ -6575,7 +6582,11 @@
         "completed": "Search index rebuild completed"
       },
       "providerHint": "Choose the provider under Forum settings → Search.",
-      "providerLink": "Open search service settings"
+      "providerLink": "Open search service settings",
+      "loadFailed": "Could not load search index status. Try again.",
+      "historyLoadFailed": "Could not load rebuild history. Try again.",
+      "forbidden": "Missing search.manage permission; you cannot view or rebuild the search index.",
+      "forbiddenHint": "Ask an administrator to grant this permission, or sign in again and retry."
     },
     "webhooks": {
       "title": "Webhooks",

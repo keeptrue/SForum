@@ -81,7 +81,7 @@ async function applySelection(slot: ProviderSlotItem) {
     toast.add({ color: 'primary', icon: 'i-lucide-check', title: t('admin.extensions.providerSlots.selected'), duration: 5000 })
     await load()
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-circle-alert', title: operationError(cause, 'admin.extensions.providerSlots.selectFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-circle-alert', title: operationError(cause, 'admin.extensions.providerSlots.selectFailed') })
     if (apiErrorReason(cause) === 'extensions.provider_slot_conflict') await load()
   } finally {
     busy.value = ''
@@ -97,7 +97,7 @@ async function restoreDefault(slot: ProviderSlotItem) {
     toast.add({ color: 'primary', icon: 'i-lucide-rotate-ccw', title: t('admin.extensions.providerSlots.reset'), duration: 5000 })
     await load()
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-circle-alert', title: operationError(cause, 'admin.extensions.providerSlots.resetFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-circle-alert', title: operationError(cause, 'admin.extensions.providerSlots.resetFailed') })
     if (apiErrorReason(cause) === 'extensions.provider_slot_conflict') await load()
   } finally {
     busy.value = ''
@@ -117,7 +117,7 @@ async function probeCandidate(slot: ProviderSlotItem, candidate: ProviderSlotCan
       title: result.ok ? t('admin.extensions.providerSlots.probePassed') : t('admin.extensions.providerSlots.probeFailed')
     })
   } catch (cause) {
-    toast.add({ color: 'error', icon: 'i-lucide-circle-alert', title: operationError(cause, 'admin.extensions.providerSlots.probeFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-circle-alert', title: operationError(cause, 'admin.extensions.providerSlots.probeFailed') })
   } finally {
     busy.value = ''
   }

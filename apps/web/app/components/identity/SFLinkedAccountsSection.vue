@@ -149,7 +149,7 @@ function handleSensitiveError(error: unknown, fallback: string) {
   if (reason === 'auth.last_login_method_required') {
     surfaceError.value = t('accountSecurity.linkedAccounts.lastMethodBlocked')
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-shield-alert',
       title: t('accountSecurity.linkedAccounts.lastMethodBlocked')
     })
@@ -157,7 +157,7 @@ function handleSensitiveError(error: unknown, fallback: string) {
   }
   const message = apiErrorMessage(error) || fallback
   surfaceError.value = message
-  toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: message })
+  toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: message })
 }
 
 async function startLink(provider: PublicAuthProvider) {

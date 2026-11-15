@@ -137,7 +137,7 @@ async function loadTokens() {
     const result = await tokensApi.listAPITokens()
     tokens.value = result.items || []
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.loadFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.loadFailed') })
   } finally {
     tokensLoading.value = false
   }
@@ -157,7 +157,7 @@ async function createToken() {
     await loadTokens()
     activeTokenTab.value = 'manage'
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.saveFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.saveFailed') })
   } finally {
     tokenBusy.value = false
   }
@@ -169,7 +169,7 @@ async function revokeToken(token: APIToken) {
     toast.add({ color: 'primary', icon: 'i-lucide-check', title: t('accessTokensSettings.revoked'), duration: 5000 })
     await loadTokens()
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.saveFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.saveFailed') })
   }
 }
 
@@ -180,7 +180,7 @@ async function rotateToken(token: APIToken) {
     toast.add({ color: 'primary', icon: 'i-lucide-check', title: t('accessTokensSettings.rotated'), duration: 5000 })
     await loadTokens()
   } catch (error) {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.saveFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: apiErrorMessage(error) || t('accessTokensSettings.saveFailed') })
   }
 }
 
@@ -192,7 +192,7 @@ async function copyPlaintext() {
     await navigator.clipboard.writeText(createdPlaintext.value)
     toast.add({ color: 'primary', icon: 'i-lucide-check', title: t('accessTokensSettings.copied'), duration: 5000 })
   } catch {
-    toast.add({ color: 'error', icon: 'i-lucide-alert-triangle', title: t('accessTokensSettings.copyFailed') })
+    toast.add({ color: 'error', duration: 0, icon: 'i-lucide-alert-triangle', title: t('accessTokensSettings.copyFailed') })
   }
 }
 

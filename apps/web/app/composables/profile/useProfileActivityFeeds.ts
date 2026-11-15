@@ -147,7 +147,7 @@ export function useProfileActivityFeeds(
       }
     } catch (error) {
       toast.add({
-        color: 'error',
+        color: 'error', duration: 0,
         icon: 'i-lucide-alert-triangle',
         title: apiErrorMessage(error) || t('profile.timeline.loadFailed')
       })
@@ -199,7 +199,7 @@ export function useProfileActivityFeeds(
       }
     } catch (error) {
       toast.add({
-        color: 'error',
+        color: 'error', duration: 0,
         icon: 'i-lucide-alert-triangle',
         title: apiErrorMessage(error) || t('profile.timeline.loadMoreFailed')
       })

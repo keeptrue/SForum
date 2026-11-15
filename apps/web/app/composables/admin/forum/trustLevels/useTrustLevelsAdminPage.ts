@@ -583,7 +583,7 @@ export function useTrustLevelsAdminPage() {
     } catch (error) {
       saveErrors.value = saveErrorsFromError(error)
       toast.add({
-        color: 'error',
+        color: 'error', duration: 0,
         icon: 'i-lucide-triangle-alert',
         title: apiErrorReason(error) || t('admin.settings.saveFailed')
       })

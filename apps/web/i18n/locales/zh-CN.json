@@ -3218,7 +3218,8 @@
       "retrySuccess": "任务已重新排队。",
       "cancelSuccess": "任务已取消。",
       "pauseSuccess": "队列已暂停。",
-      "resumeSuccess": "队列已恢复。"
+      "resumeSuccess": "队列已恢复。",
+      "actionFailed": "操作失败，请稍后重试。"
     },
     "schedules": {
       "title": "定时任务",
@@ -6570,6 +6571,11 @@
       "empty": {
         "title": "暂无举报",
         "description": "当前过滤条件下没有待处理的举报。"
+      },
+      "settingsForbidden": "缺少审核设置的管理权限，无法查看或修改审核策略。",
+      "settingsLoadFailed": "审核策略加载失败，请重试。",
+      "history": {
+        "page": "第 {page} 页 · 共 {total} 条"
       }
     },
     "search": {
@@ -6587,7 +6593,8 @@
         "remaining": "剩余",
         "percent": "进度",
         "startedAt": "开始时间",
-        "finishedAt": "完成时间"
+        "finishedAt": "完成时间",
+        "empty": "暂无重建记录。当前搜索引擎尚未重建过，可直接开始重建。"
       },
       "action": {
         "reindex": "重建索引",
@@ -6615,7 +6622,11 @@
         "completed": "搜索索引重建已完成"
       },
       "providerHint": "在论坛设置 → 搜索服务中选择提供商。",
-      "providerLink": "打开搜索服务设置"
+      "providerLink": "打开搜索服务设置",
+      "loadFailed": "搜索索引状态加载失败，请稍后重试。",
+      "historyLoadFailed": "重建历史加载失败，请稍后重试。",
+      "forbidden": "缺少 search.manage 权限，无法查看或重建搜索索引。",
+      "forbiddenHint": "请联系管理员授予该权限，或重新登录后再试。"
     },
     "webhooks": {
       "title": "Webhooks",

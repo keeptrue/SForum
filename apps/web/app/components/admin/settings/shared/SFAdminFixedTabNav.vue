@@ -10,6 +10,12 @@ defineProps<{
   items: AdminFixedTabItem[]
   modelValue: string
   ariaLabel: string
+  /**
+   * 可选：传入时给每个页签输出稳定的 `id` 与 `aria-controls`，与页面里
+   * `role="tabpanel"` 的容器形成闭环。不传时渲染结果与旧版逐字节一致
+   * （现有 settings 页不受影响）。
+   */
+  panelId?: string
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +38,8 @@ const emit = defineEmits<{
       :color="modelValue === item.id ? 'primary' : 'neutral'"
       :variant="modelValue === item.id ? 'solid' : 'ghost'"
       :disabled="item.disabled"
+      :id="panelId ? `${panelId}-tab-${item.id}` : undefined"
+      :aria-controls="panelId || undefined"
       :aria-selected="modelValue === item.id"
       @click="emit('update:modelValue', item.id)"
     >

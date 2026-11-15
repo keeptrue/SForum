@@ -43,7 +43,7 @@
 | `core.admin.page.personalization` | `apps/web/app/pages/admin/personalization.vue` | yes | no | yes | no | yes | no | no | no | yes | no | no | yes | no |
 | `core.admin.page.roles` | `apps/web/app/pages/admin/roles.vue` | yes | no | yes | no | yes | no | no | yes | no | no | no | yes | no |
 | `core.admin.page.schedules` | `apps/web/app/pages/admin/schedules.vue` | yes | no | yes | no | no | yes | no | no | yes | no | no | yes | no |
-| `core.admin.page.search` | `apps/web/app/pages/admin/search.vue` | yes | no | yes | yes | yes | no | no | yes | yes | no | yes | yes | no |
+| `core.admin.page.search` | `apps/web/app/pages/admin/search.vue` | yes | no | yes | yes | yes | yes | no | yes | yes | no | yes | yes | no |
 | `core.admin.page.seo` | `apps/web/app/pages/admin/seo.vue` | yes | no | yes | no | yes | no | no | no | yes | no | no | yes | no |
 | `core.admin.page.settings_avatar` | `apps/web/app/pages/admin/settings/avatar.vue` | yes | no | yes | no | no | yes | no | yes | yes | no | no | yes | no |
 | `core.admin.page.settings_features` | `apps/web/app/pages/admin/settings/features.vue` | yes | no | yes | no | no | yes | no | yes | yes | no | no | yes | no |

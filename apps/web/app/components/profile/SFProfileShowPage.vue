@@ -307,7 +307,7 @@ async function shareProfile() {
     })
   } catch {
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-alert-triangle',
       title: t('profile.shareFailed')
     })

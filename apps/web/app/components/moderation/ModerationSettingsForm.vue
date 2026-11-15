@@ -46,7 +46,7 @@ async function saveSettings() {
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) || t('admin.moderation.settingsSaveFailed')
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: errorMessage.value
     })
@@ -72,7 +72,7 @@ async function resetSettings() {
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) || t('admin.moderation.settingsResetFailed')
     toast.add({
-      color: 'error',
+      color: 'error', duration: 0,
       icon: 'i-lucide-triangle-alert',
       title: errorMessage.value
     })
