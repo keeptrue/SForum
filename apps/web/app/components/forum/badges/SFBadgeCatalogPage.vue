@@ -4,11 +4,10 @@ import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsiv
 import SFProfileBadgeTab from '~/components/profile/SFProfileBadgeTab.vue'
 import SFPublicPageHeader from '~/components/public/SFPublicPageHeader.vue'
 import { useBadgesCatalog } from '~/composables/forum/badges/useBadgesCatalog'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import { useBadgeDetailQuery } from '~/composables/profile/useBadgeDetailQuery'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
-import { useForumApi } from '~/composables/forum/useForumApi'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
-import type { ForumCategoryGroup } from '~/utils/forum/forumTaxonomy'
 /**
  * 宿主 body 岛：forum.badge.index。
  * 两栏壳对齐标签 / 分类目录（本页不启用右栏）；卡片复用 SFProfileBadgeTab 的 catalog 变体，
@@ -19,7 +18,6 @@ import type { ForumCategoryGroup } from '~/utils/forum/forumTaxonomy'
  */
 const { t } = useI18n()
 const { user } = useAuthSession()
-const forumApi = useForumApi()
 const { can } = usePermissions()
 const { groups, truncated, pending, error, refresh } = await useBadgesCatalog()
 const { focusSlug, setFocusSlug, resetBadgeIfMissing } = useBadgeDetailQuery()
@@ -28,11 +26,7 @@ const { focusSlug, setFocusSlug, resetBadgeIfMissing } = useBadgeDetailQuery()
  * 左栏与个人主页（forum.profile.show）同源：导航 + 分类清单 + 总主题数 + 新建主题入口。
  * SSR 取数；失败只让分类块退化成骨架/空，不阻断徽章目录本身（default 空数组）。
  */
-const { data: categoryGroups, pending: categoriesPending } = await useAsyncData(
-  'forum-badges-category-groups',
-  () => forumApi.listCategoryGroups(),
-  { default: () => [] as ForumCategoryGroup[] }
-)
+const { data: categoryGroups, pending: categoriesPending } = await useCategoryGroups()
 const navCategories = computed(() => categoryGroups.value.flatMap(group => group.categories || []))
 const navTotalTopics = computed(() => navCategories.value.reduce((sum, category) => sum + category.topicCount, 0))
 const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))

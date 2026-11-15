@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import { useForumApi } from '~/composables/forum/useForumApi'
 import SFTagShowRightRail from '~/components/forum/SFTagShowRightRail.vue'
 import SFHomeTopicRow from '~/components/forum/SFHomeTopicRow.vue'
@@ -23,7 +24,6 @@ import {
   forumTagsIndexPath,
   forumTopicPath,
   parseForumTagPublicPagesOption,
-  type ForumCategoryGroup,
   type ForumTag,
   type ForumTopicList,
   type ForumTopicSummary
@@ -71,11 +71,7 @@ if (!publicTagPagesEnabled.value) {
 
 // 三个公开读请求互不依赖，并发启动可避免 SSR 首屏按接口耗时逐个累加。
 const [categoryGroupsResult, activeTagsResult, topicListResult] = await Promise.all([
-  useAsyncData(
-    'forum-tag-page-category-groups',
-    () => forumApi.listCategoryGroups(),
-    { default: () => [] as ForumCategoryGroup[] }
-  ),
+  useCategoryGroups(),
   useAsyncData(
     'forum-tag-page-tags',
     async () => (await forumApi.listTags()).filter((item) => item.status === 'active'),

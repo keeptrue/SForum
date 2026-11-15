@@ -225,7 +225,7 @@ describe('public navigation fetch and renderer contracts', () => {
     expect(mobileSource).toContain('data-navigation-viewport="mobile"')
     expect(mobileSource).toContain('<SFMobileSidebarContent')
     expect(mobileSource).toContain('@navigate="emit(\'close\')"')
-    expect(mobileSidebarSource).toContain("forumApi.listCategoryGroups({ serverInternal: false })")
+    expect(mobileSidebarSource).toContain('useCategoryGroups({ serverInternal: false })')
     expect(mobileSidebarSource).toContain('<SFPublicSidebarContent')
     expect(sidebarSource).toContain('<SFPublicSidebarContent')
   })

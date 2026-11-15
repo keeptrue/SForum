@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
-import { useForumApi } from '~/composables/forum/useForumApi'
-import type { ForumCategoryGroup } from '~/utils/forum/forumTaxonomy'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import type { PublicNavigationItem } from '~/utils/navigation/publicNavigation'
 import SFPublicSidebarContent from './SFPublicSidebarContent.vue'
 
@@ -10,17 +9,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ navigate: [] }>()
-const { locale } = useI18n()
 const route = useRoute()
-const forumApi = useForumApi()
 const { can } = usePermissions()
-const categoryDataKey = computed(() => `public-sidebar-navigation-categories:${locale.value}`)
 
-const { data: categoryGroups, pending } = useAsyncData(
-  categoryDataKey,
-  () => forumApi.listCategoryGroups({ serverInternal: false }),
-  { default: () => [] as ForumCategoryGroup[] }
-)
+// 侧栏必须走公开读（不带 SSR 内参），与公开面共用同一条稳定 key（RV-35）。
+const { data: categoryGroups, pending } = useCategoryGroups({ serverInternal: false })
 
 const categories = computed(() => categoryGroups.value.flatMap(group => group.categories || []))
 const totalTopics = computed(() => categories.value.reduce((sum, category) => sum + (category.topicCount || 0), 0))

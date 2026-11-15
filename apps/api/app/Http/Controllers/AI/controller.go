@@ -1,6 +1,7 @@
 package aicontroller
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -243,8 +244,10 @@ func (h *Controller) listProfileModels(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, "ai.settings_invalid")
 	}
 	var request profileModelsRequest
-	// 空 body 或非 JSON body 一律按「使用已保存的地址与密钥」处理。
-	_ = c.Bind().JSON(&request)
+	// 空 body 按「使用已保存的地址与密钥」处理；非法 JSON 则必须回绝。
+	if err := decodeOptionalBody(c, &request); err != nil {
+		return err
+	}
 	result, err := h.service.ListModels(c.Context(), actor, profileID, supportai.ModelListProbe{
 		BaseURL:  request.BaseURL,
 		Protocol: request.Protocol,
@@ -270,6 +273,22 @@ func (h *Controller) updateSettings(c fiber.Ctx) error {
 		return mapAIError(err)
 	}
 	return h.settingsPayload(c, actor, saved)
+}
+
+// decodeOptionalBody 解码「body 可选」的探测端点：空 body 合法（用服务端默认
+// 值），非空但解析失败必须 422。
+//
+// 为什么不沿用 `_ = c.Bind().JSON(&request)`：diagnose 的下一步是一次真实的付费
+// 调用，把一段拼错的 JSON 当成空 body 继续往下走，等于让一次写错的请求变成一次
+// 真实计费，而且运营者拿到的是「探测通过」而不是「你的请求写错了」。
+func decodeOptionalBody(c fiber.Ctx, target any) error {
+	if len(bytes.TrimSpace(c.Body())) == 0 {
+		return nil
+	}
+	if err := c.Bind().JSON(target); err != nil {
+		return fiber.NewError(fiber.StatusUnprocessableEntity, "validation.invalid")
+	}
+	return nil
 }
 
 // decodeSettingsRequest 把控制台载荷解码成规范化配置，并返回定位到字段的问题。
@@ -342,8 +361,10 @@ func (h *Controller) diagnose(c fiber.Ctx) error {
 		return err
 	}
 	var request diagnoseRequest
-	// 空 body 或非 JSON body 一律按「使用默认探测消息」处理。
-	_ = c.Bind().JSON(&request)
+	// 空 body 按「使用默认探测消息」处理；非法 JSON 则必须在调用 service 之前回绝。
+	if err := decodeOptionalBody(c, &request); err != nil {
+		return err
+	}
 	result, err := h.service.Diagnose(c.Context(), actor, request.Message)
 	if err != nil {
 		return mapAIError(err)

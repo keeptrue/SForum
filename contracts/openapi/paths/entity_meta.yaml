@@ -42,6 +42,8 @@ entityMetaValues:
           application/json:
             schema:
               "$ref": "../schemas/entity_meta.yaml#/ApiResponseEntityMetaValueList"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
   put:

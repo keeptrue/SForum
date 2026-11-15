@@ -8,9 +8,9 @@ import SFHomePage from '~/components/forum/SFHomePage.vue'
  */
 import {
   buildForumHomeQuery,
+  forumHomeCategoryRedirect,
   parseForumHomeQuery
 } from '~/utils/forum/forumHome'
-import { forumCategoryPath } from '~/utils/forum/forumTaxonomy'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -18,6 +18,8 @@ const localePath = useLocalePath()
 const { seoSettings } = useWebOptions()
 const committedFilters = computed(() => parseForumHomeQuery(route.query))
 const currentPage = computed(() => parsePublicPage(route.query.page))
+// `?category[]=` 是数组：强转字符串会 301 到 `/c/a%2Cb` 这种坏路径（RV-34）。
+const categoryRedirect = forumHomeCategoryRedirect(route.query, route.path)
 const hasActiveFilters = computed(() => Boolean(
   committedFilters.value.query
   || committedFilters.value.categorySlug
@@ -34,8 +36,8 @@ if (committedFilters.value.query) {
     ),
     { redirectCode: 301, replace: true }
   )
-} else if (route.query.category && !route.path.startsWith('/c/')) {
-  await navigateTo(forumCategoryPath(route.query.category as string), { redirectCode: 301, replace: true })
+} else if (categoryRedirect) {
+  await navigateTo(categoryRedirect, { redirectCode: 301, replace: true })
 }
 
 useSForumSeo(computed(() => ({

@@ -65,7 +65,8 @@ describe('public taxonomy list pages (T02 + C04)', () => {
   test('tags index uses listTags, public_pages gate, heat overview, drawers, and tag detail links', () => {
     const source = tagsPage()
     expect(source).toContain('forumApi.listTags()')
-    expect(source).toContain('forumApi.listCategoryGroups()')
+    // RV-35：分类目录走公开面共享 composable，不再自带一条 useAsyncData key。
+    expect(source).toContain('useCategoryGroups()')
     expect(source).toContain("webOption('forum.tags.public_pages'")
     expect(source).toContain('parseForumTagPublicPagesOption')
     expect(source).toContain('filterTagIndexTags')
@@ -100,7 +101,7 @@ describe('public taxonomy list pages (T02 + C04)', () => {
 
   test('categories index uses category groups, directory layout, focus, filter, and category detail links', () => {
     const source = categoriesPage()
-    expect(source).toContain('forumApi.listCategoryGroups()')
+    expect(source).toContain('useCategoryGroups()')
     expect(source).toContain('visibleCategoryDirectoryGroups')
     expect(source).toContain('buildCategoryDirectoryDisplayGroups')
     expect(source).toContain('summarizeCategoryDirectory')

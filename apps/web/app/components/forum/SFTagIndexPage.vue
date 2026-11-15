@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import { useForumApi } from '~/composables/forum/useForumApi'
 import SFTagIndexRightRail from '~/components/forum/SFTagIndexRightRail.vue'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
@@ -27,7 +28,6 @@ import {
 import {
   forumTagPath,
   parseForumTagPublicPagesOption,
-  type ForumCategoryGroup,
   type ForumTag
 } from '~/utils/forum/forumTaxonomy'
 
@@ -67,14 +67,7 @@ const { closeDrawer: closeMobileMenu } = usePublicSidebarDrawer()
 const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
 const renderedAt = useState<number>('forum-tags-index-rendered-at', () => Date.now())
 
-const {
-  data: categoryGroups,
-  pending: categoriesPending
-} = await useAsyncData(
-  'forum-tags-index-category-groups',
-  () => forumApi.listCategoryGroups(),
-  { default: () => [] as ForumCategoryGroup[] }
-)
+const { data: categoryGroups, pending: categoriesPending } = await useCategoryGroups()
 
 const {
   data: tags,

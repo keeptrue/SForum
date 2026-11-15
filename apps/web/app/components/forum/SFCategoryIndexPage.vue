@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
-import { useForumApi } from '~/composables/forum/useForumApi'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
 import SFResponsivePublicSidebar from '~/components/forum/navigation/SFResponsivePublicSidebar.vue'
 import SFContentColumnFooter from '~/components/forum/SFContentColumnFooter.vue'
@@ -33,7 +33,6 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
-const forumApi = useForumApi()
 const { can } = usePermissions()
 
 const CATEGORY_FILTERS: Array<{ key: CategoryDirectoryFilter, icon: string, labelKey: string }> = [
@@ -51,11 +50,7 @@ const canCreateTopic = computed(() => can(FORUM_PERMISSIONS.topicCreate))
 const ALL_GROUPS_VALUE = '__all_groups__'
 const renderedAt = useState<number>('forum-categories-index-rendered-at', () => Date.now())
 
-const { data: groups, pending, error, refresh } = await useAsyncData(
-  'forum-categories-index',
-  () => forumApi.listCategoryGroups(),
-  { default: () => [] as ForumCategoryGroup[] }
-)
+const { data: groups, pending, error, refresh } = await useCategoryGroups()
 
 const visibleGroups = computed(() => visibleCategoryDirectoryGroups(groups.value))
 const categories = computed(() => visibleGroups.value.flatMap((group) => group.categories))

@@ -5474,6 +5474,7 @@
         "title": "Forum settings",
         "intro": "Configure the default category, posting and comment limits, tag policy, pagination, and reading excerpts.",
         "loadFailed": "Forum settings could not be loaded.",
+        "loadFailedSaveDisabled": "Saving stays unavailable until the real configuration loads, so recommended defaults can never be written back by accident.",
         "recommendedTitle": "Recommended configuration",
         "recommendedDescription": "Recommended defaults use General Discussion, controlled tags, 2–100 character titles, 5-level comment nesting, and 20 items per page.",
         "formTitle": "Forum behavior settings",

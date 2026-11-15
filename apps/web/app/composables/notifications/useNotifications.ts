@@ -59,6 +59,9 @@ export function useNotifications() {
   const { apiBaseUrl, request } = useApiClient()
   const unreadCount = useState<number>('notification-unread-count', () => 0)
   const revision = useState<number>('notification-recipient-revision', () => 0)
+  // RV-33：预览弹层与详情页会对同一条通知各调一次 markRead。服务端 PATCH 本身幂等，
+  // 本地角标也必须幂等——按 id 记账，同一 id 只递减一次（跨组件共享同一份 state）。
+  const locallyReadIds = useState<number[]>('notification-locally-read-ids', () => [])
   async function refreshUnreadCount() { const data = await request<{ count: number }>('/notifications/unread-count'); unreadCount.value = data.count; return data.count }
   async function list(beforeId = 0, limit = 20, filters: NotificationListFilters = {}) {
     const params = new URLSearchParams()
@@ -73,7 +76,12 @@ export function useNotifications() {
   async function get(id: number) {
     return request<NotificationDetail>(`/notifications/${id}`, { serverInternal: import.meta.server })
   }
-  async function markRead(id: number) { await request(`/notifications/${id}/read`, { method: 'PATCH' }); if (unreadCount.value > 0) unreadCount.value-- }
+  async function markRead(id: number) {
+    await request(`/notifications/${id}/read`, { method: 'PATCH' })
+    if (locallyReadIds.value.includes(id)) return
+    locallyReadIds.value = [...locallyReadIds.value, id]
+    if (unreadCount.value > 0) unreadCount.value--
+  }
   async function markAllRead() { const data = await request<{ updated: number }>('/notifications/read-all', { method: 'POST' }); unreadCount.value = 0; return data.updated }
 
   function startRealtime(actorUserId: number, refresh: NotificationRevisionRefresh) {

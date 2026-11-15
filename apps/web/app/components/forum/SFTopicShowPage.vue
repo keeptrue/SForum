@@ -5,6 +5,7 @@ import { useModerationReportDialog } from '~/composables/moderation/useModeratio
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
 import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useForumApi } from '~/composables/forum/useForumApi'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import { useLegacyTopicCommentComposerParent, useTopicCommentComposerDrawer } from '~/composables/forum/useTopicCommentComposerDrawer'
 import { useTopicCommentAnchor } from '~/composables/forum/useTopicCommentAnchor'
 import { useTopicCommentLive } from '~/composables/forum/useTopicCommentLive'
@@ -38,7 +39,7 @@ import {
   forumTagPath, forumTopicEditPath,
   forumTopicPath, forumUserProfilePath,
   parseTopicPath, topicPathLookupCandidates, FORUM_TOPIC_ACTIONS,
-  type ForumCategoryGroup, type ForumComment,
+  type ForumComment,
   type ForumCommentExtensionAction, type ForumCommentList,
   type ForumTopicDetail, type ForumTopicExtensionAction,
   type TopicPathLookup
@@ -259,14 +260,7 @@ const commentQuery = computed(() => ({
 const commentsKeyTopic = computed(() => (urlTopicID.value > 0 ? String(urlTopicID.value) : `lookup:${topicLookupKey.value}`))
 
 // 左栏分类导航（route 模式）：与首页共用 SFHomeNavigation，仅展示 API 目录数据。
-const categoryGroupsAsync = useAsyncData(
-  'forum-topic-show-category-groups',
-  () => forumApi.listCategoryGroups(),
-  {
-    default: () => [] as ForumCategoryGroup[],
-    lazy: true
-  }
-)
+const categoryGroupsAsync = useCategoryGroups({ lazy: true })
 
 // 初始 SSR 保持正文、评论和导航完整；客户端切页只让正文阻塞导航提交。
 const topicResult = await topicAsync

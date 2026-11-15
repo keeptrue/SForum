@@ -2,6 +2,7 @@
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
 import { useForumApi } from '~/composables/forum/useForumApi'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import SFHomeTopicRow from '~/components/forum/SFHomeTopicRow.vue'
 import SFHomeNavigation from '~/components/forum/SFHomeNavigation.vue'
 import SFContentColumnFooter from '~/components/forum/SFContentColumnFooter.vue'
@@ -18,7 +19,6 @@ import {
   formatForumTopicListTotal,
   forumCategoryPath,
   forumTopicPath,
-  type ForumCategoryGroup,
   type ForumTopicList,
   type ForumTopicSummary
 } from '~/utils/forum/forumTaxonomy'
@@ -46,11 +46,8 @@ const emptyTopicList = (): ForumTopicList => ({
   perPage: 20
 })
 
-const { data: categoryGroups, pending: categoriesPending } = await useAsyncData(
-  `forum-category-page-groups:${categorySlug.value}`,
-  () => forumApi.listCategoryGroups(),
-  { default: () => [] as ForumCategoryGroup[] }
-)
+// RV-35：key 里曾拼 `${categorySlug}`，每切一次分类就整表重取；分类目录与 slug 无关。
+const { data: categoryGroups, pending: categoriesPending } = await useCategoryGroups()
 
 const categories = computed(() => categoryGroups.value.flatMap((group) => group.categories || []))
 const category = computed(() => categories.value.find((item) => item.slug === categorySlug.value))

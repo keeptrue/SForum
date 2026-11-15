@@ -129,7 +129,7 @@ func NewApp(cfg config.Config, logger *slog.Logger, deps Dependencies) *fiber.Ap
 	// Storage 注入时为分布式限流（多实例共享），否则退化为进程内存限流。
 	if cfg.LimiterWriteMax > 0 && cfg.LimiterWindow > 0 {
 		app.Use(routeRegistryManagedOnly(limiter.New(limiter.Config{
-			Storage:    deps.Storage,
+			Storage:    withStorageFailureMarking(deps.Storage),
 			Max:        cfg.LimiterWriteMax,
 			Expiration: cfg.LimiterWindow,
 			// Fiber 的 c.IP() 在「链条全部判为可信」时会回退到最左条目
@@ -149,14 +149,14 @@ func NewApp(cfg config.Config, logger *slog.Logger, deps Dependencies) *fiber.Ap
 	app.Use(routeRegistryManagedOnly(localeMiddleware(cfg, deps.Options)))
 	// 维护模式：拦截非管理员的写操作；GET 健康检查与登录/注册/web-options 仍可用。
 	app.Use(routeRegistryManagedOnly(maintenanceMiddleware(deps.Options)))
-	registerRouteRegistryMiddleware(app, cfg, deps)
+	registerRouteRegistryMiddleware(app, cfg, deps, logger)
 
 	registerRoutes(app, cfg, deps)
 
 	return app
 }
 
-func registerRouteRegistryMiddleware(app *fiber.App, cfg config.Config, deps Dependencies) {
+func registerRouteRegistryMiddleware(app *fiber.App, cfg config.Config, deps Dependencies, logger *slog.Logger) {
 	// CSRF 防护：double-submit cookie + Origin/Referer 校验，保护所有 unsafe 方法。
 	// 仅对 /api/v1 或已由 Registry plan 命中的任意路径启用；未知 Nuxt
 	// 请求不能被 CSRF/Bearer 提前截获。
@@ -166,14 +166,14 @@ func registerRouteRegistryMiddleware(app *fiber.App, cfg config.Config, deps Dep
 	// 避免每个测试请求都要携带 token。生产默认启用。
 	if cfg.CSRFEnabled {
 		app.Use(routeRegistryManagedOnly(csrf.New(csrf.Config{
-			Storage:        deps.Storage,
+			Storage:        withStorageFailureMarking(deps.Storage),
 			CookieSameSite: fiber.CookieSameSiteLaxMode,
 			// 与 session cookie 共用 Secure 判定，避免 staging HTTPS 下 csrf_ 仍可明文读取。
 			CookieSecure:   config.ShouldUseSecureCookie(cfg),
 			CookieHTTPOnly: false, // SPA 必须能读取 csrf_ cookie 以回传 token
 			CookiePath:     "/",
 			TrustedOrigins: cfg.CSRFTrustedOrigins,
-			ErrorHandler:   csrfErrorHandler,
+			ErrorHandler:   csrfErrorHandler(logger),
 			// 入站 webhook / Bearer PAT 由非浏览器客户端调用，无 CSRF cookie。
 			Next: func(c fiber.Ctx) bool {
 				path := c.Path()
@@ -303,16 +303,32 @@ func fallbackRuntimeSettings(cfg config.Config) options.RuntimeSettings {
 // csrfErrorHandler 把 CSRF 中间件的错误映射为统一 envelope reason。
 // token 缺失/不匹配 → csrf.invalid；Origin/Referer 不匹配 → csrf.origin_invalid。
 // 返回 *APIError 由全局 errorHandler 渲染成 {code,message,data:{reason}} 结构。
-func csrfErrorHandler(_ fiber.Ctx, err error) error {
-	switch {
-	case errors.Is(err, csrf.ErrOriginNoMatch),
-		errors.Is(err, csrf.ErrOriginInvalid),
-		errors.Is(err, csrf.ErrRefererNoMatch),
-		errors.Is(err, csrf.ErrRefererInvalid),
-		errors.Is(err, csrf.ErrRefererNotFound):
-		return NewError(fiber.StatusForbidden, "csrf.origin_invalid")
-	default:
-		return NewError(fiber.StatusForbidden, "csrf.invalid")
+//
+// storage 故障必须在这里先被认出来：csrf 默认把所有未知错误当成校验失败，于是
+// 一次 Redis 抖动会以 403 的形式出现——调用方读到的是「你没有权限」，运维读到的是
+// 「权限配置坏了」，而真正的答案是「依赖不可用」。写请求据此 503，读请求继续。
+func csrfErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
+	storage := newStorageFailureReporter(logger)
+	return func(c fiber.Ctx, err error) error {
+		if cause, ok := storageFailureCause(err); ok {
+			storage.warn(c, cause)
+			if safeMethodWithoutStorage(c.Method()) {
+				// 读请求没有可被伪造的副作用，继续走原链路：探针与页面不该因为
+				// CSRF 记账失败而变成错误响应。
+				return c.Next()
+			}
+			return storageUnavailable(c)
+		}
+		switch {
+		case errors.Is(err, csrf.ErrOriginNoMatch),
+			errors.Is(err, csrf.ErrOriginInvalid),
+			errors.Is(err, csrf.ErrRefererNoMatch),
+			errors.Is(err, csrf.ErrRefererInvalid),
+			errors.Is(err, csrf.ErrRefererNotFound):
+			return NewError(fiber.StatusForbidden, "csrf.origin_invalid")
+		default:
+			return NewError(fiber.StatusForbidden, "csrf.invalid")
+		}
 	}
 }
 

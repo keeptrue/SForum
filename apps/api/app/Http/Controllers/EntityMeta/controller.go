@@ -181,7 +181,10 @@ func (h *Controller) deleteDefinition(c fiber.Ctx) error {
 }
 
 func (h *Controller) listValues(c fiber.Ctx) error {
-	actor, _ := h.optionalActor(c)
+	actor, err := h.readActor(c)
+	if err != nil {
+		return err
+	}
 	entityType := c.Params("entityType")
 	entityID, err := strconv.ParseInt(c.Params("entityID"), 10, 64)
 	if err != nil || entityID <= 0 {
@@ -236,6 +239,21 @@ func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
 
 func (h *Controller) optionalActor(c fiber.Ctx) (identity.Actor, error) {
 	return apphttp.OptionalActor(c, h.sessions, h.users)
+}
+
+// readActor 把「可选登录主体」翻译成读路径的语义。
+//
+// optionalActor 只在两种情况下返回非 nil error：带来了凭据但会话/令牌解析失败，
+// 或者主体装载失败；「本次请求没有凭据」是 (零值, nil)。因此 error 必须当成
+// 「有凭据却拿不到可信主体」处理，而不是吞掉它继续按匿名读——匿名可见集合是一条
+// 更宽的读权限，静默降级等于把受限字段读成公开字段。没有凭据的请求仍然是零值
+// Actor + 200 匿名视角。
+func (h *Controller) readActor(c fiber.Ctx) (identity.Actor, error) {
+	actor, err := h.optionalActor(c)
+	if err != nil {
+		return identity.Actor{}, fiber.NewError(fiber.StatusUnauthorized, "auth.required")
+	}
+	return actor, nil
 }
 
 func mapError(err error) error {

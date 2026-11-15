@@ -112,6 +112,7 @@ adminAIDiagnose:
       '200': {description: Diagnostic outcome., content: {application/json: {schema: {$ref: "../schemas/ai.yaml#/ApiResponseAIDiagnose"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
 
 adminAIExecutions:
   get:

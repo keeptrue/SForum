@@ -5514,6 +5514,7 @@
         "title": "论坛设置",
         "intro": "配置默认版块、发帖/评论限制、标签策略、分页与阅读摘要。",
         "loadFailed": "论坛设置加载失败。",
+        "loadFailedSaveDisabled": "加载成功前不会挂载保存入口：先重新加载拿到真实配置，避免把推荐默认值写回站点。",
         "recommendedTitle": "推荐配置",
         "recommendedDescription": "推荐使用综合讨论、受控标签、标题 2–100 字、评论嵌套 5 层，主题与评论每次加载 20 条。",
         "formTitle": "论坛行为设置",

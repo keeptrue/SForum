@@ -44,6 +44,9 @@ export function useAdminUserList(deps: AdminUserListDeps) {
   const pending = ref(false)
   // 创建成功后要清空筛选并只刷新一次；watcher 的自动刷新在这段时间内让位。
   let suppressFilterReload = false
+  // 取数代次：筛选/翻页越快，越可能出现旧请求后到。只允许最新一代落地，
+  // 否则旧响应会把新筛选结果和页码一起覆盖回去（RV-32）。
+  let requestGeneration = 0
 
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / Math.max(perPage.value, 1))))
 
@@ -98,7 +101,20 @@ export function useAdminUserList(deps: AdminUserListDeps) {
 
   const visibleUsers = computed(() => users.value.filter(user => userListSurfaces.isResourceVisible(String(user.id))))
 
-  async function loadUsers() {
+  function beginRequest() {
+    requestGeneration += 1
+    return requestGeneration
+  }
+
+  function isCurrentRequest(generation: number) {
+    return generation === requestGeneration
+  }
+
+  /**
+   * 取一次列表。返回 `false` 表示这一代已被更新的请求取代：
+   * 此时不写 users/total/page/perPage，也不清错误态。
+   */
+  async function loadUsers(generation: number) {
     const params = new URLSearchParams({
       page: String(page.value),
       perPage: String(ADMIN_USERS_DEFAULT_PER_PAGE)
@@ -116,23 +132,38 @@ export function useAdminUserList(deps: AdminUserListDeps) {
     params.set('sortOrder', sortOrder.value)
 
     const result = await request<AdminUserList>(`/users?${params.toString()}`)
+    if (!isCurrentRequest(generation)) {
+      return false
+    }
     users.value = result.items
     total.value = result.total
     page.value = result.page || page.value
     perPage.value = result.perPage || ADMIN_USERS_DEFAULT_PER_PAGE
+
+    return true
   }
 
   async function refreshUsers() {
+    const generation = beginRequest()
     pending.value = true
     try {
-      await loadUsers()
+      if (!await loadUsers(generation)) {
+        return
+      }
       // 只有真的拿到数据才清位：先清位会让重试期间 403 面板先消失（闪成空表）。
       access.reset()
       deps.onError('')
     } catch (error) {
+      // 被取代的失败不记账：否则旧请求的 403 会盖到新请求的成功结果上。
+      if (!isCurrentRequest(generation)) {
+        return
+      }
       reportListFailure(error)
     } finally {
-      pending.value = false
+      // 旧请求收尾时新一轮通常还在飞，pending 必须留给最新一代关。
+      if (isCurrentRequest(generation)) {
+        pending.value = false
+      }
     }
   }
 
@@ -147,6 +178,7 @@ export function useAdminUserList(deps: AdminUserListDeps) {
   }
 
   async function loadInitialData() {
+    const generation = beginRequest()
     pending.value = true
     try {
       // `/roles`、`/permissions` 只给筛选器与抽屉提供可选项。operator 常只有 `user.view`
@@ -182,14 +214,21 @@ export function useAdminUserList(deps: AdminUserListDeps) {
         suppressFilterReload = false
       }
 
-      await loadUsers()
+      if (!await loadUsers(generation)) {
+        return
+      }
       // 同上：403 面板上的重试走的就是这里，成功后才清位 + 撤红条。
       access.reset()
       deps.onError('')
     } catch (error) {
+      if (!isCurrentRequest(generation)) {
+        return
+      }
       reportListFailure(error)
     } finally {
-      pending.value = false
+      if (isCurrentRequest(generation)) {
+        pending.value = false
+      }
     }
   }
 

@@ -8,7 +8,7 @@ test('approved moderation content clears every persisted homepage authority', ()
   const originalClearNuxtData = globalThis.clearNuxtData
   const originalClearNuxtState = globalThis.clearNuxtState
   globalThis.clearNuxtData = ((predicate: (key: string) => boolean) => {
-    for (const key of ['forum-home-topics:forum.home:all:1', 'forum-home-category-groups', 'forum-home-tags', 'other']) {
+    for (const key of ['forum-home-topics:forum.home:all:1', 'forum-category-groups', 'forum-category-groups:public', 'forum-home-tags', 'other']) {
       if (predicate(key)) clearedData.push(key)
     }
   }) as typeof clearNuxtData
@@ -21,7 +21,7 @@ test('approved moderation content clears every persisted homepage authority', ()
     globalThis.clearNuxtState = originalClearNuxtState
   }
 
-  expect(clearedData).toEqual(['forum-home-topics:forum.home:all:1', 'forum-home-category-groups', 'forum-home-tags'])
+  expect(clearedData).toEqual(['forum-home-topics:forum.home:all:1', 'forum-category-groups', 'forum-category-groups:public', 'forum-home-tags'])
   expect(clearedState).toEqual([
     'forum-home-loaded-topics',
     'forum-home-topic-total',

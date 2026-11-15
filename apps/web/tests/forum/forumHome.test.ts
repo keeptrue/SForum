@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs'
 import * as forumHome from '../../app/utils/forum/forumHome'
 import {
   buildForumHomeQuery,
+  firstQueryValue,
+  forumHomeCategoryRedirect,
   forumHomeFeedKey,
   parseForumHomeQuery
 } from '../../app/utils/forum/forumHome'
@@ -163,6 +165,47 @@ describe('forum homepage query helpers', () => {
     expect(source).toContain("'sforum-home__empty--search'")
     expect(source).toContain("'search-empty' : 'topic-list-empty'")
     expect(source).toContain('@action="resetFilters"')
+  })
+})
+
+describe('forum homepage legacy ?category= redirect', () => {
+  test('takes the first value of a repeated query parameter', () => {
+    expect(firstQueryValue(['dev', 'ops'])).toBe('dev')
+    expect(firstQueryValue('  dev  ')).toBe('dev')
+    // 数组里不是字符串、空数组、null 都当空：宁可留在首页，也不跳到一个猜出来的分类。
+    expect(firstQueryValue([1, 2])).toBe('')
+    expect(firstQueryValue([])).toBe('')
+    expect(firstQueryValue(null)).toBe('')
+    expect(firstQueryValue(undefined)).toBe('')
+  })
+
+  test('never builds `/c/a%2Cb` out of an array parameter', () => {
+    // 回归 RV-34：`?category[]=dev&category[]=ops` 曾被 `as string` 强转成 "dev,ops"。
+    expect(forumHomeCategoryRedirect({ category: ['dev', 'ops'] }, '/')).toBe('/c/dev')
+    expect(forumHomeCategoryRedirect({ category: ['dev', 'ops'] }, '/')).not.toContain('%2C')
+  })
+
+  test('skips the redirect for empty and non-string values', () => {
+    expect(forumHomeCategoryRedirect({}, '/')).toBe('')
+    expect(forumHomeCategoryRedirect({ category: null }, '/')).toBe('')
+    expect(forumHomeCategoryRedirect({ category: '' }, '/')).toBe('')
+    expect(forumHomeCategoryRedirect({ category: '   ' }, '/')).toBe('')
+    expect(forumHomeCategoryRedirect({ category: { slug: 'dev' } }, '/')).toBe('')
+  })
+
+  test('stays put when the route already is a category path', () => {
+    expect(forumHomeCategoryRedirect({ category: 'dev' }, '/c/dev')).toBe('')
+  })
+
+  test('encodes a single scalar category into the category path', () => {
+    expect(forumHomeCategoryRedirect({ category: '开发' }, '/')).toBe(`/c/${encodeURIComponent('开发')}`)
+  })
+
+  test('the home route shell routes the redirect through the shared helper', () => {
+    const source = readFileSync(new URL('../../app/pages/index.vue', import.meta.url), 'utf8')
+    expect(source).toContain('forumHomeCategoryRedirect(route.query, route.path)')
+    expect(source).toContain('navigateTo(categoryRedirect, { redirectCode: 301, replace: true })')
+    expect(source).not.toContain('route.query.category as string')
   })
 })
 

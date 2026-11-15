@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import type { ForumCategoryGroup, ForumSettings } from '~/utils/forum/forumTaxonomy'
+import type { ForumSettings } from '~/utils/forum/forumTaxonomy'
 import SFAdminFixedTabNav from '~/components/admin/settings/shared/SFAdminFixedTabNav.vue'
 import SFAdminForumBehaviorTab from '~/components/admin/settings/forum/tabs/SFAdminForumBehaviorTab.vue'
 import SFAdminForumCommentsTab from '~/components/admin/settings/forum/tabs/SFAdminForumCommentsTab.vue'
@@ -10,7 +10,7 @@ import SFAdminForumSearchTab from '~/components/admin/settings/forum/tabs/SFAdmi
 import SFAdminForumTagsTab from '~/components/admin/settings/forum/tabs/SFAdminForumTagsTab.vue'
 import SFAdminForumTopicsTab from '~/components/admin/settings/forum/tabs/SFAdminForumTopicsTab.vue'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
-import { createAdminForumApi, createDefaultForumSettings } from '~/utils/admin/adminForum'
+import { createAdminForumApi } from '~/utils/admin/adminForum'
 
 definePageMeta({
   middleware: 'admin',
@@ -54,10 +54,14 @@ const { data, pending, error, refresh } = await useAsyncData('admin-forum-settin
     forumApi.getSettings()
   ])
   return { groups, settings }
-}, {
-  default: () => ({ groups: [] as ForumCategoryGroup[], settings: createDefaultForumSettings() })
 })
-const categories = computed(() => data.value.groups.flatMap(group => group.categories || []))
+/**
+ * 读失败时 data 保持 undefined（Nuxt 不给 default 的语义）。这是刻意的：
+ * 拿推荐默认值填进去，就等于把它摆在现值的位置上，
+ * 用户点一次保存就把真实配置覆盖成默认值（UX2-03）。
+ * 推荐默认值只允许出现在子 tab 的显式「恢复推荐」路径。
+ */
+const categories = computed(() => data.value?.groups.flatMap(group => group.categories || []) ?? [])
 
 watch(() => route.query.tab, value => {
   const normalized = normalizeTab(value)
@@ -74,6 +78,9 @@ useSeoMeta({
 })
 
 function applySettings(settings: ForumSettings) {
+  if (!data.value) {
+    return
+  }
   data.value = { ...data.value, settings }
 }
 
@@ -117,19 +124,33 @@ function tabIcon(id: ForumSettingsTab) {
   </UDashboardToolbar>
 
   <div class="flex w-full min-w-0 flex-col gap-4">
-    <UAlert v-if="error" color="error" variant="soft" icon="i-lucide-triangle-alert" :title="t('admin.forum.settings.loadFailed')" />
-    <UAlert color="primary" variant="soft" icon="i-lucide-sparkles" :title="t('admin.forum.settings.recommendedTitle')" :description="t('admin.forum.settings.recommendedDescription')" />
-    <SFAdminFixedTabNav :items="tabs" :model-value="activeTab" :ariaLabel="t('admin.forum.settings.tabs.label')" @update:model-value="setActiveTab" />
-    <KeepAlive>
-      <component
-        :is="activeComponent"
-        :key="activeTab"
-        :settings="data.settings"
-        :categories="categories"
-        :pending="pending"
-        @saved="applySettings"
-        @refresh="refresh"
-      />
-    </KeepAlive>
+    <UAlert
+      v-if="error"
+      color="error"
+      variant="soft"
+      icon="i-lucide-triangle-alert"
+      data-testid="admin-forum-settings-load-failed"
+      :title="t('admin.forum.settings.loadFailed')"
+      :description="t('admin.forum.settings.loadFailedSaveDisabled')"
+    />
+    <!--
+      只有真的拿到当前配置才挂载子 tab：tab 的保存按钮是唯一写入口，
+      未加载成功时连入口一起收掉，避免把推荐默认值 PUT 回站点（UX2-03）。
+    -->
+    <template v-if="data">
+      <UAlert color="primary" variant="soft" icon="i-lucide-sparkles" :title="t('admin.forum.settings.recommendedTitle')" :description="t('admin.forum.settings.recommendedDescription')" />
+      <SFAdminFixedTabNav :items="tabs" :model-value="activeTab" :ariaLabel="t('admin.forum.settings.tabs.label')" @update:model-value="setActiveTab" />
+      <KeepAlive>
+        <component
+          :is="activeComponent"
+          :key="activeTab"
+          :settings="data.settings"
+          :categories="categories"
+          :pending="pending"
+          @saved="applySettings"
+          @refresh="refresh"
+        />
+      </KeepAlive>
+    </template>
   </div>
 </template>

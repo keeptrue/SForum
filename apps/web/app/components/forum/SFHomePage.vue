@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useActiveThemeSettings } from '~/composables/themes/useActiveThemeSettings'
 import { FORUM_PERMISSIONS, usePermissions } from '~/composables/identity/usePermissions'
+import { useCategoryGroups } from '~/composables/forum/useCategoryGroups'
 import { useForumApi } from '~/composables/forum/useForumApi'
 import SFHomeTopicRow from '~/components/forum/SFHomeTopicRow.vue'
 import SFHomeRightRail from '~/components/forum/SFHomeRightRail.vue'
@@ -28,7 +29,6 @@ import {
   forumTopicPath,
   forumTopicSorts,
   normalizeForumTopicSort,
-  type ForumCategoryGroup,
   type ForumTag,
   type ForumTopicList,
   type ForumTopicSort,
@@ -105,11 +105,8 @@ const emptyTopicList = (): ForumTopicList => ({
   hasMore: false
 })
 
-const { data: categoryGroups, pending: categoriesPending } = await useAsyncData(
-  'forum-home-category-groups',
-  () => forumApi.listCategoryGroups(),
-  { default: () => [] as ForumCategoryGroup[] }
-)
+// 公开面共享一条稳定 key（RV-35）；分类目录与具体分类/标签无关，不按 slug 分裂。
+const { data: categoryGroups, pending: categoriesPending } = await useCategoryGroups()
 
 const { data: activeTags, pending: tagsPending } = await useAsyncData(
   'forum-home-tags',

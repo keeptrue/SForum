@@ -8,7 +8,16 @@ import (
 )
 
 func errorHandler(logger *slog.Logger) fiber.ErrorHandler {
+	// 依赖故障的告警在进程内限频；同一个 reporter 服务这次装配出的整个 app。
+	storage := newStorageFailureReporter(logger)
 	return func(c fiber.Ctx, err error) error {
+		// limiter 把 storage 故障原样上抛。它既不是 500（服务端代码没错），更不是
+		// 403（不是权限问题）：依赖不可用 → 503 + Retry-After。
+		if cause, ok := storageFailureCause(err); ok {
+			storage.warn(c, cause)
+			return storageUnavailable(c)
+		}
+
 		status := fiber.StatusInternalServerError
 		reason := "internal_error"
 		var apiErr *APIError

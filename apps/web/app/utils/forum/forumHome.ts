@@ -1,4 +1,4 @@
-import { normalizeForumTopicSort, type ForumTopicSort } from './forumTaxonomy'
+import { forumCategoryPath, normalizeForumTopicSort, type ForumTopicSort } from './forumTaxonomy'
 
 export type ForumHomeFilters = {
   query: string
@@ -30,6 +30,26 @@ export type ForumHomePageProgress = {
 type RouteQuery = Record<string, unknown>
 
 const scalar = (value: unknown) => typeof value === 'string' ? value.trim() : ''
+
+/**
+ * 重复查询参数（`?category=a&category=b`、`?category[]=a`）在 Nuxt 里是数组，
+ * 直接当字符串用会拼出 `/c/a%2Cb` 这种坏路径。只取首个字符串值，其余一律当空。
+ */
+export const firstQueryValue = (value: unknown): string =>
+  Array.isArray(value) ? scalar(value[0]) : scalar(value)
+
+/**
+ * 首页旧链接 `?category=` 的兼容跳转目标。
+ * 返回 '' 表示不跳转：空值、非字符串（数组里也没有字符串）、以及已经在 `/c/` 下。
+ */
+export function forumHomeCategoryRedirect(query: RouteQuery, path: string) {
+  if (path.startsWith('/c/')) {
+    return ''
+  }
+  const slug = firstQueryValue(query.category)
+
+  return slug ? forumCategoryPath(slug) : ''
+}
 
 export const parseForumHomeQuery = (query: RouteQuery): ForumHomeFilters => ({
   query: scalar(query.q),
