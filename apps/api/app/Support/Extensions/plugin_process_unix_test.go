@@ -74,13 +74,39 @@ func TestProtocolStartLowersOpenFileLimit(t *testing.T) {
 	}
 }
 
-// TestRuntimeInstanceKillReapsProcessGroupBeforeClient 盯住两件事：
-//  1. instance.processGroup 被真正记录（否则 kill() 只杀组长）；
-//  2. kill() 先整组、后 client —— 顺序反了先回收组长，组 id 就失去锚点。
+// TestPluginProcessTeardownReapsGroupBeforeClient 用**一条**测试守住两个调用路径的
+// 回收顺序：
+//  1. protocolRuntimeInstance.kill()（Stop / Discard）；
+//  2. stopPluginProcess(pgid, client)（启动失败的 16 个错误分支与 heartbeat 失败回调
+//     调的就是它，pgid 由 pluginProcessGroupID(cmd) 给出）。
 //
-// 「顺序」本身没有第二个可观测副作用，所以这里把整组入口换成探针，在探针里读
-// client.Exited()：client 若已被回收，这个值是 true。
-func TestRuntimeInstanceKillReapsProcessGroupBeforeClient(t *testing.T) {
+// 两条路径都委托给同一个 stopPluginProcess，所以「顺序」只有一处实现；测试同时断言：
+//   - 探针确实拿到 pgid（否则说明某条路径绕开了统一函数）；
+//   - 探针触发时 client.Exited() 仍是 false（先整组、后 client）；
+//   - 调用之后向 -pgid 发 0 号信号最终返回 ESRCH（整组真的没了）。
+func TestPluginProcessTeardownReapsGroupBeforeClient(t *testing.T) {
+	t.Run("runtime instance kill", func(t *testing.T) {
+		instance, stop := startPluginProcessForTeardown(t)
+		defer stop()
+		assertTeardownReapsGroupFirst(t, instance,
+			func() { instance.kill() },
+		)
+	})
+	t.Run("start failure branch", func(t *testing.T) {
+		instance, stop := startPluginProcessForTeardown(t)
+		defer stop()
+		assertTeardownReapsGroupFirst(t, instance,
+			// 错误分支拿到的 pgid 来自 pluginProcessGroupID(cmd)，与 instance.processGroup
+			// 是同一个值（见 TestProtocolStartLowersOpenFileLimit）。
+			func() { stopPluginProcess(instance.processGroup, instance.client) },
+		)
+	})
+}
+
+// startPluginProcessForTeardown 起一个真实插件进程并返回它的 runtime instance。
+// 返回的 stop 只用于测试收尾（避免 t.Fatal 时留下进程）。
+func startPluginProcessForTeardown(t *testing.T) (*protocolRuntimeInstance, func()) {
+	t.Helper()
 	starter := NewProtocolStarter(ProtocolStarterConfig{
 		Trust:                          protocolDatabaseTrust{},
 		DatabaseLeases:                 newProtocolDatabaseLeaseRegistry(),
@@ -94,13 +120,23 @@ func TestRuntimeInstanceKillReapsProcessGroupBeforeClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start plugin process: %v", err)
 	}
-	identity := RuntimeInstanceIdentity{ExtensionID: extension.ID, InstanceID: target.InstanceID}
-	instance := starter.protocolInstance(identity)
+	instance := starter.protocolInstance(RuntimeInstanceIdentity{
+		ExtensionID: extension.ID, InstanceID: target.InstanceID,
+	})
 	if instance == nil || instance.processGroup <= 0 {
 		t.Fatalf("started runtime instance has no process group: %#v", instance)
 	}
-	processGroup := instance.processGroup
+	return instance, func() { _ = starter.Stop(context.Background(), extension) }
+}
 
+// assertTeardownReapsGroupFirst 用探针断言顺序，并在 teardown 返回后确认整组消失。
+func assertTeardownReapsGroupFirst(
+	t *testing.T,
+	instance *protocolRuntimeInstance,
+	teardown func(),
+) {
+	t.Helper()
+	processGroup := instance.processGroup
 	originalKill := pluginProcessGroupKill
 	t.Cleanup(func() { pluginProcessGroupKill = originalKill })
 	var observedGroup int
@@ -111,12 +147,15 @@ func TestRuntimeInstanceKillReapsProcessGroupBeforeClient(t *testing.T) {
 		}
 		originalKill(pgid)
 	}
-	instance.kill()
+	teardown()
+	// 立刻复原探针：defer 里的收尾 Stop 会再走一遍回收路径，那时 client 已回收，
+	// 探针会把「第二次调用」误判成顺序颠倒。
+	pluginProcessGroupKill = originalKill
 
 	if observedGroup != processGroup {
-		t.Fatalf("kill() reclaimed process group %d, want %d", observedGroup, processGroup)
+		t.Fatalf("teardown reclaimed process group %d, want %d (did it bypass stopPluginProcess?)",
+			observedGroup, processGroup)
 	}
-	// 整组真的没了：向 -pgid 发 0 号信号应当得到 ESRCH。
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		err := syscall.Kill(-processGroup, 0)
@@ -124,7 +163,7 @@ func TestRuntimeInstanceKillReapsProcessGroupBeforeClient(t *testing.T) {
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("plugin process group %d survived kill(): err=%v", processGroup, err)
+			t.Fatalf("plugin process group %d survived teardown: err=%v", processGroup, err)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}

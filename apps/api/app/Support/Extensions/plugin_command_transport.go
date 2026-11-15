@@ -229,13 +229,16 @@ func preparePluginCommand(extension extensions.Extension, entryPath string) (*ex
 // 回收」会让组 id 提前失效，组内留存的派生进程就逃出这次回收。
 var pluginProcessGroupKill = pluginprocess.KillGroup
 
-// stopPluginProcess 按「先整组、后客户端」回收一个启动失败或正在退出的插件进程。
+// stopPluginProcess 是插件进程回收的**唯一**入口：先整组、后客户端。
 //
 // 顺序有实际后果：client.Kill() 会杀掉并 Wait 回收组长进程；先做这一步会让
 // kill(-pgid) 失去锚点，插件派生的子进程就留成孤儿。
-func stopPluginProcess(cmd *exec.Cmd, client *plugin.Client) {
-	if pgid := pluginProcessGroupID(cmd); pgid > 0 {
-		pluginProcessGroupKill(pgid)
+//
+// 启动失败的 16 个错误分支、protocolRuntimeInstance.kill()（Stop/Discard 路径）
+// 与 heartbeat 失败回调都调这一个函数——顺序只写一次，也只需要一条测试守住。
+func stopPluginProcess(processGroup int, client *plugin.Client) {
+	if processGroup > 0 {
+		pluginProcessGroupKill(processGroup)
 	}
 	if client != nil {
 		client.Kill()
@@ -304,20 +307,15 @@ func withinDirectory(parent, child string) bool {
 	return strings.HasPrefix(child, parent+string(filepath.Separator))
 }
 
-// kill 先按进程组回收插件派生出的子进程，再回收插件自身。
+// kill 回收一个已发布/已丢弃的运行时实例。
 //
-// 顺序很重要：组内成员不一定是子进程的直接后代，等 client.Kill() 之后组 id 就随
-// 组长消失而失效，剩下的成员会被 init 收养。
+// 顺序只有一份：委托给 stopPluginProcess，和启动失败分支走同一条路径，避免
+// 「两份相同顺序、却只被测试守住一份」。
 func (i *protocolRuntimeInstance) kill() {
 	if i == nil {
 		return
 	}
-	if i.processGroup > 0 {
-		pluginProcessGroupKill(i.processGroup)
-	}
-	if i.client != nil {
-		i.client.Kill()
-	}
+	stopPluginProcess(i.processGroup, i.client)
 }
 
 // --- 插件回报的 HTTP 目标约束（自 protocol.go 抽出；SSRF 边界） ---
