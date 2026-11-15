@@ -3084,6 +3084,16 @@
       "source": "apps/web/app/components/admin/SFAdminSurfaceOutlet.vue"
     },
     {
+      "id": "core.component.admin.sf_admin_tab_strip",
+      "contractVersion": "sforum.component.admin.sf_admin_tab_strip@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/shell/SFAdminTabStrip.vue"
+    },
+    {
       "id": "core.component.admin.sfextension_settings_actions",
       "contractVersion": "sforum.component.admin.sfextension_settings_actions@1",
       "kind": "component",
