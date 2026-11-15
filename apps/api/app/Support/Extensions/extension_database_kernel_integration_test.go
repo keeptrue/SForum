@@ -278,12 +278,19 @@ func TestPostgresExtensionDatabaseKernelSourceRevokePreservesTargetAndRawCore(t 
 		t.Fatal(err)
 	}
 	defer rawConnection.Close(context.Background())
-	for index, table := range []string{sourceTable, targetTable} {
-		if _, err := rawConnection.Exec(ctx,
-			`INSERT INTO `+table+` (id, note) VALUES ($1, 'raw')`, int64(index+1),
-		); err != nil {
-			t.Fatalf("raw Core writes kernel table before source revoke: %v", err)
-		}
+	// kernel 建在 public 的对象既不在 raw_core 白名单里，也不因为「恰好 co-owner
+	// 允许」而获得 DML：默认拒绝（EX2-02）。
+	for _, table := range []string{sourceTable, targetTable} {
+		execExtensionDatabaseInsufficientPrivilege(t, ctx, rawConnection,
+			`INSERT INTO `+table+` (id, note) VALUES (1, 'raw')`,
+		)
+		execExtensionDatabaseInsufficientPrivilege(t, ctx, rawConnection, `SELECT count(*) FROM `+table)
+	}
+	var rawRunID int64
+	if err := rawConnection.QueryRow(ctx,
+		`INSERT INTO public.search_reindex_runs (status) VALUES ('running') RETURNING id`,
+	).Scan(&rawRunID); err != nil {
+		t.Fatalf("raw Core writes an allowlisted projection table: %v", err)
 	}
 
 	sourceRef := extensionDatabaseRuntimeCredentialRef(source)
@@ -334,11 +341,15 @@ func TestPostgresExtensionDatabaseKernelSourceRevokePreservesTargetAndRawCore(t 
 	if err := targetConnection.QueryRow(ctx, `SELECT `+targetRoutine+`()`).Scan(&targetRoutineResult); err != nil || targetRoutineResult != "target" {
 		t.Fatalf("target kernel routine after source revoke = %q, %v", targetRoutineResult, err)
 	}
+	// source 撤销后 raw_core 的既有权限不受影响：它自己的白名单行仍在。
+	var rawRunStatus string
+	if err := rawConnection.QueryRow(ctx,
+		`SELECT status FROM public.search_reindex_runs WHERE id = $1`, rawRunID,
+	).Scan(&rawRunStatus); err != nil || rawRunStatus != "running" {
+		t.Fatalf("raw Core lost its allowlisted authority after source revoke: status=%q err=%v", rawRunStatus, err)
+	}
 	for _, table := range []string{sourceTable, targetTable} {
-		var count int
-		if err := rawConnection.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&count); err != nil || count != 1 {
-			t.Fatalf("raw Core access after source revoke for %s: count=%d err=%v", table, count, err)
-		}
+		execExtensionDatabaseInsufficientPrivilege(t, ctx, rawConnection, `SELECT count(*) FROM `+table)
 	}
 
 	if _, err := registry.RevokeRuntimeLease(ctx, extensionDatabaseRuntimeCredentialRef(rawCredential), ExtensionDatabaseLeaseAuthority{

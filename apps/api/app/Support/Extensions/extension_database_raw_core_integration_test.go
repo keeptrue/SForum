@@ -26,15 +26,46 @@ const (
 	extensionDatabaseRuntimeLeaseProcessArtifactEnv = "SFORUM_DATABASE_LEASE_PROCESS_ARTIFACT"
 )
 
+// rawCoreSensitiveTables 是「raw_core 必须零 DML」的敏感表清单（EX2-02 的 denied
+// 面）。它不在授权白名单里只是必要条件；这里逐表实测 42501，才算真的不可写。
+var rawCoreSensitiveTables = []string{
+	"users",
+	"user_credentials",
+	"user_sessions",
+	"api_tokens",
+	"password_reset_tokens",
+	"email_verification_tokens",
+	"secret_store",
+	"secret_store_audit",
+	"user_roles",
+	"role_permissions",
+	"permissions",
+	"user_permission_overrides",
+	"identity_session_policy_selection",
+	"identity_session_policy_selection_events",
+	"identity_session_policy_step_up_evidence",
+	"audit_events",
+	"privacy_operation_audit",
+	"extension_trust_grants",
+	"extension_trust_challenges",
+	"extension_frontend_trust_grants",
+	"extension_dev_trust_sessions",
+	"extension_versions",
+	"extension_database_credentials",
+	"extension_database_grants",
+	"extension_database_grant_powers",
+	"extension_permission_role_grants",
+}
+
 func TestPostgresExtensionDatabaseRawCoreAuthorityIsExact(t *testing.T) {
 	ctx, pool := openExtensionDatabaseRawCoreTestPool(t)
-	coreProbeName := createExtensionDatabaseRawCoreProbe(t, ctx, pool)
-	coreProbe := pgx.Identifier{extensionDatabaseCoreSchema, coreProbeName}.Sanitize()
-	coreProbeSequence := pgx.Identifier{extensionDatabaseCoreSchema, coreProbeName + "_id_seq"}.Sanitize()
 	stableViewProbeName := createExtensionDatabaseStableViewProbe(t, ctx, pool)
 	stableViewProbe := pgx.Identifier{extensionDatabaseCoreViewSchema, stableViewProbeName}.Sanitize()
 	riverProbeName := createExtensionDatabaseRawCoreExcludedRelationProbe(t, ctx, pool)
 	riverProbe := pgx.Identifier{extensionDatabaseCoreSchema, riverProbeName}.Sanitize()
+	// 一个不属于白名单的普通 public 表：它证明「建在 public」本身不再换来 DML。
+	nonAllowlistedProbeName := createExtensionDatabaseRawCoreProbe(t, ctx, pool)
+	nonAllowlistedProbe := pgx.Identifier{extensionDatabaseCoreSchema, nonAllowlistedProbeName}.Sanitize()
 	routineProbeName := createExtensionDatabaseRawCoreRoutineProbe(
 		t, ctx, pool, extensionDatabaseCoreSchema, true,
 	)
@@ -75,19 +106,52 @@ func TestPostgresExtensionDatabaseRawCoreAuthorityIsExact(t *testing.T) {
 	}
 	defer connection.Close(context.Background())
 
-	var rowID int64
-	if err := connection.QueryRow(ctx, `INSERT INTO `+coreProbe+` (note) VALUES ('created') RETURNING id`).Scan(&rowID); err != nil {
-		t.Fatalf("raw Core INSERT or sequence use failed: %v", err)
+	// allowed：白名单里的派生投影表可以正常读写，且 INSERT 能用上序列。
+	var runID int64
+	if err := connection.QueryRow(ctx,
+		`INSERT INTO public.search_reindex_runs (status) VALUES ('running') RETURNING id`,
+	).Scan(&runID); err != nil {
+		t.Fatalf("raw Core INSERT on an allowlisted table or its sequence failed: %v", err)
 	}
-	var note string
-	if err := connection.QueryRow(ctx, `SELECT note FROM `+coreProbe+` WHERE id = $1`, rowID).Scan(&note); err != nil || note != "created" {
-		t.Fatalf("raw Core SELECT: note=%q err=%v", note, err)
+	if _, err := connection.Exec(ctx,
+		`UPDATE public.search_reindex_runs SET status = 'completed' WHERE id = $1`, runID,
+	); err != nil {
+		t.Fatalf("raw Core UPDATE on an allowlisted table: %v", err)
 	}
-	if _, err := connection.Exec(ctx, `UPDATE `+coreProbe+` SET note = 'updated' WHERE id = $1`, rowID); err != nil {
-		t.Fatalf("raw Core UPDATE: %v", err)
+	var runStatus string
+	if err := connection.QueryRow(ctx,
+		`SELECT status FROM public.search_reindex_runs WHERE id = $1`, runID,
+	).Scan(&runStatus); err != nil || runStatus != "completed" {
+		t.Fatalf("raw Core SELECT on an allowlisted table: status=%q err=%v", runStatus, err)
 	}
-	if _, err := connection.Exec(ctx, `DELETE FROM `+coreProbe+` WHERE id = $1`, rowID); err != nil {
-		t.Fatalf("raw Core DELETE: %v", err)
+	if _, err := connection.Exec(ctx,
+		`DELETE FROM public.search_reindex_runs WHERE id = $1`, runID,
+	); err != nil {
+		t.Fatalf("raw Core DELETE on an allowlisted table: %v", err)
+	}
+	if _, err := connection.Exec(ctx,
+		`INSERT INTO public.search_documents (topic_id) VALUES (9001)`,
+	); err != nil {
+		t.Fatalf("raw Core INSERT on search_documents: %v", err)
+	}
+	if _, err := connection.Exec(ctx,
+		`UPDATE public.search_documents SET title = 'rewritten' WHERE topic_id = 9001`,
+	); err != nil {
+		t.Fatalf("raw Core UPDATE on search_documents: %v", err)
+	}
+	if _, err := connection.Exec(ctx, `DELETE FROM public.search_documents WHERE topic_id = 9001`); err != nil {
+		t.Fatalf("raw Core DELETE on search_documents: %v", err)
+	}
+	if _, err := connection.Exec(ctx, `
+		INSERT INTO public.search_index_state (provider_id, topic_id, source_updated_at)
+		VALUES ('p5', 9001, now())
+	`); err != nil {
+		t.Fatalf("raw Core INSERT on search_index_state: %v", err)
+	}
+	if _, err := connection.Exec(ctx,
+		`DELETE FROM public.search_index_state WHERE provider_id = 'p5' AND topic_id = 9001`,
+	); err != nil {
+		t.Fatalf("raw Core DELETE on search_index_state: %v", err)
 	}
 	if _, err := connection.Exec(ctx, `CREATE TABLE raw_core_own_schema_probe (id BIGINT PRIMARY KEY)`); err != nil {
 		t.Fatalf("additive own_schema authority was lost: %v", err)
@@ -97,9 +161,38 @@ func TestPostgresExtensionDatabaseRawCoreAuthorityIsExact(t *testing.T) {
 		t.Fatalf("additive core_views authority: marker=%d err=%v", stableMarker, err)
 	}
 
-	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `TRUNCATE TABLE `+coreProbe)
-	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `ALTER TABLE `+coreProbe+` ADD COLUMN forbidden TEXT`)
-	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `CREATE INDEX raw_core_forbidden_idx ON `+coreProbe+` (note)`)
+	// denied：敏感表逐表实测不可 DML，并且错误必须点出表名（可读）。
+	for _, table := range rawCoreSensitiveTables {
+		object := pgx.Identifier{extensionDatabaseCoreSchema, table}.Sanitize()
+		column := pgx.Identifier{extensionDatabaseFirstColumn(t, ctx, pool, table)}.Sanitize()
+		for _, statement := range []string{
+			`INSERT INTO ` + object + ` DEFAULT VALUES`,
+			`UPDATE ` + object + ` SET ` + column + ` = ` + column + ` WHERE false`,
+			`DELETE FROM ` + object + ` WHERE false`,
+		} {
+			assertExtensionDatabaseDeniedStatement(t, ctx, connection, statement, "permission denied for table "+table)
+		}
+	}
+	// denied：默认拒绝——内容表与控制表也不在白名单里。
+	for _, table := range []string{"topics", "posts", "comments", "web_options", "extension_settings"} {
+		object := pgx.Identifier{extensionDatabaseCoreSchema, table}.Sanitize()
+		assertExtensionDatabaseDeniedStatement(t, ctx, connection,
+			`INSERT INTO `+object+` DEFAULT VALUES`, "permission denied for table "+table,
+		)
+	}
+	// denied：public schema 里的任意新表都不再自动获得 DML。
+	assertExtensionDatabaseDeniedStatement(t, ctx, connection,
+		`INSERT INTO `+nonAllowlistedProbe+` (note) VALUES ('forbidden')`,
+		"permission denied for table "+nonAllowlistedProbeName,
+	)
+
+	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `TRUNCATE TABLE public.search_reindex_runs`)
+	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection,
+		`ALTER TABLE public.search_reindex_runs ADD COLUMN forbidden TEXT`,
+	)
+	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection,
+		`CREATE INDEX raw_core_forbidden_idx ON public.search_reindex_runs (status)`,
+	)
 	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `CREATE TABLE public.raw_core_forbidden_create (id BIGINT)`)
 	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `SELECT * FROM public.river_job`)
 	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `SELECT * FROM `+riverProbe)
@@ -107,10 +200,10 @@ func TestPostgresExtensionDatabaseRawCoreAuthorityIsExact(t *testing.T) {
 	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `SELECT `+futureRoutineProbe+`()`)
 	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection, `SELECT `+futureRiverRoutineProbe+`()`)
 	execExtensionDatabaseInsufficientPrivilege(t, ctx, connection,
-		`CREATE TABLE raw_core_forbidden_reference (core_id BIGINT REFERENCES `+coreProbe+` (id))`,
+		`CREATE TABLE raw_core_forbidden_reference (core_id BIGINT REFERENCES public.search_documents (topic_id))`,
 	)
 	assertExtensionDatabaseRawCoreValidationRejectsDrift(
-		t, ctx, pool, credential, coreProbe, coreProbeSequence, stableViewProbe,
+		t, ctx, pool, credential, stableViewProbe,
 	)
 	var hostRoutineResult string
 	if err := pool.QueryRow(ctx, `SELECT `+routineProbe+`()`).Scan(&hostRoutineResult); err != nil || hostRoutineResult != "forbidden" {
@@ -669,13 +762,53 @@ func execExtensionDatabaseInsufficientPrivilege(
 	}
 }
 
+// extensionDatabaseFirstColumn 取表的第一列：denied 用例需要一个对任何表都合法的
+// 自赋值列，硬编码列名会在没有 id 的表上先撞 42703 而不是 42501。
+func extensionDatabaseFirstColumn(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	table string,
+) string {
+	t.Helper()
+	var column string
+	if err := pool.QueryRow(ctx, `
+		SELECT column_name
+		FROM information_schema.columns
+		WHERE table_schema = $1 AND table_name = $2
+		ORDER BY ordinal_position
+		LIMIT 1
+	`, extensionDatabaseCoreSchema, table).Scan(&column); err != nil {
+		t.Fatalf("resolve first column of %s: %v", table, err)
+	}
+	return column
+}
+
+// assertExtensionDatabaseDeniedStatement 断言一条写语句被 PostgreSQL 以
+// insufficient_privilege 拒绝，并且错误信息点出具体对象（可读性验收项）。
+func assertExtensionDatabaseDeniedStatement(
+	t *testing.T,
+	ctx context.Context,
+	connection *pgx.Conn,
+	statement string,
+	wantMessage string,
+) {
+	t.Helper()
+	_, err := connection.Exec(ctx, statement)
+	var postgresError *pgconn.PgError
+	if !errors.As(err, &postgresError) || postgresError.Code != "42501" {
+		t.Fatalf("%s: error = %v, want PostgreSQL insufficient_privilege", statement, err)
+	}
+	if !strings.Contains(postgresError.Message, wantMessage) {
+		t.Fatalf("%s: error message %q does not contain %q", statement, postgresError.Message, wantMessage)
+	}
+}
+
 func assertExtensionDatabaseRawCoreValidationRejectsDrift(
 	t *testing.T,
 	ctx context.Context,
 	pool *pgxpool.Pool,
 	credential ExtensionDatabaseRuntimeCredential,
-	coreProbe string,
-	coreProbeSequence string,
 	stableViewProbe string,
 ) {
 	t.Helper()
@@ -688,36 +821,53 @@ func assertExtensionDatabaseRawCoreValidationRejectsDrift(
 		t.Fatal(err)
 	}
 	role := pgx.Identifier{credential.RoleName}.Sanitize()
-	if _, err := tx.Exec(ctx, `GRANT TRUNCATE ON TABLE `+coreProbe+` TO `+role); err != nil {
+	allowlisted := pgx.Identifier{extensionDatabaseCoreSchema, "search_reindex_runs"}.Sanitize()
+	allowlistedSequence := pgx.Identifier{extensionDatabaseCoreSchema, "search_reindex_runs_id_seq"}.Sanitize()
+	sensitive := pgx.Identifier{extensionDatabaseCoreSchema, "users"}.Sanitize()
+
+	// 白名单表少一项权限 → 冲突（白名单是精确契约，不是下限）。
+	if _, err := tx.Exec(ctx, `REVOKE DELETE ON TABLE `+allowlisted+` FROM `+role); err != nil {
 		t.Fatal(err)
 	}
 	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
-	if _, err := tx.Exec(ctx, `REVOKE TRUNCATE, DELETE ON TABLE `+coreProbe+` FROM `+role); err != nil {
+	if _, err := tx.Exec(ctx, `GRANT DELETE ON TABLE `+allowlisted+` TO `+role); err != nil {
+		t.Fatal(err)
+	}
+	// 多一项权限 → 冲突。
+	if _, err := tx.Exec(ctx, `GRANT TRUNCATE ON TABLE `+allowlisted+` TO `+role); err != nil {
 		t.Fatal(err)
 	}
 	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
-	if _, err := tx.Exec(ctx, `GRANT DELETE ON TABLE `+coreProbe+` TO `+role); err != nil {
+	if _, err := tx.Exec(ctx, `REVOKE TRUNCATE ON TABLE `+allowlisted+` FROM `+role); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `GRANT SELECT ON TABLE `+coreProbe+` TO `+role+` WITH GRANT OPTION`); err != nil {
-		t.Fatal(err)
-	}
-	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
-	if _, err := tx.Exec(ctx, `REVOKE GRANT OPTION FOR SELECT ON TABLE `+coreProbe+` FROM `+role); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tx.Exec(ctx, `GRANT REFERENCES (note) ON TABLE `+coreProbe+` TO `+role); err != nil {
+	if _, err := tx.Exec(ctx, `GRANT SELECT ON TABLE `+allowlisted+` TO `+role+` WITH GRANT OPTION`); err != nil {
 		t.Fatal(err)
 	}
 	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
-	if _, err := tx.Exec(ctx, `REVOKE REFERENCES (note) ON TABLE `+coreProbe+` FROM `+role); err != nil {
+	if _, err := tx.Exec(ctx, `REVOKE GRANT OPTION FOR SELECT ON TABLE `+allowlisted+` FROM `+role); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `GRANT USAGE ON SEQUENCE `+coreProbeSequence+` TO `+role+` WITH GRANT OPTION`); err != nil {
+	if _, err := tx.Exec(ctx, `GRANT REFERENCES (status) ON TABLE `+allowlisted+` TO `+role); err != nil {
 		t.Fatal(err)
 	}
 	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
-	if _, err := tx.Exec(ctx, `REVOKE GRANT OPTION FOR USAGE ON SEQUENCE `+coreProbeSequence+` FROM `+role); err != nil {
+	if _, err := tx.Exec(ctx, `REVOKE REFERENCES (status) ON TABLE `+allowlisted+` FROM `+role); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `GRANT USAGE ON SEQUENCE `+allowlistedSequence+` TO `+role+` WITH GRANT OPTION`); err != nil {
+		t.Fatal(err)
+	}
+	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
+	if _, err := tx.Exec(ctx, `REVOKE GRANT OPTION FOR USAGE ON SEQUENCE `+allowlistedSequence+` FROM `+role); err != nil {
+		t.Fatal(err)
+	}
+	// 敏感表永远零权限：哪怕多授一条 INSERT 也必须被判冲突（EX2-02 的棘轮）。
+	if _, err := tx.Exec(ctx, `GRANT INSERT ON TABLE `+sensitive+` TO `+role); err != nil {
+		t.Fatal(err)
+	}
+	assertExtensionDatabaseRawCoreValidationConflict(t, ctx, tx, credential)
+	if _, err := tx.Exec(ctx, `REVOKE INSERT ON TABLE `+sensitive+` FROM `+role); err != nil {
 		t.Fatal(err)
 	}
 	stableSchema := pgx.Identifier{extensionDatabaseCoreViewSchema}.Sanitize()
@@ -743,14 +893,16 @@ func assertExtensionDatabaseRawCoreValidationRejectsDrift(
 		t.Fatal(err)
 	}
 
+	// 持久 owner 不得携带任何 Core 权限——包括白名单表本身。
 	owner := pgx.Identifier{credential.OwnerRoleName}.Sanitize()
 	for _, query := range []struct {
 		grant  string
 		revoke string
 	}{
-		{`GRANT SELECT ON TABLE ` + coreProbe + ` TO ` + owner, `REVOKE SELECT ON TABLE ` + coreProbe + ` FROM ` + owner},
-		{`GRANT TRUNCATE ON TABLE ` + coreProbe + ` TO ` + owner, `REVOKE TRUNCATE ON TABLE ` + coreProbe + ` FROM ` + owner},
-		{`GRANT USAGE ON SEQUENCE ` + coreProbeSequence + ` TO ` + owner, `REVOKE USAGE ON SEQUENCE ` + coreProbeSequence + ` FROM ` + owner},
+		{`GRANT SELECT ON TABLE ` + allowlisted + ` TO ` + owner, `REVOKE SELECT ON TABLE ` + allowlisted + ` FROM ` + owner},
+		{`GRANT DELETE ON TABLE ` + allowlisted + ` TO ` + owner, `REVOKE DELETE ON TABLE ` + allowlisted + ` FROM ` + owner},
+		{`GRANT TRUNCATE ON TABLE ` + allowlisted + ` TO ` + owner, `REVOKE TRUNCATE ON TABLE ` + allowlisted + ` FROM ` + owner},
+		{`GRANT USAGE ON SEQUENCE ` + allowlistedSequence + ` TO ` + owner, `REVOKE USAGE ON SEQUENCE ` + allowlistedSequence + ` FROM ` + owner},
 		{`GRANT USAGE ON SCHEMA ` + stableSchema + ` TO ` + owner, `REVOKE USAGE ON SCHEMA ` + stableSchema + ` FROM ` + owner},
 		{`GRANT SELECT ON TABLE ` + stableViewProbe + ` TO ` + owner, `REVOKE SELECT ON TABLE ` + stableViewProbe + ` FROM ` + owner},
 	} {

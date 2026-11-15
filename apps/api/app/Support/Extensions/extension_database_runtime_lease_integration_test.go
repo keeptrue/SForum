@@ -30,8 +30,6 @@ func TestPostgresExtensionDatabaseRuntimeLeasesOverlapAndRevokeExactly(t *testin
 	t.Cleanup(pool.Close)
 
 	extensionID := fmt.Sprintf("p5.runtime.lease.%d", time.Now().UnixNano())
-	coreProbeName := createExtensionDatabaseRawCoreProbe(t, ctx, pool)
-	coreProbe := pgx.Identifier{extensionDatabaseCoreSchema, coreProbeName}.Sanitize()
 	source := insertExtensionDatabaseRuntimeLeaseFixture(
 		t, ctx, pool, extensionID, "1.0.0", "source", []string{
 			extensionmanifest.DatabaseGrantOwnSchema,
@@ -91,10 +89,14 @@ func TestPostgresExtensionDatabaseRuntimeLeasesOverlapAndRevokeExactly(t *testin
 		t.Fatalf("target writes during source overlap: %v", err)
 	}
 	var coreProbeID int64
-	if err := sourceConnection.QueryRow(ctx, `INSERT INTO `+coreProbe+` (note) VALUES ('source') RETURNING id`).Scan(&coreProbeID); err != nil {
+	if err := sourceConnection.QueryRow(ctx,
+		`INSERT INTO public.search_reindex_runs (status) VALUES ('running') RETURNING id`,
+	).Scan(&coreProbeID); err != nil {
 		t.Fatalf("source raw Core write: %v", err)
 	}
-	if _, err := targetConnection.Exec(ctx, `UPDATE `+coreProbe+` SET note = 'target' WHERE id = $1`, coreProbeID); err != nil {
+	if _, err := targetConnection.Exec(ctx,
+		`UPDATE public.search_reindex_runs SET status = 'completed' WHERE id = $1`, coreProbeID,
+	); err != nil {
 		t.Fatalf("target raw Core write during overlap: %v", err)
 	}
 	var note string
@@ -150,7 +152,9 @@ func TestPostgresExtensionDatabaseRuntimeLeasesOverlapAndRevokeExactly(t *testin
 	if err := targetConnection.QueryRow(ctx, `SELECT note FROM runtime_lease_probe WHERE id = 1`).Scan(&note); err != nil || note != "overlap" {
 		t.Fatalf("target or source-owned data was lost: note=%q err=%v", note, err)
 	}
-	if err := targetConnection.QueryRow(ctx, `SELECT note FROM `+coreProbe+` WHERE id = $1`, coreProbeID).Scan(&note); err != nil || note != "target" {
+	if err := targetConnection.QueryRow(ctx,
+		`SELECT status FROM public.search_reindex_runs WHERE id = $1`, coreProbeID,
+	).Scan(&note); err != nil || note != "completed" {
 		t.Fatalf("target raw Core authority was lost with source revoke: note=%q err=%v", note, err)
 	}
 	if _, err := registry.RevokeRuntimeLease(ctx, sourceRef, ExtensionDatabaseLeaseAuthority{
@@ -267,8 +271,12 @@ func TestPostgresExtensionDatabaseRuntimeLeasePreservesAdditivePowers(t *testing
 				if _, err := connection.Exec(ctx, `CREATE TABLE additive_power_probe (id BIGINT PRIMARY KEY)`); err != nil {
 					return err
 				}
-				var count int
-				return connection.QueryRow(ctx, `SELECT count(*) FROM public.extensions`).Scan(&count)
+				// raw_core 的 DML 只落在显式白名单的派生投影表上（EX2-02）；
+				// public.extensions 这类控制表对 raw_core 已经零权限。
+				var runID int64
+				return connection.QueryRow(ctx,
+					`INSERT INTO public.search_reindex_runs (status) VALUES ('running') RETURNING id`,
+				).Scan(&runID)
 			},
 		},
 	}
