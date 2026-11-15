@@ -59,6 +59,17 @@ func WithDashboardWidgets(provider DashboardWidgetProvider) Option {
 	}
 }
 
+// Overview 与 Resources 是同一个读面，门都是 admin.access（RV-46 裁决：保留）。
+//
+// 依据是「与外壳一致」而不是「与内容敏感度一致」：后台仪表盘路由壳本身只要求
+// admin.access，Overview 是它的首屏数据，Resources 是它的实时面板
+// （useAdminOverviewLive 轮询 /admin/overview/resources）。把其中一条收窄，会得到
+// 「页面 200、面板 403」的半坏页面，而不是更安全的页面。
+//
+// 更细的现成候选只有 settings.site.manage，那是权限倒挂：把宿主机内存/CPU/磁盘/
+// 负载交给非技术岗位（站点运营持该键），同时把技术运维（tech_admin 持 jobs/
+// database/extension，无 settings.site.manage）挡在外面。真要按敏感度细分就得新增
+// 独立权限键并同步种子角色与迁移，那是产品能力变更，不在本条口径内。
 func (s *Service) Overview(ctx context.Context, actor identity.Actor) (AdminOverview, error) {
 	if !actor.Can(identity.PermissionAdminAccess) {
 		return AdminOverview{}, identity.ErrPermissionDenied
@@ -92,6 +103,9 @@ func (s *Service) Overview(ctx context.Context, actor identity.Actor) (AdminOver
 }
 
 // Resources 返回进程内存/CPU、磁盘与系统负载快照，不查询社区 KPI 或扩展小部件。
+//
+// 门与 Overview 同键（admin.access），理由见 Overview 上方的读面说明：它是同一张
+// 仪表盘上的实时面板，不是独立的技术运维入口。
 func (s *Service) Resources(_ context.Context, actor identity.Actor) (AdminOverviewResources, error) {
 	if !actor.Can(identity.PermissionAdminAccess) {
 		return AdminOverviewResources{}, identity.ErrPermissionDenied

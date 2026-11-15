@@ -69,8 +69,18 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 if [ ! -f .env ]; then
-  cp .env.example .env
+  # .env 会保存 APP_OPTION_ENC_KEY 等本地密钥，创建时就按 0600 落盘，而不是先
+  # 按默认 umask 生成一份 0664 再补救。umask 放在子 shell 里：调用方的 umask
+  # 不该被这个脚本改掉。
+  (umask 077 && cp .env.example .env)
   echo "Created .env from .env.example"
+fi
+
+# 权限收敛而不只是创建时收紧：历史工作区里的 .env 可能是 0664（本机就是），
+# 而它下面马上会被写入加密密钥。chmod 失败不阻断启动（只读挂载等场景），
+# 但必须提示，否则「以为已经收紧」比没收紧更危险。
+if [ -f .env ] && ! chmod 600 .env 2>/dev/null; then
+  echo "Warning: could not set .env permissions to 0600; check it is not world-readable."
 fi
 
 # 首次初始化时补上本地开发用的加密密钥：没有它 Secret Store 走透明模式（明文存储），

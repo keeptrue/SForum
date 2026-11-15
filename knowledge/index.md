@@ -8,9 +8,9 @@ load archived sessions or completed plans as current context.
 
 ### 全仓审计修复（P0–P3，113 条）
 
-- Status: 进行中。总 **113**；§7 噪声 9 条 + F-D2 + FE2-02（审计前提不成立）已摘出分母，**有效待修池 102**；已修 **98**，剩余 **4 = P2 2 / P3 2**（P1 0；EX2-01 / RV-03 为部分完成）。簇 7、12、14 与前端四簇（9 / 17 / 8 / 16）均已收口。
+- Status: 进行中。总 **113**；§7 噪声 9 条 + F-D2 + FE2-02（审计前提不成立）+ RV-46（判设计如此，见 `decisions/2026-11-15-admin-coarse-gate.md`）已摘出分母，**有效待修池 101**；已修 **99**，剩余 **2 = P2 2 / P3 0**（P1 0；EX2-01 / RV-03 为部分完成，均属架构改动）。除这两条架构尾巴外，全部 18 个动作簇已收口。
 - 本轮交接：`sessions/2026-11-15-audit-cluster7-i18n.md`；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（只读审计产物，员工不得修改）。
-- 未闭环项：剩余 4 条 = 散点 RV-46（`AdminOverview` 粗门）/ RV-54（5 控制器 denied-path + `.env` 0664）、架构尾巴 EX2-01（内核级隔离）与 RV-03（core-only 裁决）；同类残留 `utils/editor/shortcodes.ts` 的 `fallbackLabel` 与 `utils/sfEditor.ts` 的 emoji label（RV-28 口径外，见交接）；GO-2026-5932（`x/crypto v0.58.0`，module 级未调用，属独立依赖轮次）；`SEVERITY_GATE: report` 仍为 `report`。
+- 未闭环项：剩余 2 条 = 架构尾巴 EX2-01（内核级隔离）与 RV-03（core-only 裁决）；RV-54 已随第 12 轮收口（5 控制器 denied-path + `.env` 0600），RV-46 判设计如此（七条裁决与复位条件见 `decisions/2026-11-15-admin-coarse-gate.md`）；同类残留 `utils/editor/shortcodes.ts` 的 `fallbackLabel` 与 `utils/sfEditor.ts` 的 emoji label（RV-28 口径外，见交接）；GO-2026-5932（`x/crypto v0.58.0`，module 级未调用，属独立依赖轮次）；`SEVERITY_GATE: report` 仍为 `report`。
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 

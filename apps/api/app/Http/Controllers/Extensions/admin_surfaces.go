@@ -186,6 +186,18 @@ func adminSurfaceInvocationActor(actor identity.Actor) *extensionsruntime.Protoc
 	return extensionsruntime.NewProtocolV2InvocationActor(actor.ID, actor.IsActive(), permissions)
 }
 
+// adminSurfaceActor 是 admin-surfaces 两条路由的运行时门（RV-46 裁决：保留 admin.access）。
+//
+// 这个 admin.access 是**下界而不是完整授权**，因为授权是两层：
+//   - listAdminSurfaces 逐条按 surface.Permission 过滤（无声明的 surface 才是
+//     「任何后台主体可见」）；
+//   - invokeAdminSurface 对 contract.Permission 做第二次复检。
+//
+// 所以把路由门收成 extension.view 不会多拦任何一次真实读写，只会把没有
+// extension.view 的岗位（内置「站点运营」operator）整个挡在目录外——他们的仪表盘
+// 小部件、列表列、行操作全部来自这个目录。反过来也不成立：目录声明就是
+// permission_any/admin.access（core.route.extensions.list_admin_surfaces），
+// 声明与运行时同键。
 func (h *Controller) adminSurfaceActor(c fiber.Ctx) (identity.Actor, error) {
 	actor, err := h.actor(c)
 	if err != nil {
