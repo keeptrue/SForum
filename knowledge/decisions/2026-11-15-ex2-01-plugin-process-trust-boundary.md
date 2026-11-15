@@ -71,9 +71,32 @@ Accepted（2026-11-15，簇 12-A）
 打死，`RLIMIT_RSS` 在 Linux 上不生效。内存上限继续用 `GOMEMLIMIT`（软上限，宿主
 注入，已有实现）。
 
+**复核到 exec 之间仍有窗口（补记，2026-11-15 返工）**：`verifyPluginExecutableArtifact`
+在 exec 之前按内容重算摘要，但「复核完成」与内核真正 `execve` 之间仍有毫秒级窗口。
+同 uid 的另一个插件进程可以在这一段里替换掉入口文件（它是同一 uid 的普通文件，
+没有 immutable 位、没有 mount namespace）。也就是说本轮的 TOCTOU 保证只覆盖
+**读侧**（打开句柄前后比对、审计用的摘要与内容一致），**exec 路径没有闭环**。
+要闭环需要内核级手段：`O_PATH` 打开后 `fexecve`、只读 bind mount + 不可变制品目录，
+或 namespace 隔离——都超出本轮范围，写在这里是为了不让人把「exec 前重算」误读成
+「exec 的字节就是被校验的字节」。
+
 **rlimit 的时序诚实说明**：Go 的 `exec.Cmd` 没有 pre-exec hook，`prlimit(2)` 只能
 在 fork/exec 之后由父进程施加，所以它约束的是稳态而不是最初几微秒。要拿到「从第
 一条指令起就受限」，需要 launcher 或 namespace 级隔离。
+
+**cwd 语义变了（补记，2026-11-15 返工）**：加固之前插件子进程继承宿主进程的 cwd；
+现在 cwd 固定为 `backend.entry` 所在目录（惯例是 `<package-root>/backend`）。所以
+插件里的相对路径基准从「宿主启动目录」变成「制品目录」：
+
+- 仓库内 8 个内置插件的后端 `grep` 里 **0 处**依赖相对路径读宿主工作目录，内置包
+  不受影响；
+- **第三方插件会受影响**：任何 `./x` / `os.ReadFile("config.json")` 之类写法现在
+  落在包目录内。写文件要改用绝对路径（`os.UserCacheDir()`、运维配置项、Host API），
+  不要写在自己二进制旁边。
+- 同一段契约（cwd / 进程组 / rlimit / env 白名单 / 文件系统·网络·子进程不受限）
+  已写进作者文档：`docs/extensions/build-and-load.md` 与
+  `docs/zh-CN/extensions/build-and-load.md` 的「Runtime process contract / 运行时
+  进程契约」小节。
 
 **没有做 uid 切换**：`SysProcAttr.Credential` 只在 euid==0 时可用，而非 root 环境
 会直接失败；更关键的是插件需要读自己的制品目录与宿主签发的凭证，降到无特权 uid
@@ -106,6 +129,15 @@ Accepted（2026-11-15，簇 12-A）
 - 架构基线随提取下调：`protocol.go` 941→899，`protocol_instances.go` 1052→1050
   （RouteTarget 校验、`kill`、`protocolInstanceNotFound` 移入
   `plugin_command_transport.go`；平台机制移入新子包 `pluginprocess`）。
+
+**回收顺序（补记，2026-11-15 返工）**：启动失败的所有分支与 `Stop`/`Discard` 都走同一个
+helper：先 `KillGroup(-pgid)`（连同插件派生的子进程），再 `client.Kill()`（回收组长并
+Wait）。反过来会在组长被回收后让 `kill(-pgid)` 失去锚点，组内子进程留成孤儿。
+
+**已知遗留（本轮不动，记录在案）**：`isPluginRouteTargetNone` /
+`validatePluginRouteTarget` 这对 SSRF 约束落在 `plugin_command_transport.go` 里，
+与文件主题（子进程边界）是命名失配。它们是纯函数、只被同包调用，迁移会牵动
+`protocol_test.go`；等下一次动路由目标校验时一并拆到独立文件或子包。
 
 **残余风险（明确不在本轮范围内，不得当作已解决）**：
 

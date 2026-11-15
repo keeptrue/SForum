@@ -11,7 +11,7 @@
     "apps/api/app/Support/ExtensionManifest/manifest.go": 703,
     "apps/api/app/Support/Extensions/lifecycle_registry_publication.go": 979,
     "apps/api/app/Support/Extensions/plugin_runtime_full_set.go": 907,
-    "apps/api/app/Support/Extensions/protocol.go": 899,
+    "apps/api/app/Support/Extensions/protocol.go": 897,
     "apps/api/app/Support/Extensions/protocol_instances.go": 1050,
     "apps/api/app/Support/Extensions/protocol_v2_client.go": 1003,
     "apps/api/app/Support/Pages/registry.go": 672,

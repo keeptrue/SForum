@@ -110,6 +110,29 @@ The executable must land at the path declared in `backend.entry`
 (`backend/plugin` by convention). `extension test` fails while the binary is
 missing (use `--skip-backend-binary` / `--allow-scaffold` during scaffolding).
 
+### Runtime process contract
+
+The Host starts the backend executable as a child process with a fixed shape:
+
+- **Working directory = the directory of `backend.entry`** (for the conventional
+  layout, `<package-root>/backend`). It is **not** the Host's working directory,
+  so any relative path your backend uses (`./cache`, `os.ReadFile("config.json")`,
+  SQLite files, …) resolves inside the package tree. Resolve paths you cannot
+  write next to your binary against an absolute location instead
+  (`os.UserCacheDir()`, an operator-configured path, the Host API).
+- The process gets its own process group, `RLIMIT_NOFILE` is lowered to 4096 and
+  `RLIMIT_CORE` to 0 (no core dumps), and a curated environment allowlist
+  (`PATH`, `HOME`, `TMPDIR`, `LANG`, `TZ`, `APP_ENV`, `SFORUM_SETTING_*`,
+  `GOMEMLIMIT`). Host secrets such as `DATABASE_URL` and session keys are never
+  passed through.
+- Reclaiming the process also reclaims the group, so child processes your backend
+  spawns are terminated together with it.
+- File system, network, and subprocesses remain **unrestricted** for the plugin:
+  there is no kernel-level isolation. Treat the process as running inside the
+  Host's trust domain and read
+  [`knowledge/decisions/2026-11-15-ex2-01-plugin-process-trust-boundary.md`](../../knowledge/decisions/2026-11-15-ex2-01-plugin-process-trust-boundary.md)
+  before relying on it.
+
 ## 2. Build frontend assets (only when needed)
 
 The Host never compiles uploaded source. Anything the runtime mounts — admin

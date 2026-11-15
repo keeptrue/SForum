@@ -107,6 +107,23 @@ go build -trimpath -buildvcs=false -ldflags="-s -w" -o plugin .
 二进制缺失时 `extension test` 会失败（脚手架阶段可用
 `--skip-backend-binary` / `--allow-scaffold`）。
 
+### 运行时进程契约
+
+宿主把后端可执行文件当子进程启动，形态是固定的：
+
+- **工作目录 = `backend.entry` 所在目录**（按惯例是 `<package-root>/backend`），
+  **不是**宿主的当前工作目录。因此后端里的相对路径（`./cache`、
+  `os.ReadFile("config.json")`、SQLite 文件……）都落在包目录内。需要写在二进制
+  旁边的路径请改用绝对位置（`os.UserCacheDir()`、运维配置的路径、Host API）。
+- 进程拥有独立进程组；`RLIMIT_NOFILE` 降到 4096、`RLIMIT_CORE` 降到 0（不产生
+  core dump）；环境变量只保留白名单（`PATH`、`HOME`、`TMPDIR`、`LANG`、`TZ`、
+  `APP_ENV`、`SFORUM_SETTING_*`、`GOMEMLIMIT`）。`DATABASE_URL`、会话密钥等宿主
+  密钥不会透传。
+- 回收进程时按进程组回收，后端派生的子进程会一起结束。
+- 文件系统、网络与子进程对插件**仍然不受限**：没有内核级隔离。请把它当作运行在
+  宿主信任域内的进程，依赖前先读
+  [`knowledge/decisions/2026-11-15-ex2-01-plugin-process-trust-boundary.md`](../../../knowledge/decisions/2026-11-15-ex2-01-plugin-process-trust-boundary.md)。
+
 ## 2. 构建前端资产（仅在需要时）
 
 宿主**从不**编译上传的源码。运行时挂载的一切——admin 预构建组件、公共 L2

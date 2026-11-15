@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hashicorp/go-plugin"
+
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Extensions/pluginprocess"
 )
@@ -210,24 +212,34 @@ func verifyPluginExecutableArtifact(extension extensions.Extension) error {
 
 // preparePluginCommand 组装插件子进程的 exec.Cmd：cwd 钉在制品目录、env 走白名单、
 // 独立进程组。
-//
-// 返回的 release 必须在 startProtocolInstanceLocked 里 defer 调用：它只在启动
-// 失败（err != nil）时按进程组回收，避免插件派生的子进程变成孤儿。
-func preparePluginCommand(extension extensions.Extension, entryPath string) (*exec.Cmd, func(error), error) {
+func preparePluginCommand(extension extensions.Extension, entryPath string) (*exec.Cmd, error) {
 	workDir, err := pluginWorkingDirectory(extension, entryPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	cmd := exec.Command(entryPath)
 	cmd.Dir = workDir
 	cmd.Env = buildPluginProcessEnv(os.Environ())
 	pluginprocess.Apply(cmd)
-	return cmd, func(resultErr error) {
-		if resultErr == nil {
-			return
-		}
-		pluginprocess.KillGroup(pluginprocess.GroupID(cmd))
-	}, nil
+	return cmd, nil
+}
+
+// pluginProcessGroupKill 是整组回收的入口。测试会替换它来断言回收顺序（见
+// plugin_process_unix_test.go）：顺序本身没有第二个可观测副作用，但「组长先被
+// 回收」会让组 id 提前失效，组内留存的派生进程就逃出这次回收。
+var pluginProcessGroupKill = pluginprocess.KillGroup
+
+// stopPluginProcess 按「先整组、后客户端」回收一个启动失败或正在退出的插件进程。
+//
+// 顺序有实际后果：client.Kill() 会杀掉并 Wait 回收组长进程；先做这一步会让
+// kill(-pgid) 失去锚点，插件派生的子进程就留成孤儿。
+func stopPluginProcess(cmd *exec.Cmd, client *plugin.Client) {
+	if pgid := pluginProcessGroupID(cmd); pgid > 0 {
+		pluginProcessGroupKill(pgid)
+	}
+	if client != nil {
+		client.Kill()
+	}
 }
 
 // applyPluginProcessLimits 在子进程出现之后收紧资源上限（见 pluginprocess.Limit）。
@@ -301,7 +313,7 @@ func (i *protocolRuntimeInstance) kill() {
 		return
 	}
 	if i.processGroup > 0 {
-		pluginprocess.KillGroup(i.processGroup)
+		pluginProcessGroupKill(i.processGroup)
 	}
 	if i.client != nil {
 		i.client.Kill()
