@@ -655,7 +655,7 @@ function setActiveTab(value: string) {
                     leading-icon="i-lucide-save"
                     :loading="saving"
                     :disabled="!canManage || !hasChanges || saveBlockedByCatalog"
-                    class="bg-[var(--sf-accent)] font-semibold text-white hover:bg-[var(--sf-accent-hover)]"
+                    class="bg-[var(--sf-accent)] font-semibold text-[var(--sf-accent-contrast)] hover:bg-[var(--sf-accent-hover)]"
                     data-sf-trust-levels-save
                   >
                     {{ t('admin.common.save') }}

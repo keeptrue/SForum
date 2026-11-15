@@ -5,6 +5,7 @@ import { forumListSortOptions, recommendedListDefaultSort } from '~/utils/admin/
 import type { ForumCategory, ForumSettings } from '~/utils/forum/forumTaxonomy'
 import { useAdminForumSettingsTab } from '~/composables/admin/settings/useAdminForumSettingsTab'
 import SFAdminForumTabFrame from '../SFAdminForumTabFrame.vue'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const props = defineProps<{
   settings: ForumSettings
@@ -32,22 +33,22 @@ const tab = useAdminForumSettingsTab(toRef(props, 'settings'), keys, key => key 
       </div>
     </section>
     <UFormField v-else :label="t('admin.forum.settings.defaultCategory')" name="default-category">
-      <select v-model="tab.form.defaultCategorySlug" :disabled="!canManageCategories" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
+      <SFNativeSelect v-model="tab.form.defaultCategorySlug" :disabled="!canManageCategories" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
         <option v-for="category in publicCategories" :key="category.slug" :value="category.slug">{{ category.name }} (/c/{{ category.slug }})</option>
-      </select>
+      </SFNativeSelect>
     </UFormField>
     <section class="grid gap-4 border-t border-slate-200 pt-5 dark:border-zinc-800 md:grid-cols-2">
       <UFormField :label="t('admin.forum.settings.topicsPerPage')" name="topics-per-page"><UInputNumber v-model="tab.form.topicsPerPage" :min="1" :max="100" :disabled="!canManageSettings" class="w-full" /></UFormField>
       <UFormField :label="t('admin.forum.settings.commentsPerPage')" name="comments-per-page"><UInputNumber v-model="tab.form.commentsPerPage" :min="1" :max="100" :disabled="!canManageSettings" class="w-full" /></UFormField>
       <UFormField :label="t('admin.forum.settings.guestRead')" name="guest-read">
-        <select v-model="tab.form.guestRead" :disabled="!canManageSettings" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="public">{{ t('admin.forum.settings.guestReadPublic') }}</option><option value="login_required">{{ t('admin.forum.settings.guestReadLogin') }}</option></select>
+        <SFNativeSelect v-model="tab.form.guestRead" :disabled="!canManageSettings" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="public">{{ t('admin.forum.settings.guestReadPublic') }}</option><option value="login_required">{{ t('admin.forum.settings.guestReadLogin') }}</option></SFNativeSelect>
       </UFormField>
       <UFormField :label="t('admin.forum.settings.listDefaultSort')" name="list-sort" :help="t('admin.forum.settings.listDefaultSortHelp')">
-        <select v-model="tab.form.listDefaultSort" :disabled="!canManageSettings" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
+        <SFNativeSelect v-model="tab.form.listDefaultSort" :disabled="!canManageSettings" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
           <option v-for="option in forumListSortOptions" :key="option.value" :value="option.value">
             {{ t(option.labelKey) }}{{ option.value === recommendedListDefaultSort ? t('admin.forum.settings.recommended') : '' }}
           </option>
-        </select>
+        </SFNativeSelect>
       </UFormField>
       <UFormField :label="t('admin.forum.settings.listHotWindowDays')" name="hot-window"><UInputNumber v-model="tab.form.listHotWindowDays" :min="1" :max="90" :disabled="!canManageSettings" class="w-full" /></UFormField>
     </section>

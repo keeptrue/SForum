@@ -225,7 +225,7 @@ function discardChanges() {
             leading-icon="i-lucide-save"
             :loading="saving"
             :disabled="resetting"
-            class="bg-[var(--sf-accent)] font-semibold text-white hover:bg-[var(--sf-accent-hover)]"
+            class="bg-[var(--sf-accent)] font-semibold text-[var(--sf-accent-contrast)] hover:bg-[var(--sf-accent-hover)]"
             @click="saveSettings"
           >
             {{ t('admin.moderation.saveSettings') }}

@@ -86,7 +86,7 @@ function restoreRecommended() {
             <UButton type="button" color="neutral" variant="outline" class="border-slate-200 dark:border-zinc-700 font-medium" :disabled="section.saving.value" @click="resetChanges">
               {{ t('admin.form.reset') }}
             </UButton>
-            <UButton type="submit" leading-icon="i-lucide-save" :loading="section.saving.value" class="bg-[var(--sf-accent)] hover:bg-[var(--sf-accent-hover)] text-white font-semibold">
+            <UButton type="submit" leading-icon="i-lucide-save" :loading="section.saving.value" class="bg-[var(--sf-accent)] hover:bg-[var(--sf-accent-hover)] text-[var(--sf-accent-contrast)] font-semibold">
               {{ t('admin.settings.save') }}
             </UButton>
           </template>

@@ -9,6 +9,7 @@ import {
   splitAttachmentSettingList,
   type AttachmentSettings
 } from '~/utils/attachments/attachmentSettings'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 type ProbeResult = {
   provider: string
@@ -269,7 +270,7 @@ function providerLabel(provider: string) {
         <div class="grid gap-4">
           <div class="grid gap-4 md:grid-cols-2">
             <UFormField :label="t('admin.attachments.currentWriter')" :help="t('admin.attachments.fieldHelp.provider')" name="attachment-provider">
-              <select v-model="form.provider" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+              <SFNativeSelect v-model="form.provider" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
                 <optgroup v-if="coreProviderChoices.length" :label="t('admin.attachments.providerGroups.core')">
                   <option v-for="choice in coreProviderChoices" :key="choice.value" :value="choice.value">
                     {{ choice.label }}
@@ -290,7 +291,7 @@ function providerLabel(provider: string) {
                     {{ choice.label }}
                   </option>
                 </optgroup>
-              </select>
+              </SFNativeSelect>
               <p v-if="selectedProviderIsInstance" class="mt-1.5 text-xs text-slate-500 dark:text-zinc-400">
                 {{ t('admin.attachments.instanceProviderHint') }}
               </p>
@@ -338,10 +339,10 @@ function providerLabel(provider: string) {
 
           <div class="grid gap-4 md:grid-cols-2">
             <UFormField :label="t('admin.attachments.defaultVisibility')" :help="t('admin.attachments.fieldHelp.defaultVisibility')" name="attachment-visibility">
-              <select v-model="form.defaultVisibility" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+              <SFNativeSelect v-model="form.defaultVisibility" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
                 <option value="public">{{ t('admin.attachments.visibility.public') }}</option>
                 <option value="private">{{ t('admin.attachments.visibility.private') }}</option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
           </div>
 

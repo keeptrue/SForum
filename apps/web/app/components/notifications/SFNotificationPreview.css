@@ -48,7 +48,8 @@
   border: 2px solid var(--sf-public-surface);
   border-radius: 9px;
   background: var(--sf-accent);
-  color: #fff;
+  /* 浅 accent 下必须用按对比度算出的前景，不能写死白色（RV-22）。 */
+  color: var(--sf-accent-contrast, #fff);
   font-size: 10px;
   font-weight: 700;
   line-height: 14px;

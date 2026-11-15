@@ -2409,6 +2409,8 @@
         "title": "插件管理",
         "intro": "管理声明为 plugin 的扩展包。插件启用前仍会经过后端入口预检与 API 权限检查。",
         "count": "已安装 {count} 个插件",
+        "listLoaded": "已加载 {count} 个插件。",
+        "listLoadFailed": "插件列表加载失败。",
         "emptyTitle": "还没有安装插件",
         "emptyDescription": "上传 type 为 plugin 的扩展 ZIP 后，就可以在这里启用或停用插件。",
         "autoUpdate": {
@@ -3200,6 +3202,14 @@
       "openSchedules": "打开定时任务",
       "actions": "操作",
       "filterKind": "按任务类型筛选",
+      "filterStateAria": "按任务状态筛选",
+      "filterQueueAria": "按队列筛选",
+      "detail": "查看任务详情",
+      "retry": "重试任务",
+      "cancel": "取消任务",
+      "closeDetail": "关闭任务详情",
+      "listLoaded": "已加载 {count} 个任务。",
+      "listLoadFailed": "任务列表加载失败。",
       "allStates": "全部状态",
       "allQueues": "全部队列",
       "empty": "没有符合当前条件的任务。",
@@ -3553,6 +3563,11 @@
       "empty": "暂无附件。",
       "selectOne": "选择一个附件查看详情。",
       "listLoadFailed": "附件列表加载失败。",
+      "listLoaded": "已加载 {total} 个附件。",
+      "filterProviderAria": "按存储提供方筛选",
+      "filterStatusAria": "按附件状态筛选",
+      "filterReferenceAria": "按引用状态筛选",
+      "detailLoaded": "已加载附件 {name} 的详情。",
       "detailLoadFailed": "附件详情加载失败。",
       "loadingDetail": "正在加载附件详情...",
       "statusUpdated": "附件状态已更新。",
@@ -4251,6 +4266,9 @@
       "loadFailed": "数据库表加载失败。",
       "detailLoadFailed": "表详情加载失败。",
       "rowsLoadFailed": "行数据加载失败。",
+      "filterColumnAria": "按列筛选",
+      "filterOperatorAria": "筛选运算符",
+      "rowsLoaded": "已加载 {count} 行数据。",
       "revealFailed": "敏感值展开失败。",
       "exportFailed": "CSV 导出失败。",
       "schema": "Schema",
@@ -4716,6 +4734,9 @@
         "labelZh": "中文链接名",
         "labelEn": "英文链接名",
         "urlPlaceholder": "例如 /terms、https://example.com 或 #",
+        "linkFieldZh": "页脚链接 {index}（{key}）中文名称",
+        "linkFieldEn": "页脚链接 {index}（{key}）英文名称",
+        "linkFieldUrl": "页脚链接 {index}（{key}）链接地址",
         "linkKeys": {
           "terms": "服务条款",
           "privacy": "隐私政策",
@@ -5286,7 +5307,8 @@
       "edit": "编辑",
       "delete": "删除",
       "cancel": "取消",
-      "loading": "加载中…"
+      "loading": "加载中…",
+      "settingsLoaded": "设置已加载。"
     },
     "forum": {
       "visibility": {
@@ -6765,7 +6787,8 @@
         "registration": "注册",
         "registrationHelp": "允许通过 {provider} 显式创建新账号（仍受站点注册策略约束）。",
         "link": "账号绑定",
-        "linkHelp": "已登录用户可在账号安全中绑定 {provider}。"
+        "linkHelp": "已登录用户可在账号安全中绑定 {provider}。",
+        "switchAriaLabel": "{provider}：{operation}"
       },
       "revision": "配置版本 revision={revision}",
       "callbackTitle": "回调 URL",

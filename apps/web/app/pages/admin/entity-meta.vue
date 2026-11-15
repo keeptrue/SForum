@@ -7,6 +7,7 @@ import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import SFAdminFormFooter from '~/components/admin/SFAdminFormFooter.vue'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 definePageMeta({
   middleware: 'admin',
@@ -323,7 +324,7 @@ onMounted(load)
           />
         </UFormField>
         <UFormField :label="t('admin.entityMeta.entityType')" name="entity-meta-entity-type">
-          <select
+          <SFNativeSelect
             v-model="form.entityType"
             class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
             :disabled="!canManage || saving"
@@ -331,10 +332,10 @@ onMounted(load)
             <option v-for="option in entityOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
-          </select>
+          </SFNativeSelect>
         </UFormField>
         <UFormField :label="t('admin.entityMeta.valueType')" name="entity-meta-value-type">
-          <select
+          <SFNativeSelect
             v-model="form.valueType"
             class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
             :disabled="!canManage || saving"
@@ -342,10 +343,10 @@ onMounted(load)
             <option v-for="option in valueTypeOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
-          </select>
+          </SFNativeSelect>
         </UFormField>
         <UFormField :label="t('admin.entityMeta.visibility')" name="entity-meta-visibility">
-          <select
+          <SFNativeSelect
             v-model="form.visibility"
             class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
             :disabled="!canManage || saving"
@@ -353,7 +354,7 @@ onMounted(load)
             <option v-for="option in visibilityOptions" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
-          </select>
+          </SFNativeSelect>
         </UFormField>
         <UFormField :label="t('admin.entityMeta.labelZh')" name="entity-meta-label-zh">
           <UInput v-model="form.labelZh" size="lg" class="w-full" :disabled="!canManage || saving" />

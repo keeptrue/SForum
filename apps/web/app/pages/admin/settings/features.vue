@@ -4,6 +4,7 @@ import { useAuthSession } from '~/composables/identity/useAuthSession'
  * F4.5：站点产品开关。与 RBAC 正交——只控制产品面是否开启，不授予权限。
  */
 import { apiErrorMessage } from '~/composables/useApiClient'
+import { announcePolite } from '~/utils/a11y/liveRegion'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import SFAdminFormFooter from '~/components/admin/SFAdminFormFooter.vue'
 
@@ -95,6 +96,7 @@ async function load() {
       form[item.name] = isEnabled(item.value)
     }
     captureSnapshot()
+    announcePolite(t('admin.common.settingsLoaded'))
   } catch (error) {
     loadError.value = apiErrorMessage(error) || t('admin.features.loadFailed')
   } finally {
@@ -325,7 +327,7 @@ onMounted(load)
               leading-icon="i-lucide-save"
               :loading="saving"
               :disabled="!canManage || restoring || pending"
-              class="bg-[var(--sf-accent)] font-semibold text-white hover:bg-[var(--sf-accent-hover)]"
+              class="bg-[var(--sf-accent)] font-semibold text-[var(--sf-accent-contrast)] hover:bg-[var(--sf-accent-hover)]"
               @click="save"
             >
               {{ t('admin.features.save') }}

@@ -15,6 +15,7 @@ import {
 } from '~/utils/admin/adminForum'
 import { taxonomyColorInputValue, taxonomyIconColor } from '~/utils/forum/forumTaxonomy'
 import type { ForumCategory, ForumCategoryGroup } from '~/utils/forum/forumTaxonomy'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 definePageMeta({
   middleware: 'admin',
@@ -517,11 +518,11 @@ function errorToast(error: unknown, fallback: string) {
 
           <div class="grid gap-4 md:grid-cols-2">
             <UFormField :label="t('admin.forum.categories.visibility')" name="group-visibility">
-              <select v-model="groupForm.visibility" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+              <SFNativeSelect v-model="groupForm.visibility" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
                 <option v-for="choice in forumVisibilityChoices" :key="choice" :value="choice">
                   {{ t(`admin.forum.visibility.${choice}`) }}
                 </option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
             <UFormField :label="t('admin.forum.categories.position')" name="group-position">
               <UInput v-model.number="groupForm.position" icon="i-lucide-list-ordered" type="number" step="1" class="w-full" />
@@ -570,7 +571,7 @@ function errorToast(error: unknown, fallback: string) {
 
         <div class="grid flex-1 gap-4 overflow-y-auto px-5 py-4">
           <UFormField :label="t('admin.forum.categories.group')" name="category-group">
-            <select
+            <SFNativeSelect
               v-model.number="categoryForm.groupId"
               class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
             >
@@ -580,7 +581,7 @@ function errorToast(error: unknown, fallback: string) {
               <option v-for="group in groupOptions" :key="group.value" :value="group.value">
                 {{ group.label }}
               </option>
-            </select>
+            </SFNativeSelect>
           </UFormField>
 
           <div class="grid gap-4 md:grid-cols-2">
@@ -629,18 +630,18 @@ function errorToast(error: unknown, fallback: string) {
 
           <div class="grid gap-4 md:grid-cols-3">
             <UFormField :label="t('admin.forum.categories.visibility')" name="category-visibility">
-              <select v-model="categoryForm.visibility" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+              <SFNativeSelect v-model="categoryForm.visibility" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
                 <option v-for="choice in forumVisibilityChoices" :key="choice" :value="choice">
                   {{ t(`admin.forum.visibility.${choice}`) }}
                 </option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
             <UFormField :label="t('admin.forum.categories.defaultSort')" name="category-sort">
-              <select v-model="categoryForm.defaultSort" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+              <SFNativeSelect v-model="categoryForm.defaultSort" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
                 <option v-for="choice in forumCategorySortChoices" :key="choice" :value="choice">
                   {{ t(`admin.forum.sort.${choice}`) }}
                 </option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
             <UFormField :label="t('admin.forum.categories.position')" name="category-position">
               <UInput v-model.number="categoryForm.position" icon="i-lucide-list-ordered" type="number" step="1" class="w-full" />

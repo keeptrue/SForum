@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SFSEOImagePicker from './SFSEOImagePicker.vue'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 type Policy = { titleTemplate: string, descriptionSource: string, defaultImageUrl: string, indexMode: 'index' | 'noindex', includeInSitemap: boolean, schemaType: string }
 type ContentType = 'category' | 'tag' | 'topic' | 'profile' | 'static'
@@ -22,7 +23,7 @@ function selectType(type: ContentType) { active.value = type }
       <UFormField :label="t('admin.seo.contentTitleTemplate')"><UInput v-model="policy.titleTemplate" class="w-full font-mono" /></UFormField>
       <UFormField :label="t('admin.seo.contentDescriptionSource')"><UInput v-model="policy.descriptionSource" class="w-full font-mono" /></UFormField>
       <div class="grid gap-4 sm:grid-cols-2">
-        <UFormField :label="t('admin.seo.contentIndexMode')"><select v-model="policy.indexMode" class="h-10 w-full border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="index">index</option><option value="noindex">noindex</option></select></UFormField>
+        <UFormField :label="t('admin.seo.contentIndexMode')"><SFNativeSelect v-model="policy.indexMode" class="h-10 w-full border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="index">index</option><option value="noindex">noindex</option></SFNativeSelect></UFormField>
         <label class="flex items-center gap-3 pt-7"><UCheckbox v-model="policy.includeInSitemap" /><span class="text-sm">{{ t('admin.seo.contentIncludeSitemap') }}</span></label>
       </div>
       <SFSEOImagePicker v-model="policy.defaultImageUrl" :context="`${active}-default-image`" :label="t('admin.seo.contentDefaultImage')" recommended="1200 x 630" />

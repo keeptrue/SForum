@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useUserAppearancePreference } from '~/composables/appearance/useUserAppearancePreference'
 import { useSForumSeo } from '~/composables/seo/useSForumSeo'
 import SFSettingsShell from '~/components/settings/SFSettingsShell.vue'
+import { radioGroupNextIndex, radioGroupTabIndex } from '~/utils/a11y/rovingRadioGroup'
 import {
   appearanceThemes,
   buildCustomAppearanceThemeValue,
@@ -18,6 +20,7 @@ import {
 } from '~/utils/settings/appearance'
 
 type PreferenceMode = 'site' | 'custom'
+type ThemeOptionValue = AppearanceThemePreset | 'custom'
 type ThemePreview = { accent: string, soft: string }
 
 const { t } = useI18n()
@@ -40,14 +43,20 @@ const previews: Record<AppearanceThemePreset, ThemePreview> = {
   amber: { accent: '#d97706', soft: '#fffbeb' }
 }
 const sourceChoices: PreferenceMode[] = ['site', 'custom']
+/** 「自定义配色」是组内第 6 个 radio：卡片本体是控件，取色器在组外（避免 nested-interactive）。 */
+const themeOptionValues: ThemeOptionValue[] = [...appearanceThemes, 'custom']
 
 const mode = ref<PreferenceMode>('site')
-const themeMode = ref<AppearanceThemePreset | 'custom'>('pine_teal')
+const themeMode = ref<ThemeOptionValue>('pine_teal')
 const customColor = ref(defaultCustomThemeColor)
 const lightBackground = ref<LightBackgroundPreset>('pure_white')
 const saving = ref(false)
 const actionError = ref('')
 let previewActive = false
+
+const sourceGroup = ref<HTMLElement | null>(null)
+const themeGroup = ref<HTMLElement | null>(null)
+const backgroundGroup = ref<HTMLElement | null>(null)
 
 const themeChoices = computed(() => appearanceThemes.map(value => ({
   value,
@@ -77,6 +86,29 @@ const sourceLabel = computed(() => appearance.saved.value
   ? t('userAppearanceSettings.status.personal')
   : t('userAppearanceSettings.status.site'))
 
+function focusOption<T extends string>(group: HTMLElement | null, values: readonly T[], value: T) {
+  const index = values.indexOf(value)
+  if (index < 0) return
+  group?.querySelectorAll<HTMLElement>('[data-radio-option]')[index]?.focus()
+}
+
+/** radiogroup 的方向键/Home/End：选中项跟着焦点走，与原生 radio 行为一致。 */
+function handleRadioKeydown<T extends string>(
+  group: HTMLElement | null,
+  values: readonly T[],
+  value: T,
+  event: KeyboardEvent,
+  select: (value: T) => void
+) {
+  const next = radioGroupNextIndex(values.length, values.indexOf(value), event.key)
+  if (next === null) return
+  event.preventDefault()
+  const nextValue = values[next]
+  if (nextValue === undefined) return
+  select(nextValue)
+  focusOption(group, values, nextValue)
+}
+
 function loadSavedPreference() {
   const saved = appearance.saved.value
   mode.value = saved ? 'custom' : 'site'
@@ -90,6 +122,14 @@ function loadSavedPreference() {
 
 function syncPreview() {
   if (previewActive) appearance.showPreview(effectiveDraft.value)
+}
+
+function selectTheme(value: ThemeOptionValue) {
+  themeMode.value = value
+}
+
+function selectBackground(value: LightBackgroundPreset) {
+  lightBackground.value = value
 }
 
 function selectMode(value: PreferenceMode) {
@@ -191,16 +231,19 @@ onBeforeUnmount(() => {
         <h2 class="text-base font-semibold">{{ t('userAppearanceSettings.source.title') }}</h2>
         <p class="mt-1 text-sm text-muted">{{ t('userAppearanceSettings.source.description') }}</p>
       </div>
-      <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" :aria-label="t('userAppearanceSettings.source.title')">
+      <div ref="sourceGroup" class="grid gap-2 sm:grid-cols-2" role="radiogroup" :aria-label="t('userAppearanceSettings.source.title')">
         <button
           v-for="value in sourceChoices"
           :key="value"
           type="button"
           role="radio"
+          data-radio-option
           :aria-checked="mode === value"
+          :tabindex="radioGroupTabIndex(sourceChoices, mode, value)"
           class="flex min-h-20 items-start gap-3 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent-focus)]"
           :class="mode === value ? 'border-[var(--sf-accent)] bg-[var(--sf-accent-soft)]' : 'border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
           @click="selectMode(value)"
+          @keydown="handleRadioKeydown(sourceGroup, sourceChoices, value, $event, selectMode)"
         >
           <UIcon :name="value === 'site' ? 'i-lucide-building-2' : 'i-lucide-palette'" class="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <span><strong class="block text-sm">{{ t(`userAppearanceSettings.source.${value}.label`) }}</strong><span class="mt-1 block text-xs text-muted">{{ t(`userAppearanceSettings.source.${value}.description`) }}</span></span>
@@ -211,46 +254,61 @@ onBeforeUnmount(() => {
     <fieldset class="mt-5" :disabled="mode === 'site'">
       <legend class="text-base font-semibold">{{ t('admin.personalization.theme.title') }}</legend>
       <p class="mt-1 text-sm text-muted">{{ t('userAppearanceSettings.themeDescription') }}</p>
-      <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" :aria-label="t('admin.personalization.theme.title')">
+      <div ref="themeGroup" class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" :aria-label="t('admin.personalization.theme.title')">
         <button
           v-for="choice in themeChoices"
           :key="choice.value"
           type="button"
           role="radio"
+          data-radio-option
           :aria-checked="themeMode === choice.value"
+          :tabindex="radioGroupTabIndex(themeOptionValues, themeMode, choice.value)"
           class="flex min-h-28 flex-col justify-between rounded-md border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent-focus)]"
           :class="themeMode === choice.value ? 'border-[var(--sf-accent)] ring-1 ring-[var(--sf-accent)]' : 'border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
           @click="themeMode = choice.value"
+          @keydown="handleRadioKeydown(themeGroup, themeOptionValues, choice.value, $event, selectTheme)"
         >
           <span class="flex w-full justify-between gap-3"><strong class="text-sm">{{ choice.label }}</strong><span class="flex gap-1"><i class="size-4 rounded-full" :style="{ background: choice.preview.soft }" /><i class="size-4 rounded-full" :style="{ background: choice.preview.accent }" /></span></span>
           <span class="mt-3 text-xs text-muted">{{ choice.description }}</span>
         </button>
-        <div
-          class="flex min-h-28 flex-col justify-between rounded-md border p-3 transition-colors"
+        <button
+          type="button"
+          role="radio"
+          data-radio-option
+          data-theme-option="custom"
+          :aria-checked="themeMode === 'custom'"
+          :tabindex="radioGroupTabIndex(themeOptionValues, themeMode, 'custom')"
+          class="flex min-h-28 flex-col justify-between rounded-md border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent-focus)]"
           :class="themeMode === 'custom' ? 'border-[var(--sf-accent)] ring-1 ring-[var(--sf-accent)]' : 'border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
-          @click="mode === 'custom' && (themeMode = 'custom')"
+          @click="themeMode = 'custom'"
+          @keydown="handleRadioKeydown(themeGroup, themeOptionValues, 'custom', $event, selectTheme)"
         >
-          <span class="flex justify-between gap-3"><strong class="text-sm">{{ t('admin.personalization.themes.custom.label') }}</strong><i class="size-4 rounded-full" :style="{ background: customPreview['--sf-accent'] }" /></span>
-          <div class="mt-3 flex gap-2" @click.stop>
-            <input v-model="customColor" type="color" class="h-10 w-12 shrink-0" :disabled="mode === 'site'" :aria-label="t('userAppearanceSettings.customColor')" @input="themeMode = 'custom'">
-            <UInput v-model="customColor" class="min-w-0 flex-1 font-mono" :disabled="mode === 'site'" @focus="themeMode = 'custom'" @blur="normalizeCustomColor" />
-          </div>
-        </div>
+          <span class="flex w-full justify-between gap-3"><strong class="text-sm">{{ t('admin.personalization.themes.custom.label') }}</strong><i class="size-4 rounded-full" :style="{ background: customPreview['--sf-accent'] }" /></span>
+          <span class="mt-3 font-mono text-xs text-muted">{{ customColor }}</span>
+        </button>
+      </div>
+
+      <div v-if="themeMode === 'custom'" class="mt-3 flex max-w-md items-center gap-2" data-custom-theme-controls>
+        <input v-model="customColor" type="color" class="h-10 w-12 shrink-0" :disabled="mode === 'site'" :aria-label="t('userAppearanceSettings.customColor')">
+        <UInput v-model="customColor" class="min-w-0 flex-1 font-mono" :disabled="mode === 'site'" :aria-label="t('userAppearanceSettings.customColor')" @blur="normalizeCustomColor" />
       </div>
 
       <div class="mt-6 border-t border-slate-200 pt-5 dark:border-zinc-800">
         <h2 class="text-base font-semibold">{{ t('admin.personalization.lightBackground.title') }}</h2>
         <p class="mt-1 text-sm text-muted">{{ t('userAppearanceSettings.backgroundDescription') }}</p>
-        <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" :aria-label="t('admin.personalization.lightBackground.title')">
+        <div ref="backgroundGroup" class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" :aria-label="t('admin.personalization.lightBackground.title')">
           <button
             v-for="choice in backgroundChoices"
             :key="choice.value"
             type="button"
             role="radio"
+            data-radio-option
             :aria-checked="lightBackground === choice.value"
+            :tabindex="radioGroupTabIndex(lightBackgroundPresets, lightBackground, choice.value)"
             class="flex min-h-36 flex-col rounded-md border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent-focus)]"
             :class="lightBackground === choice.value ? 'border-[var(--sf-accent)] ring-1 ring-[var(--sf-accent)]' : 'border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'"
             @click="lightBackground = choice.value"
+            @keydown="handleRadioKeydown(backgroundGroup, lightBackgroundPresets, choice.value, $event, selectBackground)"
           >
             <span class="mb-3 block h-14 overflow-hidden rounded border" :style="{ background: choice.preview.background, borderColor: choice.preview.border }"><span class="grid h-full grid-cols-[0.42fr_1fr] gap-1.5 p-2"><i class="rounded-sm" :style="{ background: choice.preview.muted }" /><i class="rounded-sm border" :style="{ background: choice.preview.surface, borderColor: choice.preview.border }" /></span></span>
             <strong class="text-sm">{{ choice.label }}</strong>

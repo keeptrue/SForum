@@ -183,7 +183,8 @@
 .sf-button--primary {
   background: var(--sf-accent);
   border-color: var(--sf-accent);
-  color: #ffffff;
+  /* 强调色可能很浅：前景必须用按对比度算出的 token，不能写死白色（RV-22）。 */
+  color: var(--sf-accent-contrast, #ffffff);
 }
 
 .sf-button--primary:hover {
@@ -856,7 +857,7 @@
   border: 1px solid var(--sf-accent);
   border-radius: 8px;
   background: var(--sf-accent);
-  color: #ffffff;
+  color: var(--sf-accent-contrast, #ffffff);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 800;
@@ -1103,7 +1104,7 @@
 .sf-pagination__item[aria-current="page"] {
   border-color: var(--sf-accent);
   background: var(--sf-accent);
-  color: #ffffff;
+  color: var(--sf-accent-contrast, #ffffff);
 }
 
 .sf-pagination__item:disabled {

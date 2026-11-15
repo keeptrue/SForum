@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { apiErrorMessage } from '~/composables/useApiClient'
+import { announcePolite } from '~/utils/a11y/liveRegion'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import {
   buildDatabaseRowsQuery,
@@ -145,6 +146,8 @@ async function loadRows() {
   try {
     const query = buildDatabaseRowsQuery(rowsQuery)
     rows.value = await request<DatabaseRows>(`/admin/database/tables/${currentTablePath.value}/rows?${query}`)
+    // UX2-17：表数据是异步面，加载结束后播报当前页行数。
+    announcePolite(t('admin.database.rowsLoaded', { count: rows.value.rows.length }))
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) || t('admin.database.rowsLoadFailed')
   } finally {
@@ -513,11 +516,11 @@ function tableKindLabel(kind: string) {
         </template>
 
         <div class="mb-4 flex flex-wrap items-center gap-2">
-          <select v-model="rowsQuery.filterColumn" class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-[var(--sf-accent)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+          <select v-model="rowsQuery.filterColumn" :aria-label="t('admin.database.filterColumnAria')" class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-[var(--sf-accent)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
             <option value="">{{ t('admin.database.allColumns') }}</option>
             <option v-for="column in rowColumns" :key="column.name" :value="column.name">{{ column.name }}</option>
           </select>
-          <select v-model="rowsQuery.filterOperator" class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-[var(--sf-accent)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+          <select v-model="rowsQuery.filterOperator" :aria-label="t('admin.database.filterOperatorAria')" class="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-[var(--sf-accent)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
             <option v-for="operator in filterOperators" :key="operator.value" :value="operator.value">{{ operator.label }}</option>
           </select>
           <UInput

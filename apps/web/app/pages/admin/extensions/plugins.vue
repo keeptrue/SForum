@@ -32,6 +32,7 @@ import {
   shouldShowBuiltinAutoUpdateDisabled
 } from '~/utils/admin/extensions/builtinAutoUpdate'
 import { builtinContentUpdateCount, resolveExtensionUpdateState } from '~/utils/admin/extensions/updateState'
+import { announceAsyncResult } from '~/utils/a11y/asyncAnnounce'
 
 definePageMeta({
   middleware: 'admin',
@@ -173,6 +174,18 @@ async function restoreBuiltinAutoUpdateRecommended() {
 }
 
 const plugins = computed(() => filterExtensionsByType(extensions.value, 'plugin'))
+
+// UX2-17：插件列表是异步面。composable 是 `await` 出来的，watch 注册时 pending 往往已经
+// false，所以必须 `immediate`；失败时不能播「已加载 0 个插件」，改走 assertive。
+watch([pending, error, () => plugins.value.length], () => {
+  if (import.meta.server) return
+  announceAsyncResult({
+    pending: pending.value,
+    failed: Boolean(error.value),
+    success: t('admin.extensions.plugins.listLoaded', { count: plugins.value.length }),
+    failure: t('admin.extensions.plugins.listLoadFailed')
+  })
+}, { immediate: true })
 const inspectorMenuItems = computed(() => [[
   { label: t('admin.nav.extensionRouteProviders'), icon: 'i-lucide-route', to: adminRoutes.path('/extensions/route-providers') },
   { label: t('admin.nav.extensionRouteInspector'), icon: 'i-lucide-scan-search', to: adminRoutes.path('/extensions/route-inspector') },

@@ -30,6 +30,18 @@ export type LightBackgroundPalette = {
 
 export const appearanceThemes: AppearanceThemePreset[] = ['pine_teal', 'ocean_blue', 'violet', 'rose', 'amber']
 export const recommendedAppearanceTheme: AppearanceThemePreset = 'pine_teal'
+/**
+ * 预设主题的强调色（与 `main.css` 的 `html[data-sforum-theme="…"]` 一一对应）。
+ * 有了它，预设分支也能算出 `--sf-accent-contrast`：amber(#d97706) 上白字只有 3.19:1，
+ * 必须给墨黑（5.1:1）。以前预设分支返回空 cssVars，全靠 main.css 里写死的 #ffffff。
+ */
+export const appearanceThemeAccents: Record<AppearanceThemePreset, string> = {
+  pine_teal: '#0f766e',
+  ocean_blue: '#2563eb',
+  violet: '#7c3aed',
+  rose: '#e11d48',
+  amber: '#d97706'
+}
 export const defaultCustomThemeColor = '#2563eb'
 export const lightBackgroundPresets: LightBackgroundPreset[] = [
   'pure_white',
@@ -99,7 +111,8 @@ export function resolveAppearanceTheme(value: string): ResolvedAppearanceTheme {
   const customColor = customColorFromAppearanceTheme(theme) || defaultCustomThemeColor
 
   if (isAppearanceThemePreset(theme)) {
-    return { theme, dataTheme: theme, customColor, cssVars: {}, style: '' }
+    const cssVars = { '--sf-accent-contrast': accentContrastColor(appearanceThemeAccents[theme]) }
+    return { theme, dataTheme: theme, customColor, cssVars, style: cssVarsToStyle(cssVars) }
   }
 
   const cssVars = buildCustomThemeVars(customColor)
@@ -109,6 +122,21 @@ export function resolveAppearanceTheme(value: string): ResolvedAppearanceTheme {
 export function normalizeHexColor(value: string | undefined): string | null {
   const raw = value?.trim().toLowerCase().replace(/^#/, '') || ''
   return /^[0-9a-f]{6}$/.test(raw) ? `#${raw}` : null
+}
+
+/**
+ * 强调色上的前景色（UX2-12）。
+ *
+ * 旧实现用「相对亮度 > 0.55」当阈值：0.55 落在亮度中段，浅黄(#fde047)、青(#22d3ee)、
+ * 粉(#f9a8d4) 这类颜色会被判成「该用白字」，实际对比度只有 1.2–1.9:1。
+ * 现在直接比两种候选前景（白 / 墨黑）与强调色的对比度，取更高的那个——
+ * 这正是 WCAG 要求的方向，也自动覆盖 4.5:1 边界。
+ */
+export function accentContrastColor(color: string): string {
+  const rgb = hexToRgb(color)
+  const onWhite = contrastRatio(rgb, WHITE)
+  const onInk = contrastRatio(rgb, INK)
+  return onInk > onWhite ? INK_HEX : '#ffffff'
 }
 
 export function normalizeLightBackground(value: string | undefined): LightBackgroundPreset {
@@ -129,7 +157,7 @@ function buildCustomThemeVars(color: string): Record<string, string> {
     '--sf-accent-soft-border': mixHex(accent, '#ffffff', 0.68),
     '--sf-accent-dark': dark,
     '--sf-accent-rgb': `${rgb.r} ${rgb.g} ${rgb.b}`,
-    '--sf-accent-contrast': relativeLuminance(rgb) > 0.55 ? '#111827' : '#ffffff',
+    '--sf-accent-contrast': accentContrastColor(accent),
     '--sf-primary-50': mixHex(accent, '#ffffff', 0.94),
     '--sf-primary-100': mixHex(accent, '#ffffff', 0.88),
     '--sf-primary-200': mixHex(accent, '#ffffff', 0.72),
@@ -180,6 +208,19 @@ function mixHex(from: string, to: string, amount: number) {
 
 function rgbToHex(rgb: RGB) {
   return `#${[rgb.r, rgb.g, rgb.b].map(value => value.toString(16).padStart(2, '0')).join('')}`
+}
+
+const INK_HEX = '#111827'
+const INK: RGB = { r: 0x11, g: 0x18, b: 0x27 }
+const WHITE: RGB = { r: 255, g: 255, b: 255 }
+
+/** WCAG 对比度（(L1+0.05)/(L2+0.05)），用于挑选强调色上的前景。 */
+function contrastRatio(a: RGB, b: RGB) {
+  const first = relativeLuminance(a)
+  const second = relativeLuminance(b)
+  const lighter = Math.max(first, second)
+  const darker = Math.min(first, second)
+  return (lighter + 0.05) / (darker + 0.05)
 }
 
 function relativeLuminance(rgb: RGB) {

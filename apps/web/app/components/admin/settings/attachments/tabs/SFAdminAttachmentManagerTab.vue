@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { nextTick, ref } from 'vue'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { userDisplayName } from '~/utils/forum/userDisplay'
+import { announcePolite } from '~/utils/a11y/liveRegion'
 import {
   attachmentStatusColor,
   buildAttachmentListQuery,
@@ -21,6 +23,7 @@ const { request } = useApiClient()
 const loadingAttachments = ref(false)
 const loadingDetail = ref(false)
 const selected = ref<AttachmentDetail | null>(null)
+const detailHeading = ref<HTMLElement | null>(null)
 const list = ref<AttachmentList>({ items: [], total: 0, page: 1, perPage: 20 })
 const reconciling = ref(false)
 const reconcileApplying = ref(false)
@@ -62,6 +65,7 @@ async function fetchAttachments(page = list.value.page) {
       result = await requestAttachmentPage(lastPage)
     }
     list.value = result
+    announcePolite(t('admin.attachments.listLoaded', { total: result.total }))
   } catch (error) {
     toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.listLoadFailed') })
   } finally {
@@ -182,11 +186,20 @@ function replaceAttachment(item: AdminAttachment) {
   list.value.items = list.value.items.map(current => current.id === item.id ? item : current)
 }
 
-async function selectAttachment(item: AdminAttachment) {
+/**
+ * 选中一行（RV-25）。表格整行仍是鼠标热区，键盘走行内按钮；
+ * 键盘触发时把焦点送到详情标题，用户接着 Tab 就能到「打开/复制/停用/删除」这组按钮。
+ */
+async function selectAttachment(item: AdminAttachment, options: { focusDetail?: boolean } = {}) {
   selected.value = { ...item, references: selected.value?.id === item.id ? selected.value.references : [] }
+  if (options.focusDetail) {
+    await nextTick()
+    detailHeading.value?.focus()
+  }
   loadingDetail.value = true
   try {
     selected.value = await request<AttachmentDetail>(`/admin/attachments/${item.id}`)
+    announcePolite(t('admin.attachments.detailLoaded', { name: item.name }))
   } catch (error) {
     toast.add({ color: 'error', icon: 'i-lucide-triangle-alert', title: apiErrorMessage(error) || t('admin.attachments.detailLoadFailed') })
   } finally {
@@ -215,17 +228,17 @@ function isPreviewableImage(item: AdminAttachment) {
       <template #header>
         <div class="grid gap-3 lg:grid-cols-[1fr_150px_150px_150px_auto]">
           <UInput v-model="filters.query" size="lg" icon="i-lucide-search" :placeholder="t('admin.attachments.searchPlaceholder')" @keyup.enter="applyFilters" />
-          <select v-model="filters.provider" class="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950">
+          <select v-model="filters.provider" :aria-label="t('admin.attachments.filterProviderAria')" class="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950">
             <option value="">{{ t('admin.attachments.allProviders') }}</option>
             <option v-for="choice in providerChoices" :key="choice.value" :value="choice.value">{{ choice.label }}</option>
           </select>
-          <select v-model="filters.status" class="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950">
+          <select v-model="filters.status" :aria-label="t('admin.attachments.filterStatusAria')" class="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950">
             <option value="">{{ t('admin.attachments.allStatuses') }}</option>
             <option value="active">{{ t('admin.attachments.status.active') }}</option>
             <option value="disabled">{{ t('admin.attachments.status.disabled') }}</option>
             <option value="deleted">{{ t('admin.attachments.status.deleted') }}</option>
           </select>
-          <select v-model="filters.referenceStatus" class="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950">
+          <select v-model="filters.referenceStatus" :aria-label="t('admin.attachments.filterReferenceAria')" class="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950">
             <option value="">{{ t('admin.attachments.allReferences') }}</option>
             <option value="referenced">{{ t('admin.attachments.referenced') }}</option>
             <option value="orphan">{{ t('admin.attachments.orphan') }}</option>
@@ -265,7 +278,12 @@ function isPreviewableImage(item: AdminAttachment) {
           <tbody class="divide-y divide-slate-100 dark:divide-zinc-800">
             <tr v-for="item in list.items" :key="item.id" class="cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-950/60" @click="selectAttachment(item)">
               <td class="px-3 py-3">
-                <div class="flex min-w-[220px] items-center gap-3">
+                <button
+                  type="button"
+                  class="flex min-w-[220px] items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent-focus)]"
+                  :aria-current="selected?.id === item.id ? 'true' : undefined"
+                  @click.stop="selectAttachment(item, { focusDetail: $event.detail === 0 })"
+                >
                   <img v-if="isPreviewableImage(item)" :src="item.url" :alt="item.name" class="size-10 rounded-md border border-slate-200 object-cover dark:border-zinc-800" loading="lazy">
                   <div v-else class="grid size-10 place-items-center rounded-md border border-slate-200 bg-slate-50 text-slate-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
                     <UIcon name="i-lucide-file" class="size-5" />
@@ -274,7 +292,7 @@ function isPreviewableImage(item: AdminAttachment) {
                     <div class="truncate font-medium text-slate-900 dark:text-zinc-100">{{ item.name }}</div>
                     <div class="max-w-xs truncate font-mono text-xs text-slate-500 dark:text-zinc-400">{{ item.contentType }}</div>
                   </div>
-                </div>
+                </button>
               </td>
               <td class="px-3 py-3">{{ providerLabel(item.provider) }}</td>
               <td class="px-3 py-3">{{ humanFileSize(item.size) }}</td>
@@ -310,7 +328,7 @@ function isPreviewableImage(item: AdminAttachment) {
       <template v-if="selected">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <h3 class="truncate text-base font-bold text-slate-900 dark:text-zinc-100">{{ selected.name }}</h3>
+            <h3 ref="detailHeading" tabindex="-1" class="truncate text-base font-bold text-slate-900 outline-none dark:text-zinc-100">{{ selected.name }}</h3>
             <p class="mt-1 font-mono text-xs text-slate-500 dark:text-zinc-400">{{ selected.publicId }}</p>
           </div>
           <UBadge :color="attachmentStatusColor(selected.status)" variant="soft">{{ t(`admin.attachments.status.${selected.status}`) }}</UBadge>

@@ -10,6 +10,8 @@ import SFAdminFooter from '~/components/admin/SFAdminFooter.vue'
 import SFAdminTabStrip, { type AdminTabStripItem } from '~/components/admin/shell/SFAdminTabStrip.vue'
 import { adminTabElementId } from '~/utils/admin/adminTabStrip'
 import SFAdminSurfaceOutlet from '~/components/admin/SFAdminSurfaceOutlet.vue'
+import SFLiveRegion from '~/components/a11y/SFLiveRegion.vue'
+import { announcePolite } from '~/utils/a11y/liveRegion'
 import SFAdminSystemUpdatePrompt from '~/components/admin/system/SFAdminSystemUpdatePrompt.vue'
 import {
   ADMIN_DASHBOARD_PAGE_ID,
@@ -165,6 +167,12 @@ const activeTabLabel = computed(() => {
     return activeTab.label
   }
   return activeTab?.labelKey ? t(activeTab.labelKey) : t(requireAdminPageDefinition('/').labelKey)
+})
+
+// UX2-17：路由切换后把当前页标题播报给读屏（内容与面包屑同源，避免两套标题口径）。
+// 不加 immediate：首屏标题由 document.title 承担，服务端也不该写这份模块级状态。
+watch(activeTabLabel, (label) => {
+  announcePolite(label)
 })
 
 // 后台 SEO 标题固定为：页面名 - 管理后台 - 网站名（覆盖 app.vue 的前台模板）
@@ -540,6 +548,8 @@ async function signOut() {
 
 <template>
   <UDashboardGroup storage-key="sforum-admin" class="sforum-admin-shell">
+    <!-- 全局 live region：路由公告与各页面异步结果都写这里，页面内不再自建 aria-live -->
+    <SFLiveRegion />
     <!-- 键盘用户不必 Tab 过 50+ 个侧栏导航项：聚焦时才从视口上方滑入 -->
     <a
       href="#sforum-admin-main"

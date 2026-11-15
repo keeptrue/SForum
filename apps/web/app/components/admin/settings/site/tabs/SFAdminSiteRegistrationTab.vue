@@ -6,6 +6,7 @@ import { adminOptionMap, useAdminOptionTab } from '~/composables/admin/settings/
 import { useSettingsSection } from '~/composables/settings/useSettingsSection'
 import { resolveRegistrationMode, type RegistrationMode } from '~/utils/settings/registrationPolicy'
 import { joinCooldownMinutes, splitCooldownMinutes } from '~/utils/settings/nicknamePolicy'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const props = defineProps<{ items: AdminWebOption[] }>()
 const emit = defineEmits<{ saved: [items: AdminWebOption[]] }>()
@@ -166,12 +167,12 @@ function blockNonIntegerKey(event: KeyboardEvent) {
           <UButton type="button" color="neutral" variant="outline" leading-icon="i-lucide-rotate-ccw" @click="restoreRecommended">{{ t('admin.settings.registration.restoreDefaults') }}</UButton>
         </div>
         <UFormField :label="t('admin.settings.registration.mode')" name="registration-mode">
-          <select v-model="form.registrationMode" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
+          <SFNativeSelect v-model="form.registrationMode" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
             <option value="open">{{ t('admin.settings.registration.modes.open') }}</option>
             <option value="invite">{{ t('admin.settings.registration.modes.invite') }}</option>
             <option value="approval">{{ t('admin.settings.registration.modes.approval') }}</option>
             <option value="closed">{{ t('admin.settings.registration.modes.closed') }}</option>
-          </select>
+          </SFNativeSelect>
           <p class="mt-2 text-xs text-muted">{{ t('admin.settings.registration.modeHint') }}</p>
         </UFormField>
         <div class="grid gap-3 md:grid-cols-2">
@@ -198,10 +199,10 @@ function blockNonIntegerKey(event: KeyboardEvent) {
             </UFormField>
           </div>
           <UFormField :label="t('admin.settings.registration.usernameCharset')" name="username-charset">
-            <select v-model="form.usernameCharset" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
+            <SFNativeSelect v-model="form.usernameCharset" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
               <option value="unicode_letters_numbers">{{ t('admin.settings.registration.charsetUnicode') }}</option>
               <option value="ascii">{{ t('admin.settings.registration.charsetAscii') }}</option>
-            </select>
+            </SFNativeSelect>
           </UFormField>
           <UFormField :label="t('admin.settings.registration.usernameReserved')" :description="t('admin.settings.registration.usernameReservedHint')" name="username-reserved">
             <UTextarea v-model="form.usernameReserved" :rows="3" class="w-full" :placeholder="t('admin.settings.registration.usernameReservedPlaceholder')" />

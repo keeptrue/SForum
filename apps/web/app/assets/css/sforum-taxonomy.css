@@ -52,7 +52,7 @@
 .sforum-taxonomy__chip.is-active {
   background: var(--sf-accent);
   border-color: var(--sf-accent);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
 }
 
 .sforum-taxonomy__filter {

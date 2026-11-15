@@ -61,7 +61,7 @@ const emit = defineEmits<{
           :leading-icon="submitIcon"
           :loading="saving"
           :disabled="disabled"
-          class="bg-[var(--sf-accent)] hover:bg-[var(--sf-accent-hover)] text-white font-semibold"
+          class="bg-[var(--sf-accent)] hover:bg-[var(--sf-accent-hover)] text-[var(--sf-accent-contrast)] font-semibold"
           @click="emit('submit')"
         >
           {{ submitText || t('admin.form.save') }}

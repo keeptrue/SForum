@@ -4,6 +4,7 @@ import { normalizeSEOTwitterCard } from '~/composables/useWebOptions'
 import { useAdminOptionForm } from '~/composables/admin/settings/useAdminOptionForm'
 import SFAdminSeoTabFrame from '../SFAdminSeoTabFrame.vue'
 import SFSEOImagePicker from './SFSEOImagePicker.vue'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const props = defineProps<{ items: AdminWebOption[] }>()
 const emit = defineEmits<{ saved: [items: AdminWebOption[]] }>()
@@ -41,7 +42,7 @@ const form = useAdminOptionForm(
       <UFormField :label="t('admin.seo.metaKeywords')" name="meta-keywords"><UInput v-model="form.form.keywords" class="w-full" /></UFormField>
       <SFSEOImagePicker v-model="form.form.imageUrl" context="default-og-image" :label="t('admin.seo.ogImageUrl')" recommended="1200 x 630" />
       <div class="grid gap-4 md:grid-cols-2">
-        <UFormField :label="t('admin.seo.twitterCard')" name="twitter-card"><select v-model="form.form.twitterCard" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="summary_large_image">{{ t('admin.seo.twitterCardLarge') }}</option><option value="summary">{{ t('admin.seo.twitterCardSummary') }}</option></select></UFormField>
+        <UFormField :label="t('admin.seo.twitterCard')" name="twitter-card"><SFNativeSelect v-model="form.form.twitterCard" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="summary_large_image">{{ t('admin.seo.twitterCardLarge') }}</option><option value="summary">{{ t('admin.seo.twitterCardSummary') }}</option></SFNativeSelect></UFormField>
         <UFormField :label="t('admin.seo.twitterSite')" name="twitter-site"><UInput v-model="form.form.twitterSite" placeholder="@sforum" class="w-full" /></UFormField>
       </div>
     </div>

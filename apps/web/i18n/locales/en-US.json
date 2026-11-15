@@ -2369,6 +2369,8 @@
         "title": "Plugin management",
         "intro": "Manage extension packages declared as plugins. Plugin activation still passes backend entry preflight and API permission checks.",
         "count": "{count} plugin(s) installed",
+        "listLoaded": "Loaded {count} plugins.",
+        "listLoadFailed": "Plugins could not be loaded.",
         "emptyTitle": "No plugins installed",
         "emptyDescription": "Upload an extension ZIP with type plugin to enable or disable plugins here.",
         "autoUpdate": {
@@ -3160,6 +3162,14 @@
       "openSchedules": "Open scheduled jobs",
       "actions": "Actions",
       "filterKind": "Filter by job kind",
+      "filterStateAria": "Filter by job state",
+      "filterQueueAria": "Filter by queue",
+      "detail": "View job details",
+      "retry": "Retry job",
+      "cancel": "Cancel job",
+      "closeDetail": "Close job details",
+      "listLoaded": "Loaded {count} jobs.",
+      "listLoadFailed": "Jobs could not be loaded.",
       "allStates": "All states",
       "allQueues": "All queues",
       "empty": "No jobs match the current filters.",
@@ -3513,6 +3523,11 @@
       "empty": "No attachments yet.",
       "selectOne": "Select an attachment to inspect it.",
       "listLoadFailed": "Attachments could not be loaded.",
+      "listLoaded": "Loaded {total} attachments.",
+      "filterProviderAria": "Filter by storage provider",
+      "filterStatusAria": "Filter by attachment status",
+      "filterReferenceAria": "Filter by reference status",
+      "detailLoaded": "Loaded details for {name}.",
       "detailLoadFailed": "Attachment details could not be loaded.",
       "loadingDetail": "Loading attachment details...",
       "statusUpdated": "Attachment status updated.",
@@ -4211,6 +4226,9 @@
       "loadFailed": "Database tables could not be loaded.",
       "detailLoadFailed": "Table details could not be loaded.",
       "rowsLoadFailed": "Rows could not be loaded.",
+      "filterColumnAria": "Filter by column",
+      "filterOperatorAria": "Filter operator",
+      "rowsLoaded": "Loaded {count} rows.",
       "revealFailed": "Sensitive value could not be revealed.",
       "exportFailed": "CSV export failed.",
       "schema": "Schema",
@@ -4676,6 +4694,9 @@
         "labelZh": "Chinese label",
         "labelEn": "English label",
         "urlPlaceholder": "Example: /terms, https://example.com, or #",
+        "linkFieldZh": "Footer link {index} ({key}) Chinese label",
+        "linkFieldEn": "Footer link {index} ({key}) English label",
+        "linkFieldUrl": "Footer link {index} ({key}) URL",
         "linkKeys": {
           "terms": "Terms",
           "privacy": "Privacy",
@@ -5246,7 +5267,8 @@
       "edit": "Edit",
       "delete": "Delete",
       "cancel": "Cancel",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "settingsLoaded": "Settings loaded."
     },
     "forum": {
       "visibility": {
@@ -6725,7 +6747,8 @@
         "registration": "Registration",
         "registrationHelp": "Allow explicit {provider}-backed account creation (still obeys site registration policy).",
         "link": "Account linking",
-        "linkHelp": "Signed-in users can link {provider} from account security."
+        "linkHelp": "Signed-in users can link {provider} from account security.",
+        "switchAriaLabel": "{provider}: {operation}"
       },
       "revision": "Config revision={revision}",
       "callbackTitle": "Callback URL",

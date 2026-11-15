@@ -18,6 +18,7 @@ import {
 } from '~/composables/useWebOptions'
 import { adminOptionMap, useAdminOptionTab } from '~/composables/admin/settings/useAdminOptionTab'
 import { useSettingsSection } from '~/composables/settings/useSettingsSection'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const props = defineProps<{ items: AdminWebOption[] }>()
 const emit = defineEmits<{ saved: [items: AdminWebOption[]] }>()
@@ -256,10 +257,10 @@ function blockNonIntegerKey(event: KeyboardEvent) {
           <UButton type="button" color="neutral" variant="outline" leading-icon="i-lucide-rotate-ccw" @click="restoreRecommended">{{ t('admin.settings.verification.restoreDefaults') }}</UButton>
         </div>
         <UFormField :label="t('admin.settings.verification.provider')" name="verification-provider">
-          <select v-model="form.provider" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
+          <SFNativeSelect v-model="form.provider" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950">
             <option value="disabled">{{ t('admin.settings.verification.disabled') }}</option>
             <option value="altcha">{{ t('admin.settings.verification.altcha') }}</option>
-          </select>
+          </SFNativeSelect>
         </UFormField>
 
         <section class="space-y-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
@@ -301,15 +302,15 @@ function blockNonIntegerKey(event: KeyboardEvent) {
           <div><h3 class="text-sm font-semibold">{{ t('admin.settings.verification.widget.title') }}</h3><p class="mt-1 text-xs text-muted">{{ t('admin.settings.verification.widget.description') }}</p></div>
           <div class="grid gap-4 md:grid-cols-3">
             <UFormField :label="t('admin.settings.verification.widget.type')" name="widget-type">
-              <select v-model="form.widgetType" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select>
+              <SFNativeSelect v-model="form.widgetType" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</option></SFNativeSelect>
               <p class="mt-2 text-xs text-muted">{{ t('admin.settings.verification.widget.typeHint') }}</p>
             </UFormField>
             <UFormField :label="t('admin.settings.verification.widget.auto')" name="widget-auto">
-              <select v-model="form.widgetAuto" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in autoOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select>
+              <SFNativeSelect v-model="form.widgetAuto" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in autoOptions" :key="item.value" :value="item.value">{{ item.label }}</option></SFNativeSelect>
               <p class="mt-2 text-xs text-muted">{{ t('admin.settings.verification.widget.autoHint') }}</p>
             </UFormField>
             <UFormField :label="t('admin.settings.verification.widget.display')" name="widget-display">
-              <select v-model="form.widgetDisplay" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in displayOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select>
+              <SFNativeSelect v-model="form.widgetDisplay" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in displayOptions" :key="item.value" :value="item.value">{{ item.label }}</option></SFNativeSelect>
               <p class="mt-2 text-xs text-muted">{{ t('admin.settings.verification.widget.displayHint') }}</p>
             </UFormField>
           </div>

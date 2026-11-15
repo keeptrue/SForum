@@ -119,10 +119,13 @@ afterAll(() => {
 
 const { useModerationReportDialog } = await import('~/composables/moderation/useModerationReportDialog')
 
+const { createFocusTrap } = await import('../../app/utils/a11y/focusTrap')
+
 const SFReportDialog = await compileSfcSource(
   await Bun.file(fileURLToPath(new URL('../../app/components/moderation/SFReportDialog.vue', import.meta.url))).text(),
   'sf-report-dialog',
-  { useI18n: () => ({ t: (key: string) => key }) }
+  // 组件新增了焦点陷阱依赖（RV-23）：SFC 里的 import 会被编译器剥掉，这里注入真实实现。
+  { useI18n: () => ({ t: (key: string) => key }), createFocusTrap }
 )
 
 /**

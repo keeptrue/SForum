@@ -73,7 +73,7 @@ defineExpose({ refresh: load, pending })
           :key="step.title"
           class="flex gap-3 py-4"
         >
-          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--sf-accent)] text-xs font-bold text-white">{{ index + 1 }}</span>
+          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--sf-accent)] text-xs font-bold text-[var(--sf-accent-contrast)]">{{ index + 1 }}</span>
           <span><strong class="block text-sm">{{ step.title }}</strong><span class="mt-1 block text-xs leading-5 text-muted">{{ step.help }}</span></span>
         </li>
       </ol>

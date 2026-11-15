@@ -310,12 +310,12 @@
 
 .sf-home-right-rail__action--primary {
   background: var(--sf-accent);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
 }
 
 .sf-home-right-rail__action--primary:hover {
   background: var(--sf-accent-hover);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
 }
 
 .sf-home-right-rail__action--soft {
@@ -638,13 +638,13 @@
   flex-shrink: 0;
   margin: 0 0 18px;
   background: var(--sf-accent);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
   font-weight: 700;
 }
 
 .sf-home-navigation__compose:hover {
   background: var(--sf-accent-hover);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
 }
 
 .sf-home-navigation__label {

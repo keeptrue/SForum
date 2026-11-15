@@ -3144,6 +3144,16 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.admin.sf_live_region",
+    "contractVersion": "sforum.component.admin.sf_live_region@1",
+    "kind": "component",
+    "source": "apps/web/app/components/a11y/SFLiveRegion.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
+  },
+  {
     "id": "core.component.shared.sflocal_password_settings_page",
     "contractVersion": "sforum.component.shared.sflocal_password_settings_page@1",
     "kind": "component",
@@ -3202,6 +3212,16 @@
       "public"
     ],
     "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.admin.sf_native_select",
+    "contractVersion": "sforum.component.admin.sf_native_select@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forms/SFNativeSelect.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7/P9 Admin and Component Registries"
   },
   {
     "id": "core.component.shared.sfnavbar",

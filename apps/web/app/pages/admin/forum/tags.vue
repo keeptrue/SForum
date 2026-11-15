@@ -9,6 +9,7 @@ import {
 } from '~/utils/admin/adminForum'
 import { taxonomyColorInputValue, taxonomyIconColor } from '~/utils/forum/forumTaxonomy'
 import type { ForumTag, ForumTagStatus } from '~/utils/forum/forumTaxonomy'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 definePageMeta({
   middleware: 'admin',
@@ -348,11 +349,11 @@ function errorToast(error: unknown, fallback: string) {
           </UFormField>
 
           <UFormField :label="t('admin.forum.tags.status')" name="tag-status">
-            <select v-model="form.status" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+            <SFNativeSelect v-model="form.status" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
               <option v-for="status in forumTagStatusChoices" :key="status" :value="status">
                 {{ t(`admin.forum.tagStatus.${status}`) }}
               </option>
-            </select>
+            </SFNativeSelect>
           </UFormField>
 
           <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">

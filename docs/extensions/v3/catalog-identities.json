@@ -7027,6 +7027,26 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/forum/badges/SFBadgeDetailBody.vue"
+    },
+    {
+      "id": "core.component.admin.sf_live_region",
+      "contractVersion": "sforum.component.admin.sf_live_region@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/a11y/SFLiveRegion.vue"
+    },
+    {
+      "id": "core.component.admin.sf_native_select",
+      "contractVersion": "sforum.component.admin.sf_native_select@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forms/SFNativeSelect.vue"
     }
   ]
 }

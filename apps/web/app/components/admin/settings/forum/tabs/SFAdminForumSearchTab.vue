@@ -4,6 +4,7 @@ import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { createAdminForumApi } from '~/utils/admin/adminForum'
 import type { SearchProviderItem, SearchProvidersState } from '~/utils/admin/adminForum'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const { t } = useI18n()
 const toast = useToast()
@@ -128,7 +129,7 @@ function failure(error: unknown, fallback: string) {
           <SFEmptyState v-if="!loading && providers.length === 0" icon-label="SRC" :title="t('admin.forum.settings.search.emptyProviders')" :description="t('admin.forum.settings.search.emptyProvidersHelp')" />
           <template v-else>
             <UFormField :label="t('admin.forum.settings.search.provider')" name="search-provider">
-              <select v-model="selected" :disabled="loading || saving" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in providerItems" :key="item.value" :value="item.value">{{ item.label }}</option></select>
+              <SFNativeSelect v-model="selected" :disabled="loading || saving" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option v-for="item in providerItems" :key="item.value" :value="item.value">{{ item.label }}</option></SFNativeSelect>
             </UFormField>
             <div class="flex flex-wrap gap-2">
               <UButton type="button" leading-icon="i-lucide-check" :loading="saving" :disabled="!dirty" @click="save">{{ t('admin.forum.settings.search.selectAction') }}</UButton>

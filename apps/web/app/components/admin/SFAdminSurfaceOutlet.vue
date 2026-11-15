@@ -11,6 +11,7 @@ import {
   type AdminSurfacePrimitive,
   type AdminSurfaceViewModel
 } from '~/utils/admin/adminSurfaces'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 type ResolvedSurface = {
   surface: AdminSurfaceContract
@@ -303,14 +304,14 @@ function displayValue(value: AdminSurfacePrimitive) {
               :model-value="formValues[item.surface.id]?.[field.key] === true"
               @update:model-value="setFieldValue(item.surface.id, field.key, $event === true)"
             />
-            <select
+            <SFNativeSelect
               v-else-if="field.type === 'select'"
               :value="String(formValues[item.surface.id]?.[field.key] ?? '')"
               class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               @change="setFieldValue(item.surface.id, field.key, ($event.target as HTMLSelectElement).value)"
             >
               <option v-for="option in field.options" :key="option.value" :value="option.value">{{ option.label }}</option>
-            </select>
+            </SFNativeSelect>
             <UInput
               v-else
               :type="field.type === 'number' ? 'number' : 'text'"

@@ -3,6 +3,7 @@ import { usePermissions } from '~/composables/identity/usePermissions'
 import type { ForumSettings } from '~/utils/forum/forumTaxonomy'
 import { useAdminForumSettingsTab } from '~/composables/admin/settings/useAdminForumSettingsTab'
 import SFAdminForumTabFrame from '../SFAdminForumTabFrame.vue'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const props = defineProps<{ settings: ForumSettings }>()
 const emit = defineEmits<{ saved: [settings: ForumSettings] }>()
@@ -30,8 +31,8 @@ const checks = [
     <section class="grid gap-4 border-t border-slate-200 pt-5 dark:border-zinc-800 md:grid-cols-2">
       <UFormField :label="t('admin.forum.settings.autoLockIdleDays')" name="auto-lock"><UInputNumber v-model="tab.form.autoLockIdleDays" :min="0" :max="3650" :disabled="!canManage" class="w-full" /></UFormField>
       <UFormField :label="t('admin.forum.settings.mentionsMaxPerPost')" name="mentions-max"><UInputNumber v-model="tab.form.mentionsMaxPerPost" :min="0" :max="50" :disabled="!canManage" class="w-full" /></UFormField>
-      <UFormField :label="t('admin.forum.settings.duplicateTitlePolicy')" name="dup-title"><select v-model="tab.form.duplicateTitlePolicy" :disabled="!canManage" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="off">{{ t('admin.forum.settings.duplicateOff') }}</option><option value="block">{{ t('admin.forum.settings.duplicateBlock') }}</option></select></UFormField>
-      <UFormField :label="t('admin.forum.settings.softDeleteVisibility')" name="soft-delete"><select v-model="tab.form.softDeleteVisibility" :disabled="!canManage" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="author_and_staff">{{ t('admin.forum.settings.softDeleteAuthorStaff') }}</option><option value="staff_only">{{ t('admin.forum.settings.softDeleteStaffOnly') }}</option><option value="hidden">{{ t('admin.forum.settings.softDeleteHidden') }}</option></select></UFormField>
+      <UFormField :label="t('admin.forum.settings.duplicateTitlePolicy')" name="dup-title"><SFNativeSelect v-model="tab.form.duplicateTitlePolicy" :disabled="!canManage" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="off">{{ t('admin.forum.settings.duplicateOff') }}</option><option value="block">{{ t('admin.forum.settings.duplicateBlock') }}</option></SFNativeSelect></UFormField>
+      <UFormField :label="t('admin.forum.settings.softDeleteVisibility')" name="soft-delete"><SFNativeSelect v-model="tab.form.softDeleteVisibility" :disabled="!canManage" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 dark:border-zinc-700 dark:bg-zinc-950"><option value="author_and_staff">{{ t('admin.forum.settings.softDeleteAuthorStaff') }}</option><option value="staff_only">{{ t('admin.forum.settings.softDeleteStaffOnly') }}</option><option value="hidden">{{ t('admin.forum.settings.softDeleteHidden') }}</option></SFNativeSelect></UFormField>
     </section>
   </SFAdminForumTabFrame>
 </template>

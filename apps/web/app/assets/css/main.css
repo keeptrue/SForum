@@ -362,7 +362,7 @@ body {
    * 解决当前浏览器默认选中色不美观、背景融合度低的问题。 */
   ::selection {
     background-color: var(--sf-accent);
-    color: white;
+    color: var(--sf-accent-contrast, #ffffff);
   }
 }
 

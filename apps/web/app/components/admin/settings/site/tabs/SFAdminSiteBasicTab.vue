@@ -17,6 +17,7 @@ import {
   type SiteTimeFormat
 } from '~/utils/siteDateTime'
 import { normalizeSiteDomain, siteDomainFromUrl } from '~/utils/settings/siteDomain'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 const props = defineProps<{ items: AdminWebOption[] }>()
 const emit = defineEmits<{ saved: [items: AdminWebOption[]] }>()
@@ -220,9 +221,9 @@ function useSiteUrlDomain() {
           <template #hint>{{ t('admin.settings.adminEmailHint') }}</template>
         </UFormField>
         <UFormField :label="t('admin.settings.defaultLocale')" name="default-locale">
-          <select v-model="form.defaultLocale" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
+          <SFNativeSelect v-model="form.defaultLocale" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
             <option v-for="choice in localeChoices.filter(choice => form.supportedLocales.includes(choice.value))" :key="choice.value" :value="choice.value">{{ choice.label }}</option>
-          </select>
+          </SFNativeSelect>
         </UFormField>
         <UFormField :label="t('admin.settings.supportedLocales')" name="supported-locales">
           <div class="flex flex-wrap gap-3">
@@ -245,25 +246,25 @@ function useSiteUrlDomain() {
           </div>
           <div class="grid gap-4 md:grid-cols-2">
             <UFormField :label="t('admin.settings.basic.timezone')" name="site-timezone" class="md:col-span-2">
-              <select v-model="form.timezone" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
+              <SFNativeSelect v-model="form.timezone" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
                 <option v-for="choice in timezoneChoices" :key="choice.value" :value="choice.value">{{ choice.label }}</option>
-              </select>
+              </SFNativeSelect>
               <template #hint>{{ t('admin.settings.basic.timezoneHint') }}</template>
             </UFormField>
             <UFormField :label="t('admin.settings.basic.dateFormat')" name="site-date-format">
-              <select v-model="form.dateFormat" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
+              <SFNativeSelect v-model="form.dateFormat" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
                 <option v-for="choice in dateFormatChoices" :key="choice.value" :value="choice.value">{{ choice.label }}</option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
             <UFormField :label="t('admin.settings.basic.timeFormat')" name="site-time-format">
-              <select v-model="form.timeFormat" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
+              <SFNativeSelect v-model="form.timeFormat" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
                 <option v-for="choice in timeFormatChoices" :key="choice.value" :value="choice.value">{{ choice.label }}</option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
             <UFormField :label="t('admin.settings.basic.startOfWeek')" name="site-start-of-week" class="md:col-span-2">
-              <select v-model.number="form.startOfWeek" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
+              <SFNativeSelect v-model.number="form.startOfWeek" class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base outline-none focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950">
                 <option v-for="choice in startOfWeekChoices" :key="choice.value" :value="choice.value">{{ choice.label }}</option>
-              </select>
+              </SFNativeSelect>
               <template #hint>{{ t('admin.settings.basic.startOfWeekHint') }}</template>
             </UFormField>
           </div>

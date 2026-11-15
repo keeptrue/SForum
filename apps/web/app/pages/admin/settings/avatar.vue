@@ -10,7 +10,9 @@ import {
 } from '~/composables/useWebOptions'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { apiErrorMessage } from '~/composables/useApiClient'
+import { announcePolite } from '~/utils/a11y/liveRegion'
 import SFAdminFormFooter from '~/components/admin/SFAdminFormFooter.vue'
+import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 definePageMeta({
   middleware: 'admin',
@@ -102,6 +104,7 @@ async function load() {
   try {
     const envelope = await fetchAdminEnvelope()
     applyAdminOptions(envelope.data)
+    announcePolite(t('admin.common.settingsLoaded'))
   } catch (error) {
     loadError.value = apiErrorMessage(error) || t('admin.avatar.loadFailed')
   } finally {
@@ -304,14 +307,14 @@ function boundedNumber(value: number, fallback: number, min: number, max: number
               <UInput size="lg" v-model="form.gravatarBaseUrl" type="url" icon="i-lucide-link" class="w-full" />
             </UFormField>
             <UFormField :label="t('admin.avatar.gravatarHashAlgorithm')" name="avatar-gravatar-hash">
-              <select
+              <SFNativeSelect
                 v-model="form.gravatarHashAlgorithm"
                 class="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base text-slate-900 outline-none transition focus:border-[var(--sf-accent)] focus:ring-2 focus:ring-[var(--sf-accent-focus)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
               >
                 <option v-for="option in hashOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
                 </option>
-              </select>
+              </SFNativeSelect>
             </UFormField>
           </div>
 
@@ -417,7 +420,7 @@ function boundedNumber(value: number, fallback: number, min: number, max: number
               leading-icon="i-lucide-save"
               :loading="saving"
               :disabled="pending || restoring"
-              class="bg-[var(--sf-accent)] font-semibold text-white hover:bg-[var(--sf-accent-hover)]"
+              class="bg-[var(--sf-accent)] font-semibold text-[var(--sf-accent-contrast)] hover:bg-[var(--sf-accent-hover)]"
               @click="saveSettings()"
             >
               {{ t('admin.avatar.save') }}

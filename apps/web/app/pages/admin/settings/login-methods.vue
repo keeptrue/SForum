@@ -92,6 +92,18 @@ function supportsOp(item: AdminIdentityProvider, op: 'login' | 'registration' | 
   return adminProviderSupportsOp(item, op)
 }
 
+/**
+ * 开关的可访问名称（UX2-10）：旁边那段文案是兄弟节点、不是 label，
+ * 所以读屏里三个开关都叫「开关」。名称里必须带操作类型 + 当前提供方，
+ * 否则同一页里三个开关仍然无法区分。
+ */
+function operationSwitchLabel(op: 'login' | 'registration' | 'link') {
+  return t('admin.loginMethods.ops.switchAriaLabel', {
+    operation: t(`admin.loginMethods.ops.${op}`),
+    provider: selectedProviderLabel.value
+  })
+}
+
 // T8B：label/icon 只消费 Host catalog，禁止 id 子串猜品牌。
 function providerIcon(item: AdminIdentityProvider) {
   return adminProviderIcon(item)
@@ -559,6 +571,8 @@ watch(locale, () => {
                       </div>
                       <USwitch
                         :model-value="selectedProvider?.loginEnabled"
+                        :aria-label="operationSwitchLabel('login')"
+                        :title="operationSwitchLabel('login')"
                         :disabled="saving || !supportsOp(selectedProvider!, 'login') || !selectedProvider?.enabled"
                         @update:model-value="toggleOperation(selectedProvider!, 'login', Boolean($event))"
                       />
@@ -570,6 +584,8 @@ watch(locale, () => {
                       </div>
                       <USwitch
                         :model-value="selectedProvider?.registrationEnabled"
+                        :aria-label="operationSwitchLabel('registration')"
+                        :title="operationSwitchLabel('registration')"
                         :disabled="saving || !supportsOp(selectedProvider!, 'registration') || !selectedProvider?.enabled"
                         @update:model-value="toggleOperation(selectedProvider!, 'registration', Boolean($event))"
                       />
@@ -581,6 +597,8 @@ watch(locale, () => {
                       </div>
                       <USwitch
                         :model-value="selectedProvider?.linkEnabled"
+                        :aria-label="operationSwitchLabel('link')"
+                        :title="operationSwitchLabel('link')"
                         :disabled="saving || !supportsOp(selectedProvider!, 'link') || !selectedProvider?.enabled"
                         @update:model-value="toggleOperation(selectedProvider!, 'link', Boolean($event))"
                       />

@@ -411,13 +411,13 @@
 .sforum-topic-page__action-btn--primary {
   border-color: var(--sf-accent);
   background: var(--sf-accent);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
 }
 
 .sforum-topic-page__action-btn--primary:hover {
   background: var(--sf-accent-hover);
   border-color: var(--sf-accent-hover);
-  color: #fff;
+  color: var(--sf-accent-contrast, #fff);
 }
 
 .sforum-topic-page__mobile-reply {
@@ -837,7 +837,7 @@
     border-radius: var(--sf-public-radius, 6px);
     padding: 0.55rem 0.8rem;
     background: var(--sf-accent);
-    color: #ffffff;
+    color: var(--sf-accent-contrast, #ffffff);
     font-size: 0.82rem;
     font-weight: 600;
   }

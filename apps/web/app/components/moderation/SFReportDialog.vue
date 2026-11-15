@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { createFocusTrap } from '~/utils/a11y/focusTrap'
+
 export type ReportReasonOption = {
   label: string
   value: string
 }
 
-defineProps<{
+const props = defineProps<{
   open: boolean
   reasons: ReportReasonOption[]
   reason: string
@@ -23,6 +26,29 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const dialogElement = ref<HTMLElement | null>(null)
+
+/**
+ * 自绘 dialog 的键盘契约（RV-23）：初始焦点落在对话框本身（读屏先读标题），
+ * Tab/Shift+Tab 在对话框内循环，Esc 关闭，关闭后焦点归还给触发按钮。
+ * 错误/成功提示由 `SFAlert` 的 role="alert"/"status" 播报，这里不重复公告。
+ */
+const focusTrap = createFocusTrap({
+  container: () => dialogElement.value,
+  onEscape: () => emit('close'),
+  resolveInitialFocus: container => container
+})
+
+watch(() => props.open, async (open) => {
+  if (open) {
+    await nextTick()
+    focusTrap.activate()
+    return
+  }
+  focusTrap.deactivate()
+}, { immediate: true })
+
+onBeforeUnmount(() => focusTrap.deactivate({ restoreFocus: false }))
 
 function updateBody(event: Event) {
   emit('update:body', (event.target as HTMLTextAreaElement).value)
@@ -33,10 +59,12 @@ function updateBody(event: Event) {
   <Teleport to="body">
     <div v-if="open" class="sf-report-dialog__overlay" @click.self="emit('close')">
       <section
+        ref="dialogElement"
         class="sf-report-dialog"
         role="dialog"
         aria-modal="true"
         :aria-labelledby="'sf-report-dialog-title'"
+        tabindex="-1"
       >
         <header class="sf-report-dialog__header">
           <h2 id="sf-report-dialog-title">{{ t('moderation.reportTitle') }}</h2>

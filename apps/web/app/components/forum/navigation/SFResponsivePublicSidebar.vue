@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { useId } from 'vue'
+import { nextTick, onBeforeUnmount, ref, useAttrs, useId, watch } from 'vue'
 import { usePublicSidebarDrawer } from '~/composables/navigation/usePublicSidebarDrawer'
+import { createFocusTrap } from '~/utils/a11y/focusTrap'
 
 defineOptions({ inheritAttrs: false })
 
@@ -20,7 +21,30 @@ watch(() => props.ownerId, (nextOwnerId) => {
   claimOwner(nextOwnerId, ownerToken)
 })
 
+const surfaceElement = ref<HTMLElement | null>(null)
+
+/**
+ * 移动端抽屉的键盘契约（RV-24）：抽屉打开时对读屏是 dialog（role/aria-modal/名称），
+ * 初始焦点落在抽屉本身，Tab 在抽屉内循环，Esc 关闭，关闭后焦点回到汉堡按钮。
+ * 关闭态下这块就是桌面端普通侧栏，不能带 dialog 语义，所以语义全部跟着 `open` 走。
+ */
+const focusTrap = createFocusTrap({
+  container: () => surfaceElement.value,
+  onEscape: () => closeDrawer(),
+  resolveInitialFocus: container => container
+})
+
+watch(open, async (isOpen) => {
+  if (!isOpen) {
+    focusTrap.deactivate()
+    return
+  }
+  await nextTick()
+  focusTrap.activate()
+})
+
 onBeforeUnmount(() => {
+  focusTrap.deactivate({ restoreFocus: false })
   releaseOwner(ownerToken)
 })
 
@@ -48,8 +72,13 @@ function handleContentClick(event: MouseEvent) {
       @click="closeDrawer"
     />
     <div
+      ref="surfaceElement"
       class="sf-responsive-public-sidebar__surface"
       :class="{ 'sforum-mobile-drawer sforum-mobile-drawer--left': open }"
+      :role="open ? 'dialog' : undefined"
+      :aria-modal="open ? 'true' : undefined"
+      :aria-label="open ? title : undefined"
+      :tabindex="open ? -1 : undefined"
       data-navigation-location="public.sidebar.primary"
       :data-navigation-viewport="open ? 'mobile' : 'desktop'"
       @click="handleContentClick"

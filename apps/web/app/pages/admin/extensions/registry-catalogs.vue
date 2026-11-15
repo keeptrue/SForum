@@ -225,10 +225,11 @@ useSeoMeta({ title: t('admin.extensions.registryCatalogs.metaTitle') })
           <div class="px-4 py-4">
             <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto] lg:items-end">
               <div class="min-w-0">
-                <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-zinc-300">
+                <label for="registry-catalogs-dry-run-entity" class="mb-1 block text-xs font-medium text-slate-600 dark:text-zinc-300">
                   {{ t('admin.extensions.registryCatalogs.entityId') }}
                 </label>
                 <USelect
+                  id="registry-catalogs-dry-run-entity"
                   v-model="dryRunEntityId"
                   :items="entityOptions"
                   value-key="value"
@@ -237,10 +238,11 @@ useSeoMeta({ title: t('admin.extensions.registryCatalogs.metaTitle') })
                 />
               </div>
               <div class="min-w-0">
-                <label class="mb-1 block text-xs font-medium text-slate-600 dark:text-zinc-300">
+                <label for="registry-catalogs-dry-run-action" class="mb-1 block text-xs font-medium text-slate-600 dark:text-zinc-300">
                   {{ t('admin.extensions.registryCatalogs.action') }}
                 </label>
                 <USelect
+                  id="registry-catalogs-dry-run-action"
                   v-model="dryRunAction"
                   :items="actionItems"
                   value-key="value"
