@@ -275,7 +275,12 @@ override 注入。
 | `SFORUM_VERSION` | 无 | 目标不可变标签；`compose.release.yaml` 必需 |
 | `SFORUM_REGISTRY` | `ghcr.io/keeptrue` | 镜像仓库前缀 |
 | `COMPOSE_PROJECT_NAME` | `sforum` | Compose 项目名；影响容器与卷命名 |
-| `SFORUM_BACKUP_DIR` | `./backups` | 备份目录 |
+| `SFORUM_BACKUP_DIR` | `./backups` | 备份归档目录 |
+| `SFORUM_BACKUP_KEY_FILE` | 空 | 备份加密口令文件，权限必须 `0600`；备份与升级前备份必需 |
+| `SFORUM_BACKUP_KEY` | 空 | 内联口令（会进进程环境，优先用 `SFORUM_BACKUP_KEY_FILE`） |
+| `SFORUM_BACKUP_RETENTION_COUNT` | `14` | 保留份数；设为 `default` 回默认值 |
+| `SFORUM_BACKUP_RETENTION_DAYS` | `30` | 保留天数；设为 `default` 回默认值 |
+| `SFORUM_ATTACHMENT_CONTAINER_DIR` | `/app/storage/app/attachments` | 附件卷容器内路径，只有改挂载点时才覆盖 |
 | `SFORUM_DEPLOY_HEALTH_TIMEOUT_SECONDS` | `120` | `deploy.sh` 健康检查超时 |
 | `SFORUM_DEPLOY_STABILITY_SECONDS` | `3` | 服务稳定观察时间 |
 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` | `120` | 蓝绿槽健康检查超时 |

@@ -16,8 +16,10 @@
 | `deploy.sh` | 安装/更新控制台，以及备份、恢复、状态、日志、重启、停止 |
 | `upgrade.sh` | 已有安装的 blue/green 更新器 |
 | `deploy/scripts/configure-production.sh` | `.env.production` 配置向导与密钥生成 |
-| `deploy/scripts/backup-postgres.sh` | PostgreSQL 备份，先写临时文件再发布为 `0600` |
-| `deploy/scripts/restore-postgres.sh` | 独立临时库 + 单事务恢复，校验后原子切换库名 |
+| `deploy/scripts/backup-postgres.sh` | 库 + 附件卷 + 扩展制品卷的加密归档，先写临时文件再发布为 `0600` |
+| `deploy/scripts/restore-postgres.sh` | 独立临时库 + 单事务恢复，校验核心表/行数/API 就绪后才切换库名，失败回滚 |
+| `deploy/scripts/postgres-common.sh` | 备份/恢复共享库：配置读取、拓扑与 compose、就绪等待、库内容校验 |
+| `deploy/scripts/postgres-backup-format.sh` | 备份/恢复共享库：归档格式、加解密、卷归档与保留策略 |
 | `deploy/scripts/wait-for-health.sh` | 健康检查等待 |
 | `compose.yaml` + `compose.prod.yaml` + `compose.release.yaml` | 直连生产拓扑与发布镜像 |
 | `compose.zero-downtime.yaml` | 蓝绿入口与双槽拓扑 |
@@ -217,8 +219,8 @@ https://github.com/keeptrue/SForum/releases/download/<TAG>/SHA256SUMS
 | 动作 | 行为 |
 | --- | --- |
 | `deploy` / `install` / `update` | 解析目标版本，备份已有库，迁移，启动，健康检查，记录 `.deployrc` |
-| `backup` | 启动 `postgres` 后创建备份，输出备份文件路径 |
-| `restore` | 提示输入 `RESTORE`，然后调用恢复脚本 |
+| `backup` | 启动 `postgres` 后创建加密归档（库 + 附件卷 + 扩展制品卷），输出归档路径；缺 `SFORUM_BACKUP_KEY_FILE` 时失败 |
+| `restore` | 提示输入 `RESTORE`，解密并校验归档后恢复，失败自动回滚 |
 | `status` | 用当前记录的版本执行 `docker compose ps` |
 | `logs` | 跟踪全部服务日志 |
 | `restart` | 重启服务并重新做健康检查 |
@@ -243,6 +245,9 @@ https://github.com/keeptrue/SForum/releases/download/<TAG>/SHA256SUMS
 升级要求 `.env.production` 和 `.deployrc` 同时存在。它先刷新自身和完整
 工具包，再移交本地 `upgrade.sh`。刷新不会修改 `.env.production`、
 `.deployrc`、`deploy/runtime/` 或数据卷。
+
+蓝绿切换前会先备份数据库，所以升级前要像部署一样配好
+`SFORUM_BACKUP_KEY_FILE`（权限 `0600`），否则 `upgrade.sh` 会停在备份这一步。
 
 ### 预取包装器：`sforum-latest.sh`（可选）
 
@@ -365,7 +370,7 @@ Worker，切换期间可能短暂同时消费队列；任务领取和重试由 R
 | `.sforum-bootstrap.lock` | bootstrap 刷新工具包时的锁 |
 | `.sforum-latest.lock` | `sforum-latest.sh` 预取并替换本地 bootstrap 时的锁 |
 | `.sforum/tooling-backups/` | 被替换的受管工具文件备份 |
-| `backups/` | PostgreSQL 备份，默认 `0600`；可用 `SFORUM_BACKUP_DIR` 改路径 |
+| `backups/` | PostgreSQL 备份归档（库 + 附件卷 + 扩展制品卷，加密），默认 `0600`；可用 `SFORUM_BACKUP_DIR` 改路径 |
 | `deploy/runtime/` | 蓝绿 Caddy 配置；不要手工编辑 |
 
 ## 失败语义

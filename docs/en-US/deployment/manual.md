@@ -204,9 +204,18 @@ notifications are unavailable.
 ./deploy.sh --action backup
 ```
 
-It starts `postgres` first, then writes the backup to
-`backups/<db>-<UTC>.sql` with mode `0600`. `SFORUM_BACKUP_DIR` can point at a
-host path instead. Do not leave backup files only inside a container volume.
+It starts `postgres` first, then archives the database, the attachment volume,
+and the extension-artifact volume into
+`backups/sforum-backup-<UTC>.tar.gz.enc` with mode `0600`.
+
+Encryption is mandatory: `export SFORUM_BACKUP_KEY_FILE=/path/to/backup.key`
+(a passphrase file that must be `0600`, or use `SFORUM_BACKUP_KEY`). Without a
+key the backup fails instead of writing plaintext — configure it before an
+upgrade too, or the update stops at the pre-upgrade backup step.
+
+`SFORUM_BACKUP_DIR` can point at a host path instead; retention is controlled by
+`SFORUM_BACKUP_RETENTION_COUNT` (default 14) and `SFORUM_BACKUP_RETENTION_DAYS`
+(default 30). Do not leave backup files only inside a container volume.
 
 ## Manual update
 
@@ -256,9 +265,11 @@ code read the new table structure. Restore the pre-deployment backup instead:
 SFORUM_CONFIRM_RESTORE=RESTORE ./deploy.sh --action restore
 ```
 
-The restore script imports into a separate temporary database in a single
-transaction and atomically swaps database names only after validating the
-application tables; any SQL error leaves the original database in place.
+The restore script decrypts the archive (the same key is required), imports it
+into a separate temporary database in a single transaction, and swaps database
+names only after the core tables are present, the row counts match the backup
+manifest, and the API reports ready. Any failure renames the previous database
+back and prints manual recovery steps.
 
 ## Handing back to script management
 

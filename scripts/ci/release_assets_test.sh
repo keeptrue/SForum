@@ -192,6 +192,38 @@ for entry in \
   [[ "$mode" == "-rwxr-xr-x" ]] || fail "deploy archive entry does not have mode 0755: $entry ($mode)"
 done
 
+# Regression: the deploy bundle is assembled from a hardcoded whitelist while its
+# entrypoints `source` shared libraries. A whitelist that misses one of them
+# yields a bundle that only fails on the host, at the first `source` line.
+deploy_script_entries="$(awk '
+  /^SOURCE_FILES=\(/ { collecting = 1; next }
+  collecting && /^\)/ { collecting = 0; next }
+  collecting {
+    line = $0
+    gsub(/["[:space:]]/, "", line)
+    if (line ~ /^deploy\/scripts\//) print line
+  }
+' "$ROOT_DIR/scripts/ci/build-deploy-asset.sh")"
+
+[[ -n "$deploy_script_entries" ]] || \
+  fail "could not read the deploy/scripts whitelist from build-deploy-asset.sh"
+
+while IFS= read -r entry; do
+  [[ -n "$entry" ]] || continue
+  [[ -f "$ROOT_DIR/$entry" ]] || fail "deploy asset whitelist entry is missing on disk: $entry"
+  grep -qx "sforum-deploy/$entry" <<< "$deploy_listing" || \
+    fail "deploy archive is missing whitelisted script: $entry"
+  while IFS= read -r source_line; do
+    dependency="${source_line%\"*}"
+    dependency="${dependency##*/}"
+    [[ -n "$dependency" ]] || continue
+    grep -qx "deploy/scripts/$dependency" <<< "$deploy_script_entries" || \
+      fail "$entry sources deploy/scripts/$dependency but the whitelist does not ship it"
+    grep -qx "sforum-deploy/deploy/scripts/$dependency" <<< "$deploy_listing" || \
+      fail "$entry sources deploy/scripts/$dependency but the deploy archive does not contain it"
+  done < <(grep -E '^source "' "$ROOT_DIR/$entry" || true)
+done <<< "$deploy_script_entries"
+
 expect_failure "Usage:" "$ROOT_DIR/scripts/ci/build-release-assets.sh" \
   invalid "$COMMIT" "$BUILD_TIME" "$IMAGE_TAG" linux amd64 "$OUTPUT_DIR"
 

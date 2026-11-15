@@ -317,7 +317,12 @@ container.
 | `SFORUM_VERSION` | none | target immutable tag; required by `compose.release.yaml` |
 | `SFORUM_REGISTRY` | `ghcr.io/keeptrue` | image registry prefix |
 | `COMPOSE_PROJECT_NAME` | `sforum` | Compose project name; affects container and volume naming |
-| `SFORUM_BACKUP_DIR` | `./backups` | backup directory |
+| `SFORUM_BACKUP_DIR` | `./backups` | backup archive directory |
+| `SFORUM_BACKUP_KEY_FILE` | empty | backup encryption passphrase file; must be mode `0600`; required for backups and pre-upgrade backups |
+| `SFORUM_BACKUP_KEY` | empty | inline passphrase (leaks into the process environment; prefer `SFORUM_BACKUP_KEY_FILE`) |
+| `SFORUM_BACKUP_RETENTION_COUNT` | `14` | archives to keep; set to `default` to restore the default |
+| `SFORUM_BACKUP_RETENTION_DAYS` | `30` | days to keep; set to `default` to restore the default |
+| `SFORUM_ATTACHMENT_CONTAINER_DIR` | `/app/storage/app/attachments` | attachment volume path inside the container; override only when the mount point changes |
 | `SFORUM_DEPLOY_HEALTH_TIMEOUT_SECONDS` | `120` | `deploy.sh` health check timeout |
 | `SFORUM_DEPLOY_STABILITY_SECONDS` | `3` | service stability observation time |
 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` | `120` | blue/green slot health check timeout |

@@ -17,8 +17,10 @@ and finally state files and failure semantics.
 | `deploy.sh` | Install/update console, plus backup, restore, status, logs, restart, and stop |
 | `upgrade.sh` | Blue/green updater for existing installs |
 | `deploy/scripts/configure-production.sh` | `.env.production` configuration wizard and key generation |
-| `deploy/scripts/backup-postgres.sh` | PostgreSQL backup; writes a temporary file first and then publishes it as `0600` |
-| `deploy/scripts/restore-postgres.sh` | Separate temporary database plus single-transaction restore; atomically swaps the database name after validation |
+| `deploy/scripts/backup-postgres.sh` | Encrypted archive of the database plus the attachment and extension-artifact volumes; writes a temporary file first and then publishes it as `0600` |
+| `deploy/scripts/restore-postgres.sh` | Separate temporary database plus single-transaction restore; swaps the database name only after the core tables, row counts, and API readiness pass, and rolls back on failure |
+| `deploy/scripts/postgres-common.sh` | Shared backup/restore library: configuration reads, topology and Compose assembly, readiness waits, database content validation |
+| `deploy/scripts/postgres-backup-format.sh` | Shared backup/restore library: archive format, encryption, volume archiving, and retention |
 | `deploy/scripts/wait-for-health.sh` | Health-check wait |
 | `compose.yaml` + `compose.prod.yaml` + `compose.release.yaml` | Direct production topology and release images |
 | `compose.zero-downtime.yaml` | Blue/green ingress and dual-slot topology |
@@ -238,8 +240,8 @@ For scripting, use `--action`:
 | Action | Behavior |
 | --- | --- |
 | `deploy` / `install` / `update` | Resolve the target version, back up an existing database, migrate, start, health-check, and record `.deployrc` |
-| `backup` | Start `postgres` and create a backup, printing the backup file path |
-| `restore` | Prompt for `RESTORE`, then call the restore script |
+| `backup` | Start `postgres`, create an encrypted archive (database + attachment volume + extension-artifact volume), and print its path; fails without `SFORUM_BACKUP_KEY_FILE` |
+| `restore` | Prompt for `RESTORE`, then decrypt and validate the archive before restoring; any failure rolls back |
 | `status` | Run `docker compose ps` with the currently recorded version |
 | `logs` | Follow all service logs |
 | `restart` | Restart services and re-run the health checks |
@@ -268,6 +270,10 @@ Upgrade requires both `.env.production` and `.deployrc` to exist. It first
 refreshes itself and the complete toolkit, then hands off to the local
 `upgrade.sh`. Refreshing does not modify `.env.production`, `.deployrc`,
 `deploy/runtime/`, or data volumes.
+
+A blue/green switch backs up the database first, so configure
+`SFORUM_BACKUP_KEY_FILE` (mode `0600`) before upgrading exactly as for a
+deploy; otherwise `upgrade.sh` stops at the backup step.
 
 ### Prefetch wrapper: `sforum-latest.sh` (optional)
 
@@ -413,7 +419,7 @@ That immutable tag is historical fact and will not be moved to `main` or
 | `.sforum-bootstrap.lock` | Lock held by the bootstrap while it refreshes the toolkit |
 | `.sforum-latest.lock` | Lock held by `sforum-latest.sh` while it prefetches and replaces the local bootstrap |
 | `.sforum/tooling-backups/` | Backups of replaced managed tooling files |
-| `backups/` | PostgreSQL backups, `0600` by default; change the path with `SFORUM_BACKUP_DIR` |
+| `backups/` | PostgreSQL backup archives (database + attachment volume + extension-artifact volume, encrypted), `0600` by default; change the path with `SFORUM_BACKUP_DIR` |
 | `deploy/runtime/` | Blue/green Caddy configuration; do not edit by hand |
 
 ## Failure semantics

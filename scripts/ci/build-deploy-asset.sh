@@ -34,6 +34,10 @@ SOURCE_FILES=(
   ".env.production.example"
   "deploy/scripts/configure-production.sh"
   "deploy/scripts/backup-postgres.sh"
+  # backup/restore source these two libraries; shipping the entrypoints without
+  # them produces a bundle that fails on the first `source` line.
+  "deploy/scripts/postgres-backup-format.sh"
+  "deploy/scripts/postgres-common.sh"
   "deploy/scripts/restore-postgres.sh"
   "deploy/scripts/wait-for-health.sh"
   "deploy/caddy/Caddyfile"

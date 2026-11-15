@@ -192,8 +192,16 @@ APP_DOMAIN=forum.example.com WEB_PORT=3000 API_PORT=18080 caddy run \
 ./deploy.sh --action backup
 ```
 
-它会先启动 `postgres`，再把备份写到 `backups/<db>-<UTC>.sql`，权限 `0600`。
-也可以用 `SFORUM_BACKUP_DIR` 指定宿主机路径。备份文件不要只留在容器卷里。
+它会先启动 `postgres`，再把数据库、附件卷与扩展制品卷打成一个加密归档
+`backups/sforum-backup-<UTC>.tar.gz.enc`，权限 `0600`。
+
+加密是硬要求：先 `export SFORUM_BACKUP_KEY_FILE=/path/to/backup.key`（口令
+文件，权限必须 `0600`；或改用 `SFORUM_BACKUP_KEY`）。缺密钥时备份直接失败，
+不会写出明文——升级前也要先配好，否则更新会停在「备份已有库」这一步。
+
+也可以用 `SFORUM_BACKUP_DIR` 指定宿主机路径；保留份数/天数由
+`SFORUM_BACKUP_RETENTION_COUNT`（默认 14）与 `SFORUM_BACKUP_RETENTION_DAYS`
+（默认 30）控制。备份文件不要只留在容器卷里。
 
 ## 手动更新
 
@@ -240,8 +248,9 @@ export SFORUM_VERSION
 SFORUM_CONFIRM_RESTORE=RESTORE ./deploy.sh --action restore
 ```
 
-恢复脚本会在独立临时库中单事务导入，校验应用表后才原子切换库名；任一
-SQL 错误都不会替换原库。
+恢复脚本会自动解密归档（同样需要密钥），在独立临时库中单事务导入；只有核心
+表齐全、行数与备份清单一致、切库后 API 就绪通过，才删除旧库。任一步失败都会
+改名回滚到切换前的库，并打印人工处理步骤。
 
 ## 交回脚本管理
 
