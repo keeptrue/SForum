@@ -41,7 +41,13 @@ PayloadTooLarge:
       schema:
         "$ref": "../schemas/common.yaml#/ApiErrorResponse"
 ServiceUnavailable:
-  description: A required backend service or storage provider is unavailable.
+  description: A required backend service, provider slot, or storage provider is unavailable.
+  content:
+    application/json:
+      schema:
+        "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+InternalServerError:
+  description: An internal consistency or encoding failure prevented the operation.
   content:
     application/json:
       schema:

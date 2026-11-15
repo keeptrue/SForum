@@ -2023,6 +2023,8 @@ adminExtensionDevTrustRefresh:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
@@ -2208,6 +2210,8 @@ adminExtensionActivate:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionEvents:
@@ -2358,6 +2362,8 @@ adminExtensionFrontendAsset:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionFrontendComponentAsset:
   get:
     summary: Load one trusted immutable prebuilt admin component asset
@@ -2396,6 +2402,8 @@ adminExtensionFrontendComponentAsset:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionFrontendConfirmation:
   post:
     summary: Create a one-use prebuilt component trust confirmation
@@ -2423,6 +2431,8 @@ adminExtensionFrontendConfirmation:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionFrontendTrust:
   post:
     summary: Grant exact trusted admin frontend access
@@ -2459,6 +2469,8 @@ adminExtensionFrontendTrust:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Revoke exact trusted admin frontend access
     description: Requires an active super administrator. Revocation finalizes immediately and prevents further asset loads for the digest grant.
@@ -2480,6 +2492,8 @@ adminExtensionFrontendTrust:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionRouteProviderConflicts:
   get:
     summary: Inspect replace-provider conflicts and durable desired selections

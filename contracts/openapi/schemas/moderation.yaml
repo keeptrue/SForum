@@ -27,6 +27,7 @@ Report:
   - reasonCode
   - body
   - status
+  - revision
   - reviewNote
   - createdAt
   - updatedAt
@@ -50,6 +51,14 @@ Report:
       type: string
     status:
       "$ref": "#/ReportStatus"
+    revision:
+      type: integer
+      format: int64
+      minimum: 1
+      description: |
+        乐观锁版本。举报每次成功更新 +1，客户端把它回传给
+        `PATCH /admin/moderation/reports/{reportID}` 的 `expectedRevision`。
+        已结案（`resolved`/`rejected`）的举报不再前进，也不会被任何更新改写。
     reviewerUserId:
       type:
       - integer
@@ -116,6 +125,14 @@ UpdateReportRequest:
     reviewNote:
       type: string
       maxLength: 2000
+    expectedRevision:
+      type: integer
+      format: int64
+      minimum: 0
+      description: |
+        客户端读到的 `Report.revision`。缺省或 `0` 表示不声明期望版本：本次更新
+        仍然受终态守卫约束，但**不做 CAS**，并发写按最后提交为准。传入非零值时，
+        版本不匹配返回 `409`（`moderation.report_conflict`），不会静默覆盖。
 ApiResponseReport:
   type: object
   required:

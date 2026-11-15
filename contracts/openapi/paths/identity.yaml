@@ -138,6 +138,8 @@ authLogin:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 authLogout:
   post:
     summary: Destroy the current browser session
@@ -263,6 +265,8 @@ passwordResetConfirm:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 emailVerificationRequest:
   post:
     summary: Request a verification email for the current account
@@ -288,6 +292,8 @@ emailVerificationRequest:
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
       '429':
         "$ref": "../components/responses.yaml#/TooManyRequests"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 emailVerificationConfirm:
   get:
     summary: Confirm an email address from a one-time verification link
@@ -303,6 +309,8 @@ emailVerificationConfirm:
         description: Redirects to the login page after successful confirmation.
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Confirm an email address with a one-time token
     operationId: confirmEmailVerification
@@ -321,6 +329,8 @@ emailVerificationConfirm:
               "$ref": "../schemas/identity.yaml#/ApiResponseEmailVerificationConfirmed"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 permissions:
   get:
     summary: List global permissions
@@ -683,6 +693,8 @@ users:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 userByID:
   get:
     summary: Get an admin user detail
@@ -826,6 +838,8 @@ adminUserEmailVerification:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 userPermissionOverrides:
   put:
     summary: Replace direct permission overrides for a user
@@ -928,6 +942,8 @@ adminUserRevokeSessions:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 adminUserClearClientIPs:
   post:
     summary: Clear stored client IP addresses for a user
@@ -1042,6 +1058,8 @@ authSessionByID:
             schema:
               "$ref": "../components/responses.yaml#/NotFound"
               description: Not used directly; see referenced NotFound response.
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 authAPITokens:
   get:
     summary: List personal access tokens
@@ -1058,6 +1076,8 @@ authAPITokens:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create a personal access token
     description: |
@@ -1083,6 +1103,8 @@ authAPITokens:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 authAPITokenByID:
   delete:
     summary: Revoke a personal access token
@@ -1107,6 +1129,8 @@ authAPITokenByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 authAPITokenRotate:
   post:
     summary: Rotate a personal access token
@@ -1132,6 +1156,8 @@ authAPITokenRotate:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 authProviders:
   get:
@@ -1193,6 +1219,8 @@ authProviderStart:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '429':
+        "$ref": "../components/responses.yaml#/TooManyRequests"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
@@ -1662,6 +1690,8 @@ adminIdentityProviderProbe:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 

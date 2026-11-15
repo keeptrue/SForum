@@ -92,6 +92,21 @@ adminModerationReportByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        description: |
+          举报状态冲突，`message` 区分两种机器码：
+
+          - `moderation.report_terminal` —— 举报已结案（`resolved`/`rejected`）。
+            结案结论是审计事实，任何再更新都会被拒；重试同一请求不会成功。
+          - `moderation.report_conflict` —— `expectedRevision` 已过期，本次更新
+            未提交。重新读取举报后带新版本重试即可。
+
+          两个码都表示「当前行状态与请求不兼容」，因此共用 `409`；靠 `message`
+          区分是否需要重试。
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
 adminModerationSettings:

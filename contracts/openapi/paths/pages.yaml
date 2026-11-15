@@ -100,6 +100,8 @@ pagesResolvePath:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 
 siteActiveThemeSkin:
   get:
@@ -218,6 +220,8 @@ adminPageApprove:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminPageRestoreCore:
   post:

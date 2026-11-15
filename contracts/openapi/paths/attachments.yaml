@@ -286,6 +286,8 @@ adminAttachmentCompressionSettings:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentCompressionSettings" }
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update regular attachment image compression settings
     operationId: updateAttachmentCompressionSettings
@@ -303,6 +305,8 @@ adminAttachmentCompressionSettings:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentStorageInstances:
   get:
     summary: List Host-owned attachment storage instances
@@ -530,6 +534,8 @@ adminAttachmentReconcile:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 adminAttachmentCompressionStats:
   get:
     summary: Get attachment image compression queue and savings statistics
@@ -542,6 +548,8 @@ adminAttachmentCompressionStats:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentCompressionStats" }
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentCompressionBackfill:
   post:
     summary: Schedule existing eligible JPEG and PNG attachments for compression
@@ -563,6 +571,8 @@ adminAttachmentCompressionBackfill:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentByID:
   get:
     summary: Get attachment detail for administration

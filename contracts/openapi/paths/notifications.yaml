@@ -24,6 +24,8 @@ notificationDetail:
       '200': {description: Recipient-owned notification detail, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseNotificationDetail"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '404': {$ref: "../components/responses.yaml#/NotFound"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 notificationUnreadCount:
   get:
     summary: Get the current user's unread notification count
@@ -59,6 +61,8 @@ notificationPreferences:
     responses:
       '200': {description: Preference catalog, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponsePreferenceCatalog"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Replace the current user's notification overrides
     operationId: replaceNotificationPreferences
@@ -71,6 +75,8 @@ notificationPreferences:
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '409': {description: The submitted preference revision is stale}
       '422': {description: Invalid or non-configurable preference}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 notificationPreferencesRestore:
   post:
     summary: Delete the current user's notification overrides
@@ -84,6 +90,8 @@ notificationPreferencesRestore:
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '409': {description: The submitted preference revision is stale}
       '422': {description: Invalid preference revision}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 notificationStream:
   get:
     summary: Stream current-recipient notification revision signals
@@ -102,6 +110,8 @@ notificationStream:
           text/event-stream: {schema: {type: string}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '429': {description: Recipient or process SSE connection limit reached.}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 notificationCelebrations:
   get:
     summary: List the current recipient's pending badge celebrations
@@ -164,6 +174,8 @@ adminNotificationPolicyV2:
       '200': {description: Policy catalog, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseAdminPolicyCatalog"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Replace configurable notification policy rows using CAS
     operationId: replaceAdminNotificationPolicy
@@ -177,6 +189,8 @@ adminNotificationPolicyV2:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '409': {description: The submitted policy revision is stale.}
       '422': {description: Invalid, required, inactive, or unavailable policy row.}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationPolicyRestoreV2:
   post:
     summary: Restore Host notification recommendations while preserving provider secrets
@@ -191,6 +205,8 @@ adminNotificationPolicyRestoreV2:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '409': {description: The submitted policy revision is stale.}
       '422': {description: Invalid policy revision.}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationTest:
   post:
     summary: Create an in-app test notification for the current administrator
@@ -211,6 +227,8 @@ adminNotificationChannels:
       '200': {description: Redacted channel provider catalog}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationChannelSelection:
   put:
     summary: Select an exact notification channel provider
@@ -227,6 +245,8 @@ adminNotificationChannelSelection:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '409': {description: Selection revision or exact artifact changed}
       '422': {description: Invalid channel selection}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationChannelReset:
   post:
     summary: Reset a notification channel provider selection
@@ -243,6 +263,8 @@ adminNotificationChannelReset:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '409': {description: Selection revision changed}
       '422': {description: Invalid reset request}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationChannelTest:
   post:
     summary: Queue a channel test for the current administrator
@@ -255,6 +277,8 @@ adminNotificationChannelTest:
       '202': {description: Generic channel delivery queued}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationDeliveries:
   get:
     summary: List redacted generic notification channel delivery health
@@ -266,6 +290,8 @@ adminNotificationDeliveries:
       '200': {description: Delivery health, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseChannelDeliveries"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 webPushConfig:
   get:
     summary: Get current Web Push availability and public VAPID material
@@ -282,6 +308,8 @@ webPushSubscriptions:
     responses:
       '200': {description: Own active redacted subscriptions, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseWebPushSubscriptions"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Associate an authenticated browser subscription with the current user
     operationId: createWebPushSubscription
@@ -293,6 +321,8 @@ webPushSubscriptions:
       '201': {description: Own redacted subscription}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '422': {description: Invalid or already-owned-by-another-recipient subscription}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 webPushSubscriptionByID:
   delete:
     summary: Revoke one current-user browser subscription
@@ -323,6 +353,8 @@ pushDevices:
     responses:
       '200': {description: Own redacted devices, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponsePushDevices"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Register or refresh a native push device token
     operationId: registerPushDevice
@@ -338,6 +370,8 @@ pushDevices:
       '200': {description: Registered device (redacted), content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponsePushDevice"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '422': {description: "Invalid payload or unsupported platform (notification.push_device_invalid / notification.push_device_platform_unsupported / notification.push_device_token_too_long)"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 pushDeviceByDeviceID:
   delete:
     summary: Revoke one native push device of the current user
