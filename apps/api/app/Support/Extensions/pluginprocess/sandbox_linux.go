@@ -32,10 +32,6 @@ import (
 )
 
 const (
-	// sandboxTempSubdir 是 per-plugin TMPDIR 的父目录（位于宿主临时目录下）。
-	sandboxTempSubdir = "sforum-plugin-sandbox"
-	// sandboxTempTTL 是遗留临时目录的回收阈值：崩溃留下的目录不会永久累积。
-	sandboxTempTTL = 24 * time.Hour
 	// launcherReportLimit 限制报告读取字节数（管道内容由我们自己的启动器写）。
 	launcherReportLimit = 64 << 10
 	// launchReportLifetime 是报告管道的兜底寿命：启动失败路径不会走到
@@ -259,7 +255,7 @@ func logLaunchReport(report Report) {
 			"filesystem", report.Filesystem, "filesystem_reason", report.FSReason,
 			"network", report.Network, "network_policy", report.NetworkPolicy, "network_reason", report.NetworkReason,
 			"cgroup", report.Cgroup, "cgroup_path", report.CgroupPath, "cgroup_reason", report.CgroupReason,
-			"no_new_privs", report.NoNewPrivs,
+			"no_new_privs", report.NoNewPrivs, "notes", report.Notes,
 		)
 		return
 	}
@@ -268,7 +264,7 @@ func logLaunchReport(report Report) {
 		"landlock_abi", report.LandlockABI,
 		"filesystem", report.Filesystem, "network", report.Network, "network_policy", report.NetworkPolicy,
 		"cgroup", report.Cgroup, "cgroup_path", report.CgroupPath,
-		"no_new_privs", report.NoNewPrivs, "temp_dir", report.TempDir,
+		"no_new_privs", report.NoNewPrivs, "temp_dir", report.TempDir, "notes", report.Notes,
 	)
 }
 
@@ -302,7 +298,8 @@ func RunLauncher(argv []string) int {
 		CgroupReason:  "cgroup policy disabled",
 	}
 
-	tempDir, tempErr := prepareSandboxTempDir(spec)
+	tempDir, tempNotes, tempErr := prepareSandboxTempDir(spec)
+	report.Notes = append(report.Notes, tempNotes...)
 	if tempErr != nil {
 		report.Notes = append(report.Notes, "temp dir: "+tempErr.Error())
 	} else {
@@ -327,6 +324,7 @@ func RunLauncher(argv []string) int {
 		report.CgroupPath = outcome.Path
 		report.CgroupReason = outcome.Reason
 		report.CgroupLimits = outcome.Limits
+		report.Notes = append(report.Notes, outcome.Notes...)
 	}
 
 	applyLauncherRlimits()
@@ -382,37 +380,6 @@ func decodeLauncherInvocation(argv []string) (SandboxSpec, []string, error) {
 		return SandboxSpec{}, nil, errors.New("sandbox spec has no exec entry")
 	}
 	return spec, append([]string(nil), argv[2:]...), nil
-}
-
-// prepareSandboxTempDir 建 per-plugin 私有临时目录，并顺手回收过期遗留目录。
-func prepareSandboxTempDir(spec SandboxSpec) (string, error) {
-	root := filepath.Join(firstNonEmpty(strings.TrimSpace(spec.TempRoot), os.TempDir()), sandboxTempSubdir)
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		return "", fmt.Errorf("create sandbox temp root %s: %w", root, err)
-	}
-	pruneSandboxTempDirs(root)
-	dir := filepath.Join(root, fmt.Sprintf("%s-%d", sandboxNameSuffix(spec.PluginID), os.Getpid()))
-	// pid 复用是真实存在的：上一代崩溃留下的目录必须先清掉，否则插件会看到别人的残留。
-	_ = os.RemoveAll(dir)
-	if err := os.Mkdir(dir, 0o700); err != nil {
-		return "", fmt.Errorf("create sandbox temp dir %s: %w", dir, err)
-	}
-	return dir, nil
-}
-
-func pruneSandboxTempDirs(root string) {
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return
-	}
-	cutoff := time.Now().Add(-sandboxTempTTL)
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil || !info.IsDir() || !info.ModTime().Before(cutoff) {
-			continue
-		}
-		_ = os.RemoveAll(filepath.Join(root, entry.Name()))
-	}
 }
 
 // prepareWritableRoots 为「运维显式配置的插件数据目录」建出目录本身。

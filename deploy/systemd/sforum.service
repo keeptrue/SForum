@@ -1,0 +1,49 @@
+[Unit]
+Description=SForum API (host runtime + embedded worker)
+Documentation=https://github.com/keeptrue/sforum
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sforum
+Group=sforum
+WorkingDirectory=/srv/sforum
+# 不写 `-` 前缀：环境文件缺失时 unit 直接起不来，比「起来了但配置全空 → 崩 →
+# Restart=on-failure 无限重启」更容易诊断。
+EnvironmentFile=/etc/sforum/api.env
+ExecStart=/usr/local/bin/sforum-api
+Restart=on-failure
+RestartSec=2s
+
+# 插件沙箱的 cgroup 层要往本 unit 的 cgroup 里建 per-plugin 子组，并在子组里写
+# memory.max / pids.max。内核的 no-internal-process 规则禁止在「自身还有进程」的
+# cgroup 上开启控制器（EBUSY），所以两件事都要做：
+#
+#   1. Delegate=yes            把 memory/pids 委派到本 unit 的 subtree_control；
+#   2. DelegateSubgroup=payload 把主进程放进 `<unit>/payload`，让 unit 自己的
+#      cgroup 保持空——否则控制器开不起来（实测：docker.service/containerd.service
+#      只写 Delegate=yes，root 里仍有进程、subtree_control 为空）。
+#
+# 两条都到位后，per-plugin 组落在 `<unit>.service/sforum-plugin-*`，
+# `systemctl status` / `systemd-cgtop` 按服务就能看到插件限额，停机一起回收。
+#
+# 回退路径：systemd < 254 会忽略 DelegateSubgroup=（本仓库的沙箱代码也认这条），
+# 容器内没有 systemd、或运维没装这个 unit 时，建组会退到最近的已委派祖先
+# （通常是 system.slice / app.slice），插件照常启动，启动日志的 notes 字段带一条
+# `cgroup lands in the shared slice ...`。
+Delegate=yes
+DelegateSubgroup=payload
+
+# 委派只影响控制器归属，进程回收仍按控制组进行：插件进程与沙箱启动器都在子树里，
+# 停服务时必须一起收掉，别留孤儿插件。
+KillMode=control-group
+TimeoutStopSec=30s
+
+# 插件子进程继承 unit 的 cgroup，但沙箱自己会再收紧 rlimit（NOFILE=4096、CORE=0）；
+# 这里的上限只约束宿主进程。
+LimitNOFILE=65536
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

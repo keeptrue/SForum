@@ -25,12 +25,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
 	cgroupMountPoint    = "/sys/fs/cgroup"
 	cgroupPluginPrefix  = "sforum-plugin-"
 	cgroupMaxNameLength = 200
+	// cgroupLockSubdir 是宿主侧建组互斥锁的目录（cgroupfs 里不能建普通文件）。
+	cgroupLockSubdir = "sforum-cgroup-locks"
+	// cgroupLockWaitBudget 是等锁的上限：cgroupfs 只有 mkdir/rmdir，建组本身是
+	// 微秒级动作；等不到就说明有人持锁不放（本地用户预建锁文件、或对端卡死），
+	// 继续阻塞等于让插件启动被永久挂住——降级为「不加锁」比挂住安全。
+	cgroupLockWaitBudget = 2 * time.Second
+	// cgroupLockRetryInterval 是 LOCK_NB 的重试间隔。
+	cgroupLockRetryInterval = 20 * time.Millisecond
 )
 
 // requiredCgroupControllers 是限额真正生效所需的最小控制器集合。
@@ -42,6 +53,8 @@ type cgroupOutcome struct {
 	Path   string
 	Reason string
 	Limits map[string]string
+	// Notes 是不影响三态的可诊断信息（落点偏移、锁不可用等），进报告 notes。
+	Notes []string
 }
 
 // applySandboxCgroup 建立 per-plugin cgroup 并把当前进程（= 即将 exec 的插件）
@@ -52,11 +65,22 @@ func applySandboxCgroup(spec SandboxSpec) cgroupOutcome {
 		outcome.Reason = "cgroup policy disabled"
 		return outcome
 	}
-	parent, reason := cgroupParent(spec)
+	parent, _, reason := cgroupParent(spec)
 	if parent == "" {
 		outcome.Status = StatusDegraded
 		outcome.Reason = reason
 		return outcome
+	}
+	if note := cgroupScopeNote(parent); note != "" {
+		outcome.Notes = append(outcome.Notes, note)
+	}
+	// 建组序列必须跨进程串行：两个实例同时 rmdir 一个空组再 mkdir，会互相删掉对方
+	// 刚建好的组（见 createPluginCgroup）。锁拿不到只降级为「尽力而为」，不拒绝启动。
+	unlock, lockErr := lockPluginCgroupCreation(spec, parent, pluginCgroupBaseName(spec.PluginID))
+	if lockErr != nil {
+		outcome.Notes = append(outcome.Notes, "cgroup create lock unavailable: "+lockErr.Error())
+	} else {
+		defer unlock()
 	}
 	target, err := createPluginCgroup(parent, spec.PluginID)
 	if err != nil {
@@ -93,38 +117,121 @@ func applySandboxCgroup(spec SandboxSpec) cgroupOutcome {
 
 // cgroupParent 选定建组的父 cgroup。
 //
-// 返回空字符串时第二个返回值是给人看的结构化原因（会进审计事件）。
-func cgroupParent(spec SandboxSpec) (string, string) {
+// 返回值：父组路径、当前进程自己的 cgroup（服务 scope；用于报告落点偏移）、
+// 以及父组为空时给人看的结构化原因（会进审计事件）。
+func cgroupParent(spec SandboxSpec) (parent, own, reason string) {
 	if override := strings.TrimSpace(spec.CgroupRootOverride); override != "" {
 		if delegated, reason := cgroupDelegates(override, true); !delegated {
-			return "", reason
+			return "", "", reason
 		}
-		return override, ""
+		return override, "", ""
 	}
 	mount, err := cgroup2MountPoint()
 	if err != nil {
-		return "", err.Error()
+		return "", "", err.Error()
 	}
 	relative, err := ownCgroupRelativePath()
 	if err != nil {
-		return "", err.Error()
+		return "", "", err.Error()
 	}
-	own := filepath.Join(mount, relative)
+	return cgroupParentUnder(mount, relative)
+}
+
+// cgroupParentUnder 是父组选择策略本体：mount 与相对路径注入，便于离线取证。
+//
+// 策略是「就地优先、就近兜底」：先试自己的 cgroup（systemd unit 声明 Delegate=yes
+// 时它已经委派好控制器，per-plugin 组因此落在**服务 scope** 内），再自下而上找
+// 第一个已委派好的祖先（多数机器上是 app.slice），都没有就降级。
+func cgroupParentUnder(mount, relative string) (parent, own, reason string) {
+	own = filepath.Join(mount, relative)
 	delegated, ownReason := cgroupDelegates(own, true)
 	if delegated {
-		return own, ""
+		return own, own, ""
 	}
 	// 自己的 cgroup 拿不到控制器时，自下而上找第一个「已经由 init 系统委派好」的
 	// 祖先（systemd 的 Delegate=yes 模型就是这样把 memory/pids 放进 subtree_control）。
 	for dir := filepath.Dir(own); dir != mount && strings.HasPrefix(dir, mount+string(filepath.Separator)); dir = filepath.Dir(dir) {
 		if delegated, _ := cgroupDelegates(dir, false); delegated {
-			return dir, ""
+			return dir, own, ""
 		}
 	}
 	if ownReason == "" {
 		ownReason = "no delegated cgroup ancestor provides " + strings.Join(requiredCgroupControllers, ",")
 	}
-	return "", ownReason
+	return "", own, ownReason
+}
+
+// cgroupScopeNote 在组落到「共享 slice」时给出可执行的运维提示。
+//
+// 判定基准不能是「自己的 cgroup」：声明了 DelegateSubgroup= 之后，进程自己的
+// cgroup 是 `<unit>/<subgroup>`，而建组落在 `<unit>`——两者不相等，但完全正确。
+// 真正的偏移特征是落点是 systemd 的共享 slice（system.slice / app.slice /
+// user.slice），即「不在任何 unit 内部」，那才是运维看不见按服务统计的地方。
+func cgroupScopeNote(parent string) string {
+	if parent == "" || !isSystemdSlice(parent) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"cgroup lands in the shared slice %s, outside the API unit; declare Delegate=yes and DelegateSubgroup=<name> on the systemd unit (systemd >= 254) so per-plugin groups stay inside the service scope",
+		parent,
+	)
+}
+
+// isSystemdSlice 报告目录是否是 systemd 的 slice（unit 的容器），而不是 unit 自己。
+func isSystemdSlice(dir string) bool {
+	return strings.HasSuffix(filepath.Base(dir), ".slice")
+}
+
+// lockPluginCgroupCreation 取一把宿主级互斥锁，串行化「同插件、同父组」的建组序列。
+//
+// 为什么需要锁：cgroupfs 只有 mkdir/rmdir，没有 rename，也没有「建或复用」的原子
+// 原语。两个实例同时启动时，A 刚 mkdir 出一个空组、还没写限额，B 的 rmdir 就能把
+// 它删掉（空组可删），于是 A 的 writeCgroupLimits 拿到 ENOENT，白降级一次。锁把
+// 「rmdir → mkdir → 写限额 → 搬进程」变成临界区：B 只会在 A 已经把进程搬进去之后
+// 才尝试 rmdir，那时 EBUSY，B 自然退到带序号的备用名字。
+//
+// 锁文件放在宿主临时目录而不是 cgroupfs（kernfs 不支持普通文件），按
+// parent+pluginID 分片，只有同插件实例互斥。
+func lockPluginCgroupCreation(spec SandboxSpec, parent, cgroupName string) (func(), error) {
+	root := filepath.Join(firstNonEmpty(strings.TrimSpace(spec.TempRoot), os.TempDir()), cgroupLockSubdir)
+	// /tmp 是 world-writable：锁目录可能被别人先建出来（甚至是指向别处的链接）。
+	// 核验失败时调用方降级为「不加锁」，绝不阻塞在别人的目录上。
+	if ok, reason := ensurePrivateDir(root); !ok {
+		return nil, fmt.Errorf("cgroup lock dir untrusted: %s", reason)
+	}
+	path := pluginCgroupLockPath(root, parent, cgroupName)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open cgroup lock: %w", err)
+	}
+	deadline := time.Now().Add(cgroupLockWaitBudget)
+	for {
+		err := unix.Flock(int(file.Fd()), unix.LOCK_EX|unix.LOCK_NB)
+		if err == nil {
+			return func() {
+				_ = unix.Flock(int(file.Fd()), unix.LOCK_UN)
+				_ = file.Close()
+			}, nil
+		}
+		if !errors.Is(err, unix.EWOULDBLOCK) && !errors.Is(err, unix.EAGAIN) {
+			_ = file.Close()
+			return nil, fmt.Errorf("flock cgroup lock: %w", err)
+		}
+		if time.Now().After(deadline) {
+			_ = file.Close()
+			return nil, fmt.Errorf("timed out after %s waiting for %s", cgroupLockWaitBudget, path)
+		}
+		time.Sleep(cgroupLockRetryInterval)
+	}
+}
+
+// pluginCgroupLockPath 是「同父组 + 同 cgroup 名」的锁文件路径。
+//
+// 分片键用**解析后的 cgroup 名**：两个 pluginID 若在 slug+digest 上撞名，它们要抢的
+// 正是同一个目录，锁键必须跟着目录名走，否则同名不同锁等于没锁。
+func pluginCgroupLockPath(lockRoot, parent, cgroupName string) string {
+	digest := sha256.Sum256([]byte(parent + "\x00" + cgroupName))
+	return filepath.Join(lockRoot, hex.EncodeToString(digest[:8])+".lock")
 }
 
 // cgroupDelegates 报告 dir 是否能给子组提供所需控制器。
@@ -170,7 +277,7 @@ func cgroupDelegates(dir string, mayEnable bool) (bool, string) {
 // 一代实例还活着（升级重叠窗口），rmdir 会 EBUSY，于是退到带序号的备用名字，两个
 // 实例各自拥有独立限额。
 func createPluginCgroup(parent, pluginID string) (string, error) {
-	base := filepath.Join(parent, cgroupPluginPrefix+sandboxNameSuffix(pluginID))
+	base := filepath.Join(parent, pluginCgroupBaseName(pluginID))
 	for attempt := 0; attempt < 4; attempt++ {
 		candidate := base
 		if attempt > 0 {
@@ -191,6 +298,13 @@ func createPluginCgroup(parent, pluginID string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("refusing to reuse %s: previous generations are still populated", base)
+}
+
+// pluginCgroupBaseName 是 per-plugin 组的稳定基名（不含 parent）。
+//
+// 锁分片也用它：锁必须保护「同一个目录名」，而不是「同一个 pluginID」。
+func pluginCgroupBaseName(pluginID string) string {
+	return cgroupPluginPrefix + sandboxNameSuffix(pluginID)
 }
 
 // sandboxNameSuffix 生成可读且稳定的 cgroup 名字后缀。

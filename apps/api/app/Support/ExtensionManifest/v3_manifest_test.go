@@ -549,3 +549,51 @@ func v3FixtureDigest() string {
 	digest := sha256.Sum256(v3FixtureBody())
 	return hex.EncodeToString(digest[:])
 }
+
+// Host 保留路由（health / ready / notification stream）的 TargetID 有两个入口：
+// 普通路由（add/replace/…）与 global middleware 的精确作用域声明。global 分支此前
+// 没有任何用例——一个只删掉 global 分支判定的改动可以全绿通过。
+func TestManifestV3RejectsReservedRouteTargets(t *testing.T) {
+	reserved := []string{
+		"core.route.system.health",
+		"core.route.system.ready",
+		"core.route.notifications.stream",
+	}
+	globalRoute := func(target string) Manifest {
+		manifest := completeV3Manifest()
+		route := &manifest.Routes[0]
+		route.Action = RouteActionGlobalMiddleware
+		route.Path = ""
+		route.Methods = nil
+		route.TargetID = target
+		return manifest
+	}
+	t.Run("global middleware", func(t *testing.T) {
+		// 正例先钉住：空 target（只覆盖自己的 terminal）与普通 target 必须通过，
+		// 否则下面的拒绝可能是别的规则造成的，变异就测不出 global 分支。
+		for _, target := range []string{"", "demo.v3.route.other"} {
+			if err := Validate(globalRoute(target)); err != nil {
+				t.Fatalf("global middleware target %q should validate: %v", target, err)
+			}
+		}
+		for _, target := range reserved {
+			if err := Validate(globalRoute(target)); err == nil {
+				t.Fatalf("global middleware must not scope itself to reserved route %q", target)
+			}
+		}
+	})
+	t.Run("add route", func(t *testing.T) {
+		allowed := completeV3Manifest()
+		allowed.Routes[0].TargetID = "demo.v3.route.other"
+		if err := Validate(allowed); err != nil {
+			t.Fatalf("non-reserved target on an add route should validate: %v", err)
+		}
+		for _, target := range reserved {
+			manifest := completeV3Manifest()
+			manifest.Routes[0].TargetID = target
+			if err := Validate(manifest); err == nil {
+				t.Fatalf("add route must not target reserved route %q", target)
+			}
+		}
+	})
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	"github.com/keeptrue/sforum/apps/api/app/Support/Extensions/rawcore"
 	"github.com/keeptrue/sforum/apps/api/database/coreauthority"
 )
 
@@ -24,37 +25,9 @@ var (
 )
 
 // raw_core 的 DML 范围是**显式白名单、默认拒绝**（EX2-02）：不再按 pg_class 枚举
-// public schema 的全部 Core 表。判断标准只有一条——表里的行是**派生数据**：可以由
-// 宿主或插件从其它 Core 数据重新生成（例如重建索引），因此被写坏不会造成不可恢复
-// 的身份、凭据、会话、信任或审计后果。
-//
-// 一切内容表（topics / posts / comments …）与配置表都不在这里：内容变更走事件与
-// Host Command，配置走 options API，读取走 sforum_core_v1 视图。新增一张表必须在
-// 这里显式加一行，并同时补 allowed / denied 测试与决策记录；不在这里的表对 raw_core
-// 一律零权限。
-var extensionDatabaseRawCoreWritableTables = []string{
-	"search_documents",
-	"search_index_state",
-	"search_reindex_runs",
-}
-
-// 序列单独列：pg_class 里表与序列是不同对象，raw_core 的 INSERT 依赖这些序列。
-var extensionDatabaseRawCoreWritableSequences = []string{
-	"search_reindex_runs_id_seq",
-}
-
-// rawCoreWritableRelationNames 把两张白名单折成一个集合，避免调用点各写一遍分支。
-func rawCoreWritableRelationNames() (tables, sequences map[string]struct{}) {
-	tables = make(map[string]struct{}, len(extensionDatabaseRawCoreWritableTables))
-	for _, name := range extensionDatabaseRawCoreWritableTables {
-		tables[name] = struct{}{}
-	}
-	sequences = make(map[string]struct{}, len(extensionDatabaseRawCoreWritableSequences))
-	for _, name := range extensionDatabaseRawCoreWritableSequences {
-		sequences[name] = struct{}{}
-	}
-	return tables, sequences
-}
+// public schema 的全部 Core 表。白名单本体与判定标准在子包 rawcore 里（策略数据
+// 只有一个来源），这里只消费它：签发租约与校验有效权限必须读同一份，否则会出现
+// 「授了但校验不认」的半开状态。
 
 type extensionDatabasePrivileges map[string]bool
 
@@ -115,7 +88,7 @@ func loadExtensionDatabaseRawCoreGrantRelations(
 	if err != nil {
 		return nil, err
 	}
-	wantTables, wantSequences := rawCoreWritableRelationNames()
+	wantTables, wantSequences := rawcore.RelationNames()
 	names := make([]string, 0, len(wantTables)+len(wantSequences))
 	for name := range wantTables {
 		names = append(names, name)
@@ -349,7 +322,7 @@ func validateExtensionDatabaseRawCoreAuthority(
 	if err != nil {
 		return err
 	}
-	wantTables, wantSequences := rawCoreWritableRelationNames()
+	wantTables, wantSequences := rawcore.RelationNames()
 	grantedTables := make(map[string]struct{}, len(wantTables))
 	grantedSequences := make(map[string]struct{}, len(wantSequences))
 	for _, relation := range relations {
@@ -380,12 +353,12 @@ func validateExtensionDatabaseRawCoreAuthority(
 	// 白名单里的每个对象都必须在实时 schema 里出现；少了就说明代码与数据库脱节，
 	// 不能静默降级成「少授一点」。
 	if wantRawCore {
-		for _, name := range extensionDatabaseRawCoreWritableTables {
+		for _, name := range rawcore.WritableTables() {
 			if _, ok := grantedTables[name]; !ok {
 				return ErrExtensionDatabaseResourceConflict
 			}
 		}
-		for _, name := range extensionDatabaseRawCoreWritableSequences {
+		for _, name := range rawcore.WritableSequences() {
 			if _, ok := grantedSequences[name]; !ok {
 				return ErrExtensionDatabaseResourceConflict
 			}
@@ -572,7 +545,7 @@ func validateExtensionDatabaseEffectiveCoreAuthority(
 		return ErrExtensionDatabaseResourceConflict
 	}
 
-	wantTables, wantSequences := rawCoreWritableRelationNames()
+	wantTables, wantSequences := rawcore.RelationNames()
 	for _, relation := range relations {
 		// 有效权限的期望值必须与授权侧同源：只有白名单里的表/序列才期望 DML，
 		// 其余关系（敏感表、内容表、未列入的序列）一律期望零权限。

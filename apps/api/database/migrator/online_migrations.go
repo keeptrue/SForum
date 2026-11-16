@@ -137,36 +137,23 @@ func onlineSafePendingMigrations(fsys fs.FS, statuses []*goose.MigrationStatus) 
 	return pending, nil
 }
 
+// migrationDeclaresOnlineSafe 是「单条迁移能不能在线迁」的布尔投影。
+//
+// 形态判定本体在 classifyOnlineSafeForm（纯函数，可离线跑全量）；这里只把三态
+// 折成「能/不能 + 为什么」，保证线上门与离线门用同一套规则。
 func migrationDeclaresOnlineSafe(fsys fs.FS, path string) (bool, error) {
-	body, err := fs.ReadFile(fsys, path)
+	declaration, err := classifyOnlineSafeForm(fsys, path)
 	if err != nil {
 		return false, err
 	}
-	upLines := make([]string, 0)
-	declared := false
-	for _, line := range strings.Split(string(body), "\n") {
-		directive := strings.TrimSpace(line)
-		if directive == "-- +goose Down" {
-			break
-		}
-		upLines = append(upLines, line)
-		if directive == onlineSafeDirective {
-			declared = true
-		}
-	}
-	if !declared {
+	switch declaration.Form {
+	case OnlineSafeFormDeclared:
+		return true, nil
+	case OnlineSafeFormUndeclared:
 		return false, nil
+	default:
+		return false, errors.New(declaration.Reason)
 	}
-	upBody := strings.Join(upLines, "\n")
-	if strings.Contains(upBody, "-- +goose NO TRANSACTION") {
-		return false, errors.New("online migrations must run transactionally")
-	}
-	for _, required := range []string{"SET LOCAL lock_timeout", "SET LOCAL statement_timeout"} {
-		if !strings.Contains(upBody, required) {
-			return false, fmt.Errorf("missing %s", required)
-		}
-	}
-	return true, nil
 }
 
 func riverMigrationsExact(ctx context.Context, cfg Config) (bool, error) {

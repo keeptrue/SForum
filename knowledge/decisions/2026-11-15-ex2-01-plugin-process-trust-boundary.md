@@ -358,11 +358,14 @@ stat 失败（不存在）时放行：首次创建数据目录是预期路径，
 
 #### 行数余量（下一轮的硬约束）
 
-`protocol.go` 与 `protocol_v2_client.go` 停在上限的**精确值**（897/897、1003/1003，
-`tests/architecture-boundaries-baseline.json`）：闸门是双向的，涨一行失败、少一行也
-要求同轮下调 baseline。这两轮的新增都是靠「行内注释 + 内联局部变量」才塞进去的。
-**下一轮任何增量请先抽文件**（`newPluginClientConfig` 的版本开关、`startProtocolInstanceLocked`
-的失败分支都是干净的抽出边界），不要再用行内压缩换空间。
+W5 已按上一版的要求先抽文件：`protocol_v2_client.go` 1003 → 859（go-plugin 装配
+`newPluginClientConfig` / `protocolV2ClientConfig` / `newProtocolV2RuntimeInstanceID` 搬进
+`protocol_v2_server.go`，与它的消费者 `protocolV2Plugin.GRPCClient` 同文件），
+`protocol.go` 897 → 807（`callStorage` 与 11 个 `Storage*` 包装搬进
+`protocol_v2_storage.go`，与既有 `StorageConfigureInstance` 同文件）。
+`tests/architecture-boundaries-baseline.json` 的两条 cap 已同轮下调，闸门仍是双向的：
+涨一行失败、少一行也要同轮下调 baseline。**后续增量请继续先抽文件**
+（`startProtocolInstanceLocked` 的失败分支是下一个干净的抽出边界）。
 
 #### 未做与残余（不得当作已解决）
 
@@ -383,20 +386,38 @@ stat 失败（不存在）时放行：首次创建数据目录是预期路径，
 - **网络残余**：默认 `off`，即出站/监听仍由插件自行决定（见上面的产品判断）。
 - **cgroup 残余**：没有委派祖先的机器（多数非 systemd 容器、CI）会走 `degraded`。
   空组目录会留到下一次同插件启动时回收；插件被永久删除后目录只剩几个空 inode。
-- **cgroup 落点（运维后果）**：控制器只能从「已经委派 memory+pids 且自身没有进程」
-  的祖先拿，所以组常常落在 `app.slice`（本机就是这样），**不是**服务自己的 scope。
-  后果：`systemctl status` / `systemd-cgtop` 里看到的是 `app.slice/sforum-plugin-*`；
-  按服务做 cgroup 级统计/清理时需要知道这一层偏移。若运维希望组落在服务 scope 内，
-  需要给该 unit 加 `Delegate=yes`（此时自己的 scope 就能开控制器）。
-- **同插件两实例并发建组（rmdir 竞态）**：升级重叠窗口里两个实例可能同时想用同一个
-  组名。`rmdir` 失败时退到 `-2/-3` 后缀，所以不会互相覆盖；但这意味着**短时间内存
-  在两个组**，限额各自独立、统计需要按前缀汇总。极端情况下（前一代实例的进程恰好
-  在这两步之间全部退出）会留下一个空组，由下一次启动回收。
-- **临时目录回收按 24h mtime**（P2 遗留）：启动器会清理 `sforum-plugin-sandbox/`
-  下超过 24 小时没被改动过的目录。触发条件：一个**长跑且不写临时文件**的插件，
-  其 TMPDIR 目录 mtime 会一直不变，于是可能被**下一个插件的启动器**删掉。删掉之后
-  该插件已有的打开 fd 仍然有效，只是新 `CreateTemp`/socket 路径会失败。要彻底修需要
-  按 pid 存活判断（例如记录启动时间戳 + 检查进程），本轮不做。
+
+#### 已收口（W5，保留回退与运维说明，不再计残余）
+
+- **cgroup 落点（条件性收口：`Delegate=yes` + `DelegateSubgroup=`）**：控制器只能从
+  「已经委派 memory+pids 且自身没有进程」的祖先拿，而 API 进程就在自己的 cgroup 里。
+  **只写 `Delegate=yes` 不够**——本机实测（systemd 259）`docker.service` / `containerd.service`
+  都是 `Delegate=yes` 且 `DelegateSubgroup=` 为空：`cgroup.subtree_control` 为空、
+  root 里各有 5/4 个进程，控制器开不起来（no-internal-process）。所以随仓库交付的
+  `deploy/systemd/sforum.service` 写的是两条：
+  `Delegate=yes` + `DelegateSubgroup=payload`（≥254）。主进程进 `<unit>/payload`，
+  unit 自己的 cgroup 保持空且已委派，per-plugin 组落在
+  `<unit>.service/sforum-plugin-*`。**回退路径**：systemd <254 会忽略
+  `DelegateSubgroup=`、容器内没有 systemd、或运维没装这个 unit 时，建组会就近退到
+  已委派祖先（`system.slice` / `app.slice`），插件照常启动，启动日志的 `notes`
+  字段带一条 `cgroup lands in the shared slice …`（F2：notes 现在真的进日志）。
+- **同插件两实例并发建组（已加锁，且有界）**：cgroupfs 只有 `mkdir`/`rmdir`，没有
+  「建或复用」的原子原语，所以「rmdir 空组 → mkdir → 写限额 → 搬进程」是一段**跨进程
+  临界区**（`lockPluginCgroupCreation`）。锁文件在宿主临时目录、按「父组 + 解析后的
+  cgroup 名」分片（按 pluginID 分片会漏掉 slug+digest 撞名的情况）；取锁用
+  `LOCK_EX|LOCK_NB` + 2s 有界重试，超时**降级为不加锁**并记 note——`/tmp` 下的锁文件
+  任何本地用户都能先建出来持住，阻塞式等锁等于一个可触发的启动挂死。锁目录用前核验
+  属主与 0700、文件 `O_NOFOLLOW`；核验失败同样降级。升级重叠窗口仍然**同时存在两个
+  组**：限额各自独立、统计需要按前缀汇总。
+- **临时目录回收改为按进程实例判活（mtime 只兜底）**：启动器建 per-plugin TMPDIR 时
+  在**宿主侧**写 owner 记录（pid + `/proc/<pid>/stat` 的 starttime + boot_id），回收时
+  按「同一个进程实例是否还活着」判定——`starttime` 与 `boot_id` 一起覆盖 pid 复用，
+  僵尸（state `Z`/`X`）算死。记录**不放在插件自己的 TMPDIR 里**：那个目录对插件可写，
+  写一个 `{"pid":1,…}` 就能把自己的目录永久钉成「活着」；旧版写在目录内的
+  `.sforum-owner` 现在被显式忽略。已核实的活实例不受时间限制（顺手刷新 mtime，
+  否则「长跑插件」会被时间上限删掉 TMPDIR，正是本轮修掉的缺陷）；**核实不了**的
+  （旧目录只有 pid）给 7d 硬上限；无法归属的走 24h TTL。回收目录时同步清掉 owner
+  记录与孤儿记录。
 - **`GUARD_HELPERS` 同名取最后一个**（契约侧遗留）：路由 guard 的 helper 目前是
   「同名后写覆盖」，没有冲突检测；插件并发注册同名 helper 时先注册者被静默覆盖，
   排查成本高。修法是注册期拒绝重复名，属契约/注册表轮次，不在本轮。

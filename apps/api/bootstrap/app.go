@@ -287,8 +287,8 @@ type pageRouteInvoker interface {
 
 // pageRouteTargetAdapter 为 PageDataLoader 绑定 exact runtime admission lease。
 // 注意：本适配器的传输前提是插件回报 loopback HTTP BaseURL。Protocol V2 明确
-// 拒绝 loopback（`protocol_v2_client.go:463`），而 V1 已不再受支持
-// （`protocol_v2_client.go:188` 返回 ErrUnsupportedProtocol），因此当前没有任何
+// 拒绝 loopback（`RouteTarget` → `protocol_v2_client.go:312`），而 V1 已不再受支持
+// （`ErrUnsupportedProtocol` → `protocol_v2_server.go:137`），因此当前没有任何
 // 运行中的插件能通过这里的 BaseURL 检查；dataSource=plugin 的页面贡献会拿到
 // "plugin not enabled or runtime unavailable" 并回退。真实行为由
 // IntegrationTests/TestPageLoaderGatewayHasNoTransportForProtocolV2Runtime pin 住。

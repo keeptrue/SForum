@@ -87,18 +87,120 @@ func TestStableCoreViewsPublicRevokeMigrationIsOnlineSafe(t *testing.T) {
 	}
 }
 
+// viewCreatorRevokeExemptions 是「规则生效之前」就已经建视图的迁移。
+//
+// 历史迁移一行未改，它们只能在后续迁移里补 REVOKE，所以这里显式登记、逐条复核
+// 覆盖关系。任何**新增**的建视图迁移都不在表里，必须自带同文件 REVOKE —— 这条与
+// 版本号无关，因此「版本号倒挂的新迁移」不能再钻 coveredLater 的空子：静态扫描
+// 分不清「更晚版本」与「更晚执行」，而执行顺序由 goose 的待迁集合决定，不是文件
+// 排序。把豁免变成显式白名单，等于把「谁在什么时候补的」从推断变成登记。
+var viewCreatorRevokeExemptions = map[string]string{
+	"202610280001_content_reactions.sql":        stableCoreViewsPublicRevokeMigration,
+	"202611100001_content_bookmarks.sql":        stableCoreViewsPublicRevokeMigration,
+	"202611100002_badges_and_user_activity.sql": stableCoreViewsPublicRevokeMigration,
+	"202611120002_badge_rules.sql":              stableCoreViewsPublicRevokeMigration,
+	"202611140002_user_trust_levels.sql":        stableCoreViewsPublicRevokeMigration,
+}
+
+var createStableCoreView = regexp.MustCompile(`create (?:or replace )?view sforum_core_v1\.[a-z0-9_]+`)
+
+// viewMigration 是棘轮的最小输入：名字、版本与 Up 段（已去注释并压平）。
+type viewMigration struct {
+	name    string
+	version int64
+	up      string
+}
+
+// pinnedViewCreatorExemptions 是豁免表的**规模棘轮**：表本身可以被无限追加，
+// 而追加一行就等于免掉一条新迁移的自带 REVOKE。所以名字集合必须写死在这里，
+// 新增豁免必须同时改这份清单——那是一个可见的人工检查点。
+var pinnedViewCreatorExemptions = []string{
+	"202610280001_content_reactions.sql",
+	"202611100001_content_bookmarks.sql",
+	"202611100002_badges_and_user_activity.sql",
+	"202611120002_badge_rules.sql",
+	"202611140002_user_trust_levels.sql",
+}
+
+// checkStableCoreViewRevokes 判定「每个建视图的迁移都被一条 REVOKE 覆盖」。
+//
+// 顺序无关的规则：建视图的迁移必须**自己**在最后一个 CREATE VIEW 之后写 schema 级
+// REVOKE；只有登记在 exemptions 里的历史迁移允许由后续迁移覆盖。这样无论新迁移的
+// 版本号写成多少（含倒挂），缺 REVOKE 都会红。
+func checkStableCoreViewRevokes(migrations []viewMigration, exemptions map[string]string) (int, error) {
+	checked := 0
+	for index, current := range migrations {
+		matches := createStableCoreView.FindAllStringIndex(current.up, -1)
+		if len(matches) == 0 {
+			continue
+		}
+		checked += len(matches)
+		revokeAt := strings.Index(current.up, strings.ToLower(schemaLevelViewRevoke))
+		if revokeAt >= 0 && revokeAt > matches[len(matches)-1][0] {
+			continue
+		}
+		covering, exempt := exemptions[current.name]
+		if !exempt {
+			return checked, fmt.Errorf(
+				"%s creates sforum_core_v1 views without its own schema-level REVOKE (%s); add it after the last CREATE VIEW in that migration",
+				current.name, schemaLevelViewRevoke,
+			)
+		}
+		covered := false
+		for _, later := range migrations[index+1:] {
+			if later.name == covering && strings.Contains(later.up, strings.ToLower(schemaLevelViewRevoke)) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			return checked, fmt.Errorf(
+				"%s is a pinned legacy view creator but its declared covering migration %s does not run later with %s",
+				current.name, covering, schemaLevelViewRevoke,
+			)
+		}
+	}
+	return checked, nil
+}
+
+// checkViewCreatorExemptions 保证豁免表不会腐烂：每条豁免都必须仍然存在、仍然建视图。
+func checkViewCreatorExemptions(migrations []viewMigration, exemptions map[string]string) error {
+	for name := range exemptions {
+		found := false
+		for _, migration := range migrations {
+			if migration.name != name {
+				continue
+			}
+			found = len(createStableCoreView.FindAllString(migration.up, -1)) > 0
+			break
+		}
+		if !found {
+			return fmt.Errorf("stale view-creator exemption %q; remove it from viewCreatorRevokeExemptions", name)
+		}
+	}
+	return nil
+}
+
+// 豁免表只能缩短或原样保留：多一行就要在 pinnedViewCreatorExemptions 里显式确认。
+func TestViewCreatorExemptionsArePinned(t *testing.T) {
+	if len(viewCreatorRevokeExemptions) != len(pinnedViewCreatorExemptions) {
+		t.Fatalf("exemptions = %d, pinned = %d; adding an exemption needs an explicit edit here",
+			len(viewCreatorRevokeExemptions), len(pinnedViewCreatorExemptions))
+	}
+	for _, name := range pinnedViewCreatorExemptions {
+		if _, ok := viewCreatorRevokeExemptions[name]; !ok {
+			t.Fatalf("pinned exemption %q is missing from viewCreatorRevokeExemptions", name)
+		}
+	}
+}
+
 // TestStableCoreViewsMigrationRatchet 是扫全表的静态棘轮。
 func TestStableCoreViewsMigrationRatchet(t *testing.T) {
 	entries, err := fs.ReadDir(Files(), ".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	type migration struct {
-		version int64
-		name    string
-		up      string
-	}
-	migrations := make([]migration, 0, len(entries))
+	migrations := make([]viewMigration, 0, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
 		version, ok := migrationVersion(name)
@@ -106,43 +208,50 @@ func TestStableCoreViewsMigrationRatchet(t *testing.T) {
 			continue
 		}
 		up, _ := migrationText(t, name)
-		migrations = append(migrations, migration{version: version, name: name, up: statementSQL(up)})
+		migrations = append(migrations, viewMigration{name: name, version: version, up: statementSQL(up)})
 	}
 	sort.Slice(migrations, func(i, j int) bool { return migrations[i].version < migrations[j].version })
 
-	createView := regexp.MustCompile(`create (?:or replace )?view sforum_core_v1\.[a-z0-9_]+`)
-	checkedViews := 0
-	for index, current := range migrations {
-		matches := createView.FindAllStringIndex(current.up, -1)
-		if len(matches) == 0 {
-			continue
-		}
-		// 覆盖要求：同一条迁移里、最后一个 CREATE VIEW 之后有 schema 级 REVOKE，
-		// 或者任何版本更大的迁移里有它。
-		revokedHere := false
-		revokeAt := strings.Index(current.up, strings.ToLower(schemaLevelViewRevoke))
-		if revokeAt >= 0 && revokeAt > matches[len(matches)-1][0] {
-			revokedHere = true
-		}
-		coveredLater := false
-		if !revokedHere {
-			for _, later := range migrations[index+1:] {
-				if strings.Contains(later.up, strings.ToLower(schemaLevelViewRevoke)) {
-					coveredLater = true
-					break
-				}
-			}
-		}
-		if !revokedHere && !coveredLater {
-			t.Fatalf(
-				"%s creates sforum_core_v1 views without a later schema-level REVOKE (%s); add it to that migration or a newer one",
-				current.name, schemaLevelViewRevoke,
-			)
-		}
-		checkedViews += len(matches)
+	checkedViews, err := checkStableCoreViewRevokes(migrations, viewCreatorRevokeExemptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkViewCreatorExemptions(migrations, viewCreatorRevokeExemptions); err != nil {
+		t.Fatal(err)
 	}
 	if checkedViews < 10 {
 		t.Fatalf("ratchet only saw %d CREATE VIEW statements; expected to scan the whole migration history", checkedViews)
+	}
+}
+
+// 盲区回归：版本号倒挂（比补 REVOKE 的迁移更小）的新迁移，静态排序会把它排在
+// REVOKE 之前；旧实现因此判它「已被覆盖」。新规则要求它自带 REVOKE。
+func TestStableCoreViewRatchetRejectsBackdatedCreatorWithoutRevoke(t *testing.T) {
+	migrations := []viewMigration{
+		{name: "202501010001_backdated_views.sql", version: 202501010001, up: "create view sforum_core_v1.safe_users as select 1"},
+		{name: stableCoreViewsPublicRevokeMigration, version: 202611150002, up: strings.ToLower(schemaLevelViewRevoke)},
+	}
+	if _, err := checkStableCoreViewRevokes(migrations, viewCreatorRevokeExemptions); err == nil {
+		t.Fatal("a backdated view-creating migration without its own REVOKE must fail the ratchet")
+	}
+	// 同一份输入，只要它自带 REVOKE 就必须通过（正例，防止棘轮只会红不会绿）。
+	migrations[0].up += "; " + strings.ToLower(schemaLevelViewRevoke)
+	if _, err := checkStableCoreViewRevokes(migrations, viewCreatorRevokeExemptions); err != nil {
+		t.Fatalf("self-contained REVOKE must pass: %v", err)
+	}
+}
+
+// 豁免表腐烂会悄悄放宽规则：登记的文件被删/改名后必须报错，而不是静默失效。
+func TestStableCoreViewRatchetRejectsStaleExemption(t *testing.T) {
+	migrations := []viewMigration{
+		{name: "202501010001_views.sql", version: 202501010001, up: "create view sforum_core_v1.safe_users as select 1; " + strings.ToLower(schemaLevelViewRevoke)},
+	}
+	exemptions := map[string]string{"202501010001_views.sql": stableCoreViewsPublicRevokeMigration}
+	if err := checkViewCreatorExemptions(migrations, exemptions); err != nil {
+		t.Fatalf("an exemption that still creates views must be accepted: %v", err)
+	}
+	if err := checkViewCreatorExemptions(migrations, map[string]string{"missing.sql": stableCoreViewsPublicRevokeMigration}); err == nil {
+		t.Fatal("a stale exemption must fail")
 	}
 }
 
