@@ -66,7 +66,7 @@ func TestPublicFrontendStaysClosedWithoutTrustChallengeGate(t *testing.T) {
 	extension := publicFrontendFixture(t)
 	reader := &fakeFrontendExtensionReader{item: extension}
 	trust := NewExecutableTrustService(reader, &memoryExecutableTrustStore{})
-	service := NewFrontendService(reader, &fakeFrontendTrustStore{}).
+	service := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).
 		WithExecutableTrust(trust, false).
 		WithPublicComponentAdmission(allowPublicComponentAdmission{})
 	grantPublicFrontend(t, trust, extension)
@@ -380,8 +380,8 @@ func TestPublicFrontendSharedAssetRegistryInstance(t *testing.T) {
 	extension := publicFrontendFixture(t)
 	reader := &fakeFrontendExtensionReader{item: extension}
 	exactTrust := NewExecutableTrustService(reader, &memoryExecutableTrustStore{})
-	shared := NewFrontendService(reader, &fakeFrontendTrustStore{}).PublicAssetRegistry()
-	service := NewFrontendService(reader, &fakeFrontendTrustStore{}).
+	shared := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).PublicAssetRegistry()
+	service := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).
 		WithExecutableTrust(exactTrust, true).
 		WithPublicComponentAdmission(allowPublicComponentAdmission{}).
 		WithPublicAssetRegistry(shared)
@@ -423,7 +423,7 @@ func TestPublicFrontendGateDefaultsClosed(t *testing.T) {
 	extension := publicFrontendFixture(t)
 	reader := &fakeFrontendExtensionReader{item: extension}
 	exactTrust := NewExecutableTrustService(reader, &memoryExecutableTrustStore{})
-	service := NewFrontendService(reader, &fakeFrontendTrustStore{}).WithExecutableTrust(exactTrust, true)
+	service := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).WithExecutableTrust(exactTrust, true)
 	if _, err := service.PublicComponent(context.Background(), extension.ID, extension.Manifest.Components[0].ID); !errors.Is(err, ErrPublicFrontendUnavailable) {
 		t.Fatalf("public L2 migration gate must default closed, got %v", err)
 	}
@@ -434,7 +434,7 @@ func TestPublicFrontendComponentAdmissionDefaultsClosed(t *testing.T) {
 	reader := &fakeFrontendExtensionReader{item: extension}
 	exactTrust := NewExecutableTrustService(reader, &memoryExecutableTrustStore{})
 	grantPublicFrontend(t, exactTrust, extension)
-	service := NewFrontendService(reader, &fakeFrontendTrustStore{}).
+	service := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).
 		WithExecutableTrust(exactTrust, true)
 	if _, err := service.PublicComponent(t.Context(), extension.ID, extension.Manifest.Components[0].ID); !errors.Is(err, ErrPublicFrontendUnavailable) {
 		t.Fatalf("public L2 must require Component Registry admission, got %v", err)
@@ -809,7 +809,7 @@ func newAdmittedPublicFrontendService(
 	reader FrontendExtensionReader,
 	trust *ExecutableTrustService,
 ) *FrontendService {
-	return NewFrontendService(reader, &fakeFrontendTrustStore{}).
+	return NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).
 		WithExecutableTrust(trust, true).
 		WithPublicComponentAdmission(allowPublicComponentAdmission{})
 }
@@ -948,7 +948,7 @@ func TestEditorOnlyL2UsesExactPublicPackageAssetBoundary(t *testing.T) {
 	extension.PackageDigest = packageDigest
 	reader := &fakeFrontendExtensionReader{item: extension}
 	trust := NewExecutableTrustService(reader, &memoryExecutableTrustStore{})
-	service := NewFrontendService(reader, &fakeFrontendTrustStore{}).
+	service := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).
 		WithExecutableTrust(trust, true)
 	identity, err := trust.RuntimeIdentity(t.Context(), extension)
 	if err != nil {

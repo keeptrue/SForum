@@ -16,7 +16,7 @@ import (
 
 func TestFrontendServiceTrustMutationsRequireSuperAdmin(t *testing.T) {
 	extension := prebuiltFrontendFixture(t, SourceUploaded)
-	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{})
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{}, newMemoryChallengeStore())
 	actor := identity.Actor{ID: 2, Status: identity.UserStatusActive, Permissions: map[string]bool{identity.PermissionExtensionManage: true}}
 
 	if _, err := service.Challenge(context.Background(), actor, extension.ID); !errors.Is(err, identity.ErrPermissionDenied) {
@@ -34,7 +34,7 @@ func TestFrontendServiceGrantIsConfirmationAndDigestBound(t *testing.T) {
 	extension := prebuiltFrontendFixture(t, SourceUploaded)
 	trust := &fakeFrontendTrustStore{}
 	auditor := &recordingAuditor{}
-	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, trust).WithAuditor(auditor)
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, trust, newMemoryChallengeStore()).WithAuditor(auditor)
 	actor := frontendSuperAdmin()
 
 	if _, err := service.Grant(context.Background(), actor, extension.ID, GrantFrontendInput{Digest: extension.AdminFrontendDigest}); !errors.Is(err, ErrFrontendTrustUnavailable) {
@@ -97,7 +97,7 @@ func TestFrontendServiceGrantIsConfirmationAndDigestBound(t *testing.T) {
 func TestFrontendServiceRevokeIsImmediate(t *testing.T) {
 	extension := prebuiltFrontendFixture(t, SourceUploaded)
 	trust := &fakeFrontendTrustStore{grant: frontendGrantForExtension(extension)}
-	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, trust)
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, trust, newMemoryChallengeStore())
 
 	status, err := service.Revoke(context.Background(), frontendSuperAdmin(), extension.ID)
 	if err != nil {
@@ -111,7 +111,7 @@ func TestFrontendServiceRevokeIsImmediate(t *testing.T) {
 func TestFrontendServiceAssetRequiresExactGrantAndImmutableBytes(t *testing.T) {
 	extension := prebuiltFrontendFixture(t, SourceUploaded)
 	trust := &fakeFrontendTrustStore{grant: frontendGrantForExtension(extension)}
-	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, trust)
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, trust, newMemoryChallengeStore())
 
 	asset, err := service.Asset(context.Background(), frontendSuperAdmin(), extension.ID, extension.AdminFrontendDigest, "entry")
 	if err != nil {
@@ -142,7 +142,7 @@ func TestFrontendServiceV3UsesTheExactArtifactGrant(t *testing.T) {
 	reader := &fakeFrontendExtensionReader{item: extension}
 	exactStore := &memoryExecutableTrustStore{now: func() time.Time { return time.Now().UTC() }}
 	exactTrust := NewExecutableTrustService(reader, exactStore)
-	service := NewFrontendService(reader, &fakeFrontendTrustStore{}).WithExecutableTrust(exactTrust, true)
+	service := NewFrontendService(reader, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).WithExecutableTrust(exactTrust, true)
 	actor := frontendSuperAdmin()
 
 	status, err := service.Frontend(context.Background(), actor, extension.ID)
@@ -180,7 +180,7 @@ func TestFrontendServiceV3DoesNotAcceptALegacyFrontendOnlyGrant(t *testing.T) {
 	reader := &fakeFrontendExtensionReader{item: extension}
 	exactTrust := NewExecutableTrustService(reader, &memoryExecutableTrustStore{})
 	legacyTrust := &fakeFrontendTrustStore{grant: frontendGrantForExtension(extension)}
-	service := NewFrontendService(reader, legacyTrust).WithExecutableTrust(exactTrust, true)
+	service := NewFrontendService(reader, legacyTrust, newMemoryChallengeStore()).WithExecutableTrust(exactTrust, true)
 
 	status, err := service.Frontend(context.Background(), frontendSuperAdmin(), extension.ID)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestFrontendServiceBuiltinComponentUsesSourceTrust(t *testing.T) {
 	extension.Manifest.Type = TypeTheme
 	extension.IsSystem = true
 	extension.IsDeletable = false
-	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{})
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{}, newMemoryChallengeStore())
 
 	status, err := service.Frontend(context.Background(), frontendSuperAdmin(), extension.ID)
 	if err != nil {
@@ -225,7 +225,7 @@ func TestFrontendServiceChangedDigestFallsBackToSchema(t *testing.T) {
 	extension.Version = "1.0.1"
 	extension.Manifest.Version = extension.Version
 	extension.AdminFrontendDigest = changed
-	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{all: []FrontendTrustGrant{old}})
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{all: []FrontendTrustGrant{old}}, newMemoryChallengeStore())
 
 	status, err := service.Frontend(context.Background(), frontendSuperAdmin(), extension.ID)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 
 	extensionreference "github.com/keeptrue/sforum/apps/api/app/Models/Attachments/ExtensionReference"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/frontendtrust"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	cacheregistry "github.com/keeptrue/sforum/apps/api/app/Support/CacheRegistry"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
@@ -80,7 +81,7 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 	executableTrustService := extensions.NewExecutableTrustService(extensionStore, executableTrustStore).
 		WithAuditor(auditWriter).
 		WithTTL(cfg.TrustChallengeTTL)
-	frontendService := extensions.NewFrontendService(extensionStore, frontendTrustStore).
+	frontendService := extensions.NewFrontendService(extensionStore, frontendTrustStore, frontendtrust.NewPostgresStore(pool)).
 		WithAuditor(auditWriter).
 		WithSafeMode(cfg.SafeMode).
 		WithExecutableTrust(executableTrustService, cfg.V3TrustChallenges)

@@ -80,7 +80,7 @@ func TestSafeModeClosesExecutableAndContributionSurfaces(t *testing.T) {
 
 func TestFrontendSafeModeForcesSchemaFallback(t *testing.T) {
 	extension := prebuiltFrontendFixture(t, SourceUploaded)
-	frontend := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{grant: frontendGrantForExtension(extension)}).
+	frontend := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{grant: frontendGrantForExtension(extension)}, newMemoryChallengeStore()).
 		WithSafeMode(true)
 	status, err := frontend.Frontend(context.Background(), extensionManager(), extension.ID)
 	if err != nil {

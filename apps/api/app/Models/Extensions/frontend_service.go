@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/keeptrue/sforum/apps/api/app/Models/Extensions/frontendtrust"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 	audit "github.com/keeptrue/sforum/apps/api/app/Support/Audit"
@@ -42,23 +42,25 @@ type FrontendService struct {
 	executableTrust   *ExecutableTrustService
 	v3TrustChallenges bool
 	auditor           audit.Writer
-	challenges        map[string]frontendTrustChallengeState
-	mu                sync.Mutex
-	safeMode          bool
-	publicAssets      *assetregistry.Registry
-	publicComponents  PublicComponentAdmission
+	// challenges 是前端信任确认挑战的**唯一权威**：跨进程共享的持久化存储。
+	// 这里刻意不保留进程内 map——多副本/蓝绿发布下 challenge 落 A 副本、grant 打
+	// B 副本时，内存权威必然 invalid-challenge（P3-7）。
+	challenges       frontendtrust.Store
+	safeMode         bool
+	publicAssets     *assetregistry.Registry
+	publicComponents PublicComponentAdmission
 }
 
-type frontendTrustChallengeState struct {
-	ActorUserID int64
-	Challenge   FrontendTrustChallenge
-}
-
-func NewFrontendService(extensions FrontendExtensionReader, trust FrontendTrustStore) *FrontendService {
+// NewFrontendService 构造前端信任服务。
+//
+// challenges 必须是与进程无关的持久化存储（生产为
+// frontendtrust.NewPostgresStore）。传 nil 表示「挑战通道未接线」：Challenge 与
+// Grant 都会 fail closed 成 ErrFrontendTrustUnavailable，而不是退回进程内状态。
+func NewFrontendService(extensions FrontendExtensionReader, trust FrontendTrustStore, challenges frontendtrust.Store) *FrontendService {
 	return &FrontendService{
 		extensions:   extensions,
 		trust:        trust,
-		challenges:   map[string]frontendTrustChallengeState{},
+		challenges:   challenges,
 		publicAssets: assetregistry.New(),
 	}
 }
@@ -140,14 +142,22 @@ func (s *FrontendService) Challenge(ctx context.Context, actor identity.Actor, e
 		ComponentID: component.ID,
 		ExpiresAt:   now.Add(5 * time.Minute),
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, item := range s.challenges {
-		if now.After(item.Challenge.ExpiresAt) {
-			delete(s.challenges, id)
-		}
+	if s.challenges == nil {
+		return FrontendTrustChallenge{}, fmt.Errorf("%w: challenge store is not wired", ErrFrontendTrustUnavailable)
 	}
-	s.challenges[challenge.ChallengeID] = frontendTrustChallengeState{ActorUserID: actor.ID, Challenge: challenge}
+	if err := s.challenges.Create(ctx, frontendtrust.Challenge{
+		ChallengeID: challenge.ChallengeID,
+		Code:        challenge.Code,
+		ActorUserID: actor.ID,
+		ExtensionID: challenge.ExtensionID,
+		Version:     challenge.Version,
+		Digest:      challenge.Digest,
+		APIVersion:  challenge.APIVersion,
+		ComponentID: challenge.ComponentID,
+		ExpiresAt:   challenge.ExpiresAt,
+	}); err != nil {
+		return FrontendTrustChallenge{}, err
+	}
 	return challenge, nil
 }
 
@@ -155,8 +165,6 @@ func (s *FrontendService) Grant(ctx context.Context, actor identity.Actor, exten
 	if !actor.IsSuperAdmin() {
 		return FrontendStatus{}, identity.ErrPermissionDenied
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	extension, err := s.extension(ctx, extensionID)
 	if err != nil {
 		return FrontendStatus{}, err
@@ -168,7 +176,7 @@ func (s *FrontendService) Grant(ctx context.Context, actor identity.Actor, exten
 	if input.Digest != extension.AdminFrontendDigest {
 		return FrontendStatus{}, fmt.Errorf("%w: requested digest does not match installed extension", ErrFrontendPackageChanged)
 	}
-	if err := s.consumePrebuiltConfirmation(actor, extension, *component, input.Confirmation); err != nil {
+	if err := s.consumePrebuiltConfirmation(ctx, actor, extension, *component, input.Confirmation); err != nil {
 		return FrontendStatus{}, err
 	}
 	if err := verifyInstalledPackageIdentity(extension); err != nil {
@@ -332,20 +340,33 @@ func (s *FrontendService) exactArtifactTrusted(ctx context.Context, extension Ex
 	return s.executableTrust.TrustedArtifact(ctx, extension)
 }
 
-func (s *FrontendService) consumePrebuiltConfirmation(actor identity.Actor, extension Extension, component AdminComponent, confirmation *FrontendTrustConfirmation) error {
+func (s *FrontendService) consumePrebuiltConfirmation(ctx context.Context, actor identity.Actor, extension Extension, component AdminComponent, confirmation *FrontendTrustConfirmation) error {
 	if confirmation == nil || !confirmation.Acknowledged ||
 		confirmation.ExtensionID != extension.ID || confirmation.Version != extension.Version ||
 		confirmation.Digest != extension.AdminFrontendDigest || confirmation.APIVersion != component.APIVersion ||
 		confirmation.ComponentID != component.ID || strings.TrimSpace(confirmation.Phrase) != extension.ID {
 		return fmt.Errorf("%w: explicit component trust confirmation is required", ErrFrontendTrustUnavailable)
 	}
-	state, exists := s.challenges[confirmation.ChallengeID]
-	delete(s.challenges, confirmation.ChallengeID)
-	if !exists || state.ActorUserID != actor.ID || time.Now().UTC().After(state.Challenge.ExpiresAt) ||
-		state.Challenge.Code != confirmation.Code || state.Challenge.ExtensionID != extension.ID ||
-		state.Challenge.Version != extension.Version || state.Challenge.Digest != extension.AdminFrontendDigest ||
-		state.Challenge.APIVersion != component.APIVersion || state.Challenge.ComponentID != component.ID {
-		return fmt.Errorf("%w: confirmation challenge is invalid or expired", ErrFrontendTrustUnavailable)
+	if s.challenges == nil {
+		return fmt.Errorf("%w: challenge store is not wired", ErrFrontendTrustUnavailable)
+	}
+	// 单次消费、actor 绑定、过期、精确制品绑定全部由存储层的原子条件保证；
+	// 任何一项不符都返回 ErrChallengeInvalid，且挑战不会保持可用。
+	if err := s.challenges.Consume(ctx, frontendtrust.ConsumeInput{
+		ChallengeID: confirmation.ChallengeID,
+		Code:        confirmation.Code,
+		ActorUserID: actor.ID,
+		ExtensionID: extension.ID,
+		Version:     extension.Version,
+		Digest:      extension.AdminFrontendDigest,
+		APIVersion:  component.APIVersion,
+		ComponentID: component.ID,
+	}); err != nil {
+		if errors.Is(err, frontendtrust.ErrChallengeInvalid) {
+			return fmt.Errorf("%w: confirmation challenge is invalid or expired", ErrFrontendTrustUnavailable)
+		}
+		// 存储故障不能伪装成「挑战无效」，否则运营会去查错误的方向。
+		return fmt.Errorf("%w: confirmation challenge store unavailable: %w", ErrFrontendTrustUnavailable, err)
 	}
 	return nil
 }

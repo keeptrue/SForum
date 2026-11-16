@@ -60,7 +60,7 @@ func TestAdminComponentPageBootstrapAndAssetEnforcePagePermission(t *testing.T) 
 		t.Fatal(err)
 	}
 	exactTrust := NewExecutableTrustService(store, trustStore)
-	frontend := NewFrontendService(&fakeFrontendExtensionReader{item: item}, &fakeFrontendTrustStore{}).
+	frontend := NewFrontendService(&fakeFrontendExtensionReader{item: item}, &fakeFrontendTrustStore{}, newMemoryChallengeStore()).
 		WithExecutableTrust(exactTrust, true)
 	if _, err := frontend.ComponentAsset(context.Background(), denied, item.ID, item.AdminFrontendDigest, "dashboard", "entry"); !errors.Is(err, identity.ErrPermissionDenied) {
 		t.Fatalf("component asset without page permission = %v", err)

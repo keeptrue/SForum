@@ -645,7 +645,8 @@ func TestProductionLifecycleStackLateBindsOneSharedAssetRegistry(t *testing.T) {
 		store,
 		extensions.NewPostgresExecutableTrustStore(&pgxpool.Pool{}),
 	)
-	frontend := extensions.NewFrontendService(store, nil)
+	// 该用例只验证 Asset Registry 的晚绑定，不触碰挑战通道；nil store 即 fail closed。
+	frontend := extensions.NewFrontendService(store, nil, nil)
 	if frontend.PublicAssetRegistry() == stack.AssetRegistry {
 		t.Fatal("frontend received lifecycle Asset Registry before late binding")
 	}
