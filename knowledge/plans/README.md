@@ -64,6 +64,7 @@ in this directory. Completed, cancelled, and superseded plans live under
 | `2026-07-12-admin-settings-richness.md` | **blueprint** -- later settings waves |
 | `2026-07-12-development-directions.md` | **blueprint** -- strategy context; verify against newer V3 decisions |
 | `2026-07-12-extension-surface-density.md` | **active (partial)** -- remaining product surface density |
+| `2026-11-16-security-audit-31.md` | **active（2026-11-16，批次 0 建账）** -- `2026-11-15_16-43.md` 报告 31 条发现的唯一台账（与 `00-SForum-audit-master.md` 零重叠）：基线 `e0ec3bce6`，三时点逐行复核 + 3 路只读核查代理，结论 19 属实 / 7 部分属实 / 5 不属实。批次 1 = P1-1 deny 展开复活 + P1-2 legacy 前缀守卫绕过（backend）；批次 2 = P2-1..P2-6；批次 3 = P3 后端 / 前端 / 运维三路。**进展（基线 `39fb04e3e`）**：已修 15（`c382e366b`+`fcdc86eda` P1-1、`97659db29`+`10f80ccf1` P1-2/P3-6、`39fb04e3e` P2-1、`0d1dc4eb6` P3-12/P3-16/P3-17、`4b4352d48` P3-18..22）、在办 4（task-11 剩 P2-4、task-12、task-13）、待派 8（P2-6 + 批次 3 后端 7 条）、不修 2（P3-5、P3-13）、延后 2（P3-7、P3-11，触发条件写在文末）。**报告自身 4 处偏差（TTL 60s / 403 / 6 处行号偏移 / v-html 净化前提）以台账为准，勿照抄报告** |
 
 Generated V3 traceability is documentation, not a task book:
 `../../docs/extensions/v3/catalogs/traceability.md`.
