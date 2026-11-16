@@ -41,12 +41,14 @@ func TestDeriveRouteAccess(t *testing.T) {
 			proxyable: false,
 		},
 		{
-			// guest 在 legacy 前缀上收紧成「必须已登录」：不放开匿名。
-			name:   "guest guard tightens to login",
-			route:  ManifestRoute{Guard: GuardCoreGuest},
-			access: RouteAccessLogin, proxyable: true,
+			// guest = 「仅匿名」，legacy 前缀与 declared 视图都表达不了它：
+			// 收紧成 404，而不是退化成 login（那会把声明放宽成「已登录即可」）。
+			name:      "guest guard is not proxyable",
+			route:     ManifestRoute{Guard: GuardCoreGuest},
+			proxyable: false,
 		},
 		{
+			// guest 没有合法的 access 形状：带 access 的 guest 声明同样被拒。
 			name:      "guest guard cannot carry an access value",
 			route:     ManifestRoute{Guard: GuardCoreGuest, Access: RouteAccessLogin},
 			proxyable: false,

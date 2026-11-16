@@ -324,16 +324,22 @@ so do not rely on them:
 
 `/api/v1/extensions/:extensionId/*` is the compatibility prefix that forwards a
 request to your plugin process without going through the Route Registry. It
-serves **only** routes whose guard is a core guard (`public`, `login`,
-`permission`, and `guest` tightened to login — the prefix cannot express
-"anonymous only", so it never opens a guest route to anonymous callers).
+serves **only** `core.guard.public`, `core.guard.login`, and
+`core.guard.permission` routes.
 
-Routes guarded by a package-declared guard (`kind: custom` or
-`kind: raw_request`) and routes using `core.guard.inherit` answer **404** on this
-prefix — the same response as a path that was never declared, so the prefix does
-not disclose that the route exists. Their authorization belongs to the guard
-code (or to the targeted Core route), which only the trusted Route Registry can
-evaluate; reaching them requires the registered path, not this prefix.
+Everything else answers **404** on this prefix: `core.guard.guest`,
+`core.guard.inherit`, `core.guard.raw_request`, and every route guarded by a
+package-declared guard (`kind: custom` or `kind: raw_request`). The 404 has the
+same shape as a path that was never declared, so the prefix does not disclose
+that the route exists.
+
+`guest` is refused rather than downgraded to `login` because the prefix cannot
+express "anonymous only": serving a guest route to authenticated users would
+widen its declared authorization, and serving it to anonymous callers would turn
+it into a public route. `inherit` and custom guards take their authorization
+from the targeted Core route or from your guard code, which only the trusted
+Route Registry can evaluate; reaching those routes requires the registered path,
+not this prefix.
 
 ---
 

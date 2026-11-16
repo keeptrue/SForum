@@ -81,6 +81,10 @@ func TestProxyExtensionRouteGuardMatrix(t *testing.T) {
 					ID: "guard.route.raw", Path: "/raw", Methods: []string{http.MethodPost},
 					Guard: "guard.plugin.raw",
 				},
+				{
+					ID: "guard.route.guest", Path: "/guest", Methods: []string{http.MethodGet},
+					Guard: extensionmanifest.GuardCoreGuest,
+				},
 			},
 		},
 	}
@@ -144,6 +148,12 @@ func TestProxyExtensionRouteGuardMatrix(t *testing.T) {
 		{
 			// raw_request 守卫会转发调用者凭据：漏在这里等于把凭据交给插件进程。
 			name: "raw_request guard", method: http.MethodPost, path: "/api/v1/extensions/guard.plugin/raw",
+			anonymous: http.StatusNotFound, ordinary: http.StatusNotFound, privileged: http.StatusNotFound, runtimeRuns: 0,
+		},
+		{
+			// guest = 「仅匿名」：前缀表达不了它，退化成 login 会把「仅匿名」放宽成
+			// 「已登录即可」，所以三类主体一律 404。
+			name: "guest guard", method: http.MethodGet, path: "/api/v1/extensions/guard.plugin/guest",
 			anonymous: http.StatusNotFound, ordinary: http.StatusNotFound, privileged: http.StatusNotFound, runtimeRuns: 0,
 		},
 	}

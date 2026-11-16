@@ -40,13 +40,14 @@ func DeriveRouteAccess(route ManifestRoute) (access string, permission string, p
 	case GuardCorePermission:
 		resolved = RouteAccessPermission
 	case GuardCoreGuest:
-		// legacy 前缀无法表达「仅匿名」：既不放开匿名（那会把 guest 路由变成公开
-		// 路由），也不假装它就是 login。收到「必须已登录」这个最接近的收紧形状，
-		// 真正的 guest 语义只能走 Route Registry。
-		if declared != "" {
-			return "", "", false
-		}
-		resolved = RouteAccessLogin
+		// legacy 前缀与 declared 视图都无法表达「仅匿名」，所以这里收紧成不可代理，
+		// 而不是退化成 login：放宽到已登录用户会把声明的授权语义从「仅匿名」改成
+		// 「已登录即可」，而放开匿名会把 guest 路由变成公开路由。两条路都是错的，
+		// 正确回答是两边都拒绝——guest 路由只能走可信 Route Registry。
+		//
+		// 这一分支同时吞掉「guest + 显式 access」的矛盾声明：guest 没有合法的 access
+		// 形状（coreGuardForRouteAccess 不产出 guest），所以带 access 也是 false。
+		return "", "", false
 	default:
 		// core.guard.inherit、core.guard.raw_request，以及包自定义守卫
 		// （kind=custom / kind=raw_request）的授权属于被包裹路由或插件代码本身。

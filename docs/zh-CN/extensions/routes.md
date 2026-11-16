@@ -303,6 +303,22 @@ guard 侧报错）都会拒绝请求；不存在绕过 guard 直接执行处理�
   声明**的 `kind: raw_request` 守卫获得，宿主会在精确制品信任确认时把它作为
   高风险披露。
 
+### legacy 代理前缀只服务 core guard
+
+`/api/v1/extensions/:extensionId/*` 是不经 Route Registry、直接转发到插件进程的
+兼容前缀。它**只**服务 `core.guard.public`、`core.guard.login`、
+`core.guard.permission` 三类路由。
+
+其余一律在该前缀上返回 **404**：`core.guard.guest`、`core.guard.inherit`、
+`core.guard.raw_request`，以及所有由包内声明守卫（`kind: custom` /
+`kind: raw_request`）保护的路由。这个 404 与「从未声明过的路径」完全同形，
+因此该前缀不会泄露路由是否存在。
+
+`guest` 之所以被拒而不是降级成 `login`：前缀无法表达「仅匿名」——放给已登录
+用户会放宽声明的授权，放给匿名调用者又会把 guest 路由变成公开路由。`inherit`
+与自定义守卫的授权分别属于被包裹的 Core 路由和你的守卫代码，只有可信 Route
+Registry 才能复现；要到达这些路由必须走已注册的路径，而不是这个前缀。
+
 ---
 
 ## Protocol V2 处理器
