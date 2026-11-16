@@ -159,18 +159,39 @@ func TestLoginVerificationPolicyFailureFailsOpen(t *testing.T) {
 //
 // 历史缺陷是 `return false, nil`，即 Redis 抖动直接让运营开的「总是验证」失效。
 //
-// 变异要求：把 loginRequiresVerification 里的 lockout 错误分支改回
-// `return false, nil`，第一行（lockout 错误 + policy.Always=true）必须红。
+// 三条策略分支各自独立受守卫：只保住 always、把 new_device/privileged 一起丢掉，
+// 同样是可静默上线的绕过（管理员账号与新设备不再强制验证），因此表里为每条策略
+// 各留一行。
+//
+// 变异要求（三种都要红）：
+//   - 把 lockout 错误分支改回 `return false, nil` → 三行全红；
+//   - 改成「只保留 always」（lockout 错误时直接 `if policy.Always { return true }`
+//     再 `return false`）→ new_device 与 privileged 两行必须红，always 行仍绿。
 func TestLoginVerificationLockoutReadFailureKeepsPolicyChain(t *testing.T) {
 	tests := []struct {
 		name        string
 		policy      LoginVerificationPolicy
+		fingerprint string
 		wantRequire bool
 	}{
 		{
 			// 变异靶子：策略要求总是验证时，Redis 抖动不得关掉验证。
 			name:        "always still requires verification",
 			policy:      LoginVerificationPolicy{Enabled: true, Always: true},
+			wantRequire: true,
+		},
+		{
+			// 同一条策略链的第三段：新设备触发条件不得被 Redis 抖动连带放弃。
+			// 空指纹会被当成已知设备（见 HasKnownDevice），所以必须送一个陌生 UA。
+			name:        "new device still requires verification",
+			policy:      LoginVerificationPolicy{Enabled: true, NewDevice: true},
+			fingerprint: "UnknownAgent/1.0",
+			wantRequire: true,
+		},
+		{
+			// 同一条策略链的第四段：特权账号（首个注册者即初始超管）不得被连带放弃。
+			name:        "privileged account still requires verification",
+			policy:      LoginVerificationPolicy{Enabled: true, Privileged: true},
 			wantRequire: true,
 		},
 		{
@@ -191,6 +212,7 @@ func TestLoginVerificationLockoutReadFailureKeepsPolicyChain(t *testing.T) {
 
 			_, err := service.Login(testContext(t), LoginInput{
 				Login: "victim", Password: loginVerificationTestPassword,
+				DeviceFingerprint: test.fingerprint,
 			})
 			if required := errors.Is(err, ErrLoginVerificationRequired); required != test.wantRequire {
 				t.Fatalf("required=%t want=%t (err=%v)", required, test.wantRequire, err)
