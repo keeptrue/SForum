@@ -1,8 +1,11 @@
 package humanverify_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
@@ -30,6 +33,12 @@ func altchaRuntimeConfig(postRiskEnabled bool) humanverify.RuntimeConfig {
 		PurposeEnabled:  map[humanverify.Purpose]bool{humanverify.PurposePostRisk: postRiskEnabled},
 		RateLimitWindow: 0,
 	}
+}
+
+// 降级日志探针：注入一个写进缓冲的 logger，断言 warn 被调用且带够字段（F-3）。
+func probeLogger() (*slog.Logger, *bytes.Buffer) {
+	var buf bytes.Buffer
+	return slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})), &buf
 }
 
 // 生产注入类型的行为基线：开关打开时缺 token 必须 ErrRequired。
@@ -100,9 +109,14 @@ func TestRuntimeServiceTypedNilIsDisabledNotPanic(t *testing.T) {
 
 // 降级语义（fail-closed 方向）：env 声明了 altcha 时，Options 读失败仍强制校验。
 // fallback 的 PurposeEnabled 为 nil → Service 视为「所有场景启用」。
+//
+// 同时钉住可观测性（F-3）：这次降级必须留下一条 warn，且方向标记为「继续强制」。
+// 变异要求：删掉 service() 里的 logger.Warn 调用，本用例的日志断言必须红。
 func TestRuntimeServiceOptionsFailureKeepsAltchaFallbackEnforced(t *testing.T) {
 	fallback := humanverify.RuntimeConfig{Provider: humanverify.ProviderAltcha, AltchaSecret: "env-secret"}
-	verifier := postRiskRuntimeService(t, stubConfigSource{err: errors.New("options unavailable")}, fallback)
+	logger, logs := probeLogger()
+	verifier := postRiskRuntimeService(t, stubConfigSource{err: errors.New("options unavailable")}, fallback).
+		WithLogger(logger)
 
 	err := verifier.Verify(context.Background(), humanverify.VerifyRequest{
 		Provider: humanverify.ProviderAltcha,
@@ -111,18 +125,43 @@ func TestRuntimeServiceOptionsFailureKeepsAltchaFallbackEnforced(t *testing.T) {
 	if !errors.Is(err, humanverify.ErrRequired) {
 		t.Fatalf("altcha fallback must stay enforced, err=%v want ErrRequired", err)
 	}
+
+	recorded := logs.String()
+	if !strings.Contains(recorded, "humanverify: read runtime config failed") {
+		t.Fatalf("fallback degradation must be logged, got %q", recorded)
+	}
+	for _, want := range []string{"purpose=post_risk", "fallback=altcha_enforced", "options unavailable"} {
+		if !strings.Contains(recorded, want) {
+			t.Fatalf("degradation log missing %q: %s", want, recorded)
+		}
+	}
+	if got := strings.Count(recorded, "humanverify: read runtime config failed"); got != 1 {
+		t.Fatalf("degradation must be logged exactly once per resolution, got %d: %s", got, recorded)
+	}
 }
 
 // 降级语义（fail-open 方向，已记录前提）：env 没声明 provider 时 Options 读失败 → 零校验。
 // 该分支的存在条件与安全性论证写在 NewRuntimeService 的注释里；这里把它钉成行为契约，
 // 将来若有人把它改成 fail-closed，会先红在这里。
+//
+// 同样要求留痕（F-3）：零校验方向的日志必须与「继续强制」可区分。
 func TestRuntimeServiceOptionsFailureWithDisabledFallbackSkips(t *testing.T) {
-	verifier := postRiskRuntimeService(t, stubConfigSource{err: errors.New("options unavailable")}, humanverify.RuntimeConfig{})
+	logger, logs := probeLogger()
+	verifier := postRiskRuntimeService(t, stubConfigSource{err: errors.New("options unavailable")}, humanverify.RuntimeConfig{}).
+		WithLogger(logger)
 
 	if err := verifier.Verify(context.Background(), humanverify.VerifyRequest{
 		Provider: humanverify.ProviderAltcha,
 		Purpose:  humanverify.PurposePostRisk,
 	}); err != nil {
 		t.Fatalf("disabled fallback must skip verification, err=%v", err)
+	}
+
+	recorded := logs.String()
+	if !strings.Contains(recorded, "fallback=disabled_zero_verification") {
+		t.Fatalf("zero-verification fallback must be logged with its direction, got %q", recorded)
+	}
+	if strings.Contains(recorded, "fallback=altcha_enforced") {
+		t.Fatalf("disabled fallback must not be reported as enforced: %s", recorded)
 	}
 }
