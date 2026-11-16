@@ -234,7 +234,7 @@ func runPerfSeedCommand(ctx context.Context, opts seedOptions, plan perfSeedPlan
 	cmd.Printf("seeding forum perf-1m: %s\n", plan.String())
 	cmd.Printf("  disk note: %s\n", plan.DiskNote)
 	cmd.Printf("  time note: %s\n", plan.TimeNote)
-	cmd.Printf("  database:  %s\n", redactDatabaseURL(databaseURL))
+	cmd.Printf("  database:  %s\n", config.RedactDatabaseURL(databaseURL))
 	result, err := runPerfBulkSeed(ctx, opts, plan, deps, cmd.Printf)
 	if err != nil {
 		return err
@@ -367,20 +367,4 @@ func printPerfDryRun(cmd *cobra.Command, opts seedOptions, plan perfSeedPlan) {
 	cmd.Printf("  time note:            %s\n", plan.TimeNote)
 	cmd.Printf("  write requires:       --confirm-perf-db on a dedicated DATABASE_URL\n")
 	_ = opts
-}
-
-// redactDatabaseURL 隐藏密码，仅用于日志。
-func redactDatabaseURL(raw string) string {
-	// postgres://user:pass@host/db → postgres://user:***@host/db
-	if i := strings.Index(raw, "://"); i >= 0 {
-		rest := raw[i+3:]
-		if at := strings.Index(rest, "@"); at >= 0 {
-			userinfo := rest[:at]
-			hostpart := rest[at:]
-			if colon := strings.Index(userinfo, ":"); colon >= 0 {
-				return raw[:i+3] + userinfo[:colon] + ":***" + hostpart
-			}
-		}
-	}
-	return raw
 }
