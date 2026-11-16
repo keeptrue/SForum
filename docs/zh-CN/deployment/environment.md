@@ -105,6 +105,38 @@ Compose 内部 PostgreSQL 网络不启用 TLS。外部数据库属于高级部�
 使用外部无密码 Redis 时，需要把 `REDIS_PASSWORD` 置空，并同步调整
 `compose.yaml` 里的 `--requirepass`；不要只改一边。
 
+## 可选搜索（Meilisearch）
+
+站点搜索默认用内置的 PostgreSQL 全文检索，不需要 Meilisearch，也不需要任何
+`MEILI_*` 变量。下面两项只在两个条件同时成立时才需要：启动 `--profile search`
+的 `meilisearch` 服务，并且安装、启用独立仓库中的
+`sforum-search-meilisearch` 插件，再在 `search.provider` 槽位选中它。
+
+| 变量 | 默认/示例 | 说明 |
+| --- | --- | --- |
+| `MEILI_MASTER_KEY` | 无安全默认 | Meilisearch 的 master key：服务端用它鉴权，插件用它调用索引 API。`compose.prod.yaml` 对它是 `:?` 硬闸，缺值在生产展开阶段就失败，`compose.yaml` 的开发默认值 `sforum-dev-meili-key` 不会进入生产容器 |
+| `MEILI_HOST` | `http://meilisearch:7700` | 插件连接 Meilisearch 的地址；默认站点搜索用不到，所以模板以注释形式给出。插件引擎配置里填的 Host 必须指向这个服务 |
+
+生成 master key：
+
+```sh
+openssl rand -hex 32
+```
+
+- 必须是 64 位 hex 的高熵值：不要留 `change-me`，也不要复用开发环境的
+  `sforum-dev-meili-key`。这个值决定服务端凭据，插件侧配置的 master key 必须与
+  它一致，否则鉴权失败。
+- 新安装由 `deploy/scripts/configure-production.sh` 生成；存量安装由 `deploy.sh`
+  与 `upgrade.sh` 在第一个 compose 调用之前补上缺失的键——只补缺失或空值，不覆盖
+  已有值。手工维护 `.env.production` 时要自己补这一行，否则
+  `compose.yaml + compose.prod.yaml` 的展开会直接失败。
+- 轮换 key 后重启 `meilisearch` 与 `api`：两边凭据不一致时插件的读写全部失败，
+  表现为搜索结果为空或索引报错。
+
+索引本身由插件维护（外部引擎的索引 UID 是 `sforum_topics`），与这个 key 无关：
+选中引擎、重建索引都在管理端「论坛设置 → 搜索」里完成，轮换 key 不需要也不触发
+重建。启用流程见[搜索](../usage/search.md)。
+
 ## 队列与 Worker
 
 API 始终内嵌 River Worker，没有独立 Worker 开关。
