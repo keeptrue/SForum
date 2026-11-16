@@ -24,6 +24,13 @@ type TrustLevelChangedEvent struct {
 	ComputedAt time.Time `json:"computedAt"`
 }
 
+// ledgerCASAttempts 是账本 CAS 冲突的最大尝试次数。
+//
+// 依据：同一用户的并发写只来自「单用户 job」与「批量重算」两条路径，正常最多两次
+// 撞车（各自重试一次就收敛）；给到 3 次足以覆盖批量重算与 job 同时开跑，
+// 又不至于让一个持续被改的用户卡住 worker。
+const ledgerCASAttempts = 3
+
 // RecomputeOutcome 是一次重算的结论（job 的日志/测试都要它）。
 type RecomputeOutcome struct {
 	Evaluation Evaluation
@@ -122,39 +129,60 @@ func (r *Recomputer) RecomputeUser(ctx context.Context, userID int64) (Recompute
 		return outcome, nil
 	}
 
-	previous, found, err := r.ledger.LoadLedger(ctx, userID)
-	if err != nil {
-		return RecomputeOutcome{}, err
-	}
-	outcome.Previous = previous
-	outcome.HadPrevious = found
-
-	next := LedgerEntry{
-		Level:      int(evaluation.Level),
-		TierID:     evaluation.TierID,
-		ComputedAt: r.now().UTC(),
-	}
-	// 判据 3：首见只落账本。没有比较基准就不是「变更」。
-	if !found {
-		if err := r.ledger.SaveLedger(ctx, userID, next); err != nil {
+	// 读账本 → 比较 → 写账本 → 发事件：写账本用版本 CAS，冲突就重读重算（P3-10）。
+	//
+	// 为什么重试只重读账本、不重新求值：求值读的是活动统计与策略（与账本无关），
+	// 而事件正确性依赖的恰恰是「基准 previous 是不是最新的」。冲突意味着别人刚写过
+	// 账本，带着旧的 previous 发事件就是错序/重复事件的来源，所以必须回到读账本那一步。
+	for attempt := 0; attempt < ledgerCASAttempts; attempt++ {
+		previous, found, err := r.ledger.LoadLedger(ctx, userID)
+		if err != nil {
 			return RecomputeOutcome{}, err
 		}
+		outcome.Previous = previous
+		outcome.HadPrevious = found
+
+		next := LedgerEntry{
+			Level:      int(evaluation.Level),
+			TierID:     evaluation.TierID,
+			ComputedAt: r.now().UTC(),
+		}
+		if found && previous.Level == next.Level && previous.TierID == next.TierID {
+			// 同级同档：既不写账本（computed_at 保持上次完整求值时刻）也不发事件。
+			outcome.Skipped = "unchanged"
+			return outcome, nil
+		}
+		expectedRevision := int64(0)
+		if found {
+			expectedRevision = previous.Revision
+		}
+		applied, err := r.ledger.SaveLedgerCAS(ctx, userID, expectedRevision, next)
+		if err != nil {
+			return RecomputeOutcome{}, err
+		}
+		if !applied {
+			// 并发冲突：账本已被别的重算改过。重读基准，绝不带旧 previous 发事件。
+			continue
+		}
 		outcome.LedgerWritten = true
-		outcome.Skipped = "first-sighting"
+		// 判据 3：首见只落账本。没有比较基准就不是「变更」。
+		if !found {
+			outcome.Skipped = "first-sighting"
+			return outcome, nil
+		}
+		// 判据 2：账本只做变更检测。事件内容来自 previous（账本）与本次求值，不反过来。
+		r.publish(ctx, userID, previous, next)
+		outcome.EventEmitted = true
 		return outcome, nil
 	}
-	if previous.Level == next.Level && previous.TierID == next.TierID {
-		// 同级同档：既不写账本（computed_at 保持上次完整求值时刻）也不发事件。
-		outcome.Skipped = "unchanged"
-		return outcome, nil
+	// 重试用尽：账本已由并发方写对（最终一致），本次跳过事件。
+	// 宁可少一条事件，也不发一条 FromLevel 已经过期的错序事件——后者会让下游
+	// 重复发通知/徽章，而少发的那条下一次重算会因为「同级」自然收敛。
+	outcome.Skipped = "ledger-conflict"
+	if r.logger != nil {
+		r.logger.Warn("trust level recompute gave up after ledger revision conflicts",
+			"user_id", userID, "attempts", ledgerCASAttempts)
 	}
-	if err := r.ledger.SaveLedger(ctx, userID, next); err != nil {
-		return RecomputeOutcome{}, err
-	}
-	outcome.LedgerWritten = true
-	// 判据 2：账本只做变更检测。事件内容来自 previous（账本）与本次求值，不反过来。
-	r.publish(ctx, userID, previous, next)
-	outcome.EventEmitted = true
 	return outcome, nil
 }
 

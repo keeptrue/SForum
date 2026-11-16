@@ -129,10 +129,22 @@ func (f *recomputeFixture) setPolicy(t *testing.T, raw string) {
 
 func (f *recomputeFixture) seedLedger(t *testing.T, level int, tierID string, computedAt time.Time) {
 	t.Helper()
-	if err := f.ledger.SaveLedger(f.ctx, f.userID, trustlevels.LedgerEntry{
-		Level: level, TierID: tierID, ComputedAt: computedAt,
-	}); err != nil {
+	existing, found, err := f.ledger.LoadLedger(f.ctx, f.userID)
+	if err != nil {
 		t.Fatal(err)
+	}
+	expected := int64(0)
+	if found {
+		expected = existing.Revision
+	}
+	applied, err := f.ledger.SaveLedgerCAS(f.ctx, f.userID, expected, trustlevels.LedgerEntry{
+		Level: level, TierID: tierID, ComputedAt: computedAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !applied {
+		t.Fatalf("seed ledger conflicted with revision %d", expected)
 	}
 }
 
