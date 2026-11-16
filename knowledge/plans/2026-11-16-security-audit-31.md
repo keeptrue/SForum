@@ -30,11 +30,11 @@
 | P1-1 | 用户级 deny 覆盖被父权限展开复活（细粒度子权限 deny 全部失效） | 属实 | 已修 · `c382e366b` + `fcdc86eda` | 1 | deny 子权限 + 角色持有父权限时 `Actor.Can(child) == false` 且 detail.Permissions 不含该键；`roles_test.go` 新增该用例并通过 |
 | P1-2 | legacy 前缀 `/api/v1/extensions/:id/*` 绕过 custom/raw_request 守卫，raw 权威还转发登录凭证 | 属实 | 已修 · `97659db29` + `10f80ccf1` | 1 | legacy 前缀 × 四种守卫类型的 allowed/denied 测试通过；raw_request 凭证只在守卫通过后转发 |
 | P2-1 | 登录人机验证被客户端可控字段 `issueApiToken` 一键豁免 | 部分属实 | 已修 · `39fb04e3e` | 2 | 带 `issueApiToken` 的登录仍受 `RequiresVerification` 约束；decision `2026-10-22` 第 5 条与代码一致（或 decision 同步改写） |
-| P2-2 | PAT 完全不受 token_version 失效与「强制下线全部设备」约束 | 属实 | 在办 · task-13（backend） | 2 | 密码重置 / 强制下线后旧 PAT 鉴权失败；管理员代撤销端点有 allowed + denied 测试 |
-| P2-3 | 举报处置（HideAndClose/DeleteAndClose）直写状态但不触发公开缓存失效 | 属实 | 在办 · task-12（backend） | 2 | 处置提交后公开读接口在 TTL 内立即不可见（列表 + 详情双断言） |
-| P2-4 | Idempotency pending 无租约与崩溃清理（同 Key 最长 24h 全部 409） | 部分属实 | 在办 · task-11（backend） | 2 | panic 后同一 `Idempotency-Key` 在短 TTL 后可重试；Complete/Abort 走 CAS，只有 lease 持有者能收敛 |
-| P2-5 | 主题生命周期计数多路径口径不一致（locked 双计 / 漏计 / 永久少计） | 属实 | 在办 · task-12（backend） | 2 | 「锁帖 → 作者编辑触发预审 → 审核通过」与「删除 locked 帖」后 `ListTopics` total 与真实可见数一致 |
-| P2-6 | mail_deliveries 无终态收口：重试耗尽后永久停在 sending，邮件静默丢失 | 部分属实 | 待派 | 2 | 重试耗尽写 `DeliveryDead`；sweeper 把超龄 sending/queued 转 dead；replay 端点可用 |
+| P2-2 | PAT 完全不受 token_version 失效与「强制下线全部设备」约束 | 属实 | 已修 · `65787967f` + `0db6c3888` + `b23a658dd`（前端 `469295770` `3a1e0afa7`） | 2 | 密码重置 / 强制下线后旧 PAT 鉴权失败；管理员代撤销端点有 allowed + denied 测试；`RestrictActor` 保留显式 `false`（见「审查发现」第 1 条） |
+| P2-3 | 举报处置（HideAndClose/DeleteAndClose）直写状态但不触发公开缓存失效 | 属实 | 已修 · `25390c34d` | 2 | 处置提交后公开读接口在 TTL 内立即不可见（列表 + 详情双断言） |
+| P2-4 | Idempotency pending 无租约与崩溃清理（同 Key 最长 24h 全部 409） | 部分属实 | 已修 · `ed76a58c8` | 2 | panic 后同一 `Idempotency-Key` 在短 TTL 后可重试；Complete/Abort 走 CAS，只有 lease 持有者能收敛 |
+| P2-5 | 主题生命周期计数多路径口径不一致（locked 双计 / 漏计 / 永久少计） | 属实 | 已修 · `459381289` + `5ceed2dc3` | 2 | 「锁帖 → 作者编辑触发预审 → 审核通过」与「删除 locked 帖」后 `ListTopics` total 与真实可见数一致 |
+| P2-6 | mail_deliveries 无终态收口：重试耗尽后永久停在 sending，邮件静默丢失 | 部分属实 | 已修 · `d3b36d46d` + `42aa744f3` | 2 | 重试耗尽写 `DeliveryDead`；sweeper 把超龄 sending/queued 转 dead；replay 端点可用；控制器测试 fake 补齐（`b2819a4c2`，见 F 系列） |
 | P2-7 | en-US 语言包整棵缺失 `userAppearanceSettings` 子树（28 key） | 不属实(已修) | 已修 · 核实前基线 `e0ec3bce6` | — | 无需动作：en-US 已有 28 个 leaf key，且 `apps/web/tests/framework/i18nCatalog.test.ts` 已棘轮 |
 | P3-1 | Bearer PAT 校验每请求无条件写库刷新 last_used_at（无节流） | 属实 | 已修 · `c0ab8d80d` + `7218be6c6` | 3 | 同一 token 高频请求不再产生逐请求 `UPDATE`，写入按阈值节流且 last_used_at 语义不变（PG 集成 `TestTouchLastUsedThrottlePostgres` 四子用例 + 变异必红；严格 `<` 边界与「跨语句等值必然过期」已钉成断言） |
 | P3-2 | LoginLockout 计数键 TTL 依赖单次 Expire 成功 | 属实 | 已修 · `191c4e441` + `56da3585d` + `2de3e6ff3` | 3 | 首写与 TTL 压进单次 EVAL 原子完成，`PTTL<0` 自愈历史无 TTL 键；真实 Redis 用例在 CI 口径下**不再 skip**（无 `SFORUM_TEST_REDIS_ADDR` 时 `t.Fatalf`），Lua 语法错误在脚本口径下必红 |
