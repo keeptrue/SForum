@@ -13,6 +13,8 @@ adminWebhookEndpoints:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create an outbound webhook endpoint
     operationId: adminCreateWebhookEndpoint
@@ -35,6 +37,8 @@ adminWebhookEndpoints:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminWebhookEndpointByID:
   patch:
     summary: Update a webhook endpoint
@@ -67,6 +71,8 @@ adminWebhookEndpointByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete a webhook endpoint
     operationId: adminDeleteWebhookEndpoint
@@ -86,6 +92,8 @@ adminWebhookEndpointByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminWebhookDeliveries:
   get:
     summary: List recent webhook deliveries
@@ -113,6 +121,8 @@ adminWebhookDeliveries:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminWebhookEvents:
   get:
     summary: List observeevents available for webhook subscription
@@ -128,6 +138,8 @@ adminWebhookEvents:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 webhookInbound:
   post:
     summary: Inbound webhook gateway skeleton

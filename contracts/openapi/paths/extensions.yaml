@@ -696,6 +696,8 @@ adminExtensions:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Upload and install or stage an extension ZIP archive
     description: >-
@@ -755,6 +757,8 @@ adminExtensions:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionInstallFromURL:
   post:
     summary: Download and install or stage an extension ZIP from a URL
@@ -1306,6 +1310,8 @@ adminExtensionMigrations:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionMigrationsApply:
   post:
     summary: Record declared extension migrations
@@ -1340,6 +1346,8 @@ adminExtensionMigrationsApply:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionNavigation:
   get:
     summary: List extension admin navigation items
@@ -1356,6 +1364,8 @@ adminExtensionNavigation:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionContributionPoints:
   get:
     summary: List host-defined extension contribution points
@@ -1372,6 +1382,8 @@ adminExtensionContributionPoints:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionContributions:
   get:
     summary: List active extension contributions with governance facts
@@ -1395,6 +1407,8 @@ adminExtensionContributions:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionPageBootstrap:
   get:
     summary: Bootstrap one extension admin page
@@ -1430,6 +1444,8 @@ adminExtensionPageBootstrap:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionSettings:
   get:
     summary: Read extension settings
@@ -1455,6 +1471,8 @@ adminExtensionSettings:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update extension settings
     description: >-
@@ -1766,6 +1784,8 @@ adminExtensionTrust:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Revoke executable trust for an extension
     description: Super-admin only. Revokes every live exact-artifact grant and outstanding challenge for the extension.
@@ -1791,6 +1811,8 @@ adminExtensionTrust:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionTrustChallenge:
   post:
     summary: Issue an exact-artifact executable trust challenge
@@ -1827,6 +1849,8 @@ adminExtensionTrustChallenge:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionDisable:
   post:
     summary: Disable an installed plugin
@@ -2246,6 +2270,8 @@ adminExtensionEvents:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionEventDefinitions:
   get:
     summary: List host-defined extension event points
@@ -2261,6 +2287,8 @@ adminExtensionEventDefinitions:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionEventDeliveries:
   get:
     summary: List plugin event delivery attempts
@@ -2301,6 +2329,8 @@ adminExtensionEventDeliveries:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionFrontend:
   get:
     summary: Inspect an extension's prebuilt admin components
@@ -2863,6 +2893,8 @@ adminExtensionContributionGovernance:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Reset one contribution tab to the manifest default
     description: |
@@ -2879,6 +2911,8 @@ adminExtensionContributionGovernance:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminExtensionContributionItemGovernance:
   parameters:
   - name: point
@@ -2928,6 +2962,8 @@ adminExtensionContributionItemGovernance:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Reset one declared settings field to the manifest default
     description: Requires extension.plugin.manage. Idempotent.
@@ -2941,3 +2977,5 @@ adminExtensionContributionItemGovernance:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

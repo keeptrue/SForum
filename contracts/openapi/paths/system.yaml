@@ -59,6 +59,8 @@ adminOverview:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminOverviewResources:
   get:
     summary: Get lightweight admin overview resource metrics
@@ -79,6 +81,8 @@ adminOverviewResources:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminSystemUpdates:
   get:
     summary: Get the cached SForum release status
@@ -100,6 +104,8 @@ adminSystemUpdates:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminSystemUpdatesCheck:
   post:
     summary: Check GitHub releases immediately
@@ -120,3 +126,5 @@ adminSystemUpdatesCheck:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

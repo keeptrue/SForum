@@ -118,7 +118,7 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 }
 
 func (h *Controller) adminActor(c fiber.Ctx) (identity.Actor, error) {
-	actor, err := apphttp.LoadActor(c, h.sessions, h.users)
+	actor, err := apphttp.RequireActor(c, h.sessions, h.users)
 	if err != nil {
 		return identity.Actor{}, err
 	}

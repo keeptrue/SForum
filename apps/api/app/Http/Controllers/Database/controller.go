@@ -91,7 +91,7 @@ func (h *Controller) exportCSV(c fiber.Ctx) error {
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }
 
 func rowsInput(c fiber.Ctx) database.RowsInput {

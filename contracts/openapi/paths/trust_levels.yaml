@@ -49,6 +49,8 @@ adminTrustLevels:
         "$ref": "../components/responses.yaml#/NotFound"
       '500':
         "$ref": "../components/responses.yaml#/InternalServerError"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update the trust level configuration
     operationId: updateAdminTrustLevels
@@ -92,6 +94,8 @@ adminTrustLevels:
               "$ref": "../schemas/trust_levels.yaml#/TrustLevelConfigValidationError"
       '500':
         "$ref": "../components/responses.yaml#/InternalServerError"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminTrustLevelsRestoreDefaults:
   post:
     summary: Restore recommended trust level defaults
@@ -121,6 +125,8 @@ adminTrustLevelsRestoreDefaults:
         "$ref": "../components/responses.yaml#/NotFound"
       '500':
         "$ref": "../components/responses.yaml#/InternalServerError"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminTrustLevelConditions:
   get:
@@ -152,6 +158,8 @@ adminTrustLevelConditions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminTrustLevelRuleImpact:
   post:
@@ -194,3 +202,5 @@ adminTrustLevelRuleImpact:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

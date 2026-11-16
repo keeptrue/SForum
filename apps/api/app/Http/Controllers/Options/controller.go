@@ -167,5 +167,5 @@ func (h *Controller) sessionUserID(c fiber.Ctx) (int64, bool, error) {
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }

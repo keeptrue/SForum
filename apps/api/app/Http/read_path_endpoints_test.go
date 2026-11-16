@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 
 	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	adminoverviewcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/AdminOverview"
 	attachmentscontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Attachments"
 	forumcontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Forum"
 	profilecontroller "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/Profile"
@@ -148,6 +149,8 @@ func readPathApp(
 		attachmentscontroller.NewController(nil, users, sessions).RegisterRoutes(api)
 	case "sitechrome":
 		sitechromecontroller.NewController(nil, users, sessions).RegisterRoutes(api)
+	case "adminoverview":
+		adminoverviewcontroller.NewController(nil, users, sessions).RegisterRoutes(api)
 	case "forum":
 		// 真实的 forum.Service（默认设置解析器，GuestRead=public）：这样 requireGuestRead
 		// 不需要数据库即可放行，502/503 的分歧只剩「actor 门」这一处。store 为 nil，

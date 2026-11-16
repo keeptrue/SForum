@@ -826,7 +826,7 @@ func (h *Controller) publicFrontendBridgeIdentity(c fiber.Ctx) (*PublicFrontendB
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }
 
 func (h *Controller) optionalActor(c fiber.Ctx) (identity.Actor, bool, error) {

@@ -155,8 +155,22 @@ viewer 就按 guest 渲染」：
 
 ## 残余风险
 
-1. 必登面仍直连 `LoadActor`（`Profile.myBookmarks`、`Attachments` 管理端点等数十条
-   operation）：依赖故障仍是 500。要收口需逐端点补 401/503 契约，独立一轮。
+1. ~~必登面仍直连 `LoadActor`~~ **已收口（W1，2026-11-16）**：18 个控制器包、19 处
+   `apphttp.LoadActor` 直连全部换成 `RequireActor`——C（主体不存在）→ 401
+   `auth.required`；D（会话/身份存储故障、超时）与 E（未识别）→ 503 `service.not_ready`
+   + `Retry-After: 1`；无凭据仍是 401（必登面没有匿名视图）。`Forum.commentPage` 是
+   公开读（`requireGuestRead` 放行、错误被丢弃），改走 `OptionalActor`：响应不变
+   （降级成匿名是收窄），但依赖故障至少留一条限频日志。契约按 W2 可达性门逐条补
+   **188 条 503**（`components/responses.yaml#/ServiceUnavailable`，其描述已写明该
+   路径带 `Retry-After: 1`），门从 188 条 `gap-unregistered` 降到 **0**，`guard-removed`
+   仍为 0。端点级证据：`app/Http/require_actor_endpoints_test.go`（C→401、D→503、
+   E→503、A→401，各覆盖 admin overview / upload-policy / account-navigation /
+   my profile / my bookmarks 五条端点）。
+   **裁决不改**：`disabled`/`banned` 不在 `RequireActor` 门上判（§4 的不对称是有意的：
+   必登面没有匿名回退，失效主体由域层答 403 `permission.denied`）；`Retry-After` 的
+   **字段级声明**与 parity 比对属 W3 的 headers 项，本轮只在共享 response 的描述里
+   承诺。**复位条件**：出现「失效主体在必登面也必须答 401」的产品需求时，先改 §4 的
+   契约并同步 `EntityMeta` 已声明的 403，再回填本表。
 2. `Pages` 渲染期降级（含 `resolvePath` 的 guest 分支）只留限频日志、不改变响应；
    `pageViewer`（`Pages/controller.go:762`）无调用方，属死代码，本轮不动。
 3. 匿名 `/ready` 的 `components` 仍含已启用扩展的组件名（公开的 extensionId）。

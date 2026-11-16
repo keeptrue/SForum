@@ -7,6 +7,8 @@ adminAISettings:
       '200': {description: AI gateway settings., content: {application/json: {schema: {$ref: "../schemas/ai.yaml#/ApiResponseAISettings"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update AI gateway settings (requires ai.manage)
     operationId: updateAISettings
@@ -27,6 +29,8 @@ adminAISettings:
           收到空串或小数）或 ai.settings_invalid（取值越界/形状不合法）；两种情况
           data.fields 都会按载荷路径给出字段级消息，例如
           {"gates.rateLimitPerMinute": ["取值超出允许范围…"]}。
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAISettingsReset:
   post:
@@ -37,6 +41,8 @@ adminAISettingsReset:
       '200': {description: Restored settings., content: {application/json: {schema: {$ref: "../schemas/ai.yaml#/ApiResponseAISettings"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIUsage:
   get:
@@ -47,6 +53,8 @@ adminAIUsage:
       '200': {description: Usage counters., content: {application/json: {schema: {$ref: "../schemas/ai.yaml#/ApiResponseAIUsage"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIProfileCredential:
   put:
@@ -70,6 +78,8 @@ adminAIProfileCredential:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '404': {$ref: "../components/responses.yaml#/NotFound"}
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIProfileModels:
   post:
@@ -97,6 +107,8 @@ adminAIProfileModels:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '404': {$ref: "../components/responses.yaml#/NotFound"}
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIDiagnose:
   post:
@@ -113,6 +125,8 @@ adminAIDiagnose:
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIExecutions:
   get:
@@ -131,6 +145,8 @@ adminAIExecutions:
       '200': {description: Execution trace records., content: {application/json: {schema: {$ref: "../schemas/ai.yaml#/ApiResponseAIExecutions"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIReplyOutcomes:
   get:
@@ -163,6 +179,8 @@ adminAIReplyOutcomes:
       '200': {description: Recent reply outcomes., content: {application/json: {schema: {$ref: "../schemas/ai.yaml#/ApiResponseAIReplyOutcomes"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminAIRunTimeline:
   get:
@@ -197,3 +215,5 @@ adminAIRunTimeline:
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

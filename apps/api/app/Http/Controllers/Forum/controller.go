@@ -747,7 +747,9 @@ func (h *Controller) commentPage(c fiber.Ctx) error {
 		return err
 	}
 	// 可选 viewer：与 comments 列表同口径，软删墓碑占位影响页码计算；匿名为零值。
-	viewer, _ := apphttp.LoadActor(c, h.sessions, h.users)
+	// 公开读（requireGuestRead 已放行）：这里只要「拿得到就拿」的 viewer，降级成
+	// 匿名是收窄；用 OptionalActor 而不是 LoadActor，让依赖故障至少留一条限频日志。
+	viewer, _ := apphttp.OptionalActor(c, h.sessions, h.users)
 	page, perPage, err := h.service.ResolveCommentPage(c.Context(), int64(paramInt(c, "topicID")), int64(paramInt(c, "commentID")), viewer)
 	if err != nil {
 		return mapForumError(err)
@@ -902,7 +904,7 @@ func (h *Controller) deleteComment(c fiber.Ctx) error {
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }
 
 // requireGuestRead：forum.guest.read=login_required 时，匿名读请求返回 401。

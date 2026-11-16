@@ -162,6 +162,8 @@ adminPages:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminThemeActivationPreview:
   get:
@@ -190,6 +192,8 @@ adminThemeActivationPreview:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminPageApprove:
   post:
@@ -243,6 +247,8 @@ adminPageRestoreCore:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 siteThemeAsset:
   get:
@@ -349,6 +355,8 @@ adminPagesAdded:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminPageDetail:
   get:
@@ -372,3 +380,5 @@ adminPageDetail:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         description: Unknown page id (reason `pages.not_found`).
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

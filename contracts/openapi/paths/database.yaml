@@ -13,6 +13,8 @@ adminDatabaseTables:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminDatabaseTable:
   get:
     summary: Get database table metadata
@@ -35,6 +37,8 @@ adminDatabaseTable:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminDatabaseTableRows:
   get:
     summary: List database table rows
@@ -96,6 +100,8 @@ adminDatabaseTableRows:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminDatabaseTableRowReveal:
   get:
     summary: Reveal one masked database cell
@@ -128,6 +134,8 @@ adminDatabaseTableRowReveal:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminDatabaseTableExport:
   get:
     summary: Export database table rows as CSV
@@ -178,3 +186,5 @@ adminDatabaseTableExport:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

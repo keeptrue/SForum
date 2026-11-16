@@ -444,7 +444,7 @@ func runTimelineLimit(c fiber.Ctx) int {
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }
 
 // encryptionEnabled 让管理界面能提示「当前部署没有加密密钥」。没有加密能力时

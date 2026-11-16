@@ -217,6 +217,8 @@ adminNotificationTest:
       '201': {description: Test notification created, content: {application/json: {schema: {$ref: "../schemas/notifications.yaml#/ApiResponseNotification"}}}}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationChannels:
   get:
     summary: Inspect notification channel candidates, selection, and health

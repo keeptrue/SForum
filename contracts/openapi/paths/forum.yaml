@@ -60,6 +60,8 @@ composerToolbar:
               "$ref": "../schemas/forum.yaml#/ApiResponseComposerToolbarActionList"
       '401':
         description: Authentication required.
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 composerReferences:
   get:
     summary: Search public-safe reference options for the composer
@@ -112,6 +114,8 @@ composerReferences:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 search:
   get:
     summary: Search topics by keyword (search.provider engine)
@@ -264,6 +268,8 @@ topics:
         "$ref": "../components/responses.yaml#/TooManyRequests"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumCategoryGroups:
   get:
     summary: List category groups for admin management
@@ -281,6 +287,8 @@ adminForumCategoryGroups:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create a category group
     operationId: adminCreateForumCategoryGroup
@@ -305,6 +313,8 @@ adminForumCategoryGroups:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumCategoryGroupByID:
   patch:
     summary: Update a category group
@@ -334,6 +344,8 @@ adminForumCategoryGroupByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete an empty category group
     description: Only empty groups can be deleted; a group that still contains categories
@@ -357,6 +369,8 @@ adminForumCategoryGroupByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumCategories:
   get:
     summary: List categories for admin management
@@ -374,6 +388,8 @@ adminForumCategories:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create a category
     operationId: adminCreateForumCategory
@@ -398,6 +414,8 @@ adminForumCategories:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumCategoryByID:
   patch:
     summary: Update a category
@@ -427,6 +445,8 @@ adminForumCategoryByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete a category
     description: Only categories without topics can be deleted; otherwise 409
@@ -451,6 +471,8 @@ adminForumCategoryByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumTags:
   get:
     summary: List tags for admin management
@@ -468,6 +490,8 @@ adminForumTags:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create a tag
     operationId: adminCreateForumTag
@@ -492,6 +516,8 @@ adminForumTags:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumTagByID:
   patch:
     summary: Update a tag
@@ -521,6 +547,8 @@ adminForumTagByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumSettings:
   get:
     summary: Read forum taxonomy settings
@@ -536,6 +564,8 @@ adminForumSettings:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update forum taxonomy settings
     description: Updating pagination fields requires `settings.manage`; category and tag fields retain their existing field-level permissions.
@@ -559,6 +589,8 @@ adminForumSettings:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumSettingsReset:
   post:
     summary: Reset forum taxonomy settings to recommended defaults
@@ -575,6 +607,8 @@ adminForumSettingsReset:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumContentTopics:
   get:
     summary: List admin forum topics for content management
@@ -650,6 +684,8 @@ adminForumContentTopics:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumContentTopicByID:
   get:
     summary: Get admin forum topic detail
@@ -674,6 +710,8 @@ adminForumContentTopicByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumContentComments:
   get:
     summary: List admin forum comments for content management
@@ -741,6 +779,8 @@ adminForumContentComments:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumContentCommentByID:
   get:
     summary: Get admin forum comment detail
@@ -765,6 +805,8 @@ adminForumContentCommentByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminForumSearchProviders:
   get:
     summary: List enabled search.provider plugins and the resolved selection
@@ -941,6 +983,8 @@ topicByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Soft-delete a topic
     operationId: deleteTopic
@@ -959,6 +1003,8 @@ topicByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicEditSource:
   get:
     summary: Get the current editable topic source
@@ -986,6 +1032,8 @@ topicEditSource:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicBySlug:
   get:
     summary: Get public topic detail by slug
@@ -1088,6 +1136,8 @@ topicRevisions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicRevisionByNo:
   get:
     summary: Get topic revision detail
@@ -1124,6 +1174,8 @@ topicRevisionByNo:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicRevisionRestore:
   post:
     summary: Restore a topic revision as a new accepted version
@@ -1154,6 +1206,8 @@ topicRevisionRestore:
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicRevisionRedact:
   post:
     summary: Permanently redact a non-current topic revision payload
@@ -1184,6 +1238,8 @@ topicRevisionRedact:
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 topicHide:
   post:
@@ -1204,6 +1260,8 @@ topicHide:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicRestore:
   post:
     summary: Restore a hidden or deleted topic to active
@@ -1223,6 +1281,8 @@ topicRestore:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicLock:
   post:
     summary: Lock a topic so it stays readable but rejects new comments
@@ -1242,6 +1302,8 @@ topicLock:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicUnlock:
   post:
     summary: Unlock a topic so comments are allowed again
@@ -1261,6 +1323,8 @@ topicUnlock:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicPin:
   post:
     summary: Pin a topic to the top of its list
@@ -1280,6 +1344,8 @@ topicPin:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicUnpin:
   post:
     summary: Unpin a topic
@@ -1299,6 +1365,8 @@ topicUnpin:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicComments:
   get:
     summary: List topic comments
@@ -1399,6 +1467,8 @@ topicComments:
         "$ref": "../components/responses.yaml#/TooManyRequests"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicCommentPage:
   get:
     summary: Resolve the comment page for an anchor link
@@ -1527,6 +1597,8 @@ commentRevisions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 commentRevisionByNo:
   get:
     summary: Get comment revision detail
@@ -1565,6 +1637,8 @@ commentRevisionByNo:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 commentRevisionRestore:
   post:
     summary: Restore a comment revision as a new accepted version
@@ -1595,6 +1669,8 @@ commentRevisionRestore:
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 commentRevisionRedact:
   post:
     summary: Permanently redact a non-current comment revision payload
@@ -1625,6 +1701,8 @@ commentRevisionRedact:
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 commentByID:
   patch:
@@ -1659,6 +1737,8 @@ commentByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Soft-delete a comment
     operationId: deleteComment
@@ -1677,6 +1757,8 @@ commentByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 commentEditSource:
   get:
     summary: Get the current editable comment source
@@ -1704,6 +1786,8 @@ commentEditSource:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 authorContentReview:
   get:
     summary: List the current author's pending and rejected content
@@ -1719,6 +1803,8 @@ authorContentReview:
               "$ref": "../schemas/forum.yaml#/ApiResponseAuthorReviewList"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicCommentRevision:
   get:
     summary: Read the public comment revision state
@@ -1810,6 +1896,8 @@ topicLike:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Remove the authenticated member's like from a topic
     operationId: unlikeTopic
@@ -1828,6 +1916,8 @@ topicLike:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 topicLikes:
   get:
     summary: List members who liked a topic
@@ -1881,6 +1971,8 @@ commentLike:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Remove the authenticated member's like from a comment
     operationId: unlikeComment
@@ -1899,6 +1991,8 @@ commentLike:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 commentLikes:
   get:
     summary: List members who liked a comment
@@ -1977,6 +2071,8 @@ topicBookmark:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Remove the authenticated member's bookmark from a topic
     description: >
@@ -1998,6 +2094,8 @@ topicBookmark:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 commentBookmark:
   put:
     summary: Bookmark a comment as the authenticated member
@@ -2038,6 +2136,8 @@ commentBookmark:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Remove the authenticated member's bookmark from a comment
     operationId: unbookmarkComment
@@ -2056,3 +2156,5 @@ commentBookmark:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

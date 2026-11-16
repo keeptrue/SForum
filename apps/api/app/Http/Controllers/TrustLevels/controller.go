@@ -365,7 +365,7 @@ func (h *Controller) loadActor(c fiber.Ctx) (identity.Actor, error) {
 	if h.actorLoader != nil {
 		return h.actorLoader(c)
 	}
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }
 
 // save 写回 trust.levels；写权限由 options.Update 内部按 managePermission 再判一次。

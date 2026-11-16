@@ -38,6 +38,8 @@ webOptions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 webOptionByName:
   get:
     summary: Get a public runtime web option
@@ -73,6 +75,8 @@ adminWebOptions:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update runtime web options in a batch
     operationId: updateAdminWebOptions
@@ -95,6 +99,8 @@ adminWebOptions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminFeatures:
   get:
@@ -113,6 +119,8 @@ adminFeatures:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update site feature flags
     operationId: adminUpdateFeatures
@@ -135,6 +143,8 @@ adminFeatures:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminFeaturesRestoreDefaults:
   post:
     summary: Restore recommended feature flag defaults
@@ -150,3 +160,5 @@ adminFeaturesRestoreDefaults:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

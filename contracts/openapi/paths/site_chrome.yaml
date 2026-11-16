@@ -53,6 +53,8 @@ siteAccountNavigation:
             schema:
               "$ref": "../schemas/site_chrome.yaml#/ApiResponseSiteAccountNavigation"
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 siteFriendLinks:
   get:
@@ -127,6 +129,8 @@ adminSiteNavigation:
               "$ref": "../schemas/site_chrome.yaml#/ApiResponseSiteNavigationDocument"
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationApply:
   post:
@@ -151,6 +155,8 @@ adminSiteNavigationApply:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationDefaultsPreview:
   post:
@@ -175,6 +181,8 @@ adminSiteNavigationDefaultsPreview:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationDefaultsApply:
   post:
@@ -199,6 +207,8 @@ adminSiteNavigationDefaultsApply:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationSnapshots:
   get:
@@ -215,6 +225,8 @@ adminSiteNavigationSnapshots:
               "$ref": "../schemas/site_chrome.yaml#/ApiResponseSiteNavigationSnapshotList"
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationSnapshotByID:
   get:
@@ -238,6 +250,8 @@ adminSiteNavigationSnapshotByID:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationSnapshotRestore:
   post:
@@ -268,6 +282,8 @@ adminSiteNavigationSnapshotRestore:
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationExport:
   get:
@@ -284,6 +300,8 @@ adminSiteNavigationExport:
               "$ref": "../schemas/site_chrome.yaml#/ApiResponseSiteNavigationBackup"
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationImportPreview:
   post:
@@ -308,6 +326,8 @@ adminSiteNavigationImportPreview:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavigationImportApply:
   post:
@@ -332,6 +352,8 @@ adminSiteNavigationImportApply:
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavItems:
   get:
@@ -350,6 +372,8 @@ adminSiteNavItems:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create a navigation item
     operationId: adminCreateSiteNavItem
@@ -374,6 +398,8 @@ adminSiteNavItems:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteNavItemByID:
   patch:
@@ -407,6 +433,8 @@ adminSiteNavItemByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete a navigation item
     operationId: adminDeleteSiteNavItem
@@ -430,6 +458,8 @@ adminSiteNavItemByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteFriendLinks:
   get:
@@ -448,6 +478,8 @@ adminSiteFriendLinks:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create a friend link
     operationId: adminCreateSiteFriendLink
@@ -472,6 +504,8 @@ adminSiteFriendLinks:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteFriendLinkByID:
   patch:
@@ -505,6 +539,8 @@ adminSiteFriendLinkByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete a friend link
     operationId: adminDeleteSiteFriendLink
@@ -528,6 +564,8 @@ adminSiteFriendLinkByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteAnnouncements:
   get:
@@ -546,6 +584,8 @@ adminSiteAnnouncements:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create an announcement
     operationId: adminCreateSiteAnnouncement
@@ -570,6 +610,8 @@ adminSiteAnnouncements:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
 adminSiteAnnouncementByID:
   patch:
@@ -603,6 +645,8 @@ adminSiteAnnouncementByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete an announcement
     operationId: adminDeleteSiteAnnouncement
@@ -626,3 +670,5 @@ adminSiteAnnouncementByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

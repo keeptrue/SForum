@@ -37,7 +37,7 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	group.Post("/policy/restore", h.restorePolicy)
 }
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	actor, err := apphttp.LoadActor(c, h.sessions, h.users)
+	actor, err := apphttp.RequireActor(c, h.sessions, h.users)
 	if err != nil {
 		return identity.Actor{}, err
 	}

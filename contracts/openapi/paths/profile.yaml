@@ -164,6 +164,8 @@ myBookmarks:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 myProfile:
   get:
     summary: Read the current user's editable profile
@@ -177,6 +179,8 @@ myProfile:
               "$ref": "../schemas/profile.yaml#/ApiResponsePublicProfile"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update the current user's editable profile
     operationId: updateMyProfile
@@ -202,6 +206,8 @@ myProfile:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 profileNicknameAvailability:
   get:
     summary: Preview a nickname change
@@ -227,6 +233,8 @@ profileNicknameAvailability:
               "$ref": "../schemas/profile.yaml#/ApiResponseNicknameAvailability"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 myProfileAvatar:
   post:
     summary: Upload and set the current user's avatar
@@ -276,3 +284,5 @@ myProfileAvatar:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

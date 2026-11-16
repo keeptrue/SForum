@@ -42,6 +42,8 @@ attachmentUploadPolicy:
           application/json:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentUploadPolicy" }
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 attachmentByPublicID:
   get:
     summary: Get attachment metadata
@@ -185,6 +187,8 @@ adminAttachmentSettings:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Update attachment runtime settings
     operationId: updateAttachmentSettings
@@ -207,6 +211,8 @@ adminAttachmentSettings:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentSettingsTest:
   post:
     summary: Test the active attachment storage provider
@@ -222,6 +228,8 @@ adminAttachmentSettingsTest:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentUploadPolicyRoles:
   get:
     summary: List attachment upload permission and size policy for every role
@@ -235,6 +243,8 @@ adminAttachmentUploadPolicyRoles:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentUploadRolePolicies" }
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentUploadPolicyRole:
   parameters:
   - name: roleKey
@@ -259,6 +269,8 @@ adminAttachmentUploadPolicyRole:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Restore a role attachment upload size limit to site inheritance
     operationId: deleteAttachmentUploadRolePolicy
@@ -271,6 +283,8 @@ adminAttachmentUploadPolicyRole:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentUploadPolicyUser:
   parameters:
   - name: userID
@@ -291,6 +305,8 @@ adminAttachmentUploadPolicyUser:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   put:
     summary: Set a user-specific attachment upload size limit
     operationId: setAttachmentUploadUserPolicy
@@ -310,6 +326,8 @@ adminAttachmentUploadPolicyUser:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Restore a user's upload size limit to role inheritance
     operationId: deleteAttachmentUploadUserPolicy
@@ -324,6 +342,8 @@ adminAttachmentUploadPolicyUser:
       '401': { "$ref": "../components/responses.yaml#/Unauthorized" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentCompressionSettings:
   get:
     summary: Get regular attachment image compression settings
@@ -369,6 +389,8 @@ adminAttachmentStorageInstances:
             schema:
               "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentStorageInstances"
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   post:
     summary: Create an attachment storage instance
     operationId: createAttachmentStorageInstance
@@ -385,6 +407,8 @@ adminAttachmentStorageInstances:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentStorageInstance" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentStorageInstancesProbe:
   post:
     summary: Probe draft storage instance configuration without activating it
@@ -402,6 +426,8 @@ adminAttachmentStorageInstancesProbe:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentProbe" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentStorageLocalActivate:
   post:
     summary: Make Core local storage the writer for new attachments
@@ -409,6 +435,8 @@ adminAttachmentStorageLocalActivate:
     responses:
       '200': { description: Local storage activated. }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentStorageInstance:
   parameters:
   - name: storageInstanceID
@@ -431,6 +459,8 @@ adminAttachmentStorageInstance:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentStorageInstance" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '422': { "$ref": "../components/responses.yaml#/UnprocessableEntity" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Delete an unreferenced standby storage instance
     operationId: deleteAttachmentStorageInstance
@@ -442,6 +472,8 @@ adminAttachmentStorageInstance:
             schema: { "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentDelete" }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '409': { "$ref": "../components/responses.yaml#/Conflict" }
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentStorageInstanceActivate:
   post:
     summary: Probe and make an instance the writer for new attachments
@@ -524,6 +556,8 @@ adminAttachments:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentCleanup:
   post:
     summary: Clean up deleted orphan attachments
@@ -550,6 +584,8 @@ adminAttachmentCleanup:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentReconcile:
   post:
     summary: Reconcile stored attachment reference counts against reference rows
@@ -586,6 +622,8 @@ adminAttachmentReconcile:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminAttachmentCompressionStats:
   get:
     summary: Get attachment image compression queue and savings statistics
@@ -642,6 +680,8 @@ adminAttachmentByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   patch:
     summary: Update attachment status
     operationId: updateAdminAttachment
@@ -676,6 +716,8 @@ adminAttachmentByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
   delete:
     summary: Soft-delete an unreferenced attachment
     operationId: deleteAdminAttachment
@@ -696,3 +738,5 @@ adminAttachmentByID:
         "$ref": "../components/responses.yaml#/NotFound"
       '409':
         "$ref": "../components/responses.yaml#/Conflict"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

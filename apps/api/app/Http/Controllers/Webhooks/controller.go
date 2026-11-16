@@ -260,7 +260,7 @@ func countInboundBody(stream io.Reader, limit int64) (n int64, tooLarge bool, er
 }
 
 func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.LoadActor(c, h.sessions, h.users)
+	return apphttp.RequireActor(c, h.sessions, h.users)
 }
 
 func mapError(err error) error {
