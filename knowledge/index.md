@@ -14,7 +14,7 @@ load archived sessions or completed plans as current context.
 
 ### 第八轮审计修复（41 条，独立于已收口的 113 条）
 
-- Status: **active（2026-11-17 建账，批次 1 在办）**。台账：`plans/2026-11-17-audit-round8-41.md`（41 条的**唯一**跟踪记录；主表 `00-SForum-audit-master.md` 从未收录本批，`rg 'R8-|OPS8-|BE8-'` 零命中）。核实基线 `e0ec3bce6`，结论：待修 36 / 半修 1（BE-06）/ 已修 2（H-01、DS-05）/ 未复现 2（FE-05、DS-08）。唯一 P1 已进批次 1：`sforum-latest.sh` 无 `.deployrc` 时静默 `EXIT=2`，`--check`/`install`/`repair` 全不可达。**报告的 12 处修法偏差以台账为准，勿照抄**。
+- Status: **active（2026-11-17 建账，批次 1 在办）**。台账：`plans/2026-11-17-audit-round8-41.md`（41 条的**唯一**跟踪记录；主表 `00-SForum-audit-master.md` 从未收录本批，`rg 'R8-|OPS8-|BE8-'` 零命中）。核实基线 `e0ec3bce6`，结论：待修 36 / 半修 1（BE-06）/ 已修 2（H-01、DS-05）/ 未复现 2（FE-05、DS-08）。唯一 P1 已交 PR [#221](https://github.com/keeptrue/SForum/pull/221)（批次 1）：`sforum-latest.sh` 无 `.deployrc` 时静默 `EXIT=2`，`--check`/`install`/`repair` 全不可达。**报告的 12 处修法偏差以台账为准，勿照抄**。
 
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
