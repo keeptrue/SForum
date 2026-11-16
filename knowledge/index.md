@@ -12,6 +12,10 @@ load archived sessions or completed plans as current context.
 - 本轮交接：`sessions/2026-11-16-audit-round15-closeout.md`（上一刀 `sessions/2026-11-15-audit-round13-closeout.md`）；权威条目表在仓库外 `/home/inkedus/Code/bug/SForum/00-SForum-audit-master.md`（审计总表；W8 按派单维护文首「修复进度」与 §11，逐流处置 / 变异 / 门禁在 §11「第 15 轮」= 行 1422–1672）。
 - 未闭环项（均不计入 113 分母）：契约退化区仍 **30/435**（29 已映射；`[header-global]` 只是全局存在性、`Retry-After` 未逐 operation 绑定）；**公开页 205 个对比度节点**在 `extensions/builtin/themes/**`（2.33–2.59:1，W4 写域外）+ axe 余项与 19 条列表三态缺口；环境阻塞已解除（网络恢复后补）：lint-shell 以 shellcheck 0.10.0 跑绿（25 scripts clean）、bun audit 基线已播种 78 条（critical 5 / high 37 / moderate 23 / low 13）；GO-2026-5932 不升级（`decisions/2026-11-16-go-2026-5932-xcrypto-openpgp.md`，4 条复位条件）；EX2-01 残余 = uid 映射未做（本机 EPERM）、seccomp 未上（缺插件能力声明）、网络策略默认 `off`（四个内置插件要出站）；B（坏凭据）在 HTTP 层不可观测、`Pages` 渲染期降级只留日志、匿名 `/ready` 的 `components` 仍含公开 extensionId；RV-28 utils 残留仅 `utils/editor/shortcodes.ts` 的 `fallbackLabel`；`deploy.sh` 985 / `postgres-safety_test.sh` 958 不在 1000 行棘轮扫描（约定非闸门）。旧记的 `SEVERITY_GATE: report` 已由 bun audit 棘轮门取代，不再单列。逐条复位条件与证据见总表 §11「第 15 轮」的「残余」。
 
+### 第八轮审计修复（41 条，独立于已收口的 113 条）
+
+- Status: **active（2026-11-17 建账，批次 1 在办）**。台账：`plans/2026-11-17-audit-round8-41.md`（41 条的**唯一**跟踪记录；主表 `00-SForum-audit-master.md` 从未收录本批，`rg 'R8-|OPS8-|BE8-'` 零命中）。核实基线 `e0ec3bce6`，结论：待修 36 / 半修 1（BE-06）/ 已修 2（H-01、DS-05）/ 未复现 2（FE-05、DS-08）。唯一 P1 已进批次 1：`sforum-latest.sh` 无 `.deployrc` 时静默 `EXIT=2`，`--check`/`install`/`repair` 全不可达。**报告的 12 处修法偏差以台账为准，勿照抄**。
+
 ### 互动第四刀：信任等级（Discourse Trust Levels）
 
 - Status: **landed（2026-11-11，有 residual）**。提交：`f63ad2cf9`（M1–M8 代码）→ `57a3de5ad`（M9–M13 收尾 + `host_commands` P0）→ `185be5701`（D34 基线门）+ 两笔 docs。验收：`reports/2026-11-11-trust-levels-acceptance-matrix-v3.md` **149** 条（ok 145 · FAIL 0 · pend 2 · 规则 1 · 作废 1 · 未实现 0）+ P0 条目 M-01 = **150**；D34 增量在 `reports/2026-11-11-trust-levels-baseline-narrowing-matrix.md`（N-01..N-16 + M-02 residual）—— **两刀条目数不相加**。
