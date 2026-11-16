@@ -13,7 +13,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY="${SFORUM_RELEASE_REPOSITORY:-keeptrue/SForum}"
 API_ROOT="https://api.github.com/repos/${REPOSITORY}/releases"
 DOWNLOAD_ROOT="${SFORUM_RELEASE_DOWNLOAD_BASE_URL:-https://github.com/${REPOSITORY}/releases/download}"
-LOCK_DIR="$ROOT_DIR/.sforum-latest.lock"
+# OPS-02：锁与 deploy.sh / upgrade.sh 同域 —— 同一个 .deploy.lock，同一份元数据格式
+# （pid 纯文本 + owner 的 pid=/action=/started_at=/proc_start=）。字段格式与
+# deploy/scripts/deploy-lock.sh 逐字对齐，**改动必须两边同改**。
+#
+# 为什么不 source 那个库：首次运行的目录里根本没有 deploy/scripts/deploy-lock.sh
+# （它正是本脚本要下载安装的受管文件之一），所以这里内联同一套判据。
+LOCK_DIR="$ROOT_DIR/.deploy.lock"
+LOCK_ACTION="latest"
 BOOTSTRAP="$ROOT_DIR/sforum-bootstrap.sh"
 
 CHANNEL="stable"
@@ -22,6 +29,7 @@ ASSUME_YES=false
 TARGET_TAG=""
 CHECK_ONLY=false
 ALLOW_GIT=false
+UNLOCK=false
 ACTION=""
 BUNDLE_SHA=""
 ATTESTATION_STATUS="skipped-no-gh"
@@ -53,6 +61,7 @@ deploy.sh、upgrade.sh、compose 文件、deploy/scripts、Caddy 示例与 VERSI
   --bootstrap               已安装目录首次做蓝绿入口转换（upgrade 专用）
   --lang zh|en              全新安装时的安装器语言（install 专用）
   --allow-git               允许在 Git 检出目录里同步工具链（默认跳过）
+  --unlock                  回收陈旧的 .deploy.lock（仍被活性进程持有则拒绝）
   -h, --help                显示本帮助
 
 示例:
@@ -80,15 +89,124 @@ die() {
 
 cleanup() {
   [ -z "$STAGE" ] || rm -rf "$STAGE"
-  if [ "$LOCK_HELD" = true ]; then
-    rmdir "$LOCK_DIR" 2>/dev/null || true
-    LOCK_HELD=false
+  release_lock
+}
+
+# 进程启动时刻：pid 被复用后必然不同，用它与 owner 里记录的值比对，区分「原来的
+# 持有者」和「刚复用同一个 pid 的新进程」。
+lock_proc_start() {
+  LC_ALL=C ps -o lstart= -p "$1" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || true
+}
+
+lock_field() { sed -n "s/^$1=//p" "$LOCK_DIR/owner" 2>/dev/null | head -n 1 || true; }
+
+# kill -0 对别的用户的进程返回 EPERM：活着的别人家进程也会探测失败。ps -p 兜底把
+# 这种情况判回存活，否则一个 root 持有的锁会被普通用户的本次运行当死锁清掉。
+lock_pid_alive() {
+  [ -n "${1:-}" ] || return 1
+  kill -0 "$1" 2>/dev/null || ps -p "$1" >/dev/null 2>&1
+}
+
+lock_dir_pid() {
+  local dir="$1" pid
+  pid="$(sed -n 's/^pid=//p' "$dir/owner" 2>/dev/null | head -n 1 || true)"
+  if [ -z "$pid" ] && [ -f "$dir/pid" ]; then
+    pid="$(head -n 1 "$dir/pid" | tr -d '[:space:]')"
   fi
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  printf '%s' "$pid"
+}
+
+# 一行持有者摘要，拒绝信息与日志共用同一份格式。
+lock_holder_summary() {
+  local pid action started_at state=unknown
+  pid="$(lock_dir_pid "$LOCK_DIR" || true)"
+  action="$(lock_field action)"
+  started_at="$(lock_field started_at)"
+  if [ -n "$pid" ]; then
+    if lock_pid_alive "$pid"; then state=alive; else state=dead; fi
+  fi
+  printf 'pid=%s action=%s started_at=%s state=%s' \
+    "${pid:-?}" "${action:-?}" "${started_at:-?}" "$state"
+}
+
+lock_is_stale() {
+  local pid recorded current mtime
+  if pid="$(lock_dir_pid "$LOCK_DIR")"; then
+    if ! lock_pid_alive "$pid"; then LOCK_REASON=pid_gone; return 0; fi
+    recorded="$(lock_field proc_start)"
+    current="$(lock_proc_start "$pid")"
+    if [ -n "$recorded" ] && [ -n "$current" ] && [ "$recorded" != "$current" ]; then
+      LOCK_REASON=pid_reused
+      return 0
+    fi
+    return 1
+  fi
+  # 元数据缺失（只有空目录）：锁龄超过 1 小时才回收，权当没人持有了。
+  LOCK_REASON=no_owner
+  mtime="$(stat -c %Y "$LOCK_DIR" 2>/dev/null || stat -f %m "$LOCK_DIR" 2>/dev/null || echo 0)"
+  [ "$mtime" -gt 0 ] && [ $(($(date +%s) - mtime)) -gt 3600 ]
+}
+
+# 认领并销毁陈旧锁：rename 是 shell 里唯一的原子「取走」，只删自己认领到的副本，
+# 永远不对 .deploy.lock 直接 rm -rf（那会删掉别人刚建的活锁）。
+reclaim_stale_lock() {
+  local stale_pid="$1" claim
+  claim="$LOCK_DIR.stale.$$"
+  rm -rf "$claim" 2>/dev/null || true
+  mv "$LOCK_DIR" "$claim" 2>/dev/null || \
+    die "同目录已有另一个部署操作正在运行（.deploy.lock 无法认领）：$(lock_holder_summary)"
+  # 认领到的可能是别人在判定之后重建的活锁：比对副本里的 pid 与判定时那把是否同一把。
+  if [ "$(lock_dir_pid "$claim" || true)" = "$stale_pid" ]; then
+    rm -rf "$claim"
+    return 0
+  fi
+  if [ -e "$LOCK_DIR" ]; then
+    die "同目录已有另一个部署操作正在运行（.deploy.lock 被重新占用，残留副本 $claim）：$(lock_holder_summary)"
+  fi
+  mv "$claim" "$LOCK_DIR" 2>/dev/null || \
+    die "同目录已有另一个部署操作正在运行（残留副本 $claim）：$(lock_holder_summary)"
+  die "同目录已有另一个部署操作正在运行：$(lock_holder_summary)"
 }
 
 acquire_lock() {
-  mkdir "$LOCK_DIR" 2>/dev/null || die "同目录已有另一个 sforum-latest 正在运行"
+  local summary stale_pid
+  if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+    summary="$(lock_holder_summary)"
+    stale_pid="$(lock_dir_pid "$LOCK_DIR" || true)"
+    lock_is_stale || die "同目录已有另一个部署操作正在运行（.deploy.lock 被占用）：$summary"
+    reclaim_stale_lock "$stale_pid"
+    mkdir "$LOCK_DIR" 2>/dev/null || \
+      die "同目录已有另一个部署操作正在运行：$(lock_holder_summary)"
+    printf 'sforum-latest: 已回收陈旧锁（reason=%s）\n' "${LOCK_REASON:-manual}" >&2
+  fi
+  printf '%s\n' "$$" > "$LOCK_DIR/pid"
+  printf 'pid=%s\naction=%s\nstarted_at=%s\nproc_start=%s\n' "$$" "$LOCK_ACTION" \
+    "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(lock_proc_start "$$")" > "$LOCK_DIR/owner"
   LOCK_HELD=true
+}
+
+# 只回收自己持有的锁：锁目录可能已被 --unlock 或回收逻辑换成别人的活锁，盲删会把
+# 别人的互斥拆掉。pid 对不上就只放弃持有权，不动目录。
+release_lock() {
+  [ "$LOCK_HELD" = true ] || return 0
+  if [ "$(head -n 1 "$LOCK_DIR/pid" 2>/dev/null | tr -d '[:space:]')" = "$$" ]; then
+    rm -rf "$LOCK_DIR" 2>/dev/null || true
+  fi
+  LOCK_HELD=false
+}
+
+# --unlock 的语义只有「回收陈旧锁」：仍被活性进程持有就拒绝，不提供绕过互斥的入口。
+force_unlock() {
+  local summary
+  if [ ! -e "$LOCK_DIR" ]; then
+    printf '当前没有部署锁（%s）。\n' "$LOCK_DIR"
+    return 0
+  fi
+  summary="$(lock_holder_summary)"
+  lock_is_stale || die "部署锁仍被活性进程持有，拒绝回收：$summary"
+  reclaim_stale_lock "$(lock_dir_pid "$LOCK_DIR" || true)"
+  printf '已回收陈旧部署锁（reason=%s）：%s\n' "${LOCK_REASON:-manual}" "$summary"
 }
 
 passthrough_has() {
@@ -147,6 +265,7 @@ parse_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --check|--dry-run) CHECK_ONLY=true; shift ;;
+      --unlock) UNLOCK=true; shift ;;
       --channel)
         [ "$#" -ge 2 ] || die "--channel 需要一个值"
         CHANNEL="$2"
@@ -465,6 +584,11 @@ main() {
   trap 'exit 130' HUP INT TERM
 
   parse_args "$@"
+  if [ "$UNLOCK" = true ]; then
+    printf '安装目录: %s\n' "$ROOT_DIR"
+    force_unlock
+    exit 0
+  fi
   detect_action
   printf '安装目录: %s\n' "$ROOT_DIR"
 
@@ -489,6 +613,10 @@ main() {
   command -v curl >/dev/null 2>&1 || die "需要 curl"
   command -v tar >/dev/null 2>&1 || die "需要 tar"
 
+  # OPS-02：锁在联网与下载之前拿 —— 否则每次重试都先付一次完整下载 + attestation，
+  # 最后才发现目录被别的操作占着。失败路径由 EXIT trap（cleanup → release_lock）释放。
+  LOCK_ACTION="$ACTION"
+  acquire_lock
   TARGET_TAG="$(resolve_tag)"
   # .deployrc 缺失是正常状态（全新目录 / 首次安装）：没有「当前版本」可比，交给
   # detect_action 的 install 分支（判据用 -f，与 detect_action 全文一致，目录名落在
@@ -522,7 +650,6 @@ main() {
   printf '目标 Release: %s\n' "$TARGET_TAG"
   printf '部署包 SHA-256: %s\n' "$BUNDLE_SHA"
   print_attestation
-  acquire_lock
 
   if [ -s "$DIFF_FILE" ]; then
     printf '同步受管工具链: %s 个文件\n' "$(wc -l < "$DIFF_FILE" | tr -d '[:space:]')"
@@ -531,6 +658,11 @@ main() {
   else
     printf '受管工具链: 已是最新\n'
   fi
+
+  # OPS-02：跨进程交接。run_action 会把控制权交给 deploy.sh / upgrade.sh，它们自己
+  # 会取同一把 .deploy.lock；父进程必须先放锁，否则子进程把父进程的锁判成占用而死。
+  # 交接窗口里的竞争是可见失败（子进程报占用），不会出现两个写者同时改受管文件。
+  release_lock
 
   local status
   set +e

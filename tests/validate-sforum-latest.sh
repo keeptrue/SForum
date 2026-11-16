@@ -94,4 +94,76 @@ ops801_empty_dir_check() {
 
 ops801_empty_dir_check
 
+# OPS-02：sforum-latest 必须与 deploy.sh / upgrade.sh 同域（同一个 .deploy.lock）。
+# 静态哨兵：锁目录名、pid 落盘、usage 里的 --unlock，以及旧锁目录名不再出现。
+grep -Fq 'LOCK_DIR="$ROOT_DIR/.deploy.lock"' sforum-latest.sh || \
+  fail "sforum-latest.sh must use the same .deploy.lock as deploy.sh"
+grep -Fq '> "$LOCK_DIR/pid"' sforum-latest.sh || \
+  fail "sforum-latest.sh must write the holder pid into .deploy.lock"
+grep -Fq -- '--unlock' sforum-latest.sh || \
+  fail "sforum-latest.sh usage must offer --unlock (stale locks only)"
+if grep -Fq '.sforum-latest.lock' sforum-latest.sh; then
+  fail "sforum-latest.sh still keeps its own .sforum-latest.lock; the lock domain is split"
+fi
+
+# 两个可跑用例（离线）：活锁必须拒绝且不发起下载；死锁必须回收后继续。
+lock_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/sforum-latest-lock.XXXXXX")"
+trap 'rm -rf "$lock_test_dir"' EXIT
+
+make_lock_fixture() {
+  local case_dir="$1"
+  mkdir -p "$case_dir/bin" "$case_dir/install"
+  cat > "$case_dir/bin/curl" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >> "$case_dir/curl-calls.log"
+exit 1
+EOF
+  chmod +x "$case_dir/bin/curl"
+  cp sforum-latest.sh "$case_dir/install/sforum-latest.sh"
+  # 装好的目录一定有 .deployrc：让「回收后继续」真的走到下载，而不是卡在别处。
+  printf 'version=v3.0.0\n' > "$case_dir/install/.deployrc"
+}
+
+run_latest_check() {
+  local case_dir="$1" status=0
+  (cd "$case_dir/install" && PATH="$case_dir/bin:$PATH" \
+    bash ./sforum-latest.sh --version v3.1.0 --check) \
+    >"$case_dir/stdout" 2>"$case_dir/stderr" || status=$?
+  printf '%s' "$status"
+}
+
+live_case="$lock_test_dir/live"
+make_lock_fixture "$live_case"
+mkdir "$live_case/install/.deploy.lock"
+printf '%s\n' "$$" > "$live_case/install/.deploy.lock/pid"
+printf 'pid=%s\naction=upgrade\nstarted_at=%s\nproc_start=%s\n' "$$" \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+  "$(LC_ALL=C ps -o lstart= -p "$$" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')" \
+  > "$live_case/install/.deploy.lock/owner"
+live_status="$(run_latest_check "$live_case")"
+[ "$live_status" -ne 0 ] || fail "OPS-02: sforum-latest kept running while .deploy.lock was live"
+grep -Eq '部署操作|deploy\.lock' "$live_case/stderr" || \
+  fail "OPS-02: a live .deploy.lock was not reported: $(cat "$live_case/stderr")"
+[ ! -e "$live_case/curl-calls.log" ] || \
+  fail "OPS-02: the lock was taken after the download; curl already ran"
+[ "$(cat "$live_case/install/.deploy.lock/pid")" = "$$" ] || \
+  fail "OPS-02: a live .deploy.lock owned by another process was removed"
+
+dead_case="$lock_test_dir/dead"
+make_lock_fixture "$dead_case"
+dead_pid="$(sh -c 'printf "%s" "$$"')"
+mkdir "$dead_case/install/.deploy.lock"
+printf '%s\n' "$dead_pid" > "$dead_case/install/.deploy.lock/pid"
+printf 'pid=%s\naction=upgrade\nstarted_at=2020-01-01T00:00:00Z\n' "$dead_pid" \
+  > "$dead_case/install/.deploy.lock/owner"
+dead_status="$(run_latest_check "$dead_case")"
+[ "$dead_status" -ne 0 ] || fail "OPS-02: the failing curl stub was expected to stop the run"
+[ -e "$dead_case/curl-calls.log" ] || \
+  fail "OPS-02: a stale .deploy.lock was not reclaimed; the run never reached the download"
+grep -Fq '下载 SHA256SUMS 失败' "$dead_case/stderr" || \
+  fail "OPS-02: the run did not continue past the stale lock: $(cat "$dead_case/stderr")"
+[ ! -e "$dead_case/install/.deploy.lock" ] || fail "OPS-02: .deploy.lock was not released"
+[ -z "$(find "$dead_case/install" -maxdepth 1 -name '.deploy.lock.stale.*' -print -quit)" ] || \
+  fail "OPS-02: a reclaimed .deploy.lock.stale.* copy was left behind"
+
 printf 'validate-sforum-latest.sh: all checks passed\n'
