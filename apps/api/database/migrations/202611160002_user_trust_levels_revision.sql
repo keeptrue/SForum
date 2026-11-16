@@ -20,8 +20,31 @@ ALTER TABLE public.user_trust_levels
 -- CHECK **不能内联**进 ADD COLUMN：那会在 ACCESS EXCLUSIVE 下扫全表校验，把账本的
 -- 读写挡到 statement_timeout。NOT VALID 只登记定义，VALIDATE 单独扫表且锁级别
 -- 不阻塞读写（与 202611150001_moderation_report_revision.sql 同一形态）。
-ALTER TABLE public.user_trust_levels
-  ADD CONSTRAINT user_trust_levels_revision_positive CHECK (revision > 0) NOT VALID;
+--
+-- **幂等前提（改这段前先读）**：本表被 202611140002 钉在 `public`
+-- （`CREATE TABLE IF NOT EXISTS public.user_trust_levels`），而 schema 隔离的集成测试
+-- 会把整条迁移链反复应用到**同一个 public 表**上。`ADD COLUMN IF NOT EXISTS` 天然幂等，
+-- 但 PG **没有** `ADD CONSTRAINT IF NOT EXISTS`：重复应用会撞 42710
+-- (`constraint ... already exists`)。所以约束必须用 `pg_constraint` 存在性检查登记；
+-- `VALIDATE CONSTRAINT` 对已存在的已验证约束重复执行是安全的。
+-- 同一口径也解释了 202611140002 为什么用 `CREATE TABLE IF NOT EXISTS`：这条链必须能在
+-- 已应用的 public 表上重放。不要改成先 `DROP CONSTRAINT IF EXISTS` —— 那会在真库上
+-- 短暂移除约束（破坏性），而不是幂等。
+-- （对照：202611150001 的 `moderation_reports` 建表**不带** schema 前缀，随 search_path
+--  落在隔离 schema 里，每个隔离库各有一份，因此不存在这条重复应用风险。）
+-- +goose StatementBegin
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'user_trust_levels_revision_positive'
+      AND conrelid = 'public.user_trust_levels'::regclass
+  ) THEN
+    ALTER TABLE public.user_trust_levels
+      ADD CONSTRAINT user_trust_levels_revision_positive CHECK (revision > 0) NOT VALID;
+  END IF;
+END $$;
+-- +goose StatementEnd
 ALTER TABLE public.user_trust_levels VALIDATE CONSTRAINT user_trust_levels_revision_positive;
 
 COMMENT ON COLUMN public.user_trust_levels.revision IS
