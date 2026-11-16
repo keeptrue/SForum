@@ -140,8 +140,17 @@ func ErrorCode(err error) string {
 	}
 }
 
+// replayKey 是「这个 token 已经被消费过」的标记键。
+//
+// 只由 provider + token 决定，**不含 purpose**：否则同一个解出的 token 可以在
+// register / password_reset / email_verification / login_risk / post_risk 各消费
+// 一次，反自动化强度被摊薄（P3-4）。去掉 purpose 后一个 token 全局只能消费一次。
+//
+// 滚动发布兼容：旧版本写的是 sha256(purpose + provider + token)，这些键仍留在
+// Redis 里；新代码只写新键，所以切换窗口内一个旧 token 最多可能被再消费一次。
+// 该窗口可接受，且不需要清理旧键——它们随 MarkUsed 的 TTL 自然过期。
 func replayKey(req VerifyRequest) string {
-	sum := sha256.Sum256([]byte(string(req.Purpose) + "\x00" + req.Provider + "\x00" + req.Token))
+	sum := sha256.Sum256([]byte(req.Provider + "\x00" + req.Token))
 	return hex.EncodeToString(sum[:])
 }
 

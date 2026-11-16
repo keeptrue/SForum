@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	altcha "github.com/altcha-org/altcha-lib-go/v2"
 )
 
 func TestDisabledServiceSkipsVerification(t *testing.T) {
@@ -121,4 +123,160 @@ func (p fakeProvider) Verify(context.Context, VerifyRequest) (VerifyResult, erro
 		return VerifyResult{Verified: true, Code: CodeOK}, nil
 	}
 	return p.result, nil
+}
+
+// P3-4：一个解出的 token 全局只能消费一次，不能跨场景各用一次。
+
+func TestServiceRejectsReplayedTokenAcrossPurposes(t *testing.T) {
+	service := NewService(
+		ServiceConfig{Enabled: true, ChallengeTTL: time.Minute},
+		fakeProvider{result: VerifyResult{Verified: true, Code: CodeOK}},
+		NewMemoryStore(),
+	)
+	token := "cross-scenario-token"
+
+	if err := service.Verify(context.Background(), VerifyRequest{
+		Purpose:  PurposeRegister,
+		Provider: ProviderAltcha,
+		Token:    token,
+	}); err != nil {
+		t.Fatalf("register verify returned error: %v", err)
+	}
+
+	err := service.Verify(context.Background(), VerifyRequest{
+		Purpose:  PurposePasswordReset,
+		Provider: ProviderAltcha,
+		Token:    token,
+	})
+	if !errors.Is(err, ErrReplayed) {
+		t.Fatalf("reusing a token in another purpose must be replayed, got %v", err)
+	}
+}
+
+func TestReplayKeyScopesProviderButNotPurpose(t *testing.T) {
+	token := "same-token"
+	register := replayKey(VerifyRequest{Purpose: PurposeRegister, Provider: ProviderAltcha, Token: token})
+	passwordReset := replayKey(VerifyRequest{Purpose: PurposePasswordReset, Provider: ProviderAltcha, Token: token})
+	if register != passwordReset {
+		t.Fatalf("replay key must not embed purpose: register=%s password_reset=%s", register, passwordReset)
+	}
+
+	// Service.Verify 在 MarkUsed 之前就把非 altcha provider 拒掉，provider 隔离
+	// 只能在键层面断言：键必须仍按 provider 分域，避免将来接入第二个 provider 时，
+	// 不同 provider 的同名 token 互相把对方标成已消费。
+	otherProvider := replayKey(VerifyRequest{Purpose: PurposeRegister, Provider: "other", Token: token})
+	if otherProvider == register {
+		t.Fatalf("replay key must stay scoped per provider")
+	}
+}
+
+// P3-4 第二步：purpose 绑进 challenge 签名载荷，token 与签发场景强绑定。
+
+func TestAltchaProviderBindsChallengeToPurpose(t *testing.T) {
+	provider := NewAltchaProvider(AltchaConfig{Secret: "test-secret", Cost: 1, ChallengeTTL: time.Minute})
+	token := solveAltchaChallenge(t, provider, PurposeRegister)
+
+	result, err := provider.Verify(context.Background(), VerifyRequest{
+		Purpose:  PurposeRegister,
+		Provider: ProviderAltcha,
+		Token:    token,
+	})
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if !result.Verified || result.Code != CodeOK {
+		t.Fatalf("token must verify for its issuing purpose, got %#v", result)
+	}
+
+	result, err = provider.Verify(context.Background(), VerifyRequest{
+		Purpose:  PurposePasswordReset,
+		Provider: ProviderAltcha,
+		Token:    token,
+	})
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if result.Verified || result.Code != CodeInvalid {
+		t.Fatalf("token issued for register must not verify for password_reset, got %#v", result)
+	}
+}
+
+func TestAltchaProviderAcceptsLegacyChallengeWithoutPurposeBinding(t *testing.T) {
+	provider := NewAltchaProvider(AltchaConfig{Secret: "test-secret", Cost: 1, ChallengeTTL: time.Minute})
+	// 模拟本次发布之前签发的 challenge：签名有效，但没有 parameters.data。
+	legacy, err := altcha.CreateChallenge(altcha.CreateChallengeOptions{
+		Algorithm:           "PBKDF2/SHA-256",
+		Cost:                1,
+		HMACSignatureSecret: "test-secret",
+	})
+	if err != nil {
+		t.Fatalf("CreateChallenge returned error: %v", err)
+	}
+
+	result, err := provider.Verify(context.Background(), VerifyRequest{
+		Purpose:  PurposePasswordReset,
+		Provider: ProviderAltcha,
+		Token:    solveAndEncodeAltchaChallenge(t, legacy),
+	})
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if !result.Verified {
+		t.Fatalf("legacy challenge without purpose binding must still verify, got %#v", result)
+	}
+}
+
+func TestAltchaProviderRejectsStrippedPurposeBinding(t *testing.T) {
+	provider := NewAltchaProvider(AltchaConfig{Secret: "test-secret", Cost: 1, ChallengeTTL: time.Minute})
+	challenge := issueAltchaChallenge(t, provider, PurposeRegister)
+	// 把 data 从签名载荷里剥掉再重新编码：签名随即失配，不能借此逃出场景绑定。
+	challenge.Parameters.Data = nil
+
+	result, err := provider.Verify(context.Background(), VerifyRequest{
+		Purpose:  PurposePasswordReset,
+		Provider: ProviderAltcha,
+		Token:    solveAndEncodeAltchaChallenge(t, challenge),
+	})
+	if err != nil {
+		t.Fatalf("Verify returned error: %v", err)
+	}
+	if result.Verified {
+		t.Fatalf("stripping parameters.data must invalidate the signature, got %#v", result)
+	}
+}
+
+func issueAltchaChallenge(t *testing.T, provider *AltchaProvider, purpose Purpose) altcha.Challenge {
+	t.Helper()
+
+	challenge, err := provider.Challenge(context.Background(), purpose, Subject{IP: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("Challenge returned error: %v", err)
+	}
+	raw, ok := challenge.Payload.(altcha.Challenge)
+	if !ok {
+		t.Fatalf("expected altcha challenge payload, got %T", challenge.Payload)
+	}
+	return raw
+}
+
+func solveAltchaChallenge(t *testing.T, provider *AltchaProvider, purpose Purpose) string {
+	t.Helper()
+	return solveAndEncodeAltchaChallenge(t, issueAltchaChallenge(t, provider, purpose))
+}
+
+func solveAndEncodeAltchaChallenge(t *testing.T, challenge altcha.Challenge) string {
+	t.Helper()
+
+	solution, err := altcha.SolveChallenge(altcha.SolveChallengeOptions{
+		Challenge: challenge,
+		DeriveKey: altcha.DeriveKeyPBKDF2(),
+	})
+	if err != nil {
+		t.Fatalf("SolveChallenge returned error: %v", err)
+	}
+	token, err := encodeAltchaPayload(challenge, *solution)
+	if err != nil {
+		t.Fatalf("encode payload: %v", err)
+	}
+	return token
 }
