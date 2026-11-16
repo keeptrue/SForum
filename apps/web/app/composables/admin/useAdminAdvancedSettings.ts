@@ -37,17 +37,3 @@ export function useAdminAdvancedSettings() {
     operationsMode
   }
 }
-
-/** @deprecated 请使用 useAdminAdvancedSettings().professionalMode */
-export function useAdminProfessionalMode() {
-  const { professionalMode } = useAdminAdvancedSettings()
-  return {
-    enabled: professionalMode,
-    setEnabled: (value: boolean) => {
-      professionalMode.value = value
-    },
-    toggle: () => {
-      professionalMode.value = !professionalMode.value
-    }
-  }
-}

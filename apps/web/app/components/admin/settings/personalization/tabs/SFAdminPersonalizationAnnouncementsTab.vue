@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useSiteChromeApi, type SiteAnnouncement, type SiteAnnouncementStyle } from '~/composables/admin/useSiteChromeApi'
+import { sanitizeHtml } from '~/utils/sfSanitize'
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -179,6 +180,20 @@ function bodyText(item: SiteAnnouncement) {
   return english() ? item.bodyEnUS || item.bodyZhCN : item.bodyZhCN || item.bodyEnUS
 }
 
+// 列表预览是同一段后端 HTML：管理员能输入富文本，渲染时同样必须走前端二次净化
+// （后端 markdown.RenderSafe 之外的第二道防线）。按 id 预先净化，避免重复解析。
+const sanitizedBodyHTML = computed(() => {
+  const result = new Map<number, string>()
+  for (const item of items.value) {
+    result.set(item.id, sanitizeHtml(bodyHTML(item)))
+  }
+  return result
+})
+
+function sanitizedBodyHTMLOf(item: SiteAnnouncement) {
+  return sanitizedBodyHTML.value.get(item.id) || ''
+}
+
 function success(title: string) {
   toast.add({ color: 'success', icon: 'i-lucide-check', title, duration: 5000 })
 }
@@ -267,7 +282,7 @@ function failure(error: unknown) {
           <li v-for="item in items" :key="item.id" class="flex items-start justify-between gap-3 py-4">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2"><strong>{{ title(item) }}</strong><UBadge color="neutral" variant="soft">{{ t(`admin.siteChrome.announcements.styles.${item.style}`) }}</UBadge></div>
-              <div v-if="bodyHTML(item)" class="sf-announcement-admin-preview mt-1 text-sm text-muted" v-html="bodyHTML(item)" />
+              <div v-if="sanitizedBodyHTMLOf(item)" class="sf-announcement-admin-preview mt-1 text-sm text-muted" v-html="sanitizedBodyHTMLOf(item)" />
               <p v-else-if="bodyText(item)" class="mt-1 text-sm text-muted">{{ bodyText(item) }}</p>
             </div>
             <div class="flex shrink-0 gap-2"><UButton type="button" size="sm" color="neutral" variant="outline" @click="toggle(item)">{{ item.enabled ? t('admin.siteChrome.disable') : t('admin.siteChrome.enable') }}</UButton><UButton type="button" size="sm" color="error" variant="soft" icon="i-lucide-trash-2" :aria-label="t('admin.siteChrome.delete')" :title="t('admin.siteChrome.delete')" @click="remove(item)" /></div>

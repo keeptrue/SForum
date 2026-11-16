@@ -2480,7 +2480,6 @@
         "loadErrorHint": "列表没有被清空；修好连接后点「重试」重新读取。",
         "retry": "重试",
         "governance": {
-          "enabledBadge": "已禁用",
           "overriddenBadge": "已覆盖",
           "moveUp": "上移一格",
           "moveDown": "下移一格",

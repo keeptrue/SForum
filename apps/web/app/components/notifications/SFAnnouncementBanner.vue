@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSiteChromeApi } from '~/composables/admin/useSiteChromeApi'
 import type { SiteAnnouncement } from '~/composables/admin/useSiteChromeApi'
+import { sanitizeHtml } from '~/utils/sfSanitize'
 
 const { t, locale } = useI18n()
 const chromeApi = useSiteChromeApi()
@@ -65,6 +66,21 @@ function bodyTextOf(item: SiteAnnouncement) {
     : (item.bodyZhCN || item.bodyEnUS)
 }
 
+// 公告 HTML 由后端 markdown.RenderSafe 下发，那是唯一防线：后端一旦回归就是全站
+// 存储型 XSS，所以渲染前必须再走前端二次净化（utils/sfSanitize）。
+// 按 id 预先净化，避免 v-if 与 v-html 各自解析一遍同一段 HTML。
+const sanitizedBodyHTML = computed(() => {
+  const result = new Map<number, string>()
+  for (const item of visibleAnnouncements.value) {
+    result.set(item.id, sanitizeHtml(bodyHTMLOf(item)))
+  }
+  return result
+})
+
+function sanitizedBodyHTMLOf(item: SiteAnnouncement) {
+  return sanitizedBodyHTML.value.get(item.id) || ''
+}
+
 function dismiss(item: SiteAnnouncement) {
   if (!item.dismissible) {
     return
@@ -97,7 +113,7 @@ function dismiss(item: SiteAnnouncement) {
           </a>
           <span v-else>{{ titleOf(item) }}</span>
         </p>
-        <div v-if="bodyHTMLOf(item)" class="sf-announcement__text" v-html="bodyHTMLOf(item)" />
+        <div v-if="sanitizedBodyHTMLOf(item)" class="sf-announcement__text" v-html="sanitizedBodyHTMLOf(item)" />
         <p v-else-if="bodyTextOf(item)" class="sf-announcement__text">{{ bodyTextOf(item) }}</p>
       </div>
       <button

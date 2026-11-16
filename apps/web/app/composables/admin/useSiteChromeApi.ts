@@ -178,11 +178,6 @@ export function useSiteChromeApi() {
 
   return {
     listPublicNav: () => request<SitePublicNav>('/site/nav-items'),
-    /** @deprecated 使用 listPublicNav；保留别名避免旧调用方立刻断裂 */
-    listPublicNavItems: async () => {
-      const nav = await request<SitePublicNav>('/site/nav-items')
-      return nav?.items || []
-    },
     listAdminNavItems: () => request<SiteNavItem[]>('/admin/site/nav-items'),
     createNavItem: (body: SiteNavItemInput) =>
       request<SiteNavItem>('/admin/site/nav-items', { method: 'POST', body }),

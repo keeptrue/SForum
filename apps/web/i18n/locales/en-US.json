@@ -2440,7 +2440,6 @@
         "loadErrorHint": "The list was not cleared; fix the connection and retry.",
         "retry": "Retry",
         "governance": {
-          "enabledBadge": "Disabled",
           "overriddenBadge": "Overridden",
           "moveUp": "Move up one place",
           "moveDown": "Move down one place",
