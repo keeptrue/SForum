@@ -7,6 +7,7 @@ import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useAdminPage } from '~/composables/admin/useAdminPage'
 import SFAdminFormFooter from '~/components/admin/SFAdminFormFooter.vue'
+import SFAdminFixedTabNav from '~/components/admin/settings/shared/SFAdminFixedTabNav.vue'
 import SFNativeSelect from '~/components/forms/SFNativeSelect.vue'
 
 definePageMeta({
@@ -234,7 +235,8 @@ async function removeField(item: FieldDefinition) {
   }
 }
 
-function setFilter(id: 'all' | 'user' | 'topic') {
+function setFilter(id: string) {
+  if (id !== 'all' && id !== 'user' && id !== 'topic') return
   filterEntity.value = id
   if (!import.meta.client) return
   void router.replace({ query: { ...route.query, entity: id === 'all' ? undefined : id } })
@@ -412,28 +414,21 @@ onMounted(load)
       </template>
     </UCard>
 
-    <div
-      role="tablist"
-      :aria-label="t('admin.entityMeta.filters.label')"
-      class="relative z-0 flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-zinc-800"
-    >
-      <UButton
-        v-for="tab in filterTabs"
-        :key="tab.id"
-        size="md"
-        class="min-h-10 px-4"
-        :color="filterEntity === tab.id ? 'primary' : 'neutral'"
-        :variant="filterEntity === tab.id ? 'solid' : 'ghost'"
-        :leading-icon="tab.icon"
-        role="tab"
-        :aria-selected="filterEntity === tab.id"
-        @click="setFilter(tab.id)"
-      >
-        {{ tab.label }}
-      </UButton>
-    </div>
+    <!-- UX2-15 收口：筛选页签走共享条（与后台设置页同一视觉几何），不再自建 tablist。 -->
+    <SFAdminFixedTabNav
+      :model-value="filterEntity"
+      :items="filterTabs"
+      :ariaLabel="t('admin.entityMeta.filters.label')"
+      panelId="entity-meta-filter"
+      @update:model-value="setFilter"
+    />
 
-    <UCard class="border-slate-200 bg-white text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
+    <UCard
+      id="entity-meta-filter"
+      role="tabpanel"
+      :aria-labelledby="`entity-meta-filter-tab-${filterEntity}`"
+      class="border-slate-200 bg-white text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+    >
       <template #header>
         <div>
           <h2 class="text-base font-bold text-slate-900 dark:text-white">
@@ -445,12 +440,10 @@ onMounted(load)
         </div>
       </template>
 
-      <div v-if="pending" class="py-10 text-center text-sm text-slate-500 dark:text-zinc-400">
-        {{ t('admin.common.loading') }}
+      <div v-if="pending" class="py-6" role="status" :aria-label="t('admin.common.loading')">
+        <SFSkeleton :lines="4" />
       </div>
-      <div v-else-if="!filteredItems.length" class="py-10 text-center text-sm text-slate-500 dark:text-zinc-400">
-        {{ t('admin.entityMeta.empty') }}
-      </div>
+      <SFEmptyState v-else-if="!filteredItems.length" :title="t('admin.entityMeta.empty')" />
       <div v-else class="divide-y divide-slate-100 dark:divide-zinc-800">
         <div
           v-for="item in filteredItems"

@@ -50,6 +50,12 @@ type SidebarNavigationItem = {
   defaultOpen?: boolean
   open?: boolean
   value?: string
+  /**
+   * 链接内容的自定义插槽名。分组项（有 children 的纵向菜单项）走 `folder`：
+   * Nuxt UI 默认会在链接里再渲染一个 `<span aria-expanded>`（AccordionTrigger），
+   * 那个 span 的 role=generic 不允许 aria-expanded（axe `aria-allowed-attr`，每页 8 节点）。
+   */
+  slot?: string
   children?: SidebarNavigationItem[]
 }
 
@@ -293,6 +299,8 @@ const extensionGroupNavigation = computed<SidebarNavigationItem[]>(() => {
       label: group.label,
       icon: group.icon || 'i-lucide-plug',
       value: `extension-group:${group.extensionId}:${group.label}`,
+      // 与内置分组项同一处理：链接内容自己渲染，避免 Nuxt UI 多输出带 aria-expanded 的 span。
+      slot: 'folder',
       active,
       open: active,
       children
@@ -358,6 +366,7 @@ function buildNavigationItem(
       label: t(entry.labelKey),
       icon: entry.icon,
       value: entry.labelKey,
+      slot: 'folder',
       active: isActive,
       defaultOpen: entry.defaultOpen,
       open: shouldOpenAdminNavigationEntry(entry, currentAdminPageId) || childActive || ownsActiveExtensionPage,
@@ -508,6 +517,16 @@ function navigateAdminTabById(id: string) {
   }
 }
 
+/**
+ * 分组项（`#folder` 插槽）的渲染视图。
+ *
+ * Nuxt UI 没有为自定义插槽名声明 props 类型，模板里的 `item` 会被 vue-tsc 推成 `never`；
+ * 这里用显式入参把类型收敛回 `SidebarNavigationItem`，模板只读 `{ icon, label }`。
+ */
+function folderNavView(item: SidebarNavigationItem) {
+  return { icon: item.icon, label: item.label }
+}
+
 // 页签条只负责呈现：键盘导航与焦点搬运在 SFAdminTabStrip 里，文案在这里解析。
 const adminTabStripItems = computed<AdminTabStripItem[]>(() =>
   adminTabs.tabs.value.map(tab => ({
@@ -561,6 +580,8 @@ async function signOut() {
       id="sforum-admin-sidebar"
       collapsible
       resizable
+      role="navigation"
+      :aria-label="t('admin.shell.navigationLabel')"
       :default-size="16"
       :min-size="14"
       :max-size="22"
@@ -571,7 +592,7 @@ async function signOut() {
           <NuxtLink
             :to="adminRoutes.path('/')"
             class="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1 py-1 text-[var(--text-admin-main)] hover:bg-[var(--bg-admin-sidebar-hover)]"
-            aria-label="SForum"
+            :aria-label="`${t('admin.shell.brand')} ${t('admin.shell.section')}`"
           >
             <img
               src="/brand/sforum-logo.svg"
@@ -624,7 +645,30 @@ async function signOut() {
             orientation="vertical"
             class="min-w-0"
             :ui="sidebarNavigationUi"
-          />
+          >
+            <!--
+              分组项（有 children）自己渲染链接内容：默认实现会多输出一个带 aria-expanded 的
+              `<span>`（Nuxt UI 的 AccordionTrigger as="span"），那是 axe `aria-allowed-attr`
+              的唯一来源。外层 `<button>` 由组件给出，data-state 在它上面，箭头用 group-* 旋转。
+            -->
+            <template #folder="{ item }">
+              <UIcon
+                v-if="folderNavView(item).icon"
+                :name="folderNavView(item).icon"
+                data-slot="linkLeadingIcon"
+                :class="sidebarNavigationUi.linkLeadingIcon"
+              />
+              <span data-slot="linkLabel" :class="sidebarNavigationUi.linkLabel">
+                {{ folderNavView(item).label }}
+              </span>
+              <UIcon
+                name="i-lucide-chevron-down"
+                aria-hidden="true"
+                :class="sidebarNavigationUi.linkTrailingIcon"
+                class="transition-transform duration-200 group-data-[state=open]:rotate-180"
+              />
+            </template>
+          </UNavigationMenu>
         </div>
       </template>
 
@@ -689,7 +733,11 @@ async function signOut() {
     </UDashboardSidebar>
 
     <UDashboardPanel class="sforum-admin-panel flex flex-col min-w-0 flex-1 bg-[var(--bg-admin-app)] text-[var(--text-admin-main)]">
-      <!-- 1. 置顶全局 Topbar -->
+      <!--
+        1–2. 顶栏 + 多页签条：同属页面 chrome，一起收进 <header>。
+        axe `region`：这两块的文字此前不在任何地标内（每页 4 个节点）。
+      -->
+      <header class="shrink-0">
       <div class="sforum-admin-topbar flex items-center justify-between h-[68px] sm:h-[76px] px-4 sm:px-8 bg-[var(--bg-admin-card)] border-b border-[var(--border-admin)] flex-shrink-0 z-20 transition-all">
         <div class="flex min-w-0 items-center gap-2 sm:gap-3">
           <UDashboardSidebarToggle class="shrink-0" />
@@ -705,7 +753,6 @@ async function signOut() {
           <button
             type="button"
             class="inline-flex max-w-full items-center gap-2.5 rounded-full border border-[var(--sf-accent-soft-border)] bg-[var(--sf-accent-soft)] px-3 py-2 text-left text-slate-600 transition-colors hover:border-[var(--sf-accent)] hover:bg-[rgb(var(--sf-accent-rgb)/0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sf-accent)] sm:px-4 sm:py-2.5 dark:border-[rgb(var(--sf-accent-rgb)/0.35)] dark:bg-[rgb(var(--sf-accent-rgb)/0.16)] dark:text-zinc-200 dark:hover:bg-[rgb(var(--sf-accent-rgb)/0.24)]"
-            :aria-label="t('admin.shell.openAdvancedSettings')"
             @click="advancedSettingsOpen = true"
           >
             <span class="size-2.5 shrink-0 rounded-full bg-[var(--sf-accent)] shadow-[0_0_0_4px_rgb(var(--sf-accent-rgb)/0.12)] dark:bg-[var(--sf-accent-dark)] dark:shadow-[0_0_0_4px_rgb(var(--sf-accent-rgb)/0.18)] animate-pulse"></span>
@@ -713,7 +760,8 @@ async function signOut() {
               <span class="hidden sm:inline">{{ t('admin.shell.administratorLabel') }}:</span>
               <strong class="font-semibold text-slate-800 dark:text-zinc-50">{{ user?.username }}</strong>
             </span>
-            <UIcon name="i-lucide-chevron-down" class="size-3.5 shrink-0 text-slate-400 dark:text-zinc-500" />
+            <UIcon name="i-lucide-chevron-down" class="size-3.5 shrink-0 text-slate-400 dark:text-zinc-500" aria-hidden="true" />
+            <span class="sr-only">{{ t('admin.shell.openAdvancedSettings') }}</span>
           </button>
         </div>
       </div>
@@ -727,25 +775,29 @@ async function signOut() {
         @navigate="navigateAdminTabById"
         @close="adminTabs.closeTab"
       />
+      </header>
 
       <!--
         3. 内容区滚动面板：footer 在区内随内容滚动，短页用 mt-auto 沉底。
         页面 slot 包一层 full-width 容器：多根页面（Fragment）的 UAlert/UCard 等
         不再与 footer 同为 flex 子项，避免宽度 shrink / 背景“没撑开”。
       -->
-      <div
-        id="sforum-admin-main"
-        role="tabpanel"
-        :aria-labelledby="adminTabElementId(adminTabs.activeTabId.value)"
-        tabindex="-1"
+      <main
+        id="sforum-admin-main-scroll"
         class="sforum-admin-scroll-area flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--bg-admin-app)] p-4 sm:p-6"
       >
-        <div class="sforum-admin-page min-w-0 w-full">
+        <div
+          id="sforum-admin-main"
+          role="tabpanel"
+          :aria-labelledby="adminTabElementId(adminTabs.activeTabId.value)"
+          tabindex="-1"
+          class="sforum-admin-page min-w-0 w-full"
+        >
           <SFAdminSurfaceOutlet :page-id="currentAdminPageId" />
           <slot />
         </div>
         <SFAdminFooter />
-      </div>
+      </main>
     </UDashboardPanel>
 
     <SFAdminSystemUpdatePrompt

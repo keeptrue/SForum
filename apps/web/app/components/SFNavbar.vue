@@ -205,6 +205,7 @@ function submitSearch(query: string) {
         class="navbar__search"
         :placeholder="t('home.searchPlaceholder')"
         :aria-label="t('nav.search')"
+        :form-label="t('nav.search')"
         @submit="submitSearch"
       />
 

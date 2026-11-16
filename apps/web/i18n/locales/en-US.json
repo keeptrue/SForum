@@ -1095,7 +1095,8 @@
           "label": "Operations",
           "description": "When enabled, the sidebar shows Operations (database tables, background jobs, schedules, webhooks). When off, the whole group is hidden."
         }
-      }
+      },
+      "navigationLabel": "Admin navigation"
     },
     "surfaces": {
       "loadFailed": "An admin extension could not be loaded.",
@@ -2172,6 +2173,7 @@
         },
         "guardAuthorization": {
           "title": "Authorization ownership",
+          "target": "Target route",
           "owner": "Authorization owner",
           "kind": "Guard kind",
           "digest": "Executable digest",
@@ -3913,7 +3915,8 @@
       "createPasswordRequired": "Set an initial password or choose random generation.",
       "createUsernameRequired": "Enter a username.",
       "createEmailRequired": "Enter an email address.",
-      "createEmailInvalid": "Enter a valid email address."
+      "createEmailInvalid": "Enter a valid email address.",
+      "toolbarLabel": "User list toolbar"
     },
     "permissions": {
       "metaTitle": "Permission Management",
@@ -5417,7 +5420,8 @@
           "reasonRequired": "A reason is required.",
           "actionFailed": "The revision action could not be completed."
         },
-        "loadFailed": "Forum content could not be loaded."
+        "loadFailed": "Forum content could not be loaded.",
+        "tableLabel": "Content list (scrollable)"
       },
       "categories": {
         "metaTitle": "Forum categories",
@@ -6468,6 +6472,16 @@
       }
     },
     "moderation": {
+      "reports": {
+        "title": "Open reports",
+        "description": "Work through reports one by one. Every submit carries the revision you read; conflicts are surfaced and the list refreshes.",
+        "empty": "No open reports right now.",
+        "meta": "Reporter {reporter} · revision {revision}",
+        "resolve": "Resolve",
+        "reject": "Reject",
+        "notePlaceholder": "Review note (optional)",
+        "conflict": "Someone else updated this report. The list was refreshed — review it and submit again."
+      },
       "title": "Moderation queue",
       "description": "Process user-submitted reports, update status, and record review notes.",
       "managementTitle": "Moderation management",
@@ -6570,7 +6584,8 @@
         "percent": "Progress",
         "startedAt": "Started At",
         "finishedAt": "Finished At",
-        "empty": "No rebuild records yet. This search engine has never been rebuilt; you can start one now."
+        "empty": "No rebuild records yet. This search engine has never been rebuilt; you can start one now.",
+        "progressLabel": "Index progress"
       },
       "action": {
         "reindex": "Rebuild Index",
@@ -6589,7 +6604,8 @@
           "total": "Total",
           "startedAt": "Started At",
           "finishedAt": "Finished At"
-        }
+        },
+        "scrollLabel": "Rebuild history (scrollable)"
       },
       "toast": {
         "started": "Search index rebuild started",

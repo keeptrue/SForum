@@ -81,7 +81,7 @@ function onActivate() {
           :avatar="item.avatar"
           :size="size"
           :loading="loading"
-          :alt="decorative ? '' : item.name"
+          :alt="decorative ? '' : item.name || undefined"
         />
       </span>
     </span>

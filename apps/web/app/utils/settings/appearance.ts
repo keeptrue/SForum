@@ -111,7 +111,13 @@ export function resolveAppearanceTheme(value: string): ResolvedAppearanceTheme {
   const customColor = customColorFromAppearanceTheme(theme) || defaultCustomThemeColor
 
   if (isAppearanceThemePreset(theme)) {
-    const cssVars = { '--sf-accent-contrast': accentContrastColor(appearanceThemeAccents[theme]) }
+    const accent = appearanceThemeAccents[theme]
+    const cssVars = {
+      '--sf-accent-contrast': accentContrastColor(accent),
+      // 预设也要按实测对比度给出 soft 表面文字色：amber(#d97706) 的 accent-hover
+      // 在自身 10% 底上只有 4.38:1，靠「深一档」猜不够。
+      '--sf-accent-strong': strongAccentColor(accent)
+    }
     return { theme, dataTheme: theme, customColor, cssVars, style: cssVarsToStyle(cssVars) }
   }
 
@@ -144,6 +150,43 @@ export function normalizeLightBackground(value: string | undefined): LightBackgr
   return lightBackgroundPresets.find(preset => preset === normalized) || recommendedLightBackground
 }
 
+/**
+ * soft/subtle 表面上的文字色（`--sf-accent-strong`）。
+ *
+ * Nuxt UI 的 soft 徽标/Alert 用 `text-{color}` 配 `bg-{color}/10`：文字与底色同源，
+ * 只有文字足够深才可能过 AA。预设主题的 `--sf-accent-hover` 已经深一档；自定义主题
+ * 可以是任意色（浅黄 #fde047 压 16% 后仍只有 1.8:1），所以这里按**实测对比度**迭代
+ * 压深，直到在「自身 10% 底」与白底上都 ≥ 4.5:1。
+ */
+export function strongAccentColor(accent: string): string {
+  const base = normalizeHexColor(accent) || defaultCustomThemeColor
+  // 参照底取「所有浅色外观预设里最暗的那张」：soft 徽标可能直接落在页面底上，
+  // 只对白底达标会漏掉 parchment(#f4eedf) / mist_gray(#f3f5f7) 这类背景。
+  const backdrop = darkestLightBackground()
+  const tint = mixHex(base, backdrop, 0.9)
+  let candidate = base
+  for (let step = 0; step < 24; step += 1) {
+    const rgb = hexToRgb(candidate)
+    if (contrastRatio(rgb, hexToRgb(tint)) >= 4.5 && contrastRatio(rgb, hexToRgb(backdrop)) >= 4.5) return candidate
+    candidate = mixHex(candidate, '#000000', 0.12)
+  }
+  return candidate
+}
+
+/** 最暗的浅色外观背景（对比度计算的最坏参照底）。 */
+function darkestLightBackground(): string {
+  let darkest = '#ffffff'
+  let lowest = Number.POSITIVE_INFINITY
+  for (const palette of Object.values(lightBackgroundPalettes)) {
+    const luminance = relativeLuminance(hexToRgb(palette.background))
+    if (luminance < lowest) {
+      lowest = luminance
+      darkest = palette.background
+    }
+  }
+  return darkest
+}
+
 function buildCustomThemeVars(color: string): Record<string, string> {
   const accent = normalizeHexColor(color) || defaultCustomThemeColor
   const rgb = hexToRgb(accent)
@@ -153,6 +196,7 @@ function buildCustomThemeVars(color: string): Record<string, string> {
   return {
     '--sf-accent': accent,
     '--sf-accent-hover': hover,
+    '--sf-accent-strong': strongAccentColor(accent),
     '--sf-accent-soft': mixHex(accent, '#ffffff', 0.92),
     '--sf-accent-soft-border': mixHex(accent, '#ffffff', 0.68),
     '--sf-accent-dark': dark,

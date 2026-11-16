@@ -73,7 +73,9 @@ describe('appearance theme helpers', () => {
 
     expect(css).toContain('--ui-color-success-500: var(--sf-primary-500);')
     expect(css).toContain('--ui-color-success-400: var(--sf-primary-400);')
+    // 浅色：success 与 primary 保持品牌档位（F2：品牌色不被文本 token 接管）。
     expect(css).toContain('--ui-success: var(--ui-color-success-500);')
+    // 深色：仍是 400 档（深底上已达标）。
     expect(css).toContain('--ui-success: var(--ui-color-success-400);')
   })
 

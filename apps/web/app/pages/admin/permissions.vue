@@ -280,9 +280,8 @@ function permissionHasVisibleDifference(permissionKey: string) {
 
   <div class="flex flex-col gap-4">
     <UCard class="border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-900 dark:text-zinc-100">
-      <div v-if="pending" class="flex items-center justify-center py-16 text-slate-400 dark:text-zinc-500">
-        <UIcon name="i-lucide-loader-circle" class="mr-2 size-5 animate-spin" />
-        <span class="text-sm">{{ t('admin.permissions.loading') }}</span>
+      <div v-if="pending" class="px-4 py-8" role="status" :aria-label="t('admin.permissions.loading')">
+        <SFSkeleton :lines="6" />
       </div>
 
       <div
@@ -330,10 +329,11 @@ function permissionHasVisibleDifference(permissionKey: string) {
         </UButton>
       </div>
 
-      <div v-else-if="matrix.permissions.length === 0" class="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-zinc-500">
-        <UIcon name="i-lucide-shield-check" class="size-12 mb-4" />
-        <p class="text-sm">{{ t('admin.permissions.empty') }}</p>
-      </div>
+      <SFEmptyState
+        v-else-if="matrix.permissions.length === 0"
+        icon="i-lucide-shield-check"
+        :title="t('admin.permissions.empty')"
+      />
 
       <div v-else class="space-y-6">
         <section class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-950/60">

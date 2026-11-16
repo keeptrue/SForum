@@ -102,20 +102,47 @@ const avatarClass = computed(() => {
   // sf-avatar：稳定钩子；尺寸/色板走 Tailwind
   const classes = [
     'sf-avatar',
-    'relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden font-semibold leading-none text-white',
+    'relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden font-semibold leading-none',
     sizeClass[props.size],
     shapeClass[props.shape]
   ]
   if (showImage.value) {
-    classes.push('bg-[var(--sf-accent)]')
+    // 有图时不存在首字母文字：前景色只影响状态点边框，沿用强调色上的对比色。
+    classes.push('bg-[var(--sf-accent)] text-[var(--sf-accent-contrast)]')
   } else {
     classes.push(forumAvatarToneClass(toneSeed.value))
   }
   return classes.join(' ')
 })
 
-const imageAlt = computed(() => props.alt ?? props.avatar?.alt ?? displayName.value)
-const isDecorative = computed(() => props.alt === '')
+/**
+ * 可访问名的空串语义（与 `SFTabs.ariaLabel` 同一套约定）：
+ *
+ * - **未提供**（`undefined` / `null`）→ 回落到显示名（`name` 或「匿名用户」）；
+ * - **调用方显式传 `alt=""`** → 装饰性头像：`aria-hidden` + `alt=""`，读屏直接跳过；
+ * - **纯空白串** → 视同未提供（不产出「   」这种伪可访问名）。
+ *
+ * `name` 本身不承担「关掉可读名」的职责：`name=''` 只是没有名字，仍按匿名用户播报。
+ *
+ * **`avatar.alt` 的空串不算装饰**：那是服务端字段，`Alt()` 的契约是非空
+ * （DisplayName → Username → "User"）。空值只可能来自旧/坏载荷，此时静默把头像
+ * 变成 `aria-hidden` 会把「没名字」升级成「读屏跳过」，所以按未提供处理。
+ */
+const normalizedAlt = computed(() => {
+  const explicit = props.alt
+  if (explicit !== undefined && explicit !== null) {
+    // 只有调用方显式空串是装饰语义；纯空白更像填错，按未提供处理。
+    if (explicit === '') return ''
+    const trimmed = explicit.trim()
+    return trimmed === '' ? undefined : trimmed
+  }
+  const fromServer = props.avatar?.alt
+  if (fromServer === undefined || fromServer === null) return undefined
+  const trimmed = fromServer.trim()
+  return trimmed === '' ? undefined : trimmed
+})
+const isDecorative = computed(() => normalizedAlt.value === '')
+const imageAlt = computed(() => (isDecorative.value ? '' : normalizedAlt.value || displayName.value))
 
 function resetImageFailure() {
   imageFailed.value = false

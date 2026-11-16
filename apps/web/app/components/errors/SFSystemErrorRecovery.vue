@@ -35,7 +35,14 @@ function closeMobileDrawers() {
       </button>
     </div>
 
-    <form class="sforum-system-error__search" role="search" method="get" :action="searchAction">
+    <!-- 与顶栏搜索地标区分：两个未命名/同名 search 地标会触发 axe landmark-unique。 -->
+    <form
+      class="sforum-system-error__search"
+      role="search"
+      method="get"
+      :action="searchAction"
+      :aria-label="t('errors.page.recovery.searchPlaceholder')"
+    >
       <label class="sforum-system-error__search-box">
         <UIcon name="i-lucide-search" class="sforum-system-error__search-icon" aria-hidden="true" />
         <input

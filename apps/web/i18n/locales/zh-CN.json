@@ -1135,7 +1135,8 @@
           "label": "运维管理",
           "description": "开启后，侧栏显示运维管理（数据库表、后台任务、定时任务、Webhook）；关闭时整组隐藏。"
         }
-      }
+      },
+      "navigationLabel": "后台导航"
     },
     "surfaces": {
       "loadFailed": "管理端扩展加载失败。",
@@ -2212,6 +2213,7 @@
         },
         "guardAuthorization": {
           "title": "授权归属",
+          "target": "接管的路由",
           "owner": "授权拥有者",
           "kind": "守卫类型",
           "digest": "可执行摘要",
@@ -3953,7 +3955,8 @@
       "createPasswordRequired": "请设置初始密码，或选择随机生成。",
       "createUsernameRequired": "请填写用户名。",
       "createEmailRequired": "请填写邮箱地址。",
-      "createEmailInvalid": "邮箱格式不正确。"
+      "createEmailInvalid": "邮箱格式不正确。",
+      "toolbarLabel": "用户列表工具栏"
     },
     "permissions": {
       "metaTitle": "权限管理",
@@ -5457,7 +5460,8 @@
           "reasonRequired": "必须填写原因。",
           "actionFailed": "版本操作未能完成。"
         },
-        "loadFailed": "无法加载论坛内容。"
+        "loadFailed": "无法加载论坛内容。",
+        "tableLabel": "内容列表（可横向滚动）"
       },
       "categories": {
         "metaTitle": "版块分类",
@@ -6508,6 +6512,16 @@
       }
     },
     "moderation": {
+      "reports": {
+        "title": "待处理举报",
+        "description": "逐条处理举报；每次提交都带上读取时的版本号，冲突会提示并刷新。",
+        "empty": "当前没有待处理举报。",
+        "meta": "举报人 {reporter} · 版本 {revision}",
+        "resolve": "结案",
+        "reject": "驳回",
+        "notePlaceholder": "审核备注（可选）",
+        "conflict": "这条举报已被其他人更新，列表已刷新，请重新确认后再提交。"
+      },
       "title": "审核队列",
       "description": "处理用户提交的举报，更新状态并记录审核备注。",
       "managementTitle": "审核管理",
@@ -6610,7 +6624,8 @@
         "percent": "进度",
         "startedAt": "开始时间",
         "finishedAt": "完成时间",
-        "empty": "暂无重建记录。当前搜索引擎尚未重建过，可直接开始重建。"
+        "empty": "暂无重建记录。当前搜索引擎尚未重建过，可直接开始重建。",
+        "progressLabel": "索引进度"
       },
       "action": {
         "reindex": "重建索引",
@@ -6629,7 +6644,8 @@
           "total": "总数",
           "startedAt": "开始时间",
           "finishedAt": "完成时间"
-        }
+        },
+        "scrollLabel": "重建历史（可横向滚动）"
       },
       "toast": {
         "started": "搜索索引重建已开始",

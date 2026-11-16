@@ -26,7 +26,8 @@
   /* 语义化基础变量：浅色模式 */
   --bg-app: #fcfcfd;
   --text-main: #09090b;
-  --text-muted: #71717a;
+  /* #71717a 在 appearance 背景 #f3f5f7 上只有 4.42:1（axe color-contrast）；压深一档到 5.2:1。 */
+  --text-muted: #66666f;
   --border-default: #e4e4e7;
   --sf-accent: #0f766e;
   --sf-accent-hover: #0b5f59;
@@ -36,6 +37,9 @@
   --sf-accent-rgb: 15 118 110;
   --sf-accent-focus: rgb(var(--sf-accent-rgb) / 0.18);
   --sf-accent-contrast: #ffffff;
+  /* soft/subtle 表面上的文字色：预设主题用 accent-hover（已深一档），
+     自定义主题由 resolveAppearanceTheme 按实测对比度覆盖（strongAccentColor）。 */
+  --sf-accent-strong: var(--sf-accent-hover);
   --sf-primary-50: #f0fdfa;
   --sf-primary-100: #ccfbf1;
   --sf-primary-200: #99f6e4;
@@ -70,6 +74,13 @@
   --ui-color-success-800: var(--sf-primary-800);
   --ui-color-success-900: var(--sf-primary-900);
   --ui-color-success-950: var(--sf-primary-950);
+  /*
+   * `--ui-primary` / `--ui-success` 是**品牌主色**（实心按钮、链接、焦点环、进度条），
+   * 保持原 accent 档位不动：自定义浅色 accent（如 #fde047）被压深会改掉品牌色。
+   *
+   * soft/subtle 表面上的文字对比度由 `.text-primary` / `.text-success` 的覆盖规则解决
+   * （见 sforum-components.css 的 `--sf-accent-strong` 段），那才是文本专用的 token。
+   */
   --ui-primary: var(--ui-color-primary-500);
   --ui-success: var(--ui-color-success-500);
 

@@ -10,6 +10,14 @@ const props = withDefaults(defineProps<{
   filters?: SearchFilter[]
   selectedFilter?: string
   ariaLabel?: string
+  /**
+   * `role="search"` 地标的可访问名。
+   *
+   * 同一页可能出现多个搜索地标（顶栏 + 移动端搜索条 + 错误页恢复搜索），
+   * 都叫「搜索」会触发 axe `landmark-unique`。留空时回落到输入框的可读名称，
+   * 保持既有渲染不变；需要区分的宿主显式传入。
+   */
+  formLabel?: string
   kbd?: string
 }>(), {
   modelValue: '',
@@ -17,6 +25,7 @@ const props = withDefaults(defineProps<{
   filters: () => [],
   selectedFilter: undefined,
   ariaLabel: undefined,
+  formLabel: undefined,
   kbd: undefined
 })
 
@@ -30,6 +39,9 @@ const { t } = useI18n()
 
 /** 占位文案同时也是可读名称：默认值必须走 i18n，不能写死中文（RV-28）。 */
 const resolvedPlaceholder = computed(() => props.placeholder ?? t('search.placeholder'))
+
+/** 地标名：显式 `formLabel` 优先，否则与输入框同源（默认行为不变）。 */
+const resolvedFormLabel = computed(() => props.formLabel ?? props.ariaLabel ?? resolvedPlaceholder.value)
 
 const inputElement = ref<HTMLInputElement | null>(null)
 
@@ -53,7 +65,7 @@ function onKeydown(event: KeyboardEvent) {
 
 <template>
   <div class="sf-search">
-    <form role="search" @submit.prevent="submit">
+    <form role="search" :aria-label="resolvedFormLabel" @submit.prevent="submit">
       <div class="sf-search__box">
         <button
           type="button"

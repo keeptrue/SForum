@@ -1020,6 +1020,49 @@
   height: 0.75rem;
 }
 
+/*
+ * 后台内容区的次要文字对比度（axe `color-contrast`，浅色模式）。
+ *
+ * 后台页面里 `text-slate-500` / `text-slate-400` 被大量用于说明、表头、行内元信息。
+ * appearance 预设把内容区背景调成 #f3f5f7、表头底 #eaedf1，此时：
+ *   slate-500 (#64748b) → 4.35:1 / 4.00:1；slate-400 (#90a1b9) → 2.63:1，均未过 AA 4.5。
+ * 后台壳内统一压深两档（5.5:1–7.5:1），层级仍靠字号/字重区分；深色模式不参与
+ * （`zinc-400` 在深底上已达标，规则用 `:root:not(.dark)` 排除）。
+ */
+/*
+ * soft / subtle 表面上的**文字**色（浅色模式）。
+ *
+ * Nuxt UI 用同一批 `--ui-{color}` 变量同时喂 `bg-{color}`（实心填充）与 `text-{color}`
+ * （soft 徽标 / soft Alert 的文字），所以不能靠改 `--ui-primary` 提对比度——那会把
+ * 品牌主色一起压深（自定义浅色 accent 会被压到近黑）。这里只覆盖**文本工具类**：
+ * 填充、焦点环、进度条仍用原 accent，文字取 `--sf-accent-strong`
+ * （预设 = accent-hover；自定义主题按实测对比度迭代，见 appearance.ts）。
+ */
+:root:not(.dark) .text-primary {
+  color: var(--sf-accent-strong);
+}
+
+:root:not(.dark) .text-success {
+  color: var(--sf-accent-strong);
+}
+
+/*
+ * Nuxt UI 的 soft Alert 把描述文字压到 opacity-90；与同色 10% 底叠加后
+ * 实测 4.2:1（entity-meta / trust-levels 的「推荐用法」块）。恢复不透明即可达标，
+ * 视觉上几乎无差别（14px 正文本来就不该靠透明度压层级）。
+ */
+[data-slot="description"].opacity-90 {
+  opacity: 1;
+}
+
+:root:not(.dark) .sforum-admin-shell .text-slate-400 {
+  color: #5b6472;
+}
+
+:root:not(.dark) .sforum-admin-shell .text-slate-500 {
+  color: #4b5563;
+}
+
 /* Page Registry catch-all 客户端换页的三栏骨架：侧栏占位行加间距，接近最终导航密度。 */
 .sf-registry-page-pending__nav {
   display: grid;

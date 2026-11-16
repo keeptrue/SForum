@@ -22,6 +22,7 @@ globals.useI18n = () => ({ t: (key: string) => key })
 globals.useToast = () => ({ add: () => {} })
 
 const { apiErrorMessage, apiErrorStatusCode } = await import('../../app/composables/useApiClient')
+const { nextTabIndex } = await import('../../app/utils/admin/adminTabStrip')
 
 type ReplaceCall = { query: Record<string, unknown> }
 
@@ -78,7 +79,8 @@ const request = async (path: string) => {
 
 const FixedTabNav = await compileVueSfc(
   fileURLToPath(new URL('../../app/components/admin/settings/shared/SFAdminFixedTabNav.vue', import.meta.url)),
-  'sf-admin-fixed-tab-nav'
+  'sf-admin-fixed-tab-nav',
+  { nextTabIndex }
 )
 
 const LoginMethodsPage = await compileVueSfc(
@@ -239,6 +241,8 @@ const EntityMetaPage = await compileVueSfc(
     useAuthSession: () => ({ can: () => true }),
     SFAdminFormFooter: FooterStub,
     SFNativeSelect: NativeSelectStub,
+    // UX2-15 收口后筛选页签来自共享条，用真组件（与登录方式页同一替身策略）。
+    SFAdminFixedTabNav: FixedTabNav,
     useI18n: () => ({ t: (key: string) => key, te: () => true, locale: testVue.ref('zh-CN') }),
     useToast: () => ({ add: () => {} }),
     useApiClient: () => ({ request: async () => ({ items: [] }) }),
@@ -260,6 +264,8 @@ const EntityHarness = testVue.defineComponent({
 
 function mountEntityMeta() {
   return mount(EntityHarness, {
+    // 方向键用例要断言 document.activeElement：必须真正挂到 document 上。
+    attachTo: document.body,
     global: {
       stubs: {
         UIcon: IconStub,
@@ -270,13 +276,36 @@ function mountEntityMeta() {
         UCard: CardStub,
         UFormField: FieldStub,
         UInput: InputStub,
-        UCheckbox: CheckboxStub
+        UCheckbox: CheckboxStub,
+        SFEmptyState: EmptyStub,
+        SFSkeleton: { props: ['lines'], template: '<div class="skeleton" />' }
       }
     }
   })
 }
 
 describe('连带项 entity-meta 的 ?entity= 同步', () => {
+  test('筛选页签来自共享条：页签有稳定 id，面板由激活页签标注（不再自建 tablist）', async () => {
+    entityRouteQuery = { entity: 'user' }
+    entityReplaceCalls = []
+    const wrapper = mountEntityMeta()
+    try {
+      await flushPromises()
+      const tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs.map(tab => tab.attributes('id'))).toEqual([
+        'entity-meta-filter-tab-all',
+        'entity-meta-filter-tab-user',
+        'entity-meta-filter-tab-topic'
+      ])
+      expect(tabs.every(tab => tab.attributes('aria-controls') === 'entity-meta-filter')).toBe(true)
+      const panel = wrapper.get('#entity-meta-filter')
+      expect(panel.attributes('role')).toBe('tabpanel')
+      expect(panel.attributes('aria-labelledby')).toBe('entity-meta-filter-tab-user')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
   test('深链 ?entity=topic：刷新后仍筛在「主题」', async () => {
     entityRouteQuery = { entity: 'topic' }
     entityReplaceCalls = []
@@ -304,6 +333,104 @@ describe('连带项 entity-meta 的 ?entity= 同步', () => {
       await tabs[0]!.trigger('click')
       await flushPromises()
       expect(entityReplaceCalls.at(-1)?.query.entity).toBeUndefined()
+    } finally {
+      wrapper.unmount()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// F1（R6 审查）：共享页签条的 WAI-ARIA tabs 键盘契约。
+//
+// 修前只有 `@click`：三个 `role="tab"` 全在 Tab 序列里，方向键无反应。
+// 现在 roving tabindex + ←/→ 循环 + Home/End，激活即跟随焦点（与后台多页签条
+// `SFAdminTabStrip` 共用 `nextTabIndex`，两处行为不会漂移）。
+// ---------------------------------------------------------------------------
+
+describe('共享页签条：roving tabindex 与方向键', () => {
+  test('只有激活页签 tabindex=0，其余 -1（Tab 只进出一次）', async () => {
+    entityRouteQuery = { entity: 'user' }
+    entityReplaceCalls = []
+    const wrapper = mountEntityMeta()
+    try {
+      await flushPromises()
+      const tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs.map(tab => tab.attributes('tabindex'))).toEqual(['-1', '0', '-1'])
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('ArrowRight 激活并聚焦下一个页签；ArrowLeft 循环回首项', async () => {
+    entityRouteQuery = { entity: 'all' }
+    entityReplaceCalls = []
+    const wrapper = mountEntityMeta()
+    try {
+      await flushPromises()
+      let tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs[0]!.attributes('aria-selected')).toBe('true')
+
+      await tabs[0]!.trigger('keydown', { key: 'ArrowRight' })
+      await flushPromises()
+      tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs.map(tab => tab.attributes('aria-selected'))).toEqual(['false', 'true', 'false'])
+      expect(entityReplaceCalls.at(-1)?.query).toMatchObject({ entity: 'user' })
+      // 焦点跟随激活项（roving 换位后必须一起搬）。
+      expect(document.activeElement).toBe(tabs[1]!.element)
+
+      await tabs[1]!.trigger('keydown', { key: 'ArrowLeft' })
+      await flushPromises()
+      tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs[0]!.attributes('aria-selected')).toBe('true')
+      expect(document.activeElement).toBe(tabs[0]!.element)
+
+      // 首项再按 ← 循环到末项。
+      await tabs[0]!.trigger('keydown', { key: 'ArrowLeft' })
+      await flushPromises()
+      tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs[2]!.attributes('aria-selected')).toBe('true')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('Home/End 跳到首尾；非导航键不劫持', async () => {
+    entityRouteQuery = { entity: 'user' }
+    entityReplaceCalls = []
+    const wrapper = mountEntityMeta()
+    try {
+      await flushPromises()
+      let tabs = wrapper.findAll('[role="tab"]')
+
+      await tabs[1]!.trigger('keydown', { key: 'End' })
+      await flushPromises()
+      tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs[2]!.attributes('aria-selected')).toBe('true')
+      expect(document.activeElement).toBe(tabs[2]!.element)
+
+      await tabs[2]!.trigger('keydown', { key: 'Home' })
+      await flushPromises()
+      tabs = wrapper.findAll('[role="tab"]')
+      expect(tabs[0]!.attributes('aria-selected')).toBe('true')
+
+      const before = entityReplaceCalls.length
+      await tabs[0]!.trigger('keydown', { key: 'Tab' })
+      await tabs[0]!.trigger('keydown', { key: 'Enter' })
+      expect(entityReplaceCalls.length).toBe(before)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('焦点不在页签上时不劫持方向键（冒泡到 tablist 也不切）', async () => {
+    entityRouteQuery = { entity: 'all' }
+    entityReplaceCalls = []
+    const wrapper = mountEntityMeta()
+    try {
+      await flushPromises()
+      await wrapper.get('[role="tablist"]').trigger('keydown', { key: 'ArrowRight' })
+      await flushPromises()
+      expect(entityReplaceCalls).toHaveLength(0)
     } finally {
       wrapper.unmount()
     }

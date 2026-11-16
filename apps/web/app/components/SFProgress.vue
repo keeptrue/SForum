@@ -37,6 +37,7 @@ const progressClass = computed(() => [
     <div
       class="sf-progress__track"
       role="progressbar"
+      :aria-label="label || undefined"
       :aria-valuenow="value"
       aria-valuemin="0"
       :aria-valuemax="max"

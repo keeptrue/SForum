@@ -364,7 +364,7 @@ onBeforeUnmount(() => stopRealtime())
                   v-if="item.actor"
                   :name="userDisplayName(item.actor)"
                   :avatar="item.actor.avatar"
-                  :alt="userDisplayName(item.actor)"
+                  :alt="userDisplayName(item.actor) || undefined"
                   size="list"
                 />
                 <span

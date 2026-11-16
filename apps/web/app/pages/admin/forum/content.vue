@@ -153,16 +153,88 @@ function resetPagination() {
   cursorIndex.value = 0
 }
 
+/**
+ * 本页拥有的 query 键。反向 watch 只比较这些键：地址栏里他人附加的参数
+ * （utm / 外部埋点）不参与「是否已被夹正」的判定；写回时由 `preservedQuery()`
+ * 原样带上，不会因为一次纠正被丢掉。
+ */
+const CONTENT_QUERY_KEYS = [
+  'tab', 'status', 'authorUserID', 'authorUsername', 'updatedFrom', 'updatedTo',
+  'topicID', 'titlePrefix', 'categorySlug', 'perPage'
+] as const
+
+/** 把 query 归一成可比较的字符串（数组取首值、空值丢弃、键排序）。 */
+function queryKey(query: Record<string, unknown>, keys?: readonly string[]): string {
+  const entries: Array<[string, string]> = []
+  for (const key of Object.keys(query).sort()) {
+    if (keys && !keys.includes(key)) continue
+    const raw = Array.isArray(query[key]) ? query[key][0] : query[key]
+    if (raw === undefined || raw === null) continue
+    const value = `${raw}`.trim()
+    if (value === '') continue
+    entries.push([key, value])
+  }
+  return JSON.stringify(entries)
+}
+
+/** 本页上一次写入地址栏的快照：用来区分「自己的写回」与「外部同路由导航」。 */
+let lastWrittenQuery = ''
+
+function currentRouteQuery(): Record<string, string> {
+  return buildAdminForumContentRouteQuery(activeTab.value, {
+    ...filters,
+    status: filters.status === ALL_STATUS_VALUE ? '' : filters.status
+  })
+}
+
+/**
+ * 本页不拥有、但必须原样保留的 query 键（utm / 外部埋点 / 上游带过来的定位参数）。
+ * 只写回本页 10 个键会把它们静默丢掉，所以写回时先合并再覆盖。
+ */
+function preservedQuery(query: Record<string, unknown>): Record<string, string> {
+  const kept: Record<string, string> = {}
+  for (const [key, value] of Object.entries(query)) {
+    if ((CONTENT_QUERY_KEYS as readonly string[]).includes(key)) continue
+    const raw = Array.isArray(value) ? value[0] : value
+    if (raw === undefined || raw === null) continue
+    const text = `${raw}`.trim()
+    if (text !== '') kept[key] = text
+  }
+  return kept
+}
+
 // 状态变更后写回地址栏：replace 不污染历史，且不触发新的导航栈。
 async function syncRouteQuery() {
   // SSR 没有浏览器历史；`watch(availableTabs, { immediate: true })` 可能在服务端触发
   // `selectTab`，此时调 `router.replace` 会告警（与 entity-meta / login-methods 同一条守卫）。
   if (!import.meta.client) return
-  const query = buildAdminForumContentRouteQuery(activeTab.value, {
-    ...filters,
-    status: filters.status === ALL_STATUS_VALUE ? '' : filters.status
-  })
+  const query = { ...preservedQuery(route.query as Record<string, unknown>), ...currentRouteQuery() }
+  lastWrittenQuery = queryKey(query)
   await router.replace({ query })
+}
+
+/**
+ * 把「夹正后的真实状态」写回地址栏。
+ *
+ * 只在本页拥有的键上比对：`?tab=topics` 无权限时页面已回落 comments，但地址栏仍留着
+ * topics —— 分享出去的链接会把下一个人再夹一次。login-methods 已按同一语义纠正，
+ * 这里补齐（UX2-15 的对称性要求）。
+ */
+async function correctRouteQuery() {
+  if (!import.meta.client) return
+  const canonical = currentRouteQuery()
+  if (queryKey(canonical) === queryKey(route.query as Record<string, unknown>, CONTENT_QUERY_KEYS)) return
+  await syncRouteQuery()
+}
+
+/** 用地址栏状态覆盖页面状态；返回分区是否变化。 */
+function applyRouteState(query: Record<string, unknown>) {
+  const state = parseAdminForumContentRouteQuery(query, availableTabs.value)
+  const nextTab = state.tab ?? availableTabs.value[0] ?? 'topics'
+  const tabChanged = nextTab !== activeTab.value
+  activeTab.value = nextTab
+  Object.assign(filters, { ...state.filters, status: state.filters.status || ALL_STATUS_VALUE })
+  return tabChanged
 }
 
 async function applyFilters() {
@@ -374,7 +446,23 @@ watch(availableTabs, (tabs) => {
   if (!tabs.includes(activeTab.value) && tabs[0]) void selectTab(tabs[0])
 }, { immediate: true })
 
+// 反向同步：同路由改 query（地址栏回车、站内链接带不同筛选）时页面状态跟随。
+// 自己写回的那次导航靠 `lastWrittenQuery` 识别并跳过，避免「watch → 写回 → watch」抖动。
+watch(() => route.query, (query) => {
+  if (!import.meta.client) return
+  if (queryKey(query as Record<string, unknown>) === lastWrittenQuery) return
+  applyRouteState(query as Record<string, unknown>)
+  selected.value = null
+  conflict.value = null
+  resetPagination()
+  void load().then(() => correctRouteQuery())
+}, { deep: true })
+
 void load()
+// 首屏也可能是被夹正过的深链（?tab= 无权限 / 非法筛选值）：挂载后把地址栏改成真实状态。
+onMounted(() => {
+  void correctRouteQuery()
+})
 useSeoMeta({ title: t('admin.forum.content.metaTitle') })
 </script>
 
@@ -455,7 +543,13 @@ useSeoMeta({ title: t('admin.forum.content.metaTitle') })
 
       <UAlert v-if="errorMessage" color="error" variant="soft" icon="i-lucide-triangle-alert" :title="errorMessage" />
 
-      <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <!-- 390 宽下 6 列表格靠容器横向滚动；容器本身必须可聚焦，否则键盘用户滚不到右侧列。 -->
+      <div
+        class="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+        tabindex="0"
+        role="region"
+        :aria-label="t('admin.forum.content.tableLabel')"
+      >
         <table class="w-full min-w-[760px] text-left text-sm">
           <thead class="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
             <tr>
@@ -472,7 +566,9 @@ useSeoMeta({ title: t('admin.forum.content.metaTitle') })
               <td v-for="cell in 6" :key="cell" class="px-3 py-3"><USkeleton class="h-4 w-full" /></td>
             </tr>
             <tr v-else-if="!list.length">
-              <td colspan="6" class="px-4 py-12 text-center text-sm text-slate-500 dark:text-zinc-400">{{ t('admin.forum.content.empty') }}</td>
+              <td colspan="6" class="px-4 py-6">
+                <SFEmptyState :title="t('admin.forum.content.empty')" />
+              </td>
             </tr>
             <tr v-for="row in list" :key="`${row.targetType}-${row.id}`" class="border-b border-slate-100 last:border-0 dark:border-zinc-800">
               <td class="max-w-md px-3 py-3">
@@ -510,7 +606,7 @@ useSeoMeta({ title: t('admin.forum.content.metaTitle') })
             <div class="min-w-0"><h3 class="truncate text-base font-semibold text-slate-900 dark:text-zinc-100">{{ selected?.title || selected?.topicTitle || t('admin.forum.content.detailTitle') }}</h3><p v-if="selected" class="mt-1 text-xs text-slate-500 dark:text-zinc-400">{{ t('admin.forum.content.authorLine', { author: userDisplayName(selected.author, `#${selected.authorUserId}`), revision: selected.currentRevision }) }}</p></div>
             <UButton icon="i-lucide-x" color="neutral" variant="ghost" :aria-label="t('common.close')" @click="closeDetail" />
           </header>
-          <main class="min-h-0 flex-1 overflow-y-auto p-5">
+          <div class="min-h-0 flex-1 overflow-y-auto p-5">
             <div v-if="detailPending" class="space-y-4"><USkeleton class="h-6 w-1/2" /><USkeleton class="h-32 w-full" /><USkeleton class="h-64 w-full" /></div>
             <UAlert v-else-if="detailError" color="error" variant="soft" icon="i-lucide-triangle-alert" :title="detailError" />
             <template v-else-if="selected">
@@ -575,7 +671,7 @@ useSeoMeta({ title: t('admin.forum.content.metaTitle') })
                 </div>
               </section>
             </template>
-          </main>
+          </div>
         </div>
       </template>
     </USlideover>

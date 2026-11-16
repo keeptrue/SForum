@@ -229,11 +229,11 @@ onMounted(load)
         {{ t('admin.webhooks.endpointsTitle') }}
       </p>
     </div>
-    <div v-if="pending" class="px-4 py-8 text-sm text-slate-500">
-      {{ t('admin.webhooks.loading') }}
+    <div v-if="pending" class="px-4 py-8" role="status" :aria-label="t('admin.webhooks.loading')">
+      <SFSkeleton :lines="4" />
     </div>
-    <div v-else-if="!endpoints.length" class="px-4 py-8 text-sm text-slate-500">
-      {{ t('admin.webhooks.emptyEndpoints') }}
+    <div v-else-if="!endpoints.length" class="px-4 py-6">
+      <SFEmptyState :title="t('admin.webhooks.emptyEndpoints')" />
     </div>
     <div v-else class="overflow-x-auto">
       <table class="min-w-full text-left text-sm">
@@ -312,8 +312,8 @@ onMounted(load)
         {{ t('admin.webhooks.deliveriesTitle') }}
       </p>
     </div>
-    <div v-if="!deliveries.length" class="px-4 py-8 text-sm text-slate-500">
-      {{ t('admin.webhooks.emptyDeliveries') }}
+    <div v-if="!deliveries.length" class="px-4 py-6">
+      <SFEmptyState :title="t('admin.webhooks.emptyDeliveries')" />
     </div>
     <div v-else class="overflow-x-auto">
       <table class="min-w-full text-left text-sm">

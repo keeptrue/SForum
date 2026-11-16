@@ -267,7 +267,7 @@ watch(isRunning, (running) => {
               {{ t(`admin.search.current.status.${currentStatus.status}`) }}
             </SFBadge>
           </div>
-          <SFProgress :value="currentStatus.percent" />
+          <SFProgress :value="currentStatus.percent" :label="t('admin.search.current.progressLabel')" />
           <div class="mt-3 grid grid-cols-3 gap-4 text-center">
             <div>
               <div class="text-xs text-slate-400">{{ t('admin.search.current.processed') }}</div>
@@ -326,7 +326,14 @@ watch(isRunning, (running) => {
           {{ t('admin.search.history.empty') }}
         </div>
         <!-- UX2-18：5 列在 390px 会撑破页面，横向滚动容器 + 最小宽度是唯一解。 -->
-        <div v-else data-testid="admin-search-history-scroll" class="w-full overflow-x-auto">
+        <div
+          v-else
+          data-testid="admin-search-history-scroll"
+          class="w-full overflow-x-auto"
+          tabindex="0"
+          role="region"
+          :aria-label="t('admin.search.history.scrollLabel')"
+        >
           <table class="w-full min-w-[640px] text-sm">
             <thead>
               <tr class="border-b border-slate-200 text-left text-xs text-slate-400 dark:border-slate-700">

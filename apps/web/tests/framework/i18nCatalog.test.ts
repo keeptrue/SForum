@@ -23,9 +23,54 @@ import { flattenKeys, LOCALES, lookupMessage, readLocale } from '../helpers/loca
 
 const APP_ROOT = fileURLToPath(new URL('../../app/', import.meta.url))
 
-/** 共享规则编辑器把宿主域当 prop 传进来，短键必须两族齐全（徽章 + 信任等级）。 */
+/** 共享规则编辑器把宿主域当 prop 传进来，短键必须在**每个宿主族**里都能查到。 */
 const RULE_EDITOR_DIR = 'app/components/admin/rules/'
-const RULE_HOST_PREFIXES = ['admin.badges.rule', 'admin.forum.trustLevels.rule'] as const
+
+/** 会接收 `i18n-key-prefix` 的共享规则组件（宿主传值 / 组件默认值二选一）。 */
+const RULE_COMPONENTS = [
+  'SFAdminRuleEditor',
+  'SFAdminRuleGroup',
+  'SFAdminRuleSimpleForm',
+  'SFAdminRuleLeaf',
+  'SFAdminRuleJsonPreview',
+  'SFAdminRuleParamField'
+] as const
+
+/** 宿主族的**发现**口径：从真实调用点推导，而不是手写两族（新增宿主曾会静默逃逸）。 */
+export function hostPrefixFromSource(source: string): string | null {
+  if (/:i18n-key-prefix\s*=/.test(source)) {
+    throw new Error('i18n-key-prefix 必须是静态字面量：动态绑定会让短键棘轮静默失效')
+  }
+  const match = /i18n-key-prefix\s*=\s*"([^"]+)"/.exec(source)
+  return match ? match[1]!.trim() : null
+}
+
+/** 组件自己的 `withDefaults` 默认前缀（宿主不传时生效）。 */
+function componentDefaultPrefix(component: string): string {
+  const source = readFileSync(`${APP_ROOT}components/admin/rules/${component}.vue`, 'utf8')
+  const match = /i18nKeyPrefix:\s*'([^']+)'/.exec(source)
+  if (!match) throw new Error(`共享规则组件 ${component} 没有声明 i18nKeyPrefix 默认值`)
+  return match[1]!
+}
+
+/** 扫描宿主调用点，得到「短键必须齐全」的前缀集合。 */
+function discoverRuleHostPrefixes(): string[] {
+  const prefixes = new Set<string>()
+  const callSite = new RegExp(`<(${RULE_COMPONENTS.join('|')})\\b([^>]*)>`, 'gs')
+  for (const file of appFiles()) {
+    const relativePath = file.slice(file.indexOf('app/'))
+    if (relativePath.startsWith(RULE_EDITOR_DIR)) continue
+    const source = readFileSync(file, 'utf8')
+    for (const match of source.matchAll(callSite)) {
+      const component = match[1]!
+      const explicit = hostPrefixFromSource(match[2] ?? '')
+      prefixes.add(explicit ?? componentDefaultPrefix(component))
+    }
+  }
+  return [...prefixes].sort()
+}
+
+const RULE_HOST_PREFIXES = discoverRuleHostPrefixes()
 
 /** 前缀化短键里的 `${...}` 取值来自组件内部固定枚举，扫描器按此展开。 */
 const SCOPED_ENUMERATIONS: Record<string, readonly string[]> = {
@@ -250,5 +295,26 @@ describe('regression anchors', () => {
   test('NF-03 的治理徽标文案两侧都有', () => {
     expect(lookupMessage('zh-CN', 'admin.extensions.contributions.governance.disabledBadge')).toBe('已停用')
     expect(lookupMessage('en-US', 'admin.extensions.contributions.governance.disabledBadge')).toBe('Disabled')
+  })
+})
+
+describe('共享规则编辑器的宿主族（发现式棘轮）', () => {
+  test('宿主族从真实调用点推导：至少两族，且与当前实现一致', () => {
+    // 反真空绿：一条调用点都扫不到时，下面的短键检查会变成永远通过。
+    expect(RULE_HOST_PREFIXES.length).toBeGreaterThanOrEqual(2)
+    // 新增宿主族必须同步更新这条断言 —— 这就是「新族不会静默逃逸」的检查点：
+    // 忘了补 locale 键时，「前缀化短键在每个宿主族里都能查到」会先红；忘了登记族名时这条先红。
+    expect(RULE_HOST_PREFIXES).toEqual(['admin.badges.rule', 'admin.forum.trustLevels.rule'])
+  })
+
+  test('显式属性优先；未传时回落共享组件的默认前缀', () => {
+    expect(hostPrefixFromSource(' i18n-key-prefix="admin.forum.trustLevels.rule"')).toBe('admin.forum.trustLevels.rule')
+    // 徽章页不传该属性（依赖组件默认值）→ 解析结果为空，由 discoverRuleHostPrefixes 回落到默认值，
+    // 因此 `admin.badges.rule` 仍出现在发现集合里（上一条断言已钉住）。
+    expect(hostPrefixFromSource(' :model-value="draftRule"')).toBeNull()
+  })
+
+  test('动态绑定直接报错：静态扫描读不到前缀时必须显式失败', () => {
+    expect(() => hostPrefixFromSource(' :i18n-key-prefix="somePrefix"')).toThrow()
   })
 })

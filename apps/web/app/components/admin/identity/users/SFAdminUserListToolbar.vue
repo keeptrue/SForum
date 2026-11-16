@@ -28,7 +28,16 @@ const selectClass = 'h-9 rounded-md border border-slate-200 bg-white px-3 text-s
 </script>
 
 <template>
-  <UDashboardToolbar class="mb-6 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+  <!--
+    390 宽下工具栏内部横向滚动（Nuxt UI 的 root 自带 overflow-x-auto）：
+    容器必须可聚焦，否则键盘用户滚不到右侧的排序/刷新控件（axe scrollable-region-focusable）。
+  -->
+  <UDashboardToolbar
+    class="mb-6 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+    tabindex="0"
+    role="region"
+    :aria-label="t('admin.users.toolbarLabel')"
+  >
     <template #left>
       <div class="flex flex-wrap items-center gap-2">
         <UInput
