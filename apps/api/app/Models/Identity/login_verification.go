@@ -15,8 +15,9 @@ type LoginInput struct {
 	// HumanVerified 仅由 HTTP 层在 login_risk 验证成功后设置。
 	HumanVerified bool
 	// SkipHumanVerification 由 HTTP 层在「登录同时签发 API Token」时设置。
-	// 这是已知取舍：该路径仍会签发浏览器会话，等同一处可绕过的验证豁免面，
-	// 见 knowledge/decisions/2026-10-22-login-human-verification-triggers.md。
+	// 只豁免策略类触发条件（always/new_device/privileged），**不豁免**失败锁定
+	// 触发的验证。这是已知取舍：该路径仍会签发浏览器会话，等同一处可绕过的验证
+	// 豁免面，见 knowledge/decisions/2026-10-22-login-human-verification-triggers.md。
 	SkipHumanVerification bool
 }
 
@@ -48,16 +49,18 @@ type LoginVerificationPolicyResolver interface {
 
 // loginRequiresVerification 判定本次登录是否必须先完成人机验证。
 //
-// 判定顺序：显式豁免 → 失败锁定（历史行为，与运营配置无关）→ 总闸 →
+// 判定顺序：失败锁定（历史行为，与运营配置无关）→ 显式豁免 → 总闸 →
 // 总是验证 → 新设备 → 特权账号。判定发生在密码校验通过之后，错误密码既不会
 // 消耗验证令牌，也不会产生账号存在性信号。
+//
+// 失败锁定**排在显式豁免之前**：账号失败阈值触发的验证永远不被豁免（P2-1）。
+// `SkipHumanVerification` 只覆盖策略类触发条件（always/new_device/privileged），
+// 因为那条豁免是为「登录同时签发 API Token」的原生/CLI 客户端保留的取舍，
+// 不能让携带该形状的请求连失败锁定一起跳过。
 //
 // 失败姿态：策略读取或设备指纹查询出错时 fail open，避免配置/存储抖动把合法
 // 用户挡在门外；失败锁定本身仍由 Redis 计数决定。
 func loginRequiresVerification(s *Service, ctx context.Context, loginKey string, credential CredentialUser, input LoginInput) (bool, error) {
-	if input.SkipHumanVerification {
-		return false, nil
-	}
 	if s.loginLockout != nil {
 		required, err := s.loginLockout.RequiresVerification(ctx, loginKey)
 		if err != nil {
@@ -66,6 +69,10 @@ func loginRequiresVerification(s *Service, ctx context.Context, loginKey string,
 		if required {
 			return true, nil
 		}
+	}
+	// 显式豁免只覆盖下面的策略类触发条件；失败锁定已在上面判过。
+	if input.SkipHumanVerification {
+		return false, nil
 	}
 	policy := loginVerificationPolicy(s, ctx)
 	if !policy.Enabled {

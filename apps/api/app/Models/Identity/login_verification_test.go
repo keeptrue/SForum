@@ -76,6 +76,64 @@ func TestLoginVerificationSkipFlagBypassesTriggers(t *testing.T) {
 	}
 }
 
+// TestLoginVerificationSkipScopeExcludesLockout 固定 SkipHumanVerification 的豁免范围（P2-1）。
+//
+// `issueApiToken` 那条路径会置 SkipHumanVerification，它过去短路在**失败锁定判定之前**，
+// 于是携带形状合法 `"issueApiToken":{...}` 的登录请求连账号失败阈值触发的
+// login_verify:acct 验证都能跳过。现在豁免只覆盖策略类触发条件。
+//
+// 变异要求：把 loginRequiresVerification 里的 skip 短路移回函数最前面，
+// 第一行（skip + lockout）必须红。
+func TestLoginVerificationSkipScopeExcludesLockout(t *testing.T) {
+	tests := []struct {
+		name        string
+		policy      LoginVerificationPolicy
+		lockout     bool
+		skip        bool
+		wantRequire bool
+	}{
+		{
+			// 失败锁定触发的验证永远不被豁免。
+			name:        "skip does not bypass lockout",
+			policy:      LoginVerificationPolicy{Enabled: true, Always: true},
+			lockout:     true,
+			skip:        true,
+			wantRequire: true,
+		},
+		{
+			// 策略类触发条件仍然被豁免（原生/CLI 客户端的既有取舍）。
+			name:        "skip still bypasses always",
+			policy:      LoginVerificationPolicy{Enabled: true, Always: true},
+			lockout:     false,
+			skip:        true,
+			wantRequire: false,
+		},
+		{
+			// 对照组：不豁免时失败锁定照旧生效，不回归。
+			name:        "lockout still requires verification without skip",
+			policy:      LoginVerificationPolicy{Enabled: true, Always: true},
+			lockout:     true,
+			skip:        false,
+			wantRequire: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service, _, _ := newLoginVerificationTest(t, staticLoginVerificationPolicy{policy: test.policy})
+			service.WithLoginLockout(&fakeLoginLockout{verificationRequired: test.lockout}, staticLoginLockoutPolicy{})
+
+			_, err := service.Login(testContext(t), LoginInput{
+				Login: "victim", Password: loginVerificationTestPassword, SkipHumanVerification: test.skip,
+			})
+			required := errors.Is(err, ErrLoginVerificationRequired)
+			if required != test.wantRequire {
+				t.Fatalf("required=%t want=%t (err=%v)", required, test.wantRequire, err)
+			}
+		})
+	}
+}
+
 func TestLoginVerificationPolicyFailureFailsOpen(t *testing.T) {
 	service, _, _ := newLoginVerificationTest(t, failingLoginVerificationPolicy{})
 	if _, err := service.Login(testContext(t), LoginInput{Login: "victim", Password: loginVerificationTestPassword}); err != nil {

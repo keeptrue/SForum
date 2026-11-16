@@ -29,15 +29,21 @@
    设备记忆；代价是「登出所有设备」后下一次登录会再验一次。
 4. 「管理员账号」= `IsInitialSuperAdmin` ∪ `super_admin` 角色 ∪ `admin.access` 权限。
    不依赖单一角色名。
-5. 失败锁定与总闸解耦：Redis 侧账号失败计数仍然先于策略判定生效，保持既有行为。
+5. 失败锁定与总闸、与显式豁免都解耦：`loginRequiresVerification` 先判
+   `LoginLockout.RequiresVerification`，命中即要求验证，之后才看
+   `SkipHumanVerification` 与策略总闸。Redis 侧账号失败计数因此**永远**先于策略
+   判定生效，也不受任何豁免影响（P2-1 收窄，2026-11-16）。
 6. 失败姿态：Options 读取失败、设备指纹查询失败一律 fail open（退化为仅失败锁定），
    空指纹视为已知设备。
 7. 限流从硬编码 60 次/分/场景/IP 改为可配置
    `human_verification.rate_limit.per_minute`（1–600，默认 60）。
-8. **已知取舍**：携带 `issueApiToken` 的登录请求豁免人机验证。`POST /auth/login`
-   先签发 cookie 会话再签发 PAT，因此该豁免同时放行浏览器会话——等于保留一处可
-   绕过的验证豁免面。运营选择保留，以不误伤原生/CLI 客户端。OAuth（外部登录）
-   路径本轮不接入。
+8. **已知取舍（豁免口径已收窄）**：携带 `issueApiToken` 的登录请求豁免**策略类**
+   触发条件（`always` / `new_device` / `privileged`），**不豁免**失败锁定触发的
+   验证——失败锁定排在豁免之前判定（见第 5 条）。`POST /auth/login` 先签发 cookie
+   会话再签发 PAT，因此该豁免仍然放行浏览器会话，这仍是保留的取舍（不误伤原生/
+   CLI 客户端）；被收窄掉的只是「连账号失败阈值触发的 `login_verify:acct` 一起
+   跳过」这条超出本决策口径的副作用（P2-1，2026-11-16）。OAuth（外部登录）路径
+   本轮不接入。
 
 ## Consequences
 
