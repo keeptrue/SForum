@@ -34,6 +34,28 @@ import (
 //   - observe 路径的 `delivery_record_failed` / `delivery_atomic_unavailable` 都发生在
 //     「还没建行」或「行已回滚」的分支，永远进不了 reason 列，只出现在进程日志与
 //     事件结果里。
+//
+// **当前生产接线状态（F-4，2026-11-17 复核）**——读下面这段之前先看这里，否则很容易
+// 把「预留分支」当成「生效路径」：
+//   - `ManagerConfig` 有 `Dispatcher` / `Pool` 字段，但**两个生产装配点都没传**：
+//     API 侧 `bootstrap/app.go` 的 `extensionsruntime.NewManager(...)` 只给
+//     `Starter` + `DeliveryStore`，worker 侧 `bootstrap/worker.go` 的
+//     `buildWorkerExtensionRuntime` 同样如此。所以生产永远落在上面第 1 种组合
+//     （进程内 `host.Deliver`），第 2/3 种组合当前**不可达**。
+//   - `RegisterEventDeliveryWorker`（本文件下方）**全仓零调用点**：即使有人把
+//     `Dispatcher` 接上，入队的 `extension.event_delivery` job 也没有消费者，
+//     事件只会静静躺在 River 队列里。
+//   - 因此 `delivery_atomic_unavailable` 分支与它下面的「建行 + 入队同事务」实现
+//     是**为将来队列化预留**的代码，不是现在的行为保证；真正的现役保证是
+//     `Models/Extensions/deliverysweep` 的周期收口。
+//   - **去重在队列化后实际失效（F4-3）**：`EnqueueOptions` 用的是
+//     `river.UniqueOpts{ByArgs: true}`，而 args 里带唯一的 `DeliveryID`——每个 job
+//     的 args 都不同，所以 ByArgs 去重形同虚设。真要做去重必须另建稳定键
+//     （例如 extension + event + correlation），别指望现在的 `Unique`。
+//   - **崩溃窗口内事件不可恢复**：进程内投递在建行与写终态之间崩溃时，那条事件
+//     不会被重投（没有 payload 列、没有 replay 端点），sweeper 只把行收成 failed。
+//     这是已接受的取舍，理由见
+//     `knowledge/decisions/2026-11-17-observe-delivery-crash-window.md`。
 type EventDeliveryArgs struct {
 	DeliveryID        int64          `json:"delivery_id" river:"unique"`
 	ExtensionID       string         `json:"extension_id"`
@@ -166,6 +188,10 @@ func (m *managerCore) emitObserve(ctx context.Context, envelope appevents.Envelo
 			continue
 		}
 		if m.txBeginner == nil {
+			// 当前生产不可达：走到这里要求 Dispatcher 与 DeliveryStore 同时存在，
+			// 而两个生产装配点都没传 Dispatcher（见文件头「当前生产接线状态」）。
+			// 保留它是为了将来队列化接线时「配置不全就立刻报错」，而不是静默退回
+			// 两次独立往返、把崩溃窗口重新打开。
 			return appevents.Result{
 				OK:      false,
 				Reason:  "extension.delivery_atomic_unavailable",

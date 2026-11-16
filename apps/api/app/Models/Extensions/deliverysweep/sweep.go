@@ -10,6 +10,14 @@
 // 事务化只在 Dispatcher + 事务池都接进 ManagerConfig 时才生效，因此这里补上
 // 与 P2-6（邮件投递）同款的周期兜底，保证**当前生产路径**（in-process 投递）
 // 也不会留下永久中途行。
+//
+// **sweeper 只收口状态，不重投（F-4）**：崩溃窗口内那条事件本身不可恢复——
+// 账本里没有 payload，也没有 replay 端点，sweep 只是把行从 queued/running 推进到
+// failed，让管理面不再显示「永远在飞」。这个取舍（不补 replay、不建 payload 列、
+// 不加端点）的理由与边界写在
+// `knowledge/decisions/2026-11-17-observe-delivery-crash-window.md`；将来若要做
+// 可重投，正确方向是把投递接到 River 队列（payload 由 River 持久化并重试），
+// 而不是在这里补一份 payload 副本。
 package deliverysweep
 
 import (

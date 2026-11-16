@@ -62,8 +62,10 @@ attempt_count / created_at / updated_at / completed_at`，没有 payload。sweep
 
 三条理由：
 
-1. **受益面为零，无法验证正确性。** 仓库内没有生产 observe 订阅方（上节），replay 的唯一可测对象
-   是 fixture。为一个没有消费者的通道新建一列含用户内容的持久化数据，收益是假设的，代价是确定的。
+1. **仓库内受益面为零，无法验证正确性。** 仓库内没有生产 observe 订阅方（上节），replay 的唯一
+   可测对象是 fixture。为一个没有消费者的通道新建一列含用户内容的持久化数据，收益是假设的，
+   代价是确定的。（限定词是「仓库内」：仓库外已安装的第三方插件可能已经在 observe 通道上做审计，
+   它们不在本决策的样本内，也不能用它们证明这条通道重要到值得加一列持久化 payload。）
 2. **replay 的形态是错的。** payload 本来就在 `EventDeliveryArgs.Payload`（`event_jobs.go:43`）里，
    而 River 自己持久化 job args 并带 `MaxAttempts: 3`（`:56-62`）。要「可重投」，正确做法是让投递走
    队列（那时 payload 由 River 存、由 River 重试），而不是把 payload 复制一份进账本再手写一个重投
