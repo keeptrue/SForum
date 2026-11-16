@@ -36,6 +36,11 @@
       "file": "apps/api/config/config_test.go",
       "kind": "non-test-database",
       "reason": "config 单元测试用 t.Setenv 写入示例连接串来验证配置解析、默认值与校验分支，全程不打开数据库连接，与测试库无关。"
+    },
+    {
+      "file": "apps/api/app/Support/Extensions/protocol_v2_client_test.go",
+      "kind": "non-test-database",
+      "reason": "env 泄漏探针的负向断言：用 t.Setenv 把哨兵连接串写进宿主环境，随后断言 go-plugin 真正 append 之后的 cmd.Env 里不含 DATABASE_URL= 前缀，证明宿主连接串不会漏给插件子进程。本进程从不 os.Getenv 它，也从不拿它连库；扫描器把 t.Setenv 的写入误判成读取。"
     }
   ]
 }
