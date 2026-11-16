@@ -17,6 +17,8 @@ import (
 const (
 	redactionTestUser   = "app"
 	redactionTestSecret = "s3cr3t-p@ssw0rd"
+	// scheme 不符分支用单独的短口令：同样带 `@`，让「按第一个 @ 切」的实现漏尾巴。
+	redactionWrongSchemeSecret = "p@ss"
 )
 
 // assertNoSecret 断言文本里不含口令；失败时打印原文，便于看到漏在哪里。
@@ -108,6 +110,21 @@ func TestProductionDatabaseURLErrorsDoNotLeakCredentials(t *testing.T) {
 		)
 	})
 
+	t.Run("wrong scheme", func(t *testing.T) {
+		// scheme 分支的回显同样是连接串，必须走脱敏：mysql 的 userinfo 里带真口令。
+		raw := "mysql://" + redactionTestUser + ":" + redactionWrongSchemeSecret + "@db.internal:3306/sforum?sslmode=disable"
+		err := ValidateProductionDatabaseURL(raw)
+		if err == nil {
+			t.Fatalf("expected %q to be rejected", raw)
+		}
+		text := err.Error()
+		assertNoSecret(t, "error", text, redactionWrongSchemeSecret)
+		mustContain(t, text,
+			"must use the postgres:// or postgresql:// scheme in production",
+			"(got \"mysql://app:***@db.internal:3306/sforum\")",
+		)
+	})
+
 	t.Run("accepted production url", func(t *testing.T) {
 		raw := "postgres://" + redactionTestUser + ":" + redactionTestSecret + "@db.internal:5432/sforum?sslmode=require"
 		if err := ValidateProductionDatabaseURL(raw); err != nil {
@@ -120,9 +137,10 @@ func TestProductionDatabaseURLErrorsDoNotLeakCredentials(t *testing.T) {
 // panic 文本与 error 文本同源，日志里也不许出现口令。
 func TestProductionDatabaseURLPanicDoesNotLeakCredentials(t *testing.T) {
 	cases := []struct {
-		name string
-		url  string
-		want []string
+		name    string
+		url     string
+		want    []string
+		secrets []string
 	}{
 		{
 			// 不可解析：整体脱敏，连 scheme 之外的信息都没有。
@@ -135,6 +153,13 @@ func TestProductionDatabaseURLPanicDoesNotLeakCredentials(t *testing.T) {
 			url:  "postgres://app:change-me@db.internal:5432/sforum?sslmode=require&password=change-me",
 			want: []string{"config: DATABASE_URL", "must not use a placeholder password in production", "postgres://app:***@db.internal:5432/sforum"},
 		},
+		{
+			// scheme 分支：panic 与 error 同源，脱敏形态必须一致。
+			name:    "wrong scheme",
+			url:     "mysql://app:" + redactionWrongSchemeSecret + "@db.internal:3306/sforum?sslmode=disable",
+			want:    []string{"config: DATABASE_URL", "must use the postgres:// or postgresql:// scheme in production", "mysql://app:***@db.internal:3306/sforum"},
+			secrets: []string{redactionWrongSchemeSecret},
+		},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -143,7 +168,8 @@ func TestProductionDatabaseURLPanicDoesNotLeakCredentials(t *testing.T) {
 			t.Setenv("DATABASE_URL", testCase.url)
 
 			recovered := captureProductionPanic(t)
-			assertNoSecret(t, "panic", recovered, redactionTestSecret, "change-me")
+			secrets := append([]string{redactionTestSecret, "change-me"}, testCase.secrets...)
+			assertNoSecret(t, "panic", recovered, secrets...)
 			for _, want := range testCase.want {
 				if !strings.Contains(recovered, want) {
 					t.Fatalf("panic %q 缺少 %q", recovered, want)
