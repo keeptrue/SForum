@@ -14,7 +14,8 @@ func TestPendingLeaseUsesShortTTLWhileCompletedKeepsReplayWindow(t *testing.T) {
 	store := NewStore(backend, DefaultTTL)
 	ctx := context.Background()
 
-	if _, started, conflict, err := store.Begin(ctx, "actor:POST:/topics:abc"); err != nil || !started || conflict {
+	rec, started, conflict, err := store.Begin(ctx, "actor:POST:/topics:abc")
+	if err != nil || !started || conflict {
 		t.Fatalf("begin: started=%v conflict=%v err=%v", started, conflict, err)
 	}
 	if len(backend.pendingTTLs) != 1 {
@@ -27,7 +28,7 @@ func TestPendingLeaseUsesShortTTLWhileCompletedKeepsReplayWindow(t *testing.T) {
 		t.Fatalf("pending lease %s must be shorter than the completed replay window %s", DefaultPendingTTL, DefaultTTL)
 	}
 
-	if err := store.Complete(ctx, "actor:POST:/topics:abc", 201, []byte(`{"ok":true}`)); err != nil {
+	if err := store.Complete(ctx, "actor:POST:/topics:abc", rec.Lease, 201, []byte(`{"ok":true}`)); err != nil {
 		t.Fatalf("complete: %v", err)
 	}
 	if len(backend.completedTTLs) != 1 {
@@ -72,6 +73,17 @@ func (b *ttlRecordingBackend) SetNX(ctx context.Context, key string, value []byt
 func (b *ttlRecordingBackend) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
 	b.completedTTLs = append(b.completedTTLs, ttl)
 	return b.MemoryBackend.Set(ctx, key, value, ttl)
+}
+
+// Complete 走 CompareAndSwap 收敛（P2-4），完成记录的 TTL 从这里来；
+// replacement 为 nil 是 Abort 的删除，不算一次完成写入。
+func (b *ttlRecordingBackend) CompareAndSwap(
+	ctx context.Context, key string, expected, replacement []byte, ttl time.Duration,
+) (bool, error) {
+	if replacement != nil {
+		b.completedTTLs = append(b.completedTTLs, ttl)
+	}
+	return b.MemoryBackend.CompareAndSwap(ctx, key, expected, replacement, ttl)
 }
 
 func (b *ttlRecordingBackend) expireAll() {

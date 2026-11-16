@@ -7,9 +7,11 @@ package idempotency
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -39,7 +41,16 @@ type Record struct {
 	State  string `json:"state"`
 	Status int    `json:"status,omitempty"`
 	Body   []byte `json:"body,omitempty"`
+	// Lease 只在 pending 记录上出现：它是本次 Begin 授予的执行权凭证，
+	// Complete/Abort 必须带着它做 CompareAndSwap，否则 TTL 边界上的旧请求会
+	// 覆盖新请求抢到的 lease（P2-4）。
+	Lease string `json:"lease,omitempty"`
 }
+
+// ErrLeaseLost 表示这次 Complete/Abort 手里的 pending 已经不是当前记录：
+// 租约过期后别的请求重新 Begin 了同一个 key，或者记录已被收敛。
+// 调用方应把它当成「本次请求不再拥有这个 key」并放弃写入，而不是重试。
+var ErrLeaseLost = errors.New("idempotency: pending lease was lost")
 
 // Backend 最小 KV 能力；生产用 Redis，测试用 Memory。
 type Backend interface {
@@ -128,14 +139,23 @@ func (s *Store) Begin(ctx context.Context, storageKey string) (rec Record, start
 			return Record{}, false, true, nil
 		}
 	}
-	pending, _ := json.Marshal(Record{State: statePending})
+	// 每次 Begin 都带一个随机 lease：pending 字节因此逐次不同，Complete/Abort 才能
+	// 用 CompareAndSwap 区分「我的租约」和「租约过期后别人抢到的新租约」（P2-4）。
+	lease, err := newLeaseToken()
+	if err != nil {
+		return Record{}, false, false, err
+	}
+	pending, err := pendingRecord(lease)
+	if err != nil {
+		return Record{}, false, false, err
+	}
 	// pending 用独立短租约：完成后的响应快照才用 s.ttl 保留 24h。
 	ok, err := s.backend.SetNX(ctx, s.fullKey(storageKey), pending, s.pendingTTL)
 	if err != nil {
 		return Record{}, false, false, err
 	}
 	if ok {
-		return Record{State: statePending}, true, false, nil
+		return Record{State: statePending, Lease: lease}, true, false, nil
 	}
 	// 竞态：再次读取
 	existing, found, err = s.Get(ctx, storageKey)
@@ -148,24 +168,74 @@ func (s *Store) Begin(ctx context.Context, storageKey string) (rec Record, start
 	return Record{}, false, true, nil
 }
 
-// Complete 写入成功响应快照。
-func (s *Store) Complete(ctx context.Context, storageKey string, status int, body []byte) error {
+// Complete 用 lease 收敛 pending 并写入成功响应快照。
+//
+// 收敛走 CompareAndSwap：只有仍然持有 Begin 授予的那份 pending 字节的请求才能
+// 把它替换成完成记录。租约已过期并被别的请求接管时返回 ErrLeaseLost，调用方不得
+// 覆盖新请求（P2-4）。旧版本二进制写下的 pending 没有 lease 字段，字节不匹配，
+// 因此同样落到 ErrLeaseLost —— 按 fail-open 处理即可，短租约 90s 内自愈。
+func (s *Store) Complete(ctx context.Context, storageKey string, lease string, status int, body []byte) error {
 	if s == nil || s.backend == nil {
 		return nil
+	}
+	if strings.TrimSpace(lease) == "" {
+		return ErrLeaseLost
+	}
+	expected, err := pendingRecord(lease)
+	if err != nil {
+		return err
 	}
 	raw, err := json.Marshal(Record{State: stateCompleted, Status: status, Body: body})
 	if err != nil {
 		return err
 	}
-	return s.backend.Set(ctx, s.fullKey(storageKey), raw, s.ttl)
+	swapped, err := s.backend.CompareAndSwap(ctx, s.fullKey(storageKey), expected, raw, s.ttl)
+	if err != nil {
+		return err
+	}
+	if !swapped {
+		return ErrLeaseLost
+	}
+	return nil
 }
 
-// Abort 释放 pending，允许同一 key 重试（用于非 2xx 或处理失败）。
-func (s *Store) Abort(ctx context.Context, storageKey string) error {
+// Abort 用 lease 释放 pending，允许同一 key 重试（用于非 2xx 或处理失败）。
+//
+// 与 Complete 同一套收敛语义：租约已被别人接管时返回 ErrLeaseLost，绝不删除
+// 新请求的 pending（否则两个请求会同时持有执行权）。
+func (s *Store) Abort(ctx context.Context, storageKey string, lease string) error {
 	if s == nil || s.backend == nil {
 		return nil
 	}
-	return s.backend.Delete(ctx, s.fullKey(storageKey))
+	if strings.TrimSpace(lease) == "" {
+		return ErrLeaseLost
+	}
+	expected, err := pendingRecord(lease)
+	if err != nil {
+		return err
+	}
+	swapped, err := s.backend.CompareAndSwap(ctx, s.fullKey(storageKey), expected, nil, s.pendingTTL)
+	if err != nil {
+		return err
+	}
+	if !swapped {
+		return ErrLeaseLost
+	}
+	return nil
+}
+
+// pendingRecord 是 pending 记录的规范字节：Begin 写入它，Complete/Abort 重建它
+// 作为 CompareAndSwap 的 expected。两处必须共用这一个函数，否则字节永远对不上。
+func pendingRecord(lease string) ([]byte, error) {
+	return json.Marshal(Record{State: statePending, Lease: lease})
+}
+
+func newLeaseToken() (string, error) {
+	token := make([]byte, 16)
+	if _, err := rand.Read(token); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(token), nil
 }
 
 // MemoryBackend 进程内实现，供单测使用。
