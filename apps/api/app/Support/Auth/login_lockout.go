@@ -163,6 +163,12 @@ func (l *LoginLockout) ClearFailures(ctx context.Context, loginKey, clientIP str
 // 计数冻结不衰减，该 pair/IP/账号被永久计入失败。`PTTL < 0` 分支顺带自愈
 // 历史遗留的无 TTL 键（不等它自然消失，也不人工清理）。
 //
+// `PTTL < 0` 同时匹配 -1（键存在但无 TTL）与 -2（键不存在），所以这段脚本的
+// 正确性依赖「INCR 在 PTTL 之前」：INCR 会先把键建出来，-2 在实践中不可达；
+// 新建键由 `count == 1` 覆盖，-1 才是这里要修的历史遗留。若将来有人调换这两步
+// 顺序，-2 分支会让「不存在的键」也被 PEXPIRE（凭空造出一个 TTL 键），
+// 而首次计数就靠 `count == 1` 兜底 —— 顺序是契约，不是巧合。
+//
 // 与 humanverify/redis_store.go 的 rateLimitScript 是同一款脚本：那边是
 // subject 限流窗口，这边是分层失败计数，键空间与 ARGV 含义都不同，唯一共用的
 // 只是三行 Lua。没有抽共享 helper，因为两处分别在 auth 与 humanverify 两个包，

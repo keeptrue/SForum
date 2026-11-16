@@ -281,6 +281,11 @@ func (c *recordingLockoutRedis) Del(_ context.Context, keys ...string) *redis.In
 }
 
 // ① 首次失败就要有 TTL：计数与过期必须是同一次 EVAL，且 TTL 以毫秒传入。
+//
+// 注意这个 fake 的 Eval **不执行脚本**，它只把 EVAL 调用记下来并做计数自增：
+// 本用例证明的是「一次 EVAL + 毫秒级 ARGV + 正确的键」，不证明脚本里的过期
+// 分支真的会跑。脚本行为由 TestLoginBumpScriptRepairsKeysWithoutTTL（形状）与
+// TestLoginLockoutTTLAgainstRedis（真实 PTTL）负责，三者缺一不可。
 func TestRecordFailureBumpIsSingleAtomicEval(t *testing.T) {
 	client := newRecordingLockoutRedis()
 	lockout := &LoginLockout{client: client}
@@ -367,11 +372,17 @@ func TestRecordFailureStillLocksAtThreshold(t *testing.T) {
 }
 
 // TestLoginLockoutTTLAgainstRedis 是 PTTL 的唯一真实证据（单元测试只能断言脚本
-// 形状）。需要一次性 Redis：未设置 SFORUM_TEST_REDIS_ADDR 时跳过。
+// 形状，没有 Lua 引擎）。
+//
+// 没有 SFORUM_TEST_REDIS_ADDR 时**显式失败**而不是 t.Skip：`go test` 在非 -v
+// 输出里对 skip 只打一行 `ok`，等于这条用例从不运行。实测后果是「把 Lua 改成
+// 语法错误」也能全绿上线（P3-2 复审抓到的回归洞）。一次性 Redis 由
+// scripts/test-api-isolated.sh 提供；手工跑请先起一个 disposable Redis 并
+// export SFORUM_TEST_REDIS_ADDR。
 func TestLoginLockoutTTLAgainstRedis(t *testing.T) {
 	addr := strings.TrimSpace(os.Getenv("SFORUM_TEST_REDIS_ADDR"))
 	if addr == "" {
-		t.Skip("set SFORUM_TEST_REDIS_ADDR to a disposable Redis to run lockout TTL checks")
+		t.Fatalf("SFORUM_TEST_REDIS_ADDR is required: without a disposable Redis the lockout TTL behaviour has no evidence at all (run ./scripts/test-api-isolated.sh, or export SFORUM_TEST_REDIS_ADDR for a throwaway Redis)")
 	}
 	client := redis.NewClient(&redis.Options{Addr: addr})
 	t.Cleanup(func() { _ = client.Close() })
