@@ -186,3 +186,75 @@ func TestLockedTopicCategoryChangeMovesCategoryCount(t *testing.T) {
 		t.Fatalf("换入后新分类 topic_count=%d want 1", got)
 	}
 }
+
+// TestTopicLifecycleHideRestoreSyncsCategoryCount 固定「版主 hide/restore 也改变
+// 公开可见性」这条口径（P2-5 补刀）。
+//
+// 之前 ApplyTopicAction 完全不碰 categories.topic_count：版主 hide 一个 active 主题
+// 不减、restore 一个 hidden 主题不加，而举报处置那条路径（applyReportedTopicState）
+// 是减的 —— 同一个「隐藏」动作两条路径两种结果。
+//
+// 变异要求：去掉 ApplyTopicAction 里的计数同步，前两条必须红。
+func TestTopicLifecycleHideRestoreSyncsCategoryCount(t *testing.T) {
+	fixture := newRevisionLedgerPGFixture(t)
+	store := NewPostgresStore(fixture.pool)
+	authorID := fixture.insertUser(t, "count_hide_author")
+	topic := fixture.insertBareTopic(t, authorID, "hide-restore")
+	ensureTopicLifecycleColumns(t, fixture)
+	if _, err := fixture.pool.Exec(fixture.ctx, `
+		UPDATE categories SET topic_count = topic_count + 1 WHERE slug = 'general'
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if got := categoryTopicCount(t, fixture, "general"); got != 1 {
+		t.Fatalf("seed topic_count=%d want 1", got)
+	}
+
+	// hide(active) → 离开公开集：-1。
+	if _, err := store.ApplyTopicAction(fixture.ctx, TopicLifecycleInput{TopicID: topic.id, Action: TopicActionHide}); err != nil {
+		t.Fatalf("hide active topic: %v", err)
+	}
+	if got := categoryTopicCount(t, fixture, "general"); got != 0 {
+		t.Fatalf("hide active 后 topic_count=%d want 0", got)
+	}
+	assertCategoryCountMatchesPublicList(t, fixture, store, "general")
+
+	// restore(hidden) → 回到公开集：+1。
+	if _, err := store.ApplyTopicAction(fixture.ctx, TopicLifecycleInput{TopicID: topic.id, Action: TopicActionRestore}); err != nil {
+		t.Fatalf("restore hidden topic: %v", err)
+	}
+	if got := categoryTopicCount(t, fixture, "general"); got != 1 {
+		t.Fatalf("restore 后 topic_count=%d want 1", got)
+	}
+	assertCategoryCountMatchesPublicList(t, fixture, store, "general")
+
+	// lock/unlock 两端都在公开集：计数不变。
+	if _, err := store.ApplyTopicAction(fixture.ctx, TopicLifecycleInput{TopicID: topic.id, Action: TopicActionLock}); err != nil {
+		t.Fatalf("lock topic: %v", err)
+	}
+	if _, err := store.ApplyTopicAction(fixture.ctx, TopicLifecycleInput{TopicID: topic.id, Action: TopicActionUnlock}); err != nil {
+		t.Fatalf("unlock topic: %v", err)
+	}
+	if got := categoryTopicCount(t, fixture, "general"); got != 1 {
+		t.Fatalf("lock/unlock 后 topic_count=%d want 1（两端都是公开状态）", got)
+	}
+	assertCategoryCountMatchesPublicList(t, fixture, store, "general")
+
+	// hide(pending) → 本来就不在公开集：计数不变（restore 到 pending 也不加，
+	// 但 restore 只产出 active，这里覆盖 pending 被 hide 的一侧）。
+	if _, err := fixture.pool.Exec(fixture.ctx, `UPDATE topics SET status = 'pending' WHERE id = $1`, topic.id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.pool.Exec(fixture.ctx, `
+		UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0) WHERE slug = 'general'
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.ApplyTopicAction(fixture.ctx, TopicLifecycleInput{TopicID: topic.id, Action: TopicActionHide}); err != nil {
+		t.Fatalf("hide pending topic: %v", err)
+	}
+	if got := categoryTopicCount(t, fixture, "general"); got != 0 {
+		t.Fatalf("hide pending 后 topic_count=%d want 0（pending 从未计入）", got)
+	}
+	assertCategoryCountMatchesPublicList(t, fixture, store, "general")
+}

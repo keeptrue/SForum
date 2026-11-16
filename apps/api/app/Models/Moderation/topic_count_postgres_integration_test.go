@@ -241,7 +241,18 @@ func TestTopicCountStaysConsistentThroughModerationLifecycle(t *testing.T) {
 		t.Fatalf("approve: topic_count=%d want 1（双计会变成 2）", got.redundant)
 	}
 
-	// 5) 删除：回到 0。
+	// 5) 版主 hide：公开可见性再次变化，计数必须跟着 -1（P2-5 补刀：
+	// ApplyTopicAction 以前完全不碰计数，与举报处置那条路径口径不一致）。
+	if _, err := store.ApplyTopicAction(fixture.ctx, forum.TopicLifecycleInput{
+		TopicID: topic.ID, Action: forum.TopicActionHide,
+	}); err != nil {
+		t.Fatalf("hide topic: %v", err)
+	}
+	if got := fixture.assertConsistent(store, "hide"); got.redundant != 0 {
+		t.Fatalf("hide: topic_count=%d want 0", got.redundant)
+	}
+
+	// 6) 删除：hidden 本来就不计入公开计数，删除不得再减一次（GREATEST 兜底 + 判定）。
 	if _, err := store.DeleteTopic(fixture.ctx, topic.ID); err != nil {
 		t.Fatalf("delete topic: %v", err)
 	}

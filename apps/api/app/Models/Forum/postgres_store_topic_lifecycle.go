@@ -35,11 +35,12 @@ func (s *PostgresStore) ApplyTopicActionTx(ctx context.Context, tx pgx.Tx, input
 		return TopicLifecycleRecord{}, fmt.Errorf("topic action transaction is required")
 	}
 
-	// 锁定主题，确认存在。
+	// 锁定主题，确认存在；category_id 供公开计数同步使用。
 	var status string
+	var previousCategoryID int64
 	if err := tx.QueryRow(ctx, `
-		SELECT status FROM topics WHERE id = $1 FOR UPDATE
-	`, input.TopicID).Scan(&status); err != nil {
+		SELECT status, category_id FROM topics WHERE id = $1 FOR UPDATE
+	`, input.TopicID).Scan(&status, &previousCategoryID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return TopicLifecycleRecord{}, ErrTopicNotFound
 		}
@@ -115,6 +116,28 @@ func (s *PostgresStore) ApplyTopicActionTx(ctx context.Context, tx pgx.Tx, input
 			WHERE id = $1
 		`, input.TopicID, *setPinned); err != nil {
 			return TopicLifecycleRecord{}, fmt.Errorf("update topic pin: %w", err)
+		}
+	}
+
+	// 公开可见性变化必须同步 categories.topic_count：hide 让主题离开公开集（-1），
+	// restore 让它回到公开集（+1）。口径与 list_topics 的过滤共用 TopicCountsPublic
+	// （active+locked）；lock/unlock 两端都是公开状态，delta 为 0，自然不动计数。
+	// 之前这里完全不碰计数，于是「版主 hide」与「举报处置 hide」两条路径对同一个
+	// 动作给出两种结果（P2-5 补刀）。
+	if hasStatusUpdate {
+		switch {
+		case TopicCountsPublic(status) && !TopicCountsPublic(setStatus):
+			if _, err := tx.Exec(ctx, `
+				UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0), updated_at = now() WHERE id = $1
+			`, previousCategoryID); err != nil {
+				return TopicLifecycleRecord{}, fmt.Errorf("decrement category count on hide: %w", err)
+			}
+		case !TopicCountsPublic(status) && TopicCountsPublic(setStatus):
+			if _, err := tx.Exec(ctx, `
+				UPDATE categories SET topic_count = topic_count + 1, updated_at = now() WHERE id = $1
+			`, previousCategoryID); err != nil {
+				return TopicLifecycleRecord{}, fmt.Errorf("increment category count on restore: %w", err)
+			}
 		}
 	}
 

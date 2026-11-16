@@ -426,10 +426,10 @@ func (s *CachedStore) CommentRevisionState(ctx context.Context, topicID int64) (
 // after commit, so cache generations never advertise a rolled-back decision.
 func (s *CachedStore) InvalidateModerationPublication(ctx context.Context, topicID int64, targetType string) {
 	if topicID <= 0 {
-		// 拿不到父主题时不能静默跳过：评论可见性变化仍然要让引用侧的
-		// 主题可见性 generation 前进（它不依赖具体 ID），否则评论区会继续
-		// 渲染已隐藏的内容。主题目标没有 ID 就没有可失效的精确 key，
-		// 只能依赖 TTL —— 调用方（Moderation）会同时留一条 warn 日志。
+		// 防御性分支：合法评论的 topic_id 是 NOT NULL，所以 comment 目标必然能拿到
+		// 父主题 ID。真走到这里说明上游形状回归了，能做的是把**不依赖 ID** 的引用侧
+		// generation（短代码/引用渲染）bump 掉，评论列表缓存（genComments:<topicID>）
+		// 没有 ID 无法失效，只能靠 TTL 自愈。调用方（Moderation）会同时留 warn 日志。
 		if targetType == "comment" {
 			s.invalidateReferenceTopicVisibility(ctx)
 		}

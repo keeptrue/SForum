@@ -298,6 +298,11 @@ func TestSubmitDecisionInvalidationMatrix(t *testing.T) {
 			targetType: TargetTypeComment, wantCalls: 1,
 		},
 		{
+			// 预审驳回：内容从 pending 进 rejected，从来没公开过，公开读缓存不变。
+			name: "pre-publish reject", source: SourcePrePublish, action: ActionReject,
+			targetType: TargetTypeTopic, wantCalls: 0,
+		},
+		{
 			// 只关工单，内容状态没变：不该失效，否则等于白掉一次缓存。
 			name: "report keep topic", source: SourceReport, action: ActionKeepAndClose,
 			targetType: TargetTypeTopic, wantCalls: 0,

@@ -603,10 +603,11 @@ func TestCachedStoreModerationPublicationInvalidatesPublicDerivatives(t *testing
 	}
 }
 
-// TestCachedStoreModerationPublicationWithoutTopicIDStillInvalidatesCommentVisibility
-// 固定「拿不到父主题时不静默跳过」（P2-3 收口）：评论可见性变化没有具体 ID 可用时，
-// 仍要让引用侧的主题可见性 generation 前进，否则评论区继续渲染已隐藏的内容。
-func TestCachedStoreModerationPublicationWithoutTopicIDStillInvalidatesCommentVisibility(t *testing.T) {
+// TestCachedStoreModerationPublicationWithoutTopicIDBumpsReferenceVisibility
+// 固定「拿不到父主题时不静默跳过」的真实边界（P2-3 收口）：没有 ID 时能失效的只有
+// **引用侧** generation（短代码/引用渲染），评论列表缓存（genComments:<topicID>）
+// 没有 ID 就无法失效、只能靠 TTL 自愈。断言写到做得到的那一步，不承诺做不到的事。
+func TestCachedStoreModerationPublicationWithoutTopicIDBumpsReferenceVisibility(t *testing.T) {
 	t.Parallel()
 	spy := &referenceInvalidatorSpy{}
 	cached := NewCachedStore(newCacheTestStore(), cache.NewMemoryCache()).(*CachedStore)
