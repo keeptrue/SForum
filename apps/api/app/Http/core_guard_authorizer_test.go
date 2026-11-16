@@ -1706,6 +1706,8 @@ func TestProductionIdentityAdminGuardPartitionsCatalogByProvablePolicy(t *testin
 		"core.route.identity.replace_user_permission_overrides": {method: "PUT"},
 		"core.route.identity.replace_user_roles":                {method: "PUT"},
 		"core.route.identity.admin_revoke_user_sessions":        {method: "POST"},
+		// P2-2 补刀：管理端撤销全部 PAT。与 sessions/revoke 同族，但允许对自己操作。
+		"core.route.identity.admin_revoke_user_api_tokens": {method: "DELETE"},
 	}
 	var catalog []routes.CoreRoute
 	for _, route := range routes.CoreRouteCatalog() {
