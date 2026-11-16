@@ -15,6 +15,8 @@ LOCK_DIR="$ROOT_DIR/.sforum-bootstrap.lock"
 REPOSITORY="${SFORUM_RELEASE_REPOSITORY:-keeptrue/SForum}"
 DOWNLOAD_BASE="${SFORUM_RELEASE_DOWNLOAD_BASE_URL:-https://github.com/$REPOSITORY/releases/download}"
 ACTIVE_STAGE=""
+DEPLOY_LOCK_HELD=false
+DEPLOY_LOCK_LIBRARY=""
 
 usage() {
   cat <<'EOF'
@@ -54,6 +56,18 @@ die() {
 }
 
 cleanup() {
+  # 提升动作持有的 .deploy.lock 必须先释放：它保护的是受管文件，留在磁盘上会让下一个
+  # 操作白等（或按 pid 判活后自行回收）。DEPLOY_LOCK_HELD 只有真正拿到锁才是 true。
+  # 不读库的私有变量 DEPLOY_LOCK_DIR：库改名/换实现时它会消失，而「已经 source 到
+  # release_deploy_lock」这个事实仍在 —— 有库就调它，没有就按两边约定的路径删。
+  if [ "$DEPLOY_LOCK_HELD" = true ]; then
+    if declare -F release_deploy_lock >/dev/null 2>&1; then
+      release_deploy_lock
+    else
+      rm -rf "$ROOT_DIR/.deploy.lock" 2>/dev/null || true
+    fi
+    DEPLOY_LOCK_HELD=false
+  fi
   if [ -n "$ACTIVE_STAGE" ] && [ -d "$ACTIVE_STAGE" ]; then
     rm -rf "$ACTIVE_STAGE"
   fi
@@ -68,6 +82,72 @@ acquire_lock() {
 
 release_lock() {
   rmdir "$LOCK_DIR" 2>/dev/null || true
+}
+
+# OPS-05：提升动作必须与 deploy.sh / upgrade.sh 同域 —— 同一个 .deploy.lock。
+#
+# 选型 A（source 官方库）而不是在本文件里再写一份：锁的判据（pid 存活、ps -p 兜底、
+# lstart 复用检测、认领式回收）已经在 deploy/scripts/deploy-lock.sh 里，复制一份只会
+# 让两处随版本漂移。全新安装目录里还没有这个文件 —— 它正是本次要提升的受管文件之一
+# —— 于是退到「本次 bundle 里那份」：它与马上要安装的版本完全一致，且已通过 SHA-256 +
+# attestation 校验，先 source 再安装不会引入版本偏差。两份都缺 → 明确失败，绝不无锁
+# 放行。加锁只覆盖提升动作本身，下载/校验在锁外（只读，不改安装目录）。
+lock_text() {
+  case "$1" in
+    deploy_locked) printf '%s' 'another deployment operation holds .deploy.lock' ;;
+    lock_recovered) printf '%s' 'reclaimed a stale .deploy.lock' ;;
+    unlock_none) printf '%s' 'no .deploy.lock is present' ;;
+    unlock_done) printf '%s' 'removed .deploy.lock by force' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+load_deploy_lock_library() {
+  local bundle_root="$1" candidate
+  [ -z "$DEPLOY_LOCK_LIBRARY" ] || return 0
+  for candidate in \
+    "$ROOT_DIR/deploy/scripts/deploy-lock.sh" \
+    "$bundle_root/deploy/scripts/deploy-lock.sh"; do
+    [ -f "$candidate" ] || continue
+    bash -n "$candidate" || die "deploy-lock.sh has invalid shell syntax: $candidate"
+    DEPLOY_LOCK_ROOT="$ROOT_DIR"
+    # shellcheck source=deploy/scripts/deploy-lock.sh
+    . "$candidate"
+    DEPLOY_LOCK_LIBRARY="$candidate"
+    return 0
+  done
+  die "deploy/scripts/deploy-lock.sh is missing from both the install root and the bundle; refusing to promote the toolkit without the deployment lock"
+}
+
+# deploy-lock.sh 的 acquire_deploy_lock/release_deploy_lock 会接管 EXIT/HUP/INT/TERM
+# （它假定调用方没有别的清理要做）。bootstrap 既要清临时 stage 又要清
+# .sforum-bootstrap.lock，所以每次进出都要把本脚本自己的 trap 装回来。
+restore_bootstrap_traps() {
+  trap cleanup EXIT
+  trap 'exit 130' HUP INT TERM
+}
+
+acquire_promote_lock() {
+  load_deploy_lock_library "$1"
+  # 窗口一（库内部）：acquire 先接管 EXIT/HUP/INT/TERM、再 mkdir 并写元数据，此时库里
+  # 还没有锁。若信号落在这段，我们的 cleanup 看到 DEPLOY_LOCK_HELD=false 会放行 ——
+  # 用忽略信号盖住这一段（只覆盖一次 mkdir + 两次 printf）。
+  trap '' HUP INT TERM
+  acquire_deploy_lock promote
+  DEPLOY_LOCK_HELD=true
+  restore_bootstrap_traps
+  # 窗口二（这一行守的就是它）：库在 acquire 末尾会把 trap 重新装成
+  # `release_deploy_lock`。HUP/INT/TERM 落在「库装好 trap」到「DEPLOY_LOCK_HELD=true」
+  # 之间时，库的 handler 会删锁后**继续执行**，而我们的 cleanup 因 flag=false 不会补，
+  # 脚本就会在没有锁的情况下提升受管文件。锁目录还在才等于真的持有：把静默变成可见失败。
+  [ -d "$ROOT_DIR/.deploy.lock" ] || die "deploy lock disappeared during handoff"
+}
+
+release_promote_lock() {
+  [ "$DEPLOY_LOCK_HELD" = true ] || return 0
+  release_deploy_lock
+  DEPLOY_LOCK_HELD=false
+  restore_bootstrap_traps
 }
 
 validate_version() {
@@ -247,6 +327,9 @@ restore_managed_files() {
 
 promote_bundle() {
   local bundle_root="$1" relative mode backup_root=""
+  # 先拿锁再做任何写入：活性锁在这里就拒绝，所以「拒绝时零文件改动」不需要回滚，
+  # 也就没有「先写后回滚」的时间窗。
+  acquire_promote_lock "$bundle_root"
   if [ -f "$ROOT_DIR/.env.production" ] || [ -f "$ROOT_DIR/.deployrc" ]; then
     mkdir -p "$ROOT_DIR/.sforum/tooling-backups"
     backup_root="$(mktemp -d "$ROOT_DIR/.sforum/tooling-backups/$(date -u +%Y%m%dT%H%M%SZ)-${TARGET_VERSION#v}.XXXXXX")"
@@ -267,6 +350,7 @@ promote_bundle() {
   if [ -n "$backup_root" ]; then
     printf 'Previous deployment tools backed up to %s\n' "$backup_root"
   fi
+  release_promote_lock
 }
 
 refresh_toolkit() {

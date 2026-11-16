@@ -127,10 +127,12 @@ EOF
     postgres-common.sh \
     postgres-backup-format.sh \
     restore-postgres.sh \
-    wait-for-health.sh \
-    deploy-lock.sh; do
+    wait-for-health.sh; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bundle/deploy/scripts/$relative"
   done
+  # 提升动作会 source 这份库来取 .deploy.lock（OPS-05），桩会把它变成空实现，
+  # 所以这里放真实文件：发布包发的也是这个文件。
+  cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$bundle/deploy/scripts/deploy-lock.sh"
   printf 'target caddy\n' > "$bundle/deploy/caddy/Caddyfile"
   printf 'target router\n' > "$bundle/deploy/router/Caddyfile.example"
   printf 'target volumes\n' > "$bundle/deploy/volumes/README.md"
@@ -198,6 +200,7 @@ run_bootstrap() {
   (
     cd "$root"
     PATH="$MOCK_BIN:$PATH" \
+      SFORUM_BOOTSTRAP_REFRESHED_VERSION="${SFORUM_BOOTSTRAP_TEST_REFRESHED:+$VERSION}" \
       SFORUM_BOOTSTRAP_TEST_RELEASES="$TEMP_DIR/releases" \
       SFORUM_BOOTSTRAP_TEST_LOG="$root/bootstrap.log" \
       SFORUM_RELEASE_DOWNLOAD_BASE_URL=mock://releases \
@@ -291,5 +294,76 @@ if run_bootstrap "$INSTALL_ROOT" install --version "$VERSION" --bootstrap >"$TEM
   fail "install accepted the upgrade-only --bootstrap option"
 fi
 assert_contains "$TEMP_DIR/invalid.out" "--bootstrap is only valid with upgrade"
+
+# OPS-05：提升动作进入 .deploy.lock 互斥域。自刷新（只覆盖 sforum-bootstrap.sh）与提升
+# 是两件事，用 SFORUM_BOOTSTRAP_REFRESHED_VERSION 跳过前者，让断言只盯提升动作。
+LOCKED_ROOT="$TEMP_DIR/locked"
+mkdir -p "$LOCKED_ROOT"
+cp "$ROOT_DIR/sforum-bootstrap.sh" "$LOCKED_ROOT/sforum-bootstrap.sh"
+chmod 0755 "$LOCKED_ROOT/sforum-bootstrap.sh"
+printf 'keep-locked-compose\n' > "$LOCKED_ROOT/compose.yaml"
+mkdir "$LOCKED_ROOT/.deploy.lock"
+printf '%s\n' "$$" > "$LOCKED_ROOT/.deploy.lock/pid"
+printf 'pid=%s\naction=upgrade\nstarted_at=%s\nproc_start=%s\n' "$$" \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+  "$(LC_ALL=C ps -o lstart= -p "$$" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')" \
+  > "$LOCKED_ROOT/.deploy.lock/owner"
+if SFORUM_BOOTSTRAP_TEST_REFRESHED=1 run_bootstrap "$LOCKED_ROOT" install \
+  --version "$VERSION" --yes >"$TEMP_DIR/locked.out" 2>&1; then
+  fail "promoted the toolkit while .deploy.lock was held by a live process"
+fi
+assert_contains "$TEMP_DIR/locked.out" "another deployment operation holds .deploy.lock"
+[ "$(cat "$LOCKED_ROOT/compose.yaml")" = keep-locked-compose ] || \
+  fail "managed files changed even though the deploy lock was live"
+[ ! -e "$LOCKED_ROOT/deploy.sh" ] || fail "deploy.sh was written while the deploy lock was live"
+[ ! -e "$LOCKED_ROOT/.sforum/tooling-backups" ] || \
+  fail "promotion started (backup written) before the deploy lock was acquired"
+[ "$(cat "$LOCKED_ROOT/.deploy.lock/pid")" = "$$" ] || fail "the live deploy lock was stolen"
+[ ! -e "$LOCKED_ROOT/.sforum-bootstrap.lock" ] || fail "bootstrap lock leaked after a refused promotion"
+[ ! -e "$LOCKED_ROOT/.install-ran" ] || fail "install ran while the deploy lock was live"
+
+# 2) 死 pid（进程早已退出）→ 回收陈旧锁后继续完成提升。
+STALE_ROOT="$TEMP_DIR/stale"
+mkdir -p "$STALE_ROOT"
+cp "$ROOT_DIR/sforum-bootstrap.sh" "$STALE_ROOT/sforum-bootstrap.sh"
+chmod 0755 "$STALE_ROOT/sforum-bootstrap.sh"
+dead_pid="$(sh -c 'printf "%s" "$$"')"
+mkdir "$STALE_ROOT/.deploy.lock"
+printf '%s\n' "$dead_pid" > "$STALE_ROOT/.deploy.lock/pid"
+printf 'pid=%s\naction=upgrade\nstarted_at=2020-01-01T00:00:00Z\n' "$dead_pid" \
+  > "$STALE_ROOT/.deploy.lock/owner"
+if ! SFORUM_BOOTSTRAP_TEST_REFRESHED=1 run_bootstrap "$STALE_ROOT" install \
+  --version "$VERSION" --yes >"$TEMP_DIR/stale.out" 2>&1; then
+  cat "$TEMP_DIR/stale.out" >&2
+  fail "stale deploy lock was not reclaimed; the promotion never ran"
+fi
+assert_contains "$STALE_ROOT/compose.yaml" "target=$VERSION"
+[ -f "$STALE_ROOT/.install-ran" ] || fail "install did not run after reclaiming the stale lock"
+[ ! -e "$STALE_ROOT/.deploy.lock" ] || fail "the deploy lock was not released after promotion"
+[ -z "$(find "$STALE_ROOT" -maxdepth 1 -name '.deploy.lock.stale.*' -print -quit)" ] || \
+  fail "a reclaimed lock copy was left behind"
+
+# 3) 提升中途失败：cleanup 必须同时清掉提升锁与 bootstrap 锁（这条分支此前零覆盖）。
+#    注意不能用「deploy.sh 预置成目录」造失败 —— mv file existing-dir 会把文件挪进去，
+#    仍然返回 0。改为把 deploy 预置成普通文件，让后面 promote_file 的
+#    mkdir -p "$ROOT_DIR/deploy/scripts" 必然失败。
+FAIL_ROOT="$TEMP_DIR/failpromote"
+mkdir -p "$FAIL_ROOT"
+cp "$ROOT_DIR/sforum-bootstrap.sh" "$FAIL_ROOT/sforum-bootstrap.sh"
+chmod 0755 "$FAIL_ROOT/sforum-bootstrap.sh"
+printf 'keep-env\n' > "$FAIL_ROOT/.env.production"
+printf 'version=v9.8.6\n' > "$FAIL_ROOT/.deployrc"
+printf 'not a directory\n' > "$FAIL_ROOT/deploy"
+if SFORUM_BOOTSTRAP_TEST_REFRESHED=1 run_bootstrap "$FAIL_ROOT" upgrade \
+  --version "$VERSION" --yes >"$TEMP_DIR/failpromote.out" 2>&1; then
+  fail "promotion unexpectedly succeeded with a file where deploy/ should be"
+fi
+# 钉死失败点：必须是 promote_file 的 die 分支，而不是更早的下载/校验/备份失败。
+assert_contains "$TEMP_DIR/failpromote.out" \
+  'could not promote deploy/scripts/configure-production.sh'
+[ -f "$FAIL_ROOT/deploy" ] || fail "the deploy fixture was replaced by a directory"
+[ ! -e "$FAIL_ROOT/.deploy.lock" ] || fail "the failure path left .deploy.lock behind"
+[ ! -e "$FAIL_ROOT/.sforum-bootstrap.lock" ] || \
+  fail "the failure path left .sforum-bootstrap.lock behind"
 
 printf 'bootstrap_test.sh: all checks passed\n'
