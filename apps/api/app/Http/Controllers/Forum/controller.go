@@ -17,6 +17,7 @@ import (
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 	clientip "github.com/keeptrue/sforum/apps/api/app/Support/ClientIP"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
 )
 
@@ -40,6 +41,9 @@ type Controller struct {
 	// idempotency 可选：注入后对发帖/评论写路径启用 Idempotency-Key（F3.2）。
 	idempotency       *idempotency.Store
 	emailVerification EmailVerificationGate
+	// humanVerification 可选：注入后发帖/回帖按 Options 的 post_risk 场景校验（P3-3）。
+	// nil 时零校验（测试装配与无人机验证依赖的启动路径）。
+	humanVerification humanverify.Verifier
 	// commentLive 可选：注入后启用评论区修订端点与 SSE 实时信号。
 	commentLive *forum.CommentLiveService
 	// visitRecorder 可选：注入后记录登录用户的每日访问（徽章 days_visited 的唯一来源）。
@@ -303,6 +307,9 @@ type createTopicRequest struct {
 	Title        string             `json:"title"`
 	TagSlugs     []string           `json:"tagSlugs"`
 	Content      forum.ContentInput `json:"content"`
+	// HumanVerification 仅当运营开启 human_verification.scenarios.post_risk 时被校验；
+	// 形状与登录/注册的 humanVerification 完全一致。
+	HumanVerification humanVerificationRequest `json:"humanVerification"`
 }
 
 // updateTopicRequest: 所有字段均可选，nil 表示不改。categorySlug/tagSlugs 为空切片表示清空标签。
@@ -318,6 +325,8 @@ type updateTopicRequest struct {
 type createCommentRequest struct {
 	ParentID *int64             `json:"parentId"`
 	Content  forum.ContentInput `json:"content"`
+	// HumanVerification 与发帖同口径：post_risk 场景开启时必填。
+	HumanVerification humanVerificationRequest `json:"humanVerification"`
 }
 
 type updateCommentRequest struct {
@@ -440,6 +449,11 @@ func (h *Controller) createTopic(c fiber.Ctx) error {
 	var req createTopicRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeInvalidTopic)
+	}
+	// 校验放在绑定之后、写入之前：请求体畸形时先按 validation 失败返回，
+	// 不让一次 token 被无意义地消费掉（人机验证 token 是单次使用）。
+	if err := h.requirePostRiskVerification(c, actor, req.HumanVerification); err != nil {
+		return err
 	}
 	topic, err := h.service.CreateTopic(c.Context(), actor, forum.CreateTopicInput{
 		CategorySlug: req.CategorySlug,
@@ -775,6 +789,10 @@ func (h *Controller) createComment(c fiber.Ctx) error {
 	var req createCommentRequest
 	if err := c.Bind().Body(&req); err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, forum.CodeInvalidContent)
+	}
+	// 与发帖同口径：绑定后、写入前校验，避免畸形请求白白消费 token。
+	if err := h.requirePostRiskVerification(c, actor, req.HumanVerification); err != nil {
+		return err
 	}
 	comment, err := h.service.CreateComment(c.Context(), actor, forum.CreateCommentInput{
 		TopicID:   int64(paramInt(c, "topicID")),

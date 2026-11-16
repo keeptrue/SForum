@@ -404,6 +404,9 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 			Registry: lifecycleStack.EditorRegistry,
 		}).WithSearchProviderAdmin(searchProviderAdminAdapter{registry: searchProviders}).
 		WithEmailVerificationGate(emailVerificationService).
+		// P3-3：post_risk 场景必须在发帖/回帖写入路径上真正执行。传 RuntimeService 而不是
+		// 启动时快照的 *Service —— 开关状态由它每请求从 Options 读取，运营改选项立即生效。
+		WithHumanVerification(humanVerifier).
 		WithViewRecorder(topicViewCounter).
 		WithUserVisitRecorder(userVisitRecorder).
 		WithCommentLive(commentLive).

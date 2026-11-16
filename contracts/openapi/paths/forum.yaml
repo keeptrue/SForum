@@ -241,6 +241,13 @@ topics:
       不可用（已删除/已禁用/已转私有/非本人上传且未被该内容引用）返回 422
       `forum.attachment_unavailable`，`data.fields.content` 携带 reason；附件引用写入
       撞上唯一约束返回 409 `forum.attachment_conflict`（schema 漂移兜底，正常不应出现）。
+
+      **人机验证（P3-3）：** 运营开启 `human_verification.scenarios.post_risk` 且
+      `human_verification.provider=altcha` 时，本端点要求 `humanVerification`
+      （`{provider:"altcha", token}`，token 为 ALTCHA widget 解出的 payload）。失败 reason
+      与登录侧同一组：422 `human_verification.required` / `.expired` / `.replayed` /
+      `.invalid`，`data.fields.humanVerification` 携带本地化提示；429 `rate_limit.exceeded`
+      表示该场景限流。开关关闭时该字段被忽略且不产生任何校验。
     parameters:
     - "$ref": "../components/parameters.yaml#/IdempotencyKey"
     requestBody:
@@ -1437,6 +1444,10 @@ topicComments:
       评论正文附件同样为多值型：附件不可用返回 422 `forum.attachment_unavailable`
       （`data.fields.content` 携带 reason）；引用写入唯一约束冲突返回 409
       `forum.attachment_conflict`。
+
+      **人机验证（P3-3）：** 与发帖同口径——`human_verification.scenarios.post_risk`
+      开启时要求 `humanVerification`，失败 reason 与登录侧同一组
+      `human_verification.*`（422）与 `rate_limit.exceeded`（429）；开关关闭时零校验。
     parameters:
     - "$ref": "../components/parameters.yaml#/TopicID"
     - "$ref": "../components/parameters.yaml#/IdempotencyKey"

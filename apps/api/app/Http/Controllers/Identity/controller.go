@@ -573,27 +573,11 @@ func mapIdentityError(err error) error {
 	}
 }
 
+// mapHumanVerificationError 保留本包调用点的名字，实现只有一份：
+// apphttp.MapHumanVerificationError。发帖/回帖的 post_risk 校验（P3-3）走的是同一个
+// 函数，所以「登录侧怎么报，发帖侧就怎么报」由代码结构保证，而不是靠两份 switch 对齐。
 func mapHumanVerificationError(err error) error {
-	switch {
-	case errors.Is(err, humanverify.ErrRateLimited):
-		return apphttp.NewErrorWithFields(fiber.StatusTooManyRequests, humanverify.CodeRateLimited, mapHumanVerificationField(humanverify.CodeRateLimited))
-	case errors.Is(err, humanverify.ErrRequired):
-		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, humanverify.CodeRequired, mapHumanVerificationField(humanverify.CodeRequired))
-	case errors.Is(err, humanverify.ErrExpired):
-		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, humanverify.CodeExpired, mapHumanVerificationField(humanverify.CodeExpired))
-	case errors.Is(err, humanverify.ErrReplayed):
-		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, humanverify.CodeReplayed, mapHumanVerificationField(humanverify.CodeReplayed))
-	case errors.Is(err, humanverify.ErrInvalid):
-		return apphttp.NewErrorWithFields(fiber.StatusUnprocessableEntity, humanverify.CodeInvalid, mapHumanVerificationField(humanverify.CodeInvalid))
-	default:
-		return err
-	}
-}
-
-func mapHumanVerificationField(message string) map[string][]string {
-	return map[string][]string{
-		identity.FieldHumanVerification: {message},
-	}
+	return apphttp.MapHumanVerificationError(err)
 }
 
 func parseHumanVerificationPurpose(value string) (humanverify.Purpose, bool) {

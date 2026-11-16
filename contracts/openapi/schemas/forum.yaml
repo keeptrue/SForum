@@ -1859,6 +1859,12 @@ CreateTopicRequest:
       type: string
     content:
       "$ref": "#/ContentInput"
+    humanVerification:
+      "$ref": "./identity.yaml#/HumanVerification"
+      description: |
+        仅当运营开启 `human_verification.scenarios.post_risk` 时被校验（provider 为
+        `altcha` 时）；开关关闭时该字段可省略且不被读取。形状与登录/注册的
+        `humanVerification` 完全一致，失败 reason 也是同一组 `human_verification.*`。
 CreateCommentRequest:
   type: object
   required:
@@ -1871,6 +1877,9 @@ CreateCommentRequest:
       format: int64
     content:
       "$ref": "#/ContentInput"
+    humanVerification:
+      "$ref": "./identity.yaml#/HumanVerification"
+      description: 与发帖同口径：`human_verification.scenarios.post_risk` 开启时必填。
 UpdateCommentRequest:
   type: object
   required:

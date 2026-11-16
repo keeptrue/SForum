@@ -16,6 +16,7 @@ import (
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	humanverify "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify"
 	"github.com/keeptrue/sforum/apps/api/app/Support/Idempotency"
 )
 
@@ -125,6 +126,15 @@ func (p *ForumProvider) WithIdempotency(store *idempotency.Store) *ForumProvider
 func (p *ForumProvider) WithEmailVerificationGate(gate forumcontroller.EmailVerificationGate) *ForumProvider {
 	if p != nil && p.controller != nil {
 		p.controller.WithEmailVerificationGate(gate)
+	}
+	return p
+}
+
+// WithHumanVerification 注入发帖/回帖的 post_risk 人机验证器（P3-3）。
+// 传入 bootstrap 的 humanverify.RuntimeService：开关状态由它每请求从 Options 读取。
+func (p *ForumProvider) WithHumanVerification(verifier humanverify.Verifier) *ForumProvider {
+	if p != nil && p.controller != nil {
+		p.controller.WithHumanVerification(verifier)
 	}
 	return p
 }
