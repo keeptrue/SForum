@@ -41,6 +41,11 @@ func TestGuardAuthorizationViewsJoinRoutesAndDeclarations(t *testing.T) {
 	if first.RouteID != "acme.ga.route.orders" || first.GuardID != "acme.ga.guard.owner" {
 		t.Fatalf("route/guard identity = %#v", first)
 	}
+	// EX2-05b：target 类动作必须披露「骑在哪条 Host 路由上」，否则管理员批准时
+	// 只看到路径，看不到被接管的那条 Core 路由。
+	if first.RouteAction != extensionmanifest.RouteActionBefore || first.TargetID != "core.route.forum.topics" {
+		t.Fatalf("route target disclosure = %#v", first)
+	}
 	if first.GuardKind != extensionmanifest.GuardKindCustom || first.GuardDigest != digest ||
 		first.GuardEntry != "backend/guard" || first.GuardContractVersion != "acme.ga.guard.owner@1" {
 		t.Fatalf("guard artifact identity = %#v", first)
@@ -55,6 +60,9 @@ func TestGuardAuthorizationViewsJoinRoutesAndDeclarations(t *testing.T) {
 		t.Fatalf("guard permissions = %#v", first.GuardPermissions)
 	}
 	second := views[1]
+	if second.TargetID != "" {
+		t.Fatalf("add route must not disclose a target: %#v", second)
+	}
 	if second.Risk != extensionmanifest.GuardRiskHostOwned || second.RequiresExactTrust || second.RawRequest {
 		t.Fatalf("core guard classification = %#v", second)
 	}
@@ -110,5 +118,66 @@ func TestGuardAuthorizationViewsDetachFromImpact(t *testing.T) {
 	again := GuardAuthorizationViews(impact)
 	if again[0].Methods[0] != "GET" || again[0].MutableRequestFields[0] != "/query/acme-ga-copy" {
 		t.Fatalf("derived view mutated the impact: %#v", again[0])
+	}
+}
+
+// EX2-05b 的「后端断言」：**每一个** target 类动作都必须把 targetId 披露出来。
+// 新增一个会接管既有路由的 action 而忘了披露时，这里会红——披露缺口不能靠人记。
+func TestGuardAuthorizationViewsDiscloseEveryTargetAction(t *testing.T) {
+	targetActions := []string{
+		extensionmanifest.RouteActionAlias,
+		extensionmanifest.RouteActionRewrite,
+		extensionmanifest.RouteActionBefore,
+		extensionmanifest.RouteActionAfter,
+		extensionmanifest.RouteActionFilter,
+		extensionmanifest.RouteActionWrap,
+		extensionmanifest.RouteActionReplace,
+	}
+	for _, action := range targetActions {
+		impact := TrustImpact{Routes: []extensionmanifest.ManifestRoute{{
+			ID: "acme.ga.route." + action, ContractVersion: "acme.ga.route." + action + "@1",
+			Action: action, TargetID: "core.route.forum.topics",
+			Path: "/api/v1/topics", Methods: []string{"GET"}, Guard: extensionmanifest.GuardCoreGuest,
+			Access: "public", Fallback: "closed", Mode: extensionmanifest.RouteModeHTTP, Handler: "route.x",
+		}}}
+		views := GuardAuthorizationViews(impact)
+		if len(views) != 1 || views[0].TargetID != "core.route.forum.topics" {
+			t.Fatalf("action %q did not disclose its target: %#v", action, views)
+		}
+	}
+	// global middleware 的作用域是可选的：写明才披露，留空就是空（只覆盖自己的 terminal）。
+	for target, want := range map[string]string{
+		"core.route.forum.topics": "core.route.forum.topics",
+		"":                        "",
+	} {
+		impact := TrustImpact{Routes: []extensionmanifest.ManifestRoute{{
+			ID: "acme.ga.route.global", ContractVersion: "acme.ga.route.global@1",
+			Action: extensionmanifest.RouteActionGlobalMiddleware, TargetID: target,
+			Path: "", Methods: nil, Guard: extensionmanifest.GuardCoreGuest,
+			Fallback: "closed", Mode: extensionmanifest.RouteModeHTTP, Handler: "route.global",
+		}}}
+		if views := GuardAuthorizationViews(impact); views[0].TargetID != want {
+			t.Fatalf("global middleware target %q disclosed as %q", target, views[0].TargetID)
+		}
+	}
+}
+
+// 披露必须能穿过序列化边界：视图是给管理面读的，字段名就是契约。
+func TestGuardAuthorizationViewSerializesTargetID(t *testing.T) {
+	impact := TrustImpact{Routes: []extensionmanifest.ManifestRoute{{
+		ID: "acme.ga.route.orders", ContractVersion: "acme.ga.route.orders@1",
+		Action: extensionmanifest.RouteActionReplace, TargetID: "core.route.forum.topics",
+		Path: "/api/v1/topics", Methods: []string{"POST"}, Guard: extensionmanifest.GuardCoreGuest,
+		Access: "public", Fallback: "closed", Mode: extensionmanifest.RouteModeHTTP, Handler: "route.x",
+	}}}
+	body, err := json.Marshal(GuardAuthorizationViews(impact))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"targetId":"core.route.forum.topics"`) {
+		t.Fatalf("targetId missing from the serialized view: %s", body)
+	}
+	if !strings.Contains(string(body), `"routeAction":"replace"`) {
+		t.Fatalf("routeAction missing from the serialized view: %s", body)
 	}
 }

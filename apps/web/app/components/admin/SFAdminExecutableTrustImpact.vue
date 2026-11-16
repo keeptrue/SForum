@@ -367,6 +367,13 @@ function formatted(value: unknown) {
             <div class="min-w-0">
               <p class="truncate font-mono text-xs text-slate-900 dark:text-zinc-100">{{ guardScope(row) }}</p>
               <p class="mt-1 truncate text-[11px] text-slate-500 dark:text-zinc-400">{{ row.routeId }} · {{ row.routeAction }}</p>
+              <p
+                v-if="row.targetId"
+                class="mt-1 break-all font-mono text-[11px] text-amber-600 dark:text-amber-400"
+                data-testid="extension-guard-target"
+              >
+                {{ t('admin.extensions.trust.guardAuthorization.target') }}: {{ row.targetId }}
+              </p>
             </div>
             <UBadge :color="guardRiskColor(row)" variant="subtle" size="xs">
               {{ t(`admin.extensions.trust.guardAuthorization.risks.${row.risk}`) }}

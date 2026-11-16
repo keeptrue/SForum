@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 )
@@ -158,6 +159,66 @@ func TestDirectDenyOverridesRolePermission(t *testing.T) {
 	}
 }
 
+// 越权替换（允许路径）：操作者自己持有的键可以授予目标。
+func TestUserPermissionOverrideAllowsGrantActorHolds(t *testing.T) {
+	service, _ := newTestService(t)
+	ctx := testContext(t)
+	actor := Actor{ID: 9, Status: UserStatusActive, Permissions: map[string]bool{
+		PermissionUserPermissionOverride: true,
+		PermissionAdminAccess:            true,
+	}}
+	member := registerMemberForPermissionTest(t, service, ctx)
+
+	detail, err := service.ReplaceUserPermissionOverrides(ctx, actor, member.ID, PermissionOverrides{
+		Allow: []string{PermissionAdminAccess},
+	})
+	if err != nil {
+		t.Fatalf("granting a permission the actor holds must succeed: %v", err)
+	}
+	if !slices.Contains(detail.Permissions, PermissionAdminAccess) {
+		t.Fatalf("expected the override to land, got %v", detail.Permissions)
+	}
+}
+
+// 越权替换（拒绝路径）：把「自己手里没有」的权限授出去必须被拒——否则
+// user.permission_override 持有者可以把别人的权限换成自己可控的集合。
+func TestUserPermissionOverrideRejectsGrantActorLacks(t *testing.T) {
+	service, _ := newTestService(t)
+	ctx := testContext(t)
+	actor := Actor{ID: 9, Status: UserStatusActive, Permissions: map[string]bool{
+		PermissionUserPermissionOverride: true,
+	}}
+	member := registerMemberForPermissionTest(t, service, ctx)
+
+	_, err := service.ReplaceUserPermissionOverrides(ctx, actor, member.ID, PermissionOverrides{
+		Allow: []string{PermissionAdminAccess},
+	})
+	if !errors.Is(err, ErrRoleGrantExceedsActor) {
+		t.Fatalf("expected ErrRoleGrantExceedsActor, got %v", err)
+	}
+	var typed *RoleGrantExceedsActorError
+	if !errors.As(err, &typed) || typed.Field != "permissions" {
+		t.Fatalf("expected a field-scoped permission error, got %#v", err)
+	}
+}
+
+// Deny 不要求操作者先持有该权限：撤销一项自己没有的权限不会扩大任何人的权限集合，
+// 而要求持有会让「清理历史遗留 grant」变成不可能的操作。
+func TestUserPermissionOverrideDenyDoesNotRequireActorToHold(t *testing.T) {
+	service, _ := newTestService(t)
+	ctx := testContext(t)
+	actor := Actor{ID: 9, Status: UserStatusActive, Permissions: map[string]bool{
+		PermissionUserPermissionOverride: true,
+	}}
+	member := registerMemberForPermissionTest(t, service, ctx)
+
+	if _, err := service.ReplaceUserPermissionOverrides(ctx, actor, member.ID, PermissionOverrides{
+		Deny: []string{PermissionAdminAccess},
+	}); err != nil {
+		t.Fatalf("denying a permission the actor does not hold must stay allowed: %v", err)
+	}
+}
+
 func TestNonAdminCannotManageUserPermissions(t *testing.T) {
 	service, _ := newTestService(t)
 	member := Actor{ID: 2, Status: UserStatusActive, Permissions: map[string]bool{}}
@@ -311,7 +372,12 @@ func TestExplicitPermissionOverrideCanReplace(t *testing.T) {
 	service, _ := newTestService(t)
 	ctx := testContext(t)
 	member := registerMemberForPermissionTest(t, service, ctx)
-	manager := Actor{ID: 50, Status: UserStatusActive, Permissions: map[string]bool{PermissionUserPermissionOverride: true}}
+	// 新不变量（与改角色权限同源）：授予者必须自己持有被授予的键。
+	// 旧版本这里只给 user.permission_override，等于把「越权替换」写成了预期行为。
+	manager := Actor{ID: 50, Status: UserStatusActive, Permissions: map[string]bool{
+		PermissionUserPermissionOverride: true,
+		PermissionAdminAccess:            true,
+	}}
 
 	detail, err := service.ReplaceUserPermissionOverrides(ctx, manager, member.ID, PermissionOverrides{
 		Allow: []string{PermissionAdminAccess},

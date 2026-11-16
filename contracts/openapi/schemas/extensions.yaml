@@ -2812,6 +2812,71 @@ ExecutableTrustStatus:
       type: boolean
     trusted:
       type: boolean
+    guardAuthorization:
+      type: array
+      description: |
+        派生披露视图（EX2-05b）：逐条列出插件路由的守卫归属与被接管的 Host 路由。
+        它**不在** impact 摘要内（摘要覆盖权限本身），但它是信任审阅的一部分：
+        管理员批准前必须能看到「这条插件路由骑在哪条 Core 路由上」。
+      items:
+        "$ref": "#/ExecutableGuardAuthorization"
+ExecutableGuardAuthorization:
+  type: object
+  description: |
+    一条插件路由的授权归属披露（派生视图，不进 impact_digest）。
+  required: [routeId, path, methods, guardId, guardKind, risk, rawRequest, requiresExactTrust]
+  properties:
+    routeId:
+      type: string
+    routeAction:
+      type: string
+      description: 清单里的路由动作（add/alias/rewrite/before/after/filter/wrap/replace/global_middleware）。
+    targetId:
+      type: string
+      description: |
+        被这条插件路由接管/包裹的 Host 路由 ID（例如 `core.route.forum.topics`）。
+        alias/rewrite/before/after/filter/wrap/replace 必有；add 与未声明作用域的
+        global middleware 为空（只覆盖插件自己的 terminal）。
+    path:
+      type: string
+    methods:
+      type: array
+      items:
+        type: string
+    access:
+      type: string
+    permission:
+      type: string
+    guardId:
+      type: string
+    guardContractVersion:
+      type: string
+    guardKind:
+      type: string
+    guardEntry:
+      type: string
+    guardDigest:
+      type: string
+    guardPermissions:
+      type: array
+      items:
+        type: string
+    risk:
+      type: string
+    rawRequest:
+      type: boolean
+    requiresExactTrust:
+      type: boolean
+    fallback:
+      type: string
+    mutableRequestFields:
+      type: array
+      items:
+        type: string
+    mutableResponseFields:
+      type: array
+      items:
+        type: string
 ExecutableTrustChallenge:
   type: object
   required: [token, impact, expiresAt]

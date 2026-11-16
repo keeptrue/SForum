@@ -155,6 +155,12 @@ func TestContentStateRequeueCannotWashHiddenContentToPendingPostgres(t *testing.
 		t.Fatalf("rejected requeue must roll back the edit, title=%q", title)
 	}
 
+	// 把主题恢复成 active：本段要证明的是**评论级** requeue 守卫（隐藏评论不能被
+	// 洗成 pending），主题若仍是 hidden，父主题状态检查会先一步拒绝，
+	// 这条断言就会变成「谁来拒都行」的假绿。
+	if _, err := fixture.pool.Exec(fixture.ctx, `UPDATE topics SET status = 'active' WHERE id = $1`, topic.ID); err != nil {
+		t.Fatalf("restore topic: %v", err)
+	}
 	if _, err := store.UpdateComment(fixture.ctx, UpdateCommentRecord{
 		CommentID: comment.ID, EditorUserID: authorID, AuthorUserID: authorID, ExpectedRevision: 1,
 		Origin: RevisionOriginSelf, Content: renderedFixtureContent(t, "hidden comment edit"),

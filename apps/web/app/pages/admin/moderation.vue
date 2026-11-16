@@ -4,7 +4,7 @@ import { useAdminPage } from '~/composables/admin/useAdminPage'
 import { apiErrorMessage, apiErrorStatusCode } from '~/composables/useApiClient'
 import ModerationDecisionTable from '~/components/moderation/ModerationDecisionTable.vue'
 import ModerationSettingsForm from '~/components/moderation/ModerationSettingsForm.vue'
-import type { ModerationDecision, ModerationSettings } from '~/composables/moderation/useModerationApi'
+import type { ModerationDecision, ModerationReport, ModerationSettings } from '~/composables/moderation/useModerationApi'
 
 definePageMeta({ middleware: 'admin', layout: 'admin' })
 defineOptions({ name: 'AdminModeration' })
@@ -30,6 +30,42 @@ const { data: history, pending: historyPending, refresh: refreshHistory, error: 
     watch: [historyPage]
   }
 )
+// NF-02：待处理举报的乐观锁。每行带回自己的 revision，更新时原样回传；
+// 409 说明别人先改了（或已结案），必须给可见反馈并刷新，而不是静默覆盖。
+const reportsPage = ref(1)
+const reportsPerPage = 10
+const { data: reports, pending: reportsPending, refresh: refreshReports } = await useAsyncData(
+  'admin-moderation-reports',
+  () => moderationApi.listReports({ status: 'open', page: reportsPage.value, perPage: reportsPerPage }),
+  {
+    default: () => ({ items: [] as ModerationReport[], total: 0, page: 1, perPage: reportsPerPage }),
+    watch: [reportsPage]
+  }
+)
+const reportsTotalPages = computed(() => Math.max(1, Math.ceil((reports.value?.total ?? 0) / reportsPerPage)))
+const reportNote = ref('')
+const reportBusyId = ref<number | null>(null)
+const reportFeedback = ref('')
+
+async function decideReport(row: ModerationReport, status: 'resolved' | 'rejected') {
+  reportBusyId.value = row.id
+  reportFeedback.value = ''
+  try {
+    await moderationApi.updateReport(row.id, {
+      status,
+      reviewNote: reportNote.value.trim() || undefined,
+      expectedRevision: row.revision
+    })
+    reportNote.value = ''
+    await Promise.all([refreshReports(), refreshHistory()])
+  } catch (error) {
+    reportFeedback.value = apiErrorMessage(error) || t('admin.moderation.reports.conflict')
+    if (apiErrorStatusCode(error) === 409) await refreshReports()
+  } finally {
+    reportBusyId.value = null
+  }
+}
+
 const historyTotal = computed(() => history.value?.total ?? 0)
 const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyTotal.value / historyPerPage)))
 
@@ -139,6 +175,103 @@ useSeoMeta({
       :title="t('admin.moderation.recommendedTitle')"
       :description="t('admin.moderation.recommendedDescription')"
     />
+
+    <UCard
+      class="border-slate-200 bg-white text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+      data-testid="admin-moderation-reports"
+    >
+      <template #header>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 dark:text-white">
+              {{ t('admin.moderation.reports.title') }}
+            </h2>
+            <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+              {{ t('admin.moderation.reports.description') }}
+            </p>
+          </div>
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="xs"
+            leading-icon="i-lucide-refresh-cw"
+            :loading="reportsPending"
+            class="border-slate-200 dark:border-zinc-700"
+            @click="refreshReports()"
+          >
+            {{ t('admin.common.refresh') }}
+          </UButton>
+        </div>
+      </template>
+
+      <UAlert
+        v-if="reportFeedback"
+        color="error"
+        variant="soft"
+        icon="i-lucide-triangle-alert"
+        class="mb-3"
+        :title="reportFeedback"
+        data-testid="admin-moderation-report-conflict"
+      />
+
+      <p v-if="!reportsPending && !reports.items.length" class="text-sm text-slate-500 dark:text-zinc-400">
+        {{ t('admin.moderation.reports.empty') }}
+      </p>
+
+      <ul v-else class="grid gap-2">
+        <li
+          v-for="row in reports.items"
+          :key="row.id"
+          class="min-w-0 rounded-md border border-slate-200 px-3 py-2.5 dark:border-zinc-700"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-slate-900 dark:text-zinc-100">
+                {{ row.targetType }} #{{ row.targetId }} · {{ row.reasonCode }}
+              </p>
+              <p class="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
+                {{ t('admin.moderation.reports.meta', { reporter: row.reporterName || row.reporterUserId, revision: row.revision }) }}
+              </p>
+              <p v-if="row.body" class="mt-1 break-words text-xs text-slate-600 dark:text-zinc-300">{{ row.body }}</p>
+            </div>
+            <UBadge color="neutral" variant="subtle" size="xs">{{ row.status }}</UBadge>
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <UButton
+              size="xs"
+              :loading="reportBusyId === row.id"
+              @click="decideReport(row, 'resolved')"
+            >
+              {{ t('admin.moderation.reports.resolve') }}
+            </UButton>
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="outline"
+              :loading="reportBusyId === row.id"
+              @click="decideReport(row, 'rejected')"
+            >
+              {{ t('admin.moderation.reports.reject') }}
+            </UButton>
+          </div>
+        </li>
+      </ul>
+
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <UInput
+          v-model="reportNote"
+          :placeholder="t('admin.moderation.reports.notePlaceholder')"
+          class="min-w-0 flex-1"
+          size="sm"
+        />
+        <SFPagination
+          v-if="reportsTotalPages > 1"
+          :page="reportsPage"
+          :total-pages="reportsTotalPages"
+          @update:page="reportsPage = $event"
+        />
+      </div>
+    </UCard>
 
     <UCard class="border-slate-200 bg-white text-slate-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
       <template #header>

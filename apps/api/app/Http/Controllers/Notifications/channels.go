@@ -75,7 +75,12 @@ func (h *Controller) selectChannel(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if c.Params("channel") != "web_push" || h.channels == nil || h.channelAuditor == nil {
+	if c.Params("channel") != "web_push" {
+		// 未知渠道名是客户端错误，不是「服务暂时不可用」：路径参数指向一个不存在的
+		// 渠道资源，答 404 才能让客户端把「写错名字」与「后端没装配好」分开。
+		return fiber.NewError(fiber.StatusNotFound, "notification.channel_not_found")
+	}
+	if h.channels == nil || h.channelAuditor == nil {
 		return fiber.NewError(fiber.StatusServiceUnavailable, "notification.channel_unavailable")
 	}
 	var body channelSelectionRequest
@@ -102,7 +107,10 @@ func (h *Controller) resetChannel(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if c.Params("channel") != "web_push" || h.channels == nil || h.channelAuditor == nil {
+	if c.Params("channel") != "web_push" {
+		return fiber.NewError(fiber.StatusNotFound, "notification.channel_not_found")
+	}
+	if h.channels == nil || h.channelAuditor == nil {
 		return fiber.NewError(fiber.StatusServiceUnavailable, "notification.channel_unavailable")
 	}
 	var body struct {
@@ -131,7 +139,10 @@ func (h *Controller) testChannel(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	if c.Params("channel") != "web_push" || h.outbox == nil {
+	if c.Params("channel") != "web_push" {
+		return fiber.NewError(fiber.StatusNotFound, "notification.channel_not_found")
+	}
+	if h.outbox == nil {
 		return fiber.NewError(fiber.StatusServiceUnavailable, "notification.channel_unavailable")
 	}
 	delivery, err := h.outbox.QueueChannel(c.Context(), notifications.CreateInput{

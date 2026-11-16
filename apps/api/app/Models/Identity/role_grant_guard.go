@@ -199,3 +199,25 @@ func firstUngrantablePermission(actor Actor, role Role, baseline map[string]stru
 	}
 	return "", true
 }
+
+// checkUserPermissionOverrideGrant 是「个人权限例外」路径的完整前置校验。
+//
+// 与改角色权限（checkRolePermissionGrant）同一条不变量：先验键存在，再验**授予**
+// 集合里的每一项都在操作者自己手里。缺后一半时，`user.permission_override` 持有者
+// 可以把别人的权限换成自己可控的集合（例如给目标加一个操作者本来没有的管理键，
+// 再借目标账户使用它）——那是横向提权，不是「个人例外」的本意。
+//
+// Deny 不参与「操作者是否持有」的判定：撤销一项自己没有的权限不会扩大任何人的
+// 权限集合，而要求操作者先持有它会让「清理历史遗留 grant」变成不可能的操作。
+func checkUserPermissionOverrideGrant(
+	ctx context.Context,
+	service *Service,
+	actor Actor,
+	overrides PermissionOverrides,
+) error {
+	keys := append(append([]string{}, overrides.Allow...), overrides.Deny...)
+	if err := service.validatePermissions(ctx, keys); err != nil {
+		return err
+	}
+	return NewRoleGrantGuard(service.store).CheckPermissionSet(ctx, actor, overrides.Allow)
+}

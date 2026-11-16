@@ -819,7 +819,7 @@ func (s *Service) ReplaceUserPermissionOverrides(ctx context.Context, actor Acto
 	if hasOverrideConflict(normalized) {
 		return AdminUserDetail{}, ErrPermissionOverrideConflict
 	}
-	if err := s.validatePermissions(ctx, append(append([]string{}, normalized.Allow...), normalized.Deny...)); err != nil {
+	if err := checkUserPermissionOverrideGrant(ctx, s, actor, normalized); err != nil {
 		return AdminUserDetail{}, err
 	}
 

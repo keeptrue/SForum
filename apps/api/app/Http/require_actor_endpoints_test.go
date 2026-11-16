@@ -80,15 +80,19 @@ func TestRequireActorEndpointsAnswerByCause(t *testing.T) {
 	// 账号状态（disabled/banned）刻意**不**在门上判：必登面没有匿名回退，降级不是放宽，
 	// 失效主体由域层按既有契约答 403 permission.denied（见决策记录 §4）。这里钉住
 	// 边界：门放行、由域层裁决，而不是把 403 换成 401。
-	t.Run("disabled subject is decided by the domain, not the gate", func(t *testing.T) {
-		store := readPathSessionStore(nil)
-		app := readPathApp(t, "adminoverview", store,
-			staticReadPathActorStore{actor: identity.Actor{ID: 7, Status: identity.UserStatusDisabled}})
-		response := readPathRequest(t, app, "/api/v1/admin/overview", readPathLoginCookie(t, store))
-		defer response.Body.Close()
-		if response.StatusCode != nethttp.StatusForbidden {
-			body, _ := io.ReadAll(response.Body)
-			t.Fatalf("status = %d, want 403 from the domain layer (%s)", response.StatusCode, body)
+	t.Run("unusable subject status is decided by the domain, not the gate", func(t *testing.T) {
+		for _, status := range []identity.UserStatus{identity.UserStatusDisabled, identity.UserStatusBanned} {
+			t.Run(string(status), func(t *testing.T) {
+				store := readPathSessionStore(nil)
+				app := readPathApp(t, "adminoverview", store,
+					staticReadPathActorStore{actor: identity.Actor{ID: 7, Status: status}})
+				response := readPathRequest(t, app, "/api/v1/admin/overview", readPathLoginCookie(t, store))
+				defer response.Body.Close()
+				if response.StatusCode != nethttp.StatusForbidden {
+					body, _ := io.ReadAll(response.Body)
+					t.Fatalf("status = %d, want 403 from the domain layer (%s)", response.StatusCode, body)
+				}
+			})
 		}
 	})
 

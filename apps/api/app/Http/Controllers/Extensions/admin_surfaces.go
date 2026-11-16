@@ -126,6 +126,20 @@ func (h *Controller) invokeAdminSurface(c fiber.Ctx) error {
 	if contract.Permission != "" && !actor.Can(contract.Permission) {
 		return fiber.NewError(fiber.StatusForbidden, "permission.denied")
 	}
+	// 与 list 的可见性规则对齐（EX2-05b 的姊妹项）：list 会把「看不见目标行」的行
+	// 操作整条过滤掉（`surface.Action != "add" && !allowed[surface.TargetID]`），
+	// 但 invoke 只复检自己的 Permission —— 于是「看不见的行」仍可被直接按 id 调用，
+	// 最终由插件按转发过去的 actor 权限兜底。这里复检目标可见性，并把「看不见」
+	// 答成 404：与 list 的「不出现」同语义，也不额外泄露目标是否存在。
+	if contract.Action != "add" {
+		target, targetErr := h.adminSurfaces.ResolveAdminSurface(contract.TargetID)
+		if targetErr != nil {
+			return mapAdminSurfaceError(targetErr)
+		}
+		if target.Permission != "" && !actor.Can(target.Permission) {
+			return fiber.NewError(fiber.StatusNotFound, CodeAdminSurfaceNotFound)
+		}
+	}
 	var body adminSurfaceInvokeRequest
 	if err := c.Bind().Body(&body); err != nil || strings.TrimSpace(body.ContractVersion) == "" || body.Input == nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, CodeAdminSurfaceInvalid)

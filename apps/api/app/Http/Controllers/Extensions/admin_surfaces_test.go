@@ -103,6 +103,38 @@ func TestAdminSurfaceHTTPFiltersPermissionsCompositionAndInternals(t *testing.T)
 	}
 }
 
+// EX2-05b 姊妹项：list 会把「看不见目标行」的行操作整条过滤掉，invoke 必须同样拒绝，
+// 否则直接按 id 调用就绕过了目标可见性（最终只剩插件按转发权限兜底）。
+func TestAdminSurfaceHTTPInvokeRechecksTargetVisibility(t *testing.T) {
+	runtime := newAdminSurfaceControllerRuntime()
+	auditor := &adminSurfaceControllerAuditor{}
+	app := newAdminSurfaceControllerApp(t, runtime, auditor)
+	admin := loginAdminSurfaceControllerUser(t, app, 1)      // admin.access，无 fixture.admin.manage
+	privileged := loginAdminSurfaceControllerUser(t, app, 2) // 两个权限都有
+	path := "/api/v1/admin/admin-surfaces/fixture.admin.surface.after/invoke"
+	body := `{"contractVersion":"fixture.admin.surface.after@1","input":{"title":"SForum"}}`
+
+	// 拒绝路径：看不见目标行（fixture.admin.surface.protected 需要 fixture.admin.manage）
+	// → 与 list 的「不出现」同语义，答 404，且不触发运行时调用与审计。
+	response := performExtensionJSONRequest(t, app, http.MethodPost, path, admin, body)
+	if response.StatusCode != http.StatusNotFound || runtime.calls != 0 || len(auditor.events) != 0 {
+		t.Fatalf("denied target status=%d calls=%d audits=%#v body=%s",
+			response.StatusCode, runtime.calls, auditor.events, responseBody(t, response))
+	}
+	response.Body.Close()
+
+	// 允许路径：持有目标权限的 actor 照常调用。
+	response = performExtensionJSONRequest(t, app, http.MethodPost, path, privileged, body)
+	if response.StatusCode != http.StatusOK || runtime.calls != 1 {
+		t.Fatalf("allowed target status=%d calls=%d body=%s", response.StatusCode, runtime.calls, responseBody(t, response))
+	}
+	response.Body.Close()
+	if runtime.input.ExpectedContract.ID != "fixture.admin.surface.after" || runtime.input.Actor == nil ||
+		runtime.input.Actor.UserID != 2 {
+		t.Fatalf("runtime invocation = %#v", runtime.input)
+	}
+}
+
 func TestAdminSurfaceHTTPCommandRequiresIdempotencyKeyBeforeAudit(t *testing.T) {
 	runtime := newAdminSurfaceControllerRuntime()
 	contract := runtime.contracts["fixture.admin.surface.protected"]

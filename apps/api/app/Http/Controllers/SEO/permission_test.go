@@ -78,6 +78,46 @@ func TestAdminSEOAssetUploadAllowsContentManagers(t *testing.T) {
 	}
 }
 
+// 顺序证据：权限检查必须在 FormFile 之前。
+//
+// 改造前「缺权限 + 缺文件」答 422（把授权问题伪装成请求格式问题），并且未授权请求
+// 会先把 multipart 读进内存/临时文件。现在同一个请求必须答 403；allowed 对照在
+// 缺文件时仍然 422，证明门不是「恒 403」。
+func TestAdminSEOAssetUploadChecksPermissionBeforeReadingTheBody(t *testing.T) {
+	denied := newSEOPermissionApp(identity.Actor{ID: 1, Status: identity.UserStatusActive, Permissions: map[string]bool{
+		identity.PermissionAdminAccess: true,
+	}})
+	status, body := seoPermissionEmptyUpload(t, denied)
+	if status != http.StatusForbidden {
+		t.Fatalf("缺权限且缺文件: status = %d（期望 403：先判权再读体），body=%s", status, body)
+	}
+
+	allowed := newSEOPermissionApp(identity.Actor{ID: 2, Status: identity.UserStatusActive, Permissions: map[string]bool{
+		identity.PermissionSEOManage: true,
+	}})
+	status, body = seoPermissionEmptyUpload(t, allowed)
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("有权限但缺文件: status = %d（期望 422），body=%s", status, body)
+	}
+}
+
+// seoPermissionEmptyUpload 发一个**没有 multipart 体**的上传请求：它会在
+// c.FormFile 处失败，因此能区分「权限检查在 FormFile 之前还是之后」。
+func seoPermissionEmptyUpload(t *testing.T, app *fiber.App) (int, string) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/seo/assets", nil)
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("空上传请求失败: %v", err)
+	}
+	defer response.Body.Close()
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("读响应失败: %v", err)
+	}
+	return response.StatusCode, strings.TrimSpace(string(raw))
+}
+
 func newSEOPermissionApp(actor identity.Actor) *fiber.App {
 	app := fiber.New()
 	// 与生产同构：handler panic 变成 500，而不是把测试进程带走。

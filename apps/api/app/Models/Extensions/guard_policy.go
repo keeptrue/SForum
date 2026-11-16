@@ -21,8 +21,15 @@ import (
 // 都按它匹配），也会让 legacy 身份采用（只接受 sforum.trust-impact@2）失配，
 // 因此这类增强必须走派生视图，不能顺手加进摘要。
 type TrustGuardAuthorizationView struct {
-	RouteID               string   `json:"routeId"`
-	RouteAction           string   `json:"routeAction"`
+	RouteID     string `json:"routeId"`
+	RouteAction string `json:"routeAction"`
+	// TargetID 是「这条插件路由骑在哪条 Host 路由上」的唯一标识（EX2-05b）。
+	//
+	// 之前只披露 Path/Methods/Access/Permission：管理员批准时看得到「会包住什么
+	// 路径」，看不到「会接管哪一条 Core 路由的授权」。target 类动作
+	// （alias/rewrite/before/after/filter/wrap/replace）与显式作用域的 global
+	// middleware 都必须在这里现形；add 与无 target 的 global 是空。
+	TargetID              string   `json:"targetId,omitempty"`
 	Path                  string   `json:"path"`
 	Methods               []string `json:"methods"`
 	Access                string   `json:"access,omitempty"`
@@ -53,7 +60,7 @@ func GuardAuthorizationViews(impact TrustImpact) []TrustGuardAuthorizationView {
 		declaration, declared := declarations[route.Guard]
 		kind := declaration.Kind
 		view := TrustGuardAuthorizationView{
-			RouteID: route.ID, RouteAction: route.Action,
+			RouteID: route.ID, RouteAction: route.Action, TargetID: route.TargetID,
 			Path: route.Path, Methods: append([]string{}, route.Methods...),
 			Access: route.Access, Permission: route.Permission,
 			GuardID: route.Guard, GuardKind: kind, Fallback: route.Fallback,

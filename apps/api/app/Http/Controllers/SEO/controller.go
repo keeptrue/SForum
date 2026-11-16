@@ -62,6 +62,12 @@ func (h *Controller) uploadAsset(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+	// 权限检查必须在 FormFile 之前：解析 multipart 会把请求体读进内存/临时文件，
+	// 未授权请求不该先付出这份代价，也不该让「缺权限 + 缺文件」答成 422
+	// （把授权问题伪装成请求格式问题）。服务层的同一检查保留作为兜底。
+	if !actor.Can(identity.PermissionSEOManage) {
+		return fiber.NewError(fiber.StatusForbidden, "permission.denied")
+	}
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		return fiber.NewError(fiber.StatusUnprocessableEntity, attachments.CodeInvalidAttachment)

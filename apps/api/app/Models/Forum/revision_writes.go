@@ -196,12 +196,19 @@ func (s *PostgresStore) UpdateComment(ctx context.Context, input UpdateCommentRe
 		return Comment{}, fmt.Errorf("begin versioned comment update: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	state, err := lockCommentEditState(ctx, tx, input.CommentID)
+	// 作者编辑（Origin=self）必须落在 active 主题上：主题被关闭/锁定/删除后，
+	// 作者不得再改写自己的评论。版主/超管编辑别人评论走 staff origin，不受此限
+	// （关闭主题后仍需能改注、留证据）。判定放在**同一事务的锁内**，见下。
+	requireOpenTopic := input.Origin == RevisionOriginSelf
+	state, err := lockCommentEditState(ctx, tx, input.CommentID, requireOpenTopic)
 	if err != nil {
 		return Comment{}, err
 	}
 	if state.currentRevision != input.ExpectedRevision {
 		return Comment{}, ErrRevisionConflict
+	}
+	if requireOpenTopic && state.topicStatus != TopicStatusActive {
+		return Comment{}, ErrTopicClosed
 	}
 	if err := validateRestoreSourceTx(ctx, tx, state.postID, input.RestoredFromRevisionID); err != nil {
 		return Comment{}, err
@@ -324,9 +331,11 @@ type topicEditState struct {
 type commentEditState struct {
 	postID, topicID, currentRevision int64
 	status                           string
-	parentID                         *int64
-	content                          RenderedContent
-	attachments                      []int64
+	// topicStatus 是父主题状态：作者编辑必须落在 active 主题上（见 UpdateComment）。
+	topicStatus string
+	parentID    *int64
+	content     RenderedContent
+	attachments []int64
 }
 
 func lockTopicEditState(ctx context.Context, tx pgx.Tx, topicID int64) (topicEditState, error) {
@@ -342,9 +351,16 @@ func lockTopicEditState(ctx context.Context, tx pgx.Tx, topicID int64) (topicEdi
 	return state, nil
 }
 
-func lockCommentEditState(ctx context.Context, tx pgx.Tx, commentID int64) (commentEditState, error) {
+func lockCommentEditState(ctx context.Context, tx pgx.Tx, commentID int64, lockTopic bool) (commentEditState, error) {
 	var state commentEditState
-	err := tx.QueryRow(ctx, `SELECT comments.content_id, comments.topic_id, comments.parent_comment_id, comments.status, posts.current_revision, posts.raw_content, posts.html_content, posts.plain_text, posts.source_format, posts.editor_type, posts.editor_version, posts.render_version, posts.content_hash FROM comments JOIN posts ON posts.id = comments.content_id WHERE comments.id = $1 AND comments.status <> 'deleted' FOR UPDATE OF comments, posts`, commentID).Scan(&state.postID, &state.topicID, &state.parentID, &state.status, &state.currentRevision, &state.content.RawContent, &state.content.HTMLContent, &state.content.PlainText, &state.content.SourceFormat, &state.content.EditorType, &state.content.EditorVersion, &state.content.RenderVersion, &state.content.ContentHash)
+	// 锁主题只在作者编辑时需要：版主路径不该为了一个状态检查把同一主题下的
+	// 所有评论编辑串行化。
+	lock := "FOR UPDATE OF comments, posts"
+	if lockTopic {
+		lock = "FOR UPDATE OF comments, posts, topics"
+	}
+	query := `SELECT comments.content_id, comments.topic_id, comments.parent_comment_id, comments.status, topics.status, posts.current_revision, posts.raw_content, posts.html_content, posts.plain_text, posts.source_format, posts.editor_type, posts.editor_version, posts.render_version, posts.content_hash FROM comments JOIN posts ON posts.id = comments.content_id JOIN topics ON topics.id = comments.topic_id WHERE comments.id = $1 AND comments.status <> 'deleted' ` + lock
+	err := tx.QueryRow(ctx, query, commentID).Scan(&state.postID, &state.topicID, &state.parentID, &state.status, &state.topicStatus, &state.currentRevision, &state.content.RawContent, &state.content.HTMLContent, &state.content.PlainText, &state.content.SourceFormat, &state.content.EditorType, &state.content.EditorVersion, &state.content.RenderVersion, &state.content.ContentHash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return commentEditState{}, ErrCommentNotFound
 	}

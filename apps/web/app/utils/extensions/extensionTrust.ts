@@ -143,6 +143,8 @@ export type ExecutableTrustImpact = {
 export type ExecutableGuardAuthorization = {
   routeId: string
   routeAction?: string
+  /** EX2-05b：被这条插件路由接管/包裹的 Host 路由 ID；add 与无作用域 global 为空。 */
+  targetId?: string
   path: string
   methods: string[]
   access?: string

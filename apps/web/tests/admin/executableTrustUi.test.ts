@@ -193,6 +193,15 @@ describe('V3 exact-artifact trust operator flow', () => {
     expect(trust).toContain('guardAuthorization?: ExecutableGuardAuthorization[]')
   })
 
+  // EX2-05b：审阅面板必须显示「这条插件路由骑在哪条 Host 路由上」。
+  // 只显示 path/methods 时，管理员看不出被接管的是哪一条 core 路由。
+  test('discloses the targeted host route for every guard authorization row', () => {
+    expect(impact).toContain('row.targetId')
+    expect(impact).toContain('data-testid="extension-guard-target"')
+    expect(impact).toContain('admin.extensions.trust.guardAuthorization.target')
+    expect(trust).toContain('targetId?: string')
+  })
+
   test('localizes every guard risk the API can report', async () => {
     const risks = ['host_owned', 'extension_code', 'raw_request']
     for (const locale of ['zh-CN', 'en-US']) {

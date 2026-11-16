@@ -245,6 +245,7 @@ adminNotificationChannelSelection:
       '200': {description: Exact-artifact provider selection}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '404': {$ref: "../components/responses.yaml#/NotFound"}
       '409': {description: Selection revision or exact artifact changed}
       '422': {description: Invalid channel selection}
       '503':
@@ -263,6 +264,7 @@ adminNotificationChannelReset:
       '200': {description: Selection reset; provider secrets preserved}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '404': {$ref: "../components/responses.yaml#/NotFound"}
       '409': {description: Selection revision changed}
       '422': {description: Invalid reset request}
       '503':
@@ -279,6 +281,7 @@ adminNotificationChannelTest:
       '202': {description: Generic channel delivery queued}
       '401': {$ref: "../components/responses.yaml#/Unauthorized"}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
+      '404': {$ref: "../components/responses.yaml#/NotFound"}
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationDeliveries:

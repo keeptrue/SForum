@@ -23,6 +23,8 @@ export type ModerationReport = {
   reasonCode: ModerationReasonCode
   body: string
   status: ModerationReportStatus
+  /** 乐观锁版本：每次成功更新 +1，PATCH 时必须原样回传。 */
+  revision: number
   reviewerUserId?: number | null
   reviewerName?: string
   reviewNote: string
@@ -117,7 +119,9 @@ export function useModerationApi() {
     request<ModerationReport>('/moderation/reports', { method: 'POST', body: input })
   const listReports = (filters: ModerationWorkbenchFilters & { status?: ModerationReportStatus; reporterId?: number } = {}) =>
     request<ModerationReportList>(`/admin/moderation/reports${queryString(filters)}`)
-  const updateReport = (reportId: number, input: { status: ModerationReportStatus; reviewNote?: string }) =>
+  // NF-02：`expectedRevision` 是必填的——缺省会让 API 走「不做 CAS」分支，
+  // 乐观锁就白装了（上一轮实测：函数零调用点 + 不发版本号 = 并发保护空转）。
+  const updateReport = (reportId: number, input: { status: ModerationReportStatus; reviewNote?: string; expectedRevision: number }) =>
     request<ModerationReport>(`/admin/moderation/reports/${reportId}`, { method: 'PATCH', body: input })
 
   const getSettings = () => request<ModerationSettings>('/admin/moderation/settings')
