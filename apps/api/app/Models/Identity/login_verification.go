@@ -61,16 +61,19 @@ type LoginVerificationPolicyResolver interface {
 // 因为那条豁免是为「登录同时签发 API Token」的原生/CLI 客户端保留的取舍，
 // 不能让携带该形状的请求连失败锁定一起跳过。
 //
-// 失败姿态按触发条件分别降级，两处降级互不牵连，各写一条可区分的 warn：
+// 失败姿态按触发条件分别降级，三处降级互不牵连，各写一条可区分的 warn
+// （degradation 字段分别是 lockout_unavailable / policy_unavailable /
+// device_fingerprint_unavailable）：
 //   - 失败锁定读取失败（Redis 抖动）：只跳过失败锁定这一支，**继续**走下面的
 //     策略链。`loginVerificationPolicy` 读的是 Options，与 Redis 无关，所以
 //     Redis 故障没有理由连带放弃 always/new_device/privileged 判定（F-10）。
 //   - 策略读取失败（Options 读取失败）：跳过策略类触发条件，即 fail open，
 //     避免配置抖动把合法用户挡在门外。
-//   - 设备指纹查询失败：只在 NewDevice 分支内 fail open。
+//   - 设备指纹查询失败（会话表读失败）：只在 NewDevice 分支内 fail open，按
+//     「已知设备」处理。这同样是「本该校验却没校验」的窗口，所以也留痕（F10-2）。
 //
-// 两处降级都不把存储故障当 error 上抛：本函数只回答「是否需要验证」，把 Redis
-// 抖动变成登录路径的 500 是比多一次验证更坏的取舍。
+// 三处降级都不把存储故障当 error 上抛：本函数只回答「是否需要验证」，把 Redis
+// 或会话表抖动变成登录路径的 500 是比多一次验证更坏的取舍。
 func loginRequiresVerification(s *Service, ctx context.Context, loginKey string, credential CredentialUser, input LoginInput) (bool, error) {
 	if s.loginLockout != nil {
 		required, err := s.loginLockout.RequiresVerification(ctx, loginKey)
@@ -98,7 +101,15 @@ func loginRequiresVerification(s *Service, ctx context.Context, loginKey string,
 	}
 	if policy.NewDevice {
 		known, err := s.HasKnownDevice(ctx, credential.ID, input.DeviceFingerprint)
-		if err == nil && !known {
+		switch {
+		case err != nil:
+			// 会话表读失败时按已知设备放行，但必须留痕：否则「新设备验证」
+			// 会在故障窗口里静默失效，运营看不到任何信号（F10-2）。
+			slog.Warn("identity: device fingerprint lookup failed; treating login as known device",
+				"degradation", "device_fingerprint_unavailable",
+				"error", err,
+			)
+		case !known:
 			return true, nil
 		}
 	}

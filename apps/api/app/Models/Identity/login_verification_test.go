@@ -34,6 +34,15 @@ func (l erroringLoginLockout) RequiresVerification(context.Context, string) (boo
 	return false, l.err
 }
 
+// failingFingerprintStore 让会话指纹查询返回错误，模拟会话表读故障（F10-2）。
+type failingFingerprintStore struct {
+	*fakeStore
+}
+
+func (failingFingerprintStore) HasSessionFingerprint(context.Context, int64, string) (bool, error) {
+	return false, errors.New("session table unavailable")
+}
+
 const loginVerificationTestPassword = "correct horse battery staple"
 
 func newLoginVerificationTest(t *testing.T, policy LoginVerificationPolicyResolver) (*Service, *fakeStore, CurrentUser) {
@@ -221,9 +230,10 @@ func TestLoginVerificationLockoutReadFailureKeepsPolicyChain(t *testing.T) {
 	}
 }
 
-// TestLoginVerificationDegradationsLogDistinctly 固定两种降级在日志里可区分：
-// lockout 不可用与策略读取失败必须给出不同的消息和 degradation 值，否则线上
-// 只能看到「有人没被验证」而不知道该修 Redis 还是 Options。
+// TestLoginVerificationDegradationsLogDistinctly 固定三处降级在日志里可区分：
+// lockout 不可用、策略读取失败、设备指纹查询失败必须给出不同的消息和
+// degradation 值，否则线上只能看到「有人没被验证」而不知道该修 Redis、
+// Options 还是会话表。
 func TestLoginVerificationDegradationsLogDistinctly(t *testing.T) {
 	var buf bytes.Buffer
 	previous := slog.Default()
@@ -265,7 +275,28 @@ func TestLoginVerificationDegradationsLogDistinctly(t *testing.T) {
 	if strings.Contains(policyLogs, "degradation=lockout_unavailable") {
 		t.Fatalf("policy degradation must not be reported as lockout failure: %s", policyLogs)
 	}
+
+	// 第三处：会话指纹查询失败按已知设备放行，但同样必须留痕（F10-2）。
+	buf.Reset()
+	fingerprintOnly, store, _ := newLoginVerificationTest(t, staticLoginVerificationPolicy{
+		policy: LoginVerificationPolicy{Enabled: true, NewDevice: true},
+	})
+	fingerprintOnly.store = failingFingerprintStore{fakeStore: store}
+	if _, err := fingerprintOnly.Login(testContext(t), LoginInput{
+		Login: "victim", Password: loginVerificationTestPassword, DeviceFingerprint: "UnknownAgent/1.0",
+	}); err != nil {
+		t.Fatalf("fingerprint read failure must fail open, got %v", err)
+	}
+	fingerprintLogs := buf.String()
+	if !strings.Contains(fingerprintLogs, "degradation=device_fingerprint_unavailable") {
+		t.Fatalf("device fingerprint degradation not logged: %s", fingerprintLogs)
+	}
+	if strings.Contains(fingerprintLogs, "degradation=lockout_unavailable") ||
+		strings.Contains(fingerprintLogs, "degradation=policy_unavailable") {
+		t.Fatalf("fingerprint degradation must be reported as its own cause: %s", fingerprintLogs)
+	}
 }
+
 func TestLoginVerificationLockoutStillAppliesWithGateOff(t *testing.T) {
 	service, _, _ := newLoginVerificationTest(t, staticLoginVerificationPolicy{
 		policy: LoginVerificationPolicy{Enabled: false, Always: true},
