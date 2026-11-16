@@ -328,11 +328,65 @@ sforum_restore_asset_snapshots() {
   done
 }
 
-# 解包后逐条比对：归档里的每个条目都必须出现在卷里。
+# 把 tar 详细列表归一化成 "<name>\t<size>"，供逐条比对。
+#
+# 为什么比大小而不是比哈希：卷恢复的真实失败形态是「条目缺失」与「写一半 /
+# 真实截断」，这两类都会改变大小；全量哈希要把整个附件卷再读一遍（可能是几十 GB），
+# 代价与该风险的量级不成比例。同名同大小的内容替换不会被这一层发现 —— 那属于
+# 另一个问题域（备份归档本身的完整性由 openssl 解密与 tar 自检覆盖）。
+sforum_tar_sizes() {
+  local archive="$1"
+  local out="$2"
+
+  tar -tvf "$archive" 2>/dev/null | awk '
+    NF >= 6 {
+      size = $3
+      name = $6
+      for (i = 7; i <= NF; i++) name = name " " $i
+      sub(/^\.\//, "", name)
+      if (size ~ /^[0-9]+$/) printf "%s\t%s\n", name, size
+    }
+  ' | sort > "$out"
+}
+
+# 逐条比对「归档里有什么」与「卷里恢复出什么」：条目名必须齐，大小必须等。
+sforum_compare_tar_sizes() {
+  local want="$1"
+  local got="$2"
+
+  awk -F'\t' '
+    FNR == NR { size[$1] = $2; order[++n] = $1; next }
+    { actual[$1] = $2 }
+    END {
+      missing = 0
+      truncated = 0
+      for (i = 1; i <= n; i++) {
+        name = order[i]
+        if (!(name in actual)) {
+          if (missing < 5) printf "缺少条目：%s\n", name > "/dev/stderr"
+          missing++
+          continue
+        }
+        if (actual[name] != size[name]) {
+          if (truncated < 5) {
+            printf "大小不符：%s（归档 %s 字节，卷里 %s 字节）\n", name, size[name], actual[name] > "/dev/stderr"
+          }
+          truncated++
+        }
+      }
+      if (missing || truncated) {
+        printf "卷内容校验失败：%d 个条目缺失、%d 个条目大小不符\n", missing, truncated > "/dev/stderr"
+        exit 1
+      }
+    }
+  ' "$want" "$got"
+}
+
+# 解包后逐条比对：归档里的每个条目都必须出现在卷里，且大小一致。
 sforum_verify_restored_assets() {
   local archive_dir="$1"
   local work_dir="$2"
-  local name dir archive listing missing
+  local name dir archive
 
   for name in attachments extensions; do
     archive="$archive_dir/$name.tar"
@@ -342,13 +396,12 @@ sforum_verify_restored_assets() {
       *) dir="$EXTENSION_CONTAINER_DIR" ;;
     esac
     sforum_archive_volume "$dir" "$work_dir/$name.after.tar"
-    tar -tf "$archive" | sed 's#^\./##' | sort -u > "$work_dir/$name.want.list"
-    tar -tf "$work_dir/$name.after.tar" | sed 's#^\./##' | sort -u > "$work_dir/$name.got.list"
-    listing="$(comm -23 "$work_dir/$name.want.list" "$work_dir/$name.got.list" || true)"
-    missing="$(printf '%s\n' "$listing" | grep -v '^$' | head -n 5 || true)"
-    if [ -n "$missing" ]; then
-      sforum_die "卷内容校验失败，缺少归档条目：$(printf '%s' "$missing" | tr '\n' ' ')"
-    fi
+    sforum_tar_sizes "$archive" "$work_dir/$name.want.list"
+    sforum_tar_sizes "$work_dir/$name.after.tar" "$work_dir/$name.got.list"
+    # 列表解析不出任何条目时不能当成「校验通过」：那是解析失败，不是空归档。
+    [ -s "$work_dir/$name.want.list" ] || sforum_die "无法解析归档条目列表：$archive"
+    sforum_compare_tar_sizes "$work_dir/$name.want.list" "$work_dir/$name.got.list" || \
+      sforum_die "卷内容校验失败：$dir"
     printf 'Volume content validated: %s\n' "$dir"
   done
 }
@@ -368,11 +421,32 @@ sforum_retention_value() {
   esac
 }
 
+# SIGKILL（不是 SIGTERM）不会走 EXIT trap，$SFORUM_BACKUP_DIR 里会留下
+# .sforum-backup-* 临时目录：700 目录 + 600 的明文 database.sql。retention 只扫
+# 归档文件，这些目录原本会一直躺在盘上。按小时判定「陈旧」而不是立刻删，是为了
+# 不踩到另一个正在跑的备份（它的临时目录同样匹配这个模式）。
+sforum_sweep_stale_workdirs() {
+  local dir="$1"
+  local hours="${SFORUM_BACKUP_STALE_WORKDIR_HOURS:-24}"
+  local stale
+
+  sforum_require_uint SFORUM_BACKUP_STALE_WORKDIR_HOURS "$hours" 1
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    rm -rf -- "$stale"
+    printf 'Retention: removed stale work directory %s (crash leftover older than %sh)\n' \
+      "${stale##*/}" "$hours" >&2
+  done < <(find "$dir" -mindepth 1 -maxdepth 1 -type d -name '.sforum-backup-*' \
+    -mmin +$((hours * 60)) 2>/dev/null | sort)
+}
+
 # 保留策略：先按天数删超龄归档，再按份数只留最新 N 份。
 # 输出走 stderr：备份脚本的 stdout 末行必须是归档路径（deploy.sh 用 tail -n 1 取值）。
 sforum_apply_retention() {
   local dir="$1"
   local count days kept=0 file
+
+  sforum_sweep_stale_workdirs "$dir"
 
   count="$(sforum_retention_value SFORUM_BACKUP_RETENTION_COUNT "$SFORUM_BACKUP_RETENTION_COUNT_DEFAULT")"
   days="$(sforum_retention_value SFORUM_BACKUP_RETENTION_DAYS "$SFORUM_BACKUP_RETENTION_DAYS_DEFAULT")"

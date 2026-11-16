@@ -572,11 +572,22 @@ function validateDeploymentGuides() {
     'SFORUM_SAFE_MODE',
     'PPROF_ENABLED',
   ]
+  // 以注释形式出现在模板里的键：它们不该被当成可插值键（未注释的键会被 compose
+  // 读进容器环境），但新装向导必须把它们摆到操作者眼前 —— 缺了它们，第一次
+  // update 会停在备份步。所以「模板里出现」本身要被断言：整段注释块被删掉就是
+  // 一次静默的可用性回归。
+  const commentedEnvKeys = ['SFORUM_BACKUP_KEY_FILE', 'SFORUM_BACKUP_KEY']
+  const exampleTemplate = read('.env.production.example')
+  for (const key of commentedEnvKeys) {
+    if (!new RegExp(`^\\s*#\\s*${key}=`, 'm').test(exampleTemplate)) {
+      fail(`.env.production.example: must keep the commented ${key}= block`)
+    }
+  }
   for (const locale of locales) {
     const file = `docs/${locale}/deployment/environment.md`
     if (missing.has(file)) continue
     const content = read(file)
-    for (const key of [...envKeys, ...passthroughKeys]) {
+    for (const key of [...envKeys, ...passthroughKeys, ...commentedEnvKeys]) {
       if (!new RegExp(`\\b${key}\\b`).test(content)) {
         fail(`${file}: must document ${key}`)
       }

@@ -88,6 +88,10 @@ printf 'helper health %s\n' "$1" >> "$MOCK_DEPLOY_LOG"
 if [ "${MOCK_FAIL_STAGE:-}" = "health" ]; then
   exit 12
 fi
+# 恢复态：wait-for-health.sh 的三态里 exit 3 = Host 只放行 /health 与 /ready。
+if [ "${MOCK_FAIL_STAGE:-}" = "recovery" ]; then
+  exit 3
+fi
 EOF
 
 cat > "$MOCK_BIN/docker" <<'EOF'
@@ -422,6 +426,22 @@ done
 
 assert_not_contains "$TEMP_DIR/failure-pull.out" "Starting the managed PostgreSQL and Redis services..."
 assert_not_contains "$TEMP_DIR/failure-identity.out" "Starting the managed PostgreSQL and Redis services..."
+
+# 探针三态必须落成两个不同的 reason：两者都仍是 status=recovery_required，但
+# 恢复态（exit 3）要人去跑 recovery recheck，超时要看日志。折成一个 reason
+# 等于让运维在 120 秒后猜是哪一种。
+if run_deploy "failure-recovery" f recovery; then
+  fail "a recovery-only deployment unexpectedly succeeded"
+fi
+assert_contains "$TEST_ROOT/.deployrc" "status=recovery_required"
+assert_contains "$TEST_ROOT/.deployrc" "reason=recovery_only"
+assert_contains "$TEMP_DIR/failure-recovery.out" "recovery recheck"
+
+if run_deploy "failure-timeout" f health; then
+  fail "a health timeout deployment unexpectedly succeeded"
+fi
+assert_contains "$TEST_ROOT/.deployrc" "reason=health_failed"
+assert_not_contains "$TEST_ROOT/.deployrc" "reason=recovery_only"
 
 # 无元数据的空锁目录（旧版本 mkdir-only 或崩溃窗口）在 1 小时宽限内必须拒绝：
 # 这是「持有者可能还活着就不许抢」的那一侧保护。

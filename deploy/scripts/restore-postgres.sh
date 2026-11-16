@@ -75,6 +75,23 @@ esac
 RESTORE_SUFFIX="$(date -u +%Y%m%d%H%M%S)-$$"
 RESTORE_DB="sforum_restore_${RESTORE_SUFFIX}"
 PREVIOUS_DB="sforum_before_restore_${RESTORE_SUFFIX}"
+
+# SIGKILL 留下的 $TMPDIR/sforum-restore.* 里同样有 600 的明文 database.sql，而
+# retention 只管备份目录，扫不到这里。按「同用户 + 名称匹配 + 超过 1 天」三个条件
+# 收，避免踩到并发的另一次恢复（它的工作目录同样匹配这个模式）。
+sforum_sweep_stale_restore_dirs() {
+  local tmpdir="${TMPDIR:-/tmp}"
+  local stale
+
+  while IFS= read -r stale; do
+    [ -n "$stale" ] || continue
+    rm -rf -- "$stale"
+    printf '清理上次异常退出留下的恢复工作目录（含明文转储）：%s\n' "$stale" >&2
+  done < <(find "$tmpdir" -mindepth 1 -maxdepth 1 -type d -name 'sforum-restore.*' \
+    -user "$(id -u)" -mmin +1440 2>/dev/null | sort)
+}
+sforum_sweep_stale_restore_dirs
+
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sforum-restore.XXXXXX")"
 MANIFEST="$WORK_DIR/payload/manifest.env"
 ASSETS_DIR="$WORK_DIR/payload/assets"
@@ -185,15 +202,21 @@ sforum_validate_sql_payload "$RESTORE_SQL"
 
 # 2. 记录本拓扑下正在运行的应用槽位（顺序即停启顺序）。
 running_services="$(sforum_running_services)"
-# 拓扑与运行态不一致时停手：.deployrc 说是单拓扑，实际却在跑蓝绿槽，此时
-# 「按单拓扑全杀连接」会误杀线上槽，宁可让人先修 .deployrc（OPS2-02）。
-if [ "$SFORUM_TOPOLOGY" = "single" ]; then
-  case "$(printf '%s\n' "$running_services" | tr '\n' ' ')" in
-    *api-blue*|*api-green*)
-      sforum_die "检测到蓝绿槽位正在运行，但 .deployrc 的 topology 不是 blue-green；先修正拓扑再恢复。"
+# 拓扑与运行态不一致时停手（OPS2-02），两个方向都要防：
+#   声明 single、实际在跑槽位 → 「按单拓扑全杀连接」会误杀线上槽；
+#   声明 blue-green、实际在跑单拓扑 api/worker → 按槽停启会漏掉它，它的连接
+#   留在 terminate 作用域之外，改名照样失败（只是失败得更晚、更难解释）。
+# 只防一个方向等于把同一个事故换个入口放进来。
+while IFS= read -r running_service; do
+  case "$SFORUM_TOPOLOGY:$running_service" in
+    single:api-blue|single:api-green|single:worker-blue|single:worker-green)
+      sforum_die "检测到蓝绿槽位正在运行（$running_service），但 .deployrc 的 topology 不是 blue-green；先修正拓扑再恢复。"
+      ;;
+    blue-green:api|blue-green:worker)
+      sforum_die "检测到单拓扑服务正在运行（$running_service），但 .deployrc 的 topology 是 blue-green；按槽停启会漏掉它，先修正拓扑再恢复。"
       ;;
   esac
-fi
+done <<< "$running_services"
 app_services=" $(sforum_app_services | tr '\n' ' ') "
 while IFS= read -r service; do
   [ -n "$service" ] || continue
@@ -241,12 +264,9 @@ if [ "${#SERVICES_TO_RESTART[@]}" -gt 0 ]; then
   SERVICES_STOPPED=true
 fi
 
-# 3. 冷库首启（OPS2-03）：compose 的 --wait 窗口由 healthcheck 决定
-# （interval 10s × retries 5，没有 start_period），冷启动可能比它慢。--wait
-# 失败只当作「还没就绪」的提示，成败交给下面可配置的 pg_isready 重试判定。
-if ! "${SFORUM_COMPOSE[@]}" up -d --wait postgres; then
-  printf '警告：postgres 未在 --wait 窗口内就绪，交给 pg_isready 重试判定。\n' >&2
-fi
+# 3. 冷库首启（OPS2-03）：慢启动降级成 warning 交给 pg_isready 重试；容器没在跑
+# 是真故障，立刻失败，不耗满 attempts × interval。
+sforum_start_postgres
 sforum_wait_for_postgres "$TARGET_DB"
 
 "${SFORUM_COMPOSE[@]}" exec -T postgres createdb -U "$POSTGRES_ACTOR" \
@@ -264,6 +284,10 @@ echo "Restoring PostgreSQL backup into $RESTORE_DB"
 sforum_db_validate "$RESTORE_DB" "$MANIFEST"
 
 # 5. 切库。蓝绿拓扑只终止刚停下的槽的连接，单拓扑保持原行为。
+#
+# 同步义务：这段 SQL 的文本被 postgres-safety_test.sh 的三处 expected 整段 diff
+# 比对（C5 的 swap_sql_block、C10 的 slots 段、C11b 的 none 段）。改这里必须同批
+# 改那三处，否则变异验证会从「改坏才红」退化成「改了就对不上」。
 swap_args=(
   "--set=target_db=$TARGET_DB"
   "--set=restore_db=$RESTORE_DB"
@@ -306,7 +330,9 @@ SWAPPED=true
 RESTORE_DB=""
 
 # 6. 切库后重新校验（改名是元数据操作，但「发布出去的库」必须自己再验一次）。
-sforum_db_validate "$TARGET_DB" "$MANIFEST"
+# quiet：这一份数据刚在步骤 4 校验过，空表 warning 已经打过了，重复第二遍只会
+# 让真正的告警变成噪音。
+sforum_db_validate "$TARGET_DB" "$MANIFEST" quiet
 
 # 7. 附件卷与扩展制品卷。回滚靠切换前快照。
 if [ -f "$ASSETS_DIR/attachments.tar" ] || [ -f "$ASSETS_DIR/extensions.tar" ]; then

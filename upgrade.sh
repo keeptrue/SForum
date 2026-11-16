@@ -459,6 +459,37 @@ target_migrator_supports_online_safe_check() {
 
 ONLINE_MIGRATION_REQUIRED=false
 
+# 声明形态预检（离线、不碰库）：畸形声明（NO TRANSACTION / 缺 SET LOCAL 超时）是
+# 构建缺陷 —— 在它上面谈「在线安全」没有意义，所以直接 abort 并点名文件，不降级成
+# 停机升级。「未声明」不在这里判红：离线迁移是合法路径，pending 集合由随后的
+# --check-online-safe 决定。
+#
+# 只有 exit 3 才 abort。exit 2 = 目标镜像还不认识这个 flag（降级到旧版本时会遇到），
+# exit 1 = 读不到迁移文件；两者都会让随后的 --check-online-safe 同样失败并走原有
+# 分支，所以这里不抢它的判断权，只把输出打出来。
+check_online_safe_declaration_form() {
+  local version="$1"
+  local output="" status=0
+
+  output="$(SFORUM_VERSION="$version" "${COMPOSE[@]}" run --rm -T --no-deps --pull never \
+    migrate sforum-migrate --check-online-safe-form 2>&1)" || status=$?
+  case "$status" in
+    0) return 0 ;;
+    3)
+      printf '%s\n' "$output" >&2
+      say "目标版本的在线迁移声明形态不合格（含 NO TRANSACTION 或缺 SET LOCAL 超时）：这是构建缺陷，既不能在线升级，也不降级成停机升级。" \
+        "The target release has malformed online-safe declarations (NO TRANSACTION or missing SET LOCAL timeouts): a build defect; the upgrade is refused rather than downgraded to a maintenance window." >&2
+      die "Fix the migration declarations named above, then re-release."
+      ;;
+    *)
+      printf '%s\n' "$output" >&2
+      say "无法完成声明形态预检（退出码 $status），继续由 --check-online-safe 判定。" \
+        "The declaration form pre-check did not complete (exit $status); --check-online-safe remains authoritative." >&2
+      return 0
+      ;;
+  esac
+}
+
 plan_schema_for_online_update() {
   local version="$1"
   ONLINE_MIGRATION_REQUIRED=false
@@ -470,6 +501,7 @@ plan_schema_for_online_update() {
   if ! target_migrator_supports_online_safe_check "$version"; then
     return 1
   fi
+  check_online_safe_declaration_form "$version"
   if ! SFORUM_VERSION="$version" "${COMPOSE[@]}" run --rm -T --no-deps --pull never \
     migrate sforum-migrate --check-online-safe; then
     return 1
@@ -542,7 +574,7 @@ maintenance_update() {
   if ! wait_inside_slot "$inactive_slot"; then
     "${COMPOSE[@]}" stop "$new_web" "$new_api" || true
     "${COMPOSE[@]}" start "$old_web" "$old_api" || true
-    die "Target slot failed its health checks after migration; the previous slot was restarted."
+    slot_health_failure_die "Target slot failed its health checks after migration; the previous slot was restarted."
   fi
 
   if ! switch_router "$inactive_slot" "$active_slot"; then
@@ -600,12 +632,41 @@ remove_legacy_worker_containers() {
 # PROBE_OUTPUT，由超时路径一次性打印；循环内不直接输出，避免把「备用槽还在
 # 冷启动」写成一片红色错误。赋值放在 if 条件里，免得 set -e 把预期失败当致命错。
 PROBE_OUTPUT=""
+# 非空代表最近一次 wait_inside_slot 判定为「恢复态」，值是被点名的 recovery code。
+SLOT_HEALTH_RECOVERY_REASON=""
+# 探针要同时拿到状态码与 body：恢复态的判定信号只在 body 里（见下面
+# slot_probe_reports_recovery_only）。原先 `-O /dev/null` + `2>&1 >/dev/null`
+# 把 body 丢掉、只留 stderr，于是「恢复态」与「依赖还没起」在探针眼里完全一样。
 probe_slot_endpoint() {
   local service="$1" url="$2"
-  if PROBE_OUTPUT="$("${COMPOSE[@]}" exec -T "$service" wget -q -O /dev/null "$url" 2>&1 >/dev/null)"; then
+  if PROBE_OUTPUT="$("${COMPOSE[@]}" exec -T "$service" wget -q -O - "$url" 2>&1)"; then
     return 0
   fi
   return 1
+}
+
+# 恢复态判定：body 里出现 /ready 的 recovery 块。`"recovery":` 不会命中 /health 的
+# `"recoveryRequired":false` —— 那里的 key 后面跟的是 Required，不是引号加冒号。
+slot_probe_reports_recovery_only() {
+  grep -Eq '"recovery"[[:space:]]*:' <<< "${1:-}"
+}
+
+slot_recovery_reason() {
+  sed -n 's/.*"recovery"[[:space:]]*:[^{]*{[^}]*"code"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    <<< "${1:-}" | head -n 1
+}
+
+# 备用槽健康失败的统一出口：恢复态必须点名原因与人工动作，其余保持原措辞。
+# 二者都走 die（调用方已先做完自己的回滚动作），区别只在「运维下一步做什么」。
+slot_health_failure_die() {
+  local fallback="$1"
+
+  if [ -n "$SLOT_HEALTH_RECOVERY_REASON" ]; then
+    say "备用槽进入了恢复态（${SLOT_HEALTH_RECOVERY_REASON}）：Host 只放行 /health 与 /ready，其余路径一律 503。这不是启动慢，等下去不会变好。" \
+      "The standby slot booted into recovery-only mode (${SLOT_HEALTH_RECOVERY_REASON}): only /health and /ready answer, every other path returns 503. This is not a slow start and waiting will not fix it." >&2
+    die "Fix the artifact named in the recovery block, then run: sforum extension recovery recheck"
+  fi
+  die "$fallback"
 }
 
 dump_slot_diagnostics() {
@@ -625,6 +686,7 @@ wait_inside_slot() {
   local started=$SECONDS deadline=$((SECONDS + timeout))
   local api web attempts=0 elapsed next_report=15
   local last_failure="" last_service="" last_output=""
+  SLOT_HEALTH_RECOVERY_REASON=""
   api="$(slot_api "$slot")"
   web="$(slot_web "$slot")"
   while [ "$SECONDS" -lt "$deadline" ]; do
@@ -642,6 +704,12 @@ wait_inside_slot() {
           "Standby slot $slot is ready after ${elapsed}s (${attempts} probes)."
       fi
       return 0
+    fi
+    # 探针失败后才看 body：恢复态是终态，继续等只是把整个超时预算烧在必然
+    # 失败的探测上，并把真正的原因埋进「健康检查超时」。
+    if slot_probe_reports_recovery_only "$PROBE_OUTPUT"; then
+      SLOT_HEALTH_RECOVERY_REASON="$(slot_recovery_reason "$PROBE_OUTPUT")"
+      return 3
     fi
     last_output="$PROBE_OUTPUT"
     if [ "$elapsed" -ge "$next_report" ]; then
@@ -779,7 +847,7 @@ bootstrap_topology() {
     apply_planned_online_migrations "$target_version"
     "${COMPOSE[@]}" up -d --no-build --pull never api-blue web-blue
   fi
-  wait_inside_slot blue || die "Blue candidate failed its internal API/Web checks."
+  wait_inside_slot blue || slot_health_failure_die "Blue candidate failed its internal API/Web checks."
 
   write_router_config blue "$RUNTIME_DIR/Caddyfile"
   say "正在执行一次性入口转换..." "Performing the one-time ingress conversion..."
@@ -824,7 +892,7 @@ online_update() {
   "${COMPOSE[@]}" up -d --no-build --pull never "$new_api" "$new_web"
   if ! wait_inside_slot "$inactive_slot"; then
     "${COMPOSE[@]}" stop "$new_web" "$new_api" || true
-    die "Standby slot failed internal health checks; live traffic was not changed."
+    slot_health_failure_die "Standby slot failed internal health checks; live traffic was not changed."
   fi
 
   say "正在原子切换 Web/API 流量..." "Atomically switching Web/API traffic..."

@@ -41,6 +41,7 @@ DEPLOY_RC="$TEMP_DIR/.deployrc"
 RUNTIME_DIR="$TEMP_DIR/runtime"
 COMPOSE=(fake_compose)
 SCHEMA_STATE=no_pending
+FORM_STATE=ok
 ONLINE_CHECK_CAPABILITY=present
 MIGRATION_APPLIED=false
 WAIT_RESULT=pass
@@ -57,6 +58,7 @@ reset_state() {
     'blue_version=v3.0.0-alpha.10' \
     'green_version=v3.0.0-alpha.9' > "$DEPLOY_RC"
 	SCHEMA_STATE=no_pending
+	FORM_STATE=ok
 	ONLINE_CHECK_CAPABILITY=present
 	MIGRATION_APPLIED=false
 	WAIT_RESULT=pass
@@ -67,6 +69,21 @@ fake_compose() {
 	printf 'compose %s\n' "$*" >> "$LOG_FILE"
 	case " $* " in
 		*' sforum-migrate --check-no-pending '*) [ "$SCHEMA_STATE" = no_pending ] || [ "$MIGRATION_APPLIED" = true ] ;;
+		*' sforum-migrate --check-online-safe-form '*)
+			# 形态预检的三态：ok=0（未声明只报告）/ malformed=3（声明形态坏）/ unsupported=2（旧镜像不认识 flag）
+			case "$FORM_STATE" in
+				malformed)
+					printf 'online-safe-form malformed=1 declared=0 undeclared=0\n'
+					printf 'declaration 20260101000100_example.sql: missing SET LOCAL statement_timeout\n'
+					return 3
+					;;
+				unsupported) return 2 ;;
+				*)
+					printf 'online-safe-form ok declared=1 undeclared=2 malformed=0\n'
+					return 0
+					;;
+			esac
+			;;
 		*' sforum-migrate --check-online-safe '*) [ "$SCHEMA_STATE" = safe_pending ] ;;
 		*' run --rm -T --pull never migrate '*) MIGRATION_APPLIED=true ;;
 		*' ps --status running --services '*) printf '%s\n' api-green ;;
@@ -90,6 +107,50 @@ if (plan_schema_for_online_update v3.0.0-alpha.11) > "$TEMP_DIR/no-capability.ou
 	fail "migrator without the capability label was accepted"
 fi
 assert_not_contains "$LOG_FILE" 'sforum-migrate --check-online-safe'
+
+# --check-online-safe 是 --check-online-safe-form 的前缀，子串匹配会把两者混在一起，
+# 所以这两条调用必须按整行定位。
+exact_line() {
+  grep -nxF -- "$2" "$1" | head -n 1 | cut -d: -f1
+}
+FORM_CALL='compose run --rm -T --no-deps --pull never migrate sforum-migrate --check-online-safe-form'
+PLAIN_CALL='compose run --rm -T --no-deps --pull never migrate sforum-migrate --check-online-safe'
+
+# 声明形态预检：畸形（exit 3）必须 abort 并点名文件，且不再调 --check-online-safe。
+# 形态坏是构建缺陷，不降级成停机升级。
+reset_state
+SCHEMA_STATE=safe_pending
+FORM_STATE=malformed
+if (plan_schema_for_online_update v3.0.0-alpha.11) > "$TEMP_DIR/form-malformed.out" 2>&1; then
+  fail "malformed online-safe declaration was accepted"
+fi
+assert_contains "$TEMP_DIR/form-malformed.out" '20260101000100_example.sql'
+[ -n "$(exact_line "$LOG_FILE" "$FORM_CALL")" ] || fail "the declaration form pre-check never ran"
+[ -z "$(exact_line "$LOG_FILE" "$PLAIN_CALL")" ] || \
+  fail "--check-online-safe ran although the declarations were malformed"
+
+# 「未声明」不是失败：exit 0 必须放行到 --check-online-safe（离线迁移是合法路径），
+# 且顺序固定「先形态、后在线安全」。
+reset_state
+SCHEMA_STATE=safe_pending
+FORM_STATE=ok
+plan_schema_for_online_update v3.0.0-alpha.11 > /dev/null
+[ "$ONLINE_MIGRATION_REQUIRED" = true ] || fail "undeclared migrations were treated as a failure"
+form_line="$(exact_line "$LOG_FILE" "$FORM_CALL")"
+plain_line="$(exact_line "$LOG_FILE" "$PLAIN_CALL")"
+if [ -z "$form_line" ] || [ -z "$plain_line" ]; then
+  fail "both the form pre-check and --check-online-safe must run"
+fi
+[ "$form_line" -lt "$plain_line" ] || fail "the form pre-check must run before --check-online-safe"
+
+# 目标镜像还不认识这个 flag（降级到旧版本）：exit 2 不抢 --check-online-safe 的判断权。
+reset_state
+SCHEMA_STATE=safe_pending
+FORM_STATE=unsupported
+plan_schema_for_online_update v3.0.0-alpha.11 > /dev/null
+[ "$ONLINE_MIGRATION_REQUIRED" = true ] || fail "an unsupported form flag aborted the plan instead of deferring"
+[ -n "$(exact_line "$LOG_FILE" "$PLAIN_CALL")" ] || \
+  fail "--check-online-safe did not run after an unsupported form flag"
 
 reset_state
 SCHEMA_STATE=safe_pending

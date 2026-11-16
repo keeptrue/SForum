@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "status": "unseeded",
+  "generatedBy": "node scripts/bun-audit-gate.mjs --refresh",
+  "advisories": {}
+}

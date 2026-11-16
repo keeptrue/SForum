@@ -245,8 +245,42 @@ sforum_require_uint() {
     sforum_die "Invalid $name: $value (expected an integer >= $minimum)"
 }
 
+# 容器状态（running / exited / restarting / created）；没有容器时输出空。
+# 必须带 --all：不带时 compose 只列 running 的容器，exited 会被读成「未创建」，
+# 于是「容器退出了」与「容器压根没建出来」这两种完全不同的故障被压成同一句话。
+# 只用 compose 自己的 ps，不引 docker inspect：ps 的字段语义与 compose 版本绑定，
+# 比 inspect 的 JSON 形状更稳定。
+sforum_postgres_container_state() {
+  "${SFORUM_COMPOSE[@]}" ps --all --format '{{.State}}' postgres 2>/dev/null | head -n 1 | tr -d '[:space:]'
+}
+
 # OPS2-03：冷库首次启动时 pg_isready 会先失败几次，必须重试到明确超时，
 # 而不是一次失败就整条恢复链断在「库还没起来」。
+#
+# 但「慢启动」与「真故障」必须分开：compose 的 --wait 窗口由 healthcheck 决定
+# （interval 10s × retries 5，没有 start_period），冷启动慢过它属于正常；而容器
+# 根本没在跑（exited / restarting / 压根没创建）时，再耗满 attempts × interval
+# 只是把「坏镜像 / 坏配置」拖成几分钟的静默等待。所以 --wait 失败后先看状态：
+# 只有 running 才降级成 warning 交给 pg_isready 重试，其余立刻失败并点名原因。
+sforum_start_postgres() {
+  local state
+
+  if "${SFORUM_COMPOSE[@]}" up -d --wait postgres; then
+    return 0
+  fi
+
+  state="$(sforum_postgres_container_state)"
+  case "$state" in
+    running)
+      printf '警告：postgres 未在 --wait 窗口内就绪，交给 pg_isready 重试判定。\n' >&2
+      return 0
+      ;;
+    *)
+      sforum_die "postgres 无法启动（容器状态：${state:-未创建}），不进入就绪重试。先看 \`docker compose logs postgres\`。"
+      ;;
+  esac
+}
+
 sforum_wait_for_postgres() {
   local db="$1"
   local attempts="${SFORUM_DB_READY_ATTEMPTS:-$SFORUM_DB_READY_ATTEMPTS_DEFAULT}"
@@ -307,9 +341,14 @@ sforum_db_table_rows() {
 
 # 内容可信性校验（RV-16 的核心）：关系数只是入场券，核心表齐全、行数与备份清单
 # 一致才算通过。清单里没写行数时只校验表存在（兼容旧备份）。
+#
+# 第三个参数 quiet 只关掉「空核心表」那一条 warning，不关任何校验：一次恢复会
+# 校验两次（切库前校验恢复库、切库后再校验发布库），而两次看的是同一份数据，
+# 空表提示重复两遍只会稀释它。
 sforum_db_validate() {
   local db="$1"
   local manifest="${2:-}"
+  local quiet="${3:-}"
   local declared=""
   local tables=()
   local relation_count missing table expected rows
@@ -352,7 +391,7 @@ sforum_db_validate() {
 
   # 空核心表不是错误（staging / 测试库理应为空），但必须是「看得见的状态」：
   # 恢复一份全空数据却一句提示都没有，才是真正的运维事故。
-  if [ -n "$empty_tables" ]; then
+  if [ -n "$empty_tables" ] && [ "$quiet" != "quiet" ]; then
     printf '警告：核心表为空（备份可能来自空库、staging 或测试库）：%s\n' "$empty_tables" >&2
   fi
   printf 'Restored database content validated: %s relation(s), core tables complete.\n' "$relation_count"
@@ -360,6 +399,10 @@ sforum_db_validate() {
 
 # 容器内健康探测：/api/v1/ready 与 deploy.sh 使用同一路径。用 exec 而不是宿主端口，
 # 因为蓝绿拓扑的端口由 edge 持有，槽位本身不发布端口。
+#
+# 每个槽位各自计时：蓝绿拓扑会传进来两个槽（api-blue / api-green），共用同一个
+# deadline 时先探的槽会把预算吃干，后一个槽拿到 0 秒 —— 表现为「第二个槽永远
+# 探不过」，而不是「超时」。
 sforum_wait_for_api_services() {
   local timeout="${SFORUM_API_READY_TIMEOUT_SECONDS:-$SFORUM_API_READY_TIMEOUT_SECONDS_DEFAULT}"
   local interval="${SFORUM_API_READY_INTERVAL_SECONDS:-$SFORUM_API_READY_INTERVAL_SECONDS_DEFAULT}"
@@ -369,8 +412,8 @@ sforum_wait_for_api_services() {
   sforum_require_uint SFORUM_API_READY_INTERVAL_SECONDS "$interval" 0
 
   [ "$#" -gt 0 ] || return 0
-  deadline=$(( $(date +%s) + timeout ))
   for service in "$@"; do
+    deadline=$(( $(date +%s) + timeout ))
     while ! "${SFORUM_COMPOSE[@]}" exec -T "$service" \
       wget -q -O /dev/null http://127.0.0.1:8080/api/v1/ready >/dev/null 2>&1; do
       if [ "$(date +%s)" -ge "$deadline" ]; then

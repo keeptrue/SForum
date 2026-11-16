@@ -42,7 +42,7 @@ file_mode() {
 
 reset_log() {
   : > "$MOCK_LOG"
-  rm -f "$MOCK_DATA/pg_isready.count"
+  rm -f "$MOCK_DATA/pg_isready.count" "$MOCK_DATA"/probe_*.count "$MOCK_DATA/date.count"
 }
 
 # 从 mock 日志里取出「切库 SQL 的完整连续文本」：只到下一行 exec/compose 为止。
@@ -241,6 +241,26 @@ case "$command" in
       cat "$MOCK_DATA/cid/$service" 2>/dev/null || true
       exit 0
     fi
+    # 容器状态查询（真 docker: running / exited / restarting / created）。
+    # sforum_start_postgres 用它区分「慢启动」与「真故障」；调用形态是
+    # `ps --all --format '{{.State}}' <service>`，所以按参数扫描而不是看 $1。
+    #
+    # 这里必须照抄真 compose 的一条语义：**不带 --all 时只列 running 的容器**。
+    # 否则「生产代码忘了 --all」这条变异打不出来 —— 测试会变成自证。
+    ps_all=false
+    ps_format=false
+    for ps_arg in "$@"; do
+      case "$ps_arg" in
+        --all|-a) ps_all=true ;;
+        --format) ps_format=true ;;
+      esac
+    done
+    if [ "$ps_format" = true ]; then
+      if [ "$ps_all" = true ] || [ "${MOCK_CONTAINER_STATE:-running}" = "running" ]; then
+        printf '%s\n' "${MOCK_CONTAINER_STATE:-running}"
+      fi
+      exit 0
+    fi
     printf '%s\n' "${MOCK_RUNNING_SERVICES:-api}" | sed '/^[[:space:]]*$/d'
     ;;
   stop|start) ;;
@@ -273,6 +293,11 @@ case "$command" in
       extract)
         mkdir -p "$host_dir"
         tar -C "$host_dir" -xf -
+        # 模拟「解包后卷内容被写坏」：证明恢复校验比的是大小，不只是条目名。
+        # 只在附件卷上动手（扩展卷里没有这个路径）。
+        if [ "${MOCK_TAMPER_AFTER_EXTRACT:-false}" = "true" ] && [ -d "$host_dir/2026" ]; then
+          printf 'truncated' > "$host_dir/2026/a.png"
+        fi
         ;;
       *) exit 95 ;;
     esac
@@ -309,6 +334,13 @@ case "$command" in
         ;;
       api|api-blue|api-green)
         log "exec $service $*"
+        # 每个服务各自的失败预算：用来证明多槽就绪探测不共享同一个 deadline。
+        probe_count_file="$MOCK_DATA/probe_${service}.count"
+        probe_limit_var="MOCK_API_FAILURES_${service//-/_}"
+        probe_limit="${!probe_limit_var:-0}"
+        probe_count=$(( $(cat "$probe_count_file" 2>/dev/null || printf '0') + 1 ))
+        printf '%s' "$probe_count" > "$probe_count_file"
+        [ "$probe_count" -gt "$probe_limit" ] || exit 1
         [ "${MOCK_API_READY:-true}" = "true" ] || exit 1
         ;;
       *) exit 91 ;;
@@ -318,6 +350,22 @@ case "$command" in
 esac
 EOF
 chmod +x "$MOCK_BIN/docker"
+
+# 假时钟：只在 MOCK_FAKE_TIME=true 时拦截 `date +%s`，每次调用前进 4 秒。
+# 用来把「多槽是否共享同一个就绪预算」变成确定性断言，而不是靠真实等待。
+cat > "$MOCK_BIN/date" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${MOCK_FAKE_TIME:-false}" = "true" ] && [ "${1:-}" = "+%s" ]; then
+  counter_file="$MOCK_DATA/date.count"
+  n=$(( $(cat "$counter_file" 2>/dev/null || printf '0') + 1 ))
+  printf '%s' "$n" > "$counter_file"
+  printf '%s\n' "$((1000 + n * 4))"
+  exit 0
+fi
+exec /bin/date "$@"
+EOF
+chmod +x "$MOCK_BIN/date"
 
 export PATH="$MOCK_BIN:$PATH"
 export MOCK_DOCKER_LOG="$MOCK_LOG"
@@ -357,6 +405,22 @@ grep -q '^CREATE TABLE public\.users ' "$TEMP_DIR/unpack/database.sql" || fail "
 grep -q 'exec pg_dump ' "$MOCK_LOG" || fail "backup did not call pg_dump"
 grep -q '^compose up -d --wait postgres$' "$MOCK_LOG" || fail "backup did not wait for postgres to be healthy"
 case_ok "C1 备份=单一加密归档（库+附件+扩展+清单，0600，无临时残留）"
+
+# --- C1b 独立跑备份（不经 deploy.sh）：--wait 失败但库随后就绪 → 继续 --------
+# deploy.sh 的两条调用路径都会先 wait，所以这条冷机路径以前只在「有人直接跑
+# backup-postgres.sh」时才踩到；它不该硬失败，也不该静默。
+reset_log
+if ! (cd "$TEST_ROOT" && MOCK_UP_FAIL=true MOCK_PG_READY_FAIL_TIMES=1 \
+  SFORUM_DB_READY_INTERVAL_SECONDS=0 \
+  SFORUM_BACKUP_DIR="$TEMP_DIR/backups-cold" ./deploy/scripts/backup-postgres.sh \
+  >"$TEMP_DIR/cold-backup.out" 2>"$TEMP_DIR/cold-backup.err"); then
+  cat "$TEMP_DIR/cold-backup.err" >&2
+  fail "standalone backup aborted when compose up --wait failed although pg_isready then recovered"
+fi
+grep -q '未在 --wait 窗口内就绪' "$TEMP_DIR/cold-backup.err" || \
+  fail "standalone backup did not warn about the failed --wait window"
+[[ -s "$(tail -n 1 "$TEMP_DIR/cold-backup.out")" ]] || fail "standalone cold backup produced no archive"
+case_ok "C1b 独立跑备份：--wait 失败但库随后就绪 → 继续（不硬失败）"
 
 # --- C2 保留策略：份数 N + 天数，消息走 stderr，末行仍是归档路径 -------------
 RETENTION_DIR="$TEMP_DIR/backups-retention"
@@ -505,6 +569,10 @@ if grep -q '：users,roles\|：users,' "$TEMP_DIR/empty-core.err"; then
   fail "empty-core-table warning listed tables that do have rows"
 fi
 grep -q 'exec swap ' "$MOCK_LOG" || fail "empty-core-table restore did not proceed to the swap"
+# 同一份数据被校验两次（切库前 / 切库后），空表告警只能打一次。
+empty_warnings="$(grep -c '警告：核心表为空' "$TEMP_DIR/empty-core.err" || true)"
+[[ "$empty_warnings" == "1" ]] || \
+  fail "empty-core-table warning printed $empty_warnings times, expected exactly once"
 case_ok "C6c 核心表为空：显式 warning，恢复照常完成（不硬失败）"
 
 # --- C7 切库后 API 起不来：自动回滚，旧库不删 ------------------------------
@@ -588,6 +656,42 @@ if grep -q 'exec createdb ' "$MOCK_LOG"; then
   fail "restore created a database although postgres never became ready"
 fi
 case_ok "C9b compose --wait 非零且重试用尽：明确失败、不建库（OPS2-03）"
+
+# --- C9c compose --wait 非零且容器没在跑：真故障，不耗满重试预算 -------------
+# 「慢启动」与「起不来」必须分开：restarting / exited 时再等 attempts × interval
+# 只是把坏镜像拖成几分钟静默等待，而日志里只有一句超时。
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_UP_FAIL=true \
+  MOCK_CONTAINER_STATE=restarting \
+  SFORUM_DB_READY_ATTEMPTS=5 SFORUM_DB_READY_INTERVAL_SECONDS=0 \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >/dev/null 2>"$TEMP_DIR/up-hard-fail.err"); then
+  fail "restore kept retrying although the postgres container never started"
+fi
+grep -q '无法启动（容器状态：restarting）' "$TEMP_DIR/up-hard-fail.err" || \
+  fail "a container that is not running did not produce an explicit startup failure"
+if grep -q 'exec pg_isready ' "$MOCK_LOG"; then
+  fail "restore burned pg_isready retries although the container was restarting"
+fi
+case_ok "C9c compose --wait 失败且容器未运行：立刻失败，不耗满重试预算（OPS2-03）"
+
+# --- C9d 容器 exited：必须报 exited，不能退化成「未创建」---------------------
+# `compose ps` 不带 --all 只列 running 的容器，exited 会被读成空 → 文案变成
+# 「未创建」，把「进程退出了，去看退出码」这条最有用的线索抹掉。
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_UP_FAIL=true \
+  MOCK_CONTAINER_STATE=exited \
+  SFORUM_DB_READY_ATTEMPTS=3 SFORUM_DB_READY_INTERVAL_SECONDS=0 \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >/dev/null 2>"$TEMP_DIR/up-exited.err"); then
+  fail "restore kept going although the postgres container had exited"
+fi
+grep -q '无法启动（容器状态：exited）' "$TEMP_DIR/up-exited.err" || \
+  fail "an exited container was not reported as exited: $(grep -m1 '无法启动' "$TEMP_DIR/up-exited.err")"
+if grep -q 'exec pg_isready ' "$MOCK_LOG"; then
+  fail "restore burned pg_isready retries although the container had exited"
+fi
+case_ok "C9d compose --wait 失败且容器 exited：点名 exited，不退化成「未创建」"
 
 # --- C10 蓝绿拓扑：compose 组合 + 按槽停启 + terminate 只针对已停槽 ----------
 cat > "$TEST_ROOT/.deployrc" <<'RC'
@@ -692,6 +796,42 @@ assert_swap_sql "$TEMP_DIR/expected-no-slot-swap.sql" "$TEMP_DIR/actual-no-slot-
   "$TEMP_DIR/no-slot-swap.diff" "no-slot blue-green swap SQL must not terminate any connection"
 case_ok "C11b 蓝绿无槽在跑：不执行 pg_terminate_backend（残留连接只让改名失败回滚）"
 
+# --- C11c 多槽就绪探测：每个槽各自计时，不共享一个 deadline -----------------
+# 假时钟每次 date +%s 前进 4 秒，timeout=8 → 每个槽两次探测的预算。
+# 共享 deadline 时先探的槽吃掉预算，第二个槽在第一次探测后就被判超时。
+rm -rf "$MOCK_DATA/app/storage/app/attachments/2026"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_FAKE_TIME=true \
+  MOCK_RUNNING_SERVICES=$'edge\napi-blue\napi-green' \
+  MOCK_API_FAILURES_api_blue=1 MOCK_API_FAILURES_api_green=1 \
+  SFORUM_API_READY_TIMEOUT_SECONDS=8 SFORUM_API_READY_INTERVAL_SECONDS=0 \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >"$TEMP_DIR/multi-slot.out" 2>&1); then
+  :
+else
+  tail -n 3 "$TEMP_DIR/multi-slot.out" >&2
+  fail "restore gave the second slot no readiness budget of its own"
+fi
+grep -q 'API ready: api-blue' "$TEMP_DIR/multi-slot.out" || fail "api-blue was never reported ready"
+grep -q 'API ready: api-green' "$TEMP_DIR/multi-slot.out" || \
+  fail "api-green was never reported ready: the second slot inherited a drained deadline"
+case_ok "C11c 多槽就绪：api-blue 用掉自己的预算后 api-green 仍有完整预算"
+
+# --- C11d 蓝绿声明但单拓扑服务在跑：同样停手（守卫要对称）-------------------
+# 只防「声明 single 实跑槽」时，反向不一致会走完整条恢复链才在改名处失败。
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >/dev/null 2>"$TEMP_DIR/reverse-topology.err"); then
+  fail "restore accepted blue-green topology while the single-topology api service was running"
+fi
+grep -q '检测到单拓扑服务正在运行（api）' "$TEMP_DIR/reverse-topology.err" || \
+  fail "reverse topology mismatch did not explain the problem"
+if grep -q '^compose stop \|exec createdb ' "$MOCK_LOG"; then
+  fail "reverse topology mismatch touched services or the database before aborting"
+fi
+case_ok "C11d 拓扑守卫对称：声明 blue-green 而实跑 api 时同样在动手前停手"
+
 # --- C12 .deployrc 非法值：abort，不猜默认 ----------------------------------
 printf '%s\n' 'topology=dual-write' > "$TEST_ROOT/.deployrc"
 reset_log
@@ -794,12 +934,53 @@ if grep -q '^compose start .*worker' "$MOCK_LOG"; then
 fi
 case_ok "C17 灌库失败：临时库清理、不切库、API 重新拉起"
 
+# --- C17b 卷恢复校验：条目齐但大小不符 → 拒绝并回滚 -------------------------
+# 只比条目名会放过「写了一半 / 截断」，而那正是卷恢复最真实的失败形态。
+rm -rf "$MOCK_DATA/app/storage/app/attachments/2026"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  MOCK_TAMPER_AFTER_EXTRACT=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >/dev/null 2>"$TEMP_DIR/tampered.err"); then
+  fail "restore accepted a volume whose restored file size no longer matched the archive"
+fi
+grep -q '大小不符' "$TEMP_DIR/tampered.err" || fail "size mismatch was not reported explicitly"
+grep -q '卷内容校验失败' "$TEMP_DIR/tampered.err" || fail "tampered volume did not fail the content check"
+grep -q '已回滚' "$TEMP_DIR/tampered.err" || fail "tampered volume did not trigger the rollback path"
+case_ok "C17b 卷内容校验：条目齐但大小不符 → 拒绝并回滚（不只看条目名）"
+
+# --- C17c 崩溃残留：retention 清理陈旧的 .sforum-backup-* 工作目录 -----------
+# SIGKILL 不走 EXIT trap，备份目录里会留下 700 目录 + 600 明文 database.sql；
+# retention 原本只扫归档文件，这些目录会一直躺在盘上。
+CRASH_DIR="$TEMP_DIR/backups-crash"
+mkdir -p "$CRASH_DIR/.sforum-backup-20200101T000000Z.ABCDEF"
+printf 'plaintext dump\n' > "$CRASH_DIR/.sforum-backup-20200101T000000Z.ABCDEF/database.sql"
+touch -d '3 days ago' "$CRASH_DIR/.sforum-backup-20200101T000000Z.ABCDEF"
+mkdir -p "$CRASH_DIR/.sforum-backup-20261116T000000Z.LIVE01"
+printf 'in-flight\n' > "$CRASH_DIR/.sforum-backup-20261116T000000Z.LIVE01/database.sql"
+reset_log
+(cd "$TEST_ROOT" && SFORUM_BACKUP_DIR="$CRASH_DIR" ./deploy/scripts/backup-postgres.sh \
+  >/dev/null 2>"$TEMP_DIR/crash-sweep.err")
+[[ ! -e "$CRASH_DIR/.sforum-backup-20200101T000000Z.ABCDEF" ]] || \
+  fail "stale crash work directory survived retention"
+[[ -d "$CRASH_DIR/.sforum-backup-20261116T000000Z.LIVE01" ]] || \
+  fail "retention deleted a work directory that could belong to a running backup"
+grep -q 'removed stale work directory' "$TEMP_DIR/crash-sweep.err" || \
+  fail "stale work directory removal was not reported"
+case_ok "C17c 崩溃残留：陈旧工作目录被 retention 清理，在飞的不动"
+
 # --- C18 deploy.sh 侧的既有契约不变 ----------------------------------------
 grep -qF "wait-for-health.sh \"http://127.0.0.1:\${api_port}/api/v1/ready\"" "$ROOT_DIR/deploy.sh" || \
   fail "deploy does not wait for API readiness"
 grep -qF "wait-for-health.sh \"http://127.0.0.1:\${web_port}/health\"" "$ROOT_DIR/deploy.sh" || \
   fail "deploy does not wait for Web readiness"
 grep -q 'chmod 600 .env.production' "$ROOT_DIR/deploy.sh" || fail "deploy does not protect production configuration"
+# 探针三态必须被 deploy.sh 消费：恢复态写 reason=recovery_only，超时写 health_failed。
+# 两者都仍是 status=recovery_required，区别只在「运维下一步做什么」。
+grep -qF 'verify_deployment_health "$backup_file" "$previous_version"' "$ROOT_DIR/deploy.sh" || \
+  fail "deploy does not route the probe status into the recovery reason"
+grep -qF 'persist_recovery_state recovery_only' "$ROOT_DIR/deploy.sh" || \
+  fail "deploy does not record the recovery-only reason"
 case_ok "C18 deploy.sh 侧既有契约（健康探测、.env 权限）保持"
 
 printf '\npostgres-safety_test.sh: all checks passed (%s cases)\n' "${#CHECK_NAMES[@]}"

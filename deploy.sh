@@ -274,6 +274,7 @@ t() {
       starting_app) echo "Starting SForum from release images..." ;;
       verifying) echo "Checking API, Web, and all managed services..." ;;
       recovery_required) echo "Deployment did not complete after the old app stopped. Services were not declared healthy; inspect .deployrc and Docker logs before retrying." ;;
+      recovery_only) echo "The new API booted into recovery-only mode: only /health and /ready answer, every other path returns 503. This is not a slow start; fix the artifact named in the recovery block, then run 'sforum extension recovery recheck'." ;;
       version) echo "Release version" ;;
       install_dir) echo "Install directory:" ;;
       config_file) echo "Configuration file:" ;;
@@ -329,6 +330,7 @@ t() {
       starting_app) echo "正在从发布镜像启动 SForum..." ;;
       verifying) echo "正在检查 API、Web 和全部内置服务..." ;;
       recovery_required) echo "旧应用停止后部署未能完成。当前服务未被声明为健康；重试前请检查 .deployrc 和 Docker 日志。" ;;
+      recovery_only) echo "新 API 进入了恢复态：只放行 /health 与 /ready，其余路径一律 503。这不是启动慢；先修好恢复块里点名的制品，再执行 sforum extension recovery recheck。" ;;
       version) echo "发布版本" ;;
       install_dir) echo "安装目录：" ;;
       config_file) echo "配置文件：" ;;
@@ -634,13 +636,53 @@ run_migrations_command() {
   "${COMPOSE[@]}" run --rm -T --pull never migrate
 }
 
+# 备份密钥来源：shell 环境 > .env.production。两条都要支持 —— backup-postgres.sh
+# 只读进程环境，而运维既会 export（文档写法）也会写进 .env.production（模板里给了
+# 注释块）；只认前者，模板就成了陷阱。空值等同未设置（脚本按 -n 判定），所以缺 key
+# 时行为与直接调用完全一致：硬失败，不写明文。
+run_database_backup() {
+  SFORUM_BACKUP_KEY_FILE="${SFORUM_BACKUP_KEY_FILE:-$(env_file_value .env.production SFORUM_BACKUP_KEY_FILE)}" \
+  SFORUM_BACKUP_KEY="${SFORUM_BACKUP_KEY:-$(env_file_value .env.production SFORUM_BACKUP_KEY)}" \
+    ./deploy/scripts/backup-postgres.sh
+}
+
+# 返回值与 deploy/scripts/wait-for-health.sh 的三态一致：0 就绪 / 3 恢复态 / 1 超时。
+# 3 必须原样上抛，不能折成 1：恢复态是终态（Host 只放行 /health 与 /ready，等下去
+# 不会变好，要人工跑 recovery recheck），超时是「再看日志」。把两者折成一个
+# health_failed，等于让运维在 120 秒后去猜是哪一种。
 wait_for_deployment() {
-  local api_port web_port timeout_seconds
+  local api_port web_port timeout_seconds status=0
   api_port="$(env_file_value .env.production API_PORT 18080)"
   web_port="$(env_file_value .env.production WEB_PORT 3000)"
   timeout_seconds="${SFORUM_DEPLOY_HEALTH_TIMEOUT_SECONDS:-120}"
-  ./deploy/scripts/wait-for-health.sh "http://127.0.0.1:${api_port}/api/v1/ready" "$timeout_seconds" || return 1
-  ./deploy/scripts/wait-for-health.sh "http://127.0.0.1:${web_port}/health" "$timeout_seconds" || return 1
+  ./deploy/scripts/wait-for-health.sh "http://127.0.0.1:${api_port}/api/v1/ready" "$timeout_seconds" || status=$?
+  [ "$status" -eq 0 ] || return "$status"
+  ./deploy/scripts/wait-for-health.sh "http://127.0.0.1:${web_port}/health" "$timeout_seconds" || status=$?
+  [ "$status" -eq 0 ] || return "$status"
+  return 0
+}
+
+# 健康判定的终态落盘：0 通过；3 = 恢复态（reason=recovery_only）；其余 = 超时
+# （reason=health_failed）。两种失败都写 status=recovery_required —— 服务确实没被
+# 声明为健康，语义不变 —— 区别只在「运维下一步做什么」：恢复态要跑 recovery
+# recheck，超时看日志。
+verify_deployment_health() {
+  local backup_file="$1"
+  local previous_version="$2"
+  local status=0
+
+  wait_for_deployment || status=$?
+  if [ "$status" -eq 0 ] && ! verify_services_running; then status=1; fi
+  if [ "$status" -eq 0 ] && ! verify_services_stable; then status=1; fi
+  [ "$status" -ne 0 ] || return 0
+  if [ "$status" -eq 3 ]; then
+    persist_recovery_state recovery_only "$backup_file" "$previous_version"
+    t recovery_only >&2
+  else
+    persist_recovery_state health_failed "$backup_file" "$previous_version"
+    t recovery_required >&2
+  fi
+  return 1
 }
 
 verify_services_running() {
@@ -776,7 +818,7 @@ deploy_update() {
 
   if database_has_installation; then
     t backup_first
-    backup_output="$(./deploy/scripts/backup-postgres.sh)"
+    backup_output="$(run_database_backup)"
     printf '%s\n' "$backup_output"
     backup_file="$(tail -n 1 <<< "$backup_output")"
   else
@@ -815,9 +857,7 @@ deploy_update() {
   fi
 
   t verifying
-  if ! wait_for_deployment || ! verify_services_running || ! verify_services_stable; then
-    persist_recovery_state health_failed "$backup_file" "$previous_version"
-    t recovery_required >&2
+  if ! verify_deployment_health "$backup_file" "$previous_version"; then
     "${COMPOSE[@]}" ps >&2 || true
     return 1
   fi
@@ -833,7 +873,7 @@ create_backup() {
   acquire_deploy_lock backup
   preflight
   "${COMPOSE[@]}" up -d --wait postgres
-  ./deploy/scripts/backup-postgres.sh
+  run_database_backup
   release_deploy_lock
 }
 
@@ -856,10 +896,19 @@ restore_backup() {
 show_status() { preflight false advisory; print_install_location; "${COMPOSE[@]}" ps; }
 show_logs() { preflight false advisory; "${COMPOSE[@]}" logs -f --tail=200; }
 restart_services() {
+  local status=0
   acquire_deploy_lock restart
   preflight true
   "${COMPOSE[@]}" restart
-  wait_for_deployment
+  # restart 不写 .deployrc（它没动过版本），但恢复态必须点名：否则「重启后站点
+  # 还是 503」会被当成重启没生效。
+  wait_for_deployment || {
+    status=$?
+    if [ "$status" -eq 3 ]; then
+      die "$(t recovery_only)"
+    fi
+    exit "$status"
+  }
   verify_services_running
   "${COMPOSE[@]}" ps
   print_install_location

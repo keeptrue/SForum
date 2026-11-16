@@ -14,6 +14,8 @@ on:
       - .github/workflows/ci.yml
       - scripts/release_test.sh
       - scripts/ci/**
+      # shellcheck 版本 pin：lint-shell.sh 会读它做版本断言，改它必须重跑门。
+      - scripts/shellcheck-version.txt
       - deploy/**
       # 根级发布/部署脚本：gate 里跑着 deploy_test.sh、upgrade-health-probe_test.sh、
       # install-loader_test.sh、bootstrap_test.sh，scripts/ci/lint-shell.sh 也会
@@ -66,6 +68,8 @@ on:
       - .github/workflows/ci.yml
       - scripts/release_test.sh
       - scripts/ci/**
+      # shellcheck 版本 pin：lint-shell.sh 会读它做版本断言，改它必须重跑门。
+      - scripts/shellcheck-version.txt
       - deploy/**
       # 根级发布/部署脚本：gate 里跑着 deploy_test.sh、upgrade-health-probe_test.sh、
       # install-loader_test.sh、bootstrap_test.sh，scripts/ci/lint-shell.sh 也会
@@ -119,6 +123,30 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 版本钉死：runner 自带的 shellcheck 版本漂移会让「没人改代码，门突然红」
+      # （scripts/ci/shellcheck-baseline.txt 对诊断集合敏感）。这里在跑门之前先比对
+      # pin，不一致就红，并要求在评审过的提交里抬 scripts/shellcheck-version.txt。
+      # lint-shell.sh 自己也会断言同一条 —— 这里多一层是为了让失败出现在「装工具链」
+      # 这一步，而不是混在 shell 语法诊断里。
+      - name: Assert the pinned shellcheck version
+        run: |
+          set -euo pipefail
+          pinned="$(sed -n 's/^version=//p' scripts/shellcheck-version.txt | tail -n 1)"
+          if [ -z "$pinned" ]; then
+            echo "::error::scripts/shellcheck-version.txt has no version= line"
+            exit 1
+          fi
+          if ! command -v shellcheck >/dev/null 2>&1; then
+            echo "::error::the runner image has no shellcheck; the lint gate would fail closed anyway"
+            exit 1
+          fi
+          actual="$(shellcheck --version | sed -n 's/^version:[[:space:]]*//p' | head -n 1)"
+          if [ "$actual" != "$pinned" ]; then
+            echo "::error::shellcheck pin=$pinned but the runner has ${actual:-unknown}. Bump scripts/shellcheck-version.txt in a reviewed change (and re-baseline if the new version reports different diagnostics)."
+            exit 1
+          fi
+          echo "shellcheck $actual matches the pin"
 
       # 与 deploy.sh / upgrade.sh / sforum-*.sh 的 shellcheck 门禁同一入口
       # （scripts/ci/lint-shell.sh，仓库根执行，退出码 0=通过）。放在最前面，

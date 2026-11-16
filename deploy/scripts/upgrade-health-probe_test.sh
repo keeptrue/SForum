@@ -47,6 +47,11 @@ fake_compose() {
         printf 'service "api-blue" is not running\n' >&2
         return 1
       fi
+      # 恢复态：/ready 答 5xx，body 里带 recovery 块。探针必须据此立刻停手。
+      if [ "$PROBE_RECOVERY" = true ]; then
+        printf '%s\n' '{"status":"not_ready","ready":false,"components":[],"recovery":{"code":"plugin_runtime_convergence_failed","component":"extensionRuntime","message":"plugin runtime genesis failed"}}'
+        return 1
+      fi
       remaining="$(cat "$FAILURES_FILE" 2>/dev/null || printf '0')"
       if [ "$remaining" -gt 0 ]; then
         printf '%s\n' "$((remaining - 1))" > "$FAILURES_FILE"
@@ -64,6 +69,7 @@ reset_probe() {
   : > "$LOG_FILE"
   printf '0\n' > "$FAILURES_FILE"
   EXEC_FAILURE=false
+  PROBE_RECOVERY=false
 }
 
 # 1) 快路径：首次探测通过时不写任何输出，也不该把 stderr 弄脏。
@@ -122,5 +128,75 @@ fi
 assert_contains "$TEMP_DIR/heartbeat.err" "仍在启动"
 assert_contains "$TEMP_DIR/heartbeat.out" "已就绪"
 assert_not_contains "$TEMP_DIR/heartbeat.err" "wget: can't connect"
+
+# 6) 恢复态：探针拿到 recovery 块 → 立刻返回 3，不再烧超时预算。
+# 这一步必须在当前 shell 里跑（不加子 shell），否则 SLOT_HEALTH_RECOVERY_REASON
+# 随子 shell 消失，也就测不到「原因有没有被传出去」。
+reset_probe
+PROBE_RECOVERY=true
+status=0
+wait_inside_slot blue > "$TEMP_DIR/recovery.out" 2> "$TEMP_DIR/recovery.err" || status=$?
+PROBE_RECOVERY=false
+[[ "$status" == "3" ]] || fail "recovery-only was not reported as a distinct terminal state (got $status)"
+[[ "$SLOT_HEALTH_RECOVERY_REASON" == "plugin_runtime_convergence_failed" ]] || \
+  fail "recovery code was not extracted from the probe body: '$SLOT_HEALTH_RECOVERY_REASON'"
+recovery_probes="$(grep -c 'exec -T api-blue' "$LOG_FILE")"
+[[ "$recovery_probes" == "1" ]] || \
+  fail "recovery-only kept probing after the first answer (saw $recovery_probes probes)"
+
+# 7) 恢复态的失败说明：点名 code 与人工动作，而不是笼统的「健康检查失败」。
+status=0
+( slot_health_failure_die "fallback text" ) > "$TEMP_DIR/die.out" 2> "$TEMP_DIR/die.err" || status=$?
+[[ "$status" == "1" ]] || fail "slot_health_failure_die did not exit non-zero"
+assert_contains "$TEMP_DIR/die.err" "恢复态"
+assert_contains "$TEMP_DIR/die.err" "sforum extension recovery recheck"
+assert_not_contains "$TEMP_DIR/die.err" "fallback text"
+
+# 8) 宿主侧 wait-for-health.sh：三态契约必须与槽位探针同一判据。
+health_script="$ROOT_DIR/deploy/scripts/wait-for-health.sh"
+mkdir -p "$TEMP_DIR/bin"
+cat > "$TEMP_DIR/bin/curl" <<'CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+out=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -w|--max-time) shift 2 ;;
+    -sS|-s|-f) shift ;;
+    *) shift ;;
+  esac
+done
+printf '%s' "${CURL_BODY:-}" > "$out"
+printf '%s' "${CURL_STATUS:-200}"
+exit 0
+CURL
+chmod +x "$TEMP_DIR/bin/curl"
+
+status=0
+( export PATH="$TEMP_DIR/bin:$PATH" CURL_STATUS=200 CURL_BODY='{"status":"ready","ready":true}'; \
+  "$health_script" http://127.0.0.1:18080/api/v1/ready 5 ) >/dev/null 2>&1 || status=$?
+[[ "$status" == "0" ]] || fail "a 200 readiness response was not accepted (got $status)"
+
+status=0
+( export PATH="$TEMP_DIR/bin:$PATH" CURL_STATUS=503 \
+    CURL_BODY='{"status":"not_ready","ready":false,"components":[],"recovery":{"code":"plugin_runtime_convergence_failed","component":"extensionRuntime","message":"x"}}'; \
+  "$health_script" http://127.0.0.1:18080/api/v1/ready 5 ) \
+  > "$TEMP_DIR/health-recovery.out" 2> "$TEMP_DIR/health-recovery.err" || status=$?
+[[ "$status" == "3" ]] || fail "recovery-only readiness did not exit 3 (got $status)"
+assert_contains "$TEMP_DIR/health-recovery.err" "recovery recheck"
+
+# 依赖未就绪也答 503，但没有 recovery 块 —— 那是瞬态，必须继续等到超时。
+status=0
+( export PATH="$TEMP_DIR/bin:$PATH" CURL_STATUS=503 CURL_BODY='{"status":"not_ready","ready":false,"components":[]}'; \
+  "$health_script" http://127.0.0.1:18080/api/v1/ready 1 ) >/dev/null 2>&1 || status=$?
+[[ "$status" == "1" ]] || fail "a dependency-not-ready 503 stopped waiting (got $status)"
+
+# 负例：/health 的 "recoveryRequired" 字段不是 recovery 块，不能被当成恢复态。
+status=0
+( export PATH="$TEMP_DIR/bin:$PATH" CURL_STATUS=503 CURL_BODY='{"status":"ok","recoveryRequired":false}'; \
+  "$health_script" http://127.0.0.1:18080/api/v1/ready 1 ) >/dev/null 2>&1 || status=$?
+[[ "$status" == "1" ]] || \
+  fail "the /health recoveryRequired field was mistaken for a recovery block (got $status)"
 
 printf 'upgrade-health-probe_test.sh: all checks passed\n'

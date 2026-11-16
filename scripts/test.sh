@@ -57,6 +57,10 @@ run_static_line() {
   # inside contracts-gate.sh).
   # node tests/validate-host-api-v2-docs.mjs
   node tests/validate-runtime-tzdata.mjs
+  # bun audit 棘轮门的逻辑自检：7 个场景（无新增绿 / 新增红 / 基线失效红 /
+  # 严重度变化红 / 未播种两态 / 空报告红 / --refresh 播种）全部用内联夹具跑，
+  # 不联网。真正的扫描与基线比对在 Security workflow 的 web-audit 里。
+  node scripts/bun-audit-gate.mjs --self-test
 }
 
 LINES=(api web static)

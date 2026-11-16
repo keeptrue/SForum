@@ -62,7 +62,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"${SFORUM_COMPOSE[@]}" up -d --wait postgres
+# 冷机直接跑这个脚本（不是经 deploy.sh）时，postgres 可能还没起。慢启动降级成
+# warning 交给 pg_isready 重试；容器没在跑是真故障，立刻失败。
+sforum_start_postgres
 sforum_wait_for_postgres "$POSTGRES_DB"
 
 echo "Creating PostgreSQL backup: $ARCHIVE"

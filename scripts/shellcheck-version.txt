@@ -1,0 +1,14 @@
+# shellcheck 版本钉死：CI 与本地必须跑同一个版本。
+#
+# 为什么钉：scripts/ci/shellcheck-baseline.txt 是版本敏感的 —— 新版可能新增诊断，
+# runner 镜像漂移会表现为「没人改代码，门突然红」，而红的原因藏在工具链里。
+# 钉住之后，升级是一个显式的、评审里看得见的动作（改这个文件 + 必要时改基线）。
+#
+# 消费方两处，必须同时成立：
+#   1. scripts/ci/lint-shell.sh —— 任何一次门禁运行（含本地）都断言本地二进制版本；
+#   2. .github/workflows/release-tooling.yml —— 在跑门之前断言 runner 自带版本。
+#
+# 复位条件：将来若改成在 CI 里下载 release tarball 而不是用 runner 自带的二进制，
+# 在这里补一行 sha256（tarball 的官方校验和），并让 lint-shell.sh 校验它。
+# 在那之前不写哈希：拿不到校验和的哈希等于给自己一个假锚点。
+version=0.10.0

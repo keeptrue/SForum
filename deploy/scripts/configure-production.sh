@@ -123,6 +123,8 @@ t() {
       invalid_port) printf '%s' "Ports must be different integers from 1 to 65535." ;;
       invalid_admin_prefix) printf '%s' "Admin route prefix must be a safe URL path such as /control-panel or /staff-admin." ;;
       client_ip) printf '%s' "Client IP: trusting private-network peers (host and Compose network), not loopback. Put any CDN egress ranges into TRUSTED_PROXIES; TRUST_PROXY=false turns header trust off." ;;
+      backup_key) printf '%s' "Backup encryption key: the first update or upgrade takes an encrypted backup first and fails without a key. Create one now and point SFORUM_BACKUP_KEY_FILE at it (mode 0600), or export the same variable before running deploy.sh. Keep the key off the disk that holds the backups." ;;
+      backup_key_command) printf '%s' "  install -m 600 /dev/null /etc/sforum/backup.key && openssl rand -base64 32 > /etc/sforum/backup.key" ;;
     esac
   else
     case "$key" in
@@ -141,6 +143,8 @@ t() {
       invalid_port) printf '%s' "两个端口必须不同，且都是 1 到 65535 之间的整数。" ;;
       invalid_admin_prefix) printf '%s' "管理后台路径前缀必须是安全的 URL 路径，例如 /control-panel 或 /staff-admin。" ;;
       client_ip) printf '%s' "真实客户端 IP：信任私网对端（宿主机与 Compose 网络），不信任 loopback。前面有 CDN 时把出口段写进 TRUSTED_PROXIES；TRUST_PROXY=false 可整体关掉转发头采信。" ;;
+      backup_key) printf '%s' "备份加密口令：第一次 update / upgrade 会先做加密备份，缺密钥直接失败。现在就建一个，并把 SFORUM_BACKUP_KEY_FILE 指向它（权限 0600）；或在执行 deploy.sh 前 export 同名变量。密钥不要与备份归档放在同一块盘上。" ;;
+      backup_key_command) printf '%s' "  install -m 600 /dev/null /etc/sforum/backup.key && openssl rand -base64 32 > /etc/sforum/backup.key" ;;
     esac
   fi
 }
@@ -318,3 +322,5 @@ trap - EXIT HUP INT TERM
 printf '%s %s\n' "$(t written)" "$OUTPUT_PATH"
 printf '%s\n' "$(t client_ip)"
 printf '%s\n' "$(t managed)"
+printf '\n%s\n' "$(t backup_key)"
+printf '%s\n' "$(t backup_key_command)"

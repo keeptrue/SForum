@@ -131,70 +131,37 @@ jobs:
       # 范围取 `--prod`：CI 关心的是会进发布物的生产依赖，devDependencies 的 advisory
       # 不该用同一个信号去噪。
       #
-      # 本步先只证明「扫描能跑通并产出 advisory 数据」（这正是 OPS2-09 缺的能力）。
-      # 严重度不设门禁：当前 lockfile 的基线是 31 个包 / 90 行 advisory（78 条按
-      # url 去重；critical 5 / high 44 / moderate 27 / low 14 是**行**计数）。
-      # 测量口径：2026-11-15 本机 bun 1.4.2；本 workflow 钉的是 1.4.4。advisory
-      # 集合来自 bun.lock，与 bun 版本无关，但行/去重的计数口径以测量版本为准。
-      # 落地当天就按 severity 卡门禁 = 从第一天起恒红，和 validate-v3-p0-catalogs.mjs
-      # 里被删掉的 `=== 370` 是同一类债。等 apps/web 清完基线，把 SEVERITY_GATE 改成
-      # fail 即可（门禁逻辑已经写好，只差一个开关）。
+      # 判据是**棘轮**，不是严重度开关：scripts/bun-audit-gate.mjs 拿本次报告与
+      # scripts/bun-audit-baseline.json 比，只有「新增 advisory / 基线失效 / 严重度变化」
+      # 才红。按严重度卡门禁等于从第一天起恒红（既存债），然后所有人学会忽略这个 job。
+      # 基线必须由一次联网扫描播种（`--refresh`），不许凭计数伪造。
       - name: Audit production dependencies
         working-directory: apps/web
-        env:
-          SEVERITY_GATE: report
         run: |
           set -euo pipefail
           status=0
           bun audit --prod --registry https://registry.npmjs.org --json > audit.json 2> audit.err || status=$?
           # bun audit 的退出码 1 同时表示「扫到了 advisory」和「扫描失败（404 等）」，
           # 所以不能只看退出码。扫描失败时 stdout 是空的，这是可判定的分界。
+          # 「无 advisory」时 bun 也不输出字节，这里补成 {} —— 门禁因此只见到合法
+          # 空报告，而真正的扫描失败仍在下面被非零退出拦住。
           if [ ! -s audit.json ]; then
             if [ "$status" -eq 0 ]; then
-              echo "bun audit: 生产依赖无 advisory"
-              exit 0
+              printf '{}' > audit.json
+            else
+              echo "::error::bun audit 无法完成扫描（退出码 $status）：$(head -3 audit.err)"
+              exit 1
             fi
-            echo "::error::bun audit 无法完成扫描（退出码 $status）：$(head -3 audit.err)"
-            exit 1
           fi
-          node - <<'NODE'
-          const { readFileSync, appendFileSync } = require('node:fs')
-          const report = JSON.parse(readFileSync('audit.json', 'utf8'))
-          const counts = { critical: 0, high: 0, moderate: 0, low: 0 }
-          // 同一条 advisory 会按每个受影响版本各出现一次（brace-expansion 之类），
-          // 这里按 url 去重，否则 PR 上会被同一条 GHSA 刷屏几十行。
-          const unique = new Map()
-          for (const [name, entries] of Object.entries(report)) {
-            for (const advisory of entries) {
-              counts[advisory.severity] = (counts[advisory.severity] ?? 0) + 1
-              const existing = unique.get(advisory.url)
-              if (existing) existing.packages.add(name)
-              else unique.set(advisory.url, { severity: advisory.severity, url: advisory.url, title: advisory.title, packages: new Set([name]) })
-            }
-          }
-          const total = Object.values(counts).reduce((sum, value) => sum + value, 0)
-          const summary = `critical ${counts.critical} / high ${counts.high} / moderate ${counts.moderate} / low ${counts.low}`
-          console.log(`bun audit: 生产依赖 ${unique.size} 条去重 advisory / ${total} 行（${summary}，行计数）`)
-          const lines = [
-            `## bun audit (production dependencies)`,
-            '',
-            `Total: **${unique.size} unique advisories** across ${total} package-version rows — ${summary} (per row)`,
-            ''
-          ]
-          const ordered = [...unique.values()].sort((a, b) => a.severity.localeCompare(b.severity))
-          for (const advisory of ordered) {
-            lines.push(`- \`${advisory.severity}\` ${[...advisory.packages].sort().join(', ')} — [${advisory.title}](${advisory.url})`)
-          }
-          if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`)
-          // 注解只发 critical/high 的前 10 条：GitHub 的注解展示本来就有上限，
-          // 全量在 job summary 里。
-          const actionable = ordered.filter(advisory => advisory.severity === 'critical' || advisory.severity === 'high')
-          for (const advisory of actionable.slice(0, 10)) {
-            console.log(`::warning::${advisory.severity} ${[...advisory.packages].sort().join(', ')}: ${advisory.title} (${advisory.url})`)
-          }
-          if (actionable.length > 10) console.log(`::notice::另有 ${actionable.length - 10} 条 critical/high advisory，完整清单见 job summary`)
-          if (process.env.SEVERITY_GATE === 'fail' && counts.critical + counts.high > 0) {
-            console.log(`::error::bun audit 门禁：critical+high = ${counts.critical + counts.high}，基线未清`)
-            process.exit(1)
-          }
-          NODE
+
+      # 未播种在 CI 里是硬失败（--unseeded-policy=fail）：本地默认 notice 便于先跑
+      # 起来，但流水线不能「因为没基线所以永远绿」。
+      - name: Check the audit report against the ratchet baseline
+        run: |
+          node scripts/bun-audit-gate.mjs \
+            --report apps/web/audit.json \
+            --baseline scripts/bun-audit-baseline.json \
+            --unseeded-policy=fail \
+            --annotate \
+            --summary "${GITHUB_STEP_SUMMARY}"
+
