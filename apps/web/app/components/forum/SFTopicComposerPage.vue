@@ -148,7 +148,7 @@ const {
   handleVerified: onPostRiskVerified,
   handleStateChange: onPostRiskStateChange,
   reset: resetPostRisk,
-  payload: postRiskPayload,
+  field: postRiskField,
   capture: capturePostRisk,
   settle: settlePostRisk
 } = usePostRiskVerification()
@@ -444,7 +444,8 @@ async function submit(payload?: Pick<SFEditorContentPayload, 'markdown' | 'nativ
       categorySlug: selectedCategorySlug.value || undefined,
       tagSlugs: tagDraft.value.length ? tagDraft.value : undefined,
       ...content,
-      humanVerification: postRiskPayload()
+      // 开关关闭时 postRiskField() 是空对象：请求体里连 humanVerification 键都没有。
+      ...postRiskField()
     })
     settlePostRisk()
     submitState.value = 'success'

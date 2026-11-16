@@ -71,6 +71,21 @@ export function withHumanVerification<T extends Record<string, unknown>>(
   return humanVerification ? { ...body, humanVerification } : body
 }
 
+/**
+ * 可直接展开进请求体的字段片段：开关关闭时是**空对象**，键根本不存在。
+ *
+ * 与 `postRiskVerificationPayload` 的分工：那个返回 `undefined`（供 API 层判断要不要挂字段），
+ * 这个给调用点用 `...postRiskField()` 展开——这样连中间 DTO 里都不会出现
+ * `humanVerification: undefined`，请求体「没有这个键」在每一层都成立。
+ */
+export function postRiskVerificationField(
+  enabled: boolean,
+  token: string
+): { humanVerification?: ForumHumanVerificationInput } {
+  const payload = postRiskVerificationPayload(enabled, token)
+  return payload ? { humanVerification: payload } : {}
+}
+
 export type PostRiskVerificationDeps = {
   /** 运营是否开启该场景（provider=altcha 且 `human_verification.scenarios.post_risk`）。 */
   scenarioEnabled: MaybeRefOrGetter<boolean>
@@ -122,6 +137,11 @@ export function createPostRiskVerification(deps: PostRiskVerificationDeps) {
     return postRiskVerificationPayload(enabled.value, token.value)
   }
 
+  /** 请求体片段（可展开）：开关关闭时是空对象，调用点不会留下半截键。 */
+  function field() {
+    return postRiskVerificationField(enabled.value, token.value)
+  }
+
   /**
    * 接管人机验证失败：返回 true 表示错误已由本模块呈现（调用方不要再叠加通用提示）。
    *
@@ -169,6 +189,7 @@ export function createPostRiskVerification(deps: PostRiskVerificationDeps) {
     handleStateChange,
     reset,
     payload,
+    field,
     capture,
     settle,
     dismissMessage

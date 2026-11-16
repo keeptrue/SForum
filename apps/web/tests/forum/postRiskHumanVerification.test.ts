@@ -385,7 +385,7 @@ describe('post_risk 接线契约（发帖页与高级回复抽屉）', () => {
     expect(composerPage).toContain('usePostRiskVerification()')
     expect(composerPage).toContain('v-if="postRiskEnabled"')
     expect(composerPage).toContain('aria-labelledby="topic-composer-human-verification-label"')
-    expect(composerPage).toContain('humanVerification: postRiskPayload()')
+    expect(composerPage).toContain('...postRiskField()')
     expect(composerPage).toContain('if (capturePostRisk(error))')
     expect(composerPage).toContain('settlePostRisk()')
   })
