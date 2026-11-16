@@ -1,12 +1,12 @@
 # 2026-11-16 安全审计 31 条修复台账
 
-- **状态**：active（2026-11-16 晚更新：批次 1 完成并提交；批次 3 前端 / 运维完成；批次 2 已修 1 条、在办 4 条；批次 3 后端 7 条待派）
+- **状态**：active（2026-11-17 凌晨更新：批次 1 / 2 / 3 全部完成并提交；31 条里已修 22 / 不修 5 / 延后 2 / 转跟进 2。剩余工作见「新增跟进项」F-3 ~ F-8）
 - **来源报告**：`~/Code/bug/SForum/2026-11-15_16-43.md`（31 条独立发现：P0 = 0 / P1 = 2 / P2 = 7 / P3 = 22）
 - **核实基线**：commit `e0ec3bce6`（`git rev-parse --short HEAD`，2026-11-16；核实期间工作树干净）
 - **进展基线**：commit `39fb04e3e`（台账状态以此为准；其后若有新提交，按「当前状态」列自行补行）
 - **核实方法**：逐行代码验证 + 3 路只读核查代理（三个时间点独立重验同一批断言；核查代理只读，不改仓库）
 - **核实结论**：属实 19 / 部分属实 7 / 不属实 5
-- **实施结论**：已修 15 / 在办 4 / 待派 8 / 不修 2 / 延后 2 = 31
+- **实施结论**：已修 22 / 不修 5 / 延后 2 / 转跟进 2 = 31（2026-11-17 凌晨口径；批次 3 后端 7 条与本轮基线回归一并收口）
 - **与主审计档的关系**：本批与 `~/Code/bug/SForum/00-SForum-audit-master.md` 零重叠。主审计线已「收口 15 轮」，但这 31 条没有任何台账跟踪——**本文件是这批发现唯一的跟踪记录**。
 
 > 本台账只记录核实结论、批次与关闭条件，不重述报告全文。动手改任何一条前，先读报告对应小节（机制、证据行号、修复建议都在那里）。
@@ -36,16 +36,16 @@
 | P2-5 | 主题生命周期计数多路径口径不一致（locked 双计 / 漏计 / 永久少计） | 属实 | 在办 · task-12（backend） | 2 | 「锁帖 → 作者编辑触发预审 → 审核通过」与「删除 locked 帖」后 `ListTopics` total 与真实可见数一致 |
 | P2-6 | mail_deliveries 无终态收口：重试耗尽后永久停在 sending，邮件静默丢失 | 部分属实 | 待派 | 2 | 重试耗尽写 `DeliveryDead`；sweeper 把超龄 sending/queued 转 dead；replay 端点可用 |
 | P2-7 | en-US 语言包整棵缺失 `userAppearanceSettings` 子树（28 key） | 不属实(已修) | 已修 · 核实前基线 `e0ec3bce6` | — | 无需动作：en-US 已有 28 个 leaf key，且 `apps/web/tests/framework/i18nCatalog.test.ts` 已棘轮 |
-| P3-1 | Bearer PAT 校验每请求无条件写库刷新 last_used_at（无节流） | 属实 | 待派 | 3 | 同一 token 高频请求不再产生逐请求 `UPDATE`，写入按阈值节流且 last_used_at 语义不变 |
-| P3-2 | LoginLockout 计数键 TTL 依赖单次 Expire 成功 | 属实 | 待派 | 3 | 首写用 `SET NX EX`（或 Lua）原子完成，瞬态失败后不残留无 TTL 键 |
-| P3-3 | post_risk 人机验证场景全链路存在但发帖/回帖路径从未执行 | 属实 | 待派 | 3 | 发帖/评论路径调用 `Verify(PurposePostRisk)`，或该场景从选项目录下线（二选一，不留「看起来生效」） |
-| P3-4 | ALTCHA 人机验证令牌可跨场景复用 | 属实 | 待派 | 3 | 同一 token 在第二场景被拒：replay 键改为 `sha256(provider+token)` 或 challenge 绑定 purpose |
+| P3-1 | Bearer PAT 校验每请求无条件写库刷新 last_used_at（无节流） | 属实 | 已修 · `c0ab8d80d` + `7218be6c6` | 3 | 同一 token 高频请求不再产生逐请求 `UPDATE`，写入按阈值节流且 last_used_at 语义不变（PG 集成 `TestTouchLastUsedThrottlePostgres` 四子用例 + 变异必红；严格 `<` 边界与「跨语句等值必然过期」已钉成断言） |
+| P3-2 | LoginLockout 计数键 TTL 依赖单次 Expire 成功 | 属实 | 已修 · `191c4e441` + `56da3585d` + `2de3e6ff3` | 3 | 首写与 TTL 压进单次 EVAL 原子完成，`PTTL<0` 自愈历史无 TTL 键；真实 Redis 用例在 CI 口径下**不再 skip**（无 `SFORUM_TEST_REDIS_ADDR` 时 `t.Fatalf`），Lua 语法错误在脚本口径下必红 |
+| P3-3 | post_risk 人机验证场景全链路存在但发帖/回帖路径从未执行 | 属实 | 已修 · `70c1ab86f` + `f297f8bea` + `8e483b623` + `1c9747aa8` | 3 | 选 A 接线：发帖/回帖在写入前调 `Verify(PurposePostRisk)`，开关关闭零校验；装配收口到 `finalizeAPIForumProvider`（三重防线 + AST tripwire，删调用或传 nil 都红）；前端三处入口按开关渲染 ALTCHA，关闭时中间 DTO 连键都没有 |
+| P3-4 | ALTCHA 人机验证令牌可跨场景复用 | 属实 | 已修 · `5e472aca0` + `22b5332bd` | 3 | replay 键改 `sha256(provider + "\x00" + token)`（全局单次消费）+ purpose 绑进 challenge 签名载荷；兼容分支有 decision record 与失效时间点（2026-11-30 / 下一 minor，先到者），剥 data 必失配（审查员探针实证） |
 | P3-5 | HumanVerify Redis 限速 INCR/EXPIRE 非原子，失败后 IP 永久限流 | 不属实 | 不修 | — | 无需动作：`rateLimitScript` 已用一次 EVAL 原子完成自增 + 首次 TTL（`Support/HumanVerify/redis_store.go:114-119`） |
 | P3-6 | core.guard.public 未显式声明 Access 时三条派发路径语义不一致 | 部分属实 | 已修 · `97659db29` + `10f80ccf1`（随 P1-2 收口） | 3 | 三处推导收口到 `DeriveRouteAccess` 单一函数：legacy 前缀与 declared 视图共用同一答案，不可代理路由两边都不服务（不再各推一次） |
 | P3-7 | 前端信任挑战状态为进程内存表，多副本下 challenge→grant 必失败 | 属实 | 延后 | 延后 | 触发条件满足时复用持久化挑战存储；单实例部署下可延后（见「延后项」） |
-| P3-8 | `app/Support/IdentityDelegation` 整包为无生产调用方的死代码 | 属实 | 待派 | 3 | 接线、显式标注 deprecated 或删除——三选一，不留第二套语义 |
-| P3-9 | 扩展 observe 事件 delivery 行创建与 River 入队非原子 | 属实 | 待派 | 3 | 行写入与入队同事务（对齐 Notifications `outbox.go` 的 `EnqueueTx`），或补 sweeper + replay |
-| P3-10 | TrustLevels 账本读-比-写非原子，并发重算可发出错序 / 重复事件 | 属实 | 待派 | 3 | 并发重算同一用户不产生错序事件（`SELECT FOR UPDATE` 或 `computed_at` 乐观锁 + 并发测试） |
+| P3-8 | `app/Support/IdentityDelegation` 整包为无生产调用方的死代码 | 属实 | 已修 · `98d4b6629` | 3 | 删除整包（−313 行）：代码/脚本/契约 `rg` 零命中，两处 module note 改写为「委派走 HostAPI + plugin_session_state_delegation」；`test-db-isolation-baseline` 同步降（`totalTests 6500→6498`、`dbPackages 136→135`）；历史 handoff 与台账行按溯源保留 |
+| P3-9 | 扩展 observe 事件 delivery 行创建与 River 入队非原子 | 属实 | 已修 · `efcf5a9f9` + `c1c47b020` + `564981186` + `d1cfab7f8`（口径改写见右） | 3 | **关闭口径已改写**：原写「同事务 或 sweeper + replay」，实测两条都不完整——事务分支生产不可达（`ManagerConfig` 无 Dispatcher/Pool），sweeper 无 replay（DDL 无 payload 列）。本轮达成的是「四失败点全回滚 + 超龄 `queued`/`running` 由 10 分钟调度收成 `failed`（判据 `updated_at`），崩溃窗口内投递不可恢复但不再留永久中途行」。replay 与生产接线转为跟进 F-6 |
+| P3-10 | TrustLevels 账本读-比-写非原子，并发重算可发出错序 / 重复事件 | 属实 | 已修 · `e3575177e` + `b2474ef23` | 3 | 账本加 `revision` 乐观锁（迁移 `202611160002`，`CHECK (revision > 0)` `NOT VALID` + `VALIDATE`，成对 Down）；CAS 冲突时**重读账本 + 重新求值**再写，重试用尽不发事件。并发用例 + 确定性反例用例双覆盖，旧实现（只重读不重算）必红 |
 | P3-11 | CachePolicy Service 未接线，tag 索引为进程内内存 | 属实 | 延后 | 延后 | 首次有调用方按 tag 失效前必须先改 Redis generation 方案（见「延后项」） |
 | P3-12 | 公告横幅与管理端公告预览的 v-html 未接前端二次净化 | 部分属实 | 已修 · `0d1dc4eb6` + 棘轮 `f73419157` / `423e0db79` / `85045fbe0` | 3 | 两处包 `sanitizeHtml()`；同批收口其余未净化 v-html（偏差第 4 条） |
 | P3-13 | Admin Surface 插件输出 `view.download.url` 直接进 `window.location.assign` 与 `<a href>` | 不属实 | 不修 | — | 无需动作：`normalizeDownload`（`apps/web/app/utils/admin/adminSurfaces.ts:359-364`）已强制同源绝对路径，拒绝 `//`、反斜杠与控制字符 |
@@ -59,25 +59,32 @@
 | P3-21 | `SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS` 非数值在 ingress 已切换后触发 `set -e` 中断 | 属实 | 已修 · `4b4352d48` | 3 | 复用数字消毒 helper，非法值不再中断在 ingress 切换后、`persist_state` 之前 |
 | P3-22 | 备份加密使用无完整性认证的 AES-256-CBC（encrypt-only） | 属实 | 已修 · `4b4352d48` | 3 | 改 encrypt-then-MAC（或 age/GPG），manifest 记录 scheme 版本 |
 
-## 本轮进展快照（2026-11-16 晚）
+## 本轮进展快照（2026-11-17 凌晨）
 
 | 批次 | 范围 | 状态 | 提交 |
 | --- | --- | --- | --- |
-| 0 | 本台账 + `plans/README.md` 索引 + 仓库外核实档 | 完成（待 commit） | — |
+| 0 | 本台账 + `plans/README.md` 索引 + 仓库外核实档 | 完成 | — |
 | 1 | P1-1 / P1-2 | 完成（各含一次审查补刀） | `c382e366b` `fcdc86eda` / `97659db29` `10f80ccf1` |
-| 2 | P2-1 ~ P2-6 | 已修 1（P2-1 `39fb04e3e`）；在办 4（task-11 剩 P2-4、task-12、task-13）；P2-6 待派 | `39fb04e3e` |
+| 2 | P2-1 ~ P2-6 | 完成 | `39fb04e3e` / task-11 · 12 · 13 系列 / P2-6 系列（`42aa744f3` 等） |
 | 3 前端 | P3-12 / P3-16 / P3-17 | 完成 | `0d1dc4eb6` + 棘轮 `f73419157` `423e0db79` `85045fbe0` |
 | 3 运维 | P3-18 ~ P3-22 | 完成 | `4b4352d48` |
-| 3 后端 | P3-1 / P3-2 / P3-3 / P3-4 / P3-8 / P3-9 / P3-10 | 待派 7 条（P3-6 随 P1-2 收口） | — |
+| 3 后端 | P3-1 / P3-2 / P3-3 / P3-4 / P3-8 / P3-9 / P3-10 | 完成（P3-6 随 P1-2 收口） | `c0ab8d80d` `7218be6c6` / `191c4e441` `56da3585d` `2de3e6ff3` / `70c1ab86f` `f297f8bea` `8e483b623` `1c9747aa8` / `5e472aca0` `22b5332bd` / `98d4b6629` / `efcf5a9f9` `c1c47b020` `564981186` `d1cfab7f8` / `e3575177e` `b2474ef23` |
+| 基线回归（本轮顺手修） | Notifications 测试 fake 编译失败 / 路由计数 tripwire 435 vs 437 / 调度目录清单与 `schedules.md` / 插件 env 探针静态误报 | 完成 | `b2819a4c2` / `17d106214` / `6a77f6556` `d91a1f80e` / 见 F-7 |
 
-统计：已修 15 / 在办 4 / 待派 8 / 不修 2 / 延后 2 = 31。
+统计：已修 22 / 不修 5 / 延后 2 / 转跟进 2 = 31。本轮共 22 个提交（`b23a658dd..HEAD`）。
 
-## 新增跟进项（本轮产生，2 条）
+## 新增跟进项（本轮产生，8 条）
 
 | 编号 | 标题 | 来源 | 状态 | 关闭条件 / 触发条件 |
 | --- | --- | --- | --- | --- |
 | F-1 | 前端 `usePermissions.can()` 的父→子展开与后端 deny 不同构：菜单可见、点进去 403 | P1-1 修复的副作用面（task-9） | 待派 | UX 瑕疵，非越权。触发条件：下次动前端权限菜单时顺手对齐，或再出现「菜单可见但 403」的用户反馈；关闭条件 = 同一账号的菜单可见性与后端 `Can()` 判定一致 |
 | F-2 | 无清单明文 `.sql` 恢复通道的威胁模型缺口 | P3-22 修复后的残留（task-10） | 待决策 | 需要一次决策记录：要么给明文通道加显式确认 + 审计留痕，要么拒绝备份目录之外的明文载荷；关闭条件 = 决策落 `knowledge/decisions/` 且实现与之一致 |
+| F-3 | HumanVerify 的 Options 读失败静默降级、无日志 | P3-3 复审（task-23） | 待派 | `RuntimeService.service()` 把 Options 读错误整个吞掉：**部分**故障（语句超时 / 连接池饱和 / 坏计划）会让「运营开了 post_risk 却零校验」且无任何日志。关闭条件 = 读失败打 warn（带 purpose 与 fallback 方向）+ 一条 decision record 写明 fail-open 的前提与反驳论点 |
+| F-4 | 扩展 observe 投递的崩溃窗口 replay（需 payload 列） | P3-9 对抗审查 F1（task-24） | 待决策 | 先判定 observe 事件丢失的业务后果；要 replay 就得给 delivery 行加 payload 列 + 管理面重投端点（对齐 Notifications `ReplayDelivery`），并评估 payload 脱敏；不要 replay 就把取舍写进 decision。附带判定要不要把 `Dispatcher`/`Pool` 接进生产装配（那是行为变更，需独立 decision） |
+| F-5 | P3-3 post_risk 卡片的真机浏览器 QA | P3-3 前端复审（task-29） | 待派 | 逻辑主张已由真实 SFC 挂载 + 变异覆盖；视觉/可用性主张仍需 Playwright：`.sf-forum-altcha` 的 `boundingBox()` 非零可见、能解出一题、真实 `POST /api/v1/topics` 请求体键有无、390×844 无横向溢出。不阻塞 P3-3 关门 |
+| F-6 | 对外 reason 键翻译完整性棘轮（原 task-11） | P2-2 审查 | 待派 | 后端所有对外 reason 键与 `Localization/messages.go` 做差 + 中英同键集 + 棘轮测试。**注意**：`extension.delivery_*` 四个键经核实**不进** HTTP 错误码/reason 枚举/翻译表（`delivery_enqueue_failed` 走版本化 hook 才落账本，在管理面作为自由文本可见），不要误加 |
+| F-7 | 调度成员表镜像（`Support/Jobs/core_schedules_test.go` ⇄ `Models/Jobs/service_test.go`） | 本轮两次漂移（路由计数、调度清单） | 已修一半 | `Models/Jobs` 侧已改属性断言（`d91a1f80e`，`Schedules()` 集合 == `NewCoreScheduleRegistry(nil).Views()` 集合），新增调度零改动。`Support/Jobs` 侧仍是唯一手写闸口，保留是刻意的（它是「目录成员变了」的审查信号） |
+| F-8 | `t.Fatalf` 让 Auth 包在裸 `go test` 下红，需文档说明 | P3-2 复审（task-22） | 待派 | 在 `AGENTS.md` 测试命令段补一句「Auth 包的 `TestLoginLockoutTTLAgainstRedis` 需要 `SFORUM_TEST_REDIS_ADDR`，由 `scripts/test-api-isolated.sh` 提供」，让第一次撞红的人不用读源码 |
 
 ## 本轮审查发现并当场修掉的问题
 
@@ -90,6 +97,16 @@
 3. **备份 v2「清单记 v2、载荷是明文」只告警不拒绝 = 不需要密钥的 MAC 绕过。** 假设：格式不匹配时告警足以提示运维。实际：把 manifest 的 scheme 改成 v2、载荷保持明文，restore 侧就接受了一个「声称有完整性认证、实际没有」的包——P3-22 要的真实性保证被整条绕过，且不需要任何密钥。已修 `4b4352d48`：该分支改 `sforum_die` 硬失败。**教训：完整性校验的失败路径只能是拒绝；告警是留给「可继续但降级」的，这里没有可接受的降级态。**
 
 4. **P3-12 的棘轮测试自身被绕过三次。** `f73419157` 堵「注释里出现 `sanitizeHtml` 冒充调用」，`423e0db79` 把 derived 规则改成连通性判定（堵「无关净化 + 重名定义」），`85045fbe0` 要求 `set` 的值参数必须就是净化调用本身。**教训：静态棘轮只能证明「形状对」，不能证明「语义对」；每收紧一次都要写下它挡的是哪种具体绕过**，否则下一轮换个写法照样绕开。
+
+5. **「CI 里 skip 等于没写」——P3-2 的真实 Redis 用例被 `t.Skip` 掉，Lua 语法错误也能全绿。** 审查员实测：把 `loginBumpScript` 改成 `return count +`（语法错误），`test-api-isolated.sh` 口径下 `ok … 0.005s` 全绿——因为 `TestLoginLockoutTTLAgainstRedis` 需要 `SFORUM_TEST_REDIS_ADDR`，而脚本只起 PostgreSQL、CI 只声明 postgres service，`t.Skip` 在非 `-v` 输出里只留一行 `ok`。**修法两层**：`2de3e6ff3` 让 isolated 脚本同时起一次性 Redis（含「宿主侧 `/dev/tcp` PING 连续两次」的就绪判定，否则端口映射未生效会让首个 EVAL 失败被 fail-open 吞掉，表现为假红），`56da3585d` 把 skip 改成 `t.Fatalf`。**教训：gated 测试要么让依赖真的存在，要么显式失败；「跳过」在证据链里等于「不存在」。**
+
+6. **「重试只重读账本、不重算」——P3-10 的 bug 被换了个位置复现。** 第一版把 CAS 重试写成「冲突 → 重读账本 → 用旧 `evaluation` 重建 next」，员工论证「求值读活动统计与策略、与账本无关」。审查员指出：输入独立只证明**输入**不受账本影响，推不出**结果在重试窗口内不变**——旧求值可能比并发赢家的求值更旧，于是 CAS 成功也把更旧的 level 写回去。反例跑通：赢家写 `4/leader`，落败方写回 `3/veteran` 并发 `4→3` 降级事件。**教训：`ledger.go` 的接口注释写「调用方必须重读账本再算」，实现就必须真的「再算」；乐观锁只保证「没被别人改过」，不保证「我算得对」。**
+
+7. **「字符串断言冒充渲染证据」——前端 18 条用例全绿，把开关改成恒 false 也不红。** P3-3 前端第一版对发帖页/抽屉只做 `readFileSync().toContain()`：把 `postRiskEnabled` 换成 `computed(() => false)`（模板字符串原样不动）仍然 18 pass / 0 fail。返工改成真实 SFC 挂载（`compileSfcSource` + `<Suspense>` + 真实 `createPostRiskVerification`），同一变异立刻 5 pass / 2 fail。返工还顺手抓到一处真问题：发帖页写 `humanVerification: postRiskPayload()`，关闭时中间 DTO 里**键存在但值是 undefined**，只在线缆层被摘掉。**教训：与第 4 条同源——「文件里有那串字」不是行为证据；UI 断言必须挂真实组件 + 真实状态机。**
+
+8. **「修了一条生产上不可达的路径」——P3-9 的原子化分支生产永不执行。** 第一版把 `CreateEventDelivery` 与 `Enqueue` 合进事务，实现与测试都对；但 `bootstrap/app.go:73` 与 `bootstrap/worker.go:344` 的 `ManagerConfig` 只有 `Starter` + `DeliveryStore`，**没有 Dispatcher、没有 Pool**，`emitObserve` 永远走 in-process 分支，而那条分支仍会留永久 `queued` 孤儿行且无 sweeper。**教训：动手前先证明要修的分支在生产可达（`rg` 一遍装配点）；否则你只是给测试修了个 bug。** 返工补了 stale sweeper（复用既有 `coreScheduleConstructors`，无新 goroutine/ticker），并把「replay 需 payload 列」转成跟进 F-4。
+
+9. **手工清单类 tripwire 连续漂移两次（路由计数 421→423→428→433→435→437、调度清单 10→12）。** 两处的期望值都是硬编码，每次新增成员都要人肉记得改，于是上一会话两次漏改把基线弄红。**修法不是补数字，而是消除手工镜像**：路由侧改成三份产物互比（条数 + `method path id contractVersion` 身份键），调度侧把 `Models/Jobs` 换成属性断言（`Schedules()` 集合 == 注册表 `Views()` 集合）、只保留 `Support/Jobs` 一处手写闸口。**教训：同一份成员表存在两处，就一定会漂移；tripwire 要保留（它是审查信号），镜像要消灭。**
 
 ## 修复批次
 
@@ -149,4 +166,7 @@ P3-16 原列在「不修 / 可选清理」，本轮已顺手做完（`0d1dc4eb6`
 - 每条关闭时，在本表「当前状态」列写「已修 · commit」，并把验证方式写进关闭条件列的括注（测试名 / 命令 / 浏览器断言）。
 - 批次 1 的 allowed + denied 两侧测试已随 `c382e366b` / `fcdc86eda` / `97659db29` / `10f80ccf1` 提交。
 - 批次 2 / 3 的缓存、计数、状态机类改动必须有「改动后立即读到新值 / 新状态」的断言，不接受「等 TTL 过期后自然一致」。
+- **本轮的验收口径（批次 3 起固定下来）**：①一个改动一个 commit；②交付附真实命令输出（`go build` + `SFORUM_TEST_SHARDS=1 ./scripts/test-api-isolated.sh <包>`），口头汇报不算；③**每条都要变异验证**——去掉修复后对应用例必须红，红/绿两次输出都要贴；④代码改动一律由 reviewer 看 diff，且**要求他自己注入绕过**，不采信员工报的数字。
+- **对抗审查的实际价值**（本轮数字）：7 条 P3 里 **4 条被打回返工**（P3-2 证据链、P3-3 装配无证据、P3-9 生产不可达、P3-10 重试不重算），其中 P3-10 是**真 bug**（审查员构造出 `4→3` 降级事件反例）、P3-9 是**真缺口**（修的分支生产永不执行）。没有这一层，这四条都会以「测试全绿」的形式合入。
+- **本轮基线红灯的成因**（都不在 31 条里，是上一会话验收口径漏掉的）：上一会话以「聚焦包测试通过」验收，没有跑全仓门禁，于是留下四处——`Controllers/Notifications` 测试包**编译失败**（接口加方法、fake 没跟上）、路由计数 tripwire 435 vs 437、调度目录清单 10 vs 12 + `schedules.md` 漂移、插件 env 探针被静态扫描误判。四处已在本轮修掉；**教训：接口变更必须 `go vet ./...` 一遍所有实现方（含测试 fake），目录类清单要么派生要么只留一处手写闸口。**
 - 全部 31 条收敛后，本文件移入 `knowledge/plans/archive/2026-11/`，并在 `README.md` 的 Archived Plans 段落留索引。
