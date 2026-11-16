@@ -147,10 +147,16 @@ export function findVHtmlBindings(source: string): string[] {
 }
 
 /**
- * derived 规则：`v-html="foo(item)"` 只有在同文件里能追到净化链时才成立——
+ * derived 规则：`v-html="foo(item)"` 只有在同文件里能追到**连通**的净化链时才成立——
  * `function foo(...) { return CACHE.value.get(...) }` +
- * `const CACHE = computed(() => { ... .set(..., sanitizeHtml(<取值>)) ... })`。
- * 只认「拿真实取值函数净化」，`sanitizeHtml('字面量')` 不算。
+ * `const CACHE = computed(() => { ... .set(<key>, sanitizeHtml(<取值>)) ... })`。
+ *
+ * 三条硬约束，缺一条就有假绿：
+ * - 定义唯一：运行时取最后一个定义，静态分析取第一个，重名就能两边说不同话；
+ * - 净化必须**落在 .set 的值参数里**：同体内一句无关的 `sanitizeHtml(title)` 不算；
+ * - 每个 `.set` 都必须带净化：一净化一原始两个 set 同样不算。
+ * 变量中转形态（`const safe = sanitizeHtml(x); result.set(k, safe)`）会转红，
+ * 这是有意的 fail-closed：宁可假红，不可假绿。
  */
 export function isSanitizedDerivedAccessor(source: string, expression: string): boolean {
   const call = ACCESSOR_CALL.exec(expression)
@@ -163,6 +169,10 @@ export function isSanitizedDerivedAccessor(source: string, expression: string): 
   if (!accessorBody) {
     return false
   }
+  // 同名 accessor 只允许一处：否则首个（静态取到）与末个（运行时生效）可以是两套逻辑。
+  if (code.split(`function ${call[1]}(`).length - 1 !== 1) {
+    return false
+  }
   const read = /return\s+([A-Za-z_$][\w$]*)\.value\.get\(/.exec(accessorBody)
   if (!read) {
     return false
@@ -172,15 +182,18 @@ export function isSanitizedDerivedAccessor(source: string, expression: string): 
   if (!cacheBody) {
     return false
   }
-  if (!/\.set\(/.test(cacheBody)) {
+  // 同名缓存同样只允许一处。
+  if (code.split(`const ${read[1]} = computed(`).length - 1 !== 1) {
     return false
   }
-  const sanitize = /sanitizeHtml\(\s*([^)]*)\)/.exec(cacheBody)
-  if (!sanitize) {
+
+  const setCalls = cacheBody.match(/\.set\(/g)?.length ?? 0
+  const sanitizedSets = cacheBody
+    .match(/\.set\(\s*[^,]+,\s*sanitizeHtml\(\s*[^'"`\s][^)]*\)/g)?.length ?? 0
+  if (setCalls === 0 || sanitizedSets !== setCalls) {
     return false
   }
-  // `sanitizeHtml('...')` 只是把字面量过一遍，等于没净化。
-  return !/^\s*['"`]/.test(sanitize[1] ?? '')
+  return true
 }
 
 /** 从被渲染表达式里取出「真正被渲染的标识符」，用于要求证据点名它。 */
@@ -335,6 +348,45 @@ describe('v-html 二次净化棘轮', () => {
     // accessor 不读缓存 / 不是 accessor 形态 → 不成立
     expect(isSanitizedDerivedAccessor(source, 'rawHtml')).toBe(false)
     expect(isSanitizedDerivedAccessor(source, 'item.rawHtml')).toBe(false)
+
+    // ① set 回原始值 + 同体内一句无关净化（只为喂饱棘轮）→ 不成立
+    const rawSetWithUnrelatedSanitize = source.replace(
+      '    result.set(item.id, sanitizeHtml(bodyHTMLOf(item)))',
+      '    result.set(item.id, bodyHTMLOf(item))\n    sanitizeHtml(titleOf(item))'
+    )
+    expect(rawSetWithUnrelatedSanitize).toContain('sanitizeHtml(titleOf(item))')
+    expect(isSanitizedDerivedAccessor(rawSetWithUnrelatedSanitize, 'sanitizedBodyHTMLOf(item)')).toBe(false)
+
+    // ② 一净化一原始两个 set → 不成立（每个 set 都必须带净化）
+    const mixedSets = source.replace(
+      '    result.set(item.id, sanitizeHtml(bodyHTMLOf(item)))',
+      '    result.set(item.id, sanitizeHtml(bodyHTMLOf(item)))\n    result.set(item.id, bodyHTMLOf(item))'
+    )
+    expect(isSanitizedDerivedAccessor(mixedSets, 'sanitizedBodyHTMLOf(item)')).toBe(false)
+
+    // ③ 重复定义 accessor（首个读净化缓存、末个读原始缓存）→ 不成立
+    const duplicateAccessor = [
+      source,
+      '',
+      'function sanitizedBodyHTMLOf(item: SiteAnnouncement) {',
+      "  return rawBodyHTML.value.get(item.id) || ''",
+      '}'
+    ].join('\n')
+    expect(isSanitizedDerivedAccessor(duplicateAccessor, 'sanitizedBodyHTMLOf(item)')).toBe(false)
+
+    // ④ 重复定义缓存 → 不成立
+    const duplicateCache = [
+      source,
+      '',
+      'const sanitizedBodyHTML = computed(() => {',
+      '  const result = new Map<number, string>()',
+      '  for (const item of list.value) {',
+      '    result.set(item.id, bodyHTMLOf(item))',
+      '  }',
+      '  return result',
+      '})'
+    ].join('\n')
+    expect(isSanitizedDerivedAccessor(duplicateCache, 'sanitizedBodyHTMLOf(item)')).toBe(false)
   })
 
   test('白名单校验：弱证据必须不成立（绕过路径本身被覆盖）', () => {
