@@ -50,7 +50,8 @@ func identityAdminSubjectRoute(routeID string) bool {
 		"core.route.identity.admin_set_user_password",
 		"core.route.identity.replace_user_permission_overrides",
 		"core.route.identity.replace_user_roles",
-		"core.route.identity.admin_revoke_user_sessions":
+		"core.route.identity.admin_revoke_user_sessions",
+		"core.route.identity.admin_revoke_user_api_tokens":
 		return true
 	default:
 		return false
@@ -141,6 +142,14 @@ func authorizeIdentityAdminSubject(evaluation routes.CoreGuardEvaluation, subjec
 		return nil
 	case "core.route.identity.admin_revoke_user_sessions":
 		if evaluation.Request.ActorID == subject.UserID || subject.IsSuperAdmin && !actorIsSuperAdmin {
+			return routes.ErrCoreGuardPermissionDenied
+		}
+		return requireCoreGuardPermission(evaluation, identity.PermissionUserManage)
+	case "core.route.identity.admin_revoke_user_api_tokens":
+		// 与 sessions/revoke 的差别只有一条：**允许**对自己操作。撤销自己的全部
+		// PAT 是合法的自助动作（会话不受影响），而强制下线自己会让管理员当场掉线。
+		// 目标 super_admin 的保护与同族一致。
+		if subject.IsSuperAdmin && !actorIsSuperAdmin {
 			return routes.ErrCoreGuardPermissionDenied
 		}
 		return requireCoreGuardPermission(evaluation, identity.PermissionUserManage)

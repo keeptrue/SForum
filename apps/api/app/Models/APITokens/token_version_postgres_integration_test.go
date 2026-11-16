@@ -106,6 +106,79 @@ func TestPATInvalidatedByTokenVersionAndRevokesPostgres(t *testing.T) {
 	})
 }
 
+// TestCreateWaitsForConcurrentTokenVersionAdvance 是 P2-2 补刀的核心断言：
+// Create 的 `INSERT ... SELECT users.current_token_version` 必须带 FOR SHARE，
+// 否则 READ COMMITTED 下它会读语句快照、不等并发「强制下线」的未提交递增，
+// 把旧版本写进新 PAT —— 对方一提交，这条刚建好的令牌立刻失效。
+//
+// 变异要求：去掉 `FOR SHARE`，第一条断言（Create 必须被阻塞）必须红。
+func TestCreateWaitsForConcurrentTokenVersionAdvance(t *testing.T) {
+	fixture := newTokenVersionPGFixture(t)
+	userID := fixture.insertUser(t, "pat_create_race")
+	ctx := fixture.ctx
+	actor := identity.Actor{
+		ID: userID, Status: identity.UserStatusActive,
+		Permissions: map[string]bool{identity.PermissionTopicCreate: true},
+	}
+
+	// A：持有一个未提交的版本递增（等价于「强制下线」事务正在进行）。
+	blocking, err := fixture.pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin blocking tx: %v", err)
+	}
+	defer func() { _ = blocking.Rollback(context.Background()) }()
+	if _, err := blocking.Exec(ctx, `
+		UPDATE users SET current_token_version = current_token_version + 1 WHERE id = $1
+	`, userID); err != nil {
+		t.Fatalf("advance version in blocking tx: %v", err)
+	}
+
+	type createResult struct {
+		created CreatedToken
+		err     error
+	}
+	done := make(chan createResult, 1)
+	go func() {
+		created, err := fixture.service(userID).Create(context.Background(), actor, CreateInput{
+			Name: "race-probe", Scopes: []string{identity.PermissionTopicCreate},
+		})
+		done <- createResult{created: created, err: err}
+	}()
+
+	select {
+	case result := <-done:
+		t.Fatalf("Create 没有等待行锁就返回了（读到旧版本）：err=%v publicID=%s", result.err, result.created.Token.PublicID)
+	case <-time.After(500 * time.Millisecond):
+		// 期望路径：被 FOR SHARE 挡住。
+	}
+
+	if err := blocking.Commit(ctx); err != nil {
+		t.Fatalf("commit blocking tx: %v", err)
+	}
+
+	var result createResult
+	select {
+	case result = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("解锁后 Create 仍未返回")
+	}
+	if result.err != nil {
+		t.Fatalf("create after unlock: %v", result.err)
+	}
+	// 写入的版本必须等于提交后的当前版本（=1），而不是旧快照的 0。
+	rec, err := fixture.tokens.GetByPublicID(ctx, result.created.Token.PublicID)
+	if err != nil {
+		t.Fatalf("load created token: %v", err)
+	}
+	if rec.TokenVersion != 1 {
+		t.Fatalf("created token_version=%d want 1（读到旧快照会让它立刻失效）", rec.TokenVersion)
+	}
+	// 立刻可用：版本与 users 一致。
+	if _, err := fixture.service(userID).AuthenticatePlaintext(ctx, result.created.Plaintext); err != nil {
+		t.Fatalf("刚创建的 PAT 立刻不可用：%v", err)
+	}
+}
+
 // TestRevokeAllForUserCountsOnlyActiveTokens 覆盖管理端「撤销全部 PAT」的计数口径：
 // 已撤销的行不重复计数，别的用户的令牌不受影响。
 func TestRevokeAllForUserCountsOnlyActiveTokens(t *testing.T) {

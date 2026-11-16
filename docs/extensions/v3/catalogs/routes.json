@@ -3216,6 +3216,25 @@
     }
   },
   {
+    "id": "core.route.mail.replay_delivery",
+    "contractVersion": "sforum.route.mail.replay_delivery@1",
+    "module": "mail",
+    "handler": "replayDelivery",
+    "method": "POST",
+    "path": "/api/v1/admin/mail/deliveries/:deliveryID/replay",
+    "source": "apps/api/app/Http/Controllers/Mail/controller.go#replayDelivery",
+    "access": "permission",
+    "policy": "settings.mail.manage or settings.manage compatibility policy",
+    "guard": {
+      "kind": "permission_any",
+      "permissions": [
+        "settings.mail.manage",
+        "settings.manage"
+      ],
+      "evaluatorId": ""
+    }
+  },
+  {
     "id": "core.route.mail.get_policy",
     "contractVersion": "sforum.route.mail.get_policy@1",
     "module": "mail",
@@ -7193,6 +7212,22 @@
     "method": "PATCH",
     "path": "/api/v1/users/:userID",
     "source": "apps/api/app/Http/Controllers/Identity/routes.go#updateUser",
+    "access": "permission",
+    "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
+    "guard": {
+      "kind": "contextual",
+      "permissions": [],
+      "evaluatorId": "core.guard.identity.admin"
+    }
+  },
+  {
+    "id": "core.route.identity.admin_revoke_user_api_tokens",
+    "contractVersion": "sforum.route.identity.admin_revoke_user_api_tokens@1",
+    "module": "identity",
+    "handler": "adminRevokeUserAPITokens",
+    "method": "DELETE",
+    "path": "/api/v1/users/:userID/api-tokens",
+    "source": "apps/api/app/Http/Controllers/Identity/routes.go#adminRevokeUserAPITokens",
     "access": "permission",
     "policy": "identity service route-specific user.view/user.manage/role.manage/user.ban policy",
     "guard": {

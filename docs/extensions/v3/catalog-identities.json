@@ -1076,6 +1076,12 @@
       "path": "/api/v1/admin/mail/deliveries"
     },
     {
+      "id": "core.route.mail.replay_delivery",
+      "contractVersion": "sforum.route.mail.replay_delivery@1",
+      "method": "POST",
+      "path": "/api/v1/admin/mail/deliveries/:deliveryID/replay"
+    },
+    {
       "id": "core.route.mail.get_policy",
       "contractVersion": "sforum.route.mail.get_policy@1",
       "method": "GET",
@@ -2226,6 +2232,12 @@
       "contractVersion": "sforum.route.identity.admin_revoke_user_sessions@1",
       "method": "POST",
       "path": "/api/v1/users/:userID/sessions/revoke"
+    },
+    {
+      "id": "core.route.identity.admin_revoke_user_api_tokens",
+      "contractVersion": "sforum.route.identity.admin_revoke_user_api_tokens@1",
+      "method": "DELETE",
+      "path": "/api/v1/users/:userID/api-tokens"
     },
     {
       "id": "core.route.options.list_public",

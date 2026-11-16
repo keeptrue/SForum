@@ -96,6 +96,10 @@
       "source": "apps/api/app/Models/Notifications/outbox.go"
     },
     {
+      "id": "mail.sweep_stale",
+      "source": "apps/api/app/Jobs/Notifications/sweep_stale_deliveries.go"
+    },
+    {
       "id": "notification.channel.deliver",
       "source": "apps/api/app/Models/Notifications/outbox.go"
     },

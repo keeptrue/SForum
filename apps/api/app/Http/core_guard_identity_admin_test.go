@@ -26,6 +26,7 @@ func TestProductionIdentityAdminSubjectGuardAllowsResourceRoutes(t *testing.T) {
 		{"core.route.identity.replace_user_permission_overrides", identity.PermissionUserPermissionOverride, `{"allow":[],"deny":[]}`},
 		{"core.route.identity.replace_user_roles", identity.PermissionUserManage, `{"roleKeys":["member"]}`},
 		{"core.route.identity.admin_revoke_user_sessions", identity.PermissionUserManage, ""},
+		{"core.route.identity.admin_revoke_user_api_tokens", identity.PermissionUserManage, ""},
 	}
 	for _, test := range tests {
 		t.Run(test.routeID, func(t *testing.T) {

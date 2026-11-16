@@ -29,7 +29,10 @@ func (s *PostgresStore) Create(ctx context.Context, userID int64, publicID, toke
 	err = s.pool.QueryRow(ctx, `
 INSERT INTO api_tokens (user_id, public_id, token_hash, name, scopes, expires_at, token_version)
 SELECT $1, $2, $3, $4, $5, $6, users.current_token_version
-FROM users WHERE users.id = $1
+-- FOR SHARE：READ COMMITTED 下普通 SELECT 读的是语句快照、不等行锁，并发
+-- 「强制下线」正在递增 current_token_version 时，这里会读到旧版本并写进新 PAT，
+-- 提交后该 PAT 立刻失效。加共享锁让它等对方提交，再读新值（P2-2 补刀）。
+FROM users WHERE users.id = $1 FOR SHARE
 RETURNING id, user_id, public_id, token_hash, name, scopes, last_used_at, expires_at, revoked_at, created_at, token_version, revoke_reason`,
 		userID, publicID, tokenHash, name, scopesJSON, expiresAt,
 	).Scan(&rec.ID, &rec.UserID, &rec.PublicID, &rec.TokenHash, &rec.Name, &scopesRaw,
