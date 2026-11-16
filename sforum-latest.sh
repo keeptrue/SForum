@@ -490,7 +490,16 @@ main() {
   command -v tar >/dev/null 2>&1 || die "需要 tar"
 
   TARGET_TAG="$(resolve_tag)"
-  CURRENT_VERSION="$(sed -n 's/^version=//p' "$ROOT_DIR/.deployrc" 2>/dev/null | head -n1)"
+  # .deployrc 缺失是正常状态（全新目录 / 首次安装）：没有「当前版本」可比，交给
+  # detect_action 的 install 分支（判据用 -f，与 detect_action 全文一致，目录名落在
+  # 「视为缺失」）。存在但不可读才是真故障，必须明确报错，不能让 set -e 把读失败变成
+  # 静默 EXIT=2（OPS8-01：--check/install/repair 全不可达）。print 后立即 q 的单进程
+  # 写法不需要管道，也就没有 SIGPIPE 可兜 —— 真实读错误应当暴露，不该吞成空版本。
+  CURRENT_VERSION=""
+  if [ -f "$ROOT_DIR/.deployrc" ]; then
+    [ -r "$ROOT_DIR/.deployrc" ] || die "无法读取 $ROOT_DIR/.deployrc"
+    CURRENT_VERSION="$(sed -n '/^version=/{s/^version=//;p;q}' "$ROOT_DIR/.deployrc")"
+  fi
   if [ -n "$CURRENT_VERSION" ] && version_is_older "$TARGET_TAG" "$CURRENT_VERSION"; then
     if [ "$CHECK_ONLY" = true ]; then
       printf '警告: 目标 %s 低于当前记录的 %s，直接部署会被数据库迁移拒绝。\n' \
