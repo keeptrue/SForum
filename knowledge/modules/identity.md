@@ -704,6 +704,11 @@ Initial identity foundation is implemented.
 - Continue to preserve `super_admin` invariants: active super administrators
   pass all policy checks, and direct permission overrides cannot be edited for
   current `super_admin` users.
+- Frontend permission judgement is a pure lookup: expansion *and* deny
+  subtraction are the backend's job (`ExpandEffectivePermissions`), so
+  `can()` must never re-expand a parent key — a parent key used as a gate
+  candidate or as an `|| can(parent)` fallback re-grants a denied child in the
+  UI. See `decisions/2026-11-17-permission-deny-frontend-authority.md`.
 
 ## Implementation Notes
 
