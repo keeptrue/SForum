@@ -58,6 +58,11 @@ func TestServiceEnforcesViewAndManagePermissionsBeforeDataAccess(t *testing.T) {
 // 第 10 条是 M4b-2 的 trustlevels.sweep：24h、maintenance 队列、`mode=stale`（只碰账本
 // 缺失或 24h 没算过的人），兜住角色变更 / OAuth 解绑 / 徽章收回这类没有活动事件、
 // 也就不会经过 6 个活动触发点的等级变化。
+//
+// 第 11、12 条是 P2-6 的 mail.sweep_stale 与 P3-9 的 extensions.sweep_stale_deliveries，
+// 都是 10min、maintenance 队列上的「中途行 reaper」。两条落地时只同步了
+// `app/Support/Jobs/core_schedules_test.go` 的那份清单，本包还写着 10 条，门禁又红了一轮——
+// 两处清单互为镜像，新增 schedule 必须同批改。
 var coreScheduleExpectedIDs = []string{
 	supportjobs.ScheduleIdentityCleanupSessions,
 	supportjobs.ScheduleAttachmentsCleanupOrphans,
@@ -69,6 +74,14 @@ var coreScheduleExpectedIDs = []string{
 	supportjobs.ScheduleSearchReconcile,
 	supportjobs.ScheduleExtensionsFinalizeUninstallCleanup,
 	supportjobs.ScheduleTrustLevelsSweep,
+	// 第 11 条是 P2-6 的 mail.sweep_stale：10min、maintenance 队列，把超过 30min
+	// 仍停在 queued/sending 的邮件投递收成 failed 终态（无 reaper 时这些行永久停在
+	// 中途，既不会被重试也不会进终态）。
+	supportjobs.ScheduleMailSweepStale,
+	// 第 12 条是 P3-9 的 extensions.sweep_stale_deliveries：10min、maintenance 队列，
+	// 把超过 15min 仍停在 queued/running 的扩展事件投递收成 failed 终态（observe 投递
+	// 的账本行由进程内 Deliver 推进，崩溃窗口里没有别的东西会回头处理它）。
+	supportjobs.ScheduleExtensionsSweepStaleEventDeliveries,
 }
 
 // assertCoreScheduleCatalog 把服务返回的目录与上面的清单按集合比对，双向报差异。
