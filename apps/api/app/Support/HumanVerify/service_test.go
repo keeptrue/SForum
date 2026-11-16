@@ -226,10 +226,14 @@ func TestAltchaProviderAcceptsLegacyChallengeWithoutPurposeBinding(t *testing.T)
 	}
 }
 
-func TestAltchaProviderRejectsStrippedPurposeBinding(t *testing.T) {
+// 本用例守的是「签名覆盖 parameters.data」这条库级性质，不是 provider 的场景比对：
+// 把 boundPurpose 的比对整段摘掉，它依然 PASS（已实测）。场景比对由
+// TestAltchaProviderBindsChallengeToPurpose 守。分工见
+// knowledge/decisions/2026-11-16-altcha-purpose-binding-rollout-window.md §3。
+func TestAltchaProviderRejectsStrippedChallengeDataSignature(t *testing.T) {
 	provider := NewAltchaProvider(AltchaConfig{Secret: "test-secret", Cost: 1, ChallengeTTL: time.Minute})
 	challenge := issueAltchaChallenge(t, provider, PurposeRegister)
-	// 把 data 从签名载荷里剥掉再重新编码：签名随即失配，不能借此逃出场景绑定。
+	// 剥掉 data 再重新编码：签名失配，所以「兼容分支」无法被伪造出来。
 	challenge.Parameters.Data = nil
 
 	result, err := provider.Verify(context.Background(), VerifyRequest{

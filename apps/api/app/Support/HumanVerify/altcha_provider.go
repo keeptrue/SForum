@@ -61,10 +61,15 @@ func (p *AltchaProvider) Challenge(_ context.Context, purpose Purpose, _ Subject
 // 是签名载荷的一部分，改动 data 会让签名失配。所以「data.purpose != req.Purpose」
 // 就是跨场景复用，直接按无效拒绝。
 //
-// 兼容分支：本次发布之前签发的 challenge 没有 data（签名同样有效，只是不含场景
-// 信息），其 TTL 上限是 ChallengeTTL，会自然过期。这里放行而不是拒绝，避免滚动
-// 发布窗口内已经打开的表单全部失败。放行不构成绕过——签名覆盖 data，攻击者无法
-// 从一个带 data 的 token 上把它剥掉（见 altcha_provider 的 tamper 测试）。
+// 兼容分支（限时）：本次发布之前签发的 challenge 没有 data（签名同样有效，只是不含
+// 场景信息），其 TTL 上限是 ChallengeTTL，会自然过期。这里放行而不是拒绝，避免滚动
+// 发布窗口内已经打开的表单全部失败。放行不构成绕过——签名覆盖 data，攻击者无法从一个
+// 带 data 的 token 上把它剥掉（TestAltchaProviderRejectsStrippedChallengeDataSignature
+// 钉住「签名覆盖 data」，场景比对本身由 TestAltchaProviderBindsChallengeToPurpose 守）。
+//
+// 该分支的失效时间点、移除条件与删除范围见
+// knowledge/decisions/2026-11-16-altcha-purpose-binding-rollout-window.md §3
+// （2026-11-30 之后或下一个 minor 版本，先到者）。
 func (p *AltchaProvider) Verify(_ context.Context, req VerifyRequest) (VerifyResult, error) {
 	payload, err := decodePayload(req.Token)
 	if err != nil {
