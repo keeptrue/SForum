@@ -38,6 +38,11 @@
       "reason": "config 单元测试用 t.Setenv 写入示例连接串来验证配置解析、默认值与校验分支，全程不打开数据库连接，与测试库无关。"
     },
     {
+      "file": "apps/api/config/config_production_test.go",
+      "kind": "non-test-database",
+      "reason": "生产配置校验的负向用例：用 t.Setenv 写入示例 / 畸形连接串（含 mysql:// 等非 postgres 方案）来断言启动期 panic 的文案与脱敏，全程不打开数据库连接，与测试库无关。由 R7-OPS-02 复审（a938b11ab）新增用例引入，与 config_test.go 同类。"
+    },
+    {
       "file": "apps/api/app/Support/Extensions/protocol_v2_client_test.go",
       "kind": "non-test-database",
       "reason": "env 泄漏探针的负向断言：用 t.Setenv 把哨兵连接串写进宿主环境，随后断言 go-plugin 真正 append 之后的 cmd.Env 里不含 DATABASE_URL= 前缀，证明宿主连接串不会漏给插件子进程。本进程从不 os.Getenv 它，也从不拿它连库；扫描器把 t.Setenv 的写入误判成读取。"
