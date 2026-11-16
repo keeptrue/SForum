@@ -126,6 +126,12 @@ Build, typecheck, lint, test:
   `internal/testdb`, which reads `SFORUM_TEST_DATABASE_URL` alone and refuses
   to run against the development database (identified by the
   `public.sforum_dev_guard` sentinel that `scripts/api-dev.sh` writes).
+- The same script exports `SFORUM_TEST_REDIS_ADDR` at a disposable Redis it
+  starts alongside PostgreSQL. `TestLoginLockoutTTLAgainstRedis` in
+  `app/Support/Auth` is a hard gate on that variable: with no address it fails
+  explicitly instead of skipping, because a skipped test still prints `ok` and
+  proves nothing. Bare `go test ./app/Support/Auth/` therefore fails by design;
+  keep the failure, do not convert it back to `t.Skip`.
 - `node tests/validate-architecture-boundaries.mjs` — enforce file-size,
   flat-directory, fixed-tab, and legacy God-object non-growth guardrails.
 - `./scripts/test.sh` — full repo test gate, run as three concurrent lines:
