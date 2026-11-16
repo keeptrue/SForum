@@ -8,6 +8,7 @@ TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sforum-bootstrap-test.XXXXXX")"
 VERSION="v9.8.7-beta.2"
 RELEASE_ROOT="$TEMP_DIR/releases/$VERSION"
 MOCK_BIN="$TEMP_DIR/bin"
+BUNDLE_ROOT=""
 
 cleanup() {
   rm -rf "$TEMP_DIR"
@@ -39,8 +40,53 @@ file_mode() {
   fi
 }
 
+# 从某个 bootstrap 副本里取出 managed_files() 的清单。故意与 sforum-bootstrap.sh 的
+# 解析路径分开写：断言要比较的是「提升清单」和「磁盘上真正提升出来的集合」。
+managed_files_of() {
+  awk '
+    $0 == "managed_files() {" { in_function = 1; next }
+    in_function && /cat <<.EOF.$/ { in_heredoc = 1; next }
+    in_function && in_heredoc && $0 == "EOF" { exit }
+    in_heredoc { print }
+  ' "$1"
+}
+
+# 随包分发的 deploy/scripts 脚本里 `source "$SCRIPT_DIR/<file>"` 的目标。
+# *_test.sh 不随包分发、且用 $ROOT_DIR 取源，不参与资产闭包。
+# 只走 grep + 参数展开（[$]SCRIPT_DIR 而不是单引号里的 $NAME），否则 shellcheck 会判成
+# 「本想展开却写进了单引号」（SC2016），而这支测试在 lint-shell 门的检查范围内。
+sourced_siblings() {
+  local script line name
+  for script in "$ROOT_DIR"/deploy/scripts/*.sh; do
+    [ -f "$script" ] || continue
+    case "$script" in
+      *_test.sh) continue ;;
+    esac
+    while IFS= read -r line; do
+      name="${line##*SCRIPT_DIR/}"
+      name="${name%%\"*}"
+      [ -n "$name" ] || continue
+      printf 'deploy/scripts/%s\n' "$name"
+    done < <(grep -E '^[[:space:]]*(source|\.)[[:space:]]+"[$]SCRIPT_DIR/' "$script" || true)
+  done | sort -u
+}
+
+assert_same_set() {
+  local label="$1" expected="$2" actual="$3"
+  if [ "$expected" = "$actual" ]; then
+    return 0
+  fi
+  printf 'bootstrap_test.sh: %s\n' "$label" >&2
+  printf '  只有期望侧有:\n%s\n' \
+    "$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))" >&2
+  printf '  只有实际侧有:\n%s\n' \
+    "$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"))" >&2
+  exit 1
+}
+
 make_release() {
   local bundle="$TEMP_DIR/bundle/sforum-deploy" relative
+  BUNDLE_ROOT="$bundle"
   mkdir -p \
     "$RELEASE_ROOT" \
     "$bundle/deploy/scripts" \
@@ -78,6 +124,8 @@ EOF
   for relative in \
     configure-production.sh \
     backup-postgres.sh \
+    postgres-common.sh \
+    postgres-backup-format.sh \
     restore-postgres.sh \
     wait-for-health.sh \
     deploy-lock.sh; do
@@ -181,6 +229,27 @@ assert_contains "$INSTALL_ROOT/compose.yaml" "target=$VERSION"
 [ "$(file_mode "$INSTALL_ROOT/sforum-bootstrap.sh")" = 755 ] || fail "bootstrap mode is not 0755"
 [ "$(file_mode "$INSTALL_ROOT/deploy.sh")" = 755 ] || fail "deploy.sh mode is not 0755"
 assert_not_contains "$INSTALL_ROOT/sforum-bootstrap.sh" "stale bootstrap"
+
+# (a) 提升后的集合必须与 managed_files() 完全一致（R7-OPS-01）：归档里有、清单里
+# 漏掉的文件不会让安装报错，它安静地躺在包里，直到操作员在已经装好的实例上第一次跑
+# backup/restore 才崩在 source 行上。所以两边都对齐到「发布包里到底有什么」。
+installed_managed="$(managed_files_of "$INSTALL_ROOT/sforum-bootstrap.sh" | sort -u)"
+bundle_manifest="$(cd "$BUNDLE_ROOT" && find . -type f | sed 's|^\./||' | sort)"
+promoted_manifest="$(
+  cd "$INSTALL_ROOT" &&
+    find . -type f ! -name 'bootstrap.log' ! -name '.install-ran' | sed 's|^\./||' | sort
+)"
+[ -n "$installed_managed" ] || fail "could not read managed_files() from the promoted bootstrap"
+assert_same_set "提升清单 managed_files() 与发布包文件集合不一致" "$bundle_manifest" "$installed_managed"
+assert_same_set "磁盘上真正提升出来的文件与发布包文件集合不一致" "$bundle_manifest" "$promoted_manifest"
+
+# (b) deploy/scripts 里每个 source "$SCRIPT_DIR/<file>" 的目标都必须在提升清单内，
+# 否则包里有、实例里没有，install 当场 die 或第一次 backup/restore 崩掉。
+while IFS= read -r dependency; do
+  [ -n "$dependency" ] || continue
+  grep -qxF -- "$dependency" <<< "$installed_managed" ||
+    fail "$dependency 被 deploy/scripts 的脚本 source，但 managed_files() 不会提升它"
+done < <(sourced_siblings)
 
 UPGRADE_ROOT="$TEMP_DIR/upgrade"
 mkdir -p "$UPGRADE_ROOT/deploy/runtime"

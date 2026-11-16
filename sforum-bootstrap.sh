@@ -170,6 +170,13 @@ refresh_bootstrap() {
       "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
 }
 
+# 提升进实例目录的完整清单。heredoc 里只能有文件名：它是 `while read` 的数据源，
+# 混进一行的注释会被当成文件名，安装当场 die。
+# 每一条都必须真的在 sforum-deploy.tar.gz 里：backup-postgres.sh 与
+# restore-postgres.sh 的第一条 source 行就要 postgres-common.sh 与
+# postgres-backup-format.sh，归档里有、这里漏了，官方安装路径产出的实例会在第一次
+# backup/restore 时崩在那行上（R7-OPS-01，由 scripts/ci/validate-deploy-asset-closure.sh
+# 静态闭合）。
 managed_files() {
   cat <<'EOF'
 sforum-bootstrap.sh
@@ -183,6 +190,8 @@ compose.zero-downtime.yaml
 VERSION
 deploy/scripts/configure-production.sh
 deploy/scripts/backup-postgres.sh
+deploy/scripts/postgres-common.sh
+deploy/scripts/postgres-backup-format.sh
 deploy/scripts/restore-postgres.sh
 deploy/scripts/wait-for-health.sh
 deploy/scripts/deploy-lock.sh
