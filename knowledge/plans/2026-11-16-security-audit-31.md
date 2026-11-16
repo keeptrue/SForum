@@ -1,12 +1,12 @@
 # 2026-11-16 安全审计 31 条修复台账
 
-- **状态**：active（2026-11-17 凌晨更新：批次 1 / 2 / 3 全部完成并提交；**31 条全部有终态**：已修 27 / 不修 2 / 延后 2，零在办、零待派。剩余工作只有「新增跟进项」F-1 ~ F-9）
+- **状态**：**completed（2026-11-17 凌晨第二轮收尾）**。批次 1 / 2 / 3 全部完成；**31 条全部终态：已修 29 / 不修 2 / 延后 0**；两条延后项（P3-7 / P3-11）已转正并修完；跟进项 F-1 ~ F-9 **全部收口**（F-2 / F-4 以「决策 + 实现」双段关闭）。零在办、零待派。
 - **来源报告**：`~/Code/bug/SForum/2026-11-15_16-43.md`（31 条独立发现：P0 = 0 / P1 = 2 / P2 = 7 / P3 = 22）
 - **核实基线**：commit `e0ec3bce6`（`git rev-parse --short HEAD`，2026-11-16；核实期间工作树干净）
 - **进展基线**：commit `39fb04e3e`（台账状态以此为准；其后若有新提交，按「当前状态」列自行补行）
 - **核实方法**：逐行代码验证 + 3 路只读核查代理（三个时间点独立重验同一批断言；核查代理只读，不改仓库）
 - **核实结论**：属实 19 / 部分属实 7 / 不属实 5
-- **实施结论**：已修 27 / 不修 2 / 延后 2 = 31（2026-11-17 凌晨口径；批次 2 的 5 条与批次 3 后端 7 条均已收口）
+- **实施结论**：已修 29 / 不修 2 / 延后 0 = 31（2026-11-17 第二轮收尾口径；P3-7 / P3-11 由延后转正并修完，统计随之改口径）
 - **与主审计档的关系**：本批与 `~/Code/bug/SForum/00-SForum-audit-master.md` 零重叠。主审计线已「收口 15 轮」，但这 31 条没有任何台账跟踪——**本文件是这批发现唯一的跟踪记录**。
 
 > 本台账只记录核实结论、批次与关闭条件，不重述报告全文。动手改任何一条前，先读报告对应小节（机制、证据行号、修复建议都在那里）。
@@ -42,11 +42,11 @@
 | P3-4 | ALTCHA 人机验证令牌可跨场景复用 | 属实 | 已修 · `5e472aca0` + `22b5332bd` | 3 | replay 键改 `sha256(provider + "\x00" + token)`（全局单次消费）+ purpose 绑进 challenge 签名载荷；兼容分支有 decision record 与失效时间点（2026-11-30 / 下一 minor，先到者），剥 data 必失配（审查员探针实证） |
 | P3-5 | HumanVerify Redis 限速 INCR/EXPIRE 非原子，失败后 IP 永久限流 | 不属实 | 不修 | — | 无需动作：`rateLimitScript` 已用一次 EVAL 原子完成自增 + 首次 TTL（`Support/HumanVerify/redis_store.go:114-119`） |
 | P3-6 | core.guard.public 未显式声明 Access 时三条派发路径语义不一致 | 部分属实 | 已修 · `97659db29` + `10f80ccf1`（随 P1-2 收口） | 3 | 三处推导收口到 `DeriveRouteAccess` 单一函数：legacy 前缀与 declared 视图共用同一答案，不可代理路由两边都不服务（不再各推一次） |
-| P3-7 | 前端信任挑战状态为进程内存表，多副本下 challenge→grant 必失败 | 属实 | 延后 | 延后 | 触发条件满足时复用持久化挑战存储；单实例部署下可延后（见「延后项」） |
+| P3-7 | 前端信任挑战状态为进程内存表，多副本下 challenge→grant 必失败 | 属实 | 已修 · `3a70e0e80` + `abb0c11bf`（延后项转正） | 转正 | 复用 migration `202607130006` 的 `extension_trust_challenges`（**零 migration**：表已有 `actor_user_id`/`expires_at`/`consumed_at`/`invalidated_at`/`token_hash UNIQUE`，`action` 域已含 `frontend_import`）。新子包 `app/Models/Extensions/frontendtrust`（receiver cap 92 未动）：`token_hash=sha256("…challenge:v1:"+ChallengeID)`、确认码只存摘要；消费是**一条原子 UPDATE**（八个绑定条件 + 未消费/未失效/未过期全在 WHERE + `RETURNING id`），16 goroutine 并发实测 `ok=1 invalid=15`；`FrontendService` 删掉内存 map 与互斥锁，nil store **fail closed**；存储故障映射 503 `extension.frontend_trust_unavailable`（挑战无效仍 409）。补**包级状态 AST 守卫**（拒 `sync.Map`/空 map/`make(map)`/结构体字面量藏 map，4 个静态表按「非空字面量」放行，唯一豁免 `pluginRuntimeCoordinatorBootOwners` 带 liveness 断言）——因为反射守卫只能覆盖结构体字段，而 reviewer 证明「包级门控缓存」变异能全绿通过 |
 | P3-8 | `app/Support/IdentityDelegation` 整包为无生产调用方的死代码 | 属实 | 已修 · `98d4b6629` | 3 | 删除整包（−313 行）：代码/脚本/契约 `rg` 零命中，两处 module note 改写为「委派走 HostAPI + plugin_session_state_delegation」；`test-db-isolation-baseline` 同步降（`totalTests 6500→6498`、`dbPackages 136→135`）；历史 handoff 与台账行按溯源保留 |
 | P3-9 | 扩展 observe 事件 delivery 行创建与 River 入队非原子 | 属实 | 已修 · `efcf5a9f9` + `c1c47b020` + `564981186` + `d1cfab7f8`（口径改写见右） | 3 | **关闭口径已改写**：原写「同事务 或 sweeper + replay」，实测两条都不完整——事务分支生产不可达（`ManagerConfig` 无 Dispatcher/Pool），sweeper 无 replay（DDL 无 payload 列）。本轮达成的是「四失败点全回滚 + 超龄 `queued`/`running` 由 10 分钟调度收成 `failed`（判据 `updated_at`），崩溃窗口内投递不可恢复但不再留永久中途行」。replay 与生产接线转为跟进 F-6 |
 | P3-10 | TrustLevels 账本读-比-写非原子，并发重算可发出错序 / 重复事件 | 属实 | 已修 · `e3575177e` + `b2474ef23` + `8b8358655` | 3 | 账本加 `revision` 乐观锁（迁移 `202611160002`，`CHECK (revision > 0)` 用 DO 块 + `pg_constraint` 存在性检查**幂等登记**、`NOT VALID` + 单独 `VALIDATE`、成对 Down）；CAS 冲突时**重读账本 + 重新求值**再写，重试用尽不发事件。并发用例 + 确定性反例用例双覆盖，旧实现（只重读不重算）必红；`IntegrationTests` 73 PASS / 0 FAIL |
-| P3-11 | CachePolicy Service 未接线，tag 索引为进程内内存 | 属实 | 延后 | 延后 | 首次有调用方按 tag 失效前必须先改 Redis generation 方案（见「延后项」） |
+| P3-11 | CachePolicy Service 未接线，tag 索引为进程内内存 | 属实 | 已修 · `dc9191a1f` + `692f7265e`（延后项转正） | 转正 | **顺序按要求先 generation 再接线**：`GenerationStore`（`Current`/`Bump`，键 `sforum:cachepolicy:gen:<tag>`，TTL 7d > MaxTTL 24h）；条目信封 `{"schema":1,"value":…,"generations":{tag:n}}`，`Get` 逐项比对、不等即删+miss；`Invalidate` 权威动作改原子 `INCR`，本地 `tagIndex` **降为纯加速索引**；故障姿态显式 fail-closed（写入读不到→不写、读取读不到→返回错误不当命中、递增失败→不声称成功）。decision `2026-11-17-cache-policy-tag-generation.md`。**已知边界（写进 decision）**：本轮之后 `.Policy` 仍无生产消费方（`cachepolicy.New` 非测试只有 `bootstrap/host_cache.go:73`；`.Policy` 唯一读取方是 `host_cache_test.go`），「机制就绪 ≠ 已接上」；多 tag 逐项比对由 `TestEntryIsRejectedWhenAnyOfItsTagsMoves` 钉住（单 tag 用例挡不住「任一相等即命中」） |
 | P3-12 | 公告横幅与管理端公告预览的 v-html 未接前端二次净化 | 部分属实 | 已修 · `0d1dc4eb6` + 棘轮 `f73419157` / `423e0db79` / `85045fbe0` | 3 | 两处包 `sanitizeHtml()`；同批收口其余未净化 v-html（偏差第 4 条） |
 | P3-13 | Admin Surface 插件输出 `view.download.url` 直接进 `window.location.assign` 与 `<a href>` | 不属实 | 不修 | — | 无需动作：`normalizeDownload`（`apps/web/app/utils/admin/adminSurfaces.ts:359-364`）已强制同源绝对路径，拒绝 `//`、反斜杠与控制字符 |
 | P3-14 | `common.cancel` 两种语言包均不存在 | 不属实(已修) | 已修 · 核实前基线 `e0ec3bce6` | — | 无需动作：两种语言均有 `common.cancel`，i18n 棘轮测试覆盖 |
@@ -73,19 +73,32 @@
 
 统计：**已修 27 / 不修 2 / 延后 2 = 31，零在办、零待派**。两段提交：上一会话 `e0ec3bce6..b23a658dd`（22 个，批次 1 + 2），本会话 `b23a658dd..HEAD`（28 个，批次 3 + 基线回归 + 台账）。
 
-## 新增跟进项（本轮产生，8 条）
+## 新增跟进项（F-1 ~ F-9 已全部收口；本轮另新产生 F-10 ~ F-14）
 
-| 编号 | 标题 | 来源 | 状态 | 关闭条件 / 触发条件 |
+| 编号 | 标题 | 来源 | 状态 | 结论 / 关闭证据 |
 | --- | --- | --- | --- | --- |
-| F-1 | 前端 `usePermissions.can()` 的父→子展开与后端 deny 不同构：菜单可见、点进去 403 | P1-1 修复的副作用面（task-9） | 待派 | UX 瑕疵，非越权。触发条件：下次动前端权限菜单时顺手对齐，或再出现「菜单可见但 403」的用户反馈；关闭条件 = 同一账号的菜单可见性与后端 `Can()` 判定一致 |
-| F-2 | 无清单明文 `.sql` 恢复通道的威胁模型缺口 | P3-22 修复后的残留（task-10） | 待决策 | 需要一次决策记录：要么给明文通道加显式确认 + 审计留痕，要么拒绝备份目录之外的明文载荷；关闭条件 = 决策落 `knowledge/decisions/` 且实现与之一致 |
-| F-3 | HumanVerify 的 Options 读失败静默降级、无日志 | P3-3 复审（task-23） | 待派 | `RuntimeService.service()` 把 Options 读错误整个吞掉：**部分**故障（语句超时 / 连接池饱和 / 坏计划）会让「运营开了 post_risk 却零校验」且无任何日志。关闭条件 = 读失败打 warn（带 purpose 与 fallback 方向）+ 一条 decision record 写明 fail-open 的前提与反驳论点 |
-| F-4 | 扩展 observe 投递的崩溃窗口 replay（需 payload 列） | P3-9 对抗审查 F1（task-24） | 待决策 | 先判定 observe 事件丢失的业务后果；要 replay 就得给 delivery 行加 payload 列 + 管理面重投端点（对齐 Notifications `ReplayDelivery`），并评估 payload 脱敏；不要 replay 就把取舍写进 decision。附带判定要不要把 `Dispatcher`/`Pool` 接进生产装配（那是行为变更，需独立 decision） |
-| F-5 | P3-3 post_risk 卡片的真机浏览器 QA | P3-3 前端复审（task-29） | 待派 | 逻辑主张已由真实 SFC 挂载 + 变异覆盖；视觉/可用性主张仍需 Playwright：`.sf-forum-altcha` 的 `boundingBox()` 非零可见、能解出一题、真实 `POST /api/v1/topics` 请求体键有无、390×844 无横向溢出。不阻塞 P3-3 关门 |
-| F-6 | 对外 reason 键翻译完整性棘轮（原 task-11） | P2-2 审查 | 待派 | 后端所有对外 reason 键与 `Localization/messages.go` 做差 + 中英同键集 + 棘轮测试。**注意**：`extension.delivery_*` 四个键经核实**不进** HTTP 错误码/reason 枚举/翻译表（`delivery_enqueue_failed` 走版本化 hook 才落账本，在管理面作为自由文本可见），不要误加 |
-| F-7 | 调度成员表镜像（`Support/Jobs/core_schedules_test.go` ⇄ `Models/Jobs/service_test.go`） | 本轮两次漂移（路由计数、调度清单） | 已修一半 | `Models/Jobs` 侧已改属性断言（`d91a1f80e`，`Schedules()` 集合 == `NewCoreScheduleRegistry(nil).Views()` 集合），新增调度零改动。`Support/Jobs` 侧仍是唯一手写闸口，保留是刻意的（它是「目录成员变了」的审查信号） |
-| F-8 | `t.Fatalf` 让 Auth 包在裸 `go test` 下红，需文档说明 | P3-2 复审（task-22） | 待派 | 在 `AGENTS.md` 测试命令段补一句「Auth 包的 `TestLoginLockoutTTLAgainstRedis` 需要 `SFORUM_TEST_REDIS_ADDR`，由 `scripts/test-api-isolated.sh` 提供」，让第一次撞红的人不用读源码 |
-| F-9 | 全仓 coverage 门跨包共享测试库导致偶发 `users_pkey` 冲突 | 批次 3 收尾门禁 | 待派 | 计数已达标（7723 ≥ 6498），但 `Models/Notifications` 的 `TestListCelebrationsDropsUnavailableTargets` 在全仓跑时偶发 `duplicate key value violates unique constraint "users_pkey"`，单包跑绿。关闭条件 = `--coverage-only` 连跑两次 `exit 0`；首选让每个测试包的 schema 真正隔离（`testdb.IsolatedURL` 只做「拒绝开发库」校验，不做 schema 隔离） |
+| F-1 | 前端 `usePermissions.can()` 的父→子展开与后端 deny 不同构：菜单可见、点进去 403 | P1-1 修复的副作用面 | **已修** · `f3e95d837` + `f499325f7` + `d7b42925e` | 取方案②：**后端本来就下发「已展开且已扣除」的集合**（`postgres_store_roles.go:344` 与 `postgres_store.go:423` 都走 `ExpandEffectivePermissions(keys, denied)`），前端那份自建展开表纯属多余。前端 `can()` 退化为纯查表 + `super_admin` 绕过（唯一权威 `utils/identity/permissionCheck.ts`），删除 `LEGACY_PERMISSION_CHILDREN`，契约注明语义。**顺带清掉同源残余**：页面/菜单把父键当子权限兜底（`/entity-meta`、`/webhooks`、`/users`、`/permissions`、5 个 forum tab、`layouts/admin.vue` 的 `extension.manage`）——父键始终在集合里，deny 子键后入口仍显示。变异：`canWithUser` 恒 true → 11/5 红；把展开塞回 `can()` → 12/4 红；单 tab 门加回父键 → 15/1 红（逐文件绑定成立）。decision `2026-11-17-permission-deny-frontend-authority.md` |
+| F-2 | 无清单明文 `.sql` 恢复通道的威胁模型缺口 | P3-22 修复后的残留 | **已修** · 决策 `9fd9e563c` + 实现（部署脚本） | **关键判定：不存在「自动扫描目录挑最新文件」**（`restore-postgres.sh:53-57` 用 `[ ! -f "$1" ]` 拒目录，实测传 `backups/` 与 `backups` 都 exit 1；`deploy.sh:965` 是 `read -r backup_file` 交互输入），所以残留不升为自动绕过。但残留比原描述**更宽**：不是「`.sql` 后缀」而是「无清单 / 清单缺 `encryption=`」一整类（`:276` 的 `[ -f "$manifest" ] || return 0` 零校验零告警；删掉 manifest 的 `encryption=` 行即可绕过 P3-22）。结论：**保留通道但默认拒绝**，复用 `SFORUM_RESTORE_ALLOW_UNVERIFIED=1`，不新增变量；附「历史明文全库转储永不清理」的升级提示 |
+| F-3 | HumanVerify 的 Options 读失败静默降级、无日志 | P3-3 复审 | **已修** · `658b6a503` + `d723d394e` | 读失败在 `service()` 一处打结构化 warn（`purpose` + `fallback` 方向 `altcha_enforced`/`disabled_zero_verification` + 原始 err），行为不变；decision `2026-11-17-human-verify-fallback-fail-open.md` 写入 reviewer 的反驳（部分故障下攻击面真实存在）与「彻底关窗要靠 Options 之外的独立可信来源」。变异：删 warn → 双红；`fallbackDirection` 恒返回同一值 → 红（方向被负向断言钉住）；读失败改强制校验 → 红（「不改行为」有守卫）。**精度修正**：`normalizeRuntimeConfig` 只做 `""→disabled` + lower/trim，**不校验成员**，未知 provider 是第三态（日志方向标错 + 每请求 500） |
+| F-4 | 扩展 observe 投递的崩溃窗口 replay（需 payload 列） | P3-9 对抗审查 | **已修** · 决策 `9fd9e563c` + 注释 `d73e920b7` | **判定：不补 replay、不建 payload 列、不加端点。** 依据：仓库内零个有副作用的生产 observe 订阅方（八个 builtin 只有 `sforum-content-policy` 声明 events 且是 `kind: filter`）；更常见的丢失是插件未运行时 `Deliver` 立即 `finishDelivery(failed)`（`attempt_count` 恒 1），replay 救不了；payload 已在 `EventDeliveryArgs` 且 River 已持久化，要可重投应把投递接到队列而非复制 payload。`event_jobs.go` 装配注释写明「当前生产不可达 + `RegisterEventDeliveryWorker` 零调用点」，并写下 **`Unique.ByArgs` + 每行唯一 `DeliveryID` → 队列化后去重实际失效** |
+| F-5 | P3-3 post_risk 卡片的真机浏览器 QA | P3-3 前端复审 | **已修** · `afee8662b` + `41a54f9f3` + `cd83a9e5b` | 真机 Chrome + 真 API：off 态 `.sf-forum-altcha` **不在 DOM**、真实 `POST /api/v1/topics` 请求体 `bodyKeys:["title","categorySlug","content"]` 且 `humanVerification: null`；on 态 widget 可见 `boundingBox 780×48`、`customElements.get('altcha-widget')===true`、挑战真实下发 `PBKDF2/SHA-256 cost=1000`，并用 Node 复现 `passwordWithCounter` **真解出**（counter=274、171ms）且**服务端接受**（`422 forum.topic_invalid` 而非 `human_verification.*`）；390×844 `scrollWidth==clientWidth`、dock fixed。**未证**：浏览器内带 token 的请求体（headless 下 ALTCHA closed shadow root + 2 个 Web Worker 让 renderer `exit 13`），替代证据标注为代码级（`postRiskField` 三分支单测）。**最有价值的产出**：dev 模式 `/topics/new` 水合 12–30 秒、期间 `ClientOnly` 停在 SSR fallback，「卡片在、widget 不在」是真实中间态；水合前 `Input.insertText` 只改 DOM 值、组件计数器仍 0/100 → 提交按钮永远 disabled。happy-dom 里这两条都不存在 |
+| F-6 | 对外 reason 键翻译完整性棘轮 | P2-2 审查 | **已修** · `9395e73f8` + `b829bf837` | **员工纠正了任务描述的错前提**：`api_token.super_admin_locked` 并不缺（早就在 messages.go），真正的问题是发现口径 `locales_test.go` 的 `^[a-z][a-z0-9]*(?:\.[a-z0-9_]+)+$` 首段不允许下划线 → `api_token.*`/`trust_levels.*`/`entity_meta.*`/`human_verification.*`/`rate_limit.*` 整族在发现阶段消失，且只认字面量实参。Go AST 做差：429 个对外 reason 键、缺 16 个，全部补齐（中英各 451）；`messages.go` 已 997 行，新文案按既有做法单独成文件。**reviewer 抓到的必修绕过**：原收集器只走顶层 `token.CONST` → 函数内局部 const 与包级 var 两种写法**全绿漏报**；改 `ast.Inspect` 全树 + 收 `token.VAR` 后四条变异全红。已知盲区写进头注释（构造器按方法名匹配不校验包路径；`fmt.Sprintf`/拼接/map 取值静默跳过；`extensions/` 不在扫描根且插件 reason 不进核心 envelope） |
+| F-7 | 调度成员表镜像（`Support/Jobs/core_schedules_test.go` ⇄ `Models/Jobs/service_test.go`） | 本轮两次漂移 | 保留（已修一半，刻意） | `Models/Jobs` 侧已改属性断言（`d91a1f80e`），新增调度零改动；`Support/Jobs` 侧仍是唯一手写闸口，保留是「目录成员变了」的审查信号 |
+| F-8 | `t.Fatalf` 让 Auth 包在裸 `go test` 下红，需文档说明 | P3-2 复审 | **已修** · `6f577659e` | `AGENTS.md` 的 Build/test 段补一段：`SFORUM_TEST_REDIS_ADDR` 由 `scripts/test-api-isolated.sh` 提供，裸 `go test ./app/Support/Auth/` 显式失败是**刻意的 gate**，不要改回 `t.Skip`（跳过在非 `-v` 输出里只留一行 `ok`） |
+| F-9 | 全仓 coverage 门跨包共享测试库导致偶发 `users_pkey` 冲突 | 批次 3 收尾门禁 | **已修** · `959653261` + `090bf8472` | **连跑两次 `--coverage-only` 都 exit 0**（7752 测试 / 156 包 / 735s 与 651s，两次计数一致 ≥ 6498）。**三处根因**：① `app/Models/Extensions` 的 version-GC fixture 显式 `id=42` 落行却不推进 `users_id_seq`（实测跑完 users=2/max=42/seq=17），下一个走默认 id 的包在 nextval 到 42 时撞已存在行 → 「每次命中不同包」；修法是 `internal/testdb` 的 `InsertUserWithExplicitID`/`AlignSerial`（对齐到 max(id)、只前进不回拨），受害者 `Notifications` 一行未改。② Core 版本串由 `git describe --dirty` 运行时派生，migrate 写入与 go test 读回是两段式，HEAD 一动必然不等（触发器证明写入方就是 migrator 自己）；修法是门禁用 `-ldflags -X version.Current=<pin>` 把两侧钉成同一读数。③ owner 断言自己没钉 namespace（`pg_class t, pg_class b WHERE …relname='badges'` 匹配到别的包私有 schema 里的同名表，返回 3 行 `true/false/false`）；修法是两侧钉 `public`/`sforum_core_v1`，**没有放宽断言** |
+| F-10 | 登录验证的 fail-open 比注释宽（Redis 故障跳过全部策略判定） | P2-1 审查的非阻塞观察 | **已修** · `540637064` + `3dd5b9d9d` + `bc43e62ed` | `loginLockout.RequiresVerification` 出错时从 `return false, nil` 改为「只跳过 lockout 那一支、继续策略链」；两处降级各一条可区分 warn（`degradation=lockout_unavailable` / `policy_unavailable`），第三处设备指纹失败也补了 `device_fingerprint_unavailable`（原来既不上抛也不打日志）。**reviewer 抓到用例只钉 `Always`**：构造「丢弃 new_device/privileged」变异时整包全绿 → 补两条表驱动用例后该变异双红 |
+| F-11 | `cmd/api` 从未 `slog.SetDefault`，app 层 warn 绕开 JSON 日志管道 | F-3 审查（reviewer F3-2） | 待派 | `cmd/api/main.go:26` 建了 `slog.NewJSONHandler` 却从未 `slog.SetDefault`（全仓非测试零命中），`bootstrap` 构造 `humanVerifier` 也没 `.WithLogger(logger)` → app 层所有 `slog.Warn`（含 F-3 / F-10 新加的降级 warn）以 text 落 stderr、绕开 `cfg.LogLevel` 与 JSON 管道。**不是本轮引入**，是仓库既有形态。要做：判定是否 `SetDefault`（行为变更需 decision）+ 给 `humanVerifier` 补 `.WithLogger`，或明确「app 层应改用注入 logger」的迁移方向 |
+| F-12 | 测试包创建私有 schema 后不清理 | F-9 定位（ops） | 待派 | `database/migrations` 的 badge/celebration 测试留下约 20 个私有 schema（`badge_*`、`celebration_*`、`lifecycle_close_*`），正是让 namespace-blind 断言变随机的土壤；库也会累积对象。不阻塞门禁，但同类随机红会再出现 |
+| F-13 | `pluginprocess` 两条用例硬依赖 `/tmp` 可用空间 | F-9 定位（ops） | 待评估 | `TestSandboxProbeAllowsArtifactReadAndTempWrite` / `TestSandboxProbeWritesOnlyConfiguredDataDir` 必须用 `/tmp`（`shortTempRoot()` 的 per-plugin TMPDIR 受内核 `sun_path` 108 字节限制，`t.TempDir()` 会先撞 EINVAL），所以 `/tmp` 打满时它们会以 `EACCES` / `disk quota exceeded` 假红。改成可配置路径是测试基础设施改动，需单独评估 |
+| F-14 | 前端权限判定的残余收敛点 | F-1 / 同源残余审查 | 待派 | ① `FORUM_PERMISSIONS.settingsManage` 仍导出父键常量（当前无 gating 调用点），应标注「不得用于门」或删除；② 6 处内联 `roleKeys.includes('super_admin')`（`content.vue`、`extensions/pages.vue`、`provider-slots.vue`、`route-providers.vue`、`useAdminExtensionsManager.ts`、`SFTrustedAdminPageComponent.vue`）与 `canWithUser` 的绕过等价，建议收敛；③ `tests/admin/adminForum.test.ts:220` 是字面数组快照，合法候选增删会误报，建议改「候选 ∩ 父键集 = ∅」规则断言；④ `extension.manage` 在 `layouts/admin.vue` 被重新内联时无单测会红（已接受空档，仅靠 review） |
+
+### 第二轮收尾的教训（新增 5 条）
+
+1. **「棘轮能过」不等于「棘轮能拦」。** F-6 的翻译棘轮第一版只扫顶层 `token.CONST`：把 reason 改成函数内局部 `const` 或包级 `var`，**整包全绿**。而它自己的注释还写着「这些键只以常量/变量形式出现」——变量正是漏的那类。**教训：收集面（scope）必须与它声称覆盖的写法一致；写完棘轮先问「换一种等价写法还红吗」。**
+2. **「反射守卫」只能证结构体字段。** P3-7 的 `TestFrontendServiceHoldsNoInProcessChallengeState` 声称包级内存权威会被 DB 落账用例兜住；reviewer 构造「包级 `sync.Map` 门控缓存（未命中即拒、仍调 store.Consume）」变异 → **整包全绿**，而这个变异在生产上正是 P3-7 要修的缺陷（B 副本拒绝 A 副本的合法挑战）。**修法是换成 AST 结构守卫**（拒包级 `sync.Map`/空 map/`make(map)`/结构体字面量藏 map），并把注释改成真话。**教训：注释里的「已被 X 兜住」必须有人真的按那句话去构造反例；否则它只是自我安慰。**
+3. **跨包共享测试库的缺陷有三副面孔，且都不是「隔离缺失」。** `users_pkey` 是**显式 id 插入不推进 BIGSERIAL 序列**（landmine 在插入方，不在受害者）；Core 版本断言是**版本串运行时派生 + HEAD 在动**（migrate 与 test 两个读数）；owner 断言是**断言自己没钉 namespace**（同名对象在别人私有 schema 里）。**教训：全仓门红灯先问「这个断言在测它声称的那个对象吗」，再问「谁在我之前改了这个共享状态」；`seq >= max(id)` 是一次观测不是不变量，landmine 要按类扫干净。**
+4. **并发 agent 共享一个工作区，中间态会毒化别人的门禁。** 一次未提交的 `declared and not used: at` 让 `cmd/sforum` 建不起来，老运的 996 秒全仓门因此 exit 1（`cmd/sforum: 0 < 基线 126`）。**教训：变异实验放到 `/tmp` 副本上做，或做完立刻还原+提交；跑门禁前先自己 `go build ./...`。**
+5. **`/tmp` 是 tmpfs + usrquota，浏览器 QA 的 CDP dump 会把它打满。** 一次 300M 的 `dd` 直接 `Disk quota exceeded`，而 `df` 的「可用」是假象；两条 sandbox 用例因此假红。**教训：浏览器类 QA 收尾必须清理自己的 CDP 目录；门禁类长跑前先验一次 `dd` 可写。**
 
 ## 本轮审查发现并当场修掉的问题
 
@@ -158,11 +171,9 @@ P3-16 原列在「不修 / 可选清理」，本轮已顺手做完（`0d1dc4eb6`
 
 ## 延后项
 
-**P3-16 已移出本节**：本轮顺手做完（`0d1dc4eb6`），从可选清理转为已修。剩余三条仍**不是不做**，是等触发条件：
+**本节已清空两条**：P3-7（`3a70e0e80` + `abb0c11bf`）与 P3-11（`dc9191a1f` + `692f7265e`）本轮转正并修完，31 条表的「当前状态」已改为「已修」。P3-16 更早已移出（`0d1dc4eb6`）。**仅剩一条非 31 条内的同源风险**：
 
-- **P3-7 前端信任挑战持久化。** 触发条件：部署拓扑变为多副本 / 蓝绿，或任一 `super_admin` 在非单实例环境被 `invalid-challenge` 卡住。单实例部署下可延后；一旦触发，复用可执行信任挑战的持久化存储（migration `202607130006`），不要另起一套。
-- **P3-11 CachePolicy 接线。** 触发条件：首次有调用方需要按 tag 失效。接线前必须先改 Redis 版本号 / generation 方案——进程内 `tagIndex` 在多进程下按 tag 失效天然不完整，直接接线等于把「失效不完整」当默认行为发布。
-- **评论计数口径的同构风险（P2-5 的同源问题）。** 触发条件：修 P2-5 时只改 forum 侧、不改 moderation 侧，或未来新增第三条写主题计数的路径（批量迁移、后台重算、插件命令）。届时必须把计数辅助函数收敛成单一实现；否则口径会再次分叉，而这次分叉不会有报告来提醒。
+- **评论计数口径的同构风险（P2-5 的同源问题）。** 触发条件：未来新增第三条写主题计数的路径（批量迁移、后台重算、插件命令），或有人只改 forum 侧不改 moderation 侧。届时必须把计数辅助函数收敛成单一实现；否则口径会再次分叉，而这次分叉不会有报告来提醒。
 
 ## 验收与关闭
 
@@ -172,5 +183,12 @@ P3-16 原列在「不修 / 可选清理」，本轮已顺手做完（`0d1dc4eb6`
 - **本轮的验收口径（批次 3 起固定下来）**：①一个改动一个 commit；②交付附真实命令输出（`go build` + `SFORUM_TEST_SHARDS=1 ./scripts/test-api-isolated.sh <包>`），口头汇报不算；③**每条都要变异验证**——去掉修复后对应用例必须红，红/绿两次输出都要贴；④代码改动一律由 reviewer 看 diff，且**要求他自己注入绕过**，不采信员工报的数字。
 - **对抗审查的实际价值**（本轮数字）：7 条 P3 里 **4 条被打回返工**（P3-2 证据链、P3-3 装配无证据、P3-9 生产不可达、P3-10 重试不重算），其中 P3-10 是**真 bug**（审查员构造出 `4→3` 降级事件反例）、P3-9 是**真缺口**（修的分支生产永不执行）。没有这一层，这四条都会以「测试全绿」的形式合入。
 - **本轮基线红灯的成因**（都不在 31 条里，是上一会话验收口径漏掉的）：上一会话以「聚焦包测试通过」验收，没有跑全仓门禁，于是留下四处——`Controllers/Notifications` 测试包**编译失败**（接口加方法、fake 没跟上）、路由计数 tripwire 435 vs 437、调度目录清单 10 vs 12 + `schedules.md` 漂移、插件 env 探针被静态扫描误判。四处已在本轮修掉；**教训：接口变更必须 `go vet ./...` 一遍所有实现方（含测试 fake），目录类清单要么派生要么只留一处手写闸口。**
-- **收尾时的门禁状态（如实记录，别当成全绿）**：`go build ./...` OK；`node tests/validate-architecture-boundaries.mjs` passed（2310 生产文件）；`ruby scripts/validate-openapi-refs.rb` 3800 refs OK；`node tests/validate-test-db-isolation.mjs --static-only` exit 0；`--coverage-only` 的**计数要求满足**（7723 个测试 / 155 包 ≥ 基线 6498），但连续两次跑都因**跨包共享测试库**偶发失败（`app/Models/Notifications` 的 `TestListCelebrationsDropsUnavailableTargets` 报 `users_pkey` 冲突；第二次还带一条 `app/Support/Extensions` 的 `TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence`）。两个文件在本轮零改动，**单独跑包都绿**（`ok … 1.069s` / `ok … 0.547s`），判定为既有隔离缺陷，已立跟进 F-9。
-- 全部 31 条收敛后，本文件移入 `knowledge/plans/archive/2026-11/`，并在 `README.md` 的 Archived Plans 段落留索引。
+- **第二轮收尾时的门禁状态（全绿，含真实输出）**：
+  - `cd apps/api && go build ./...` → 退出 0
+  - `node tests/validate-architecture-boundaries.mjs` → `Architecture boundary validation passed (2313 production files scanned, 222 files remain above the 500-line review threshold)`
+  - `ruby scripts/validate-openapi-refs.rb` → `OpenAPI references OK: checked 3800 refs across 65 files` + `OpenAPI route bindings OK: 14 annotated operations, 10 required ids`
+  - `node tests/validate-test-db-isolation.mjs --static-only` → `验收通过：静态 / 运行时 / 覆盖率三层证据齐备（exit 0）`
+  - `node tests/validate-test-db-isolation.mjs --coverage-only` → **连跑两次 exit 0**：`实际执行：7752 个测试，156 个包 / 基线 6498（735s）` 与 `（651s）`，两次计数一致
+  - `cd apps/web && bun run typecheck` → exit 0；`bun test` 全量 → `3449 pass / 0 fail / 27967 expect() / 336 files`
+  - 本轮并发很重（多个 agent 同时跑测试 + dev server + 另一会话提交），门禁 735s/651s 慢于基线 500–700s，**不是门禁退化**
+- 全部 31 条收敛后，本文件移入 `knowledge/plans/archive/2026-11/`，并在 `README.md` 的 Archived Plans 段落留索引。（本轮已把状态改为 completed，归档动作留给下一次清理会话——同目录还有两份并行台账在办，避免同时搬动 `README.md` 造成冲突。）
