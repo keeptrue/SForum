@@ -146,6 +146,11 @@ func TestPostgresStoreDecideRoleSuggestionDeniedWithoutTargetPermission(t *testi
 	fixture := newRoleSuggestionApprovalFixture(t)
 	narrowActorID := seedRoleManageOnlyActor(t, fixture)
 	suggestionID := fixture.seedSuggestion(t, "member")
+	// 防假绿：先直问 SQL，确认这个操作者是真的不持有目标权限；否则夹具一改
+	// （例如以后有人把窄操作者挂到评审者角色上），这条用例会静默变成假绿。
+	if holdsRoleSuggestionPermission(t, fixture, narrowActorID) {
+		t.Fatal("fixture 意外让窄操作者持有了目标权限，denied 用例会假绿")
+	}
 	rolePermsBefore := fixture.countRolePermissions(t)
 	auditBefore := fixture.countAuditEvents(t)
 
