@@ -22,20 +22,58 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// 令牌撤销不可逆：先确认再发请求，避免在列表里手滑一下就把该用户所有客户端踢下线。
-const apiTokenConfirmOpen = ref(false)
+/**
+ * 本区两个破坏性动作共用同一个确认框：撤销令牌（只杀 PAT）与强制下线（会话 + 全部
+ * PAT，更重）。重的那个更需要护栏——两者共用一个户型，也避免只给轻的那个加确认，
+ * 让人误以为「没确认的更安全」。
+ */
+type DestructiveAction = 'sessions' | 'apiTokens'
 
-function openAPITokenConfirmation() {
-  apiTokenConfirmOpen.value = true
+const pendingAction = ref<DestructiveAction | null>(null)
+
+const confirmOpen = computed({
+  get: () => pendingAction.value !== null,
+  set: (value: boolean) => {
+    if (!value) {
+      pendingAction.value = null
+    }
+  }
+})
+
+const confirmTitle = computed(() => pendingAction.value === 'sessions'
+  ? t('admin.users.revokeSessionsConfirmTitle')
+  : t('admin.users.revokeAPITokensConfirmTitle'))
+
+const confirmHelp = computed(() => pendingAction.value === 'sessions'
+  ? t('admin.users.revokeSessionsConfirmHelp')
+  : t('admin.users.revokeAPITokensConfirmHelp'))
+
+const confirmLabel = computed(() => pendingAction.value === 'sessions'
+  ? t('admin.users.revokeSessions')
+  : t('admin.users.revokeAPITokens'))
+
+const confirmIcon = computed(() => pendingAction.value === 'sessions' ? 'i-lucide-log-out' : 'i-lucide-key-round')
+
+const confirmPending = computed(() => pendingAction.value === 'sessions' ? props.revoking : props.revokingApiTokens)
+
+function openConfirmation(action: DestructiveAction) {
+  pendingAction.value = action
 }
 
-function closeAPITokenConfirmation() {
-  apiTokenConfirmOpen.value = false
+function closeConfirmation() {
+  pendingAction.value = null
 }
 
-function confirmRevokeAPITokens() {
-  closeAPITokenConfirmation()
-  emit('revokeApiTokens')
+function confirmAction() {
+  const action = pendingAction.value
+  pendingAction.value = null
+  if (action === 'sessions') {
+    emit('revoke')
+    return
+  }
+  if (action === 'apiTokens') {
+    emit('revokeApiTokens')
+  }
 }
 </script>
 
@@ -98,22 +136,24 @@ function confirmRevokeAPITokens() {
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <UButton
+            data-testid="revoke-sessions"
             color="error"
             variant="soft"
             leading-icon="i-lucide-log-out"
             :loading="revoking"
-            @click="emit('revoke')"
+            @click="openConfirmation('sessions')"
           >
             {{ t('admin.users.revokeSessions') }}
           </UButton>
           <UButton
             v-if="canManage"
+            data-testid="revoke-api-tokens"
             color="error"
             variant="outline"
             leading-icon="i-lucide-key-round"
             :title="t('admin.users.revokeAPITokensHelp')"
             :loading="revokingApiTokens"
-            @click="openAPITokenConfirmation"
+            @click="openConfirmation('apiTokens')"
           >
             {{ t('admin.users.revokeAPITokens') }}
           </UButton>
@@ -142,19 +182,19 @@ function confirmRevokeAPITokens() {
     </div>
   </section>
 
-  <UModal v-model:open="apiTokenConfirmOpen" :ui="{ content: 'sm:max-w-md' }">
+  <UModal v-model:open="confirmOpen" :ui="{ content: 'sm:max-w-md' }">
     <template #content>
       <div class="p-5">
         <div class="flex items-start gap-3">
           <span class="grid size-10 shrink-0 place-items-center rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-            <UIcon name="i-lucide-key-round" class="size-5" />
+            <UIcon :name="confirmIcon" class="size-5" />
           </span>
           <div class="min-w-0">
             <h3 class="text-base font-semibold text-slate-950 dark:text-zinc-50">
-              {{ t('admin.users.revokeAPITokensConfirmTitle') }}
+              {{ confirmTitle }}
             </h3>
             <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-zinc-400">
-              {{ t('admin.users.revokeAPITokensConfirmHelp') }}
+              {{ confirmHelp }}
             </p>
           </div>
         </div>
@@ -163,18 +203,18 @@ function confirmRevokeAPITokens() {
             type="button"
             color="neutral"
             variant="ghost"
-            :disabled="revokingApiTokens"
-            @click="closeAPITokenConfirmation"
+            :disabled="confirmPending"
+            @click="closeConfirmation"
           >
             {{ t('admin.common.cancel') }}
           </UButton>
           <UButton
             type="button"
             color="error"
-            :loading="revokingApiTokens"
-            @click="confirmRevokeAPITokens"
+            :loading="confirmPending"
+            @click="confirmAction"
           >
-            {{ t('admin.users.revokeAPITokens') }}
+            {{ confirmLabel }}
           </UButton>
         </div>
       </div>

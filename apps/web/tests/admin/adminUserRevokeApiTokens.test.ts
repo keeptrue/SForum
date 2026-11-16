@@ -203,7 +203,15 @@ function mountDrawer(canManage = true) {
 }
 
 function apiTokenButton(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findAll('button').find(item => item.text() === 'admin.users.revokeAPITokens')
+  return wrapper.find('[data-testid="revoke-api-tokens"]')
+}
+
+function sessionsButton(wrapper: ReturnType<typeof mount>) {
+  return wrapper.find('[data-testid="revoke-sessions"]')
+}
+
+function confirmButtons(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get('[data-testid="confirm"]').findAll('button')
 }
 
 const superAdminLocked = {
@@ -227,9 +235,8 @@ describe('admin user detail drawer: revoke all API tokens', () => {
   test('renders beside force sign-out and only opens the confirmation first', async () => {
     const wrapper = mountSection()
     try {
-      const apiTokens = apiTokenButton(wrapper)!
-      const sessions = wrapper.findAll('button').find(item => item.text().includes('admin.users.revokeSessions'))!
-      expect(apiTokens).toBeDefined()
+      const apiTokens = apiTokenButton(wrapper)
+      const sessions = sessionsButton(wrapper)
       // 并排：两个按钮同一个 flex 容器。
       expect(apiTokens.element.parentElement).toBe(sessions.element.parentElement)
       // 按钮自己带一句「只作废令牌、会话不动」的说明。
@@ -251,9 +258,39 @@ describe('admin user detail drawer: revoke all API tokens', () => {
 
       // 再次打开并确认 → 才抛给上层去发请求。
       await apiTokenButton(wrapper)!.trigger('click')
-      const confirmButtons = wrapper.get('[data-testid="confirm"]').findAll('button')
-      await confirmButtons[confirmButtons.length - 1]!.trigger('click')
+      const buttons = confirmButtons(wrapper)
+      await buttons[buttons.length - 1]!.trigger('click')
       expect(wrapper.emitted('revokeApiTokens')).toHaveLength(1)
+      expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  test('force sign-out also asks first: the heavier action is not one-click', async () => {
+    const wrapper = mountSection()
+    try {
+      expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false)
+      await sessionsButton(wrapper).trigger('click')
+      // 点一下只开确认框，不发请求。
+      expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(true)
+      expect(wrapper.emitted('revoke')).toBeUndefined()
+
+      const confirm = wrapper.get('[data-testid="confirm"]')
+      expect(confirm.text()).toContain('admin.users.revokeSessionsConfirmTitle')
+      expect(confirm.text()).toContain('admin.users.revokeSessionsConfirmHelp')
+      // 两个动作共用同一个确认户型，但文案/按钮标签按动作切换。
+      expect(confirm.text()).not.toContain('admin.users.revokeAPITokensConfirmTitle')
+
+      await confirmButtons(wrapper)[0]!.trigger('click')
+      expect(wrapper.emitted('revoke')).toBeUndefined()
+      expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false)
+
+      await sessionsButton(wrapper).trigger('click')
+      const buttons = confirmButtons(wrapper)
+      await buttons[buttons.length - 1]!.trigger('click')
+      expect(wrapper.emitted('revoke')).toHaveLength(1)
+      expect(wrapper.emitted('revokeApiTokens')).toBeUndefined()
       expect(wrapper.find('[data-testid="confirm"]').exists()).toBe(false)
     } finally {
       wrapper.unmount()
@@ -266,7 +303,7 @@ describe('admin user detail drawer: revoke all API tokens', () => {
     try {
       await (wrapper.vm as unknown as { open: (user: typeof summary) => Promise<void> }).open(summary)
       await flushPromises()
-      expect(apiTokenButton(wrapper)).toBeUndefined()
+      expect(apiTokenButton(wrapper).exists()).toBe(false)
       expect(wrapper.text()).toContain('admin.users.revokeSessions')
     } finally {
       wrapper.unmount()
@@ -286,6 +323,11 @@ describe('admin user detail drawer: revoke all API tokens', () => {
     // 强制下线自己的说明必须承认它会连令牌一起作废（后端同一事务里撤销 api_tokens）。
     expect(zh.sessionSectionHelp).toContain('API 令牌')
     expect(en.sessionSectionHelp).toContain('API token')
+    // 重动作的确认文案必须同时说清「会话结束」与「令牌作废」。
+    expect(zh.revokeSessionsConfirmHelp).toContain('浏览器会话')
+    expect(zh.revokeSessionsConfirmHelp).toContain('API 令牌')
+    expect(en.revokeSessionsConfirmHelp).toContain('browser session')
+    expect(en.revokeSessionsConfirmHelp).toContain('API tokens')
   })
 
   test('sends DELETE, toasts the real count and refreshes the detail', async () => {
@@ -306,8 +348,8 @@ describe('admin user detail drawer: revoke all API tokens', () => {
       await flushPromises()
 
       await apiTokenButton(wrapper)!.trigger('click')
-      const confirmButtons = wrapper.get('[data-testid="confirm"]').findAll('button')
-      await confirmButtons[confirmButtons.length - 1]!.trigger('click')
+      const buttons = confirmButtons(wrapper)
+      await buttons[buttons.length - 1]!.trigger('click')
       await flushPromises()
 
       const deletes = harness.calls.filter(call => call.path === '/users/425/api-tokens')
@@ -343,8 +385,8 @@ describe('admin user detail drawer: revoke all API tokens', () => {
       await flushPromises()
 
       await apiTokenButton(wrapper)!.trigger('click')
-      const confirmButtons = wrapper.get('[data-testid="confirm"]').findAll('button')
-      await confirmButtons[confirmButtons.length - 1]!.trigger('click')
+      const buttons = confirmButtons(wrapper)
+      await buttons[buttons.length - 1]!.trigger('click')
       await flushPromises()
 
       // 错误留在抽屉里的持久横幅上，不是会自动消失的 toast。

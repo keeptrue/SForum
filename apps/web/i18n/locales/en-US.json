@@ -3791,6 +3791,8 @@
       "revokeSessions": "Force sign out all devices",
       "sessionsRevoked": "Signed out {count} device(s).",
       "revokeSessionsFailed": "Could not force sign out, please try again.",
+      "revokeSessionsConfirmTitle": "Force sign out all of this user's devices?",
+      "revokeSessionsConfirmHelp": "Every browser session for this user ends immediately and all API tokens are revoked; they are signed out on their next request. This is the widest-blast-radius action in this section.",
       "revokeAPITokens": "Revoke all API tokens",
       "revokeAPITokensHelp": "Revokes the user's machine-client tokens only; browser sessions stay signed in.",
       "revokeAPITokensConfirmTitle": "Revoke all of this user's API tokens?",

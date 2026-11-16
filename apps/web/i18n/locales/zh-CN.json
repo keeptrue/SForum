@@ -3831,6 +3831,8 @@
       "revokeSessions": "强制下线全部设备",
       "sessionsRevoked": "已下线 {count} 台设备。",
       "revokeSessionsFailed": "强制下线失败，请稍后重试。",
+      "revokeSessionsConfirmTitle": "强制下线该用户的全部设备？",
+      "revokeSessionsConfirmHelp": "该用户的所有浏览器会话会立即结束，同时作废其全部 API 令牌；下次请求即被登出。这是本区影响面最大的动作。",
       "revokeAPITokens": "撤销全部 API 令牌",
       "revokeAPITokensHelp": "只作废该用户已签发的机器客户端令牌，浏览器里的登录会话保持不动。",
       "revokeAPITokensConfirmTitle": "撤销该用户的全部 API 令牌？",
