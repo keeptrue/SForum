@@ -3,8 +3,11 @@
   "measuredAt": "2026-10-27T00:46:18.615Z",
   "command": "./scripts/test-api-isolated.sh -count=1 -json ./...",
   "note": "由 tests/validate-test-db-isolation.mjs --write-baseline 自动记录；只能手工上调，不允许为了通过而调低。",
-  "totalTests": 6500,
-  "dbPackages": 136,
+  "totalTests": 6498,
+  "dbPackages": 135,
+  "adjustments": [
+    "2026-11-16 P3-8：删除无生产调用方的 app/Support/IdentityDelegation 包（2 个测试、1 个包），totalTests 6500→6498、dbPackages 136→135、移除该包 perPackage 条目。这是删死代码导致的合法下降，不是为通过而调低。"
+  ],
   "perPackage": {
     "github.com/keeptrue/sforum/apps/api/app/Http": 289,
     "github.com/keeptrue/sforum/apps/api/app/Http/Controllers/AdminOverview": 5,
@@ -97,7 +100,6 @@
     "github.com/keeptrue/sforum/apps/api/app/Support/HostHTTP": 8,
     "github.com/keeptrue/sforum/apps/api/app/Support/HumanVerify": 13,
     "github.com/keeptrue/sforum/apps/api/app/Support/Idempotency": 21,
-    "github.com/keeptrue/sforum/apps/api/app/Support/IdentityDelegation": 2,
     "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry": 87,
     "github.com/keeptrue/sforum/apps/api/app/Support/InstallationIdentity": 5,
     "github.com/keeptrue/sforum/apps/api/app/Support/Jobs": 35,

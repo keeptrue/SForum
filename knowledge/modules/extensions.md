@@ -378,9 +378,13 @@ does not rebuild Nuxt.
   supported. Omitted or `public` visibility on an `account-settings` contribution
   is raised to `authenticated` by lifecycle publication, so the slot can never
   leak to guests; `href` is still limited to `/settings/*` or `/extensions/*`.
-  Core also owns the `IdentityDelegation` and `ConsentBridge` capability
-  boundaries for optional identity providers; these packages expose no raw Core
-  database or session authority and are not OAuth-specific.
+  Core also owns the plugin identity delegation and `ConsentBridge` capability
+  boundaries for optional identity providers. Delegation is served by the
+  versioned HostAPI plus `Support/Extensions/plugin_session_state_delegation`
+  (JWT + ledger); the unused `Support/IdentityDelegation` package was deleted in
+  P3-8 so there is no second delegation semantic to pick wrongly. These
+  packages expose no raw Core database or session authority and are not
+  OAuth-specific.
 - Public roadmaps now label M3/M5/M6/M7 as prerelease residuals. P0-P12 phase
   checklist completion is not presented as stable production completion until
   those rows and the joined M8 gate close.
