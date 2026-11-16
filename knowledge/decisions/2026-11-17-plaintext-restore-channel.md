@@ -2,8 +2,10 @@
 
 ## Status
 
-Accepted（2026-11-17，安全审计 31 轮 F-2 判定）。判定已定；**实现待派（老运）** —— 本记录落盘时
-生产脚本对无清单载荷仍是静默放行。
+Accepted（2026-11-17，安全审计 31 轮 F-2 判定）。**已实现**（`918404431`，2026-11-17）：
+`deploy/scripts/postgres-backup-format.sh:276-281` 对无完整性凭据的明文载荷默认 `sforum_die`，
+只留 `SFORUM_RESTORE_ALLOW_UNVERIFIED=1` 显式放行；`deploy/scripts/postgres-safety_test.sh` 的
+C13 / C13b / C13c 钉住「默认拒绝 + 显式放行仍可恢复并告警」。落盘时那句「静默放行」已不存在。
 
 ## Context
 
