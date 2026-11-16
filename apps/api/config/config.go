@@ -305,6 +305,8 @@ func validateProductionSecrets(cfg Config) {
 	// DATABASE_URL 也要进生产闸门：compose.yaml 的 api 默认值是公开的开发连接串
 	// （sforum:sforum@postgres），compose.prod.yaml 的 migrate 默认值是 change-me。
 	// 少了这一项，生产 API 会在没有任何提示的情况下连上开发/占位库。
+	// panic 文本直接进 stderr（容器日志）：err 里已经是 redactDatabaseURL 收敛过的
+	// 形态（口令 ***、query 整段丢弃），不再拼接原始连接串（R7-OPS-02）。
 	if err := ValidateProductionDatabaseURL(cfg.DatabaseURL); err != nil {
 		panic(fmt.Sprintf("config: DATABASE_URL %v", err))
 	}
@@ -374,30 +376,76 @@ func ValidateIdentitySubjectHMACSecret(secret string, production bool) error {
 // ValidateProductionDatabaseURL 校验生产数据库连接串不是空值、不是仓库公开的默认值，
 // 且没有使用占位口令。它只看「能不能确定这是一个真实部署的连接串」，不校验可达性：
 // 连接失败会由启动时的 ping 给出更准确的错误。
+//
+// 所有错误文本只经过 redactDatabaseURL 收敛后的形态：这个 error 会被
+// validateProductionSecrets 原样 panic 到 stderr（容器日志），回显原文等于把口令写进
+// 日志（R7-OPS-02）。
 func ValidateProductionDatabaseURL(raw string) error {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return fmt.Errorf("must be set in production")
 	}
 	if insecureDatabaseURLValues[trimmed] {
-		return fmt.Errorf("must not use the repository default in production (got %q)", trimmed)
+		return fmt.Errorf("must not use the repository default in production (got %q)", redactDatabaseURL(trimmed))
 	}
 	parsed, err := url.Parse(trimmed)
 	if err != nil {
-		return fmt.Errorf("must be a valid URL in production (got %q)", trimmed)
+		return fmt.Errorf("must be a valid URL in production (got %q)", redactDatabaseURL(trimmed))
 	}
 	switch strings.ToLower(parsed.Scheme) {
 	case "postgres", "postgresql":
 	default:
-		return fmt.Errorf("must use the postgres:// or postgresql:// scheme in production (got %q)", parsed.Scheme)
+		return fmt.Errorf("must use the postgres:// or postgresql:// scheme in production (got %q)", redactDatabaseURL(trimmed))
 	}
 	if parsed.Host == "" {
-		return fmt.Errorf("must include a host in production (got %q)", trimmed)
+		return fmt.Errorf("must include a host in production (got %q)", redactDatabaseURL(trimmed))
 	}
+	// 口令本身不回显：占位口令是公开词表里的值，但仍可能被运维误写成半截真实口令
+	// （例如 sforum 之外的内部约定），点名「用了占位口令」已足够定位。
 	if password, ok := parsed.User.Password(); ok && insecureDatabasePasswords[password] {
-		return fmt.Errorf("must not use a placeholder password in production (got %q)", password)
+		return fmt.Errorf("must not use a placeholder password in production (got %q)", redactDatabaseURL(trimmed))
 	}
 	return nil
+}
+
+// redactDatabaseURL 把连接串收敛成 `scheme://user:***@host[:port]/db` 供错误文本使用。
+//
+// 收口规则（每一条都是为了「宁可少信息，也不把形状未知的原文透出去」）：
+//   - 口令固定替换为 ***，不区分真口令与占位口令；
+//   - query 与 fragment 整段丢弃：`?password=…` 同样能把口令带进日志；
+//   - 解析失败（含非法端口）时无法确定 userinfo 边界，整体退化为 ***；
+//   - 解析不出 scheme 回 ***；解析出 scheme 但没有主机只回 `scheme://***`
+//     （`postgres:user:pw@host/db` 这种 opaque 形态的口令就落在这一段）；
+//   - 路径保留：库名是排障最需要的那一位，且按约定不含凭据。
+func redactDatabaseURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "***"
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "***"
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme == "" {
+		return "***"
+	}
+	if parsed.Host == "" {
+		return scheme + "://***"
+	}
+	userinfo := ""
+	if parsed.User != nil {
+		username := parsed.User.Username()
+		if username == "" {
+			username = "***"
+		}
+		if _, hasPassword := parsed.User.Password(); hasPassword {
+			userinfo = username + ":***@"
+		} else {
+			userinfo = username + "@"
+		}
+	}
+	return scheme + "://" + userinfo + parsed.Host + parsed.EscapedPath()
 }
 
 // parseIdentitySubjectHMACKeyBytes 将配置字符串解析为密钥字节。
