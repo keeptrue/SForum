@@ -817,13 +817,16 @@ func TestVersionGCAdminServiceRequiresSuperAdmin(t *testing.T) {
 	// 锚点表的 requested_by_user_id 对 users 有 RESTRICT 外键：先种 actor 用户行。
 	// 已 seed 的 dev 库里 id 42 可能已是真实用户，冲突时复用该行即可（断言只关心
 	// 锚点/审计确实绑定了这个 actor id）。
-	if _, err := pool.Exec(ctx, `
+	//
+	// 必须走 testdb.InsertUserWithExplicitID：显式 id 不推进 users_id_seq，直接插
+	// 会把序列留在 42 后面，poison 掉本分片里下一个走默认 id 的包（users_pkey
+	// 23505，2026-11-17 覆盖率门禁连红两次的根因）。ON CONFLICT DO NOTHING 不能
+	// 替代序列对齐——冲突被吞掉之后序列照样落后。
+	testdb.InsertUserWithExplicitID(t, ctx, pool, `
 		INSERT INTO users (id, username, username_lower, email, email_lower, display_name)
 		VALUES ($1, 'gc-admin', 'gc-admin', 'gc-admin@example.com', 'gc-admin@example.com', 'GC Admin')
 		ON CONFLICT (id) DO NOTHING
-	`, extensionManager().ID); err != nil {
-		t.Fatalf("seed gc admin user: %v", err)
-	}
+	`, extensionManager().ID)
 	// Execute 绑定 actor：审计 mode=api、锚点 requested_by_user_id=42。
 	result, err := service.Execute(ctx, extensionManager(), options, confirmation.Token)
 	if err != nil {
