@@ -147,6 +147,43 @@ func TestLegacyRawEntryIsTreatedAsMiss(t *testing.T) {
 	}
 }
 
+// TestEntryIsRejectedWhenAnyOfItsTagsMoves 多 tag 逐项比对（P3-11 复审必改 1）。
+//
+// 条目带两个 tag，只递增其中一个：**必须** miss。这条钉住「全部相等才算新鲜」，
+// 因为单 tag 用例下「任一相等即命中」与「全部相等」不可区分——reviewer 的计数中性
+// 变异（保留 Bump，把比对改成任一 tag 相等即命中）在只有单 tag 用例时整包全绿。
+//
+// 变异要求：把 Get 的逐项比对改成「任一 tag 相等即命中」，本用例必须红
+// （症状是服务了陈旧值：found=true）。
+func TestEntryIsRejectedWhenAnyOfItsTagsMoves(t *testing.T) {
+	ctx := context.Background()
+	tags := []string{"demo.cache.tag.alpha", "demo.cache.tag.beta"}
+	service := newTestService(t, "demo.cache.multi", cacheregistry.PolicyPublic, tags)
+	plan, err := service.PlanKey(KeyRequest{
+		CacheID: "demo.cache.multi", Namespace: "demo.cache.multi.namespace",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Tags) != 2 {
+		t.Fatalf("fixture must declare two tags, got %#v", plan.Tags)
+	}
+	if err := service.Set(ctx, plan, []byte("v1")); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, err := service.Get(ctx, plan); err != nil || !found {
+		t.Fatalf("pre-bump hit failed: found=%t err=%v", found, err)
+	}
+
+	// 只动 beta：alpha 没变。若实现写成「任一 tag 相等即命中」，这里会错误命中。
+	if _, err := service.generations.Bump(ctx, []string{"demo.cache.tag.beta"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, err := service.Get(ctx, plan); err != nil || found {
+		t.Fatalf("entry must expire when ANY of its tags moves: found=%t err=%v", found, err)
+	}
+}
+
 // TestEntryIsRejectedWhenItsTagGenerationMoves 只递增 generation、不删任何 key、
 // 也不经过 Invalidate：条目必须自己判定过期。这条把「条目侧 generation 校验」
 // 与「本地索引删 key」分开，避免两者互相掩盖。

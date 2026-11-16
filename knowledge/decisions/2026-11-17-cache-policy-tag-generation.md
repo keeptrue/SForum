@@ -22,6 +22,10 @@ Accepted（2026-11-17）。本条同时定义了故障姿态与「谁能改」�
 `app/Models/Forum/cached_store.go` 已经用 generation 解决过同一类问题（`forum:gen:*`
 + 原子 `IncrementWithTTL`），本决策沿用同一形状，避免仓库里出现两套失效哲学。
 
+**关于顺序**：实现分三步（generation 机制 → 本决策 → 接线），但三步落在**同一个
+commit** 里。所以「先机制、后决策、再接线」这个顺序由本文与代码注释保证，**不能**
+从提交历史里读出来；审计时不要去历史里找两个 commit。
+
 ## Decision
 
 ### 1. 权威：每个 tag 一个单调递增的 generation，存在 Redis
@@ -68,9 +72,13 @@ Accepted（2026-11-17）。本条同时定义了故障姿态与「谁能改」�
 - **升级窗口**：本方案之前写入的条目是裸值（无信封），升级后会被判为 miss 并删除。
   本服务此前**没有生产调用方**，实际不存在存量；若将来在有存量时再改信封，必须按
   §4 抬 schema。
-- **每次命中多一次读**：`Get` 需要读该条目 tag 的 generation（同一后端、同一连接池）。
-  这是「跨进程失效可见」的直接成本；要省掉它只能把 generation 编进 key，而那要求
-  `PlanKey` 变成带 `ctx` 的异步接口（公共契约变更），本轮不做。
+- **每个 tag 一次读**：`Get` 的 `Current` 是**逐 tag** `backend.Get`，所以一次命中
+  多出的是「条目 tag 数」次 round trip（2 个 tag = 2 次，5 个 tag = 5 次），不是恒定
+  的一次。成本由该条目声明的 tag 数决定——声明多个 tag 的贡献方要按这个口径评估。
+  要压成一次往返需要 `MGET`，那要把 `GenerationStore` 的契约改成批量读并绑定具体
+  backend 能力（当前抽象只保证 `Get`/`Increment`），属于后续优化，不是本轮范围；
+  要彻底省掉它只能把 generation 编进 key，而那要求 `PlanKey` 变成带 `ctx` 的接口
+  （公共契约变更），本轮不做。
 - **ProviderMemory 仍是单进程语义**：generation 跟随后端，memory backend 下失效只在
   本进程可见。这是 provider 语义的一部分，不是本决策的漏洞；多副本部署必须用
   `ProviderRedis`。
@@ -79,3 +87,15 @@ Accepted（2026-11-17）。本条同时定义了故障姿态与「谁能改」�
   逻辑失效的范围；逻辑失效范围由 `Tags` 表达。
 - **Redis 短暂不可用**：读写都 fail closed 成 miss/错误，不会服务不可校验的条目。
   代价是这段时间缓存命中率归零、回源压力上升；收益是不会出现「失效了但还在服务」。
+- **本轮之后仍然没有生产消费方（重要）**：接线只到「装配点」——`bootstrap/host_cache.go`
+  造出 `productionHostCache.Policy`，但全仓**没有任何生产代码读它**：
+  `rg "cachepolicy\.New\(" 非测试 → 只有 bootstrap/host_cache.go`，
+  `rg "hostCacheRuntime\." 非测试 → 只读 `.Registry` / `.Inspector`，从不读 `.Policy`；
+  `.Policy` 的唯一读取方是 `bootstrap/host_cache_test.go`。也就是说：**机制已就绪、
+  跨进程失效已被真实 Redis 用例证明，但此刻没有任何业务路径在使用它**。
+  这符合「没有真实调用方就不要造假调用方」的口径，不要把它读成「缓存失效已经接上了」。
+- **什么时候才算真正接上**：出现**第一条按 tag 失效的业务路径**时，该路径必须
+  ① 读装配出来的 `productionHostCache.Policy`（或注入同一个实例），而不是在别处
+  自建 `cachepolicy.New(...)`（自建等于又造一个进程内权威，本决策的全部结论对它不成立）；
+  ② 有 allowed/denied 两侧用例，且至少一条跨实例/跨进程的失效可见性断言；
+  ③ 若它是核心业务路径，需要同时更新本条决策的「消费方」一节。

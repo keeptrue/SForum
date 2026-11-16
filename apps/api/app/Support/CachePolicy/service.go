@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -229,7 +230,13 @@ func (s *Service) Get(ctx context.Context, plan KeyPlan) ([]byte, bool, error) {
 	if decodeErr != nil {
 		// 旧格式裸值 / 损坏条目：无法判断新鲜度，一律当 miss 并清掉，
 		// 绝不让一份无法失效的值继续被当成命中。
-		_ = s.backend.Delete(ctx, plan.Key)
+		//
+		// 删除失败被显式忽略：这一次已经按 miss 返回，正确性不依赖删除是否成功
+		// （下次 Get 会再判一次、再删一次），但失败只可能是后端故障，所以留一条 warn。
+		if deleteErr := s.backend.Delete(ctx, plan.Key); deleteErr != nil {
+			slog.WarnContext(ctx, "cache policy: delete undecodable entry failed",
+				"key", plan.Key, "error", deleteErr)
+		}
 		s.misses.Add(1)
 		return nil, false, nil
 	}
@@ -245,9 +252,17 @@ func (s *Service) Get(ctx context.Context, plan KeyPlan) ([]byte, bool, error) {
 			s.errors.Add(1)
 			return nil, false, genErr
 		}
+		// 逐项比对：**任意一个** tag 的 generation 前进，条目就过期。不能反过来
+		// 写成「任一相等即命中」——多 tag 条目下那会让一个已经失效的 tag 被另一个
+		// 未失效的 tag 兜住，等于服务陈旧值（P3-11 复审变异）。
 		for tag, at := range entry.Gens {
 			if current[tag] != at {
-				_ = s.backend.Delete(ctx, plan.Key)
+				// 删失败不影响正确性（下次 Get 会再判一次过期并再试一次删除），
+				// 但这里**不静默**：删除失败只可能是后端故障，属于可观测事件。
+				if deleteErr := s.backend.Delete(ctx, plan.Key); deleteErr != nil {
+					slog.WarnContext(ctx, "cache policy: delete stale entry failed",
+						"key", plan.Key, "tag", tag, "error", deleteErr)
+				}
 				s.misses.Add(1)
 				return nil, false, nil
 			}
