@@ -68,6 +68,42 @@ ruby -rjson -e '
   abort "green API tag mismatch" unless services.dig("api-green", "image").end_with?(":v3.0.0-alpha.11")
 ' "$TEMP_DIR/compose.json"
 
+# R7-OPS-06：槽位镜像必须和 compose.release.yaml 同口径地读 SFORUM_REGISTRY。
+# 硬编码 ghcr.io/keeptrue 时，私有 registry 的部署会出现「upgrade.sh 拉得到目标
+# 镜像、edge 背后的槽位却指向别处」——两边各自以为自己拉的是同一个版本。
+SFORUM_REGISTRY=registry.internal/sforum \
+SFORUM_BLUE_VERSION=v3.0.0-alpha.10 \
+SFORUM_GREEN_VERSION=v3.0.0-alpha.11 \
+docker compose \
+  --env-file "$TEMP_DIR/.env.production" \
+  -f "$ROOT_DIR/compose.yaml" \
+  -f "$ROOT_DIR/compose.prod.yaml" \
+  -f "$ROOT_DIR/compose.release.yaml" \
+  -f "$ROOT_DIR/compose.zero-downtime.yaml" \
+  --profile zero-downtime \
+  config --format json > "$TEMP_DIR/compose-registry.json"
+
+ruby -rjson -e '
+  prefix = "registry.internal/sforum"
+  expected = {
+    "api-blue" => "#{prefix}/sforum-api:v3.0.0-alpha.10",
+    "web-blue" => "#{prefix}/sforum-web:v3.0.0-alpha.10",
+    "api-green" => "#{prefix}/sforum-api:v3.0.0-alpha.11",
+    "web-green" => "#{prefix}/sforum-web:v3.0.0-alpha.11"
+  }
+  services = JSON.parse(File.read(ARGV.fetch(0))).fetch("services")
+  expected.each do |name, image|
+    actual = services.fetch(name).fetch("image")
+    abort "R7-OPS-06: #{name} ignores SFORUM_REGISTRY: #{actual.inspect} (expected #{image})" unless actual == image
+  end
+
+  # 默认值同样是契约：不设覆盖值时槽位必须仍然指向 ghcr.io/keeptrue，否则改镜像
+  # 仓库这件事会在默认路径上悄悄发生。
+  defaults = JSON.parse(File.read(ARGV.fetch(1))).fetch("services")
+  abort "R7-OPS-06: default registry drifted: #{defaults.dig("api-blue", "image").inspect}" unless \
+    defaults.dig("api-blue", "image") == "ghcr.io/keeptrue/sforum-api:v3.0.0-alpha.10"
+' "$TEMP_DIR/compose-registry.json" "$TEMP_DIR/compose.json"
+
 # RV-43：edge 镜像必须按 digest 固定，且与 upgrade.sh 的常量逐字一致；否则两处
 # 任一漂移都会让「拉取的身份」和「运行的身份」不是同一个东西。
 compose_caddy_image="$(ruby -rjson -e 'print JSON.parse(File.read(ARGV.fetch(0))).fetch("services").fetch("edge").fetch("image")' "$TEMP_DIR/compose.json")"
