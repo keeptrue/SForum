@@ -154,11 +154,38 @@ func (s *Service) SubmitDecision(ctx context.Context, actor identity.Actor, inpu
 	if err != nil {
 		return Decision{}, err
 	}
-	if input.Source == SourcePrePublish && input.Action == ActionApprove && s.readModels != nil {
+	if s.readModels != nil && invalidatesModerationPublication(input) {
+		// 位置不变：这里在 SubmitDecision 提交之后（workbenchStore.SubmitDecision
+		// 自带事务并已 commit），失效必须发生在可见状态真正落库之后。
+		if contextItem.TopicID <= 0 {
+			// 不静默跳过：拿不到父主题时公开缓存仍可能残留旧可见性，至少留一条
+			// 可观测线索，便于发现 GetReviewContext 形状回归。
+			slog.WarnContext(ctx, "moderation: decision changed visibility without a topic id",
+				"source", input.Source, "targetType", input.TargetType, "targetId", input.TargetID)
+		}
 		s.readModels.InvalidateModerationPublication(ctx, contextItem.TopicID, input.TargetType)
 	}
 	s.refreshSearchAfterDecision(ctx, input, contextItem)
 	return decision, nil
+}
+
+// invalidatesModerationPublication 判定这次处置是否改变了内容的**公开可见性**。
+//
+// 只有可见性变化才需要失效公开读缓存：
+//   - 预审通过（pre_publish + approve）：内容从 pending 进入公开列表/详情；
+//   - 举报处置的 hide_and_close / delete_and_close：内容离开公开可见集。
+//
+// keep_and_close 只关掉举报工单、不改内容状态，因此不失效；reject 同理。
+// 之前的实现只覆盖了第一条，于是版主隐藏/删除的公开主题与评论在 TTL 窗口内
+// （最长 60s，taxonomy）仍可被公开读取（P2-3）。
+func invalidatesModerationPublication(input DecisionInput) bool {
+	if input.Source == SourcePrePublish {
+		return input.Action == ActionApprove
+	}
+	if input.Source == SourceReport {
+		return input.Action == ActionHideAndClose || input.Action == ActionDeleteAndClose
+	}
+	return false
 }
 
 func (s *Service) refreshSearchAfterDecision(ctx context.Context, input DecisionInput, contextItem ReviewContext) {

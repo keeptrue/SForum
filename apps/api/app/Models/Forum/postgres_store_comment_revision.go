@@ -8,7 +8,7 @@ import (
 
 // CommentRevisionState 读取公开评论修订状态：一次 topics 主键读 + 一次
 // comments_topic_created_idx 反向尾部读，都是索引命中，且不经评论列表缓存
-// （列表缓存有 20/45s TTL，用它会发出过期的「一切正常」信号）。
+// （列表缓存有 20/40s TTL，用它会发出过期的「一切正常」信号）。
 func (s *PostgresStore) CommentRevisionState(ctx context.Context, topicID int64) (CommentRevisionState, error) {
 	var state CommentRevisionState
 	// 主题没有任何 active 评论时尾部 LEFT JOIN 为 NULL，用可空目标承接再归一。

@@ -603,6 +603,30 @@ func TestCachedStoreModerationPublicationInvalidatesPublicDerivatives(t *testing
 	}
 }
 
+// TestCachedStoreModerationPublicationWithoutTopicIDStillInvalidatesCommentVisibility
+// 固定「拿不到父主题时不静默跳过」（P2-3 收口）：评论可见性变化没有具体 ID 可用时，
+// 仍要让引用侧的主题可见性 generation 前进，否则评论区继续渲染已隐藏的内容。
+func TestCachedStoreModerationPublicationWithoutTopicIDStillInvalidatesCommentVisibility(t *testing.T) {
+	t.Parallel()
+	spy := &referenceInvalidatorSpy{}
+	cached := NewCachedStore(newCacheTestStore(), cache.NewMemoryCache()).(*CachedStore)
+	WithReferenceRenderCacheInvalidator(cached, spy)
+
+	cached.InvalidateModerationPublication(t.Context(), 0, "comment")
+	if spy.visibilityCalls != 1 {
+		t.Fatalf("comment visibility invalidations=%d want 1", spy.visibilityCalls)
+	}
+	if len(spy.resources) != 0 {
+		t.Fatalf("没有 topic id 时不应产生按 ID 的资源失效：%v", spy.resources)
+	}
+
+	// 主题目标没有 ID 时确实没有可失效的精确 key，不应伪造一次资源失效。
+	cached.InvalidateModerationPublication(t.Context(), 0, "topic")
+	if spy.visibilityCalls != 1 || len(spy.resources) != 0 {
+		t.Fatalf("topic without id: visibility=%d resources=%v", spy.visibilityCalls, spy.resources)
+	}
+}
+
 func TestCachedStoreListCommentsSkipsViewerScoped(t *testing.T) {
 	ctx := context.Background()
 	inner := newCacheTestStore()

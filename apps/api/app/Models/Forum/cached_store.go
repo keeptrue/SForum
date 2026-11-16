@@ -59,9 +59,12 @@ const (
 	prefixGroupsList   = "forum:groups"
 	prefixTagsList     = "forum:tags"
 
+	// 公开读缓存的**最坏**陈旧窗口是下面最长的那一条：taxonomy 的 60s
+	// （分类/分组/标签）。任何「最坏多旧 X 秒」的表述都以它为准，别拿
+	// ttlListPage1 的 45s 当上限 —— 主题列表分片还有 60s 的 taxonomy 依赖。
 	ttlList        = 15 * time.Second // 主题列表：变化较频繁
 	ttlListPage1   = 45 * time.Second // 第一页（首页/分类热路径）稍长 TTL
-	ttlTaxonomy    = 60 * time.Second // 分类/分组/标签：变化极少
+	ttlTaxonomy    = 60 * time.Second // 分类/分组/标签：变化极少（当前最长窗口）
 	ttlTopicDetail = 30 * time.Second // 主题详情
 	ttlComments    = 20 * time.Second // 评论列表：详情热路径
 	ttlCommentsP1  = 40 * time.Second // 评论第一页稍长
@@ -423,6 +426,13 @@ func (s *CachedStore) CommentRevisionState(ctx context.Context, topicID int64) (
 // after commit, so cache generations never advertise a rolled-back decision.
 func (s *CachedStore) InvalidateModerationPublication(ctx context.Context, topicID int64, targetType string) {
 	if topicID <= 0 {
+		// 拿不到父主题时不能静默跳过：评论可见性变化仍然要让引用侧的
+		// 主题可见性 generation 前进（它不依赖具体 ID），否则评论区会继续
+		// 渲染已隐藏的内容。主题目标没有 ID 就没有可失效的精确 key，
+		// 只能依赖 TTL —— 调用方（Moderation）会同时留一条 warn 日志。
+		if targetType == "comment" {
+			s.invalidateReferenceTopicVisibility(ctx)
+		}
 		return
 	}
 	scopes := s.topicListScopes(ctx, topicID)

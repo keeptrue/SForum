@@ -253,6 +253,93 @@ func TestSubmitDecisionInvalidatesPublishedForumReadModels(t *testing.T) {
 	}
 }
 
+// TestSubmitDecisionInvalidationMatrix 固定「任何改变公开可见性的处置都必须失效公开
+// 读缓存」（P2-3）。
+//
+// 之前只有 pre_publish + approve 会调 InvalidateModerationPublication，举报处置的
+// hide_and_close / delete_and_close 直接 UPDATE status，绕开 Forum.CachedStore，
+// 被隐藏/删除的公开主题与评论在 TTL 窗口内（最长 taxonomy 60s）仍可被公开读取。
+//
+// 矩阵覆盖三种改变可见性的动作 × topic/comment 两类目标，以及 keep_and_close
+// （只关工单、内容未变）不失效。
+//
+// 变异要求：把 invalidatesModerationPublication 改回「只有 pre_publish + approve」，
+// 四条 report 改变可见性的用例必须红。
+func TestSubmitDecisionInvalidationMatrix(t *testing.T) {
+	tests := []struct {
+		name       string
+		source     string
+		action     string
+		targetType string
+		wantCalls  int
+	}{
+		{
+			name: "pre-publish approve topic", source: SourcePrePublish, action: ActionApprove,
+			targetType: TargetTypeTopic, wantCalls: 1,
+		},
+		{
+			name: "pre-publish approve comment", source: SourcePrePublish, action: ActionApprove,
+			targetType: TargetTypeComment, wantCalls: 1,
+		},
+		{
+			name: "report hide topic", source: SourceReport, action: ActionHideAndClose,
+			targetType: TargetTypeTopic, wantCalls: 1,
+		},
+		{
+			name: "report hide comment", source: SourceReport, action: ActionHideAndClose,
+			targetType: TargetTypeComment, wantCalls: 1,
+		},
+		{
+			name: "report delete topic", source: SourceReport, action: ActionDeleteAndClose,
+			targetType: TargetTypeTopic, wantCalls: 1,
+		},
+		{
+			name: "report delete comment", source: SourceReport, action: ActionDeleteAndClose,
+			targetType: TargetTypeComment, wantCalls: 1,
+		},
+		{
+			// 只关工单，内容状态没变：不该失效，否则等于白掉一次缓存。
+			name: "report keep topic", source: SourceReport, action: ActionKeepAndClose,
+			targetType: TargetTypeTopic, wantCalls: 0,
+		},
+		{
+			name: "report keep comment", source: SourceReport, action: ActionKeepAndClose,
+			targetType: TargetTypeComment, wantCalls: 0,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store := &fakeWorkbenchStore{reviewContext: ReviewContext{
+				TargetType: test.targetType, TargetID: 10, TopicID: 77,
+			}}
+			invalidator := &fakeDecisionReadModelInvalidator{}
+			service := NewServiceWithWorkbench(&fakeStore{}, nil, store, store).
+				WithDecisionReadModelInvalidator(invalidator)
+			reviewer := identity.Actor{
+				ID: 8, Status: identity.UserStatusActive,
+				Permissions: map[string]bool{identity.PermissionModerationReview: true},
+			}
+			input := DecisionInput{
+				Source: test.source, TargetType: test.targetType, TargetID: 10,
+				Action: test.action, ReportID: 3, ReviewNote: "处置说明",
+			}
+			if _, err := service.SubmitDecision(context.Background(), reviewer, input); err != nil {
+				t.Fatalf("submit decision: %v", err)
+			}
+			if invalidator.calls != test.wantCalls {
+				t.Fatalf("invalidation calls=%d want %d (%+v)", invalidator.calls, test.wantCalls, invalidator)
+			}
+			if test.wantCalls == 0 {
+				return
+			}
+			if invalidator.topicID != 77 || invalidator.targetType != test.targetType {
+				t.Fatalf("invalidation target = %+v, want topic 77 / %s", invalidator, test.targetType)
+			}
+		})
+	}
+}
+
 func TestGetReviewContextStripsIPWithoutViewIPPermission(t *testing.T) {
 	store := &fakeWorkbenchStore{reviewContext: ReviewContext{
 		TargetType: TargetTypeTopic, TargetID: 3, TopicID: 3,
