@@ -234,7 +234,7 @@ func runPerfSeedCommand(ctx context.Context, opts seedOptions, plan perfSeedPlan
 	cmd.Printf("seeding forum perf-1m: %s\n", plan.String())
 	cmd.Printf("  disk note: %s\n", plan.DiskNote)
 	cmd.Printf("  time note: %s\n", plan.TimeNote)
-	cmd.Printf("  database:  %s\n", config.RedactDatabaseURL(databaseURL))
+	cmd.Printf("  database:  %s\n", seedDatabaseSummary(databaseURL))
 	result, err := runPerfBulkSeed(ctx, opts, plan, deps, cmd.Printf)
 	if err != nil {
 		return err
@@ -367,4 +367,14 @@ func printPerfDryRun(cmd *cobra.Command, opts seedOptions, plan perfSeedPlan) {
 	cmd.Printf("  time note:            %s\n", plan.TimeNote)
 	cmd.Printf("  write requires:       --confirm-perf-db on a dedicated DATABASE_URL\n")
 	_ = opts
+}
+
+// seedDatabaseSummary 给出 `database:` 行要打印的连接串摘要。
+//
+// 它只做一件事：把 seed 的连接串交给 config 的脱敏实现（口令 ***、query/fragment 丢弃）。
+// 单独留这个入口是为了让调用面可测：这份日志曾经自己写了一份按第一个 `@` 切分的脱敏，
+// 含 `@` 的口令会漏尾巴（`postgres://u:p@ss@host/db` → `postgres://u:***@ss@host/db`），
+// 而当时的用例只测 config 里那份实现，测不出 seed 用了错的那份（R7-OPS-02 复审）。
+func seedDatabaseSummary(databaseURL string) string {
+	return config.RedactDatabaseURL(databaseURL)
 }
