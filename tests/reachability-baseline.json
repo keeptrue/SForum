@@ -1,8 +1,8 @@
 {
   "说明": "契约可达性门基线。由 node tests/validate-contract-reachability.mjs --refresh 维护；「已登记未声明状态码」「通配路由」「已复核误报」「未登记401503产出点」四组例外只能人工新增，--refresh 只会删除过期条目；「守卫升级记录」由 --refresh 自动写入。",
   "期望计数": {
-    "契约operation数": 439,
-    "实现侧路由数": 435,
+    "契约operation数": 441,
+    "实现侧路由数": 437,
     "退化区路由数": 30,
     "退化区已映射operation数": 29,
     "路由可达guard码但契约未声明条数": 0,
@@ -899,6 +899,9 @@
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/jobs/schedules/:param/trigger": [
+      "app/Http:RequireActor"
+    ],
+    "POST /api/v1/admin/mail/deliveries/:param/replay": [
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/mail/policy/restore": [
@@ -2051,6 +2054,9 @@
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/jobs/schedules/:param/trigger": [
+      "app/Http:RequireActor"
+    ],
+    "POST /api/v1/admin/mail/deliveries/:param/replay": [
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/mail/policy/restore": [
