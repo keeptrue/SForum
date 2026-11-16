@@ -641,6 +641,9 @@ func TestGuardPolicyCatalogFreezesOnlySimpleDeclaredRouteGuards(t *testing.T) {
 		{Path: "/manage", Methods: []string{"POST"}, Access: RouteAccessPermission, Permission: "topic.create"},
 		{Path: "/raw", Methods: []string{"POST"}, Guard: extensionmanifest.GuardCoreRaw},
 		{Path: "/inherit", Methods: []string{"GET"}, Guard: extensionmanifest.GuardCoreInherit},
+		{Path: "/custom", Methods: []string{"POST"}, Guard: "guard.plugin.custom"},
+		// guest 在 legacy 前缀上按「必须已登录」执行（见 DeriveRouteAccess）：
+		// 前缀无法表达「仅匿名」，收紧到 login 而不是放开匿名。
 		{Path: "/guest", Methods: []string{"GET"}, Guard: extensionmanifest.GuardCoreGuest},
 	}
 	source := &guardPolicySourceStub{items: []Extension{plugin}}
@@ -654,6 +657,7 @@ func TestGuardPolicyCatalogFreezesOnlySimpleDeclaredRouteGuards(t *testing.T) {
 		{path: "/public", method: "GET", access: RouteAccessPublic},
 		{path: "/login", method: "post", access: RouteAccessLogin},
 		{path: "/manage", method: "POST", access: RouteAccessPermission, permission: "topic.create"},
+		{path: "/guest", method: "GET", access: RouteAccessLogin},
 	} {
 		lookup, ok := catalog.LookupDeclaredRoute(plugin.ID, test.method, test.path)
 		if !ok || lookup.Revision == 0 || lookup.ExtensionID != plugin.ID ||
@@ -665,7 +669,7 @@ func TestGuardPolicyCatalogFreezesOnlySimpleDeclaredRouteGuards(t *testing.T) {
 	for _, test := range []struct{ path, method string }{
 		{path: "/raw", method: "POST"},
 		{path: "/inherit", method: "GET"},
-		{path: "/guest", method: "GET"},
+		{path: "/custom", method: "POST"},
 		{path: "/missing", method: "GET"},
 	} {
 		if _, ok := catalog.LookupDeclaredRoute(plugin.ID, test.method, test.path); ok {

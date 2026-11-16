@@ -320,6 +320,21 @@ so do not rely on them:
   available through a package-declared guard with `kind: raw_request`, which the
   Host discloses as high risk during exact-artifact trust confirmation.
 
+### The legacy proxy prefix only serves core guards
+
+`/api/v1/extensions/:extensionId/*` is the compatibility prefix that forwards a
+request to your plugin process without going through the Route Registry. It
+serves **only** routes whose guard is a core guard (`public`, `login`,
+`permission`, and `guest` tightened to login — the prefix cannot express
+"anonymous only", so it never opens a guest route to anonymous callers).
+
+Routes guarded by a package-declared guard (`kind: custom` or
+`kind: raw_request`) and routes using `core.guard.inherit` answer **404** on this
+prefix — the same response as a path that was never declared, so the prefix does
+not disclose that the route exists. Their authorization belongs to the guard
+code (or to the targeted Core route), which only the trusted Route Registry can
+evaluate; reaching them requires the registered path, not this prefix.
+
 ---
 
 ## The Protocol V2 handler

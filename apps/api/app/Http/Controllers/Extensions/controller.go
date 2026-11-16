@@ -746,53 +746,6 @@ func queryInt(c fiber.Ctx, name string, fallback int) int {
 	return value
 }
 
-func (h *Controller) proxyExtensionRoute(c fiber.Ctx) error {
-	exact, err := h.publicFrontendBridgeIdentity(c)
-	if err != nil {
-		return mapExtensionError(err)
-	}
-	routePath := "/" + c.Params("*")
-	matched, err := h.service.MatchRoute(c.Context(), c.Params("extensionId"), c.Method(), routePath)
-	if err != nil {
-		return mapExtensionError(err)
-	}
-	if exact != nil && (matched.Extension.ID != exact.ExtensionID ||
-		matched.Extension.Version != exact.ExtensionVersion ||
-		matched.Extension.PackageDigest != exact.PackageDigest) {
-		return mapExtensionError(ErrPublicFrontendBridgeStale)
-	}
-	actor, hasActor, err := h.optionalActor(c)
-	if err != nil {
-		return err
-	}
-	access := matched.Route.Access
-	if access == "" {
-		access = extensions.RouteAccessLogin
-	}
-	switch access {
-	case extensions.RouteAccessLogin:
-		if !hasActor {
-			return fiber.NewError(fiber.StatusUnauthorized, "auth.required")
-		}
-	case extensions.RouteAccessPermission:
-		if !hasActor {
-			return fiber.NewError(fiber.StatusUnauthorized, "auth.required")
-		}
-		if !actor.Can(matched.Route.Permission) {
-			return fiber.NewError(fiber.StatusForbidden, "permission.denied")
-		}
-	}
-	if h.gateway == nil {
-		return fiber.NewError(fiber.StatusServiceUnavailable, extensions.CodeRuntimeUnavailable)
-	}
-	if err := h.gateway.Proxy(c, ProxyInput{
-		Matched: matched, Actor: actor, HasActor: hasActor, PublicFrontendExact: exact,
-	}); err != nil {
-		return mapExtensionError(err)
-	}
-	return nil
-}
-
 func (h *Controller) publicFrontendBridgeIdentity(c fiber.Ctx) (*PublicFrontendBridgeIdentity, error) {
 	identity := PublicFrontendBridgeIdentity{
 		ExtensionID:      strings.TrimSpace(c.Get(PublicFrontendHeaderExtensionID)),

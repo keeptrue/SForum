@@ -703,8 +703,9 @@ func manifestHasProvider(manifest Manifest, slot string) bool {
 func freezeDeclaredRouteGuards(routes []ManifestRoute) []declaredRouteGuardEntry {
 	result := make([]declaredRouteGuardEntry, 0, len(routes))
 	for _, route := range routes {
-		access, permission, ok := declaredRouteGuardAccess(route)
-		if !ok || route.Path == "" || !strings.HasPrefix(route.Path, "/") || strings.Contains(route.Path, "..") {
+		// 与 legacy 代理前缀共用同一份推导（P1-2）：两处各推一次就是三路分叉的源头。
+		access, permission, proxyable := extensionmanifest.DeriveRouteAccess(route)
+		if !proxyable || route.Path == "" || !strings.HasPrefix(route.Path, "/") || strings.Contains(route.Path, "..") {
 			continue
 		}
 		methods := make([]string, 0, len(route.Methods))
@@ -736,45 +737,6 @@ func validDeclaredRouteGuardMethod(method string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func declaredRouteGuardAccess(route ManifestRoute) (access string, permission string, ok bool) {
-	access = strings.TrimSpace(route.Access)
-	guard := strings.TrimSpace(route.Guard)
-	if guard == "" {
-		if access == "" {
-			access = RouteAccessLogin
-		}
-	} else {
-		switch guard {
-		case extensionmanifest.GuardCorePublic:
-			if access != RouteAccessPublic {
-				return "", "", false
-			}
-		case extensionmanifest.GuardCoreLogin:
-			if access == "" {
-				access = RouteAccessLogin
-			}
-			if access != RouteAccessLogin {
-				return "", "", false
-			}
-		case extensionmanifest.GuardCorePermission:
-			if access != RouteAccessPermission {
-				return "", "", false
-			}
-		default:
-			return "", "", false
-		}
-	}
-	switch access {
-	case RouteAccessPublic, RouteAccessLogin:
-		return access, "", true
-	case RouteAccessPermission:
-		permission = strings.TrimSpace(route.Permission)
-		return access, permission, permission != ""
-	default:
-		return "", "", false
 	}
 }
 
