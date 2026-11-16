@@ -30,6 +30,9 @@
 //     /api/v1/web-options 一律 503。post_risk 是核心能力，与插件无关，故用 safe mode 取证。
 //   - 开关态由调用方在库里改：`web_options` 的 `human_verification.provider`（altcha|disabled）
 //     与 `human_verification.scenarios.post_risk`（enabled|disabled）。改完立即生效，无需重启。
+//   - **`human_verification.altcha.widget.*`（workers / type 等）改不动**：这组值由进程启动时从
+//     env 播种，并缓存在进程内（实测：DB 改 `workers=0` 后 `/web-options` 仍返回 2，重启又会被
+//     env 覆盖回去）。想调它只能改 `.env` 并重启 —— 那等于改环境默认值，本轮没做。
 //
 // 环境变量：
 //   SFORUM_POST_RISK_STATE   必填：off | on（断言哪一侧）
