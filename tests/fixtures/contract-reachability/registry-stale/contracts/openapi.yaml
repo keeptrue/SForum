@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info:
+  title: contract-reachability fixture
+  version: 1.0.0
+paths:
+  /demo/secure:
+    $ref: "./openapi/paths/demo.yaml#/demoSecure"

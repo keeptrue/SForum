@@ -1,0 +1,6513 @@
+{
+  "说明": "契约可达性门基线。由 node tests/validate-contract-reachability.mjs --refresh 维护；「已登记未声明状态码」「通配路由」「已复核误报」「未登记401503产出点」四组例外只能人工新增，--refresh 只会删除过期条目；「守卫升级记录」由 --refresh 自动写入。",
+  "期望计数": {
+    "契约operation数": 436,
+    "实现侧路由数": 435,
+    "退化区路由数": 194,
+    "退化区已映射operation数": 193,
+    "路由可达guard码但契约未声明条数": 26,
+    "未登记401503产出点数": 34
+  },
+  "端点guard": {
+    "ALL /api/v1/extensions/:param/*": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/attachment-storage-instances/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/attachment-upload-policies/roles/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/attachment-upload-policies/users/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/attachments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/badges/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/badges/:param/grants/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/badges/groups/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/badges/tiers/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/entity-meta/definitions/:param": [
+      "app/Http:RequireActor"
+    ],
+    "DELETE /api/v1/admin/extensions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/:param/frontend/trust": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/:param/trust": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/contributions/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/contributions/:param/:param/items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/dev-trust-sessions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/forum/categories/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/forum/category-groups/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/site/announcements/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/site/friend-links/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/site/nav-items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/webhooks/endpoints/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/auth/external-identities/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "DELETE /api/v1/auth/tokens/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "DELETE /api/v1/badges/worn": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/comments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/comments/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/comments/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/profile/avatar": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/push/devices/:param": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "DELETE /api/v1/roles/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "DELETE /api/v1/topics/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/topics/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/topics/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/web-push/subscriptions/:param": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/admin/admin-surfaces": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/executions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/reply-outcomes": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/runs/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/usage": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-compression-settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-storage-instances": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-upload-policies/roles": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-upload-policies/users/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachments": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachments/compression-stats": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/badges": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/:param/grants": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/:param/rule-impact": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/backfill-status": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/conditions": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/grant-candidates": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/groups": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/rule-health": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/tiers": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/database/tables": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param/export.csv": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param/rows": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param/rows/reveal": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/entity-meta/definitions": [
+      "app/Http:RequireActor"
+    ],
+    "GET /api/v1/admin/extensions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/frontend": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/frontend/assets/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/frontend/assets/:param/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/lifecycle": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/lifecycle/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/migrations": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/page-bootstrap": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/trust": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/asset-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/cache-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/component-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/contribution-points": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/contributions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/dev-trust-sessions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/entity-catalog/:param/import-export-dry-run": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/event-definitions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/event-deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/navigation": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/navigation-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/openapi/aggregate": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/openapi/generated-client": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/provider-slots": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/provider-slots/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/query-catalog": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-catalog": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-incidents": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-providers/conflicts": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-providers/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-providers/selection": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/template-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/version-gc/candidates": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/features": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/categories": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/category-groups": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/comments": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/comments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/topics": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/topics/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/search/providers": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/search/reindex": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/search/reindex/runs": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/tags": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/identity/providers": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/admin/jobs": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/jobs/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/jobs/overview": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/jobs/schedules": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/mail/deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/mail/policy": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/mail/providers": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/moderation/decisions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/moderation/reports": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/moderation/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/notifications/channels": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/notifications/deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/notifications/policy": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/overview": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/overview/resources": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages/activate-preview/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages/added": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/settings/surface-tabs": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/announcements": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/friend-links": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/nav-items": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation/export": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation/snapshots": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation/snapshots/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/system-updates": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/trust-levels": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "GET /api/v1/admin/trust-levels/conditions": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "GET /api/v1/admin/web-options": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/webhooks/deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/webhooks/endpoints": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/webhooks/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/attachments/:param": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/attachments/:param/content": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/attachments/:param/variants/:param/content": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/attachments/upload-policy": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/auth/external-identities": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/auth/providers/:param/callback": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/auth/tokens": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/badges": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/badges/worn": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/categories": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/category-groups": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/comments/:param/citations": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/comments/:param/edit-source": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/comments/:param/likes": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/comments/:param/replies": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/comments/:param/revisions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/comments/:param/revisions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/composer/references": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/composer/toolbar": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/entity-meta/:param/:param": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/me/content-review": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/context/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/counts": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/history": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/pending": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/reports": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/notification-preferences": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/:param": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/celebrations": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/stream": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/unread-count": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/pages/resolve": [
+      "app/Http:LoadActor",
+      "app/Http:OptionalActor"
+    ],
+    "GET /api/v1/pages/resolve-path": [
+      "app/Http:LoadActor",
+      "app/Http:OptionalActor"
+    ],
+    "GET /api/v1/permissions": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/permissions/matrix": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/profile": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/profile/bookmarks": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/profile/nickname/availability": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/profile/sections": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/profiles/:param": [
+      "app/Http/Controllers/Profile:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/profiles/:param/activities": [
+      "app/Http/Controllers/Profile:requireGuestRead"
+    ],
+    "GET /api/v1/profiles/:param/bookmarks": [
+      "app/Http/Controllers/Profile:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/push/devices": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/roles": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/search": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/site/account-navigation": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/site/navigation": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/tags": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/topics/:param/comments": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/topics/:param/comments/:param/page": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/:param/comments/revision": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/comments/stream": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/contribution-timeline": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/edit-source": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/:param/likes": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/revisions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/:param/revisions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/by-slug/:param": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/trust-levels": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/users": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/users/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/web-push/config": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/web-push/subscriptions": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PATCH /api/v1/admin/attachments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/badges/:param": [
+      "app/Http:ReadActor"
+    ],
+    "PATCH /api/v1/admin/badges/groups/:param": [
+      "app/Http:ReadActor"
+    ],
+    "PATCH /api/v1/admin/badges/tiers/:param": [
+      "app/Http:ReadActor"
+    ],
+    "PATCH /api/v1/admin/entity-meta/definitions/:param": [
+      "app/Http:RequireActor"
+    ],
+    "PATCH /api/v1/admin/forum/categories/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/forum/category-groups/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/forum/tags/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/identity/providers/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PATCH /api/v1/admin/moderation/reports/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/site/announcements/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/site/friend-links/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/site/nav-items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/webhooks/endpoints/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/comments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/notifications/:param/read": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PATCH /api/v1/roles/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PATCH /api/v1/topics/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/users/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/admin-surfaces/:param/invoke": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/ai/diagnose": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/ai/profiles/:param/models": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/ai/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-settings/test": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances/:param/activate": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances/local/activate": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances/probe": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachments/cleanup": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachments/compression/backfill": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachments/reconcile": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/badges": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/:param/grants": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/:param/grants/batch": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/groups": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/recompute": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/rule-text": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/tiers": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/entity-meta/definitions": [
+      "app/Http:RequireActor"
+    ],
+    "POST /api/v1/admin/extensions": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/activate": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/dev-trust-refresh": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/disable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/enable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/frontend/confirmation": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/frontend/trust": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/lifecycle/:param/recovery": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/migrations/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/restart": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/rollback": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/settings/actions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/trust/challenge": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/uninstall-cleanup/finalize": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/upgrade": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/verify": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/dev-trust-sessions": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/install-from-url": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/missing-artifacts/uninstall": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/provider-slots/probe": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/provider-slots/selection": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/provider-slots/selection/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/route-providers/selection": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/route-providers/selection/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/version-gc/confirmations": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/version-gc/execute": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/features/restore-defaults": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/categories": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/category-groups": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/search/provider/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/search/reindex": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/tags": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/identity/providers/:param/probe": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/identity/providers/reset": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/jobs/:param/cancel": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/:param/retry": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/queues/:param/pause": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/queues/:param/resume": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/schedules/:param/disable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/schedules/:param/enable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/schedules/:param/trigger": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/mail/policy/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/mail/provider/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/mail/test": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/moderation/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/channels/:param/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/channels/:param/test": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/policy/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/test": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/pages/:param/approve": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/pages/:param/restore-core": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/seo/assets": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/announcements": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/brand-assets": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/friend-links": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/nav-items": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/defaults/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/defaults/preview": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/import/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/import/preview": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/snapshots/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/system-updates/check": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/trust-levels/restore-defaults": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "POST /api/v1/admin/trust-levels/rule-impact": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "POST /api/v1/admin/webhooks/endpoints": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/attachments": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/auth/external-continuation/link": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/password": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/providers/:param/:param/start": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/tokens": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/tokens/:param/rotate": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/comments/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/comments/:param/revisions/:param/redact": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/comments/:param/revisions/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/moderation/reports": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/moderation/workbench/decisions": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/notification-preferences/restore": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/notifications/celebrations/seen": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/notifications/read-all": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/profile/avatar": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/push/devices": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/roles": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/topics": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/comments": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/hide": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/lock": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/pin": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/revisions/:param/redact": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/revisions/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/unlock": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/unpin": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/users": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/users/:param/client-ips/clear": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/users/:param/password": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/web-push/subscriptions": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PUT /api/v1/admin/ai/profiles/:param/credential": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/ai/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-compression-settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-storage-instances/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-upload-policies/roles/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-upload-policies/users/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/badges/tiers/order": [
+      "app/Http:ReadActor"
+    ],
+    "PUT /api/v1/admin/extensions/:param/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/extensions/contributions/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/extensions/contributions/:param/:param/items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/features": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/forum/search/provider": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/forum/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/mail/policy": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/mail/provider": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/moderation/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/notifications/channels/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/notifications/policy": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/trust-levels": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "PUT /api/v1/admin/web-options": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/badges/worn": [
+      "app/Http:ReadActor"
+    ],
+    "PUT /api/v1/comments/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/entity-meta/:param/:param": [
+      "app/Http:RequireActor"
+    ],
+    "PUT /api/v1/notification-preferences": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PUT /api/v1/profile": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/profile/sections/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/roles/:param/permissions": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/topics/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/users/:param/email-verification": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/users/:param/permission-overrides": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/users/:param/roles": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/web-options": [
+      "app/Http:LoadActor"
+    ]
+  },
+  "端点guard出码": {
+    "ALL /api/v1/extensions/:param/*": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/attachment-storage-instances/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/attachment-upload-policies/roles/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/attachment-upload-policies/users/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/attachments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/badges/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/badges/:param/grants/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/badges/groups/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/badges/tiers/:param": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/admin/entity-meta/definitions/:param": [
+      "app/Http:RequireActor"
+    ],
+    "DELETE /api/v1/admin/extensions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/:param/frontend/trust": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/:param/trust": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/contributions/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/contributions/:param/:param/items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/extensions/dev-trust-sessions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/forum/categories/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/forum/category-groups/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/site/announcements/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/site/friend-links/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/site/nav-items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/admin/webhooks/endpoints/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/auth/external-identities/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "DELETE /api/v1/auth/tokens/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "DELETE /api/v1/badges/worn": [
+      "app/Http:ReadActor"
+    ],
+    "DELETE /api/v1/comments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/comments/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/comments/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/profile/avatar": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/push/devices/:param": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "DELETE /api/v1/roles/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "DELETE /api/v1/topics/:param": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/topics/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/topics/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "DELETE /api/v1/web-push/subscriptions/:param": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/admin/admin-surfaces": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/executions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/reply-outcomes": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/runs/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/ai/usage": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-compression-settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-storage-instances": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-upload-policies/roles": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachment-upload-policies/users/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachments": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/attachments/compression-stats": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/badges": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/:param/grants": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/:param/rule-impact": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/backfill-status": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/conditions": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/grant-candidates": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/groups": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/rule-health": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/badges/tiers": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/admin/database/tables": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param/export.csv": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param/rows": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/database/tables/:param/:param/rows/reveal": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/entity-meta/definitions": [
+      "app/Http:RequireActor"
+    ],
+    "GET /api/v1/admin/extensions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/frontend": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/frontend/assets/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/frontend/assets/:param/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/lifecycle": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/lifecycle/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/migrations": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/page-bootstrap": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/:param/trust": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/asset-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/cache-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/component-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/contribution-points": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/contributions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/dev-trust-sessions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/entity-catalog/:param/import-export-dry-run": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/event-definitions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/event-deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/navigation": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/navigation-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/openapi/aggregate": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/openapi/generated-client": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/provider-slots": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/provider-slots/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/query-catalog": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-catalog": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-incidents": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-providers/conflicts": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-providers/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/route-providers/selection": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/template-inspector": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/extensions/version-gc/candidates": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/features": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/categories": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/category-groups": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/comments": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/comments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/topics": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/content/topics/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/search/providers": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/search/reindex": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/search/reindex/runs": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/forum/tags": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/identity/providers": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/admin/jobs": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/jobs/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/jobs/overview": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/jobs/schedules": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/mail/deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/mail/policy": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/mail/providers": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/moderation/decisions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/moderation/reports": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/moderation/settings": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/notifications/channels": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/notifications/deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/notifications/policy": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/overview": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/overview/resources": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages/activate-preview/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/pages/added": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/settings/surface-tabs": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/announcements": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/friend-links": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/nav-items": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation/export": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation/snapshots": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/site/navigation/snapshots/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/system-updates": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/trust-levels": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "GET /api/v1/admin/trust-levels/conditions": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "GET /api/v1/admin/web-options": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/webhooks/deliveries": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/webhooks/endpoints": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/admin/webhooks/events": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/attachments/:param": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/attachments/:param/content": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/attachments/:param/variants/:param/content": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/attachments/upload-policy": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/auth/external-identities": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/auth/tokens": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/badges": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/badges/worn": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/categories": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/category-groups": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/comments/:param/citations": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/comments/:param/edit-source": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/comments/:param/likes": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/comments/:param/replies": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/comments/:param/revisions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/comments/:param/revisions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/composer/references": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/composer/toolbar": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/entity-meta/:param/:param": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/me/content-review": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/context/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/counts": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/history": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/pending": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/moderation/workbench/reports": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/notification-preferences": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/:param": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/celebrations": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/stream": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/notifications/unread-count": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/pages/resolve": [
+      "app/Http:OptionalActor"
+    ],
+    "GET /api/v1/permissions": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/permissions/matrix": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/profile": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/profile/bookmarks": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/profile/nickname/availability": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/profile/sections": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/profiles/:param": [
+      "app/Http/Controllers/Profile:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/profiles/:param/activities": [
+      "app/Http/Controllers/Profile:requireGuestRead"
+    ],
+    "GET /api/v1/profiles/:param/bookmarks": [
+      "app/Http/Controllers/Profile:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/push/devices": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/roles": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/search": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/site/account-navigation": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/site/navigation": [
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/tags": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/topics/:param/comments": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/topics/:param/comments/:param/page": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/comments/revision": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/comments/stream": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/contribution-timeline": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/edit-source": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/:param/likes": [
+      "app/Http/Controllers/Forum:requireGuestRead"
+    ],
+    "GET /api/v1/topics/:param/revisions": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/:param/revisions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "GET /api/v1/topics/by-slug/:param": [
+      "app/Http/Controllers/Forum:requireGuestRead",
+      "app/Http:ReadActor"
+    ],
+    "GET /api/v1/users": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/users/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "GET /api/v1/web-push/config": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "GET /api/v1/web-push/subscriptions": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PATCH /api/v1/admin/attachments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/badges/:param": [
+      "app/Http:ReadActor"
+    ],
+    "PATCH /api/v1/admin/badges/groups/:param": [
+      "app/Http:ReadActor"
+    ],
+    "PATCH /api/v1/admin/badges/tiers/:param": [
+      "app/Http:ReadActor"
+    ],
+    "PATCH /api/v1/admin/entity-meta/definitions/:param": [
+      "app/Http:RequireActor"
+    ],
+    "PATCH /api/v1/admin/forum/categories/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/forum/category-groups/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/forum/tags/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/identity/providers/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PATCH /api/v1/admin/moderation/reports/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/site/announcements/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/site/friend-links/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/site/nav-items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/admin/webhooks/endpoints/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/comments/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/notifications/:param/read": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PATCH /api/v1/roles/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PATCH /api/v1/topics/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PATCH /api/v1/users/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/admin-surfaces/:param/invoke": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/ai/diagnose": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/ai/profiles/:param/models": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/ai/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-settings/test": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances/:param/activate": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances/local/activate": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachment-storage-instances/probe": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachments/cleanup": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachments/compression/backfill": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/attachments/reconcile": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/badges": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/:param/grants": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/:param/grants/batch": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/groups": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/recompute": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/rule-text": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/badges/tiers": [
+      "app/Http:ReadActor"
+    ],
+    "POST /api/v1/admin/entity-meta/definitions": [
+      "app/Http:RequireActor"
+    ],
+    "POST /api/v1/admin/extensions": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/activate": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/dev-trust-refresh": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/disable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/enable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/frontend/confirmation": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/frontend/trust": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/lifecycle/:param/recovery": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/migrations/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/restart": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/rollback": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/settings/actions/:param": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/trust/challenge": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/uninstall-cleanup/finalize": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/upgrade": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/:param/verify": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/dev-trust-sessions": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/install-from-url": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/missing-artifacts/uninstall": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/provider-slots/probe": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/provider-slots/selection": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/provider-slots/selection/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/route-providers/selection": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/route-providers/selection/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/version-gc/confirmations": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/extensions/version-gc/execute": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/features/restore-defaults": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/categories": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/category-groups": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/search/provider/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/search/reindex": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/forum/tags": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/identity/providers/:param/probe": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/identity/providers/reset": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/jobs/:param/cancel": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/:param/retry": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/queues/:param/pause": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/queues/:param/resume": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/schedules/:param/disable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/schedules/:param/enable": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/jobs/schedules/:param/trigger": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/mail/policy/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/mail/provider/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/mail/test": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/admin/moderation/settings/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/channels/:param/reset": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/channels/:param/test": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/policy/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/notifications/test": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/pages/:param/approve": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/pages/:param/restore-core": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/seo/assets": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/announcements": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/brand-assets": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/friend-links": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/nav-items": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/defaults/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/defaults/preview": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/import/apply": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/import/preview": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/site/navigation/snapshots/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/system-updates/check": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/admin/trust-levels/restore-defaults": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "POST /api/v1/admin/trust-levels/rule-impact": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "POST /api/v1/admin/webhooks/endpoints": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/attachments": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/auth/external-continuation/link": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/password": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/providers/:param/:param/start": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/tokens": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/auth/tokens/:param/rotate": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/comments/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/comments/:param/revisions/:param/redact": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/comments/:param/revisions/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/moderation/reports": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/moderation/workbench/decisions": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/notification-preferences/restore": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/notifications/celebrations/seen": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/notifications/read-all": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/profile/avatar": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/push/devices": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "POST /api/v1/roles": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/topics": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/comments": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/hide": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/like": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/lock": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/pin": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/revisions/:param/redact": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/revisions/:param/restore": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/unlock": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/topics/:param/unpin": [
+      "app/Http:LoadActor"
+    ],
+    "POST /api/v1/users": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/users/:param/client-ips/clear": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/users/:param/password": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "POST /api/v1/web-push/subscriptions": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PUT /api/v1/admin/ai/profiles/:param/credential": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/ai/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-compression-settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-storage-instances/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-upload-policies/roles/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/attachment-upload-policies/users/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/badges/tiers/order": [
+      "app/Http:ReadActor"
+    ],
+    "PUT /api/v1/admin/extensions/:param/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/extensions/contributions/:param/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/extensions/contributions/:param/:param/items/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/features": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/forum/search/provider": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/forum/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/mail/policy": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/mail/provider": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/moderation/settings": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/notifications/channels/:param": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/notifications/policy": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/admin/trust-levels": [
+      "app/Http/Controllers/TrustLevels:requireAdmin"
+    ],
+    "PUT /api/v1/admin/web-options": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/badges/worn": [
+      "app/Http:ReadActor"
+    ],
+    "PUT /api/v1/comments/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/entity-meta/:param/:param": [
+      "app/Http:RequireActor"
+    ],
+    "PUT /api/v1/notification-preferences": [
+      "app/Http/Controllers/Notifications:userID"
+    ],
+    "PUT /api/v1/profile": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/profile/sections/:param": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/roles/:param/permissions": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/topics/:param/bookmark": [
+      "app/Http:LoadActor"
+    ],
+    "PUT /api/v1/users/:param/email-verification": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/users/:param/permission-overrides": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/users/:param/roles": [
+      "app/Http/Controllers/Identity:actor"
+    ],
+    "PUT /api/v1/web-options": [
+      "app/Http:LoadActor"
+    ]
+  },
+  "退化区": [
+    {
+      "operation": "DELETE /api/v1/admin/attachment-storage-instances/:id",
+      "contractPath": "/api/v1/admin/attachment-storage-instances/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentStorageInstance",
+      "handler": "deleteStorageInstance",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403,
+        409
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/attachment-upload-policies/roles/:roleKey",
+      "contractPath": "/api/v1/admin/attachment-upload-policies/roles/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentUploadPolicyRole",
+      "handler": "deleteRoleUploadPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/attachment-upload-policies/users/:userID",
+      "contractPath": "/api/v1/admin/attachment-upload-policies/users/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentUploadPolicyUser",
+      "handler": "deleteUserUploadPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/attachments/:id",
+      "contractPath": "/api/v1/admin/attachments/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentByID",
+      "handler": "deleteAdmin",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/badges/:badgeID",
+      "contractPath": "/api/v1/admin/badges/:param",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeByID",
+      "handler": "adminDeleteBadge",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/badges/:badgeID/grants/:userID",
+      "contractPath": "/api/v1/admin/badges/:param/grants/:param",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeGrantByUser",
+      "handler": "adminDeleteBadgeGrant",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/badges/groups/:groupID",
+      "contractPath": "/api/v1/admin/badges/groups/:param",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeGroupByID",
+      "handler": "adminDeleteBadgeGroup",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/badges/tiers/:tierKey",
+      "contractPath": "/api/v1/admin/badges/tiers/:param",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeTierByKey",
+      "handler": "adminDeleteBadgeTier",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/entity-meta/definitions/:fieldKey",
+      "contractPath": "/api/v1/admin/entity-meta/definitions/:param",
+      "source": "./openapi/paths/entity_meta.yaml#/adminEntityMetaDefinitionByKey",
+      "handler": "deleteDefinition",
+      "guards": [
+        "app/Http:RequireActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/extensions/:id/trust",
+      "contractPath": "/api/v1/admin/extensions/:param/trust",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionTrust",
+      "handler": "revokeExecutableTrust",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/extensions/contributions/:point/:contributionId",
+      "contractPath": "/api/v1/admin/extensions/contributions/:param/:param",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionContributionGovernance",
+      "handler": "resetContributionGovernance",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        204,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey",
+      "contractPath": "/api/v1/admin/extensions/contributions/:param/:param/items/:param",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionContributionItemGovernance",
+      "handler": "resetContributionItemGovernance",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        204,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/forum/categories/:categoryID",
+      "contractPath": "/api/v1/admin/forum/categories/:param",
+      "source": "./openapi/paths/forum.yaml#/adminForumCategoryByID",
+      "handler": "adminDeleteCategory",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/forum/category-groups/:groupID",
+      "contractPath": "/api/v1/admin/forum/category-groups/:param",
+      "source": "./openapi/paths/forum.yaml#/adminForumCategoryGroupByID",
+      "handler": "adminDeleteCategoryGroup",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/site/announcements/:announcementID",
+      "contractPath": "/api/v1/admin/site/announcements/:param",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteAnnouncementByID",
+      "handler": "adminDeleteAnnouncement",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/site/friend-links/:linkID",
+      "contractPath": "/api/v1/admin/site/friend-links/:param",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteFriendLinkByID",
+      "handler": "adminDeleteFriendLink",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/admin/site/nav-items/:itemID",
+      "contractPath": "/api/v1/admin/site/nav-items/:param",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteNavItemByID",
+      "handler": "adminDeleteNavItem",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/badges/worn",
+      "contractPath": "/api/v1/badges/worn",
+      "source": "./openapi/paths/badges.yaml#/badgeWorn",
+      "handler": "clearWornBadge",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/comments/:commentID",
+      "contractPath": "/api/v1/comments/:param",
+      "source": "./openapi/paths/forum.yaml#/commentByID",
+      "handler": "deleteComment",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/comments/:commentID/bookmark",
+      "contractPath": "/api/v1/comments/:param/bookmark",
+      "source": "./openapi/paths/forum.yaml#/commentBookmark",
+      "handler": "unbookmarkComment",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/comments/:commentID/like",
+      "contractPath": "/api/v1/comments/:param/like",
+      "source": "./openapi/paths/forum.yaml#/commentLike",
+      "handler": "unlikeComment",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/profile/avatar",
+      "contractPath": "/api/v1/profile/avatar",
+      "source": "./openapi/paths/profile.yaml#/myProfileAvatar",
+      "handler": "deleteAvatar",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/roles/:roleKey",
+      "contractPath": "/api/v1/roles/:param",
+      "source": "./openapi/paths/identity.yaml#/roleByKey",
+      "handler": "deleteRole",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/topics/:topicID",
+      "contractPath": "/api/v1/topics/:param",
+      "source": "./openapi/paths/forum.yaml#/topicByID",
+      "handler": "deleteTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/topics/:topicID/bookmark",
+      "contractPath": "/api/v1/topics/:param/bookmark",
+      "source": "./openapi/paths/forum.yaml#/topicBookmark",
+      "handler": "unbookmarkTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "DELETE /api/v1/topics/:topicID/like",
+      "contractPath": "/api/v1/topics/:param/like",
+      "source": "./openapi/paths/forum.yaml#/topicLike",
+      "handler": "unlikeTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/ai/executions",
+      "contractPath": "/api/v1/admin/ai/executions",
+      "source": "./openapi/paths/ai.yaml#/adminAIExecutions",
+      "handler": "listExecutions",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/ai/reply-outcomes",
+      "contractPath": "/api/v1/admin/ai/reply-outcomes",
+      "source": "./openapi/paths/ai.yaml#/adminAIReplyOutcomes",
+      "handler": "listReplyOutcomes",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/ai/settings",
+      "contractPath": "/api/v1/admin/ai/settings",
+      "source": "./openapi/paths/ai.yaml#/adminAISettings",
+      "handler": "getSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/ai/usage",
+      "contractPath": "/api/v1/admin/ai/usage",
+      "source": "./openapi/paths/ai.yaml#/adminAIUsage",
+      "handler": "getUsage",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachment-settings",
+      "contractPath": "/api/v1/admin/attachment-settings",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentSettings",
+      "handler": "settings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachment-storage-instances",
+      "contractPath": "/api/v1/admin/attachment-storage-instances",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentStorageInstances",
+      "handler": "listStorageInstances",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachment-upload-policies/roles",
+      "contractPath": "/api/v1/admin/attachment-upload-policies/roles",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentUploadPolicyRoles",
+      "handler": "listRoleUploadPolicies",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachment-upload-policies/users/:userID",
+      "contractPath": "/api/v1/admin/attachment-upload-policies/users/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentUploadPolicyUser",
+      "handler": "getUserUploadPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachments",
+      "contractPath": "/api/v1/admin/attachments",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachments",
+      "handler": "listAdmin",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachments/:id",
+      "contractPath": "/api/v1/admin/attachments/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentByID",
+      "handler": "detailAdmin",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/",
+      "contractPath": "/api/v1/admin/badges",
+      "source": "./openapi/paths/badges.yaml#/adminBadges",
+      "handler": "adminListBadges",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/:badgeID/grants",
+      "contractPath": "/api/v1/admin/badges/:param/grants",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeGrants",
+      "handler": "adminListBadgeGrants",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/:badgeID/rule-impact",
+      "contractPath": "/api/v1/admin/badges/:param/rule-impact",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeRuleImpact",
+      "handler": "adminBadgeRuleImpact",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/backfill-status",
+      "contractPath": "/api/v1/admin/badges/backfill-status",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeBackfillStatus",
+      "handler": "adminBadgeBackfillStatus",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/conditions",
+      "contractPath": "/api/v1/admin/badges/conditions",
+      "source": "./openapi/paths/badges.yaml#/adminListBadgeConditions",
+      "handler": "adminListBadgeConditions",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/grant-candidates",
+      "contractPath": "/api/v1/admin/badges/grant-candidates",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeGrantCandidates",
+      "handler": "adminSearchGrantCandidates",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/groups",
+      "contractPath": "/api/v1/admin/badges/groups",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeGroups",
+      "handler": "adminListBadgeGroups",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/rule-health",
+      "contractPath": "/api/v1/admin/badges/rule-health",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeRuleHealth",
+      "handler": "adminBadgeRuleHealth",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/badges/tiers",
+      "contractPath": "/api/v1/admin/badges/tiers",
+      "source": "./openapi/paths/badges.yaml#/adminBadgeTiers",
+      "handler": "adminListBadgeTiers",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/database/tables",
+      "contractPath": "/api/v1/admin/database/tables",
+      "source": "./openapi/paths/database.yaml#/adminDatabaseTables",
+      "handler": "listTables",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/database/tables/:schema/:table",
+      "contractPath": "/api/v1/admin/database/tables/:param/:param",
+      "source": "./openapi/paths/database.yaml#/adminDatabaseTable",
+      "handler": "detail",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/database/tables/:schema/:table/export.csv",
+      "contractPath": "/api/v1/admin/database/tables/:param/:param/export.csv",
+      "source": "./openapi/paths/database.yaml#/adminDatabaseTableExport",
+      "handler": "exportCSV",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/database/tables/:schema/:table/rows",
+      "contractPath": "/api/v1/admin/database/tables/:param/:param/rows",
+      "source": "./openapi/paths/database.yaml#/adminDatabaseTableRows",
+      "handler": "rows",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/database/tables/:schema/:table/rows/reveal",
+      "contractPath": "/api/v1/admin/database/tables/:param/:param/rows/reveal",
+      "source": "./openapi/paths/database.yaml#/adminDatabaseTableRowReveal",
+      "handler": "reveal",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/entity-meta/definitions",
+      "contractPath": "/api/v1/admin/entity-meta/definitions",
+      "source": "./openapi/paths/entity_meta.yaml#/adminEntityMetaDefinitions",
+      "handler": "listAdminDefinitions",
+      "guards": [
+        "app/Http:RequireActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions",
+      "contractPath": "/api/v1/admin/extensions",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensions",
+      "handler": "list",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/events",
+      "contractPath": "/api/v1/admin/extensions/:param/events",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionEvents",
+      "handler": "events",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/lifecycle",
+      "contractPath": "/api/v1/admin/extensions/:param/lifecycle",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionLifecycleOperations",
+      "handler": "lifecycleOperations",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/lifecycle/:operationID",
+      "contractPath": "/api/v1/admin/extensions/:param/lifecycle/:param",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionLifecycleOperation",
+      "handler": "lifecycleOperation",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/migrations",
+      "contractPath": "/api/v1/admin/extensions/:param/migrations",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionMigrations",
+      "handler": "listMigrations",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/page-bootstrap",
+      "contractPath": "/api/v1/admin/extensions/:param/page-bootstrap",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionPageBootstrap",
+      "handler": "pageBootstrap",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/settings",
+      "contractPath": "/api/v1/admin/extensions/:param/settings",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionSettings",
+      "handler": "settings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/:id/trust",
+      "contractPath": "/api/v1/admin/extensions/:param/trust",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionTrust",
+      "handler": "executableTrustStatus",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/contribution-points",
+      "contractPath": "/api/v1/admin/extensions/contribution-points",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionContributionPoints",
+      "handler": "contributionPoints",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/contributions",
+      "contractPath": "/api/v1/admin/extensions/contributions",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionContributions",
+      "handler": "contributions",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/event-definitions",
+      "contractPath": "/api/v1/admin/extensions/event-definitions",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionEventDefinitions",
+      "handler": "eventDefinitions",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/event-deliveries",
+      "contractPath": "/api/v1/admin/extensions/event-deliveries",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionEventDeliveries",
+      "handler": "eventDeliveries",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/navigation",
+      "contractPath": "/api/v1/admin/extensions/navigation",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionNavigation",
+      "handler": "navigation",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/openapi/aggregate",
+      "contractPath": "/api/v1/admin/extensions/openapi/aggregate",
+      "source": "./openapi/paths/extension-route-contracts.yaml#/adminExtensionOpenAPIAggregate",
+      "handler": "routeOpenAPIAggregate",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/extensions/openapi/generated-client",
+      "contractPath": "/api/v1/admin/extensions/openapi/generated-client",
+      "source": "./openapi/paths/extension-route-contracts.yaml#/adminExtensionGeneratedClientMetadata",
+      "handler": "routeGeneratedClientMetadata",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/features",
+      "contractPath": "/api/v1/admin/features",
+      "source": "./openapi/paths/options.yaml#/adminFeatures",
+      "handler": "listFeatures",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/categories",
+      "contractPath": "/api/v1/admin/forum/categories",
+      "source": "./openapi/paths/forum.yaml#/adminForumCategories",
+      "handler": "adminCategories",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/category-groups",
+      "contractPath": "/api/v1/admin/forum/category-groups",
+      "source": "./openapi/paths/forum.yaml#/adminForumCategoryGroups",
+      "handler": "adminCategoryGroups",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/content/comments",
+      "contractPath": "/api/v1/admin/forum/content/comments",
+      "source": "./openapi/paths/forum.yaml#/adminForumContentComments",
+      "handler": "adminContentComments",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        400,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/content/comments/:commentID",
+      "contractPath": "/api/v1/admin/forum/content/comments/:param",
+      "source": "./openapi/paths/forum.yaml#/adminForumContentCommentByID",
+      "handler": "adminContentComment",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/content/topics",
+      "contractPath": "/api/v1/admin/forum/content/topics",
+      "source": "./openapi/paths/forum.yaml#/adminForumContentTopics",
+      "handler": "adminContentTopics",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        400,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/content/topics/:topicID",
+      "contractPath": "/api/v1/admin/forum/content/topics/:param",
+      "source": "./openapi/paths/forum.yaml#/adminForumContentTopicByID",
+      "handler": "adminContentTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/settings",
+      "contractPath": "/api/v1/admin/forum/settings",
+      "source": "./openapi/paths/forum.yaml#/adminForumSettings",
+      "handler": "adminSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/forum/tags",
+      "contractPath": "/api/v1/admin/forum/tags",
+      "source": "./openapi/paths/forum.yaml#/adminForumTags",
+      "handler": "adminTags",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs",
+      "contractPath": "/api/v1/admin/jobs",
+      "source": "./openapi/paths/jobs.yaml#/adminJobs",
+      "handler": "list",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/:id",
+      "contractPath": "/api/v1/admin/jobs/:param",
+      "source": "./openapi/paths/jobs.yaml#/adminJob",
+      "handler": "detail",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        404
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/overview",
+      "contractPath": "/api/v1/admin/jobs/overview",
+      "source": "./openapi/paths/jobs.yaml#/adminJobsOverview",
+      "handler": "overview",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/schedules",
+      "contractPath": "/api/v1/admin/jobs/schedules",
+      "source": "./openapi/paths/jobs.yaml#/adminJobSchedules",
+      "handler": "schedules",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/mail/deliveries",
+      "contractPath": "/api/v1/admin/mail/deliveries",
+      "source": "./openapi/paths/mail.yaml#/adminMailDeliveries",
+      "handler": "listDeliveries",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/mail/policy",
+      "contractPath": "/api/v1/admin/mail/policy",
+      "source": "./openapi/paths/mail.yaml#/adminNotificationPolicy",
+      "handler": "getPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/admin/mail/providers",
+      "contractPath": "/api/v1/admin/mail/providers",
+      "source": "./openapi/paths/mail.yaml#/adminMailProviders",
+      "handler": "listProviders",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/moderation/decisions",
+      "contractPath": "/api/v1/admin/moderation/decisions",
+      "source": "./openapi/paths/moderation.yaml#/adminModerationDecisions",
+      "handler": "listAdminDecisions",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/moderation/reports",
+      "contractPath": "/api/v1/admin/moderation/reports",
+      "source": "./openapi/paths/moderation.yaml#/adminModerationReports",
+      "handler": "listReports",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/moderation/settings",
+      "contractPath": "/api/v1/admin/moderation/settings",
+      "source": "./openapi/paths/moderation.yaml#/adminModerationSettings",
+      "handler": "getSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/overview",
+      "contractPath": "/api/v1/admin/overview",
+      "source": "./openapi/paths/system.yaml#/adminOverview",
+      "handler": "overview",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/overview/resources",
+      "contractPath": "/api/v1/admin/overview/resources",
+      "source": "./openapi/paths/system.yaml#/adminOverviewResources",
+      "handler": "resources",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/announcements",
+      "contractPath": "/api/v1/admin/site/announcements",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteAnnouncements",
+      "handler": "adminAnnouncements",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/friend-links",
+      "contractPath": "/api/v1/admin/site/friend-links",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteFriendLinks",
+      "handler": "adminFriendLinks",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/nav-items",
+      "contractPath": "/api/v1/admin/site/nav-items",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteNavItems",
+      "handler": "adminNavItems",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/navigation",
+      "contractPath": "/api/v1/admin/site/navigation",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteNavigation",
+      "handler": "adminNavigationDocument",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/navigation/export",
+      "contractPath": "/api/v1/admin/site/navigation/export",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteNavigationExport",
+      "handler": "adminExportNavigation",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/navigation/snapshots",
+      "contractPath": "/api/v1/admin/site/navigation/snapshots",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteNavigationSnapshots",
+      "handler": "adminNavigationSnapshots",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/navigation/snapshots/:snapshotID",
+      "contractPath": "/api/v1/admin/site/navigation/snapshots/:param",
+      "source": "./openapi/paths/site_chrome.yaml#/adminSiteNavigationSnapshotByID",
+      "handler": "adminNavigationSnapshot",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/system-updates",
+      "contractPath": "/api/v1/admin/system-updates",
+      "source": "./openapi/paths/system.yaml#/adminSystemUpdates",
+      "handler": "status",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/web-options",
+      "contractPath": "/api/v1/admin/web-options",
+      "source": "./openapi/paths/options.yaml#/adminWebOptions",
+      "handler": "listAdmin",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/webhooks/deliveries",
+      "contractPath": "/api/v1/admin/webhooks/deliveries",
+      "source": "./openapi/paths/webhooks.yaml#/adminWebhookDeliveries",
+      "handler": "listDeliveries",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/webhooks/endpoints",
+      "contractPath": "/api/v1/admin/webhooks/endpoints",
+      "source": "./openapi/paths/webhooks.yaml#/adminWebhookEndpoints",
+      "handler": "listEndpoints",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/admin/webhooks/events",
+      "contractPath": "/api/v1/admin/webhooks/events",
+      "source": "./openapi/paths/webhooks.yaml#/adminWebhookEvents",
+      "handler": "listCatalogEvents",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/attachments/:publicId",
+      "contractPath": "/api/v1/attachments/:param",
+      "source": "./openapi/paths/attachments.yaml#/attachmentByPublicID",
+      "handler": "get",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/attachments/upload-policy",
+      "contractPath": "/api/v1/attachments/upload-policy",
+      "source": "./openapi/paths/attachments.yaml#/attachmentUploadPolicy",
+      "handler": "currentUploadPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/auth/external-identities",
+      "contractPath": "/api/v1/auth/external-identities",
+      "source": "./openapi/paths/identity.yaml#/authExternalIdentities",
+      "handler": "externalIdentities",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/auth/providers/:providerId/callback",
+      "contractPath": "/api/v1/auth/providers/:param/callback",
+      "source": "./openapi/paths/identity.yaml#/authProviderCallback",
+      "handler": "externalAuthCallback",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [],
+      "declared": [
+        302,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/auth/registration-status",
+      "contractPath": "/api/v1/auth/registration-status",
+      "source": "./openapi/paths/identity.yaml#/authRegistrationStatus",
+      "handler": "registrationStatus",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/badges",
+      "contractPath": "/api/v1/badges",
+      "source": "./openapi/paths/badges.yaml#/publicBadgeCatalog",
+      "handler": "publicCatalog",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        403,
+        503
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/badges/tiers",
+      "contractPath": "/api/v1/badges/tiers",
+      "source": "./openapi/paths/badges.yaml#/publicBadgeTiers",
+      "handler": "publicBadgeTiers",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/badges/worn",
+      "contractPath": "/api/v1/badges/worn",
+      "source": "./openapi/paths/badges.yaml#/badgeWorn",
+      "handler": "getWornBadge",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/comments/:commentID/edit-source",
+      "contractPath": "/api/v1/comments/:param/edit-source",
+      "source": "./openapi/paths/forum.yaml#/commentEditSource",
+      "handler": "commentEditSource",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        404,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/comments/:commentID/revisions",
+      "contractPath": "/api/v1/comments/:param/revisions",
+      "source": "./openapi/paths/forum.yaml#/commentRevisions",
+      "handler": "commentRevisions",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        400,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/comments/:commentID/revisions/:revisionNo",
+      "contractPath": "/api/v1/comments/:param/revisions/:param",
+      "source": "./openapi/paths/forum.yaml#/commentRevisionByNo",
+      "handler": "commentRevision",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/composer/references",
+      "contractPath": "/api/v1/composer/references",
+      "source": "./openapi/paths/forum.yaml#/composerReferences",
+      "handler": "composerReferences",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/composer/toolbar",
+      "contractPath": "/api/v1/composer/toolbar",
+      "source": "./openapi/paths/forum.yaml#/composerToolbar",
+      "handler": "composerToolbar",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/:extensionId/assets/:packageDigest/:digest/:handle",
+      "contractPath": "/api/v1/extensions/runtime/:param/assets/:param/:param/:param",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionAsset",
+      "handler": "publicFrontendAsset",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/:extensionId/components/:componentId",
+      "contractPath": "/api/v1/extensions/runtime/:param/components/:param",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionComponent",
+      "handler": "publicFrontendComponent",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/content-catalog",
+      "contractPath": "/api/v1/extensions/runtime/content-catalog",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionContentCatalog",
+      "handler": "publicContentCatalog",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/content-styles",
+      "contractPath": "/api/v1/extensions/runtime/content-styles",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionContentStyles",
+      "handler": "publicContentStyles",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/editor-catalog",
+      "contractPath": "/api/v1/extensions/runtime/editor-catalog",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionEditorCatalog",
+      "handler": "publicEditorCatalog",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/entity-catalog",
+      "contractPath": "/api/v1/extensions/runtime/entity-catalog",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionEntityCatalog",
+      "handler": "publicEntityCatalog",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/media-catalog",
+      "contractPath": "/api/v1/extensions/runtime/media-catalog",
+      "source": "./openapi/paths/extensions.yaml#/publicExtensionMediaCatalog",
+      "handler": "publicMediaCatalog",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/health",
+      "contractPath": "/api/v1/health",
+      "source": "./openapi/paths/system.yaml#/health",
+      "handler": "<inline closure>",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/me/content-review",
+      "contractPath": "/api/v1/me/content-review",
+      "source": "./openapi/paths/forum.yaml#/authorContentReview",
+      "handler": "authorReviewItems",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/moderation/workbench/context/:targetType/:targetID",
+      "contractPath": "/api/v1/moderation/workbench/context/:param/:param",
+      "source": "./openapi/paths/moderation.yaml#/moderationWorkbenchContext",
+      "handler": "getReviewContext",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/moderation/workbench/counts",
+      "contractPath": "/api/v1/moderation/workbench/counts",
+      "source": "./openapi/paths/moderation.yaml#/moderationWorkbenchCounts",
+      "handler": "queueCounts",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/moderation/workbench/history",
+      "contractPath": "/api/v1/moderation/workbench/history",
+      "source": "./openapi/paths/moderation.yaml#/moderationWorkbenchHistory",
+      "handler": "listWorkbenchHistory",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/moderation/workbench/pending",
+      "contractPath": "/api/v1/moderation/workbench/pending",
+      "source": "./openapi/paths/moderation.yaml#/moderationWorkbenchPending",
+      "handler": "listPending",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/moderation/workbench/reports",
+      "contractPath": "/api/v1/moderation/workbench/reports",
+      "source": "./openapi/paths/moderation.yaml#/moderationWorkbenchReports",
+      "handler": "listReportItems",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/notifications",
+      "contractPath": "/api/v1/notifications",
+      "source": "./openapi/paths/notifications.yaml#/notifications",
+      "handler": "list",
+      "guards": [
+        "app/Http/Controllers/Notifications:userID"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/notifications/unread-count",
+      "contractPath": "/api/v1/notifications/unread-count",
+      "source": "./openapi/paths/notifications.yaml#/notificationUnreadCount",
+      "handler": "unreadCount",
+      "guards": [
+        "app/Http/Controllers/Notifications:userID"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/pages/catalog",
+      "contractPath": "/api/v1/pages/catalog",
+      "source": "./openapi/paths/pages.yaml#/pagesCatalog",
+      "handler": "publicCatalog",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/permissions",
+      "contractPath": "/api/v1/permissions",
+      "source": "./openapi/paths/identity.yaml#/permissions",
+      "handler": "listPermissions",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/permissions/matrix",
+      "contractPath": "/api/v1/permissions/matrix",
+      "source": "./openapi/paths/identity.yaml#/permissionMatrix",
+      "handler": "permissionMatrix",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/profile",
+      "contractPath": "/api/v1/profile",
+      "source": "./openapi/paths/profile.yaml#/myProfile",
+      "handler": "myProfile",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/profile/bookmarks",
+      "contractPath": "/api/v1/profile/bookmarks",
+      "source": "./openapi/paths/profile.yaml#/myBookmarks",
+      "handler": "myBookmarks",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/profile/nickname/availability",
+      "contractPath": "/api/v1/profile/nickname/availability",
+      "source": "./openapi/paths/profile.yaml#/profileNicknameAvailability",
+      "handler": "nicknameAvailability",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/profile/sections",
+      "contractPath": "/api/v1/profile/sections",
+      "source": "./openapi/paths/identity.yaml#/profileSectionsList",
+      "handler": "listProfileSections",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/profiles/:username/badges",
+      "contractPath": "/api/v1/profiles/:param/badges",
+      "source": "./openapi/paths/badges.yaml#/profileBadgesByUsername",
+      "handler": "publicProfileBadges",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        403,
+        404,
+        503
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/roles",
+      "contractPath": "/api/v1/roles",
+      "source": "./openapi/paths/identity.yaml#/roles",
+      "handler": "listRoles",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/site/account-navigation",
+      "contractPath": "/api/v1/site/account-navigation",
+      "source": "./openapi/paths/site_chrome.yaml#/siteAccountNavigation",
+      "handler": "accountSettingsNavigation",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/site/active-theme/settings",
+      "contractPath": "/api/v1/site/active-theme/settings",
+      "source": "./openapi/paths/extensions.yaml#/siteActiveThemeSettings",
+      "handler": "publicActiveThemeSettings",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/site/active-theme/skin",
+      "contractPath": "/api/v1/site/active-theme/skin",
+      "source": "./openapi/paths/pages.yaml#/siteActiveThemeSkin",
+      "handler": "activeSkin",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/site/announcements",
+      "contractPath": "/api/v1/site/announcements",
+      "source": "./openapi/paths/site_chrome.yaml#/siteAnnouncements",
+      "handler": "publicAnnouncements",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/site/friend-links",
+      "contractPath": "/api/v1/site/friend-links",
+      "source": "./openapi/paths/site_chrome.yaml#/siteFriendLinks",
+      "handler": "publicFriendLinks",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/site/nav-items",
+      "contractPath": "/api/v1/site/nav-items",
+      "source": "./openapi/paths/site_chrome.yaml#/siteNavItems",
+      "handler": "publicNavItems",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/site/navigation",
+      "contractPath": "/api/v1/site/navigation",
+      "source": "./openapi/paths/site_chrome.yaml#/siteNavigation",
+      "handler": "publicNavigation",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        503
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "GET /api/v1/topics/:topicID/edit-source",
+      "contractPath": "/api/v1/topics/:param/edit-source",
+      "source": "./openapi/paths/forum.yaml#/topicEditSource",
+      "handler": "topicEditSource",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        404,
+        409
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/topics/:topicID/revisions",
+      "contractPath": "/api/v1/topics/:param/revisions",
+      "source": "./openapi/paths/forum.yaml#/topicRevisions",
+      "handler": "topicRevisions",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        400,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/topics/:topicID/revisions/:revisionNo",
+      "contractPath": "/api/v1/topics/:param/revisions/:param",
+      "source": "./openapi/paths/forum.yaml#/topicRevisionByNo",
+      "handler": "topicRevision",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/users",
+      "contractPath": "/api/v1/users",
+      "source": "./openapi/paths/identity.yaml#/users",
+      "handler": "listUsers",
+      "guards": [
+        "app/Http/Controllers/Identity:actor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "GET /api/v1/web-options",
+      "contractPath": "/api/v1/web-options",
+      "source": "./openapi/paths/options.yaml#/webOptions",
+      "handler": "listPublic",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/web-options/:name",
+      "contractPath": "/api/v1/web-options/:param",
+      "source": "./openapi/paths/options.yaml#/webOptionByName",
+      "handler": "getPublic",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        422
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "GET /api/v1/web-push/config",
+      "contractPath": "/api/v1/web-push/config",
+      "source": "./openapi/paths/notifications.yaml#/webPushConfig",
+      "handler": "webPushConfig",
+      "guards": [
+        "app/Http/Controllers/Notifications:userID"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/ai/diagnose",
+      "contractPath": "/api/v1/admin/ai/diagnose",
+      "source": "./openapi/paths/ai.yaml#/adminAIDiagnose",
+      "handler": "diagnose",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/ai/settings/reset",
+      "contractPath": "/api/v1/admin/ai/settings/reset",
+      "source": "./openapi/paths/ai.yaml#/adminAISettingsReset",
+      "handler": "resetSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-settings/test",
+      "contractPath": "/api/v1/admin/attachment-settings/test",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentSettingsTest",
+      "handler": "testSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances/:id/activate",
+      "contractPath": "/api/v1/admin/attachment-storage-instances/:param/activate",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentStorageInstanceActivate",
+      "handler": "activateStorageInstance",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403,
+        503
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances/local/activate",
+      "contractPath": "/api/v1/admin/attachment-storage-instances/local/activate",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentStorageLocalActivate",
+      "handler": "activateLocalStorage",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachments/cleanup",
+      "contractPath": "/api/v1/admin/attachments/cleanup",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentCleanup",
+      "handler": "cleanupAdmin",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/badges/recompute",
+      "contractPath": "/api/v1/admin/badges/recompute",
+      "source": "./openapi/paths/badges.yaml#/adminBadgesRecompute",
+      "handler": "adminRecomputeBadges",
+      "guards": [
+        "app/Http:ReadActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/extensions/:id/disable",
+      "contractPath": "/api/v1/admin/extensions/:param/disable",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionDisable",
+      "handler": "disable",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/extensions/:id/migrations/apply",
+      "contractPath": "/api/v1/admin/extensions/:param/migrations/apply",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionMigrationsApply",
+      "handler": "applyMigrations",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/extensions/:id/settings/reset",
+      "contractPath": "/api/v1/admin/extensions/:param/settings/reset",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionSettingsReset",
+      "handler": "resetSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/extensions/:id/trust/challenge",
+      "contractPath": "/api/v1/admin/extensions/:param/trust/challenge",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionTrustChallenge",
+      "handler": "issueExecutableTrustChallenge",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/extensions/:id/verify",
+      "contractPath": "/api/v1/admin/extensions/:param/verify",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionVerify",
+      "handler": "verify",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/features/restore-defaults",
+      "contractPath": "/api/v1/admin/features/restore-defaults",
+      "source": "./openapi/paths/options.yaml#/adminFeaturesRestoreDefaults",
+      "handler": "restoreFeatureDefaults",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/forum/settings/reset",
+      "contractPath": "/api/v1/admin/forum/settings/reset",
+      "source": "./openapi/paths/forum.yaml#/adminForumSettingsReset",
+      "handler": "adminResetSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/:id/cancel",
+      "contractPath": "/api/v1/admin/jobs/:param/cancel",
+      "source": "./openapi/paths/jobs.yaml#/adminJobCancel",
+      "handler": "cancel",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/:id/retry",
+      "contractPath": "/api/v1/admin/jobs/:param/retry",
+      "source": "./openapi/paths/jobs.yaml#/adminJobRetry",
+      "handler": "retry",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/queues/:name/pause",
+      "contractPath": "/api/v1/admin/jobs/queues/:param/pause",
+      "source": "./openapi/paths/jobs.yaml#/adminJobQueuePause",
+      "handler": "pause",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/queues/:name/resume",
+      "contractPath": "/api/v1/admin/jobs/queues/:param/resume",
+      "source": "./openapi/paths/jobs.yaml#/adminJobQueueResume",
+      "handler": "resume",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/schedules/:scheduleId/disable",
+      "contractPath": "/api/v1/admin/jobs/schedules/:param/disable",
+      "source": "./openapi/paths/jobs.yaml#/adminJobScheduleDisable",
+      "handler": "disableSchedule",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403,
+        404
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/schedules/:scheduleId/enable",
+      "contractPath": "/api/v1/admin/jobs/schedules/:param/enable",
+      "source": "./openapi/paths/jobs.yaml#/adminJobScheduleEnable",
+      "handler": "enableSchedule",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403,
+        404
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/schedules/:scheduleId/trigger",
+      "contractPath": "/api/v1/admin/jobs/schedules/:param/trigger",
+      "source": "./openapi/paths/jobs.yaml#/adminJobScheduleTrigger",
+      "handler": "triggerSchedule",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403,
+        404,
+        409
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/mail/policy/restore",
+      "contractPath": "/api/v1/admin/mail/policy/restore",
+      "source": "./openapi/paths/mail.yaml#/adminNotificationPolicyRestore",
+      "handler": "restorePolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/mail/provider/reset",
+      "contractPath": "/api/v1/admin/mail/provider/reset",
+      "source": "./openapi/paths/mail.yaml#/adminMailProviderReset",
+      "handler": "resetProvider",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        403
+      ],
+      "missing": [
+        401
+      ],
+      "成因": "guard-code-missing"
+    },
+    {
+      "operation": "POST /api/v1/admin/moderation/settings/reset",
+      "contractPath": "/api/v1/admin/moderation/settings/reset",
+      "source": "./openapi/paths/moderation.yaml#/adminModerationSettingsReset",
+      "handler": "resetSettings",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/admin/system-updates/check",
+      "contractPath": "/api/v1/admin/system-updates/check",
+      "source": "./openapi/paths/system.yaml#/adminSystemUpdatesCheck",
+      "handler": "check",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/auth/logout",
+      "contractPath": "/api/v1/auth/logout",
+      "source": "./openapi/paths/identity.yaml#/authLogout",
+      "handler": "logout",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "POST /api/v1/auth/password-reset/request",
+      "contractPath": "/api/v1/auth/password-reset/request",
+      "source": "./openapi/paths/identity.yaml#/passwordResetRequest",
+      "handler": "passwordResetRequest",
+      "guards": [],
+      "guardCodes": [],
+      "declared": [
+        200,
+        422,
+        429
+      ],
+      "missing": [],
+      "成因": "no-status-literal-reachable"
+    },
+    {
+      "operation": "POST /api/v1/comments/:commentID/like",
+      "contractPath": "/api/v1/comments/:param/like",
+      "source": "./openapi/paths/forum.yaml#/commentLike",
+      "handler": "likeComment",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/notifications/read-all",
+      "contractPath": "/api/v1/notifications/read-all",
+      "source": "./openapi/paths/notifications.yaml#/notificationsReadAll",
+      "handler": "markAllRead",
+      "guards": [
+        "app/Http/Controllers/Notifications:userID"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/hide",
+      "contractPath": "/api/v1/topics/:param/hide",
+      "source": "./openapi/paths/forum.yaml#/topicHide",
+      "handler": "hideTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/like",
+      "contractPath": "/api/v1/topics/:param/like",
+      "source": "./openapi/paths/forum.yaml#/topicLike",
+      "handler": "likeTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/lock",
+      "contractPath": "/api/v1/topics/:param/lock",
+      "source": "./openapi/paths/forum.yaml#/topicLock",
+      "handler": "lockTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/pin",
+      "contractPath": "/api/v1/topics/:param/pin",
+      "source": "./openapi/paths/forum.yaml#/topicPin",
+      "handler": "pinTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/restore",
+      "contractPath": "/api/v1/topics/:param/restore",
+      "source": "./openapi/paths/forum.yaml#/topicRestore",
+      "handler": "restoreTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/unlock",
+      "contractPath": "/api/v1/topics/:param/unlock",
+      "source": "./openapi/paths/forum.yaml#/topicUnlock",
+      "handler": "unlockTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "POST /api/v1/topics/:topicID/unpin",
+      "contractPath": "/api/v1/topics/:param/unpin",
+      "source": "./openapi/paths/forum.yaml#/topicUnpin",
+      "handler": "unpinTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "PUT /api/v1/admin/attachment-upload-policies/roles/:roleKey",
+      "contractPath": "/api/v1/admin/attachment-upload-policies/roles/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentUploadPolicyRole",
+      "handler": "setRoleUploadPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "PUT /api/v1/admin/attachment-upload-policies/users/:userID",
+      "contractPath": "/api/v1/admin/attachment-upload-policies/users/:param",
+      "source": "./openapi/paths/attachments.yaml#/adminAttachmentUploadPolicyUser",
+      "handler": "setUserUploadPolicy",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "PUT /api/v1/admin/extensions/contributions/:point/:contributionId",
+      "contractPath": "/api/v1/admin/extensions/contributions/:param/:param",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionContributionGovernance",
+      "handler": "updateContributionGovernance",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "PUT /api/v1/admin/extensions/contributions/:point/:contributionId/items/:itemKey",
+      "contractPath": "/api/v1/admin/extensions/contributions/:param/:param/items/:param",
+      "source": "./openapi/paths/extensions.yaml#/adminExtensionContributionItemGovernance",
+      "handler": "updateContributionItemGovernance",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "PUT /api/v1/comments/:commentID/bookmark",
+      "contractPath": "/api/v1/comments/:param/bookmark",
+      "source": "./openapi/paths/forum.yaml#/commentBookmark",
+      "handler": "bookmarkComment",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    },
+    {
+      "operation": "PUT /api/v1/topics/:topicID/bookmark",
+      "contractPath": "/api/v1/topics/:param/bookmark",
+      "source": "./openapi/paths/forum.yaml#/topicBookmark",
+      "handler": "bookmarkTopic",
+      "guards": [
+        "app/Http:LoadActor"
+      ],
+      "guardCodes": [
+        401
+      ],
+      "declared": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    }
+  ],
+  "已登记未声明状态码": [
+    {
+      "operation": "DELETE /api/v1/admin/attachment-storage-instances/:id",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachment-storage-instances",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/:id",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/overview",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/schedules",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/mail/deliveries",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/admin/mail/policy",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "GET /api/v1/badges",
+      "codes": [
+        401
+      ],
+      "原因": "公开读经 ReadActor：凭据存在但主体不可用（C 类）时守卫直接 401 auth.required，且包装函数把 error 原样上抛；契约未声明 401，登记为已知差集，补契约由 W3 收口"
+    },
+    {
+      "operation": "GET /api/v1/site/navigation",
+      "codes": [
+        401
+      ],
+      "原因": "公开读经 ReadActor：凭据存在但主体不可用（C 类）时守卫直接 401 auth.required，且包装函数把 error 原样上抛；契约未声明 401，登记为已知差集，补契约由 W3 收口"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances/:id/activate",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances/local/activate",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances/probe",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/:id/cancel",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/:id/retry",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/queues/:name/pause",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/queues/:name/resume",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/schedules/:scheduleId/disable",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/schedules/:scheduleId/enable",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/schedules/:scheduleId/trigger",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/mail/policy/restore",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "POST /api/v1/admin/mail/provider/reset",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "PUT /api/v1/admin/attachment-storage-instances/:id",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "PUT /api/v1/admin/mail/policy",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    },
+    {
+      "operation": "PUT /api/v1/admin/mail/provider",
+      "codes": [
+        401
+      ],
+      "原因": "必登面直连 LoadActor：无凭据时守卫直接 401 auth.required（包装函数 return apphttp.LoadActor(...) 原样透传），契约只声明了域层 403/404；补契约属 W1（实现）/W3（契约）收口范围，本轮登记为已知差集"
+    }
+  ],
+  "通配路由": [
+    {
+      "operation": "ALL /api/v1/extensions/:extensionId/*",
+      "handler": "proxyExtensionRoute",
+      "file": "apps/api/app/Http/Controllers/Extensions/routes.go",
+      "原因": "插件代理通配路由：目标 handler 由 Route Registry 在运行期决定，静态无法落到某个 guard；契约侧已登记为「不可静态判定」"
+    },
+    {
+      "operation": "GET /api/v1/extensions/runtime/:extensionId/packages/:packageDigest/*",
+      "handler": "publicFrontendPackageAsset",
+      "file": "apps/api/app/Http/Controllers/Extensions/routes.go",
+      "原因": "静态资源通配路由：路径尾部是插件/主题制品内部路径，没有固定 operation 可对齐；契约侧已登记为「不可静态判定」"
+    },
+    {
+      "operation": "GET /api/v1/site/theme-assets/:extensionId/*",
+      "handler": "themeAsset",
+      "file": "apps/api/app/Http/Controllers/Pages/controller.go",
+      "原因": "静态资源通配路由：路径尾部是插件/主题制品内部路径，没有固定 operation 可对齐；契约侧已登记为「不可静态判定」"
+    }
+  ],
+  "已复核误报": [],
+  "未登记401503产出点": [
+    {
+      "id": "app/Http/Controllers/Attachments:mapAttachmentError",
+      "codes": [
+        401,
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Attachments:sendAttachmentDelivery",
+      "codes": [
+        503
+      ],
+      "原因": "附件下载响应装配：存储不可用时自己答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Badges:actor",
+      "codes": [
+        401
+      ],
+      "原因": "Badges 的 actor 包装：测试缝 + apphttp.ReadActor（后者已登记为 guard），这里只额外产出一个「零值主体 401」"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:lifecycleCleanupFailureError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapAdminSurfaceError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapCacheInspectorError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapExtensionError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapLifecycleInspectionError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapProviderSlotError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapPublicFrontendError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapRouteCatalogError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mapRouteInspectorError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:mutateContributionGovernance",
+      "codes": [
+        503
+      ],
+      "原因": "扩展贡献治理写入：运行时注册表不可用答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:resetContributionGovernanceTarget",
+      "codes": [
+        503
+      ],
+      "原因": "扩展贡献治理重置：运行时注册表不可用答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Extensions:routeContractSnapshot",
+      "codes": [
+        503
+      ],
+      "原因": "路由契约快照：路由注册表不可用答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Forum:bookmarkService",
+      "codes": [
+        503
+      ],
+      "原因": "收藏服务装配缝：nil 时答 503 forum.bookmarks_unavailable，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Forum:mapForumError",
+      "codes": [
+        401,
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Forum:reactionService",
+      "codes": [
+        503
+      ],
+      "原因": "表情回应服务装配缝：nil 时答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:actorForUserID",
+      "codes": [
+        401
+      ],
+      "原因": "Identity 必登守卫的本体：!ok 时 401 auth.required。已以 Identity:actor 登记为 guard，这里是它的实现体"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:handleExternalLoginCallback",
+      "codes": [
+        503
+      ],
+      "原因": "外部登录回调装配检查：服务未接线答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:listAdminIdentityProviderItems",
+      "codes": [
+        503
+      ],
+      "原因": "后台身份提供方列表装配检查：服务未接线答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:mapActivationMutationError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:mapAuthProviderHTTPError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:mapExternalAuthError",
+      "codes": [
+        401,
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:mapExternalAuthRegistrationError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:mapIdentityError",
+      "codes": [
+        401,
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:mapRoleSuggestionError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:requireExternalAuthStartWiring",
+      "codes": [
+        503
+      ],
+      "原因": "外部登录 start 的接线前置检查：服务未接线答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:roleSuggestionCookieActor",
+      "codes": [
+        401,
+        503
+      ],
+      "原因": "角色建议的 cookie 专用守卫：会话注册表不可用答 503、Bearer 混用答 403、未登录答 401"
+    },
+    {
+      "id": "app/Http/Controllers/Identity:validateLoginAPITokenRequest",
+      "codes": [
+        503
+      ],
+      "原因": "登录用 PAT 请求校验：会话注册表不可用答 503，不是身份守卫"
+    },
+    {
+      "id": "app/Http/Controllers/Pages:enforcePageAccess",
+      "codes": [
+        401
+      ],
+      "原因": "页面访问策略：login/moderation/permission 三档在缺主体时答 401（策略来自页面贡献声明，静态无法归到单一 guard）"
+    },
+    {
+      "id": "app/Http/Controllers/Profile:mapProfileError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/SEO:mapError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    },
+    {
+      "id": "app/Http/Controllers/SiteChrome:mapBrandAssetError",
+      "codes": [
+        503
+      ],
+      "原因": "域层错误映射器：把领域/依赖错误翻成 4xx/5xx（含 503 分支），不是身份守卫。本门不登记为 guard（否则会把域层 503 全算成守卫可达），但保留具名登记，防止它被当成门而漏检"
+    }
+  ],
+  "允许升级对": [
+    {
+      "from": "app/Http:LoadActor",
+      "to": "app/Http:RequireActor",
+      "原因": "两者都是必登守卫（无凭据 401 auth.required），RequireActor 只是把 LoadActor 原样上抛的错误分成两类：主体不可用答 401、依赖故障/未识别答 503+Retry-After（原先会落到 500）。替换方向不会放宽匿名访问，只会把「依赖抖动被当成身份问题」纠正掉，所以语义确实更强。"
+    }
+  ],
+  "守卫升级记录": []
+}

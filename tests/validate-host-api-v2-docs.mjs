@@ -1,10 +1,61 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = process.cwd()
 const read = path => readFileSync(resolve(root, path), 'utf8')
 const assert = (condition, message) => {
   if (!condition) throw new Error(message)
+}
+
+// 剥掉 Go 注释（字符串字面量内部不动），再拿去做不变量匹配。
+// 不剥的话，一段写在注释里的 `base.AutoMTLS = true` 就能顶替真实代码，把这条断言变成
+// 空断言 —— 断言的意义是「代码里还在」，不是「文件里某处出现过这几个字」。
+const stripGoComments = source => {
+  const out = source.split('')
+  let index = 0
+  while (index < source.length) {
+    const char = source[index]
+    if (char === '"' || char === '`' || char === "'") {
+      const quote = char
+      index += 1
+      while (index < source.length) {
+        if (source[index] === '\\' && quote !== '`') {
+          index += 2
+          continue
+        }
+        if (source[index] === quote) {
+          index += 1
+          break
+        }
+        index += 1
+      }
+      continue
+    }
+    if (char === '/' && source[index + 1] === '/') {
+      while (index < source.length && source[index] !== '\n') {
+        out[index] = ' '
+        index += 1
+      }
+      continue
+    }
+    if (char === '/' && source[index + 1] === '*') {
+      out[index] = ' '
+      out[index + 1] = ' '
+      index += 2
+      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+        if (source[index] !== '\n') out[index] = ' '
+        index += 1
+      }
+      if (index < source.length) {
+        out[index] = ' '
+        out[index + 1] = ' '
+        index += 2
+      }
+      continue
+    }
+    index += 1
+  }
+  return out.join('')
 }
 
 const doc = read('docs/extensions/host-api-v2.md')
@@ -20,14 +71,24 @@ const hostProtoPaths = [
   'contracts/proto/sforum/host/v2/session.proto'
 ]
 const hostProto = hostProtoPaths.map(read).join('\n')
-const server = read('apps/api/sdk/plugin/v2/transport.go')
-const hostRuntime = read('apps/api/app/Support/Extensions/protocol_v2_host.go')
-const clientRuntime = read('apps/api/app/Support/Extensions/protocol_v2_client.go')
-// The handshake request literal moved out of protocol_v2_client.go to keep that
-// legacy-capped file from growing; the wire invariants still belong to the v2
-// runtime as a whole.
-const handshakeRuntime = read('apps/api/app/Support/Extensions/protocol_v2_identity_runtime.go')
-const protocolV2Runtime = `${clientRuntime}\n${handshakeRuntime}`
+const server = stripGoComments(read('apps/api/sdk/plugin/v2/transport.go'))
+// The v2 wire invariants belong to the runtime **as a whole**, and that runtime keeps
+// being split so no single file outgrows the legacy size cap (the handshake literal
+// already moved out of protocol_v2_client.go, and AutoMTLS followed it into
+// protocol_v2_server.go). Naming individual files here therefore goes stale on every
+// split — and a stale list makes documented invariants silently unchecked. Read the
+// whole protocol_v2_*.go set instead, so a new runtime file cannot hide one.
+const PROTOCOL_V2_RUNTIME_DIR = 'apps/api/app/Support/Extensions'
+const protocolV2RuntimeFiles = readdirSync(resolve(root, PROTOCOL_V2_RUNTIME_DIR))
+  .filter(name => name.startsWith('protocol_v2_') && name.endsWith('.go') && !name.endsWith('_test.go'))
+  .sort()
+assert(
+  protocolV2RuntimeFiles.length > 0,
+  `no protocol_v2_*.go runtime files found under ${PROTOCOL_V2_RUNTIME_DIR}`
+)
+const protocolV2Runtime = stripGoComments(
+  protocolV2RuntimeFiles.map(name => read(`${PROTOCOL_V2_RUNTIME_DIR}/${name}`)).join('\n')
+)
 const testScript = read('scripts/test.sh')
 
 for (const [source, packageName] of [

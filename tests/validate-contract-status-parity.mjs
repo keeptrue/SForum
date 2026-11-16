@@ -29,6 +29,8 @@
  * 用法：
  *   node tests/validate-contract-status-parity.mjs            # 跑门
  *   node tests/validate-contract-status-parity.mjs --refresh  # 只刷新基线里的「期望计数」
+ *   node tests/validate-contract-status-parity.mjs --print-empty-routes
+ *                                                             # 只额外打印「状态码集合为空」的路由清单
  *
  * --refresh 只重写计数，绝不增删「不可静态判定」「已复核未声明状态码」条目：例外集合只能人工确认。
  */
@@ -880,6 +882,10 @@ function refreshCounts(actual, baseline) {
 function main() {
   const started = process.hrtime.bigint();
   const refresh = process.argv.includes('--refresh');
+  // 诊断开关，默认关闭：只把「状态码集合为空」的路由逐条打印出来，供
+  // tests/validate-contract-reachability-equivalence.test.mjs 与可达性门做集合比对。
+  // 它不参与任何判定，也不改变无参数运行时的输出（等价性测试里有一条断言钉住这点）。
+  const printEmptyRoutes = process.argv.includes('--print-empty-routes');
 
   let contractOperations;
   let contractPathCount = 0;
@@ -934,6 +940,13 @@ function main() {
     `[parity] guard 助手白名单：${[...GUARD_HELPERS.keys()].join(', ')}` +
       `（命中 ${guardHelperHits.size}/${GUARD_HELPERS.size}）`,
   );
+  if (printEmptyRoutes) {
+    console.log('[parity-empty-routes]');
+    for (const route of routes.values()) {
+      if (route.codes.size > 0) continue;
+      console.log(`${route.method} ${normalizePath(route.path)}`);
+    }
+  }
   console.log(
     `[parity] 定向棘轮：公开读 401 已核对 ${publicReadChecked} 条（清单 tests/contract-public-read-401.json）`,
   );

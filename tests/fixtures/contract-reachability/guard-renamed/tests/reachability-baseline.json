@@ -1,0 +1,57 @@
+{
+  "说明": "fixture 基线（与仓库基线同结构，仅供反例测试使用）",
+  "期望计数": {
+    "契约operation数": 1,
+    "实现侧路由数": 1,
+    "退化区路由数": 1,
+    "退化区已映射operation数": 1,
+    "路由可达guard码但契约未声明条数": 0,
+    "未登记401503产出点数": 1
+  },
+  "端点guard": {
+    "GET /api/v1/demo/secure": [
+      "app/Http:RequireActor"
+    ]
+  },
+  "端点guard出码": {
+    "GET /api/v1/demo/secure": [
+      "app/Http:RequireActor"
+    ]
+  },
+  "退化区": [
+    {
+      "operation": "GET /api/v1/demo/secure",
+      "contractPath": "/api/v1/demo/secure",
+      "source": "./openapi/paths/demo.yaml#/demoSecure",
+      "handler": "secure",
+      "guards": [
+        "app/Http:RequireActor"
+      ],
+      "guardCodes": [
+        401,
+        503
+      ],
+      "declared": [
+        200,
+        401,
+        503
+      ],
+      "missing": [],
+      "成因": "guard-code-declared-but-set-empty"
+    }
+  ],
+  "已登记未声明状态码": [],
+  "通配路由": [],
+  "已复核误报": [],
+  "未登记401503产出点": [
+    {
+      "id": "app/Http:requireActor",
+      "codes": [
+        401,
+        503
+      ],
+      "原因": "fixture：改名后的守卫未被登记为 guard，按「未登记产出点」具名登记"
+    }
+  ],
+  "守卫升级记录": []
+}

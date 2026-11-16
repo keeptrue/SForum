@@ -1,0 +1,6 @@
+demoSecure:
+  get:
+    operationId: demoSecure
+    responses:
+      '200': { description: OK }
+      '401': { description: Unauthorized }

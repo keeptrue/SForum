@@ -18,6 +18,22 @@ ruby scripts/validate-openapi-refs.rb
 echo "Running contract status-code parity validation..."
 node tests/validate-contract-status-parity.mjs
 
+# 可达性门补的是 parity 门的另一半盲区：parity 门只认 requireGuestRead / requireAdmin
+# 两条 guard 白名单，ReadActor / RequireActor / LoadActor 产出的 401/503 它看不见
+# （第 14 轮 P1 就是这么变绿的）。两道门互为补集，都不许被关掉。
+echo "Running contract reachability validation (route -> same-package call graph -> guard helpers)..."
+node tests/validate-contract-reachability.mjs
+
+# 门必须能被证明会红：1 个对照 + 8 个单一成因反例（漏 503 / guard 换直连 / guard 改名 /
+# 未登记通配路由 / 登记表过期 / 基线被删 / 基线被截断 / 棘轮上调）。
+echo "Running contract reachability negative fixtures..."
+node tests/validate-contract-reachability.test.mjs
+
+# 两门必须对同一棵树得出同样的分母与同样的退化区成员。这条测试**不共享实现**，
+# 只比对两道门各自打印的结果 —— 共享会让「互相独立复核」失去意义。
+echo "Running contract gate equivalence validation (parity vs reachability)..."
+node tests/validate-contract-reachability-equivalence.test.mjs
+
 echo "Running staged extension management contract validation..."
 node tests/validate-staged-extension-contracts.js
 

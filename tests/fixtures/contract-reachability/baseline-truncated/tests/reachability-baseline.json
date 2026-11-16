@@ -1,0 +1,24 @@
+{
+  "说明": "fixture 基线（与仓库基线同结构，仅供反例测试使用）",
+  "期望计数": {
+    "契约operation数": 1,
+    "实现侧路由数": 1,
+    "退化区路由数": 1,
+    "退化区已映射operation数": 1,
+    "路由可达guard码但契约未声明条数": 0,
+    "未登记401503产出点数": 0
+  },
+  "端点guard": {
+    "GET /api/v1/demo/secure": [
+      "app/Http:RequireActor"
+    ]
+  },
+  "端点guard出码": {
+    "GET /api/v1/demo/secure": [
+      "app/Http:RequireActor"
+    ]
+  },
+  "退化区": [
+    {
+      "operation": "GET /api/v1/demo/secure",
+      "contractPath
