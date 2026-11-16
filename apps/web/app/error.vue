@@ -12,6 +12,7 @@ import {
   resolveErrorPageContent,
   systemErrorPageIdForStatus
 } from '~/utils/errors/errorPage'
+import { localeHeadLinks, localeHeadMeta } from '~/utils/seo/localeHeadLinks'
 
 const props = defineProps<{
   error: NuxtError
@@ -63,9 +64,9 @@ if (i18nReady && isThemeableSystemError.value) {
         'data-sforum-error': String(systemPage.value.statusCode)
       },
       link: [
-        ...(localeHead.value.link || []),
+        ...localeHeadLinks(localeHead.value.link),
         ...themeSkin.links.value.map(href => ({
-          rel: 'stylesheet',
+          rel: 'stylesheet' as const,
           href,
           key: `sforum-theme-skin:${href}`,
           // 与 app.vue 同契约：皮肤永远排在宿主 CSS 之前。
@@ -73,7 +74,7 @@ if (i18nReady && isThemeableSystemError.value) {
           'data-sforum-theme-skin': '1'
         }))
       ],
-      meta: localeHead.value.meta
+      meta: localeHeadMeta(localeHead.value.meta)
     }
   })
 }

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { parse, compileScript } from '@vue/compiler-sfc'
 import { computed, ref } from 'vue'
+import { localeHeadLinks, localeHeadMeta } from '../../app/utils/seo/localeHeadLinks'
 
 describe('app startup rendering', () => {
   test('initializes anonymous SSR as guest without requesting the session', async () => {
@@ -130,6 +131,8 @@ function loadAppComponentForStartupTest(options: { server: boolean, routePath?: 
     'SFApiConnectionModal',
     'SFCelebrationHost',
     'SFBadgeDetailDialogHost',
+    'localeHeadLinks',
+    'localeHeadMeta',
     executable
   )
 
@@ -208,7 +211,10 @@ function loadAppComponentForStartupTest(options: { server: boolean, routePath?: 
     {},
     // 庆祝浮卡/徽章弹窗宿主不是启动流程的一部分：给空壳，断言只看启动动作是否发生。
     {},
-    {}
+    {},
+    // i18n locale head 适配器是纯函数，直接用真实实现，不另造替身。
+    localeHeadLinks,
+    localeHeadMeta
   )
 
   return {
