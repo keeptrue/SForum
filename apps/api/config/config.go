@@ -448,6 +448,15 @@ func redactDatabaseURL(raw string) string {
 	return scheme + "://" + userinfo + parsed.Host + parsed.EscapedPath()
 }
 
+// RedactDatabaseURL 是 redactDatabaseURL 的包外入口，供「打印连接串」的调用方复用同一份
+// 实现：cmd/sforum 的 seed 日志曾经自己写了一份按**第一个** `@` 切分的脱敏，含 `@` 的
+// 口令会漏尾巴（`postgres://u:p@ss@host/db` → `postgres://u:***@ss@host/db`），且 query
+// 原样保留。两份实现是这次漂移的根因，所以对外只留这一个入口，规则与生产校验完全一致
+// （口令 ***、query/fragment 丢弃、解析不出就退化为 *** 或 scheme://***）。
+func RedactDatabaseURL(raw string) string {
+	return redactDatabaseURL(raw)
+}
+
 // parseIdentitySubjectHMACKeyBytes 将配置字符串解析为密钥字节。
 // 优先 hex 解码（≥32 字节）；否则按原始 UTF-8 字节使用。
 func parseIdentitySubjectHMACKeyBytes(secret string) []byte {
