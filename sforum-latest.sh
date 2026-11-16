@@ -132,6 +132,7 @@ lock_holder_summary() {
 
 lock_is_stale() {
   local pid recorded current mtime
+  LOCK_REASON=""
   if pid="$(lock_dir_pid "$LOCK_DIR")"; then
     if ! lock_pid_alive "$pid"; then LOCK_REASON=pid_gone; return 0; fi
     recorded="$(lock_field proc_start)"
@@ -140,6 +141,7 @@ lock_is_stale() {
       LOCK_REASON=pid_reused
       return 0
     fi
+    LOCK_REASON=held
     return 1
   fi
   # 元数据缺失（只有空目录）：锁龄超过 1 小时才回收，权当没人持有了。
@@ -204,9 +206,12 @@ force_unlock() {
     return 0
   fi
   summary="$(lock_holder_summary)"
-  lock_is_stale || die "部署锁仍被活性进程持有，拒绝回收：$summary"
+  # 显式人工动作：只要没有「pid 活着且 proc_start 对得上」的持有者就允许清。空锁目录
+  # （mkdir 之后、写 pid 之前被 SIGKILL 的典型残留）属于 no_owner，直接回收，不必等 1 小时。
+  lock_is_stale || [ "${LOCK_REASON:-}" = no_owner ] || \
+    die "部署锁仍被活性进程持有（$summary）；确认持有者已退出后重试"
   reclaim_stale_lock "$(lock_dir_pid "$LOCK_DIR" || true)"
-  printf '已回收陈旧部署锁（reason=%s）：%s\n' "${LOCK_REASON:-manual}" "$summary"
+  printf '已回收部署锁（reason=%s）：%s\n' "${LOCK_REASON:-manual}" "$summary"
 }
 
 passthrough_has() {
@@ -613,10 +618,12 @@ main() {
   command -v curl >/dev/null 2>&1 || die "需要 curl"
   command -v tar >/dev/null 2>&1 || die "需要 tar"
 
-  # OPS-02：锁在联网与下载之前拿 —— 否则每次重试都先付一次完整下载 + attestation，
-  # 最后才发现目录被别的操作占着。失败路径由 EXIT trap（cleanup → release_lock）释放。
+  # OPS-02：会写盘的路径在联网与下载之前拿锁 —— 否则每次重试都先付一次完整下载 +
+  # attestation，最后才发现目录被别的操作占着。失败路径由 EXIT trap 释放。
+  # --check 是只读预检（README/docs 承诺「不写任何文件」），不抢排他锁：既不该因为
+  # 安装目录只读而报成「已有另一个部署操作」，也不该在慢网下载期间挡死真正的部署。
   LOCK_ACTION="$ACTION"
-  acquire_lock
+  [ "$CHECK_ONLY" = true ] || acquire_lock
   TARGET_TAG="$(resolve_tag)"
   # .deployrc 缺失是正常状态（全新目录 / 首次安装）：没有「当前版本」可比，交给
   # detect_action 的 install 分支（判据用 -f，与 detect_action 全文一致，目录名落在

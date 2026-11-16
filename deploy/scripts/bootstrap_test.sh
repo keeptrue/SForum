@@ -343,4 +343,24 @@ assert_contains "$STALE_ROOT/compose.yaml" "target=$VERSION"
 [ -z "$(find "$STALE_ROOT" -maxdepth 1 -name '.deploy.lock.stale.*' -print -quit)" ] || \
   fail "a reclaimed lock copy was left behind"
 
+# 3) 提升中途失败：cleanup 必须同时清掉提升锁与 bootstrap 锁（这条分支此前零覆盖）。
+#    注意不能用「deploy.sh 预置成目录」造失败 —— mv file existing-dir 会把文件挪进去，
+#    仍然返回 0。改为把 deploy 预置成普通文件，让后面 promote_file 的
+#    mkdir -p "$ROOT_DIR/deploy/scripts" 必然失败。
+FAIL_ROOT="$TEMP_DIR/failpromote"
+mkdir -p "$FAIL_ROOT"
+cp "$ROOT_DIR/sforum-bootstrap.sh" "$FAIL_ROOT/sforum-bootstrap.sh"
+chmod 0755 "$FAIL_ROOT/sforum-bootstrap.sh"
+printf 'keep-env\n' > "$FAIL_ROOT/.env.production"
+printf 'version=v9.8.6\n' > "$FAIL_ROOT/.deployrc"
+printf 'not a directory\n' > "$FAIL_ROOT/deploy"
+if SFORUM_BOOTSTRAP_TEST_REFRESHED=1 run_bootstrap "$FAIL_ROOT" upgrade \
+  --version "$VERSION" --yes >"$TEMP_DIR/failpromote.out" 2>&1; then
+  fail "promotion unexpectedly succeeded with a file where deploy/ should be"
+fi
+[ -f "$FAIL_ROOT/deploy" ] || fail "the deploy fixture was replaced by a directory"
+[ ! -e "$FAIL_ROOT/.deploy.lock" ] || fail "the failure path left .deploy.lock behind"
+[ ! -e "$FAIL_ROOT/.sforum-bootstrap.lock" ] || \
+  fail "the failure path left .sforum-bootstrap.lock behind"
+
 printf 'bootstrap_test.sh: all checks passed\n'

@@ -17,7 +17,6 @@ DOWNLOAD_BASE="${SFORUM_RELEASE_DOWNLOAD_BASE_URL:-https://github.com/$REPOSITOR
 ACTIVE_STAGE=""
 DEPLOY_LOCK_HELD=false
 DEPLOY_LOCK_LIBRARY=""
-DEPLOY_LOCK_DIR=""
 
 usage() {
   cat <<'EOF'
@@ -59,8 +58,14 @@ die() {
 cleanup() {
   # 提升动作持有的 .deploy.lock 必须先释放：它保护的是受管文件，留在磁盘上会让下一个
   # 操作白等（或按 pid 判活后自行回收）。DEPLOY_LOCK_HELD 只有真正拿到锁才是 true。
-  if [ "$DEPLOY_LOCK_HELD" = true ] && [ -n "$DEPLOY_LOCK_DIR" ]; then
-    rm -rf "$DEPLOY_LOCK_DIR" 2>/dev/null || true
+  # 不读库的私有变量 DEPLOY_LOCK_DIR：库改名/换实现时它会消失，而「已经 source 到
+  # release_deploy_lock」这个事实仍在 —— 有库就调它，没有就按两边约定的路径删。
+  if [ "$DEPLOY_LOCK_HELD" = true ]; then
+    if declare -F release_deploy_lock >/dev/null 2>&1; then
+      release_deploy_lock
+    else
+      rm -rf "$ROOT_DIR/.deploy.lock" 2>/dev/null || true
+    fi
     DEPLOY_LOCK_HELD=false
   fi
   if [ -n "$ACTIVE_STAGE" ] && [ -d "$ACTIVE_STAGE" ]; then
@@ -124,6 +129,10 @@ restore_bootstrap_traps() {
 
 acquire_promote_lock() {
   load_deploy_lock_library "$1"
+  # 库的 acquire 先接管 EXIT/HUP/INT/TERM、再 mkdir。若我们自己的 handler 落在这两步
+  # 之间，cleanup 会看到 DEPLOY_LOCK_HELD=false 而让脚本「没锁继续提升」。先把信号
+  # 按死（窗口只有一次 mkdir），拿到锁并立起 flag 之后再装回本脚本的 trap。
+  trap '' HUP INT TERM
   acquire_deploy_lock promote
   DEPLOY_LOCK_HELD=true
   restore_bootstrap_traps
