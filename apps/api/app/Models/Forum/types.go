@@ -8,6 +8,17 @@ import (
 	avatar "github.com/keeptrue/sforum/apps/api/app/Support/Avatar"
 )
 
+// TopicCountsPublic 判定某状态是否计入公开主题计数（categories.topic_count）。
+//
+// 公开可见口径是 **active + locked**，与 list_topics.go 的过滤、
+// GetUserPublicContentCounts、举报处置的计数回滚一致。所有会移动/回滚计数的写路径
+// 都必须走这个判定：漏掉 locked 会让 categories.topic_count 与公开列表长期不一致
+// （删 locked 主题后永久虚高、locked 主题换类后计数留在旧类、locked 被洗成 pending
+// 后审核通过时双计）。
+func TopicCountsPublic(status string) bool {
+	return status == TopicStatusActive || status == TopicStatusLocked
+}
+
 const (
 	SourceFormatMarkdown = "markdown"
 	SourceFormatHTML     = "html"

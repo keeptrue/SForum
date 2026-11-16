@@ -350,8 +350,9 @@ func (s *PostgresStore) DeleteTopic(ctx context.Context, topicID int64) (TopicDe
 	if err := bumpContentRevisionOnDeleteTx(ctx, tx, contentID); err != nil {
 		return TopicDetail{}, err
 	}
-	// 仅曾计入公开计数的 active 主题才回滚 category.topic_count。
-	if prevStatus == TopicStatusActive {
+	// 仅曾计入公开计数的主题才回滚 category.topic_count。公开口径是 active+locked：
+	// 只判 active 会让删除 locked 主题后的计数永久虚高（P2-5）。
+	if TopicCountsPublic(prevStatus) {
 		if _, err := tx.Exec(ctx, `
 			UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0), updated_at = now() WHERE id = $1
 		`, categoryID); err != nil {

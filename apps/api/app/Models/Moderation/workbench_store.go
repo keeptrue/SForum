@@ -361,6 +361,9 @@ func applyPendingTopicDecision(ctx context.Context, tx pgx.Tx, input DecisionInp
 	status := "rejected"
 	if input.Action == ActionApprove {
 		status = "active"
+		// +1 保持无条件：走到这里说明主题当前是 pending，而 pending 一定是从
+		// active/locked 洗下来的（Forum 的 requeue 路径在洗的时候已经 -1），
+		// 所以这里补回一次正好回到原值，不会双计（P2-5）。
 		if _, err := tx.Exec(ctx, `UPDATE categories SET topic_count = topic_count + 1, updated_at = now() WHERE id = $1`, categoryID); err != nil {
 			return nil, fmt.Errorf("increment approved topic count: %w", err)
 		}
@@ -461,7 +464,8 @@ func applyReportedTopicState(ctx context.Context, tx pgx.Tx, topicID int64, next
 	`, topicID).Scan(&categoryID, &currentStatus); err != nil {
 		return taskStateError(err)
 	}
-	if currentStatus == "active" || currentStatus == "locked" {
+	// 公开计数口径与 Forum 共用同一判定（active+locked），不在这里复制一份字面量。
+	if forum.TopicCountsPublic(currentStatus) {
 		if _, err := tx.Exec(ctx, `
 			UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0), updated_at = now()
 			WHERE id = $1

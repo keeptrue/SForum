@@ -93,7 +93,8 @@ func (s *PostgresStore) UpdateTopic(ctx context.Context, input UpdateTopicRecord
 			}
 			return TopicDetail{}, fmt.Errorf("load topic edit category: %w", err)
 		}
-		if categoryID != state.categoryID && state.status == TopicStatusActive {
+		// 公开口径 active+locked：只判 active 会让 locked 主题换类后计数留在旧类（P2-5）。
+		if categoryID != state.categoryID && TopicCountsPublic(state.status) {
 			if _, err := tx.Exec(ctx, `UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0), updated_at = now() WHERE id = $1`, state.categoryID); err != nil {
 				return TopicDetail{}, fmt.Errorf("decrement old topic category: %w", err)
 			}
@@ -149,7 +150,9 @@ func (s *PostgresStore) UpdateTopic(ctx context.Context, input UpdateTopicRecord
 		if tag.RowsAffected() == 0 {
 			return TopicDetail{}, ErrTopicNotFound
 		}
-		if state.status == TopicStatusActive {
+		// 洗成 pending 时必须把公开计数扣掉，否则审核通过时 applyPendingTopicDecision
+		// 再 +1 会让同一主题计两次。口径 active+locked：locked 主题同样要被洗（P2-5）。
+		if TopicCountsPublic(state.status) {
 			if _, err := tx.Exec(ctx, `UPDATE categories SET topic_count = GREATEST(topic_count - 1, 0), updated_at = now() WHERE id = $1`, categoryID); err != nil {
 				return TopicDetail{}, fmt.Errorf("decrement topic category after requeue: %w", err)
 			}
