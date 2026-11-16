@@ -348,6 +348,12 @@ CurrentUser:
         type: string
     permissions:
       type: array
+      description: >-
+        Effective permission keys for this session: parent permissions are already expanded into
+        their child keys, and keys that an administrator explicitly denied are already removed.
+        Consumers must treat this list as the final answer and must not expand parent keys
+        themselves; a denied child would otherwise be re-granted on the client while the API
+        keeps answering 403.
       items:
         type: string
 UpdateCurrentUserLocaleRequest:
@@ -711,6 +717,11 @@ AdminUserDetail:
         description: Account kind. Bot accounts cannot sign in and never trigger AI replies themselves.
       permissions:
         type: array
+        description: >-
+          Effective permission keys of the inspected user, with the same semantics as
+          `CurrentUser.permissions`: parent keys are already expanded into child keys and
+          explicitly denied keys are already removed, so this list matches what `Actor.Can()`
+          answers. Display-only; administrators edit `permissionOverrides` to change it.
         items:
           type: string
       permissionOverrides:

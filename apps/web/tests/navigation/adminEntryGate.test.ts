@@ -1,26 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { joinAdminRoutePath, normalizeAdminRoutePrefix } from '../../app/utils/admin/adminRoutePrefix'
-
-// 复刻 usePermissions.can() 的权威语义（含 super_admin 绕过与父→子兼容表）。
-const LEGACY: Record<string, string[]> = {
-  'settings.manage': ['settings.site.manage', 'settings.mail.manage', 'settings.notifications.manage', 'settings.avatar.manage', 'settings.appearance.manage', 'forum.settings.manage'],
-  'extension.manage': ['extension.view', 'extension.plugin.manage', 'extension.theme.manage'],
-  'user.manage': ['user.view']
-}
+import { canWithUser } from '../../app/utils/identity/permissionCheck'
 
 type U = { roleKeys: string[], permissions?: string[] } | null
 
+// 直接调用生产权威实现（super_admin 绕过 + 纯查表），不再复刻一份会漂移的语义。
 function can(user: U, permission: string): boolean {
-  if (!user) return false
-  if (user.roleKeys.includes('super_admin')) return true
-  const p = user.permissions
-  if (!p?.length) return false
-  if (p.includes(permission)) return true
-  for (const [parent, children] of Object.entries(LEGACY)) {
-    if (p.includes(parent) && children.includes(permission)) return true
-  }
-  return false
+  return canWithUser(user && { roleKeys: user.roleKeys, permissions: user.permissions ?? [] }, permission)
 }
 
 describe('admin entry permission gate', () => {

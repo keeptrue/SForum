@@ -1,4 +1,5 @@
 import { useAuthSession } from '~/composables/identity/useAuthSession'
+import { canWithUser } from '~/utils/identity/permissionCheck'
 import type { CurrentUser } from './useAuthSession'
 
 // 论坛权限键，与后端 seeds.go 常量保持一致。
@@ -38,56 +39,19 @@ export const FORUM_PERMISSIONS = {
   moderationViewIp: 'moderation.view_ip'
 } as const
 
-// 旧父权限 → 子权限（与后端 permission_compat.go 对齐，供未刷新会话时的前端兜底）。
-const LEGACY_PERMISSION_CHILDREN: Record<string, string[]> = {
-  'settings.manage': [
-    'settings.site.manage',
-    'settings.mail.manage',
-    'settings.notifications.manage',
-    'settings.avatar.manage',
-    'settings.appearance.manage',
-    'forum.settings.manage'
-  ],
-  'extension.manage': [
-    'extension.view',
-    'extension.plugin.manage',
-    'extension.theme.manage'
-  ],
-  'user.manage': [
-    'user.view'
-  ]
-}
-
 /**
  * 权限辅助 composable。基于当前登录用户的 permissions 数组判定。
  * 注意：前端权限判定只是 UX 辅助，后端 policy 检查才是权威。
+ *
+ * `permissions` 是后端下发的**已展开、已扣除**的最终集合，所以这里只查表，
+ * 不再自己按父权限展开 —— 前端拿不到 denied 信息，自行展开会把管理员 deny
+ * 掉的子权限放行（F-1）。语义与后端 `Actor.Can()` 同构。
  */
 export function usePermissions() {
   const { user } = useAuthSession()
 
   function can(permission: string): boolean {
-    const currentUser = user.value
-    if (!currentUser) {
-      return false
-    }
-    // 与会话 composable 和后端 policy 保持一致：super_admin 拥有全部权限。
-    if (currentUser.roleKeys.includes('super_admin')) {
-      return true
-    }
-    const permissions = currentUser.permissions
-    if (!permissions?.length) {
-      return false
-    }
-    if (permissions.includes(permission)) {
-      return true
-    }
-    // 会话若仍只有父权限（热更新前），前端菜单也能识别子权限。
-    for (const [parent, children] of Object.entries(LEGACY_PERMISSION_CHILDREN)) {
-      if (permissions.includes(parent) && children.includes(permission)) {
-        return true
-      }
-    }
-    return false
+    return canWithUser(user.value, permission)
   }
 
   function canAny(permissions: string[]): boolean {
@@ -139,8 +103,5 @@ export function usePermissions() {
 export type PermissionChecker = ReturnType<typeof usePermissions>
 
 export function hasPermission(user: CurrentUser | null, permission: string): boolean {
-  return Boolean(user && (
-    user.roleKeys.includes('super_admin')
-    || user.permissions?.includes(permission)
-  ))
+  return canWithUser(user, permission)
 }

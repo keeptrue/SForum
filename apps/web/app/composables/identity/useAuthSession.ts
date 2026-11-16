@@ -1,4 +1,5 @@
 import { apiErrorMessage, apiErrorReason } from '../useApiClient'
+import { canWithUser } from '~/utils/identity/permissionCheck'
 import type { AvatarView } from '../profile/useProfileApi'
 import type { AppearanceTheme, LightBackgroundPreset } from '~/utils/settings/appearance'
 
@@ -71,9 +72,8 @@ export const useAuthSession = () => {
     lastRefreshError.value = null
   }
 
-  const can = (permission: string) => {
-    return Boolean(user.value?.permissions.includes(permission) || user.value?.roleKeys.includes('super_admin'))
-  }
+  // 只查后端下发的已展开、已扣除集合；不得在此展开父权限（F-1，见 permissionCheck）。
+  const can = (permission: string) => canWithUser(user.value, permission)
 
   return { user, pending, status, lastRefreshError, refresh, setUser, can }
 }
