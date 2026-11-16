@@ -73,3 +73,51 @@ func TestInsertUserWithExplicitIDKeepsSequenceAhead(t *testing.T) {
 		t.Fatalf("重复显式 id：期望 users_pkey 23505，得到 %v", duplicateErr)
 	}
 }
+
+// TestAlignSerialNeverRewindsAheadSequence 钉住「已领先就不回拨」。
+//
+// 旧实现（bootstrap 的 repairUsersIDSequence）是无条件
+// `setval(GREATEST(max(id), 1))`：序列已经领先时会把号往回写，等于把已经发出去的
+// id 重新发一遍。共享 public schema 下这是真实的撞号风险，所以 AlignSerial 必须先
+// 读 `pg_sequence_last_value` 再决定是否推进。
+func TestAlignSerialNeverRewindsAheadSequence(t *testing.T) {
+	databaseURL := testdb.IsolatedURL(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatalf("连接测试库失败：%v", err)
+	}
+	defer pool.Close()
+
+	readSequence := func() (last, maxID int64) {
+		t.Helper()
+		if err := pool.QueryRow(ctx, `SELECT COALESCE(pg_sequence_last_value('users_id_seq'), 0)`).Scan(&last); err != nil {
+			t.Fatalf("读 users_id_seq: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT COALESCE(max(id), 0) FROM users`).Scan(&maxID); err != nil {
+			t.Fatalf("读 users.max(id): %v", err)
+		}
+		return last, maxID
+	}
+
+	// 建立前提：序列必须严格领先于表内 max(id)。共享 public schema 里别的包可能
+	// 已经插过更大的 id，所以按差值补齐，而不是假设初始状态。
+	last, maxID := readSequence()
+	if last <= maxID {
+		if _, err := pool.Exec(ctx, `SELECT nextval('users_id_seq') FROM generate_series(1, $1)`, maxID-last+3); err != nil {
+			t.Fatalf("推进 users_id_seq: %v", err)
+		}
+		last, maxID = readSequence()
+	}
+	if last <= maxID {
+		t.Fatalf("前提未建立：序列 %d 必须领先于 max(id) %d", last, maxID)
+	}
+
+	// 序列领先时对齐必须是 no-op：既不能回拨，也不该凭空再涨。
+	testdb.AlignSerial(t, ctx, pool, "users")
+	after, _ := readSequence()
+	if after != last {
+		t.Fatalf("序列领先时 AlignSerial 改了号：before=%d after=%d（回拨会把已发出的 id 重发一次）", last, after)
+	}
+}
