@@ -182,6 +182,15 @@ func RestrictActor(actor identity.Actor, scopes []string) identity.Actor {
 		}
 	}
 	actor.RoleKeys = roleKeys
+	// deny 的显式 false 条目必须原样保留：下面只把命中的 scope 装进 allowed，如果
+	// 直接 `actor.Permissions = allowed`，PAT 主体的 map 就只剩父权限键，
+	// Can(子权限) 会走父回退把 deny 绕过（P1-1 补刀）。deny 的语义是「谁都不放行」，
+	// 与 token scope 无关，所以这里不做求交、只补回 false。
+	for key, granted := range actor.Permissions {
+		if !granted && key != "" {
+			allowed[key] = false
+		}
+	}
 	actor.Permissions = allowed
 	// Earned 不参与裁决（Can 读的是 Permissions，D13），但它会通过 GrantSource（D30 改名，原 CapabilitySource）
 	// 解释「这个能力从哪来」，而 Actor 的字段是可被令牌消费者直接读到的。

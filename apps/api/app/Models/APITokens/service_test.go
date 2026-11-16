@@ -178,6 +178,54 @@ func TestRestrictActorScopeWithoutCurrentPermissionDenied(t *testing.T) {
 	}
 }
 
+// TestRestrictActorKeepsDeniedChildPermission 是 P1-1 补刀的回归护栏。
+//
+// 场景：用户持有 settings.manage，管理员又对 settings.mail.manage 写了 deny。
+// 装载期把 deny 表示成 Actor.Permissions 里的显式 false 条目；RestrictActor 重建
+// Permissions 时如果只装命中的 scope，PAT 主体的 map 就只剩父权限键，
+// Can(settings.mail.manage) 会走父回退重新放行 —— deny 在 PAT 路径被绕过。
+//
+// 可达性：core.route.mail.* 的 guard 是 permission_any
+// ["settings.mail.manage", "settings.manage"]，父键本身能过 guard，真正拦住 deny
+// 的是控制器里那句 Can(settings.mail.manage)。所以这条 map 语义就是授权结论。
+//
+// 变异要求：删掉 RestrictActor 里保留 false 条目的那个循环，第一条断言必须红。
+func TestRestrictActorKeepsDeniedChildPermission(t *testing.T) {
+	actor := identity.Actor{
+		ID: 5, Status: identity.UserStatusActive,
+		RoleKeys: []string{identity.RoleMember},
+		Permissions: map[string]bool{
+			identity.PermissionSettingsManage:     true,
+			identity.PermissionSettingsMailManage: false,
+		},
+	}
+
+	restricted := RestrictActor(actor, []string{identity.PermissionSettingsManage})
+	if restricted.Can(identity.PermissionSettingsMailManage) {
+		t.Fatalf("deny 被 PAT 路径绕过：Can(settings.mail.manage)=true，Permissions=%v", restricted.Permissions)
+	}
+	// 父权限展开本身仍然生效：deny 只压住自己那一个键。
+	if !restricted.Can(identity.PermissionSettingsSiteManage) {
+		t.Fatalf("父键展开不应被 deny 影响：Can(settings.site.manage)=false，Permissions=%v", restricted.Permissions)
+	}
+	// 显式 false 必须真的留在 map 里（只写不删），否则下游还会走父回退。
+	if granted, present := restricted.Permissions[identity.PermissionSettingsMailManage]; !present || granted {
+		t.Fatalf("deny 条目没有保留成显式 false：present=%t granted=%t", present, granted)
+	}
+
+	// scope 为空也不能把 deny 丢掉：deny 与 token scope 无关。
+	empty := RestrictActor(actor, nil)
+	if granted, present := empty.Permissions[identity.PermissionSettingsMailManage]; !present || granted {
+		t.Fatalf("空 scope 下 deny 条目被丢弃：present=%t granted=%t", present, granted)
+	}
+	if empty.Can(identity.PermissionSettingsMailManage) {
+		t.Fatal("空 scope 下 deny 被绕过")
+	}
+	if empty.Can(identity.PermissionSettingsManage) {
+		t.Fatal("没有 scope 的父权限不应残留")
+	}
+}
+
 func TestRestrictActorDropsOutOfScopeEarned(t *testing.T) {
 	// D26：Earned 不参与裁决（Can 读 Permissions），但它会通过 GrantSource 解释来源，
 	// 而 Actor 的字段对令牌消费者是可见的。只裁 Permissions 不裁 Earned，

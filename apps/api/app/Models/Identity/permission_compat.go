@@ -64,9 +64,13 @@ func ExpandEffectivePermissions(keys []string, denied map[string]bool) []string 
 // applyDenied 把显式 deny 的键以 `false` 写进权限 map。
 //
 // 「显式 false 条目」是 deny 在 Actor.Permissions 里的唯一表示：**只写不删**。
-// 删掉等于「从未授予」，父权限回退会把子权限重新放行（P1-1）；而写成 false 之后，
-// 所有按 value 语义工作的既有通道（core guard 片段、dispatch 快照、协议 v2 调用者
-// 投影、APITokens.RestrictActor）都会自动把该键读成「被拒绝」，裁决层零改动。
+// 删掉等于「从未授予」，父权限回退会把子权限重新放行（P1-1）。
+//
+// 传播面并不自动：按 value 语义读 map 的通道（core guard 片段、dispatch 快照、
+// 协议 v2 调用者投影）会把 false 读成「被拒绝」，但**重建** map 的通道必须显式
+// 保留 false 条目，否则 deny 在那一层被丢掉 —— APITokens.RestrictActor 就是
+// 这样一个点（它只装命中 scope 的键，PAT 主体会只剩父权限键，Can(子权限) 又走
+// 父回退放行，见该函数里的保留循环）。
 func applyDenied(perms map[string]bool, denied map[string]bool) {
 	for key := range denied {
 		if key == "" {
