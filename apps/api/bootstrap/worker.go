@@ -848,6 +848,7 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	// 收藏提醒：worker 注册 + schedule 条目都在这里一次装好（见 worker_forum_jobs.go）。
 	bookmarkReminderEnqueuer, badgeBackfillEnqueuer := registerForumBookmarkRemindersWorker(registry, coreScheduleConstructors, wrapEnabled, cfg, pool, logger)
 	applyUninstallCleanupSweepRegistration(registry, coreScheduleConstructors, wrapEnabled, deps)
+	registerExtensionEventDeliverySweep(registry, coreScheduleConstructors, wrapEnabled, pool, logger)
 	scheduleRegistry, err := supportjobs.NewCoreScheduleRegistry(coreScheduleConstructors)
 	if err != nil {
 		return nil, fmt.Errorf("schedule registry: %w", err)

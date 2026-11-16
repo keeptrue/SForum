@@ -12,6 +12,21 @@ import (
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
+// observe 投递的三种装配组合，以及各自的原子性口径（P3-9）：
+//
+//	1. dispatcher == nil                → 进程内 `host.Deliver`（生产默认）。建行与投递
+//	   仍非原子：崩溃窗口留下的 queued/running 行由周期 sweeper
+//	   （`Models/Extensions/deliverysweep`，schedule `extensions.sweep_stale_deliveries`）
+//	   收成 failed，不会永久停在半路。
+//	2. dispatcher != nil && store == nil → 只有入队，没有需要原子的行。
+//	3. dispatcher != nil && store != nil → 建行与入队必须同事务。
+//	   **有 store 有 dispatcher 但没配 Pool（txBeginner==nil）时显式失败**
+//	   （reason `extension.delivery_atomic_unavailable`），绝不退回两次独立往返：
+//	   静默退回等于把崩溃窗口重新打开，而配置错误应当立刻可见。
+//
+// 这些 reason 键（`extension.delivery_record_failed` / `delivery_enqueue_failed` /
+// `delivery_atomic_unavailable`）只出现在事件结果与投递账本里，不进 HTTP 响应或对外
+// 错误契约，因此不配 Localization 翻译键。
 type EventDeliveryArgs struct {
 	DeliveryID        int64          `json:"delivery_id" river:"unique"`
 	ExtensionID       string         `json:"extension_id"`

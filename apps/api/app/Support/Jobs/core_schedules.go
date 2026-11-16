@@ -32,6 +32,10 @@ const (
 	ScheduleTrustLevelsSweep = "trustlevels.sweep"
 	// ScheduleMailSweepStale 把超龄仍停在 queued/sending 的邮件投递收成 failed 终态（P2-6）。
 	ScheduleMailSweepStale = "mail.sweep_stale"
+	// ScheduleExtensionsSweepStaleEventDeliveries 把超龄仍停在 queued/running 的
+	// 扩展事件投递收成 failed 终态（P3-9）。observe 投递的账本行由进程内
+	// Deliver 推进，崩溃窗口里没有任何东西会回头处理它。
+	ScheduleExtensionsSweepStaleEventDeliveries = "extensions.sweep_stale_deliveries"
 )
 
 // CoreScheduleDefinitions 返回宿主内置 schedule 目录模板（无 Constructor）。
@@ -126,6 +130,16 @@ func CoreScheduleDefinitions() []ScheduleDefinition {
 			Owner:       "notifications",
 			Enabled:     true,
 			Description: "把超过 30 分钟仍停在 queued/sending 的邮件投递收成 failed 终态",
+			RunOnStart:  false,
+		},
+		{
+			ID:          ScheduleExtensionsSweepStaleEventDeliveries,
+			JobKind:     ScheduleExtensionsSweepStaleEventDeliveries,
+			Queue:       QueueMaintenance,
+			Interval:    10 * time.Minute,
+			Owner:       "extensions",
+			Enabled:     true,
+			Description: "把超过 15 分钟仍停在 queued/running 的扩展事件投递收成 failed 终态",
 			RunOnStart:  false,
 		},
 		{
