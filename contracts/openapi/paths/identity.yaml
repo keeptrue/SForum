@@ -966,6 +966,8 @@ adminUserRevokeAPITokens:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminUserClearClientIPs:
   post:
     summary: Clear stored client IP addresses for a user
