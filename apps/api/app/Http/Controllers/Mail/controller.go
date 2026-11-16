@@ -3,6 +3,7 @@ package mailcontroller
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -262,6 +263,14 @@ func (h *Controller) replayDelivery(c fiber.Ctx) error {
 	}
 	if _, err := h.deliveryJobs.Enqueue(c.Context(), notificationjobs.DeliverMailArgs{DeliveryID: delivery.ID},
 		notificationjobs.DeliverMailArgs{}.EnqueueOptions()); err != nil {
+		// 入队失败必须补偿：状态已经被重置成 queued，若就此返回 503，行会停在
+		// 「queued 但没有 job」，既不会被重试也不会进终态（P2-6 补刀）。
+		// 补偿本身失败也不阻断响应——mail.sweep_stale 会把停在 queued 的行收成
+		// failed，这是最后一道兜底。
+		if compensateErr := h.deliveries.FailReplayDelivery(c.Context(), delivery.ID, "replay_enqueue_failed"); compensateErr != nil {
+			slog.Default().Error("mail delivery replay compensation failed",
+				"deliveryId", delivery.ID, "error", compensateErr)
+		}
 		return fiber.NewError(fiber.StatusServiceUnavailable, "mail.delivery_replay_enqueue_failed")
 	}
 	return apphttp.OK(c, map[string]any{"delivery": delivery})

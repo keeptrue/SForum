@@ -122,6 +122,43 @@ func TestReplayDeliveryOnlyAcceptsTerminalFailures(t *testing.T) {
 	}
 }
 
+// TestFailReplayDeliveryCompensatesQueuedRow 覆盖重放入队失败的补偿：
+// 刚被重置成 queued 的行必须能改回 failed（否则它停在「queued 但没有 job」，
+// 既不会被重试也不会进终态），且不能覆盖已经推进到别的状态的行。
+func TestFailReplayDeliveryCompensatesQueuedRow(t *testing.T) {
+	fixture := newMailDeliveryPGFixture(t)
+	store := fixture.store
+	ctx := fixture.ctx
+
+	queued := fixture.insertDelivery(t, "compensate-queued", DeliveryQueued, time.Now())
+	if err := store.FailReplayDelivery(ctx, queued, "replay_enqueue_failed"); err != nil {
+		t.Fatalf("compensate: %v", err)
+	}
+	delivery, err := store.GetDelivery(ctx, queued)
+	if err != nil {
+		t.Fatalf("load compensated delivery: %v", err)
+	}
+	if delivery.Status != DeliveryFailed || delivery.Reason != "replay_enqueue_failed" {
+		t.Fatalf("compensated = %s/%q，want failed/replay_enqueue_failed", delivery.Status, delivery.Reason)
+	}
+	if delivery.CompletedAt == nil {
+		t.Fatal("补偿成终态后必须写 completed_at")
+	}
+
+	// 已经被推进到 sent 的行不能被补偿覆盖（并发：另一个重放/worker 已经收敛）。
+	sent := fixture.insertDelivery(t, "compensate-sent", DeliverySent, time.Now())
+	if err := store.FailReplayDelivery(ctx, sent, "replay_enqueue_failed"); err != nil {
+		t.Fatalf("compensate sent: %v", err)
+	}
+	untouched, err := store.GetDelivery(ctx, sent)
+	if err != nil {
+		t.Fatalf("load sent delivery: %v", err)
+	}
+	if untouched.Status != DeliverySent {
+		t.Fatalf("sent 行被补偿覆盖成 %s", untouched.Status)
+	}
+}
+
 type mailDeliveryPGFixture struct {
 	ctx   context.Context
 	admin *pgxpool.Pool

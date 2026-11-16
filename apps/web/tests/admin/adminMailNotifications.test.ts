@@ -103,5 +103,10 @@ describe('mail and notification admin center', () => {
     expect(en.admin.mailSettings.deliveryReplay).toBe('Retry')
     expect(zh.admin.mailSettings.actions).toBe('操作')
     expect(en.admin.mailSettings.actions).toBe('Actions')
+    // stale_swept 的语义护栏：被 sweep 的行可能实际已经发出去了，重放会重发。
+    expect(deliveriesTab).toContain("item.reason === 'stale_swept'")
+    expect(deliveriesTab).toContain("t('admin.mailSettings.staleSweptWarning')")
+    expect(zh.admin.mailSettings.staleSweptWarning).toContain('可能已发出')
+    expect(en.admin.mailSettings.staleSweptWarning).toContain('May already have been delivered')
   })
 })

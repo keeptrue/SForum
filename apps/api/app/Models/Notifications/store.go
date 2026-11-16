@@ -17,6 +17,8 @@ type Store interface {
 	// ReplayDelivery 把 failed/dead 的投递重置成 queued（管理端重试，P2-6）。
 	// 状态不允许时返回 ErrDeliveryNotReplayable，行不存在时 ErrDeliveryNotFound。
 	ReplayDelivery(context.Context, int64) (MailDelivery, error)
+	// FailReplayDelivery 是重放入队失败的补偿：把刚重置成 queued 的行改回 failed。
+	FailReplayDelivery(context.Context, int64, string) error
 }
 
 // DetailStore 单独承载收件人自有通知点查，避免列表/投递 worker 的窄接口被详情能力污染。

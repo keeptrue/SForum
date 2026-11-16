@@ -6382,6 +6382,7 @@
       "deliveryReplay": "重试",
       "deliveryReplayQueued": "已重新入队，稍后刷新查看结果",
       "deliveryReplayFailed": "重试失败，请查看投递状态后再试",
+      "staleSweptWarning": "可能已发出：重放会重发一封，请先确认收件人是否收到",
       "deliveryStatus": {
         "queued": "已排队",
         "sending": "发送中",

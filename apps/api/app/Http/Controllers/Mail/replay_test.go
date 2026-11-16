@@ -26,6 +26,16 @@ type replayDeliveryStore struct {
 	delivery notifications.MailDelivery
 	err      error
 	calls    int
+	// compensated 记录补偿调用：入队失败后必须把刚重置成 queued 的行改回 failed。
+	compensated   bool
+	compensatedID int64
+	compensateErr error
+}
+
+func (s *replayDeliveryStore) FailReplayDelivery(_ context.Context, id int64, _ string) error {
+	s.compensated = true
+	s.compensatedID = id
+	return s.compensateErr
 }
 
 func (s *replayDeliveryStore) ReplayDelivery(_ context.Context, id int64) (notifications.MailDelivery, error) {
@@ -152,13 +162,30 @@ func TestAdminReplayMailDeliveryMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("enqueue failure surfaces 503", func(t *testing.T) {
+	t.Run("enqueue failure surfaces 503 and compensates the row back to failed", func(t *testing.T) {
 		store := &replayDeliveryStore{delivery: failed}
 		enqueuer := &replayEnqueuer{err: errors.New("river unavailable")}
 		app := newReplayApp(t, mailManager(), store, enqueuer)
 		status, body := mailPermissionCall(t, app, http.MethodPost, "/api/v1/admin/mail/deliveries/42/replay", "")
 		if status != http.StatusServiceUnavailable {
 			t.Fatalf("status=%d want 503 body=%s", status, body)
+		}
+		// 只断言 503 是不够的：行已经被重置成 queued，没有 job 会永久停在半路。
+		if !store.compensated || store.compensatedID != 42 {
+			t.Fatalf("入队失败后没有补偿回 failed：compensated=%v id=%d", store.compensated, store.compensatedID)
+		}
+	})
+
+	t.Run("compensation failure still surfaces 503 without panicking", func(t *testing.T) {
+		store := &replayDeliveryStore{delivery: failed, compensateErr: errors.New("store down")}
+		enqueuer := &replayEnqueuer{err: errors.New("river unavailable")}
+		app := newReplayApp(t, mailManager(), store, enqueuer)
+		status, body := mailPermissionCall(t, app, http.MethodPost, "/api/v1/admin/mail/deliveries/42/replay", "")
+		if status != http.StatusServiceUnavailable {
+			t.Fatalf("status=%d want 503 body=%s", status, body)
+		}
+		if !store.compensated {
+			t.Fatal("补偿失败也要尝试过补偿（sweeper 是最后兜底，但必须留下尝试痕迹）")
 		}
 	})
 }

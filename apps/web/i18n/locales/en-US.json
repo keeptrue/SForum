@@ -6342,6 +6342,7 @@
       "deliveryReplay": "Retry",
       "deliveryReplayQueued": "Re-queued. Refresh in a moment to see the result.",
       "deliveryReplayFailed": "Retry failed. Check the delivery status and try again.",
+      "staleSweptWarning": "May already have been delivered — replaying will send it again; confirm with the recipient first",
       "deliveryStatus": {
         "queued": "Queued",
         "sending": "Sending",

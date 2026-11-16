@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -391,11 +392,39 @@ error_summary=$6, updated_at=NOW(), completed_at=COALESCE($7, completed_at) WHER
 	return err
 }
 
+// FailReplayDelivery 是重放入队失败后的补偿：把刚重置成 queued 的行改回 failed。
+//
+// 条件限定 status='queued'：并发场景下如果另一个重放已经把它推进（或 sweeper 收口），
+// 这里不能覆盖别人的结论。补偿失败也不致命 —— mail.sweep_stale 会在阈值后把
+// 停在 queued 的行收成 failed，这是最后一道兜底。
+func (s *PostgresStore) FailReplayDelivery(ctx context.Context, id int64, reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		reason = "replay_enqueue_failed"
+	}
+	_, err := s.runner.Exec(ctx, `
+		UPDATE mail_deliveries
+		SET status=$3, reason=$2, error_summary=$4,
+		    updated_at=NOW(), completed_at=COALESCE(completed_at, NOW())
+		WHERE id=$1 AND status=$5
+	`, id, reason, outbox.StatusFailed,
+		"replay could not be enqueued; the delivery was left in a failed state", outbox.StatusQueued)
+	if err != nil {
+		return fmt.Errorf("compensate failed replay delivery: %w", err)
+	}
+	return nil
+}
+
 // StaleDeliveryThreshold 是 sweeper 的默认阈值：超过它仍停在 queued/sending 的投递
 // 视为「调度侧丢了」（进程崩溃、job 被 River 丢弃），收成 failed 终态。
 const StaleDeliveryThreshold = 30 * time.Minute
 
 // SweepStaleDeliveries 把超龄的 queued/sending 行收成 failed 终态（P2-6）。
+//
+// **语义警告（必须保留）**：被 sweep 的行可能**实际已经发出去了**——终态写库失败
+// 时进程已经把邮件交给 provider，只是没记下来。所以 stale_swept 不等于「肯定没发」：
+// 运维据此重放会重发一封。目前唯一的信号是 worker 的 error 日志与 sweeper 的 warn，
+// 管理面必须在 stale_swept 旁给出「可能已发出」的提示（前端文案见
+// SFAdminMailDeliveriesTab.vue 的 staleSweptWarning）。
 //
 // 单语句条件更新，天然幂等：WHERE 同时限定状态与 updated_at 阈值，第二次扫描扫不到
 // 已经改过的行；正在发送的行会不断刷新 updated_at（写 sending、写结果），不会被误伤。
