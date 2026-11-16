@@ -873,14 +873,33 @@ fi
 case_ok "C9d compose --wait 失败且容器 exited：点名 exited，不退化成「未创建」"
 
 # --- C10 蓝绿拓扑：compose 组合 + 按槽停启 + terminate 只针对已停槽 ----------
-cat > "$TEST_ROOT/.deployrc" <<'RC'
+# 蓝绿部署状态文件：C10 之后的蓝绿用例共用这一份。active_slot 是恢复脚本唯一
+# 认可的「该拉起哪个槽」的来源（与 upgrade.sh 的在线更新同源），传空串表示故意
+# 缺这一行。注释与空行必须被忽略，所以这里保留它们。
+write_blue_green_deployrc() {
+  local active_slot="${1-blue}"
+  {
+    printf '%s\n' '# 部署状态文件：注释与空行必须被忽略' ''
+    printf '%s\n' 'topology=blue-green' 'version=v3.0.0' 'blue_version=v3.0.0' 'green_version=v3.0.1'
+    if [ -n "$active_slot" ]; then
+      printf 'active_slot=%s\n' "$active_slot"
+    fi
+  } > "$TEST_ROOT/.deployrc"
+}
+write_blue_green_deployrc blue
+cat > "$TEMP_DIR/expected-deployrc" <<'RC'
 # 部署状态文件：注释与空行必须被忽略
 
 topology=blue-green
 version=v3.0.0
 blue_version=v3.0.0
 green_version=v3.0.1
+active_slot=blue
 RC
+diff -u "$TEMP_DIR/expected-deployrc" "$TEST_ROOT/.deployrc" > "$TEMP_DIR/deployrc.diff" || {
+  cat "$TEMP_DIR/deployrc.diff" >&2
+  fail "the blue-green .deployrc fixture is not what the cases expect"
+}
 printf 'edge-cid\n' > "$MOCK_DATA/cid/edge"
 printf '10.77.0.9 ' > "$MOCK_DATA/ip/edge-cid"
 printf 'api-blue-cid\n' > "$MOCK_DATA/cid/api-blue"
@@ -964,6 +983,18 @@ grep -q '不做连接终止' "$TEMP_DIR/no-slot.out" || \
 if grep -q '^compose stop \|^compose start ' "$MOCK_LOG"; then
   fail "blue-green restore started or stopped services it never found running"
 fi
+# 空槽分支必须只拉 .deployrc 的 active_slot：蓝绿两槽镜像版本不同，把 standby 一起
+# 拉起来是「镜像没预拉就失败」与「两个内嵌 worker 同连恢复库」两个事故的入口。
+if grep -q 'api-green' "$MOCK_LOG"; then
+  fail "blue-green no-slot restore also started the standby slot"
+fi
+grep -q '^compose up -d --no-build --pull never api-blue$' "$MOCK_LOG" || \
+  fail "blue-green no-slot restore did not start the active slot alone"
+grep -q '拉起并等待就绪：api-blue$' "$TEMP_DIR/no-slot.out" || \
+  fail "blue-green no-slot restore did not report the single slot it started"
+if grep -q 'api-green' "$TEMP_DIR/no-slot.out"; then
+  fail "blue-green no-slot restore listed the standby slot"
+fi
 grep -q 'exec swap ' "$MOCK_LOG" || fail "blue-green no-slot restore did not swap the database"
 cat > "$TEMP_DIR/expected-no-slot-swap.sql" <<'SQL'
 ALTER DATABASE :"target_db" WITH ALLOW_CONNECTIONS false;
@@ -974,6 +1005,58 @@ swap_sql_block "$MOCK_LOG" > "$TEMP_DIR/actual-no-slot-swap.sql"
 assert_swap_sql "$TEMP_DIR/expected-no-slot-swap.sql" "$TEMP_DIR/actual-no-slot-swap.sql" \
   "$TEMP_DIR/no-slot-swap.diff" "no-slot blue-green swap SQL must not terminate any connection"
 case_ok "C11b 蓝绿无槽在跑：不执行 pg_terminate_backend（残留连接只让改名失败回滚）"
+
+# --- C11e 蓝绿无槽且 active 槽拉不起来：不删切换前的库（R7-OPS-04）-----------
+# compose up 失败是「没有活着的 API 打开过新库」的另一种形态：与探测超时同一条
+# 结论 —— 不判定恢复成功、不动切换前的库。
+rm -rf "$MOCK_DATA/app/storage/app/attachments/2026"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES=$'edge' MOCK_UP_FAIL=true MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >"$TEMP_DIR/no-slot-upfail.out" 2>&1); then
+  fail "restore reported success although the active API slot could not be started"
+fi
+grep -q '^compose up -d --no-build --pull never api-blue$' "$MOCK_LOG" || \
+  fail "no-slot failure case never tried to start the active slot"
+grep -q '无法拉起 API 槽位（api-blue）' "$TEMP_DIR/no-slot-upfail.out" || \
+  fail "no-slot failure did not name the slot it could not start"
+if grep -q 'exec dropdb .*sforum_before_restore_' "$MOCK_LOG"; then
+  fail "restore deleted the previous database although the active slot never started"
+fi
+grep -q '已自动回滚' "$TEMP_DIR/no-slot-upfail.out" || \
+  fail "no-slot failure did not print the rollback guidance"
+case_ok "C11e 蓝绿无槽且 active 槽拉不起来：不删切换前的库 + 回滚提示（R7-OPS-04）"
+
+# --- C11f 蓝绿无槽且 active_slot 缺失/非法：停在破坏性动作之前（R7-OPS-04）---
+# 「拉哪个槽」是部署状态，不是恢复脚本能猜的东西：猜错的代价是把 standby 顶上来。
+# 解析放在停容器/建库之前，所以这两种配置错误连一个容器都不该动。
+write_blue_green_deployrc ""
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES=$'edge' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >"$TEMP_DIR/no-active-slot.out" 2>&1); then
+  fail "restore accepted a blue-green deployment without active_slot"
+fi
+grep -q '缺少 active_slot' "$TEMP_DIR/no-active-slot.out" || \
+  fail "missing active_slot did not explain what is missing"
+if grep -q '^compose stop \|^compose start \|^compose up -d --no-build \|exec createdb \|exec swap ' "$MOCK_LOG"; then
+  fail "missing active_slot was detected after the restore had already touched containers or the database"
+fi
+
+write_blue_green_deployrc purple
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES=$'edge' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >"$TEMP_DIR/bad-active-slot.out" 2>&1); then
+  fail "restore accepted an invalid active_slot value"
+fi
+grep -q 'Invalid active_slot in .deployrc: purple' "$TEMP_DIR/bad-active-slot.out" || \
+  fail "invalid active_slot error message is unclear"
+if grep -q '^compose up -d --no-build \|exec createdb ' "$MOCK_LOG"; then
+  fail "invalid active_slot was detected after the restore had already touched containers or the database"
+fi
+write_blue_green_deployrc blue
+case_ok "C11f 蓝绿无槽且 active_slot 缺失/非法：停在破坏性动作之前（R7-OPS-04）"
 
 # --- C11c 多槽就绪探测：每个槽各自计时，不共享一个 deadline -----------------
 # 假时钟每次 date +%s 前进 4 秒，timeout=8 → 每个槽两次探测的预算。

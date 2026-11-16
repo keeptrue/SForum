@@ -105,6 +105,7 @@ SERVICES_RESTARTED=false
 STOPPED_ADDRS=""
 SERVICES_TO_RESTART=()
 API_SERVICES=()
+API_SLOT_LAUNCH_REQUIRED=false
 
 print_recovery_hint() {
   local failed_db="$1"
@@ -236,6 +237,33 @@ for service in ${SERVICES_TO_RESTART[@]+"${SERVICES_TO_RESTART[@]}"}; do
   esac
 done
 
+# 没有任何槽在跑时要拉起哪一个槽（只在空 API_SERVICES 这一支生效）。
+#
+# 权威来源是 .deployrc 的 active_slot，与 upgrade.sh 的在线更新同源（那里
+# `active_slot="$(rc_value active_slot)"`，取不到就走 bootstrap 分支）。蓝绿下
+# 两个槽的镜像版本不同，"随便拉一个"等于把 standby 的旧版本顶上来：镜像没预拉
+# 时 up 直接失败，拉起来了则两个 API 的内嵌 worker 同时连恢复库。所以这里只认
+# active_slot，缺失或非法一律停手 —— 它是部署状态，不该由恢复脚本猜。
+#
+# 提前到这里解析（而不是等到切库之后）是为了让配置错误停在所有破坏性动作之前：
+# 缺 active_slot 的恢复连容器都不该停，更不该建库。
+if [ "${#API_SERVICES[@]}" -eq 0 ]; then
+  API_SLOT_LAUNCH_REQUIRED=true
+  case "$SFORUM_TOPOLOGY" in
+    blue-green)
+      ACTIVE_SLOT="$(sforum_rc_value active_slot)"
+      [ -n "$ACTIVE_SLOT" ] || \
+        sforum_die "蓝绿拓扑下 .deployrc 缺少 active_slot；无法判断恢复后该拉起哪个槽，先补上再恢复。"
+      [ "$ACTIVE_SLOT" = blue ] || [ "$ACTIVE_SLOT" = green ] || \
+        sforum_die "Invalid active_slot in .deployrc: $ACTIVE_SLOT (expected blue or green)"
+      API_SERVICES+=("api-$ACTIVE_SLOT")
+      ;;
+    *)
+      API_SERVICES+=(api)
+      ;;
+  esac
+fi
+
 # 连接终止作用域（OPS2-02）：
 #   all   单拓扑：只针对目标库的会话（与旧行为一致）
 #   slots 蓝绿：只终止「本脚本刚停下的槽」的连接，其它槽绝不碰
@@ -359,19 +387,12 @@ fi
 # 删除。缺的正是「至少有一个真实 API 进程打开过这个库」这条唯一有用的证据，而它
 # 恰好只在应用停着的时候被省掉。
 #
-# 所以「有没有槽在跑」不再是理由：没有槽就按拓扑把 API 槽拉起来再探。worker-* 不在
-# 拉起清单里 —— compose 里没有独立的 worker 服务（单拓扑下 worker 已内嵌在 api
-# 进程里），sforum_app_services 之所以列它，只是为了过滤历史遗留容器。
+# 所以「有没有槽在跑」不再是理由：没有槽就按拓扑把 API 槽拉起来再探。拉哪个槽由
+# 上面解析出的 API_SERVICES 决定（单拓扑 api、蓝绿只有 active_slot 那一支），
+# worker-* 永远不在拉起清单里 —— compose 里没有独立的 worker 服务，单拓扑下 worker
+# 已内嵌在 api 进程里，sforum_app_services 列它只是为了过滤历史遗留容器。
 restart_stopped_services
-if [ "${#API_SERVICES[@]}" -eq 0 ]; then
-  while IFS= read -r service; do
-    [ -n "$service" ] || continue
-    case "$service" in
-      api|api-*) API_SERVICES+=("$service") ;;
-    esac
-  done < <(sforum_app_services)
-  [ "${#API_SERVICES[@]}" -gt 0 ] || \
-    sforum_die "无法确定需要验证的 API 槽位（topology=$SFORUM_TOPOLOGY），不判定恢复成功。"
+if [ "$API_SLOT_LAUNCH_REQUIRED" = true ]; then
   echo "没有正在运行的 API 槽位，按拓扑拉起并等待就绪：${API_SERVICES[*]}"
   if ! "${SFORUM_COMPOSE[@]}" up -d --no-build --pull never "${API_SERVICES[@]}"; then
     sforum_die "无法拉起 API 槽位（${API_SERVICES[*]}）；不判定恢复成功，切换前的数据库不做删除。"
