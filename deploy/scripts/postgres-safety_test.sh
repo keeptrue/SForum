@@ -5,6 +5,7 @@
 #   备份面（OPS2-06）：单一加密归档含库+附件+扩展、缺密钥硬失败、保留策略、旧版 .sql 兼容
 #   加密面（P3-22）：v2 信封的 HMAC 先验后解、密文篡改拒绝、信封剥离拒绝、v1 旧归档兼容
 #   恢复面（RV-16）：内容预检拒绝、切库后校验、失败自动回滚且不删旧库
+#   恢复后验证（R7-OPS-04）：没有槽在跑也按拓扑拉起 API 并探测，未就绪不删旧库
 #   拓扑（OPS2-02）：蓝绿读 .deployrc、按槽停启、terminate 收窄到已停槽
 #   冷库（OPS2-03）：pg_isready 重试与明确超时
 set -euo pipefail
@@ -292,7 +293,9 @@ case "$command" in
       fi
       exit 0
     fi
-    printf '%s\n' "${MOCK_RUNNING_SERVICES:-api}" | sed '/^[[:space:]]*$/d'
+    # 用 `-` 而不是 `:-`：`:-` 会把空值当成「未设置」退回 api，于是「一个服务都
+    # 没在跑」这个现场根本表达不出来 —— 而 R7-OPS-04 正是这个现场。
+    printf '%s\n' "${MOCK_RUNNING_SERVICES-api}" | sed '/^[[:space:]]*$/d'
     ;;
   stop|start) ;;
   up)
@@ -728,6 +731,49 @@ grep -q 'dropdb --if-exists --force -U sforum_test "sforum_restore_failed_' "$TE
   fail "rollback did not print manual cleanup steps for the failed database"
 grep -q '^compose start api$' "$MOCK_LOG" || fail "rollback did not restart the API"
 case_ok "C7 切库后 API 起不来：自动改名回滚、旧库保留、打印人工步骤（RV-16）"
+
+# --- C7b 无运行中 API 槽：按拓扑拉起并探测通过，才允许删旧库（R7-OPS-04）------
+# 旧行为在这里打印「没有正在运行的 API 槽位，跳过 API 就绪探测」然后直接 dropdb：
+# 一次没有任何进程证明过新库可用的删除。修复后没有槽就按拓扑把 api 拉起来再探。
+rm -rf "$MOCK_DATA/app/storage/app/attachments/2026"
+reset_log
+if ! (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >"$TEMP_DIR/no-slot-api.out" 2>"$TEMP_DIR/no-slot-api.err"); then
+  cat "$TEMP_DIR/no-slot-api.err" >&2
+  fail "restore failed although the API slot could be brought up while nothing was running"
+fi
+grep -q '^compose up -d --no-build --pull never api$' "$MOCK_LOG" || \
+  fail "restore did not bring the API slot up although no slot was running"
+grep -q 'exec api wget -q -O /dev/null http://127.0.0.1:8080/api/v1/ready' "$MOCK_LOG" || \
+  fail "restore skipped the API readiness probe although no slot was running"
+if grep -q '跳过 API 就绪探测' "$TEMP_DIR/no-slot-api.out"; then
+  fail "restore still skips the API readiness probe when no slot is running"
+fi
+grep -q 'exec dropdb .*sforum_before_restore_' "$MOCK_LOG" || \
+  fail "verified restore did not drop the previous database"
+case_ok "C7b 无运行中 API 槽：按拓扑拉起、探测通过后才删旧库（R7-OPS-04）"
+
+# --- C7c 无运行中 API 槽且 API 起不来：切换前的库不删、退出非零（R7-OPS-04）---
+# 与 C7 的区别：C7 是「本来有槽在跑、重启后不就绪」，这里是「压根没有槽」。两种
+# 现场都必须停在同一个结论上：没有活着的 API 打开过新库，就不许删切换前的库。
+rm -rf "$MOCK_DATA/app/storage/app/attachments/2026"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='' MOCK_API_READY=false \
+  SFORUM_API_READY_TIMEOUT_SECONDS=1 SFORUM_API_READY_INTERVAL_SECONDS=0 \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$archive" \
+  >"$TEMP_DIR/no-slot-fail.out" 2>&1); then
+  fail "restore reported success although no API slot ever opened the restored database"
+fi
+grep -q '^compose up -d --no-build --pull never api$' "$MOCK_LOG" || \
+  fail "restore did not attempt to bring the API slot up before judging readiness"
+grep -q 'exec swap ' "$MOCK_LOG" || fail "no-slot failure case never reached the swap"
+if grep -q 'exec dropdb .*sforum_before_restore_' "$MOCK_LOG"; then
+  fail "restore deleted the previous database without a single ready API"
+fi
+grep -q '已自动回滚' "$TEMP_DIR/no-slot-fail.out" || \
+  fail "no-slot failure did not tell the operator what happened to the databases"
+case_ok "C7c 无运行中 API 槽且不可用：切换前的库不删、退出非零（R7-OPS-04）"
 
 # --- C8 冷库首启：pg_isready 第一次失败、第二次成功 --------------------------
 reset_log

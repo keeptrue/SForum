@@ -352,13 +352,33 @@ else
   echo "该备份不含附件/扩展制品卷，跳过卷恢复。"
 fi
 
-# 8. 启动原槽位并等 API 就绪：这里不通过就不算恢复成功，旧库也还不删。
+# 8. 启动应用槽并等 API 就绪：这里不通过就不算恢复成功，旧库也还不删。
+#
+# R7-OPS-04：应用本来就停着时，旧代码打印「没有正在运行的 API 槽位，跳过 API 就绪
+# 探测」，然后照样走到步骤 9 删掉切换前的库 —— 一次没有任何进程证明过新库可用的
+# 删除。缺的正是「至少有一个真实 API 进程打开过这个库」这条唯一有用的证据，而它
+# 恰好只在应用停着的时候被省掉。
+#
+# 所以「有没有槽在跑」不再是理由：没有槽就按拓扑把 API 槽拉起来再探。worker-* 不在
+# 拉起清单里 —— compose 里没有独立的 worker 服务（单拓扑下 worker 已内嵌在 api
+# 进程里），sforum_app_services 之所以列它，只是为了过滤历史遗留容器。
 restart_stopped_services
-if [ "${#API_SERVICES[@]}" -gt 0 ]; then
-  sforum_wait_for_api_services "${API_SERVICES[@]}"
-else
-  echo "没有正在运行的 API 槽位，跳过 API 就绪探测。"
+if [ "${#API_SERVICES[@]}" -eq 0 ]; then
+  while IFS= read -r service; do
+    [ -n "$service" ] || continue
+    case "$service" in
+      api|api-*) API_SERVICES+=("$service") ;;
+    esac
+  done < <(sforum_app_services)
+  [ "${#API_SERVICES[@]}" -gt 0 ] || \
+    sforum_die "无法确定需要验证的 API 槽位（topology=$SFORUM_TOPOLOGY），不判定恢复成功。"
+  echo "没有正在运行的 API 槽位，按拓扑拉起并等待就绪：${API_SERVICES[*]}"
+  if ! "${SFORUM_COMPOSE[@]}" up -d --no-build --pull never "${API_SERVICES[@]}"; then
+    sforum_die "无法拉起 API 槽位（${API_SERVICES[*]}）；不判定恢复成功，切换前的数据库不做删除。"
+  fi
 fi
+# 走到这里 API_SERVICES 至少有一项（单拓扑 api、蓝绿 api-<slot>），直接展开。
+sforum_wait_for_api_services "${API_SERVICES[@]}"
 
 # 9. 只有新库通过校验且 API 就绪，才删除切换前的旧库。
 # 删不掉只是留了一份取证副本（已禁止连接），不应该把一次成功且已验证的恢复倒回去。
