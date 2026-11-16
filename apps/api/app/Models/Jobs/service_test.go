@@ -44,69 +44,43 @@ func TestServiceEnforcesViewAndManagePermissionsBeforeDataAccess(t *testing.T) {
 	}
 }
 
-// coreScheduleExpectedIDs 是服务目录必须暴露的 schedule 清单（**逐项点名**）。
+// assertCoreScheduleCatalog 把服务返回的目录与**注册表投影**按集合比对，双向报差异。
 //
-// 与 `app/Support/Jobs/core_schedules_test.go` 的同名清单同源：那边管「注册表 ⇄ 常量」，
-// 这边管「服务视图 ⇄ 常量」。元素用兄弟包的常量而不是字符串字面量，所以改名会编译失败
-// 而不是悄悄变绿；但**成员**仍要两处都改——M4b-2 加了第 10 条 trustlevels.sweep 时只改
-// 了注册表那份，本包还写着 9 条，HEAD 因此红了一整轮门禁。
+// 钉的是「服务投影 ⇄ 注册表」这条真实关系：`Schedules()` 若按 owner 裁剪、只回
+// enabled、按权限过滤、把两条合成一条、或漏写一条没进 out，这里就红并指名 ID。
+// 所以本文件**故意不写成员清单**——新增/删除核心调度时这里零改动。
 //
-// 为什么不用 `len(items) != 10` 的裸计数（判据与 core_schedules_test.go 同口径）：裸计数
-// 只把红推后一次，红的时候只说「expected 9, got 10」，不告诉任何人多了哪条；逐项比对
-// 表达的是「服务视图 ⇄ 常量目录」的对应关系本身，漏暴露、多暴露、改名都指名道姓。
-//
-// 第 10 条是 M4b-2 的 trustlevels.sweep：24h、maintenance 队列、`mode=stale`（只碰账本
-// 缺失或 24h 没算过的人），兜住角色变更 / OAuth 解绑 / 徽章收回这类没有活动事件、
-// 也就不会经过 6 个活动触发点的等级变化。
-//
-// 第 11、12 条是 P2-6 的 mail.sweep_stale 与 P3-9 的 extensions.sweep_stale_deliveries，
-// 都是 10min、maintenance 队列上的「中途行 reaper」。两条落地时只同步了
-// `app/Support/Jobs/core_schedules_test.go` 的那份清单，本包还写着 10 条，门禁又红了一轮——
-// 两处清单互为镜像，新增 schedule 必须同批改。
-var coreScheduleExpectedIDs = []string{
-	supportjobs.ScheduleIdentityCleanupSessions,
-	supportjobs.ScheduleAttachmentsCleanupOrphans,
-	supportjobs.ScheduleAttachmentsReconcileCompression,
-	supportjobs.ScheduleAuditCleanupEvents,
-	supportjobs.ScheduleForumAutoLockIdle,
-	supportjobs.ScheduleForumBookmarkReminders,
-	supportjobs.ScheduleForumFlushViewCounts,
-	supportjobs.ScheduleSearchReconcile,
-	supportjobs.ScheduleExtensionsFinalizeUninstallCleanup,
-	supportjobs.ScheduleTrustLevelsSweep,
-	// 第 11 条是 P2-6 的 mail.sweep_stale：10min、maintenance 队列，把超过 30min
-	// 仍停在 queued/sending 的邮件投递收成 failed 终态（无 reaper 时这些行永久停在
-	// 中途，既不会被重试也不会进终态）。
-	supportjobs.ScheduleMailSweepStale,
-	// 第 12 条是 P3-9 的 extensions.sweep_stale_deliveries：10min、maintenance 队列，
-	// 把超过 15min 仍停在 queued/running 的扩展事件投递收成 failed 终态（observe 投递
-	// 的账本行由进程内 Deliver 推进，崩溃窗口里没有别的东西会回头处理它）。
-	supportjobs.ScheduleExtensionsSweepStaleEventDeliveries,
-}
-
-// assertCoreScheduleCatalog 把服务返回的目录与上面的清单按集合比对，双向报差异。
+// 「目录成员变了、必须有人看一眼」的审查闸口**不在这里**，在
+// `app/Support/Jobs/core_schedules_test.go` 的那份手写清单（注册表 ⇄ 常量）。
+// 别把清单搬回来：成员表写两处正是 P2-6 / P3-9 连续两轮漏同步的根因——两个包共享
+// 不了测试变量，镜像迟早再飘一次。这里要的是属性，不是抄写。
 //
 // 重复 ID 由末尾的条数比对兜住（集合会吞掉重复，条数不会）。
 func assertCoreScheduleCatalog(t *testing.T, items []Schedule) {
 	t.Helper()
+	registry, err := supportjobs.NewCoreScheduleRegistry(nil)
+	if err != nil {
+		t.Fatalf("core schedule registry: %v", err)
+	}
+	views := registry.Views()
 	got := make(map[string]struct{}, len(items))
 	for _, item := range items {
 		got[item.ID] = struct{}{}
 	}
-	want := make(map[string]struct{}, len(coreScheduleExpectedIDs))
-	for _, id := range coreScheduleExpectedIDs {
-		want[id] = struct{}{}
-		if _, exists := got[id]; !exists {
-			t.Errorf("服务目录缺少 schedule %q（常量在、Schedules() 没暴露）", id)
+	want := make(map[string]struct{}, len(views))
+	for _, view := range views {
+		want[view.ID] = struct{}{}
+		if _, exists := got[view.ID]; !exists {
+			t.Errorf("服务目录缺少 schedule %q（注册表里有，Schedules() 没暴露：过滤/去重/漏项）", view.ID)
 		}
 	}
 	for id := range got {
 		if _, exists := want[id]; !exists {
-			t.Errorf("服务目录多出 schedule %q（清单需要同步更新）", id)
+			t.Errorf("服务目录多出 schedule %q（注册表里没有对应登记，投影凭空造了一条）", id)
 		}
 	}
-	if len(items) != len(coreScheduleExpectedIDs) {
-		t.Errorf("schedule 数=%d，清单=%d（重复暴露也会落在这里）", len(items), len(coreScheduleExpectedIDs))
+	if len(items) != len(views) {
+		t.Errorf("schedule 数=%d，注册表=%d（重复暴露也会落在这里）", len(items), len(views))
 	}
 }
 
