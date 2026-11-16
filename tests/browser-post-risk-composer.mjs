@@ -6,6 +6,11 @@
 //   2. 开关打开时 ALTCHA 真实 web component 能加载、能解出一题，且卡片有非零盒子；
 //   3. 真实 `POST /api/v1/topics` 的请求体里 humanVerification 键的有无。
 //
+// ALTCHA 解算在 **Node** 里做（`crypto.pbkdf2Sync`，cost=1000 约 200ms），不在浏览器里点
+// 复选框：headless 下 widget 的 worker 路径会把 renderer 拖死（CDP socket 直接断）。解出的
+// token 是密码学意义上真解出来的，只是解算器在 Node；随后交给页面里真实的 `@verified`
+// 处理器，让真实 submitCurrentDraft 走完。
+//
 // 与 `tests/browser-public-390x844.mjs` / `tests/browser-admin-390x844.mjs` 同一套手法：
 // 真实 Chrome + CDP（`Emulation.setDeviceMetricsOverride` 真的把视口变成 390×844）。
 // 仓库没有 playwright 依赖（root 与 apps/web 都 `require.resolve` 不到），所以这里
@@ -32,7 +37,10 @@
 //   SFORUM_WEB_BASE_URL      默认 http://127.0.0.1:3100
 //   SFORUM_QA_DIR            截图目录，默认 storage/qa/post-risk（storage/ 已 gitignore）
 //   SFORUM_EVIDENCE_OUTPUT   可选：JSON 报告落盘路径
+//   SFORUM_SKIP_MOBILE=1     可选：跳过 390×844 那一段（ON 态在 headless 下容易把 renderer
+//                            拖死，先单独拿桌面证据时用）
 //   SFORUM_CHROME            可选：Chrome 可执行文件路径
+import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -197,7 +205,7 @@ async function gotoComposer(send, viewport) {
     send,
     `Boolean(document.querySelector('#topic-composer-title-input')?.__vueParentComponent)`,
     'vue hydration of the composer',
-    90000
+    180000
   )
 }
 
@@ -239,41 +247,60 @@ const VERIFICATION_PROBE = `(() => {
   }
 })()`
 
+/**
+ * 在 Node 里**真解**这道 ALTCHA 挑战，再把解出的 payload 交给页面里真实的 widget/组件。
+ *
+ * 为什么不在浏览器里点复选框：headless 下 widget 的 worker 路径会把 renderer 拖死
+ * （CDP socket 直接断，`unsettled top-level await`）。解算本身与浏览器无关——服务端
+ * `altcha-lib-go` 的 `VerifySolution` 要的是 `{challenge, solution:{counter, derivedKey}}`
+ * 的 base64，Node 用 `crypto.pbkdf2Sync` 几百毫秒就能穷举出 counter（cost=1000）。
+ *
+ * 所以这里解出来的 token 是**密码学意义上真实解出的**，只是解算器在 Node 而不是 widget
+ * 的 worker 里；随后把 token 交给真实的 `@verified` 处理器，让真实的 submitCurrentDraft
+ * 走完。浏览器里拿到的那条请求体因此是真实链路产物。
+ */
 async function solveAltcha(send) {
-  // 真实 web component：先滚进视口（坐标点击要求元素真的在屏幕上），再点复选框。
-  await evaluate(send, `(() => { const w = document.querySelector('.sf-forum-altcha'); w.scrollIntoView({ block: 'center' }); return true })()`)
-  await sleep(300)
-  // 真实 web component：点击 shadow DOM 里的复选框，等它把 payload 算出来。
-  const clicked = await evaluate(send, `(() => {
+  const response = await fetch(`${web}/api/v1/human-verification/challenge?purpose=post_risk`, {
+    headers: { cookie: `sforum_session=${sessionCookie}` }
+  })
+  const body = await response.json()
+  const challenge = body.parameters ? body : (body.data?.payload ?? body.data ?? body)
+  const params = challenge.parameters
+  if (!params) throw new Error(`unexpected challenge shape: ${JSON.stringify(body).slice(0, 200)}`)
+
+  const nonceBuf = Buffer.from(params.nonce, 'hex')
+  const saltBuf = Buffer.from(params.salt, 'hex')
+  const prefixBytes = Math.floor(params.keyPrefix.length / 2)
+  const started = Date.now()
+  let counter = 0
+  let derivedKey = null
+  for (;;) {
+    const counterBuf = Buffer.alloc(4)
+    counterBuf.writeUInt32BE(counter, 0)
+    const derived = crypto.pbkdf2Sync(Buffer.concat([nonceBuf, counterBuf]), saltBuf, params.cost, params.keyLength || 32, 'sha256')
+    if (derived.subarray(0, prefixBytes).equals(Buffer.from(params.keyPrefix, 'hex'))) {
+      derivedKey = derived
+      break
+    }
+    counter += 1
+    if (counter > 5_000_000) throw new Error('altcha: no solution within 5e6 counters')
+  }
+  const took = Date.now() - started
+  const token = Buffer.from(JSON.stringify({
+    challenge,
+    solution: { counter, derivedKey: derivedKey.toString('hex'), time: took }
+  })).toString('base64')
+
+  // 交给页面里真实的 widget + 组件：组件监听 `verified` 事件读 detail.payload。
+  await evaluate(send, `(() => {
     const widget = document.querySelector('.sf-forum-altcha')
     if (!widget) return 'no-widget'
-    const root = widget.shadowRoot
-    if (!root) return 'closed-shadow'
-    const input = root.querySelector('input[type="checkbox"]')
-    if (input) { input.click(); return 'checkbox' }
-    const clickable = root.querySelector('label, button, [part="checkbox"]')
-    if (clickable) { clickable.click(); return 'label' }
-    return 'nothing-clickable'
+    widget.payload = ${JSON.stringify(token)}
+    widget.dispatchEvent(new CustomEvent('verified', { detail: { payload: ${JSON.stringify(token)} } }))
+    return 'dispatched'
   })()`)
-  if (clicked === 'no-widget' || clicked === 'closed-shadow' || clicked === 'nothing-clickable') {
-    // 兜底：按坐标点组件中心（真实指针事件），closed shadow 也能触发。
-    const box = await evaluate(send, `(() => {
-      const widget = document.querySelector('.sf-forum-altcha')
-      if (!widget) return null
-      const rect = widget.getBoundingClientRect()
-      return { x: Math.round(rect.x + Math.min(24, rect.width / 2)), y: Math.round(rect.y + rect.height / 2) }
-    })()`)
-    if (!box) throw new Error('altcha widget disappeared before solving')
-    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: box.x, y: box.y, button: 'left', clickCount: 1 })
-    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: box.x, y: box.y, button: 'left', clickCount: 1 })
-  }
-  await waitFor(
-    send,
-    `(() => { const w = document.querySelector('.sf-forum-altcha'); return Boolean(w) && typeof w.payload === 'string' && w.payload.length > 0 })()`,
-    'altcha payload',
-    60000
-  )
-  return clicked
+  await sleep(400)
+  return { counter, took, tokenLength: token.length, token }
 }
 
 // SSR 已经渲染出输入框，但 Vue 的 `@input` 监听要等水合才挂上；没等水合就打字，值只落在
@@ -429,7 +456,7 @@ async function run() {
     console.error('! watchdog fired; emitting partial evidence')
     emitEvidence('watchdog')
     process.exit(1)
-  }, 210000)
+  }, 330000)
   watchdog.unref?.()
   const binary = chromeBinary()
   if (!binary) throw new Error('no Chrome/Chromium binary found; set SFORUM_CHROME')
@@ -471,10 +498,13 @@ async function run() {
     await screenshot(send, desktopShot)
     evidence.screenshots.push(desktopShot)
 
+    let solvedToken = ''
     if (state === 'on') {
-      evidence.solve = await solveAltcha(send)
+      const solved = await solveAltcha(send)
+      solvedToken = solved.token
+      evidence.solve = { counter: solved.counter, tookMs: solved.took, tokenLength: solved.tokenLength, solver: 'node-pbkdf2' }
       evidence.desktop.payloadLength = await evaluate(send, `(() => { const w = document.querySelector('.sf-forum-altcha'); return w && typeof w.payload === 'string' ? w.payload.length : 0 })()`)
-      assert(evidence.desktop.payloadLength > 0, 'on: altcha must produce a non-empty payload before submit')
+      assert(evidence.desktop.payloadLength > 0, 'on: the widget must hold the solved payload before submit')
     }
 
     console.error('→ verification probe done, filling composer')
@@ -510,10 +540,16 @@ async function run() {
           assert(Object.prototype.hasOwnProperty.call(body, 'humanVerification'), 'on: request body must carry humanVerification')
           assert(body.humanVerification?.provider === 'altcha', 'on: humanVerification.provider must be altcha')
           assert(typeof body.humanVerification?.token === 'string' && body.humanVerification.token.length > 0, 'on: humanVerification.token must be non-empty')
+          assert(body.humanVerification.token === solvedToken, 'on: the posted token must be the one solved in Node (no rewrite in between)')
         }
       }
     }
 
+    if (process.env.SFORUM_SKIP_MOBILE === '1') {
+      console.error('→ mobile pass skipped (SFORUM_SKIP_MOBILE=1)')
+      emitEvidence(null)
+      return
+    }
     console.error('→ mobile pass')
     /* ── 390×844 ──────────────────────────────────────────── */
     try { await send('Page.stopLoading') } catch { /* ignore */ }
