@@ -6378,6 +6378,10 @@
       "smtpSettings": "配置 SMTP 插件",
       "recentDeliveries": "最近投递",
       "noDeliveries": "暂无投递记录",
+      "actions": "操作",
+      "deliveryReplay": "重试",
+      "deliveryReplayQueued": "已重新入队，稍后刷新查看结果",
+      "deliveryReplayFailed": "重试失败，请查看投递状态后再试",
       "deliveryStatus": {
         "queued": "已排队",
         "sending": "发送中",

@@ -36,6 +36,13 @@ const (
 
 var ErrNotificationNotFound = errors.New("notifications: notification not found")
 
+// ErrDeliveryNotFound / ErrDeliveryNotReplayable 是管理端 replay 的两种结论（P2-6）：
+// 前者 404，后者 409（状态不允许重放，例如已 sent/skipped）。
+var (
+	ErrDeliveryNotFound      = errors.New("notifications: mail delivery not found")
+	ErrDeliveryNotReplayable = errors.New("notifications: mail delivery is not replayable")
+)
+
 type Notification struct {
 	ID              int64              `json:"id"`
 	RecipientUserID int64              `json:"-"`

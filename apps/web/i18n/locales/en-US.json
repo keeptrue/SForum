@@ -6338,6 +6338,10 @@
       "smtpSettings": "Configure SMTP plugin",
       "recentDeliveries": "Recent deliveries",
       "noDeliveries": "No delivery records",
+      "actions": "Actions",
+      "deliveryReplay": "Retry",
+      "deliveryReplayQueued": "Re-queued. Refresh in a moment to see the result.",
+      "deliveryReplayFailed": "Retry failed. Check the delivery status and try again.",
       "deliveryStatus": {
         "queued": "Queued",
         "sending": "Sending",

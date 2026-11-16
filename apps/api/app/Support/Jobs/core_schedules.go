@@ -30,6 +30,8 @@ const (
 	// OAuth 解绑（identity.oauth_link 规则）、徽章收回（badge.owned 规则）——
 	// 这些都不经过 6 个活动触发点，只有按账本 computed_at 兜底才看得见。
 	ScheduleTrustLevelsSweep = "trustlevels.sweep"
+	// ScheduleMailSweepStale 把超龄仍停在 queued/sending 的邮件投递收成 failed 终态（P2-6）。
+	ScheduleMailSweepStale = "mail.sweep_stale"
 )
 
 // CoreScheduleDefinitions 返回宿主内置 schedule 目录模板（无 Constructor）。
@@ -115,6 +117,16 @@ func CoreScheduleDefinitions() []ScheduleDefinition {
 			Enabled:     true,
 			Description: "核对并修复当前搜索 provider 的缺失、过期和幽灵文档",
 			RunOnStart:  true,
+		},
+		{
+			ID:          ScheduleMailSweepStale,
+			JobKind:     ScheduleMailSweepStale,
+			Queue:       QueueMaintenance,
+			Interval:    10 * time.Minute,
+			Owner:       "notifications",
+			Enabled:     true,
+			Description: "把超过 30 分钟仍停在 queued/sending 的邮件投递收成 failed 终态",
+			RunOnStart:  false,
 		},
 		{
 			ID:          ScheduleTrustLevelsSweep,

@@ -80,6 +80,41 @@ adminMailDeliveries:
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+adminMailDeliveryReplay:
+  post:
+    summary: Replay a terminal failed mail delivery
+    description: |
+      Requires `settings.mail.manage`. Resets a `failed` delivery back to
+      `queued`, clears `error_summary`/`completed_at`, and enqueues a fresh
+      `mail.deliver` job. Only terminal failures are replayable — `sent` and
+      `skipped` answer 409 `mail.delivery_not_replayable`, and an unknown id
+      answers 404 `mail.delivery_not_found`. Concurrent replays of the same
+      delivery are safe: the status reset is conditional on the status that was
+      observed, so only one wins and the other gets 409.
+    operationId: adminReplayMailDelivery
+    security: [{cookieAuth: []}]
+    parameters:
+    - name: deliveryID
+      in: path
+      required: true
+      schema: {type: integer, format: int64, minimum: 1}
+    responses:
+      '200':
+        description: Delivery reset to queued and re-enqueued.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/mail.yaml#/ApiResponseMailDeliveryReplay"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        description: Delivery is not in a replayable state (reason mail.delivery_not_replayable).
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminNotificationPolicy:
   get:
     summary: Read the resolved global notification channel policy

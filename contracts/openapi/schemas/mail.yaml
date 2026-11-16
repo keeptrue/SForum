@@ -82,6 +82,33 @@ NotificationPolicy:
     reply: {$ref: "#/NotificationChannelPolicy"}
     mention: {$ref: "#/NotificationChannelPolicy"}
     moderation: {$ref: "#/NotificationChannelPolicy"}
+ApiResponseMailDeliveryReplay:
+  type: object
+  description: |
+    Result of replaying a failed mail delivery. `delivery.status` is `queued`
+    after a successful replay; the worker advances it again.
+  required: [code, message, data]
+  properties:
+    code: {type: integer}
+    message: {type: string}
+    data:
+      type: object
+      required: [delivery]
+      properties:
+        delivery:
+          type: object
+          required: [id, status]
+          properties:
+            id: {type: integer, format: int64}
+            status:
+              type: string
+              enum: [queued, sending, sent, failed, skipped]
+            recipient: {type: string}
+            templateKey: {type: string}
+            reason: {type: string}
+            attemptCount: {type: integer}
+            updatedAt: {type: string, format: date-time}
+
 ApiResponseNotificationPolicy:
   type: object
   required: [code, message, data]

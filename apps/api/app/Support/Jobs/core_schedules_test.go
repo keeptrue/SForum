@@ -28,6 +28,10 @@ var coreScheduleExpectedIDs = []string{
 	ScheduleSearchReconcile,
 	ScheduleExtensionsFinalizeUninstallCleanup,
 	ScheduleTrustLevelsSweep,
+	// 第 11 条是 P2-6 的 mail.sweep_stale：10min、maintenance 队列，把超过 30min
+	// 仍停在 queued/sending 的邮件投递收成 failed 终态（无 reaper 时这些行永久停在
+	// 中途，既不会被重试也不会进终态）。
+	ScheduleMailSweepStale,
 }
 
 // assertCoreScheduleSet 把「注册表里的视图」与上面的清单按集合比对，双向报差异。
@@ -96,10 +100,14 @@ func TestCoreScheduleRegistryBuildsCorePeriodics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	// 本用例只给 9 条注入了 constructor（没有 trustlevels.sweep），
-	// 所以 periodic 数 = 注入数，而 views 数 = 目录数。
-	if len(jobs) != len(coreScheduleExpectedIDs)-1 {
-		t.Fatalf("river periodics=%d，期望 %d（清单减去未注入 constructor 的那条）", len(jobs), len(coreScheduleExpectedIDs)-1)
+	// 本用例只给 9 条注入了 constructor（没有 trustlevels.sweep 与
+	// mail.sweep_stale），所以 periodic 数 = 注入数，而 views 数 = 目录数。
+	const injectedConstructors = 9
+	if len(jobs) != injectedConstructors {
+		t.Fatalf("river periodics=%d，期望 %d（清单减去两条未注入 constructor 的）", len(jobs), injectedConstructors)
+	}
+	if injectedConstructors != len(coreScheduleExpectedIDs)-2 {
+		t.Fatalf("注入数=%d 与清单=%d 不一致：新增 schedule 时这里要一起更新", injectedConstructors, len(coreScheduleExpectedIDs))
 	}
 
 	// 元数据完整性：daily、owner 明确

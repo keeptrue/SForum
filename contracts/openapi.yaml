@@ -247,6 +247,8 @@ paths:
     "$ref": "./openapi/paths/mail.yaml#/adminMailProviderReset"
   "/admin/mail/deliveries":
     "$ref": "./openapi/paths/mail.yaml#/adminMailDeliveries"
+  "/admin/mail/deliveries/{deliveryID}/replay":
+    "$ref": "./openapi/paths/mail.yaml#/adminMailDeliveryReplay"
   "/admin/mail/policy":
     "$ref": "./openapi/paths/mail.yaml#/adminNotificationPolicy"
   "/admin/mail/policy/restore":

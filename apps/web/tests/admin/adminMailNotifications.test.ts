@@ -87,4 +87,21 @@ describe('mail and notification admin center', () => {
     expect(zh.admin.mailSettings.unavailable).toBe('暂不可用')
     expect(en.admin.mailSettings.defaultProviderHint).toContain('built-in SMTP')
   })
+
+  // P2-6：终态失败的投递可以在管理面重试。按钮只在可重放状态出现，且失败提示
+  // 不自动消失（重放失败是用户刚触发的阻塞性结论）。
+  test('offers a retry action for terminal failed deliveries only', () => {
+    expect(deliveriesTab).toContain("request(`/admin/mail/deliveries/${item.id}/replay`")
+    expect(deliveriesTab).toContain("status === 'failed'")
+    expect(deliveriesTab).toContain("status === 'dead'")
+    expect(deliveriesTab).toContain('v-if="canReplay(item.status)"')
+    expect(deliveriesTab).toContain('deliveryReplayQueued')
+    // 成功 Toast 5 秒自动消失；失败走常驻 alert，不设 duration。
+    expect(deliveriesTab).toContain("t('admin.mailSettings.deliveryReplayQueued'), duration: 5000")
+    expect(deliveriesTab).toContain("t('admin.mailSettings.deliveryReplayFailed')")
+    expect(zh.admin.mailSettings.deliveryReplay).toBe('重试')
+    expect(en.admin.mailSettings.deliveryReplay).toBe('Retry')
+    expect(zh.admin.mailSettings.actions).toBe('操作')
+    expect(en.admin.mailSettings.actions).toBe('Actions')
+  })
 })

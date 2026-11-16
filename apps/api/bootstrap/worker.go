@@ -682,7 +682,13 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 	ensureDefaultMailProvider(context.Background(), extensionStore, logger)
 	// mail.deliver 必须命中共享/本进程同一 runtime，避免 embed 时打到第二套插件进程。
 	mailProviders := extensionsruntime.NewMailProviderRegistry(extensionStore)
-	notificationjobs.Register(registry, &notificationjobs.DeliverMailWorker{Store: notificationStore, Providers: mailProviders, Sender: extensionRuntime})
+	notificationjobs.Register(registry, &notificationjobs.DeliverMailWorker{
+		Store: notificationStore, Providers: mailProviders, Sender: extensionRuntime, Logger: logger,
+	})
+	// P2-6：超龄 queued/sending 的兜底收口（无 reaper 时这些行永久停在中途）。
+	notificationjobs.RegisterStaleDeliverySweeper(registry, &notificationjobs.SweepStaleDeliveriesWorker{
+		Store: notificationStore, Logger: logger,
+	})
 	channelRuntime, ok := extensionRuntime.(workerNotificationChannelRuntime)
 	if !ok {
 		return nil, fmt.Errorf("notification channel provider runtime is unavailable")
@@ -779,6 +785,12 @@ func newWorkerWithPool(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logge
 		}
 	}
 	coreScheduleConstructors := map[string]river.PeriodicJobConstructor{
+		supportjobs.ScheduleMailSweepStale: wrapEnabled(
+			supportjobs.ScheduleMailSweepStale,
+			func() (river.JobArgs, *river.InsertOpts) {
+				return notificationjobs.SweepStaleDeliveriesArgs{}, nil
+			},
+		),
 		supportjobs.ScheduleIdentityCleanupSessions: wrapEnabled(
 			supportjobs.ScheduleIdentityCleanupSessions,
 			func() (river.JobArgs, *river.InsertOpts) {

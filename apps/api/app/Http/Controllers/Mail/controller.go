@@ -2,25 +2,45 @@ package mailcontroller
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
 	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
+	notificationjobs "github.com/keeptrue/sforum/apps/api/app/Jobs/Notifications"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
 )
 
+// deliveryEnqueuer 是重放投递所需的最小入队能力（*supportjobs.Dispatcher 满足它）。
+// 为 nil 时 replay 端点 fail-closed 成 503，而不是「重置了状态却没重新入队」。
+type deliveryEnqueuer interface {
+	Enqueue(ctx context.Context, args river.JobArgs, opts supportjobs.EnqueueOptions) (*rivertype.JobInsertResult, error)
+}
+
 type Controller struct {
-	extensions extensions.Store
-	deliveries notifications.Store
-	providers  *extensionsruntime.MailProviderRegistry
-	users      identity.ActorStore
-	sessions   *authsession.Manager
-	options    *options.Service
-	policy     notifications.CorePolicyStore
+	extensions   extensions.Store
+	deliveries   notifications.Store
+	providers    *extensionsruntime.MailProviderRegistry
+	users        identity.ActorStore
+	sessions     *authsession.Manager
+	options      *options.Service
+	policy       notifications.CorePolicyStore
+	deliveryJobs deliveryEnqueuer
+}
+
+// WithDeliveryEnqueuer 注入重放投递的入队能力（bootstrap 传入 jobDispatcher）。
+func (h *Controller) WithDeliveryEnqueuer(enqueuer deliveryEnqueuer) *Controller {
+	h.deliveryJobs = enqueuer
+	return h
 }
 
 func NewController(extensionStore extensions.Store, deliveries notifications.Store, providers *extensionsruntime.MailProviderRegistry, users identity.ActorStore, sessions *authsession.Manager, optionService *options.Service, policy notifications.CorePolicyStore) *Controller {
@@ -32,6 +52,8 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	group.Put("/provider", h.selectProvider)
 	group.Post("/provider/reset", h.resetProvider)
 	group.Get("/deliveries", h.listDeliveries)
+	// 重放终态失败的投递（failed）：重置成 queued 并重新入队（P2-6）。
+	group.Post("/deliveries/:deliveryID/replay", h.replayDelivery)
 	group.Get("/policy", h.getPolicy)
 	group.Put("/policy", h.updatePolicy)
 	group.Post("/policy/restore", h.restorePolicy)
@@ -207,4 +229,40 @@ func (h *Controller) listDeliveries(c fiber.Ctx) error {
 		return err
 	}
 	return apphttp.OK(c, map[string]any{"items": items})
+}
+
+// replayDelivery 把一条终态失败的投递重置为 queued 并重新入队。
+//
+// 权限：settings.mail.manage（与其它管理面一致）。状态判定在 store 层走
+// outbox.CanReplay + CanTransition；这里只负责把「状态不允许」翻成 409、
+// 「找不到」翻成 404，并在入队失败时把结论如实告诉调用方。
+func (h *Controller) replayDelivery(c fiber.Ctx) error {
+	if err := h.authorize(c); err != nil {
+		return err
+	}
+	if h.deliveryJobs == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "service.not_ready")
+	}
+	deliveryID, err := strconv.ParseInt(c.Params("deliveryID"), 10, 64)
+	if err != nil || deliveryID <= 0 {
+		return fiber.NewError(fiber.StatusNotFound, "mail.delivery_not_found")
+	}
+	delivery, err := h.deliveries.ReplayDelivery(c.Context(), deliveryID)
+	if err != nil {
+		switch {
+		case errors.Is(err, notifications.ErrDeliveryNotFound):
+			return fiber.NewError(fiber.StatusNotFound, "mail.delivery_not_found")
+		case errors.Is(err, notifications.ErrDeliveryNotReplayable):
+			// 409 而不是 422：客户端拿到的是「当前状态不允许」，重试同一个请求
+			// 在有新状态之前没有意义，但也可能因为并发重放成功而改变。
+			return fiber.NewError(fiber.StatusConflict, "mail.delivery_not_replayable")
+		default:
+			return err
+		}
+	}
+	if _, err := h.deliveryJobs.Enqueue(c.Context(), notificationjobs.DeliverMailArgs{DeliveryID: delivery.ID},
+		notificationjobs.DeliverMailArgs{}.EnqueueOptions()); err != nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "mail.delivery_replay_enqueue_failed")
+	}
+	return apphttp.OK(c, map[string]any{"delivery": delivery})
 }

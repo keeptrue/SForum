@@ -3,6 +3,7 @@ package notificationjobs
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
@@ -36,6 +37,15 @@ type DeliverMailWorker struct {
 	Store     DeliveryStore
 	Providers ProviderResolver
 	Sender    ProviderSender
+	// Logger 为零值时退回 slog.Default()；落库失败必须有日志，不能静默。
+	Logger *slog.Logger
+}
+
+func (w *DeliverMailWorker) logger() *slog.Logger {
+	if w != nil && w.Logger != nil {
+		return w.Logger
+	}
+	return slog.Default()
 }
 
 func (w *DeliverMailWorker) Work(ctx context.Context, job *river.Job[DeliverMailArgs]) error {
@@ -129,10 +139,23 @@ func mailAttemptBudget(job *river.Job[DeliverMailArgs]) int {
 func (w *DeliverMailWorker) settleOrRetry(ctx context.Context, update notifications.DeliveryUpdate, retryErr error, maxAttempts int) error {
 	if outbox.ExhaustedAttempts(update.AttemptCount, maxAttempts) {
 		update.Status = notifications.DeliveryFailed
-		return w.Store.UpdateDelivery(ctx, update)
+		if err := w.Store.UpdateDelivery(ctx, update); err != nil {
+			// 终态落库失败：**不**把错误抛回 River。抛回去会让 job 再跑一次，
+			// 而那意味着可能重复发送；留成 queued/sending 由 mail.sweep_stale 兜底
+			// 收成 failed（P2-6），这里只保证信号不丢。
+			w.logger().Error("mail delivery terminal write failed",
+				"deliveryId", update.ID, "attempt", update.AttemptCount, "status", update.Status, "error", err)
+			return nil
+		}
+		return nil
 	}
 	update.Status = notifications.DeliverySending
-	_ = w.Store.UpdateDelivery(ctx, update)
+	if err := w.Store.UpdateDelivery(ctx, update); err != nil {
+		// 进度落库失败：attempt 预算会落后于 River 的真实次数（RV-50 的连带项），
+		// 必须留痕，否则「为什么这条一直重试」无从查起。
+		w.logger().Error("mail delivery progress write failed",
+			"deliveryId", update.ID, "attempt", update.AttemptCount, "status", update.Status, "error", err)
+	}
 	return retryErr
 }
 

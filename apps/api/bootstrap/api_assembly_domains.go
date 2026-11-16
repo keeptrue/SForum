@@ -284,7 +284,8 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		WithTargetVisibility(notificationTargets).
 		WithTargetPreview(notificationTargetPreviewAdapter{store: forumStore}).
 		WithChannels(apiNotificationChannelRuntimeAdapter{runtime: lifecycleStack.RuntimeManager}, auditWriter, mailOutbox)
-	mailProvider := providers.NewMailProvider(extensionStore, notificationStore, extensionsruntime.NewMailProviderRegistry(extensionStore), identityStore, authSessions, optionsService, notificationStore)
+	mailProvider := providers.NewMailProvider(extensionStore, notificationStore, extensionsruntime.NewMailProviderRegistry(extensionStore), identityStore, authSessions, optionsService, notificationStore).
+		WithDeliveryEnqueuer(jobDispatcher)
 	// Worker 心跳 store 尽早创建，供 overview 与嵌入 worker 共用。
 	heartbeatStore := health.NewRedisHeartbeatStore(sharedRedisClient)
 	adminOverviewProvider := providers.NewAdminOverviewProviderWithWidgets(

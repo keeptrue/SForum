@@ -391,6 +391,80 @@ error_summary=$6, updated_at=NOW(), completed_at=COALESCE($7, completed_at) WHER
 	return err
 }
 
+// StaleDeliveryThreshold 是 sweeper 的默认阈值：超过它仍停在 queued/sending 的投递
+// 视为「调度侧丢了」（进程崩溃、job 被 River 丢弃），收成 failed 终态。
+const StaleDeliveryThreshold = 30 * time.Minute
+
+// SweepStaleDeliveries 把超龄的 queued/sending 行收成 failed 终态（P2-6）。
+//
+// 单语句条件更新，天然幂等：WHERE 同时限定状态与 updated_at 阈值，第二次扫描扫不到
+// 已经改过的行；正在发送的行会不断刷新 updated_at（写 sending、写结果），不会被误伤。
+// 这里不需要 FOR UPDATE SKIP LOCKED：没有「先 SELECT 再 UPDATE」的窗口，一条 UPDATE
+// 就是原子判定。
+func (s *PostgresStore) SweepStaleDeliveries(ctx context.Context, olderThan time.Duration) (int, error) {
+	if olderThan <= 0 {
+		olderThan = StaleDeliveryThreshold
+	}
+	rows, err := s.runner.Query(ctx, `
+		UPDATE mail_deliveries
+		SET status=$1, reason='stale_swept',
+		    error_summary='delivery stalled past the sweep threshold',
+		    updated_at=NOW(), completed_at=COALESCE(completed_at, NOW())
+		WHERE status IN ($2, $3)
+		  AND updated_at < NOW() - ($4 * interval '1 second')
+		RETURNING id
+	`, outbox.StatusFailed, outbox.StatusQueued, outbox.StatusSending, int64(olderThan.Seconds()))
+	if err != nil {
+		return 0, fmt.Errorf("sweep stale mail deliveries: %w", err)
+	}
+	defer rows.Close()
+	swept := 0
+	for rows.Next() {
+		swept++
+	}
+	if err := rows.Err(); err != nil {
+		return swept, fmt.Errorf("iterate swept mail deliveries: %w", err)
+	}
+	return swept, nil
+}
+
+// ReplayDelivery 把一条终态失败的投递重置成 queued，供管理端重新入队（P2-6）。
+//
+// 状态迁移必须走 outbox 约定：CanReplay 限定只有 failed/dead 可重放，
+// CanTransition 保证 failed/dead → queued 在矩阵里合法。落库用「状态仍等于刚才观察
+// 到的值」做条件，并发重放只有一个能赢，另一个拿到 ErrDeliveryNotReplayable。
+func (s *PostgresStore) ReplayDelivery(ctx context.Context, id int64) (MailDelivery, error) {
+	current, err := s.GetDelivery(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return MailDelivery{}, ErrDeliveryNotFound
+		}
+		return MailDelivery{}, err
+	}
+	if !outbox.CanReplay(current.Status) || !outbox.CanTransition(current.Status, outbox.StatusQueued) {
+		return MailDelivery{}, ErrDeliveryNotReplayable
+	}
+	item := MailDelivery{}
+	err = s.runner.QueryRow(ctx, `
+		UPDATE mail_deliveries
+		SET status=$3, reason='replay', error_summary='',
+		    updated_at=NOW(), completed_at=NULL
+		WHERE id=$1 AND status=$2
+		RETURNING id, recipient, template_key, template_data, idempotency_key, correlation_id,
+		  status, extension_id, attempt_count, reason, error_summary, created_at, updated_at, completed_at
+	`, id, current.Status, outbox.StatusQueued).Scan(
+		&item.ID, &item.Recipient, &item.TemplateKey, &item.TemplateData, &item.IdempotencyKey, &item.CorrelationID,
+		&item.Status, &item.ExtensionID, &item.AttemptCount, &item.Reason, &item.ErrorSummary, &item.CreatedAt, &item.UpdatedAt, &item.CompletedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// 并发：另一个重放已经把状态改走。
+			return MailDelivery{}, ErrDeliveryNotReplayable
+		}
+		return MailDelivery{}, fmt.Errorf("replay mail delivery: %w", err)
+	}
+	return item, nil
+}
+
 func (s *PostgresStore) ListDeliveries(ctx context.Context, limit int) ([]MailDelivery, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
