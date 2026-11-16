@@ -252,6 +252,20 @@ script stops before touching services (which is exactly what it should do). The
 empty-core-table warning now prints once per restore; the second validation
 passes quietly.
 
+**One-time cleanup after upgrading (plaintext dumps)**: before the archive
+format landed on 2026-11-15, production backups were plaintext
+`<db>-<timestamp>.sql` files under `backups/`. Retention only matches the
+`sforum-backup-*` prefix, so those legacy plaintext dumps are **never cleaned
+automatically** — and they are full-database plaintext dumps containing user
+data. After upgrading, review them and delete the ones you no longer need
+yourself; the script will not do it for you (deleting an operator's historical
+backups is more dangerous than keeping them). To restore one of them, note that
+the restore side now refuses payloads without integrity evidence (a legacy
+`.sql`, a manifest-less `tar.gz`, a manifest missing `encryption=`); set
+`SFORUM_RESTORE_ALLOW_UNVERIFIED=1` explicitly and the script warns before
+continuing. The source is always the file you name — the script never walks the
+backup directory to pick the newest one.
+
 ## If you must roll back
 
 Rolling back brings the old behaviour back with it: `/ready` echoes the artifact

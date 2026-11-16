@@ -251,7 +251,7 @@ For scripting, use `--action`:
 | --- | --- |
 | `deploy` / `install` / `update` | Resolve the target version, back up an existing database, migrate, start, health-check, and record `.deployrc` |
 | `backup` | Start `postgres`, create an encrypted archive (database + attachment volume + extension-artifact volume), and print its path; fails without `SFORUM_BACKUP_KEY_FILE` |
-| `restore` | Prompt for `RESTORE`, then decrypt and validate the archive before restoring; any failure rolls back |
+| `restore` | Prompt for `RESTORE`, then decrypt and validate the archive before restoring; any failure rolls back. The source must be the file the operator **names explicitly**: the script never walks the backup directory and never picks the newest archive for you. Plaintext payloads without integrity evidence (a legacy `.sql`, a manifest-less `tar.gz`, a manifest missing `encryption=`) are refused by default; to restore one anyway, set `SFORUM_RESTORE_ALLOW_UNVERIFIED=1` explicitly — the script then warns and continues |
 | `status` | Run `docker compose ps` with the currently recorded version |
 | `logs` | Follow all service logs |
 | `restart` | Restart services and re-run the health checks |
@@ -489,7 +489,7 @@ That immutable tag is historical fact and will not be moved to `main` or
 | `.sforum-bootstrap.lock` | Lock held by the bootstrap while it refreshes the toolkit |
 | `.sforum-latest.lock` | Lock held by `sforum-latest.sh` while it prefetches and replaces the local bootstrap |
 | `.sforum/tooling-backups/` | Backups of replaced managed tooling files |
-| `backups/` | PostgreSQL backup archives (database + attachment volume + extension-artifact volume, encrypted), `0600` by default; change the path with `SFORUM_BACKUP_DIR` |
+| `backups/` | PostgreSQL backup archives (database + attachment volume + extension-artifact volume, encrypted), `0600` by default; change the path with `SFORUM_BACKUP_DIR`. Legacy plaintext `<db>-<timestamp>.sql` dumps from before 2026-11-15 do not match the `sforum-backup-*` retention prefix and are **never cleaned automatically** — review and delete them yourself |
 | `deploy/runtime/` | Blue/green Caddy configuration; do not edit by hand |
 
 ## Failure semantics

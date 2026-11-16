@@ -92,7 +92,10 @@ exit=1
 口径（与 P3-22 同风格，复用同一个开关，不新增变量）：
 
 1. `sforum_prepare_payload` 在 `kind=sql`、或 `kind=archive|sql` 而清单缺失时默认 `sforum_die`，
-   文案点名 `SFORUM_RESTORE_ALLOW_UNVERIFIED=1`。
+   文案点名 `SFORUM_RESTORE_ALLOW_UNVERIFIED=1`。**无清单的 `envelope` / `encrypted` 仍然放行，
+   这不是绕过**：`encrypted` 在解包之前必须过 `sforum_require_backup_key` 解密，`envelope` 还要
+   先验 HMAC 再解密；没有密钥的人伪造不出可解密的载荷，所以「没有清单」对这两类不构成免校验通道。
+   封死它只会误伤合法的 v1 无清单归档（早期手工 `openssl enc` 产物），在 DR 现场多一道没有收益的墙。
 2. 清单存在但缺 `encryption=` 行同样默认拒绝。仓库产出的每一份归档都写了这一行
    （`sforum_write_manifest` 自格式落地起就 `printf 'encryption=%s\n'`，
    `git show 5889cd690:deploy/scripts/postgres-backup-format.sh` 可证），所以「缺这行」只可能是
@@ -108,9 +111,11 @@ exit=1
 
 老运（`deploy/` 归属）：
 
-1. `deploy/scripts/postgres-backup-format.sh` 的 `sforum_check_payload_integrity`（`:271-307`）：把
-   `:276` 的早退改成按 `kind` 分流 —— `envelope`/`encrypted` 之外的 kind 在无清单时走
-   `sforum_die`，受 `SFORUM_RESTORE_ALLOW_UNVERIFIED=1` 放行。
+1. `deploy/scripts/postgres-backup-format.sh` 的 `sforum_check_payload_integrity`：把早退改成按
+   `kind` 分流 —— `envelope`/`encrypted` 之外的 kind 在无清单时走 `sforum_die`，受
+   `SFORUM_RESTORE_ALLOW_UNVERIFIED=1` 放行。**注意 `kind=sql` 时 `$out_dir/manifest.env` 永远
+   不存在**（`sql` 分支只 `cp` 不解包），所以这一条对 `.sql` 输入实际等于「一律默认拒绝」；
+   清单可缺可有的只有 `kind=archive`。
 2. 同文件 `:279` 的 `""|v1` 分支：把「空」与「v1 方案串」拆成两个 case；`declared` 为空且
    `kind=archive|sql` 时 fail closed，v1 方案串保持现行为。
 3. `deploy/scripts/postgres-safety_test.sh`：

@@ -551,7 +551,9 @@ case_ok "C5 成功恢复：内容校验后切库、卷恢复、API 就绪后才�
 printf '%s\n' '--' '-- PostgreSQL database dump' 'SET statement_timeout = 0;' \
   'CREATE TABLE public.restored_table (id bigint);' > "$TEMP_DIR/one-table.sql"
 reset_log
-if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' \
+# 无清单明文载荷默认会被完整性闸门拒掉（C13b/C13c）；这条用例要测的是**内容预检**，
+# 所以显式给开关，让执行流走到「缺少核心表」那一步。
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' SFORUM_RESTORE_ALLOW_UNVERIFIED=1 \
   SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$TEMP_DIR/one-table.sql" \
   >/dev/null 2>"$TEMP_DIR/one-table.err"); then
   fail "restore accepted a backup that only contains one table"
@@ -1111,7 +1113,10 @@ grep -q 'Invalid blue_version in .deployrc' "$TEMP_DIR/bad-version.err" || fail 
 rm -f "$TEST_ROOT/.deployrc"
 case_ok "C12 .deployrc 非法值（topology / blue_version）→ abort"
 
-# --- C13 旧版明文 .sql 备份仍然可恢复 --------------------------------------
+# --- C13 旧版明文 .sql 备份：显式开关下仍可恢复，并打警告 -------------------
+# 无清单的明文载荷没有任何完整性凭据，默认拒绝（见 C13b/C13c）；这里钉住「保留通道」
+# 的另一半：运维显式给出 SFORUM_RESTORE_ALLOW_UNVERIFIED=1 时，恢复必须照常完成，
+# 且必须把「你正在恢复一份无凭据载荷」打在 stderr 上。
 {
   printf '%s\n' '--' '-- PostgreSQL database dump'
   for table in users roles categories topics posts comments attachments; do
@@ -1120,14 +1125,94 @@ case_ok "C12 .deployrc 非法值（topology / blue_version）→ abort"
 } > "$TEMP_DIR/legacy.sql"
 reset_log
 (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
-  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$TEMP_DIR/legacy.sql" \
+  SFORUM_RESTORE_ALLOW_UNVERIFIED=1 SFORUM_CONFIRM_RESTORE=RESTORE \
+  ./deploy/scripts/restore-postgres.sh "$TEMP_DIR/legacy.sql" \
   >"$TEMP_DIR/legacy.out" 2>&1)
 grep -q 'exec swap ' "$MOCK_LOG" || fail "legacy .sql restore did not swap the database"
 grep -q '该备份不含附件/扩展制品卷' "$TEMP_DIR/legacy.out" || fail "legacy .sql restore did not report the missing asset volumes"
+grep -q 'SFORUM_RESTORE_ALLOW_UNVERIFIED=1' "$TEMP_DIR/legacy.out" || \
+  fail "legacy .sql restore under the override did not warn with the variable name"
+grep -q '无完整性凭据' "$TEMP_DIR/legacy.out" || \
+  fail "legacy .sql restore under the override did not warn about missing provenance"
 if grep -q '^compose run ' "$MOCK_LOG"; then
   fail "legacy .sql restore tried to restore volume contents it does not have"
 fi
-case_ok "C13 旧版明文 .sql 备份：仍可恢复，跳过卷恢复"
+case_ok "C13 旧版明文 .sql 备份：SFORUM_RESTORE_ALLOW_UNVERIFIED=1 下仍可恢复并打警告"
+
+# --- C13b 同一份明文 .sql 不带开关：默认拒绝，且一个库动作都没有 --------------
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$TEMP_DIR/legacy.sql" \
+  >/dev/null 2>"$TEMP_DIR/legacy-noswitch.err"); then
+  fail "restore accepted a manifest-less plaintext .sql without SFORUM_RESTORE_ALLOW_UNVERIFIED=1"
+fi
+grep -q 'SFORUM_RESTORE_ALLOW_UNVERIFIED=1' "$TEMP_DIR/legacy-noswitch.err" || \
+  fail "manifest-less .sql rejection did not name the explicit override"
+grep -q '没有清单' "$TEMP_DIR/legacy-noswitch.err" || \
+  fail "manifest-less .sql rejection did not say the manifest is missing"
+if grep -q 'exec restore \|exec swap ' "$MOCK_LOG"; then
+  fail "manifest-less .sql still reached the database"
+fi
+case_ok "C13b 无清单明文 .sql 不带开关：拒绝恢复且不碰库"
+
+# --- C13c 手搓无清单 tar.gz：同样默认拒绝（C6e2 只覆盖「清单还在」那一类）----
+NOMANIFEST_DIR="$TEMP_DIR/plain-nomanifest"
+mkdir -p "$NOMANIFEST_DIR"
+cp "$TEMP_DIR/legacy.sql" "$NOMANIFEST_DIR/database.sql"
+nomanifest_archive="$TEMP_DIR/sforum-backup-nomanifest.tar.gz"
+tar -C "$NOMANIFEST_DIR" -czf "$nomanifest_archive" database.sql
+[[ "$(head -c 2 "$nomanifest_archive" | od -An -tx1 | tr -d ' \n')" == "1f8b" ]] || \
+  fail "manifest-less fixture is not a gzip archive"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$nomanifest_archive" \
+  >/dev/null 2>"$TEMP_DIR/nomanifest.err"); then
+  fail "restore accepted a manifest-less plaintext archive without the explicit override"
+fi
+grep -q 'SFORUM_RESTORE_ALLOW_UNVERIFIED=1' "$TEMP_DIR/nomanifest.err" || \
+  fail "manifest-less archive rejection did not name the explicit override"
+if grep -q 'exec restore \|exec swap ' "$MOCK_LOG"; then
+  fail "manifest-less archive still reached the database"
+fi
+# 开关下必须仍能恢复：只拒绝不放行等于把 DR 现场最后一条路封死。
+reset_log
+(cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_RESTORE_ALLOW_UNVERIFIED=1 SFORUM_CONFIRM_RESTORE=RESTORE \
+  ./deploy/scripts/restore-postgres.sh "$nomanifest_archive" \
+  >"$TEMP_DIR/nomanifest-allowed.out" 2>&1)
+grep -q 'exec swap ' "$MOCK_LOG" || \
+  fail "manifest-less archive was not restorable under the explicit override"
+grep -q 'SFORUM_RESTORE_ALLOW_UNVERIFIED=1' "$TEMP_DIR/nomanifest-allowed.out" || \
+  fail "manifest-less archive restore under the override did not warn"
+case_ok "C13c 手搓无清单 tar.gz：默认拒绝，显式开关下可恢复并打警告"
+
+# --- C13d 清单还在但 encryption= 行被删：同样默认拒绝 -----------------------
+# 决策记录「证据 B」的那条绕过：不用换文件，只删一行就让明文 tar.gz 通过。
+NOENCRYPT_DIR="$TEMP_DIR/plain-noencryption"
+mkdir -p "$NOENCRYPT_DIR"
+decrypt_archive "$archive" "$NOENCRYPT_DIR/payload.tar.gz"
+tar -C "$NOENCRYPT_DIR" -xzf "$NOENCRYPT_DIR/payload.tar.gz"
+rm -f "$NOENCRYPT_DIR/payload.tar.gz"
+grep -q '^encryption=' "$NOENCRYPT_DIR/manifest.env" || \
+  fail "fixture manifest carries no encryption= line to strip"
+sed -i.bak '/^encryption=/d' "$NOENCRYPT_DIR/manifest.env"
+rm -f "$NOENCRYPT_DIR/manifest.env.bak"
+noencrypt_archive="$TEMP_DIR/sforum-backup-noencryption.tar.gz"
+tar -C "$NOENCRYPT_DIR" -czf "$noencrypt_archive" manifest.env database.sql assets
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$noencrypt_archive" \
+  >/dev/null 2>"$TEMP_DIR/noencryption.err"); then
+  fail "restore accepted a plaintext archive whose manifest lost the encryption= line"
+fi
+grep -q '缺少 encryption=' "$TEMP_DIR/noencryption.err" || \
+  fail "stripped encryption= line was not reported as a missing credential"
+grep -q 'SFORUM_RESTORE_ALLOW_UNVERIFIED=1' "$TEMP_DIR/noencryption.err" || \
+  fail "stripped encryption= rejection did not name the explicit override"
+if grep -q 'exec restore \|exec swap ' "$MOCK_LOG"; then
+  fail "stripped encryption= archive still reached the database"
+fi
+case_ok "C13d 清单缺 encryption= 行：默认拒绝（P3-22 的删行绕过已封）"
 
 # --- C14 加密归档缺密钥：拒绝恢复，不建库 ----------------------------------
 reset_log
@@ -1164,7 +1249,8 @@ if (cd "$TEST_ROOT" && SFORUM_BACKUP_DIR="$TEMP_DIR/backups-invalid-env" ./deplo
   fail "backup accepted an unsafe POSTGRES_DB value"
 fi
 [[ ! -e "$TEMP_DIR/database-value-was-executed" ]] || fail "backup executed an unsafe POSTGRES_DB value"
-if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' SFORUM_CONFIRM_RESTORE=RESTORE \
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' SFORUM_RESTORE_ALLOW_UNVERIFIED=1 \
+  SFORUM_CONFIRM_RESTORE=RESTORE \
   ./deploy/scripts/restore-postgres.sh "$TEMP_DIR/legacy.sql" >/dev/null 2>&1); then
   fail "restore accepted an unsafe POSTGRES_DB value"
 fi

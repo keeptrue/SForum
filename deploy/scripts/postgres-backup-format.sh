@@ -264,19 +264,67 @@ sforum_unpack_archive() {
   tar -C "$dest" -xzf "$archive"
 }
 
+# 无完整性凭据的恢复源：默认 sforum_die，只在显式开关下放行并打警告。
+#
+# 开关与 P3-22 共用 SFORUM_RESTORE_ALLOW_UNVERIFIED，不新增环境变量：运维只需要记住
+# 一个名字，报错文案也点名它，照着就能自救。放行时仍然打警告——一次不可逆的全库替换
+# 必须是一次显式决定，而不是「脚本没说话所以应该没事」。
+sforum_require_unverified_override() {
+  local reason="$1"
+  local input="$2"
+
+  if [ "${SFORUM_RESTORE_ALLOW_UNVERIFIED:-}" = "1" ]; then
+    printf '警告：%s。已按 SFORUM_RESTORE_ALLOW_UNVERIFIED=1 跳过完整性校验继续恢复：%s（该载荷无完整性凭据，恢复后无法证明来源，请自行确认文件可信）\n' \
+      "$reason" "$input" >&2
+    return 0
+  fi
+  sforum_die "$reason：$input（确属手工解密排查后要恢复时，显式设置 SFORUM_RESTORE_ALLOW_UNVERIFIED=1，并自行确认文件可信）"
+}
+
 # 清单里的 encryption= 记录「这份内容当初按哪个方案封的」。信封被剥离后，v2 归档
 # 会退化成一个合法的 v1 密文（Salted__ 开头），只看外层分不出 v1/v2；所以解密后
 # 必须再核对一次清单：声明 v2 却没有信封 → 拒绝，这是唯一的降级入口。
-# v1 清单（或没有清单）不阻断恢复，但要明确打印降级告警。
+# v1 清单不阻断恢复，但要明确打印降级告警。
+#
+# 没有清单（或清单缺 encryption= 行）的**明文**载荷默认拒绝：仓库产出的每一份归档
+# 都带清单且都写了 encryption=（sforum_write_manifest），所以「缺凭据」只可能是手搓
+# 或篡改 —— 这正是「有备份目录写权限者」最省事的一条绕过（不需要密钥，把文件换成
+# 自己打的 tar.gz 就能让任意 SQL 走到灌库）。P3-22 堵的是「改动现有归档」，这条补的是
+# 「整份替换成自己的载荷」。
+#
+# 无清单的**加密**载荷仍然放行，且这不是绕过：encrypted 在解包之前必须过
+# sforum_require_backup_key 解密，envelope 还要先验 HMAC 再解密；没有密钥的人伪造不出
+# 可解密的载荷，所以「没有清单」不构成一条免校验通道。封死它只会误伤合法的 v1 无清单
+# 归档（早期手工 openssl enc 产物），DR 现场多一道没有收益的墙。
 sforum_check_payload_integrity() {
   local manifest="$1"
   local kind="$2"
   local declared=""
 
-  [ -f "$manifest" ] || return 0
+  if [ ! -f "$manifest" ]; then
+    case "$kind" in
+      envelope|encrypted) return 0 ;;
+      *)
+        sforum_require_unverified_override \
+          "备份载荷没有清单（manifest.env），来源与完整性都无法校验" "$manifest"
+        return 0
+        ;;
+    esac
+  fi
   declared="$(sforum_manifest_value "$manifest" encryption)"
   case "$declared" in
-    ""|"$SFORUM_BACKUP_ENCRYPTION_SCHEME_V1")
+    "")
+      case "$kind" in
+        archive|sql)
+          sforum_require_unverified_override \
+            "备份清单缺少 encryption= 记录，载荷是明文且没有完整性凭据" "$manifest"
+          ;;
+        encrypted)
+          printf '警告：该备份使用 v1 加密方案（只有加密、无 HMAC 完整性认证），已按兼容模式继续恢复；下一次备份会自动升级到 v2。\n' >&2
+          ;;
+      esac
+      ;;
+    "$SFORUM_BACKUP_ENCRYPTION_SCHEME_V1")
       if [ "$kind" = "encrypted" ]; then
         printf '警告：该备份使用 v1 加密方案（只有加密、无 HMAC 完整性认证），已按兼容模式继续恢复；下一次备份会自动升级到 v2。\n' >&2
       fi
@@ -289,14 +337,11 @@ sforum_check_payload_integrity() {
           ;;
         *)
           # 明文载荷 + v2 清单：备份侧永远加密，不存在这种合法产物。它正是
-          # 「有磁盘写权限者」最省事的一条绕过 —— 不需要密钥，把文件换成自己打的
+          # 「有备份目录写权限者」最省事的一条绕过 —— 不需要密钥，把文件换成自己打的
           # tar.gz 就能让任意 SQL 走到灌库。因此与 encrypted 分支同口径 fail closed，
           # 只留一个显式开关给「手工解密后排查再恢复」的运维通道。
-          if [ "${SFORUM_RESTORE_ALLOW_UNVERIFIED:-}" = "1" ]; then
-            printf '警告：明文归档声明使用 v2 方案且外层信封不在，已按 SFORUM_RESTORE_ALLOW_UNVERIFIED=1 跳过完整性校验继续恢复；请自行确认该文件可信。\n' >&2
-          else
-            sforum_die "备份清单声明使用 $declared，但载荷是明文且没有信封，完整性无法校验。拒绝恢复：$manifest（确属手工解密排查后要恢复时，显式设置 SFORUM_RESTORE_ALLOW_UNVERIFIED=1，并自行确认文件可信）"
-          fi
+          sforum_require_unverified_override \
+            "备份清单声明使用 $declared，但载荷是明文且没有信封，完整性无法校验" "$manifest"
           ;;
       esac
       ;;

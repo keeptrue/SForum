@@ -223,7 +223,7 @@ https://github.com/keeptrue/SForum/releases/download/<TAG>/SHA256SUMS
 | --- | --- |
 | `deploy` / `install` / `update` | 解析目标版本，备份已有库，迁移，启动，健康检查，记录 `.deployrc` |
 | `backup` | 启动 `postgres` 后创建加密归档（库 + 附件卷 + 扩展制品卷），输出归档路径；缺 `SFORUM_BACKUP_KEY_FILE` 时失败 |
-| `restore` | 提示输入 `RESTORE`，解密并校验归档后恢复，失败自动回滚 |
+| `restore` | 提示输入 `RESTORE`，解密并校验归档后恢复，失败自动回滚。恢复源必须是运维**显式给出的那个文件**：脚本不遍历备份目录、不会自动挑最新一份。无完整性凭据的明文载荷（旧 `.sql`、无清单 `tar.gz`、清单缺 `encryption=`）默认拒绝，确需恢复时显式设置 `SFORUM_RESTORE_ALLOW_UNVERIFIED=1`，脚本会打警告后继续 |
 | `status` | 用当前记录的版本执行 `docker compose ps` |
 | `logs` | 跟踪全部服务日志 |
 | `restart` | 重启服务并重新做健康检查 |
@@ -418,7 +418,7 @@ Worker，切换期间可能短暂同时消费队列；任务领取和重试由 R
 | `.sforum-bootstrap.lock` | bootstrap 刷新工具包时的锁 |
 | `.sforum-latest.lock` | `sforum-latest.sh` 预取并替换本地 bootstrap 时的锁 |
 | `.sforum/tooling-backups/` | 被替换的受管工具文件备份 |
-| `backups/` | PostgreSQL 备份归档（库 + 附件卷 + 扩展制品卷，加密），默认 `0600`；可用 `SFORUM_BACKUP_DIR` 改路径 |
+| `backups/` | PostgreSQL 备份归档（库 + 附件卷 + 扩展制品卷，加密），默认 `0600`；可用 `SFORUM_BACKUP_DIR` 改路径。2026-11-15 之前的历史明文 `<db>-<时间戳>.sql` 不匹配保留策略的 `sforum-backup-*` 前缀，**永远不会被自动清理**，需人工确认后自行删除 |
 | `deploy/runtime/` | 蓝绿 Caddy 配置；仓库只入库 `.gitkeep` 与 `.gitignore` 两个占位文件，生成的 `Caddyfile*` 不入库，也不要手工编辑 |
 
 ## 失败语义
