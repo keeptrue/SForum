@@ -487,7 +487,10 @@ func assertResolvedGuardPermission(t *testing.T, registry *Registry, want string
 func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	catalog := CoreRouteCatalog()
 	// 计数由 scripts/v3-catalog/generate.mjs 与 catalog-identities 共同约束；
-	// 新增路由必须先进入 identities + OpenAPI + Guard 审核矩阵，再同步此处。
+	// 新增路由必须先进入 identities + OpenAPI + Guard 审核矩阵。
+	// 期望值不再手工维护：下面的断言直接从 catalog-identities.json 的 routes 长度
+	// 派生，它与生成物、catalogs/routes.json 的等值关系由
+	// TestCatalogArtifactsAgreeOnRouteCount 守住。下面是历史链，留作证据。
 	// 363 = 362 + core.route.extensions.inspect_route_incidents（M5 隔离账本读取）。
 	// 367 = 363 + 4 条开发期信任会话路由（list/create/revoke/dev-trust-refresh）。
 	// 370 = 367 + 3 条版本 GC 管理端路由（candidates/confirmations/execute，阶段 5）。
@@ -536,9 +539,15 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	//   GET  /admin/trust-levels/conditions（admin.access：编辑器要读条件目录与候选）
 	//   POST /admin/trust-levels/rule-impact（trust.manage：保存前估算影响面，不写库）
 	//   两条都受 features.trust_levels 门控（关闭时 404，与同组其它 4 条一致）。
+	// 437 = 435 + 2 条（0db6c3888 那批 gen 与 identities 都加了，漏了这里的数字）：
+	//   core.route.mail.replay_delivery（P2-6：POST /admin/mail/deliveries/:deliveryID/replay）
+	//   core.route.identity.admin_revoke_user_api_tokens（P2-2：DELETE /users/:userID/api-tokens）
 	// 照旧：计数、catalog-identities.json 的 routes、core_catalog_gen.go 三者同一批。
-	if len(catalog) != 435 {
-		t.Fatalf("generated core route count = %d", len(catalog))
+	// 到此为止不再单边改数字：421→423→428→433→435→437 这六次漏改正是本条被改成
+	// 跨产物等值断言的原因（见下方断言与 TestCatalogArtifactsAgreeOnRouteCount）。
+	identities := readCatalogIdentities(t)
+	if len(catalog) != len(identities) {
+		t.Fatalf("generated core route count = %d, catalog-identities routes = %d", len(catalog), len(identities))
 	}
 	kinds := make(map[CoreGuardKind]int)
 	for _, route := range catalog {
