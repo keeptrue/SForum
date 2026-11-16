@@ -31,7 +31,12 @@ type Service struct {
 	hits, misses, stores, deletes, bypasses, errors, invalidations atomic.Uint64
 	getLatencyNanos, setLatencyNanos, getCount, setCount           atomic.Uint64
 
-	// tagIndex maps tag -> set of keys for Host tag invalidation.
+	// generations 是 tag 失效的**权威**（生产为 Redis）：条目带写入时的 generation，
+	// 读取时比对，失效 = 递增。跨进程可见，重启不回退。
+	generations GenerationStore
+	// tagIndex 是**纯本地加速索引**，不是权威状态：它只记录本进程写过的 key，
+	// 用来在失效时顺手删掉这些 key（尽快回收空间）。即使它为空、或记录的是别的
+	// 副本写的 key，正确性也由 generations 保证（P3-11）。
 	tagIndex map[string]map[string]struct{}
 	// auditRing keeps recent invalidation evidence for the inspector.
 	auditRing []InvalidateResult
@@ -60,7 +65,10 @@ func New(registry *cacheregistry.Registry, backend cache.Cache, provider string)
 		registry: registry,
 		backend:  backend,
 		provider: ProviderSelection{Provider: provider, SelectedAt: time.Now().UTC()},
-		tagIndex: make(map[string]map[string]struct{}),
+		// generation 存储跟随 backend：Redis backend 即跨进程，Memory backend 即
+		// 单进程（与 ProviderMemory 语义一致）。
+		generations: NewCacheGenerations(backend),
+		tagIndex:    make(map[string]map[string]struct{}),
 	}
 	service.themeRev.Store("")
 	service.pluginRev.Store("")
@@ -89,7 +97,22 @@ func (s *Service) SelectProvider(provider string, backend cache.Cache) error {
 	defer s.mu.Unlock()
 	s.backend = backend
 	s.provider = ProviderSelection{Provider: provider, SelectedAt: time.Now().UTC()}
+	// 换 provider 必须换 generation 存储：否则切换后失效会写到旧后端的键空间，
+	// 新后端的条目永远等不到失效。
+	s.generations = NewCacheGenerations(backend)
 	return nil
+}
+
+// WithGenerationStore overrides the tag generation authority. Production uses the
+// Redis-backed default derived from the selected backend; tests inject failures.
+func (s *Service) WithGenerationStore(store GenerationStore) *Service {
+	if s == nil || store == nil {
+		return s
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.generations = store
+	return s
 }
 
 // SetRevisions updates theme/plugin revision fingerprints used in key material.
@@ -198,12 +221,40 @@ func (s *Service) Get(ctx context.Context, plan KeyPlan) ([]byte, bool, error) {
 		s.errors.Add(1)
 		return nil, false, err
 	}
-	if found {
-		s.hits.Add(1)
-	} else {
+	if !found {
 		s.misses.Add(1)
+		return nil, false, nil
 	}
-	return value, found, nil
+	entry, decodeErr := decodeEntry(value)
+	if decodeErr != nil {
+		// 旧格式裸值 / 损坏条目：无法判断新鲜度，一律当 miss 并清掉，
+		// 绝不让一份无法失效的值继续被当成命中。
+		_ = s.backend.Delete(ctx, plan.Key)
+		s.misses.Add(1)
+		return nil, false, nil
+	}
+	if len(entry.Gens) > 0 {
+		stamped := make([]string, 0, len(entry.Gens))
+		for tag := range entry.Gens {
+			stamped = append(stamped, tag)
+		}
+		current, genErr := s.generations.Current(ctx, stamped)
+		if genErr != nil {
+			// 读不到 generation 就无法证明新鲜度：fail closed 成 miss（不服务
+			// 不可校验的条目）。此时后端通常也已不可用，调用方本来就要回源。
+			s.errors.Add(1)
+			return nil, false, genErr
+		}
+		for tag, at := range entry.Gens {
+			if current[tag] != at {
+				_ = s.backend.Delete(ctx, plan.Key)
+				s.misses.Add(1)
+				return nil, false, nil
+			}
+		}
+	}
+	s.hits.Add(1)
+	return entry.Value, true, nil
 }
 
 // Set stores under a planned key and indexes declared tags.
@@ -222,8 +273,24 @@ func (s *Service) Set(ctx context.Context, plan KeyPlan, value []byte) error {
 	if plan.Key == "" {
 		return ErrInvalid
 	}
+	var gens map[string]uint64
+	if tags := normalizeTags(plan.Tags); len(tags) > 0 {
+		current, genErr := s.generations.Current(ctx, tags)
+		if genErr != nil {
+			// 拿不到 generation 就不写：写进去也永远无法被 tag 失效，只会变成
+			// 一份读不掉的脏条目。
+			s.errors.Add(1)
+			return genErr
+		}
+		gens = current
+	}
+	encoded, encodeErr := encodeEntry(value, gens)
+	if encodeErr != nil {
+		s.errors.Add(1)
+		return encodeErr
+	}
 	start := time.Now()
-	err := s.backend.Set(ctx, plan.Key, value, plan.TTL)
+	err := s.backend.Set(ctx, plan.Key, encoded, plan.TTL)
 	s.observeSet(time.Since(start))
 	if err != nil {
 		s.errors.Add(1)
@@ -294,6 +361,16 @@ func (s *Service) Invalidate(ctx context.Context, request InvalidateRequest) (In
 		}
 		s.deletes.Add(uint64(len(list)))
 		s.dropKeysFromIndex(list)
+	}
+	// tag 失效的权威动作：递增 generation。条目自己会在下一次读取时发现自己过期，
+	// 因此这条路径与「哪个副本写了缓存」「哪个副本收到失效」无关。
+	if tags := normalizeTags(request.Tags); len(tags) > 0 {
+		if _, err := s.generations.Bump(ctx, tags); err != nil {
+			// fail closed：generation 没递增就不能声称失效成功，否则旧数据会被
+			// 继续当成新鲜数据服务，而且没有任何信号。
+			s.errors.Add(1)
+			return InvalidateResult{}, err
+		}
 	}
 	s.invalidations.Add(1)
 	result := InvalidateResult{

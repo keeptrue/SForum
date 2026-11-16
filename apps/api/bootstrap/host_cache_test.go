@@ -40,6 +40,15 @@ func TestProductionHostCacheBindsOneSharedRegistry(t *testing.T) {
 		runtime.Protocol == nil || runtime.Inspector == nil {
 		t.Fatalf("production Host Cache = %#v", runtime)
 	}
+	// 缓存策略运行时必须真的被装配出来，并且用 redis provider（tag generation 的
+	// 权威只能是跨进程的 Redis）。跨进程失效的端到端证据在
+	// app/Support/CachePolicy 的 Redis 集成用例里。
+	if runtime.Policy == nil {
+		t.Fatal("production Host Cache must assemble the cache policy runtime")
+	}
+	if provider := runtime.Policy.Inspector().Provider.Provider; provider != "redis" {
+		t.Fatalf("cache policy provider = %q want redis", provider)
+	}
 	if err := gateway.BindProtocolV2CacheService(runtime.Protocol); err == nil {
 		t.Fatal("Gateway accepted a second Cache service binding")
 	}
