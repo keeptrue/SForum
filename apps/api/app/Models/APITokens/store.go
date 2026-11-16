@@ -11,7 +11,11 @@ type Store interface {
 	GetByPublicID(ctx context.Context, publicID string) (Record, error)
 	GetByIDForUser(ctx context.Context, userID, id int64) (Record, error)
 	Revoke(ctx context.Context, userID, id int64) error
-	// Rotate：撤销旧 token 并创建新 token（同名/scopes）。
+	// TouchLastUsed 刷新令牌的最后使用时间。
+	//
+	// 实现必须自带写频率节流（PostgresStore 用 1 分钟时间条件，见
+	// lastUsedThrottle）：鉴权路径每个请求都会调用它，无条件写入会造成写放大
+	// 与热门令牌的行锁竞争（P3-1）。调用方不关心本次是否真的写了。
 	TouchLastUsed(ctx context.Context, id int64) error
 	// TokenVersion 读该用户当前的 users.current_token_version。
 	// 鉴权用它比对记录里的签发版本（P2-2）。

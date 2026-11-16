@@ -9,6 +9,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// lastUsedThrottle 限制 api_tokens.last_used_at 的写频率（P3-1）。
+//
+// 每次 Bearer 鉴权成功都会走到 TouchLastUsed。无节流时，高频机器客户端
+// （CLI / 自动化 / 原生客户端）会把「一次请求一次 UPDATE」变成持续写放大，
+// 热门令牌上还会因为行锁串行化。节流下沉到 UPDATE 自己的时间条件里，因此
+// 不需要额外读一次数据库：命中条件才写，不命中就只是一次纯读往返。
+//
+// 为什么是 1 分钟，而不是会话侧 last_seen 的 1h
+// （app/Support/AuthSession/manager.go 的 lastSeenInterval）：PAT 的消费者是
+// 机器客户端，last_used_at 的唯一用途是让运维判断「这条令牌是否还在用」，
+// 分钟级精度足够。会话侧取 1h 是因为 last_seen_at 会被「我的设备」列表直接
+// 展示给人看，粗粒度会让人以为设备刚刚活跃；PAT 没有这个展示需求，反而更细
+// 的刷新能在排障时更快暴露一条被遗弃的令牌。
+const lastUsedThrottle = time.Minute
+
 type PostgresStore struct {
 	pool *pgxpool.Pool
 }
@@ -90,8 +105,23 @@ WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL`, id, userID, RevokeReasonSelf
 	return nil
 }
 
+// TouchLastUsed 在时间条件命中时才刷新 last_used_at（节流见 lastUsedThrottle）。
+//
+// 判定与写入是同一条语句，所以没有「先读后写」的窗口，也不需要事务：
+//   - 条件不命中（距上次写入不足阈值）时 Postgres 不产生新元组版本，也不持有
+//     行锁，高频鉴权因此不会写放大、不会在热门令牌上排队；
+//   - 并发突发时，后来的 UPDATE 会在行锁上等待，并在对方提交后按 READ COMMITTED
+//     的 EvalPlanQual 重新判定 WHERE —— 此时 last_used_at 已经是新值，条件不再
+//     成立，于是被跳过。一次突发只会落地一次写。
+//
+// RowsAffected 不对外暴露：调用方（AuthenticatePlaintext）不关心本次是否真的
+// 写了，鉴权结果与它无关。
 func (s *PostgresStore) TouchLastUsed(ctx context.Context, id int64) error {
-	_, err := s.pool.Exec(ctx, `UPDATE api_tokens SET last_used_at=NOW() WHERE id=$1`, id)
+	_, err := s.pool.Exec(ctx, `
+UPDATE api_tokens SET last_used_at = now()
+WHERE id = $1
+  AND (last_used_at IS NULL OR last_used_at < now() - $2 * interval '1 second')`,
+		id, int64(lastUsedThrottle.Seconds()))
 	return err
 }
 

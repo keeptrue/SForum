@@ -192,7 +192,9 @@ func (s *Service) AuthenticatePlaintext(ctx context.Context, plaintext string) (
 	if err != nil || version != rec.TokenVersion {
 		return Authenticated{}, ErrTokenRevoked
 	}
-	// last_used 更新失败不阻断鉴权。
+	// last_used 更新失败不阻断鉴权。写频率由存储层的时间条件节流
+	// （PostgresStore 的 lastUsedThrottle，P3-1）：这里每次都调用，
+	// 但只有距上次写入超过阈值才会真正产生一次 UPDATE。
 	_ = s.store.TouchLastUsed(ctx, rec.ID)
 	return Authenticated{
 		UserID: rec.UserID, TokenID: rec.ID, PublicID: rec.PublicID, Scopes: append([]string{}, rec.Scopes...),

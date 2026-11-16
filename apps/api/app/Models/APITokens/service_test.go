@@ -319,6 +319,7 @@ func (m *memStore) Revoke(_ context.Context, userID, id int64) error {
 	m.byPublic[rec.PublicID] = rec
 	return nil
 }
+
 // TokenVersion 默认 0：测试里 Create 也按 0 记版本，两者一致即通过（P2-2 的
 // 版本比对逻辑本身由 postgres 集成测试覆盖）。
 func (m *memStore) TokenVersion(_ context.Context, _ int64) (int64, error) {
@@ -341,6 +342,10 @@ func (m *memStore) RevokeAllForUser(_ context.Context, userID int64, reason stri
 	return revoked, nil
 }
 
+// TouchLastUsed 在这里无条件写入，是刻意的：P3-1 的 1 分钟节流是
+// PostgresStore 那条 UPDATE 的 WHERE 条件，fake 复述一遍只会测到 fake 自己。
+// 真实的节流行为由 last_used_throttle_test.go 在 Postgres 上断言；这里只记录
+// 「服务层每次都调用了 TouchLastUsed」这一事实。
 func (m *memStore) TouchLastUsed(_ context.Context, id int64) error {
 	rec, ok := m.byID[id]
 	if !ok {
