@@ -531,30 +531,50 @@ func TestControllerPublicProfileFiltersExtensionTabsByViewer(t *testing.T) {
 	assertNoTabPermissionField(t, memberEnvelope)
 }
 
-// 会话存在但主体加载失败时必须降级为匿名视角：公开页不能因为登录态异常 500。
-func TestControllerPublicProfileDegradesToAnonymousWhenActorLookupFails(t *testing.T) {
-	tabs := &controllerTabProvider{tabs: controllerProfileTabs()}
-	app, _, _ := newProfileTestAppWithOptions(profileForumReadPolicy{guestRead: "public", ok: true}, profileTestOptions{
-		tabs: tabs,
-		actors: map[int64]identity.Actor{
-			7: {ID: 7, Status: identity.UserStatusActive, Permissions: map[string]bool{"demo.moderate": true}},
-		},
-		actorsErr: errors.New("actor store unavailable"),
+// 主体解析失败不再降级成匿名 200（B1）：旧实现 slog.Warn + 匿名视角，把「Redis/PG
+// 现在答不上来」翻译成「你没登录」，探针与调用方都看不到故障。分类后：
+//   - 依赖故障 → 503 service.not_ready + Retry-After: 1；
+//   - 主体不存在/不可用 → 401 auth.required；
+//   - 无凭据仍然是 200 匿名（上一条用例已钉住）。
+func TestControllerPublicProfileAnswersActorLookupFailureByClass(t *testing.T) {
+	newApp := func(t *testing.T, actorErr error) (*fiber.App, *controllerTabProvider) {
+		t.Helper()
+		tabs := &controllerTabProvider{tabs: controllerProfileTabs()}
+		app, _, _ := newProfileTestAppWithOptions(profileForumReadPolicy{guestRead: "public", ok: true}, profileTestOptions{
+			tabs: tabs,
+			actors: map[int64]identity.Actor{
+				7: {ID: 7, Status: identity.UserStatusActive, Permissions: map[string]bool{"demo.moderate": true}},
+			},
+			actorsErr: actorErr,
+		})
+		return app, tabs
+	}
+
+	t.Run("dependency failure is 503", func(t *testing.T) {
+		app, tabs := newApp(t, errors.New("actor store unavailable"))
+		cookie := loginProfileUser(t, app, 7)
+		resp := performProfileRequest(t, app, nethttp.MethodGet, "/api/v1/profiles/alice", nil, cookie)
+		defer resp.Body.Close()
+		if resp.StatusCode != nethttp.StatusServiceUnavailable {
+			t.Fatalf("expected 503 when actor lookup fails on a dependency, got %d", resp.StatusCode)
+		}
+		if got := resp.Header.Get(fiber.HeaderRetryAfter); got != "1" {
+			t.Fatalf("expected Retry-After: 1, got %q", got)
+		}
+		if tabs.viewer.ID != 0 {
+			t.Fatalf("the tab provider must not run on a dependency failure, got viewer %#v", tabs.viewer)
+		}
 	})
 
-	cookie := loginProfileUser(t, app, 7)
-	resp := performProfileRequest(t, app, nethttp.MethodGet, "/api/v1/profiles/alice", nil, cookie)
-	if resp.StatusCode != nethttp.StatusOK {
-		t.Fatalf("expected 200 when actor lookup fails, got %d", resp.StatusCode)
-	}
-	data, envelope := readPublicProfileBody(t, resp)
-	if ids := profileTabIDs(data.ExtensionTabs); len(ids) != 2 || ids[0] != "public" || ids[1] != "widget" {
-		t.Fatalf("degraded tabs = %v, want anonymous [public widget]", ids)
-	}
-	if tabs.viewer.ID != 0 || len(tabs.viewer.Permissions) != 0 {
-		t.Fatalf("degraded viewer = %#v, want zero-value actor", tabs.viewer)
-	}
-	assertNoTabPermissionField(t, envelope)
+	t.Run("missing subject is 401", func(t *testing.T) {
+		app, _ := newApp(t, identity.ErrUserNotFound)
+		cookie := loginProfileUser(t, app, 7)
+		resp := performProfileRequest(t, app, nethttp.MethodGet, "/api/v1/profiles/alice", nil, cookie)
+		defer resp.Body.Close()
+		if resp.StatusCode != nethttp.StatusUnauthorized {
+			t.Fatalf("expected 401 when the subject is gone, got %d", resp.StatusCode)
+		}
+	})
 }
 
 // 与 SiteChrome.publicNavigation / Pages.setPrivatePageResponse 对齐：

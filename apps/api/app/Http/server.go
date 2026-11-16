@@ -243,24 +243,68 @@ func registerRoutes(app *fiber.App, cfg config.Config, deps Dependencies) {
 			defer cancel()
 			report = deps.Ready(ctx)
 		}
+		// 匿名探针只拿摘要（见 readyPublicView）：恢复态的制品清单与发布版本是
+		// 「哪一版没收敛」的精确指纹，不对未认证调用方输出（RV-05b）。
+		view := publicReadyView(report)
 		if !report.Ready {
-			// 就绪失败仍返回结构化 report，便于探针与运维诊断。
-			return JSON(c, fiber.StatusServiceUnavailable, "service.not_ready", report)
+			// 就绪失败仍返回结构化摘要，便于探针与运维诊断。
+			return JSON(c, fiber.StatusServiceUnavailable, "service.not_ready", view)
 		}
-		return OK(c, report)
+		return OK(c, view)
 	})
 }
 
 // recoveryPublicView 是恢复态 503 允许匿名输出的全部内容：人读三元组。
 //
 // 这里刻意用「白名单结构体」而不是直接序列化 RecoveryRequirement：以后给
-// requirement 加字段（例如新的制品清单）不会顺带扩大匿名可见面。artifacts 与
-// publicationRevision 只出现在 /api/v1/ready 的就绪报告里（运维探针），或经认证的
-// 管理面——恢复态本身不该把已装扩展的 ID / 版本 / digest 回显给匿名调用方。
+// requirement 加字段（例如新的制品清单）不会顺带扩大匿名可见面。
+//
+// 注意：这个结构体连同 /ready 的 readyPublicView 一起，把 artifacts 与
+// publicationRevision 从**所有匿名出口**移除了（RV-05b）。它们此前在恢复态 /ready
+// 里可被公网读到。运维侧取详情的方式见
+// knowledge/decisions/2026-11-16-read-path-actor-semantics.md：`sforum extension
+// recovery list --json`（只读 durable 行、不启动进程）与启动日志的
+// publication_revision/artifacts 计数。
 type recoveryPublicView struct {
 	Code      string `json:"code"`
 	Component string `json:"component"`
 	Message   string `json:"message"`
+}
+
+// readyPublicView 是匿名 /ready 允许输出的全部内容：探针摘要 + 恢复态三元组。
+//
+// 为什么不用 omitempty 或给 ReadyReport 打 json:"-"：白名单结构体让「新增字段」
+// 默认不可见，而 omitempty 只是把「空值」藏起来——只要字段有值就又漏了。
+// components 保留：它是探针的既有契约（依赖名/状态/耗时），扩展贡献的组件名
+// 只含公开的 extensionId，不含版本与 digest。
+type readyPublicView struct {
+	Status     string                   `json:"status"`
+	Ready      bool                     `json:"ready"`
+	CheckedAt  time.Time                `json:"checkedAt"`
+	Components []health.ComponentResult `json:"components"`
+	Recovery   *recoveryPublicView      `json:"recovery,omitempty"`
+}
+
+func publicReadyView(report health.ReadyReport) readyPublicView {
+	components := report.Components
+	if components == nil {
+		// 与 ReadyReport 序列化时的既有形状保持一致：空数组而不是 null。
+		components = []health.ComponentResult{}
+	}
+	view := readyPublicView{
+		Status:     report.Status,
+		Ready:      report.Ready,
+		CheckedAt:  report.CheckedAt,
+		Components: components,
+	}
+	if report.Recovery.Active() {
+		view.Recovery = &recoveryPublicView{
+			Code:      report.Recovery.Code,
+			Component: report.Recovery.Component,
+			Message:   report.Recovery.Message,
+		}
+	}
+	return view
 }
 
 func recoveryOnlyMiddleware(requirement *health.RecoveryRequirement) fiber.Handler {
@@ -311,7 +355,7 @@ func csrfErrorHandler(logger *slog.Logger) fiber.ErrorHandler {
 	storage := newStorageFailureReporter(logger)
 	return func(c fiber.Ctx, err error) error {
 		if cause, ok := storageFailureCause(err); ok {
-			storage.warn(c, cause)
+			storage.warn(c, "api csrf storage unavailable", cause)
 			if safeMethodWithoutStorage(c.Method()) {
 				// 读请求没有可被伪造的副作用，继续走原链路：探针与页面不该因为
 				// CSRF 记账失败而变成错误响应。

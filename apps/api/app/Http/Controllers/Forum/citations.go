@@ -9,7 +9,7 @@ import (
 // commentCitations 返回一条评论作为 AI 产物时留下的依据。
 //
 // 它与 GET /comments/:commentID/replies 同族：同一资源、同一套可见性判定、
-// 同样的 guest-read 门与 OptionalActor 解析。三条纪律：
+// 同样的 guest-read 门与 ReadActor 解析。三条纪律：
 //   - 只读，不写任何东西；
 //   - 可见性完全由服务层决定（评论摘要 → 主题公开可见），控制器不做二次判断；
 //   - 零引用返回 `{items: []}` 而不是 404——「这条评论没有依据」是正常结论。
@@ -21,7 +21,9 @@ func (h *Controller) commentCitations(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	if _, err := apphttp.OptionalActor(c, h.sessions, h.users); err != nil {
+	// 与 replies 同一套会话语义：主体解析不出来时按类别回答（C→401、D/E→503），
+	// 不能把「Redis 抖了一下」吞成匿名再看引用。
+	if _, err := apphttp.ReadActor(c, h.sessions, h.users); err != nil {
 		return err
 	}
 	list, err := h.citations.CommentCitations(c.Context(), int64(paramInt(c, "commentID")))

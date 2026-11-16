@@ -46,9 +46,12 @@ func markStorageFailure(err error) error {
 
 // storageFailureStorage 把底层 fiber.Storage 的故障标记成 storageFailure。
 //
-// 只包装中间件用的这一份实例：同一份 Redis 还服务于会话目录，会话层的错误语义
-// （登录失败时 503 + session_unavailable、被撤销的会话按未登录处理）由它自己解释，
-// 不能被这里的判定改写。
+// 只包装中间件用的这一份实例：同一份 Redis 还服务于会话目录，而会话层对自己那份
+// 故障有自己的可判别哨兵（authsession.ErrStoreUnavailable，见 request_state.go 与
+// manager.go 的令牌版本/撤销目录两处），由读路径在 auth_read.go 里分类成 503。
+// 两条通道各认各的标记，互不改写对方的语义——这条注释此前写的是「会话层会答
+// 503 + session_unavailable」，那是我方实现不了的承诺（该错误码只出现在注册路径
+// Models/Identity/types.go:21），本轮已按实际行为改正。
 type storageFailureStorage struct{ inner fiber.Storage }
 
 func withStorageFailureMarking(inner fiber.Storage) fiber.Storage {
@@ -119,8 +122,9 @@ func storageUnavailable(c fiber.Ctx) error {
 	return ErrorResponse(c, fiber.StatusServiceUnavailable, "service.not_ready")
 }
 
-// storageFailureReporter 是中间件层依赖故障的日志出口：限频，且总是带上 storage
-// 的原始错误文本（否则运维只能看到一条 503，无法判断是 Redis 掉线还是地址配错）。
+// storageFailureReporter 是依赖故障的限频日志出口：文案由调用方给（中间件层与
+// csrf 层说法不同），但总是带上原始错误文本——否则运维只能看到一条 503，无法判断
+// 是 Redis 掉线还是地址配错。
 type storageFailureReporter struct {
 	logger *slog.Logger
 	mu     sync.Mutex
@@ -131,7 +135,7 @@ func newStorageFailureReporter(logger *slog.Logger) *storageFailureReporter {
 	return &storageFailureReporter{logger: logger}
 }
 
-func (r *storageFailureReporter) warn(c fiber.Ctx, cause error) {
+func (r *storageFailureReporter) warn(c fiber.Ctx, message string, cause error) {
 	if r == nil || r.logger == nil {
 		return
 	}
@@ -144,7 +148,7 @@ func (r *storageFailureReporter) warn(c fiber.Ctx, cause error) {
 	r.last = now
 	r.mu.Unlock()
 	r.logger.Warn(
-		"api middleware storage unavailable: reads pass through, unsafe requests fail closed",
+		message,
 		"method", c.Method(),
 		"path", c.Path(),
 		"error", cause,

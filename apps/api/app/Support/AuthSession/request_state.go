@@ -2,6 +2,8 @@ package authsession
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +15,15 @@ import (
 type requestSessionKey struct {
 	manager *Manager
 }
+
+// ErrStoreUnavailable 标记「会话存储后端不可用」，把依赖故障与凭据问题分开。
+//
+// 它存在的唯一理由是可判别性：Fiber 的 session store 对「cookie 缺失 / 提取失败 /
+// 会话不存在」一律续造一个全新匿名会话而不报错（fiber v3.4.0
+// middleware/session/store.go:142-158，getSessionID 在 :223-226 把提取失败折成空 id），
+// 所以能走到 requestSessionState 里的 error 只剩存储这一族。读路径据此答 503，
+// 而不是把「Redis 抖了一下」翻译成「你是匿名」或「你没有权限」。
+var ErrStoreUnavailable = errors.New("authsession: session store unavailable")
 
 type requestSessionState struct {
 	session        *session.Session
@@ -137,7 +148,9 @@ func (m *Manager) requestSessionState(c fiber.Ctx) (*requestSessionState, error)
 	storageContext := &requestSessionStorageContext{Ctx: c}
 	loaded, err := m.store.Get(storageContext)
 	if err != nil {
-		return nil, err
+		// 双层 %w：外层给调用方一个稳定哨兵，内层保留原始错误文本——运维要能看出
+		// 是 Redis 掉线、超时还是地址配错。判定只走 errors.Is，不做字符串匹配。
+		return nil, fmt.Errorf("%w: %w", ErrStoreUnavailable, err)
 	}
 	state := &requestSessionState{session: loaded, storageContext: storageContext}
 	c.Locals(key, state)

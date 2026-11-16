@@ -470,7 +470,7 @@ func (h *Controller) topic(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	viewer, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return err
 	}
@@ -499,7 +499,7 @@ func (h *Controller) topicBySlug(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	viewer, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return err
 	}
@@ -717,7 +717,7 @@ func (h *Controller) comments(c fiber.Ctx) error {
 		return err
 	}
 	// 可选 viewer：登录用户用于 softDeleteVisibility 墓碑判定；匿名为零值。
-	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	viewer, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return err
 	}
@@ -790,7 +790,7 @@ func (h *Controller) replies(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	viewer, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return err
 	}

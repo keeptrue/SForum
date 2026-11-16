@@ -532,7 +532,9 @@ func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
 }
 
 func (h *Controller) optionalActor(c fiber.Ctx) (identity.Actor, error) {
-	return apphttp.OptionalActor(c, h.sessions, h.users)
+	// 附件的可见性完全由 actor 决定（匿名/属主/权限三档），读路径不能靠猜：
+	// 无凭据 → 零值 Actor（匿名档，一字不变）；C→401；D/E→503。
+	return apphttp.ReadActor(c, h.sessions, h.users)
 }
 
 func mapAttachmentError(err error) error {

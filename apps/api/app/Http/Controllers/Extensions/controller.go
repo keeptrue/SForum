@@ -830,7 +830,9 @@ func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
 }
 
 func (h *Controller) optionalActor(c fiber.Ctx) (identity.Actor, bool, error) {
-	actor, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	// 插件路由的 access 判定就建立在这个结果上（login / permission 直接 401/403），
+	// 所以主体解析失败必须先分类：C→401、D/E→503，不能 500 也不能悄悄当匿名。
+	actor, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return identity.Actor{}, false, err
 	}

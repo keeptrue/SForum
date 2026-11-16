@@ -68,6 +68,9 @@ attachmentByPublicID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 attachmentContent:
   get:
     summary: Download or render attachment content

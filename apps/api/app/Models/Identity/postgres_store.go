@@ -17,6 +17,13 @@ import (
 	store "github.com/keeptrue/sforum/apps/api/database/sqlc"
 )
 
+// ErrStoreUnavailable 标记「身份存储（PostgreSQL）不可用」，与 ErrUserNotFound 分开。
+//
+// 二者在上层的答案完全不同：用户不存在是「凭据指向的主体已经没了」→ 401；
+// 存储不可用是「现在没法回答」→ 503。把它们混成一个 401，等于用一次数据库抖动
+// 告诉调用方「你的登录无效」——这正是 OPS2-01 立下的「依赖故障 ≠ 身份问题」要禁的。
+var ErrStoreUnavailable = errors.New("identity: store unavailable")
+
 type PostgresStore struct {
 	pool                  *pgxpool.Pool
 	queries               *store.Queries
@@ -130,10 +137,18 @@ func (s *PostgresStore) GetCurrentUser(ctx context.Context, userID int64) (Curre
 		WHERE users.id = $1
 	`, userID))
 	if err != nil {
-		return CurrentUser{}, fmt.Errorf("get current user: %w", err)
+		// 用户行不存在是身份结论，不是依赖故障：Account 被删之后旧会话必须答 401，
+		// 不能答 503（重试永远没用）。scan 层的其它错误（连接中断、超时、协议/解码
+		// 失败、池耗尽）才是「现在没法回答」。
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CurrentUser{}, fmt.Errorf("get current user: %w", ErrUserNotFound)
+		}
+		return CurrentUser{}, fmt.Errorf("get current user: %w: %w", ErrStoreUnavailable, err)
 	}
 	if err := s.loadCurrentUserAccess(ctx, &current); err != nil {
-		return CurrentUser{}, err
+		// 角色/权限是同一台 PG 的后续读。失败说明依赖故障，而不是「权限被收回」——
+		// 后者应表现为查询成功但集合为空。
+		return CurrentUser{}, fmt.Errorf("%w: %w", ErrStoreUnavailable, err)
 	}
 	return current, nil
 }

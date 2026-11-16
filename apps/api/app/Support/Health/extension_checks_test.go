@@ -3,6 +3,7 @@ package health
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
@@ -79,5 +80,57 @@ func TestRequiredExtensionHealthCanFailReady(t *testing.T) {
 	)
 	if report.Ready || report.Status != "not_ready" {
 		t.Fatalf("expected not_ready, got %#v", report)
+	}
+}
+
+// 匿名 /ready 不回显插件运行时错误的原始文本：LastError 是插件进程启动失败的
+// err.Error() 原文，可能带制品路径 / 版本 / digest。探针只需要知道「这个组件失败了」。
+type fakeRuntimeWithError struct {
+	state     string
+	lastError string
+}
+
+func (f fakeRuntimeWithError) Status(context.Context, extensions.Extension) extensions.RuntimeStatus {
+	return extensions.RuntimeStatus{State: f.state, LastError: f.lastError}
+}
+
+func TestExtensionRuntimeHealthDoesNotEchoRawRuntimeError(t *testing.T) {
+	payload, _ := json.Marshal(extensionmanifest.HealthCheckContributionPayload{
+		Type: "extensionRuntime", Component: "plugin.secret.runtime", Required: false,
+	})
+	source := fakeContribs{items: []extensions.EffectiveContribution{
+		{ExtensionID: "secret.plugin", Point: extensionmanifest.PointSystemHealthChecks, ID: "rt", Payload: payload},
+	}}
+	digest := "d1e5" + "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd"
+	report := EvaluateWithExtensionContributions(
+		context.Background(),
+		[]Checker{FuncChecker{ComponentName: "postgres", IsRequired: true, Fn: func(context.Context) error { return nil }}},
+		source,
+		fakeRuntimeWithError{
+			state:     extensions.RuntimeFailed,
+			lastError: "fork/exec /app/storage/extensions/secret.plugin/1.2.3/" + digest + "/plugin: permission denied",
+		},
+	)
+	var component ComponentResult
+	for _, candidate := range report.Components {
+		if candidate.Name == "plugin.secret.runtime" {
+			component = candidate
+		}
+	}
+	if component.Name == "" {
+		t.Fatalf("runtime component missing: %#v", report.Components)
+	}
+	if component.Status != StatusError {
+		t.Fatalf("expected error status, got %q", component.Status)
+	}
+	if component.Error != "extension runtime reported a failure" {
+		t.Fatalf("anonymous readiness must carry a summary, got %q", component.Error)
+	}
+	serialized, err := json.Marshal(report)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(serialized), digest) || strings.Contains(string(serialized), "/app/storage/extensions") {
+		t.Fatalf("runtime error fingerprint leaked into readiness: %s", serialized)
 	}
 }

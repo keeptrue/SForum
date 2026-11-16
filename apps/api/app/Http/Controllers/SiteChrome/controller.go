@@ -99,7 +99,9 @@ func (h *Controller) publicNavItems(c fiber.Ctx) error {
 func (h *Controller) publicNavigation(c fiber.Ctx) error {
 	c.Set(fiber.HeaderCacheControl, "private, no-store")
 	c.Vary(fiber.HeaderCookie, fiber.HeaderAuthorization, fiber.HeaderAcceptLanguage)
-	actor, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	// 导航的可见集合随 actor 变化（受限入口只对有权者出现），所以主体解析失败
+	// 不能折成匿名：C→401、D/E→503，由 ReadActor 分类作答。
+	actor, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return err
 	}

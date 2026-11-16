@@ -988,3 +988,160 @@ func TestTouchSessionLastSeenThrottling(t *testing.T) {
 		t.Fatalf("expected 2 touch calls after 2 hours, got %d", touchedCount)
 	}
 }
+
+// revocationProbeStore 只改 IsSessionRevoked 的行为：用它分辨「目录说这个会话已下线」
+// 与「目录答不上来」——前者是确定的身份结论，后者是依赖故障。
+type revocationProbeStore struct {
+	*fakeSessionStore
+	revokeAll bool
+	err       error
+}
+
+func (s *revocationProbeStore) IsSessionRevoked(context.Context, int64, string) (bool, error) {
+	if s.err != nil {
+		return false, s.err
+	}
+	if s.revokeAll {
+		return true, nil
+	}
+	return false, nil
+}
+
+// TestCurrentUserIDSeparatesRevocationFromDirectoryFailure 钉住 B1 的正反两面：
+//   - 目录明确说「已下线」→ 匿名（ok=false, err=nil），这是既有身份语义；
+//   - 目录答不上来（PG/Redis 故障）→ ErrStoreUnavailable，让上层答 503，而不是把
+//     全体在线用户静默登出。
+func TestCurrentUserIDSeparatesRevocationFromDirectoryFailure(t *testing.T) {
+	cases := []struct {
+		name     string
+		store    *revocationProbeStore
+		wantAnon bool
+		wantDep  bool
+	}{
+		{
+			name:     "revoked session stays anonymous",
+			store:    &revocationProbeStore{fakeSessionStore: newFakeSessionStore(), revokeAll: true},
+			wantAnon: true,
+		},
+		{
+			name:    "directory failure is a dependency failure",
+			store:   &revocationProbeStore{fakeSessionStore: newFakeSessionStore(), err: errors.New("sessions table unavailable")},
+			wantDep: true,
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			manager := NewManager(session.NewStore(session.Config{IdleTimeout: time.Hour}), Config{
+				HashSecret: "test-secret", SessionStore: testCase.store,
+			})
+			app := fiber.New()
+			app.Post("/login", func(c fiber.Ctx) error {
+				pending, err := manager.Begin(c, 42)
+				if err != nil {
+					return err
+				}
+				pending.SetDeviceInfo(SessionRecordInput{UserID: 42, DeviceName: "Chrome"})
+				return pending.Save()
+			})
+			var (
+				gotID  int64
+				gotOK  bool
+				gotErr error
+			)
+			app.Get("/session", func(c fiber.Ctx) error {
+				gotID, gotOK, gotErr = manager.CurrentUserID(c)
+				return c.SendStatus(fiber.StatusOK)
+			})
+
+			loginResp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/login", nil))
+			if err != nil {
+				t.Fatalf("login: %v", err)
+			}
+			loginResp.Body.Close()
+			cookies := loginResp.Cookies()
+			if len(cookies) == 0 {
+				t.Fatal("expected a session cookie")
+			}
+			request := httptest.NewRequest(fiber.MethodGet, "/session", nil)
+			request.AddCookie(cookies[0])
+			response, err := app.Test(request)
+			if err != nil {
+				t.Fatalf("session: %v", err)
+			}
+			response.Body.Close()
+
+			switch {
+			case testCase.wantAnon:
+				if gotErr != nil || gotOK || gotID != 0 {
+					t.Fatalf("a revoked session must be anonymous, got id=%d ok=%t err=%v", gotID, gotOK, gotErr)
+				}
+			case testCase.wantDep:
+				if !errors.Is(gotErr, ErrStoreUnavailable) {
+					t.Fatalf("a directory failure must be ErrStoreUnavailable, got %v", gotErr)
+				}
+				if gotOK {
+					t.Fatalf("a dependency failure must not be reported as an authenticated session")
+				}
+				if !errors.Is(gotErr, testCase.store.err) {
+					t.Fatalf("the original directory error must stay in the chain, got %v", gotErr)
+				}
+			}
+		})
+	}
+}
+
+// TestCurrentUserIDReportsTokenVersionFailure 钉住令牌版本来源（users.current_token_version）
+// 的失败：它是依赖读，读不出来不能把已登录用户降级成匿名。
+func TestCurrentUserIDReportsTokenVersionFailure(t *testing.T) {
+	sourceErr := errors.New("users table unavailable")
+	// 登录（Start）也要读一次版本号来写进 payload：先让它成功，再把来源打成故障，
+	// 这样失败的正是「已登录会话的后续校验」这条路径。
+	sourceFailing := false
+	manager := NewManager(session.NewStore(session.Config{IdleTimeout: time.Hour}), Config{
+		HashSecret: "test-secret",
+		TokenVersion: func(context.Context, int64) (int64, error) {
+			if sourceFailing {
+				return 0, sourceErr
+			}
+			return 3, nil
+		},
+	})
+	app := fiber.New()
+	app.Post("/login", func(c fiber.Ctx) error {
+		_, err := manager.Start(c, 42)
+		return err
+	})
+	var (
+		gotOK  bool
+		gotErr error
+	)
+	app.Get("/session", func(c fiber.Ctx) error {
+		_, gotOK, gotErr = manager.CurrentUserID(c)
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	loginResp, err := app.Test(httptest.NewRequest(fiber.MethodPost, "/login", nil))
+	if err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	loginResp.Body.Close()
+	cookies := loginResp.Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("expected a session cookie")
+	}
+	sourceFailing = true
+	request := httptest.NewRequest(fiber.MethodGet, "/session", nil)
+	request.AddCookie(cookies[0])
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	response.Body.Close()
+
+	if !errors.Is(gotErr, ErrStoreUnavailable) || !errors.Is(gotErr, sourceErr) {
+		t.Fatalf("expected ErrStoreUnavailable wrapping the source error, got %v", gotErr)
+	}
+	if gotOK {
+		t.Fatal("a token version failure must not be reported as an authenticated session")
+	}
+}

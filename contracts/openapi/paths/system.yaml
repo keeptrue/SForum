@@ -19,6 +19,15 @@ ready:
       Dependency readiness. PostgreSQL is required (failure → 503).
       Redis failures are reported as component errors but the
       overall status remains ready with `status: degraded` (F1 policy).
+
+      The response is an anonymous **probe summary** only:
+      `status` / `ready` / `checkedAt` / `components` plus, in recovery-only
+      mode, `recovery.code` / `recovery.component` / `recovery.message`. The
+      recovery artifact list and publication revision are **not** part of this
+      response (they are operational fingerprints of the failed convergence
+      and are read out-of-band via `sforum extension recovery list --json`).
+      Recovery-only mode answers 503 with `ready: false`; ready and degraded
+      both answer 200, which is what deployment probes key on.
     operationId: getReady
     responses:
       '200':

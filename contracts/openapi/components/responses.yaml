@@ -41,7 +41,12 @@ PayloadTooLarge:
       schema:
         "$ref": "../schemas/common.yaml#/ApiErrorResponse"
 ServiceUnavailable:
-  description: A required backend service, provider slot, or storage provider is unavailable.
+  description: |
+    A required backend service, provider slot, or storage provider is
+    unavailable. Responses produced by the host dependency-failure path (for
+    example a session or identity store outage while resolving the caller)
+    also carry `Retry-After: 1` and reason `service.not_ready`: the answer is
+    "ask again shortly", never "your credentials are invalid".
   content:
     application/json:
       schema:

@@ -94,7 +94,7 @@ func (s *CitationService) WithToolCalls(reader ToolCallReader) *CitationService 
 // NULL AND categories.visibility='public'`，它在匿名与登录两种情形下返回同一
 // 结论。因此本方法不接收 viewer 参数（接收却不用是代码味道，读代码的人会以为
 // 这里本该有身份判断）。身份只在控制器层用于 `requireGuestRead` 与
-// `OptionalActor`（与 replies 同族），不参与引用可见性。
+// `ReadActor`（与 replies 同族），不参与引用可见性。
 //
 // 若将来出现「登录成员能看到 AI 在私密板块的依据」这种需求，那必须给
 // 主题级判定本身加 actor 维度（与公开读同一条改造），而不是在这里补一个分支。

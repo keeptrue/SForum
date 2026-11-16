@@ -2,8 +2,10 @@ package entitymetacontroller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,17 +16,21 @@ import (
 	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
+	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	authsession "github.com/keeptrue/sforum/apps/api/app/Support/AuthSession"
+	"github.com/keeptrue/sforum/apps/api/config"
 )
 
-// 用户名下没凭据、有凭据解析不出来，是两件不同的事：
-//   - 没有凭据 → 零值 Actor + 200 匿名视角；
-//   - 有凭据但会话/令牌解析失败 → 401。
+// 「拿不到主体」是三类不同的事，答案必须分开：
+//   - 没有凭据 / 凭据不可解析 → 零值 Actor + 200 匿名视角（B 在会话层已折成 A）；
+//   - 主体不存在或不可用     → 401 auth.required；
+//   - 会话或身份存储不可用   → 503 service.not_ready（不是 401，也不是 500）。
 //
-// 把后者吞掉（历史实现是 `actor, _ := h.optionalActor(c)`）会让一个带了失效会话的
-// 调用方按匿名可见集合读到元数据，即把「受限字段」读成「公开字段」。
-func TestReadActorKeepsAnonymousAndRejectsBrokenCredential(t *testing.T) {
+// 历史实现把这三类都写成 401：于是 Redis 抖动会被答成「你的登录无效」，运维去查权限
+// 而不是查依赖。反过来，把它吞成匿名（`actor, _ := h.optionalActor(c)`）会让带了失效
+// 会话的调用方按匿名可见集合读到元数据，把「受限字段」读成「公开字段」。
+func TestReadActorKeepsAnonymousAndClassifiesCredentialFailures(t *testing.T) {
 	anonymous := probeReadActor(t, &Controller{}, "")
 	if anonymous.err != nil {
 		t.Fatalf("requests without credentials must stay anonymous: %v", anonymous.err)
@@ -43,20 +49,45 @@ func TestReadActorKeepsAnonymousAndRejectsBrokenCredential(t *testing.T) {
 		t.Fatalf("expected resolved actor id %d, got %d", viewer.ID, signedIn.actor.ID)
 	}
 
-	broken := &Controller{
+	// D：会话存储不可用。这是依赖故障，不是身份结论。
+	downStore := &Controller{
 		sessions: newSessionManager(brokenSessionStore()),
 		users:    staticActorStore{actor: viewer},
 	}
-	if result := probeReadActor(t, broken, "sforum_session=stale-session-cookie"); !isUnauthorized(result.err) {
-		t.Fatalf("an unresolvable credential must fail closed with 401, got %v", result.err)
+	if result := probeReadActor(t, downStore, "sforum_session=stale-session-cookie"); !isDependencyFailure(result.err) {
+		t.Fatalf("a session store outage must answer 503, got %v", result.err)
+	}
+
+	// C：凭据指向的主体已经不存在。
+	missingSubject := &Controller{
+		sessions: newSessionManager(nil),
+		users:    erroringActorStore{err: identity.ErrUserNotFound},
+	}
+	if result := probeReadActor(t, missingSubject, loginCookie(t, missingSubject.sessions)); !isUnauthorized(result.err) {
+		t.Fatalf("a missing subject must answer 401, got %v", result.err)
+	}
+
+	// C：主体已解析但账号不可用（禁用）。
+	disabled := &Controller{
+		sessions: newSessionManager(nil),
+		users:    staticActorStore{actor: identity.Actor{ID: 7, Status: identity.UserStatusDisabled}},
+	}
+	if result := probeReadActor(t, disabled, loginCookie(t, disabled.sessions)); !isUnauthorized(result.err) {
+		t.Fatalf("a disabled subject must answer 401, got %v", result.err)
 	}
 }
 
-// handler 层证据：会话解析失败时必须在调用 service 之前就返回 401。
-// service 为 nil —— 只要 handler 继续往 service 走就会崩，所以 401 本身就证明
+// handler 层证据：依赖故障时必须在调用 service 之前就返回 503，且响应体是
+// `service.not_ready` + `Retry-After` —— 不是 200 匿名视图（那是静默降级），
+// 也不是 401（那会把依赖故障说成身份问题）。
+// service 为 nil —— 只要 handler 继续往 service 走就会崩，所以 503 本身就证明
 // 「没有降级成匿名读」。
-func TestListValuesShortCircuitsBeforeServiceWhenCredentialIsBroken(t *testing.T) {
-	app := fiber.New()
+func TestListValuesShortCircuitsBeforeServiceWhenTheSessionStoreIsDown(t *testing.T) {
+	// 用真实装配（而不是裸 fiber.New）：503 的 envelope 与 Retry-After 是宿主
+	// errorHandler 的职责，裸 app 只会把 typed error 变成 500。
+	app := apphttp.NewApp(config.Config{
+		AppName: "SForum", AppEnv: "test", AppLocale: "zh-CN", SupportedLocales: []string{"zh-CN"},
+	}, slog.Default(), apphttp.Dependencies{})
 	controller := &Controller{
 		sessions: newSessionManager(brokenSessionStore()),
 		users:    staticActorStore{actor: identity.Actor{ID: 7, Status: identity.UserStatusActive}},
@@ -71,13 +102,27 @@ func TestListValuesShortCircuitsBeforeServiceWhenCredentialIsBroken(t *testing.T
 	}
 	defer response.Body.Close()
 
-	if response.StatusCode != fiber.StatusUnauthorized {
-		t.Fatalf("expected 401 for a broken credential, got %d", response.StatusCode)
+	if response.StatusCode != fiber.StatusServiceUnavailable {
+		t.Fatalf("expected 503 for a session store outage, got %d", response.StatusCode)
 	}
-	// 裸 fiber app 没有宿主 errorHandler，401 的 message 就是传给 fiber.NewError 的
-	// reason 键；装配后的完整 envelope 由 http 层测试覆盖。
-	if body := readBody(t, response.Body); !strings.Contains(body, "auth.required") {
-		t.Fatalf("expected the auth.required reason, got %q", body)
+	if retryAfter := response.Header.Get(fiber.HeaderRetryAfter); retryAfter != "1" {
+		t.Fatalf("expected Retry-After: 1 on a dependency failure, got %q", retryAfter)
+	}
+	body := readBody(t, response.Body)
+	var envelope struct {
+		Code int `json:"code"`
+		Data struct {
+			Reason string `json:"reason"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(body), &envelope); err != nil {
+		t.Fatalf("decode envelope %q: %v", body, err)
+	}
+	if envelope.Code != fiber.StatusServiceUnavailable || envelope.Data.Reason != "service.not_ready" {
+		t.Fatalf("a dependency failure must be answered as service.not_ready, got %q", body)
+	}
+	if strings.Contains(body, "auth.required") {
+		t.Fatalf("a dependency failure must not be reported as an identity problem, got %q", body)
 	}
 }
 
@@ -175,6 +220,15 @@ func isUnauthorized(err error) bool {
 	return errors.As(err, &fiberErr) && fiberErr.Code == fiber.StatusUnauthorized
 }
 
+// isDependencyFailure 判定「依赖故障」类错误：底层哨兵必须仍在错误链上
+// （HTTP 层只包装、不改写原因）。用它而不是断言某个具体错误类型，是为了让
+// 判据落在语义上：只要原始依赖错误可见，就是依赖故障。
+func isDependencyFailure(err error) bool {
+	return err != nil && (errors.Is(err, authsession.ErrStoreUnavailable) ||
+		errors.Is(err, identity.ErrStoreUnavailable) ||
+		errors.Is(err, errSessionStoreDown))
+}
+
 func readBody(t *testing.T, body io.Reader) string {
 	t.Helper()
 	raw, err := io.ReadAll(body)
@@ -188,6 +242,12 @@ type staticActorStore struct{ actor identity.Actor }
 
 func (s staticActorStore) LoadActor(context.Context, int64) (identity.Actor, error) {
 	return s.actor, nil
+}
+
+type erroringActorStore struct{ err error }
+
+func (s erroringActorStore) LoadActor(context.Context, int64) (identity.Actor, error) {
+	return identity.Actor{}, s.err
 }
 
 // failingStorage 模拟 Redis 整体不可用：Get 直接报错，正是「会话解析失败」的成因。
@@ -214,3 +274,78 @@ func (s failingStorage) ResetWithContext(context.Context) error { return s.err }
 func (s failingStorage) Reset() error { return s.err }
 
 func (s failingStorage) Close() error { return nil }
+
+// 写路径与私密读路径共用同一个 actor 门（UpsertValues 等）：无凭据必须 401，
+// 依赖故障必须 503 —— 两条答案不能互换，也不能都变成 500。
+func TestRequireActorGateOnWritePaths(t *testing.T) {
+	t.Run("anonymous is rejected as 401 not 503", func(t *testing.T) {
+		controller := &Controller{sessions: newSessionManager(nil), users: staticActorStore{}}
+		response := probeActorGate(t, controller, "")
+		defer response.Body.Close()
+		if response.StatusCode != fiber.StatusUnauthorized {
+			t.Fatalf("expected 401 for an anonymous write, got %d", response.StatusCode)
+		}
+		body := readBody(t, response.Body)
+		if !strings.Contains(body, "auth.required") {
+			t.Fatalf("expected auth.required, got %q", body)
+		}
+		if strings.Contains(body, "service.not_ready") {
+			t.Fatalf("an anonymous request must not be reported as a dependency failure: %q", body)
+		}
+	})
+
+	t.Run("dependency failure is 503 not 401", func(t *testing.T) {
+		controller := &Controller{
+			sessions: newSessionManager(brokenSessionStore()),
+			users:    staticActorStore{actor: identity.Actor{ID: 7, Status: identity.UserStatusActive}},
+		}
+		response := probeActorGate(t, controller, "sforum_session=stale-session-cookie")
+		defer response.Body.Close()
+		if response.StatusCode != fiber.StatusServiceUnavailable {
+			t.Fatalf("expected 503 for a session store outage, got %d", response.StatusCode)
+		}
+		if got := response.Header.Get(fiber.HeaderRetryAfter); got != "1" {
+			t.Fatalf("expected Retry-After: 1, got %q", got)
+		}
+		body := readBody(t, response.Body)
+		if !strings.Contains(body, "service.not_ready") || strings.Contains(body, "auth.required") {
+			t.Fatalf("expected service.not_ready and no identity claim, got %q", body)
+		}
+	})
+
+	t.Run("missing subject is 401", func(t *testing.T) {
+		controller := &Controller{
+			sessions: newSessionManager(nil),
+			users:    erroringActorStore{err: identity.ErrUserNotFound},
+		}
+		response := probeActorGate(t, controller, loginCookie(t, controller.sessions))
+		defer response.Body.Close()
+		if response.StatusCode != fiber.StatusUnauthorized {
+			t.Fatalf("expected 401 for a missing subject, got %d", response.StatusCode)
+		}
+	})
+}
+
+// probeActorGate 用真实装配打一个只走 actor 门的探针端点。
+func probeActorGate(t *testing.T, controller *Controller, cookie string) *http.Response {
+	t.Helper()
+	app := apphttp.NewApp(config.Config{
+		AppName: "SForum", AppEnv: "test", AppLocale: "zh-CN", SupportedLocales: []string{"zh-CN"},
+	}, slog.Default(), apphttp.Dependencies{})
+	app.Get("/probe", func(c fiber.Ctx) error {
+		_, err := controller.actor(c)
+		if err != nil {
+			return err
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodGet, "/probe", nil)
+	if cookie != "" {
+		request.Header.Set(fiber.HeaderCookie, cookie)
+	}
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("probe request: %v", err)
+	}
+	return response
+}

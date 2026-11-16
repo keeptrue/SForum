@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	badges "github.com/keeptrue/sforum/apps/api/app/Models/Badges"
+	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	"github.com/keeptrue/sforum/apps/api/app/Support/RuleEngine"
 )
 
@@ -290,5 +291,31 @@ func TestRecomputeResponseCarriesAllCounters(t *testing.T) {
 		if got[key] != value {
 			t.Fatalf("%s = %d，want %d（完整响应 %v）", key, got[key], value, got)
 		}
+	}
+}
+
+// 公开目录/徽章墙的 viewer 解析：无主体是世界本来的样子（零值 + ok=false），
+// 而依赖故障与主体不可用必须上抛 —— 否则一次 Redis 抖动会被渲染成「你没有徽章」。
+func TestViewerSeparatesAnonymousFromFailure(t *testing.T) {
+	anonymous := &Controller{loadActor: func(fiber.Ctx) (identity.Actor, error) {
+		return identity.Actor{}, nil
+	}}
+	if actor, ok, err := anonymous.viewer(nil); err != nil || ok || actor.ID != 0 {
+		t.Fatalf("anonymous viewer = %#v ok=%t err=%v", actor, ok, err)
+	}
+
+	authenticated := &Controller{loadActor: func(fiber.Ctx) (identity.Actor, error) {
+		return identity.Actor{ID: 7, Status: identity.UserStatusActive}, nil
+	}}
+	if actor, ok, err := authenticated.viewer(nil); err != nil || !ok || actor.ID != 7 {
+		t.Fatalf("authenticated viewer = %#v ok=%t err=%v", actor, ok, err)
+	}
+
+	dependency := errors.New("actor store unavailable")
+	broken := &Controller{loadActor: func(fiber.Ctx) (identity.Actor, error) {
+		return identity.Actor{}, dependency
+	}}
+	if _, ok, err := broken.viewer(nil); ok || !errors.Is(err, dependency) {
+		t.Fatalf("a dependency failure must be propagated, got ok=%t err=%v", ok, err)
 	}
 }

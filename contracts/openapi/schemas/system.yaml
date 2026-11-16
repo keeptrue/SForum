@@ -88,6 +88,7 @@ Ready:
   - ready
   - checkedAt
   - components
+  additionalProperties: false
   properties:
     status:
       type: string
@@ -115,10 +116,19 @@ Ready:
 ReadyRecovery:
   type: object
   description: |
-    Host-owned recovery-only boot requirement. Immutable after bootstrap; it
-    never changes extension lifecycle authority.
+    Anonymous summary of the Host-owned recovery-only boot requirement.
+    Immutable after bootstrap; it never changes extension lifecycle authority.
+
+    This is deliberately a **summary only**: the exact artifact set
+    (`extensionId` / `version` / `digest`) and the publication revision are
+    operational fingerprints of what failed to converge, so they are not
+    exposed to unauthenticated callers (RV-05b). Operators read them
+    out-of-band from durable rows instead: `sforum extension recovery list
+    --json` and `sforum extension recovery recheck --reason "<why>"`; the boot
+    log records the failing revision and the artifact count.
   required:
   - code
+  additionalProperties: false
   properties:
     code:
       type: string
@@ -131,32 +141,13 @@ ReadyRecovery:
     message:
       type: string
       description: Operator-facing explanation; also used as that component's `error`.
-    publicationRevision:
-      type: integer
-      format: int64
-      minimum: 0
-      description: Process-local theme publication revision the boot stopped at; omitted when unknown.
-    artifacts:
-      type: array
-      items:
-        "$ref": "#/ReadyRecoveryArtifact"
-      description: Exact artifacts the recovery boot could not converge.
-ReadyRecoveryArtifact:
-  type: object
-  required:
-  - extensionId
-  - version
-  - digest
-  properties:
-    extensionId: { type: string }
-    version: { type: string }
-    digest: { type: string }
 ReadyComponent:
   type: object
   required:
   - name
   - status
   - required
+  additionalProperties: false
   properties:
     name:
       type: string

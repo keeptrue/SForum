@@ -906,6 +906,9 @@ topicByID:
         description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required），判定早于主题查找与浏览计数；forum.guest.read=public 时详情对匿名开放。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   patch:
     summary: Update a topic's title, category, tags, or content
     operationId: updateTopic
@@ -1005,6 +1008,9 @@ topicBySlug:
         description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。slug 寻址与 topicID 寻址同口径，不能成为绕过游客读策略的旁路。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 topicContributionTimeline:
   get:
     summary: List public topic contribution timeline
@@ -1353,6 +1359,9 @@ topicComments:
         description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时评论列表对匿名开放。view/page/after 都不影响游客读判定。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   post:
     summary: Create a topic comment
     operationId: createTopicComment
@@ -1434,6 +1443,9 @@ commentReplies:
         description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）；forum.guest.read=public 时直接回复对匿名开放。与主题详情、评论列表保持同一边界。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 commentCitations:
   get:
     summary: List an AI reply's activity (citations and tool calls)
@@ -1473,6 +1485,9 @@ commentCitations:
         description: 条件性 401：forum.guest.read=login_required 时匿名请求被 requireGuestRead 拒绝（reason forum.guest_login_required）。本接口与评论回复列表同族、同一边界；forum.guest.read=public 时匿名可读。
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 commentRevisions:
   get:
     summary: List comment revision summaries

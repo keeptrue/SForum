@@ -55,8 +55,21 @@ func LoadActor(c fiber.Ctx, sessions *authsession.Manager, users identity.ActorS
 }
 
 // OptionalActor 解析可选登录主体：匿名返回零值 Actor；PAT 同样按 scopes 收窄。
+//
+// 它保留原样返回 error 的语义，供「拿不到 viewer 就按 guest 渲染」的调用方使用
+// （Page Registry 的渲染 fallback）。公开读端点与写路径不要用它去猜 error 的含义：
+// error 里混着「凭据指向的主体没了」与「Redis/PG 现在答不上来」两件事，前者该 401、
+// 后者该 503。用 ReadActor / RequireActor（auth_read.go）分类，否则就是本轮修掉的
+// B1 缺陷本身。
+//
+// 依赖故障在这里留一条限频日志：它的现存调用方都会把 error 吞成 guest 渲染，
+// 若不在这一层记录，一次 Redis 抖动会让全站个性化静默消失且没有任何证据。
 func OptionalActor(c fiber.Ctx, sessions *authsession.Manager, users identity.ActorStore) (identity.Actor, error) {
-	return optionalActor(c, sessions, users, false)
+	actor, err := optionalActor(c, sessions, users, false)
+	if err != nil {
+		LogActorDependency(c, err)
+	}
+	return actor, err
 }
 
 // OptionalActorWithoutRenewal is restricted to Host-owned security recovery

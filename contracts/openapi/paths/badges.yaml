@@ -76,6 +76,9 @@ adminBadges:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   post:
     summary: Create a badge definition
     operationId: adminCreateBadge
@@ -119,6 +122,9 @@ adminBadges:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeByID:
   patch:
     summary: Update a badge definition
@@ -164,6 +170,9 @@ adminBadgeByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   delete:
     summary: Delete a badge definition
     operationId: adminDeleteBadge
@@ -188,6 +197,9 @@ adminBadgeByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeGroups:
   get:
     summary: List badge groups for admin management
@@ -205,6 +217,9 @@ adminBadgeGroups:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   post:
     summary: Create a badge group
     operationId: adminCreateBadgeGroup
@@ -234,6 +249,9 @@ adminBadgeGroups:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeGroupByID:
   patch:
     summary: Update a badge group
@@ -271,6 +289,9 @@ adminBadgeGroupByID:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   delete:
     summary: Delete a badge group
     operationId: adminDeleteBadgeGroup
@@ -292,6 +313,9 @@ adminBadgeGroupByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeGrants:
   get:
     summary: List grant records for a badge
@@ -331,6 +355,9 @@ adminBadgeGrants:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   post:
     summary: Grant a badge to a user
     operationId: adminCreateBadgeGrant
@@ -375,6 +402,9 @@ adminBadgeGrants:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeGrantByUser:
   delete:
     summary: Revoke a granted badge from a user
@@ -410,6 +440,9 @@ adminBadgeGrantByUser:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgesRecompute:
   post:
     summary: Recompute automatic badges for every user
@@ -570,6 +603,9 @@ badgeWorn:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   put:
     tags: [Badges]
     summary: Wear one of the current user's own badges, or hide the slot entirely
@@ -650,6 +686,9 @@ badgeWorn:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   delete:
     tags: [Badges]
     summary: Clear the current user's worn badge and fall back to automatic
@@ -688,6 +727,9 @@ badgeWorn:
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
 
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 # --- Badge tiers (/admin/badges/tiers, /badges/tiers) ---
 #
 # 等级表把 tier 从「写死枚举」升级为运营数据。读走 `badge.view`、写走 `badge.manage`。
@@ -720,6 +762,9 @@ adminBadgeTiers:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   post:
     summary: Create a badge tier
     operationId: adminCreateBadgeTier
@@ -756,6 +801,9 @@ adminBadgeTiers:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeTierByKey:
   patch:
     summary: Update a badge tier
@@ -796,6 +844,9 @@ adminBadgeTierByKey:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   delete:
     summary: Delete a badge tier
     operationId: adminDeleteBadgeTier
@@ -846,6 +897,9 @@ adminBadgeTierByKey:
         "$ref": "../components/responses.yaml#/Conflict"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeTierOrder:
   put:
     summary: Reorder badge tiers
@@ -879,6 +933,9 @@ adminBadgeTierOrder:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeGrantCandidates:
   get:
     summary: Search users eligible for a manual badge grant
@@ -928,6 +985,9 @@ adminBadgeGrantCandidates:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminBadgeGrantsBatch:
   post:
     summary: Grant a manual badge to several users at once
@@ -968,6 +1028,9 @@ adminBadgeGrantsBatch:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 publicBadgeTiers:
   get:
     summary: List badge tiers for public rendering

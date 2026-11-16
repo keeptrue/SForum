@@ -63,7 +63,7 @@ type Controller struct {
 	// 生产由 NewController 直接接上 service（Service 委托给 PostgresStore）；
 	// 测试用 WithBadgeWearer 注入窄假实现，不必造出整个 Store。
 	wear badges.WearStore
-	// loadActor 是可选主体解析的测试缝；生产装配留空，走 apphttp.OptionalActor。
+	// loadActor 是可选主体解析的测试缝；生产装配留空，走 apphttp.ReadActor。
 	loadActor func(c fiber.Ctx) (identity.Actor, error)
 }
 
@@ -172,7 +172,9 @@ func (h *Controller) actor(c fiber.Ctx) (identity.Actor, error) {
 		}
 		return actor, nil
 	}
-	actor, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	// 后台端点：未登录必须 401，但「解析不出来」要先分类——主体不存在 → 401，
+	// 会话/身份存储不可用 → 503。旧实现把所有 error 原样上抛，Redis 抖动时是 500。
+	actor, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
 		return identity.Actor{}, err
 	}
@@ -225,7 +227,11 @@ func (h *Controller) publicCatalog(c fiber.Ctx) error {
 	}
 	var earned map[string]struct{}
 	var progress map[string]badges.BadgeProgress
-	if actor, ok := h.viewer(c); ok {
+	actor, hasViewer, err := h.viewer(c)
+	if err != nil {
+		return err
+	}
+	if hasViewer {
 		earned, err = reader.EarnedBadgeSlugs(c.Context(), actor.ID)
 		if err != nil {
 			return mapBadgeError(err)
@@ -239,20 +245,28 @@ func (h *Controller) publicCatalog(c fiber.Ctx) error {
 	return apphttp.OK(c, toPublicCatalog(catalog, earned, progress))
 }
 
-// viewer 解析可选登录主体。匿名、会话失效、坏 token 一律按匿名处理：
-// 公开读不该因为一个过期 cookie 变成 401（与 TrustLevels 公开面同口径）。
-func (h *Controller) viewer(c fiber.Ctx) (identity.Actor, bool) {
+// viewer 解析可选登录主体。
+//
+// 「匿名、会话失效、坏 token 一律按匿名处理」这句话只对**确定的无主体**成立：
+// 会话层把失效会话折成 (0,false,nil)（manager.go:330/341/364），那一支到这里就是
+// 零值 Actor + nil，公开目录照旧 200 —— 公开读不该因为一个过期 cookie 变成 401。
+// 但依赖故障（会话/身份存储不可用）与主体不可用不是「无主体」：前者 503、后者 401，
+// 必须上抛，否则一次 Redis 抖动会被渲染成「你没有徽章」。
+func (h *Controller) viewer(c fiber.Ctx) (identity.Actor, bool, error) {
 	load := h.loadActor
 	if load == nil {
 		load = func(c fiber.Ctx) (identity.Actor, error) {
-			return apphttp.OptionalActor(c, h.sessions, h.users)
+			return apphttp.ReadActor(c, h.sessions, h.users)
 		}
 	}
 	actor, err := load(c)
-	if err != nil || actor.ID <= 0 {
-		return identity.Actor{}, false
+	if err != nil {
+		return identity.Actor{}, false, err
 	}
-	return actor, true
+	if actor.ID <= 0 {
+		return identity.Actor{}, false, nil
+	}
+	return actor, true, nil
 }
 
 func (h *Controller) resolveProfileUser(ctx context.Context, username string) (int64, error) {

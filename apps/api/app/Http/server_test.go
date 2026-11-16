@@ -404,7 +404,9 @@ func TestRecoveryOnlyModeExposesOnlyHostHealthAndReadiness(t *testing.T) {
 		}
 	}
 
-	// /ready 是运维探针：仍然返回结构化就绪报告（含制品清单），但 ready=false。
+	// /ready 是匿名探针：恢复态回 503 + ready=false + 人读三元组，但**不再**回制品
+	// 清单与发布版本（RV-05b：此前这扇窗把 RV-05 要挡的那份清单原样吐给公网）。
+	// 这里做内容级断言而不是「只查 503」：弱化成状态码会让这条回归重新漏过去。
 	readyResp, err := app.Test(httptest.NewRequest(nethttp.MethodGet, "/api/v1/ready", nil))
 	if err != nil {
 		t.Fatal(err)
@@ -417,8 +419,106 @@ func TestRecoveryOnlyModeExposesOnlyHostHealthAndReadiness(t *testing.T) {
 	if readyResp.StatusCode != nethttp.StatusServiceUnavailable {
 		t.Fatalf("ready status=%d", readyResp.StatusCode)
 	}
-	if !strings.Contains(string(readyBody), "demo.secret.plugin") {
-		t.Fatalf("readiness probe lost the recovery artifact list: %s", readyBody)
+	var readyEnvelope struct {
+		Code int                        `json:"code"`
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(readyBody, &readyEnvelope); err != nil {
+		t.Fatalf("decode readiness envelope: %v (%s)", err, readyBody)
+	}
+	if readyEnvelope.Code != nethttp.StatusServiceUnavailable {
+		t.Fatalf("readiness envelope code=%d", readyEnvelope.Code)
+	}
+	var readyFlag bool
+	if err := json.Unmarshal(readyEnvelope.Data["ready"], &readyFlag); err != nil || readyFlag {
+		t.Fatalf("expected ready=false in recovery, got %s", readyEnvelope.Data["ready"])
+	}
+	var statusFlag string
+	if err := json.Unmarshal(readyEnvelope.Data["status"], &statusFlag); err != nil || statusFlag != "not_ready" {
+		t.Fatalf("expected status=not_ready, got %s", readyEnvelope.Data["status"])
+	}
+	// 探针摘要仍在：components 是既有契约（依赖名/状态/耗时）。
+	var components []map[string]any
+	if err := json.Unmarshal(readyEnvelope.Data["components"], &components); err != nil || len(components) == 0 {
+		t.Fatalf("readiness probe lost its component summary: %s", readyEnvelope.Data["components"])
+	}
+	// 恢复态的三元组仍在（人读诊断），但只到这里。
+	var recoveryView map[string]json.RawMessage
+	if err := json.Unmarshal(readyEnvelope.Data["recovery"], &recoveryView); err != nil {
+		t.Fatalf("readiness probe lost the recovery summary: %v", err)
+	}
+	if string(recoveryView["code"]) != `"`+health.PluginRuntimeRecoveryCode+`"` ||
+		string(recoveryView["component"]) != `"plugin_runtime"` ||
+		string(recoveryView["message"]) != `"stage failed"` {
+		t.Fatalf("recovery summary=%s", readyEnvelope.Data["recovery"])
+	}
+	// 关键断言：这两个 key 是**不存在**，而不是为空值。
+	for _, key := range []string{"artifacts", "publicationRevision"} {
+		if _, ok := recoveryView[key]; ok {
+			t.Fatalf("anonymous /ready still exposes recovery.%s: %s", key, readyEnvelope.Data["recovery"])
+		}
+		if _, ok := readyEnvelope.Data[key]; ok {
+			t.Fatalf("anonymous /ready still exposes data.%s", key)
+		}
+	}
+	for _, value := range forbidden {
+		if strings.Contains(string(readyBody), value) {
+			t.Fatalf("anonymous /ready leaked %q: %s", value, readyBody)
+		}
+	}
+}
+
+// 与 recovery 相邻的边界：没进恢复态时，就绪/降级都必须是 200 —— 探针按状态码
+// 判活，部署脚本（compose / wait-for-health / upgrade / release-smoke）只吃状态码，
+// 所以「脱字段」不能顺手把 200 也改掉。
+func TestReadyEndpointKeeps200ForReadyAndDegraded(t *testing.T) {
+	cases := []struct {
+		name   string
+		report health.ReadyReport
+	}{
+		{
+			name: "ready",
+			report: health.ReadyReport{
+				Status: "ready", Ready: true, CheckedAt: time.Now().UTC(),
+				Components: []health.ComponentResult{{Name: "postgres", Status: health.StatusOK, Required: true}},
+			},
+		},
+		{
+			name: "degraded optional dependency",
+			report: health.ReadyReport{
+				Status: "ready", Ready: true, CheckedAt: time.Now().UTC(),
+				Components: []health.ComponentResult{
+					{Name: "postgres", Status: health.StatusOK, Required: true},
+					{Name: "redis", Status: health.StatusError, Error: "down"},
+				},
+			},
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			cfg := config.Config{AppName: "SForum", AppEnv: "test", AppLocale: "zh-CN", SupportedLocales: []string{"zh-CN"}}
+			app := apphttp.NewApp(cfg, slog.Default(), apphttp.Dependencies{
+				Ready: func(context.Context) health.ReadyReport { return testCase.report },
+			})
+			resp, err := app.Test(httptest.NewRequest(nethttp.MethodGet, "/api/v1/ready", nil))
+			if err != nil {
+				t.Fatalf("ready request: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != nethttp.StatusOK {
+				t.Fatalf("status=%d", resp.StatusCode)
+			}
+			var body apiEnvelope[map[string]json.RawMessage]
+			if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if string(body.Data["status"]) != `"ready"` {
+				t.Fatalf("status=%s", body.Data["status"])
+			}
+			if _, ok := body.Data["recovery"]; ok {
+				t.Fatalf("a healthy probe must not carry a recovery block: %s", body.Data["recovery"])
+			}
+		})
 	}
 }
 

@@ -3,7 +3,6 @@ package profilecontroller
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
@@ -59,12 +58,13 @@ func (h *Controller) publicProfile(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	// 公开页不因登录态异常失败：会话存储抖动、账号已删除等情况降级为匿名视角，
-	// 只丢失「受限扩展 tab」，不影响资料页本身。
-	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	// viewer 只决定「受限扩展 tab 出不出现」，但这不等于可以把依赖故障当成「你没登录」。
+	// 旧实现是 slog.Warn + 匿名 200，于是 Redis/PG 抖动被翻译成一次静默降级：调用方
+	// 看不到 503，探针也看不到。分类后：无凭据仍是零值 Actor + 200（一字不变）；
+	// 主体不存在/不可用 → 401；会话或身份存储不可用 → 503 service.not_ready。
+	viewer, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
-		slog.Warn("profile: optional actor resolve failed, serving anonymous view", "error", err)
-		viewer = identity.Actor{}
+		return err
 	}
 	data, err := h.service.GetPublicProfileForViewer(c.Context(), c.Params("username"), viewer)
 	if err != nil {

@@ -340,7 +340,10 @@ func (m *Manager) currentUserID(c fiber.Ctx, refresh bool) (int64, bool, error) 
 	if m.tokenVersion != nil {
 		currentVersion, err := m.tokenVersion(c.Context(), userID)
 		if err != nil {
-			return 0, false, nil
+			// 版本号是一次依赖读（users.current_token_version）。读不出来时**不能**
+			// 把已登录用户降级成匿名：一次 PG 抖动就会把全体在线用户静默登出，
+			// 而「匿名」对调用方是「你本来就没登录」的确定结论——两者必须分开。
+			return 0, false, fmt.Errorf("%w: %w", ErrStoreUnavailable, err)
 		}
 		if sessionVersion != currentVersion {
 			return 0, false, nil
@@ -351,7 +354,12 @@ func (m *Manager) currentUserID(c fiber.Ctx, refresh bool) (int64, bool, error) 
 	// 视为未登录，实现「被下线设备在下次请求即失效」。
 	if m.sessions != nil && sid != "" {
 		revoked, err := m.sessions.IsSessionRevoked(c.Context(), userID, sid)
-		if err != nil || revoked {
+		if err != nil {
+			// 查不到撤销状态 ≠ 已撤销：前者是会话目录（PG/Redis）不可用，后者才是
+			// 确定的身份结论。只有后者可以折成匿名。
+			return 0, false, fmt.Errorf("%w: %w", ErrStoreUnavailable, err)
+		}
+		if revoked {
 			return 0, false, nil
 		}
 	}

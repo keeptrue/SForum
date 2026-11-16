@@ -36,6 +36,9 @@ siteNavigation:
             schema:
               "$ref": "../schemas/site_chrome.yaml#/ApiResponseSiteResolvedNavigation"
 
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 siteAccountNavigation:
   get:
     summary: Resolve authenticated personal settings navigation

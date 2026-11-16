@@ -1,13 +1,11 @@
 package profilecontroller
 
 import (
-	"log/slog"
 	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 
 	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
-	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 )
 
 // 收藏名单 HTTP 层：公开资料页名单（他人只见公开行）与本人名单（含私密行）。
@@ -26,11 +24,12 @@ func (h *Controller) publicBookmarks(c fiber.Ctx) error {
 	if err := h.requireGuestRead(c); err != nil {
 		return err
 	}
-	// 与 publicProfile 同姿态：会话抖动降级为匿名视角，而不是让公开页 500。
-	viewer, err := apphttp.OptionalActor(c, h.sessions, h.users)
+	// 与 publicProfile 同姿态、同一套分类：匿名 200 只属于「本来就没凭据」，
+	// 依赖故障答 503、主体不可用答 401。旧实现的降级同时也是权限语义问题——
+	// 行主本人的私密行会因为一次 Redis 抖动而从「我的名单」里消失。
+	viewer, err := apphttp.ReadActor(c, h.sessions, h.users)
 	if err != nil {
-		slog.Warn("profile: optional actor resolve failed, serving anonymous bookmarks", "error", err)
-		viewer = identity.Actor{}
+		return err
 	}
 	view, err := h.service.ListProfileBookmarks(c.Context(), c.Params("username"), viewer, profileQueryInt(c, "page"), profileQueryInt(c, "perPage"))
 	if err != nil {

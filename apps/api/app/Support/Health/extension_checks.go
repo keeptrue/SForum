@@ -80,8 +80,15 @@ func AppendExtensionHealthComponents(
 				ext := extensions.Extension{ID: contribution.ExtensionID}
 				status := runtimes.Status(ctx, ext)
 				result.Status = mapRuntimeState(status.State)
+				// 只报「这个组件失败了」，不回显插件的原始错误文本。
+				//
+				// 为什么：LastError 是插件进程启动失败的 err.Error() 原文
+				// （Extensions/manager.go:375/512、manager_runtime_instances.go:491/497），
+				// 里面可能带制品路径 / 版本 / digest / 信任拒绝细节。而 /ready 是匿名
+				// 端点（RV-05b 同类），探针只需要知道组件状态，不需要指纹。原始文本仍可
+				// 经认证的管理面（扩展运行时状态）与日志取得。
 				if status.LastError != "" && result.Status != StatusOK {
-					result.Error = status.LastError
+					result.Error = "extension runtime reported a failure"
 				}
 			}
 		default:

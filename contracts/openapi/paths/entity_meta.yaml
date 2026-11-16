@@ -46,6 +46,9 @@ entityMetaValues:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   put:
     summary: Upsert entity meta values
     operationId: upsertEntityMetaValues
@@ -83,6 +86,9 @@ entityMetaValues:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminEntityMetaDefinitions:
   get:
     summary: List all field definitions (admin)
@@ -105,6 +111,9 @@ adminEntityMetaDefinitions:
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
         "$ref": "../components/responses.yaml#/Forbidden"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   post:
     summary: Create a field definition
     operationId: adminCreateEntityMetaDefinition
@@ -127,6 +136,9 @@ adminEntityMetaDefinitions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
 adminEntityMetaDefinitionByKey:
   patch:
     summary: Update a field definition
@@ -158,6 +170,9 @@ adminEntityMetaDefinitionByKey:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+
   delete:
     summary: Delete a field definition and its values
     operationId: adminDeleteEntityMetaDefinition
@@ -176,3 +191,6 @@ adminEntityMetaDefinitionByKey:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"

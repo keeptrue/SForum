@@ -14,7 +14,14 @@ func errorHandler(logger *slog.Logger) fiber.ErrorHandler {
 		// limiter 把 storage 故障原样上抛。它既不是 500（服务端代码没错），更不是
 		// 403（不是权限问题）：依赖不可用 → 503 + Retry-After。
 		if cause, ok := storageFailureCause(err); ok {
-			storage.warn(c, cause)
+			storage.warn(c, "api middleware storage unavailable: reads pass through, unsafe requests fail closed", cause)
+			return storageUnavailable(c)
+		}
+		// 读路径的主体解析把「依赖故障」与「凭据问题」分开之后，D/E 两类走的是
+		// 同一条出口：503 + Retry-After + 复用 service.not_ready（不新增错误码）。
+		// 日志与 Page Registry 的 guest 回退共用进程级限频器，避免两处各刷一份。
+		if cause, ok := readPathDependencyCause(err); ok {
+			LogActorDependency(c, cause)
 			return storageUnavailable(c)
 		}
 
