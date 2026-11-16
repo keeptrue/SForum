@@ -188,8 +188,11 @@ export function isSanitizedDerivedAccessor(source: string, expression: string): 
   }
 
   const setCalls = cacheBody.match(/\.set\(/g)?.length ?? 0
+  // 值参数必须**就是**净化调用本身：`sanitizeHtml(x)` 后面只允许空白再收 .set 的右括号。
+  // 括号内允许一到两层嵌套，因此 `+ 原始值` / `|| 原始值` / 三元拼接都算「拼出来的串」，
+  // 不计入 sanitizedSets —— 棘轮保证的是「渲染的就是净化值本身」，不是「表达式里出现过净化」。
   const sanitizedSets = cacheBody
-    .match(/\.set\(\s*[^,]+,\s*sanitizeHtml\(\s*[^'"`\s][^)]*\)/g)?.length ?? 0
+    .match(/\.set\(\s*[^,]+,\s*sanitizeHtml\(\s*[^'"`\s](?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\)/g)?.length ?? 0
   if (setCalls === 0 || sanitizedSets !== setCalls) {
     return false
   }
@@ -387,6 +390,16 @@ describe('v-html 二次净化棘轮', () => {
       '})'
     ].join('\n')
     expect(isSanitizedDerivedAccessor(duplicateCache, 'sanitizedBodyHTMLOf(item)')).toBe(false)
+
+    // ⑤ 净化值后面拼接原文（真实会发生的改动：净化正文 + 拼一段标题/href）→ 不成立
+    for (const tail of [' + bodyHTMLOf(item)', ' || bodyHTMLOf(item)', " + `<a href=\"${item.href}\">`"]) {
+      const concatenated = source.replace(
+        'sanitizeHtml(bodyHTMLOf(item))',
+        `sanitizeHtml(bodyHTMLOf(item))${tail}`
+      )
+      expect(concatenated).not.toBe(source)
+      expect(isSanitizedDerivedAccessor(concatenated, 'sanitizedBodyHTMLOf(item)')).toBe(false)
+    }
   })
 
   test('白名单校验：弱证据必须不成立（绕过路径本身被覆盖）', () => {
