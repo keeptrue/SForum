@@ -18,6 +18,10 @@ import (
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
+// identityActorHoldsPermissionMigrationVersion 是 R8-BE-06 授权不变量引入的
+// extension_identity_actor_holds_permission；批准路径没有它会直接报函数不存在。
+const identityActorHoldsPermissionMigrationVersion = int64(202611170001)
+
 type identityRegistryStoreFixture struct {
 	t       *testing.T
 	ctx     context.Context
@@ -246,7 +250,12 @@ func applyIdentityRegistryOwnershipMigration(ctx context.Context, db *sql.DB) er
 	if _, err = provider.ApplyVersion(ctx, extensionPermissionLocalizationMigrationVersion, true); err != nil {
 		return err
 	}
-	_, err = provider.ApplyVersion(ctx, identityStaleRoleSuggestionRejectionMigrationVersion, true)
+	if _, err = provider.ApplyVersion(ctx, identityStaleRoleSuggestionRejectionMigrationVersion, true); err != nil {
+		return err
+	}
+	// 批准路径现在依赖 extension_identity_actor_holds_permission（R8-BE-06），
+	// 走 DecideRoleSuggestion 的夹具必须先把它装上，否则查询会报函数不存在。
+	_, err = provider.ApplyVersion(ctx, identityActorHoldsPermissionMigrationVersion, true)
 	return err
 }
 
@@ -308,6 +317,23 @@ func (f *identityRegistryStoreFixture) seedPermissionCatalog(
 		)
 		ON CONFLICT (permission_key) DO NOTHING
 	`, permissionKey, revision, contractVersion, declarationByte); err != nil {
+		t.Fatal(err)
+	}
+	// R8-BE-06 的授权不变量要求批准者自己已持有被建议的权限。fixture 的评审者
+	// 扮演「已经持有它的人」，所以登记目录项时把同一权限授给 identity_reviewer；
+	// 要验证 denied 的用例必须另建一个只持 role.manage 的操作者。
+	f.grantReviewerPermission(t, permissionKey)
+}
+
+// grantReviewerPermission 让 fixture 评审者角色持有 permissionKey。
+// 前提是该 key 已存在于 permissions（seedPermissionCatalog 或 Reconcile 会建）。
+func (f *identityRegistryStoreFixture) grantReviewerPermission(t *testing.T, permissionKey string) {
+	t.Helper()
+	if _, err := f.pool.Exec(f.ctx, `
+		INSERT INTO role_permissions (role_id, permission_key)
+		SELECT roles.id, $1 FROM roles WHERE roles.key = 'identity_reviewer'
+		ON CONFLICT DO NOTHING
+	`, permissionKey); err != nil {
 		t.Fatal(err)
 	}
 }
