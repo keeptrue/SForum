@@ -50,7 +50,7 @@ lint-shell.sh: the shellcheck version pin file is missing.
     expected: scripts/shellcheck-version.txt
 
 Recreate it with a single line, matching the version CI uses:
-    version=0.10.0
+    version=0.11.0
 EOF
   exit 1
 fi
@@ -61,7 +61,7 @@ if [ -z "$PINNED_VERSION" ]; then
 lint-shell.sh: scripts/shellcheck-version.txt has no usable version= line.
 
 It must contain exactly one line of the form:
-    version=0.10.0
+    version=0.11.0
 EOF
   exit 1
 fi
