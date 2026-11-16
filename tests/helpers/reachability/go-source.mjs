@@ -264,23 +264,16 @@ const PARITY_RESPONSE_HELPERS = new Map([
   ['ErrorResponseWithFields', { statusArg: 1 }],
   ['ErrorResponseWithFieldsAndDetails', { statusArg: 1 }],
   ['ErrorResponseWithRetryAt', { statusArg: 1 }],
-  ['Abort', { statusArg: 0 }],
-  ['AbortIf', { statusArg: 1 }],
-  ['AbortUnless', { statusArg: 1 }],
-  ['NewError', { statusArg: 0 }],
-  ['NewErrorWithFields', { statusArg: 0 }],
-  ['NewErrorWithDetails', { statusArg: 0 }],
-  ['NewErrorWithRetryAt', { statusArg: 0 }],
   ['sendAttachmentDelivery', { follow: true }],
   ['sendAttachmentContent', { follow: true }],
   ['sendFrontendAsset', { follow: true }],
   ['writeRouteDispatchResponse', { follow: true }],
-  ['writeRevisionEvent', { follow: true }],
-  ['writeCommentRevisionEvent', { follow: true }],
   ['storageUnavailable', { codes: [503] }],
+  // 与 parity 门同步的刻意收缩：Abort*/NewError* 首参是 status int（不是 fiber.Ctx），
+  // 且全部调用点都用 `fiber.StatusXxx` 常量，statusesIn 已看得到；两个 SSE writer 首参是
+  // *bufio.Writer、validRouteWebSocketPreflight 是返回 bool 的谓词，都不写 HTTP 响应。
   ['serveRouteStream', { follow: true }],
   ['serveRouteWebSocket', { follow: true }],
-  ['validRouteWebSocketPreflight', { follow: true }],
 ]);
 
 /**

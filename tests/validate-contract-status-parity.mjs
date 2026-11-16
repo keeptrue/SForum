@@ -81,25 +81,22 @@ const RESPONSE_HELPERS = new Map([
   ['ErrorResponseWithFields', { statusArg: 1, note: '带字段级错误的错误响应' }],
   ['ErrorResponseWithFieldsAndDetails', { statusArg: 1, note: '带字段与细节的错误响应' }],
   ['ErrorResponseWithRetryAt', { statusArg: 1, note: '带 Retry-After 的错误响应' }],
-  ['Abort', { statusArg: 0, note: '构造并返回 *APIError：码由第 1 个实参给出' }],
-  ['AbortIf', { statusArg: 1, note: '条件构造 *APIError：码由第 2 个实参给出' }],
-  ['AbortUnless', { statusArg: 1, note: '反向条件构造 *APIError：码由第 2 个实参给出' }],
-  ['NewError', { statusArg: 0, note: '构造 *APIError（应用层用）：码由第 1 个实参给出' }],
-  ['NewErrorWithFields', { statusArg: 0, note: '构造带字段 *APIError' }],
-  ['NewErrorWithDetails', { statusArg: 0, note: '构造带细节 *APIError' }],
-  ['NewErrorWithRetryAt', { statusArg: 0, note: '构造带 Retry-After *APIError' }],
   // 原来靠前缀 /^(respond|fail|send|write)/ 命中的 6 个，改成显式登记后行为不变。
   ['sendAttachmentDelivery', { follow: true, note: '附件直连/流式交付：302（签名地址）或 503（存储不可用）' }],
   ['sendAttachmentContent', { follow: true, note: '附件内容写出：委托 sendAttachmentDelivery' }],
   ['sendFrontendAsset', { follow: true, note: '插件前端制品写出' }],
   ['writeRouteDispatchResponse', { follow: true, note: '路由分发响应写出' }],
-  ['writeRevisionEvent', { follow: true, note: 'SSE 修订事件写出（不产状态码，登记以免漏检）' }],
-  ['writeCommentRevisionEvent', { follow: true, note: 'SSE 评论修订事件写出（不产状态码，登记以免漏检）' }],
   // 不是控制器直接调用，但符合「首参 fiber.Ctx 且产状态码」的形状，必须登记。
   ['storageUnavailable', { codes: [503], note: '依赖故障统一出口：503 + Retry-After（全局 error handler 用）' }],
+  // 刻意不收的两类（多收也是错的，见 checkResponseHelperRegistry）：
+  //   - Abort/AbortIf/AbortUnless/NewError*：首参是 status int，不是 fiber.Ctx，属 *APIError
+  //     构造器。它们的码在调用点以 `fiber.StatusXxx` 常量出现，statusesIn 已经看得到；
+  //     目前 34 个调用点全部是常量实参。**若将来出现 `NewError(422, ...)` 这类数字字面量
+  //     实参**，就必须把它们加回来，并同时放宽 checkResponseHelperRegistry 的形状规则。
+  //   - writeRevisionEvent/writeCommentRevisionEvent（首参 *bufio.Writer）、
+  //     validRouteWebSocketPreflight（返回 bool 的谓词）：都不写 HTTP 响应，不该占白名单。
   ['serveRouteStream', { follow: true, note: '插件路由流式响应' }],
   ['serveRouteWebSocket', { follow: true, note: '插件路由 WebSocket 升级' }],
-  ['validRouteWebSocketPreflight', { follow: true, note: '插件路由 WebSocket 预检' }],
 ]);
 
 // 显式 guard 助手白名单：键是函数名，值是「为什么它可以被当响应辅助函数」的语义说明。
@@ -1008,12 +1005,18 @@ function checkResponseHelperRegistry() {
 }
 
 /**
- * 字段级比对（至少覆盖 503）：实现侧在答 503 时设 `Retry-After`，共享响应组件
- * `components/responses.yaml#/ServiceUnavailable` 就必须声明这个 header。
+ * 响应 header 的**全局存在性**检查（**不是**逐 operation 绑定，名字如实叫 header-global）。
  *
- * 为什么单列一条：状态码集合只回答「会不会答 503」，不回答「答 503 时客户端能不能
- * 拿到重试间隔」。运维按 Retry-After 退避是契约的一部分，删掉它不该静默变绿。
- * 只比对「声明了没有」，不比对取值（取值由实现固定为 1 秒，见 storageUnavailable）。
+ * 它只回答两个存在性问题：
+ *   1. 实现侧有没有「至少一处」在答 503 时设 `Retry-After`（扫 storage_failure.go 全文）；
+ *   2. 共享响应组件 `components/responses.yaml#/ServiceUnavailable` 有没有声明该 header。
+ *
+ * 已知限制（务必如实转述，不要叫「字段级」）：
+ *   - `impl` 是整份源码，不是单个 operation —— 任何一处设了 header，全局这一条就过；
+ *   - 反向不成立：组件声明了但实现根本不设，这里**不会**红；
+ *   - 不比对取值（实现固定 1 秒），也不覆盖 429 之外的其它 header。
+ * 复位条件：把 header 名绑到每个 operation 的 503 出口（`headerChecked` 已是抓手），
+ * 那时才能升级成真正的逐 operation 字段级比对。
  */
 function checkResponseHeaderFields() {
   const implFile = path.join(API_ROOT, 'app', 'Http', 'storage_failure.go');
@@ -1026,18 +1029,77 @@ function checkResponseHeaderFields() {
   const component = `${fs.readFileSync(componentFile, 'utf8')}\nZZZEND:\n`;
   const block = /^ServiceUnavailable:\n([\s\S]*?)(?=^[A-Za-z])/m.exec(component);
   if (!block) {
-    fail('[header-field] components/responses.yaml 里找不到 ServiceUnavailable 响应组件');
+    fail('[header-global] components/responses.yaml 里找不到 ServiceUnavailable 响应组件');
     return 1;
   }
   if (!/^ {2}headers:\s*$/m.test(block[1]) || !/^ {4}Retry-After:\s*$/m.test(block[1])) {
     fail(
-      '[header-field] ' +
+      '[header-global] ' +
         '实现侧在答 503 时设置 Retry-After（app/Http/storage_failure.go），' +
         '但 components/responses.yaml#/ServiceUnavailable 没有声明 headers.Retry-After —— ' +
-        '客户端拿不到重试间隔，字段级契约缺失',
+        '客户端拿不到重试间隔，header 声明缺失',
     );
   }
   return 1;
+}
+
+/**
+ * 白名单**反向**自检：每一条都必须对得上一个「首参 fiber.Ctx」的实现函数。
+ *
+ * 只约束「未登记即红」是不够的 —— 多收也是错的：把不写响应的函数塞进白名单，会让
+ * 它体内的状态码被当成路由产出的码，凭空给路由加码（`writeRevisionEvent` 首参是
+ * *bufio.Writer、`validRouteWebSocketPreflight` 是返回 bool 的谓词，都属于这一类）。
+ * 所以两个方向都要钉住：漏登记红，多收也红。
+ */
+function checkResponseHelperRegistryShape() {
+  // 这是**仓库级**不变量：白名单描述的是 apps/api/app/Http 的真实助手集合。
+  // 合成树（--root 指向 fixture）只带被测的那几个助手，做这条检查只会红一片，
+  // 所以 fixture 模式下跳过 —— 真实仓库永远走完整自检（默认 ROOT 就是仓库）。
+  if (ROOT !== path.resolve(SCRIPT_DIR, '..')) return RESPONSE_HELPERS.size;
+  const signatures = new Map();
+  for (const file of listGoFiles(API_ROOT)) {
+    const { masked } = scanGoSource(fs.readFileSync(file, 'utf8'));
+    const pattern = /^func\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*([^{]*)\{/gm;
+    let match;
+    while ((match = pattern.exec(masked))) {
+      const body = braceBody(masked, match.index + match[0].length - 1) || '';
+      if (!signatures.has(match[1])) signatures.set(match[1], []);
+      signatures.get(match[1]).push({
+        file: path.relative(ROOT, file),
+        firstParam: match[2],
+        returns: match[3].trim(),
+        // 「真的把响应写出去」：`.Status(...)` 调用、`Send*`/`Redirect`、或 fiber.Error 字面量。
+        // 单纯比较 `fiber.StatusXxx`（谓词）不算 —— validRouteWebSocketPreflight 就是这种。
+        writes: /\.Status\(\s*[^)]*\)|\.(?:Send|SendString|SendStream|Redirect)\s*\(|\bStatus:\s*\d{3}\b/.test(body),
+      });
+    }
+  }
+  for (const [name, entry] of RESPONSE_HELPERS) {
+    const hits = signatures.get(name) || [];
+    if (hits.length === 0) {
+      fail(
+        `[helper-registry] 白名单条目在实现侧找不到同名函数：${name} —— 名字对不上时该助手的码` +
+          '静默消失，空集路由数会悄悄回升。请改名或从 RESPONSE_HELPERS 移除',
+      );
+      continue;
+    }
+    // 两条形状要求：① 首参是 fiber.Ctx（拿得到响应）；② 要么返回 error/*APIError
+    // （把响应交回框架），要么函数体真的写了响应。只满足「首参 Ctx」的谓词不算。
+    const isHelper = (hit) =>
+      /^\s*c\s+fiber\.Ctx\b/.test(hit.firstParam) &&
+      (/^(error|\*APIError)$/.test(hit.returns) || hit.writes);
+    if (!hits.some(isHelper)) {
+      const where = hits
+        .map((hit) => `${hit.file}(首参 ${hit.firstParam.trim()}，返回 ${hit.returns || '空'}，写响应=${hit.writes})`)
+        .join(', ');
+      fail(
+        `[helper-registry] 白名单多收了非响应助手：${name}（${where}）。` +
+          '响应助手必须「首参 fiber.Ctx 且自己把响应写出去或把 error 交回框架」；' +
+          '谓词与纯 SSE 写入器不该占白名单 —— 它们体内的状态码会被当成路由产出的码',
+      );
+    }
+  }
+  return RESPONSE_HELPERS.size;
 }
 
 function main() {
@@ -1076,6 +1138,7 @@ function main() {
     fail(`出现脚本状态码常量表外的写法，需补表后重跑：${[...unknownConstants].join(', ')}`);
   }
   const helperChecked = checkResponseHelperRegistry();
+  const helperRegistrySize = checkResponseHelperRegistryShape();
   const headerChecked = checkResponseHeaderFields();
   // 白名单过期同样是红的：名字对不上时守卫状态码会悄悄消失，空集路由数才会又涨回去。
   for (const name of GUARD_HELPERS.keys()) {
@@ -1104,12 +1167,12 @@ function main() {
       `（命中 ${guardHelperHits.size}/${GUARD_HELPERS.size}）`,
   );
   console.log(
-    `[parity] 响应助手白名单：${RESPONSE_HELPERS.size} 条；app/Http 里首参 fiber.Ctx 且产状态码的函数 ${helperChecked} 个，` +
+    `[parity] 响应助手白名单：${helperRegistrySize} 条（双向自检：漏登记红、多收也红）；app/Http 里首参 fiber.Ctx 且产状态码的函数 ${helperChecked} 个，` +
       '未登记即红',
   );
   console.log(
-    `[parity] 字段级比对：503 的 Retry-After 已纳入核对（实现侧设置该 header 的 ${headerChecked} 个出口，` +
-      '组件未声明即红）',
+    `[parity] header 全局存在性（header-global，非逐 operation 绑定）：实现侧 503 设置 Retry-After 的出口 ` +
+      `${headerChecked} 个；共享组件 ServiceUnavailable 未声明即红`,
   );
   if (printEmptyRoutes) {
     console.log('[parity-empty-routes]');

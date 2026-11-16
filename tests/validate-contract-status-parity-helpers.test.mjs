@@ -8,7 +8,7 @@
  *   2. 反例 1：在合成树里加一个「首参 fiber.Ctx 且自己产出状态码」但**未登记**的助手，
  *      门必须只红这一条（不是顺带红一堆别的），并且文案点名那个函数；
  *   3. 反例 2：实现侧设置 503 的 `Retry-After`，而共享响应组件没声明该 header，
- *      门必须只红这一条（字段级比对）。
+ *      门必须只红这一条（header-global 全局存在性检查，非逐 operation 绑定）。
  *
  * 合成树（tests/fixtures/contract-parity-helpers/unlisted）刻意做到**单一成因**：
  * 契约、基线、guard 白名单、公开读 401 清单都配齐，只为让「未登记助手」这一条红。
@@ -95,14 +95,14 @@ check('反例 2：实现设了 503 的 Retry-After，组件未声明就必须红
   assert.equal(fixture.status, 1, `fixture 应当红，实际退出码 ${fixture.status}\n${fixture.stdout}`);
   const lines = failureLines(fixture.stderr);
   assert.equal(lines.length, 1, `应当只红一条，实际 ${lines.length} 条：\n${lines.join('\n')}`);
-  assert.match(lines[0], /\[header-field\]/);
+  assert.match(lines[0], /\[header-global\]/);
   assert.match(lines[0], /Retry-After/);
 });
 
-check('字段级比对在仓库自身生效：503 组件必须声明 Retry-After', () => {
+check('header 全局存在性检查在仓库自身生效：503 组件必须声明 Retry-After', () => {
   const repo = runGate([]);
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
-  assert.match(repo.stdout, /\[parity\] 字段级比对：503 的 Retry-After 已纳入核对/);
+  assert.match(repo.stdout, /\[parity\] header 全局存在性（header-global/);
 });
 
 if (failures.length > 0) {

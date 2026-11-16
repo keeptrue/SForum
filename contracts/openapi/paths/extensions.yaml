@@ -2764,7 +2764,11 @@ extensionPluginRoute:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '405':
-        description: Plugin route exists but does not declare this HTTP method.
+        description: |
+          插件路由存在但未声明该 HTTP 方法。产出方是 Extensions 服务的方法匹配，不是 Fiber 的通配兜底：
+          `Models/Extensions/service_lifecycle.go` 在匹配到插件路由但方法未声明时返回
+          `ErrRouteMethodNotAllowed`，控制器 `mapExtensionError` 把它映射成
+          `405` + `extensions.route_method_not_allowed`（`Controllers/Extensions/controller.go`）。
         content:
           application/json:
             schema:
@@ -2795,7 +2799,11 @@ extensionPluginRoute:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '405':
-        description: Plugin route exists but does not declare this HTTP method.
+        description: |
+          插件路由存在但未声明该 HTTP 方法。产出方是 Extensions 服务的方法匹配，不是 Fiber 的通配兜底：
+          `Models/Extensions/service_lifecycle.go` 在匹配到插件路由但方法未声明时返回
+          `ErrRouteMethodNotAllowed`，控制器 `mapExtensionError` 把它映射成
+          `405` + `extensions.route_method_not_allowed`（`Controllers/Extensions/controller.go`）。
         content:
           application/json:
             schema:
@@ -2826,7 +2834,11 @@ extensionPluginRoute:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '405':
-        description: Plugin route exists but does not declare this HTTP method.
+        description: |
+          插件路由存在但未声明该 HTTP 方法。产出方是 Extensions 服务的方法匹配，不是 Fiber 的通配兜底：
+          `Models/Extensions/service_lifecycle.go` 在匹配到插件路由但方法未声明时返回
+          `ErrRouteMethodNotAllowed`，控制器 `mapExtensionError` 把它映射成
+          `405` + `extensions.route_method_not_allowed`（`Controllers/Extensions/controller.go`）。
         content:
           application/json:
             schema:
@@ -2857,7 +2869,11 @@ extensionPluginRoute:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '405':
-        description: Plugin route exists but does not declare this HTTP method.
+        description: |
+          插件路由存在但未声明该 HTTP 方法。产出方是 Extensions 服务的方法匹配，不是 Fiber 的通配兜底：
+          `Models/Extensions/service_lifecycle.go` 在匹配到插件路由但方法未声明时返回
+          `ErrRouteMethodNotAllowed`，控制器 `mapExtensionError` 把它映射成
+          `405` + `extensions.route_method_not_allowed`（`Controllers/Extensions/controller.go`）。
         content:
           application/json:
             schema:
@@ -2888,7 +2904,11 @@ extensionPluginRoute:
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
       '405':
-        description: Plugin route exists but does not declare this HTTP method.
+        description: |
+          插件路由存在但未声明该 HTTP 方法。产出方是 Extensions 服务的方法匹配，不是 Fiber 的通配兜底：
+          `Models/Extensions/service_lifecycle.go` 在匹配到插件路由但方法未声明时返回
+          `ErrRouteMethodNotAllowed`，控制器 `mapExtensionError` 把它映射成
+          `405` + `extensions.route_method_not_allowed`（`Controllers/Extensions/controller.go`）。
         content:
           application/json:
             schema:
