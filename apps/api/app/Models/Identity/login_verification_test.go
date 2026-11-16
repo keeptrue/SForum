@@ -1,8 +1,11 @@
 package identity
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 )
@@ -19,6 +22,16 @@ type failingLoginVerificationPolicy struct{}
 
 func (failingLoginVerificationPolicy) LoginVerificationPolicy(context.Context) (LoginVerificationPolicy, error) {
 	return LoginVerificationPolicy{}, errors.New("options unavailable")
+}
+
+// erroringLoginLockout 让失败锁定读取返回错误，模拟 Redis 语句超时/连接池饱和。
+type erroringLoginLockout struct {
+	*fakeLoginLockout
+	err error
+}
+
+func (l erroringLoginLockout) RequiresVerification(context.Context, string) (bool, error) {
+	return false, l.err
 }
 
 const loginVerificationTestPassword = "correct horse battery staple"
@@ -141,6 +154,96 @@ func TestLoginVerificationPolicyFailureFailsOpen(t *testing.T) {
 	}
 }
 
+// TestLoginVerificationLockoutReadFailureKeepsPolicyChain 固定 F-10：失败锁定
+// 读取失败只能降级 lockout 那一支，不能把 always/new_device/privileged 一起放弃。
+//
+// 历史缺陷是 `return false, nil`，即 Redis 抖动直接让运营开的「总是验证」失效。
+//
+// 变异要求：把 loginRequiresVerification 里的 lockout 错误分支改回
+// `return false, nil`，第一行（lockout 错误 + policy.Always=true）必须红。
+func TestLoginVerificationLockoutReadFailureKeepsPolicyChain(t *testing.T) {
+	tests := []struct {
+		name        string
+		policy      LoginVerificationPolicy
+		wantRequire bool
+	}{
+		{
+			// 变异靶子：策略要求总是验证时，Redis 抖动不得关掉验证。
+			name:        "always still requires verification",
+			policy:      LoginVerificationPolicy{Enabled: true, Always: true},
+			wantRequire: true,
+		},
+		{
+			// 对照：策略全关时仍然不要求，降级不凭空制造验证。
+			name:        "all triggers off stays open",
+			policy:      LoginVerificationPolicy{},
+			wantRequire: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service, _, _ := newLoginVerificationTest(t, staticLoginVerificationPolicy{policy: test.policy})
+			service.WithLoginLockout(&erroringLoginLockout{
+				fakeLoginLockout: &fakeLoginLockout{},
+				err:              errors.New("redis: connection pool timeout"),
+			}, staticLoginLockoutPolicy{})
+
+			_, err := service.Login(testContext(t), LoginInput{
+				Login: "victim", Password: loginVerificationTestPassword,
+			})
+			if required := errors.Is(err, ErrLoginVerificationRequired); required != test.wantRequire {
+				t.Fatalf("required=%t want=%t (err=%v)", required, test.wantRequire, err)
+			}
+		})
+	}
+}
+
+// TestLoginVerificationDegradationsLogDistinctly 固定两种降级在日志里可区分：
+// lockout 不可用与策略读取失败必须给出不同的消息和 degradation 值，否则线上
+// 只能看到「有人没被验证」而不知道该修 Redis 还是 Options。
+func TestLoginVerificationDegradationsLogDistinctly(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	defer slog.SetDefault(previous)
+
+	lockoutOnly, _, _ := newLoginVerificationTest(t, staticLoginVerificationPolicy{
+		policy: LoginVerificationPolicy{Enabled: true, Always: true},
+	})
+	lockoutOnly.WithLoginLockout(&erroringLoginLockout{
+		fakeLoginLockout: &fakeLoginLockout{},
+		err:              errors.New("redis: i/o timeout"),
+	}, staticLoginLockoutPolicy{})
+	if _, err := lockoutOnly.Login(testContext(t), LoginInput{
+		Login: "victim", Password: loginVerificationTestPassword,
+	}); !errors.Is(err, ErrLoginVerificationRequired) {
+		t.Fatalf("lockout degradation must still require verification, got %v", err)
+	}
+	lockoutLogs := buf.String()
+	if !strings.Contains(lockoutLogs, "degradation=lockout_unavailable") {
+		t.Fatalf("lockout degradation not logged: %s", lockoutLogs)
+	}
+	if strings.Contains(lockoutLogs, "degradation=policy_unavailable") {
+		t.Fatalf("lockout degradation must not be reported as policy failure: %s", lockoutLogs)
+	}
+
+	buf.Reset()
+	policyOnly, _, _ := newLoginVerificationTest(t, failingLoginVerificationPolicy{})
+	policyOnly.WithLoginLockout(&fakeLoginLockout{}, staticLoginLockoutPolicy{})
+	if _, err := policyOnly.Login(testContext(t), LoginInput{
+		Login: "victim", Password: loginVerificationTestPassword,
+	}); err != nil {
+		t.Fatalf("policy read failure must fail open, got %v", err)
+	}
+	policyLogs := buf.String()
+	if !strings.Contains(policyLogs, "degradation=policy_unavailable") {
+		t.Fatalf("policy degradation not logged: %s", policyLogs)
+	}
+	if strings.Contains(policyLogs, "degradation=lockout_unavailable") {
+		t.Fatalf("policy degradation must not be reported as lockout failure: %s", policyLogs)
+	}
+}
 func TestLoginVerificationLockoutStillAppliesWithGateOff(t *testing.T) {
 	service, _, _ := newLoginVerificationTest(t, staticLoginVerificationPolicy{
 		policy: LoginVerificationPolicy{Enabled: false, Always: true},

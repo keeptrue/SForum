@@ -1,6 +1,9 @@
 package identity
 
-import "context"
+import (
+	"context"
+	"log/slog"
+)
 
 // LoginInput 是一次密码登录的输入。ClientIP/DeviceFingerprint 只用于节流与
 // login_risk 判定；HumanVerified/SkipHumanVerification 由 HTTP 层设置。
@@ -58,15 +61,27 @@ type LoginVerificationPolicyResolver interface {
 // 因为那条豁免是为「登录同时签发 API Token」的原生/CLI 客户端保留的取舍，
 // 不能让携带该形状的请求连失败锁定一起跳过。
 //
-// 失败姿态：策略读取或设备指纹查询出错时 fail open，避免配置/存储抖动把合法
-// 用户挡在门外；失败锁定本身仍由 Redis 计数决定。
+// 失败姿态按触发条件分别降级，两处降级互不牵连，各写一条可区分的 warn：
+//   - 失败锁定读取失败（Redis 抖动）：只跳过失败锁定这一支，**继续**走下面的
+//     策略链。`loginVerificationPolicy` 读的是 Options，与 Redis 无关，所以
+//     Redis 故障没有理由连带放弃 always/new_device/privileged 判定（F-10）。
+//   - 策略读取失败（Options 读取失败）：跳过策略类触发条件，即 fail open，
+//     避免配置抖动把合法用户挡在门外。
+//   - 设备指纹查询失败：只在 NewDevice 分支内 fail open。
+//
+// 两处降级都不把存储故障当 error 上抛：本函数只回答「是否需要验证」，把 Redis
+// 抖动变成登录路径的 500 是比多一次验证更坏的取舍。
 func loginRequiresVerification(s *Service, ctx context.Context, loginKey string, credential CredentialUser, input LoginInput) (bool, error) {
 	if s.loginLockout != nil {
 		required, err := s.loginLockout.RequiresVerification(ctx, loginKey)
-		if err != nil {
-			return false, nil
-		}
-		if required {
+		switch {
+		case err != nil:
+			// 只降级 lockout 这一支，策略链照旧判定。
+			slog.Warn("identity: login lockout verification read failed; continuing with policy triggers",
+				"degradation", "lockout_unavailable",
+				"error", err,
+			)
+		case required:
 			return true, nil
 		}
 	}
@@ -99,6 +114,11 @@ func loginVerificationPolicy(s *Service, ctx context.Context) LoginVerificationP
 	}
 	policy, err := s.loginVerification.LoginVerificationPolicy(ctx)
 	if err != nil {
+		// 与 lockout 降级用不同的消息与 degradation 值，便于线上区分是哪一层坏了。
+		slog.Warn("identity: login verification policy read failed; falling back to no policy triggers",
+			"degradation", "policy_unavailable",
+			"error", err,
+		)
 		return LoginVerificationPolicy{}
 	}
 	return policy
