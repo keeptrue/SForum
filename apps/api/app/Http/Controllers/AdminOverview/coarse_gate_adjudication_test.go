@@ -222,7 +222,7 @@ func builtinRoleActor(t *testing.T, roleKey string) identity.Actor {
 	if !ok {
 		t.Fatalf("找不到内置角色模板 %s", roleKey)
 	}
-	expanded := identity.ExpandEffectivePermissions(append([]string(nil), template.PermissionKeys...))
+	expanded := identity.ExpandEffectivePermissions(append([]string(nil), template.PermissionKeys...), nil)
 	permissions := make(map[string]bool, len(expanded))
 	for _, key := range expanded {
 		permissions[key] = true

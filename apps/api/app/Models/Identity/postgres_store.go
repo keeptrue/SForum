@@ -418,6 +418,9 @@ func (s *PostgresStore) LoadActor(ctx context.Context, userID int64) (Actor, err
 	for _, key := range current.Permissions {
 		permissions[key] = true
 	}
+	// 显式 deny 以 false 条目落进 map：Can() 读的就是这份 map，父权限展开在
+	// hasExpandedPermission 里遇到显式条目即返回它的值（P1-1）。
+	applyDenied(permissions, current.denied)
 	// created_at / kind 已在 loadCurrentUserAccess（applyTrustLevel）里读过一次并写进
 	// current，这里不再查第二遍（R7：G 组基线 4→5，不是 4→6）。
 	return Actor{

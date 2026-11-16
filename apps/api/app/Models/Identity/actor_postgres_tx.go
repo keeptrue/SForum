@@ -209,7 +209,6 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust Tr
 			actor.Permissions[permission] = true
 			allowed[permission] = true
 		} else if effect == "deny" {
-			delete(actor.Permissions, permission)
 			denied[permission] = true
 		}
 	}
@@ -218,6 +217,11 @@ func LoadEffectiveActorTx(ctx context.Context, tx pgx.Tx, userID int64, trust Tr
 		return Actor{}, fmt.Errorf("iterate effective actor permission overrides: %w", err)
 	}
 	overrideRows.Close()
+	// deny 必须在 override 行全部读完之后统一落成显式 false。这条路径不做父→子展开，
+	// 但 Can() 会做父权限回退：删键会让「角色授予 settings.manage + 覆盖 deny
+	// settings.mail.manage」重新放行（P1-1）。事务装载服务注册/改密等身份写流程，
+	// 漏在这里等于让那些流程绕过 deny。
+	applyDenied(actor.Permissions, denied)
 
 	// 信任等级已挣得来源与基线扣减：与 LoadActor 走同一处实现（applyTrustGrants），
 	// 同一套失败姿态（D22）。

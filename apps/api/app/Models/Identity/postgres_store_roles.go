@@ -303,13 +303,11 @@ func (s *PostgresStore) loadAdminUserAccess(ctx context.Context, detail *AdminUs
 	if err != nil {
 		return fmt.Errorf("list admin user permissions: %w", err)
 	}
-	// 后台详情展示的是「生效中的权限」：候选集里被 deny 的行不进去。
-	permissions := make([]string, 0, len(decisions))
-	for _, decision := range decisions {
-		if decision.Effective {
-			permissions = append(permissions, decision.Key)
-		}
-	}
+	// 后台详情展示的是「生效中的权限」：候选集里被 deny 的行不进去，
+	// 且父权限展开也要跳过被 deny 的子权限——展示必须与 Can() 的答案一致（P1-1），
+	// 否则后台会显示一个用户实际并不持有的能力。
+	denied := deniedPermissionKeys(decisions)
+	permissions := effectivePermissionKeys(decisions)
 	overrides, err := s.listPermissionOverrides(ctx, detail.ID)
 	if err != nil {
 		return err
@@ -319,7 +317,7 @@ func (s *PostgresStore) loadAdminUserAccess(ctx context.Context, detail *AdminUs
 		permissions = []string{}
 	}
 	// 展开父权限子项，保证后台菜单与 API 细粒度检查对旧角色仍可用。
-	detail.Permissions = ExpandEffectivePermissions(permissions)
+	detail.Permissions = ExpandEffectivePermissions(permissions, denied)
 	detail.PermissionOverrides = overrides
 	return nil
 }
@@ -340,9 +338,11 @@ func loadCurrentUserAccess(ctx context.Context, queries *store.Queries, current 
 		roleKeys = []string{}
 	}
 	current.RoleKeys = roleKeys
-	// 静态路径保持本刀之前的语义：父→子展开，deny 已在 SQL 里排除。
-	current.Permissions = ExpandEffectivePermissions(effectivePermissionKeys(decisions))
-	current.denied = deniedPermissionKeys(decisions)
+	// deny 集合必须先算出来：父→子展开要跳过被 deny 的子权限，否则覆盖写入成功、
+	// 后台显示已保存，而 Can() 仍经父权限放行（P1-1）。
+	denied := deniedPermissionKeys(decisions)
+	current.Permissions = ExpandEffectivePermissions(effectivePermissionKeys(decisions), denied)
+	current.denied = denied
 	return nil
 }
 

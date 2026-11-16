@@ -29,7 +29,11 @@ var legacyPermissionChildren = map[string][]string{
 
 // ExpandEffectivePermissions 在角色/覆盖结果上展开父权限对应的子权限。
 // 用于写入会话与后台展示的有效权限列表。
-func ExpandEffectivePermissions(keys []string) []string {
+//
+// denied 是被显式 deny 的键（CurrentUser.denied 的来源）。展开必须跳过它们：
+// 先按 effective 过滤再无条件补全子权限，会把「管理员 deny 掉的子权限」重新加回
+// 集合，覆盖写入成功、后台显示已保存，而 Can() 仍然放行（P1-1）。
+func ExpandEffectivePermissions(keys []string, denied map[string]bool) []string {
 	set := make(map[string]bool, len(keys)+16)
 	for _, key := range keys {
 		if key == "" {
@@ -42,6 +46,10 @@ func ExpandEffectivePermissions(keys []string) []string {
 			continue
 		}
 		for _, child := range children {
+			if denied[child] {
+				// 显式 deny 压过父权限展开。
+				continue
+			}
 			set[child] = true
 		}
 	}
@@ -53,19 +61,33 @@ func ExpandEffectivePermissions(keys []string) []string {
 	return out
 }
 
+// applyDenied 把显式 deny 的键以 `false` 写进权限 map。
+//
+// 「显式 false 条目」是 deny 在 Actor.Permissions 里的唯一表示：**只写不删**。
+// 删掉等于「从未授予」，父权限回退会把子权限重新放行（P1-1）；而写成 false 之后，
+// 所有按 value 语义工作的既有通道（core guard 片段、dispatch 快照、协议 v2 调用者
+// 投影、APITokens.RestrictActor）都会自动把该键读成「被拒绝」，裁决层零改动。
+func applyDenied(perms map[string]bool, denied map[string]bool) {
+	for key := range denied {
+		if key == "" {
+			continue
+		}
+		perms[key] = false
+	}
+}
+
 // hasExpandedPermission 判断 actor 是否直接持有 permission，或通过父权限继承。
 func hasExpandedPermission(perms map[string]bool, permission string) bool {
-	if perms[permission] {
-		return true
+	// 显式条目优先于一切继承：值为 false 的条目就是 deny，父权限不得把它盖回来。
+	if allowed, ok := perms[permission]; ok {
+		return allowed
 	}
 	for parent, children := range legacyPermissionChildren {
 		if !perms[parent] {
 			continue
 		}
-		for _, child := range children {
-			if child == permission {
-				return true
-			}
+		if slices.Contains(children, permission) {
+			return true
 		}
 	}
 	return false
