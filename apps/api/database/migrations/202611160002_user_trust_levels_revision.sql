@@ -16,8 +16,17 @@ SET LOCAL statement_timeout = '1min';
 ALTER TABLE public.user_trust_levels
   ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 1;
 
+-- 0 专指「调用方认为还没有行」，账本里不允许出现 —— 用约束把这条不变量钉在库上。
+-- CHECK **不能内联**进 ADD COLUMN：那会在 ACCESS EXCLUSIVE 下扫全表校验，把账本的
+-- 读写挡到 statement_timeout。NOT VALID 只登记定义，VALIDATE 单独扫表且锁级别
+-- 不阻塞读写（与 202611150001_moderation_report_revision.sql 同一形态）。
+ALTER TABLE public.user_trust_levels
+  ADD CONSTRAINT user_trust_levels_revision_positive CHECK (revision > 0) NOT VALID;
+ALTER TABLE public.user_trust_levels VALIDATE CONSTRAINT user_trust_levels_revision_positive;
+
 COMMENT ON COLUMN public.user_trust_levels.revision IS
   'Optimistic-lock revision. Incremented on every successful CAS write; expectedRevision=0 means "no row yet". Not a trust signal.';
 
 -- +goose Down
+-- 约束引用该列，删列时随列一起消失，无需单独 DROP CONSTRAINT。
 ALTER TABLE public.user_trust_levels DROP COLUMN IF EXISTS revision;

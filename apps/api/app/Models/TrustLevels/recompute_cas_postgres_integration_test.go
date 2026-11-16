@@ -216,3 +216,152 @@ func TestRecomputeGivesUpWithoutEmittingStaleEvent(t *testing.T) {
 		t.Fatalf("ledger 被改写：level %d revision %d，want 2/1", entry.Level, entry.Revision)
 	}
 }
+
+// staleThenLiveActivity 让同一 resolver 的第一次求值用旧统计、之后用新统计，
+// 用来复现「落败方手里握着一份比赢家更旧的求值结果」这个真实交错。
+type staleThenLiveActivity struct {
+	stale trustlevels.Activity
+	live  trustlevels.Activity
+	mu    sync.Mutex
+	calls int
+}
+
+func (r *staleThenLiveActivity) ActivityFor(context.Context, int64) (trustlevels.Activity, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls++
+	if r.calls == 1 {
+		return r.stale, nil
+	}
+	return r.live, nil
+}
+
+func (r *staleThenLiveActivity) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
+}
+
+// staleFirstLedger 第一次读账本返回「冲突前的快照」，之后返回真实账本，
+// 模拟「读完账本、还没 CAS 成功，就被别的重算插进来写了一次」。
+type staleFirstLedger struct {
+	inner trustlevels.LedgerStore
+	stale trustlevels.LedgerEntry
+	mu    sync.Mutex
+	loads int
+}
+
+func (l *staleFirstLedger) LoadLedger(ctx context.Context, userID int64) (trustlevels.LedgerEntry, bool, error) {
+	l.mu.Lock()
+	l.loads++
+	loads := l.loads
+	l.mu.Unlock()
+	if loads == 1 {
+		return l.stale, true, nil
+	}
+	return l.inner.LoadLedger(ctx, userID)
+}
+
+func (l *staleFirstLedger) SaveLedgerCAS(ctx context.Context, userID int64, expectedRevision int64, entry trustlevels.LedgerEntry) (bool, error) {
+	return l.inner.SaveLedgerCAS(ctx, userID, expectedRevision, entry)
+}
+
+func (l *staleFirstLedger) loadCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.loads
+}
+
+// ③' 冲突重试必须**重新求值**，不能拿旧 evaluation 写回账本。
+//
+// 反例形状（审查员实测）：赢家已把账本写成 level=4/leader，落败方握着更旧的
+// evaluation（TL3）只重读账本就 CAS，于是把账本写回 level=3/veteran 并发 `4→3`
+// 降级事件——账本最终「一致」了，但一致到错误的值上。
+func TestRecomputeRetryReevaluatesAndNeverWritesStaleResult(t *testing.T) {
+	fixture := newRecomputeFixture(t, recomputePolicy(t, ""))
+	fixture.seedLedger(t, 2, "resident", time.Now().Add(-48*time.Hour).UTC().Truncate(time.Second))
+	staleLedgerEntry, found, err := fixture.ledger.LoadLedger(fixture.ctx, fixture.userID)
+	if err != nil || !found {
+		t.Fatalf("load seeded ledger: %v (found=%v)", err, found)
+	}
+
+	// 赢家看到的统计已经涨到 TL4；落败方手里还是 TL3 的那份快照。
+	if _, err := fixture.pool.Exec(fixture.ctx, `
+		UPDATE user_activity
+		SET days_visited = 120, topic_count = 30, comment_count = 300,
+		    like_received_count = 120, like_given_count = 90, bookmark_count = 25
+		WHERE user_id = $1`, fixture.userID); err != nil {
+		t.Fatalf("bump activity: %v", err)
+	}
+	liveActivity := trustlevels.Activity{
+		DaysVisited: 120, TopicCount: 30, CommentCount: 300,
+		LikeReceivedCount: 120, LikeGivenCount: 90, BookmarkCount: 25,
+	}
+	staleActivity := trustlevels.Activity{
+		DaysVisited: 60, TopicCount: 10, CommentCount: 100,
+		LikeReceivedCount: 40, LikeGivenCount: 25, BookmarkCount: 8,
+	}
+
+	publisher := &syncPublisher{}
+	inputs := trustlevels.NewPostgresUserTrustInputReader(fixture.pool)
+	winner := trustlevels.NewRecomputer(fixture.resolver, fixture.ledger, inputs, publisher)
+
+	activity := &staleThenLiveActivity{stale: staleActivity, live: liveActivity}
+	loserResolver := trustlevels.NewResolver(activity, loaderPolicySource{options: fixture.options})
+	ledger := &staleFirstLedger{inner: fixture.ledger, stale: staleLedgerEntry}
+	loser := trustlevels.NewRecomputer(loserResolver, ledger, inputs, publisher)
+
+	// 赢家先跑完：账本 4/leader，事件 2→4。
+	winnerOutcome, err := winner.RecomputeUser(fixture.ctx, fixture.userID)
+	if err != nil {
+		t.Fatalf("winner: %v", err)
+	}
+	if !winnerOutcome.EventEmitted || winnerOutcome.Evaluation.Level != 4 {
+		t.Fatalf("赢家 outcome = %#v，want level 4 + 发事件", winnerOutcome)
+	}
+	if entry := fixture.ledgerEntry(t); entry.Level != 4 || entry.TierID != "leader" || entry.Revision != 2 {
+		t.Fatalf("赢家写后 ledger = level %d tier %s revision %d，want 4/leader/2", entry.Level, entry.TierID, entry.Revision)
+	}
+
+	// 落败方：第一轮用旧求值(TL3)+旧快照(rev1) → CAS 冲突 → 重试必须重新求值。
+	loserOutcome, err := loser.RecomputeUser(fixture.ctx, fixture.userID)
+	if err != nil {
+		t.Fatalf("loser: %v", err)
+	}
+	if loserOutcome.EventEmitted || loserOutcome.LedgerWritten {
+		t.Fatalf("落败方不得写账本/发事件：%#v", loserOutcome)
+	}
+	if loserOutcome.Skipped != "unchanged" {
+		t.Fatalf("落败方 Skipped = %q，want unchanged（重试后基于新求值发现同级）", loserOutcome.Skipped)
+	}
+	// 直接证据：真的重算了（两次求值）与真的重读了（两次读账本）。
+	if got := activity.count(); got != 2 {
+		t.Fatalf("求值次数 = %d，want 2（冲突后必须重新求值，而不是沿用旧 evaluation）", got)
+	}
+	if got := ledger.loadCount(); got != 2 {
+		t.Fatalf("读账本次数 = %d，want 2", got)
+	}
+
+	// 反例断言：账本必须停在赢家的 4/leader，且事件流里不能出现降级。
+	entry := fixture.ledgerEntry(t)
+	if entry.Level != 4 || entry.TierID != "leader" || entry.Revision != 2 {
+		t.Fatalf("落败方把账本写脏了：level %d tier %s revision %d，want 4/leader/2", entry.Level, entry.TierID, entry.Revision)
+	}
+	envelopes := publisher.snapshot()
+	if len(envelopes) != 1 {
+		t.Fatalf("事件数 = %d，want 1（只有赢家的 2→4）：%#v", len(envelopes), envelopes)
+	}
+	if got := envelopes[0].Payload["fromLevel"]; got != 2 {
+		t.Fatalf("事件 fromLevel = %v，want 2", got)
+	}
+	if got := envelopes[0].Payload["toLevel"]; got != 4 {
+		t.Fatalf("事件 toLevel = %v，want 4", got)
+	}
+	for index, envelope := range envelopes {
+		from, _ := envelope.Payload["fromLevel"].(int)
+		to, _ := envelope.Payload["toLevel"].(int)
+		if from > to {
+			t.Fatalf("事件[%d] 是降级 %d→%d（错向事件）：%#v", index, from, to, envelope.Payload)
+		}
+	}
+}

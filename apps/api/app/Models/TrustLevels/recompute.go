@@ -102,39 +102,45 @@ func (r *Recomputer) RecomputeUser(ctx context.Context, userID int64) (Recompute
 	if userID <= 0 {
 		return RecomputeOutcome{}, nil
 	}
-	input, err := r.inputs.TrustInput(ctx, userID)
-	if err != nil {
-		return RecomputeOutcome{}, err
-	}
-	kind := identity.UserKindHuman
-	if identity.ValidUserKind(identity.UserKind(input.Kind)) {
-		kind = identity.UserKind(input.Kind)
-	}
-	evaluation, err := r.resolver.Evaluate(ctx, userID, kind, input.CreatedAt)
-	if err != nil {
-		// 产品面关闭不是故障：静默跳过，不写账本也不发事件（等级不可知时不动账本）。
-		if errors.Is(err, ErrDisabled) {
-			return RecomputeOutcome{Skipped: "disabled"}, nil
-		}
-		return RecomputeOutcome{}, err
-	}
-	outcome := RecomputeOutcome{Evaluation: evaluation}
-	// 判据 1：incomplete 闸。放在读账本之前——连读都不必读，避免「读了就有人顺手写」。
-	if evaluation.Incomplete {
-		outcome.Skipped = "incomplete"
-		if r.logger != nil {
-			r.logger.Warn("trust level recompute skipped: evaluation incomplete",
-				"user_id", userID, "problems", len(evaluation.Errors))
-		}
-		return outcome, nil
-	}
-
-	// 读账本 → 比较 → 写账本 → 发事件：写账本用版本 CAS，冲突就重读重算（P3-10）。
+	outcome := RecomputeOutcome{}
+	// 求值 → 读账本 → 比较 → 写账本 → 发事件，整段进重试循环（P3-10）。
 	//
-	// 为什么重试只重读账本、不重新求值：求值读的是活动统计与策略（与账本无关），
-	// 而事件正确性依赖的恰恰是「基准 previous 是不是最新的」。冲突意味着别人刚写过
-	// 账本，带着旧的 previous 发事件就是错序/重复事件的来源，所以必须回到读账本那一步。
+	// 为什么**重新求值**而不只是重读账本：求值输入（活动统计、策略）确实与账本无关，
+	// 但「输入独立」不等于「结果在重试窗口内不变」。冲突意味着另一个重算刚刚写过账本，
+	// 它的求值可能发生在更晚的活动统计上；此时沿用本轮的旧 evaluation，就会把**更旧**
+	// 的结果写回账本，并发出方向相反的事件（实测反例：赢家写 level=4/leader，
+	// 落败方用旧求值写回 level=3/veteran 并发 `4→3` 降级事件——正是 P3-10 要消灭的东西）。
+	// 所以每一轮都重读 TrustInput + 重跑 Evaluate；`next.ComputedAt` 用同一轮的时刻，
+	// 保证「computed_at 声称的求值时刻」与真实求值一致（stale sweep 按 computed_at 判陈旧，
+	// 不一致会让脏写推迟下一次纠正）。
 	for attempt := 0; attempt < ledgerCASAttempts; attempt++ {
+		input, err := r.inputs.TrustInput(ctx, userID)
+		if err != nil {
+			return RecomputeOutcome{}, err
+		}
+		kind := identity.UserKindHuman
+		if identity.ValidUserKind(identity.UserKind(input.Kind)) {
+			kind = identity.UserKind(input.Kind)
+		}
+		evaluation, err := r.resolver.Evaluate(ctx, userID, kind, input.CreatedAt)
+		if err != nil {
+			// 产品面关闭不是故障：静默跳过，不写账本也不发事件（等级不可知时不动账本）。
+			if errors.Is(err, ErrDisabled) {
+				return RecomputeOutcome{Skipped: "disabled"}, nil
+			}
+			return RecomputeOutcome{}, err
+		}
+		outcome.Evaluation = evaluation
+		// 判据 1：incomplete 闸。放在读账本之前——连读都不必读，避免「读了就有人顺手写」。
+		if evaluation.Incomplete {
+			outcome.Skipped = "incomplete"
+			if r.logger != nil {
+				r.logger.Warn("trust level recompute skipped: evaluation incomplete",
+					"user_id", userID, "problems", len(evaluation.Errors))
+			}
+			return outcome, nil
+		}
+
 		previous, found, err := r.ledger.LoadLedger(ctx, userID)
 		if err != nil {
 			return RecomputeOutcome{}, err
@@ -161,7 +167,8 @@ func (r *Recomputer) RecomputeUser(ctx context.Context, userID int64) (Recompute
 			return RecomputeOutcome{}, err
 		}
 		if !applied {
-			// 并发冲突：账本已被别的重算改过。重读基准，绝不带旧 previous 发事件。
+			// 并发冲突：账本已被别的重算改过。回到循环开头重新求值 + 重读基准，
+			// 绝不带旧 previous 或旧 evaluation 发事件。
 			continue
 		}
 		outcome.LedgerWritten = true
