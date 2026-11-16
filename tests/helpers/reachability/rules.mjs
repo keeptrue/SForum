@@ -1,9 +1,11 @@
 /**
  * 规则判定层：把「实测模型 + 基线」变成一组带规则码的失败项。
  *
- * 这一层**不做任何输出**，也不读 argv —— 失败项、提示、守卫升级记录都以返回值交出去，
+ * 这一层**不做任何输出**，也不读 argv —— 失败项、提示、守卫升级记录都通过 ctx 交出去，
  * 由 CLI 决定怎么打印、怎么退出。这样规则可以单独跑（fixture 测试就是把它指向合成树），
  * 输出格式改动也不会碰到判定逻辑。
+ *
+ * ctx 的形状：`{ fail(rule, message), note(message), upgrades: [], refresh: boolean }`。
  */
 
 import { GUARD_REGISTRY } from './call-graph.mjs';
@@ -27,7 +29,7 @@ function checkCounts(observation, baseline, ctx) {
       else ctx.note(`「${name}」从 ${expected} 收紧到 ${value}，可跑 --refresh 落盘`);
       continue;
     }
-    if (refresh) console.log(`[reach] 待刷新：${message}`);
+    if (ctx.refresh) ctx.note(`待刷新：${message}`);
     else ctx.fail('count-drift', `${message}；确认无回归后跑 --refresh 刷新计数`);
   }
 }

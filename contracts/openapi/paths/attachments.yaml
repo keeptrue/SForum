@@ -382,6 +382,8 @@ adminAttachmentStorageInstances:
     summary: List Host-owned attachment storage instances
     operationId: listAttachmentStorageInstances
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Storage instances with provider-defined schemas and historical attachment counts.
         content:
@@ -400,6 +402,8 @@ adminAttachmentStorageInstances:
         application/json:
           schema: { "$ref": "../schemas/attachments.yaml#/AttachmentStorageInstanceInput" }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '201':
         description: Instance created in an unverified state.
         content:
@@ -419,6 +423,8 @@ adminAttachmentStorageInstancesProbe:
         application/json:
           schema: { "$ref": "../schemas/attachments.yaml#/AttachmentStorageInstanceProbeInput" }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Draft probe result.
         content:
@@ -433,6 +439,8 @@ adminAttachmentStorageLocalActivate:
     summary: Make Core local storage the writer for new attachments
     operationId: activateLocalAttachmentStorage
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Local storage activated. }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '503':
@@ -452,6 +460,8 @@ adminAttachmentStorageInstance:
         application/json:
           schema: { "$ref": "../schemas/attachments.yaml#/AttachmentStorageInstanceInput" }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Instance updated.
         content:
@@ -465,6 +475,8 @@ adminAttachmentStorageInstance:
     summary: Delete an unreferenced standby storage instance
     operationId: deleteAttachmentStorageInstance
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Instance deleted.
         content:
@@ -484,6 +496,8 @@ adminAttachmentStorageInstanceActivate:
       required: true
       schema: { type: string, format: uuid }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Instance activated after a successful real probe.
         content:

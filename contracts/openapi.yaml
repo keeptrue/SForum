@@ -715,19 +715,19 @@ paths:
     "$ref": "./openapi/paths/extensions.yaml#/extensionPluginRoute"
   "/profiles/{username}/badges":
     "$ref": "./openapi/paths/badges.yaml#/profileBadgesByUsername"
-  /badges:
+  "/badges":
     "$ref": "./openapi/paths/badges.yaml#/publicBadgeCatalog"
-  /badges/worn:
+  "/badges/worn":
     "$ref": "./openapi/paths/badges.yaml#/badgeWorn"
-  /trust-levels:
+  "/trust-levels":
     "$ref": "./openapi/paths/trust_levels.yaml#/trustLevels"
-  /admin/trust-levels:
+  "/admin/trust-levels":
     "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevels"
-  /admin/trust-levels/restore-defaults:
+  "/admin/trust-levels/restore-defaults":
     "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelsRestoreDefaults"
-  /admin/trust-levels/conditions:
+  "/admin/trust-levels/conditions":
     "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelConditions"
-  /admin/trust-levels/rule-impact:
+  "/admin/trust-levels/rule-impact":
     "$ref": "./openapi/paths/trust_levels.yaml#/adminTrustLevelRuleImpact"
   "/admin/badges":
     "$ref": "./openapi/paths/badges.yaml#/adminBadges"
@@ -745,7 +745,7 @@ paths:
     "$ref": "./openapi/paths/badges.yaml#/adminBadgesRecompute"
   "/admin/badges/backfill-status":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeBackfillStatus"
-  /badges/tiers:
+  "/badges/tiers":
     "$ref": "./openapi/paths/badges.yaml#/publicBadgeTiers"
   "/admin/badges/tiers":
     "$ref": "./openapi/paths/badges.yaml#/adminBadgeTiers"

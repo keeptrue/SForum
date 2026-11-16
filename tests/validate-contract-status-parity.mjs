@@ -40,18 +40,67 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(SCRIPT_DIR, '..');
+const ARGV = process.argv.slice(2);
+const ROOT_INDEX = ARGV.indexOf('--root');
+// 默认扫仓库自身；--root 供反例测试指向合成树（与可达性门同一套约定）。
+const ROOT = ROOT_INDEX >= 0 && ARGV[ROOT_INDEX + 1] ? path.resolve(ARGV[ROOT_INDEX + 1]) : path.resolve(SCRIPT_DIR, '..');
 const CONTRACT_ENTRY = path.join(ROOT, 'contracts', 'openapi.yaml');
 const CONTRACT_ROOT = path.join(ROOT, 'contracts');
 const API_ROOT = path.join(ROOT, 'apps', 'api');
-const BASELINE_PATH = path.join(SCRIPT_DIR, 'contract-status-parity-baseline.json');
-const PUBLIC_READ_401_MANIFEST = path.join(SCRIPT_DIR, 'contract-public-read-401.json');
+// 基线随 --root 走：仓库里就是 tests/ 自身，fixture 树里则是那棵树的 tests/。
+const BASELINE_PATH = path.join(ROOT, 'tests', 'contract-status-parity-baseline.json');
+const PUBLIC_READ_401_MANIFEST = path.join(ROOT, 'tests', 'contract-public-read-401.json');
 
 const SERVER_PREFIX = '/api/v1'; // 与 apps/api/app/Http/server.go 的 app.Group("/api/v1") 对应
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace'];
 const FIBER_METHODS = ['Get', 'Post', 'Put', 'Patch', 'Delete', 'Head', 'Options', 'All'];
-const HELPER_PATTERN = /^(respond|fail|send|write)/i;
-const HELPER_DEPTH = 2; // 辅助函数最多跟随两层，够覆盖 respond*/fail* 链，避免无限递归
+const HELPER_DEPTH = 2; // 辅助函数最多跟随两层，够覆盖助手链，避免无限递归
+
+/**
+ * 显式响应助手白名单（与 GUARD_HELPERS 同构：名字 + 语义 + 产出的状态码）。
+ *
+ * **不做前缀泛匹配**。历史实现用 /^(respond|fail|send|write)/ 兜住 6 个函数，
+ * 前缀泛匹配的问题是「新增一个名字碰巧带前缀的业务函数，就会被当成响应助手，凭空
+ * 给路由塞状态码」。这里改成逐条登记，并把原来靠前缀命中的 6 个显式写下来。
+ *
+ * 三种形态：
+ *   - `codes`      固定码（助手自己决定，不看调用点）—— apphttp.OK/Created/NoData
+ *   - `statusArg`  码由调用点的第 N 个实参给出（`fiber.StatusXxx` 或数字字面量）
+ *   - `follow`     跟随同包函数体收集（原来靠前缀命中的那几个控制器内助手）
+ *
+ * 未登记即红：app/Http 里凡是「首参是 fiber.Ctx 且函数体产出状态码」的函数都必须
+ * 在这张表或 GUARD_HELPERS 里，否则新增助手会静默不被识别、路由状态码集合变空、
+ * 比对退化成 ∅ ⊆ 任意（见 checkResponseHelperRegistry）。
+ */
+const RESPONSE_HELPERS = new Map([
+  ['OK', { codes: [200], note: '成功响应：200 + 统一 envelope' }],
+  ['Created', { codes: [201], note: '创建成功：201 + 统一 envelope' }],
+  ['NoData', { codes: [204], note: '无内容：204' }],
+  ['JSON', { statusArg: 1, note: '通用 JSON 响应：码由第 2 个实参给出' }],
+  ['ErrorResponse', { statusArg: 1, note: '错误响应：码由第 2 个实参给出' }],
+  ['ErrorResponseWithFields', { statusArg: 1, note: '带字段级错误的错误响应' }],
+  ['ErrorResponseWithFieldsAndDetails', { statusArg: 1, note: '带字段与细节的错误响应' }],
+  ['ErrorResponseWithRetryAt', { statusArg: 1, note: '带 Retry-After 的错误响应' }],
+  ['Abort', { statusArg: 0, note: '构造并返回 *APIError：码由第 1 个实参给出' }],
+  ['AbortIf', { statusArg: 1, note: '条件构造 *APIError：码由第 2 个实参给出' }],
+  ['AbortUnless', { statusArg: 1, note: '反向条件构造 *APIError：码由第 2 个实参给出' }],
+  ['NewError', { statusArg: 0, note: '构造 *APIError（应用层用）：码由第 1 个实参给出' }],
+  ['NewErrorWithFields', { statusArg: 0, note: '构造带字段 *APIError' }],
+  ['NewErrorWithDetails', { statusArg: 0, note: '构造带细节 *APIError' }],
+  ['NewErrorWithRetryAt', { statusArg: 0, note: '构造带 Retry-After *APIError' }],
+  // 原来靠前缀 /^(respond|fail|send|write)/ 命中的 6 个，改成显式登记后行为不变。
+  ['sendAttachmentDelivery', { follow: true, note: '附件直连/流式交付：302（签名地址）或 503（存储不可用）' }],
+  ['sendAttachmentContent', { follow: true, note: '附件内容写出：委托 sendAttachmentDelivery' }],
+  ['sendFrontendAsset', { follow: true, note: '插件前端制品写出' }],
+  ['writeRouteDispatchResponse', { follow: true, note: '路由分发响应写出' }],
+  ['writeRevisionEvent', { follow: true, note: 'SSE 修订事件写出（不产状态码，登记以免漏检）' }],
+  ['writeCommentRevisionEvent', { follow: true, note: 'SSE 评论修订事件写出（不产状态码，登记以免漏检）' }],
+  // 不是控制器直接调用，但符合「首参 fiber.Ctx 且产状态码」的形状，必须登记。
+  ['storageUnavailable', { codes: [503], note: '依赖故障统一出口：503 + Retry-After（全局 error handler 用）' }],
+  ['serveRouteStream', { follow: true, note: '插件路由流式响应' }],
+  ['serveRouteWebSocket', { follow: true, note: '插件路由 WebSocket 升级' }],
+  ['validRouteWebSocketPreflight', { follow: true, note: '插件路由 WebSocket 预检' }],
+]);
 
 // 显式 guard 助手白名单：键是函数名，值是「为什么它可以被当响应辅助函数」的语义说明。
 // 只收**叶子守卫**：函数体自己就直接 return fiber.NewError(...) 决定状态码，不靠调用方
@@ -499,13 +548,18 @@ function readCoreRoutes() {
 
       let codes;
       let handlerLabel;
+      // 助手函数表按**注册文件所在包**取，内联闭包与具名 handler 共用一份：
+      // 内联闭包同样会调用 apphttp.OK / JSON 这类助手（/health、/ready 就是），
+      // 早先给闭包传 null 等于对它们关掉助手识别，白留两个退化区条目。
+      const helperBodies = new Map();
+      for (const bodies of packageOf(dir).bodies) for (const [k, v] of bodies) helperBodies.set(k, v);
       if (/^func\s*\(/.test(handlerExpr)) {
         const body = braceBody(masked, handlerArg.start);
         if (!body) {
           fail(`${relFile}: 内联 handler ${method} ${fullPath} 的函数体无法定位`);
           continue;
         }
-        codes = collectStatuses(body, null);
+        codes = collectStatuses(body, helperBodies);
         handlerLabel = '<inline closure>';
       } else {
         const name = handlerExpr.split('.').pop();
@@ -528,8 +582,6 @@ function readCoreRoutes() {
           fail(`${relFile}: 路由 ${method} ${fullPath} 的 handler "${handlerExpr}" 在包内找不到函数体`);
           continue;
         }
-        const helperBodies = new Map();
-        for (const bodies of pkg.bodies) for (const [k, v] of bodies) helperBodies.set(k, v);
         // guard 守卫在实现里是 *Controller 的方法，functionBodies 只认顶层 func，
         // 所以白名单名称要额外按方法签名补一次（只补白名单，不扩大既有 respond/fail 语义）。
         for (const name of GUARD_HELPERS.keys()) {
@@ -572,6 +624,31 @@ function readCoreRoutes() {
  * handler 函数体 + 同包 respond / fail / send / write 前缀辅助函数里的状态码，
  * 以及 GUARD_HELPERS 白名单里的 guard 助手（后者按名字精确匹配，不走前缀）。
  */
+/**
+ * 取一次调用能确定的状态码：
+ *   - `codes`     直接用固定码；
+ *   - `statusArg` 从该调用的第 N 个实参里取 `fiber.StatusXxx` 或 3 位数字；
+ *   - `follow`    交给调用方跟随函数体（返回 null）。
+ * 参数取不到（变量/表达式）时返回空数组 —— 静态上判不出来就不猜。
+ */
+function helperCodesAt(entry, body, callIndex) {
+  if (entry.codes) return entry.codes;
+  if (entry.statusArg === undefined) return null;
+  const openIndex = body.indexOf('(', callIndex);
+  if (openIndex < 0) return [];
+  const { args } = splitTopLevelArgs(body, openIndex);
+  const arg = args[entry.statusArg];
+  if (!arg) return [];
+  const codes = [];
+  for (const m of arg.text.matchAll(/\b(Status[A-Za-z]+)\b/g)) {
+    const value = STATUS_CONSTANTS[m[1]];
+    if (value !== undefined) codes.push(value);
+    else unknownConstants.add(m[1]);
+  }
+  for (const m of arg.text.matchAll(/(?<![A-Za-z0-9_.])(\d{3})(?![A-Za-z0-9_])/g)) codes.push(Number(m[1]));
+  return codes;
+}
+
 function collectStatuses(body, helperBodies) {
   const codes = statusesIn(body);
   if (!helperBodies) return codes;
@@ -583,7 +660,16 @@ function collectStatuses(body, helperBodies) {
       for (const call of current.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
         const name = call[1];
         if (visited.has(name)) continue;
-        if (!HELPER_PATTERN.test(name) && !GUARD_HELPERS.has(name)) continue;
+        const entry = RESPONSE_HELPERS.get(name);
+        if (!entry && !GUARD_HELPERS.has(name)) continue;
+        if (entry) {
+          const fixed = helperCodesAt(entry, current, call.index);
+          if (fixed !== null) {
+            visited.add(name);
+            for (const code of fixed) codes.add(code);
+            continue;
+          }
+        }
         const helper = helperBodies.get(name);
         if (!helper) continue;
         visited.add(name);
@@ -879,6 +965,81 @@ function refreshCounts(actual, baseline) {
 // 主流程
 // ---------------------------------------------------------------------------
 
+/**
+ * 响应助手登记表完整性：app/Http 里凡是「首参是 fiber.Ctx 且函数体产出状态码」的函数，
+ * 都必须出现在 RESPONSE_HELPERS 或 GUARD_HELPERS 里。
+ *
+ * 为什么需要这条：白名单一旦漏登记，那个助手的码就**静默消失**，路由状态码集合变空，
+ * 比对退化成 ∅ ⊆ 任意 —— 正是第 14 轮 P1 那一类。漏登记必须红，不能靠人记得。
+ *
+ * 判定只看形状（首参类型 + 函数体里有状态码写法），不看名字前缀。
+ */
+function checkResponseHelperRegistry() {
+  const dir = path.join(API_ROOT, 'app', 'Http');
+  if (!fs.existsSync(dir)) return 0;
+  const registered = new Set([...RESPONSE_HELPERS.keys(), ...GUARD_HELPERS.keys()]);
+  let checked = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.go') || entry.name.endsWith('_test.go')) continue;
+    const file = path.join(dir, entry.name);
+    const { masked } = scanGoSource(fs.readFileSync(file, 'utf8'));
+    const signature = /^func\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*([^{]*)\{/gm;
+    let match;
+    while ((match = signature.exec(masked))) {
+      const name = match[1];
+      if (!/^\s*c\s+fiber\.Ctx\b/.test(match[2])) continue;
+      // 只看「自己把响应写出去并返回错误」的助手（返回 error / *APIError）。
+      // 返回 (Actor, error) 的是身份守卫，归可达性门的 GUARD_REGISTRY 管，不在这里重复登记。
+      if (!/^\s*(error|\*APIError)\s*$/.test(match[3])) continue;
+      const body = braceBody(masked, match.index + match[0].length - 1); // 正则已吃掉 '{'
+      if (!body) continue;
+      if (statusesIn(body).size === 0) continue;
+      checked += 1;
+      if (!registered.has(name)) {
+        fail(
+          `app/Http 出现未登记的响应助手：${name}（${path.relative(ROOT, file)}）—— 它首参是 fiber.Ctx 且` +
+            '自己产出状态码，不登记就会让调用它的路由状态码集合变空。请把它连同语义说明与状态码' +
+            '写进 RESPONSE_HELPERS（响应助手）或 GUARD_HELPERS（守卫）',
+        );
+      }
+    }
+  }
+  return checked;
+}
+
+/**
+ * 字段级比对（至少覆盖 503）：实现侧在答 503 时设 `Retry-After`，共享响应组件
+ * `components/responses.yaml#/ServiceUnavailable` 就必须声明这个 header。
+ *
+ * 为什么单列一条：状态码集合只回答「会不会答 503」，不回答「答 503 时客户端能不能
+ * 拿到重试间隔」。运维按 Retry-After 退避是契约的一部分，删掉它不该静默变绿。
+ * 只比对「声明了没有」，不比对取值（取值由实现固定为 1 秒，见 storageUnavailable）。
+ */
+function checkResponseHeaderFields() {
+  const implFile = path.join(API_ROOT, 'app', 'Http', 'storage_failure.go');
+  const componentFile = path.join(CONTRACT_ROOT, 'openapi', 'components', 'responses.yaml');
+  if (!fs.existsSync(implFile) || !fs.existsSync(componentFile)) return 0;
+  const impl = fs.readFileSync(implFile, 'utf8');
+  const setsRetryAfter = /HeaderRetryAfter|"Retry-After"/.test(impl);
+  if (!setsRetryAfter) return 0;
+  // 末尾补一个哨兵顶层键：ServiceUnavailable 可能是文件最后一个组件，没有后继键可做边界。
+  const component = `${fs.readFileSync(componentFile, 'utf8')}\nZZZEND:\n`;
+  const block = /^ServiceUnavailable:\n([\s\S]*?)(?=^[A-Za-z])/m.exec(component);
+  if (!block) {
+    fail('[header-field] components/responses.yaml 里找不到 ServiceUnavailable 响应组件');
+    return 1;
+  }
+  if (!/^ {2}headers:\s*$/m.test(block[1]) || !/^ {4}Retry-After:\s*$/m.test(block[1])) {
+    fail(
+      '[header-field] ' +
+        '实现侧在答 503 时设置 Retry-After（app/Http/storage_failure.go），' +
+        '但 components/responses.yaml#/ServiceUnavailable 没有声明 headers.Retry-After —— ' +
+        '客户端拿不到重试间隔，字段级契约缺失',
+    );
+  }
+  return 1;
+}
+
 function main() {
   const started = process.hrtime.bigint();
   const refresh = process.argv.includes('--refresh');
@@ -914,6 +1075,8 @@ function main() {
   if (unknownConstants.size > 0) {
     fail(`出现脚本状态码常量表外的写法，需补表后重跑：${[...unknownConstants].join(', ')}`);
   }
+  const helperChecked = checkResponseHelperRegistry();
+  const headerChecked = checkResponseHeaderFields();
   // 白名单过期同样是红的：名字对不上时守卫状态码会悄悄消失，空集路由数才会又涨回去。
   for (const name of GUARD_HELPERS.keys()) {
     if (!guardHelperHits.has(name)) {
@@ -939,6 +1102,14 @@ function main() {
   console.log(
     `[parity] guard 助手白名单：${[...GUARD_HELPERS.keys()].join(', ')}` +
       `（命中 ${guardHelperHits.size}/${GUARD_HELPERS.size}）`,
+  );
+  console.log(
+    `[parity] 响应助手白名单：${RESPONSE_HELPERS.size} 条；app/Http 里首参 fiber.Ctx 且产状态码的函数 ${helperChecked} 个，` +
+      '未登记即红',
+  );
+  console.log(
+    `[parity] 字段级比对：503 的 Retry-After 已纳入核对（实现侧设置该 header 的 ${headerChecked} 个出口，` +
+      '组件未声明即红）',
   );
   if (printEmptyRoutes) {
     console.log('[parity-empty-routes]');

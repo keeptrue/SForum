@@ -1,31 +1,51 @@
 {
   "说明": "契约状态码 parity 门的例外登记表（见 tests/validate-contract-status-parity.mjs）。只登记两类：静态判定不了的 operation，以及人工复核后接受的实现多出状态码。每条例外必须写中文原因；条目过期（现在能映射 / 不再多出码）会被判红，必须删除。新增例外要人来判断，--refresh 只刷新「期望计数」，不会增删条目，且只有本次运行零失败时才落盘。「状态码集合为空的实现侧路由数」是只降不升的棘轮：助手函数白名单只含 respond/fail/send/write 前缀，外加一张显式 guard 助手白名单（当前是 requireGuestRead、requireAdmin，逐条核对语义后才收）；空集路由越多，比对越是退化成 ∅ ⊆ 任意，所以这个数字只能变小，且这一行必须显式存在于「期望计数」里（被删掉等于关掉防护，门会直接判红）。新增 endpoint 若直接用 c.JSON / apphttp.OK 直出、没有显式状态常量，会让空集数 +1 并判红——这是预期行为：处置方式是在同一次改动里说明原因并手改基线数字，不许为凑够数字给路由加无意义的状态码噪音。",
   "期望计数": {
-    "契约operation数": 436,
+    "契约operation数": 439,
     "已映射operation数": 432,
-    "未映射operation数": 4,
-    "已复核未声明状态码条数": 1,
-    "状态码集合为空的实现侧路由数": 194
+    "未映射operation数": 7,
+    "已复核未声明状态码条数": 2,
+    "状态码集合为空的实现侧路由数": 30
   },
   "不可静态判定": [
     {
-      "operation": "GET /api/v1/extensions/{id}/{pluginPath}",
-      "原因": "插件代理路由：实现侧注册为 api.All(\"/extensions/:extensionId/*\", h.proxyExtensionRoute)，通配末段由 Route Dispatcher 在运行时按插件清单匹配，handler 与路径都不是静态的一对一关系。形状不可表达，已用描述披露（ExtensionPluginPath 参数说明写了「该参数匹配多段（实现为 Fiber `*` 通配）」）。"
+      "operation": "DELETE /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理通配路由（实现侧 api.All(\"/extensions/:extensionId/*\")）：目标 handler 由 Route Registry 在运行期决定，静态无法把某个 method 落到具体 handler。契约已按方法级声明（put/patch/delete 与 post 同权，均由 Host 校验 actor 与 manifest 声明的权限），这里只登记「本门无法静态比对」。"
     },
     {
-      "operation": "POST /api/v1/extensions/{id}/{pluginPath}",
-      "原因": "插件代理路由：与 GET 同一条 api.All(\"/extensions/:extensionId/*\") 注册，实际处理器由扩展运行时决定，静态扫描无法落到具体函数。形状不可表达，已用描述披露（同 ExtensionPluginPath 参数说明）。"
+      "operation": "GET /api/v1/extensions/runtime/{extensionID}/packages/{packageDigest}/{packagePath}",
+      "原因": "通配包资源：实现侧是 api.Get(\"/extensions/runtime/:extensionId/packages/:packageDigest/*\", h.publicFrontendPackageAsset)，末段为通配符，对应扩展包内任意层级文件。形状不可表达，已用描述披露（packagePath 参数说明写了「该参数匹配多段（实现为 Fiber `*` 通配）」）。"
+    },
+    {
+      "operation": "GET /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理路由：实现侧注册为 api.All(\"/extensions/:extensionId/*\", h.proxyExtensionRoute)，通配末段由 Route Dispatcher 在运行时按插件清单匹配，handler 与路径都不是静态的一对一关系。形状不可表达，已用描述披露（ExtensionPluginPath 参数说明写了「该参数匹配多段（实现为 Fiber `*` 通配）」）。"
     },
     {
       "operation": "GET /api/v1/site/theme-assets/{extensionId}/{assetPath}",
       "原因": "通配静态资源：实现侧是 api.Get(\"/site/theme-assets/:extensionId/*\", h.themeAsset)，末段为 Fiber 通配符而非具名参数，无法与契约的单段 {assetPath} 静态对齐。形状不可表达，已用描述披露（assetPath 参数说明写了「该参数匹配多段（实现为 Fiber `*` 通配）」）。"
     },
     {
-      "operation": "GET /api/v1/extensions/runtime/{extensionID}/packages/{packageDigest}/{packagePath}",
-      "原因": "通配包资源：实现侧是 api.Get(\"/extensions/runtime/:extensionId/packages/:packageDigest/*\", h.publicFrontendPackageAsset)，末段为通配符，对应扩展包内任意层级文件。形状不可表达，已用描述披露（packagePath 参数说明写了「该参数匹配多段（实现为 Fiber `*` 通配）」）。"
+      "operation": "PATCH /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理通配路由（实现侧 api.All(\"/extensions/:extensionId/*\")）：目标 handler 由 Route Registry 在运行期决定，静态无法把某个 method 落到具体 handler。契约已按方法级声明（put/patch/delete 与 post 同权，均由 Host 校验 actor 与 manifest 声明的权限），这里只登记「本门无法静态比对」。"
+    },
+    {
+      "operation": "POST /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理路由：与 GET 同一条 api.All(\"/extensions/:extensionId/*\") 注册，实际处理器由扩展运行时决定，静态扫描无法落到具体函数。形状不可表达，已用描述披露（同 ExtensionPluginPath 参数说明）。"
+    },
+    {
+      "operation": "PUT /api/v1/extensions/{id}/{pluginPath}",
+      "原因": "插件代理通配路由（实现侧 api.All(\"/extensions/:extensionId/*\")）：目标 handler 由 Route Registry 在运行期决定，静态无法把某个 method 落到具体 handler。契约已按方法级声明（put/patch/delete 与 post 同权，均由 Host 校验 actor 与 manifest 声明的权限），这里只登记「本门无法静态比对」。"
     }
   ],
   "已复核未声明状态码": [
+    {
+      "operation": "GET /api/v1/auth/email-verification/confirm",
+      "codes": [
+        200
+      ],
+      "handler": "emailVerificationConfirm",
+      "原因": "不可按方法拆分的静态假阳性：同一 handler 同时注册 GET 与 POST，只有非 GET 分支才返回 200，而契约的 GET operation 只声明 303/422/503。与 POST 那条（多出 303）是同一个 handler 的镜像，属静态扫描的已知边界，不是真实契约缺口。"
+    },
     {
       "operation": "POST /api/v1/auth/email-verification/confirm",
       "codes": [

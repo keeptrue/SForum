@@ -3,6 +3,8 @@ adminJobsOverview:
     summary: Inspect background queue health
     description: Requires `jobs.view`.
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Queue and state counts, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJobsOverview" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '503':
@@ -14,6 +16,8 @@ adminJobSchedules:
       Requires `jobs.view`. Returns the Schedule Registry catalog with runtime
       enable flags, last run (from River job history), and estimated next run.
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Schedule definitions, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJobSchedules" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '503':
@@ -25,6 +29,8 @@ adminJobScheduleEnable:
     parameters:
     - { name: scheduleId, in: path, required: true, schema: { type: string } }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Updated schedule, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJobSchedule" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
@@ -37,6 +43,8 @@ adminJobScheduleDisable:
     parameters:
     - { name: scheduleId, in: path, required: true, schema: { type: string } }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Updated schedule, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJobSchedule" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
@@ -51,6 +59,8 @@ adminJobScheduleTrigger:
     parameters:
     - { name: scheduleId, in: path, required: true, schema: { type: string } }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Enqueued job summary, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJobScheduleTrigger" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
@@ -67,6 +77,8 @@ adminJobs:
     - { name: state, in: query, schema: { type: string } }
     - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Jobs, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJobList" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '503':
@@ -76,6 +88,8 @@ adminJob:
     summary: Inspect a background job
     description: Requires `jobs.view`.
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Job detail, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJob" } } } }
       '404': { "$ref": "../components/responses.yaml#/NotFound" }
       '503':
@@ -85,6 +99,8 @@ adminJobRetry:
     summary: Retry a background job
     description: Requires `jobs.manage`.
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Retried job, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJob" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '503':
@@ -94,6 +110,8 @@ adminJobCancel:
     summary: Cancel a background job
     description: Requires `jobs.manage`.
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': { description: Cancelled job, content: { application/json: { schema: { "$ref": "../schemas/jobs.yaml#/ApiResponseJob" } } } }
       '403': { "$ref": "../components/responses.yaml#/Forbidden" }
       '503':
@@ -102,9 +120,9 @@ adminJobQueuePause:
   post:
     summary: Pause a River queue
     description: Requires `jobs.manage`.
-    responses: { '200': { description: Queue paused }, '403': { "$ref": "../components/responses.yaml#/Forbidden" }, '503': { "$ref": "../components/responses.yaml#/ServiceUnavailable" } }
+    responses: { '401': { "$ref": "../components/responses.yaml#/Unauthorized" }, '200': { description: Queue paused }, '403': { "$ref": "../components/responses.yaml#/Forbidden" }, '503': { "$ref": "../components/responses.yaml#/ServiceUnavailable" } }
 adminJobQueueResume:
   post:
     summary: Resume a River queue
     description: Requires `jobs.manage`.
-    responses: { '200': { description: Queue resumed }, '403': { "$ref": "../components/responses.yaml#/Forbidden" }, '503': { "$ref": "../components/responses.yaml#/ServiceUnavailable" } }
+    responses: { '401': { "$ref": "../components/responses.yaml#/Unauthorized" }, '200': { description: Queue resumed }, '403': { "$ref": "../components/responses.yaml#/Forbidden" }, '503': { "$ref": "../components/responses.yaml#/ServiceUnavailable" } }

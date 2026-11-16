@@ -47,6 +47,14 @@ ServiceUnavailable:
     example a session or identity store outage while resolving the caller)
     also carry `Retry-After: 1` and reason `service.not_ready`: the answer is
     "ask again shortly", never "your credentials are invalid".
+  headers:
+    Retry-After:
+      description: |
+        整秒重试间隔。依赖故障路径（app/Http/storage_failure.go 的 storageUnavailable）
+        固定答 `1`；其它 503 来源可能不带该 header，客户端按「缺失即自行退避」处理。
+      schema:
+        type: integer
+        minimum: 1
   content:
     application/json:
       schema:

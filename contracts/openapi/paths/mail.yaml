@@ -47,6 +47,8 @@ adminMailProvider:
       required: true
       content: {application/json: {schema: {$ref: "../schemas/mail.yaml#/MailProviderSelectionRequest"}}}
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': {description: Provider selected}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
@@ -57,6 +59,8 @@ adminMailProviderReset:
     summary: Restore the recommended mail provider default while preserving plugin secrets
     security: [{cookieAuth: []}]
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Recommended default resolved
         content:
@@ -70,6 +74,8 @@ adminMailDeliveries:
     summary: List the 50 newest sanitized mail deliveries
     security: [{cookieAuth: []}]
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': {description: Recent delivery states}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '503':
@@ -79,6 +85,8 @@ adminNotificationPolicy:
     summary: Read the resolved global notification channel policy
     security: [{cookieAuth: []}]
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': {description: Resolved policy, content: {application/json: {schema: {$ref: "../schemas/mail.yaml#/ApiResponseNotificationPolicy"}}}}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '503':
@@ -90,6 +98,8 @@ adminNotificationPolicy:
       required: true
       content: {application/json: {schema: {$ref: "../schemas/mail.yaml#/NotificationPolicy"}}}
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': {description: Updated policy, content: {application/json: {schema: {$ref: "../schemas/mail.yaml#/ApiResponseNotificationPolicy"}}}}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '422': {$ref: "../components/responses.yaml#/UnprocessableEntity"}
@@ -100,6 +110,8 @@ adminNotificationPolicyRestore:
     summary: Restore the all-enabled recommended notification policy
     security: [{cookieAuth: []}]
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200': {description: Restored policy, content: {application/json: {schema: {$ref: "../schemas/mail.yaml#/ApiResponseNotificationPolicy"}}}}
       '403': {$ref: "../components/responses.yaml#/Forbidden"}
       '503':

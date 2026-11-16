@@ -2808,6 +2808,99 @@ extensionPluginRoute:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
+  put:
+    summary: Invoke a declared plugin route
+    description: Proxies a plugin-declared PUT route after the host verifies the current actor and any manifest-declared permission. Same authority rules as POST.
+    responses:
+      '200':
+        description: Plugin-defined response.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '405':
+        description: Plugin route exists but does not declare this HTTP method.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '412':
+        description: The optional public-frontend bridge identity is incomplete, revoked, upgraded, or no longer matches the admitted runtime.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+  patch:
+    summary: Invoke a declared plugin route
+    description: Proxies a plugin-declared PATCH route after the host verifies the current actor and any manifest-declared permission. Same authority rules as POST.
+    responses:
+      '200':
+        description: Plugin-defined response.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '405':
+        description: Plugin route exists but does not declare this HTTP method.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '412':
+        description: The optional public-frontend bridge identity is incomplete, revoked, upgraded, or no longer matches the admitted runtime.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+  delete:
+    summary: Invoke a declared plugin route
+    description: Proxies a plugin-declared DELETE route after the host verifies the current actor and any manifest-declared permission. Same authority rules as POST.
+    responses:
+      '200':
+        description: Plugin-defined response.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '405':
+        description: Plugin route exists but does not declare this HTTP method.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '412':
+        description: The optional public-frontend bridge identity is incomplete, revoked, upgraded, or no longer matches the admitted runtime.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
 adminSettingsSurfaceTabs:
   get:
     summary: List plugin tabs of the site settings page

@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info:
+  title: parity-helper fixture
+  version: 1.0.0
+paths:
+  /demo/x:
+    $ref: "./openapi/paths/demo.yaml#/demoX"

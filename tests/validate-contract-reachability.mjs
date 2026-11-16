@@ -73,6 +73,7 @@ function main() {
     fail: (rule, message) => failures.push({ rule, message }),
     note: (message) => notes.push(message),
     upgrades,
+    refresh,
   };
 
   let scan;

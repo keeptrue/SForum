@@ -525,6 +525,8 @@ publicBadgeCatalog:
       Fails with `403` reason `forum.badges_disabled` when `features.badges` is
       off — the same code as every other badge route.
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Badge catalog grouped by badge group.
         content:

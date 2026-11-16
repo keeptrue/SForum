@@ -51,6 +51,10 @@ MediaDeliveryHeader:
   description: >-
     仅 `redirect-v1` 触发直连交付；缺省/其他值走 200 流。命中 `redirect-v1` 且存储
     provider 能给出签名地址时，附件内容 operation 返回 302 到该签名地址（见各自的 302）。
+
+    实现口径：服务端用 `X-SForum-Media-Delivery != "redirect-v1"` 判定，**未知取值不报错**，
+    一律按「不走直连」回落到 200 流（不会返回 400/422）。`enum` 是对生成客户端的取值约束，
+    不表示服务端会拒绝其它值；客户端不要依赖「传错值会被拒」这一行为。
     本文件只登记定义，该 header 参数在实际使用它的 operation 上声明。
 ExtensionID:
   name: id

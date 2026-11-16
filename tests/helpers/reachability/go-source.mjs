@@ -242,9 +242,46 @@ export function normalizePath(target) {
 // parity 等价：响应辅助函数的前缀规则与 guard 白名单（见 parity 门的 HELPER_PATTERN /
 // GUARD_HELPERS）。这两个常量只用于**复现 parity 门的可见集合**，好让退化区计数对得上；
 // 本门自己的 guard 判定走 GUARD_REGISTRY，不看前缀。
-const PARITY_HELPER_PATTERN = /^(respond|fail|send|write)/i;
 export const PARITY_GUARD_HELPERS = new Set(['requireGuestRead', 'requireAdmin']);
 const PARITY_HELPER_DEPTH = 2;
+
+/**
+ * parity 门「响应助手白名单」的**独立副本**。
+ *
+ * 与 tests/validate-contract-status-parity.mjs 的 RESPONSE_HELPERS 逐条对应：那边是
+ * 门自己的实现，这里是退化区投影用的复刻。两份刻意不共享代码 —— 共享会让「两门互相
+ * 独立复核」失效；不一致时由 tests/validate-contract-reachability-equivalence.test.mjs
+ * 直接报「两门对空集路由数不一致」，所以漂移不会被静默。
+ *
+ * 三种形态与 parity 门一致：固定 codes / statusArg 从实参取码 / follow 跟随同包函数体。
+ */
+const PARITY_RESPONSE_HELPERS = new Map([
+  ['OK', { codes: [200] }],
+  ['Created', { codes: [201] }],
+  ['NoData', { codes: [204] }],
+  ['JSON', { statusArg: 1 }],
+  ['ErrorResponse', { statusArg: 1 }],
+  ['ErrorResponseWithFields', { statusArg: 1 }],
+  ['ErrorResponseWithFieldsAndDetails', { statusArg: 1 }],
+  ['ErrorResponseWithRetryAt', { statusArg: 1 }],
+  ['Abort', { statusArg: 0 }],
+  ['AbortIf', { statusArg: 1 }],
+  ['AbortUnless', { statusArg: 1 }],
+  ['NewError', { statusArg: 0 }],
+  ['NewErrorWithFields', { statusArg: 0 }],
+  ['NewErrorWithDetails', { statusArg: 0 }],
+  ['NewErrorWithRetryAt', { statusArg: 0 }],
+  ['sendAttachmentDelivery', { follow: true }],
+  ['sendAttachmentContent', { follow: true }],
+  ['sendFrontendAsset', { follow: true }],
+  ['writeRouteDispatchResponse', { follow: true }],
+  ['writeRevisionEvent', { follow: true }],
+  ['writeCommentRevisionEvent', { follow: true }],
+  ['storageUnavailable', { codes: [503] }],
+  ['serveRouteStream', { follow: true }],
+  ['serveRouteWebSocket', { follow: true }],
+  ['validRouteWebSocketPreflight', { follow: true }],
+]);
 
 /**
  * 复现 parity 门的可见状态码集合：handler 自身 + 只跟随 respond* / fail* / send* / write*
@@ -253,6 +290,25 @@ const PARITY_HELPER_DEPTH = 2;
  * 这条集合为空，就是 parity 门的退化区：比对退化成 ∅ ⊆ 任意。本门把这条规则原样
  * 复刻一遍，只为了**量出**退化区的成员集合，不参与本门自己的 guard 判定。
  */
+/** 从调用点的第 N 个实参里取状态码（与 parity 门的 helperCodesAt 同义）。 */
+function helperCodesFromArg(entry, body, callIndex, unknownConstants) {
+  if (entry.codes) return entry.codes;
+  if (entry.statusArg === undefined) return null;
+  const openIndex = body.indexOf('(', callIndex);
+  if (openIndex < 0) return [];
+  const { args } = splitTopLevelArgs(body, openIndex);
+  const arg = args[entry.statusArg];
+  if (!arg) return [];
+  const codes = [];
+  for (const m of arg.text.matchAll(/\b(Status[A-Za-z]+)\b/g)) {
+    const value = STATUS_CONSTANTS[m[1]];
+    if (value !== undefined) codes.push(value);
+    else if (unknownConstants) unknownConstants.add(m[1]);
+  }
+  for (const m of arg.text.matchAll(/(?<![A-Za-z0-9_.])(\d{3})(?![A-Za-z0-9_])/g)) codes.push(Number(m[1]));
+  return codes;
+}
+
 export function parityVisibleCodes(handlerBody, helperBodies, unknownConstants) {
   const codes = statusesIn(handlerBody, unknownConstants);
   const visited = new Set();
@@ -263,7 +319,16 @@ export function parityVisibleCodes(handlerBody, helperBodies, unknownConstants) 
       for (const call of current.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
         const name = call[1];
         if (visited.has(name)) continue;
-        if (!PARITY_HELPER_PATTERN.test(name) && !PARITY_GUARD_HELPERS.has(name)) continue;
+        const entry = PARITY_RESPONSE_HELPERS.get(name);
+        if (!entry && !PARITY_GUARD_HELPERS.has(name)) continue;
+        if (entry) {
+          const fixed = helperCodesFromArg(entry, current, call.index, unknownConstants);
+          if (fixed !== null) {
+            visited.add(name);
+            for (const code of fixed) codes.add(code);
+            continue;
+          }
+        }
         const helper = helperBodies.get(name);
         if (!helper) continue;
         visited.add(name);

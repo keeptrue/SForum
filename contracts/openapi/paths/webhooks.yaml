@@ -84,8 +84,8 @@ adminWebhookEndpointByID:
         type: integer
         format: int64
     responses:
-      '200':
-        description: Endpoint deleted.
+      '204':
+        description: Endpoint deleted（实现走 apphttp.NoData，无响应体）。
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':

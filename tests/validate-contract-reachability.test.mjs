@@ -18,6 +18,7 @@
  *   7. baseline-truncated 基线被截断
  *   8. ratchet            退化区棘轮被上调
  *   9. error-alias        error 换名再返回（别名追踪不能退化成静默盲区）
+ *  10. count-drift        精确计数漂移（覆盖 checkCounts 的 count-drift 分支）
  *
  * 每个 fixture 是一棵自洽的最小树：
  *   apps/api/app/Http/auth_helpers.go              guard 助手
@@ -101,6 +102,12 @@ const CASES = [
     summary: '反例 9：error 换名再返回（`e := err; return e`），别名必须仍算逃出',
     rules: ['gap-unregistered'],
     stderr: /多出=503/,
+  },
+  {
+    name: 'count-drift',
+    summary: '反例 10：基线记的实现侧路由数与实测不符（精确计数漂移）',
+    rules: ['count-drift'],
+    stderr: /基线计数「实现侧路由数」/,
   },
   {
     name: 'ratchet',

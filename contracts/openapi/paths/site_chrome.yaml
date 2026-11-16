@@ -29,6 +29,8 @@ siteNavigation:
         style: form
         explode: false
     responses:
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
       '200':
         description: Safe resolved items for the requested actor and locale. Missing or inactive extension contributions are omitted.
         content:

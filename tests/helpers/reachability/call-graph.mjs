@@ -82,8 +82,11 @@ export const GUARD_REGISTRY = [
   {
     dir: 'app/Http/Controllers/TrustLevels',
     name: 'requireAdmin',
-    codes: [401, 403, 404],
-    note: '信任等级后台守卫：开关关闭 404、缺权限 403、内部 loadActor→LoadActor 401',
+    codes: [401, 403, 404, 503],
+    note:
+      '信任等级后台守卫：开关关闭 404、缺权限 403；内部 loadActor 已从 LoadActor 换成 ' +
+      'apphttp.RequireActor（controller.go:364-369），所以还会产 401（无凭据/主体不可用）与 ' +
+      '503（依赖故障/未识别）。少了 503 这一条，W1 补的 trust_levels.yaml 五条 503 就没有门保护。',
   },
   // 以下两条不在派单点名的六个之内，但**不登记就会让端点看起来没有门**：
   // 它们是控制器自带的等价守卫（同一个「没登录就 401 auth.required」语义），
