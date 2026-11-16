@@ -21,6 +21,10 @@ import (
 var (
 	ErrFrontendTrustUnavailable = errors.New("extensions: frontend trust is unavailable")
 	ErrFrontendPackageChanged   = errors.New("extensions: frontend package changed")
+	// ErrFrontendChallengeUnavailable 表示**挑战存储不可用**（数据库/连接故障），
+	// 与「挑战无效或过期」区分开：前者是运维问题（503），后者是提交问题（409）。
+	// 它自身包着 ErrFrontendTrustUnavailable，既有调用方按老哨兵判断仍然成立。
+	ErrFrontendChallengeUnavailable = fmt.Errorf("%w: confirmation challenge store is unavailable", ErrFrontendTrustUnavailable)
 )
 
 type FrontendExtensionReader interface {
@@ -156,6 +160,9 @@ func (s *FrontendService) Challenge(ctx context.Context, actor identity.Actor, e
 		ComponentID: challenge.ComponentID,
 		ExpiresAt:   challenge.ExpiresAt,
 	}); err != nil {
+		if errors.Is(err, frontendtrust.ErrStoreUnavailable) {
+			return FrontendTrustChallenge{}, fmt.Errorf("%w: %w", ErrFrontendChallengeUnavailable, err)
+		}
 		return FrontendTrustChallenge{}, err
 	}
 	return challenge, nil
@@ -366,7 +373,7 @@ func (s *FrontendService) consumePrebuiltConfirmation(ctx context.Context, actor
 			return fmt.Errorf("%w: confirmation challenge is invalid or expired", ErrFrontendTrustUnavailable)
 		}
 		// 存储故障不能伪装成「挑战无效」，否则运营会去查错误的方向。
-		return fmt.Errorf("%w: confirmation challenge store unavailable: %w", ErrFrontendTrustUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrFrontendChallengeUnavailable, err)
 	}
 	return nil
 }

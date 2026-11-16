@@ -22,9 +22,17 @@ import (
 	"time"
 )
 
-// TrustClass 是本包写入行的类别标记，用来把前端组件挑战与可执行信任挑战
-// （同样使用 action='frontend_import'）在同一张表里区分开：本包只失效、只消费
-// 带这个标记的行，绝不碰可执行信任那一族的行。
+// TrustClass 是本包写入行的**冗余**类别标记。
+//
+// 隔离机制其实是 `action` 列：本包写 `action='frontend_import'`，而可执行信任
+// （`ExecutableTrustService`）只用 `TrustActionEnable = "enable"`
+// （`trust_types.go`）。`frontend_import` 这个取值在 migration 202607130006 的
+// CHECK 域里存在，但**非测试代码只有本包在用**，所以两族本来就靠 action 分开。
+//
+// trustClass 是第二道保险，不是隔离手段：它让 supersede/consume 的 WHERE 更精确，
+// 并且在将来若有人给可执行信任接上 `frontend_import` action 时仍能挡住串行。
+// **不要删掉 action = $3 那个条件**——只留 trustClass 会让隔离依赖一个本包自定义的
+// JSON 键，而 action 才是表结构层面声明过的契约。
 const TrustClass = "frontend_component"
 
 var (
@@ -35,6 +43,9 @@ var (
 	// ErrStoreUnavailable 表示存储层故障（连接/超时/约束），与「挑战无效」区分开，
 	// 免得把数据库故障报成用户提交错误。
 	ErrStoreUnavailable = errors.New("frontendtrust: challenge store is unavailable")
+	// ErrInvalidChallengeInput 表示调用方给挑战字段本身不合法（缺 actor、摘要不是
+	// 64 位 hex 等）。它**不是**存储故障，不能走 503 映射。
+	ErrInvalidChallengeInput = errors.New("frontendtrust: challenge input is invalid")
 )
 
 // Challenge 是一次待确认的前端组件信任挑战。

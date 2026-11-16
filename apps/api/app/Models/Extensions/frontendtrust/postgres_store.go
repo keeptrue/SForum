@@ -133,21 +133,21 @@ func (s *PostgresStore) Consume(ctx context.Context, input ConsumeInput) error {
 func (c Challenge) validate() error {
 	switch {
 	case strings.TrimSpace(c.ChallengeID) == "":
-		return fmt.Errorf("%w: challenge id is required", ErrStoreUnavailable)
+		return fmt.Errorf("%w: challenge id is required", ErrInvalidChallengeInput)
 	case strings.TrimSpace(c.Code) == "":
-		return fmt.Errorf("%w: confirmation code is required", ErrStoreUnavailable)
+		return fmt.Errorf("%w: confirmation code is required", ErrInvalidChallengeInput)
 	case c.ActorUserID <= 0:
-		return fmt.Errorf("%w: actor is required", ErrStoreUnavailable)
+		return fmt.Errorf("%w: actor is required", ErrInvalidChallengeInput)
 	case strings.TrimSpace(c.ExtensionID) == "":
-		return fmt.Errorf("%w: extension id is required", ErrStoreUnavailable)
+		return fmt.Errorf("%w: extension id is required", ErrInvalidChallengeInput)
 	case strings.TrimSpace(c.Version) == "":
-		return fmt.Errorf("%w: extension version is required", ErrStoreUnavailable)
+		return fmt.Errorf("%w: extension version is required", ErrInvalidChallengeInput)
 	case !hexDigestPattern.MatchString(c.Digest):
-		return fmt.Errorf("%w: admin frontend digest must be 64 hex chars", ErrStoreUnavailable)
+		return fmt.Errorf("%w: admin frontend digest must be 64 hex chars", ErrInvalidChallengeInput)
 	case strings.TrimSpace(c.ComponentID) == "":
-		return fmt.Errorf("%w: component id is required", ErrStoreUnavailable)
+		return fmt.Errorf("%w: component id is required", ErrInvalidChallengeInput)
 	case !c.ExpiresAt.After(time.Now().UTC()):
-		return fmt.Errorf("%w: challenge must expire in the future", ErrStoreUnavailable)
+		return fmt.Errorf("%w: challenge must expire in the future", ErrInvalidChallengeInput)
 	}
 	return nil
 }

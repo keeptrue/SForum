@@ -47,6 +47,32 @@ type testErrorData struct {
 // harness 上限把正常、有限的内存控制器请求误判为处理器阻塞。
 var extensionControllerTestConfig = fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true}
 
+// 挑战存储故障是运维问题（503），不能和「挑战无效/信任不存在」（409）合并：
+// 合并会让 DB 故障在管理面显示成「这条信任不存在」。
+func TestMapExtensionFrontendChallengeUnavailableIsServiceUnavailable(t *testing.T) {
+	mapped := mapExtensionError(errors.Join(
+		extensions.ErrFrontendChallengeUnavailable,
+		errors.New("pgx: connection refused"),
+	))
+	fiberErr, ok := mapped.(*fiber.Error)
+	if !ok {
+		t.Fatalf("expected fiber error, got %T", mapped)
+	}
+	if fiberErr.Code != http.StatusServiceUnavailable || fiberErr.Message != extensions.CodeFrontendTrustUnavailable {
+		t.Fatalf("unexpected mapping: %#v", fiberErr)
+	}
+
+	// 对照组：挑战无效仍然是 409（不能让 503 吞掉 409 的语义）。
+	invalid := mapExtensionError(errors.Join(
+		extensions.ErrFrontendTrustUnavailable,
+		errors.New("confirmation challenge is invalid or expired"),
+	))
+	invalidErr, ok := invalid.(*fiber.Error)
+	if !ok || invalidErr.Code != http.StatusConflict || invalidErr.Message != extensions.CodeFrontendTrustNotFound {
+		t.Fatalf("invalid challenge mapping = %#v", invalid)
+	}
+}
+
 func TestMapExtensionSettingsRollbackFailure(t *testing.T) {
 	mapped := mapExtensionError(errors.Join(
 		extensions.ErrSettingsRollbackFailed,

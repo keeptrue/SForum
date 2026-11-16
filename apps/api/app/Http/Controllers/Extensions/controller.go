@@ -862,6 +862,10 @@ func mapExtensionError(err error) error {
 		return fiber.NewError(fiber.StatusServiceUnavailable, extensions.CodeSettingsActionUnavailable)
 	case errors.Is(err, extensions.ErrFrontendGrantNotFound):
 		return fiber.NewError(fiber.StatusNotFound, extensions.CodeFrontendTrustNotFound)
+	case errors.Is(err, extensions.ErrFrontendChallengeUnavailable):
+		// 挑战存储故障是运维问题（数据库/连接），不能报成「信任不存在」：
+		// 那会让运维去查一条根本不存在的授权记录。
+		return fiber.NewError(fiber.StatusServiceUnavailable, extensions.CodeFrontendTrustUnavailable)
 	case errors.Is(err, extensions.ErrFrontendTrustUnavailable),
 		errors.Is(err, extensions.ErrFrontendGrantConflict),
 		errors.Is(err, extensions.ErrFrontendGrantStateConflict):

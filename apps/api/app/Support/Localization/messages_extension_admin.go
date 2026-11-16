@@ -11,6 +11,7 @@ package localization
 // 覆盖它们的棘轮见 messages_coverage_test.go。
 var extensionAdminMessages = map[string]map[string]string{
 	"zh-CN": {
+		"extension.frontend_trust_unavailable":           "前端信任确认服务暂时不可用（存储故障），请稍后重试；本次授权未生效。",
 		"extension.lifecycle_operation_not_found":        "找不到该扩展生命周期操作记录，可能已过期或被清理。",
 		"extensions.provider_slot_conflict":              "服务提供者选择已被其他操作更新，请刷新目录后重新核对。",
 		"extensions.provider_slot_inspector_unavailable": "服务提供者检查服务暂时不可用，请稍后重试。",
@@ -29,6 +30,7 @@ var extensionAdminMessages = map[string]map[string]string{
 		"trust_levels.reference_check_failed":            "信任等级引用检查失败，本次修改未保存，请稍后重试。",
 	},
 	"en-US": {
+		"extension.frontend_trust_unavailable":           "The frontend trust confirmation service is temporarily unavailable (storage failure). Try again later; nothing was granted.",
 		"extension.lifecycle_operation_not_found":        "That extension lifecycle operation record no longer exists; it may have expired or been cleaned up.",
 		"extensions.provider_slot_conflict":              "The provider slot selection was updated by another operation. Refresh the catalog and check again.",
 		"extensions.provider_slot_inspector_unavailable": "Provider slot inspection is temporarily unavailable. Try again later.",

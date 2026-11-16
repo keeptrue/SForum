@@ -208,9 +208,11 @@ func TestFrontendChallengeFailsClosedWithoutStore(t *testing.T) {
 // Service 上。实例内 map 会被上面的跨实例用例抓住；这条把「把 map 塞回结构体」
 // 本身也钉死，免得它换个名字复活。
 //
-// 覆盖边界（诚实写明）：它只查结构体字段，查不到**包级变量**；包级内存权威由
-// TestFrontendChallengeAuthorityIsTheDatabase 兜住——任何在库之前短路的内存缓存
-// 都会让 consumed_at 落不了账。
+// 覆盖边界（诚实写明）：**只查结构体字段**。包级变量由
+// TestExtensionsPackageHasNoPackageLevelMutableCacheState（AST 守卫）负责。
+// 曾经这里写着「包级内存权威由数据库落账用例兜住」，那是错的：reviewer 构造的
+// 「包级 sync.Map 门控 + 未命中即拒 + 仍照常调 store.Consume」变异整包全绿，
+// 因为库里 consumed_at 照样落账——落账证明不了「权威在库」。
 func TestFrontendServiceHoldsNoInProcessChallengeState(t *testing.T) {
 	syncMap := reflect.TypeOf(sync.Map{})
 	typ := reflect.TypeOf(FrontendService{})
@@ -223,7 +225,11 @@ func TestFrontendServiceHoldsNoInProcessChallengeState(t *testing.T) {
 }
 
 // TestFrontendChallengeAuthorityIsTheDatabase 用真实 PostgreSQL 跑一遍 A 建、B 消费，
-// 并断言消费在库里落账。这是 P3-7 的生产形态证据：权威是库，不是任何进程内状态。
+// 并断言消费在库里落账。这是 P3-7 的生产形态证据：正常路径的权威是库。
+//
+// 它**证明不了**「没有进程内权威」：只短路在 store 之前、但仍照常调用 store.Consume
+// 的门控缓存（reviewer 的变异形态）会让 consumed_at 照常落账。禁止那类状态的是
+// AST 守卫 TestExtensionsPackageHasNoPackageLevelMutableCacheState 与反射守卫。
 func TestFrontendChallengeAuthorityIsTheDatabase(t *testing.T) {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, testdb.IsolatedURL(t))
@@ -277,5 +283,44 @@ func TestFrontendChallengeAuthorityIsTheDatabase(t *testing.T) {
 	}
 	if consumed != 1 {
 		t.Fatalf("consumption must be recorded in the database, got %d consumed rows", consumed)
+	}
+}
+
+// failingChallengeStore 让挑战存储整体不可用，用来区分「存储故障」与「挑战无效」。
+type failingChallengeStore struct{ err error }
+
+func (f failingChallengeStore) Create(context.Context, frontendtrust.Challenge) error {
+	return f.err
+}
+
+func (f failingChallengeStore) Consume(context.Context, frontendtrust.ConsumeInput) error {
+	return f.err
+}
+
+// TestFrontendChallengeStoreFailureIsDistinguishable 固定 ③ 的服务层前提：
+// 存储故障必须能被上层识别成「不可用」，而不是「挑战无效」。
+func TestFrontendChallengeStoreFailureIsDistinguishable(t *testing.T) {
+	extension := prebuiltFrontendFixture(t, SourceUploaded)
+	storeErr := fmt.Errorf("%w: pgx: connection refused", frontendtrust.ErrStoreUnavailable)
+	service := NewFrontendService(&fakeFrontendExtensionReader{item: extension}, &fakeFrontendTrustStore{},
+		failingChallengeStore{err: storeErr})
+	actor := frontendSuperAdmin()
+	component := *prebuiltSettingsComponent(extension)
+
+	if _, err := service.Challenge(context.Background(), actor, extension.ID); !errors.Is(err, ErrFrontendChallengeUnavailable) {
+		t.Fatalf("challenge store failure must surface as unavailable, got %v", err)
+	}
+
+	challenge := FrontendTrustChallenge{
+		ChallengeID: "challenge-store-down", Code: "123456",
+		ExtensionID: extension.ID, Version: extension.Version,
+		Digest: extension.AdminFrontendDigest, APIVersion: component.APIVersion,
+		ComponentID: component.ID, ExpiresAt: time.Now().UTC().Add(time.Minute),
+	}
+	if _, err := service.Grant(context.Background(), actor, extension.ID, GrantFrontendInput{
+		Digest:       extension.AdminFrontendDigest,
+		Confirmation: frontendConfirmationFor(challenge, extension, component),
+	}); !errors.Is(err, ErrFrontendChallengeUnavailable) {
+		t.Fatalf("grant store failure must surface as unavailable, got %v", err)
 	}
 }

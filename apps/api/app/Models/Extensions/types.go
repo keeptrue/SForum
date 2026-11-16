@@ -91,6 +91,7 @@ const (
 	CodeFrontendDigestInvalid      = "extension.frontend_digest_invalid"
 	CodeFrontendPackageChanged     = "extension.frontend_package_changed"
 	CodeFrontendTrustNotFound      = "extension.frontend_trust_not_found"
+	CodeFrontendTrustUnavailable   = "extension.frontend_trust_unavailable"
 	// 插件已禁用：设置读写、自定义管理页等功能性能力不可用。
 	CodeExtensionDisabled = "extension.disabled"
 	// 设置重启预检失败时不得写入；写入后的重启失败必须明确告知设置已持久化。
