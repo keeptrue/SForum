@@ -176,7 +176,18 @@ acquire_lock() {
   if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     summary="$(lock_holder_summary)"
     stale_pid="$(lock_dir_pid "$LOCK_DIR" || true)"
-    lock_is_stale || die "同目录已有另一个部署操作正在运行（.deploy.lock 被占用）：$summary"
+    if ! lock_is_stale; then
+      case "${LOCK_REASON:-}" in
+        no_owner)
+          # 空锁目录（mkdir 之后、写元数据之前被 SIGKILL 的典型残留）：pid 无从判断，
+          # 不能假装知道有没有人在跑 —— 给出可执行的回收入口，而不是报成「被占用」。
+          die "同目录存在 .deploy.lock 但缺少持有者元数据（可能是崩溃残留），无法判断是否有人在运行；如确认无人在部署，用 ./sforum-latest.sh --unlock 回收"
+          ;;
+        *)
+          die "同目录已有另一个部署操作正在运行（.deploy.lock 被占用）：$summary"
+          ;;
+      esac
+    fi
     reclaim_stale_lock "$stale_pid"
     mkdir "$LOCK_DIR" 2>/dev/null || \
       die "同目录已有另一个部署操作正在运行：$(lock_holder_summary)"

@@ -230,4 +230,16 @@ kill -9 "$holder_pid" 2>/dev/null || true
 wait "$holder_pid" 2>/dev/null || true
 holder_pid=""
 
+# E) 空锁目录（无元数据）：不能报成「被别人占用」，要给出可执行的回收指引。
+empty_case="$lock_test_dir/empty"
+make_lock_fixture "$empty_case"
+mkdir "$empty_case/install/.deploy.lock"
+run_latest "$empty_case" >/dev/null
+grep -Fq '缺少持有者元数据' "$empty_case/stderr" || \
+  fail "OPS-02: a metadata-less .deploy.lock was not explained: $(cat "$empty_case/stderr")"
+grep -Fq -- '--unlock' "$empty_case/stderr" || \
+  fail "OPS-02: the metadata-less lock message must point at --unlock"
+[ ! -e "$empty_case/curl-calls.log" ] || \
+  fail "OPS-02: the run continued past a metadata-less .deploy.lock"
+
 printf 'validate-sforum-latest.sh: all checks passed\n'

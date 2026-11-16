@@ -358,6 +358,9 @@ if SFORUM_BOOTSTRAP_TEST_REFRESHED=1 run_bootstrap "$FAIL_ROOT" upgrade \
   --version "$VERSION" --yes >"$TEMP_DIR/failpromote.out" 2>&1; then
   fail "promotion unexpectedly succeeded with a file where deploy/ should be"
 fi
+# 钉死失败点：必须是 promote_file 的 die 分支，而不是更早的下载/校验/备份失败。
+assert_contains "$TEMP_DIR/failpromote.out" \
+  'could not promote deploy/scripts/configure-production.sh'
 [ -f "$FAIL_ROOT/deploy" ] || fail "the deploy fixture was replaced by a directory"
 [ ! -e "$FAIL_ROOT/.deploy.lock" ] || fail "the failure path left .deploy.lock behind"
 [ ! -e "$FAIL_ROOT/.sforum-bootstrap.lock" ] || \

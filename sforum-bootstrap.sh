@@ -129,13 +129,18 @@ restore_bootstrap_traps() {
 
 acquire_promote_lock() {
   load_deploy_lock_library "$1"
-  # 库的 acquire 先接管 EXIT/HUP/INT/TERM、再 mkdir。若我们自己的 handler 落在这两步
-  # 之间，cleanup 会看到 DEPLOY_LOCK_HELD=false 而让脚本「没锁继续提升」。先把信号
-  # 按死（窗口只有一次 mkdir），拿到锁并立起 flag 之后再装回本脚本的 trap。
+  # 窗口一（库内部）：acquire 先接管 EXIT/HUP/INT/TERM、再 mkdir 并写元数据，此时库里
+  # 还没有锁。若信号落在这段，我们的 cleanup 看到 DEPLOY_LOCK_HELD=false 会放行 ——
+  # 用忽略信号盖住这一段（只覆盖一次 mkdir + 两次 printf）。
   trap '' HUP INT TERM
   acquire_deploy_lock promote
   DEPLOY_LOCK_HELD=true
   restore_bootstrap_traps
+  # 窗口二（这一行守的就是它）：库在 acquire 末尾会把 trap 重新装成
+  # `release_deploy_lock`。HUP/INT/TERM 落在「库装好 trap」到「DEPLOY_LOCK_HELD=true」
+  # 之间时，库的 handler 会删锁后**继续执行**，而我们的 cleanup 因 flag=false 不会补，
+  # 脚本就会在没有锁的情况下提升受管文件。锁目录还在才等于真的持有：把静默变成可见失败。
+  [ -d "$ROOT_DIR/.deploy.lock" ] || die "deploy lock disappeared during handoff"
 }
 
 release_promote_lock() {
