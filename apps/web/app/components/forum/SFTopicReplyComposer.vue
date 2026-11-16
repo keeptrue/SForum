@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { AltchaWidgetElement } from 'altcha'
+import { toValue } from 'vue'
 import { useTopicCommentSubmission } from '~/composables/forum/useTopicCommentSubmission'
 import { useForumContentLimits } from '~/composables/forum/useForumContentLimits'
 import type { ForumComment, ForumTopicDetail } from '~/utils/forum/forumTaxonomy'
@@ -33,6 +35,7 @@ const {
   showReplyError,
   commentCooldownActive,
   replyDisplayError,
+  postRisk,
   submitReply
 } = useTopicCommentSubmission({
   topic: toRef(props, 'topic'),
@@ -40,6 +43,21 @@ const {
   refreshComments: props.refreshComments,
   focusCreatedComment: comment => props.focusCreatedComment?.(comment)
 })
+
+// 快捷回复与高级回复抽屉共用同一套 post_risk 形态：只在开关开启（或服务端要求）时渲染。
+// 控制器经 props 传入，用 toValue 读取：无论调用方传的是 ref 还是已被解包的值都成立。
+const humanVerification = computed(() => ({
+  visible: toValue(postRisk.enabled),
+  message: toValue(postRisk.fieldMessage),
+  challenge: toValue(postRisk.challengeUrl),
+  configuration: toValue(postRisk.configuration),
+  language: toValue(postRisk.language),
+  settings: toValue(postRisk.widgetSettings)
+}))
+
+function setAltchaWidget(element: unknown) {
+  postRisk.widget.value = (element as AltchaWidgetElement | null) ?? null
+}
 
 function cancelReply() {
   replyMarkdown.value = ''
@@ -77,6 +95,43 @@ function cancelReply() {
       @submit="submitReply"
     />
 
+    <div v-if="humanVerification.visible" class="sforum-topic-comments__verification">
+      <div class="sforum-topic-comments__verification-head">
+        <label id="topic-reply-human-verification-label">{{ t('composer.humanVerificationLabel') }}</label>
+        <small>{{ t('composer.humanVerificationHint') }}</small>
+      </div>
+      <ClientOnly>
+        <altcha-widget
+          :ref="setAltchaWidget"
+          class="sf-forum-altcha"
+          :challenge="humanVerification.challenge"
+          :configuration="humanVerification.configuration"
+          :auto="humanVerification.settings.auto"
+          :display="humanVerification.settings.display"
+          :language="humanVerification.language"
+          :type="humanVerification.settings.type"
+          :workers="humanVerification.settings.workers"
+          :aria-invalid="humanVerification.message ? 'true' : undefined"
+          :aria-describedby="humanVerification.message ? 'topic-reply-human-verification-error' : undefined"
+          aria-labelledby="topic-reply-human-verification-label"
+          @verified="postRisk.handleVerified"
+          @expired="postRisk.reset"
+          @statechange="postRisk.handleStateChange"
+        />
+        <template #fallback>
+          <small class="sforum-topic-comments__verification-hint">{{ t('auth.humanVerificationLoading') }}</small>
+        </template>
+      </ClientOnly>
+      <p
+        v-if="humanVerification.message"
+        id="topic-reply-human-verification-error"
+        class="sforum-topic-comments__verification-error"
+        role="alert"
+      >
+        {{ humanVerification.message }}
+      </p>
+    </div>
+
     <SFAlert
       v-if="showReplyError"
       variant="danger"
@@ -87,3 +142,43 @@ function cancelReply() {
     />
   </section>
 </template>
+
+<style scoped>
+.sforum-topic-comments__verification {
+  display: grid;
+  gap: 7px;
+  margin: 0 13px 12px;
+  border: 1px solid var(--sf-public-border, var(--sf-border));
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--sf-public-surface-muted, var(--sf-muted));
+}
+
+.sforum-topic-comments__verification-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+}
+
+.sforum-topic-comments__verification-head label {
+  color: var(--sf-public-text, var(--sf-fg));
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sforum-topic-comments__verification-head small,
+.sforum-topic-comments__verification-hint {
+  color: var(--sf-public-text-muted, var(--sf-fg-tertiary));
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.sforum-topic-comments__verification-error {
+  margin: 0;
+  color: var(--sf-danger, #dc2626);
+  font-size: 11px;
+  font-weight: 650;
+}
+</style>

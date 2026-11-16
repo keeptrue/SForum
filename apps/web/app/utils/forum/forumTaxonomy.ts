@@ -311,10 +311,21 @@ export type ForumTopicUpdateInput = {
   content?: ForumContentInput
 }
 
+/**
+ * post_risk 人机验证载荷（P3-3）：形状与登录/注册的 `humanVerification` 完全一致。
+ * 仅在运营开启 `human_verification.scenarios.post_risk` 时出现。
+ */
+export type ForumHumanVerificationInput = {
+  provider: 'altcha'
+  token: string
+}
+
 export type ForumTopicCreateInput = ForumContentInput & {
   title: string
   categorySlug?: string
   tagSlugs?: string[]
+  /** 发帖人机验证；开关关闭时整个字段不出现（不是空对象）。 */
+  humanVerification?: ForumHumanVerificationInput
 }
 
 export type ForumCommentListView = 'tree' | 'flat'

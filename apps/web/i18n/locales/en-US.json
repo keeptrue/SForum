@@ -7353,6 +7353,8 @@
     "tagsLoading": "Loading available tags.",
     "tagsPlaceholderMore": "Add another tag",
     "bodyHint": "Markdown and rich text. Wrap code in triple backticks.",
+    "humanVerificationLabel": "Human verification",
+    "humanVerificationHint": "Complete verification before posting to block automated spam.",
     "publishAs": "Publishing as {name}",
     "publishState": {
       "public": "Public publish",

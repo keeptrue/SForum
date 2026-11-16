@@ -12,6 +12,7 @@ import {
   type ForumCommentPage,
   type ForumContentInput,
   type ForumEditableContentSource,
+  type ForumHumanVerificationInput,
   type ForumTag,
   type ForumTopicAction,
   type ForumTopicActionKey,
@@ -28,6 +29,7 @@ import {
 } from '~/utils/forum/forumTaxonomy'
 import type { ForumCommentRevisionState } from '~/utils/forum/commentLiveDecision'
 import type { ForumReactionRoster, ForumReactionState } from '~/utils/forum/forumReaction'
+import { withHumanVerification } from '~/utils/forum/postRiskVerification'
 
 export function useForumApi() {
   const { request } = useApiClient()
@@ -115,10 +117,16 @@ function getCommentEditSource(commentId: number) {
     )
   }
 
-  function createTopicComment(topicId: number, content: ForumContentInput, parentId?: number | null) {
+  // post_risk 人机验证（P3-3）：humanVerification 未提供时请求体里不出现该键。
+  function createTopicComment(
+    topicId: number,
+    content: ForumContentInput,
+    parentId?: number | null,
+    humanVerification?: ForumHumanVerificationInput
+  ) {
     return request<ForumComment>(`/topics/${topicId}/comments`, {
       method: 'POST',
-      body: { parentId: parentId ?? null, content }
+      body: withHumanVerification({ parentId: parentId ?? null, content }, humanVerification)
     })
   }
 
@@ -144,12 +152,13 @@ function getCommentEditSource(commentId: number) {
       editorType,
       editorVersion,
       attachmentIds,
+      humanVerification,
       ...topicInput
     } = input
 
     return request<ForumTopicDetail>('/topics', {
       method: 'POST',
-      body: {
+      body: withHumanVerification({
         ...topicInput,
         content: {
           rawContent,
@@ -158,7 +167,7 @@ function getCommentEditSource(commentId: number) {
           editorVersion,
           attachmentIds
         }
-      }
+      }, humanVerification)
     })
   }
 

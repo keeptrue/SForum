@@ -1,7 +1,8 @@
 /* ALTCHA renders outside Vue's component tree. Keep its semantic colors on the
  * widget host so every authentication flow inherits the active SForum mode. */
 .auth-altcha,
-.sf-recovery-altcha {
+.sf-recovery-altcha,
+.sf-forum-altcha {
   width: 100%;
   --altcha-max-width: 100%;
   --altcha-border-radius: 7px;

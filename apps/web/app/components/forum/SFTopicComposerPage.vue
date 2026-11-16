@@ -6,6 +6,7 @@ import { useAuthSession } from '~/composables/identity/useAuthSession'
 import { useForumContentLimits } from '~/composables/forum/useForumContentLimits'
 import { useForumCooldownError } from '~/composables/forum/useForumCooldownError'
 import { useForumApi } from '~/composables/forum/useForumApi'
+import { usePostRiskVerification } from '~/composables/forum/usePostRiskVerification'
 import SFTopicComposerRightRail from '~/components/forum/SFTopicComposerRightRail.vue'
 import SFTopicComposerLeftRail from '~/components/forum/SFTopicComposerLeftRail.vue'
 import SFTagInput from '~/components/forum/SFTagInput.vue'
@@ -135,6 +136,22 @@ const {
   capture: captureTopicCooldown
 } = useForumCooldownError('topic')
 const displayErrorMessage = computed(() => topicCooldownMessage.value || errorMessage.value)
+// post_risk 人机验证（P3-3）：开关开启时在正文下方渲染 ALTCHA，token 随发帖请求提交。
+const {
+  enabled: postRiskEnabled,
+  widget: postRiskWidget,
+  fieldMessage: postRiskMessage,
+  widgetSettings: postRiskWidgetSettings,
+  challengeUrl: postRiskChallengeUrl,
+  configuration: postRiskConfiguration,
+  language: postRiskLanguage,
+  handleVerified: onPostRiskVerified,
+  handleStateChange: onPostRiskStateChange,
+  reset: resetPostRisk,
+  payload: postRiskPayload,
+  capture: capturePostRisk,
+  settle: settlePostRisk
+} = usePostRiskVerification()
 const fieldErrors = ref<Record<string, string[]>>({})
 const draftSavedAt = ref('')
 const draftSaving = ref(false)
@@ -426,8 +443,10 @@ async function submit(payload?: Pick<SFEditorContentPayload, 'markdown' | 'nativ
       title: title.value.trim(),
       categorySlug: selectedCategorySlug.value || undefined,
       tagSlugs: tagDraft.value.length ? tagDraft.value : undefined,
-      ...content
+      ...content,
+      humanVerification: postRiskPayload()
     })
+    settlePostRisk()
     submitState.value = 'success'
     clearDraft()
     if (created.status === 'pending') {
@@ -439,6 +458,12 @@ async function submit(payload?: Pick<SFEditorContentPayload, 'markdown' | 'nativ
     await navigateTo(localePath(forumTopicPath(created, topicUrlMode.value)))
   } catch (error) {
     submitState.value = 'error'
+    // 人机验证失败：提示挂在 widget 旁（capture 已本地化并重置已消费的 token）。
+    if (capturePostRisk(error)) {
+      errorMessage.value = ''
+      fieldErrors.value = {}
+      return
+    }
     errorMessage.value = captureTopicCooldown(error)
       ? ''
       : apiErrorMessage(error) || t('composer.submitFailed')
@@ -759,6 +784,48 @@ onBeforeRouteLeave(() => {
                 />
                 <p v-if="fieldErrors.content" class="sforum-topic-composer__error">
                   {{ fieldErrors.content.join(', ') }}
+                </p>
+              </div>
+
+              <!-- post_risk 人机验证：只在运营开关开启（或服务端 422 要求）时出现 -->
+              <div
+                v-if="postRiskEnabled"
+                id="topic-composer-human-verification"
+                class="sforum-topic-composer__field sforum-topic-composer__verification"
+              >
+                <div class="sforum-topic-composer__field-head">
+                  <label id="topic-composer-human-verification-label">{{ t('composer.humanVerificationLabel') }}</label>
+                  <span>{{ t('composer.humanVerificationHint') }}</span>
+                </div>
+                <ClientOnly>
+                  <altcha-widget
+                    ref="postRiskWidget"
+                    class="sf-forum-altcha"
+                    :challenge="postRiskChallengeUrl"
+                    :configuration="postRiskConfiguration"
+                    :auto="postRiskWidgetSettings.auto"
+                    :display="postRiskWidgetSettings.display"
+                    :language="postRiskLanguage"
+                    :type="postRiskWidgetSettings.type"
+                    :workers="postRiskWidgetSettings.workers"
+                    :aria-invalid="postRiskMessage ? 'true' : undefined"
+                    :aria-describedby="postRiskMessage ? 'topic-composer-human-verification-error' : undefined"
+                    aria-labelledby="topic-composer-human-verification-label"
+                    @verified="onPostRiskVerified"
+                    @expired="resetPostRisk"
+                    @statechange="onPostRiskStateChange"
+                  />
+                  <template #fallback>
+                    <p class="sforum-topic-composer__hint">{{ t('auth.humanVerificationLoading') }}</p>
+                  </template>
+                </ClientOnly>
+                <p
+                  v-if="postRiskMessage"
+                  id="topic-composer-human-verification-error"
+                  class="sforum-topic-composer__error"
+                  role="alert"
+                >
+                  {{ postRiskMessage }}
                 </p>
               </div>
             </form>

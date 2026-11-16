@@ -1,4 +1,4 @@
-import type { ComputedRef, Ref } from 'vue'
+import { provide, type ComputedRef, type InjectionKey, type Ref } from 'vue'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useForumApi } from '~/composables/forum/useForumApi'
 import {
@@ -16,8 +16,20 @@ import {
   type ForumTopicDetail
 } from '~/utils/forum/forumTaxonomy'
 import type { SFEditorContentPayload } from '~/utils/sfEditor'
+import type { PostRiskVerificationController } from '~/utils/forum/postRiskVerification'
 
 export type TopicCommentComposerMode = 'advanced' | 'reply' | 'edit'
+
+/**
+ * post_risk 人机验证控制器的注入键（P3-3）。
+ *
+ * 控制器由本 composable 持有（它同时是回帖提交的发起方，token 必须与请求同源），
+ * 抽屉只负责渲染 widget。走 provide/inject 而不是 prop，是因为话题详情页
+ * `SFTopicShowPage.vue` 是 legacy 行数上限文件（1118 行，棘轮只降不升），
+ * 新增一行 prop 绑定就会顶破架构门；注入键把这份接线留在本文件里。
+ */
+export const TOPIC_COMMENT_POST_RISK_KEY: InjectionKey<PostRiskVerificationController> =
+  Symbol('sforum.topic-comment.post-risk')
 
 export type TopicCommentComposerContext = {
   author: string
@@ -77,6 +89,7 @@ export function useTopicCommentComposerDrawer(options: TopicCommentComposerDrawe
     showReplyError,
     commentCooldownActive,
     replyDisplayError,
+    postRisk,
     submitReply
   } = useTopicCommentSubmission({
     topic: options.topic,
@@ -85,6 +98,9 @@ export function useTopicCommentComposerDrawer(options: TopicCommentComposerDrawe
     refreshComments: options.refreshComments,
     focusCreatedComment: options.focusCreatedComment
   })
+
+  // 抽屉（SFTopicCommentComposerDrawer）用同一份控制器渲染 widget，见 TOPIC_COMMENT_POST_RISK_KEY。
+  provide(TOPIC_COMMENT_POST_RISK_KEY, postRisk)
 
   const open = computed(() => mode.value != null)
   const editingAnotherAuthor = computed(() => Boolean(
@@ -345,6 +361,8 @@ export function useTopicCommentComposerDrawer(options: TopicCommentComposerDrawe
     commentCooldownActive,
     replyError,
     showReplyError,
+    // post_risk 人机验证状态：由抽屉渲染 widget，token 由 submitReply 带进请求体。
+    postRisk,
     startEdit,
     startReply,
     openAdvancedReply,

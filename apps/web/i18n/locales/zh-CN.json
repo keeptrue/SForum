@@ -7393,6 +7393,8 @@
     "tagsLoading": "正在读取可用标签。",
     "tagsPlaceholderMore": "继续添加标签",
     "bodyHint": "支持 Markdown 和富文本，代码用三个反引号包裹。",
+    "humanVerificationLabel": "人机验证",
+    "humanVerificationHint": "发布前完成验证，用于拦截自动化垃圾内容。",
     "publishAs": "以 {name} 的身份发布",
     "publishState": {
       "public": "公开发布",

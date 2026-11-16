@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { AltchaWidgetElement } from 'altcha'
+import { inject, toValue } from 'vue'
 import { topicCommentEditorContentIsMeaningful } from '~/composables/forum/useTopicCommentSubmission'
 import { useForumContentLimits } from '~/composables/forum/useForumContentLimits'
 import { editorDocumentSignature, type SFEditorContentPayload } from '~/utils/sfEditor'
@@ -6,6 +8,7 @@ import type {
   TopicCommentComposerContext,
   TopicCommentComposerMode
 } from '~/composables/forum/useTopicCommentComposerDrawer'
+import { TOPIC_COMMENT_POST_RISK_KEY } from '~/composables/forum/useTopicCommentComposerDrawer'
 
 type AvatarView = {
   kind: 'uploaded' | 'initials' | 'gravatar' | 'static'
@@ -131,6 +134,28 @@ const canSubmit = computed(() => Boolean(
   && !reasonMissing.value
 ))
 const displayedReasonError = computed(() => props.reasonError || localReasonError.value)
+// post_risk：控制器由 useTopicCommentComposerDrawer 注入（它同时是提交发起方，
+// token 必须与请求同源）。编辑模式走 PATCH，不需要人机验证。
+// toValue 让 ref 与已解包的值都能读。
+const injectedPostRisk = inject(TOPIC_COMMENT_POST_RISK_KEY)
+if (!injectedPostRisk) {
+  // 抽屉只由话题详情页挂载；缺失说明提供方漏挂。宁可显式报错，也不要静默丢掉人机验证
+  // ——那样运营会看到「开关已开但没人验证」的假象。
+  throw new Error('SFTopicCommentComposerDrawer 需要 useTopicCommentComposerDrawer 提供 post_risk 控制器')
+}
+const postRisk = injectedPostRisk
+const humanVerification = computed(() => ({
+  visible: toValue(postRisk.enabled) && props.mode !== 'edit',
+  message: toValue(postRisk.fieldMessage),
+  challenge: toValue(postRisk.challengeUrl),
+  configuration: toValue(postRisk.configuration),
+  language: toValue(postRisk.language),
+  settings: toValue(postRisk.widgetSettings)
+}))
+
+function setAltchaWidget(element: unknown) {
+  postRisk.widget.value = (element as AltchaWidgetElement | null) ?? null
+}
 
 watch(
   () => [props.open, props.editorKey] as const,
@@ -379,6 +404,43 @@ onBeforeUnmount(() => {
         @content-change="onContentChange"
       />
 
+      <div v-if="humanVerification.visible" class="sf-topic-composer-drawer__verification">
+        <div class="sf-topic-composer-drawer__verification-head">
+          <label id="drawer-human-verification-label">{{ t('composer.humanVerificationLabel') }}</label>
+          <small>{{ t('composer.humanVerificationHint') }}</small>
+        </div>
+        <ClientOnly>
+          <altcha-widget
+            :ref="setAltchaWidget"
+            class="sf-forum-altcha"
+            :challenge="humanVerification.challenge"
+            :configuration="humanVerification.configuration"
+            :auto="humanVerification.settings.auto"
+            :display="humanVerification.settings.display"
+            :language="humanVerification.language"
+            :type="humanVerification.settings.type"
+            :workers="humanVerification.settings.workers"
+            :aria-invalid="humanVerification.message ? 'true' : undefined"
+            :aria-describedby="humanVerification.message ? 'drawer-human-verification-error' : undefined"
+            aria-labelledby="drawer-human-verification-label"
+            @verified="postRisk.handleVerified"
+            @expired="postRisk.reset"
+            @statechange="postRisk.handleStateChange"
+          />
+          <template #fallback>
+            <small class="sf-topic-composer-drawer__verification-hint">{{ t('auth.humanVerificationLoading') }}</small>
+          </template>
+        </ClientOnly>
+        <p
+          v-if="humanVerification.message"
+          id="drawer-human-verification-error"
+          class="sf-topic-composer-drawer__verification-error"
+          role="alert"
+        >
+          {{ humanVerification.message }}
+        </p>
+      </div>
+
       <label v-if="requireReason" class="sf-topic-composer-drawer__reason">
         <span>{{ t('topicDetail.composerDrawer.editReason') }}</span>
         <textarea
@@ -486,6 +548,12 @@ onBeforeUnmount(() => {
 .sf-topic-composer-drawer .sf-editor__loading,
 .sf-topic-composer-drawer .sf-editor__content,
 .sf-topic-composer-drawer .sf-editor__preview { min-height: 100%; }
+.sf-topic-composer-drawer__verification { display: grid; flex: 0 0 auto; gap: 7px; border: 1px solid var(--sf-public-border, var(--sf-border)); border-radius: 6px; padding: 10px 12px; background: var(--sf-public-surface-muted, var(--sf-muted)); }
+.sf-topic-composer-drawer__verification-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.sf-topic-composer-drawer__verification-head label { color: var(--sf-public-text, var(--sf-fg)); font-size: 12px; font-weight: 700; }
+.sf-topic-composer-drawer__verification-head small,
+.sf-topic-composer-drawer__verification-hint { color: var(--sf-public-text-muted, var(--sf-fg-tertiary)); font-size: 11px; line-height: 1.5; }
+.sf-topic-composer-drawer__verification-error { margin: 0; color: var(--sf-danger, #dc2626); font-size: 11px; font-weight: 650; }
 .sf-topic-composer-drawer__reason { display: grid; flex: 0 0 auto; gap: 6px; }
 .sf-topic-composer-drawer__reason > span { font-size: 12px; font-weight: 700; }
 .sf-topic-composer-drawer__reason textarea { width: 100%; resize: vertical; border: 1px solid var(--sf-public-border, var(--sf-border)); border-radius: 6px; padding: 9px 10px; outline: 0; background: var(--sf-public-surface, var(--sf-card)); color: var(--sf-public-text, var(--sf-fg)); font-size: 12px; line-height: 1.5; }

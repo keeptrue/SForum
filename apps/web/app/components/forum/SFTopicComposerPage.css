@@ -163,6 +163,25 @@
   font-weight: 650;
 }
 
+/* post_risk 人机验证：与字段同轨，窄屏不挤压 dock */
+.sforum-topic-composer__verification {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--sf-public-border);
+  border-radius: var(--sf-public-radius, 6px);
+  padding: 12px 14px;
+  background: var(--sf-public-surface-muted);
+}
+
+.sforum-topic-composer__verification .sforum-topic-composer__field-head {
+  margin-bottom: 0;
+}
+
+.sforum-topic-composer__verification .sforum-topic-composer__hint,
+.sforum-topic-composer__verification .sforum-topic-composer__error {
+  margin: 0;
+}
+
 .sforum-topic-composer :deep(.sf-editor) {
   border-radius: var(--sf-public-radius, 6px);
 }

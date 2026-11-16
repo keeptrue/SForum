@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import { apiErrorMessage } from '~/composables/useApiClient'
 import { useForumApi } from '~/composables/forum/useForumApi'
 import { useForumCooldownError } from '~/composables/forum/useForumCooldownError'
+import { usePostRiskVerification } from '~/composables/forum/usePostRiskVerification'
 import {
   forumContentFromEditorPayload,
   type ForumComment,
@@ -62,6 +63,8 @@ export function useTopicCommentSubmission(options: TopicCommentSubmissionOptions
     message: commentCooldownMessage,
     capture: captureCommentCooldown
   } = useForumCooldownError('comment')
+  // post_risk 人机验证（P3-3）：回帖与发帖同口径，token 随请求体一起提交。
+  const postRisk = usePostRiskVerification()
   const replyDisplayError = computed(() => commentCooldownMessage.value || replyError.value)
 
   async function submitReply(payload?: TopicCommentEditorContent) {
@@ -93,8 +96,10 @@ export function useTopicCommentSubmission(options: TopicCommentSubmissionOptions
           text: payload?.text,
           attachmentIds: payload?.attachmentIds
         }),
-        options.replyParentId?.value ?? options.replyingTo.value?.id
+        options.replyParentId?.value ?? options.replyingTo.value?.id,
+        postRisk.payload()
       )
+      postRisk.settle()
       replyMarkdown.value = ''
       options.replyingTo.value = null
       if (options.replyParentId) {
@@ -115,6 +120,12 @@ export function useTopicCommentSubmission(options: TopicCommentSubmissionOptions
       }
       return created
     } catch (error) {
+      // 人机验证失败：提示挂在 widget 旁（capture 已本地化），不再叠加通用错误。
+      if (postRisk.capture(error)) {
+        replyError.value = ''
+        showReplyError.value = false
+        return null
+      }
       replyError.value = captureCommentCooldown(error) ? '' : apiErrorMessage(error) || t('topicDetail.replyFailed')
       showReplyError.value = true
       return null
@@ -130,6 +141,7 @@ export function useTopicCommentSubmission(options: TopicCommentSubmissionOptions
     showReplyError,
     commentCooldownActive,
     replyDisplayError,
+    postRisk,
     submitReply
   }
 }
