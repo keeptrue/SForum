@@ -26,6 +26,7 @@ import {
   shouldShowAdminPageInNav
 } from '~/config/adminModules'
 import { useAdminRoutes } from '~/composables/admin/useAdminRoutes'
+import { loadAdminExtensionNavigation } from '~/utils/admin/adminExtensionNavigationGate'
 import { type AdminTab, useAdminTabs } from '~/composables/admin/useAdminTabs'
 import {
   adminExtensionNavPageId,
@@ -112,9 +113,8 @@ const systemUpdateLabel = computed(() => t('admin.shell.updateAvailable', {
 }))
 const { data: extensionNavigation } = await useAsyncData<AdminExtensionNavigationItem[]>(
   'admin-extension-navigation',
-  () => (can('extension.view') || can('extension.plugin.manage') || can('extension.theme.manage') || can('extension.manage'))
-    ? request<AdminExtensionNavigationItem[]>('/admin/extensions/navigation')
-    : Promise.resolve([]),
+  // 准入只认细粒度子键，extension.manage 只是后端的展开来源（task-26）。
+  () => loadAdminExtensionNavigation(can, request),
   { default: (): AdminExtensionNavigationItem[] => [] }
 )
 const adminSurfaces = useAdminSurfaces()
