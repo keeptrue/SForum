@@ -321,6 +321,14 @@ func decideTerminalRoleSuggestion(
 		if err := requireRoleSuggestionCatalog(ctx, tx, current); err != nil {
 			return RoleSuggestion{}, err
 		}
+		// 同一条授予不变量（R8-BE-06）也覆盖 legacy 显式 apply：028 只审不批的遗留行
+		// 升级后仍是 approved ∧ ¬Applied ∧ revision 2，这条分支同样插 role_permissions。
+		// 漏了它，只持 role.manage 的人就能靠「apply 一条历史建议」横向提权。
+		if err := requireRoleSuggestionActorHoldsPermission(
+			ctx, tx, input.ActorUserID, current.PermissionKey,
+		); err != nil {
+			return RoleSuggestion{}, err
+		}
 		rolePermissionAdded, err := addRoleSuggestionPermission(ctx, tx, roleID, current.PermissionKey)
 		if err != nil {
 			return RoleSuggestion{}, err
@@ -587,6 +595,33 @@ func lockAndAuthorizeRoleSuggestionActor(ctx context.Context, tx pgx.Tx, actorUs
 		return mapStoreError(err)
 	}
 	if !allowed {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// requireRoleSuggestionActorHoldsPermission 是授予不变量的第二半（R8-BE-06）：
+// 批准者必须自己已持有被建议的权限。少了它，role.manage 就成了横向提权通道 ——
+// 批准「给 member 加 database.manage」再以 member 身份重新登录即可取得该权限，
+// 与建号铸权（BE2-01）、改角色权限（BE2-02）是同一个不变量的第三处写路径。
+//
+// 判定必须留在 SQL：deny 优先、override allow、生效角色的有效权限语义已由
+// extension_identity_actor_holds_permission 权威实现（与 trigger 用的
+// extension_identity_actor_can_manage_roles 同构），在 Go 里重写会与它漂移。
+// 驳回不调用这里：驳回不授予任何权限，必须永远可用。
+func requireRoleSuggestionActorHoldsPermission(
+	ctx context.Context,
+	tx pgx.Tx,
+	actorUserID int64,
+	permissionKey string,
+) error {
+	var holds bool
+	if err := tx.QueryRow(ctx, `
+		SELECT extension_identity_actor_holds_permission($1, $2)
+	`, actorUserID, permissionKey).Scan(&holds); err != nil {
+		return mapStoreError(err)
+	}
+	if !holds {
 		return ErrUnauthorized
 	}
 	return nil

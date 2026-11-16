@@ -133,6 +133,8 @@ func TestPostgresPublicationStoreUpgradeDisableReactivatePreservesTerminalEviden
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// R8-BE-06：批准者必须自己已持有被建议的权限，否则批准路径按 ErrUnauthorized 拒绝。
+	fixture.grantReviewerPermission(t, fixturePermissionKey)
 
 	suggestions, err := fixture.store.ListRoleSuggestions(fixture.ctx, RoleSuggestionFilter{
 		PermissionKey: fixturePermissionKey, RoleKey: "member",

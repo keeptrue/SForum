@@ -67,6 +67,16 @@ func (s *PostgresStore) decideRoleSuggestionOnce(
 		if err := requireRoleSuggestionCatalog(ctx, tx, current); err != nil {
 			return RoleSuggestion{}, err
 		}
+		// 授予不变量：批准者必须自己已持有该权限（R8-BE-06）。位置刻意放在目标角色与
+		// catalog 校验之后、写 role_permissions 之前 —— 无效/未登记目标仍以 target
+		// conflict 收场，不把「请求不成立」改写成「无权限」；而失败路径到此为止，
+		// 不写 role_permissions、不写 grant、不写 audit，建议行保持 pending。
+		// 驳回不走这里：驳回不授予任何权限，必须永远可用。
+		if err := requireRoleSuggestionActorHoldsPermission(
+			ctx, tx, input.ActorUserID, current.PermissionKey,
+		); err != nil {
+			return RoleSuggestion{}, err
+		}
 		rolePermissionAdded, err = addRoleSuggestionPermission(ctx, tx, roleID, current.PermissionKey)
 		if err != nil {
 			return RoleSuggestion{}, err

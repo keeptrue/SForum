@@ -180,6 +180,13 @@ func newProductionIdentityApprovalFixture(t *testing.T) *productionIdentityAppro
 		admin.Close()
 		t.Fatalf("apply extension permission localization fixture migration: %v", err)
 	}
+	// 批准角色建议现在要求操作者自己持有被建议的权限（R8-BE-06），判定在 SQL 里。
+	if _, err := provider.ApplyVersion(ctx, 202611170001, true); err != nil {
+		db.Close()
+		removeSchema()
+		admin.Close()
+		t.Fatalf("apply identity actor holds permission fixture migration: %v", err)
+	}
 	if err := db.Close(); err != nil {
 		removeSchema()
 		admin.Close()
