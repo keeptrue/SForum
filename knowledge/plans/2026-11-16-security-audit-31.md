@@ -85,6 +85,7 @@
 | F-6 | 对外 reason 键翻译完整性棘轮（原 task-11） | P2-2 审查 | 待派 | 后端所有对外 reason 键与 `Localization/messages.go` 做差 + 中英同键集 + 棘轮测试。**注意**：`extension.delivery_*` 四个键经核实**不进** HTTP 错误码/reason 枚举/翻译表（`delivery_enqueue_failed` 走版本化 hook 才落账本，在管理面作为自由文本可见），不要误加 |
 | F-7 | 调度成员表镜像（`Support/Jobs/core_schedules_test.go` ⇄ `Models/Jobs/service_test.go`） | 本轮两次漂移（路由计数、调度清单） | 已修一半 | `Models/Jobs` 侧已改属性断言（`d91a1f80e`，`Schedules()` 集合 == `NewCoreScheduleRegistry(nil).Views()` 集合），新增调度零改动。`Support/Jobs` 侧仍是唯一手写闸口，保留是刻意的（它是「目录成员变了」的审查信号） |
 | F-8 | `t.Fatalf` 让 Auth 包在裸 `go test` 下红，需文档说明 | P3-2 复审（task-22） | 待派 | 在 `AGENTS.md` 测试命令段补一句「Auth 包的 `TestLoginLockoutTTLAgainstRedis` 需要 `SFORUM_TEST_REDIS_ADDR`，由 `scripts/test-api-isolated.sh` 提供」，让第一次撞红的人不用读源码 |
+| F-9 | 全仓 coverage 门跨包共享测试库导致偶发 `users_pkey` 冲突 | 批次 3 收尾门禁 | 待派 | 计数已达标（7723 ≥ 6498），但 `Models/Notifications` 的 `TestListCelebrationsDropsUnavailableTargets` 在全仓跑时偶发 `duplicate key value violates unique constraint "users_pkey"`，单包跑绿。关闭条件 = `--coverage-only` 连跑两次 `exit 0`；首选让每个测试包的 schema 真正隔离（`testdb.IsolatedURL` 只做「拒绝开发库」校验，不做 schema 隔离） |
 
 ## 本轮审查发现并当场修掉的问题
 
@@ -171,4 +172,5 @@ P3-16 原列在「不修 / 可选清理」，本轮已顺手做完（`0d1dc4eb6`
 - **本轮的验收口径（批次 3 起固定下来）**：①一个改动一个 commit；②交付附真实命令输出（`go build` + `SFORUM_TEST_SHARDS=1 ./scripts/test-api-isolated.sh <包>`），口头汇报不算；③**每条都要变异验证**——去掉修复后对应用例必须红，红/绿两次输出都要贴；④代码改动一律由 reviewer 看 diff，且**要求他自己注入绕过**，不采信员工报的数字。
 - **对抗审查的实际价值**（本轮数字）：7 条 P3 里 **4 条被打回返工**（P3-2 证据链、P3-3 装配无证据、P3-9 生产不可达、P3-10 重试不重算），其中 P3-10 是**真 bug**（审查员构造出 `4→3` 降级事件反例）、P3-9 是**真缺口**（修的分支生产永不执行）。没有这一层，这四条都会以「测试全绿」的形式合入。
 - **本轮基线红灯的成因**（都不在 31 条里，是上一会话验收口径漏掉的）：上一会话以「聚焦包测试通过」验收，没有跑全仓门禁，于是留下四处——`Controllers/Notifications` 测试包**编译失败**（接口加方法、fake 没跟上）、路由计数 tripwire 435 vs 437、调度目录清单 10 vs 12 + `schedules.md` 漂移、插件 env 探针被静态扫描误判。四处已在本轮修掉；**教训：接口变更必须 `go vet ./...` 一遍所有实现方（含测试 fake），目录类清单要么派生要么只留一处手写闸口。**
+- **收尾时的门禁状态（如实记录，别当成全绿）**：`go build ./...` OK；`node tests/validate-architecture-boundaries.mjs` passed（2310 生产文件）；`ruby scripts/validate-openapi-refs.rb` 3800 refs OK；`node tests/validate-test-db-isolation.mjs --static-only` exit 0；`--coverage-only` 的**计数要求满足**（7723 个测试 / 155 包 ≥ 基线 6498），但连续两次跑都因**跨包共享测试库**偶发失败（`app/Models/Notifications` 的 `TestListCelebrationsDropsUnavailableTargets` 报 `users_pkey` 冲突；第二次还带一条 `app/Support/Extensions` 的 `TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence`）。两个文件在本轮零改动，**单独跑包都绿**（`ok … 1.069s` / `ok … 0.547s`），判定为既有隔离缺陷，已立跟进 F-9。
 - 全部 31 条收敛后，本文件移入 `knowledge/plans/archive/2026-11/`，并在 `README.md` 的 Archived Plans 段落留索引。
