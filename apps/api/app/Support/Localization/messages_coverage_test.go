@@ -35,6 +35,23 @@ import (
 // `trust_levels.*`、`entity_meta.*`、`human_verification.*`、`rate_limit.*` 整族
 // 对外 reason 在发现阶段就消失了——删掉这些键的文案，旧测试照样绿，非 Web 客户端
 // 拿到的是裸键名。它也只认字面量实参，常量形式的 reason 同样漏网。
+//
+// 已知边界（写在这里，免得下一个人重新发现一遍）：
+//   - F6-2 构造器识别**按方法名匹配、不校验包路径**：`fiber.NewError` 其实是靠
+//     `calleeName` 取 `SelectorExpr.Sel` 命中 `NewError` 才进表的，任何包里同名但
+//     语义不同的 `X.NewError(status, other)` 都会被当成 reason 构造器（假阳性方向）。
+//     当前靠「实参必须命中 reason 键形状」把噪音挡住；要彻底消除得按 import 解析。
+//   - F6-3 实参解析只覆盖 `BasicLit` / `Ident` / `SelectorExpr`（同包，或全仓同名
+//     常量取值唯一时跨包）。`fmt.Sprintf`、字符串拼接、map 取值等**静默跳过**，
+//     既不报错也不计数：这些写法产出的键目前不会被棘轮看守。
+//   - F6-4 扫描根是 `apps/api`，不含 `extensions/`（插件是独立 module）。插件 reason
+//     （如 `content_policy.hook_not_found`）走 HostAPI 版本化协议结果与管理面自由
+//     文本，配套 message 由插件自己给，**不进核心 envelope 的 message/data.reason**，
+//     因此不纳入本棘轮；若将来核心开始直接转发插件 reason，必须把扫描根扩到
+//     extensions/ 并给这些键补文案。
+//   - 自证变异（改完机制要重跑，否则棘轮可能只是看起来有用）：把任一处 reason 改成
+//     **函数内局部 const**、改成**包级 var**、删掉一条已有文案、在豁免表里塞一条
+//     已不存在的键——四种都必须红。
 var reasonKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$`)
 
 // reasonArgumentIndex 记录各构造器里 reason 是第几个实参。
@@ -275,11 +292,20 @@ func discoverReasonKeys(t *testing.T, apiRoot string) map[string][]string {
 	return out
 }
 
+// collectStringConsts 收集「名字 → 字符串字面量」的绑定，供 reason 实参解析。
+//
+// 覆盖面必须是整棵文件语法树，而不只是顶层声明、也不只是 const：
+//   - 函数体内的局部 const/var：`reason := "x.y"` 这类写法同样会把键送进 envelope，
+//     只扫顶层会漏（F6-1 实测：改成局部 const 后棘轮全绿）；
+//   - 包级 var：`var reason = "x.y"` 与 const 在运行时等价（F6-1 实测：改成包级 var
+//     后棘轮同样全绿）。
+//
+// 因此这里用 ast.Inspect 走全树，同时接受 token.CONST 与 token.VAR。
 func collectStringConsts(file *ast.File, packageScope map[string]string, global map[string]map[string]struct{}) {
-	for _, decl := range file.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok || genDecl.Tok != token.CONST {
-			continue
+	ast.Inspect(file, func(n ast.Node) bool {
+		genDecl, ok := n.(*ast.GenDecl)
+		if !ok || (genDecl.Tok != token.CONST && genDecl.Tok != token.VAR) {
+			return true
 		}
 		for _, spec := range genDecl.Specs {
 			valueSpec, ok := spec.(*ast.ValueSpec)
@@ -294,7 +320,7 @@ func collectStringConsts(file *ast.File, packageScope map[string]string, global 
 				if !ok || literal.Kind != token.STRING {
 					continue
 				}
-				value := strings.Trim(literal.Value, `"`)
+				value := strings.Trim(literal.Value, "`\"")
 				packageScope[name.Name] = value
 				if global[name.Name] == nil {
 					global[name.Name] = map[string]struct{}{}
@@ -302,7 +328,8 @@ func collectStringConsts(file *ast.File, packageScope map[string]string, global 
 				global[name.Name][value] = struct{}{}
 			}
 		}
-	}
+		return true
+	})
 }
 
 func resolveReasonArgument(expr ast.Expr, packageScope map[string]string, global map[string]map[string]struct{}) (string, bool) {
