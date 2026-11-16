@@ -185,3 +185,25 @@ func TestCreateTopicAndCommentSkipWhenVerifierNotWired(t *testing.T) {
 		t.Fatalf("create comment without verifier: status=%d", resp.StatusCode)
 	}
 }
+
+// TestCreateTopicSkipsWhenVerifierIsTypedNil 守住 typed-nil：
+// 把 (*humanverify.RuntimeService)(nil) 装进 Verifier 接口后 `verifier == nil` 为 false，
+// 若 RuntimeService 自己不做 nil 兜底，发帖路径会 500（P3-3 审查指出的 panic）。
+// 语义定为「装配了但未启用」= 零校验、不 panic。
+func TestCreateTopicSkipsWhenVerifierIsTypedNil(t *testing.T) {
+	var typedNil *humanverify.RuntimeService
+	app, _, store := newForumTestApp(func(controller *Controller) {
+		controller.WithHumanVerification(typedNil)
+	})
+	cookie := loginForumUser(t, app, 1)
+
+	resp := performForumRequest(t, app, nethttp.MethodPost, "/api/v1/topics", []byte(postRiskTopicBody), cookie)
+	raw, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != nethttp.StatusCreated {
+		t.Fatalf("create topic with typed-nil verifier: status=%d body=%s", resp.StatusCode, raw)
+	}
+	if store.createdTopic.Title != "post risk topic" {
+		t.Fatalf("typed-nil verifier blocked the write: %#v", store.createdTopic)
+	}
+}

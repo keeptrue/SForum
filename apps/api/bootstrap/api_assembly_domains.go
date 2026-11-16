@@ -379,7 +379,7 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 	}
 	commentLive := forum.NewCommentLiveService(forumCachedStore).
 		WithWakeHub(commentRevisionHub)
-	forumProvider := providers.NewForumProviderWithPublicContributions(
+	forumProviderBase := providers.NewForumProviderWithPublicContributions(
 		forumCachedStore,
 		optionsService,
 		identityStore,
@@ -404,9 +404,6 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 			Registry: lifecycleStack.EditorRegistry,
 		}).WithSearchProviderAdmin(searchProviderAdminAdapter{registry: searchProviders}).
 		WithEmailVerificationGate(emailVerificationService).
-		// P3-3：post_risk 场景必须在发帖/回帖写入路径上真正执行。传 RuntimeService 而不是
-		// 启动时快照的 *Service —— 开关状态由它每请求从 Options 读取，运营改选项立即生效。
-		WithHumanVerification(humanVerifier).
 		WithViewRecorder(topicViewCounter).
 		WithUserVisitRecorder(userVisitRecorder).
 		WithCommentLive(commentLive).
@@ -417,6 +414,12 @@ func wireAPIDomainServices(ctx context.Context, cfg config.Config, logger *slog.
 		// 工具调用记录与依据共用同一个端点与同一次可见性判定；公开投影在适配器
 		// 里就已经丢掉 resultDigest（工具结果片段可能包含读者不可见的内容）。
 		WithToolCallReader(providers.NewForumToolCallReader(pool))
+	// P3-3：post_risk 人机验证只在 finalizeAPIForumProvider 这一处收口——漏接即报错，
+	// 而不是让发帖路径静默变成零校验。装配用例见 forum_provider_assembly_test.go。
+	forumProvider, err := finalizeAPIForumProvider(forumProviderBase, humanVerifier)
+	if err != nil {
+		return nil, err
+	}
 	// 头像与附件管理共用带存储候选目录的服务实例。
 	avatarAttachmentService := attachmentService
 	// 昵称服务：策略来自运行时选项，改名后回写站内搜索文档里的作者昵称。

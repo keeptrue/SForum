@@ -29,6 +29,16 @@ func (h *Controller) WithHumanVerification(verifier humanverify.Verifier) *Contr
 	return h
 }
 
+// HasHumanVerification 是只读探针：装配层用它断言 post_risk 校验器确实接上了。
+//
+// 存在的理由是「静默丢线」不可测——controller 侧 nil verifier 是合法状态（测试装配、
+// 无人机验证依赖的启动路径），所以装配里少写一行 WithHumanVerification，全部单元测试
+// 仍然绿，生产上 post_risk 却是零校验。bootstrap 的装配用例断言本探针为 true，
+// 删掉那行接线即变红。
+func (h *Controller) HasHumanVerification() bool {
+	return h != nil && h.humanVerification != nil
+}
+
 // requirePostRiskVerification 在写入前执行 post_risk 场景校验。
 //
 // 开关语义：provider 未启用（human_verification.provider != altcha）或该场景关闭时，

@@ -139,6 +139,12 @@ func (p *ForumProvider) WithHumanVerification(verifier humanverify.Verifier) *Fo
 	return p
 }
 
+// HasHumanVerification 是只读探针，供 bootstrap 装配用例断言 post_risk 校验器确实接上。
+// 见 forumcontroller.Controller.HasHumanVerification 的注释。
+func (p *ForumProvider) HasHumanVerification() bool {
+	return p != nil && p.controller != nil && p.controller.HasHumanVerification()
+}
+
 // WithContentPostFilter injects the optional ContentRegistry post-render seam.
 // Nil filter keeps Host RenderContent identity behavior.
 func (p *ForumProvider) WithContentPostFilter(filter forum.ContentPostFilter) *ForumProvider {
