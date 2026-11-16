@@ -199,4 +199,48 @@ status=0
 [[ "$status" == "1" ]] || \
   fail "the /health recoveryRequired field was mistaken for a recovery block (got $status)"
 
+# --- 后补键（P3-18）：upgrade.sh 的 backfill_env_keys 与 deploy.sh 等价 ----------
+# 存量 .env.production 缺 MEILI_MASTER_KEY（或写成空值），而 compose.prod.yaml 已加
+# `:?` 硬闸：升级路径必须在第一个 compose 调用之前补上，且幂等、不覆盖已有值。
+file_mode() {
+  if stat -f '%Lp' "$1" >/dev/null 2>&1; then
+    stat -f '%Lp' "$1"
+  else
+    stat -c '%a' "$1"
+  fi
+}
+
+BACKFILL_DIR="$TEMP_DIR/env"
+mkdir -p "$BACKFILL_DIR"
+BACKFILL_ENV="$BACKFILL_DIR/.env.production"
+printf 'APP_ENV=production\nMEILI_MASTER_KEY=\nOTHER=1\n' > "$BACKFILL_ENV"
+chmod 600 "$BACKFILL_ENV"
+
+( backfill_env_keys "$BACKFILL_ENV" ) >/dev/null 2>&1 || fail "backfill_env_keys failed on an empty key"
+[[ "$(grep -c '^MEILI_MASTER_KEY=' "$BACKFILL_ENV" || true)" == "1" ]] || \
+  fail "backfill left $(grep -c '^MEILI_MASTER_KEY=' "$BACKFILL_ENV" || true) MEILI_MASTER_KEY line(s)"
+backfill_value="$(sed -n 's/^MEILI_MASTER_KEY=//p' "$BACKFILL_ENV")"
+[[ "$backfill_value" =~ ^[0-9a-f]{64}$ ]] || fail "backfill did not write a 32-byte hex value"
+grep -qx 'OTHER=1' "$BACKFILL_ENV" || fail "backfill dropped an unrelated key"
+[[ "$(file_mode "$BACKFILL_ENV")" == "600" ]] || fail "backfill changed the config file mode"
+
+# 幂等：第二次调用不改值、不重复追加。
+( backfill_env_keys "$BACKFILL_ENV" ) >/dev/null 2>&1 || fail "second backfill call failed"
+[[ "$(sed -n 's/^MEILI_MASTER_KEY=//p' "$BACKFILL_ENV")" == "$backfill_value" ]] || \
+  fail "second backfill call overwrote an existing value"
+[[ "$(grep -c '^MEILI_MASTER_KEY=' "$BACKFILL_ENV" || true)" == "1" ]] || \
+  fail "second backfill call duplicated the key"
+
+# 已有非空值：一个字节都不动（连临时文件都不该产生）。
+KEEP_ENV="$BACKFILL_DIR/keep.env"
+printf 'MEILI_MASTER_KEY=keep-me\n' > "$KEEP_ENV"
+chmod 600 "$KEEP_ENV"
+keep_before="$(cksum < "$KEEP_ENV")"
+( backfill_env_keys "$KEEP_ENV" ) >/dev/null 2>&1
+[[ "$(cksum < "$KEEP_ENV")" == "$keep_before" ]] || fail "backfill rewrote a file that already had a value"
+
+# 配置文件不存在：什么都不做，绝不凭空创建。
+( backfill_env_keys "$BACKFILL_DIR/absent.env" ) >/dev/null 2>&1
+[ ! -e "$BACKFILL_DIR/absent.env" ] || fail "backfill created a config file that did not exist"
+
 printf 'upgrade-health-probe_test.sh: all checks passed\n'

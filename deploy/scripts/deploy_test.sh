@@ -50,6 +50,14 @@ assert_before() {
   [ "$earlier_line" -lt "$later_line" ] || fail "expected '$earlier' before '$later'"
 }
 
+file_mode() {
+  if stat -f '%Lp' "$1" >/dev/null 2>&1; then
+    stat -f '%Lp' "$1"
+  else
+    stat -c '%a' "$1"
+  fi
+}
+
 # 认领副本（.deploy.lock.stale.<pid>）不许留在仓库根：正常回收要删干净，
 # 只有「还原目标被占」这一种情况才允许保留一份给运维手动清。
 claim_leftovers() {
@@ -99,6 +107,14 @@ cat > "$MOCK_BIN/docker" <<'EOF'
 set -euo pipefail
 
 printf 'docker version=%s %s\n' "${SFORUM_VERSION:-unset}" "$*" >> "$MOCK_DEPLOY_LOG"
+
+# 记录「第一个 compose 调用发生时 .env.production 里有几行 MEILI_MASTER_KEY」。
+# 后补键必须早于任何 compose 解析，否则 compose.prod.yaml 的 `:?` 会先失败。
+if [ -n "${MOCK_BACKFILL_PROBE:-}" ] && [ "${1:-}" = "compose" ] && [ "${2:-}" != "version" ] && [ ! -e "$MOCK_BACKFILL_PROBE" ]; then
+  : > "$MOCK_BACKFILL_PROBE"
+  meili_lines="$(grep -c '^MEILI_MASTER_KEY=' .env.production 2>/dev/null || true)"
+  printf 'first-compose-sees-meili=%s\n' "${meili_lines:-0}" >> "$MOCK_DEPLOY_LOG"
+fi
 
 if [ "${1:-}" = "info" ]; then
   exit 0
@@ -329,6 +345,9 @@ assert_before "$MOCK_LOG" "exec -T postgres psql" "run --rm -T --pull never migr
 assert_before "$MOCK_LOG" "run --rm -T --pull never migrate" "up -d --no-build --pull never postgres redis api web"
 assert_contains "$MOCK_LOG" "helper health http://127.0.0.1:18080/api/v1/ready"
 assert_contains "$TEST_ROOT/.deployrc" "version=v3.0.0-alpha.9"
+# 单拓扑必须显式记录 topology，读侧不再依赖「没有这个键就当 single」的隐式约定。
+assert_contains "$TEST_ROOT/.deployrc" "topology=single"
+assert_not_contains "$TEST_ROOT/.deployrc" "active_slot="
 assert_contains "$TEMP_DIR/clean.out" "Deployment completed successfully."
 assert_contains "$TEMP_DIR/clean.out" "Reverse proxy Web target: http://127.0.0.1:3000"
 assert_contains "$TEMP_DIR/clean.out" "Reverse proxy API/WebSocket target: http://127.0.0.1:18080"
@@ -377,6 +396,66 @@ assert_before "$MOCK_LOG" "up -d --wait postgres redis" "exec -T postgres psql"
 assert_before "$MOCK_LOG" "exec -T postgres psql" "helper backup"
 assert_before "$MOCK_LOG" "helper backup" "run --rm -T --pull never migrate"
 
+# --- P3-18：存量 env 缺 MEILI_MASTER_KEY → 第一个 compose 调用之前 backfill -----
+# 存量安装的配置文件里没有这个键（向导只在文件缺失时生成），而 compose.prod.yaml
+# 已经加了 `:?` 硬闸：不 backfill 就会在 preflight 的 config 阶段直接失败。
+grep -v '^MEILI_MASTER_KEY=' "$TEMP_DIR/embedded-default.env" > "$TEST_ROOT/.env.production"
+chmod 600 "$TEST_ROOT/.env.production"
+printf '%s\n' \
+  'lang=en' \
+  'version=v3.0.0-alpha.8' \
+  'mode=release' \
+  'topology=single' \
+  "install_dir=$(cd "$TEST_ROOT" && pwd -P)" > "$TEST_ROOT/.deployrc"
+: > "$MOCK_LOG"
+rm -f "$TEMP_DIR/backfill-probe" "$TEMP_DIR/deploy-started"
+if ! (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" \
+    MOCK_DEPLOY_LOG="$MOCK_LOG" \
+    MOCK_BACKFILL_PROBE="$TEMP_DIR/backfill-probe" \
+    MOCK_DB_STATE=t \
+    MOCK_ALLOW_EXISTING_RC=true \
+    MOCK_DEPLOY_STARTED_FILE="$TEMP_DIR/deploy-started" \
+    SFORUM_DEPLOY_STABILITY_SECONDS=0 \
+    ./deploy.sh --yes --lang en --action deploy --version v3.0.0-alpha.9
+) > "$TEMP_DIR/backfill.out" 2>&1; then
+  cat "$TEMP_DIR/backfill.out" >&2
+  fail "deploy.sh failed on a legacy env without MEILI_MASTER_KEY"
+fi
+assert_contains "$MOCK_LOG" "first-compose-sees-meili=1"
+assert_contains "$TEMP_DIR/backfill.out" \
+  "Added missing production key(s) to .env.production with a freshly generated value: MEILI_MASTER_KEY"
+[[ "$(grep -c '^MEILI_MASTER_KEY=' "$TEST_ROOT/.env.production" || true)" == "1" ]] || \
+  fail "backfill did not leave exactly one MEILI_MASTER_KEY line"
+backfilled_value="$(sed -n 's/^MEILI_MASTER_KEY=//p' "$TEST_ROOT/.env.production")"
+[[ "$backfilled_value" =~ ^[0-9a-f]{64}$ ]] || fail "backfilled MEILI_MASTER_KEY is not 32-byte hex"
+[[ "$(file_mode "$TEST_ROOT/.env.production")" == "600" ]] || \
+  fail "backfill changed the mode of .env.production"
+
+# 幂等：再跑一次，值不变、仍然只有一行、不再打印补键提示。
+: > "$MOCK_LOG"
+rm -f "$TEMP_DIR/backfill-probe" "$TEMP_DIR/deploy-started"
+if ! (
+  cd "$TEST_ROOT"
+  PATH="$MOCK_BIN:$PATH" \
+    MOCK_DEPLOY_LOG="$MOCK_LOG" \
+    MOCK_BACKFILL_PROBE="$TEMP_DIR/backfill-probe" \
+    MOCK_DB_STATE=t \
+    MOCK_ALLOW_EXISTING_RC=true \
+    MOCK_DEPLOY_STARTED_FILE="$TEMP_DIR/deploy-started" \
+    SFORUM_DEPLOY_STABILITY_SECONDS=0 \
+    ./deploy.sh --yes --lang en --action deploy --version v3.0.0-alpha.9
+) > "$TEMP_DIR/backfill-again.out" 2>&1; then
+  cat "$TEMP_DIR/backfill-again.out" >&2
+  fail "second deployment on a backfilled env failed"
+fi
+[[ "$(grep -c '^MEILI_MASTER_KEY=' "$TEST_ROOT/.env.production" || true)" == "1" ]] || \
+  fail "second run duplicated the MEILI_MASTER_KEY line"
+[[ "$(sed -n 's/^MEILI_MASTER_KEY=//p' "$TEST_ROOT/.env.production")" == "$backfilled_value" ]] || \
+  fail "second run overwrote an existing MEILI_MASTER_KEY"
+assert_not_contains "$TEMP_DIR/backfill-again.out" "Added missing production key(s)"
+
 printf '%s\n' \
   'lang=en' \
   'version=v3.0.0-alpha.8' \
@@ -385,9 +464,12 @@ printf '%s\n' \
   'active_slot=blue' \
   'blue_version=v3.0.0-alpha.8' \
   'green_version=v3.0.0-alpha.7' > "$TEST_ROOT/.deployrc"
+cp "$TEST_ROOT/.deployrc" "$TEMP_DIR/blue-green.before"
 : > "$MOCK_LOG"
 rm -f "$TEMP_DIR/deploy-started"
-if ! (
+# 蓝绿安装上 deploy.sh 必须拒绝：它只实现单拓扑的停旧起新，会停掉 edge 与两个
+# 槽位并抹掉槽位元数据（P3-19）。拒绝要发生在任何 docker/compose 动作之前。
+if (
   cd "$TEST_ROOT"
   PATH="$MOCK_BIN:$PATH" \
     MOCK_DEPLOY_LOG="$MOCK_LOG" \
@@ -399,15 +481,19 @@ if ! (
     SFORUM_DEPLOY_STABILITY_SECONDS=0 \
     ./deploy.sh --yes --lang en --action deploy --version v3.0.0-alpha.9
 ) > "$TEMP_DIR/blue-green.out" 2>&1; then
-  cat "$TEMP_DIR/blue-green.out" >&2
-  cat "$MOCK_LOG" >&2
-  fail "blue/green maintenance deployment failed"
+  fail "deploy.sh ran on a blue-green installation instead of refusing"
 fi
-assert_contains "$MOCK_LOG" "-f compose.zero-downtime.yaml --profile zero-downtime stop web-blue web-green api-blue api-green edge"
-assert_before "$MOCK_LOG" "helper backup" "stop web-blue web-green api-blue api-green edge"
-assert_before "$MOCK_LOG" "stop web-blue web-green api-blue api-green edge" "run --rm -T --pull never migrate"
-assert_contains "$TEST_ROOT/.deployrc" "version=v3.0.0-alpha.9"
-assert_not_contains "$TEST_ROOT/.deployrc" "topology=blue-green"
+assert_contains "$TEMP_DIR/blue-green.out" \
+  "deploy.sh refuses to run on a blue-green installation; use upgrade.sh for zero-downtime updates."
+assert_contains "$TEMP_DIR/blue-green.out" "零停机更新请用 ./upgrade.sh"
+if [ -s "$MOCK_LOG" ]; then
+  cat "$MOCK_LOG" >&2
+  fail "blue-green refusal still issued docker/compose commands"
+fi
+cmp -s "$TEMP_DIR/blue-green.before" "$TEST_ROOT/.deployrc" || \
+  fail "blue-green refusal rewrote .deployrc"
+assert_contains "$TEST_ROOT/.deployrc" "active_slot=blue"
+assert_contains "$TEST_ROOT/.deployrc" "topology=blue-green"
 
 for stage in pull identity migrate health services; do
   if run_deploy "failure-${stage}" f "$stage"; then

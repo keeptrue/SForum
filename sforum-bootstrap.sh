@@ -166,7 +166,8 @@ refresh_bootstrap() {
   ACTIVE_STAGE=""
 
   SFORUM_BOOTSTRAP_REFRESHED_VERSION="$TARGET_VERSION" \
-    exec "$ROOT_DIR/sforum-bootstrap.sh" "$COMMAND" --version "$TARGET_VERSION" "${PASSTHROUGH[@]}"
+    exec "$ROOT_DIR/sforum-bootstrap.sh" "$COMMAND" --version "$TARGET_VERSION" \
+      "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
 }
 
 managed_files() {
@@ -374,7 +375,9 @@ main() {
   if [ "$CHANNEL_EXPLICIT" != true ] && [ "$REQUESTED_VERSION" = latest ]; then
     local has_defaults=0
     local passthrough_flag
-    for passthrough_flag in "${PASSTHROUGH[@]}"; do
+    # bash < 4.4（macOS 自带 3.2）在 set -u 下展开空数组会报 unbound variable。
+    # `${arr[@]+"${arr[@]}"}` 的写法在空数组时展开成零个词，非空时仍保持元素边界。
+    for passthrough_flag in ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}; do
       case "$passthrough_flag" in --yes|--defaults) has_defaults=1 ;; esac
     done
     if [ "$has_defaults" = 0 ]; then
@@ -408,9 +411,11 @@ main() {
   printf 'Install directory: %s\n' "$ROOT_DIR"
 
   if [ "$COMMAND" = install ]; then
-    exec "$ROOT_DIR/deploy.sh" --action deploy --version "$TARGET_VERSION" "${PASSTHROUGH[@]}"
+    exec "$ROOT_DIR/deploy.sh" --action deploy --version "$TARGET_VERSION" \
+      "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
   fi
-  exec "$ROOT_DIR/upgrade.sh" --version "$TARGET_VERSION" "${PASSTHROUGH[@]}"
+  exec "$ROOT_DIR/upgrade.sh" --version "$TARGET_VERSION" \
+    "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
 }
 
 main "$@"

@@ -128,6 +128,53 @@ env_value() {
   printf '%s' "${value:-$fallback}"
 }
 
+# 存量安装的「后补键」。deploy.sh 里有一份等价实现：两个脚本各自独立分发，
+# 共用同一套语义 —— 只在键缺失或为空时补一行，已有非空值一字不动，文件不存在
+# 时什么都不做，临时文件 + 原子 mv 保持 0600，连续跑两次不会出现重复键。
+# compose.prod.yaml 对 MEILI_MASTER_KEY 加了 `:?` 硬闸，而向导只在配置文件缺失
+# 时生成它（configure-production.sh 的 exists 分支直接 exit 0），所以升级路径
+# 必须自己补，并且必须在第一个 compose 调用之前完成。
+ENV_BACKFILL_KEYS=(MEILI_MASTER_KEY)
+
+generate_env_secret() {
+  local value
+  if command -v openssl >/dev/null 2>&1; then
+    value="$(openssl rand -hex 32)"
+  else
+    value="$(od -An -N32 -tx1 /dev/urandom | tr -d '[:space:]')"
+  fi
+  [[ "$value" =~ ^[0-9a-f]{64}$ ]] || die "Failed to generate a secure random secret."
+  printf '%s' "$value"
+}
+
+backfill_env_keys() {
+  local file="${1:-.env.production}"
+  local key value temp_file drop
+  local missing=()
+
+  [ -f "$file" ] || return 0
+  for key in "${ENV_BACKFILL_KEYS[@]}"; do
+    value="$(sed -n "s/^${key}=//p" "$file" | tail -n 1)"
+    [ -n "$value" ] || missing+=("$key")
+  done
+  [ "${#missing[@]}" -gt 0 ] || return 0
+
+  umask 077
+  temp_file="$(mktemp "$(dirname "$file")/.env.production.XXXXXX")"
+  drop="$(IFS=,; printf '%s' "${missing[*]}")"
+  awk -v drop="$drop" '
+    BEGIN { n = split(drop, keys, ","); for (i = 1; i <= n; i++) skip[keys[i]] = 1 }
+    { for (k in skip) if (index($0, k "=") == 1) next; print }
+  ' "$file" > "$temp_file"
+  for key in "${missing[@]}"; do
+    printf '%s=%s\n' "$key" "$(generate_env_secret)" >> "$temp_file"
+  done
+  chmod 600 "$temp_file"
+  mv -f "$temp_file" "$file"
+  say "已为 .env.production 补上缺失的生产配置键：${missing[*]}" \
+    "Added missing production key(s) to .env.production: ${missing[*]}"
+}
+
 lang() {
   local value
   value="$(rc_value lang)"
@@ -678,11 +725,28 @@ dump_slot_diagnostics() {
   "${COMPOSE[@]}" logs --tail=60 --no-color "$service" >&2 || true
 }
 
+# 健康超时来自环境变量，两处等待必须给出同一套语义：空串、非数值、0、负数一律
+# 回落到默认 120s。不消毒的后果不是「超时短一点」，而是 wait_stable_ingress 里的
+# `$((SECONDS + abc))` 在 set -u 下直接致命 —— 而那一行正好跑在 ingress 已经
+# `mv` + reload 之后、persist_state 之前（见 switch_router / online_update），
+# 崩在那里等于线上已切到新槽，.deployrc 还记着旧槽位与旧版本。
+sanitize_positive_int() {
+  local raw="${1:-}" fallback="${2:-120}"
+
+  case "$raw" in
+    ""|*[!0-9]*) printf '%s\n' "$fallback"; return 0 ;;
+  esac
+  if [ "$raw" -ge 1 ]; then
+    printf '%s\n' "$raw"
+  else
+    printf '%s\n' "$fallback"
+  fi
+}
+
 wait_inside_slot() {
   local slot="$1"
-  local timeout="${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}"
-  case "$timeout" in *[!0-9]*) timeout=120 ;; esac
-  [ "$timeout" -ge 1 ] || timeout=120
+  local timeout
+  timeout="$(sanitize_positive_int "${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}")"
   local started=$SECONDS deadline=$((SECONDS + timeout))
   local api web attempts=0 elapsed next_report=15
   local last_failure="" last_service="" last_output=""
@@ -763,10 +827,12 @@ write_router_config() {
 }
 
 wait_stable_ingress() {
-  local slot="$1" web_port api_port deadline header_file
+  local slot="$1" web_port api_port deadline header_file timeout
   web_port="$(env_value WEB_PORT 3000)"
   api_port="$(env_value API_PORT 18080)"
-  deadline=$((SECONDS + ${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}))
+  # 与 wait_inside_slot 用同一个消毒函数：两处对同一个变量不能有两种语义。
+  timeout="$(sanitize_positive_int "${SFORUM_UPGRADE_HEALTH_TIMEOUT_SECONDS:-120}")"
+  deadline=$((SECONDS + timeout))
   header_file="$(mktemp "${TMPDIR:-/tmp}/sforum-upgrade-headers.XXXXXX")"
   while [ "$SECONDS" -lt "$deadline" ]; do
     if curl -fsS -D "$header_file" -o /dev/null "http://127.0.0.1:${web_port}/health" \
@@ -929,6 +995,9 @@ main() {
   [ -f .env.production ] || die ".env.production is missing; run ./deploy.sh first."
   [ -f "$DEPLOY_RC" ] || die ".deployrc is missing; run ./deploy.sh first."
   command -v curl >/dev/null 2>&1 || die "curl is required."
+  # 必须在任何 compose 调用（pull / run migrate / up）之前补齐后补键：
+  # compose.prod.yaml 的 `:?` 硬闸在插值阶段就失败，不会等到容器启动。
+  backfill_env_keys
 
   local current_version active_slot
   current_version="$(rc_value version)"

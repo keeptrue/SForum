@@ -3,6 +3,7 @@
 #
 # 覆盖：
 #   备份面（OPS2-06）：单一加密归档含库+附件+扩展、缺密钥硬失败、保留策略、旧版 .sql 兼容
+#   加密面（P3-22）：v2 信封的 HMAC 先验后解、密文篡改拒绝、信封剥离拒绝、v1 旧归档兼容
 #   恢复面（RV-16）：内容预检拒绝、切库后校验、失败自动回滚且不删旧库
 #   拓扑（OPS2-02）：蓝绿读 .deployrc、按槽停启、terminate 收窄到已停槽
 #   冷库（OPS2-03）：pg_isready 重试与明确超时
@@ -63,6 +64,36 @@ assert_swap_sql() {
     cat "$diff_file" >&2
     fail "$label"
   fi
+}
+
+# 用生产代码解密 v2 归档：外层是「信封头 + 密文」，裸 openssl 解不了整份文件。
+decrypt_archive() {
+  local archive="$1"
+  local out="$2"
+
+  (
+    set -euo pipefail
+    # shellcheck source=deploy/scripts/postgres-common.sh
+    source "$ROOT_DIR/deploy/scripts/postgres-common.sh"
+    # shellcheck source=deploy/scripts/postgres-backup-format.sh
+    source "$ROOT_DIR/deploy/scripts/postgres-backup-format.sh"
+    sforum_require_backup_key "测试解密"
+    sforum_decrypt_envelope "$archive" "$out"
+  )
+}
+
+# 信封头字节数也取生产实现，测试不复制切分逻辑。
+envelope_header_bytes() {
+  local archive="$1"
+
+  (
+    set -euo pipefail
+    # shellcheck source=deploy/scripts/postgres-common.sh
+    source "$ROOT_DIR/deploy/scripts/postgres-common.sh"
+    # shellcheck source=deploy/scripts/postgres-backup-format.sh
+    source "$ROOT_DIR/deploy/scripts/postgres-backup-format.sh"
+    sforum_envelope_header_bytes "$archive"
+  )
 }
 
 mkdir -p "$TEST_ROOT/deploy/scripts" "$MOCK_BIN" "$MOCK_DATA/cid" "$MOCK_DATA/ip"
@@ -387,7 +418,7 @@ if find "$SUCCESS_BACKUP_DIR" -maxdepth 1 -name '.*' | grep -q .; then
 fi
 
 payload="$TEMP_DIR/payload.tar.gz"
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:"$KEY_FILE" -in "$archive" -out "$payload"
+decrypt_archive "$archive" "$payload"
 tar -tzf "$payload" >/dev/null 2>&1 || fail "backup payload is not a readable archive"
 archive_listing="$(tar -tzf "$payload")"
 for entry in manifest.env database.sql assets/attachments.tar assets/extensions.tar; do
@@ -401,6 +432,9 @@ grep -q '^core_tables=users,roles,categories,topics,posts,comments,attachments$'
 grep -q '^row_count.users=12$' "$TEMP_DIR/unpack/manifest.env" || fail "manifest is missing row counts"
 grep -q '^attachments_entries=1$' "$TEMP_DIR/unpack/manifest.env" || fail "manifest is missing attachment entries"
 grep -q '^extension_entries=1$' "$TEMP_DIR/unpack/manifest.env" || fail "manifest is missing extension entries"
+# 加密方案必须是 v2：清单里的这一行是「信封被剥离」检测的唯一依据。
+grep -q '^encryption=openssl-aes-256-cbc-pbkdf2-iter200000+hmac-sha256$' "$TEMP_DIR/unpack/manifest.env" || \
+  fail "manifest does not record the v2 encryption scheme"
 grep -q '^CREATE TABLE public\.users ' "$TEMP_DIR/unpack/database.sql" || fail "database dump has no core tables"
 grep -q 'exec pg_dump ' "$MOCK_LOG" || fail "backup did not call pg_dump"
 grep -q '^compose up -d --wait postgres$' "$MOCK_LOG" || fail "backup did not wait for postgres to be healthy"
@@ -551,8 +585,7 @@ reset_log
 empty_backup="$(cd "$TEST_ROOT" && MOCK_EMPTY_TABLES=users \
   SFORUM_BACKUP_DIR="$EMPTY_BACKUP_DIR" ./deploy/scripts/backup-postgres.sh)"
 empty_archive="$(tail -n 1 <<< "$empty_backup")"
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:"$KEY_FILE" \
-  -in "$empty_archive" -out "$TEMP_DIR/empty-payload.tar.gz"
+decrypt_archive "$empty_archive" "$TEMP_DIR/empty-payload.tar.gz"
 mkdir -p "$TEMP_DIR/empty-unpack"
 tar -C "$TEMP_DIR/empty-unpack" -xzf "$TEMP_DIR/empty-payload.tar.gz" manifest.env
 grep -q '^row_count.users=0$' "$TEMP_DIR/empty-unpack/manifest.env" || \
@@ -574,6 +607,106 @@ empty_warnings="$(grep -c '警告：核心表为空' "$TEMP_DIR/empty-core.err" 
 [[ "$empty_warnings" == "1" ]] || \
   fail "empty-core-table warning printed $empty_warnings times, expected exactly once"
 case_ok "C6c 核心表为空：显式 warning，恢复照常完成（不硬失败）"
+
+# --- C6d v2 归档密文被改：MAC 不匹配 → 拒绝，且一个库动作都没有 ------------
+# 这正是 v1 的缺口：CBC 位翻转能确定性地改掉首段明文而解密照样「成功」。
+TAMPER_DIR="$TEMP_DIR/tampered"
+mkdir -p "$TAMPER_DIR"
+tampered_archive="$TAMPER_DIR/sforum-backup-tampered.tar.gz.enc"
+cp "$archive" "$tampered_archive"
+header_bytes="$(envelope_header_bytes "$tampered_archive")"
+original_byte="$(dd if="$tampered_archive" bs=1 skip="$header_bytes" count=1 2>/dev/null | od -An -tu1 | tr -d ' \n')"
+[ -n "$original_byte" ] || fail "could not read the first ciphertext byte"
+flipped_byte=$(( (original_byte + 1) % 256 ))
+printf '%b' "\\$(printf '%03o' "$flipped_byte")" | \
+  dd of="$tampered_archive" bs=1 seek="$header_bytes" conv=notrunc 2>/dev/null
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$tampered_archive" \
+  >/dev/null 2>"$TEMP_DIR/tampered.err"); then
+  fail "restore accepted an archive whose ciphertext was modified"
+fi
+grep -q '完整性校验失败' "$TEMP_DIR/tampered.err" || \
+  fail "ciphertext tampering was not reported as an integrity failure"
+if grep -q 'exec restore \|exec swap \|exec psql' "$MOCK_LOG"; then
+  fail "tampered archive still reached the database"
+fi
+case_ok "C6d v2 归档密文被改：HMAC 不匹配 → 拒绝且不碰库（先验 MAC 再解密）"
+
+# --- C6e 信封被剥离：清单声明 v2 却没有信封 → 拒绝按 v1 降级恢复 -----------
+STRIPPED_DIR="$TEMP_DIR/stripped"
+mkdir -p "$STRIPPED_DIR"
+stripped_archive="$STRIPPED_DIR/sforum-backup-stripped.tar.gz.enc"
+archive_header_bytes="$(envelope_header_bytes "$archive")"
+tail -c +$((archive_header_bytes + 1)) "$archive" > "$stripped_archive"
+# 外形上它就是一份合法的 v1 密文（Salted__ 开头），只有清单能拆穿它。
+[[ "$(head -c 8 "$stripped_archive")" == "Salted__" ]] || \
+  fail "stripped archive does not look like a v1 ciphertext"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$stripped_archive" \
+  >/dev/null 2>"$TEMP_DIR/stripped.err"); then
+  fail "restore accepted an archive whose authentication envelope was stripped"
+fi
+grep -q '外层没有信封' "$TEMP_DIR/stripped.err" || \
+  fail "stripped envelope was not reported as a downgrade refusal"
+if grep -q 'exec restore \|exec swap ' "$MOCK_LOG"; then
+  fail "stripped archive still reached the database"
+fi
+case_ok "C6e 信封被剥离：清单声明 v2 → 拒绝降级恢复"
+
+# --- C6e2 明文载荷 + v2 清单：拒绝（不需要密钥就能绕过 MAC 的那条路） --------
+# 有磁盘写权限者可以不解密、直接把归档换成自己打的 tar.gz；只要清单里还写着 v2，
+# 这条路径就必须 fail closed，而不是「警告后继续灌库」。
+PLAIN_DIR="$TEMP_DIR/plain-v2"
+mkdir -p "$PLAIN_DIR"
+decrypt_archive "$archive" "$PLAIN_DIR/payload.tar.gz"
+tar -C "$PLAIN_DIR" -xzf "$PLAIN_DIR/payload.tar.gz"
+rm -f "$PLAIN_DIR/payload.tar.gz"
+grep -q '^encryption=openssl-aes-256-cbc-pbkdf2-iter200000+hmac-sha256$' "$PLAIN_DIR/manifest.env" || \
+  fail "plaintext fixture does not carry a v2 manifest"
+plain_archive="$PLAIN_DIR/sforum-backup-plain.tar.gz.enc"
+tar -C "$PLAIN_DIR" -czf "$plain_archive" manifest.env database.sql assets
+[[ "$(head -c 2 "$plain_archive" | od -An -tx1 | tr -d ' \n')" == "1f8b" ]] || \
+  fail "plaintext fixture is not a gzip archive"
+reset_log
+if (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$plain_archive" \
+  >/dev/null 2>"$TEMP_DIR/plain-v2.err"); then
+  fail "restore accepted a plaintext payload that claims the v2 encryption scheme"
+fi
+grep -q '完整性无法校验' "$TEMP_DIR/plain-v2.err" || \
+  fail "plaintext v2 payload was not rejected with an explicit reason"
+grep -q 'SFORUM_RESTORE_ALLOW_UNVERIFIED=1' "$TEMP_DIR/plain-v2.err" || \
+  fail "plaintext v2 rejection did not name the explicit override"
+if grep -q 'exec restore \|exec swap \|exec psql' "$MOCK_LOG"; then
+  fail "plaintext v2 payload still reached the database"
+fi
+case_ok "C6e2 明文载荷 + v2 清单：拒绝恢复（不需要密钥的 MAC 绕过）"
+
+# --- C6f v1 旧归档（无 MAC）：仍可恢复，但必须打印降级告警 ----------------
+# 用生产代码解出 v2 载荷，把清单改回 v1 方案，再按 v1 方式重新封一份。
+V1_DIR="$TEMP_DIR/v1"
+mkdir -p "$V1_DIR/payload"
+decrypt_archive "$archive" "$V1_DIR/payload.tar.gz"
+tar -C "$V1_DIR/payload" -xzf "$V1_DIR/payload.tar.gz"
+sed -i.bak 's/^encryption=.*/encryption=openssl-aes-256-cbc-pbkdf2-iter200000/' \
+  "$V1_DIR/payload/manifest.env"
+rm -f "$V1_DIR/payload/manifest.env.bak"
+tar -C "$V1_DIR/payload" -czf "$V1_DIR/payload-v1.tar.gz" manifest.env database.sql assets
+openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass file:"$KEY_FILE" \
+  -in "$V1_DIR/payload-v1.tar.gz" -out "$V1_DIR/sforum-backup-v1.tar.gz.enc"
+reset_log
+if ! (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \
+  SFORUM_CONFIRM_RESTORE=RESTORE ./deploy/scripts/restore-postgres.sh "$V1_DIR/sforum-backup-v1.tar.gz.enc" \
+  >/dev/null 2>"$TEMP_DIR/v1.err"); then
+  cat "$TEMP_DIR/v1.err" >&2
+  fail "v1 archive is no longer restorable"
+fi
+grep -q 'v1 加密方案' "$TEMP_DIR/v1.err" || \
+  fail "v1 restore did not print the downgrade warning"
+grep -q 'exec swap ' "$MOCK_LOG" || fail "v1 restore did not proceed to the swap"
+case_ok "C6f v1 旧归档：跳过验 MAC 但打印降级告警，恢复照常完成"
 
 # --- C7 切库后 API 起不来：自动回滚，旧库不删 ------------------------------
 reset_log

@@ -1,4 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-sforum}
+# 本文件的口令默认值（POSTGRES_PASSWORD / REDIS_PASSWORD / MEILI_MASTER_KEY）
+# 只服务本地一键开发；生产必须显式覆盖：compose.prod.yaml 已对 postgres/redis
+# 两项加 `:?` 硬闸，meilisearch 只在启用 search profile 时才需要 MEILI_MASTER_KEY。
 
 services:
   postgres:

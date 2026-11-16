@@ -47,6 +47,10 @@ services:
       IDENTITY_SUBJECT_HMAC_SECRET: ${IDENTITY_SUBJECT_HMAC_SECRET:?IDENTITY_SUBJECT_HMAC_SECRET is required in production}
       APP_OPTION_ENC_KEY: ${APP_OPTION_ENC_KEY:?APP_OPTION_ENC_KEY is required in production}
       ALTCHA_SECRET: ${ALTCHA_SECRET:?ALTCHA_SECRET is required in production}
+      # api 连接 Redis 用的是同一个口令：这里不钉，容器仍会从 compose.yaml
+      # 继承 sforum-dev-redis，而 redis 服务段已经改成必填 —— 两边口令不一致
+      # 时 api 连不上缓存/会话，症状是「redis 起了但 API 一直 503」。
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required in production}
     restart: unless-stopped
     ports:
       # Host reverse proxies use this loopback-only ingress for WebSocket
@@ -74,12 +78,31 @@ services:
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
 
+  # 数据服务的口令与应用密钥同理：compose.yaml 的默认值都在开发侧
+  # （sforum / sforum-dev-redis / sforum-dev-meili-key），生产段只覆盖 restart
+  # 时，`docker compose up -d` 会带着弱口令静默跑起来。这里用 `:?` 前置失败，
+  # 缺哪一项就报哪一项，而不是把开发默认值带进生产容器。
+  #
+  # environment 在 override 里是按键合并，所以只写口令，POSTGRES_DB/USER 等
+  # 仍继承 compose.yaml。
   postgres:
     restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}
 
   redis:
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required in production}
 
   # 仅 --profile search 时存在；可选搜索插件依赖。
+  #
+  # MEILI_MASTER_KEY 已接线（P3-18 收尾）：向导为新安装生成该键、
+  # .env.production.example 是正式示例行，deploy.sh / upgrade.sh 在任何 compose
+  # 调用之前会给存量安装 backfill 缺失的键（只补空/缺失，不覆盖已有值）。
+  # 因此这里可以按 postgres/redis 的写法加 `:?`：缺值即 fail-fast，compose.yaml
+  # 的开发默认值 sforum-dev-meili-key 不再可能进入生产容器。
   meilisearch:
     restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?MEILI_MASTER_KEY is required in production}

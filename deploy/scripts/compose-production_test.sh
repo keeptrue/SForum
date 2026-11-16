@@ -31,6 +31,43 @@ docker compose \
   --profile tools \
   config --format json > "$TEMP_DIR/compose.json"
 
+# P3-18：向导必须为新安装生成 MEILI_MASTER_KEY（64 hex），否则启用 search profile
+# 的生产部署只能退回 compose.yaml 的开发默认值 sforum-dev-meili-key。
+meili_key="$(sed -n 's/^MEILI_MASTER_KEY=//p' "$TEMP_DIR/.env.production" | tail -n 1)"
+if [[ ! "$meili_key" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'compose-production_test.sh: the wizard did not generate a 64-hex MEILI_MASTER_KEY\n' >&2
+  exit 1
+fi
+
+# 启用 search profile 时，该键必须原样进入 meilisearch 容器。
+docker compose \
+  --env-file "$TEMP_DIR/.env.production" \
+  -f "$ROOT_DIR/compose.yaml" \
+  -f "$ROOT_DIR/compose.prod.yaml" \
+  -f "$ROOT_DIR/compose.release.yaml" \
+  --profile tools --profile search \
+  config --format json > "$TEMP_DIR/compose.search.json"
+
+# P3-18：MEILI_MASTER_KEY 缺值必须和 postgres/redis 一样在 config 阶段硬失败。
+# 存量安装由 deploy.sh / upgrade.sh 在第一个 compose 调用之前 backfill（各自的
+# 测试钉住了顺序与幂等），所以这条只会打到「真的没人补键」的路径。
+grep -v '^MEILI_MASTER_KEY=' "$TEMP_DIR/.env.production" > "$TEMP_DIR/.env.production.no-meili"
+if docker compose \
+  --env-file "$TEMP_DIR/.env.production.no-meili" \
+  -f "$ROOT_DIR/compose.yaml" \
+  -f "$ROOT_DIR/compose.prod.yaml" \
+  -f "$ROOT_DIR/compose.release.yaml" \
+  --profile tools \
+  config --quiet > /dev/null 2> "$TEMP_DIR/no-meili.err"; then
+  printf 'compose-production_test.sh: production compose accepted a missing MEILI_MASTER_KEY\n' >&2
+  exit 1
+fi
+grep -Fq -- 'MEILI_MASTER_KEY is required in production' "$TEMP_DIR/no-meili.err" || {
+  printf 'compose-production_test.sh: missing MEILI_MASTER_KEY did not produce the production gate message\n' >&2
+  cat "$TEMP_DIR/no-meili.err" >&2
+  exit 1
+}
+
 cp "$TEMP_DIR/.env.production" "$TEMP_DIR/.env.production.legacy"
 printf 'EMBED_WORKER_IN_API=false\n' >> "$TEMP_DIR/.env.production.legacy"
 docker compose \
@@ -43,7 +80,9 @@ docker compose \
 
 # 只保留 compose 展开必需的键：四项信任配置必须完全来自 compose.yaml 自身的默认值，
 # 否则这段断言会被环境文件里的同名值「蒙对」（向导现在写的值与默认值相同）。
-grep -E '^(SFORUM_VERSION|SESSION_HASH_SECRET|IDENTITY_SUBJECT_HMAC_SECRET|APP_OPTION_ENC_KEY|ALTCHA_SECRET)=' \
+# 数据服务口令与 MEILI_MASTER_KEY（P3-18）现在也是 compose.prod.yaml 的 `:?`
+# 必填项，同样要留下，否则这段渲染会直接失败。
+grep -E '^(SFORUM_VERSION|SESSION_HASH_SECRET|IDENTITY_SUBJECT_HMAC_SECRET|APP_OPTION_ENC_KEY|ALTCHA_SECRET|POSTGRES_PASSWORD|REDIS_PASSWORD|MEILI_MASTER_KEY)=' \
   "$TEMP_DIR/.env.production" > "$TEMP_DIR/.env.production.defaults"
 docker compose \
   --env-file "$TEMP_DIR/.env.production.defaults" \
@@ -52,6 +91,27 @@ docker compose \
   -f "$ROOT_DIR/compose.release.yaml" \
   --profile tools \
   config --format json > "$TEMP_DIR/compose.defaults.json"
+
+# P3-18：两个数据服务的口令缺值必须在 config 阶段硬失败 —— 否则 compose.yaml 的
+# 开发默认值（sforum / sforum-dev-redis）会静默进入生产容器。
+for missing_key in POSTGRES_PASSWORD REDIS_PASSWORD; do
+  grep -v "^${missing_key}=" "$TEMP_DIR/.env.production" > "$TEMP_DIR/.env.production.no-${missing_key}"
+  if docker compose \
+    --env-file "$TEMP_DIR/.env.production.no-${missing_key}" \
+    -f "$ROOT_DIR/compose.yaml" \
+    -f "$ROOT_DIR/compose.prod.yaml" \
+    -f "$ROOT_DIR/compose.release.yaml" \
+    --profile tools \
+    config --quiet > /dev/null 2> "$TEMP_DIR/missing-${missing_key}.err"; then
+    printf 'compose-production_test.sh: production compose accepted a missing %s\n' "$missing_key" >&2
+    exit 1
+  fi
+  grep -Fq -- "${missing_key} is required in production" "$TEMP_DIR/missing-${missing_key}.err" || {
+    printf 'compose-production_test.sh: missing %s did not produce the production gate message\n' "$missing_key" >&2
+    cat "$TEMP_DIR/missing-${missing_key}.err" >&2
+    exit 1
+  }
+done
 
 # 总开关必须能一键回退：环境文件写 TRUST_PROXY=false 后 API 侧不再采信转发头。
 cp "$TEMP_DIR/.env.production.defaults" "$TEMP_DIR/.env.production.off"
@@ -118,6 +178,20 @@ ruby -rjson -e '
     abort "compose-production_test.sh: API EXTENSION_ROOT must be absolute, got #{api_extension_root.inspect}"
   end
 
+  # P3-18：数据服务口令必须原样到达容器，不能在 override 里退回 compose.yaml 的
+  # 开发默认值（postgres/redis 的弱默认值正是「静默以弱口令运行」的根源）。
+  postgres_env = services.fetch("postgres").fetch("environment")
+  unless postgres_env.fetch("POSTGRES_PASSWORD", "<missing>") == env.fetch("POSTGRES_PASSWORD")
+    abort "compose-production_test.sh: postgres POSTGRES_PASSWORD is not the production value"
+  end
+  redis_env = services.fetch("redis").fetch("environment")
+  unless redis_env.fetch("REDIS_PASSWORD", "<missing>") == env.fetch("REDIS_PASSWORD")
+    abort "compose-production_test.sh: redis REDIS_PASSWORD is not the production value"
+  end
+  unless api_env.fetch("REDIS_PASSWORD", "<missing>") == env.fetch("REDIS_PASSWORD")
+    abort "compose-production_test.sh: API REDIS_PASSWORD does not match the redis service"
+  end
+
   # RV-41：生产拓扑同样要自带健康探针；否则 compose 的 service_healthy 条件
   # 只能退回 service_started，健康语义就丢了。
   api_health = api.fetch("healthcheck")
@@ -176,8 +250,15 @@ ruby -rjson -e '
   unless off_api.fetch("TRUST_PROXY", "<missing>") == "false"
     abort "compose-production_test.sh: TRUST_PROXY=false from the env file did not reach the API container"
   end
+
+  # P3-18：启用 search profile 时，向导生成的 MEILI_MASTER_KEY 必须原样到达容器，
+  # 不能退回 compose.yaml 的开发默认值。
+  search_meili = JSON.parse(File.read(ARGV.fetch(5))).fetch("services").fetch("meilisearch").fetch("environment")
+  unless search_meili.fetch("MEILI_MASTER_KEY", "<missing>") == env.fetch("MEILI_MASTER_KEY")
+    abort "compose-production_test.sh: meilisearch MEILI_MASTER_KEY is not the production value"
+  end
 ' "$TEMP_DIR/.env.production" "$TEMP_DIR/compose.json" "$TEMP_DIR/compose.legacy.json" \
-  "$TEMP_DIR/compose.defaults.json" "$TEMP_DIR/compose.off.json"
+  "$TEMP_DIR/compose.defaults.json" "$TEMP_DIR/compose.off.json" "$TEMP_DIR/compose.search.json"
 
 # OPS2-05：shell 环境变量优先于 --env-file，容器拿到的值可能与 .env.production 不同。
 # 先钉住这个前提（证明不加处理时容器真的会拿到 shell 值），再钉住 deploy.sh 的处理。

@@ -188,6 +188,56 @@ sanitize_env_contract_overrides() {
   fi
 }
 
+# 存量安装的「后补键」。compose.prod.yaml 对 MEILI_MASTER_KEY 加了 `:?` 硬闸，
+# 而向导只在配置文件缺失时生成它（configure-production.sh 的 exists 分支直接
+# exit 0），升级路径不会补这个键 —— 不补的话，所有「不用搜索」的存量安装会在
+# 下一次 deploy.sh 的第一个 compose 调用（preflight 里的 config --quiet，连
+# status/logs/stop 也算）就硬失败。
+# 语义：只在键缺失或为空时补一行；已有非空值一字不动；文件不存在时什么都不做
+# （缺配置由 preflight 自己报错）；临时文件 + 原子 mv，权限保持 0600。
+# upgrade.sh 里有一份等价实现（两个脚本各自独立分发，见 deploy-lock.sh 的分发约定）。
+ENV_BACKFILL_KEYS=(MEILI_MASTER_KEY)
+
+generate_env_secret() {
+  local value
+  if command -v openssl >/dev/null 2>&1; then
+    value="$(openssl rand -hex 32)"
+  else
+    value="$(od -An -N32 -tx1 /dev/urandom | tr -d '[:space:]')"
+  fi
+  [[ "$value" =~ ^[0-9a-f]{64}$ ]] || die "Failed to generate a secure random secret."
+  printf '%s' "$value"
+}
+
+backfill_env_keys() {
+  local file="${1:-.env.production}"
+  local key value temp_file drop
+  local missing=()
+
+  [ -f "$file" ] || return 0
+  for key in "${ENV_BACKFILL_KEYS[@]}"; do
+    value="$(sed -n "s/^${key}=//p" "$file" | tail -n 1)"
+    [ -n "$value" ] || missing+=("$key")
+  done
+  [ "${#missing[@]}" -gt 0 ] || return 0
+
+  umask 077
+  temp_file="$(mktemp "$(dirname "$file")/.env.production.XXXXXX")"
+  drop="$(IFS=,; printf '%s' "${missing[*]}")"
+  # 先丢掉这些键的空值行（其它行原样、原顺序保留），再在末尾各补一行：
+  # 连续跑两次不会出现重复键。
+  awk -v drop="$drop" '
+    BEGIN { n = split(drop, keys, ","); for (i = 1; i <= n; i++) skip[keys[i]] = 1 }
+    { for (k in skip) if (index($0, k "=") == 1) next; print }
+  ' "$file" > "$temp_file"
+  for key in "${missing[@]}"; do
+    printf '%s=%s\n' "$key" "$(generate_env_secret)" >> "$temp_file"
+  done
+  chmod 600 "$temp_file"
+  mv -f "$temp_file" "$file"
+  printf '%s %s\n' "$(t env_key_backfilled)" "${missing[*]}" >&2
+}
+
 # 校验失败必须指向运维真正能改的地方：.env.production。只有在 shell 覆盖没被清掉
 # （sanitize 被绕过）时才点名 shell，避免让人去改错误的文件。
 die_env_contract() {
@@ -255,6 +305,7 @@ t() {
       invalid_public_api_base) echo "NUXT_PUBLIC_API_BASE_URL must be /api/v1." ;;
       invalid_env) echo "The production configuration is incomplete or unsafe. Move it aside and rerun the installer, or fix the named value." ;;
       env_override_ignored) echo "Ignoring these shell environment overrides; production configuration comes from .env.production:" ;;
+      env_key_backfilled) echo "Added missing production key(s) to .env.production with a freshly generated value:" ;;
       env_source_shell) echo "exported in the shell environment and overriding .env.production; unset it or update .env.production" ;;
       env_contract_ok) echo "Production configuration is valid and matches the values the containers receive." ;;
       port_busy) echo "A required loopback port is already used by another process:" ;;
@@ -311,6 +362,7 @@ t() {
       invalid_public_api_base) echo "NUXT_PUBLIC_API_BASE_URL 必须是 /api/v1。" ;;
       invalid_env) echo "生产配置不完整或不安全。请移走旧文件后重新运行安装，或修复提示中的配置项。" ;;
       env_override_ignored) echo "已忽略以下 shell 环境变量；生产配置一律以 .env.production 为准：" ;;
+      env_key_backfilled) echo "已为 .env.production 补上缺失的生产配置键（新生成的值）：" ;;
       env_source_shell) echo "来自 shell 环境变量并覆盖了 .env.production；请 unset 该变量或更新 .env.production" ;;
       env_contract_ok) echo "生产配置校验通过：容器取值与 .env.production 一致。" ;;
       port_busy) echo "以下本机端口已被其他程序占用：" ;;
@@ -432,6 +484,25 @@ configure_compose() {
 
 deployment_uses_blue_green() {
   [ "$(rc_value topology)" = blue-green ]
+}
+
+# deploy.sh 只实现单拓扑的「停旧起新」：它停 api/web、用一套 api+web 起服务，
+# persist_successful_state 也只写 lang/version/mode/install_dir。跑在蓝绿安装上
+# 的后果不是「降级成单拓扑」，而是：
+#   - edge 与两个槽位被一起停掉，站点直接下线（不是零停机）；
+#   - .deployrc 里的 topology/active_slot/blue_version/green_version 全部丢失，
+#     槽位回滚元数据没了；
+#   - restore-postgres.sh 按 topology 判定连接终止作用域，状态文件失真后它会
+#     按单拓扑停 api，漏掉真正持连接的那个槽；
+#   - 下一次无人值守 upgrade 读不到 active_slot，会把在跑的槽当成待切换目标
+#     再停一次，造成第二次停机。
+# 零停机更新由 upgrade.sh 负责（persist_state 写全 6 个字段）。这里 fail-closed：
+# 检测点在 acquire_deploy_lock 之前，任何容器、备份、迁移都没动过。
+refuse_blue_green_deploy() {
+  deployment_uses_blue_green || return 0
+  printf '%s\n' "deploy.sh refuses to run on a blue-green installation; use upgrade.sh for zero-downtime updates." >&2
+  printf '%s\n' "deploy.sh 拒绝在蓝绿拓扑上执行部署：它只做单拓扑的停旧起新，会停掉 edge 与两个槽位，并抹掉 .deployrc 里的 active_slot/blue_version/green_version。零停机更新请用 ./upgrade.sh。" >&2
+  exit 1
 }
 
 configure_blue_green_compose() {
@@ -611,6 +682,10 @@ preflight() {
   command -v curl >/dev/null 2>&1 || die "$(t no_curl)"
   [ -f .env.production ] || die "$(t env_missing)"
   chmod 600 .env.production
+  # 必须在任何 compose 解析之前补齐后补键：下面这行 config 就是第一个 compose
+  # 调用，而 compose.prod.yaml 的 `:?` 硬闸会在插值阶段直接失败。放在
+  # validate_env_contract 之前，是因为校验读的就是容器最终会拿到的值。
+  backfill_env_keys
   validate_env_contract "$contract_mode"
   "${COMPOSE[@]}" config --quiet
   if [ "${#BLUE_GREEN_COMPOSE[@]}" -gt 0 ]; then
@@ -734,7 +809,11 @@ persist_successful_state() {
   local temp_file
   umask 077
   temp_file="$(mktemp "$ROOT_DIR/.deployrc.XXXXXX")"
-  printf 'lang=%s\nversion=%s\nmode=release\ninstall_dir=%s\n' \
+  # 单拓扑也要显式写 topology：缺这个键时读侧只能靠「没有 topology 就当 single」
+  # 的隐式约定，一旦某次部署真的落到蓝绿安装上（现在会被 refuse_blue_green_deploy
+  # 拦住），状态文件就分不清自己是哪种拓扑了。这里不写 active_slot/blue_version/
+  # green_version —— 单拓扑没有槽位，写伪值比不写更危险。
+  printf 'lang=%s\nversion=%s\nmode=release\ntopology=single\ninstall_dir=%s\n' \
     "$LANGUAGE" "$RELEASE_VERSION" "$ROOT_DIR" > "$temp_file"
   chmod 600 "$temp_file"
   mv -f "$temp_file" "$DEPLOY_RC"
@@ -794,6 +873,8 @@ print_access_urls() {
 
 deploy_update() {
   local backup_output="" backup_file="" previous_version previous_running
+  # 拓扑在动手之前就要判死：蓝绿安装只走 upgrade.sh（见 refuse_blue_green_deploy）。
+  refuse_blue_green_deploy
   acquire_deploy_lock deploy
   configure_if_needed
   # configure_if_needed may have created the production file after initial

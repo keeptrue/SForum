@@ -248,6 +248,10 @@ session_secret="$(generate_secret)"
 identity_secret="$(generate_secret)"
 option_key="$(generate_secret)"
 altcha_secret="$(generate_secret)"
+# 可选搜索（Meilisearch）插件的主密钥。这里就生成，是为了让「启用 search profile」
+# 的生产部署从一开始就有高熵值可填，而不是退回 compose.yaml 的 sforum-dev-meili-key。
+# 已有配置文件不会被改写（见上面的 exists 分支），所以不会覆盖运维自己设置的值。
+meili_master_key="$(generate_secret)"
 csrf_origin="${app_url%%/*}"
 if [[ "$app_url" =~ ^(https?://[^/]+) ]]; then
   csrf_origin="${BASH_REMATCH[1]}"
@@ -292,6 +296,8 @@ trap cleanup EXIT HUP INT TERM
     'WORKER_SHUTDOWN_TIMEOUT=30s' \
     'REDIS_ADDR=redis:6379' \
     "REDIS_PASSWORD=$redis_password" \
+    '# 可选搜索（Meilisearch）插件的主密钥；启用 --profile search 时必须为高熵值。' \
+    "MEILI_MASTER_KEY=$meili_master_key" \
     "SESSION_HASH_SECRET=$session_secret" \
     "IDENTITY_SUBJECT_HMAC_SECRET=$identity_secret" \
     "APP_OPTION_ENC_KEY=$option_key" \

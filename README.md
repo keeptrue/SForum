@@ -107,6 +107,13 @@ path again once the install succeeds:
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-install.sh | bash
 ```
 
+Any direct `docker compose` invocation against the production files — `up -d`,
+`config`, `ps`, and so on — must provide `POSTGRES_PASSWORD` and
+`REDIS_PASSWORD` explicitly: `compose.prod.yaml` refuses to interpolate without
+them, so a development default can never reach production by accident. Enabling
+the optional `search` profile additionally requires an explicit
+`MEILI_MASTER_KEY`; never reuse the development key there.
+
 `SFORUM_INSTALL_DIR` or `-d DIR` sets the target without asking,
 `SFORUM_NONINTERACTIVE=1` never prompts, `--version <TAG>` pins an immutable tag,
 and `--yes` skips prompts. The loader resolves the tag, verifies

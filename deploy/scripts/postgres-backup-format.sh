@@ -8,17 +8,39 @@
 #     assets/extensions.tar   扩展制品卷（EXTENSION_ROOT）
 #
 #   落地文件：$SFORUM_BACKUP_DIR/sforum-backup-<UTC>.tar.gz.enc
-#   加密：openssl AES-256-CBC + PBKDF2（不改仓库依赖，不落明文）。
+#   加密（v2）：encrypt-then-MAC。AES-256-CBC + PBKDF2 加密内容，再用从同一口令、
+#     不同 PBKDF2 目的串派生出的 MAC key 对**密文**做 HMAC-SHA256，MAC 写在归档
+#     信封头（明文 key=value 清单）里，恢复侧先验 MAC 再解密。
 #     用法：export SFORUM_BACKUP_KEY_FILE=/etc/sforum/backup.key   # 推荐，0600
 #           # 或 export SFORUM_BACKUP_KEY='<口令>'
+#   v1 兼容：旧归档（Salted__ 开头的纯密文）仍可恢复，但会打印降级告警。
 #   保留：SFORUM_BACKUP_RETENTION_COUNT（默认 14 份）/ _DAYS（默认 30 天），
 #         任一设为 default 即回默认值。
 #
 # 被 backup-postgres.sh / restore-postgres.sh source；依赖 postgres-common.sh。
 # shellcheck shell=bash
 
+# 归档格式版本与「加密方案」是两件事：format_version 描述 tar 内布局，
+# encryption 描述外层怎么封。v2 只改了后者，所以 format_version 不动。
 SFORUM_BACKUP_FORMAT_VERSION=2
-SFORUM_BACKUP_ENCRYPTION_SCHEME="openssl-aes-256-cbc-pbkdf2-iter200000"
+# v1：只有加密、没有完整性认证。磁盘写权限者可以翻转 CBC 的 IV 位，确定性地
+# 篡改首段明文而解密依旧「成功」。保留读取能力，旧备份必须还能恢复。
+SFORUM_BACKUP_ENCRYPTION_SCHEME_V1="openssl-aes-256-cbc-pbkdf2-iter200000"
+# v2：encrypt-then-MAC（同一 AES-256-CBC 密文 + 独立派生 MAC key 的 HMAC-SHA256）。
+SFORUM_BACKUP_ENCRYPTION_SCHEME="openssl-aes-256-cbc-pbkdf2-iter200000+hmac-sha256"
+# 信封头第一行。恢复侧靠它区分「v2 信封」与「v1 纯密文（Salted__）」。
+SFORUM_BACKUP_ENVELOPE_MAGIC="SFORUM-BACKUP-ENVELOPE 2"
+SFORUM_BACKUP_MAC_KDF_ITER=200000
+# MAC key 的 PBKDF2 目的串："sforum-b"（"sforum-backup-mac-v2" 的前 8 字节，
+# 十六进制）。它与加密侧每次随机的 salt 必然不同，因此两把 key 由同一口令派生但
+# 不可互相推导。
+# 只写 8 字节是因为 `openssl enc -S` 的 salt 缓冲区上限就是 8 字节：更长的十六进制
+# 会被截断到前 8 字节，同时往 stderr 打一句 "hex string is too long, ignoring
+# excess"（被下面的 2>/dev/null 吞掉）。这里用的正是完整目的串
+# （73666f72756d2d6261636b75702d6d61632d7632）的截断结果，所以写全 18 字节派生出的
+# key 与这里完全相同；用短常量只是让「实际生效的 salt」和注释一致。
+SFORUM_BACKUP_MAC_SALT_HEX="73666f72756d2d62"
+SFORUM_BACKUP_MAC_KEY_HEX=""
 SFORUM_BACKUP_RETENTION_COUNT_DEFAULT=14
 SFORUM_BACKUP_RETENTION_DAYS_DEFAULT=30
 # 附件卷在容器里的固定挂载点（compose.yaml:109 attachment_uploads:/app/storage/app/attachments）。
@@ -57,17 +79,95 @@ sforum_require_backup_key() {
   sforum_die "${purpose}缺少加密密钥：请设置 SFORUM_BACKUP_KEY_FILE（推荐，0600 文件）或 SFORUM_BACKUP_KEY；不会写出明文备份。"
 }
 
+# MAC key 派生：把 openssl enc 自己当 PBKDF2 引擎 —— 取 AES-256-CTR 对全零输入的
+# 前 32 字节 keystream。这样口令只经 `-pass file:/env:` 进入 openssl，不会出现在
+# 进程 argv 里（`openssl kdf` 只收 `-kdfopt hexpass:`，等于把口令交给 ps）。
+# PBKDF2 的 salt 用上面的固定目的串，与加密侧每次随机的 salt 不同：
+# 同一口令派生出两把不可互相推导的 key，且每次备份的 MAC key 相同（HMAC key
+# 复用本身不是问题，跨归档的重放威胁也不在这一层）。
+sforum_derive_mac_key() {
+  local key_hex
+
+  [ "${#SFORUM_KEY_ARGS[@]}" -gt 0 ] || sforum_die "派生 MAC key 前必须先加载备份密钥。"
+  key_hex="$(dd if=/dev/zero bs=32 count=1 2>/dev/null | \
+    openssl enc -aes-256-ctr -pbkdf2 -iter "$SFORUM_BACKUP_MAC_KDF_ITER" -md sha256 \
+      -S "$SFORUM_BACKUP_MAC_SALT_HEX" "${SFORUM_KEY_ARGS[@]}" 2>/dev/null | \
+    od -An -tx1 -v | tr -d ' \n')" || sforum_die "无法从备份口令派生 MAC key。"
+  [ "${#key_hex}" -eq 64 ] || sforum_die "派生出的 MAC key 长度非法：${#key_hex} 个十六进制字符"
+  SFORUM_BACKUP_MAC_KEY_HEX="$key_hex"
+}
+
+# 对文件算 HMAC-SHA256，输出 64 位十六进制。
+#
+# 已知限制（接受，不修）：`openssl dgst` 没有从文件/环境读 MAC key 的入口，key 只能
+# 走 `-macopt hexkey:`，因此派生出的 MAC key 会短暂出现在进程 argv 里。能读到它的
+# 本机用户最多伪造 MAC（不能解密、拿不到口令）；口令本身始终只经 -pass file:/env:
+# 进入 openssl，从不进 argv。触发条件是「同一宿主上有其它可读 /proc/<pid>/cmdline
+# 的用户，且正好赶上备份运行」—— 多用户宿主、共享 CI 机器属于这一类；单租户 VPS
+# 与 root 独占的备份机不构成实际暴露。要彻底消除需要换掉 openssl dgst（引入库依赖），
+# 与「不改仓库依赖」的约束冲突，故按已知限制记录。
+sforum_hmac_sha256_file() {
+  local file="$1"
+  local key_hex="${2:-$SFORUM_BACKUP_MAC_KEY_HEX}"
+
+  [ -n "$key_hex" ] || sforum_die "计算 HMAC 前必须先派生 MAC key。"
+  openssl dgst -sha256 -mac HMAC -macopt "hexkey:$key_hex" -binary "$file" | \
+    od -An -tx1 -v | tr -d ' \n'
+}
+
+# v2 归档 = 明文信封头 + v1 同款密文。
+#   信封头（key=value，空行结束）: magic / scheme / mac-alg / mac-kdf / mac-salt /
+#   mac-iter / mac-tag。MAC 必须落在密文之外，否则「先验 MAC 再解密」不可能成立
+#   （manifest.env 在密文里面，读它就得先解密）。
+#   密文：openssl enc AES-256-CBC + PBKDF2 + salt，与 v1 逐字节同构。
+# 先写 $out.tmp 再 mv：加密或算 MAC 中途失败只留临时文件，绝不产生半成品归档。
 sforum_encrypt_file() {
   local in="$1"
   local out="$2"
+  local body="$out.body.tmp"
+  local envelope="$out.tmp"
+  local mac_hex
 
   [ "${#SFORUM_KEY_ARGS[@]}" -gt 0 ] || sforum_die "加密前必须先加载备份密钥。"
+  # 先派生 MAC key，再碰任何文件：sforum_derive_mac_key 的失败路径都是 sforum_die
+  # → exit 1（所以 `sforum_derive_mac_key || ...` 的兜底分支是死代码），此时还没有
+  # 任何密文临时文件，备份目录里不会留下 0600 的 .body.tmp —— retention 按
+  # `sforum-backup-*` 前缀扫，本来也扫不到它。派生只依赖口令与常量，与密文无关。
+  sforum_derive_mac_key
+  rm -f "$body" "$envelope"
   openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
-    "${SFORUM_KEY_ARGS[@]}" -in "$in" -out "$out" >/dev/null 2>&1 || \
-    sforum_die "openssl 加密失败：$out"
+    "${SFORUM_KEY_ARGS[@]}" -in "$in" -out "$body" >/dev/null 2>&1 || {
+      rm -f "$body"
+      sforum_die "openssl 加密失败：$out"
+    }
+  mac_hex="$(sforum_hmac_sha256_file "$body")" || {
+    rm -f "$body"
+    sforum_die "计算归档 MAC 失败：$out"
+  }
+  {
+    printf '%s\n' "$SFORUM_BACKUP_ENVELOPE_MAGIC"
+    printf 'scheme=%s\n' "$SFORUM_BACKUP_ENCRYPTION_SCHEME"
+    printf 'mac-alg=hmac-sha256\n'
+    printf 'mac-kdf=pbkdf2-hmac-sha256\n'
+    printf 'mac-salt=%s\n' "$SFORUM_BACKUP_MAC_SALT_HEX"
+    printf 'mac-iter=%s\n' "$SFORUM_BACKUP_MAC_KDF_ITER"
+    printf 'mac-tag=%s\n' "$mac_hex"
+    printf '\n'
+  } > "$envelope" || {
+    rm -f "$body" "$envelope"
+    sforum_die "写归档信封失败：$out"
+  }
+  cat "$body" >> "$envelope" || {
+    rm -f "$body" "$envelope"
+    sforum_die "写归档信封失败：$out"
+  }
+  rm -f "$body"
+  chmod 600 "$envelope"
+  mv -f "$envelope" "$out"
   chmod 600 "$out"
 }
 
+# 只解密「裸密文」（Salted__ 开头）：v1 归档与 v2 信封的正文都走这里。
 sforum_decrypt_file() {
   local in="$1"
   local out="$2"
@@ -79,12 +179,65 @@ sforum_decrypt_file() {
   chmod 600 "$out"
 }
 
-# 恢复输入判型：加密归档 / 明文归档 / 旧版单文件 SQL。
+# 信封头（含结束空行）的字节数：awk 逐行累加 length+1，遇到空行立刻停，
+# 不会读到后面的二进制密文。头部是纯 ASCII，length 即字节数。
+sforum_envelope_header_bytes() {
+  local envelope="$1"
+
+  LC_ALL=C awk '
+    { total += length($0) + 1; if ($0 == "") { found = 1; exit } }
+    END { if (!found) exit 1; printf "%d\n", total }
+  ' "$envelope"
+}
+
+# 验 MAC 再解密。任何一步不成立都 fail closed：不写出明文，更不会走到灌库。
+sforum_decrypt_envelope() {
+  local envelope="$1"
+  local out="$2"
+  local header="$out.envelope-header"
+  local body="$out.envelope-body"
+  local header_bytes scheme recorded_mac actual_mac
+
+  header_bytes="$(sforum_envelope_header_bytes "$envelope")" || \
+    sforum_die "加密归档的信封头不完整（缺少结束空行）：$envelope"
+  case "$header_bytes" in
+    ""|*[!0-9]*) sforum_die "加密归档的信封头长度非法：$envelope" ;;
+  esac
+  head -c "$header_bytes" "$envelope" > "$header"
+  tail -c +$((header_bytes + 1)) "$envelope" > "$body"
+  [ -s "$body" ] || sforum_die "加密归档只有信封头、没有密文：$envelope"
+
+  scheme="$(sforum_manifest_value "$header" scheme)"
+  [ "$scheme" = "$SFORUM_BACKUP_ENCRYPTION_SCHEME" ] || \
+    sforum_die "不支持的备份加密方案：${scheme:-<空>}（本版本只认 $SFORUM_BACKUP_ENCRYPTION_SCHEME）"
+  recorded_mac="$(sforum_manifest_value "$header" mac-tag)"
+  case "$recorded_mac" in
+    "") sforum_die "加密归档缺少 MAC，拒绝解密：$envelope" ;;
+    *[!0-9a-f]*) sforum_die "加密归档的 MAC 不是小写十六进制：$envelope" ;;
+  esac
+  [ "${#recorded_mac}" -eq 64 ] || sforum_die "加密归档的 MAC 长度非法：$envelope"
+
+  sforum_require_backup_key "校验加密备份"
+  sforum_derive_mac_key
+  actual_mac="$(sforum_hmac_sha256_file "$body")" || sforum_die "计算归档 MAC 失败：$envelope"
+  [ "$actual_mac" = "$recorded_mac" ] || \
+    sforum_die "备份归档完整性校验失败（HMAC-SHA256 不匹配：文件被篡改或口令不对）：$envelope"
+
+  sforum_decrypt_file "$body" "$out"
+  rm -f "$header" "$body"
+  chmod 600 "$out"
+}
+
+# 恢复输入判型：v2 信封 / v1 纯密文 / 明文归档 / 旧版单文件 SQL。
 # 认 magic 而不只看扩展名，避免把 .sql 改名成 .enc 就当成加密包。
 sforum_detect_payload() {
   local input="$1"
   local magic=""
 
+  if head -c 24 "$input" 2>/dev/null | grep -qF -- "$SFORUM_BACKUP_ENVELOPE_MAGIC"; then
+    printf 'envelope'
+    return 0
+  fi
   magic="$(head -c 8 "$input" | od -An -tx1 | tr -d ' \n')"
   case "$magic" in
     53616c7465645f5f*) printf 'encrypted' ;;  # "Salted__"
@@ -111,6 +264,48 @@ sforum_unpack_archive() {
   tar -C "$dest" -xzf "$archive"
 }
 
+# 清单里的 encryption= 记录「这份内容当初按哪个方案封的」。信封被剥离后，v2 归档
+# 会退化成一个合法的 v1 密文（Salted__ 开头），只看外层分不出 v1/v2；所以解密后
+# 必须再核对一次清单：声明 v2 却没有信封 → 拒绝，这是唯一的降级入口。
+# v1 清单（或没有清单）不阻断恢复，但要明确打印降级告警。
+sforum_check_payload_integrity() {
+  local manifest="$1"
+  local kind="$2"
+  local declared=""
+
+  [ -f "$manifest" ] || return 0
+  declared="$(sforum_manifest_value "$manifest" encryption)"
+  case "$declared" in
+    ""|"$SFORUM_BACKUP_ENCRYPTION_SCHEME_V1")
+      if [ "$kind" = "encrypted" ]; then
+        printf '警告：该备份使用 v1 加密方案（只有加密、无 HMAC 完整性认证），已按兼容模式继续恢复；下一次备份会自动升级到 v2。\n' >&2
+      fi
+      ;;
+    "$SFORUM_BACKUP_ENCRYPTION_SCHEME")
+      case "$kind" in
+        envelope) ;;
+        encrypted)
+          sforum_die "备份清单声明使用 $declared，但归档外层没有信封（MAC 已被剥离）。拒绝按 v1 降级恢复：$manifest"
+          ;;
+        *)
+          # 明文载荷 + v2 清单：备份侧永远加密，不存在这种合法产物。它正是
+          # 「有磁盘写权限者」最省事的一条绕过 —— 不需要密钥，把文件换成自己打的
+          # tar.gz 就能让任意 SQL 走到灌库。因此与 encrypted 分支同口径 fail closed，
+          # 只留一个显式开关给「手工解密后排查再恢复」的运维通道。
+          if [ "${SFORUM_RESTORE_ALLOW_UNVERIFIED:-}" = "1" ]; then
+            printf '警告：明文归档声明使用 v2 方案且外层信封不在，已按 SFORUM_RESTORE_ALLOW_UNVERIFIED=1 跳过完整性校验继续恢复；请自行确认该文件可信。\n' >&2
+          else
+            sforum_die "备份清单声明使用 $declared，但载荷是明文且没有信封，完整性无法校验。拒绝恢复：$manifest（确属手工解密排查后要恢复时，显式设置 SFORUM_RESTORE_ALLOW_UNVERIFIED=1，并自行确认文件可信）"
+          fi
+          ;;
+      esac
+      ;;
+    *)
+      sforum_die "备份清单记录了未知的加密方案：$declared"
+      ;;
+  esac
+}
+
 # 把恢复输入统一成 $out_dir 下的 database.sql（可选 manifest.env / assets/*.tar）。
 sforum_prepare_payload() {
   local input="$1"
@@ -120,6 +315,12 @@ sforum_prepare_payload() {
   mkdir -p "$out_dir"
   kind="$(sforum_detect_payload "$input")"
   case "$kind" in
+    envelope)
+      # 先验 MAC 再解密，且信封头/正文只落在调用方的 0700 工作目录里。
+      sforum_decrypt_envelope "$input" "$out_dir/payload.tar.gz"
+      sforum_unpack_archive "$out_dir/payload.tar.gz" "$out_dir"
+      rm -f "$out_dir/payload.tar.gz"
+      ;;
     encrypted)
       sforum_require_backup_key "恢复加密备份"
       sforum_decrypt_file "$input" "$out_dir/payload.tar.gz"
@@ -140,6 +341,7 @@ sforum_prepare_payload() {
   [ -f "$out_dir/database.sql" ] || sforum_die "恢复内容缺少 database.sql：$input"
   [ -s "$out_dir/database.sql" ] || sforum_die "恢复内容里的 database.sql 为空：$input"
   chmod 600 "$out_dir/database.sql"
+  sforum_check_payload_integrity "$out_dir/manifest.env" "$kind"
 }
 
 # 行数从转储本身统计：备份不停应用，直接查线上库会和转储内容漂移，
@@ -333,7 +535,7 @@ sforum_restore_asset_snapshots() {
 # 为什么比大小而不是比哈希：卷恢复的真实失败形态是「条目缺失」与「写一半 /
 # 真实截断」，这两类都会改变大小；全量哈希要把整个附件卷再读一遍（可能是几十 GB），
 # 代价与该风险的量级不成比例。同名同大小的内容替换不会被这一层发现 —— 那属于
-# 另一个问题域（备份归档本身的完整性由 openssl 解密与 tar 自检覆盖）。
+# 另一个问题域（备份归档本身的完整性由 v2 信封的 HMAC-SHA256 与 tar 自检覆盖）。
 sforum_tar_sizes() {
   local archive="$1"
   local out="$2"

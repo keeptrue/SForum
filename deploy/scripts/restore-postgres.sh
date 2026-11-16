@@ -225,7 +225,11 @@ while IFS= read -r service; do
   esac
 done <<< "$running_services"
 
-for service in "${SERVICES_TO_RESTART[@]}"; do
+# bash < 4.4（macOS 自带 3.2）在 set -u 下展开空数组会报 unbound variable：这里
+# 没有运行中的应用服务时 SERVICES_TO_RESTART 就是空的，直接展开会在恢复前崩掉。
+# 下面的 `${#...} -gt 0` 守卫管的是 241/262 两处「先判空再展开」，与这一行的
+# 零词展开写法互不冲突：空数组在这里循环 0 次。
+for service in ${SERVICES_TO_RESTART[@]+"${SERVICES_TO_RESTART[@]}"}; do
   case "$service" in
     api) API_SERVICES+=("$service") ;;
     api-*) API_SERVICES+=("$service") ;;
