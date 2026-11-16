@@ -93,6 +93,7 @@ EOF
 
 `APP_ENV` `SFORUM_VERSION` `TRUST_PROXY` `TRUSTED_PROXIES`
 `TRUST_PROXY_PRIVATE` `TRUST_PROXY_LOOPBACK` `SFORUM_SAFE_MODE` `PPROF_ENABLED`
+`SFORUM_BACKUP_KEY_FILE` `SFORUM_BACKUP_KEY`
 EOF
     cat > "$dir/docs/$locale/deployment/troubleshooting.md" <<'EOF'
 # Troubleshooting
@@ -121,6 +122,8 @@ EOF
   cat > "$dir/.env.production.example" <<'EOF'
 APP_ENV=production
 SFORUM_VERSION=v3.0.0-alpha.9
+# SFORUM_BACKUP_KEY_FILE=
+# SFORUM_BACKUP_KEY=
 EOF
 
   cat > "$dir/compose.yaml" <<'EOF'
