@@ -23,10 +23,12 @@ type LoginLockout struct {
 	client loginRedis
 }
 
+// loginRedis 是 LoginLockout 用到的最小 Redis 面。
+// 计数只走 loginBumpScript（一次 EVAL），所以这里没有 Incr/Expire：
+// 「自增 + 设置 TTL 拆成两条命令」的回归不该能在本包内编译通过。
 type loginRedis interface {
+	redis.Scripter
 	Exists(ctx context.Context, keys ...string) *redis.IntCmd
-	Incr(ctx context.Context, key string) *redis.IntCmd
-	Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd
 	Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd
 	Del(ctx context.Context, keys ...string) *redis.IntCmd
 }
@@ -155,18 +157,35 @@ func (l *LoginLockout) ClearFailures(ctx context.Context, loginKey, clientIP str
 	return nil
 }
 
+// loginBumpScript 把「计数自增」与「首次设置 TTL」压进一次 EVAL（P3-2）。
+//
+// 拆成 INCR + EXPIRE 两条命令时，两条之间断连/超时会让 failKey 永远没有 TTL：
+// 计数冻结不衰减，该 pair/IP/账号被永久计入失败。`PTTL < 0` 分支顺带自愈
+// 历史遗留的无 TTL 键（不等它自然消失，也不人工清理）。
+//
+// 与 humanverify/redis_store.go 的 rateLimitScript 是同一款脚本：那边是
+// subject 限流窗口，这边是分层失败计数，键空间与 ARGV 含义都不同，唯一共用的
+// 只是三行 Lua。没有抽共享 helper，因为两处分别在 auth 与 humanverify 两个包，
+// 共享要么新开一个只装一段脚本的 Redis 包，要么让 auth 反向 import humanverify
+// —— 都不比「各写一份 + 互相指向」更清晰。改这里请同步那边（RV-52 有对应用例）。
+var loginBumpScript = redis.NewScript(`
+local count = redis.call('INCR', KEYS[1])
+if count == 1 or redis.call('PTTL', KEYS[1]) < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`)
+
 func (l *LoginLockout) bump(ctx context.Context, failKey, lockKey string, max int, ttl time.Duration) error {
-	count, err := l.client.Incr(ctx, failKey).Result()
+	count, err := loginBumpScript.Run(ctx, l.client, []string{failKey}, ttl.Milliseconds()).Int64()
 	if err != nil {
-		return fmt.Errorf("login lockout incr: %w", err)
-	}
-	if count == 1 {
-		_ = l.client.Expire(ctx, failKey, ttl).Err()
+		return fmt.Errorf("login lockout bump: %w", err)
 	}
 	if int(count) >= max {
 		if err := l.client.Set(ctx, lockKey, "1", ttl).Err(); err != nil {
 			return fmt.Errorf("login lockout set: %w", err)
 		}
+		// 锁已生效，计数键只是清理；即便 Del 失败它现在自带 TTL，不会冻结。
 		_ = l.client.Del(ctx, failKey).Err()
 	}
 	return nil
