@@ -157,11 +157,16 @@ export function useAdminUserDetailEditor(deps: AdminUserDetailEditorDeps) {
     return extra > 0 ? `${list}${t('admin.users.fieldListMore', { count: extra })}` : list
   }
 
-  function presentError(error: unknown, fallback: string) {
+  /**
+   * `reasons` 只给「后端未本地化的 reason」用：这些键在 envelope.message 里就是
+   * 键名本身，必须在调用点补人话（见 AdminUserErrorCopy.reasons）。
+   */
+  function presentError(error: unknown, fallback: string, reasons?: Record<string, string>) {
     const presentation = resolveAdminUserError(error, {
       fallback,
       fieldsSummary: fields => t('admin.users.fieldFallback', { fields: describeFieldErrors(fields) }),
-      noChanges: t('admin.users.noChanges')
+      noChanges: t('admin.users.noChanges'),
+      reasons
     })
     drawerError.value = presentation.summary
     fieldErrors.value = presentation.fields

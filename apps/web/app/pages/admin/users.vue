@@ -226,6 +226,7 @@ onMounted(() => {
     ref="detailDrawer"
     :roles="roles"
     :permissions="permissions"
+    :can-manage="canManage"
     @changed="refreshUsers"
   />
 

@@ -16,6 +16,12 @@ export interface AdminUserErrorCopy {
   fieldsSummary: (fields: Record<string, string[]>) => string
   /** reason=user.update_empty：什么都没改。 */
   noChanges: string
+  /**
+   * reason → 可读文案。后端没有把该 reason 收进本地化表时，`envelope.message`
+   * 就是键名本身（例如 `api_token.super_admin_locked`），直接展示等于把内部
+   * 标识符甩给操作者，所以这类结论必须由前端给出人话。
+   */
+  reasons?: Record<string, string>
 }
 
 /** 字段名 → admin.users 里的标签 key，供摘要点名使用。 */
@@ -65,7 +71,12 @@ export function resolveAdminUserError(error: unknown, copy: AdminUserErrorCopy):
   if (Object.keys(fields).length > 0) {
     return { summary: copy.fieldsSummary(fields), fields }
   }
-  if (apiErrorReason(error) === 'user.update_empty') {
+  const reason = apiErrorReason(error)
+  const mapped = reason ? copy.reasons?.[reason] : undefined
+  if (mapped) {
+    return { summary: mapped, fields: {} }
+  }
+  if (reason === 'user.update_empty') {
     return { summary: copy.noChanges, fields: {} }
   }
   return { summary: apiErrorMessage(error) || copy.fallback, fields: {} }

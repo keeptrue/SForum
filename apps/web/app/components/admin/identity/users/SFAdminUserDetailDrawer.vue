@@ -14,6 +14,8 @@ import { formatAdminDateTime } from '~/utils/admin/adminDateFormat'
 const props = defineProps<{
   roles: Role[]
   permissions: Permission[]
+  /** 页面级权限选择（user.manage）：抽屉只负责渲染，不自己读会话。 */
+  canManage: boolean
 }>()
 
 const emit = defineEmits<{ changed: [] }>()
@@ -41,7 +43,8 @@ const security = useAdminUserSecurity({
   presentError: editor.presentError,
   setFieldError: editor.setFieldError,
   clearErrors: editor.clearErrors,
-  notifySaved
+  notifySaved,
+  refreshDetail: editor.refreshSelectedUser
 })
 
 const {
@@ -197,10 +200,13 @@ defineExpose({
               :errors="fieldErrors"
               :resetting="security.resettingPassword.value"
               :revoking="security.revokingSessions.value"
+              :revoking-api-tokens="security.revokingAPITokens.value"
               :clearing="security.clearingClientIPs.value"
+              :can-manage="props.canManage"
               :clear-error="clearFieldError"
               @reset="security.resetUserPassword"
               @revoke="security.revokeUserSessions"
+              @revoke-api-tokens="security.revokeUserAPITokens"
               @clear-ips="security.clearUserClientIPs"
             />
 
