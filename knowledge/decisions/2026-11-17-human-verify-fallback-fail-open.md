@@ -38,7 +38,9 @@ if current, err := s.source.HumanVerificationConfig(ctx); err == nil {
 | 空 / `disabled` | 该次请求零校验（`NewDisabledService()`） | fail-open | provider 只在 Options 里配置；Options 读不出来 = 该部署本来就没启用 |
 | `altcha` | fallback 的 `PurposeEnabled` 为 nil，而 `Service.purposeEnabled` 对 nil map 返回 true → **所有场景继续强制** | fail-closed | env 已把该部署声明成「启用了人机验证」（`HUMAN_VERIFICATION_PROVIDER=altcha` + secret），Options 抖动不该把它降级成零校验 |
 
-`normalizeRuntimeConfig` 保证 `Provider` 只有这两个取值，判定是字符串相等，不靠猜。
+`normalizeRuntimeConfig` 只做两件事：`"" → disabled`，以及 lower/trim；它**不校验成员**。
+「只有这两个取值」由配置校验保证，不由 normalize 保证——见 Consequences 的第三态
+（未知 provider 会原样穿过，方向标注因此失真）。
 
 ### 2. 读失败必须留痕，且只有一个日志点
 
@@ -77,6 +79,16 @@ humanverify: read runtime config failed; using fallback
 - **残留风险（reviewer 的反驳论点，已接受）**：`fallback=disabled` 的部分故障窗口内，
   「运营开了 `post_risk`」与「实际零校验」不一致，且该窗口内攻击者确实可以不带 token
   提交。这不是理论问题——只要 Options 读取失败而写入成功，窗口就是开放的。
+- **已知边界（第三态，F3-1）**：`HUMAN_VERIFICATION_PROVIDER` 没有任何白名单校验
+  （`config/config.go` 直接 `env(...)` 取值，`normalizeRuntimeConfig` 只 trim/lower）。
+  配成 `hcaptcha` 这类未知值时：①`fallbackDirection` 只看 `Provider == altcha`，会把方向
+  标成 `disabled_zero_verification`（日志说的是「零校验」）；②`NewConfiguredService` 走
+  `default:` 返回 `unsupported human verification provider`，而该错误不是
+  `ErrRequired`/`ErrInvalid` 这类哨兵，`MapHumanVerificationError` 会原样上抛，
+  最终由 `errorHandler` 变成 **每个 Challenge/Verify 请求 500**。
+  也就是说这条日志在这种情况下会同时「方向标错」且「每请求都刷」。本轮**不修**：
+  给 config 加白名单是行为变更（会让启动期失败而不是运行期 500），属于另一条决策；
+  这里只把边界写清楚，避免把 normalize 的职责说过头。
 - **缓解手段就是 §2 的这条日志**，不是代码分支：它把「静默 fail-open」变成「有声
   fail-open」，让运营在窗口内可发现、可事后归因。选择留痕而非 fail-closed 的理由见 §3。
 - 若将来要把该窗口彻底关掉，正确做法是让「`post_risk` 是否启用」拥有 Options 之外的
