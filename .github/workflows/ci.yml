@@ -26,6 +26,12 @@ jobs:
     name: Go gate
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # Go 测试统一走 ./scripts/test-api-isolated.sh：脚本用 runner 上的 docker 自建
+    # 一次性 PostgreSQL + Redis 容器（同一 com.sforum.test-owner label、同一 trap
+    # 清理），并 export DATABASE_URL / SFORUM_TEST_DATABASE_URL /
+    # SFORUM_COMPAT_DATABASE_URL / SFORUM_TEST_REDIS_ADDR。因此这里不声明 redis
+    # service —— 声明了也不会被用上；下面保留的 postgres service 同样不参与测试
+    # （连接串被脚本覆盖），删除它属于独立的 workflow 清理。
     services:
       postgres:
         image: postgres:17-alpine

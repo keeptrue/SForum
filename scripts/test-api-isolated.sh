@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run database tests on owned clusters, never on inherited development URLs.
+# Run database tests on owned disposable PostgreSQL + Redis containers, never on
+# inherited development URLs or a shared Redis.
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # go list / go test / go run 都必须在 API 模块内执行；分片选包发生在建集群之前。
@@ -10,31 +11,50 @@ docker info >/dev/null
 
 owner="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
 image="${SFORUM_TEST_POSTGRES_IMAGE:-postgres:17-alpine}"
+# Redis 与 PostgreSQL 同生命周期：有测试用 SFORUM_TEST_REDIS_ADDR 做 gate，
+# 只给 PG 会让这些用例在 CI 里恒为 skip（Lua/PTTL 这类只有真 Redis 才红的
+# 行为等于没测）。默认镜像跟随 compose.yaml 的生产版本（同一 tag，同大版本、
+# alpine 变体），保证测试口径与部署口径一致；换镜像用 SFORUM_TEST_REDIS_IMAGE。
+redis_image="${SFORUM_TEST_REDIS_IMAGE:-redis:8.10.2-alpine}"
 # 固定宿主端口让 DATABASE_URL 跨运行逐字节一致。Go 会把测试通过 os.Getenv
 # 读到的环境变量值算进结果缓存键，随机端口会让每个数据库包每次运行都重跑
 # （实测 45 个包、662 秒）。端口只当缓存键用：集群仍然每次新建并销毁，
 # 端口被占用时回退到临时端口，只损失缓存、不损失正确性。
 # 分片 i 使用 preferred_port + i：各分片缓存键互不相同，且跨运行稳定。
 preferred_port="${SFORUM_TEST_POSTGRES_PORT:-55432}"
+# Redis 同理：固定端口让 SFORUM_TEST_REDIS_ADDR 跨运行一致，缓存才命中。
+redis_preferred_port="${SFORUM_TEST_REDIS_PORT:-56379}"
 cid=""
 container=""
+redis_cid=""
+redis_container=""
+
+# 只删自己创建的容器：先核对 label 上的 owner，再 rm -fv。
+# 并发跑本脚本的另一个进程（或别人手动起的容器）即使撞了名字也不动手。
+remove_owned_container() {
+  local target="$1" actual
+  if ! actual="$(docker inspect --format '{{index .Config.Labels "com.sforum.test-owner"}}' "$target")"; then
+    echo 'Inspecting isolated test container cleanup failed.' >&2
+    exit 1
+  fi
+  if [[ "$actual" != "$owner" ]]; then
+    echo 'Test container ownership changed; cleanup stopped.' >&2
+    exit 1
+  fi
+  if ! docker rm -fv "$target" >/dev/null; then
+    echo 'Removing isolated test container failed.' >&2
+    exit 1
+  fi
+}
+
 cleanup() {
   local status=$?
   trap - EXIT
+  if [[ -n "$redis_cid" ]]; then
+    remove_owned_container "$redis_cid"
+  fi
   if [[ -n "$cid" ]]; then
-    local actual
-    if ! actual="$(docker inspect --format '{{index .Config.Labels "com.sforum.test-owner"}}' "$cid")"; then
-      echo 'Inspecting isolated test container cleanup failed.' >&2
-      exit 1
-    fi
-    if [[ "$actual" != "$owner" ]]; then
-      echo 'Test container ownership changed; cleanup stopped.' >&2
-      exit 1
-    fi
-    if ! docker rm -fv "$cid" >/dev/null; then
-      echo 'Removing isolated test container failed.' >&2
-      exit 1
-    fi
+    remove_owned_container "$cid"
   fi
   exit "$status"
 }
@@ -96,6 +116,82 @@ provision_cluster() {
   export SFORUM_COMPAT_DATABASE_URL="$DATABASE_URL"
   printf 'Disposable test cluster: %s, database: sforum_test_suite, port: %s\n' "$container" "$port"
   go run ./cmd/migrate
+}
+
+# probe_redis_port 在**宿主侧**用 RESP 打一次 PING，走的就是测试连接的发布端口。
+# 放进子 shell：/dev/tcp 连接失败会让非交互 shell 直接退出，这里只要它返回非零。
+probe_redis_port() {
+  ( exec 3<>"/dev/tcp/127.0.0.1/$1" || exit 1
+    printf '*1\r\n$4\r\nPING\r\n' >&3 || exit 1
+    IFS= read -r -t 2 reply <&3 || exit 1
+    reply="${reply%$'\r'}"
+    [[ "$reply" == "+PONG" ]] ) 2>/dev/null
+}
+
+# 一次性 Redis：不开持久化、不设口令（测试直接用 Addr 连，redis.Options 里
+# 没有 Password）。每个脚本进程一个实例，分片之间因此物理隔离，不存在共享
+# DB 索引导致的键串味。
+start_redis() {
+  docker run -d --name "$redis_container" --label "com.sforum.test-owner=$owner" \
+    -p "$1" "$redis_image" \
+    redis-server --save '' --appendonly no
+}
+
+# 幂等：同一个进程最多建一个 Redis，重复调用直接复用。
+provision_redis() {
+  if [[ -n "$redis_cid" ]]; then
+    return 0
+  fi
+  redis_container="sforum-test-api-redis-${owner}"
+  if ! redis_cid="$(start_redis "127.0.0.1:${redis_preferred_port}:6379" 2>/dev/null)"; then
+    docker rm -f "$redis_container" >/dev/null 2>&1 || true
+    # 首选端口起不来有两种原因：端口被占（回退只损失缓存）或镜像不可用
+    # （下面这次重试会把 docker 的真实报错带出来，再补一条明确的中文结论）。
+    echo "以首选端口 ${redis_preferred_port} 启动一次性 Redis 失败，回退临时端口（端口被占用时本轮测试缓存不会命中）。" >&2
+    if ! redis_cid="$(start_redis "127.0.0.1::6379")"; then
+      echo "无法启动一次性 Redis（镜像 ${redis_image}），请检查 SFORUM_TEST_REDIS_IMAGE 与 docker。" >&2
+      exit 1
+    fi
+  fi
+  local binding port
+  binding="$(docker port "$redis_cid" 6379/tcp)"
+  if [[ "$binding" != 127.0.0.1:* || "$binding" == *$'\n'* ]]; then
+    echo 'Unexpected isolated Redis port binding.' >&2
+    exit 1
+  fi
+  port="${binding##*:}"
+  # 与 PG 同思路的就绪判定：真实 PING + 连续两次成功，避开 redis 首次启动窗口。
+  # 但 PING 必须走**发布端口**（测试用的就是这条路），不能用 docker exec：
+  # exec 只证明容器内进程活着，宿主到容器的端口映射规则比容器启动稍晚生效，
+  # 那一小段窗口里 exec 已经 PONG、宿主的第一个命令却连不上。实测踩到过：
+  # 首个 EVAL(INCR) 因连接失败被 fail-open 吞掉，用例报「键不存在」，红得像
+  # 产品 bug。exec 作为容器级前置检查保留，两者都连续两次成功才算就绪。
+  local ready=0 stable=0
+  for _ in {1..60}; do
+    if [[ "$(docker exec "$redis_cid" redis-cli ping 2>/dev/null)" == "PONG" ]] &&
+      probe_redis_port "$port"; then
+      stable=$((stable + 1))
+      if [[ "$stable" == 2 ]]; then
+        ready=1
+        break
+      fi
+    else
+      stable=0
+    fi
+    sleep 1
+  done
+  if [[ "$ready" != 1 ]]; then
+    docker logs "$redis_cid" >&2
+    exit 1
+  fi
+  export SFORUM_TEST_REDIS_ADDR="127.0.0.1:${port}"
+  printf 'Disposable test Redis: %s, address: %s\n' "$redis_container" "$SFORUM_TEST_REDIS_ADDR"
+}
+
+# 每条执行路径（单包、分片、compat）都只调一次：PG 与 Redis 同生同灭。
+provision_backends() {
+  provision_cluster
+  provision_redis
 }
 
 # 并行度：分片之间物理隔离，分片内部保持 -p 1 的串行语义。
@@ -185,7 +281,7 @@ run_shard() {
     fi
   done
   echo "shard ${index}/${total}: ${#selected[@]} 个包，-p ${shard_parallel}"
-  provision_cluster
+  provision_backends
   # -count=1 必须在透传参数**之前**：默认的测试缓存会让「上一版的绿」冒充这一版的绿，
   # 而本脚本的输出常被当作证据（M8 验收、基线、变异对照）。调用方仍可自行覆盖。
   go test -count=1 -p "$shard_parallel" "${forwarded[@]}" "${selected[@]}"
@@ -202,6 +298,7 @@ run_shards() {
   for ((index = 0; index < total; index++)); do
     (
       SFORUM_TEST_POSTGRES_PORT="$((preferred_port + index))" \
+        SFORUM_TEST_REDIS_PORT="$((redis_preferred_port + index))" \
         "$ROOT_DIR/scripts/test-api-isolated.sh" --shard "${index}/${total}" "${forwarded[@]}"
     ) &
     pids+=($!)
@@ -235,7 +332,7 @@ run_compat_farm() {
 
 case "$mode" in
   compat)
-    provision_cluster
+    provision_backends
     run_compat_farm
     ;;
   shard)
@@ -257,12 +354,12 @@ case "$mode" in
     else
       # 显式包路径（含 -run 定位）保持单次调用，不分片。
       # -count=1 同上：证据脚本不允许返回缓存结果。
-      provision_cluster
+      provision_backends
       go test -count=1 -p "$shard_parallel" "${passthrough[@]}"
     fi
     if [[ "$mode" == "with-compat" ]]; then
       echo 'Running V3 P12 compatibility farm (required cells; skip/missing fail)...'
-      provision_cluster
+      provision_backends
       run_compat_farm
     fi
     ;;
