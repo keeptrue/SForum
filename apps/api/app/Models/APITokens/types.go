@@ -12,6 +12,9 @@ var (
 	ErrTokenExpired    = errors.New("apitokens: token expired")
 	ErrInvalidInput    = errors.New("apitokens: invalid input")
 	ErrScopeNotAllowed = errors.New("apitokens: scope not allowed for user")
+	// ErrSuperAdminTokenLocked：目标账号是 super_admin，操作者不是。
+	// 与 identity.ErrSuperAdminSessionLocked 同口径（管理面保护对称）。
+	ErrSuperAdminTokenLocked = errors.New("apitokens: super admin tokens cannot be revoked by non-super-admin")
 )
 
 // Token 是列表/详情用的公开视图（永不含明文）。
@@ -41,6 +44,14 @@ type CreateInput struct {
 	ExpiresAt *time.Time
 }
 
+// 令牌撤销原因（写入 api_tokens.revoke_reason）。与
+// user_sessions.revoke_reason 同口径，便于审计把「设备」与「令牌」放在一起读。
+const (
+	RevokeReasonSelf          = "revoke_self"
+	RevokeReasonAdmin         = "admin_revoke"
+	RevokeReasonPasswordReset = "password_reset"
+)
+
 type Record struct {
 	ID         int64
 	UserID     int64
@@ -52,4 +63,10 @@ type Record struct {
 	ExpiresAt  *time.Time
 	RevokedAt  *time.Time
 	CreatedAt  time.Time
+	// TokenVersion 是签发时的 users.current_token_version。鉴权时与用户当前版本
+	// 比对，不一致即失效：强制下线/改密都会递增版本（P2-2）。
+	TokenVersion int64
+	// RevokeReason 与 user_sessions.revoke_reason 同口径（admin_revoke /
+	// password_reset / ...），用于审计「这条令牌为什么没了」。
+	RevokeReason string
 }

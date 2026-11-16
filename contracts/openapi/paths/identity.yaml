@@ -932,6 +932,40 @@ adminUserRevokeSessions:
         "$ref": "../components/responses.yaml#/Forbidden"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+adminUserRevokeAPITokens:
+  delete:
+    summary: Admin revoke all personal access tokens of a user
+    description: |
+      Requires `user.manage`. Revokes every non-revoked personal access token
+      (PAT) belonging to the target user and returns how many were revoked.
+      A non-super-admin operator cannot revoke tokens of a `super_admin`
+      target (403 `api_token.super_admin_locked`), matching the session-revoke
+      and password-set protection.
+
+      Unlike force-revoking all devices, this leaves browser sessions intact;
+      it is the minimal-blast-radius action for a leaked machine credential.
+      Force-revoking devices and confirming a password reset both revoke PATs
+      in the same transaction and additionally advance
+      `users.current_token_version`, which invalidates any token whose stamped
+      `token_version` no longer matches.
+    operationId: adminRevokeUserAPITokens
+    parameters:
+    - "$ref": "../components/parameters.yaml#/UserID"
+    responses:
+      '200':
+        description: Target user's personal access tokens revoked.
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/identity.yaml#/ApiResponseRevokeUserAPITokens"
+      '401':
+        "$ref": "../components/responses.yaml#/Unauthorized"
+      '403':
+        "$ref": "../components/responses.yaml#/Forbidden"
+      '404':
+        "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
 adminUserClearClientIPs:
   post:
     summary: Clear stored client IP addresses for a user

@@ -87,6 +87,8 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Put("/users/:userID/permission-overrides", h.replaceUserPermissionOverrides)
 	// 管理员强制下线目标用户的全部设备（user.manage）。
 	api.Post("/users/:userID/sessions/revoke", h.adminRevokeUserSessions)
+	// 管理员撤销目标用户的全部个人访问令牌（user.manage；目标 super_admin 仅超管可操作）。
+	api.Delete("/users/:userID/api-tokens", h.adminRevokeUserAPITokens)
 	// 管理员直接设置目标用户密码（user.manage；改密后强制下线全部设备）。
 	api.Post("/users/:userID/password", h.adminSetUserPassword)
 	// 管理员清空目标用户相关真实 IP（user.manage；隐私合规）。

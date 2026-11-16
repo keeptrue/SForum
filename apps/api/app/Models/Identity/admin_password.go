@@ -23,7 +23,9 @@ type AdminSetUserPasswordResult struct {
 //  1. 校验站点密码策略；
 //  2. 写入新 Argon2id 哈希；
 //  3. 递增 current_token_version，使旧会话/令牌失效；
-//  4. 撤销该用户全部活跃会话。
+//  4. 撤销该用户全部活跃会话；
+//  5. 在同一事务里撤销该用户全部未撤销的 PAT（api_tokens），
+//     机器客户端必须重新登录换取新令牌。
 func (s *Service) AdminSetUserPassword(
 	ctx context.Context,
 	actor Actor,

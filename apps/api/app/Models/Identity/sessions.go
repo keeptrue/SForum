@@ -204,6 +204,17 @@ func (s *PostgresStore) revokeUserSessions(ctx context.Context, userID int64, re
 	if err != nil {
 		return 0, fmt.Errorf("collect revoked sessions: %w", err)
 	}
+	// 强制下线必须连 PAT 一起撤销，且必须在**同一个事务**里：只递增
+	// current_token_version 而不动 api_tokens 时，机器客户端手里的令牌完全不受
+	// 影响（P2-2）。版本比对是第二道闸（见 APITokens.AuthenticatePlaintext），
+	// 这里显式撤销是为了让审计能回答「这条令牌是被谁、因为什么撤掉的」。
+	if _, err := tx.Exec(ctx, `
+		UPDATE api_tokens
+		SET revoked_at = transaction_timestamp(), revoke_reason = $2
+		WHERE user_id = $1 AND revoked_at IS NULL
+	`, userID, reason); err != nil {
+		return 0, fmt.Errorf("revoke user api tokens: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit revoke user sessions: %w", err)
 	}

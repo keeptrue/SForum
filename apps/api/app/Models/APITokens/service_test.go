@@ -319,6 +319,28 @@ func (m *memStore) Revoke(_ context.Context, userID, id int64) error {
 	m.byPublic[rec.PublicID] = rec
 	return nil
 }
+// TokenVersion 默认 0：测试里 Create 也按 0 记版本，两者一致即通过（P2-2 的
+// 版本比对逻辑本身由 postgres 集成测试覆盖）。
+func (m *memStore) TokenVersion(_ context.Context, _ int64) (int64, error) {
+	return 0, nil
+}
+
+func (m *memStore) RevokeAllForUser(_ context.Context, userID int64, reason string) (int, error) {
+	now := time.Now().UTC()
+	revoked := 0
+	for id, rec := range m.byID {
+		if rec.UserID != userID || rec.RevokedAt != nil {
+			continue
+		}
+		rec.RevokedAt = &now
+		rec.RevokeReason = reason
+		m.byID[id] = rec
+		m.byPublic[rec.PublicID] = rec
+		revoked++
+	}
+	return revoked, nil
+}
+
 func (m *memStore) TouchLastUsed(_ context.Context, id int64) error {
 	rec, ok := m.byID[id]
 	if !ok {

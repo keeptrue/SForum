@@ -136,6 +136,16 @@ func (s *PostgresStore) confirmPasswordResetAtomic(ctx context.Context, tokenHas
 		return 0, fmt.Errorf("collect revoked sessions: %w", err)
 	}
 
+	// 改密后旧 PAT 必须一起失效，且在同一事务里：否则「改密 → 强制下线」的语义
+	// 对机器客户端是空的（P2-2）。版本比对是第二道闸。
+	if _, err := tx.Exec(ctx, `
+		UPDATE api_tokens
+		SET revoked_at = transaction_timestamp(), revoke_reason = $2
+		WHERE user_id = $1 AND revoked_at IS NULL
+	`, userID, revokeReason); err != nil {
+		return 0, fmt.Errorf("revoke user api tokens: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit password reset confirm: %w", err)
 	}

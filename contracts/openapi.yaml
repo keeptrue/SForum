@@ -379,6 +379,8 @@ paths:
     "$ref": "./openapi/paths/identity.yaml#/adminUserSetPassword"
   "/users/{userID}/sessions/revoke":
     "$ref": "./openapi/paths/identity.yaml#/adminUserRevokeSessions"
+  "/users/{userID}/api-tokens":
+    "$ref": "./openapi/paths/identity.yaml#/adminUserRevokeAPITokens"
   "/users/{userID}/client-ips/clear":
     "$ref": "./openapi/paths/identity.yaml#/adminUserClearClientIPs"
   "/web-options":

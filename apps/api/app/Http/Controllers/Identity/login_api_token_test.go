@@ -107,6 +107,26 @@ func (s *memoryAPITokenStore) TouchLastUsed(_ context.Context, id int64) error {
 	return nil
 }
 
+func (s *memoryAPITokenStore) TokenVersion(_ context.Context, _ int64) (int64, error) {
+	return 0, nil
+}
+
+func (s *memoryAPITokenStore) RevokeAllForUser(_ context.Context, userID int64, reason string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now().UTC()
+	revoked := 0
+	for index := range s.rows {
+		if s.rows[index].UserID != userID || s.rows[index].RevokedAt != nil {
+			continue
+		}
+		s.rows[index].RevokedAt = &now
+		s.rows[index].RevokeReason = reason
+		revoked++
+	}
+	return revoked, nil
+}
+
 func (s *memoryAPITokenStore) count() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()

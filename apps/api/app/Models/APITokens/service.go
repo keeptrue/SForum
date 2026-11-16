@@ -91,6 +91,39 @@ func (s *Service) Revoke(ctx context.Context, actor identity.Actor, id int64) er
 	return nil
 }
 
+// RevokeAllForUser 撤销目标用户的全部未撤销令牌（管理端「撤销全部 PAT」）。
+//
+// 权限口径与 AdminRevokeUserSessions 一致：
+//   - actor 必须持有 user.manage；
+//   - 目标若是 super_admin，则只有同样是 super_admin 的管理员才能撤销其令牌，
+//     防止普通 user.manage 持有者把超管账户的机器客户端一次性掐断。
+//
+// 与「强制下线」的区别：那个动作在 Identity 的事务里顺带撤销 PAT（同一事务，
+// 不可分割）；这里是单独的管理端点，用于只清令牌、不动浏览器会话的场景。
+func (s *Service) RevokeAllForUser(ctx context.Context, actor identity.Actor, targetUserID int64) (int, error) {
+	if !actor.Can(identity.PermissionUserManage) {
+		return 0, identity.ErrPermissionDenied
+	}
+	if targetUserID <= 0 {
+		return 0, identity.ErrUserNotFound
+	}
+	target, err := s.actors.LoadActor(ctx, targetUserID)
+	if err != nil || target.ID != targetUserID {
+		return 0, identity.ErrUserNotFound
+	}
+	if target.IsSuperAdmin() && !actor.IsSuperAdmin() {
+		return 0, ErrSuperAdminTokenLocked
+	}
+	revoked, err := s.store.RevokeAllForUser(ctx, targetUserID, RevokeReasonAdmin)
+	if err != nil {
+		return 0, err
+	}
+	s.audit(ctx, actor.ID, "api_token.admin_revoke_all", map[string]any{
+		"targetUserId": targetUserID, "revoked": revoked,
+	})
+	return revoked, nil
+}
+
 // Rotate 撤销旧令牌并签发同名/同 scopes 的新令牌。
 func (s *Service) Rotate(ctx context.Context, actor identity.Actor, id int64) (CreatedToken, error) {
 	old, err := s.store.GetByIDForUser(ctx, actor.ID, id)
@@ -148,6 +181,16 @@ func (s *Service) AuthenticatePlaintext(ctx context.Context, plaintext string) (
 	actor, err := s.actors.LoadActor(ctx, rec.UserID)
 	if err != nil || actor.ID != rec.UserID || actor.Status != identity.UserStatusActive {
 		return Authenticated{}, ErrTokenInvalid
+	}
+	// 版本漂移：强制下线（管理员下线全部设备）与改密都会递增
+	// users.current_token_version，签发时记下的版本对不上就说明这条 PAT 属于
+	// 「已被作废的那一代凭据」，必须失效（P2-2）。
+	//
+	// 对外统一成 ErrTokenRevoked：bearer 中间件对所有鉴权错误都答 401
+	// api_token.invalid，不泄露「令牌有效但版本漂移」这种可枚举信号。
+	version, err := s.store.TokenVersion(ctx, rec.UserID)
+	if err != nil || version != rec.TokenVersion {
+		return Authenticated{}, ErrTokenRevoked
 	}
 	// last_used 更新失败不阻断鉴权。
 	_ = s.store.TouchLastUsed(ctx, rec.ID)

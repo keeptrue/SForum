@@ -1229,6 +1229,29 @@ ApiResponseRevokeOthers:
         revoked:
           type: integer
           description: Number of other sessions that were revoked.
+ApiResponseRevokeUserAPITokens:
+  type: object
+  description: |
+    Result of `DELETE /users/{userID}/api-tokens`. PAT rows carry a
+    `token_version` stamped from `users.current_token_version`; revoking them
+    here is the minimal-blast-radius counterpart to force-revoking all devices.
+  required:
+  - code
+  - message
+  - data
+  properties:
+    code:
+      type: integer
+    message:
+      type: string
+    data:
+      type: object
+      required:
+      - revoked
+      properties:
+        revoked:
+          type: integer
+          description: Number of personal access tokens that were revoked.
 ApiResponseAdminSetUserPassword:
   type: object
   required:
