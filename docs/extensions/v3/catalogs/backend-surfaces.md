@@ -73,6 +73,8 @@
 - `forum.bookmark_reminders`
 - `forum.flush_view_counts`
 - `search.reconcile`
+- `mail.sweep_stale`
+- `extensions.sweep_stale_deliveries`
 - `trustlevels.sweep`
 - `extensions.finalize_uninstall_cleanup`
 
