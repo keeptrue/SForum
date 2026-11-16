@@ -434,6 +434,16 @@ type notificationTestStore struct {
 	detailErr         error
 	lastDetailUserID  int64
 	lastDetailID      int64
+	// FailReplayDelivery 的补偿调用记录（P2-6：重放入队失败时把行改回 failed）。
+	failReplayCalls  int
+	failReplayID     int64
+	failReplayReason string
+	failReplayErr    error
+	// ReplayDelivery 的重放调用记录（本包无管理端点，仅满足接口契约）。
+	replayCalls    int
+	replayID       int64
+	replayErr      error
+	replayDelivery notifications.MailDelivery
 }
 
 type notificationVisibilityFixture struct {
@@ -492,6 +502,31 @@ func (*notificationTestStore) UpdateDelivery(context.Context, notifications.Deli
 func (*notificationTestStore) ListDeliveries(context.Context, int) ([]notifications.MailDelivery, error) {
 	return nil, nil
 }
+
+// FailReplayDelivery 记录补偿调用，语义对齐 store 接口注释：
+// 把刚重置成 queued 的行改回 failed 并记下 reason。
+func (s *notificationTestStore) FailReplayDelivery(_ context.Context, id int64, reason string) error {
+	s.failReplayCalls++
+	s.failReplayID = id
+	s.failReplayReason = reason
+	return s.failReplayErr
+}
+
+// ReplayDelivery 语义对齐 store 接口注释：把可重放的行重置成 queued 并返回该行。
+// 本包没有管理端重放端点，fake 只记录调用、透出可配置错误。
+func (s *notificationTestStore) ReplayDelivery(_ context.Context, id int64) (notifications.MailDelivery, error) {
+	s.replayCalls++
+	s.replayID = id
+	if s.replayErr != nil {
+		return notifications.MailDelivery{}, s.replayErr
+	}
+	delivery := s.replayDelivery
+	delivery.ID = id
+	delivery.Status = notifications.DeliveryQueued
+	return delivery, nil
+}
+
+var _ notifications.Store = (*notificationTestStore)(nil)
 
 func notificationRequest(t *testing.T, app *fiber.App, token string) *http.Response {
 	t.Helper()
