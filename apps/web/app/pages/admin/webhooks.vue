@@ -37,7 +37,9 @@ const { request } = useApiClient()
 const adminPage = useAdminPage('/webhooks')
 const toast = useToast()
 const { can } = useAuthSession()
-const canManage = computed(() => can('settings.manage') || can('settings.site.manage'))
+// 只认细粒度子键：settings.manage 是后端的展开来源，会话里始终存在，
+// 把它当候选会让管理员 deny 掉的 settings.site.manage 重新放行（task-24）。
+const canManage = computed(() => can('settings.site.manage'))
 
 const pending = ref(true)
 const saving = ref(false)

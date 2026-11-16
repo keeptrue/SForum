@@ -9,6 +9,11 @@ export type AdminPageDefinition = {
   componentName: string
   closable?: boolean
   badgeKey?: string
+  /**
+   * 菜单准入候选。**只写细粒度子键**：父键（`settings.manage` / `user.manage` /
+   * `extension.manage`）是后端的展开来源，持父权限的会话里始终带着它，把它写进
+   * 候选会让管理员 deny 掉的子键重新放行（菜单出现入口、点进去 API 403）。
+   */
   requiredPermissions?: string[]
   permissionMode?: AdminPermissionMode
   /** 仅专业模式下出现在侧栏（默认关闭，面向日常运营隐藏扩展高级工具）。 */
@@ -70,8 +75,7 @@ export const adminPageDefinitions = [
     labelKey: 'admin.nav.userManagement',
     icon: 'i-lucide-contact',
     componentName: 'AdminUsers',
-    requiredPermissions: ['user.view', 'user.manage'],
-    permissionMode: 'any'
+    requiredPermissions: ['user.view']
   },
   {
     id: '/personalization',
@@ -104,7 +108,7 @@ export const adminPageDefinitions = [
     labelKey: 'admin.nav.permissionManagement',
     icon: 'i-lucide-shield-check',
     componentName: 'AdminPermissions',
-    requiredPermissions: ['role.manage', 'user.view', 'user.manage'],
+    requiredPermissions: ['role.manage', 'user.view'],
     permissionMode: 'any'
   },
   {
@@ -157,8 +161,7 @@ export const adminPageDefinitions = [
     labelKey: 'admin.nav.entityMeta',
     icon: 'i-lucide-tags',
     componentName: 'AdminEntityMeta',
-    requiredPermissions: ['entity_meta.manage', 'settings.manage'],
-    permissionMode: 'any',
+    requiredPermissions: ['entity_meta.manage'],
     professionalMode: true
   },
   {
@@ -434,8 +437,7 @@ export const adminPageDefinitions = [
     labelKey: 'admin.nav.webhooks',
     icon: 'i-lucide-webhook',
     componentName: 'AdminWebhooks',
-    requiredPermissions: ['settings.manage', 'settings.site.manage'],
-    permissionMode: 'any',
+    requiredPermissions: ['settings.site.manage'],
     operationsMode: true
   }
 ] as const satisfies readonly AdminPageDefinition[]

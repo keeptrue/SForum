@@ -16,7 +16,9 @@ const emit = defineEmits<{ saved: [settings: ForumSettings], refresh: [] }>()
 const { t } = useI18n()
 const adminRoutes = useAdminRoutes()
 const { can } = usePermissions()
-const canManageSettings = computed(() => can('forum.settings.manage') || can('settings.manage'))
+// 只认细粒度子键：settings.manage 是后端的展开来源，会话里始终存在，
+// 把它当候选会让管理员 deny 掉的 forum.settings.manage 重新放行（task-24）。
+const canManageSettings = computed(() => can('forum.settings.manage'))
 const canManageCategories = computed(() => can('category.manage'))
 const publicCategories = computed(() => props.categories.filter(category => category.visibility === 'public'))
 const keys = ['defaultCategorySlug', 'topicsPerPage', 'commentsPerPage', 'guestRead', 'listDefaultSort', 'listHotWindowDays'] as const
