@@ -263,6 +263,27 @@ func TestObserveDeliverySkipsEnqueueWhenRecordFails(t *testing.T) {
 	}
 }
 
+// F4：事务起不来时返回 delivery_record_failed，不 panic、不建行、不入队。
+func TestObserveDeliveryFailsWhenTransactionCannotBegin(t *testing.T) {
+	store := &txAwareDeliveryStore{}
+	dispatcher := &txRecordingDispatcher{}
+	manager := observeTestManager(t, store, dispatcher, fakeTxBeginner{
+		store:    store,
+		beginErr: errors.New("pool exhausted"),
+	})
+
+	result := manager.Emit(context.Background(), observeTestEnvelope())
+	if result.OK || result.Reason != "extension.delivery_record_failed" {
+		t.Fatalf("expected begin failure surfaced as delivery_record_failed, got %#v", result)
+	}
+	if len(store.committed) != 0 || store.legacyCreates != 0 {
+		t.Fatalf("begin failure still wrote a delivery row: rows=%#v legacy=%d", store.committed, store.legacyCreates)
+	}
+	if dispatcher.txEnqueues != 0 || len(dispatcher.enqueued) != 0 {
+		t.Fatalf("begin failure still enqueued: tx=%d jobs=%#v", dispatcher.txEnqueues, dispatcher.enqueued)
+	}
+}
+
 // 无投递账本（只有队列）时保持既有行为：单次入队，DeliveryID 为 0。
 func TestObserveDeliveryWithoutStoreEnqueuesOnce(t *testing.T) {
 	dispatcher := &txRecordingDispatcher{}

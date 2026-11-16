@@ -25,12 +25,12 @@ func TestSweepStaleEventDeliveriesTouchesOnlyAgedNonTerminalRows(t *testing.T) {
 	fixture := newSweepFixture(t)
 	ctx := fixture.ctx
 
-	agedQueued := fixture.insert(t, "aged-queued", "queued", time.Now().Add(-2*time.Hour))
-	agedRunning := fixture.insert(t, "aged-running", "running", time.Now().Add(-45*time.Minute))
-	freshQueued := fixture.insert(t, "fresh-queued", "queued", time.Now().Add(-1*time.Minute))
-	freshRunning := fixture.insert(t, "fresh-running", "running", time.Now().Add(-2*time.Minute))
-	agedSucceeded := fixture.insert(t, "aged-succeeded", "succeeded", time.Now().Add(-3*time.Hour))
-	agedFailed := fixture.insert(t, "aged-failed", "failed", time.Now().Add(-3*time.Hour))
+	agedQueued := fixture.insert(t, "aged-queued", "queued", time.Now().Add(-2*time.Hour), time.Time{})
+	agedRunning := fixture.insert(t, "aged-running", "running", time.Now().Add(-45*time.Minute), time.Time{})
+	freshQueued := fixture.insert(t, "fresh-queued", "queued", time.Now().Add(-1*time.Minute), time.Time{})
+	freshRunning := fixture.insert(t, "fresh-running", "running", time.Now().Add(-2*time.Minute), time.Time{})
+	agedSucceeded := fixture.insert(t, "aged-succeeded", "succeeded", time.Now().Add(-3*time.Hour), time.Time{})
+	agedFailed := fixture.insert(t, "aged-failed", "failed", time.Now().Add(-3*time.Hour), time.Time{})
 
 	swept, err := fixture.sweeper.SweepStaleEventDeliveries(ctx, deliverysweep.StaleEventDeliveryThreshold)
 	if err != nil {
@@ -80,7 +80,7 @@ func TestSweepStaleEventDeliveriesTouchesOnlyAgedNonTerminalRows(t *testing.T) {
 // 零/负阈值回退到默认值，而不是把所有在飞的行一把扫掉。
 func TestSweepStaleEventDeliveriesFallsBackToDefaultThreshold(t *testing.T) {
 	fixture := newSweepFixture(t)
-	fresh := fixture.insert(t, "fresh", "queued", time.Now().Add(-time.Minute))
+	fresh := fixture.insert(t, "fresh", "queued", time.Now().Add(-time.Minute), time.Time{})
 
 	swept, err := fixture.sweeper.SweepStaleEventDeliveries(fixture.ctx, 0)
 	if err != nil {
@@ -91,6 +91,51 @@ func TestSweepStaleEventDeliveriesFallsBackToDefaultThreshold(t *testing.T) {
 	}
 	if status, _, _ := fixture.load(t, fresh); status != "queued" {
 		t.Fatalf("fresh delivery = %s, want queued", status)
+	}
+}
+
+// F3：亚秒阈值必须回退默认，而不是被秒级截断成 0 秒后一把扫掉在飞行。
+func TestSweepStaleEventDeliveriesSubSecondThresholdFallsBack(t *testing.T) {
+	fixture := newSweepFixture(t)
+	fresh := fixture.insert(t, "fresh-subsecond", "queued", time.Now().Add(-time.Minute), time.Time{})
+
+	swept, err := fixture.sweeper.SweepStaleEventDeliveries(fixture.ctx, 500*time.Millisecond)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if swept != 0 {
+		t.Fatalf("swept = %d, want 0（500ms 阈值必须回退 15 分钟，不能截断成 0 秒）", swept)
+	}
+	if status, _, _ := fixture.load(t, fresh); status != "queued" {
+		t.Fatalf("fresh delivery = %s, want queued", status)
+	}
+}
+
+// F2：判据必须是 updated_at 而不是 created_at。
+//
+// 场景：一条 running 行 created_at 在 2 小时前，但 1 分钟前才被 worker 认领
+// （updated_at 刚被推进）——它是**正在跑**的投递，不能当成「调度侧丢了」。
+// 这条用例专门守住「把 WHERE 改成 created_at 就误杀在飞行」这个退化。
+func TestSweepStaleEventDeliveriesUsesUpdatedAtNotCreatedAt(t *testing.T) {
+	fixture := newSweepFixture(t)
+	runningJustClaimed := fixture.insert(t, "running-just-claimed", "running",
+		time.Now().Add(-2*time.Hour), time.Now().Add(-time.Minute))
+	// 对照：同样老的 created_at，但 updated_at 也老 → 真·中途行，必须被扫。
+	stalledRunning := fixture.insert(t, "stalled-running", "running",
+		time.Now().Add(-2*time.Hour), time.Now().Add(-2*time.Hour))
+
+	swept, err := fixture.sweeper.SweepStaleEventDeliveries(fixture.ctx, deliverysweep.StaleEventDeliveryThreshold)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if swept != 1 {
+		t.Fatalf("swept = %d, want 1（只有 updated_at 也超龄的那条）", swept)
+	}
+	if status, reason, _ := fixture.load(t, runningJustClaimed); status != "running" || reason != "" {
+		t.Fatalf("刚认领的 running 行被误杀：%s/%q", status, reason)
+	}
+	if status, _, _ := fixture.load(t, stalledRunning); status != "failed" {
+		t.Fatalf("真·中途 running 行未被收口：%s", status)
 	}
 }
 
@@ -147,15 +192,25 @@ func newSweepFixture(t *testing.T) *sweepFixture {
 	return &sweepFixture{ctx: ctx, pool: pool, sweeper: deliverysweep.NewPostgresSweeper(pool)}
 }
 
-func (f *sweepFixture) insert(t *testing.T, correlation, status string, updatedAt time.Time) int64 {
+// insert 造一行投递；updatedAt 为零值时与 createdAt 相同（历史夹具的默认形态）。
+func (f *sweepFixture) insert(t *testing.T, correlation, status string, createdAt, updatedAt time.Time) int64 {
 	t.Helper()
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
 	var id int64
 	if err := f.pool.QueryRow(f.ctx, `
 		INSERT INTO extension_event_deliveries
 		  (extension_id, event_name, event_kind, status, correlation_id, created_at, updated_at)
 		VALUES ('observe.plugin', 'topic.created', 'observe', $1, $2, $3, $3)
-		RETURNING id`, status, correlation, updatedAt.UTC()).Scan(&id); err != nil {
+		RETURNING id`, status, correlation, createdAt.UTC()).Scan(&id); err != nil {
 		t.Fatalf("insert delivery %s: %v", correlation, err)
+	}
+	if !updatedAt.Equal(createdAt) {
+		if _, err := f.pool.Exec(f.ctx,
+			`UPDATE extension_event_deliveries SET updated_at = $2 WHERE id = $1`, id, updatedAt.UTC()); err != nil {
+			t.Fatalf("set updated_at for %s: %v", correlation, err)
+		}
 	}
 	return id
 }

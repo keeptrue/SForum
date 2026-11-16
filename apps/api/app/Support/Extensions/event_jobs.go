@@ -25,8 +25,10 @@ import (
 //	   静默退回等于把崩溃窗口重新打开，而配置错误应当立刻可见。
 //
 // 这些 reason 键（`extension.delivery_record_failed` / `delivery_enqueue_failed` /
-// `delivery_atomic_unavailable`）只出现在事件结果与投递账本里，不进 HTTP 响应或对外
-// 错误契约，因此不配 Localization 翻译键。
+// `delivery_atomic_unavailable`）不会成为 HTTP 错误码，也不进 reason 枚举与
+// Localization 翻译表；但它们会作为**自由文本**写进投递账本的 reason 列，
+// 因而出现在管理面事件投递日志响应（`GET .../event-deliveries`，
+// `ExtensionEventDelivery.reason` 在 OpenAPI 里是无枚举的 string）里。
 type EventDeliveryArgs struct {
 	DeliveryID        int64          `json:"delivery_id" river:"unique"`
 	ExtensionID       string         `json:"extension_id"`

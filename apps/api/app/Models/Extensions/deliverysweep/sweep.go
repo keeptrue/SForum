@@ -36,8 +36,9 @@ const StaleEventDeliveryThreshold = 15 * time.Minute
 
 // ReasonStaleSwept 是被 sweep 的行使用的稳定 reason 键。
 //
-// 它是**内部账本字段**，不进 HTTP 响应/对外错误契约（调用方只有管理面的事件日志），
-// 因此不进 Localization 翻译表。
+// 它在契约里的位置：`ExtensionEventDelivery.reason` 是**自由文本**（OpenAPI 没有枚举），
+// 所以它会作为管理面事件投递日志（`GET .../event-deliveries`）的响应值出现。
+// 它**不进** reason 枚举，也**不进** Localization 翻译表——管理面拿到的就是这条稳定键。
 const ReasonStaleSwept = "extension.delivery_stale_swept"
 
 // PostgresSweeper 是投递账本的 stale 行收口器。
@@ -51,13 +52,18 @@ func NewPostgresSweeper(pool *pgxpool.Pool) *PostgresSweeper {
 
 // SweepStaleEventDeliveries 把超过 olderThan 仍停在 queued/running 的行收成 failed。
 //
-// 幂等：终态行不再匹配 WHERE，重复调用返回 0。olderThan <= 0 时用默认阈值。
+// 幂等：终态行不再匹配 WHERE，重复调用返回 0。
+//
+// olderThan 小于 1 秒时用默认阈值。**不能**用 `olderThan <= 0` 判定：SQL 里的
+// 时长是 `int64(olderThan.Seconds())` 秒级截断，500ms 这种正数会被截成 0 秒，
+// 于是 `updated_at < now() - 0s` 成立、把正在飞的投递一把扫掉。
+// （P2-6 的邮件 sweeper 是同一个截断写法，属同类问题；那处不在本任务范围。）
 // 返回被收口的行数，调用方据此打可观测日志（「本该投递却没投递」的信号）。
 func (s *PostgresSweeper) SweepStaleEventDeliveries(ctx context.Context, olderThan time.Duration) (int, error) {
 	if s == nil || s.pool == nil {
 		return 0, errors.New("extensions deliverysweep: sweeper is not configured")
 	}
-	if olderThan <= 0 {
+	if olderThan < time.Second {
 		olderThan = StaleEventDeliveryThreshold
 	}
 	// updated_at 而不是 created_at：running 行可能在 created_at 之后很久才被 worker
