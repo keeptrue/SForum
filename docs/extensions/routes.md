@@ -261,7 +261,7 @@ treating the id as prose.
 | `filter` | Inspect/modify a targeted route's request/response documents. |
 | `wrap` | Wrap a targeted route's execution. |
 | `replace` | Replace a targeted route (core or plugin) — high-risk, requires explicit declaration and trust confirmation. |
-| `global_middleware` | Run for every registry-managed path. |
+| `global_middleware` | Scope is declared by `targetId`: empty covers only the plugin's own terminals; non-empty covers exactly that one terminal (Core routes opt in this way). `path`/`methods` are rejected — global middleware is not prefix matching. |
 
 Replacement and chaining targets are declared, never inferred. Core route ids
 come from the generated [core Route Catalog](./v3/catalogs/routes.md). The

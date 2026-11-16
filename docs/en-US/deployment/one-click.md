@@ -495,13 +495,14 @@ That immutable tag is historical fact and will not be moved to `main` or
 ## Failure semantics
 
 `status=recovery_required` in `.deployrc` means the old app has already stopped
-but the new version has not been declared healthy. `reason` has three values:
+but the new version has not been declared healthy. `reason` has four values:
 
 | `reason` | Meaning | First step |
 | --- | --- | --- |
 | `migration_failed` | Migration failed | Check `./deploy.sh --action logs` and the migration output; fix and retry, or restore `backup` |
 | `startup_failed` | Migration succeeded but containers did not come up | Check `docker compose ps` and the API logs; fix the configuration/image problem and retry |
 | `health_failed` | Containers are up but health checks did not pass | Check `/api/v1/ready`, `/health`, and the dependency services; fix and retry |
+| `recovery_only` | The new API booted into recovery-only mode: only `/health` and `/ready` answer, every other path returns 503 | This is not a slow start and waiting will not help; fix the artifact named in the `/ready` recovery block, then run `sforum extension recovery recheck` |
 
 The `backup` field is the path of the backup created automatically before this
 deployment. To restore:

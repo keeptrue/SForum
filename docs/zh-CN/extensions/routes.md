@@ -251,7 +251,7 @@ Schema 引用可以是版本化 schema id（`name@N`，经包内 schema 目录�
 | `filter` | 检查/修改目标路由的请求/响应文档。 |
 | `wrap` | 包裹目标路由的执行。 |
 | `replace` | 替换目标路由（core 或插件）——高风险，必须显式声明并经信任确认。 |
-| `global_middleware` | 对所有 registry 管理路径生效。 |
+| `global_middleware` | 作用域由 `targetId` 声明：留空只覆盖插件自己的 terminal；写明则精确覆盖那一条 terminal（Core 路由靠它显式 opt-in）。`path`/`methods` 一律拒绝——global 不是前缀匹配。 |
 
 替换与链式目标都是**显式声明**的，从不推断。Core 路由 id 见生成的
 [核心路由目录](../../extensions/v3/catalogs/routes.md)。管理后台的

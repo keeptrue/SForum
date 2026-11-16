@@ -60,3 +60,38 @@ tag 冲突；条目按「必须动作 / 行为变更 / 回滚风险」排列。
 **回滚风险**：回退到旧 Release 的 `upgrade.sh` 时，它不核对 digest、仍按 tag
 拉取，这是旧脚本的既有行为，不是本次引入的回归；但那时 `SFORUM_CADDY_IMAGE`
 的 digest 写法不会被校验，请自行确认拉到的镜像内容。
+
+## 下一版新增条目（第 15 轮，2026-11-16）
+
+> **版本号留空，定版时按实际 tag 填**：`v3.1.0` 这个标签已经存在
+> （`1126c8802`，2026-11-14），本轮的全部提交都在它之后，所以本段条目属于**它之后的
+> 那条发布线**，不是 v3.1.0 本身。派单里写的「v3.1.0 升级注意」按「下一版」理解；
+> 如果 v3.1.0 实际没有对外发布，再回头把这段并进去。
+
+上面 9 条是第 14 轮及以前的素材。第 15 轮再并入 8 条。**正文以
+`docs/zh-CN/deployment/upgrade-notes.md` 与 `docs/en-US/deployment/upgrade-notes.md`
+为准**——那一对页面是双语、随发布线滚动维护的正式页，每条都是「旧行为 / 新行为 /
+运维要做什么」三栏。这里只留发布 body 需要的条目索引与「必须先做」判断，不复制正文，
+避免两处各自漂移。
+
+| # | 条目 | 什么时候做 |
+| --- | --- | --- |
+| 1 | `install-from-url` 必须提供 sha256（`extension.remote_digest_required`，出站前拒绝） | 升级前（自建脚本 / SDK） |
+| 2 | `raw_core` 收窄到显式白名单（3 张派生表 + 1 条序列，越界 `42501`） | 升级后复验插件 |
+| 3 | 插件 `global_middleware` 作用域改为显式 `targetId` | 升级后复验插件 |
+| 4 | 插件子进程 cwd 钉在制品目录 | 升级后复验插件 |
+| 5 | 备份加密口令成为升级硬前置（模板注释块 + 向导提示 + `deploy.sh` 读 `.env.production`） | 升级前 |
+| 6 | 匿名 `/ready` 只回摘要（无 `artifacts` / `publicationRevision`） | 按需改脚本 |
+| 7 | 401 与 503 分家（C→401、D/E→503 + `Retry-After`） | 按需重生成客户端 |
+| 8 | 备份 / 恢复：卷比大小、拓扑守卫双向、多槽各自 deadline、SIGKILL 残留清理 | 演练一次 |
+
+发布 body 里保留的「必须先做」三条：**备份口令**、**`install-from-url` 的 sha256**、
+**`raw_core` 插件复验**。第 6 条另带一个同批变化：健康等待三态（`0`/`3`/`1`）与
+`deploy.sh` 的 `reason=recovery_only`，已同步进 `one-click.md` 与 `troubleshooting.md`
+的 `reason` 表（三种 → 四种）。
+
+## 相关裁决（第 15 轮）
+
+- `GO-2026-5932`（`x/crypto/openpgp`）：**不升级**，见
+  `knowledge/decisions/2026-11-16-go-2026-5932-xcrypto-openpgp.md`（三条实证 + 四条
+  复位条件）。运营侧文档不提这条内部裁决。

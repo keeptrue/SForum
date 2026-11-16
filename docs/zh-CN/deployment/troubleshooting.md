@@ -84,7 +84,12 @@ COMPOSE=(docker compose --env-file .env.production \
 3. `startup_failed`：看 `docker compose ps` 与 API 日志；常见原因是环境变量、卷权限、镜像标签。
 4. `health_failed`：分别检查 `http://127.0.0.1:${API_PORT}/api/v1/ready` 和
    `http://127.0.0.1:${WEB_PORT}/health`；再确认 PostgreSQL/Redis 健康。
-5. 重试仍失败且数据库已被迁移时，恢复部署前备份，不要只回退镜像。
+5. `recovery_only`：API 起来了，但启动进了恢复态——只放行 `/health` 与 `/ready`，
+   其余路径一律 503。这不是慢启动，等下去不会变好：`/ready` 的
+   `recovery{code,component,message}` 已经点名是哪个制品没收敛，修好它，再执行
+   `sforum extension recovery recheck`；制品清单用
+   `sforum extension recovery list --json` 取（匿名 `/ready` 只回摘要）。
+6. 重试仍失败且数据库已被迁移时，恢复部署前备份，不要只回退镜像。
 
 恢复命令：
 

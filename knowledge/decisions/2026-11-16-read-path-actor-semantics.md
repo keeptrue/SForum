@@ -160,10 +160,17 @@ viewer 就按 guest 渲染」：
    `auth.required`；D（会话/身份存储故障、超时）与 E（未识别）→ 503 `service.not_ready`
    + `Retry-After: 1`；无凭据仍是 401（必登面没有匿名视图）。`Forum.commentPage` 是
    公开读（`requireGuestRead` 放行、错误被丢弃），改走 `OptionalActor`：响应不变
-   （降级成匿名是收窄），但依赖故障至少留一条限频日志。契约按 W2 可达性门逐条补
-   **188 条 503**（`components/responses.yaml#/ServiceUnavailable`，其描述已写明该
-   路径带 `Retry-After: 1`），门从 188 条 `gap-unregistered` 降到 **0**，`guard-removed`
-   仍为 0。端点级证据：`app/Http/require_actor_endpoints_test.go`（C→401、D→503、
+   （降级成匿名是收窄），但依赖故障至少留一条限频日志。契约共补 **193 条 503**
+   （`components/responses.yaml#/ServiceUnavailable`，其描述已写明该路径带
+   `Retry-After: 1`）= **188 条由 W2 可达性门逐条列出** + **5 条门看不见、靠人判断
+   手工补**；门从 188 条 `gap-unregistered` 降到 **0**，`guard-removed` 仍为 0。
+   手工补的 5 条与理由（`contracts/openapi/paths/trust_levels.yaml`）：
+   `GET /admin/trust-levels`、`GET /admin/trust-levels/conditions`、
+   `POST /admin/trust-levels/restore-defaults`、`POST /admin/trust-levels/rule-impact`、
+   `PUT /admin/trust-levels` —— 门的调用图在包内 `requireAdmin` 处停止，看不到它
+   再转调 `loadActor`→`RequireActor`，所以这 5 条 admin 面实际可产 503 却不进 gap
+   清单。同族的 `GET /trust-levels`（公开面）**刻意不补**：`viewer` 吞掉错误，
+   该端点永不产 503。端点级证据：`app/Http/require_actor_endpoints_test.go`（C→401、D→503、
    E→503、A→401，各覆盖 admin overview / upload-policy / account-navigation /
    my profile / my bookmarks 五条端点）。
    **裁决不改**：`disabled`/`banned` 不在 `RequireActor` 门上判（§4 的不对称是有意的：
@@ -194,6 +201,10 @@ viewer 就按 guest 渲染」：
    194/435 退化区——这正是 P1（`entity_meta` 值读写漏 503）能溜过门的原因。本轮
    靠可达性扫描（路由 → 同包调用图 → 助手）人工补齐 `missing = 0`；把该扫描落成
    常设门属独立一轮（需同时处理跨包转调与 catch-all 路由）。
+   **后续（第 15 轮 W2 + W3，2026-11-16）**：该扫描已落成常设门
+   （`tests/helpers/reachability/*`，接进 `contracts-gate.sh`），退化区从
+   **194/435 降到 30/435**（29 已映射）；本条残余改为「剩余 30 条」，复位条件见
+   总表 §11「第 15 轮」的「残余」第 1 条。
 
 ## 相关
 

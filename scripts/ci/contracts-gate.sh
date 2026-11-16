@@ -18,6 +18,11 @@ ruby scripts/validate-openapi-refs.rb
 echo "Running contract status-code parity validation..."
 node tests/validate-contract-status-parity.mjs
 
+# 响应助手白名单必须是闭的：漏登记一个「首参 fiber.Ctx 且自己产状态码」的助手，
+# 那个码就静默消失、路由状态码集合变空、比对退化成 ∅ ⊆ 任意（第 14 轮 P1 的成因）。
+echo "Running response-helper registry closure validation..."
+node tests/validate-contract-status-parity-helpers.test.mjs
+
 # 可达性门补的是 parity 门的另一半盲区：parity 门只认 requireGuestRead / requireAdmin
 # 两条 guard 白名单，ReadActor / RequireActor / LoadActor 产出的 401/503 它看不见
 # （第 14 轮 P1 就是这么变绿的）。两道门互为补集，都不许被关掉。

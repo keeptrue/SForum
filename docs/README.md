@@ -21,6 +21,7 @@ Official project documentation. Choose a language:
 | Manual Compose | [手动部署](./zh-CN/deployment/manual.md) | [Manual Compose](./en-US/deployment/manual.md) |
 | Environment & secrets | [环境变量与密钥](./zh-CN/deployment/environment.md) | [Environment & secrets](./en-US/deployment/environment.md) |
 | Deployment troubleshooting | [部署故障排查](./zh-CN/deployment/troubleshooting.md) | [Deployment troubleshooting](./en-US/deployment/troubleshooting.md) |
+| Upgrade notes | [升级注意](./zh-CN/deployment/upgrade-notes.md) | [Upgrade notes](./en-US/deployment/upgrade-notes.md) |
 | Architecture | [架构](./zh-CN/architecture.md) | [Architecture](./en-US/architecture.md) |
 | Product | [产品说明](./zh-CN/product.md) | [Product](./en-US/product.md) |
 | Extensions (tech) | [扩展参考](./extensions/) | [Extension reference](./extensions/) |

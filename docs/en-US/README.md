@@ -45,6 +45,7 @@ SForum is a maintainable, plugin-first open-source forum framework: core is the 
 - [Manual Compose deployment](./deployment/manual.md)
 - [Environment and secrets](./deployment/environment.md)
 - [Deployment troubleshooting](./deployment/troubleshooting.md)
+- [Upgrade notes](./deployment/upgrade-notes.md)
 - [Architecture](./architecture.md)
 - [Product](./product.md)
 - [Roadmap](./roadmap.md)

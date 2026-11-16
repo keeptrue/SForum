@@ -1102,6 +1102,37 @@ function checkResponseHelperRegistryShape() {
   return RESPONSE_HELPERS.size;
 }
 
+/**
+ * 数字字面量实参的常设检查：`apphttp.NewError(422, ...)` / `apphttp.Abort(403, ...)`。
+ *
+ * 背景：`Abort*` / `NewError*` 是 `*APIError` 构造器（首参是 status int，不是 fiber.Ctx），
+ * 所以不在 RESPONSE_HELPERS 里；它们的码靠调用点的 `fiber.StatusXxx` 常量被 statusesIn 看见。
+ * 这条不变量**只在常量实参下成立** —— 一旦有人写数字字面量，那个码对 statusesIn 完全不可见，
+ * 路由状态码集合会漏一个码而门不会红。
+ *
+ * 复位条件：出现第一处数字字面量实参时，把对应构造器加回 RESPONSE_HELPERS（statusArg 形态），
+ * 并同步放宽 checkResponseHelperRegistryShape 的「首参 fiber.Ctx」形状规则（给它一个
+ * 显式的 statusArg 例外标记），然后把这条检查改成「只对未登记的构造器报红」。
+ */
+function checkNumericStatusArguments() {
+  const dir = path.join(API_ROOT, 'app', 'Http');
+  if (!fs.existsSync(dir)) return 0;
+  const pattern = /apphttp\.(NewError\w*|Abort\w*)\(\s*(\d{3})\b/g;
+  let sites = 0;
+  for (const file of listGoFiles(dir)) {
+    const { masked } = scanGoSource(fs.readFileSync(file, 'utf8'));
+    for (const match of masked.matchAll(pattern)) {
+      sites += 1;
+      fail(
+        `[status-arg] ${path.relative(ROOT, file)} 用数字字面量调用了 apphttp.${match[1]}(${match[2]}, ...)：` +
+          '数字字面量实参对 statusesIn 不可见，这个状态码不会进入路由的状态码集合，门不会红。' +
+          '请改用 fiber.StatusXxx 常量；确实要用数字时，把该构造器加回 RESPONSE_HELPERS 并放宽形状规则',
+      );
+    }
+  }
+  return sites;
+}
+
 function main() {
   const started = process.hrtime.bigint();
   const refresh = process.argv.includes('--refresh');
@@ -1140,6 +1171,7 @@ function main() {
   const helperChecked = checkResponseHelperRegistry();
   const helperRegistrySize = checkResponseHelperRegistryShape();
   const headerChecked = checkResponseHeaderFields();
+  const numericStatusSites = checkNumericStatusArguments();
   // 白名单过期同样是红的：名字对不上时守卫状态码会悄悄消失，空集路由数才会又涨回去。
   for (const name of GUARD_HELPERS.keys()) {
     if (!guardHelperHits.has(name)) {
@@ -1173,6 +1205,10 @@ function main() {
   console.log(
     `[parity] header 全局存在性（header-global，非逐 operation 绑定）：实现侧 503 设置 Retry-After 的出口 ` +
       `${headerChecked} 个；共享组件 ServiceUnavailable 未声明即红`,
+  );
+  console.log(
+    `[parity] 构造器实参形态：apphttp.NewError*/Abort* 的数字字面量调用点 ${numericStatusSites} 个` +
+      '（对 statusesIn 不可见，非 0 即红）',
   );
   if (printEmptyRoutes) {
     console.log('[parity-empty-routes]');

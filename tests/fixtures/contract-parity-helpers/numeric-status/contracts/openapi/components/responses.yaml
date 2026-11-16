@@ -1,0 +1,12 @@
+ServiceUnavailable:
+  description: 依赖不可用（fixture：已声明 Retry-After，只为隔离 status-arg 那一条红）。
+  headers:
+    Retry-After:
+      description: 整秒重试间隔。
+      schema:
+        type: integer
+        minimum: 1
+  content:
+    application/json:
+      schema:
+        type: object

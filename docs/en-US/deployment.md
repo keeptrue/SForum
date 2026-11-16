@@ -264,6 +264,10 @@ images. After downloading, verify with
   the Compose pass-through boundary.
 - [Troubleshooting](./deployment/troubleshooting.md): symptoms, diagnosis,
   remediation, and the `recovery_required` recovery path.
+- [Upgrade notes](./deployment/upgrade-notes.md): changes that alter what an
+  operator has to do across a version boundary — old behaviour, new behaviour,
+  and the action to take (backup passphrase, `install-from-url` digest,
+  `raw_core` grants, the `/ready` surface, 401/503 semantics).
 
 ## After go-live checklist
 

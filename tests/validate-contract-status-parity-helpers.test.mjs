@@ -8,7 +8,10 @@
  *   2. 反例 1：在合成树里加一个「首参 fiber.Ctx 且自己产出状态码」但**未登记**的助手，
  *      门必须只红这一条（不是顺带红一堆别的），并且文案点名那个函数；
  *   3. 反例 2：实现侧设置 503 的 `Retry-After`，而共享响应组件没声明该 header，
- *      门必须只红这一条（header-global 全局存在性检查，非逐 operation 绑定）。
+ *      门必须只红这一条（header-global 全局存在性检查，非逐 operation 绑定）；
+ *   4. 反例 3：`apphttp.NewError(422, ...)` 用数字字面量——数字对 statusesIn 不可见，
+ *      门必须只红这一条（status-arg）。这条钉住「Abort* / NewError* 不收进白名单」所依赖的
+ *      不变量：所有调用点都传 `fiber.StatusXxx` 常量。
  *
  * 合成树（tests/fixtures/contract-parity-helpers/unlisted）刻意做到**单一成因**：
  * 契约、基线、guard 白名单、公开读 401 清单都配齐，只为让「未登记助手」这一条红。
@@ -27,6 +30,7 @@ const ROOT = path.resolve(SCRIPT_DIR, '..');
 const GATE = path.join(SCRIPT_DIR, 'validate-contract-status-parity.mjs');
 const FIXTURE_UNLISTED = path.join(SCRIPT_DIR, 'fixtures', 'contract-parity-helpers', 'unlisted');
 const FIXTURE_HEADER = path.join(SCRIPT_DIR, 'fixtures', 'contract-parity-helpers', 'header-missing');
+const FIXTURE_NUMERIC = path.join(SCRIPT_DIR, 'fixtures', 'contract-parity-helpers', 'numeric-status');
 
 const REQUIRED_FILES = [
   'apps/api/app/Http/responses.go',
@@ -103,6 +107,23 @@ check('header 全局存在性检查在仓库自身生效：503 组件必须声�
   const repo = runGate([]);
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   assert.match(repo.stdout, /\[parity\] header 全局存在性（header-global/);
+});
+
+check('正例：仓库自身没有数字字面量的 NewError*/Abort* 调用（构造器实参形态 0 个）', () => {
+  const repo = runGate([]);
+  assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
+  // 这条钉住「Abort*/NewError* 不在白名单里」所依赖的不变量：所有调用点都传常量。
+  assert.match(repo.stdout, /\[parity\] 构造器实参形态：apphttp\.NewError\*\/Abort\* 的数字字面量调用点 0 个/);
+});
+
+check('反例 3：数字字面量实参必须红（statusesIn 看不见它），且只红这一条', () => {
+  const fixture = runGate(['--root', FIXTURE_NUMERIC]);
+  assert.equal(fixture.status, 1, `fixture 应当红，实际退出码 ${fixture.status}\n${fixture.stdout}`);
+  const lines = failureLines(fixture.stderr);
+  assert.equal(lines.length, 1, `应当只红一条，实际 ${lines.length} 条：\n${lines.join('\n')}`);
+  assert.match(lines[0], /\[status-arg\]/);
+  assert.match(lines[0], /apphttp\.NewError\(422, \.\.\.\)/);
+  assert.match(lines[0], /RESPONSE_HELPERS/);
 });
 
 if (failures.length > 0) {

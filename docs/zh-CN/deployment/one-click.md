@@ -424,13 +424,14 @@ Worker，切换期间可能短暂同时消费队列；任务领取和重试由 R
 ## 失败语义
 
 `.deployrc` 的 `status=recovery_required` 表示旧应用已经停止、但新版本没有
-被声明为健康。`reason` 有三种：
+被声明为健康。`reason` 有四种：
 
 | `reason` | 含义 | 先做什么 |
 | --- | --- | --- |
 | `migration_failed` | 迁移失败 | 看 `./deploy.sh --action logs` 与迁移输出；修复后重试，或恢复 `backup` |
 | `startup_failed` | 迁移成功但容器没有起来 | 看 `docker compose ps` 和 API 日志；修复配置/镜像问题后重试 |
 | `health_failed` | 容器起来了但健康检查未通过 | 看 `/api/v1/ready`、`/health` 和依赖服务；修复后重试 |
+| `recovery_only` | 新 API 启动进了恢复态：只放行 `/health` 与 `/ready`，其余路径一律 503 | 这不是启动慢，等下去不会变好；修好 `/ready` 恢复块里点名的制品，再执行 `sforum extension recovery recheck` |
 
 `backup` 字段是本次部署前自动创建的备份路径。需要恢复时：
 

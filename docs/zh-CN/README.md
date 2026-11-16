@@ -84,6 +84,7 @@ SForum 是可维护、插件优先的开源论坛框架：核心做宿主与契�
 - [手动 Compose 部署](./deployment/manual.md)
 - [环境变量与密钥](./deployment/environment.md)
 - [部署故障排查](./deployment/troubleshooting.md)
+- [升级注意](./deployment/upgrade-notes.md)
 - [架构](./architecture.md)
 - [产品说明](./product.md)
 - [路线图](./roadmap.md)

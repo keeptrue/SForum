@@ -86,7 +86,14 @@ COMPOSE=(docker compose --env-file .env.production \
 3. `startup_failed`: check `docker compose ps` and the API logs; the usual causes are environment variables, volume permissions, and image tags.
 4. `health_failed`: check `http://127.0.0.1:${API_PORT}/api/v1/ready` and
    `http://127.0.0.1:${WEB_PORT}/health` separately; then confirm PostgreSQL/Redis health.
-5. If retries keep failing and the database has already been migrated, restore the pre-deployment backup instead of only rolling back the images.
+5. `recovery_only`: the API is up but booted into recovery-only mode — only
+   `/health` and `/ready` answer, every other path returns 503. This is not a slow
+   start and waiting will not help: the `recovery{code,component,message}` block
+   in `/ready` already names the artifact that failed to converge, so fix it and
+   run `sforum extension recovery recheck`; read the artifact list with
+   `sforum extension recovery list --json` (anonymous `/ready` returns a summary
+   only).
+6. If retries keep failing and the database has already been migrated, restore the pre-deployment backup instead of only rolling back the images.
 
 Restore command:
 

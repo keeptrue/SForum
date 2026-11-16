@@ -231,6 +231,9 @@ Caddy 的 `servers.trusted_proxies`，由 Caddy 剥掉 CDN 头并重算真实客
   方式、必填项、生成与轮换、Compose 透传边界。
 - [故障排查](./deployment/troubleshooting.md)：症状、判定、处置，以及
   `recovery_required` 的恢复路径。
+- [升级注意](./deployment/upgrade-notes.md)：跨版本会改变运维动作的条目——
+  旧行为、新行为、升级时要做什么（备份口令、`install-from-url` 摘要、
+  `raw_core` 授权、`/ready` 可见面、401/503 语义等）。
 
 ## 上线后清单
 
