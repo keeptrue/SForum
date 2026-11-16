@@ -74,6 +74,9 @@ for arch in amd64 arm64; do
 done
 
 deploy_listing="$(tar -tzf "$ASSET_DIR/sforum-deploy.tar.gz")"
+# backup-postgres.sh / restore-postgres.sh 的第一条 source 行就要 postgres-common.sh
+# 与 postgres-backup-format.sh；漏一个是「装完才炸」的缺口，所以这里逐个点名断言，
+# 不靠目录通配，也不依赖 bootstrap 提升清单的顺序。
 for entry in \
   "sforum-deploy/sforum-bootstrap.sh" \
   "sforum-deploy/deploy.sh" \
@@ -86,6 +89,8 @@ for entry in \
   "sforum-deploy/VERSION" \
   "sforum-deploy/deploy/scripts/configure-production.sh" \
   "sforum-deploy/deploy/scripts/backup-postgres.sh" \
+  "sforum-deploy/deploy/scripts/postgres-common.sh" \
+  "sforum-deploy/deploy/scripts/postgres-backup-format.sh" \
   "sforum-deploy/deploy/scripts/restore-postgres.sh" \
   "sforum-deploy/deploy/scripts/wait-for-health.sh" \
   "sforum-deploy/deploy/scripts/deploy-lock.sh" \

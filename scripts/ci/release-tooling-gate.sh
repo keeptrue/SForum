@@ -53,6 +53,14 @@ for script in deploy/scripts/*_test.sh; do
 		fail "deploy 测试脚本 $script 没有在本 gate 里被执行，CI 永远不会跑它"
 done
 
+# R7-OPS-01：归档、提升、source 三个集合必须一起闭合。发布包里打了、而 bootstrap 的
+# managed_files() 从不提升的文件不会让安装报错 —— 它只是安静地留在包里，直到操作员在
+# 已经"装好"的实例上第一次跑 backup/restore 才崩在 source 行上。同族缺口的另一半
+# （deploy/scripts 的 source 依赖有没有被打进归档）由 release_assets_test.sh 覆盖，
+# 这里补的是「有没有被提升到实例目录」这一侧；两支门互为补集，都不许被关掉。
+echo "Running deploy asset closure validation (archive -> promoted -> sourced libraries)..."
+./scripts/ci/validate-deploy-asset-closure.sh
+
 # RV-18：发布工具链必须三处同源——go.mod 的 go 指令、Dockerfile 的 golang 基础
 # 镜像、govulncheck 的扫描工具链。任何一处单独漂移，CI 扫的就不是我们发布的那个
 # toolchain：go1.26.10 上 govulncheck 报 1 条 called stdlib 漏洞（GO-2026-6859，
