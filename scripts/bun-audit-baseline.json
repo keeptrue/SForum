@@ -224,6 +224,12 @@
         "nuxt"
       ]
     },
+    "https://github.com/advisories/GHSA-96x6-fvhx-49hg": {
+      "severity": "moderate",
+      "packages": [
+        "nuxt"
+      ]
+    },
     "https://github.com/advisories/GHSA-97r2-qh9m-474h": {
       "severity": "high",
       "packages": [
@@ -252,6 +258,13 @@
       "severity": "high",
       "packages": [
         "browserslist"
+      ]
+    },
+    "https://github.com/advisories/GHSA-f3x9-2chm-73c8": {
+      "severity": "moderate",
+      "packages": [
+        "@nuxt/nitro-server",
+        "nuxt"
       ]
     },
     "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp": {
@@ -288,6 +301,13 @@
       "severity": "low",
       "packages": [
         "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-hf59-9xwc-2g4p": {
+      "severity": "low",
+      "packages": [
+        "@nuxt/nitro-server",
+        "nuxt"
       ]
     },
     "https://github.com/advisories/GHSA-hqq3-7jhf-c5jx": {
