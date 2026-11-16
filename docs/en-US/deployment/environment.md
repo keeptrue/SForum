@@ -116,6 +116,45 @@ To use an external Redis without a password, blank `REDIS_PASSWORD` and adjust
 `--requirepass` in `compose.yaml` at the same time; do not change only one
 side.
 
+## Optional search (Meilisearch)
+
+Site search uses the built-in PostgreSQL full-text engine by default; it needs
+neither Meilisearch nor any `MEILI_*` variable. The two entries below matter
+only when both conditions hold: the `meilisearch` service runs under
+`--profile search`, and the out-of-tree `sforum-search-meilisearch` plugin is
+installed, enabled, and selected in the `search.provider` slot.
+
+| Variable | Default/example | Notes |
+| --- | --- | --- |
+| `MEILI_MASTER_KEY` | no safe default | Meilisearch master key: the server authenticates with it and the plugin uses it to call the index API. `compose.prod.yaml` gates it with `:?`, so a missing value fails during production interpolation and the `compose.yaml` development default `sforum-dev-meili-key` can never reach a production container |
+| `MEILI_HOST` | `http://meilisearch:7700` | address the plugin uses to reach Meilisearch; the template ships it commented out because site search needs nothing here. The Host configured for the engine must point at this service |
+
+Generate the master key:
+
+```sh
+openssl rand -hex 32
+```
+
+- Use a high-entropy 64-hex value: never keep `change-me` and never reuse the
+  development `sforum-dev-meili-key`. It defines the server credential, and the
+  master key configured for the plugin must match it or every call fails
+  authentication.
+- Fresh installs get it from `deploy/scripts/configure-production.sh`; existing
+  installs have the missing key backfilled by `deploy.sh` and `upgrade.sh`
+  before the first compose call — only missing or empty keys are added and an
+  existing value is never overwritten. If you maintain `.env.production` by
+  hand, add the line yourself, otherwise expanding
+  `compose.yaml + compose.prod.yaml` fails outright.
+- Restart `meilisearch` and `api` after rotating the key: mismatched credentials
+  fail every plugin read and write, which shows up as empty search results or
+  index errors.
+
+The plugin owns the index itself (the external engine index UID is
+`sforum_topics`), independently of this key: selecting the engine and
+rebuilding the index both happen under admin Forum settings → Search, and
+rotating the key neither requires nor triggers a rebuild. See
+[Search](../usage/search.md) for the enabling steps.
+
 ## Queues and Worker
 
 The API always embeds the River Worker; there is no separate Worker switch.
