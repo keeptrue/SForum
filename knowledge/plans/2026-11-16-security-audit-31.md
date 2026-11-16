@@ -45,7 +45,7 @@
 | P3-7 | 前端信任挑战状态为进程内存表，多副本下 challenge→grant 必失败 | 属实 | 延后 | 延后 | 触发条件满足时复用持久化挑战存储；单实例部署下可延后（见「延后项」） |
 | P3-8 | `app/Support/IdentityDelegation` 整包为无生产调用方的死代码 | 属实 | 已修 · `98d4b6629` | 3 | 删除整包（−313 行）：代码/脚本/契约 `rg` 零命中，两处 module note 改写为「委派走 HostAPI + plugin_session_state_delegation」；`test-db-isolation-baseline` 同步降（`totalTests 6500→6498`、`dbPackages 136→135`）；历史 handoff 与台账行按溯源保留 |
 | P3-9 | 扩展 observe 事件 delivery 行创建与 River 入队非原子 | 属实 | 已修 · `efcf5a9f9` + `c1c47b020` + `564981186` + `d1cfab7f8`（口径改写见右） | 3 | **关闭口径已改写**：原写「同事务 或 sweeper + replay」，实测两条都不完整——事务分支生产不可达（`ManagerConfig` 无 Dispatcher/Pool），sweeper 无 replay（DDL 无 payload 列）。本轮达成的是「四失败点全回滚 + 超龄 `queued`/`running` 由 10 分钟调度收成 `failed`（判据 `updated_at`），崩溃窗口内投递不可恢复但不再留永久中途行」。replay 与生产接线转为跟进 F-6 |
-| P3-10 | TrustLevels 账本读-比-写非原子，并发重算可发出错序 / 重复事件 | 属实 | 已修 · `e3575177e` + `b2474ef23` | 3 | 账本加 `revision` 乐观锁（迁移 `202611160002`，`CHECK (revision > 0)` `NOT VALID` + `VALIDATE`，成对 Down）；CAS 冲突时**重读账本 + 重新求值**再写，重试用尽不发事件。并发用例 + 确定性反例用例双覆盖，旧实现（只重读不重算）必红 |
+| P3-10 | TrustLevels 账本读-比-写非原子，并发重算可发出错序 / 重复事件 | 属实 | 已修 · `e3575177e` + `b2474ef23` + `8b8358655` | 3 | 账本加 `revision` 乐观锁（迁移 `202611160002`，`CHECK (revision > 0)` 用 DO 块 + `pg_constraint` 存在性检查**幂等登记**、`NOT VALID` + 单独 `VALIDATE`、成对 Down）；CAS 冲突时**重读账本 + 重新求值**再写，重试用尽不发事件。并发用例 + 确定性反例用例双覆盖，旧实现（只重读不重算）必红；`IntegrationTests` 73 PASS / 0 FAIL |
 | P3-11 | CachePolicy Service 未接线，tag 索引为进程内内存 | 属实 | 延后 | 延后 | 首次有调用方按 tag 失效前必须先改 Redis generation 方案（见「延后项」） |
 | P3-12 | 公告横幅与管理端公告预览的 v-html 未接前端二次净化 | 部分属实 | 已修 · `0d1dc4eb6` + 棘轮 `f73419157` / `423e0db79` / `85045fbe0` | 3 | 两处包 `sanitizeHtml()`；同批收口其余未净化 v-html（偏差第 4 条） |
 | P3-13 | Admin Surface 插件输出 `view.download.url` 直接进 `window.location.assign` 与 `<a href>` | 不属实 | 不修 | — | 无需动作：`normalizeDownload`（`apps/web/app/utils/admin/adminSurfaces.ts:359-364`）已强制同源绝对路径，拒绝 `//`、反斜杠与控制字符 |
@@ -107,6 +107,8 @@
 8. **「修了一条生产上不可达的路径」——P3-9 的原子化分支生产永不执行。** 第一版把 `CreateEventDelivery` 与 `Enqueue` 合进事务，实现与测试都对；但 `bootstrap/app.go:73` 与 `bootstrap/worker.go:344` 的 `ManagerConfig` 只有 `Starter` + `DeliveryStore`，**没有 Dispatcher、没有 Pool**，`emitObserve` 永远走 in-process 分支，而那条分支仍会留永久 `queued` 孤儿行且无 sweeper。**教训：动手前先证明要修的分支在生产可达（`rg` 一遍装配点）；否则你只是给测试修了个 bug。** 返工补了 stale sweeper（复用既有 `coreScheduleConstructors`，无新 goroutine/ticker），并把「replay 需 payload 列」转成跟进 F-4。
 
 9. **手工清单类 tripwire 连续漂移两次（路由计数 421→423→428→433→435→437、调度清单 10→12）。** 两处的期望值都是硬编码，每次新增成员都要人肉记得改，于是上一会话两次漏改把基线弄红。**修法不是补数字，而是消除手工镜像**：路由侧改成三份产物互比（条数 + `method path id contractVersion` 身份键），调度侧把 `Models/Jobs` 换成属性断言（`Schedules()` 集合 == 注册表 `Views()` 集合）、只保留 `Support/Jobs` 一处手写闸口。**教训：同一份成员表存在两处，就一定会漂移；tripwire 要保留（它是审查信号），镜像要消灭。**
+
+10. **「迁移在 schema 隔离测试里会被重复应用」——P3-10 的 `ADD CONSTRAINT` 把 3 条集成测试弄红。** 新迁移 `202611160002` 沿用 `202611140002` 的写法，把表钉在 `public.user_trust_levels`；schema 隔离的集成测试会把整条链反复应用到同一个 public 表。`ADD COLUMN IF NOT EXISTS` 天然幂等，而 **PG 没有 `ADD CONSTRAINT IF NOT EXISTS`** → 第二次应用报 `SQLSTATE 42710`，`IntegrationTests` 70 PASS / 3 FAIL（基线 73）。这个洞是 Lead 用 `--coverage-only` 全仓门抓到的，不是任何单包测试。**修法**：约束改 `DO $$ ... IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = … AND conrelid = …) THEN ADD CONSTRAINT … NOT VALID; END IF; $$`，`VALIDATE` 留在块外（对已验证约束重复执行安全）；不要用 `DROP CONSTRAINT IF EXISTS` 前置（会在真库短暂移除约束）。**教训：钉在 `public` 的表，其 DDL 必须整条可重放——列用 `IF NOT EXISTS`、约束用存在性检查；判定同类迁移（`202611150001` 的 `moderation_reports` 不钉 public，随 search_path 落隔离 schema，故无此风险）。**
 
 ## 修复批次
 
