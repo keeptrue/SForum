@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
@@ -650,6 +652,11 @@ func versionedHookExtension(id, digest string, hook extensions.ManifestHook) ext
 type recordingEventDispatcher struct{ items []EventDeliveryArgs }
 
 func (d *recordingEventDispatcher) Enqueue(_ context.Context, args EventDeliveryArgs, _ supportjobs.EnqueueOptions) error {
+	d.items = append(d.items, args)
+	return nil
+}
+
+func (d *recordingEventDispatcher) EnqueueTx(_ context.Context, _ pgx.Tx, args EventDeliveryArgs, _ supportjobs.EnqueueOptions) error {
 	d.items = append(d.items, args)
 	return nil
 }

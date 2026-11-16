@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 )
@@ -349,6 +351,16 @@ type fakeDeliveryStore struct {
 }
 
 func (s *fakeDeliveryStore) CreateEventDelivery(_ context.Context, input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error) {
+	return s.createEventDelivery(input)
+}
+
+// CreateEventDeliveryTx 复用同一份 fake 状态；fake 不模拟事务回滚，
+// 事务语义由 manager_event_delivery_test.go 的 txAwareDeliveryStore 覆盖。
+func (s *fakeDeliveryStore) CreateEventDeliveryTx(_ context.Context, _ pgx.Tx, input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error) {
+	return s.createEventDelivery(input)
+}
+
+func (s *fakeDeliveryStore) createEventDelivery(input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error) {
 	delivery := extensions.ExtensionEventDelivery{
 		ID:            int64(len(s.deliveries) + 1),
 		ExtensionID:   input.ExtensionID,

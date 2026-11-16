@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	identity "github.com/keeptrue/sforum/apps/api/app/Models/Identity"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	themecompiler "github.com/keeptrue/sforum/apps/api/app/Support/ThemeCompiler"
@@ -2859,6 +2861,16 @@ func (s *fakeExtensionStore) RecordMigration(_ context.Context, extensionID stri
 }
 
 func (s *fakeExtensionStore) CreateEventDelivery(_ context.Context, input EventDeliveryInput) (ExtensionEventDelivery, error) {
+	return s.createEventDelivery(input)
+}
+
+// CreateEventDeliveryTx 与 CreateEventDelivery 共用同一份 fake 状态：
+// fake 不模拟事务回滚，事务语义由 Support/Extensions 的用例覆盖。
+func (s *fakeExtensionStore) CreateEventDeliveryTx(_ context.Context, _ pgx.Tx, input EventDeliveryInput) (ExtensionEventDelivery, error) {
+	return s.createEventDelivery(input)
+}
+
+func (s *fakeExtensionStore) createEventDelivery(input EventDeliveryInput) (ExtensionEventDelivery, error) {
 	delivery := ExtensionEventDelivery{
 		ID:            int64(len(s.deliveries) + 1),
 		ExtensionID:   input.ExtensionID,

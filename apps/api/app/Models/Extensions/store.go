@@ -2,6 +2,8 @@ package extensions
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type BuiltinPruneResult struct {
@@ -34,6 +36,8 @@ type Store interface {
 	ListMigrationLedger(ctx context.Context, extensionID string) ([]MigrationRecord, error)
 	RecordMigration(ctx context.Context, extensionID string, record MigrationRecord) error
 	CreateEventDelivery(ctx context.Context, input EventDeliveryInput) (ExtensionEventDelivery, error)
+	// CreateEventDeliveryTx 在调用方事务里写投递行，供 observe 投递原子入队（P3-9）。
+	CreateEventDeliveryTx(ctx context.Context, tx pgx.Tx, input EventDeliveryInput) (ExtensionEventDelivery, error)
 	UpdateEventDelivery(ctx context.Context, input EventDeliveryUpdateInput) error
 	ListEventDeliveries(ctx context.Context, input EventDeliveryListInput) ([]ExtensionEventDelivery, error)
 }

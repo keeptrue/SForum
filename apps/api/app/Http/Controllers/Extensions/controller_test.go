@@ -20,6 +20,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/jackc/pgx/v5"
 
 	apphttp "github.com/keeptrue/sforum/apps/api/app/Http"
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
@@ -1689,6 +1690,15 @@ func (s *controllerFakeStore) RecordMigration(context.Context, string, extension
 }
 
 func (s *controllerFakeStore) CreateEventDelivery(_ context.Context, input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error) {
+	return s.createEventDelivery(input)
+}
+
+// CreateEventDeliveryTx 复用同一份 fake 状态；fake 不模拟事务回滚。
+func (s *controllerFakeStore) CreateEventDeliveryTx(_ context.Context, _ pgx.Tx, input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error) {
+	return s.createEventDelivery(input)
+}
+
+func (s *controllerFakeStore) createEventDelivery(input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error) {
 	delivery := extensions.ExtensionEventDelivery{
 		ID:            int64(len(s.deliveries) + 1),
 		ExtensionID:   input.ExtensionID,

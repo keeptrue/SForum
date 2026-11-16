@@ -785,12 +785,26 @@ func (s *PostgresStore) ResetSettings(ctx context.Context, extensionID string) e
 }
 
 func (s *PostgresStore) CreateEventDelivery(ctx context.Context, input EventDeliveryInput) (ExtensionEventDelivery, error) {
+	return createEventDelivery(ctx, s.pool, input)
+}
+
+// CreateEventDeliveryTx 在调用方事务里写投递行；SQL 与 CreateEventDelivery 完全同一份，
+// 差别只有执行者（事务 vs 连接池）。
+func (s *PostgresStore) CreateEventDeliveryTx(ctx context.Context, tx pgx.Tx, input EventDeliveryInput) (ExtensionEventDelivery, error) {
+	return createEventDelivery(ctx, tx, input)
+}
+
+type eventDeliveryQueryer interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func createEventDelivery(ctx context.Context, queryer eventDeliveryQueryer, input EventDeliveryInput) (ExtensionEventDelivery, error) {
 	status := input.Status
 	if status == "" {
 		status = DeliveryQueued
 	}
 	var delivery ExtensionEventDelivery
-	err := s.pool.QueryRow(ctx, `
+	err := queryer.QueryRow(ctx, `
 		INSERT INTO extension_event_deliveries
 		  (extension_id, event_name, event_kind, status, reason, message, correlation_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)

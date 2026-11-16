@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
@@ -32,6 +34,10 @@ type ManagerConfig struct {
 	HookBus       *HookBus
 	DeliveryStore DeliveryStore
 	Dispatcher    EventDispatcher
+	// Pool 提供 observe 投递的事务边界（P3-9）。Dispatcher 与 DeliveryStore
+	// 同时存在时必须配置，否则事件投递会以 extension.delivery_atomic_unavailable
+	// 失败——宁可显式报错，也不退回「建行/入队两次独立往返」的崩溃窗口。
+	Pool TxBeginner
 	// Resilience 可选；nil 使用默认 F2.3 参数。
 	Resilience ResilienceConfig
 	Activation *extensions.ActivationCoordinator
@@ -54,6 +60,7 @@ type runtimeEventsProviderState struct {
 	hooks              *HookBus
 	deliveryStore      DeliveryStore
 	dispatcher         EventDispatcher
+	txBeginner         TxBeginner
 	resilience         *resilienceHub
 	providerSelections *ProviderSlotSelectionAPI
 }
@@ -137,11 +144,21 @@ func (m *managerCore) prepareRuntimeStart(ctx context.Context, extension extensi
 
 type DeliveryStore interface {
 	CreateEventDelivery(ctx context.Context, input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error)
+	// CreateEventDeliveryTx 在调用方事务里建投递行，供「建行 + 入队」原子化。
+	CreateEventDeliveryTx(ctx context.Context, tx pgx.Tx, input extensions.EventDeliveryInput) (extensions.ExtensionEventDelivery, error)
 	UpdateEventDelivery(ctx context.Context, input extensions.EventDeliveryUpdateInput) error
 }
 
 type EventDispatcher interface {
 	Enqueue(ctx context.Context, args EventDeliveryArgs, opts supportjobs.EnqueueOptions) error
+	// EnqueueTx 在调用方事务里入队；幂等口径与 Enqueue 完全一致
+	// （同一 EnqueueOptions，River Unique.ByArgs 仍然生效）。
+	EnqueueTx(ctx context.Context, tx pgx.Tx, args EventDeliveryArgs, opts supportjobs.EnqueueOptions) error
+}
+
+// TxBeginner 只暴露 observe 投递需要的事务起点能力；*pgxpool.Pool 满足它。
+type TxBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
 func NewManager(config ManagerConfig) *Manager {
@@ -176,6 +193,7 @@ func NewManager(config ManagerConfig) *Manager {
 		hooks:         hooks,
 		deliveryStore: config.DeliveryStore,
 		dispatcher:    config.Dispatcher,
+		txBeginner:    config.Pool,
 		resilience:    newResilienceHub(config.Resilience),
 	}
 	manager := &Manager{managerCore: &managerCore{
@@ -629,45 +647,6 @@ func (m *RuntimeEventsProviders) Deliver(ctx context.Context, extensionID string
 	return result
 }
 
-func (m *managerCore) emitObserve(ctx context.Context, envelope appevents.Envelope) appevents.Result {
-	listeners := m.hooks.Listeners(envelope.Name)
-	for _, listener := range listeners {
-		deliveryID := int64(0)
-		if m.deliveryStore != nil {
-			delivery, err := m.deliveryStore.CreateEventDelivery(ctx, extensions.EventDeliveryInput{
-				ExtensionID:   listener.ID,
-				EventName:     envelope.Name,
-				EventKind:     envelope.Kind,
-				Status:        extensions.DeliveryQueued,
-				CorrelationID: envelope.CorrelationID,
-			})
-			if err != nil {
-				return appevents.Result{OK: false, Reason: "extension.delivery_record_failed", Message: err.Error()}
-			}
-			deliveryID = delivery.ID
-		}
-		args := EventDeliveryArgs{
-			DeliveryID:    deliveryID,
-			ExtensionID:   listener.ID,
-			EventName:     envelope.Name,
-			EventKind:     envelope.Kind,
-			CorrelationID: envelope.CorrelationID,
-			Payload:       envelope.Payload,
-			PatchFields:   envelope.PatchFields,
-		}
-		if m.dispatcher != nil {
-			if err := m.dispatcher.Enqueue(ctx, args, args.EnqueueOptions()); err != nil {
-				result := appevents.Result{OK: false, Reason: "extension.delivery_enqueue_failed", Message: err.Error()}
-				m.finishDelivery(ctx, deliveryID, extensions.DeliveryFailed, result, 0)
-				return result
-			}
-			continue
-		}
-		m.host.Deliver(ctx, listener.ID, deliveryID, envelope)
-	}
-	return appevents.Result{OK: true}
-}
-
 func (m *managerCore) emitSync(ctx context.Context, envelope appevents.Envelope) appevents.Result {
 	definition, _ := appevents.FindDefinition(envelope.Name)
 	failOpen := definition.FailurePolicy == appevents.FailurePolicyFailOpen
@@ -711,23 +690,6 @@ func (m *managerCore) emitSync(ctx context.Context, envelope appevents.Envelope)
 		}
 	}
 	return result
-}
-
-func (m *managerCore) beginSyncDelivery(ctx context.Context, extensionID string, envelope appevents.Envelope) int64 {
-	if m.deliveryStore == nil {
-		return 0
-	}
-	delivery, err := m.deliveryStore.CreateEventDelivery(ctx, extensions.EventDeliveryInput{
-		ExtensionID:   extensionID,
-		EventName:     envelope.Name,
-		EventKind:     envelope.Kind,
-		Status:        extensions.DeliveryRunning,
-		CorrelationID: envelope.CorrelationID,
-	})
-	if err != nil {
-		return 0
-	}
-	return delivery.ID
 }
 
 // annotateSlowOrTimeout 把超时与慢调用映射到稳定 reason，方便事件日志筛选。
