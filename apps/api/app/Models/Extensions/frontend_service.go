@@ -163,6 +163,10 @@ func (s *FrontendService) Challenge(ctx context.Context, actor identity.Actor, e
 		if errors.Is(err, frontendtrust.ErrStoreUnavailable) {
 			return FrontendTrustChallenge{}, fmt.Errorf("%w: %w", ErrFrontendChallengeUnavailable, err)
 		}
+		// 剩下的是 frontendtrust.ErrInvalidChallengeInput：服务端自己造出来的字段
+		// （扩展版本为空、admin 前端摘要不是 64 位 hex 等）不合法。它不是「存储不可用」，
+		// 也不是「挑战无效」，所以原样上抛 → controller 无匹配 case → 500。
+		// **500 是有意的**：这是数据损坏，不该伪装成用户可重试的 4xx。
 		return FrontendTrustChallenge{}, err
 	}
 	return challenge, nil
