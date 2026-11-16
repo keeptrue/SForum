@@ -17,9 +17,11 @@ trap cleanup EXIT
   --root "$ROOT_DIR" \
   --output "$TEMP_DIR/.env.production" >/dev/null
 
+# 默认值用例显式剔除 SFORUM_REGISTRY：开发机上导出过它的人会看到一条与提交无关的
+# 红，而这条断言要钉的是「不设覆盖值时仓库里的默认仓库是什么」。
 SFORUM_BLUE_VERSION=v3.0.0-alpha.10 \
 SFORUM_GREEN_VERSION=v3.0.0-alpha.11 \
-docker compose \
+env -u SFORUM_REGISTRY docker compose \
   --env-file "$TEMP_DIR/.env.production" \
   -f "$ROOT_DIR/compose.yaml" \
   -f "$ROOT_DIR/compose.prod.yaml" \
@@ -71,6 +73,25 @@ ruby -rjson -e '
 # R7-OPS-06：槽位镜像必须和 compose.release.yaml 同口径地读 SFORUM_REGISTRY。
 # 硬编码 ghcr.io/keeptrue 时，私有 registry 的部署会出现「upgrade.sh 拉得到目标
 # 镜像、edge 背后的槽位却指向别处」——两边各自以为自己拉的是同一个版本。
+
+# 默认值用例要真的走到 `${SFORUM_REGISTRY:-ghcr.io/keeptrue}` 的默认分支，所以
+# 既剔除开发机导出的 SFORUM_REGISTRY，也要用一份**没有这一行**的 env 文件：
+# configure-production.sh 默认就会写 SFORUM_REGISTRY=ghcr.io/keeptrue，只要它还在，
+# 默认分支永远不会被求值，四份镜像的默认断言就成了摆设（变异验证证实过：把
+# web-green 的默认仓库改成 ghcr.io/other，带这一行的解析结果完全不变）。
+grep -v '^SFORUM_REGISTRY=' "$TEMP_DIR/.env.production" > "$TEMP_DIR/.env.no-registry"
+
+SFORUM_BLUE_VERSION=v3.0.0-alpha.10 \
+SFORUM_GREEN_VERSION=v3.0.0-alpha.11 \
+env -u SFORUM_REGISTRY docker compose \
+  --env-file "$TEMP_DIR/.env.no-registry" \
+  -f "$ROOT_DIR/compose.yaml" \
+  -f "$ROOT_DIR/compose.prod.yaml" \
+  -f "$ROOT_DIR/compose.release.yaml" \
+  -f "$ROOT_DIR/compose.zero-downtime.yaml" \
+  --profile zero-downtime \
+  config --format json > "$TEMP_DIR/compose-default.json"
+
 SFORUM_REGISTRY=registry.internal/sforum \
 SFORUM_BLUE_VERSION=v3.0.0-alpha.10 \
 SFORUM_GREEN_VERSION=v3.0.0-alpha.11 \
@@ -97,12 +118,20 @@ ruby -rjson -e '
     abort "R7-OPS-06: #{name} ignores SFORUM_REGISTRY: #{actual.inspect} (expected #{image})" unless actual == image
   end
 
-  # 默认值同样是契约：不设覆盖值时槽位必须仍然指向 ghcr.io/keeptrue，否则改镜像
-  # 仓库这件事会在默认路径上悄悄发生。
+  # 默认值同样是契约，而且四份镜像都要查：不设覆盖值时槽位必须仍然指向
+  # ghcr.io/keeptrue，否则改镜像仓库这件事会在默认路径上悄悄发生 —— 只查 api-blue
+  # 会放过「另外三份被改到别的仓库」。
   defaults = JSON.parse(File.read(ARGV.fetch(1))).fetch("services")
-  abort "R7-OPS-06: default registry drifted: #{defaults.dig("api-blue", "image").inspect}" unless \
-    defaults.dig("api-blue", "image") == "ghcr.io/keeptrue/sforum-api:v3.0.0-alpha.10"
-' "$TEMP_DIR/compose-registry.json" "$TEMP_DIR/compose.json"
+  {
+    "api-blue" => "ghcr.io/keeptrue/sforum-api:v3.0.0-alpha.10",
+    "web-blue" => "ghcr.io/keeptrue/sforum-web:v3.0.0-alpha.10",
+    "api-green" => "ghcr.io/keeptrue/sforum-api:v3.0.0-alpha.11",
+    "web-green" => "ghcr.io/keeptrue/sforum-web:v3.0.0-alpha.11"
+  }.each do |name, image|
+    actual = defaults.fetch(name).fetch("image")
+    abort "R7-OPS-06: default registry drifted for #{name}: #{actual.inspect} (expected #{image})" unless actual == image
+  end
+' "$TEMP_DIR/compose-registry.json" "$TEMP_DIR/compose-default.json"
 
 # RV-43：edge 镜像必须按 digest 固定，且与 upgrade.sh 的常量逐字一致；否则两处
 # 任一漂移都会让「拉取的身份」和「运行的身份」不是同一个东西。
