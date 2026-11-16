@@ -977,7 +977,7 @@ grep -qF "wait-for-health.sh \"http://127.0.0.1:\${web_port}/health\"" "$ROOT_DI
 grep -q 'chmod 600 .env.production' "$ROOT_DIR/deploy.sh" || fail "deploy does not protect production configuration"
 # 探针三态必须被 deploy.sh 消费：恢复态写 reason=recovery_only，超时写 health_failed。
 # 两者都仍是 status=recovery_required，区别只在「运维下一步做什么」。
-grep -qF 'verify_deployment_health "$backup_file" "$previous_version"' "$ROOT_DIR/deploy.sh" || \
+grep -qF "verify_deployment_health \"\$backup_file\" \"\$previous_version\"" "$ROOT_DIR/deploy.sh" || \
   fail "deploy does not route the probe status into the recovery reason"
 grep -qF 'persist_recovery_state recovery_only' "$ROOT_DIR/deploy.sh" || \
   fail "deploy does not record the recovery-only reason"

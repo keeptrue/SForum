@@ -1,6 +1,482 @@
 {
   "version": 1,
-  "status": "unseeded",
+  "status": "seeded",
   "generatedBy": "node scripts/bun-audit-gate.mjs --refresh",
-  "advisories": {}
+  "advisories": {
+    "https://github.com/advisories/GHSA-238p-pmpm-9mq7": {
+      "severity": "low",
+      "packages": [
+        "katex"
+      ]
+    },
+    "https://github.com/advisories/GHSA-279x-mwfv-vcqv": {
+      "severity": "critical",
+      "packages": [
+        "@nuxt/devtools"
+      ]
+    },
+    "https://github.com/advisories/GHSA-2883-xcg3-v3hh": {
+      "severity": "high",
+      "packages": [
+        "js-yaml"
+      ]
+    },
+    "https://github.com/advisories/GHSA-28wg-ghj8-5hjv": {
+      "severity": "high",
+      "packages": [
+        "nanoid"
+      ]
+    },
+    "https://github.com/advisories/GHSA-2v37-7h3g-55p8": {
+      "severity": "high",
+      "packages": [
+        "nanoid"
+      ]
+    },
+    "https://github.com/advisories/GHSA-2vgq-wchc-25w7": {
+      "severity": "low",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4": {
+      "severity": "moderate",
+      "packages": [
+        "glob"
+      ]
+    },
+    "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp": {
+      "severity": "high",
+      "packages": [
+        "brace-expansion"
+      ]
+    },
+    "https://github.com/advisories/GHSA-4487-j8r4-4g2f": {
+      "severity": "low",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-4642-5mcj-2rqw": {
+      "severity": "low",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-474x-hrwr-fgx4": {
+      "severity": "low",
+      "packages": [
+        "fast-xml-parser"
+      ]
+    },
+    "https://github.com/advisories/GHSA-48hr-524c-v5w3": {
+      "severity": "moderate",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-4vpr-x523-8j87": {
+      "severity": "moderate",
+      "packages": [
+        "svgo"
+      ]
+    },
+    "https://github.com/advisories/GHSA-525v-9gp9-w22h": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-587h-7wmj-h5pm": {
+      "severity": "high",
+      "packages": [
+        "launch-editor",
+        "vite"
+      ]
+    },
+    "https://github.com/advisories/GHSA-5cwg-6vw7-rj6p": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq": {
+      "severity": "high",
+      "packages": [
+        "image-size"
+      ]
+    },
+    "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj": {
+      "severity": "high",
+      "packages": [
+        "js-yaml"
+      ]
+    },
+    "https://github.com/advisories/GHSA-5x38-2vff-x55p": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-648h-gw55-m2g7": {
+      "severity": "moderate",
+      "packages": [
+        "@nuxt/vite-builder"
+      ]
+    },
+    "https://github.com/advisories/GHSA-6889-vf6x-f3g5": {
+      "severity": "low",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-698v-4r3x-3vcv": {
+      "severity": "moderate",
+      "packages": [
+        "launch-editor",
+        "vite"
+      ]
+    },
+    "https://github.com/advisories/GHSA-6cv4-p8m7-4r25": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p": {
+      "severity": "high",
+      "packages": [
+        "brace-expansion"
+      ]
+    },
+    "https://github.com/advisories/GHSA-6qrw-m8cv-hcxf": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-6wvx-3r32-xmcg": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-73wf-gq98-2v4g": {
+      "severity": "high",
+      "packages": [
+        "browserslist"
+      ]
+    },
+    "https://github.com/advisories/GHSA-7c4v-fwgw-9rf7": {
+      "severity": "moderate",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-7rv5-mrxv-xcr9": {
+      "severity": "high",
+      "packages": [
+        "seroval"
+      ]
+    },
+    "https://github.com/advisories/GHSA-7wch-p9px-956x": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-83rm-6c8r-g728": {
+      "severity": "high",
+      "packages": [
+        "@intlify/core-base",
+        "@intlify/shared",
+        "vue-i18n"
+      ]
+    },
+    "https://github.com/advisories/GHSA-858h-whjf-mvg5": {
+      "severity": "high",
+      "packages": [
+        "simple-git"
+      ]
+    },
+    "https://github.com/advisories/GHSA-86w9-cpqp-85rv": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-8hrf-8g6f-7xwp": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-8rc2-428q-7ww3": {
+      "severity": "low",
+      "packages": [
+        "@intlify/core-base",
+        "vue-i18n"
+      ]
+    },
+    "https://github.com/advisories/GHSA-9473-5f9j-94wq": {
+      "severity": "high",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-97r2-qh9m-474h": {
+      "severity": "high",
+      "packages": [
+        "seroval"
+      ]
+    },
+    "https://github.com/advisories/GHSA-9jrq-w75r-8gcw": {
+      "severity": "low",
+      "packages": [
+        "vite"
+      ]
+    },
+    "https://github.com/advisories/GHSA-9pgf-384g-p7mv": {
+      "severity": "high",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-9wg5-mj3p-v49q": {
+      "severity": "low",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-c83g-rgw3-j3cx": {
+      "severity": "high",
+      "packages": [
+        "browserslist"
+      ]
+    },
+    "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp": {
+      "severity": "moderate",
+      "packages": [
+        "postcss"
+      ]
+    },
+    "https://github.com/advisories/GHSA-g3hv-75wg-m249": {
+      "severity": "moderate",
+      "packages": [
+        "minimatch"
+      ]
+    },
+    "https://github.com/advisories/GHSA-g4wm-2vf7-vfgr": {
+      "severity": "high",
+      "packages": [
+        "simple-git"
+      ]
+    },
+    "https://github.com/advisories/GHSA-gcqx-w48m-w2h4": {
+      "severity": "low",
+      "packages": [
+        "deepmerge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-h46v-rmh6-fq4f": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-h6cr-wjv9-3cpp": {
+      "severity": "low",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-hqq3-7jhf-c5jx": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-hxcr-hm88-mpq6": {
+      "severity": "high",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-hxvh-4h3w-prp9": {
+      "severity": "high",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-j8rw-jp99-435v": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-jc66-7q78-782g": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-jjm6-p2m9-9w4x": {
+      "severity": "low",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-jp82-f5mq-hwhp": {
+      "severity": "high",
+      "packages": [
+        "seroval"
+      ]
+    },
+    "https://github.com/advisories/GHSA-m5mm-p8h7-m29v": {
+      "severity": "low",
+      "packages": [
+        "serialize-javascript"
+      ]
+    },
+    "https://github.com/advisories/GHSA-mh99-v99m-4gvg": {
+      "severity": "high",
+      "packages": [
+        "brace-expansion"
+      ]
+    },
+    "https://github.com/advisories/GHSA-mjrq-cffv-q4qc": {
+      "severity": "moderate",
+      "packages": [
+        "@nuxt/schema"
+      ]
+    },
+    "https://github.com/advisories/GHSA-p6vx-979v-rg4c": {
+      "severity": "critical",
+      "packages": [
+        "seroval"
+      ]
+    },
+    "https://github.com/advisories/GHSA-pqg4-j6r4-53mv": {
+      "severity": "critical",
+      "packages": [
+        "shell-quote"
+      ]
+    },
+    "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr": {
+      "severity": "moderate",
+      "packages": [
+        "brace-expansion"
+      ]
+    },
+    "https://github.com/advisories/GHSA-qhr7-859c-m2p7": {
+      "severity": "high",
+      "packages": [
+        "brace-expansion"
+      ]
+    },
+    "https://github.com/advisories/GHSA-r28c-9q8g-f849": {
+      "severity": "high",
+      "packages": [
+        "postcss"
+      ]
+    },
+    "https://github.com/advisories/GHSA-r292-9mhp-454m": {
+      "severity": "high",
+      "packages": [
+        "tar"
+      ]
+    },
+    "https://github.com/advisories/GHSA-r825-w8mm-5pxw": {
+      "severity": "moderate",
+      "packages": [
+        "launch-editor",
+        "vite"
+      ]
+    },
+    "https://github.com/advisories/GHSA-rgw5-rvv9-x895": {
+      "severity": "high",
+      "packages": [
+        "brace-expansion"
+      ]
+    },
+    "https://github.com/advisories/GHSA-rhr8-3pm8-cq29": {
+      "severity": "high",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-rj75-hqrm-r3gf": {
+      "severity": "moderate",
+      "packages": [
+        "postcss-selector-parser"
+      ]
+    },
+    "https://github.com/advisories/GHSA-rq7h-c2jc-7f22": {
+      "severity": "moderate",
+      "packages": [
+        "vite"
+      ]
+    },
+    "https://github.com/advisories/GHSA-v5rq-49vh-5v5c": {
+      "severity": "critical",
+      "packages": [
+        "@simple-git/argv-parser"
+      ]
+    },
+    "https://github.com/advisories/GHSA-vjh5-4x84-xrqp": {
+      "severity": "moderate",
+      "packages": [
+        "@nuxt/nitro-server",
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-w27v-7q3p-w38r": {
+      "severity": "high",
+      "packages": [
+        "svgo"
+      ]
+    },
+    "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr": {
+      "severity": "high",
+      "packages": [
+        "image-size"
+      ]
+    },
+    "https://github.com/advisories/GHSA-w4xr-hqv8-ch44": {
+      "severity": "moderate",
+      "packages": [
+        "node-forge"
+      ]
+    },
+    "https://github.com/advisories/GHSA-w5vr-8v7q-w6rv": {
+      "severity": "moderate",
+      "packages": [
+        "baseline-browser-mapping"
+      ]
+    },
+    "https://github.com/advisories/GHSA-wm8w-6qjm-cv43": {
+      "severity": "high",
+      "packages": [
+        "nuxt"
+      ]
+    },
+    "https://github.com/advisories/GHSA-wp97-x4hv-qvhp": {
+      "severity": "high",
+      "packages": [
+        "seroval"
+      ]
+    },
+    "https://github.com/advisories/GHSA-x6jw-m9v5-85vh": {
+      "severity": "critical",
+      "packages": [
+        "simple-git"
+      ]
+    },
+    "https://github.com/advisories/GHSA-xfq5-w38q-pc2x": {
+      "severity": "moderate",
+      "packages": [
+        "nuxt"
+      ]
+    }
+  }
 }
