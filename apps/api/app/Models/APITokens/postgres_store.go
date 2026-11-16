@@ -22,6 +22,9 @@ import (
 // 分钟级精度足够。会话侧取 1h 是因为 last_seen_at 会被「我的设备」列表直接
 // 展示给人看，粗粒度会让人以为设备刚刚活跃；PAT 没有这个展示需求，反而更细
 // 的刷新能在排障时更快暴露一条被遗弃的令牌。
+//
+// 边界语义：SQL 用的是严格小于（`<`），所以「距上次写入恰好等于阈值」不写 ——
+// 阈值是写间隔的下界，不是「到点必写」的触发器。
 const lastUsedThrottle = time.Minute
 
 type PostgresStore struct {
@@ -106,6 +109,8 @@ WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL`, id, userID, RevokeReasonSelf
 }
 
 // TouchLastUsed 在时间条件命中时才刷新 last_used_at（节流见 lastUsedThrottle）。
+//
+// 条件是严格小于：距上次写入恰好等于阈值时不写，只有严格超过阈值才刷新。
 //
 // 判定与写入是同一条语句，所以没有「先读后写」的窗口，也不需要事务：
 //   - 条件不命中（距上次写入不足阈值）时 Postgres 不产生新元组版本，也不持有

@@ -15,7 +15,8 @@ import (
 //
 // 变异要求：删掉 TouchLastUsed 里的
 // `AND (last_used_at IS NULL OR last_used_at < now() - $2 * interval '1 second')`
-// 之后，「second auth within window does not rewrite」必须红。
+// 之后，「second auth within window does not rewrite」必须红；边界用例里的
+// 「阈值 +1s 必不写」也一并红（它同样是节流条件在守的那条线）。
 func TestTouchLastUsedThrottlePostgres(t *testing.T) {
 	// 阈值是对外可见的运维语义（「这条令牌最近一分钟内用过吗」），不是实现细节：
 	// 改动它必须让这条断言跟着红，逼调用方重新评估写放大与运维可读性。
@@ -95,6 +96,63 @@ func TestTouchLastUsedThrottlePostgres(t *testing.T) {
 		if second == nil || !second.Equal(*first) {
 			t.Fatalf("首次写入后的第二次鉴权又写了一次：first=%s second=%s",
 				formatTimestamp(first), formatTimestamp(second))
+		}
+	})
+
+	// ④ 边界：阈值是严格下界（`<`，不是 `<=`）。
+	//
+	// 为什么不直接断言「恰好等于阈值时不写」：种子语句和鉴权语句各自是一个隐式
+	// 事务，now() 是各自的事务时间戳，两条语句之间必然前进（一次网络往返 ≫ 1µs）。
+	// 所以按 now() - 阈值 预置的值，到鉴权语句执行时已经严格小于阈值了 —— 它落在
+	// 「写」的一侧，跨语句根本构造不出等值。等值只在同一事务/同一语句内成立，而
+	// PostgresStore 绑定的是连接池、无法把种子与鉴权塞进同一事务，因此这里退一步
+	// 断言两侧：阈值 -1s 必写、阈值 +1s 必不写；第三条断言把「跨语句的等值预置必然
+	// 过期」这个事实固定下来，避免后来者误以为等值行为没有覆盖。
+	t.Run("threshold is a strict lower bound", func(t *testing.T) {
+		// 阈值 -1s（61 秒前）：严格超过阈值 → 必写。
+		pastUser := fixture.insertUser(t, "pat_throttle_boundary_past")
+		pastToken := fixture.createToken(t, pastUser, "ci-throttle-boundary-past")
+		pastSeeded := time.Now().UTC().Add(-lastUsedThrottle - time.Second).Truncate(time.Microsecond)
+		seedLastUsedAt(t, fixture, pastToken.Token.ID, pastSeeded)
+		if _, err := fixture.service(pastUser).AuthenticatePlaintext(ctx, pastToken.Plaintext); err != nil {
+			t.Fatalf("鉴权（阈值 -1s）: %v", err)
+		}
+		if got := loadLastUsedAt(t, fixture, pastToken.Token.ID); got == nil || !got.After(pastSeeded) {
+			t.Fatalf("阈值 -1s 严格超过阈值，必须写：got=%s seeded=%s",
+				formatTimestamp(got), formatTimestamp(&pastSeeded))
+		}
+
+		// 阈值 +1s（59 秒前）：仍在窗口内 → 必不写。
+		insideUser := fixture.insertUser(t, "pat_throttle_boundary_inside")
+		insideToken := fixture.createToken(t, insideUser, "ci-throttle-boundary-inside")
+		insideSeeded := time.Now().UTC().Add(-lastUsedThrottle + time.Second).Truncate(time.Microsecond)
+		seedLastUsedAt(t, fixture, insideToken.Token.ID, insideSeeded)
+		if _, err := fixture.service(insideUser).AuthenticatePlaintext(ctx, insideToken.Plaintext); err != nil {
+			t.Fatalf("鉴权（阈值 +1s）: %v", err)
+		}
+		if got := loadLastUsedAt(t, fixture, insideToken.Token.ID); got == nil || !got.Equal(insideSeeded) {
+			t.Fatalf("阈值 +1s 仍在窗口内，不得写：got=%s seeded=%s",
+				formatTimestamp(got), formatTimestamp(&insideSeeded))
+		}
+
+		// 按 now() - 阈值 跨语句预置：鉴权时它已严格小于阈值，因此会写。
+		// 这条断言固定的是「严格小于」的方向，不是等值不写。
+		equalUser := fixture.insertUser(t, "pat_throttle_boundary_equal")
+		equalToken := fixture.createToken(t, equalUser, "ci-throttle-boundary-equal")
+		if _, err := fixture.pool.Exec(ctx,
+			`UPDATE api_tokens SET last_used_at = now() - $2 * interval '1 second' WHERE id = $1`,
+			equalToken.Token.ID, int64(lastUsedThrottle.Seconds())); err != nil {
+			t.Fatalf("预置等值边界: %v", err)
+		}
+		equalSeeded := loadLastUsedAt(t, fixture, equalToken.Token.ID)
+		// 显式等一小会儿：让鉴权语句的 now() 确定地晚于种子语句，排除同微秒偶合。
+		time.Sleep(5 * time.Millisecond)
+		if _, err := fixture.service(equalUser).AuthenticatePlaintext(ctx, equalToken.Plaintext); err != nil {
+			t.Fatalf("鉴权（等值预置）: %v", err)
+		}
+		if got := loadLastUsedAt(t, fixture, equalToken.Token.ID); got == nil || !got.After(*equalSeeded) {
+			t.Fatalf("按 now()-阈值 跨语句预置后应已严格小于阈值并写入：got=%s seeded=%s",
+				formatTimestamp(got), formatTimestamp(equalSeeded))
 		}
 	})
 }
