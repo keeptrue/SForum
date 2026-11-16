@@ -58,6 +58,9 @@ pagesResolve:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '409':
+        "$ref": "../components/responses.yaml#/Conflict"
+        description: 页面声明为「仅游客可见」而当前请求已登录（reason `pages.guest_only`）。这不是权限不足：登录态下该页面没有可渲染的视图，所以用冲突而不是 403。
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
 

@@ -1,0 +1,36 @@
+package http
+
+import "github.com/gofiber/fiber/v3"
+
+// 与真实 app/Http/responses.go 同形的精简版：固定码 + statusArg 两种形态。
+
+type Actor struct{ ID int64 }
+
+type APIError struct {
+	Status int
+	Reason string
+}
+
+func JSON(c fiber.Ctx, status int, messageKey string, data any) error {
+	return c.Status(status).JSON(data)
+}
+
+func OK(c fiber.Ctx, data any) error {
+	return JSON(c, fiber.StatusOK, "ok", data)
+}
+
+func Created(c fiber.Ctx, data any) error {
+	return JSON(c, fiber.StatusCreated, "ok", data)
+}
+
+func NoData(c fiber.Ctx) error {
+	return c.Status(fiber.StatusNoContent).Send(nil)
+}
+
+func ErrorResponse(c fiber.Ctx, status int, reason string) error {
+	return c.Status(status).JSON(APIError{Status: status, Reason: reason})
+}
+
+func NewError(status int, reason string) *APIError {
+	return &APIError{Status: status, Reason: reason}
+}

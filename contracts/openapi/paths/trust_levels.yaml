@@ -202,5 +202,7 @@ adminTrustLevelRuleImpact:
         "$ref": "../components/responses.yaml#/NotFound"
       '422':
         "$ref": "../components/responses.yaml#/UnprocessableEntity"
+      '500':
+        description: 影响面估算不可用（reason `trust_levels.impact_unavailable`）：草稿规则折叠不出可估算的 SQL 条件，或聚合查询本身失败。这一条**不是** 503 —— 依赖是健康的，是这次估算请求本身算不出来。
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"

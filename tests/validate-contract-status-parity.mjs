@@ -19,6 +19,13 @@
  *   语义等价于「可能产出的状态码」，但名字不带 respond/fail/send/write 前缀。
  *   白名单手工维护、逐条核对语义，不做前缀泛匹配——泛匹配会把业务函数当真，
  *   凭空给路由塞状态码。
+ *   在此之上还有一层**调用边识别**（tests/helpers/contract-parity/status-sources.mjs）：
+ *   handler 常常只有一行委派（`return h.topicAction(c, ...)`），状态码在下游同包函数里；
+ *   身份守卫的状态码又在跟包 `apphttp.*` 里（`apphttp.RequireActor` → 401/503）。
+ *   门沿这两类边收集，并把「构造 readPathDependencyFailure」识别为 503 出口。
+ *   **错误映射器 `mapXxxError` 族被识别但不归因**：它的分支按 err sentinel 选，
+ *   一个具体 handler 只命中其中几条，全量并入就是过近似（会让门为假缺陷变红）。
+ *   该边界与实证见 status-sources.mjs 的模块注释。
  *
  * 两类例外必须逐条写进 tests/contract-status-parity-baseline.json 并带中文原因：
  * 1. 不可静态判定：通配/插件代理路由，契约 operation 无法静态落到某个 handler；
@@ -38,6 +45,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  SOURCE_DEPTH,
+  collectReachableStatuses,
+  createPackageIndexFactory,
+} from './helpers/contract-parity/status-sources.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ARGV = process.argv.slice(2);
@@ -143,6 +156,13 @@ const failures = [];
 const unknownConstants = new Set();
 // 白名单里真正在实现侧找到函数体的 guard 名字；缺席即视为白名单过期（见 main）。
 const guardHelperHits = new Set();
+// 调用边识别命中面（见 tests/helpers/contract-parity/status-sources.mjs）：
+//   - mapperNames     命中但**刻意不归因**的错误映射器名，打印规模 + 反向自检；
+//   - appHttpSourceHits 真正被跟随的跟包 app/Http 函数名，打印规模 + 反向自检。
+const mapperNames = new Set();
+const appHttpSourceHits = new Set();
+// 因实参字面量被剪掉的不可达分支（`decodeBookmarkBody(c, false)` 之类），打印规模即可。
+const prunedBranchHits = new Set();
 
 function fail(message) {
   failures.push(message);
@@ -481,6 +501,22 @@ function readCoreRoutes() {
   const routes = new Map();
   const packageCache = new Map();
   const skippedRouters = new Set();
+  // 调用边识别的包索引（同包委派 + 跟包 apphttp.*）。与上面 packageOf 的缓存分开：
+  // 那个只服务白名单形态，这个服务 F1/F2/F3 三条形态，两者职责不同不要合并。
+  const sourceIndexOf = createPackageIndexFactory();
+  const appHttpDir = path.join(API_ROOT, 'app', 'Http');
+  // 白名单形态与调用边形态共用一次遍历：登记表在**任何**被访问到的函数体里都是权威
+  // （否则 `return h.action(c)` 这类委派 handler 拿不到下游 `apphttp.OK` 的 200）。
+  const registryLookup = (name, body, callIndex) => {
+    const entry = RESPONSE_HELPERS.get(name);
+    if (entry) {
+      if (entry.codes) return { codes: entry.codes };
+      if (entry.statusArg !== undefined) return { codes: helperCodesAt(entry, body, callIndex) || [] };
+      return { follow: true };
+    }
+    if (GUARD_HELPERS.has(name)) return { follow: true };
+    return null;
+  };
 
   const packageOf = (dir) => {
     if (!packageCache.has(dir)) {
@@ -556,7 +592,14 @@ function readCoreRoutes() {
           fail(`${relFile}: 内联 handler ${method} ${fullPath} 的函数体无法定位`);
           continue;
         }
-        codes = collectStatuses(body, helperBodies);
+        codes = collectStatuses(body, helperBodies, {
+          dir,
+          // 内联闭包没有具名 receiver：只走裸调用与 apphttp.*，不猜 receiver 名。
+          receiverName: null,
+          indexOf: sourceIndexOf,
+          appHttpDir,
+          registry: registryLookup,
+        });
         handlerLabel = '<inline closure>';
       } else {
         const name = handlerExpr.split('.').pop();
@@ -595,7 +638,15 @@ function readCoreRoutes() {
             }
           }
         }
-        codes = collectStatuses(body, helperBodies);
+        codes = collectStatuses(body, helperBodies, {
+          dir,
+          // `h.hideTopic` 的 `h` 就是 receiver 变量名：带上它，F1 才能把
+          // `h.topicAction(...)` 解析成本包方法，而不是去猜同名方法的并集。
+          receiverName: handlerExpr.includes('.') ? handlerExpr.split('.').slice(0, -1).pop() : null,
+          indexOf: sourceIndexOf,
+          appHttpDir,
+          registry: registryLookup,
+        });
         handlerLabel = name;
       }
 
@@ -646,8 +697,36 @@ function helperCodesAt(entry, body, callIndex) {
   return codes;
 }
 
-function collectStatuses(body, helperBodies) {
+/**
+ * handler 的状态码集合 = 白名单形态（上表）+ 调用边识别（F1 同包委派 / F2 跟包 apphttp.*
+ * / F3 依赖故障 503 出口）。
+ *
+ * 两条来源**并列相加**而不是互相替代：白名单形态按名字精确认固定码（`apphttp.OK` → 200
+ * 不看函数体），调用边形态按真实调用链认委派与守卫。任一条单独都不够 —— 只有白名单时
+ * 一行委派的 handler 会得到空集（G3 的 30 条退化区就是这么来的）。
+ *
+ * `reach` 缺省时只跑白名单形态（fixture 里没有包索引上下文时用）。
+ */
+function collectStatuses(body, helperBodies, reach) {
   const codes = statusesIn(body);
+  if (reach) {
+    const closure = collectReachableStatuses({
+      body,
+      dir: reach.dir,
+      receiverName: reach.receiverName,
+      indexOf: reach.indexOf,
+      appHttpDir: reach.appHttpDir,
+      unknownConstants,
+      // 白名单形态对同名函数是权威口径：`apphttp.OK`/`NoData`/`JSON` 的码由登记表
+      // 按名字给出，调用边形态不再重复跟随，避免同一函数出现两套口径。
+      registry: reach.registry,
+      depth: SOURCE_DEPTH,
+    });
+    for (const code of closure.codes) codes.add(code);
+    for (const name of closure.mappers) mapperNames.add(name);
+    for (const name of closure.appHttpHits) appHttpSourceHits.add(name);
+    for (const name of closure.prunedBranches) prunedBranchHits.add(name);
+  }
   if (!helperBodies) return codes;
   const visited = new Set();
   let frontier = [body];
@@ -1133,6 +1212,41 @@ function checkNumericStatusArguments() {
   return sites;
 }
 
+/**
+ * 调用边识别面的**反向自检**：这套识别不许静默失效。
+ *
+ * 为什么必须钉住：三条形态（同包委派 / 跟包 apphttp.* / 依赖故障 503）一旦整体失灵
+ * （app/Http 换目录、包索引读不到文件、正则被改坏），门不会报错 —— 它只是**看不见**
+ * 那些状态码，空集路由数会悄悄回升。空集棘轮能兜住「回升」，但兜不住「从未看见」的
+ * 中间态，所以这里直接断言每条形态都还有命中面。
+ *
+ * 只在仓库自身生效：合成树（--root）只带被测的那几个函数，做这条检查只会红一片。
+ */
+function checkCallEdgeRecognition() {
+  if (ROOT !== path.resolve(SCRIPT_DIR, '..')) return null;
+  const appHttpDir = path.join(API_ROOT, 'app', 'Http');
+  if (!fs.existsSync(appHttpDir)) {
+    fail(`[call-edge] 跟包识别失效：${path.relative(ROOT, appHttpDir)} 不存在，apphttp.* 的状态码将全部看不见`);
+  }
+  if (appHttpSourceHits.size === 0) {
+    fail(
+      '[call-edge] 跟包识别（F2）一个函数都没命中：控制器里明明有 apphttp.RequireActor / ReadActor 这类调用，' +
+        '命中面为 0 说明识别链路已断（包目录/别名/正则），不是「刚好没有」',
+    );
+  }
+  if (mapperNames.size === 0) {
+    fail(
+      '[call-edge] 错误映射器识别（mapXxxError 族）一个都没命中：控制器包里的 mapForumError / mapError 等' +
+        '是必经节点，命中面为 0 说明调用边根本没走到它们，识别链路已断',
+    );
+  }
+  return {
+    mappers: [...mapperNames].sort(),
+    appHttp: [...appHttpSourceHits].sort(),
+    pruned: [...prunedBranchHits].sort(),
+  };
+}
+
 function main() {
   const started = process.hrtime.bigint();
   const refresh = process.argv.includes('--refresh');
@@ -1140,6 +1254,9 @@ function main() {
   // tests/validate-contract-reachability-equivalence.test.mjs 与可达性门做集合比对。
   // 它不参与任何判定，也不改变无参数运行时的输出（等价性测试里有一条断言钉住这点）。
   const printEmptyRoutes = process.argv.includes('--print-empty-routes');
+  // 第二个诊断开关，同样只输出、不判定：把「每条已映射 operation 的实现侧可达状态码集合」
+  // 逐条打印出来，供 tests/validate-contract-parity-sample-equality.test.mjs 做集合相等比对。
+  const printOperationCodes = process.argv.includes('--print-operation-codes');
 
   let contractOperations;
   let contractPathCount = 0;
@@ -1172,6 +1289,7 @@ function main() {
   const helperRegistrySize = checkResponseHelperRegistryShape();
   const headerChecked = checkResponseHeaderFields();
   const numericStatusSites = checkNumericStatusArguments();
+  const callEdge = checkCallEdgeRecognition();
   // 白名单过期同样是红的：名字对不上时守卫状态码会悄悄消失，空集路由数才会又涨回去。
   for (const name of GUARD_HELPERS.keys()) {
     if (!guardHelperHits.has(name)) {
@@ -1210,6 +1328,23 @@ function main() {
     `[parity] 构造器实参形态：apphttp.NewError*/Abort* 的数字字面量调用点 ${numericStatusSites} 个` +
       '（对 statusesIn 不可见，非 0 即红）',
   );
+  console.log(
+    `[parity] 调用边识别（F1 同包委派 / F2 跟包 apphttp.* / F3 依赖故障 503）：` +
+      `跟包函数命中 ${appHttpSourceHits.size} 个、错误映射器识别 ${mapperNames.size} 个（识别但不归因）、` +
+      `按实参剪枝 ${prunedBranchHits.size} 处`,
+  );
+  if (callEdge) {
+    console.log(`[parity]   跟包命中：${callEdge.appHttp.join(', ')}`);
+    console.log(`[parity]   识别但不归因的映射器：${callEdge.mappers.join(', ')}`);
+    if (callEdge.pruned.length > 0) console.log(`[parity]   剪枝：${callEdge.pruned.join('; ')}`);
+  }
+  if (printOperationCodes) {
+    console.log('[parity-operation-codes]');
+    for (const entry of result.mapped) {
+      const codes = [...entry.route.codes].filter((code) => code >= 200 && code <= 599).sort((a, b) => a - b);
+      console.log(`${entry.operation.method} ${normalizePath(entry.operation.path)} => ${codes.join(',')}`);
+    }
+  }
   if (printEmptyRoutes) {
     console.log('[parity-empty-routes]');
     for (const route of routes.values()) {

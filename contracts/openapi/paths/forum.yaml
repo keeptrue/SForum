@@ -1963,6 +1963,9 @@ topicLikes:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+        description: 依赖未装配：点赞名单需要 ReactionService，控制器未注入该协作者时直接 503（reason forum.reactions_unavailable），而不是静默返回空名单。
 commentLike:
   post:
     summary: Like a comment as the authenticated member
@@ -2037,6 +2040,9 @@ commentLikes:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '503':
+        "$ref": "../components/responses.yaml#/ServiceUnavailable"
+        description: 依赖未装配：点赞名单需要 ReactionService，控制器未注入该协作者时直接 503（reason forum.reactions_unavailable），而不是静默返回空名单。
 topicBookmark:
   put:
     summary: Bookmark a topic as the authenticated member

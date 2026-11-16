@@ -35,6 +35,7 @@ import {
   braceBody,
   listGoFiles,
   normalizePath,
+  parityPackageIndexFactory,
   parityVisibleCodes,
   scanGoSource,
   splitTopLevelArgs,
@@ -62,6 +63,9 @@ export function scanReachability(root) {
 
   const index = packageIndexFactory(apiRoot);
   const appHttpDir = path.join(apiRoot, 'app', 'Http');
+  // parity 门的调用边识别（G3）用另一份带参数名的包索引：剪枝需要参数名。
+  // 与上面的 index 分开建，避免把两套职责塞进一个缓存。
+  const parityIndexOf = parityPackageIndexFactory();
   const guardIndex = new Map();
   for (const entry of GUARD_REGISTRY) {
     guardIndex.set(`${path.join(apiRoot, entry.dir)}::${entry.name}`, {
@@ -193,7 +197,12 @@ export function scanReachability(root) {
         const list = pkgIndex.methods.get(name);
         if (list && list.length > 0) helperBodies.set(name, list[0].body);
       }
-      const parityCodes = parityVisibleCodes(handlerBody, helperBodies, unknownConstants);
+      const parityCodes = parityVisibleCodes(handlerBody, helperBodies, unknownConstants, {
+        indexOf: parityIndexOf,
+        appHttpDir,
+        packageDir: dir,
+        receiverName: handlerReceiver.receiverName || null,
+      });
       for (const code of statusesIn(handlerBody, unknownConstants)) parityCodes.add(code);
 
       const key = `${method} ${normalizePath(fullPath)}`;

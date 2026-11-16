@@ -460,6 +460,9 @@ adminSiteNavItemByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: 路径参数不是正整数（`sitechrome.CodeInvalid`）。与同资源 PATCH 的 422 同源：解析发生在权限判定之后、查库之前。
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
@@ -566,6 +569,9 @@ adminSiteFriendLinkByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: 路径参数不是正整数（`sitechrome.CodeInvalid`）。与同资源 PATCH 的 422 同源：解析发生在权限判定之后、查库之前。
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"
 
@@ -672,5 +678,8 @@ adminSiteAnnouncementByID:
         "$ref": "../components/responses.yaml#/Forbidden"
       '404':
         "$ref": "../components/responses.yaml#/NotFound"
+      '422':
+        "$ref": "../components/responses.yaml#/UnprocessableEntity"
+        description: 路径参数不是正整数（`sitechrome.CodeInvalid`）。与同资源 PATCH 的 422 同源：解析发生在权限判定之后、查库之前。
       '503':
         "$ref": "../components/responses.yaml#/ServiceUnavailable"

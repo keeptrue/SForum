@@ -1,0 +1,28 @@
+demoDelegate:
+  get:
+    operationId: demoDelegate
+    responses:
+      '200': { description: OK }
+      '401': { description: Unauthorized }
+demoAppHTTP:
+  get:
+    operationId: demoAppHTTP
+    responses:
+      '200': { description: OK }
+      '401': { description: Unauthorized }
+      '503': { description: Service unavailable }
+demoMapper:
+  post:
+    operationId: demoMapper
+    responses:
+      '200': { description: OK }
+demoSwallowed:
+  put:
+    operationId: demoSwallowed
+    responses:
+      '200': { description: OK }
+demoPruned:
+  delete:
+    operationId: demoPruned
+    responses:
+      '200': { description: OK }
