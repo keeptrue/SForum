@@ -11,4 +11,4 @@
 # 复位条件：将来若改成在 CI 里下载 release tarball 而不是用 runner 自带的二进制，
 # 在这里补一行 sha256（tarball 的官方校验和），并让 lint-shell.sh 校验它。
 # 在那之前不写哈希：拿不到校验和的哈希等于给自己一个假锚点。
-version=0.10.0
+version=0.11.0
