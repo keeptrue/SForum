@@ -64,12 +64,25 @@ func TestTrustLevelLedgerTableAndViewExistAfterFullChain(t *testing.T) {
 	} else {
 		t.Logf("user_trust_levels owner = %s", got)
 	}
+	// owner 比较必须钉住 namespace：同库里有别的包留下的私有 schema，里面同样有
+	// `badges`（迁移链测试在自己 schema 里重放建表），不带 schema 条件的 join 会
+	// 同时匹配到 public 与那些私有对象，返回多行、行序不定，断言随机红
+	// （2026-11-17 覆盖率门就是这样红的：public 两个对象 owner 一致，却被
+	// 私有 schema 里 owner=sforum 的 badges 比出 false）。
 	if got := scalarString(`SELECT (pg_get_userbyid(t.relowner) = pg_get_userbyid(b.relowner))::text
-		FROM pg_class t, pg_class b WHERE t.relname = 'user_trust_levels' AND b.relname = 'badges'`); got != "true" {
+		FROM pg_class t
+		JOIN pg_namespace tn ON tn.oid = t.relnamespace AND tn.nspname = 'public'
+		JOIN pg_class b ON b.relname = 'badges'
+		JOIN pg_namespace bn ON bn.oid = b.relnamespace AND bn.nspname = 'public'
+		WHERE t.relname = 'user_trust_levels'`); got != "true" {
 		t.Fatalf("账本表 owner 与 public.badges 不一致（equal=%s）：kernel 会报 physical resource conflict", got)
 	}
 	if got := scalarString(`SELECT (pg_get_userbyid(v.relowner) = pg_get_userbyid(b.relowner))::text
-		FROM pg_class v, pg_class b WHERE v.relname = 'forum_user_trust_levels' AND b.relname = 'badges'`); got != "true" {
+		FROM pg_class v
+		JOIN pg_namespace vn ON vn.oid = v.relnamespace AND vn.nspname = 'sforum_core_v1'
+		JOIN pg_class b ON b.relname = 'badges'
+		JOIN pg_namespace bn ON bn.oid = b.relnamespace AND bn.nspname = 'public'
+		WHERE v.relname = 'forum_user_trust_levels'`); got != "true" {
 		t.Fatalf("视图 owner 与 public.badges 不一致（equal=%s）", got)
 	}
 	// 视图可查（空表也要能查，证明列定义与 JOIN 都对）。

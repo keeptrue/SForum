@@ -29,6 +29,45 @@ container=""
 redis_cid=""
 redis_container=""
 
+# Core 兼容版本的测试 pin（门禁确定性，不是产品行为）。
+#
+# 为什么要 pin：开发构建的 Core 兼容版本由 `git describe --tags --long --dirty`
+# 在**运行时**派生（apps/api/version/version.go 的 probeDevelopmentCoreVersion），
+# 所以它随 HEAD（提交计数 + 短 sha）和工作区脏状态一起漂移。而测试库是两段式：
+# 先 `go run ./cmd/migrate` 把当时的版本写进 public.sforum_core_runtime_state，
+# 再由各测试二进制读回来、和自己此刻算出的版本比。只要这两段之间 HEAD 前进或
+# 回退（本机多 agent 并发提交）、或者工作区由脏变干净，两边必然不等，
+# TestPostgresExtensionDatabaseHighRiskLeaseObservesMigratedCoreFence 就会随机红
+# —— 实测过 3.1.0+111.g658b6a503.dirty（迁移时刻）对 3.1.0+117.g9395e73f8.dirty
+# （测试运行时刻）。
+#
+# pin 成什么：最近可达的 v* 标签（`git describe --abbrev=0`），也就是这条代码线
+# 声明的发行版；标签不可达时退回本次 `git describe` 的完整读数。两种情况都只作用于
+# 测试二进制与测试库的 migrate，生产构建仍由发布流程用 -ldflags 注入 version.Current。
+version_pkg="github.com/keeptrue/sforum/apps/api/version"
+pinned_core_version="${SFORUM_TEST_PINNED_VERSION:-}"
+if [[ -z "$pinned_core_version" ]]; then
+  if tag="$(git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null)" && [[ -n "$tag" ]]; then
+    pinned_core_version="${tag#v}"
+  else
+    describe="$(git describe --tags --match 'v[0-9]*' --long --dirty --always 2>/dev/null || true)"
+    dirty_suffix=""
+    if [[ "$describe" == *-dirty ]]; then
+      dirty_suffix=".dirty"
+      describe="${describe%-dirty}"
+    fi
+    if [[ "${describe#v}" =~ ^(.+)-([0-9]+)-g([0-9a-f]+)$ ]]; then
+      pinned_core_version="${BASH_REMATCH[1]}+${BASH_REMATCH[2]}.g${BASH_REMATCH[3]}${dirty_suffix}"
+    else
+      echo "无法从 git 派生 Core 兼容版本（describe=${describe:-<empty>}）：用 SFORUM_TEST_PINNED_VERSION 显式指定，否则迁移记录的版本会与测试二进制漂移。" >&2
+      exit 1
+    fi
+  fi
+fi
+export SFORUM_TEST_PINNED_VERSION="$pinned_core_version"
+# 数组形式保证 -ldflags 与它的值永远成对出现，透传参数不会把它们拆开。
+version_ldflags=(-ldflags "-X ${version_pkg}.Current=${pinned_core_version}")
+
 # 只删自己创建的容器：先核对 label 上的 owner，再 rm -fv。
 # 并发跑本脚本的另一个进程（或别人手动起的容器）即使撞了名字也不动手。
 remove_owned_container() {
@@ -115,7 +154,7 @@ provision_cluster() {
   export SFORUM_TEST_DATABASE_URL="$DATABASE_URL"
   export SFORUM_COMPAT_DATABASE_URL="$DATABASE_URL"
   printf 'Disposable test cluster: %s, database: sforum_test_suite, port: %s\n' "$container" "$port"
-  go run ./cmd/migrate
+  go run "${version_ldflags[@]}" ./cmd/migrate
 }
 
 # probe_redis_port 在**宿主侧**用 RESP 打一次 PING，走的就是测试连接的发布端口。
@@ -284,7 +323,7 @@ run_shard() {
   provision_backends
   # -count=1 必须在透传参数**之前**：默认的测试缓存会让「上一版的绿」冒充这一版的绿，
   # 而本脚本的输出常被当作证据（M8 验收、基线、变异对照）。调用方仍可自行覆盖。
-  go test -count=1 -p "$shard_parallel" "${forwarded[@]}" "${selected[@]}"
+  go test -count=1 -p "$shard_parallel" "${version_ldflags[@]}" "${forwarded[@]}" "${selected[@]}"
 }
 
 run_shards() {
@@ -355,7 +394,7 @@ case "$mode" in
       # 显式包路径（含 -run 定位）保持单次调用，不分片。
       # -count=1 同上：证据脚本不允许返回缓存结果。
       provision_backends
-      go test -count=1 -p "$shard_parallel" "${passthrough[@]}"
+      go test -count=1 -p "$shard_parallel" "${version_ldflags[@]}" "${passthrough[@]}"
     fi
     if [[ "$mode" == "with-compat" ]]; then
       echo 'Running V3 P12 compatibility farm (required cells; skip/missing fail)...'
