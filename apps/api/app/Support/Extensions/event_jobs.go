@@ -26,9 +26,14 @@ import (
 //
 // 这些 reason 键（`extension.delivery_record_failed` / `delivery_enqueue_failed` /
 // `delivery_atomic_unavailable`）不会成为 HTTP 错误码，也不进 reason 枚举与
-// Localization 翻译表；但它们会作为**自由文本**写进投递账本的 reason 列，
-// 因而出现在管理面事件投递日志响应（`GET .../event-deliveries`，
-// `ExtensionEventDelivery.reason` 在 OpenAPI 里是无枚举的 string）里。
+// Localization 翻译表。**落库范围要分开看**：
+//   - `delivery_enqueue_failed` 在**版本化 hook** 投递里会写进投递账本
+//     （hook_registry_execution.go 的 finishDelivery 记 failed），因而作为自由文本
+//     出现在管理面事件投递日志响应（`GET .../event-deliveries`；
+//     `ExtensionEventDelivery.reason` 在 OpenAPI 里是无枚举的 string）；
+//   - observe 路径的 `delivery_record_failed` / `delivery_atomic_unavailable` 都发生在
+//     「还没建行」或「行已回滚」的分支，永远进不了 reason 列，只出现在进程日志与
+//     事件结果里。
 type EventDeliveryArgs struct {
 	DeliveryID        int64          `json:"delivery_id" river:"unique"`
 	ExtensionID       string         `json:"extension_id"`
