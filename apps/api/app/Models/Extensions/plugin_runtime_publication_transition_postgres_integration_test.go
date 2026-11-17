@@ -3,7 +3,6 @@ package extensions
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -11,9 +10,7 @@ import (
 
 func TestPublishPluginRuntimePublicationTransitionTxNoLatestInserts(t *testing.T) {
 	fixture := newPluginRuntimePublicationPGFixture(t, "transition_no_latest")
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
+	target := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
 
 	tx, err := fixture.pool.Begin(fixture.ctx)
 	if err != nil {
@@ -51,9 +48,7 @@ func TestPublishPluginRuntimePublicationTransitionTxNoLatestInserts(t *testing.T
 
 	// 声明型 enable 在无历史时也必须插入空成员 revision，推进 lifecycle marker。
 	emptyFixture := newPluginRuntimePublicationPGFixture(t, "transition_decl_empty")
-	declarationOnly := transitionFixturePlugin(
-		t, "second.plugin", 102, "2.0.0", strings.Repeat("c", 64), "",
-	)
+	declarationOnly := pluginRuntimeTransitionTarget(t, emptyFixture.secondMember(), "")
 	tx, err = emptyFixture.pool.Begin(emptyFixture.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -82,23 +77,13 @@ func TestPublishPluginRuntimePublicationTransitionTxNoLatestInserts(t *testing.T
 
 func TestPublishPluginRuntimePublicationTransitionTxAlwaysInsertsEvenWhenMembersUnchanged(t *testing.T) {
 	fixture := newPluginRuntimePublicationPGFixture(t, "transition_always_insert")
-	source := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
+	source := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
+	// 成员行有 exact version FK；升级目标必须先落到 extension_versions，且落盘制品
+	// 自洽（发布期闸门会逐个校验）。
+	target := pluginRuntimeTransitionTarget(
+		t, fixture.seedVersion("fixture.plugin", 104, "1.1.0", TypePlugin), "backend/plugin",
 	)
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 104, "1.1.0", strings.Repeat("e", 64), "backend/plugin",
-	)
-	unrelated := transitionFixturePlugin(
-		t, "second.plugin", 102, "2.0.0", strings.Repeat("c", 64), "backend/plugin",
-	)
-	// 成员行有 exact version FK；升级目标必须先落到 extension_versions。
-	upgradeManifest := runtimeManifestBody(t, "fixture.plugin", "1.1.0", TypePlugin, "backend/plugin")
-	if _, err := fixture.pool.Exec(fixture.ctx, `
-		INSERT INTO extension_versions (id, extension_id, version, package_digest, manifest)
-		VALUES (104, 'fixture.plugin', '1.1.0', repeat('e', 64), $1::jsonb)
-	`, string(upgradeManifest)); err != nil {
-		t.Fatal(err)
-	}
+	unrelated := pluginRuntimeTransitionTarget(t, fixture.secondMember(), "backend/plugin")
 
 	seed, err := fixture.store.publishPluginRuntimePublication(
 		fixture.ctx, PluginRuntimePublicationStartupReconcile, 0,
@@ -220,9 +205,7 @@ func TestPublishPluginRuntimePublicationTransitionTxAlwaysInsertsEvenWhenMembers
 
 func TestPublishPluginRuntimePublicationTransitionTxRollbackDropsInsert(t *testing.T) {
 	fixture := newPluginRuntimePublicationPGFixture(t, "transition_rollback")
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
+	target := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
 
 	tx, err := fixture.pool.Begin(fixture.ctx)
 	if err != nil {
@@ -283,9 +266,7 @@ func TestPublishPluginRuntimePublicationTransitionTxRollbackDropsInsert(t *testi
 
 func TestPublishPluginRuntimePublicationTransitionTxRejectsInvalidReasonAndArtifacts(t *testing.T) {
 	fixture := newPluginRuntimePublicationPGFixture(t, "transition_invalid_inputs")
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
+	target := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
 
 	tx, err := fixture.pool.Begin(fixture.ctx)
 	if err != nil {
@@ -320,9 +301,7 @@ func TestPublishPluginRuntimePublicationTransitionTxRejectsInvalidReasonAndArtif
 
 func TestPublishPluginRuntimePublicationTransitionTxRequiresReadCommitted(t *testing.T) {
 	fixture := newPluginRuntimePublicationPGFixture(t, "transition_isolation")
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
+	target := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
 
 	for _, isolation := range []pgx.TxIsoLevel{pgx.RepeatableRead, pgx.Serializable} {
 		t.Run(string(isolation), func(t *testing.T) {

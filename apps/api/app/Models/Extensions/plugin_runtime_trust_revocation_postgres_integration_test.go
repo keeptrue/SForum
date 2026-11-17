@@ -3,7 +3,6 @@ package extensions
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -11,12 +10,8 @@ import (
 
 func TestPublishPluginRuntimeTrustRevocationTxRemovesExactMemberAndSkipsAbsent(t *testing.T) {
 	fixture := newPluginRuntimePublicationPGFixture(t, "trust_revoke")
-	revoked := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
-	unrelated := transitionFixturePlugin(
-		t, "second.plugin", 102, "2.0.0", strings.Repeat("c", 64), "backend/plugin",
-	)
+	revoked := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
+	unrelated := pluginRuntimeTransitionTarget(t, fixture.secondMember(), "backend/plugin")
 	seed, err := fixture.store.publishPluginRuntimePublication(
 		fixture.ctx, PluginRuntimePublicationStartupReconcile, 0,
 		[]PluginRuntimeMember{transitionMember(revoked), transitionMember(unrelated)},

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testartifact"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 	"github.com/pressly/goose/v3"
 )
@@ -283,6 +284,11 @@ type pluginRuntimePublicationPGFixture struct {
 	pool   *pgxpool.Pool
 	store  *PostgresStore
 	schema string
+	// artifacts 造真实制品；members 记录已经落盘的 durable 版本行坐标，
+	// 保证同一 versionID 在任何用例里都返回同一个 digest。
+	artifacts *testartifact.Factory
+	members   map[int64]PluginRuntimeMember
+	paths     map[int64]string
 }
 
 func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRuntimePublicationPGFixture {
@@ -338,10 +344,6 @@ func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRun
 			('fixture.plugin', 'plugin'),
 			('second.plugin', 'plugin'),
 			('fixture.theme', 'theme');
-		INSERT INTO extension_versions (id, extension_id, version, package_digest) VALUES
-			(101, 'fixture.plugin', '1.0.0', repeat('b', 64)),
-			(102, 'second.plugin', '2.0.0', repeat('c', 64)),
-			(103, 'fixture.theme', '1.0.0', repeat('d', 64));
 	`); err != nil {
 		db.Close()
 		removeSchema()
@@ -389,6 +391,12 @@ func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRun
 	fixture := &pluginRuntimePublicationPGFixture{
 		t: t, ctx: ctx, admin: admin, pool: pool, store: NewPostgresStore(pool), schema: schema,
 	}
+	// 三个固定版本行都在盘上有真实制品：闸门落地后，写死的 repeat('b', 64) 与空
+	// package_path 一律不可装载，夹具必须给出与 durable 行一致的坐标。
+	attachPluginRuntimeArtifacts(t, fixture)
+	fixture.seedVersion("fixture.plugin", 101, "1.0.0", TypePlugin)
+	fixture.seedVersion("second.plugin", 102, "2.0.0", TypePlugin)
+	fixture.seedVersion("fixture.theme", 103, "1.0.0", TypeTheme)
 	t.Cleanup(fixture.cleanup)
 	return fixture
 }
@@ -400,22 +408,13 @@ func (f *pluginRuntimePublicationPGFixture) cleanup() {
 }
 
 func (f *pluginRuntimePublicationPGFixture) firstMember() PluginRuntimeMember {
-	return PluginRuntimeMember{
-		ExtensionID: "fixture.plugin", ExtensionVersionID: 101,
-		ExtensionVersion: "1.0.0", PackageDigest: strings.Repeat("b", 64),
-	}
+	return f.members[101]
 }
 
 func (f *pluginRuntimePublicationPGFixture) secondMember() PluginRuntimeMember {
-	return PluginRuntimeMember{
-		ExtensionID: "second.plugin", ExtensionVersionID: 102,
-		ExtensionVersion: "2.0.0", PackageDigest: strings.Repeat("c", 64),
-	}
+	return f.members[102]
 }
 
 func (f *pluginRuntimePublicationPGFixture) themeMember() PluginRuntimeMember {
-	return PluginRuntimeMember{
-		ExtensionID: "fixture.theme", ExtensionVersionID: 103,
-		ExtensionVersion: "1.0.0", PackageDigest: strings.Repeat("d", 64),
-	}
+	return f.members[103]
 }

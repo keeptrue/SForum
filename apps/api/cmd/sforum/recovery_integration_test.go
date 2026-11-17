@@ -17,15 +17,19 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testartifact"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
-func TestPostgresRecoveryRepositoryPublishesImmutableFullSetsWithoutPackageReads(t *testing.T) {
+// 发布期制品完整性闸门（#254）落地后，recovery 发布「剩余成员」时会逐个校验
+// 成员的制品：名字从 "WithoutPackageReads" 改成现状事实，断言一条不少。
+func TestPostgresRecoveryRepositoryPublishesImmutableFullSetsFromVerifiedArtifacts(t *testing.T) {
 	fixture := newRecoveryPostgresFixture(t)
 	ctx := fixture.ctx
 	builtinID := "recovery.builtin"
 	firstID := "recovery.first"
 	secondID := "recovery.second"
+	digests := map[string]string{}
 	for _, item := range []struct {
 		id, source string
 		system     bool
@@ -34,9 +38,7 @@ func TestPostgresRecoveryRepositoryPublishesImmutableFullSetsWithoutPackageReads
 		{firstID, "uploaded", false},
 		{secondID, "uploaded", false},
 	} {
-		if err := insertRecoveryFixture(ctx, fixture.pool, item.id, item.source, item.system); err != nil {
-			t.Fatal(err)
-		}
+		digests[item.id] = fixture.seedExtension(t, item.id, item.source, item.system)
 	}
 	if _, err := fixture.pool.Exec(ctx, `
 		INSERT INTO mail_provider_selection (slot, extension_id)
@@ -55,7 +57,7 @@ func TestPostgresRecoveryRepositoryPublishesImmutableFullSetsWithoutPackageReads
 		t.Fatalf("quarantine ordinary extension: %v", err)
 	}
 	if _, err := repository.QuarantineProtected(
-		ctx, builtinID, "1.0.0", strings.Repeat("b", 64),
+		ctx, builtinID, "1.0.0", corruptDigest(digests[builtinID]),
 	); !errors.Is(err, errRecoveryArtifactMismatch) {
 		t.Fatalf("quarantine wrong built-in artifact: %v", err)
 	}
@@ -113,13 +115,11 @@ func TestPostgresRecoveryRepositoryPublishesImmutableFullSetsWithoutPackageReads
 func TestPostgresRecoveryRepositoryQuarantinesExactProtectedArtifact(t *testing.T) {
 	fixture := newRecoveryPostgresFixture(t)
 	const builtinID = "recovery.builtin.exact"
-	if err := insertRecoveryFixture(fixture.ctx, fixture.pool, builtinID, "builtin", true); err != nil {
-		t.Fatal(err)
-	}
+	builtinDigest := fixture.seedExtension(t, builtinID, "builtin", true)
 
 	repository := &postgresRecoveryRepository{pool: fixture.pool}
 	quarantined, err := repository.QuarantineProtected(
-		fixture.ctx, builtinID, "1.0.0", strings.Repeat("a", 64),
+		fixture.ctx, builtinID, "1.0.0", builtinDigest,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -148,11 +148,7 @@ func TestPostgresRecoveryRepositoryQuarantinesExactProtectedArtifact(t *testing.
 func TestPostgresRecoveryRepositoryCommitFailureRollsBackStateAndPublication(t *testing.T) {
 	fixture := newRecoveryPostgresFixture(t)
 	const extensionID = "recovery.rollback"
-	if err := insertRecoveryFixture(
-		fixture.ctx, fixture.pool, extensionID, "uploaded", false,
-	); err != nil {
-		t.Fatal(err)
-	}
+	fixture.seedExtension(t, extensionID, "uploaded", false)
 	// The recovery audit is written before the immutable full-set. A deferred
 	// FK proves that a commit-time failure rolls both of them and mutable status
 	// back together instead of exposing a partial recovery decision.
@@ -201,7 +197,13 @@ func recoveryItemsContain(items []recoveryExtension, extensionID string) bool {
 	return false
 }
 
-func insertRecoveryFixture(ctx context.Context, pool *pgxpool.Pool, id, source string, system bool) error {
+// seedExtension 落一条 enabled 插件行，并让它指向一份真实自洽制品；返回制品树摘要。
+//
+// 发布期闸门（#254）会按 package_path 回查盘上制品，'/missing/malformed/package'
+// 那种假路径从此过不了；同时 quarantine 的 exact-artifact 比对需要真实 digest。
+func (f *recoveryPostgresFixture) seedExtension(t *testing.T, id, source string, system bool) string {
+	t.Helper()
+	ctx, pool := f.ctx, f.pool
 	backendDigest := strings.Repeat("e", 64)
 	manifest := extensions.Manifest{
 		ManifestVersion: 3,
@@ -218,11 +220,19 @@ func insertRecoveryFixture(ctx context.Context, pool *pgxpool.Pool, id, source s
 	}
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {
-		return err
+		t.Fatal(err)
+	}
+	coords := f.artifacts.MaterializeManifest(t, manifestJSON, nil)
+	if err := json.Unmarshal(coords.Manifest, &manifest); err != nil {
+		t.Fatalf("reload %s artifact manifest: %v", id, err)
+	}
+	syncedManifest, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
 	}
 	tx, err := pool.Begin(ctx)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 	var versionID int64
@@ -230,21 +240,36 @@ func insertRecoveryFixture(ctx context.Context, pool *pgxpool.Pool, id, source s
 		INSERT INTO extensions (id, type, name, status, source, is_system, is_deletable)
 		VALUES ($1, 'plugin', $1, 'enabled', $2, $3, NOT $3)
 	`, id, source, system); err != nil {
-		return err
+		t.Fatal(err)
 	}
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO extension_versions (extension_id, version, manifest, package_path, package_digest)
-		VALUES ($1, '1.0.0', $2::jsonb, '/missing/malformed/package', $3)
+		VALUES ($1, '1.0.0', $2::jsonb, $3, $4)
 		RETURNING id
-	`, id, string(manifestJSON), strings.Repeat("a", 64)).Scan(&versionID); err != nil {
-		return err
+	`, id, string(syncedManifest), coords.Path, coords.Digest).Scan(&versionID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `
 		UPDATE extensions SET active_version_id = $2 WHERE id = $1
 	`, id, versionID); err != nil {
-		return err
+		t.Fatal(err)
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	return coords.Digest
+}
+
+// corruptDigest 造一个「长度对、内容错」的 digest，用于精确制品比对的反例。
+func corruptDigest(digest string) string {
+	if digest == "" {
+		return strings.Repeat("0", 64)
+	}
+	replacement := "0"
+	if digest[:1] == "0" {
+		replacement = "1"
+	}
+	return replacement + digest[1:]
 }
 
 func latestRecoveryPublication(t *testing.T, pool *pgxpool.Pool) extensions.PluginRuntimePublication {
@@ -281,6 +306,9 @@ type recoveryPostgresFixture struct {
 	admin  *pgxpool.Pool
 	pool   *pgxpool.Pool
 	schema string
+	// artifacts 造发布期闸门能接受的真实制品：recovery 发布的是「剩余成员」，
+	// 每个成员都必须按 extension_versions.package_path 回查得到自洽制品。
+	artifacts *testartifact.Factory
 }
 
 func newRecoveryPostgresFixture(t *testing.T) *recoveryPostgresFixture {
@@ -351,7 +379,10 @@ func newRecoveryPostgresFixture(t *testing.T) *recoveryPostgresFixture {
 		admin.Close()
 		t.Fatal(err)
 	}
-	fixture := &recoveryPostgresFixture{ctx: ctx, admin: admin, pool: pool, schema: schema}
+	fixture := &recoveryPostgresFixture{
+		ctx: ctx, admin: admin, pool: pool, schema: schema,
+		artifacts: testartifact.New(t),
+	}
 	t.Cleanup(fixture.cleanup)
 	return fixture
 }

@@ -144,6 +144,8 @@ func newBuiltinPluginRuntimeSaveFixture(t *testing.T, label string) *pluginRunti
 	fixture := &pluginRuntimePublicationPGFixture{
 		t: t, ctx: ctx, admin: admin, pool: pool, store: NewPostgresStore(pool), schema: schema,
 	}
+	// SaveBuiltin 写入的 package_path 会被发布期闸门回查，必须在盘上有真实制品。
+	attachPluginRuntimeArtifacts(t, fixture)
 	t.Cleanup(fixture.cleanup)
 	return fixture
 }
@@ -185,21 +187,25 @@ func authProviderBuiltinManifest(id, version string) Manifest {
 	return manifest
 }
 
+// saveBuiltinPlugin 落一份内置插件版本，并让它指向一份真实自洽制品：发布期闸门
+// （#254）会按 extension_versions.package_path 回查盘上制品，写死 digest 与
+// 不存在的路径都会被拒。返回落库后的扩展与制品 digest，供成员断言使用。
 func saveBuiltinPlugin(
 	t *testing.T,
 	fixture *pluginRuntimePublicationPGFixture,
-	id, version, digest, backendEntry string,
-) Extension {
+	id, version, backendEntry string,
+) (Extension, string) {
 	t.Helper()
+	packagePath, digest := fixture.builtinArtifact(id, version)
 	item, err := fixture.store.SaveBuiltin(fixture.ctx, SaveBuiltinInput{
 		Manifest:      builtinPluginManifest(id, version, backendEntry),
-		PackagePath:   "/tmp/" + id + "/" + version + "/" + digest[:8],
+		PackagePath:   packagePath,
 		PackageDigest: digest,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return item
+	return item, digest
 }
 
 func TestSaveBuiltinAuthProviderDefaultsInstalledForExplicitLifecycleEnable(t *testing.T) {
@@ -256,10 +262,8 @@ func TestPruneMissingPublishedBuiltinPluginRetainsHistoryAndPublishesRemoval(t *
 		keptID    = "builtin.kept"
 		removedID = "builtin.removed"
 	)
-	keptDigest := strings.Repeat("a", 64)
-	removedDigest := strings.Repeat("b", 64)
-	kept := saveBuiltinPlugin(t, fixture, keptID, "1.0.0", keptDigest, "backend/plugin")
-	removed := saveBuiltinPlugin(t, fixture, removedID, "1.0.0", removedDigest, "backend/plugin")
+	kept, keptDigest := saveBuiltinPlugin(t, fixture, keptID, "1.0.0", "backend/plugin")
+	removed, removedDigest := saveBuiltinPlugin(t, fixture, removedID, "1.0.0", "backend/plugin")
 	seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,
 		PluginRuntimeMember{
@@ -319,7 +323,7 @@ func TestPruneMissingPublishedBuiltinPluginRetainsHistoryAndPublishesRemoval(t *
 	}
 	assertPluginRuntimePublicationCount(t, fixture, 2)
 
-	restored := saveBuiltinPlugin(t, fixture, removedID, "1.0.0", removedDigest, "backend/plugin")
+	restored, _ := saveBuiltinPlugin(t, fixture, removedID, "1.0.0", "backend/plugin")
 	if restored.Status != StatusDisabled {
 		t.Fatalf("restored builtin status=%s", restored.Status)
 	}
@@ -328,11 +332,9 @@ func TestPruneMissingPublishedBuiltinPluginRetainsHistoryAndPublishesRemoval(t *
 
 func TestSaveBuiltinEnabledPluginStagesDigestBWithoutBypassingLifecycle(t *testing.T) {
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "upgrade_a_b")
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
 	const pluginID = "builtin.policy"
 
-	v1 := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digestA, "backend/plugin")
+	v1, digestA := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
 	genesis := seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,
 		PluginRuntimeMember{
@@ -341,7 +343,7 @@ func TestSaveBuiltinEnabledPluginStagesDigestBWithoutBypassingLifecycle(t *testi
 		},
 	)
 
-	v2 := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", digestB, "backend/plugin")
+	v2, _ := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", "backend/plugin")
 	if v2.ActiveVersionID != v1.ActiveVersionID || v2.StagedVersion == nil || v2.StagedVersion.ID == v1.ActiveVersionID {
 		t.Fatalf("enabled builtin must stage B without advancing active artifact: %#v", v2)
 	}
@@ -364,11 +366,9 @@ func TestSaveBuiltinEnabledPluginStagesDigestBWithoutBypassingLifecycle(t *testi
 // previousActive==B 而短路跳过修复。
 func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *testing.T) {
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "repair_stale_a")
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
 	const pluginID = "builtin.stale.active"
 
-	v1 := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digestA, "backend/plugin")
+	v1, digestA := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
 	stale := seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,
 		PluginRuntimeMember{
@@ -383,13 +383,14 @@ func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
+	packagePathB, digestB := fixture.builtinArtifact(pluginID, "1.0.1")
 	var versionBID int64
 	if err := fixture.pool.QueryRow(fixture.ctx, `
 		INSERT INTO extension_versions (
 			extension_id, version, manifest, package_path, package_digest
 		) VALUES ($1, '1.0.1', $2::jsonb, $3, $4)
 		RETURNING id
-	`, pluginID, string(manifestJSON), "/tmp/"+pluginID+"/side-b", digestB).Scan(&versionBID); err != nil {
+	`, pluginID, string(manifestJSON), packagePathB, digestB).Scan(&versionBID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.pool.Exec(fixture.ctx, `
@@ -406,7 +407,7 @@ func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *te
 	}
 
 	// SaveBuiltin 同一 B：应 A→B upgrade，即使 active 已是 B。
-	repaired := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", digestB, "backend/plugin")
+	repaired, digestB := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", "backend/plugin")
 	if repaired.ActiveVersionID != versionBID || repaired.PackageDigest != digestB {
 		t.Fatalf("active after repair: %#v want version=%d", repaired, versionBID)
 	}
@@ -426,7 +427,7 @@ func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *te
 	assertPluginRuntimePublicationCount(t, fixture, 2)
 
 	// 重复 SaveBuiltin(B) 幂等，不再追加。
-	again := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", digestB, "backend/plugin")
+	again, _ := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", "backend/plugin")
 	if again.ActiveVersionID != versionBID {
 		t.Fatalf("idempotent active drift: %#v", again)
 	}
@@ -439,11 +440,9 @@ func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *te
 
 func TestSaveBuiltinPluginRuntimeConcurrentRepeatIdempotent(t *testing.T) {
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "concurrent_idempotent")
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
 	const pluginID = "builtin.concurrent"
 
-	v1 := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digestA, "backend/plugin")
+	v1, digestA := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
 	seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,
 		PluginRuntimeMember{
@@ -453,7 +452,8 @@ func TestSaveBuiltinPluginRuntimeConcurrentRepeatIdempotent(t *testing.T) {
 	)
 
 	// 已启用制品的 B 只暂存；并发重复同步也不得绕过 lifecycle。
-	saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", digestB, "backend/plugin")
+	packagePathB, digestB := fixture.builtinArtifact(pluginID, "1.0.1")
+	saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", "backend/plugin")
 	before, err := fixture.store.LatestPluginRuntimePublication(fixture.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -477,7 +477,7 @@ func TestSaveBuiltinPluginRuntimeConcurrentRepeatIdempotent(t *testing.T) {
 			defer wait.Done()
 			_, saveErr := store.SaveBuiltin(fixture.ctx, SaveBuiltinInput{
 				Manifest:      builtinPluginManifest(pluginID, "1.0.1", "backend/plugin"),
-				PackagePath:   "/tmp/" + pluginID + "/1.0.1/" + digestB[:8],
+				PackagePath:   packagePathB,
 				PackageDigest: digestB,
 			})
 			if saveErr != nil {
@@ -504,13 +504,11 @@ func TestSaveBuiltinPluginRuntimeConcurrentRepeatIdempotent(t *testing.T) {
 
 func TestSaveBuiltinPluginRuntimeDoesNotResurrectAbsentMember(t *testing.T) {
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "no_resurrect")
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
 	const pluginID = "builtin.revoked"
 
 	// 扩展 enabled 且新制品会暂存，但 latest full-set 故意不含该成员
 	// （模拟 trust-revocation 摘除成员后 status 仍 enabled）。
-	v1 := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digestA, "backend/plugin")
+	v1, _ := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
 	empty := seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationRecovery,
 	)
@@ -518,7 +516,7 @@ func TestSaveBuiltinPluginRuntimeDoesNotResurrectAbsentMember(t *testing.T) {
 		t.Fatalf("expected empty recovery set: %+v", empty)
 	}
 
-	v2 := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", digestB, "backend/plugin")
+	v2, digestB := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", "backend/plugin")
 	if v2.ActiveVersionID != v1.ActiveVersionID || v2.StagedVersion == nil || v2.StagedVersion.PackageDigest != digestB {
 		t.Fatalf("new artifact should be staged: %#v", v2)
 	}
@@ -531,15 +529,13 @@ func TestSaveBuiltinPluginRuntimeDoesNotResurrectAbsentMember(t *testing.T) {
 
 func TestSaveBuiltinPluginRuntimePreservesUnrelatedMembers(t *testing.T) {
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "preserve_third")
-	digestA := strings.Repeat("a", 64)
-	digestB := strings.Repeat("b", 64)
-	digestOther := strings.Repeat("c", 64)
 	const (
 		pluginID = "builtin.primary"
 		otherID  = "third.party.plugin"
 	)
 
-	primary := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digestA, "backend/plugin")
+	primary, digestA := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
+	otherPackagePath, digestOther := fixture.builtinArtifact(otherID, "9.0.0")
 	otherManifest := string(runtimeManifestBody(t, otherID, "9.0.0", TypePlugin, "backend/other"))
 	if _, err := fixture.pool.Exec(fixture.ctx, `
 		INSERT INTO extensions (id, type, name, status, source, is_system, is_deletable)
@@ -551,9 +547,9 @@ func TestSaveBuiltinPluginRuntimePreservesUnrelatedMembers(t *testing.T) {
 	if err := fixture.pool.QueryRow(fixture.ctx, `
 		INSERT INTO extension_versions (
 			extension_id, version, manifest, package_path, package_digest
-		) VALUES ($1, '9.0.0', $2::jsonb, '/tmp/third', $3)
+		) VALUES ($1, '9.0.0', $2::jsonb, $3, $4)
 		RETURNING id
-	`, otherID, otherManifest, digestOther).Scan(&otherVersionID); err != nil {
+	`, otherID, otherManifest, otherPackagePath, digestOther).Scan(&otherVersionID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.pool.Exec(fixture.ctx, `
@@ -574,7 +570,7 @@ func TestSaveBuiltinPluginRuntimePreservesUnrelatedMembers(t *testing.T) {
 		},
 	)
 
-	upgraded := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", digestB, "backend/plugin")
+	upgraded, digestB := saveBuiltinPlugin(t, fixture, pluginID, "1.0.1", "backend/plugin")
 	latest, err := fixture.store.LatestPluginRuntimePublication(fixture.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -600,10 +596,9 @@ func TestSaveBuiltinPluginRuntimePreservesUnrelatedMembers(t *testing.T) {
 
 func TestSaveBuiltinPluginRuntimeNoPublicationLeavesGenesisToLater(t *testing.T) {
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "no_publication")
-	digestA := strings.Repeat("a", 64)
 	const pluginID = "builtin.genesis"
 
-	item := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digestA, "backend/plugin")
+	item, digestA := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
 	if item.Status != StatusEnabled || item.PackageDigest != digestA {
 		t.Fatalf("unexpected builtin: %#v", item)
 	}
@@ -632,9 +627,8 @@ func TestSaveBuiltinPluginRuntimeNewExecutableEnableWithPublication(t *testing.T
 	empty := seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,
 	)
-	digest := strings.Repeat("d", 64)
 	const pluginID = "builtin.fresh"
-	item := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", digest, "backend/plugin")
+	item, digest := saveBuiltinPlugin(t, fixture, pluginID, "1.0.0", "backend/plugin")
 	latest, err := fixture.store.LatestPluginRuntimePublication(fixture.ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -654,8 +648,7 @@ func TestSaveBuiltinPluginRuntimeDeclarationOnlyDoesNotAddMember(t *testing.T) {
 	empty := seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,
 	)
-	digest := strings.Repeat("e", 64)
-	item := saveBuiltinPlugin(t, fixture, "builtin.decl", "1.0.0", digest, "")
+	item, digest := saveBuiltinPlugin(t, fixture, "builtin.decl", "1.0.0", "")
 	if item.PackageDigest != digest {
 		t.Fatalf("declaration builtin not saved: %#v", item)
 	}
