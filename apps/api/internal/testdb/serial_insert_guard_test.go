@@ -125,6 +125,7 @@ var serialInsertExemptions = map[string]string{
 	"app/Models/Conditions/conditions_object_identity_integration_test.go":                     "所有用例走 newFixture（conditions_postgres_integration_test.go:154），其 search_path 设在同文件 :186。",
 	"app/Models/Extensions/legacy_plugin_runtime_publication_postgres_integration_test.go":     "走 newPluginRuntimePublicationPGFixture（plugin_runtime_publication_postgres_integration_test.go:288），search_path 设在同文件 :314/:379。",
 	"app/Models/Extensions/plugin_runtime_publication_transition_postgres_integration_test.go": "同上：newPluginRuntimePublicationPGFixture 的私有 schema。",
+	"app/Models/Extensions/plugin_runtime_artifact_repair_postgres_integration_test.go":        "同上：newPluginRuntimePublicationPGFixture 的私有 schema；且该 schema 里的 extension_versions 由 fixture 自建（id BIGINT PRIMARY KEY，非 serial），显式插 101/201 不触碰任何序列。",
 	"app/Support/HostAPI/v2_command_actor_postgres_integration_test.go":                        "走 newPostgresCommandHarness（v2_command_postgres_integration_test.go:356），search_path 设在同文件 :379。",
 	"app/Support/HostAPI/v2_command_domains_postgres_integration_test.go":                      "走 newPostgresDomainCommandHarness（v2_command_domains_postgres_harness_test.go:51），search_path 设在同文件 :74。",
 	"app/Support/IdentityRegistry/postgres_legacy_adoption_integration_test.go":                "走 newIdentityRegistryStoreFixture（postgres_fixture_test.go:31），search_path 设在同文件 :58/:82。",

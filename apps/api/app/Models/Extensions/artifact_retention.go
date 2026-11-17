@@ -2,7 +2,7 @@ package extensions
 
 import (
 	"bytes"
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,11 +11,15 @@ import (
 
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 )
 
 // ErrArtifactUnusable 表示一份冻结制品当前无法被装载。它与「行在、盘缺」是
 // 同一族结论：调用方应先放弃，而不是按退避无限重试。
-var ErrArtifactUnusable = errors.New("extensions: artifact is not loadable")
+//
+// 哨兵本体在 ArtifactIntegrity 包（坐标载体所在处），这里同名再导出：制品族
+// 的判定只认这一个值，启动期装载、发布期校验与恢复码映射不各持一份。
+var ErrArtifactUnusable = artifactintegrity.ErrArtifactUnusable
 
 // artifactState 判定一个制品路径在磁盘上是否可用。它是制品保留（GC）与
 // 缺失制品清理共用的唯一判据来源：任何"行在、盘缺"的结论都必须经过它。
@@ -194,4 +198,62 @@ func normalizedMissingArtifactIDs(values []string) []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+// pluginRuntimeArtifactMemberQuery 取一份 publication 的成员及其 durable 制品路径。
+//
+// package_path 是写入时的相对路径（相对 API 进程工作目录 apps/api），服务端
+// 进程的工作目录就是那个目录，因此这里直接按原值解析；带外 CLI 另有 --root。
+const pluginRuntimeArtifactMemberQuery = `
+	SELECT m.extension_id, m.extension_version, m.package_digest,
+	       COALESCE(v.package_path, '')
+	FROM plugin_runtime_publications p
+	JOIN plugin_runtime_publication_members m ON m.publication_revision = p.revision
+	LEFT JOIN extension_versions v ON v.id = m.extension_version_id
+	WHERE p.revision = COALESCE(
+		NULLIF($1::bigint, 0),
+		(SELECT max(revision) FROM plugin_runtime_publications)
+	)
+	ORDER BY m.extension_id COLLATE "C"
+`
+
+// VerifyPluginRuntimePublicationArtifacts 对一份 publication 的全部成员做只读
+// 完整性校验，返回第一个缺陷（带四坐标）。revision<=0 表示最新修订。
+//
+// 这是启动期自检与发布期 fail-closed 校验共用的唯一实现：判定本身在
+// ArtifactIntegrity.Verify 里，本函数只负责把 durable 行解析成"成员 + 路径"，
+// 不复制判据、不新增第二套措辞。
+func (s *PostgresStore) VerifyPluginRuntimePublicationArtifacts(ctx context.Context, revision int64) error {
+	if s == nil || s.pool == nil || ctx == nil {
+		return ErrPluginRuntimePublicationConflict
+	}
+	rows, err := s.pool.Query(ctx, pluginRuntimeArtifactMemberQuery, revision)
+	if err != nil {
+		return fmt.Errorf("load plugin runtime publication artifacts: %w", err)
+	}
+	defer rows.Close()
+	type artifactMember struct {
+		id, version, digest, packagePath string
+	}
+	members := make([]artifactMember, 0, 16)
+	for rows.Next() {
+		var member artifactMember
+		if err := rows.Scan(&member.id, &member.version, &member.digest, &member.packagePath); err != nil {
+			return fmt.Errorf("scan plugin runtime publication artifact: %w", err)
+		}
+		members = append(members, member)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, member := range members {
+		if err := artifactintegrity.Verify(member.packagePath, artifactintegrity.Member{
+			ExtensionID: member.id,
+			Version:     member.version,
+			Digest:      member.digest,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

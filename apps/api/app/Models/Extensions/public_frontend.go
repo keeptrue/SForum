@@ -18,6 +18,7 @@ import (
 	assetregistry "github.com/keeptrue/sforum/apps/api/app/Support/AssetRegistry"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 	stablefile "github.com/keeptrue/sforum/apps/api/app/Support/StableFile"
 	platformversion "github.com/keeptrue/sforum/apps/api/version"
 )
@@ -824,7 +825,9 @@ func OpenVerifiedRuntimeExecutable(extension Extension) (*os.File, string, error
 	)
 	if declared != "" && declared != fresh {
 		opened.close()
-		return nil, "", fmt.Errorf("%w: declared backend digest does not match the installed artifact: %s", ErrFrontendPackageChanged, entry)
+		return nil, "", artifactintegrity.EntryDigestMismatch(
+			extension.ID, extension.Version, extension.PackageDigest, entry, declared, fresh,
+			ErrFrontendPackageChanged)
 	}
 	// 目录句柄用完即关；文件句柄必须留给 exec 绑定（关闭 root 不影响已打开的 fd）。
 	if opened.root != nil {

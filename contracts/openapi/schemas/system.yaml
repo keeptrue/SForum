@@ -132,9 +132,19 @@ ReadyRecovery:
   properties:
     code:
       type: string
-      description: Stable recovery reason code; a non-empty code is what makes the requirement active.
+      description: |
+        Stable recovery reason code; a non-empty code is what makes the
+        requirement active.
+
+        `plugin_artifact_incomplete` is a strict refinement of
+        `plugin_runtime_convergence_failed`: the failure happened while
+        loading an already-published artifact (its backend entry is missing,
+        not a regular file, or its path was rejected), so the operator action
+        is to repair or republish that artifact rather than to wait out
+        convergence or inspect process startup.
       examples:
       - plugin_runtime_convergence_failed
+      - plugin_artifact_incomplete
     component:
       type: string
       description: Component name reported as a failed required component in `components`.

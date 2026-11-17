@@ -858,7 +858,18 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **审计全量收口（第 13 轮，2026-11-15/16，最新）**：EX2-01 交付内核级沙箱（Landlock
+- **制品完整性不变式（2026-11-17，issue #256，最新）**：`recovery_required` 事故根因 =
+  `plugin_runtime_publications` revision 1540 钉住 `sforum-shortcodes@1.3.10` 的
+  `b4f399bd…`，而该目录的 `backend/plugin` 被带外删除（28/29 文件，`backend/` mtime
+  17:34:53）→ 每次启动 stage fail-closed、全站 503。本刀补 `AGENTS.md` 五条不变式（制品
+  只读、发布期 fail-closed、错误可诊断、恢复通道完备、诊断纪律）+ 决策
+  `decisions/2026-11-17-artifact-integrity-at-publish-time.md`（含六条撤销条件）。
+  **不要往坏制品目录补文件**——manifest `backend.digest=b29b4775…` 与目录树摘要都对不上。
+  已落地：`sforum extension verify-artifacts [--root apps/api]`（只读自检，exit 0/1/2）+
+  `sforum recovery republish-artifact <id> --reason TEXT [--confirm-token TOKEN]`（同版本
+  重指向，不带 token 即 dry-run）；**发布期校验闸门与 dev 自愈尚未实现**。
+  见 `sessions/2026-11-17-plugin-artifact-integrity.md`。
+- **审计全量收口（第 13 轮，2026-11-15/16）**：EX2-01 交付内核级沙箱（Landlock
   ABI 8 FS + 可配网络、cgroup v2 限额、`SkipHostEnv` 修 env 白名单、storage-fs 设置路径
   自动可写），RV-03 判「设计如此」摘出分母；契约侧补 12×401 / 2×302 / 3 条通配形状并让
   parity 门跟随 guard 助手（空集 211 → 194）+ 12 条定向棘轮；RV-28 扩到 utils 层。

@@ -55,6 +55,7 @@ func newExtensionRecoveryCommand() *cobra.Command {
 	cmd.AddCommand(newExtensionRecoveryLifecycleCloseCommand())
 	cmd.AddCommand(newExtensionRecoveryActivationStateCommand())
 	cmd.AddCommand(newExtensionRecoveryRecheckCommand())
+	cmd.AddCommand(newRecoveryRepublishArtifactCommand())
 	return cmd
 }
 

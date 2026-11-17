@@ -11,6 +11,7 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	notifications "github.com/keeptrue/sforum/apps/api/app/Models/Notifications"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 	lifecyclerecovery "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/LifecycleRecovery"
 	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
 	supportjobs "github.com/keeptrue/sforum/apps/api/app/Support/Jobs"
@@ -175,6 +176,12 @@ func restoreAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger 
 	if cfg.SafeMode {
 		reconciledExtensions, err = reconcileAPIExtensionRuntime(ctx, true, extensionStore, extensionRuntime)
 	} else {
+		// 启动期只读自检：期望集里只要有一个制品不完整，就不要把 runtime 拉起来
+		// 再等它 stage 失败——那会把「制品坏了」伪装成「收敛超时」。判据与发布期
+		// 校验共用 VerifyPluginRuntimePublicationArtifacts，不重复实现。
+		err = extensionStore.VerifyPluginRuntimePublicationArtifacts(ctx, 0)
+	}
+	if err == nil && !cfg.SafeMode {
 		pluginRuntimeCoordinator, err = startPluginRuntimeCoordinator(ctx, pluginRuntimeCoordinatorBootstrapConfig{
 			ProcessRole:   extensions.PluginRuntimeProcessAPI,
 			Store:         extensionStore,
@@ -265,7 +272,7 @@ func newPluginRuntimeRecoveryRequirement(
 	cause error,
 ) *health.RecoveryRequirement {
 	requirement := &health.RecoveryRequirement{
-		Code:      health.PluginRuntimeRecoveryCode,
+		Code:      pluginRuntimeRecoveryCode(cause),
 		Component: "plugin_runtime",
 		Message:   pluginRuntimeRecoveryMessage(cause),
 	}
@@ -277,6 +284,7 @@ func newPluginRuntimeRecoveryRequirement(
 		return requirement
 	}
 	requirement.PublicationRevision = publication.Revision
+	requirement.Message = pluginRuntimeRecoveryMessageWithRevision(cause, publication.Revision)
 	requirement.Artifacts = make([]health.RecoveryArtifact, 0, len(publication.Members))
 	for _, member := range publication.Members {
 		requirement.Artifacts = append(requirement.Artifacts, health.RecoveryArtifact{
@@ -288,7 +296,48 @@ func newPluginRuntimeRecoveryRequirement(
 	return requirement
 }
 
+// pluginRuntimeRecoveryCode 决定 /api/v1/ready 暴露的恢复码。
+//
+// 制品装载阶段的失败必须与「收敛超时」「进程启动失败」分开：前者的处置动作是
+// 修制品/重发修订，后者是等时序或查进程。混用同一个码会让运维按错误的方向排查
+// （issue #253）。
+//
+// 判据是制品族唯一的哨兵，而不是「有没有坐标」：Models 侧的 stagedArtifactUsable
+// 会包装同一个哨兵但不带坐标，那同样是制品族失败。
+func pluginRuntimeRecoveryCode(err error) string {
+	if errors.Is(err, extensions.ErrArtifactUnusable) {
+		return health.PluginArtifactIncompleteCode
+	}
+	return health.PluginRuntimeRecoveryCode
+}
+
+// pluginArtifactIncompleteMessage 渲染四坐标 + 发布修订：extensionId / version /
+// digest / 相对包根的缺失或错配路径。缺任何一个，运维都得回日志里重新拼现场。
+//
+// reason 区分「缺失」与「摘要不符」两种形态：前者补制品，后者重发修订。
+func pluginArtifactIncompleteMessage(err error, publicationRevision int64) string {
+	coordinates, ok := artifactintegrity.Coordinates(err)
+	if !ok {
+		return "plugin artifact is incomplete; inspect API logs for the exact cause"
+	}
+	if publicationRevision <= 0 {
+		return fmt.Sprintf(
+			"plugin artifact is incomplete: extensionId=%s version=%s digest=%s path=%s reason=%s",
+			coordinates.ExtensionID, coordinates.Version, coordinates.Digest, coordinates.Path, coordinates.Reason,
+		)
+	}
+	return fmt.Sprintf(
+		"plugin artifact is incomplete: publicationRevision=%d extensionId=%s version=%s digest=%s path=%s reason=%s",
+		publicationRevision, coordinates.ExtensionID, coordinates.Version, coordinates.Digest,
+		coordinates.Path, coordinates.Reason,
+	)
+}
+
 func pluginRuntimeRecoveryMessage(err error) string {
+	return pluginRuntimeRecoveryMessageWithRevision(err, 0)
+}
+
+func pluginRuntimeRecoveryMessageWithRevision(err error, publicationRevision int64) string {
 	switch {
 	case errors.Is(err, errPluginRuntimeCoordinatorStartupPending):
 		return "plugin runtime did not converge before the startup deadline; an extension lifecycle operation is still open"
@@ -302,6 +351,8 @@ func pluginRuntimeRecoveryMessage(err error) string {
 		return "plugin executable permission was denied"
 	case errors.Is(err, pluginbootstrap.ErrProcessStart):
 		return "plugin process failed to start"
+	case errors.Is(err, extensions.ErrArtifactUnusable):
+		return pluginArtifactIncompleteMessage(err, publicationRevision)
 	default:
 		return "plugin runtime convergence failed; inspect API logs for the exact cause"
 	}
