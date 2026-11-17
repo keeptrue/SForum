@@ -352,16 +352,25 @@ contracts first.
   or the publish refused — never recorded as expected state. Automatic repair of
   a broken desired set is permitted only inside `APP_ENV=development` (Safe Mode
   also blocks it); everywhere else repair is the explicit CLI action below.
-  Implementation status (2026-11-17): this bullet is the **target specification**,
-  not current behaviour — the publish-time gate is **not wired yet**. What exists
-  today is the startup read-only self-check plus the CLI recovery channel
-  (`artifactintegrity.Verify` has exactly two production call sites: the CLI's
-  `inspectMember`, and `VerifyPluginRuntimePublicationArtifacts`, whose only
-  caller is the boot-time self-check. `insertPluginRuntimePublication` does not
-  call it, so all 9 of its call sites — every publish, recovery, trust-revocation
-  and builtin-sync path — are gate-free). Do not read this rule as "already
-  enforced" when weakening apply-time validation or copying a publish-then-repair
-  pattern.
+  Implementation status (2026-11-17): the publish-time gate is **wired**. Every
+  producer funnels through `insertPluginRuntimePublication`
+  (`apps/api/app/Models/Extensions/plugin_runtime_publication_postgres.go:36`),
+  which resolves each member's `extension_versions.package_path` inside the same
+  transaction and runs `artifactintegrity.Verify` per member before either
+  INSERT. The first defect aborts the publish with `ErrArtifactUnusable` plus
+  `extensionId` / `version` / `digest` / relative `path`, and no
+  publication/member row is written. All 9 of its call sites inherit the gate —
+  every publish, recovery, trust-revocation, quarantine, authoritative-genesis
+  and builtin-sync path — with no verify flag and no reason-based exemption; an
+  empty member set (genesis) still publishes. `artifactintegrity.Verify`
+  therefore has three production call sites: the CLI's `inspectMember`, the
+  boot-time read-only `VerifyPluginRuntimePublicationArtifacts`, and
+  `verifyPluginRuntimePublicationMembers`. **Still not implemented:** the
+  `APP_ENV=development` automatic repair (the second item of issue #254) — this
+  gate is publish-time refusal only, not self-healing. Apply-time validation
+  keeps its own job (it sees out-of-band deletion that happens after publishing)
+  and must not be weakened; the publish-time gate is defence-in-depth in front of
+  it, never a licence to publish-then-repair.
   See `knowledge/decisions/2026-11-17-artifact-integrity-at-publish-time.md`.
 - Every failure that can push the API into recovery-only must be diagnosable
   from the response alone: a typed code plus a message carrying coordinates —

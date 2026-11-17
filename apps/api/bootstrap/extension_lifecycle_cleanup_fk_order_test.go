@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -14,7 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
-	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
@@ -60,24 +57,32 @@ func newLifecyclePurgeFixture(t *testing.T, pinned bool) *lifecyclePurgeFixture 
 		t.Fatal(err)
 	}
 
-	packagePath := filepath.Join(t.TempDir(), extensionID, "artifact")
-	if err := os.MkdirAll(packagePath, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(packagePath, "plugin.json"), []byte("purge fixture"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	packageDigest, err := extensionpackage.DigestTree(packagePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest, err := json.Marshal(map[string]any{
-		"manifestVersion": 3, "id": extensionID, "type": "plugin",
-		"name": "Bootstrap Purge", "version": "1.0.0",
+	// 被钉住的成员必须指向一份**真实自洽**制品：后续用例的 full-set 过渡会继承
+	// 这条成员，发布期闸门（#254）会按 package_path 逐个回查。制品放在包级共享
+	// 根目录，活到测试二进制结束（见 artifact_fixture_test.go 的说明）。
+	rawManifest, err := json.Marshal(extensions.Manifest{
+		ManifestVersion: 3,
+		ID:              extensionID,
+		Name:            "Bootstrap Purge",
+		Description:     "Lifecycle cleanup purge fixture.",
+		URL:             "https://example.com/bootstrap-purge",
+		Author:          extensions.ManifestAuthor{Name: "SForum"},
+		Version:         "1.0.0",
+		Type:            extensions.TypePlugin,
+		SForumVersion:   ">=0.1.0",
+		Backend: extensions.ManifestBackend{
+			Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
+			HostAPIVersion: "sforum.host@2",
+		},
+		PackageFiles: []extensions.ManifestPackageFile{{
+			ID: extensionID + ".backend", Kind: "executable", Path: "backend/plugin",
+		}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	artifact := bootstrapArtifacts(t).MaterializeManifest(t, rawManifest, nil)
+	packagePath, packageDigest, manifest := artifact.Path, artifact.Digest, artifact.Manifest
 
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO extensions (id, type, name, status, source, is_system, is_deletable)

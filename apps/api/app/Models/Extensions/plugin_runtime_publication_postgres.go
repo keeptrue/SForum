@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 )
 
 const pluginRuntimePublicationSelect = `
@@ -22,11 +24,17 @@ func insertPluginRuntimePublication(
 	actorUserID int64,
 	members []PluginRuntimeMember,
 ) (PluginRuntimePublication, error) {
-	// TODO(#254): 发布期闸门未接线，写前必须先跑成员级 Verify
-	// （ArtifactIntegrity.Verify；见 knowledge/decisions/2026-11-17-artifact-integrity-at-publish-time.md）。
 	canonical, digest, err := canonicalPluginRuntimeMembers(members)
 	if err != nil {
 		return PluginRuntimePublication{}, ErrPluginRuntimePublicationConflict
+	}
+	// 发布期闸门：publication 是追加式不可变表，一旦写进去就只能再追加一条覆盖，
+	// 坏制品会让每次启动都在 stage 处 fail-closed（#254 现场）。所以「不写」是这
+	// 一族失败唯一代价低的时刻：成员级完整性不过就整次发布拒绝，不写任何行。
+	// 这是 apply 期校验（OpenVerifiedRuntimeExecutable / artifactState）的纵深前置，
+	// 不是替代——带外删除发生在发布之后，只有 apply 期能看见。
+	if err := verifyPluginRuntimePublicationMembers(ctx, tx, canonical); err != nil {
+		return PluginRuntimePublication{}, err
 	}
 	publication := PluginRuntimePublication{
 		MemberCount: len(canonical), MembersDigest: digest, Members: canonical,
@@ -60,6 +68,63 @@ func insertPluginRuntimePublication(
 		}
 	}
 	return publication, nil
+}
+
+// verifyPluginRuntimePublicationMembers 在写 publication 之前，对每个成员当前被
+// durable 行钉住的制品做一次完整性校验。
+//
+// 路径来自同一个 tx 里的 extension_versions.package_path：发布入口可能刚在同一
+// 事务里写/改过这些行，读自己的写才能保证「校验的制品」与「即将冻结的制品」一致。
+//
+// 失败语义是 fail-closed 且带坐标：错误直接是 *artifactintegrity.Error，保留
+// extensionId / version / digest / 相对路径，不塌成 ErrPluginRuntimePublicationConflict
+// 那种无坐标的发布冲突（现场需要凭这一句话直接定位是哪份制品的哪个文件）。
+// 成员的 durable 行缺失时路径为空，Verify 会把它报成「package path is empty」——
+// 同样是一次带坐标的拒绝，而不是放行。
+func verifyPluginRuntimePublicationMembers(
+	ctx context.Context,
+	tx pgx.Tx,
+	members []PluginRuntimeMember,
+) error {
+	if len(members) == 0 {
+		// genesis/空期望集没有制品可校验，必须继续可发布（否则全新库起不来）。
+		return nil
+	}
+	versionIDs := make([]int64, 0, len(members))
+	for _, member := range members {
+		versionIDs = append(versionIDs, member.ExtensionVersionID)
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id, COALESCE(package_path, '')
+		FROM extension_versions
+		WHERE id = ANY($1::bigint[])
+	`, versionIDs)
+	if err != nil {
+		return fmt.Errorf("load plugin runtime publication member artifacts: %w", err)
+	}
+	defer rows.Close()
+	packagePaths := make(map[int64]string, len(versionIDs))
+	for rows.Next() {
+		var versionID int64
+		var packagePath string
+		if err := rows.Scan(&versionID, &packagePath); err != nil {
+			return fmt.Errorf("scan plugin runtime publication member artifact: %w", err)
+		}
+		packagePaths[versionID] = packagePath
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read plugin runtime publication member artifacts: %w", err)
+	}
+	for _, member := range members {
+		if err := artifactintegrity.Verify(packagePaths[member.ExtensionVersionID], artifactintegrity.Member{
+			ExtensionID: member.ExtensionID,
+			Version:     member.ExtensionVersion,
+			Digest:      member.PackageDigest,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *PostgresStore) LatestPluginRuntimePublication(ctx context.Context) (PluginRuntimePublication, error) {

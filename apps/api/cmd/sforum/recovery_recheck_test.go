@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -17,27 +18,50 @@ import (
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
-const recheckDigest = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
-
 // seedRecheckExtension 写入一条启用的扩展与其精确 active 制品。
-func seedRecheckExtension(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id string) extensions.PluginRuntimeMember {
+//
+// 制品必须真实自洽：recheck 会重新发布同一条 full-set，发布期闸门（#254）按
+// package_path 回查盘上制品，写死的 digest 与假路径会被拒。
+func (f *recoveryPostgresFixture) seedRecheckExtension(t *testing.T, id string) extensions.PluginRuntimeMember {
 	t.Helper()
 	// extensions.active_version_id 是后加的外键，先写扩展行再写版本行。
-	if _, err := pool.Exec(ctx, `
+	if _, err := f.pool.Exec(f.ctx, `
 		INSERT INTO extensions (id, type, name, status, source, is_system)
 		VALUES ($1, 'plugin', $1, 'enabled', 'uploaded', false)
 	`, id); err != nil {
 		t.Fatalf("seed extension: %v", err)
 	}
+	rawManifest, err := json.Marshal(extensions.Manifest{
+		ManifestVersion: 3,
+		ID:              id,
+		Name:            id,
+		Description:     "CLI recheck fixture.",
+		URL:             "https://example.com/recheck-fixture",
+		Author:          extensions.ManifestAuthor{Name: "SForum"},
+		Version:         "1.0.0",
+		Type:            extensions.TypePlugin,
+		SForumVersion:   ">=0.1.0",
+		Backend: extensions.ManifestBackend{
+			Entry: "backend/plugin", RPC: "hashicorp-go-plugin", ProtocolVersion: 2,
+			HostAPIVersion: "sforum.host@2",
+		},
+		PackageFiles: []extensions.ManifestPackageFile{{
+			ID: id + ".backend", Kind: "executable", Path: "backend/plugin",
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact := f.artifacts.MaterializeManifest(t, rawManifest, nil)
 	var versionID int64
-	if err := pool.QueryRow(ctx, `
+	if err := f.pool.QueryRow(f.ctx, `
 		INSERT INTO extension_versions (extension_id, version, manifest, package_path, package_digest)
-		VALUES ($1, '1.0.0', '{}'::jsonb, 'packages/recheck', $2)
+		VALUES ($1, '1.0.0', $2::jsonb, $3, $4)
 		RETURNING id
-	`, id, recheckDigest).Scan(&versionID); err != nil {
+	`, id, string(artifact.Manifest), artifact.Path, artifact.Digest).Scan(&versionID); err != nil {
 		t.Fatalf("seed extension version: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `
+	if _, err := f.pool.Exec(f.ctx, `
 		UPDATE extensions SET active_version_id = $2 WHERE id = $1
 	`, id, versionID); err != nil {
 		t.Fatalf("bind active version: %v", err)
@@ -46,7 +70,7 @@ func seedRecheckExtension(t *testing.T, ctx context.Context, pool *pgxpool.Pool,
 		ExtensionID:        id,
 		ExtensionVersionID: versionID,
 		ExtensionVersion:   "1.0.0",
-		PackageDigest:      recheckDigest,
+		PackageDigest:      artifact.Digest,
 	}
 }
 
@@ -92,7 +116,7 @@ func seedRecheckPublication(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 func TestRecoveryRecheckPublishesRecoveryRevisionForExactDesiredSet(t *testing.T) {
 	fixture := newRecoveryPostgresFixture(t)
 	ctx := fixture.ctx
-	member := seedRecheckExtension(t, ctx, fixture.pool, "recovery.recheck.exact")
+	member := fixture.seedRecheckExtension(t, "recovery.recheck.exact")
 	genesis := seedRecheckPublication(t, ctx, fixture.pool, []extensions.PluginRuntimeMember{member})
 
 	result, err := recheckPluginRuntimeRecovery(ctx, fixture.pool, "operator confirmed the plugin artifacts")
@@ -131,7 +155,7 @@ func TestRecoveryRecheckPublishesRecoveryRevisionForExactDesiredSet(t *testing.T
 func TestRecoveryRecheckRefusesArtifactDriftWithoutWriting(t *testing.T) {
 	fixture := newRecoveryPostgresFixture(t)
 	ctx := fixture.ctx
-	member := seedRecheckExtension(t, ctx, fixture.pool, "recovery.recheck.drift")
+	member := fixture.seedRecheckExtension(t, "recovery.recheck.drift")
 	genesis := seedRecheckPublication(t, ctx, fixture.pool, []extensions.PluginRuntimeMember{member})
 
 	// durable 证据漂移：active 制品换成另一个版本，publication 仍指向旧版本。

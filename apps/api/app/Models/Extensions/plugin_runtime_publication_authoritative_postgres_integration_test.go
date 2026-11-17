@@ -31,17 +31,15 @@ func TestRetryablePluginRuntimePublicationError(t *testing.T) {
 
 func TestEnsureInitialPluginRuntimePublicationExactlyOnceAcrossRestart(t *testing.T) {
 	for _, test := range []struct {
-		name    string
-		members []PluginRuntimeMember
-		setup   func(*testing.T, *pluginRuntimePublicationPGFixture)
+		name   string
+		seeded bool
+		setup  func(*testing.T, *pluginRuntimePublicationPGFixture)
 	}{
 		{name: "empty"},
 		{
-			name: "non-empty",
-			members: []PluginRuntimeMember{{
-				ExtensionID: "fixture.plugin", ExtensionVersionID: 101,
-				ExtensionVersion: "1.0.0", PackageDigest: strings.Repeat("b", 64),
-			}},
+			// 成员坐标由夹具造出的真实制品决定，不能在这里写死 digest。
+			name:   "non-empty",
+			seeded: true,
 			setup: func(t *testing.T, fixture *pluginRuntimePublicationPGFixture) {
 				setPluginRuntimeFixtureVersion(t, fixture, "fixture.plugin", 101, StatusEnabled,
 					runtimeManifestBody(t, "fixture.plugin", "1.0.0", TypePlugin, "backend/plugin"))
@@ -55,6 +53,10 @@ func TestEnsureInitialPluginRuntimePublicationExactlyOnceAcrossRestart(t *testin
 			if test.setup != nil {
 				test.setup(t, fixture)
 			}
+			var wantMembers []PluginRuntimeMember
+			if test.seeded {
+				wantMembers = []PluginRuntimeMember{fixture.firstMember()}
+			}
 
 			initial, err := fixture.store.EnsureInitialPluginRuntimePublication(fixture.ctx)
 			if err != nil {
@@ -64,7 +66,7 @@ func TestEnsureInitialPluginRuntimePublicationExactlyOnceAcrossRestart(t *testin
 				initial.ActorUserID != 0 {
 				t.Fatalf("unexpected initial publication: %+v", initial)
 			}
-			assertPluginRuntimePublicationMembers(t, initial, test.members...)
+			assertPluginRuntimePublicationMembers(t, initial, wantMembers...)
 			var actorIsNull bool
 			if err := fixture.pool.QueryRow(fixture.ctx, `
 				SELECT actor_user_id IS NULL
@@ -267,9 +269,7 @@ func TestEnsureInitialPluginRuntimePublicationConcurrentAPIWorkerGenesis(t *test
 
 func TestEnsureInitialPluginRuntimePublicationDoesNotOverwriteLifecycleTransition(t *testing.T) {
 	fixture := newInitialPluginRuntimePublicationPGFixture(t, "initial_transition_race")
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
+	target := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
 	if _, err := fixture.pool.Exec(fixture.ctx, `
 		UPDATE extension_versions SET manifest = $1::jsonb WHERE id = 101
 	`, string(runtimeManifestBody(t, "fixture.plugin", "1.0.0", TypePlugin, "backend/plugin"))); err != nil {

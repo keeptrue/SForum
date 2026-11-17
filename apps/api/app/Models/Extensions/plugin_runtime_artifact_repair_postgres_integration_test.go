@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -38,13 +37,9 @@ func newArtifactRepairFixture(t *testing.T, label string) *pluginRuntimePublicat
 		`ALTER TABLE extensions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`); err != nil {
 		t.Fatalf("add extensions.updated_at: %v", err)
 	}
-	// pgx 的预处理语句一次只能一条：分两次执行，别合并成多语句。
-	if _, err := fixture.pool.Exec(fixture.ctx, `
-		INSERT INTO extension_versions (id, extension_id, version, package_digest)
-		VALUES ($1, 'fixture.plugin', '1.0.0', repeat('e', 64))
-	`, repairCandidateVersionID); err != nil {
-		t.Fatalf("seed repair candidate version: %v", err)
-	}
+	// 候选行必须指向一份**真实自洽**制品：修复路径同样经过发布期闸门，
+	// 只有 digest 对得上盘上制品的候选才能被写进新 revision。
+	fixture.seedVersion("fixture.plugin", repairCandidateVersionID, "1.0.0", TypePlugin)
 	if _, err := fixture.pool.Exec(fixture.ctx,
 		`UPDATE extensions SET active_version_id = $1 WHERE id = 'fixture.plugin'`,
 		repairBadVersionID); err != nil {
@@ -155,12 +150,13 @@ func TestPostgresPluginRuntimeArtifactRepairWritesCASRevisionAndAudit(t *testing
 	if !ok {
 		t.Fatalf("repaired publication lost fixture.plugin: %#v", publication.Members)
 	}
+	candidateDigest := fixture.memberAt(t, repairCandidateVersionID).PackageDigest
 	if repaired.ExtensionVersionID != repairCandidateVersionID ||
-		repaired.PackageDigest != strings.Repeat("e", 64) ||
+		repaired.PackageDigest != candidateDigest ||
 		repaired.ExtensionVersion != "1.0.0" {
 		t.Fatalf("repaired member=%#v", repaired)
 	}
-	if other := byID["second.plugin"]; other.PackageDigest != strings.Repeat("c", 64) {
+	if other := byID["second.plugin"]; other.PackageDigest != fixture.secondMember().PackageDigest {
 		t.Fatalf("untouched member changed: %#v", other)
 	}
 
@@ -175,7 +171,7 @@ func TestPostgresPluginRuntimeArtifactRepairWritesCASRevisionAndAudit(t *testing
 	`, publication.Revision).Scan(&memberDigest); err != nil {
 		t.Fatalf("read repaired member row: %v", err)
 	}
-	if memberDigest != strings.Repeat("e", 64) {
+	if memberDigest != candidateDigest {
 		t.Fatalf("durable member digest=%s", memberDigest)
 	}
 	if err := fixture.pool.QueryRow(fixture.ctx, `
@@ -202,8 +198,8 @@ func TestPostgresPluginRuntimeArtifactRepairWritesCASRevisionAndAudit(t *testing
 		t.Fatalf("decode audit metadata: %v (%s)", err, string(metadata))
 	}
 	if decoded["extensionId"] != "fixture.plugin" ||
-		decoded["fromDigest"] != strings.Repeat("b", 64) ||
-		decoded["toDigest"] != strings.Repeat("e", 64) ||
+		decoded["fromDigest"] != fixture.firstMember().PackageDigest ||
+		decoded["toDigest"] != candidateDigest ||
 		int64(decoded["publicationRevision"].(float64)) != publication.Revision {
 		t.Fatalf("audit metadata=%s", string(metadata))
 	}

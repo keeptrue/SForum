@@ -19,6 +19,7 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testartifact"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
@@ -480,7 +481,9 @@ func newLifecyclePublicationIntegrationFixture(t *testing.T) *lifecyclePublicati
 			extension_id TEXT NOT NULL REFERENCES extensions(id) ON DELETE CASCADE,
 			version TEXT NOT NULL,
 			package_digest TEXT NOT NULL,
-			manifest JSONB NOT NULL
+			manifest JSONB NOT NULL,
+			-- 与生产同构：发布期闸门要按 durable 行里的路径回查盘上制品。
+			package_path TEXT NOT NULL DEFAULT ''
 		);
 		ALTER TABLE extensions
 		  ADD CONSTRAINT extensions_active_version_fk
@@ -549,9 +552,6 @@ func newLifecyclePublicationIntegrationFixture(t *testing.T) *lifecyclePublicati
 	request.TargetExtension.Manifest.ID = extensionID
 	request.TargetExtension.Manifest.PackageFiles[0].ID = extensionID + ".backend"
 	request.TargetBinding.ExtensionID = extensionID
-	source := request.TargetExtension
-	request.SourceExtension = &source
-	request.SourceBinding = request.TargetBinding
 	if err := extensionmanifest.Validate(request.TargetExtension.Manifest); err != nil {
 		t.Fatalf("integration manifest: %v", err)
 	}
@@ -562,6 +562,27 @@ func newLifecyclePublicationIntegrationFixture(t *testing.T) *lifecyclePublicati
 	if len(manifest) == 0 || string(manifest) == "null" || string(manifest) == "{}" {
 		t.Fatal("enabled publication fixture requires a non-empty exact manifest")
 	}
+	// 发布期闸门（#254）会按 package_path 回查盘上制品：用同一份 manifest 落一份
+	// 自洽制品，再把 durable 行与内存里的 request 都指向它。manifest 的入口摘要
+	// 由工厂同步，这里把同步后的字节写回 request，避免 DB 与磁盘各说一套。
+	artifact := testartifact.New(t).MaterializeManifest(t, manifest, nil)
+	if err := json.Unmarshal(artifact.Manifest, &request.TargetExtension.Manifest); err != nil {
+		t.Fatalf("reload artifact manifest: %v", err)
+	}
+	request.TargetExtension.PackageDigest = artifact.Digest
+	request.TargetExtension.PackagePath = artifact.Path
+	manifest = artifact.Manifest
+	source := request.TargetExtension
+	request.SourceExtension = &source
+	// 制品重封后 digest 变了：binding 是 exact-artifact 的对照面，必须一起更新，
+	// 否则 journal 会在拿锁前就以「target runtime binding is not exact」拒绝。
+	binding := request.TargetBinding
+	binding.ExtensionID = request.TargetExtension.ID
+	binding.ExtensionVersion = request.TargetExtension.Version
+	binding.PackageDigest = request.TargetExtension.PackageDigest
+	binding.VersionID = request.TargetExtension.ActiveVersionID
+	request.TargetBinding = binding
+	request.SourceBinding = binding
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -575,10 +596,11 @@ func newLifecyclePublicationIntegrationFixture(t *testing.T) *lifecyclePublicati
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO extension_versions (
-			id, extension_id, version, package_digest, manifest
-		) VALUES ($1, $2, $3, $4, $5::jsonb)
+			id, extension_id, version, package_digest, package_path, manifest
+		) VALUES ($1, $2, $3, $4, $5, $6::jsonb)
 	`, request.TargetExtension.ActiveVersionID, extensionID,
-		request.TargetExtension.Version, request.TargetExtension.PackageDigest, manifest); err != nil {
+		request.TargetExtension.Version, request.TargetExtension.PackageDigest,
+		request.TargetExtension.PackagePath, manifest); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tx.Exec(ctx, `

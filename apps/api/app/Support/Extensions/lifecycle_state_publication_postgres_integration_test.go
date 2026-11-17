@@ -3,9 +3,9 @@ package extensionsruntime
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +18,7 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testartifact"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
@@ -339,10 +340,21 @@ func newLifecycleStatePublicationIntegration(
 	pool := newLifecycleStatePublicationTestPool(t)
 	store := extensions.NewPostgresStore(pool)
 	extensionID := fmt.Sprintf("state.publication.%s.%d", operation, time.Now().UnixNano())
-	root := t.TempDir()
+	// 发布期闸门（#254）按 extension_versions.package_path 回查盘上制品：制品必须
+	// 从同一份 manifest 生成，不能再用不存在的临时目录冒充。
+	artifacts := testartifact.New(t)
+	seal := func(extension extensions.Extension) (string, string) {
+		raw, err := json.Marshal(extension.Manifest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		coords := artifacts.MaterializeManifest(t, raw, nil)
+		return coords.Path, coords.Digest
+	}
 	v1 := exactCoordinatorTestExtension(extensionID, "1.0.0", strings.Repeat("a", 64), "state.lifecycle@1", 1)
+	v1Path, v1Digest := seal(v1)
 	installed, err := store.SaveInstalled(ctx, extensions.SaveInstalledInput{
-		Manifest: v1.Manifest, PackagePath: filepath.Join(root, "v1"), PackageDigest: v1.PackageDigest,
+		Manifest: v1.Manifest, PackagePath: v1Path, PackageDigest: v1Digest,
 		AdminFrontendDigest: strings.Repeat("1", 64),
 	})
 	if err != nil {
@@ -353,8 +365,9 @@ func newLifecycleStatePublicationIntegration(
 	switch operation {
 	case extensions.LifecycleMachineInstall:
 		v2 := exactCoordinatorTestExtension(extensionID, "2.0.0", strings.Repeat("b", 64), "state.lifecycle@2", 2)
+		v2Path, v2Digest := seal(v2)
 		staged, stageErr := store.SaveInstalled(ctx, extensions.SaveInstalledInput{
-			Manifest: v2.Manifest, PackagePath: filepath.Join(root, "v2"), PackageDigest: v2.PackageDigest,
+			Manifest: v2.Manifest, PackagePath: v2Path, PackageDigest: v2Digest,
 			AdminFrontendDigest: strings.Repeat("2", 64),
 		})
 		if stageErr != nil || staged.StagedVersion == nil {
@@ -375,8 +388,9 @@ func newLifecycleStatePublicationIntegration(
 			t.Fatal(enableErr)
 		}
 		v2 := exactCoordinatorTestExtension(extensionID, "2.0.0", strings.Repeat("b", 64), "state.lifecycle@2", 2)
+		v2Path, v2Digest := seal(v2)
 		staged, stageErr := store.SaveInstalled(ctx, extensions.SaveInstalledInput{
-			Manifest: v2.Manifest, PackagePath: filepath.Join(root, "v2"), PackageDigest: v2.PackageDigest,
+			Manifest: v2.Manifest, PackagePath: v2Path, PackageDigest: v2Digest,
 			AdminFrontendDigest: strings.Repeat("2", 64),
 		})
 		if stageErr != nil || staged.StagedVersion == nil {
@@ -389,8 +403,9 @@ func newLifecycleStatePublicationIntegration(
 			t.Fatal(enableErr)
 		}
 		v2 := exactCoordinatorTestExtension(extensionID, "2.0.0", strings.Repeat("b", 64), "state.lifecycle@2", 2)
+		v2Path, v2Digest := seal(v2)
 		staged, stageErr := store.SaveInstalled(ctx, extensions.SaveInstalledInput{
-			Manifest: v2.Manifest, PackagePath: filepath.Join(root, "v2"), PackageDigest: v2.PackageDigest,
+			Manifest: v2.Manifest, PackagePath: v2Path, PackageDigest: v2Digest,
 			AdminFrontendDigest: strings.Repeat("2", 64),
 		})
 		if stageErr != nil || staged.StagedVersion == nil {
@@ -407,8 +422,9 @@ func newLifecycleStatePublicationIntegration(
 			t.Fatal(promoteErr)
 		}
 		v3 := exactCoordinatorTestExtension(extensionID, "3.0.0", strings.Repeat("d", 64), "state.lifecycle@3", 3)
+		v3Path, v3Digest := seal(v3)
 		withCandidate, candidateErr := store.SaveInstalled(ctx, extensions.SaveInstalledInput{
-			Manifest: v3.Manifest, PackagePath: filepath.Join(root, "v3"), PackageDigest: v3.PackageDigest,
+			Manifest: v3.Manifest, PackagePath: v3Path, PackageDigest: v3Digest,
 			AdminFrontendDigest: strings.Repeat("3", 64),
 		})
 		if candidateErr != nil || withCandidate.StagedVersion == nil {

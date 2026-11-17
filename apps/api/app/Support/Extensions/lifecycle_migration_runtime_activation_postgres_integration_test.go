@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +20,7 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	"github.com/keeptrue/sforum/apps/api/database/migrations"
+	"github.com/keeptrue/sforum/apps/api/internal/testartifact"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
@@ -188,46 +187,31 @@ func newLifecycleMigrationRuntimeActivationFixture(
 	if err != nil {
 		t.Fatal(err)
 	}
-	sourceRoot := t.TempDir()
-	targetRoot := t.TempDir()
 	migrationRelativePath := "migrations/001.sql"
-	migrationPath := filepath.Join(targetRoot, filepath.FromSlash(migrationRelativePath))
-	if err := os.MkdirAll(filepath.Dir(migrationPath), 0o700); err != nil {
-		t.Fatal(err)
-	}
 	migrationBody := "CREATE TABLE rollout_probe (id BIGINT PRIMARY KEY, note TEXT NOT NULL);\n" +
 		"INSERT INTO rollout_probe (id, note) VALUES (1, 'once');\n"
 	if failingMigration {
 		migrationBody += "INSERT INTO rollout_missing_table (id) VALUES (1);\n"
 	}
-	if err := os.WriteFile(migrationPath, []byte(migrationBody), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	migrationSum := sha256.Sum256([]byte(migrationBody))
 	migrationDigest := hex.EncodeToString(migrationSum[:])
-	sourceDigest := sha256.Sum256([]byte(extensionID + ":source"))
-	targetDigest := sha256.Sum256([]byte(extensionID + ":target"))
 
 	template := lifecyclePublicationTestRequest(t, extensions.LifecycleMachineUpgrade, 4)
 	source := *template.SourceExtension
 	target := template.TargetExtension
-	prepareArtifact := func(extension *extensions.Extension, version string, versionID int64, digest [32]byte, root string) {
+	prepareArtifact := func(extension *extensions.Extension, version string, versionID int64) {
 		extension.ID = extensionID
 		extension.Name = "P12 migration runtime fixture"
 		extension.Version = version
 		extension.ActiveVersionID = versionID
-		extension.PackageDigest = hex.EncodeToString(digest[:])
-		extension.PackagePath = root
 		extension.Status = extensions.StatusEnabled
 		extension.Manifest.ID = extensionID
 		extension.Manifest.Name = extension.Name
 		extension.Manifest.Version = version
-		extension.Manifest.Backend.Digest = extension.PackageDigest
 		extension.Manifest.PackageFiles[0].ID = extensionID + ".backend"
-		extension.Manifest.PackageFiles[0].Digest = extension.PackageDigest
 	}
-	prepareArtifact(&source, "1.0.0", 101, sourceDigest, sourceRoot)
-	prepareArtifact(&target, "2.0.0", 102, targetDigest, targetRoot)
+	prepareArtifact(&source, "1.0.0", 101)
+	prepareArtifact(&target, "2.0.0", 102)
 	migrationID := extensionID + ".migration.initial"
 	target.Manifest.Migrations = []extensions.ManifestMigration{{
 		ID: migrationID, ContractVersion: migrationID + "@1",
@@ -255,6 +239,24 @@ func newLifecycleMigrationRuntimeActivationFixture(
 	if err := extensionmanifest.Validate(target.Manifest); err != nil {
 		t.Fatalf("target manifest: %v", err)
 	}
+	// 发布期闸门（#254）按 extension_versions.package_path 回查盘上制品。制品直接从
+	// 这两份 manifest 生成：入口占位与两处 digest 由工厂同步，迁移文件按声明落盘，
+	// 因此 durable 行、内存里的 Extension 与磁盘三者一致。
+	artifacts := testartifact.New(t)
+	sealArtifact := func(extension *extensions.Extension, files map[string][]byte) {
+		raw, err := json.Marshal(extension.Manifest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		coords := artifacts.MaterializeManifest(t, raw, files)
+		if err := json.Unmarshal(coords.Manifest, &extension.Manifest); err != nil {
+			t.Fatalf("reload %s artifact manifest: %v", extension.Version, err)
+		}
+		extension.PackageDigest = coords.Digest
+		extension.PackagePath = coords.Path
+	}
+	sealArtifact(&source, nil)
+	sealArtifact(&target, map[string][]byte{migrationRelativePath: []byte(migrationBody)})
 	fixture.source, fixture.target = source, target
 
 	username := strings.ReplaceAll(extensionID, ".", "_")

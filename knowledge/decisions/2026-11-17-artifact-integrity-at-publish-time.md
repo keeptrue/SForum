@@ -7,8 +7,12 @@ Accepted（2026-11-17，issue #256，事故 `recovery_required` 之后）。
 本文只固定**取舍与撤销条件**。实现进度（2026-11-17 当日）：P1（#253 可诊断性：
 `plugin_artifact_incomplete`）已落 `5f857cc38` / `ae2487303`；只读自检与恢复通道已落
 `c7e80dd51`（#254，`sforum extension verify-artifacts` +
-`sforum recovery republish-artifact`）；**发布期校验闸门与 dev 自愈尚未实现**，D1 的发布期
-部分与 D2 仍是待落地的规范要求。规范条文见 `AGENTS.md` 的
+`sforum recovery republish-artifact`）；**D1 的发布期部分已落地**（本 PR 落地：
+`insertPluginRuntimePublication` 在写 publication/member 之前，按成员的
+`extension_versions.package_path` 逐个跑 `ArtifactIntegrity.Verify`，落点
+`apps/api/app/Models/Extensions/plugin_runtime_publication_postgres.go:36`，9 个生产
+发布调用点全部继承、无 skip 开关与 reason 豁免）；**D2 dev 自愈仍是待落地的规范要求**
+（#254 第二项，不是本文 D1 的一部分）。规范条文见 `AGENTS.md` 的
 "Extension artifact directories are **read-only immutable facts**" 起五条，运行时现状见
 `knowledge/modules/extensions.md` 的 "Artifact Integrity And Recovery"。
 
@@ -139,6 +143,12 @@ publication 落到运行时的过程。
   事实后重启（不带 token 是 dry-run）。
 - dev 自愈（待实现）只允许在 `APP_ENV=development`，生产没有；两边行为分叉点只有一个，
   且由 `APP_ENV` 断言。
+- 已知限制（F2，发布期闸门的代价）：多个受保护成员同时损坏时，quarantine/repair 的
+  「发布剩余全量」会互相绊住——把 A 恢复成自洽制品后，发布剩余集合仍要校验 B，B 还坏就
+  照样拒绝，于是两台坏制品不能被同一条路径逐个修完。缓解路径是第三方扩展用
+  `recovery disable-all` 整体绕开（先摘除全部第三方成员），builtin 则依赖启动时
+  `SyncBuiltins` 从源码重铺制品后再恢复。**不许**为此给发布期校验加 reason 豁免或
+  verify/skip 开关：那会把 fail-closed 降级成 best-effort，等于退回本次事故的形态。
 - 制品目录彻底变成只读事实：**任何**「进目录改一改让它启动」的直觉都是错的，包括
   「只是把文件拷回来」。
 

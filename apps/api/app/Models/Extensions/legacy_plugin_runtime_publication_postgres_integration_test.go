@@ -3,7 +3,6 @@ package extensions
 import (
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 )
@@ -134,16 +133,7 @@ func TestPostgresLegacyPluginRuntimePublicationFailsClosedBeforeStateMutation(t 
 
 func TestPostgresLegacyPluginRuntimePublicationConflictRollsBackMutableState(t *testing.T) {
 	fixture, target := newLegacyPluginRuntimePublicationPGFixture(t, "legacy_atomic_conflict", StatusInstalled)
-	stale := PluginRuntimeMember{
-		ExtensionID: target.ID, ExtensionVersionID: 104,
-		ExtensionVersion: "9.9.9", PackageDigest: strings.Repeat("e", 64),
-	}
-	if _, err := fixture.pool.Exec(fixture.ctx, `
-		INSERT INTO extension_versions (id, extension_id, version, package_digest, manifest)
-		VALUES ($1, $2, $3, $4, '{}'::jsonb)
-	`, stale.ExtensionVersionID, stale.ExtensionID, stale.ExtensionVersion, stale.PackageDigest); err != nil {
-		t.Fatal(err)
-	}
+	stale := fixture.seedVersion(target.ID, 104, "9.9.9", TypePlugin)
 	if _, err := fixture.store.publishPluginRuntimePublication(
 		fixture.ctx, PluginRuntimePublicationStartupReconcile, 0, []PluginRuntimeMember{stale},
 	); err != nil {
@@ -160,9 +150,7 @@ func TestPostgresLegacyPluginRuntimePublicationConflictRollsBackMutableState(t *
 
 func TestPostgresLegacyPluginRuntimePublicationConcurrentEnableKeepsFullSet(t *testing.T) {
 	fixture, first := newLegacyPluginRuntimePublicationPGFixture(t, "legacy_concurrent", StatusInstalled)
-	second := transitionFixturePlugin(
-		t, "second.plugin", 102, "2.0.0", strings.Repeat("c", 64), "backend/plugin",
-	)
+	second := pluginRuntimeTransitionTarget(t, fixture.secondMember(), "backend/plugin")
 	setLegacyPluginRuntimeFixtureArtifact(t, fixture, second, StatusInstalled)
 	if _, err := fixture.store.publishPluginRuntimePublication(
 		fixture.ctx, PluginRuntimePublicationStartupReconcile, 0, nil,
@@ -223,9 +211,7 @@ func newLegacyPluginRuntimePublicationPGFixture(
 	`); err != nil {
 		t.Fatal(err)
 	}
-	target := transitionFixturePlugin(
-		t, "fixture.plugin", 101, "1.0.0", strings.Repeat("b", 64), "backend/plugin",
-	)
+	target := pluginRuntimeTransitionTarget(t, fixture.firstMember(), "backend/plugin")
 	setLegacyPluginRuntimeFixtureArtifact(t, fixture, target, status)
 	return fixture, target
 }
