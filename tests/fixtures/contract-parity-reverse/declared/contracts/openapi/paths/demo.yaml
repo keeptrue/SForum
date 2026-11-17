@@ -1,0 +1,9 @@
+# 反向检查的反例：契约声明了 418，而实现永远产不出它。
+# 门必须因此变红 —— 这条在 #237 之前完全没有检查（只有 401 定向棘轮一个特例）。
+demoTarget:
+  get:
+    operationId: demoTarget
+    responses:
+      '200': { description: OK }
+      '401': { description: Unauthorized }
+      '418': { description: Teapot, never produced by the implementation }

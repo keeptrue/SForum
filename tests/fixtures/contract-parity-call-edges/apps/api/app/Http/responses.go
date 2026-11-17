@@ -23,8 +23,10 @@ func Created(c fiber.Ctx, data any) error {
 	return JSON(c, fiber.StatusCreated, "ok", data)
 }
 
+// #235 取 b：与仓库实现一致（200 + 统一 envelope，data 为 null），
+// 否则 [helper-codes] 自证会把这条 fixture 判红。
 func NoData(c fiber.Ctx) error {
-	return c.Status(fiber.StatusNoContent).Send(nil)
+	return JSON(c, fiber.StatusOK, "ok", nil)
 }
 
 func ErrorResponse(c fiber.Ctx, status int, reason string) error {

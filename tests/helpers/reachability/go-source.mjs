@@ -258,7 +258,8 @@ const PARITY_HELPER_DEPTH = 2;
 const PARITY_RESPONSE_HELPERS = new Map([
   ['OK', { codes: [200] }],
   ['Created', { codes: [201] }],
-  ['NoData', { codes: [204] }],
+  // #235 取 b：实现是 `JSON(c, 200, MessageOK, nil)`，如实复刻为 200（旧值 204 与实现不符）。
+  ['NoData', { codes: [200] }],
   ['JSON', { statusArg: 1 }],
   ['ErrorResponse', { statusArg: 1 }],
   ['ErrorResponseWithFields', { statusArg: 1 }],

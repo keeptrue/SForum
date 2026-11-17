@@ -1,0 +1,8 @@
+# 反向检查的正向前提：实现经映射器能产出 403，但契约**故意不声明** 403。
+# 门必须因此变红 —— 这正是 #237 里「契约删掉 403、实现仍能产出 403」的反例。
+demoTarget:
+  get:
+    operationId: demoTarget
+    responses:
+      '200': { description: OK }
+      '401': { description: Unauthorized }

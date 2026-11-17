@@ -34,6 +34,14 @@ node tests/validate-contract-parity-call-edges.test.mjs
 echo "Running contract parity sample-set equality validation..."
 node tests/validate-contract-parity-sample-equality.test.mjs
 
+# 反向检查（#237）不许被改回恒绿：契约声明的码必须真被实现产出。
+# 三个单因合成树分别钉住「契约删掉 403、实现经映射器仍能产出 403 → 必须红」、
+# 「契约声明了实现永不产出的 418 → 必须红」、「映射器里有 403 但 handler 不调用那个
+# 领域方法 → 必须保持绿」（后者是收窄归因与「全量并入」的分界线）。
+# 只跑主门不够：主门自己的反向判据被摘掉时，只有这组反例会让 CI 红。
+echo "Running contract status-code reverse-parity and mapper-attribution validation..."
+node tests/validate-contract-status-parity-reverse.test.mjs
+
 # 可达性门补的是 parity 门的另一半盲区：parity 门只认 requireGuestRead / requireAdmin
 # 两条 guard 白名单，ReadActor / RequireActor / LoadActor 产出的 401/503 它看不见
 # （第 14 轮 P1 就是这么变绿的）。两道门互为补集，都不许被关掉。

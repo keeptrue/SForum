@@ -145,8 +145,12 @@ authLogout:
     summary: Destroy the current browser session
     operationId: logout
     responses:
-      '204':
-        description: Session destroyed.（204 无响应体）
+      '200':
+        description: Session destroyed.（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
 authSession:
   get:
     summary: Get the current browser session user
@@ -540,8 +544,12 @@ roleByKey:
     parameters:
     - "$ref": "../components/parameters.yaml#/RoleKey"
     responses:
-      '204':
-        description: Role deleted.（204 无响应体）
+      '200':
+        description: Role deleted.（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
@@ -568,8 +576,12 @@ rolePermissions:
                 items:
                   type: string
     responses:
-      '204':
-        description: Role permissions replaced.（204 无响应体）
+      '200':
+        description: Role permissions replaced.（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
@@ -1067,8 +1079,12 @@ authSessionByID:
         type: string
       description: Opaque session id (not an auth credential).
     responses:
-      '204':
-        description: Session revoked.（204 无响应体）
+      '200':
+        description: Session revoked.（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '404':
@@ -1137,8 +1153,12 @@ authAPITokenByID:
         type: integer
         format: int64
     responses:
-      '204':
-        description: Token revoked.（204 无响应体）
+      '200':
+        description: Token revoked.（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':
@@ -1555,8 +1575,12 @@ authExternalIdentityByID:
           schema:
             "$ref": "../schemas/identity.yaml#/ExternalIdentityUnlinkRequest"
     responses:
-      '204':
-        description: Link unlinked (or already inert under idempotent replay).（204 无响应体）
+      '200':
+        description: Link unlinked (or already inert under idempotent replay).（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '404':
@@ -1590,8 +1614,12 @@ authPasswordSetup:
           schema:
             "$ref": "../schemas/identity.yaml#/SetupPasswordRequest"
     responses:
-      '204':
-        description: Password created or updated.（204 无响应体）
+      '200':
+        description: Password created or updated.（200 + 统一 envelope，`data` 为 `null`）
+        content:
+          application/json:
+            schema:
+              "$ref": "../schemas/common.yaml#/ApiResponseNull"
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '422':

@@ -414,6 +414,8 @@ function hasTopLevelReturn(block) {
  *   swallowed       error 被折成 bool / 显式丢弃、因而不产出状态码的调用名
  *   prunedBranches  因实参字面量被剪掉的分支（`decodeBookmarkBody(c, false)` 之类）
  *   dependency      是否命中依赖故障出口（503）
+ *   attributed      **按 handler 收窄后**归因到的映射器业务码（#237；由调用方注入
+ *                   `attribute` 回调，本模块不知道哨兵怎么解析 —— 见 mapper-attribution.mjs）
  */
 export function collectReachableStatuses({
   body,
@@ -423,6 +425,7 @@ export function collectReachableStatuses({
   appHttpDir,
   unknownConstants,
   registry,
+  attribute,
   depth = SOURCE_DEPTH,
 }) {
   const codes = new Set(statusesIn(body, unknownConstants));
@@ -431,6 +434,8 @@ export function collectReachableStatuses({
   const skipped = new Set();
   const swallowed = new Set();
   const prunedBranches = new Set();
+  const attributed = new Set();
+  if (attribute) for (const code of attribute(body, dir)) attributed.add(code);
   let dependency = false;
   const visited = new Set();
 
@@ -449,6 +454,11 @@ export function collectReachableStatuses({
   while (queue.length > 0) {
     const node = queue.shift();
     if (node.level >= depth) continue;
+    // 每个被跟随到的节点都做一次收窄归因：`h.topicAction(c, ...)` 这类一行委派的
+    // handler，业务码是在下游节点里经 `h.service.X` 产生的，只看首节点会漏。
+    if (attribute && node.level > 0) {
+      for (const code of attribute(node.body, node.dir)) attributed.add(code);
+    }
     const index = indexOf(node.dir);
 
     for (const call of extractSourceCalls(node, index, appHttpDir)) {
@@ -502,7 +512,7 @@ export function collectReachableStatuses({
     }
   }
 
-  return { codes, mappers, appHttpHits, skipped, swallowed, prunedBranches, dependency };
+  return { codes, mappers, appHttpHits, skipped, swallowed, prunedBranches, dependency, attributed };
 }
 
 function splitCallArgs(body, openParenIndex) {

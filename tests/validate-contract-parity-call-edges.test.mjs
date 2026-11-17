@@ -113,7 +113,7 @@ check('对照：仓库自身的门为绿，且空集计数是 0（不是「没�
 check('识别面有命中面：跟包函数 / 映射器 / 剪枝三项都非 0', () => {
   const repo = runGate([]);
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
-  const stats = /调用边识别（F1 同包委派 \/ F2 跟包 apphttp\.\* \/ F3 依赖故障 503）：跟包函数命中 (\d+) 个、错误映射器识别 (\d+) 个（识别但不归因）、按实参剪枝 (\d+) 处/.exec(
+  const stats = /调用边识别（F1 同包委派 \/ F2 跟包 apphttp\.\* \/ F3 依赖故障 503）：跟包函数命中 (\d+) 个、错误映射器识别 (\d+) 个（识别后按 handler 收窄归因，不全量并入）、按实参剪枝 (\d+) 处/.exec(
     repo.stdout,
   );
   assert.ok(stats, `门没有打印调用边识别统计：\n${repo.stdout}`);
@@ -156,7 +156,8 @@ check('合成树：五条路由的实现侧集合逐条非空，且与契约精�
     // F2 跟包 apphttp.* + F3 依赖故障：401 来自 RequireActor 自身，503 来自 classifyActorError
     // 构造的 readPathDependencyFailure（全局 errorHandler 渲染）。
     ['GET /api/v1/demo/apphttp', [200, 401, 503]],
-    // 映射器识别但不归因：mapDemoError 有 422/409，一个都不许出现。
+    // 映射器收窄归因：mapDemoError 里有 422/409 分支，但这条 handler 不调用会返回那些哨兵的
+    // 领域方法，所以一个都不许出现（全量并入会凭空塞进 422/409，正是 #237 禁止的退化）。
     ['POST /api/v1/demo/mapper', [200]],
     // error 折成 bool：viewer 内部的 401/503 不许出现。
     ['PUT /api/v1/demo/swallowed', [200]],

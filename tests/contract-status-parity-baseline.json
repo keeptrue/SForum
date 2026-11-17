@@ -1,11 +1,13 @@
 {
-  "说明": "契约状态码 parity 门的例外登记表（见 tests/validate-contract-status-parity.mjs）。只登记两类：静态判定不了的 operation，以及人工复核后接受的实现多出状态码。每条例外必须写中文原因；条目过期（现在能映射 / 不再多出码）会被判红，必须删除。新增例外要人来判断，--refresh 只刷新「期望计数」，不会增删条目，且只有本次运行零失败时才落盘。「状态码集合为空的实现侧路由数」是只降不升的棘轮，当前是 0/436（G3 之前是 30/437；分母从 437 降到 436 是因为 #217 下线了 settings/reset，不是扫描面缩水——契约 operation 同步从 441 降到 440）。归零靠的是扩识别面，不是放宽判据：除了响应助手白名单与 guard 白名单，门还沿三条调用边走——F1 同包委派（`h.topicAction(...)` 这类一行委派的 handler）、F2 跟包 `apphttp.*`（RequireActor/ReadActor → 401/503）、F3 依赖故障出口（构造 readPathDependencyFailure ⇒ 503）。错误映射器 `mapXxxError` 族**识别但不归因**：它的分支按 err sentinel 选，一个具体 handler 只命中其中几条，全量并入就是过近似、会让门为假缺陷变红；按 handler 收窄需要跨到 app/Models 追 sentinel 产点，属 AST 阶段工作。这条边界由 tests/validate-contract-parity-call-edges.test.mjs 钉住。新增 endpoint 若既不直出状态常量、也不走上述任何一条调用边，仍会让空集数 +1 并判红——这是预期行为：处置方式是在同一次改动里说明原因并手改基线数字，不许为凑够数字给路由加无意义的状态码噪音。",
+  "说明": "契约状态码 parity 门的例外登记表（见 tests/validate-contract-status-parity.mjs）。只登记两类：静态判定不了的 operation，以及人工复核后接受的实现多出状态码。每条例外必须写中文原因；条目过期（现在能映射 / 不再多出码）会被判红，必须删除。新增例外要人来判断，--refresh 只刷新「期望计数」，不会增删条目，且只有本次运行零失败时才落盘。「状态码集合为空的实现侧路由数」是只降不升的棘轮，当前是 0/436（G3 之前是 30/437；分母从 437 降到 436 是因为 #217 下线了 settings/reset，不是扫描面缩水——契约 operation 同步从 441 降到 440）。归零靠的是扩识别面，不是放宽判据：除了响应助手白名单与 guard 白名单，门还沿三条调用边走——F1 同包委派（`h.topicAction(...)` 这类一行委派的 handler）、F2 跟包 `apphttp.*`（RequireActor/ReadActor → 401/503）、F3 依赖故障出口（构造 readPathDependencyFailure ⇒ 503）。错误映射器 `mapXxxError` 族**识别后按 handler 收窄归因**（#237 已落地）：分支按 err sentinel 选，一个具体 handler 只命中其中几条，所以**绝不把映射器全量并入 handler**——那会过近似、让门为假缺陷变红。归因路径是「handler 调用的领域方法（`h.<field>.<Method>`，字段类型解析到具体包与具体类型）方法体里**直接 return** 的哨兵」→ 映射器登记表（379 分支 / 335 哨兵）→ 状态码；归因不到的一律不猜，记盲区（当前 206 个）。这条边界（收窄、不全量并入）由 tests/validate-contract-parity-call-edges.test.mjs 与 tests/validate-contract-status-parity-reverse.test.mjs 的 narrow 合成树共同钉住。新增 endpoint 若既不直出状态常量、也不走上述任何一条调用边，仍会让空集数 +1 并判红——这是预期行为：处置方式是在同一次改动里说明原因并手改基线数字，不许为凑够数字给路由加无意义的状态码噪音。\n\n#235 / #237 之后新增的四个棘轮键与一张直方图（都只由数字驱动，例外集合仍只能人工确认）：\n「契约实现码完全相等operation数」是**只升不降**的棘轮——实现码集合与契约码集合完全相等的 operation 数，起点 119/433（#237 原文写的 119/434 是分母口径差异：本门只统计已映射 operation，当前 433 条已映射 / 440 条契约 operation）。本批引入映射器收窄归因后升到 214/433；它下降意味着契约多声明了实现产不出的码，或归因面缩水。\n「契约声明但实现未产出状态码条数」与「缺失码直方图」是**只降不升**的棘轮：反向检查（契约声明的码必须真被实现产出）的缺口规模，按状态码聚合。起点 537 个「码 × operation」（本批开工时、归因尚未上线时的实测），本批引入收窄归因后降到 310，当前分布 403=79 / 404=101 / 409=66 / 422=14 / 400=14 / 503=12 / 200=8 / 429=7 / 410=2 / 413=3 / 500=1 / 502=1 / 504=1 / 401=1。每批只允许该表下降；任何一个码涨了即红。\n「已复核未声明状态码」在本批从 2 条变成 33 条：多出的 31 条是**收窄归因新暴露的真实契约缺口**（handler 调用的领域方法直接 return 了映射到该码的哨兵，而契约没声明），逐条带中文原因登记为已知缺口，待后续批次补契约声明；不是「实现无缺陷」的判定。",
   "期望计数": {
     "契约operation数": 440,
     "已映射operation数": 433,
     "未映射operation数": 7,
-    "已复核未声明状态码条数": 2,
-    "状态码集合为空的实现侧路由数": 0
+    "已复核未声明状态码条数": 33,
+    "状态码集合为空的实现侧路由数": 0,
+    "契约实现码完全相等operation数": 214,
+    "契约声明但实现未产出状态码条数": 310
   },
   "不可静态判定": [
     {
@@ -39,6 +41,55 @@
   ],
   "已复核未声明状态码": [
     {
+      "operation": "DELETE /api/v1/auth/appearance",
+      "codes": [
+        422,
+        503
+      ],
+      "handler": "clearCurrentUserAppearance",
+      "原因": "#237 收窄归因后新增可见：handler `clearCurrentUserAppearance` 调用的领域方法直接 return 了映射到 422/503 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/admin/attachment-upload-policies/roles",
+      "codes": [
+        422
+      ],
+      "handler": "listRoleUploadPolicies",
+      "原因": "#237 收窄归因后新增可见：handler `listRoleUploadPolicies` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/admin/entity-meta/definitions",
+      "codes": [
+        422
+      ],
+      "handler": "listAdminDefinitions",
+      "原因": "#237 收窄归因后新增可见：handler `listAdminDefinitions` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/admin/jobs/{id}",
+      "codes": [
+        403
+      ],
+      "handler": "detail",
+      "原因": "#237 收窄归因后新增可见：handler `detail` 调用的领域方法直接 return 了映射到 403 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,404,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/navigation",
+      "codes": [
+        422
+      ],
+      "handler": "adminNavigationDocument",
+      "原因": "#237 收窄归因后新增可见：handler `adminNavigationDocument` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/admin/site/navigation/snapshots",
+      "codes": [
+        422
+      ],
+      "handler": "adminNavigationSnapshots",
+      "原因": "#237 收窄归因后新增可见：handler `adminNavigationSnapshots` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
       "operation": "GET /api/v1/auth/email-verification/confirm",
       "codes": [
         200
@@ -47,12 +98,231 @@
       "原因": "不可按方法拆分的静态假阳性：同一 handler 同时注册 GET 与 POST，只有非 GET 分支才返回 200，而契约的 GET operation 只声明 303/422/503。与 POST 那条（多出 303）是同一个 handler 的镜像，属静态扫描的已知边界，不是真实契约缺口。"
     },
     {
+      "operation": "GET /api/v1/auth/providers/{providerId}/callback",
+      "codes": [
+        401,
+        403,
+        409
+      ],
+      "handler": "externalAuthCallback",
+      "原因": "#237 收窄归因后新增可见：handler `externalAuthCallback` 调用的领域方法直接 return 了映射到 401/403/409 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 302,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/entity-meta/{entityType}/{entityID}",
+      "codes": [
+        422
+      ],
+      "handler": "listValues",
+      "原因": "#237 收窄归因后新增可见：handler `listValues` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,404,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/me/content-review",
+      "codes": [
+        403,
+        422
+      ],
+      "handler": "authorReviewItems",
+      "原因": "#237 收窄归因后新增可见：handler `authorReviewItems` 调用的领域方法直接 return 了映射到 403/422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/profile",
+      "codes": [
+        403
+      ],
+      "handler": "myProfile",
+      "原因": "#237 收窄归因后新增可见：handler `myProfile` 调用的领域方法直接 return 了映射到 403 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/profile/nickname/availability",
+      "codes": [
+        422
+      ],
+      "handler": "nicknameAvailability",
+      "原因": "#237 收窄归因后新增可见：handler `nicknameAvailability` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/profile/sections",
+      "codes": [
+        422
+      ],
+      "handler": "listProfileSections",
+      "原因": "#237 收窄归因后新增可见：handler `listProfileSections` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/profiles/{username}/bookmarks",
+      "codes": [
+        422
+      ],
+      "handler": "publicBookmarks",
+      "原因": "#237 收窄归因后新增可见：handler `publicBookmarks` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,404,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "GET /api/v1/site/navigation",
+      "codes": [
+        422
+      ],
+      "handler": "publicNavigation",
+      "原因": "#237 收窄归因后新增可见：handler `publicNavigation` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/attachment-storage-instances/{storageInstanceID}/activate",
+      "codes": [
+        422
+      ],
+      "handler": "activateStorageInstance",
+      "原因": "#237 收窄归因后新增可见：handler `activateStorageInstance` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/badges/recompute",
+      "codes": [
+        422
+      ],
+      "handler": "adminRecomputeBadges",
+      "原因": "#237 收窄归因后新增可见：handler `adminRecomputeBadges` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/forum/settings/reset",
+      "codes": [
+        422
+      ],
+      "handler": "adminResetSettings",
+      "原因": "#237 收窄归因后新增可见：handler `adminResetSettings` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/{id}/cancel",
+      "codes": [
+        404
+      ],
+      "handler": "cancel",
+      "原因": "#237 收窄归因后新增可见：handler `cancel` 调用的领域方法直接 return 了映射到 404 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/jobs/{id}/retry",
+      "codes": [
+        404
+      ],
+      "handler": "retry",
+      "原因": "#237 收窄归因后新增可见：handler `retry` 调用的领域方法直接 return 了映射到 404 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/mail/policy/restore",
+      "codes": [
+        422
+      ],
+      "handler": "restorePolicy",
+      "原因": "#237 收窄归因后新增可见：handler `restorePolicy` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/admin/trust-levels/restore-defaults",
+      "codes": [
+        422
+      ],
+      "handler": "restoreDefaults",
+      "原因": "#237 收窄归因后新增可见：handler `restoreDefaults` 调用的领域方法直接 return 了映射到 422 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,404,500,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
       "operation": "POST /api/v1/auth/email-verification/confirm",
       "codes": [
         303
       ],
       "handler": "emailVerificationConfirm",
       "原因": "不可按方法拆分的静态假阳性：同一 handler 同时注册 GET 与 POST，只有 c.Method()==GET 分支才 Redirect 303，而契约的 GET operation 已声明 303、POST 只声明 200/422/503。属静态扫描的已知边界，不是真实契约缺口。"
+    },
+    {
+      "operation": "POST /api/v1/auth/email-verification/request",
+      "codes": [
+        404
+      ],
+      "handler": "emailVerificationRequest",
+      "原因": "#237 收窄归因后新增可见：handler `emailVerificationRequest` 调用的领域方法直接 return 了映射到 404 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,422,429,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/auth/external-continuation/link",
+      "codes": [
+        403
+      ],
+      "handler": "externalAuthContinuationLink",
+      "原因": "#237 收窄归因后新增可见：handler `externalAuthContinuationLink` 调用的领域方法直接 return 了映射到 403 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,404,409,410,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/auth/login",
+      "codes": [
+        429
+      ],
+      "handler": "login",
+      "原因": "#237 收窄归因后新增可见：handler `login` 调用的领域方法直接 return 了映射到 429 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,422,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/auth/password",
+      "codes": [
+        404
+      ],
+      "handler": "setupPassword",
+      "原因": "#237 收窄归因后新增可见：handler `setupPassword` 调用的领域方法直接 return 了映射到 404 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,422,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/auth/register",
+      "codes": [
+        403
+      ],
+      "handler": "register",
+      "原因": "#237 收窄归因后新增可见：handler `register` 调用的领域方法直接 return 了映射到 403 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 201,409,422,429,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/auth/tokens/{tokenID}/rotate",
+      "codes": [
+        409
+      ],
+      "handler": "rotateAPIToken",
+      "原因": "#237 收窄归因后新增可见：handler `rotateAPIToken` 调用的领域方法直接 return 了映射到 409 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,403,404,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "POST /api/v1/moderation/reports",
+      "codes": [
+        403
+      ],
+      "handler": "createReport",
+      "原因": "#237 收窄归因后新增可见：handler `createReport` 调用的领域方法直接 return 了映射到 403 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 201,401,409,422,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "PUT /api/v1/auth/appearance",
+      "codes": [
+        503
+      ],
+      "handler": "updateCurrentUserAppearance",
+      "原因": "#237 收窄归因后新增可见：handler `updateCurrentUserAppearance` 调用的领域方法直接 return 了映射到 503 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,422。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "PUT /api/v1/auth/locale",
+      "codes": [
+        503
+      ],
+      "handler": "updateCurrentUserLocale",
+      "原因": "#237 收窄归因后新增可见：handler `updateCurrentUserLocale` 调用的领域方法直接 return 了映射到 503 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,422。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
+    },
+    {
+      "operation": "PUT /api/v1/profile",
+      "codes": [
+        403
+      ],
+      "handler": "updateMyProfile",
+      "原因": "#237 收窄归因后新增可见：handler `updateMyProfile` 调用的领域方法直接 return 了映射到 403 的哨兵（映射器 `mapXxxError` 会把它翻成该码），契约当前只声明 200,401,422,503。属**真实的契约缺口**，本轮只做门的可见性、不扩契约声明面，因此登记为已知缺口（下一批补声明或补实现），不是「无缺陷」判定。"
     }
-  ]
+  ],
+  "缺失码直方图": {
+    "200": 8,
+    "400": 14,
+    "401": 1,
+    "403": 79,
+    "404": 101,
+    "409": 66,
+    "410": 2,
+    "413": 3,
+    "422": 14,
+    "429": 7,
+    "500": 1,
+    "502": 1,
+    "503": 12,
+    "504": 1
+  }
 }

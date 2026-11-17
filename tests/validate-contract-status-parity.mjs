@@ -23,9 +23,11 @@
  *   handler 常常只有一行委派（`return h.topicAction(c, ...)`），状态码在下游同包函数里；
  *   身份守卫的状态码又在跟包 `apphttp.*` 里（`apphttp.RequireActor` → 401/503）。
  *   门沿这两类边收集，并把「构造 readPathDependencyFailure」识别为 503 出口。
- *   **错误映射器 `mapXxxError` 族被识别但不归因**：它的分支按 err sentinel 选，
- *   一个具体 handler 只命中其中几条，全量并入就是过近似（会让门为假缺陷变红）。
- *   该边界与实证见 status-sources.mjs 的模块注释。
+ *   **错误映射器 `mapXxxError` 族被识别，并按 handler 收窄归因**（#237，见下方 C）：
+ *   它的分支按 err sentinel 选，一个具体 handler 只命中其中几条，**全量并入就是过近似**
+ *   （会让门为假缺陷变红）—— 所以只沿「handler 调用的领域方法直接 return 的哨兵」归因，
+ *   归因不到的记盲区。`status-sources.mjs` 本身仍只负责收集直出码，归因走独立模块
+ *   `mapper-attribution.mjs`，两条口径互不污染。
  *
  * 两类例外必须逐条写进 tests/contract-status-parity-baseline.json 并带中文原因：
  * 1. 不可静态判定：通配/插件代理路由，契约 operation 无法静态落到某个 handler；
@@ -33,13 +35,29 @@
  *    （审计遗留来不及补契约，或静态扫描无法按方法/分支拆分）。
  * 没有登记在基线里的未映射 operation 或未声明状态码一律变红，不会静默放行。
  *
+ * 在此之上的四条自证（#235 / #237）：
+ *
+ *   A. 登记值自证（#235）：`RESPONSE_HELPERS` 里 `codes` 型条目的登记值必须等于该助手
+ *      函数体里真实写出的状态码（checkResponseHelperCodes）。`NoData` 实现写 200、登记表
+ *      写 204 的那段历史就是这样被钉住的：登记表是门的权威口径，值与实现脱钩时，门会把
+ *      契约里错误的 204 认证成「一致」。
+ *   B. 反向检查（#237）：契约声明的码必须真被实现产出。此前门只有「实现 ⊆ 契约」一个方向，
+ *      「契约声明了实现永不产出的码」完全看不见（只有 401 定向棘轮一个特例）。
+ *   C. 映射器收窄归因（#237）：业务码（403/404/409/422…）只从 `mapXxxError` 族产生，
+ *      而门原本**识别但不归因**。现在按「handler 调用的 service 方法直接 return 的哨兵」
+ *      收窄归因（mapper-attribution.mjs），归因不到的记盲区。**不是**把映射器全量并入
+ *      handler —— 那会让门为假缺陷变红，#237 明确禁止，边界由 narrow fixture 钉住。
+ *   D. 缺口直方图 + 完全相等计数（#237）：反向缺口按状态码聚合，每码只许下降；
+ *      「实现码集合 == 契约码集合」的 operation 数只升不降（起点 119/433，见基线）。
+ *
  * 用法：
  *   node tests/validate-contract-status-parity.mjs            # 跑门
  *   node tests/validate-contract-status-parity.mjs --refresh  # 只刷新基线里的「期望计数」
  *   node tests/validate-contract-status-parity.mjs --print-empty-routes
  *                                                             # 只额外打印「状态码集合为空」的路由清单
  *
- * --refresh 只重写计数，绝不增删「不可静态判定」「已复核未声明状态码」条目：例外集合只能人工确认。
+ * --refresh 只重写计数（含「缺失码直方图」的数字），绝不增删「不可静态判定」「已复核未声明
+ * 状态码」条目：例外集合只能人工确认；红着的运行也拒绝落盘。
  */
 
 import fs from 'node:fs';
@@ -51,6 +69,7 @@ import {
   collectReachableStatuses,
   createPackageIndexFactory,
 } from './helpers/contract-parity/status-sources.mjs';
+import { createMapperAttribution } from './helpers/contract-parity/mapper-attribution.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ARGV = process.argv.slice(2);
@@ -88,7 +107,11 @@ const HELPER_DEPTH = 2; // 辅助函数最多跟随两层，够覆盖助手链�
 const RESPONSE_HELPERS = new Map([
   ['OK', { codes: [200], note: '成功响应：200 + 统一 envelope' }],
   ['Created', { codes: [201], note: '创建成功：201 + 统一 envelope' }],
-  ['NoData', { codes: [204], note: '无内容：204' }],
+  // #235 取 b：实现是 `JSON(c, fiber.StatusOK, MessageOK, nil)`，即 200 + 统一 envelope
+  // （`data: null`）。登记 204 曾让门与实现各说一套：契约写着 204、实现答 200，
+  // 而门因为「登记表对同名函数是权威口径」看不见这个差异。这里如实登记 200，
+  // 并由 checkResponseHelperCodes 从函数体反查，登记值再也不能与实现脱钩。
+  ['NoData', { codes: [200], note: '无内容：200 + 统一 envelope（`data: null`）' }],
   ['JSON', { statusArg: 1, note: '通用 JSON 响应：码由第 2 个实参给出' }],
   ['ErrorResponse', { statusArg: 1, note: '错误响应：码由第 2 个实参给出' }],
   ['ErrorResponseWithFields', { statusArg: 1, note: '带字段级错误的错误响应' }],
@@ -163,6 +186,8 @@ const mapperNames = new Set();
 const appHttpSourceHits = new Set();
 // 因实参字面量被剪掉的不可达分支（`decodeBookmarkBody(c, false)` 之类），打印规模即可。
 const prunedBranchHits = new Set();
+// 映射器收窄归因的索引（在 readCoreRoutes 里建，main 打印统计面用）。
+let attributionIndex = null;
 
 function fail(message) {
   failures.push(message);
@@ -501,6 +526,9 @@ function readCoreRoutes() {
   const routes = new Map();
   const packageCache = new Map();
   const skippedRouters = new Set();
+  // 映射器业务码的收窄归因（#237）：索引只建一次，逐 handler 复用。
+  const attribution = createMapperAttribution({ apiRoot: API_ROOT });
+  attributionIndex = attribution;
   // 调用边识别的包索引（同包委派 + 跟包 apphttp.*）。与上面 packageOf 的缓存分开：
   // 那个只服务白名单形态，这个服务 F1/F2/F3 三条形态，两者职责不同不要合并。
   const sourceIndexOf = createPackageIndexFactory();
@@ -579,7 +607,7 @@ function readCoreRoutes() {
       const method = methodToken === 'All' ? 'ALL' : methodToken.toUpperCase();
       const fullPath = base + pathLiteral[1];
 
-      let codes;
+      let collected;
       let handlerLabel;
       // 助手函数表按**注册文件所在包**取，内联闭包与具名 handler 共用一份：
       // 内联闭包同样会调用 apphttp.OK / JSON 这类助手（/health、/ready 就是），
@@ -592,13 +620,14 @@ function readCoreRoutes() {
           fail(`${relFile}: 内联 handler ${method} ${fullPath} 的函数体无法定位`);
           continue;
         }
-        codes = collectStatuses(body, helperBodies, {
+        collected = collectStatuses(body, helperBodies, {
           dir,
           // 内联闭包没有具名 receiver：只走裸调用与 apphttp.*，不猜 receiver 名。
           receiverName: null,
           indexOf: sourceIndexOf,
           appHttpDir,
           registry: registryLookup,
+          attribute: (nodeBody, nodeDir) => attribution.codesFor(nodeBody, nodeDir),
         });
         handlerLabel = '<inline closure>';
       } else {
@@ -638,7 +667,7 @@ function readCoreRoutes() {
             }
           }
         }
-        codes = collectStatuses(body, helperBodies, {
+        collected = collectStatuses(body, helperBodies, {
           dir,
           // `h.hideTopic` 的 `h` 就是 receiver 变量名：带上它，F1 才能把
           // `h.topicAction(...)` 解析成本包方法，而不是去猜同名方法的并集。
@@ -646,6 +675,7 @@ function readCoreRoutes() {
           indexOf: sourceIndexOf,
           appHttpDir,
           registry: registryLookup,
+          attribute: (nodeBody, nodeDir) => attribution.codesFor(nodeBody, nodeDir),
         });
         handlerLabel = name;
       }
@@ -654,10 +684,20 @@ function readCoreRoutes() {
       const key = `${method} ${normalizePath(fullPath)}`;
       const existing = routes.get(key);
       if (existing) {
-        for (const code of codes) existing.codes.add(code);
+        for (const code of collected.codes) existing.codes.add(code);
+        for (const code of collected.attributed) existing.attributed.add(code);
         if (!existing.handlers.includes(handlerLabel)) existing.handlers.push(handlerLabel);
       } else {
-        routes.set(key, { method, path: fullPath, codes: new Set(codes), handlers: [handlerLabel], file: relFile });
+        routes.set(key, {
+          method,
+          path: fullPath,
+          codes: new Set(collected.codes),
+          // 收窄归因出来的映射器业务码单独存一份：它参与比对，但要能单独打印规模，
+          // 否则「归因到底生效没有」在输出里看不出来。
+          attributed: new Set(collected.attributed),
+          handlers: [handlerLabel],
+          file: relFile,
+        });
       }
     }
   }
@@ -709,6 +749,7 @@ function helperCodesAt(entry, body, callIndex) {
  */
 function collectStatuses(body, helperBodies, reach) {
   const codes = statusesIn(body);
+  const attributed = new Set();
   if (reach) {
     const closure = collectReachableStatuses({
       body,
@@ -720,14 +761,18 @@ function collectStatuses(body, helperBodies, reach) {
       // 白名单形态对同名函数是权威口径：`apphttp.OK`/`NoData`/`JSON` 的码由登记表
       // 按名字给出，调用边形态不再重复跟随，避免同一函数出现两套口径。
       registry: reach.registry,
+      // 映射器业务码的**按 handler 收窄归因**（#237）：只有「handler 调用的 service
+      // 方法直接 return 的哨兵」才折算成状态码，映射器全量并集绝不并入。
+      attribute: reach.attribute,
       depth: SOURCE_DEPTH,
     });
     for (const code of closure.codes) codes.add(code);
+    for (const code of closure.attributed) attributed.add(code);
     for (const name of closure.mappers) mapperNames.add(name);
     for (const name of closure.appHttpHits) appHttpSourceHits.add(name);
     for (const name of closure.prunedBranches) prunedBranchHits.add(name);
   }
-  if (!helperBodies) return codes;
+  if (!helperBodies) return { codes, attributed };
   const visited = new Set();
   let frontier = [body];
   for (let depth = 0; depth < HELPER_DEPTH && frontier.length > 0; depth++) {
@@ -755,7 +800,7 @@ function collectStatuses(body, helperBodies, reach) {
     }
     frontier = next;
   }
-  return codes;
+  return { codes, attributed };
 }
 
 // ---------------------------------------------------------------------------
@@ -778,6 +823,9 @@ function compare(contractOperations, routes) {
   const mapped = [];
   const unmapped = [];
   const gaps = [];
+  const reverseGaps = [];
+  const reverseSkipped = [];
+  let exactOperations = 0;
 
   for (const operation of contractOperations) {
     const hit = routes.get(operationKey(operation));
@@ -790,11 +838,30 @@ function compare(contractOperations, routes) {
     const declaredRanges = new Set(operation.ranges || []);
     const isDeclared = (code) =>
       declared.has(code) || declaredRanges.has('all') || declaredRanges.has(String(Math.floor(code / 100)));
-    const produced = [...hit.codes].filter((code) => code >= 200 && code <= 599).sort((a, b) => a - b);
+    // produced = 直出码 ∪ 收窄归因到的映射器业务码。归因是「handler 调用的 service
+    // 方法直接 return 的哨兵」折算出来的，不是映射器全量并集（见 mapper-attribution.mjs）。
+    const producedSet = new Set([...hit.codes, ...(hit.attributed || [])]);
+    const produced = [...producedSet].filter((code) => code >= 200 && code <= 599).sort((a, b) => a - b);
     const lacking = produced.filter((code) => !isDeclared(code));
     if (lacking.length > 0) {
       gaps.push({ operation, route: hit, lacking, declared: operation.codes });
     }
+    // 反向：契约声明的码必须真被实现产出。契约用了 `default`/`4XX` 这类范围键时
+    // 声明面无法枚举，不参与反向比对（记进 reverseSkipped，门打印规模）。
+    if (declaredRanges.size > 0) {
+      reverseSkipped.push(operation);
+      continue;
+    }
+    if (produced.length === 0) {
+      // 空集路由的比对退化成 ∅ ⊆ 任意，反向也没有意义（另有棘轮盯它只降不升）。
+      reverseSkipped.push(operation);
+      continue;
+    }
+    const missing = [...declared].filter((code) => !producedSet.has(code)).sort((a, b) => a - b);
+    if (missing.length > 0) reverseGaps.push({ operation, route: hit, missing });
+    // 「实现码集合 == 契约码集合」的 operation 数：这是 #237 的起点指标（119/434），
+    // 只升不降。它比「实现 ⊆ 契约」严格得多 —— 只有两侧都自证过才算数。
+    if (missing.length === 0 && lacking.length === 0) exactOperations += 1;
   }
 
   // 状态码集合为空的路由：实现侧一个码都没扫到，比对退化成 ∅ ⊆ 任意。数量必须可见，且只许降不许升。
@@ -811,7 +878,17 @@ function compare(contractOperations, routes) {
   const implementationOnly = [...routes.values()].filter(
     (route) => !contractKeys.has(`${route.method} ${normalizePath(route.path)}`),
   );
-  return { mapped, unmapped, gaps, implementationOnly, emptyRouteCount, emptyMappedCount };
+  return {
+    mapped,
+    unmapped,
+    gaps,
+    reverseGaps,
+    reverseSkipped,
+    exactOperations,
+    implementationOnly,
+    emptyRouteCount,
+    emptyMappedCount,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -901,8 +978,10 @@ function applyBaseline(result, baseline) {
   }
 }
 
-// 棘轮计数：实测只能小于等于基线，变大即红（防比对覆盖面悄悄萎缩）。
-const RATCHET_COUNTS = new Set(['状态码集合为空的实现侧路由数']);
+// 棘轮计数（只降不升）：实测只能小于等于基线，变大即红（防比对覆盖面悄悄萎缩）。
+const RATCHET_COUNTS = new Set(['状态码集合为空的实现侧路由数', '契约声明但实现未产出状态码条数']);
+// 棘轮计数（只升不降）：实测只能大于等于基线，变小即红（防覆盖面/自证度悄悄退回去）。
+const RATCHET_UP_COUNTS = new Set(['契约实现码完全相等operation数']);
 
 // ---------------------------------------------------------------------------
 // 定向棘轮：公开读 operation 的 401
@@ -997,27 +1076,46 @@ function checkCounts(result, baseline, contractOperations, refresh) {
     未映射operation数: result.unmapped.length,
     已复核未声明状态码条数: result.gaps.length,
     状态码集合为空的实现侧路由数: result.emptyRouteCount,
+    // #237 的起点指标：实现码集合与契约码集合**完全相等**的 operation 数（起点 119/434）。
+    // 只升不降 —— 补契约声明或扩归因面都会让它涨，反向退化（契约多声明一个永远不产出的码、
+    // 或归因面缩水）会立刻让它掉。
+    契约实现码完全相等operation数: result.exactOperations,
+    // 反向缺口的规模（契约声明、实现扫不到/归因不到的「码 × operation」条数）。只降不升。
+    契约声明但实现未产出状态码条数: result.reverseGaps.reduce((sum, gap) => sum + gap.missing.length, 0),
   };
   for (const [name, value] of Object.entries(actual)) {
     const expected = baseline.counts[name];
     const missing = expected === undefined;
     const message = `基线计数「${name}」=${missing ? '(缺失)' : expected}，实测=${value}`;
-    if (RATCHET_COUNTS.has(name)) {
+    if (RATCHET_COUNTS.has(name) || RATCHET_UP_COUNTS.has(name)) {
+      const direction = RATCHET_UP_COUNTS.has(name) ? 'up' : 'down';
       // 棘轮键缺失不是「没配」，而是防护被关掉：它必须显式存在才算数，且不接受 --refresh 自动补。
       if (missing) {
         fail(
-          `基线棘轮键「${name}」缺失 = 防护被关掉（空集路由数从此没有上限）。` +
+          `基线棘轮键「${name}」缺失 = 防护被关掉（这个指标从此没有${
+            direction === 'up' ? '下限' : '上限'
+          }）。` +
             `请手写回基线 "期望计数" 里（当前实测 ${value}），本门不会用 --refresh 替你补，避免静默失效`,
         );
         continue;
       }
-      if (value > expected) {
-        fail(`${message}；棘轮只许降不许升——空集路由越多，状态码比对越是退化成 ∅ ⊆ 任意`);
+      const violated = direction === 'up' ? value < expected : value > expected;
+      if (violated) {
+        fail(
+          `${message}；棘轮只许${direction === 'up' ? '升不许降' : '降不许升'}——${
+            direction === 'up'
+              ? '自证过的 operation 变少说明契约多声明了实现产不出的码，或归因面缩水了'
+              : '缺口变大说明有 operation 的声明码实现再也产出不了（或归因面缩水），门正失去反向证明力'
+          }`,
+        );
         continue;
       }
-      if (refresh || value < expected) console.log(`[parity] 待刷新（棘轮）：${message}`);
-      if (!refresh && value < expected) {
+      if (refresh || value !== expected) console.log(`[parity] 待刷新（棘轮）：${message}`);
+      if (!refresh && direction === 'down' && value < expected) {
         console.log(`[parity] 提示：「${name}」从 ${expected} 收紧到 ${value}，可跑 --refresh 落盘`);
+      }
+      if (!refresh && direction === 'up' && value > expected) {
+        console.log(`[parity] 提示：「${name}」从 ${expected} 提升到 ${value}，可跑 --refresh 落盘`);
       }
       continue;
     }
@@ -1029,12 +1127,64 @@ function checkCounts(result, baseline, contractOperations, refresh) {
   return actual;
 }
 
-function refreshCounts(actual, baseline) {
+function refreshCounts(actual, baseline, histogramRows) {
   const next = {
     ...baseline.raw,
     期望计数: actual,
   };
+  if (histogramRows) {
+    // 只刷数字：键集合由实测给出，绿run 里不会凭空多出新码（新码会先红，红run 拒绝落盘）。
+    const histogram = {};
+    for (const row of histogramRows) if (row.actual > 0) histogram[String(row.code)] = row.actual;
+    next['缺失码直方图'] = histogram;
+  }
   fs.writeFileSync(BASELINE_PATH, `${JSON.stringify(next, null, 2)}\n`);
+}
+
+/**
+ * 反向检查的**缺口直方图**（#237）：契约声明了、实现却扫不到也归因不到的「码 × operation」。
+ *
+ * 为什么按码聚合而不是逐条登记：缺口起点是三位数（403/404/409/422 为主），逐条登记会让
+ * 基线变成一份没人复核的长名单；按码聚合的直方图能一眼看出「这批修掉了哪一类」，
+ * 并且天然是棘轮 —— 每个码的计数只许下降，任何一个码涨了就红。
+ *
+ * 与「已复核未声明状态码」的分工：
+ *   - 那张表是**正向**例外（实现多出、契约没声明），逐条人工复核；
+ *   - 这张直方图是**反向**缺口（契约多声明、实现产不出），按码计规模，只降不升。
+ * 两者都不能靠 --refresh 增删条目：直方图只刷数字，例外表只人工维护。
+ */
+function checkMissingCodeHistogram(result, baseline, refresh) {
+  const histogram = new Map();
+  for (const gap of result.reverseGaps) {
+    for (const code of gap.missing) histogram.set(code, (histogram.get(code) || 0) + 1);
+  }
+  const recorded = baseline.raw['缺失码直方图'];
+  const recordedMap = recorded && typeof recorded === 'object' ? recorded : {};
+  const keys = new Set([...histogram.keys(), ...Object.keys(recordedMap).map(Number)]);
+  const rows = [...keys].sort((a, b) => a - b).map((code) => ({
+    code,
+    actual: histogram.get(code) || 0,
+    expected: recordedMap[String(code)],
+  }));
+  for (const row of rows) {
+    const message = `缺失码 ${row.code}：基线 ${row.expected === undefined ? '(未登记)' : row.expected}，实测 ${row.actual}`;
+    if (row.expected === undefined) {
+      if (row.actual > 0) {
+        fail(
+          `反向缺口直方图出现未登记的状态码 ${row.code}（实测 ${row.actual} 条）：契约新声明了这个码，` +
+            '但实现侧既扫不到直出、也归因不到对应哨兵。请补实现/补归因面，或在基线的「缺失码直方图」里' +
+            '人工登记该码并写明原因',
+        );
+      }
+      continue;
+    }
+    if (row.actual > row.expected) {
+      fail(`${message}；直方图只许下降——缺口变大说明这条码的实现出口或归因面缩水了`);
+      continue;
+    }
+    if (refresh || row.actual !== row.expected) console.log(`[parity] 待刷新（直方图）：${message}`);
+  }
+  return rows;
 }
 
 // ---------------------------------------------------------------------------
@@ -1079,6 +1229,50 @@ function checkResponseHelperRegistry() {
         );
       }
     }
+  }
+  return checked;
+}
+
+/**
+ * 登记值 ↔ 实现自证：`RESPONSE_HELPERS` 里 `codes` 型条目的登记状态码，必须等于该助手
+ * 函数体里**真实写出**的状态码。
+ *
+ * 为什么需要这条：`checkResponseHelperRegistry` 只做「未登记即红」的正向自检，
+ * `checkResponseHelperRegistryShape` 只做「多收也红」的形状自检，两条都不看**值**。
+ * 于是登记值可以和实现长期脱钩 —— #235 就是这样：`NoData` 实现早就写 200，
+ * 登记表还写着 204，门因为「登记表对同名函数是权威口径」看不见差异，
+ * 反而把契约里错误的 204 认证成「一致」。
+ *
+ * 只约束 `codes` 形态：`statusArg` 的码由调用点实参决定、`follow` 的码在跟随里收，
+ * 都不该由登记表钉死。函数体缺席不在这里报红（`checkResponseHelperRegistryShape`
+ * 已经会报「白名单条目在实现侧找不到同名函数」），避免同一个成因红两条。
+ */
+function checkResponseHelperCodes() {
+  const dir = path.join(API_ROOT, 'app', 'Http');
+  if (!fs.existsSync(dir)) return 0;
+  const bodies = new Map();
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.go') || entry.name.endsWith('_test.go')) continue;
+    const file = path.join(dir, entry.name);
+    const { masked } = scanGoSource(fs.readFileSync(file, 'utf8'));
+    for (const [name, body] of functionBodies(masked)) {
+      if (!bodies.has(name)) bodies.set(name, { body, file: path.relative(ROOT, file) });
+    }
+  }
+  let checked = 0;
+  for (const [name, entry] of RESPONSE_HELPERS) {
+    if (!entry.codes) continue;
+    const hit = bodies.get(name);
+    if (!hit) continue;
+    const declared = [...entry.codes].sort((a, b) => a - b);
+    const actual = [...statusesIn(hit.body)].filter((code) => code >= 200 && code <= 599).sort((a, b) => a - b);
+    checked += 1;
+    if (actual.join(',') === declared.join(',')) continue;
+    fail(
+      `[helper-codes] 响应助手登记值与实现不符：${name} 登记=${declared.join(',') || '(空)'} ` +
+        `实现=${actual.join(',') || '(空)'}（${hit.file}）。登记表是门的权威口径，值与函数体脱钩时` +
+        '门会把契约的错误声明认证成「一致」——请改成实现真实写出的码',
+    );
   }
   return checked;
 }
@@ -1280,6 +1474,7 @@ function main() {
   const baseline = loadBaseline();
   applyBaseline(result, baseline);
   const actualCounts = checkCounts(result, baseline, contractOperations, refresh);
+  const histogramRows = checkMissingCodeHistogram(result, baseline, refresh);
   const publicReadChecked = checkPublicRead401Ratchet(contractOperations, result);
 
   if (unknownConstants.size > 0) {
@@ -1287,6 +1482,7 @@ function main() {
   }
   const helperChecked = checkResponseHelperRegistry();
   const helperRegistrySize = checkResponseHelperRegistryShape();
+  const helperCodesChecked = checkResponseHelperCodes();
   const headerChecked = checkResponseHeaderFields();
   const numericStatusSites = checkNumericStatusArguments();
   const callEdge = checkCallEdgeRecognition();
@@ -1321,6 +1517,9 @@ function main() {
       '未登记即红',
   );
   console.log(
+    `[parity] 响应助手登记值自证：codes 型条目 ${helperCodesChecked} 条的登记值必须等于函数体实测状态码（不一致即红，#235）`,
+  );
+  console.log(
     `[parity] header 全局存在性（header-global，非逐 operation 绑定）：实现侧 503 设置 Retry-After 的出口 ` +
       `${headerChecked} 个；共享组件 ServiceUnavailable 未声明即红`,
   );
@@ -1330,12 +1529,13 @@ function main() {
   );
   console.log(
     `[parity] 调用边识别（F1 同包委派 / F2 跟包 apphttp.* / F3 依赖故障 503）：` +
-      `跟包函数命中 ${appHttpSourceHits.size} 个、错误映射器识别 ${mapperNames.size} 个（识别但不归因）、` +
+      `跟包函数命中 ${appHttpSourceHits.size} 个、错误映射器识别 ${mapperNames.size} 个` +
+      '（识别后按 handler 收窄归因，不全量并入）、' +
       `按实参剪枝 ${prunedBranchHits.size} 处`,
   );
   if (callEdge) {
     console.log(`[parity]   跟包命中：${callEdge.appHttp.join(', ')}`);
-    console.log(`[parity]   识别但不归因的映射器：${callEdge.mappers.join(', ')}`);
+    console.log(`[parity]   识别到的错误映射器（收窄归因口径见下一行）：${callEdge.mappers.join(', ')}`);
     if (callEdge.pruned.length > 0) console.log(`[parity]   剪枝：${callEdge.pruned.join('; ')}`);
   }
   if (printOperationCodes) {
@@ -1355,6 +1555,28 @@ function main() {
   console.log(
     `[parity] 定向棘轮：公开读 401 已核对 ${publicReadChecked} 条（清单 tests/contract-public-read-401.json）`,
   );
+  if (attributionIndex) {
+    const stats = attributionIndex.stats();
+    console.log(
+      `[parity] 映射器收窄归因（#237）：映射器分支 ${stats.branches} 个、哨兵 ${stats.sentinels} 个、` +
+        `归因盲区 ${stats.blind.length} 个（盲区只登记不猜，见 tests/helpers/contract-parity/mapper-attribution.mjs）`,
+    );
+  }
+  console.log(
+    `[parity] 反向检查（契约声明的码必须真被实现产出）：缺口 ${result.reverseGaps.length} 条 operation / ` +
+      `${actualCounts['契约声明但实现未产出状态码条数']} 个「码 × operation」；` +
+      `因契约含 default/4XX 范围键或实现侧空集而跳过 ${result.reverseSkipped.length} 条`,
+  );
+  console.log(
+    `[parity] 契约码集合与实现码集合完全相等的 operation：${result.exactOperations}/${result.mapped.length}` +
+      '（#237 起点指标，只升不降；分母是已映射 operation 数，不是全部契约 operation）',
+  );
+  console.log('[parity] 缺失码直方图（契约声明、实现未产出；每批只许下降）：');
+  for (const row of histogramRows) {
+    console.log(
+      `[parity]   ${row.code}: ${row.actual}（基线 ${row.expected === undefined ? '(未登记)' : row.expected}）`,
+    );
+  }
 
   if (result.unmapped.length > 0) {
     console.log('[parity] 未映射清单（均须在基线的「不可静态判定」里）：');
@@ -1395,8 +1617,9 @@ function main() {
 
   // 只有全绿才允许落盘计数：失败态绝不能被 --refresh 固化。
   if (refresh) {
-    refreshCounts(actualCounts, baseline);
+    refreshCounts(actualCounts, baseline, histogramRows);
     console.log(`[parity] 已刷新计数：${JSON.stringify(actualCounts)}`);
+    console.log(`[parity] 已刷新缺失码直方图：${JSON.stringify(baseline.raw['缺失码直方图'] || {})}`);
   }
 
   console.log(`[parity] 通过：0 个未登记例外，耗时 ${seconds.toFixed(2)}s`);
