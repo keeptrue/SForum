@@ -1118,6 +1118,14 @@ Architecture sources:
 - Complex settings may load an authenticated immutable `.mjs`/`.css`
   micro-frontend only after whole-artifact trust. It is client-only and falls
   back to Schema UI on import/API/mount/CSS/cleanup/quarantine failure.
+- 「恢复声明式 Schema UI」是可逆的**每浏览器显示偏好**（`sessionStorage` 键含扩展
+  ID 与 admin 前端 digest）：只卸载微前端并渲染 Schema 表单，**不调用任何信任
+  端点**。V3 信任模式下有效的信任在 `extension_trust_grants`，而
+  `DELETE /admin/extensions/:id/frontend/trust` 只撤旧表
+  `extension_frontend_trust_grants`，旧表无行时必然 404
+  （`extension.frontend_trust_not_found`）。全局撤销信任属于显式信任流程，
+  不得挂在这个显示按钮上；回归守卫见
+  `apps/web/tests/admin/executableTrustUi.test.ts`。
 - `SFTrustedAdminPageComponent` applies the same boundary to ordinary plugin
   admin pages. The existing `layout: admin` route owns sidebar, topbar, tabs,
   heading, permissions, and inactive states; the plugin receives a page bridge

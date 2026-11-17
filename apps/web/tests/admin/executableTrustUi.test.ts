@@ -13,6 +13,7 @@ const themesPage = await Bun.file(new URL('../../app/pages/admin/extensions/them
 const primaryAction = await Bun.file(new URL('../../app/components/admin/extensions/SFAdminExtensionPrimaryAction.vue', import.meta.url)).text()
 const frontendPanel = await Bun.file(new URL('../../app/components/admin/SFAdminFrontendTrustPanel.vue', import.meta.url)).text()
 const frontendTrust = await Bun.file(new URL('../../app/composables/admin/useAdminFrontendTrust.ts', import.meta.url)).text()
+const trustedSettings = await Bun.file(new URL('../../app/components/extensions/settings/SFTrustedSettingsComponent.vue', import.meta.url)).text()
 const trust = await Bun.file(new URL('../../app/utils/extensions/extensionTrust.ts', import.meta.url)).text()
 
 describe('V3 exact-artifact trust operator flow', () => {
@@ -105,6 +106,16 @@ describe('V3 exact-artifact trust operator flow', () => {
     expect(frontendPanel).toContain('exactTrustDescription')
     expect(frontendTrust).toContain('extension.value.status')
     expect(frontendTrust).toContain('extension.value.packageDigest')
+  })
+
+  // 「恢复声明式 Schema UI」是每浏览器的显示选择，不是撤销信任：
+  // 旧式 DELETE /frontend/trust 在 V3 信任表下必然 404，面板里同类入口已被隐藏，这个按钮不能漏。
+  test('returns to Schema UI as a display choice without revoking trust', () => {
+    // 守「组件不做任何信任变更」：没有 mutate 就没有可用的撤销路径；
+    // 比只黑名单一个请求路径字面量更稳，同一条线再把具体动作钉死。
+    expect(trustedSettings).not.toContain('mutate(')
+    expect(trustedSettings).not.toContain("mutate('revoke')")
+    expect(trustedSettings).toContain("setItem(fallbackKey.value, '1')")
   })
 
   test('executable uploaded themes reuse exact trust challenge for activate and send confirmationToken with preview tuple', () => {

@@ -41,7 +41,7 @@ const props = defineProps<{
 
 const extension = computed(() => props.extension)
 const initialStatus = computed(() => props.initialStatus)
-const { status, resolved: trustResolved, error: trustError, load: loadTrust, mutate } = useAdminFrontendTrust(extension, { initialStatus })
+const { status, resolved: trustResolved, error: trustError, load: loadTrust } = useAdminFrontendTrust(extension, { initialStatus })
 const { request } = useApiClient()
 const { t, locale } = useI18n()
 const { resolvedMode } = useColorModePreference()
@@ -254,14 +254,11 @@ async function retry() {
 }
 
 async function restoreSchemaFallback() {
+  // 只切换本浏览器的显示形态：Schema UI 是始终可用的兜底，不撤销扩展信任。
   forcedFallback.value = true
   currentStorage()?.setItem(fallbackKey.value, '1')
   await loadQueue
   await dispose()
-  if (status.value?.trustState === 'trusted') {
-    await mutate('revoke')
-    await loadTrust(true)
-  }
 }
 
 async function resumeComponent() {

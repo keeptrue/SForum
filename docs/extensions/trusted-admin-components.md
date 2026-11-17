@@ -478,7 +478,9 @@ Missing, revoked, or invalidated trust never blocks settings. Import failure,
 API mismatch, CSS failure, invalid cleanup, mount failure, or repeated
 browser-session failures disposes the component and renders Schema UI. The
 administrator may explicitly return to Schema UI; doing so does not delete
-settings, secrets, backend state, or the package.
+settings, secrets, backend state, or the package. That return is a per-browser
+display preference: it revokes no trust and does not affect other
+administrators.
 
 Component code is fully trusted after approval and is not sandboxed. Package
 provenance, explicit approval, immutable digest identity, backend permissions,
