@@ -973,8 +973,13 @@ func TestServiceSettingsResolveAndUpdate(t *testing.T) {
 		t.Fatalf("expected invalid setting key, got %v", err)
 	}
 
-	if settingValue(settings, "demo.title") != "Hello" {
-		t.Fatalf("expected manifest default on first read, got %#v", settings)
+	// 更新是写路径：重新读一次，确认落库（不是只改了返回值里的视图）。
+	reread, err := service.Settings(context.Background(), extensionManager(), item.ID, "zh-CN")
+	if err != nil {
+		t.Fatalf("Settings after update: %v", err)
+	}
+	if settingValue(reread, "demo.title") != "Updated" {
+		t.Fatalf("expected persisted update on re-read, got %#v", reread)
 	}
 }
 

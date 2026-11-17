@@ -289,9 +289,6 @@ func (s *Service) RuntimeValues(ctx context.Context, extensionID string, purpose
 	return values, nil
 }
 
-
-// ResetDefaults restores field defaults.
-// opts.PreserveSecrets selects whether secret refs are kept (recommended default true).
 // Preview validates values and evaluates conditionals without persistence.
 func (s *Service) Preview(ctx context.Context, extensionID string, values map[string]string) (ValidationPreview, error) {
 	if s == nil {
