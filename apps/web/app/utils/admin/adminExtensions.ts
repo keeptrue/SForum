@@ -781,11 +781,19 @@ export function themeStatusLabelKey(item: AdminExtension) {
     : `admin.extensions.status.${item.status}`
 }
 
+/**
+ * 受保护的内置默认主题：宿主自带、可以「恢复默认」的那一款。
+ * 动作状态与行尾菜单共用这一处判定，避免两处各写一遍 id/source 组合条件。
+ */
+export function isProtectedDefaultTheme(item: Pick<AdminExtension, 'id' | 'source'>) {
+  return item.id === 'sforum.default-theme' && item.source === 'builtin'
+}
+
 export function themeActionState(item: AdminExtension): AdminThemeActionState {
   if (item.status === 'enabled') {
     return 'active'
   }
-  if (item.id === 'sforum.default-theme' && item.source === 'builtin') {
+  if (isProtectedDefaultTheme(item)) {
     return 'activateDefault'
   }
 	return 'activate'

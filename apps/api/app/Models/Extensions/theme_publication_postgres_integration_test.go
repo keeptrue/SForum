@@ -833,3 +833,206 @@ func TestPostgresHumanActivationKeepsAdminProvenance(t *testing.T) {
 		t.Fatalf("human approval provenance=%+v", approved.Publication)
 	}
 }
+
+// saveExactBuiltinTheme 保存一个「磁盘制品 digest 与 DB 一致」的 builtin 主题。
+// SaveBuiltin 只登记制品，不会自己快照包内容，所以文件树与 digest 必须先就位，
+// 否则 PreflightThemePackage / verifyExtension 会拒绝这个制品。
+func saveExactBuiltinTheme(t *testing.T, fixture *themePublicationPGFixture, id, version, addPath string) Extension {
+	t.Helper()
+	packageFixture := exactThemeRuntimeExtensionFixture(t, id, addPath)
+	manifest := Manifest{ID: id, Name: id, Version: version, Type: TypeTheme}
+	if err := writeManifest(packageFixture.PackagePath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := extensionpackage.DigestTree(packageFixture.PackagePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := fixture.store.SaveBuiltin(fixture.ctx, SaveBuiltinInput{
+		Manifest: manifest, PackagePath: packageFixture.PackagePath, PackageDigest: digest,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.extensionIDs = append(fixture.extensionIDs, id)
+	return item
+}
+
+// 受保护默认主题的「staged → 精确晋升」必须继续带 Host 批准核心页替换：
+// 漏掉批准，watcher apply 会走普通替换路径清空 page_provider_bindings，
+// 整站回落 Core（现网 rev 23 的形态）。
+func TestPostgresStagedDefaultThemePromotionKeepsHostApprovalAndBindings(t *testing.T) {
+	fixture := newThemePublicationPGFixture(t, "staged-default-approval")
+	pageStore := pages.NewPostgresStore(fixture.pool)
+	registry := pages.NewRegistry(pageStore)
+	if err := registry.RestoreBindings(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
+	runtimeRegistry := pages.NewThemeRuntimeRegistry()
+	adapter := NewPageRegistryAdapter(registry).WithThemeRuntime(runtimeRegistry, "SForum", []string{"zh-CN"})
+	service := NewServiceWithOptions(
+		fixture.store, t.TempDir(), "", LocalRuntimeManager{}, WithPageRegistry(adapter),
+	)
+	countBindings := func() int {
+		t.Helper()
+		var count int
+		if err := fixture.pool.QueryRow(fixture.ctx, `SELECT count(*) FROM page_provider_bindings`).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		return count
+	}
+
+	saveExactBuiltinTheme(t, fixture, DefaultThemeID, "1.0.0", "/default")
+	initial, err := fixture.store.ActivateTheme(fixture.ctx, DefaultThemeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ApplyThemeRuntimePublication(fixture.ctx, initial.Publication); err != nil {
+		t.Fatalf("apply initial default theme publication: %v", err)
+	}
+	if countBindings() == 0 {
+		t.Fatal("initial protected default theme published no core page bindings")
+	}
+
+	// 内置包升级：SaveBuiltin 只 stage，晋升由启动自愈路径完成。
+	saveExactBuiltinTheme(t, fixture, DefaultThemeID, "2.0.0", "/default")
+	active := fixture.activeTheme()
+	if active.ID != DefaultThemeID || active.StagedVersion == nil {
+		t.Fatalf("staged default theme=%#v", active)
+	}
+	promoted, err := service.serviceCore.promoteStagedBuiltinThemeIfHealthy(fixture.ctx, active)
+	if err != nil {
+		t.Fatalf("promote staged default theme: %v", err)
+	}
+	if promoted.Version != "2.0.0" {
+		t.Fatalf("promoted default theme version=%q", promoted.Version)
+	}
+
+	latest, err := fixture.store.LatestThemeRuntimePublication(fixture.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !latest.CoreReplacementsApproved || latest.ApprovalSource != ThemeApprovalSourceHost ||
+		latest.ActorUserID != 0 || latest.Reason != ThemeRuntimePublicationStartupRepair ||
+		latest.ThemeID != DefaultThemeID || latest.ThemeVersion != "2.0.0" {
+		t.Fatalf("staged default promotion publication=%+v", latest)
+	}
+	approved, source, actor := fixture.publicationRow(latest.Revision)
+	if !approved || source != ThemeApprovalSourceHost || actor.Valid {
+		t.Fatalf("persisted promotion approval=%v source=%q actor=%v", approved, source, actor)
+	}
+
+	// apply 之后绑定必须仍然存在（回归就是这里被 ReplaceExtensionBindings(theme,nil) 删空）。
+	if err := service.ApplyThemeRuntimePublication(fixture.ctx, latest); err != nil {
+		t.Fatalf("apply promoted default theme publication: %v", err)
+	}
+	if countBindings() == 0 {
+		t.Fatal("promoted protected default theme cleared core page bindings")
+	}
+	binding, ok, err := pageStore.GetBinding(fixture.ctx, "forum.home")
+	if err != nil || !ok {
+		t.Fatalf("promoted default binding ok=%t err=%v", ok, err)
+	}
+	if binding.ExtensionID != DefaultThemeID || binding.PackageDigest != latest.PackageDigest ||
+		binding.ApprovalSource != pages.BindingApprovalHost {
+		t.Fatalf("promoted default binding=%#v want digest=%s", binding, latest.PackageDigest)
+	}
+}
+
+// EnsureDefaultThemeApproved 是启动自愈：健康时零写入，账本丢了批准时追加一版
+// host 批准；只碰 sforum.default-theme，Safe Mode 不动作。
+func TestPostgresDefaultThemeApprovalSelfHeal(t *testing.T) {
+	fixture := newThemePublicationPGFixture(t, "default-approval-self-heal")
+	service := NewServiceWithOptions(
+		fixture.store, t.TempDir(), "", LocalRuntimeManager{}, WithPageRegistry(&themeActivationApprovalRegistry{}),
+	)
+	repair := defaultThemeApprovalRepair{core: service.serviceCore}
+
+	saveExactBuiltinTheme(t, fixture, DefaultThemeID, "1.0.0", "/default")
+	if _, err := fixture.store.ActivateTheme(fixture.ctx, DefaultThemeID); err != nil {
+		t.Fatal(err)
+	}
+
+	// ① 健康账本（host 已批准）：零写入。
+	healthy := fixture.latestRevision()
+	if err := repair.EnsureDefaultThemeApproved(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := fixture.latestRevision(); got != healthy {
+		t.Fatalf("healthy default theme wrote revision %d, want %d", got, healthy)
+	}
+
+	// ② 复现旧自愈缺陷的账本形态：同主题精确激活、无人类 actor、无 host 批准。
+	active := fixture.activeTheme()
+	brokenResult, err := fixture.store.ActivateThemeExact(fixture.ctx, DefaultThemeID, ThemeActivationInput{
+		Version: active.Version, PackageDigest: active.PackageDigest,
+		CurrentThemeID: active.ID, CurrentThemeVersion: active.Version, CurrentThemeDigest: active.PackageDigest,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if brokenResult.Publication.CoreReplacementsApproved ||
+		brokenResult.Publication.Reason != ThemeRuntimePublicationActivation {
+		t.Fatalf("fixture did not reproduce unapproved ledger: %+v", brokenResult.Publication)
+	}
+
+	// Safe Mode 不动作。
+	safeService := NewServiceWithOptions(
+		fixture.store, t.TempDir(), "", LocalRuntimeManager{},
+		WithPageRegistry(&themeActivationApprovalRegistry{}), WithSafeMode(true),
+	)
+	if err := (defaultThemeApprovalRepair{core: safeService.serviceCore}).EnsureDefaultThemeApproved(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := fixture.latestRevision(); got != brokenResult.Publication.Revision {
+		t.Fatalf("safe mode wrote revision %d, want %d", got, brokenResult.Publication.Revision)
+	}
+
+	// ③ 坏账本：追加一版 host 批准的 startup_repair。
+	if err := repair.EnsureDefaultThemeApproved(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
+	repaired, err := fixture.store.LatestThemeRuntimePublication(fixture.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repaired.Revision <= brokenResult.Publication.Revision || !repaired.CoreReplacementsApproved ||
+		repaired.ApprovalSource != ThemeApprovalSourceHost || repaired.ActorUserID != 0 ||
+		repaired.Reason != ThemeRuntimePublicationStartupRepair || repaired.ThemeID != DefaultThemeID {
+		t.Fatalf("self-healed publication=%+v", repaired)
+	}
+	var events int
+	if err := fixture.pool.QueryRow(fixture.ctx, `
+		SELECT count(*) FROM extension_events
+		WHERE extension_id = $1 AND action = $2 AND message LIKE '%re-approved%'
+	`, DefaultThemeID, EventThemeActivated).Scan(&events); err != nil {
+		t.Fatal(err)
+	}
+	if events < 1 {
+		t.Fatal("self-heal wrote no re-approved audit event")
+	}
+
+	// ④ 幂等：修好之后再跑一次仍然零写入。
+	if err := repair.EnsureDefaultThemeApproved(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := fixture.latestRevision(); got != repaired.Revision {
+		t.Fatalf("repeated self-heal wrote revision %d, want %d", got, repaired.Revision)
+	}
+
+	// ⑤ 非默认主题活动时完全不碰默认主题账本。
+	other := fixture.saveTheme("other", "2.0.0", strings.Repeat("c", 64))
+	current := fixture.activeTheme()
+	if _, err := fixture.store.ActivateThemeExact(
+		fixture.ctx, other.ID, exactThemeActivationInput(current, other, 7, false),
+	); err != nil {
+		t.Fatal(err)
+	}
+	beforeOther := fixture.latestRevision()
+	if err := repair.EnsureDefaultThemeApproved(fixture.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := fixture.latestRevision(); got != beforeOther {
+		t.Fatalf("non-default active theme was modified by default approval repair: %d -> %d", beforeOther, got)
+	}
+}

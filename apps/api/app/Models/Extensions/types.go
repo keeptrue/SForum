@@ -370,6 +370,15 @@ type ThemeActivationInput struct {
 	// preview. It is effective only for a super_admin actor.
 	ApproveCoreReplacements bool  `json:"approveCoreReplacements"`
 	ActorUserID             int64 `json:"-"`
+	// HostApproveProtectedDefault 只由宿主自愈路径设置（受保护内置默认主题的
+	// staged 精确晋升）：没有人类 actor 时由 Host 自己批准核心页替换。
+	// json:"-" 保证 HTTP 请求体注入不了这条批准；store 层仍会再用
+	// lockProtectedBuiltinDefault 验一次目标身份。
+	HostApproveProtectedDefault bool `json:"-"`
+	// Reason 是这次激活写进 theme_runtime_publications 的原因：空值按
+	// activation，其余只接受 startup_repair / compensation（非法值报错）。
+	// 同样不接受 HTTP 注入。
+	Reason ThemeRuntimePublicationReason `json:"-"`
 }
 
 type ThemeRuntimePublicationState string

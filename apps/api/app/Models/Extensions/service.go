@@ -700,6 +700,12 @@ func (s *CatalogService) SyncBuiltins(ctx context.Context) ([]Extension, error) 
 			return nil, err
 		}
 	}
+	// 默认主题的「核心页替换审批」启动自愈：活动主题已是受保护默认主题时不再
+	// 走上面的激活分支，审批一旦丢失（旧自愈缺陷写的未批准账本）就没人补回来，
+	// apply 会走普通替换路径清空 page_provider_bindings。健康时零写入。
+	if err := (defaultThemeApprovalRepair{core: s.serviceCore}).EnsureDefaultThemeApproved(ctx); err != nil {
+		return nil, err
+	}
 	// 第一轮会保留仍活动但已从内置目录移除的主题；发布默认主题修复后再安全清理。
 	if len(activeBuiltinIDs) > 0 {
 		ids := make([]string, 0, len(activeBuiltinIDs))

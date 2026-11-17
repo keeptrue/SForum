@@ -524,10 +524,20 @@ func (s *PostgresStore) ActivateTheme(ctx context.Context, id string) (ThemeActi
 	)
 }
 
+// ActivateThemeExact 是「精确制品激活」入口。Reason 与
+// HostApproveProtectedDefault 都来自宿主自愈路径（json:"-"，HTTP 注入不了）；
+// 是否真的落 host 批准仍由 activateThemePublished 里的 lockProtectedBuiltinDefault 决定。
 func (s *PostgresStore) ActivateThemeExact(ctx context.Context, id string, expected ThemeActivationInput) (ThemeActivationResult, error) {
+	reason := expected.Reason
+	if reason == "" {
+		reason = ThemeRuntimePublicationActivation
+	}
+	if !validThemePublicationReason(reason) {
+		return ThemeActivationResult{}, ErrThemePublicationConflict
+	}
 	return s.activateThemePublished(
-		ctx, id, &expected, ThemeRuntimePublicationActivation,
-		expected.ActorUserID, expected.ApproveCoreReplacements, false,
+		ctx, id, &expected, reason,
+		expected.ActorUserID, expected.ApproveCoreReplacements, expected.HostApproveProtectedDefault,
 	)
 }
 

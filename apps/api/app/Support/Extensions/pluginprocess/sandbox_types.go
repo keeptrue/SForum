@@ -281,7 +281,13 @@ type SandboxSpec struct {
 	PackageDigest string `json:"package_digest,omitempty"`
 	// Entry 是 exec 目标。生产路径是 /proc/self/fd/3（已校验 inode，RV-53）。
 	Entry string `json:"entry"`
-	// Argv0 是真实插件进程看到的 argv[0]（可读性用，如 backend.entry）。
+	// Argv0 是真实插件进程看到的 argv[0]。
+	//
+	// 它不是纯展示：宿主只能靠进程表认领自己的插件子进程（AdminOverview 的
+	// 「插件占用 N 个进程」、扩展列表的 RSS 归因都按
+	// storage/extensions/<id>/<ver>/<digest>/backend/plugin 这类绝对路径匹配，
+	// 见 processmemory.IsBackendPluginCommand）。因此这里必须填**绝对制品入口
+	// 路径**，填清单里的相对入口（backend/plugin）会让采样器丢掉整个插件进程表。
 	Argv0 string `json:"argv0,omitempty"`
 	// ArtifactDir 是制品目录：允许读 + 执行。
 	ArtifactDir string `json:"artifact_dir"`

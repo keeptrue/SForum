@@ -296,15 +296,36 @@ func attachPluginSandbox(cmd *exec.Cmd, extension extensions.Extension) {
 	}
 }
 
-// pluginSandboxArgv0 给出插件进程的可读 argv[0]：ps 里应该看到入口名，而不是宿主
-// 的 /proc/self/fd/3。exec 目标仍然是被钉住的 inode，argv[0] 只是展示用。
+// pluginSandboxArgv0 给出插件子进程看到的 argv[0]：**绝对制品入口路径**。
+//
+// 它不是展示字段。启动器把 argv[0] 原样交给真实插件进程，而宿主辨认自己的插件
+// 子进程只有一条通道：进程表的 cmdline（processmemory.IsBackendPluginCommand /
+// ExtensionIDFromPluginCommand）。AdminOverview 的「插件占用 N 个进程」与扩展
+// 列表的 RSS 归因都建立在这条通道上，识别条件是
+// `storage/extensions/<id>/<ver>/<digest>/backend/plugin` 这类路径标记。
+//
+// 曾经这里返回清单里的相对入口（`backend/plugin`），ps 里就只剩这 8 个字符，
+// 识别条件永远不成立 → 采样在 List() 阶段把全部真实插件子进程丢掉 → 后台显示
+// 「插件占用 0 个进程」。所以绝对路径是契约，不是美化。
+//
+// exec 目标不受影响：cmd.Path 仍是 /proc/self/fd/3 的已校验 inode（见
+// pinVerifiedExecutable），这里只改子进程看到的 argv[0]。
 func pluginSandboxArgv0(extension extensions.Extension, cmd *exec.Cmd) string {
-	if entry := strings.TrimSpace(extension.Manifest.Backend.Entry); entry != "" {
-		return entry
-	}
+	// 1) preparePluginCommand 用 exec.Command(入口绝对路径) 构造，Args[0] 就是
+	//    制品入口的绝对路径——最准确的一手来源。
 	if cmd != nil && len(cmd.Args) > 0 {
-		return filepath.Base(cmd.Args[0])
+		if argv0 := strings.TrimSpace(cmd.Args[0]); argv0 != "" && filepath.IsAbs(argv0) {
+			return argv0
+		}
 	}
+	// 2) 兜底：用钉住的制品 cwd（<digest>/backend）+ 清单入口文件名还原绝对路径。
+	if cmd != nil && strings.TrimSpace(cmd.Dir) != "" {
+		if entry := strings.TrimSpace(extension.Manifest.Backend.Entry); entry != "" {
+			return filepath.Join(cmd.Dir, filepath.Base(filepath.FromSlash(entry)))
+		}
+	}
+	// 3) 连制品目录都拿不到时只能给可读标识：这种进程本来就无法被采样器认领，
+	//    但也不会伪装成一个可执行路径。
 	return extension.ID
 }
 

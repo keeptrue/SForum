@@ -166,6 +166,21 @@ func (s *ThemeService) RestoreActiveThemeRegistry(ctx context.Context) error {
 	return err
 }
 
+// apiWorkingDirectoryDiagnostic 给「主题恢复失败」事件补上 API 进程 cwd。
+//
+// extension_versions.package_path 在 dev 环境是相对路径（../../storage/...），
+// 解析基准是 API 进程的工作目录。从仓库根而不是 apps/api 启动时，同一条相对路径
+// 会落到别的地方，现场只剩一句 lstat /home/inkedus/Code/storage/… —— 看不出
+// 原因是「启动目录错了」。把 cwd 直接写进事件，下一次可从日志自证。
+func apiWorkingDirectoryDiagnostic() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "; api cwd=<unavailable>"
+	}
+	return "; api cwd=" + cwd +
+		"; artifact paths are relative to the API working directory, start the API from apps/api"
+}
+
 // repairActiveThemeAfterRestoreFailure 在 preflight/注册失败时尽量自愈。
 // 优先晋升 SyncBuiltins 已 stage 的内置制品（Host 契约收紧后常见），
 // 否则回退受保护默认主题，避免非默认主题包缺失阻断启动。
@@ -177,7 +192,7 @@ func (s *serviceCore) repairActiveThemeAfterRestoreFailure(
 	_, _ = s.store.CreateEvent(ctx, EventInput{
 		ExtensionID: active.ID,
 		Action:      EventEnableFailed,
-		Message:     "active theme registry restore failed, attempting repair: " + cause.Error(),
+		Message:     "active theme registry restore failed, attempting repair: " + cause.Error() + apiWorkingDirectoryDiagnostic(),
 	})
 	if s.pageRegistry != nil {
 		s.pageRegistry.ClearExtension(active.ID)
@@ -210,44 +225,6 @@ func (s *serviceCore) repairActiveThemeAfterRestoreFailure(
 			Message:     "promoted staged default theme after fallback activation preflight failure",
 		})
 		return repaired, nil
-	}
-	return result.Extension, nil
-}
-
-// promoteStagedBuiltinThemeIfHealthy 在活动包无法加载时，将已 stage 的内置 exact 制品
-// 写入 active 并追加 theme_runtime_publications，供 watcher 收敛到可预检包。
-func (s *serviceCore) promoteStagedBuiltinThemeIfHealthy(ctx context.Context, active Extension) (Extension, error) {
-	if s == nil || s.store == nil || ctx == nil {
-		return Extension{}, ErrThemePublicationConflict
-	}
-	current, err := s.store.Get(ctx, active.ID)
-	if err != nil {
-		return Extension{}, err
-	}
-	if current.Type != TypeTheme || current.Source != SourceBuiltin || current.Status != StatusEnabled {
-		return Extension{}, ErrInvalidManifest
-	}
-	staged, ok := current.StagedArtifact()
-	if !ok {
-		return Extension{}, ErrThemePreviewStale
-	}
-	if strings.EqualFold(staged.PackageDigest, current.PackageDigest) {
-		return Extension{}, ErrThemePreviewStale
-	}
-	if s.pageRegistry != nil {
-		if err := s.pageRegistry.PreflightThemePackage(ctx, staged, ""); err != nil {
-			return Extension{}, err
-		}
-	}
-	result, err := s.store.ActivateThemeExact(ctx, current.ID, ThemeActivationInput{
-		Version:             staged.Version,
-		PackageDigest:       staged.PackageDigest,
-		CurrentThemeID:      current.ID,
-		CurrentThemeVersion: current.Version,
-		CurrentThemeDigest:  current.PackageDigest,
-	})
-	if err != nil {
-		return Extension{}, err
 	}
 	return result.Extension, nil
 }

@@ -6,6 +6,13 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 插件进程识别 + 默认主题审批自愈（2026-11-17）
+
+- Status: **已闭环（2026-11-17，待提交）**。用户报的两个 bug：①后台「插件占用 0 个进程」——EX2-01 沙箱启动器把插件 `argv[0]` 写成清单相对入口 `backend/plugin`，`processmemory.IsBackendPluginCommand` 认不出，采样器丢掉全部插件子进程；修法是 `pluginSandboxArgv0` 返绝对制品入口（exec 目标仍是 `/proc/self/fd/3`）。②默认主题不生效且后台无「恢复默认主题」——一次「从仓库根启动 API」让活动主题 restore 失败，自愈 `promoteStagedBuiltinThemeIfHealthy` 晋升 staged 制品时**没带 host 批准**，账本 `core_replacements_approved=false` 使 apply 走 `SwitchThemeContributions`，`page_provider_bindings` 被删空（现网 rev 23）；修法是三层：晋升不再降权 + 启动自愈 `defaultThemeApprovalRepair.EnsureDefaultThemeApproved`（幂等，健康零写入）+ apply 兜底（多一条 `ActorUserID == 0` 收紧），前端主题行补「恢复默认主题 / 重新激活」入口。
+- 证据：`go build` / 架构闸门 / `bun test tests/admin/`(1532) / `typecheck` 全绿；现网 16 条插件进程绝对路径、账本 `24|t|host|NULL|startup_repair`、bindings 35、`pages/resolve` 与 `/` 渲染均为 `sforum.default-theme` + `data-template="1"`；4 条变异全部被抓。独立审查 approve（4 条 P3 非阻塞）。
+- 遗留：`package_path` 仍是 cwd 相对（根治单开一刀）；扩展列表仍不可见「主题未生效」状态（要新字段 + 契约）；13 条修复前孤儿 `backend/plugin`（cleanup 脚本只认 PPID=1）；`app/Http/server_test.go` 裸哨兵 `"935"` 的既有 flake。
+- Handoff：`sessions/2026-11-17-plugin-argv0-and-theme-approval-heal.md`；不变式写进 `modules/extensions.md`。
+
 ### GitHub Issues + Security 收口（2026-11-17）
 
 - Status: **已收口（2026-11-17）**。GitHub `keeptrue/SForum` 4 条 open issue + security 面板全部处置：#232 关闭（Nuxt 4.6.4 代码早在 PR #233 落地，本轮补验收：typecheck / build exit 0、`bun test` 3498 pass、单版本断言、`bun-audit-gate` 44 条基线 0 命中）、#238 关闭（226 条断言 / 198 pass / **真实视觉回归 0** / a11y 缺陷 1 条）、#235 取 b 实现、#237 实现 —— 后两条并入 PR [#249](https://github.com/keeptrue/SForum/pull/249) 并**已通过独立审查**（含「摘掉反向检查 → CI 立刻红」的回归证明）；security 面板 advisories / dependabot / secret scanning 全 0，CodeQL alert 49 由 PR [#248](https://github.com/keeptrue/SForum/pull/248) 修（待合并后 CI 重扫确认）。

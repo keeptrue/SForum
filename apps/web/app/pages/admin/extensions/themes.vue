@@ -118,6 +118,8 @@ const updateFilterAria = computed(() => updateCount.value > 0
 
 const rowMenu = useExtensionRowMenu({
   canUninstall: item => Boolean(item.isDeletable) && item.source !== 'builtin' && !item.isSystem && item.status !== 'enabled',
+  // enabled 主题的主按钮是「管理」，重新激活/恢复默认主题只能从菜单进。
+  activate: activateTheme,
   uninstall: openUninstallExtension
 })
 const rowMenus = computed(() => Object.fromEntries(

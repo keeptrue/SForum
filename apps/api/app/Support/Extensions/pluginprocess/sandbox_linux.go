@@ -106,8 +106,10 @@ func wrapCommand(cmd *exec.Cmd, spec SandboxSpec) error {
 
 // pluginArgumentVector 计算真实插件进程的 argv。
 //
-// argv[0] 用可读的制品入口名而不是 /proc/self/fd/3：exec 目标被钉在已校验 inode
-// 上，但 ps 里看到的应该是「这个插件」，不是宿主的 fd 表。
+// argv[0] 不是装饰：exec 目标被钉在已校验 inode 上（ps 里看不到插件身份），
+// 宿主只能靠进程表 cmdline 认领自己的插件子进程。所以 spec.Argv0 由宿主填成
+// **绝对制品入口路径**（storage/extensions/<id>/<ver>/<digest>/backend/plugin），
+// 这里原样交给真实插件进程。
 func pluginArgumentVector(cmd *exec.Cmd, spec SandboxSpec) ([]string, error) {
 	argv0 := strings.TrimSpace(spec.Argv0)
 	if argv0 == "" {

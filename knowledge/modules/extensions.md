@@ -1760,6 +1760,48 @@ only the exact `login`, `reply`, and `only-author` handlers.
   bindings for every affected page, then perform browser geometry and
   interaction checks on the active artifact.
 
+## Invariants Added 2026-11-17
+
+Two invariants earned from a live regression each. Both are now locked by tests;
+do not "clean them up" without replacing the guard.
+
+1. **Plugin `argv[0]` must stay process-scannable.** The launcher execs the
+   plugin with `argv[0]` supplied by the host (`SandboxSpec.Argv0`). That string
+   is the *only* channel the host has to claim its own plugin children:
+   `processmemory.IsBackendPluginCommand` / `ExtensionIDFromPluginCommand` match
+   `storage/extensions/<id>/<ver>/<digest>/backend/plugin` on `/proc/<pid>/cmdline`.
+   `pluginSandboxArgv0` therefore returns the **absolute artifact entry path**.
+   Returning the manifest's relative entry (`backend/plugin`) made the sampler
+   drop every live plugin process → AdminOverview showed "插件占用 0 个进程" and
+   per-extension RSS read 0 (regression window v3.1.0 → EX2-01 sandbox).
+   Guard: `app/Support/Extensions/plugin_sandbox_argv0_test.go`.
+
+2. **Self-healing must never lower an approval level.** `core_replacements_approved`
+   on `theme_runtime_publications` is the authority for whether a theme may bind
+   Core pages. The startup repair that promotes a staged built-in artifact
+   (`promoteStagedBuiltinThemeIfHealthy`) must therefore carry
+   `HostApproveProtectedDefault` for the protected built-in default theme; an
+   unapproved promotion makes apply take `SwitchThemeContributions`, which runs
+   `ReplaceExtensionBindings(theme, nil)` and deletes **every**
+   `page_provider_bindings` row → the whole site falls back to Core while the
+   theme still reads `enabled` (so `themeActionState` offers no restore button).
+   `ThemeActivationInput` carries two `json:"-"` fields for this
+   (`HostApproveProtectedDefault`, `Reason`); the host-approval gate itself
+   (`theme_publication_postgres.go` + `lockProtectedBuiltinDefault`) stays closed
+   to every other extension. Apply has a defensive branch for legacy unapproved
+   rows (`未批准 + 受保护默认 + 来源已批准 + ActorUserID == 0`), and
+   `defaultThemeApprovalRepair.EnsureDefaultThemeApproved` re-grants the ledger at
+   startup (idempotent: healthy state writes nothing).
+   Guards: `theme_publication_apply_test.go`,
+   `theme_publication_postgres_integration_test.go`.
+
+Trigger context for (2): `extension_versions.package_path` is stored relative to
+the API working directory (`../../storage/extensions/…`). An API started from the
+repo root instead of `apps/api` fails the active-theme restore; that failure is
+what used to launch the downgrading repair. The `enable_failed` event now carries
+`api cwd=…` plus a start-from-`apps/api` hint. Making artifact paths
+cwd-independent is still an open, separate workstream.
+
 ## Next Steps
 
 1. Complete the new editor product design before implementing the image sticker

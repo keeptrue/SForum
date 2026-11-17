@@ -333,6 +333,8 @@ const rowMenu = useExtensionRowMenu({
   disable: disableExtension,
   restart: restartExtension,
   lifecycle: openLifecycleExtension,
+  // 总览页混排插件与主题：enabled 主题的重新激活/恢复默认主题同样只能在菜单里。
+  activate: activateTheme,
   uninstall: openExtensionUninstall
 })
 const rowMenus = computed(() => Object.fromEntries(
