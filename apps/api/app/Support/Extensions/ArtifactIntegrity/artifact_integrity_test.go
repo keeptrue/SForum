@@ -61,9 +61,9 @@ func TestErrorKeepsEveryCauseReachable(t *testing.T) {
 // 缺失与权限不足的运维动作不同，必须归类成不同措辞。
 func TestEntryUnavailableClassifiesCause(t *testing.T) {
 	cases := []struct {
-		name string
+		name  string
 		cause error
-		want string
+		want  string
 	}{
 		{name: "missing", cause: fs.ErrNotExist, want: "reason=missing"},
 		{name: "permission", cause: fs.ErrPermission, want: "reason=permission denied"},
@@ -132,5 +132,34 @@ func TestCoordinatesAbsentOnUnrelatedError(t *testing.T) {
 	}
 	if _, ok := artifactintegrity.Coordinates(nil); ok {
 		t.Fatal("nil error must not yield artifact coordinates")
+	}
+}
+
+// Error() 只从坐标拼 message，绝不渲染 causes 原文：cause 里是 os.Stat 的
+// *fs.PathError，含宿主绝对路径，而这条错误会进入未认证的 /api/v1/ready 响应。
+//
+// 变异即红：把 Error() 改成 `%v` 渲染 causes，下面的「同坐标不同 cause ⇒ 同一句话」
+// 与「不含绝对路径」两条断言都会失败（P3-A：原实现正确，但没有任何测试钉住它）。
+func TestErrorNeverRendersCauseText(t *testing.T) {
+	const absolute = "/srv/sforum/storage/extensions/sforum-shortcodes/1.3.10/b4f399bd/backend/plugin"
+	cause := &fs.PathError{Op: "stat", Path: absolute, Err: fs.ErrNotExist}
+	err := artifactintegrity.EntryUnavailable(testExtensionID, testVersion, testDigest, testEntry, cause)
+	message := err.Error()
+	if strings.Contains(message, absolute) || strings.Contains(message, "/srv/") {
+		t.Fatalf("Error() leaked an absolute path: %q", message)
+	}
+	if strings.Contains(message, "stat ") {
+		t.Fatalf("Error() rendered the cause text instead of the classified reason: %q", message)
+	}
+	if !strings.Contains(message, "reason=missing") {
+		t.Fatalf("Error() must keep the classified reason, got %q", message)
+	}
+
+	// 同一组坐标、不同 cause（不同绝对路径）必须渲染成完全相同的一句话：
+	// 这是「message 只由坐标构成」的可执行定义。
+	other := artifactintegrity.EntryUnavailable(testExtensionID, testVersion, testDigest, testEntry,
+		&fs.PathError{Op: "stat", Path: "/home/other-user/sforum/backend/plugin", Err: fs.ErrNotExist})
+	if other.Error() != message {
+		t.Fatalf("message must depend on coordinates only:\n first=%q\nsecond=%q", message, other.Error())
 	}
 }

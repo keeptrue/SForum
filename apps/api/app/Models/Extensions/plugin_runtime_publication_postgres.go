@@ -22,6 +22,8 @@ func insertPluginRuntimePublication(
 	actorUserID int64,
 	members []PluginRuntimeMember,
 ) (PluginRuntimePublication, error) {
+	// TODO(#254): 发布期闸门未接线，写前必须先跑成员级 Verify
+	// （ArtifactIntegrity.Verify；见 knowledge/decisions/2026-11-17-artifact-integrity-at-publish-time.md）。
 	canonical, digest, err := canonicalPluginRuntimeMembers(members)
 	if err != nil {
 		return PluginRuntimePublication{}, ErrPluginRuntimePublicationConflict

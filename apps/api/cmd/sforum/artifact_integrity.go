@@ -170,11 +170,7 @@ func newExtensionVerifyArtifactsCommand() *cobra.Command {
 				if asJSON {
 					encoder := json.NewEncoder(cmd.OutOrStdout())
 					encoder.SetIndent("", "  ")
-					if err := encoder.Encode(map[string]any{
-						"publicationRevision": members[0].RevisionOrZero(),
-						"checked":             len(members),
-						"defects":             defects,
-					}); err != nil {
+					if err := encoder.Encode(buildVerifyArtifactReport(members, defects)); err != nil {
 						return err
 					}
 				} else {
@@ -202,8 +198,39 @@ func newExtensionVerifyArtifactsCommand() *cobra.Command {
 	return cmd
 }
 
-// RevisionOrZero 让空结果也能输出修订号。
-func (m artifactMemberRow) RevisionOrZero() int64 { return m.Revision }
+// verifyArtifactReport 是 `--json` 的输出形状（与文本模式的 checked/defects 同义）。
+type verifyArtifactReport struct {
+	PublicationRevision int64               `json:"publicationRevision"`
+	Checked             int                 `json:"checked"`
+	Defects             []artifactMemberRow `json:"defects"`
+}
+
+// buildVerifyArtifactReport 组装 `--json` 报告。
+//
+// **空 publication 是可达状态**（全新库 / CI 只跑 migrate）：此时没有任何成员，
+// 也就没有「最新 revision」可读。这里必须显式给 0 而不是 members[0]，否则
+// `--json` 会在空切片上 index out of range 直接 panic —— 与同文件 republish-artifact
+// 的 `len(members)==0` 守卫同一条判据。
+//
+// 退出码语义与文本模式保持一致：没有任何被钉住的制品 = 没有不可装载的对象 =
+// `checked 0 artifact(s)` / `all artifacts are loadable` / exit 0（不把「还没发布过」
+// 当成缺陷，否则全新库的 CI 自检会恒红）。revision 字段为 0 表示「不存在 publication」。
+func buildVerifyArtifactReport(members, defects []artifactMemberRow) verifyArtifactReport {
+	var revision int64
+	if len(members) > 0 {
+		revision = members[0].Revision
+	}
+	// 归一成空切片：`defects: null` 与 `defects: []` 对消费方是两种形状，
+	// 空 publication 时更要稳定输出 `[]`。
+	if defects == nil {
+		defects = []artifactMemberRow{}
+	}
+	return verifyArtifactReport{
+		PublicationRevision: revision,
+		Checked:             len(members),
+		Defects:             defects,
+	}
+}
 
 // newRecoveryRepublishArtifactCommand 是「durable 行指向坏制品」的带外出口。
 //
@@ -220,7 +247,14 @@ func newRecoveryRepublishArtifactCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "republish-artifact <extension-id>",
 		Short:         "Repoint a publication member at a self-consistent artifact of the same version",
-		Args:          cobra.ExactArgs(1),
+		// 用法错必须走 usageError（exit 2）。cobra.ExactArgs 返回的是裸 error，
+		// 会被 exitCodeFor 兜底成 1，与同族命令的三态契约不一致。
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return usageError(fmt.Errorf("accepts 1 arg(s), received %d", len(args)))
+			}
+			return nil
+		},
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {

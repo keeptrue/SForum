@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -61,5 +64,58 @@ func TestResolveArtifactRoot(t *testing.T) {
 	}
 	if got := resolveArtifactRoot("/opt/sforum", ""); got != "" {
 		t.Fatalf("empty path must stay empty, got %q", got)
+	}
+}
+
+// 用法错必须是 exit 2：cobra.ExactArgs 的原生错误是裸 error，会被 exitCodeFor
+// 兜底成 1，与 verify-artifacts / republish-artifact 的三态契约不一致（P2-A）。
+func TestRepublishArtifactArgCountIsUsageError(t *testing.T) {
+	for _, args := range [][]string{
+		{},
+		{"extension-id", "extra"},
+	} {
+		cmd := newRecoveryRepublishArtifactCommand()
+		// 只触发 Args 校验：参数个数不对时 cobra 在 RunE 之前就返回，
+		// 因此这里不会连数据库。
+		cmd.SetArgs(args)
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatalf("args=%v: expected a usage error", args)
+		}
+		if got := exitCodeFor(err); got != artifactExitUsage {
+			t.Fatalf("args=%v: exit code=%d want %d (err=%v)", args, got, artifactExitUsage, err)
+		}
+		if !strings.Contains(err.Error(), "accepts 1 arg(s)") {
+			t.Fatalf("args=%v: error text must name the arity, got %q", args, err.Error())
+		}
+	}
+}
+
+// 空 publication 是可达状态（全新库 / CI 只跑 migrate）：`--json` 曾经直接
+// members[0] 取 revision，在空切片上 panic（P2-B）。报告构造必须容忍空成员，
+// 并且与文本模式同语义：revision=0 / checked=0 / 无缺陷 / exit 0。
+func TestVerifyArtifactReportToleratesEmptyPublication(t *testing.T) {
+	report := buildVerifyArtifactReport(nil, nil)
+	if report.PublicationRevision != 0 || report.Checked != 0 || len(report.Defects) != 0 {
+		t.Fatalf("empty publication report=%#v", report)
+	}
+
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(report); err != nil {
+		t.Fatalf("encode empty report: %v", err)
+	}
+	for _, want := range []string{`"publicationRevision": 0`, `"checked": 0`, `"defects": []`} {
+		if !strings.Contains(buffer.String(), want) {
+			t.Fatalf("empty report JSON must contain %s, got:\n%s", want, buffer.String())
+		}
+	}
+
+	// 非空时 revision 仍取第一个成员，且 defects 原样透传。
+	defects := []artifactMemberRow{{ExtensionID: "fixture.plugin", Reason: "missing"}}
+	report = buildVerifyArtifactReport([]artifactMemberRow{{Revision: 1540}, {Revision: 1540}}, defects)
+	if report.PublicationRevision != 1540 || report.Checked != 2 || len(report.Defects) != 1 {
+		t.Fatalf("populated report=%#v", report)
 	}
 }

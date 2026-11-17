@@ -891,10 +891,17 @@ Authoritative sources:
 - 布局与摘要：`<EXTENSION_ROOT>/<extension-id>/<version>/<digest>/`；`<digest>` = 包目录树摘要，
   manifest `backend.digest` = `backend.entry` 文件的 sha256（同一目录内两者必须自洽）。重建只能
   从源包走 `sforum extension`（`build` / `digest --write` / `validate` / `test`）。
-- 发布期 fail-closed：写 `plugin_runtime_publications` / `plugin_runtime_publication_members`
-  之前必须逐成员校验（目录在、`<digest>` 匹配树摘要、入口文件在、`backend.digest` 匹配文件）。
-  失败即 abort，上一 revision 继续当权。publication 是追加式不可变表，写坏只能追加新 revision
-  覆盖，所以「先写后修」在这张表上等于永久启动失败。
+- 发布期 fail-closed（**目标规范，尚未接线**）：写 `plugin_runtime_publications` /
+  `plugin_runtime_publication_members` 之前必须逐成员校验（目录在、`<digest>` 匹配树摘要、
+  入口文件在、`backend.digest` 匹配文件）。失败即 abort，上一 revision 继续当权。publication
+  是追加式不可变表，写坏只能追加新 revision 覆盖，所以「先写后修」在这张表上等于永久启动失败。
+  **实现状态（2026-11-17）**：`artifactintegrity.Verify` 在生产代码只有两个调用点 ——
+  CLI 的 `inspectMember`，以及 `VerifyPluginRuntimePublicationArtifacts`（唯一调用方是启动期
+  只读自检）。`insertPluginRuntimePublication` 函数体内没有 Verify，它在本包里的 **9 个调用点**
+  （publish / recovery / trust-revocation / builtin-sync 全部路径）因此都是无闸门的。
+  当前可用的只有**启动期只读自检 + CLI 恢复**，本条的发布期闸门与 dev 自愈仍是待落地
+  要求（见 `../decisions/2026-11-17-artifact-integrity-at-publish-time.md` 的 Status）。
+  读到本条时不要假设闸门已存在：apply 期校验是当前唯一的运行期防线，不许弱化。
 - apply 期校验保留（纵深防御）：它管的是「盘上**现在**还是好的」，覆盖带外删除、磁盘损坏、
   同步漏文件。发布期管「写进去的是好的」，两者不可互相替代。
 - 可诊断性：artifact 类失败命中 `plugin_artifact_incomplete`（`/api/v1/ready` 的

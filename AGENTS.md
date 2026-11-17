@@ -352,6 +352,17 @@ contracts first.
   or the publish refused — never recorded as expected state. Automatic repair of
   a broken desired set is permitted only inside `APP_ENV=development` (Safe Mode
   also blocks it); everywhere else repair is the explicit CLI action below.
+  Implementation status (2026-11-17): this bullet is the **target specification**,
+  not current behaviour — the publish-time gate is **not wired yet**. What exists
+  today is the startup read-only self-check plus the CLI recovery channel
+  (`artifactintegrity.Verify` has exactly two production call sites: the CLI's
+  `inspectMember`, and `VerifyPluginRuntimePublicationArtifacts`, whose only
+  caller is the boot-time self-check. `insertPluginRuntimePublication` does not
+  call it, so all 9 of its call sites — every publish, recovery, trust-revocation
+  and builtin-sync path — are gate-free). Do not read this rule as "already
+  enforced" when weakening apply-time validation or copying a publish-then-repair
+  pattern.
+  See `knowledge/decisions/2026-11-17-artifact-integrity-at-publish-time.md`.
 - Every failure that can push the API into recovery-only must be diagnosable
   from the response alone: a typed code plus a message carrying coordinates —
   for artifact failures `extensionId`, `version`, `digest`, and the missing or
