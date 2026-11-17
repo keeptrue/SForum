@@ -37,7 +37,6 @@ export const useSForumSeo = (input: SForumSEOInput | MaybeReactive<SEOPageContex
   useSeoMeta({
     title: () => resolved.value.title,
     description: () => resolved.value.description,
-    keywords: () => resolved.value.keywords || undefined,
     ogTitle: () => resolved.value.ogTitle,
     ogDescription: () => resolved.value.ogDescription,
     ogType: () => pageContext.value.type === 'topic' ? 'article' : 'website',
@@ -56,6 +55,11 @@ export const useSForumSeo = (input: SForumSEOInput | MaybeReactive<SEOPageContex
     ],
     meta: [
       { key: 'robots', name: 'robots', content: resolved.value.robots },
+      // unhead v3 的 MetaFlat 里没有 keywords（它只存在于 MetaNames 字符串联合），
+      // 所以 keywords 走 useHead 的 meta 而不是 useSeoMeta；SEO 归属仍在本文件。
+      ...(resolved.value.keywords
+        ? [{ key: 'keywords', name: 'keywords', content: resolved.value.keywords }]
+        : []),
       ...verificationMeta(seoSettings.value)
     ],
     script: structuredDataScript({
@@ -157,7 +161,9 @@ function structuredDataScript(input: {
   return [
     {
       key: 'sforum-schema-org',
-      type: 'application/ld+json',
+      // unhead v3 把 script.type 收窄成按类型判别的字面量（JsonLdScript 要求
+      // 'application/ld+json'），因此这里必须保留字面量类型而不是 string。
+      type: 'application/ld+json' as const,
       innerHTML: serializeStructuredData(graph)
     }
   ]

@@ -11,6 +11,7 @@ import { useAdminTabs } from '~/composables/admin/useAdminTabs'
 import { useAdminAppearancePreview } from '~/composables/admin/settings/useAdminAppearancePreview'
 import { useAppliedAppearance } from '~/composables/appearance/useAppliedAppearance'
 import { usePublicContentStyles } from '~/composables/extensions/usePublicContentStyles'
+import { localeHeadLinks, localeHeadMeta } from '~/utils/seo/localeHeadLinks'
 
 // no_prefix：中英共用 URL，不输出 hreflang 交替链接（同 URL 多语 SEO 无效）。
 // 仍保留 html lang/dir，供无障碍与浏览器语言提示。
@@ -137,7 +138,7 @@ useHead(() => {
   }
 
   // favicon 已在 useWebOptions 中解析 Core 默认值；Apple Touch icon 仍仅按运营配置注入。
-  const brandLinks: Array<Record<string, string>> = []
+  const brandLinks: Array<{ rel: 'icon', href: string } | { rel: 'apple-touch-icon', href: string }> = []
   if (siteFaviconUrl.value) {
     brandLinks.push({ rel: 'icon', href: siteFaviconUrl.value })
   }
@@ -145,7 +146,7 @@ useHead(() => {
     brandLinks.push({ rel: 'apple-touch-icon', href: siteAppleTouchIconUrl.value })
   }
   const themeLinks = themeSkin.links.value.map(href => ({
-    rel: 'stylesheet',
+    rel: 'stylesheet' as const,
     href,
     key: `sforum-theme-skin:${href}`,
     // 皮肤是基底、宿主 CSS 细化：固定在 head 最前，避免管理端往返重挂后反超宿主。
@@ -155,7 +156,7 @@ useHead(() => {
   // 扩展样式不声明 crossorigin：同源时 integrity 仍校验，被 QQ X5 云加速/CDN
   // 换源时降级为 no-cors 加载，避免 CORS 拒载后整块样式丢失。
   const extensionStyleLinks = publicContentStyles.links.value.map(style => ({
-    rel: 'stylesheet',
+    rel: 'stylesheet' as const,
     href: style.href,
     integrity: style.integrity,
     key: `sforum-extension-style:${style.handle}`,
@@ -164,8 +165,8 @@ useHead(() => {
 
   return {
     htmlAttrs,
-    link: [...(localeHead.value.link || []), ...brandLinks, ...themeLinks, ...extensionStyleLinks],
-    meta: localeHead.value.meta,
+    link: [...localeHeadLinks(localeHead.value.link), ...brandLinks, ...themeLinks, ...extensionStyleLinks],
+    meta: localeHeadMeta(localeHead.value.meta),
     // 公开页面的完整标题由 useSForumSeo/resolveSEO 负责；根组件只提供空标题回退。
     titleTemplate: title => title || siteName.value
   }

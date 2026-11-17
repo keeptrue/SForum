@@ -27,7 +27,7 @@
     "@iconify-json/tabler": "^1.2.35",
     "@iconify/vue": "^5.0.1",
     "@nuxt/image": "^2.1.0",
-    "@nuxt/ui": "^4.9.0",
+    "@nuxt/ui": "^4.12.2",
     "@nuxtjs/i18n": "^10.4.0",
     "@nuxtjs/seo": "^5.3.6",
     "@sforum/admin-sdk": "workspace:*",
@@ -55,11 +55,11 @@
     "katex": "^0.16",
     "marked": "^17.0.6",
     "mermaid": "^11",
-    "nuxt": "^4.4.8",
+    "nuxt": "^4.6.4",
     "parse5": "^8.0.1",
     "photoswipe": "^5.4.4",
     "tailwindcss": "^4.3.2",
-    "vue": "^3.5.43"
+    "vue": "^3.5.44"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.20",
@@ -71,7 +71,7 @@
     "happy-dom": "^21.0.4",
     "typescript": "^6.0.3",
     "vite": "8.3.4",
-    "vue-router": "^5.1.0",
+    "vue-router": "^5.4.0",
     "vue-tsc": "^3.3.6"
   }
 }
