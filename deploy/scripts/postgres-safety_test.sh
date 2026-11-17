@@ -312,6 +312,14 @@ case "$command" in
       case "$1" in
         --rm|-T|--no-deps) shift ;;
         --entrypoint) shift 2 ;;
+        # 真 compose 对 `run` 不认 `--no-build`（那是 up/build 的 flag）。mock 以前
+        # 把所有未知 flag 都吞进 `*)`，于是「参数写错」在测试里永远绿，直到运维
+        # 第一次真跑备份才炸成 `unknown flag: --no-build`。这里照抄真行为：未知
+        # 长 flag 直接失败。
+        --*)
+          printf 'unknown flag: %s\n' "$1" >&2
+          exit 96
+          ;;
         -C) dir="$2"; shift 2 ;;
         -cf) mode="create"; shift; [ "${1:-}" = "-" ] && shift ;;
         -xf) mode="extract"; shift; [ "${1:-}" = "-" ] && shift ;;
