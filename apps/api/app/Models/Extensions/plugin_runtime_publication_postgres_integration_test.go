@@ -329,7 +329,9 @@ func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRun
 			active_version_id BIGINT
 		);
 		CREATE TABLE extension_versions (
-			id BIGINT PRIMARY KEY,
+			-- 与生产同构：id 是序列主键（BIGSERIAL），夹具显式插 101/102… 之后
+			-- 必须把序列对齐到 max(id)，否则同库别的包会撞 23505。
+			id BIGSERIAL PRIMARY KEY,
 			extension_id TEXT NOT NULL REFERENCES extensions(id) ON DELETE CASCADE,
 			version TEXT NOT NULL,
 			package_digest TEXT NOT NULL,

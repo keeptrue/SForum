@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/keeptrue/sforum/apps/api/internal/testartifact"
+	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
 // 发布期 fail-closed 闸门（#254）落地后，任何会进入 publication 的成员都必须在
@@ -53,6 +54,9 @@ func (f *pluginRuntimePublicationPGFixture) seedVersion(
 	`, versionID, extensionID, version, coords.Digest, coords.Path, string(manifest)); err != nil {
 		f.t.Fatalf("seed fixture version %s@%s: %v", extensionID, version, err)
 	}
+	// 显式 id 不推进 BIGSERIAL 序列：对齐到 max(id)，否则同一分片里别的包
+	// （public schema 的 extension_versions）会拿到已被占用的号并撞 23505。
+	testdb.AlignSerial(f.t, f.ctx, f.pool, "extension_versions")
 	member := PluginRuntimeMember{
 		ExtensionID: extensionID, ExtensionVersionID: versionID,
 		ExtensionVersion: version, PackageDigest: coords.Digest,
