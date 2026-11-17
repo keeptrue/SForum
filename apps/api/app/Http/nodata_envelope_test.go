@@ -211,7 +211,9 @@ func newNoDataHarness(t *testing.T) *nodataHarness {
 	return &nodataHarness{app: app, cookie: cookie, tokenStore: tokenStore, webhookStore: webhookStore, linkStore: linkStore}
 }
 
-// TestNoDataEndpointsReturnEnvelope 覆盖 6 条可在无库环境驱动的「无内容」端点。
+// TestNoDataEndpointsReturnEnvelope 覆盖 7 条可在无库环境驱动的「无内容」端点
+// （logout / revokeSession / revokeAPIToken / externalIdentityUnlink / deleteRole /
+// replaceRolePermissions / deleteEndpoint），第 8 条见 nodata_envelope_postgres_test.go。
 // setupPassword 见 nodata_envelope_postgres_test.go（它的 recent-auth 门控是具体类型）。
 func TestNoDataEndpointsReturnEnvelope(t *testing.T) {
 	cases := []struct {

@@ -23,9 +23,11 @@
  *   handler 常常只有一行委派（`return h.topicAction(c, ...)`），状态码在下游同包函数里；
  *   身份守卫的状态码又在跟包 `apphttp.*` 里（`apphttp.RequireActor` → 401/503）。
  *   门沿这两类边收集，并把「构造 readPathDependencyFailure」识别为 503 出口。
- *   **错误映射器 `mapXxxError` 族被识别但不归因**：它的分支按 err sentinel 选，
- *   一个具体 handler 只命中其中几条，全量并入就是过近似（会让门为假缺陷变红）。
- *   该边界与实证见 status-sources.mjs 的模块注释。
+ *   **错误映射器 `mapXxxError` 族被识别，并按 handler 收窄归因**（#237，见下方 C）：
+ *   它的分支按 err sentinel 选，一个具体 handler 只命中其中几条，**全量并入就是过近似**
+ *   （会让门为假缺陷变红）—— 所以只沿「handler 调用的领域方法直接 return 的哨兵」归因，
+ *   归因不到的记盲区。`status-sources.mjs` 本身仍只负责收集直出码，归因走独立模块
+ *   `mapper-attribution.mjs`，两条口径互不污染。
  *
  * 两类例外必须逐条写进 tests/contract-status-parity-baseline.json 并带中文原因：
  * 1. 不可静态判定：通配/插件代理路由，契约 operation 无法静态落到某个 handler；
@@ -1527,12 +1529,13 @@ function main() {
   );
   console.log(
     `[parity] 调用边识别（F1 同包委派 / F2 跟包 apphttp.* / F3 依赖故障 503）：` +
-      `跟包函数命中 ${appHttpSourceHits.size} 个、错误映射器识别 ${mapperNames.size} 个（识别但不归因）、` +
+      `跟包函数命中 ${appHttpSourceHits.size} 个、错误映射器识别 ${mapperNames.size} 个` +
+      '（识别后按 handler 收窄归因，不全量并入）、' +
       `按实参剪枝 ${prunedBranchHits.size} 处`,
   );
   if (callEdge) {
     console.log(`[parity]   跟包命中：${callEdge.appHttp.join(', ')}`);
-    console.log(`[parity]   识别但不归因的映射器：${callEdge.mappers.join(', ')}`);
+    console.log(`[parity]   识别到的错误映射器（收窄归因口径见下一行）：${callEdge.mappers.join(', ')}`);
     if (callEdge.pruned.length > 0) console.log(`[parity]   剪枝：${callEdge.pruned.join('; ')}`);
   }
   if (printOperationCodes) {
