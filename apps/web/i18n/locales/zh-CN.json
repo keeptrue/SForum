@@ -8347,7 +8347,22 @@
       "reason": "审核理由",
       "emptyTitle": "没有待处理内容",
       "emptyDescription": "你的内容目前都已公开或无需审核。",
-      "loadFailed": "加载内容审核状态失败。"
+      "loadFailed": "加载内容审核状态失败。",
+      "nav": "我的内容",
+      "railLabel": "我的内容审核说明",
+      "refresh": "刷新",
+      "pendingHint": "这些内容已提交，正在等待管理员审核；审核通过后会自动公开。",
+      "rejectedHint": "这些内容没有通过审核，暂时不会公开。每一项下面写了审核意见。",
+      "pendingEmptyTitle": "没有待审内容",
+      "pendingEmptyDescription": "你提交的内容都已处理完毕，没有卡在审核队列里的条目。",
+      "rejectedEmptyTitle": "没有被退回的内容",
+      "rejectedEmptyDescription": "目前没有内容被退回。以后若有，这里会给出审核意见。",
+      "reviewNoteEmpty": "管理员这次没有留下文字说明。如需了解原因，可以在站务版块发帖询问。",
+      "submittedAt": "提交于 {date}",
+      "targetTopic": "主题",
+      "targetComment": "评论",
+      "untitled": "（无标题）",
+      "createAction": "去发布主题"
     },
     "trigger": {
       "all_content": "全部预审",

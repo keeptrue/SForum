@@ -69,6 +69,7 @@ func newCorePageViewModelRegistry() (*PageViewModelRegistry, error) {
 		coreViewModel("forum.settings.security", "sforum.page.settings_security@1", ViewModelSettings, SecuritySettingsPageViewModel{}),
 		coreViewModel("forum.settings.tokens", "sforum.page.settings_tokens@1", ViewModelSettings, PersonalAccessTokensPageViewModel{}),
 		coreViewModel("forum.settings.notifications", "sforum.page.settings_notifications@1", ViewModelSettings, NotificationSettingsPageViewModel{}),
+		coreViewModel("forum.settings.content", "sforum.page.settings_content@1", ViewModelSettings, ContentReviewPageViewModel{}),
 		coreViewModel("forum.notifications", "sforum.page.notifications@1", ViewModelNotifications, NotificationsPageViewModel{}),
 		coreViewModel("forum.notification.show", "sforum.page.notification_show@1", ViewModelNotifications, NotificationsPageViewModel{}),
 		coreViewModel("moderation.review", "sforum.page.moderation_review@1", ViewModelModeration, ModerationReviewPageViewModel{}),
@@ -251,6 +252,8 @@ func pageViewModelBase(value any) (PageViewModelBase, bool) {
 	case DevelopmentComponentsPageViewModel:
 		return model.Base, true
 	case OutboundPageViewModel:
+		return model.Base, true
+	case ContentReviewPageViewModel:
 		return model.Base, true
 	default:
 		return PageViewModelBase{}, false

@@ -564,6 +564,27 @@
       "regions": []
     },
     {
+      "id": "forum.settings.content",
+      "pathPattern": "/settings/content",
+      "access": "public",
+      "contractVersion": "sforum.page.settings_content@1",
+      "coreComponent": "pages/settings/content",
+      "replaceable": false,
+      "virtual": false,
+      "requiresFeatures": [],
+      "notes": "host-owned 作者侧「我的内容」（待审 / 被退回 + 审核意见）；审核语义不可主题化改写，条目由 Host 岛调用 GET /me/content-review 自行获取",
+      "views": [
+        "component",
+        "schema",
+        "template"
+      ],
+      "layouts": [
+        "bare",
+        "site"
+      ],
+      "regions": []
+    },
+    {
       "id": "forum.notifications",
       "pathPattern": "/notifications",
       "access": "public",

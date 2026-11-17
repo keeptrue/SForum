@@ -186,6 +186,13 @@ func (s *CorePageViewModelSource) Populate(ctx context.Context, input CorePageVi
 		}
 		request.SEO.Robots = "noindex,nofollow"
 		request.Data.NotificationSettings = &themecompiler.NotificationSettingsPageViewModel{}
+	case "forum.settings.content":
+		// 作者侧审核状态是会话私有内容：必须登录，且永不索引。
+		// 条目由 Host 岛调用 GET /me/content-review 自取，这里只钉住访问契约。
+		if input.Actor.ID <= 0 {
+			return pages.CorePageViewModelRequest{}, ErrCorePageDataUnauthorized
+		}
+		request.SEO.Robots = "noindex,nofollow"
 	case "forum.notifications":
 		err = s.populateNotifications(ctx, &request, input)
 	case "forum.notification.show":

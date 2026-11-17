@@ -459,3 +459,11 @@ type OutboundPageViewModel struct {
 	// InterstitialEnabled 关闭时中转页立即放行（运营可在后台关掉中转）。
 	InterstitialEnabled bool `json:"interstitialEnabled"`
 }
+
+// ContentReviewPageViewModel 是作者侧「我的内容」页的 Host 侧载荷。
+// 审核条目（待审 / 被退回 + reviewNote）由 Host 岛通过
+// GET /me/content-review 自行取用，ViewModel 只承载 Base 与 noindex 契约，
+// 不把作者的内容审核状态下发给主题。
+type ContentReviewPageViewModel struct {
+	Base PageViewModelBase `json:"base"`
+}

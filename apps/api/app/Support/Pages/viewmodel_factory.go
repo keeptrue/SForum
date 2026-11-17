@@ -166,6 +166,9 @@ func BuildCorePageViewModel(request CorePageViewModelRequest) (any, error) {
 			"core.route.notifications.revoke_web_push_subscription",
 		)
 		return model, nil
+	case "forum.settings.content":
+		// host-owned 页面：审核条目由 Host 岛自取，ViewModel 只有 Base。
+		return themecompiler.ContentReviewPageViewModel{Base: base}, nil
 	case "forum.notifications":
 		model := valueOrZero(request.Data.Notifications)
 		model.Base = base

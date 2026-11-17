@@ -86,6 +86,21 @@ function itemPath(item: AccountSettingsNavItem) {
         {{ t('notificationSettings.title') }}
       </span>
     </NuxtLink>
+    <!--
+      我的内容（待审 / 被退回）：作者侧审核状态入口。
+      挂在账号设置下而不是复活 /my/content-review（该第一方页面 2026-07-21 有意删除）。
+    -->
+    <NuxtLink
+      :to="localePath('/settings/content')"
+      class="sf-home-navigation__link"
+      :class="{ 'is-active': active === 'content' }"
+      @click="emit('navigate')"
+    >
+      <span class="sf-home-navigation__link-main">
+        <UIcon name="i-lucide-file-clock" class="size-[18px]" aria-hidden="true" />
+        {{ t('moderation.authorStatus.nav') }}
+      </span>
+    </NuxtLink>
 
     <template v-if="props.extensionItems.length">
       <div class="sf-home-navigation__label">{{ t('profileSettings.nav.extensions') }}</div>

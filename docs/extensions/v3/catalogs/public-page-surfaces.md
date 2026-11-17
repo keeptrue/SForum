@@ -80,6 +80,7 @@ Views: `component`, `schema`, `template`. Layouts: `bare`, `site`.
 | `forum.settings.security` | `/settings/security` | public | yes | no | component, schema, template | bare, site | - |
 | `forum.settings.tokens` | `/settings/tokens` | public | yes | no | component, schema, template | bare, site | - |
 | `forum.settings.notifications` | `/settings/notifications` | public | yes | no | component, schema, template | bare, site | - |
+| `forum.settings.content` | `/settings/content` | public | no | no | component, schema, template | bare, site | - |
 | `forum.notifications` | `/notifications` | public | yes | no | component, schema, template | bare, site | content_before, content_after, list_before, list_after |
 | `forum.notification.show` | `/notifications/:notificationId` | public | yes | no | component, schema, template | bare, site | - |
 | `moderation.review` | `/moderation` | public | no | no | component, schema, template | bare, site | - |
