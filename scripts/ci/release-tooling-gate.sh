@@ -126,6 +126,9 @@ echo "Running PostgreSQL backup and restore safety validation..."
 echo "Running release deployment state-machine validation..."
 ./deploy/scripts/deploy_test.sh
 
+echo "Running one-click backup key bootstrap validation..."
+./deploy/scripts/backup-key_test.sh
+
 echo "Running deploy lock alignment validation..."
 ./deploy/scripts/deploy-lock_test.sh
 

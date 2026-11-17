@@ -175,6 +175,87 @@ backfill_env_keys() {
     "Added missing production key(s) to .env.production: ${missing[*]}"
 }
 
+# 备份加密口令自举（一键脚本）。升级在切换前必做一次加密备份，而这条路径以前
+# 只读进程环境：运维没 export 就停在「创建 PostgreSQL 备份」这一步。这里把
+# 「缺失」变成「自动生成 + 持久化」，加密强度不变（32 字节口令、0600 文件、
+# 绝不写明文归档）。deploy.sh 里有一份等价实现（两个脚本各自独立分发）。
+BACKUP_KEY_DEFAULT_REL=".sforum/backup.key"
+
+# 只解析、不生成：取值顺序与 backup-postgres.sh 的判定一致 —— 内联
+# SFORUM_BACKUP_KEY 优先，其次 SFORUM_BACKUP_KEY_FILE；两者都只认 shell 环境
+# 或 .env.production 的字面值（不 source、不 eval）。
+resolve_backup_key() {
+  if [ -z "${SFORUM_BACKUP_KEY_FILE:-}" ] && [ -z "${SFORUM_BACKUP_KEY:-}" ]; then
+    SFORUM_BACKUP_KEY_FILE="$(env_value SFORUM_BACKUP_KEY_FILE)"
+    SFORUM_BACKUP_KEY="$(env_value SFORUM_BACKUP_KEY)"
+  fi
+  export SFORUM_BACKUP_KEY_FILE SFORUM_BACKUP_KEY
+}
+
+# 把口令路径写回 .env.production：先丢掉 `KEY=` 与 `# KEY=` 两种旧行（模板里是
+# 注释形式），再在末尾补一行；临时文件 + 原子 mv 保持 0600，连续跑两次不会出现
+# 重复键。文件不存在时什么都不做 —— 缺配置由调用方自己报错。
+persist_backup_key_file() {
+  local key_file="$1" temp_file
+
+  [ -f .env.production ] || return 0
+  if [ "$(env_value SFORUM_BACKUP_KEY_FILE)" = "$key_file" ]; then
+    return 0
+  fi
+  temp_file="$(mktemp "$ROOT_DIR/.env.production.XXXXXX")"
+  awk '
+    /^SFORUM_BACKUP_KEY_FILE=/ { next }
+    /^# *SFORUM_BACKUP_KEY_FILE=/ { next }
+    { print }
+  ' .env.production > "$temp_file" || {
+    rm -f "$temp_file"
+    die "Could not rewrite .env.production for SFORUM_BACKUP_KEY_FILE."
+  }
+  printf 'SFORUM_BACKUP_KEY_FILE=%s\n' "$key_file" >> "$temp_file" || {
+    rm -f "$temp_file"
+    die "Could not rewrite .env.production for SFORUM_BACKUP_KEY_FILE."
+  }
+  chmod 600 "$temp_file"
+  mv -f "$temp_file" .env.production
+}
+
+# 解析 → 缺失则生成。已有文件只收紧权限、绝不改内容；内联口令存在时一个字节
+# 都不落盘。相对路径先按安装目录解析成绝对路径，免得 dirname 得到 "." 之后把
+# chmod 700 打到安装目录本身。
+ensure_backup_key() {
+  local key_file dir key_value
+
+  resolve_backup_key
+  [ -z "${SFORUM_BACKUP_KEY:-}" ] || return 0
+  key_file="${SFORUM_BACKUP_KEY_FILE:-$ROOT_DIR/$BACKUP_KEY_DEFAULT_REL}"
+  case "$key_file" in
+    /*) ;;
+    *) key_file="$ROOT_DIR/${key_file#./}" ;;
+  esac
+  [ ! -d "$key_file" ] || die "备份加密口令路径是一个目录：$key_file"
+
+  if [ -s "$key_file" ]; then
+    chmod 600 "$key_file" 2>/dev/null || true
+    export SFORUM_BACKUP_KEY_FILE="$key_file"
+    persist_backup_key_file "$key_file"
+    return 0
+  fi
+
+  dir="$(dirname "$key_file")"
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir" || die "无法创建备份加密口令目录：$dir"
+    chmod 700 "$dir" || die "无法收紧备份加密口令目录权限：$dir"
+  fi
+  key_value="$(generate_env_secret)" || die "Failed to generate a secure random secret."
+  ( umask 077; printf '%s\n' "$key_value" > "$key_file" ) || \
+    die "无法写入备份加密口令文件：$key_file"
+  chmod 600 "$key_file" || die "无法设置备份加密口令文件权限：$key_file"
+  export SFORUM_BACKUP_KEY_FILE="$key_file"
+  persist_backup_key_file "$key_file"
+  say "未找到备份加密口令，已在 $key_file 生成一个（0600）并写入 .env.production。请把它复制到与备份归档不同的位置：丢掉它等于丢掉全部加密备份。" \
+    "No backup encryption key was configured; generated one at $key_file (0600) and recorded it in .env.production. Copy it somewhere other than the disk that holds the archives: losing it makes every encrypted backup unrecoverable."
+}
+
 lang() {
   local value
   value="$(rc_value lang)"
@@ -652,6 +733,7 @@ apply_planned_online_migrations() {
 
 backup_database() {
   say "在线切换前创建 PostgreSQL 备份..." "Creating a PostgreSQL backup before the online switch..."
+  ensure_backup_key
   ./deploy/scripts/backup-postgres.sh
 }
 

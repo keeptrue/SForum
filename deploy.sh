@@ -238,6 +238,86 @@ backfill_env_keys() {
   printf '%s %s\n' "$(t env_key_backfilled)" "${missing[*]}" >&2
 }
 
+# 备份加密口令自举（一键脚本）。第一次 update 会先做一次加密备份，而这条路径
+# 以前只认「已经配好的口令」：没配就停在备份这一步。这里把「缺失」变成
+# 「自动生成 + 持久化」，加密强度不变（32 字节口令、0600 文件、绝不写明文
+# 归档）。upgrade.sh 里有一份等价实现（两个脚本各自独立分发）。
+BACKUP_KEY_DEFAULT_REL=".sforum/backup.key"
+
+# 只解析、不生成：内联 SFORUM_BACKUP_KEY 优先，其次 SFORUM_BACKUP_KEY_FILE；
+# 两者都只认 shell 环境或 .env.production 的字面值。恢复动作也走这里 ——
+# 口令写进配置文件后，restore 必须认得到，否则「备份成功、恢复认不到」。
+resolve_backup_key() {
+  if [ -z "${SFORUM_BACKUP_KEY_FILE:-}" ] && [ -z "${SFORUM_BACKUP_KEY:-}" ]; then
+    SFORUM_BACKUP_KEY_FILE="$(env_file_value .env.production SFORUM_BACKUP_KEY_FILE)"
+    SFORUM_BACKUP_KEY="$(env_file_value .env.production SFORUM_BACKUP_KEY)"
+  fi
+  export SFORUM_BACKUP_KEY_FILE SFORUM_BACKUP_KEY
+}
+
+# 把口令路径写回 .env.production：先丢掉 `KEY=` 与 `# KEY=` 两种旧行（模板里是
+# 注释形式），再在末尾补一行；临时文件 + 原子 mv 保持 0600，连续跑两次不会出现
+# 重复键。文件不存在时什么都不做。
+persist_backup_key_file() {
+  local key_file="$1" temp_file
+
+  [ -f .env.production ] || return 0
+  if [ "$(env_file_value .env.production SFORUM_BACKUP_KEY_FILE)" = "$key_file" ]; then
+    return 0
+  fi
+  temp_file="$(mktemp "$ROOT_DIR/.env.production.XXXXXX")"
+  awk '
+    /^SFORUM_BACKUP_KEY_FILE=/ { next }
+    /^# *SFORUM_BACKUP_KEY_FILE=/ { next }
+    { print }
+  ' .env.production > "$temp_file" || {
+    rm -f "$temp_file"
+    die "Could not rewrite .env.production for SFORUM_BACKUP_KEY_FILE."
+  }
+  printf 'SFORUM_BACKUP_KEY_FILE=%s\n' "$key_file" >> "$temp_file" || {
+    rm -f "$temp_file"
+    die "Could not rewrite .env.production for SFORUM_BACKUP_KEY_FILE."
+  }
+  chmod 600 "$temp_file"
+  mv -f "$temp_file" .env.production
+}
+
+# 解析 → 缺失则生成。已有文件只收紧权限、绝不改内容；内联口令存在时一个字节
+# 都不落盘。相对路径先按安装目录解析成绝对路径，免得 dirname 得到 "." 之后把
+# chmod 700 打到安装目录本身。
+ensure_backup_key() {
+  local key_file dir key_value
+
+  resolve_backup_key
+  [ -z "${SFORUM_BACKUP_KEY:-}" ] || return 0
+  key_file="${SFORUM_BACKUP_KEY_FILE:-$ROOT_DIR/$BACKUP_KEY_DEFAULT_REL}"
+  case "$key_file" in
+    /*) ;;
+    *) key_file="$ROOT_DIR/${key_file#./}" ;;
+  esac
+  [ ! -d "$key_file" ] || die "Backup key path is a directory: $key_file"
+
+  if [ -s "$key_file" ]; then
+    chmod 600 "$key_file" 2>/dev/null || true
+    export SFORUM_BACKUP_KEY_FILE="$key_file"
+    persist_backup_key_file "$key_file"
+    return 0
+  fi
+
+  dir="$(dirname "$key_file")"
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir" || die "Could not create the backup key directory: $dir"
+    chmod 700 "$dir" || die "Could not restrict the backup key directory: $dir"
+  fi
+  key_value="$(generate_env_secret)" || die "Failed to generate a secure random secret."
+  ( umask 077; printf '%s\n' "$key_value" > "$key_file" ) || \
+    die "Could not write the backup key file: $key_file"
+  chmod 600 "$key_file" || die "Could not set the backup key file mode: $key_file"
+  export SFORUM_BACKUP_KEY_FILE="$key_file"
+  persist_backup_key_file "$key_file"
+  printf '%s %s\n' "$(t backup_key_generated)" "$key_file" >&2
+}
+
 # 校验失败必须指向运维真正能改的地方：.env.production。只有在 shell 覆盖没被清掉
 # （sanitize 被绕过）时才点名 shell，避免让人去改错误的文件。
 die_env_contract() {
@@ -320,6 +400,7 @@ t() {
       starting_infra) echo "Starting the managed PostgreSQL and Redis services..." ;;
       fresh_database) echo "Fresh database detected; no backup is needed." ;;
       backup_first) echo "Existing installation detected; creating a PostgreSQL backup..." ;;
+      backup_key_generated) echo "No backup encryption key was configured; generated one (0600) and recorded it in .env.production. Copy it somewhere other than the disk that holds the archives, or every encrypted backup becomes unrecoverable:" ;;
       stopping_app) echo "Stopping the previous API and Web containers..." ;;
       migrations_running) echo "Running database migrations with the target release image..." ;;
       starting_app) echo "Starting SForum from release images..." ;;
@@ -377,6 +458,7 @@ t() {
       starting_infra) echo "正在启动内置 PostgreSQL 和 Redis..." ;;
       fresh_database) echo "检测到全新数据库，本次无需备份。" ;;
       backup_first) echo "检测到已有安装，正在创建 PostgreSQL 备份..." ;;
+      backup_key_generated) echo "未找到备份加密口令，已生成一个（0600）并写入 .env.production。请把它复制到与备份归档不同的位置，否则全部加密备份都将无法恢复：" ;;
       stopping_app) echo "正在停止旧版 API 和 Web 容器..." ;;
       migrations_running) echo "正在使用目标版本镜像运行数据库迁移..." ;;
       starting_app) echo "正在从发布镜像启动 SForum..." ;;
@@ -711,14 +793,14 @@ run_migrations_command() {
   "${COMPOSE[@]}" run --rm -T --pull never migrate
 }
 
-# 备份密钥来源：shell 环境 > .env.production。两条都要支持 —— backup-postgres.sh
-# 只读进程环境，而运维既会 export（文档写法）也会写进 .env.production（模板里给了
-# 注释块）；只认前者，模板就成了陷阱。空值等同未设置（脚本按 -n 判定），所以缺 key
-# 时行为与直接调用完全一致：硬失败，不写明文。
+# 备份密钥来源：shell 环境 > .env.production > 自动生成。前两条都要支持 ——
+# backup-postgres.sh 只读进程环境，而运维既会 export（文档写法）也会写进
+# .env.production（模板里给了注释块）；都没有时由 ensure_backup_key 生成一个
+# 0600 口令并持久化，否则一键更新会永远停在备份这一步。加密是硬要求，任何分支
+# 都不会写出明文归档。
 run_database_backup() {
-  SFORUM_BACKUP_KEY_FILE="${SFORUM_BACKUP_KEY_FILE:-$(env_file_value .env.production SFORUM_BACKUP_KEY_FILE)}" \
-  SFORUM_BACKUP_KEY="${SFORUM_BACKUP_KEY:-$(env_file_value .env.production SFORUM_BACKUP_KEY)}" \
-    ./deploy/scripts/backup-postgres.sh
+  ensure_backup_key
+  ./deploy/scripts/backup-postgres.sh
 }
 
 # 返回值与 deploy/scripts/wait-for-health.sh 的三态一致：0 就绪 / 3 恢复态 / 1 超时。
@@ -961,6 +1043,9 @@ create_backup() {
 restore_backup() {
   acquire_deploy_lock restore
   preflight
+  # 只解析、不生成：恢复时凭空造一把新口令只会把「缺密钥」变成「口令不对」。
+  # 口令写在 .env.production 里也要认得到，否则备份成功、恢复认不到。
+  resolve_backup_key
   t backup_path
   read -r backup_file
   t confirm_restore
