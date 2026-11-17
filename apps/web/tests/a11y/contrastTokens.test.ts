@@ -73,9 +73,23 @@ describe('soft / subtle 徽标的文字与底色（每个外观主题都达标�
   test('文本专用覆盖只作用于 .text-primary / .text-success，且只在浅色生效', () => {
     const css = readFileSync(new URL('../../app/assets/css/sforum-components.css', import.meta.url), 'utf8')
     expect(css).toContain(':root:not(.dark) .text-primary {')
+    // `.text-success` 必须一起覆盖：本产品的成功色就是品牌色（`--ui-color-success-* → --sf-primary-*`），
+    // 而 `--sf-accent-strong` 是按「自身 10% 底 + 最暗浅色底」实测抬到 ≥4.5:1 的文本 token；
+    // 换成 accent-hover 反而更差（amber 4.38:1，见 appearance.ts 的 strongAccentColor）。
     expect(css).toContain(':root:not(.dark) .text-success {')
     // 不能出现「改 --ui-primary 来提对比度」的回退写法。
     expect(css).not.toContain('--ui-primary: var(--sf-accent-strong)')
+  })
+
+  test('后台侧栏激活项在纯白底上直接用品牌 500（例外被壳作用域限定）', () => {
+    const css = readFileSync(new URL('../../app/assets/css/sforum-components.css', import.meta.url), 'utf8')
+    // 例外只放开后台壳里的导航链接与前置图标：激活态两者都带 `text-primary`。
+    expect(css).toContain(':root:not(.dark) .sforum-admin-shell [data-slot="link"].text-primary,')
+    expect(css).toContain(':root:not(.dark) .sforum-admin-shell [data-slot="link"].text-primary [data-slot="linkLeadingIcon"] {')
+    // 例外只能取现成的品牌 token，不能自造颜色或再压深一档。
+    expect(css).toMatch(/\[data-slot="linkLeadingIcon"\] \{\s*color: var\(--ui-primary\);/)
+    // 全局文本覆盖仍然在：侧栏之外的中小号文字不能退回品牌 500。
+    expect(css).toContain(':root:not(.dark) .text-primary {\n  color: var(--sf-accent-strong);')
   })
 
   test('浅色自定义 accent（#fde047）：填充色原样保留，文本色仍达标', () => {
@@ -131,6 +145,14 @@ describe('头像色板：首字母与背景成对达标（axe 报 1.86:1 的根�
       if (ratio < AA_NORMAL) offenders.push(`${pair} :: ${ratio.toFixed(2)}`)
     }
     expect(offenders).toEqual([])
+  })
+
+  test('色板顺序是 seed→颜色的稳定映射，不能重排（换序 = 全站换色）', () => {
+    // 色板按数组下标取模命中，两档互换等于把所有用户的头像颜色整体错位。
+    const background = FORUM_AVATAR_TONE_CLASSES.map(pair => /bg-\[(#[0-9a-fA-F]{6})\]/.exec(pair)?.[1])
+    expect(background).toEqual([
+      '#4263eb', '#087f5b', '#a16207', '#ae3ec9', '#1971c2', '#c92a2a', '#7048e8', '#2a8038'
+    ])
   })
 
   test('SFAvatar 不再把 text-white 写进公共 class（首字母前景由色板决定）', () => {

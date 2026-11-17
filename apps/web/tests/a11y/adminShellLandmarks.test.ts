@@ -76,6 +76,16 @@ describe('后台壳：地标覆盖（axe region）', () => {
 })
 
 describe('后台壳：侧栏分组项的 ARIA 来源（axe aria-allowed-attr）', () => {
+  // 分组项插槽的源码块：新断言都限定在这里，模板别处的同名类不算数。
+  const folderSlotStart = layout.indexOf('<template #folder="{ item }">')
+  const folderSlot = layout.slice(folderSlotStart, layout.indexOf('</template>', folderSlotStart))
+
+  /** 取某个元素的开标签源码（从 marker 到最近的 `>`），用于逐条核对同一个元素的类。 */
+  function openingTag(source: string, marker: string): string {
+    const start = source.indexOf(marker)
+    return start < 0 ? '' : source.slice(start, source.indexOf('>', start))
+  }
+
   test('分组项走自定义链接插槽，不再让 Nuxt UI 渲染带 aria-expanded 的 span', () => {
     // Nuxt UI 默认把分组项的 trailing 渲染成 `<span aria-expanded>`（role=generic 不允许该属性）。
     // 我们给分组项声明 slot: 'folder'，链接内容自己渲染，那个 span 就不再出现。
@@ -86,6 +96,28 @@ describe('后台壳：侧栏分组项的 ARIA 来源（axe aria-allowed-attr）'
     expect(layout).toContain('function folderNavView(item: SidebarNavigationItem)')
     // 箭头必须是装饰元素（aria-hidden），展开态用 group-data-[state=open] 表达。
     expect(layout).toContain('group-data-[state=open]:rotate-180')
+  })
+
+  test('箭头靠右：自带 linkTrailing 包裹承接 ms-auto', () => {
+    // 自定义插槽替换掉的是组件内部的 linkTrailing（自带 ms-auto），不补回来箭头就贴着文字。
+    const trailingTag = openingTag(folderSlot, 'data-slot="linkTrailing"')
+    expect(trailingTag).not.toBe('')
+    expect(trailingTag).toContain('ms-auto')
+    expect(trailingTag).toContain('inline-flex')
+    // 箭头仍在这层包裹内部。
+    expect(folderSlot.indexOf('data-slot="linkTrailing"'))
+      .toBeLessThan(folderSlot.indexOf('i-lucide-chevron-down'))
+  })
+
+  test('折叠态只留图标：label 与箭头包裹都按 collapsed 条件隐藏', () => {
+    // 只验「出现过 hidden」太松：把 label 改成无条件 hidden 照样通过。
+    // 这里钉死条件表达式本身，并要求它落在对应的元素开标签上。
+    const labelTag = openingTag(folderSlot, 'data-slot="linkLabel"')
+    const trailingTag = openingTag(folderSlot, 'data-slot="linkTrailing"')
+    expect(labelTag).toContain("collapsed ? 'hidden' : ''")
+    // 包裹带静态 inline-flex，产物里 `.inline-flex` 排在 `.hidden` 之后，普通 hidden 会被反压，
+    // 所以要用 important 版本的 `!hidden`。
+    expect(trailingTag).toContain("collapsed ? '!hidden' : ''")
   })
 
   test('品牌链接与高级设置按钮的可访问名包含可见文案（label-content-name-mismatch）', () => {

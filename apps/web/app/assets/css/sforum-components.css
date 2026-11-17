@@ -1042,8 +1042,29 @@
   color: var(--sf-accent-strong);
 }
 
+/*
+ * 成功色在本产品等同品牌色（`--ui-color-success-* → --sf-primary-*`），soft 面文字同样走
+ * `--sf-accent-strong`——它是按实测对比度迭代出的可读文本 token，不是「品牌文本色」。
+ * 不要换成 accent-hover / `--ui-color-success-700`：amber 下只有 4.38:1。
+ */
 :root:not(.dark) .text-success {
   color: var(--sf-accent-strong);
+}
+
+/*
+ * 后台壳例外：侧栏导航的激活项用回品牌 500。
+ *
+ * 激活文字不再走 `--sf-accent-strong`。只在 surface = `#ffffff` 的背景预设下成立：
+ * 品牌 500 压白底 teal 5.47:1 / ocean_blue 5.17:1 / violet 5.70:1 / rose 4.70:1 都过 AA，
+ * 统一压深只会让激活项比品牌色暗一档（v3.1.0 起的观感回归）。
+ * 浅色画布预设（`sforum-theme.css` 把 `--bg-admin-sidebar` 换成 `--sf-light-surface`，
+ * rose 在 parchment 上 4.43:1、amber 3.01:1）与 amber 白底（3.19:1）都与本例外无关：
+ * 那是 v3.0.23 的既有表现，本例外只保证「不比 v3.0.23 更差」，不承担逐预设压深。
+ * 只放开 `.sforum-admin-shell` 里的导航链接与其前置图标（激活态两者都带 `text-primary`）。
+ */
+:root:not(.dark) .sforum-admin-shell [data-slot="link"].text-primary,
+:root:not(.dark) .sforum-admin-shell [data-slot="link"].text-primary [data-slot="linkLeadingIcon"] {
+  color: var(--ui-primary);
 }
 
 /*

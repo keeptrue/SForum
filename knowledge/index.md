@@ -865,7 +865,15 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **发布期制品闸门 + dev 自愈（2026-11-17，最新）**：main `6643af3f0`，三个 squash
+- **观感回归修复：头像字色 / 侧栏分组箭头 / 激活项品牌色（2026-11-17，最新）**：起因
+  `739a282c5`（第 15 轮 W4 a11y，`git tag --contains` 为空，v3.1.0 不带）；只修观感、不撤
+  a11y 收益。① 头像色板改「深底 + 白字」，8 档顺序不变、白字 4.847–5.554:1；② `admin.vue`
+  的 `#folder` 槽补回 `linkTrailing` 包裹（`ms-auto`）承接箭头靠右，折叠态 label `hidden` /
+  包裹 `!hidden`；③ `sforum-components.css` 给 `.sforum-admin-shell` 导航激活项留
+  `var(--ui-primary)` 例外，全局 `.text-primary`/`.text-success → --sf-accent-strong` 保留。
+  门禁 3522 pass / 1 skip / typecheck 0 / 架构闸门 passed，9 条变异全抓。**未提交**。见
+  `sessions/2026-11-17-avatar-tone-and-folder-slot.md`。
+- **发布期制品闸门 + dev 自愈（2026-11-17）**：main `6643af3f0`，三个 squash
   `c1bdb978d`（#260/#258）、`0bf151841`（#261/#254 闸门）、`6643af3f0`（#263/#254 dev 自愈），
   0 open PR。#254：`insertPluginRuntimePublication` 在两条 INSERT 前逐成员
   `artifactintegrity.Verify`，9 个生产调用点全继承（无开关/无 reason 豁免、空集放行、四坐标

@@ -658,15 +658,24 @@ async function signOut() {
                 data-slot="linkLeadingIcon"
                 :class="sidebarNavigationUi.linkLeadingIcon"
               />
-              <span data-slot="linkLabel" :class="sidebarNavigationUi.linkLabel">
+              <span data-slot="linkLabel" :class="[sidebarNavigationUi.linkLabel, collapsed ? 'hidden' : '']">
                 {{ folderNavView(item).label }}
               </span>
-              <UIcon
-                name="i-lucide-chevron-down"
-                aria-hidden="true"
-                :class="sidebarNavigationUi.linkTrailingIcon"
-                class="transition-transform duration-200 group-data-[state=open]:rotate-180"
-              />
+              <!--
+                自带 linkTrailing 包裹：默认模板的 `ms-auto` 只在组件内那层 span 上，
+                自定义插槽把它挤掉了，箭头会贴在文字后面而不是贴右缘。
+                与 Nuxt UI 默认的 linkTrailing 对齐：不额外引入 `group` 语义。
+                `!hidden` 必须是 important：静态 `inline-flex` 在产物里排在 `.hidden` 之后，
+                普通 `hidden` 会被它反压回来，折叠态就藏不住。
+              -->
+              <span data-slot="linkTrailing" class="ms-auto inline-flex items-center gap-1.5" :class="collapsed ? '!hidden' : ''">
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  aria-hidden="true"
+                  :class="sidebarNavigationUi.linkTrailingIcon"
+                  class="transition-transform duration-200 group-data-[state=open]:rotate-180"
+                />
+              </span>
             </template>
           </UNavigationMenu>
         </div>

@@ -7,20 +7,21 @@
  * demo fullwidth-3col .a1–.a8 的稳定色板。
  *
  * 每一项都是**背景 + 前景成对**的：首字母必须与色板同时达标（WCAG AA 4.5:1）。
- * 旧实现把 `text-white` 写死在 SFAvatar 的公共 class 里，8 个色板里 7 个只有
- * 1.86–4.26:1（axe `color-contrast` 在后台头像与公开页同时报）。浅/中亮度色板
- * 改用墨黑 `#111827`，深紫换成 `#7048e8`（原 `#845ef7` 与黑、白都不达标）。
- * 对比度由 `tests/a11y/avatarToneContrast.test.ts` 逐对钉住。
+ * 前景统一保留 `text-white`（头像的观感基线：品牌色底 + 白首字母），达标方式是
+ * **压深底色**而不是改字色——8 档底色对白字实测 4.85–5.55:1，全部过 AA。
+ * 上一轮为达标把前景换成墨黑 `#111827`（后台头像白字→灰黑字），观感偏离设计，本轮改回。
+ * 注意「成对」只能由本表提供：`SFAvatar.vue` 的公共 class 里不能再写死 `text-white`，
+ * 否则第二处前景会盖掉这里的配对。对比度由 `tests/a11y/contrastTokens.test.ts` 逐对钉住。
  */
 export const FORUM_AVATAR_TONE_CLASSES = [
-  'bg-[#5c7cfa] text-[#111827]',
-  'bg-[#20c997] text-[#111827]',
-  'bg-[#fab005] text-[#111827]',
-  'bg-[#cc5de8] text-[#111827]',
-  'bg-[#339af0] text-[#111827]',
-  'bg-[#ff6b6b] text-[#111827]',
+  'bg-[#4263eb] text-white',
+  'bg-[#087f5b] text-white',
+  'bg-[#a16207] text-white',
+  'bg-[#ae3ec9] text-white',
+  'bg-[#1971c2] text-white',
+  'bg-[#c92a2a] text-white',
   'bg-[#7048e8] text-white',
-  'bg-[#51cf66] text-[#111827]'
+  'bg-[#2a8038] text-white'
 ] as const
 
 /**
