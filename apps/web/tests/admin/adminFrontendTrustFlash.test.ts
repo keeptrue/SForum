@@ -106,13 +106,21 @@ describe('admin extension page first-paint trust state', () => {
     expect(chain[0]).not.toContain('!trusted')
   })
 
-  test('settings view separates unresolved, failed and denied trust states', () => {
-    const chain = chainFor(settingsComponentSource, 'SFTrustedSettingsComponent.vue', '!trustResolved')
-    expect(chain[0]).toBe('!trustResolved')
+  test('settings view separates unresolved, failed, forced fallback and denied trust states', () => {
+    const chain = chainFor(settingsComponentSource, 'SFTrustedSettingsComponent.vue', 'showSkeleton')
+    // 骨架 → 加载失败 → 强制回退 → 状态读取失败 → 明确未授权
+    expect(chain[0]).toBe('showSkeleton')
+    expect(chain[1]).toBe('failed')
+    expect(chain[2]).toBe('forcedFallback')
+    expect(chain[3]).toBe('!status')
+    expect(chain[4]).toBe('!trusted')
     expect(chain).toContain('!status')
     expect(chain.indexOf('!status')).toBeLessThan(chain.indexOf('!trusted'))
-    // 信任未决时不渲染 Schema fallback，避免"表单 → 组件"的第二次闪替
-    expect(settingsComponentSource).toContain('<div v-if="trustResolved" class="mt-4">')
+    expect(chain[0]).not.toContain('!trusted')
+    // 已授权但尚未挂载时同样不出 Schema 表单：fallback 插槽只认 showSchemaFallback，
+    // 否则 page-bootstrap 同步带回信任结论后，首帧就会先铺表单再整块换成组件。
+    expect(settingsComponentSource).not.toContain('<div v-if="trustResolved"')
+    expect(settingsComponentSource).toContain('<div v-if="showSchemaFallback" class="mt-4">')
   })
 
   test('composable models trust as a tri-state and seeds from the server bootstrap', () => {

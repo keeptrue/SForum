@@ -21,6 +21,7 @@ import {
   contributionFailureState,
   recordContributionFailure
 } from '~/runtime/admin-extensions/quarantine'
+import { resolveTrustedSettingsFirstPaint } from './firstPaint'
 
 const props = defineProps<{
   extension: AdminExtension
@@ -56,10 +57,27 @@ const forcedFallback = ref(false)
 let cleanup: AdminMicroFrontendCleanup | undefined
 let styleElement: HTMLStyleElement | undefined
 let loadQueue: Promise<void> = Promise.resolve()
+// 已挂载内容对应的状态指纹：watch 与 onMounted 会在同一轮各触发一次 load，
+// 没有这道守卫就会“挂载 → 卸载 → 再挂载”，首屏看到两次骨架闪替。
+let renderedKey = ''
 
 const digest = computed(() => status.value?.digest || '')
 const component = computed(() => status.value?.component)
 const trusted = computed(() => !forcedFallback.value && ['trusted', 'source_trusted'].includes(status.value?.trustState || ''))
+const firstPaint = computed(() => resolveTrustedSettingsFirstPaint({
+  mounted: mounted.value,
+  failed: failed.value,
+  forcedFallback: forcedFallback.value,
+  trustResolved: trustResolved.value,
+  hasStatus: Boolean(status.value),
+  trusted: trusted.value,
+  // 与 performLoad 的 `!component.value || !digest.value` 早退条件保持一致：
+  // 只有描述符却没有 digest 时根本装不上，必须当作「缺组件」回退，不能一直停在骨架。
+  hasComponent: Boolean(component.value && digest.value)
+}))
+// 模板只认这两个布尔值；骨架与 Schema fallback 互斥由 firstPaint 保证。
+const showSkeleton = computed(() => firstPaint.value.showSkeleton)
+const showSchemaFallback = computed(() => firstPaint.value.showSchemaFallback)
 const failureKey = computed(() => contributionFailureKey(`prebuilt:${digest.value}`, props.extension.id, component.value?.id || 'settings'))
 const fallbackKey = computed(() => `sforum:admin-extension-schema-fallback:${encodeURIComponent(props.extension.id)}:${digest.value}`)
 const componentFailureDescription = computed(() => {
@@ -89,11 +107,13 @@ async function dispose() {
   styleElement = undefined
   if (target.value) target.value.replaceChildren()
   mounted.value = false
+  renderedKey = ''
 }
 
 function captureFailure() {
   failed.value = true
   mounted.value = false
+  renderedKey = ''
   const storage = currentStorage()
   if (storage) quarantined.value = recordContributionFailure(storage, failureKey.value).quarantined
 }
@@ -145,7 +165,33 @@ function bridge(): AdminMicroFrontendBridgeV1 {
   }
 }
 
+function renderKey() {
+  return [
+    digest.value,
+    component.value?.id || '',
+    locale.value,
+    resolvedMode.value,
+    status.value?.trustState || '',
+    forcedFallback.value ? 'schema' : 'component'
+  ].join('|')
+}
+
+async function loadStyle(): Promise<string> {
+  const response = await fetch(assetURL('style'), { credentials: 'include' })
+  if (!response.ok) {
+    throw new Error(`Admin component stylesheet request failed (${response.status})`)
+  }
+  const contentType = response.headers.get('content-type')?.toLowerCase() || ''
+  if (!contentType.startsWith('text/css')) {
+    throw new Error('Admin component stylesheet has an invalid content type')
+  }
+  return await response.text()
+}
+
 async function performLoad() {
+  const key = renderKey()
+  // 同一份状态已经挂载好了：不必卸载重来。
+  if (mounted.value && key === renderedKey) return
   await dispose()
   failed.value = false
   failureMessage.value = ''
@@ -161,23 +207,18 @@ async function performLoad() {
   if (!target.value) return
   loading.value = true
   try {
-    if (component.value.css) {
-      const response = await fetch(assetURL('style'), { credentials: 'include' })
-      if (!response.ok) {
-        throw new Error(`Admin component stylesheet request failed (${response.status})`)
-      }
-      const contentType = response.headers.get('content-type')?.toLowerCase() || ''
-      if (!contentType.startsWith('text/css')) {
-        throw new Error('Admin component stylesheet has an invalid content type')
-      }
-      styleElement = document.createElement('style')
-      styleElement.dataset.sforumExtension = props.extension.id
-      styleElement.textContent = await response.text()
-      document.head.append(styleElement)
-    }
-    const module = await import(/* @vite-ignore */ assetURL('entry')) as AdminMicroFrontendModuleV1
+    // 样式与入口并行取；样式仍然要校验 content-type 并在 mount 之前注入。
+    const stylePromise = component.value.css ? loadStyle() : Promise.resolve('')
+    const modulePromise = import(/* @vite-ignore */ assetURL('entry')) as Promise<AdminMicroFrontendModuleV1>
+    const [styleText, module] = await Promise.all([stylePromise, modulePromise])
     if (module.apiVersion !== ADMIN_MICRO_FRONTEND_API_VERSION || typeof module.mount !== 'function') {
       throw new Error('Admin micro-frontend contract mismatch')
+    }
+    if (styleText) {
+      styleElement = document.createElement('style')
+      styleElement.dataset.sforumExtension = props.extension.id
+      styleElement.textContent = styleText
+      document.head.append(styleElement)
     }
     const result = await module.mount(target.value, bridge())
     if (result !== undefined && typeof result !== 'function') {
@@ -185,6 +226,7 @@ async function performLoad() {
     }
     cleanup = typeof result === 'function' ? result : undefined
     mounted.value = true
+    renderedKey = key
     if (storage) clearContributionFailures(storage, failureKey.value)
   } catch (error) {
     failureMessage.value = error instanceof Error ? error.message : String(error)
@@ -250,21 +292,17 @@ onBeforeUnmount(dispose)
     </div>
 
     <div v-if="!mounted">
-      <!-- 信任状态未知：settings 文档已声明预构建组件，先给同几何骨架，避免 Schema→组件闪替 -->
-      <div
-        v-if="!trustResolved"
-        class="rounded-lg border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
-      >
-        <SFSkeleton :lines="4" />
+      <!-- 信任未读到、或已授权但组件尚未挂载：同一副骨架。SSR 首帧画的就是它，
+           微前端挂载后一次替换，不再先铺一张 Schema 表单再整块换掉。 -->
+      <div v-if="showSkeleton" class="space-y-4" aria-busy="true">
+        <div class="rounded-lg border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <SFSkeleton :lines="2" />
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <SFSkeleton :lines="6" />
+        </div>
         <span class="sr-only" role="status">{{ t('admin.extensions.dynamic.componentLoading') }}</span>
       </div>
-      <UAlert
-        v-else-if="loading"
-        color="info"
-        variant="subtle"
-        icon="i-lucide-loader-circle"
-        :title="t('admin.extensions.dynamic.componentLoading')"
-      />
       <UAlert
         v-else-if="failed"
         color="error"
@@ -308,7 +346,8 @@ onBeforeUnmount(dispose)
         :initial-status="status"
         @changed="() => loadTrust(true)"
       />
-      <div v-if="trustResolved" class="mt-4">
+      <!-- 只有确定要回退到声明式 Schema UI 时才渲染表单，避免首帧先表单后组件 -->
+      <div v-if="showSchemaFallback" class="mt-4">
         <slot name="fallback" />
       </div>
     </div>

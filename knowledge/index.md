@@ -6,6 +6,30 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 预构建设置页首屏：骨架替代 Schema 表单（2026-11-18）
+
+- Status: **已修复并验收（2026-11-18）**。`/control-panel/extensions/<id>/pages/settings` 首屏先铺整张
+  宿主 Schema 表单（绿色「推荐默认值」+ 四条 callout + 全部分组字段），微前端挂载后整块
+  替换，造成闪屏与滚动跳动；实测 SSR 首帧 `hasSkeleton=false / hasAppIdInput=true /
+  hasRecommended=true`。根因：`SFTrustedSettingsComponent.vue` 的「未挂载」分支只在
+  `!trustResolved` 时给骨架，而该页信任结论由 `page-bootstrap` 同步带回，于是
+  `v-if="trustResolved"` 立刻把 fallback 插槽里的 Schema 表单画进首帧。
+- 修法：新增纯函数 `components/extensions/settings/firstPaint.ts` 产出互斥的
+  `showSkeleton` / `showSchemaFallback`（已授权未挂载 → 骨架；仅失败 / 强制回退 / 读不到
+  状态 / 未授权 / 缺组件 → Schema）；骨架换成绑定区 2 行 + 字段区 6 行两张带边框卡
+  （`aria-busy`，保留 `role="status"` sr-only 文案）；样式与入口改 `Promise.all` 并行、
+  样式仍先校验 `text/css` 再于 `mount` 前注入；新增 `renderedKey` 守卫避免 watch 与
+  onMounted 二次挂载；`hasComponent` 同时要求描述符与 digest（与 `performLoad` 早退条件
+  对齐，避免有描述符无 digest 时永久停骨架）。
+- 证据：聚焦 3 文件 20 pass（`prebuiltSettingsFirstPaint` / `adminFrontendTrustFlash` /
+  `prebuiltSettingsComponent`）、`bun run typecheck` exit 0、全量 `bun test` 3532 pass /
+  1 skip（既有）/ 0 fail；SSR 探针 `hasSkeleton=true（2 卡 8 行）/ hasAppIdInput=false /
+  hasRecommended=false`；硬刷帧序列 15 帧 2.6s 全程 `schema=false`；强制 / 未授权 /
+  加载失败三种回退与 1440、390×844 无横向溢出均复核。
+- Handoff：`sessions/2026-11-18-prebuilt-settings-first-paint.md`；决策
+  `decisions/2026-11-18-prebuilt-settings-first-paint.md`（收口 2026-10-15 handoff 的
+  Open Question）。
+
 ### 插件进程识别 + 默认主题审批自愈（2026-11-17）
 
 - Status: **已闭环（2026-11-17，待提交）**。用户报的两个 bug：①后台「插件占用 0 个进程」——EX2-01 沙箱启动器把插件 `argv[0]` 写成清单相对入口 `backend/plugin`，`processmemory.IsBackendPluginCommand` 认不出，采样器丢掉全部插件子进程；修法是 `pluginSandboxArgv0` 返绝对制品入口（exec 目标仍是 `/proc/self/fd/3`）。②默认主题不生效且后台无「恢复默认主题」——一次「从仓库根启动 API」让活动主题 restore 失败，自愈 `promoteStagedBuiltinThemeIfHealthy` 晋升 staged 制品时**没带 host 批准**，账本 `core_replacements_approved=false` 使 apply 走 `SwitchThemeContributions`，`page_provider_bindings` 被删空（现网 rev 23）；修法是三层：晋升不再降权 + 启动自愈 `defaultThemeApprovalRepair.EnsureDefaultThemeApproved`（幂等，健康零写入）+ apply 兜底（多一条 `ActorUserID == 0` 收紧），前端主题行补「恢复默认主题 / 重新激活」入口。
