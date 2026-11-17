@@ -1802,6 +1802,18 @@ what used to launch the downgrading repair. The `enable_failed` event now carrie
 `api cwd=…` plus a start-from-`apps/api` hint. Making artifact paths
 cwd-independent is still an open, separate workstream.
 
+## Invariants Added 2026-11-18
+
+1. **平台加固按真实能力切分。** `pluginprocess.Limit` 的资源上限只在 Linux 生效
+   （`prlimit(2)`，`hardening_linux.go`）；其它 unix（darwin/*BSD）是显式 no-op
+   （`hardening_unix_noprlimit.go`），`Limit` 返回不构成加固证据。新增平台相关加固必须按
+   「哪个平台真的能做到」切分并留显式 no-op，禁止用宿主自己的 `setrlimit` 顶替
+   `prlimit`——fork 之后它只改宿主，插件子进程一个字节都不受影响。
+2. **darwin 测试不得引用 Linux-only 的 `unix.Prlimit`。** 这类符号不挡
+   `go build ./...`（测试不参与编译），但会让 `GOOS=darwin go vet ./...` 编译失败；rlimit
+   断言放 `plugin_process_linux_test.go` / `hardening_linux_test.go` 并用
+   `//go:build linux`，`//go:build unix` 的文件只放全部 unix 一致的行为。
+
 ## Next Steps
 
 1. Complete the new editor product design before implementing the image sticker
