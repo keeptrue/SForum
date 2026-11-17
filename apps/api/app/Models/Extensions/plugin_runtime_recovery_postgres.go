@@ -392,3 +392,152 @@ func diffPluginRuntimeMembers(
 	}
 	return artifacts
 }
+
+// PluginRuntimeArtifactRepair 描述一次「同版本、换 digest」的制品修复。
+//
+// 它只处理一种形态：publication 钉住的制品在盘上不可用，而同一 extension 的
+// 同一版本另有一份自洽制品（重新构建/重新落盘产生的新 digest）。跨版本切换属于
+// 正常 lifecycle upgrade，不走这条带外通道。
+type PluginRuntimeArtifactRepair struct {
+	ExtensionID string
+	// CurrentVersionID 是 publication 当前钉住的版本行，用于 CAS 前置校验。
+	CurrentVersionID int64
+	// CandidateVersionID 是自洽制品对应的版本行。
+	CandidateVersionID int64
+	Reason             string
+	ActorUserID        int64
+}
+
+// ErrPluginRuntimeArtifactRepairConflict 表示修复前提已漂移：latest publication
+// 或 active 指针不再指向调用方看到的那个制品。
+var ErrPluginRuntimeArtifactRepairConflict = errors.New("extensions: plugin runtime artifact repair precondition drifted")
+
+// PublishPluginRuntimeArtifactRepairTx 在调用方事务内，把 publication 里某个
+// 成员的制品坐标换成同一版本的另一个自洽 digest，并追加一个 recovery 修订。
+//
+// 与 PublishPluginRuntimeRecoveryTx 共用同一把 desired-set advisory lock 与同一
+// 个插入口（insertPluginRuntimePublication），因此它与 lifecycle/GC 的写入互斥，
+// 也不会绕开 append-only 账本。
+//
+// 调用方必须在同一事务内完成盘上校验（见 ArtifactIntegrity.Verify）：本函数只
+// 处理 durable 前提，不读盘，避免把 IO 判定混进锁内的 SQL 路径。
+func PublishPluginRuntimeArtifactRepairTx(
+	ctx context.Context,
+	tx pgx.Tx,
+	repair PluginRuntimeArtifactRepair,
+) (PluginRuntimePublication, error) {
+	if ctx == nil || tx == nil {
+		return PluginRuntimePublication{}, ErrPluginRuntimePublicationConflict
+	}
+	extensionID := strings.TrimSpace(repair.ExtensionID)
+	reason := strings.TrimSpace(repair.Reason)
+	if extensionID == "" || reason == "" || len(reason) > 4096 ||
+		repair.CurrentVersionID <= 0 || repair.CandidateVersionID <= 0 ||
+		repair.CurrentVersionID == repair.CandidateVersionID {
+		return PluginRuntimePublication{}, ErrPluginRuntimePublicationConflict
+	}
+	var isolation string
+	if err := tx.QueryRow(ctx, `SHOW transaction_isolation`).Scan(&isolation); err != nil {
+		return PluginRuntimePublication{}, fmt.Errorf("read plugin runtime repair isolation: %w", err)
+	}
+	// 等待 advisory lock 之后的下一条语句必须看到新快照。
+	if strings.TrimSpace(strings.ToLower(isolation)) != "read committed" {
+		return PluginRuntimePublication{}, ErrPluginRuntimePublicationConflict
+	}
+	if _, err := tx.Exec(ctx, `
+		SELECT pg_advisory_xact_lock(hashtextextended($1, 0))
+	`, pluginRuntimeDesiredSetLock); err != nil {
+		return PluginRuntimePublication{}, fmt.Errorf("lock plugin runtime repair desired set: %w", err)
+	}
+
+	latest, err := loadPluginRuntimePublication(
+		ctx,
+		tx,
+		pluginRuntimePublicationSelect+` ORDER BY revision DESC LIMIT 1`,
+	)
+	if err != nil {
+		if errors.Is(err, ErrPluginRuntimePublicationNotFound) {
+			return PluginRuntimePublication{}, fmt.Errorf("%w: no publication to repair", ErrPluginRuntimeArtifactRepairConflict)
+		}
+		return PluginRuntimePublication{}, fmt.Errorf("load plugin runtime repair full set: %w", err)
+	}
+
+	index := -1
+	for position, member := range latest.Members {
+		if member.ExtensionID == extensionID {
+			index = position
+			break
+		}
+	}
+	if index < 0 {
+		return PluginRuntimePublication{}, fmt.Errorf(
+			"%w: %s is not a member of revision %d", ErrPluginRuntimeArtifactRepairConflict, extensionID, latest.Revision)
+	}
+	current := latest.Members[index]
+	if current.ExtensionVersionID != repair.CurrentVersionID {
+		return PluginRuntimePublication{}, fmt.Errorf(
+			"%w: %s pinned version row %d, caller expected %d",
+			ErrPluginRuntimeArtifactRepairConflict, extensionID, current.ExtensionVersionID, repair.CurrentVersionID)
+	}
+
+	var (
+		candidateExtensionID string
+		candidateVersion     string
+		candidateDigest      string
+	)
+	if err := tx.QueryRow(ctx, `
+		SELECT extension_id, version, package_digest
+		FROM extension_versions
+		WHERE id = $1
+	`, repair.CandidateVersionID).Scan(&candidateExtensionID, &candidateVersion, &candidateDigest); err != nil {
+		return PluginRuntimePublication{}, fmt.Errorf(
+			"%w: candidate version row %d: %w",
+			ErrPluginRuntimeArtifactRepairConflict, repair.CandidateVersionID, err)
+	}
+	if candidateExtensionID != extensionID || candidateVersion != current.ExtensionVersion ||
+		candidateDigest == current.PackageDigest {
+		return PluginRuntimePublication{}, fmt.Errorf(
+			"%w: candidate %d is not a same-version replacement for %s@%s",
+			ErrPluginRuntimeArtifactRepairConflict, repair.CandidateVersionID, extensionID, current.ExtensionVersion)
+	}
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE extensions
+		SET active_version_id = $2, updated_at = now()
+		WHERE id = $1 AND active_version_id = $3
+	`, extensionID, repair.CandidateVersionID, repair.CurrentVersionID)
+	if err != nil {
+		return PluginRuntimePublication{}, fmt.Errorf("cas plugin runtime artifact repair: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return PluginRuntimePublication{}, fmt.Errorf(
+			"%w: active version of %s changed concurrently", ErrPluginRuntimeArtifactRepairConflict, extensionID)
+	}
+
+	nextMembers := make([]PluginRuntimeMember, len(latest.Members))
+	copy(nextMembers, latest.Members)
+	nextMembers[index] = PluginRuntimeMember{
+		ExtensionID:        extensionID,
+		ExtensionVersionID: repair.CandidateVersionID,
+		ExtensionVersion:   candidateVersion,
+		PackageDigest:      candidateDigest,
+	}
+
+	publication, err := insertPluginRuntimePublication(
+		ctx, tx, PluginRuntimePublicationRecovery, repair.ActorUserID, nextMembers,
+	)
+	if err != nil {
+		return PluginRuntimePublication{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO audit_events (action, metadata)
+		VALUES ('extension.artifact_repair', $1::jsonb)
+	`, fmt.Sprintf(
+		`{"extensionId":%q,"fromVersionId":%d,"toVersionId":%d,"fromDigest":%q,"toDigest":%q,"publicationRevision":%d,"reason":%q}`,
+		extensionID, repair.CurrentVersionID, repair.CandidateVersionID,
+		current.PackageDigest, candidateDigest, publication.Revision, reason,
+	)); err != nil {
+		return PluginRuntimePublication{}, fmt.Errorf("record artifact repair audit: %w", err)
+	}
+	return publication, nil
+}
