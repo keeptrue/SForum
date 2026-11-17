@@ -19,6 +19,13 @@ var bootstrapArtifactRoot = sync.OnceValues(func() (string, error) {
 	return os.MkdirTemp("", "sforum-bootstrap-artifacts-")
 })
 
+// bootstrapArtifactsAt 在调用方给定的根目录里造制品（自愈用例要求制品落在
+// 被测扩展根下，磁盘扫描才看得到）。
+func bootstrapArtifactsAt(t *testing.T, root string) *testartifact.Factory {
+	t.Helper()
+	return testartifact.NewWithRoot(t, root)
+}
+
 func bootstrapArtifacts(t *testing.T) *testartifact.Factory {
 	t.Helper()
 	root, err := bootstrapArtifactRoot()

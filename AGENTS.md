@@ -365,12 +365,26 @@ contracts first.
   empty member set (genesis) still publishes. `artifactintegrity.Verify`
   therefore has three production call sites: the CLI's `inspectMember`, the
   boot-time read-only `VerifyPluginRuntimePublicationArtifacts`, and
-  `verifyPluginRuntimePublicationMembers`. **Still not implemented:** the
-  `APP_ENV=development` automatic repair (the second item of issue #254) — this
-  gate is publish-time refusal only, not self-healing. Apply-time validation
-  keeps its own job (it sees out-of-band deletion that happens after publishing)
-  and must not be weakened; the publish-time gate is defence-in-depth in front of
-  it, never a licence to publish-then-repair.
+  `verifyPluginRuntimePublicationMembers`. Development self-healing is
+  wired too, and **only** in development. When the startup self-check reports a
+  coordinate defect and
+  `devhygiene.ShouldEnableDevelopmentOrphanReaper(cfg.AppEnv) && !cfg.SafeMode`
+  holds, `maybeHealPluginRuntimePublication`
+  (`apps/api/bootstrap/api_assembly_extension_restore.go`, healer in
+  `apps/api/bootstrap/plugin_runtime_dev_heal.go`) searches read-only for another
+  self-consistent artifact of the same `extensionId@version` — installed
+  `<root>/<id>/<version>/<digest>` directories, the built-in source root (in dev
+  `storage/builtin-dev`) and `EXTERNAL_EXTENSION_ROOTS` — and publishes a
+  `reason=recovery` revision through `PublishPluginRuntimeArtifactRepairTx`, so
+  the healed revision still passes the publish-time gate above. It never writes
+  into an artifact directory and never edits an existing `extension_versions`
+  row; an on-disk candidate without a durable row gets a new row for its new
+  digest only. No self-consistent candidate (including a build window where
+  `backend/plugin` is still excluded) leaves the ledger untouched and startup
+  stays fail-closed. Production and Safe Mode never call the healer at all.
+  Apply-time validation keeps its own job (it sees out-of-band deletion that
+  happens after publishing) and must not be weakened; the publish-time gate is
+  defence-in-depth in front of it, never a licence to publish-then-repair.
   See `knowledge/decisions/2026-11-17-artifact-integrity-at-publish-time.md`.
 - Every failure that can push the API into recovery-only must be diagnosable
   from the response alone: a typed code plus a message carrying coordinates —

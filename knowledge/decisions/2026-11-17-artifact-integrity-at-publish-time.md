@@ -11,8 +11,10 @@ Accepted（2026-11-17，issue #256，事故 `recovery_required` 之后）。
 `insertPluginRuntimePublication` 在写 publication/member 之前，按成员的
 `extension_versions.package_path` 逐个跑 `ArtifactIntegrity.Verify`，落点
 `apps/api/app/Models/Extensions/plugin_runtime_publication_postgres.go:36`，9 个生产
-发布调用点全部继承、无 skip 开关与 reason 豁免）；**D2 dev 自愈仍是待落地的规范要求**
-（#254 第二项，不是本文 D1 的一部分）。规范条文见 `AGENTS.md` 的
+发布调用点全部继承、无 skip 开关与 reason 豁免）；**D2 dev 自愈已落地**（本 PR 落地：
+入口 `maybeHealPluginRuntimePublication`，开关
+`devhygiene.ShouldEnableDevelopmentOrphanReaper(cfg.AppEnv) && !cfg.SafeMode`，候选源含
+内置源 `storage/builtin-dev`；生产与 Safe Mode 不调用自愈，见下）。规范条文见 `AGENTS.md` 的
 "Extension artifact directories are **read-only immutable facts**" 起五条，运行时现状见
 `knowledge/modules/extensions.md` 的 "Artifact Integrity And Recovery"。
 
@@ -141,14 +143,27 @@ publication 落到运行时的过程。
   `sforum extension verify-artifacts [--root apps/api]`（exit 0/1/2）；坏制品用
   `sforum recovery republish-artifact <id> --reason TEXT [--confirm-token TOKEN]` 重写 durable
   事实后重启（不带 token 是 dry-run）。
-- dev 自愈（待实现）只允许在 `APP_ENV=development`，生产没有；两边行为分叉点只有一个，
-  且由 `APP_ENV` 断言。
+- dev 自愈（已实现，落点 `apps/api/bootstrap/plugin_runtime_dev_heal.go` +
+  `api_assembly_extension_restore.go` 的 `maybeHealPluginRuntimePublication`）只允许在
+  `devhygiene.ShouldEnableDevelopmentOrphanReaper(cfg.AppEnv) && !cfg.SafeMode` 时被调用；
+  生产与 Safe Mode 下 healer 方法根本不会被调用（有探针测试断言调用数为 0）。它只做
+  「找到同 id+version 的另一份自洽制品 → 追加一条 reason=recovery 的 revision」：
+  不往任何制品目录写文件、不改既有 `extension_versions` 行（盘上有候选而 durable 行没有时，
+  只为新 digest 补一行），并且新 revision 仍要过 D1 的发布期闸门；没有候选（含
+  `build-builtin-plugins.sh` 的 `--exclude` 构建窗口）时保持 fail-closed。审计归因取
+  dev-auto 系统账号；该账号不存在时 actor 退化为 NULL——自愈**不受**「管理端删除
+  dev-auto」这条开关约束（那条开关只关闭 0 命令自动激活通道），它也不会把账号重新建
+  出来。
 - 已知限制（F2，发布期闸门的代价）：多个受保护成员同时损坏时，quarantine/repair 的
   「发布剩余全量」会互相绊住——把 A 恢复成自洽制品后，发布剩余集合仍要校验 B，B 还坏就
   照样拒绝，于是两台坏制品不能被同一条路径逐个修完。缓解路径是第三方扩展用
   `recovery disable-all` 整体绕开（先摘除全部第三方成员），builtin 则依赖启动时
   `SyncBuiltins` 从源码重铺制品后再恢复。**不许**为此给发布期校验加 reason 豁免或
   verify/skip 开关：那会把 fail-closed 降级成 best-effort，等于退回本次事故的形态。
+  dev 自愈受同一条约束，而且更直接：闸门校验整份 full-set，所以「两个成员同坏、只有
+  一个有候选」时第一次 repair 就会被闸门以兄弟成员缺失拒绝（实测 healed=0），一次
+  启动最多只可能成功自愈**一个**成员，且前提是同 revision 里没有别的坏成员。要覆盖
+  多成员，正确方向是「一条 revision 批量替换所有可自愈成员」，不是 reason 豁免。
 - 制品目录彻底变成只读事实：**任何**「进目录改一改让它启动」的直觉都是错的，包括
   「只是把文件拷回来」。
 
