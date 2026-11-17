@@ -327,7 +327,9 @@ func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRun
 			extension_id TEXT NOT NULL REFERENCES extensions(id) ON DELETE CASCADE,
 			version TEXT NOT NULL,
 			package_digest TEXT NOT NULL,
-			manifest JSONB NOT NULL DEFAULT '{}'::jsonb
+			manifest JSONB NOT NULL DEFAULT '{}'::jsonb,
+			-- 与生产同构：制品完整性自检要按 durable 行里的路径回查盘上制品。
+			package_path TEXT NOT NULL DEFAULT ''
 		);
 		ALTER TABLE extensions
 			ADD CONSTRAINT extensions_active_version_fk

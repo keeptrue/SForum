@@ -11,6 +11,7 @@ import (
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 )
 
 // backendArtifactFixture 写一个「已安装」的最小制品：<pkg>/backend/plugin。
@@ -140,7 +141,16 @@ func TestVerifyRuntimeExecutableDigestRejectsForgedFingerprint(t *testing.T) {
 // denied：manifest 声明的摘要与磁盘内容不一致（制品不是被授权的那一份）。
 func TestVerifyRuntimeExecutableDigestRejectsDeclaredDigestMismatch(t *testing.T) {
 	extension := backendArtifactFixture(t, "#!/bin/sh\nexit 0\n", digestOf("some-other-binary"))
-	if _, err := extensions.VerifyRuntimeExecutableDigest(extension); !errors.Is(err, extensions.ErrFrontendPackageChanged) {
+	_, err := extensions.VerifyRuntimeExecutableDigest(extension)
+	if !errors.Is(err, extensions.ErrFrontendPackageChanged) {
 		t.Fatalf("declared digest mismatch was not rejected: %v", err)
+	}
+	// 这一条走的是真实 exec 链（OpenVerifiedRuntimeExecutable），不是手工拼的
+	// error 值：制品损坏必须落进制品族，否则启动期只能落回 "inspect API logs"。
+	if !errors.Is(err, extensions.ErrArtifactUnusable) {
+		t.Fatalf("declared digest mismatch must be an artifact-family failure: %v", err)
+	}
+	if _, ok := artifactintegrity.Coordinates(err); !ok {
+		t.Fatalf("declared digest mismatch must carry artifact coordinates: %v", err)
 	}
 }

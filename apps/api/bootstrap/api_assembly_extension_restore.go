@@ -176,6 +176,12 @@ func restoreAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger 
 	if cfg.SafeMode {
 		reconciledExtensions, err = reconcileAPIExtensionRuntime(ctx, true, extensionStore, extensionRuntime)
 	} else {
+		// 启动期只读自检：期望集里只要有一个制品不完整，就不要把 runtime 拉起来
+		// 再等它 stage 失败——那会把「制品坏了」伪装成「收敛超时」。判据与发布期
+		// 校验共用 VerifyPluginRuntimePublicationArtifacts，不重复实现。
+		err = extensionStore.VerifyPluginRuntimePublicationArtifacts(ctx, 0)
+	}
+	if err == nil && !cfg.SafeMode {
 		pluginRuntimeCoordinator, err = startPluginRuntimeCoordinator(ctx, pluginRuntimeCoordinatorBootstrapConfig{
 			ProcessRole:   extensions.PluginRuntimeProcessAPI,
 			Store:         extensionStore,
