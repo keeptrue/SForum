@@ -117,6 +117,7 @@ async function mountMigrations(options: {
   const messages = options.messages || zh()
   const calls: Call[] = []
   const toasts: Array<{ title: string, color: string }> = []
+  const permissionChecks: string[] = []
   const { t, te } = i18nBindings(messages)
   const extensions = options.extensions ?? [
     { id: 'sforum.wiki', name: 'Wiki', version: '1.2.0', type: 'plugin', status: 'enabled', manifest: { migrations: [{ path: 'migrations/001_init.sql' }] } }
@@ -143,7 +144,13 @@ async function mountMigrations(options: {
     useSeoMeta: () => {},
     useSiteDateTime: () => ({ format: () => '2026-01-02 11:04' }),
     useAdminPage: () => ({ id: '/extensions/migrations', icon: 'i-lucide-database-zap' }),
-    usePermissions: () => ({ can: () => options.canManage !== false }),
+    // 记录「页面到底问了哪个权限键」：只返回布尔值的话，换掉键名测试仍会绿。
+    usePermissions: () => ({
+      can: (key: string) => {
+        permissionChecks.push(key)
+        return options.canManage !== false
+      }
+    }),
     useAuthSession: () => ({ user: ref({ roleKeys: [] }) }),
     useApiClient: () => ({ request }),
     // 页面显式导入该 composable；harness 会剥掉 import，所以按同名绑定注入，
@@ -183,7 +190,7 @@ async function mountMigrations(options: {
     }
   })
   await flushPromises()
-  return { wrapper, calls, toasts }
+  return { wrapper, calls, toasts, permissionChecks }
 }
 
 describe('admin extension migrations page', () => {
@@ -212,10 +219,12 @@ describe('admin extension migrations page', () => {
   })
 
   test('apply goes through a confirm dialog and posts to the documented endpoint', async () => {
-    const { wrapper, calls, toasts } = await mountMigrations()
+    const { wrapper, calls, toasts, permissionChecks } = await mountMigrations()
     try {
       const applyButton = wrapper.find('[data-testid="migration-apply"]')
       expect(applyButton.exists()).toBe(true)
+      // 页面必须问的是插件管理权限键；换成别的键这条会红。
+      expect(new Set(permissionChecks)).toEqual(new Set(['extension.plugin.manage']))
 
       await applyButton.trigger('click')
       await flushPromises()
@@ -255,9 +264,10 @@ describe('admin extension migrations page', () => {
   })
 
   test('the apply button is disabled without the plugin-manage permission', async () => {
-    const { wrapper } = await mountMigrations({ canManage: false })
+    const { wrapper, permissionChecks } = await mountMigrations({ canManage: false })
     try {
       expect(wrapper.find('[data-testid="migration-apply"]').attributes('data-disabled')).toBe('true')
+      expect(permissionChecks).toContain('extension.plugin.manage')
     } finally {
       wrapper.unmount()
     }

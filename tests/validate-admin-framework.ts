@@ -187,6 +187,8 @@ const adminPagePathsById: Record<string, string> = {
   '/extensions/contributions': 'apps/web/app/pages/admin/extensions/contributions.vue',
   '/extensions/releases': 'apps/web/app/pages/admin/extensions/releases.vue',
   '/extensions/pages': 'apps/web/app/pages/admin/extensions/pages.vue',
+  '/extensions/added-pages': 'apps/web/app/pages/admin/extensions/added-pages.vue',
+  '/extensions/migrations': 'apps/web/app/pages/admin/extensions/migrations.vue',
   '/extensions/route-providers': 'apps/web/app/pages/admin/extensions/route-providers.vue',
   '/extensions/route-inspector': 'apps/web/app/pages/admin/extensions/route-inspector.vue',
   '/extensions/cache-inspector': 'apps/web/app/pages/admin/extensions/cache-inspector.vue',
@@ -360,7 +362,7 @@ const extensionFolder = firstSidebarGroup.find(entry => entry.type === 'folder' 
 assert(extensionFolder, 'Admin sidebar should expose extensions as an independent folder')
 assert(
   extensionFolder.children?.map(entry => entry.pageId).join(',') ===
-    '/extensions,/extensions/install,/extensions/plugins,/extensions/themes,/extensions/pages,/extensions/route-catalog,/extensions/query-catalog,/extensions/route-providers,/extensions/route-inspector,/extensions/cache-inspector,/extensions/asset-inspector,/extensions/template-inspector,/extensions/component-inspector,/extensions/navigation-inspector,/extensions/registry-catalogs,/extensions/provider-slots,/extensions/settings,/extensions/events,/extensions/contributions',
+    '/extensions,/extensions/install,/extensions/plugins,/extensions/themes,/extensions/pages,/extensions/added-pages,/extensions/migrations,/extensions/route-catalog,/extensions/query-catalog,/extensions/route-providers,/extensions/route-inspector,/extensions/cache-inspector,/extensions/asset-inspector,/extensions/template-inspector,/extensions/component-inspector,/extensions/navigation-inspector,/extensions/registry-catalogs,/extensions/provider-slots,/extensions/settings,/extensions/events,/extensions/contributions',
   'Extension folder should keep the approved submenu order'
 )
 const operationsFolder = firstSidebarGroup.find(entry => entry.type === 'folder' && entry.labelKey === 'admin.nav.operations')

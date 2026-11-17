@@ -3218,7 +3218,7 @@
         "selectPlaceholder": "选择插件",
         "count": "账本 {count} 条 · 声明 {declared} 条",
         "apply": "记录声明的迁移",
-        "applyNoPermission": "需要 extension.plugin.manage 权限",
+        "applyNoPermission": "需要插件管理权限（extension.plugin.manage）",
         "applyRecorded": "已记录到账本",
         "applyUnchanged": "账本已是最新，没有新增条目",
         "applyFailed": "记录迁移失败",

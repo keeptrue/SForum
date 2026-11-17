@@ -1659,6 +1659,17 @@
     "targetRegistry": "P7 Admin Surface Registry"
   },
   {
+    "id": "core.component.page.admin.extensions.added.pages",
+    "contractVersion": "sforum.component.page.admin.extensions.added.pages@1",
+    "kind": "page",
+    "route": "/admin/extensions/added-pages",
+    "source": "apps/web/app/pages/admin/extensions/added-pages.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7 Admin Surface Registry"
+  },
+  {
     "id": "core.component.page.admin.extensions.asset.inspector",
     "contractVersion": "sforum.component.page.admin.extensions.asset.inspector@1",
     "kind": "page",
@@ -1730,6 +1741,17 @@
     "kind": "page",
     "route": "/admin/extensions/install",
     "source": "apps/web/app/pages/admin/extensions/install.vue",
+    "owners": [
+      "admin"
+    ],
+    "targetRegistry": "P7 Admin Surface Registry"
+  },
+  {
+    "id": "core.component.page.admin.extensions.migrations",
+    "contractVersion": "sforum.component.page.admin.extensions.migrations@1",
+    "kind": "page",
+    "route": "/admin/extensions/migrations",
+    "source": "apps/web/app/pages/admin/extensions/migrations.vue",
     "owners": [
       "admin"
     ],

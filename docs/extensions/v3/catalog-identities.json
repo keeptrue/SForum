@@ -4430,6 +4430,16 @@
       "source": "apps/web/app/pages/admin/extensions/index.vue"
     },
     {
+      "id": "core.component.page.admin.extensions.added.pages",
+      "contractVersion": "sforum.component.page.admin.extensions.added.pages@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/extensions/added-pages.vue"
+    },
+    {
       "id": "core.component.page.admin.extensions.asset.inspector",
       "contractVersion": "sforum.component.page.admin.extensions.asset.inspector@1",
       "kind": "page",
@@ -4498,6 +4508,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/admin/extensions/install.vue"
+    },
+    {
+      "id": "core.component.page.admin.extensions.migrations",
+      "contractVersion": "sforum.component.page.admin.extensions.migrations@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/extensions/migrations.vue"
     },
     {
       "id": "core.component.page.admin.extensions.navigation.inspector",

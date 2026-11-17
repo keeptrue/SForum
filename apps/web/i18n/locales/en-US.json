@@ -3178,7 +3178,7 @@
         "selectPlaceholder": "Choose a plugin",
         "count": "{count} ledger rows · {declared} declared",
         "apply": "Record declared migrations",
-        "applyNoPermission": "Requires the extension.plugin.manage permission",
+        "applyNoPermission": "Requires plugin management permission (extension.plugin.manage)",
         "applyRecorded": "Recorded in the ledger",
         "applyUnchanged": "Ledger already up to date, nothing new recorded",
         "applyFailed": "Could not record migrations",
