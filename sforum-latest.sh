@@ -12,7 +12,7 @@ export LC_ALL=C
 # tests/validate-term-ui.sh 与 deploy/scripts/term-ui.sh 逐字节比对。
 # >>> term-ui
 # 开关优先级：SFORUM_COLOR=always|never > NO_COLOR > TERM=dumb > TTY 自动判定。
-# 显式开关优先于环境默认关（no-color.org 惯例），所以 always 压过 NO_COLOR。
+# 显式开关优先于环境默认关：always 压过 NO_COLOR 与 TERM=dumb。
 ui_init_color() {
   if [ "${SFORUM_COLOR:-auto}" = always ]; then
     UI_COLOR=true
@@ -226,7 +226,10 @@ acquire_lock() {
     reclaim_stale_lock "$stale_pid"
     mkdir "$LOCK_DIR" 2>/dev/null || \
       die "同目录已有另一个部署操作正在运行：$(lock_holder_summary)"
-    ui_warn "sforum-latest: 已回收陈旧锁（reason=${LOCK_REASON:-manual}）"
+    # 机器前缀必须留在行首字节：ui_warn 会把 `[!] ` 顶到最前，
+    # 于是 `^sforum-latest: ` 连无色输出都匹配不上。这里与 die() 同形。
+    printf 'sforum-latest: %s[!] %s%s\n' "$UI_WARN" \
+      "已回收陈旧锁（reason=${LOCK_REASON:-manual}）" "$UI_RESET" >&2
   fi
   printf '%s\n' "$$" > "$LOCK_DIR/pid"
   printf 'pid=%s\naction=%s\nstarted_at=%s\nproc_start=%s\n' "$$" "$LOCK_ACTION" \

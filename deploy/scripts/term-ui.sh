@@ -4,7 +4,7 @@
 # 改动必须四处同改，tests/validate-term-ui.sh 会逐字节比对。
 # >>> term-ui
 # 开关优先级：SFORUM_COLOR=always|never > NO_COLOR > TERM=dumb > TTY 自动判定。
-# 显式开关优先于环境默认关（no-color.org 惯例），所以 always 压过 NO_COLOR。
+# 显式开关优先于环境默认关：always 压过 NO_COLOR 与 TERM=dumb。
 ui_init_color() {
   if [ "${SFORUM_COLOR:-auto}" = always ]; then
     UI_COLOR=true

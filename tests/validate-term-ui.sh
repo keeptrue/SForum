@@ -200,6 +200,15 @@ case "$first_line" in
   *) fail "SFORUM_COLOR=always 时前缀之后的正文没有上色：$first_line" ;;
 esac
 
+# 不变量 ②：机器前缀必须留在行首字节。ui_* 的格式是「标记 + 空格 + 正文」，
+# 把 `sforum-latest: ` 这类前缀塞进正文，`[!] `/`[x] ` 就会顶到最前 —— 与是否上色无关，
+# 无色输出里 `^sforum-latest: ` 同样匹配不上。
+for entry in "${ENTRIES[@]}"; do
+  if grep -nE "ui_(warn|err|step|ok|key) ['\"](sforum-install|sforum-bootstrap|sforum-latest): " "$entry"; then
+    fail "$entry 用 ui_* 包裹了机器前缀：前缀不再是行首字节"
+  fi
+done
+
 # e) 帮助文本 ----------------------------------------------------------------
 echo "Running help output plain-text validation..."
 for entry in "${ENTRIES[@]}"; do
