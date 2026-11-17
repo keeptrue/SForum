@@ -173,6 +173,19 @@ func restoreAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger 
 			)
 		}
 	}
+	// dev 自愈的入口。构造本身无副作用；真正的开关在
+	// maybeHealPluginRuntimePublication 里（devhygiene 谓词 && !SafeMode），
+	// 生产与 Safe Mode 下 healer 方法根本不会被调用。
+	devRuntimeHealer := newPluginRuntimeDevHealer(pluginRuntimeDevHealConfig{
+		pool:          pool,
+		store:         extensionStore,
+		extensionRoot: cfg.ExtensionRoot,
+		builtinRoot:   cfg.BuiltinExtensionRoot,
+		externalRoots: cfg.ExternalExtensionRoots,
+		identities:    input.infrastructure.identityStore,
+		logger:        logger,
+		appEnv:        cfg.AppEnv,
+	})
 	if cfg.SafeMode {
 		reconciledExtensions, err = reconcileAPIExtensionRuntime(ctx, true, extensionStore, extensionRuntime)
 	} else {
@@ -180,6 +193,14 @@ func restoreAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger 
 		// 再等它 stage 失败——那会把「制品坏了」伪装成「收敛超时」。判据与发布期
 		// 校验共用 VerifyPluginRuntimePublicationArtifacts，不重复实现。
 		err = extensionStore.VerifyPluginRuntimePublicationArtifacts(ctx, 0)
+		if err != nil {
+			// 仅 development 且非 Safe Mode：把坏成员重指向同版本的另一份自洽
+			// 制品（追加 reason=recovery 的 revision，仍过发布期闸门）。没有候选
+			// 时原样保留缺陷，继续走既有 recovery-only。
+			err = maybeHealPluginRuntimePublication(
+				ctx, cfg, devRuntimeHealer, extensionStore, logger, err,
+			)
+		}
 	}
 	if err == nil && !cfg.SafeMode {
 		pluginRuntimeCoordinator, err = startPluginRuntimeCoordinator(ctx, pluginRuntimeCoordinatorBootstrapConfig{

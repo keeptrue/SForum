@@ -907,7 +907,10 @@ Authoritative sources:
   按 reason 豁免。夹具侧统一由 `internal/testartifact` 造真实制品（复制
   `extensions/fixtures/plugins/sforum-badge-facts`，补 `backend/plugin` 占位二进制并同步
   manifest 两处 digest），不再用写死的 `repeat('b', 64)` 与空 `package_path`。
-  dev 自愈仍未实现（见 `../decisions/2026-11-17-artifact-integrity-at-publish-time.md`）。
+  dev 自愈同样已接线（见 `../decisions/2026-11-17-artifact-integrity-at-publish-time.md` 的
+  D2）：开关只有 `devhygiene.ShouldEnableDevelopmentOrphanReaper(cfg.AppEnv) && !cfg.SafeMode`，
+  落点 `bootstrap/api_assembly_extension_restore.go` 的 `maybeHealPluginRuntimePublication`
+  + `bootstrap/plugin_runtime_dev_heal.go`。
 - apply 期校验保留（纵深防御）：它管的是「盘上**现在**还是好的」，覆盖带外删除、磁盘损坏、
   同步漏文件。发布期管「写进去的是好的」，两者不可互相替代。
 - 可诊断性：artifact 类失败命中 `plugin_artifact_incomplete`（`/api/v1/ready` 的
@@ -921,8 +924,11 @@ Authoritative sources:
   `--reason` 必填（≤4096 字节）；不带 `--confirm-token` 是 dry-run，只打印
   `publication revision N pins …` / `DEFECT path=… reason=…` / `CANDIDATE versionId=… digest=… path=…`
   并 exit 1；exit 2 = 用法错；exit 0 = 制品本就健康或已写入。**不做热恢复**，之后走正常启动
-  闸门。dev 自愈（若装配）只允许在 `APP_ENV=development`（Safe Mode 也拦），与
-  `2026-10-17-dev-zero-command.md` 同一道闸门；该通道截至 2026-11-17 尚未实现。
+  闸门。dev 自愈已实现：只在 `devhygiene.ShouldEnableDevelopmentOrphanReaper(cfg.AppEnv) &&
+  !cfg.SafeMode`（与 `2026-10-17-dev-zero-command.md` 同一道闸门）下被调用，把坏成员重指向
+  同 id+version 的另一份自洽制品（搜索扩展根、内置源 `storage/builtin-dev`、外部源根；只读），
+  追加 `reason=recovery` 的 revision 并写 `extension.dev_self_heal` audit（actor 为 dev-auto
+  系统账号，账号不存在则 NULL）；没有自洽候选或撞构建窗口时保持 fail-closed。
 - 只读自检：`sforum extension verify-artifacts [--database-url URL] [--root DIR]
   [--publication-revision N] [--json]`（#254，`c7e80dd51`）。默认校验**最新** publication
   的全部成员；文本模式打印 `checked N artifact(s)` + 每个缺陷一行

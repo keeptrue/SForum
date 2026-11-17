@@ -205,7 +205,7 @@ func normalizedMissingArtifactIDs(values []string) []string {
 // package_path 是写入时的相对路径（相对 API 进程工作目录 apps/api），服务端
 // 进程的工作目录就是那个目录，因此这里直接按原值解析；带外 CLI 另有 --root。
 const pluginRuntimeArtifactMemberQuery = `
-	SELECT m.extension_id, m.extension_version, m.package_digest,
+	SELECT m.extension_id, m.extension_version_id, m.extension_version, m.package_digest,
 	       COALESCE(v.package_path, '')
 	FROM plugin_runtime_publications p
 	JOIN plugin_runtime_publication_members m ON m.publication_revision = p.revision
@@ -217,6 +217,50 @@ const pluginRuntimeArtifactMemberQuery = `
 	ORDER BY m.extension_id COLLATE "C"
 `
 
+// PluginRuntimeArtifactMember 是一条 publication 成员及其 durable 制品路径。
+//
+// 启动期自检只需要「有没有缺陷」，dev 自愈还要知道「是哪个成员的哪一行坏了」，
+// 因此把「durable 行 → 成员 + 路径」这一步单独暴露；判定仍然只有
+// ArtifactIntegrity.Verify 一处，不复制判据。
+type PluginRuntimeArtifactMember struct {
+	Member      PluginRuntimeMember
+	PackagePath string
+}
+
+// PluginRuntimeArtifactMembers 读出某份 publication（revision<=0 表示最新修订）
+// 的全部成员及其 durable 制品路径，顺序按 extension_id 的字节序稳定。
+func (s *PostgresStore) PluginRuntimeArtifactMembers(
+	ctx context.Context,
+	revision int64,
+) ([]PluginRuntimeArtifactMember, error) {
+	if s == nil || s.pool == nil || ctx == nil {
+		return nil, ErrPluginRuntimePublicationConflict
+	}
+	rows, err := s.pool.Query(ctx, pluginRuntimeArtifactMemberQuery, revision)
+	if err != nil {
+		return nil, fmt.Errorf("load plugin runtime publication artifacts: %w", err)
+	}
+	defer rows.Close()
+	members := make([]PluginRuntimeArtifactMember, 0, 16)
+	for rows.Next() {
+		var member PluginRuntimeArtifactMember
+		if err := rows.Scan(
+			&member.Member.ExtensionID,
+			&member.Member.ExtensionVersionID,
+			&member.Member.ExtensionVersion,
+			&member.Member.PackageDigest,
+			&member.PackagePath,
+		); err != nil {
+			return nil, fmt.Errorf("scan plugin runtime publication artifact: %w", err)
+		}
+		members = append(members, member)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return members, nil
+}
+
 // VerifyPluginRuntimePublicationArtifacts 对一份 publication 的全部成员做只读
 // 完整性校验，返回第一个缺陷（带四坐标）。revision<=0 表示最新修订。
 //
@@ -224,33 +268,15 @@ const pluginRuntimeArtifactMemberQuery = `
 // ArtifactIntegrity.Verify 里，本函数只负责把 durable 行解析成"成员 + 路径"，
 // 不复制判据、不新增第二套措辞。
 func (s *PostgresStore) VerifyPluginRuntimePublicationArtifacts(ctx context.Context, revision int64) error {
-	if s == nil || s.pool == nil || ctx == nil {
-		return ErrPluginRuntimePublicationConflict
-	}
-	rows, err := s.pool.Query(ctx, pluginRuntimeArtifactMemberQuery, revision)
+	members, err := s.PluginRuntimeArtifactMembers(ctx, revision)
 	if err != nil {
-		return fmt.Errorf("load plugin runtime publication artifacts: %w", err)
-	}
-	defer rows.Close()
-	type artifactMember struct {
-		id, version, digest, packagePath string
-	}
-	members := make([]artifactMember, 0, 16)
-	for rows.Next() {
-		var member artifactMember
-		if err := rows.Scan(&member.id, &member.version, &member.digest, &member.packagePath); err != nil {
-			return fmt.Errorf("scan plugin runtime publication artifact: %w", err)
-		}
-		members = append(members, member)
-	}
-	if err := rows.Err(); err != nil {
 		return err
 	}
 	for _, member := range members {
-		if err := artifactintegrity.Verify(member.packagePath, artifactintegrity.Member{
-			ExtensionID: member.id,
-			Version:     member.version,
-			Digest:      member.digest,
+		if err := artifactintegrity.Verify(member.PackagePath, artifactintegrity.Member{
+			ExtensionID: member.Member.ExtensionID,
+			Version:     member.Member.ExtensionVersion,
+			Digest:      member.Member.PackageDigest,
 		}); err != nil {
 			return err
 		}
