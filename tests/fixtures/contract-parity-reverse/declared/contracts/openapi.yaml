@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info:
+  title: parity-reverse fixture
+  version: 1.0.0
+paths:
+  /demo/target:
+    $ref: "./openapi/paths/demo.yaml#/demoTarget"
