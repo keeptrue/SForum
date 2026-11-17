@@ -23,6 +23,17 @@ node tests/validate-contract-status-parity.mjs
 echo "Running response-helper registry closure validation..."
 node tests/validate-contract-status-parity-helpers.test.mjs
 
+# G3：parity 门扩出的三条调用边识别形态（同包委派 / 跟包 apphttp.* / 依赖故障 503）
+# 必须有命中面，且三条精度闸门（映射器不归因、error 吞噬、实参 bool 剪枝）同时成立。
+# 摘掉任一形态，合成树里对应那条路由就会掉进空集或撞上契约 —— 门会重新红。
+echo "Running contract parity call-edge recognition validation..."
+node tests/validate-contract-parity-call-edges.test.mjs
+
+# 子集成立不等于两边说的是同一件事：三个样本 operation 做**双向集合相等**比对，
+# 契约侧独立解析（不读门打印的「已声明」列），用来证明实现侧集合真的收敛了。
+echo "Running contract parity sample-set equality validation..."
+node tests/validate-contract-parity-sample-equality.test.mjs
+
 # 可达性门补的是 parity 门的另一半盲区：parity 门只认 requireGuestRead / requireAdmin
 # 两条 guard 白名单，ReadActor / RequireActor / LoadActor 产出的 401/503 它看不见
 # （第 14 轮 P1 就是这么变绿的）。两道门互为补集，都不许被关掉。

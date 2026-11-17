@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: parity call-edge fixture
+  version: 1.0.0
+paths:
+  /demo/delegate:
+    $ref: "./openapi/paths/demo.yaml#/demoDelegate"
+  /demo/apphttp:
+    $ref: "./openapi/paths/demo.yaml#/demoAppHTTP"
+  /demo/mapper:
+    $ref: "./openapi/paths/demo.yaml#/demoMapper"
+  /demo/swallowed:
+    $ref: "./openapi/paths/demo.yaml#/demoSwallowed"
+  /demo/pruned:
+    $ref: "./openapi/paths/demo.yaml#/demoPruned"

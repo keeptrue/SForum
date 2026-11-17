@@ -96,8 +96,21 @@ func CheckOnlineSafeForm(fsys fs.FS) (OnlineSafeFormReport, error) {
 // 判定规则（与线上门完全一致，改一处必须改两处）：
 //   - 只看 Up 段：`-- +goose Down` 之后出现 directive 不算声明；
 //   - 声明了就必须事务执行（不允许 `-- +goose NO TRANSACTION`）；
-//   - 声明了就必须自带锁/语句超时（`SET LOCAL lock_timeout` / `statement_timeout`）。
+//   - 声明了就必须自带锁/语句超时（`SET LOCAL lock_timeout` / `statement_timeout`）；
+//   - 声明了就不许在 Up 段做收缩型 DDL，除非逐条登记在 registeredShrinkDDL
+//     （见 online_migrations_shrink.go 与 2026-11-15 的决定记录）。
 func classifyOnlineSafeForm(fsys fs.FS, path string) (OnlineSafeDeclaration, error) {
+	return classifyOnlineSafeFormWithRegistry(fsys, path, registeredShrinkDDL)
+}
+
+// classifyOnlineSafeFormWithRegistry 与 classifyOnlineSafeForm 同源，只是把收缩型 DDL 的
+// 登记表作为参数传入 —— 反例测试要在不改进程级 registeredShrinkDDL 的前提下验证
+// 「登记了就放行 / 没登记就红」两个方向。
+func classifyOnlineSafeFormWithRegistry(
+	fsys fs.FS,
+	path string,
+	registry []ShrinkDDLRegistration,
+) (OnlineSafeDeclaration, error) {
 	body, err := fs.ReadFile(fsys, path)
 	if err != nil {
 		return OnlineSafeDeclaration{}, err
@@ -129,6 +142,13 @@ func classifyOnlineSafeForm(fsys fs.FS, path string) (OnlineSafeDeclaration, err
 				Path: path, Form: OnlineSafeFormMalformed, Reason: "missing " + required,
 			}, nil
 		}
+	}
+	// 收缩型 DDL 棘轮：声明了在线安全却在 Up 段删列/改名/收窄类型，必须显式登记。
+	// 未声明 OnlineSafe 的迁移走不到这里 —— 它们本来就走停机窗口，收缩是合法的。
+	if pending := unregisteredShrinkDDL(path, upBody, registry); len(pending) > 0 {
+		return OnlineSafeDeclaration{
+			Path: path, Form: OnlineSafeFormMalformed, Reason: shrinkDDLReason(pending),
+		}, nil
 	}
 	return OnlineSafeDeclaration{Path: path, Form: OnlineSafeFormDeclared}, nil
 }

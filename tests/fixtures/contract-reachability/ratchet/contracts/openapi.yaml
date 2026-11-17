@@ -5,3 +5,5 @@ info:
 paths:
   /demo/secure:
     $ref: "./openapi/paths/demo.yaml#/demoSecure"
+  /demo/bare:
+    $ref: "./openapi/paths/demo.yaml#/demoBare"

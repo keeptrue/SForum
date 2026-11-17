@@ -1,8 +1,8 @@
 {
   "说明": "fixture 基线（与仓库基线同结构，仅供反例测试使用）",
   "期望计数": {
-    "契约operation数": 1,
-    "实现侧路由数": 1,
+    "契约operation数": 2,
+    "实现侧路由数": 2,
     "退化区路由数": 0,
     "退化区已映射operation数": 1,
     "路由可达guard码但契约未声明条数": 0,
@@ -20,24 +20,17 @@
   },
   "退化区": [
     {
-      "operation": "GET /api/v1/demo/secure",
-      "contractPath": "/api/v1/demo/secure",
-      "source": "./openapi/paths/demo.yaml#/demoSecure",
-      "handler": "secure",
-      "guards": [
-        "app/Http:RequireActor"
-      ],
-      "guardCodes": [
-        401,
-        503
-      ],
+      "operation": "GET /api/v1/demo/bare",
+      "contractPath": "/api/v1/demo/bare",
+      "source": "./openapi/paths/demo.yaml#/demoBare",
+      "handler": "bare",
+      "guards": [],
+      "guardCodes": [],
       "declared": [
-        200,
-        401,
-        503
+        200
       ],
       "missing": [],
-      "成因": "guard-code-declared-but-set-empty"
+      "成因": "no-status-literal-reachable"
     }
   ],
   "已登记未声明状态码": [],

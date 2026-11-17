@@ -594,6 +594,8 @@ adminAttachmentCleanup:
           application/json:
             schema:
               "$ref": "../schemas/attachments.yaml#/ApiResponseAttachmentCleanup"
+      '400':
+        description: 请求体不是合法 JSON 或字段类型不符（reason `attachment.cleanup_body_invalid`）。与其它端点的 422 不同：本端点省略请求体本身合法（等同使用默认上限），所以「body 读不出来」按 400 报。
       '401':
         "$ref": "../components/responses.yaml#/Unauthorized"
       '403':

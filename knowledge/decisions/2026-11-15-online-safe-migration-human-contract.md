@@ -58,5 +58,16 @@ Accepted（2026-11-15，审计 OPS2-13）
 - 未来若要加自动校验，可行方向是窄的形态检查（禁止 `DROP`/`ALTER COLUMN ... TYPE`、
   要求 `CHECK` 带 `NOT VALID`、要求超时语句存在且数值有上限），而不是「兼容性证明」。
   这类检查应该落成 `migrationDeclaresOnlineSafe` 的增量规则，不新增独立工具。
+- **已落地其一（2026-11-17，G3）**：收缩型 DDL 的静态棘轮。`database/migrator/
+  online_migrations_shrink.go` 在 `classifyOnlineSafeForm` 里加了一条增量规则 ——
+  声明了 `OnlineSafe` 却在 Up 段出现 `DROP COLUMN` / `RENAME COLUMN` /
+  `ALTER COLUMN ... TYPE` 时，必须逐条登记在 `registeredShrinkDDL`（迁移名 + 语句原文 +
+  中文理由），否则形态判为 malformed，`migrate --check-online-safe-form` 以退出码 3 失败。
+  匹配只发生在代码文本上（注释、单引号字符串、美元引用块被清空），所以说明文字与函数体
+  里的字样不会误报；未声明 `OnlineSafe` 的迁移不参与这条规则（它们本来就走停机窗口）。
+  当前登记表为空 —— 嵌入式迁移集里 36 条声明迁移的 Up 段全部只做扩张，这一点由
+  `TestEmbeddedOnlineSafeFormsAreWellFormed` 与 `TestRegisteredShrinkDDLEntriesAreWellFormed`
+  持续钉住。**这仍然不是兼容性证明**：它只回答「有没有人声明的收缩语句没人复核」，
+  清单第 2/3/4 条（旧写入合法性、签名不变、回填有界）依旧靠人工评审。
 - 与 `2026-08-02-declared-online-core-migrations.md` 的关系：那份记录决定「要不要有声明」，
   这份记录决定「声明之后靠什么保证」。两者不重复。
