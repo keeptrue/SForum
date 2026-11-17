@@ -133,8 +133,8 @@ func (s *SettingsService) SettingsLifecycle() SettingsLifecycleRuntime {
 
 // 以下两个只读设置入口属于 SettingsService 的同一职责：把「运行时能读到什么」
 // 收敛到一处，禁止插件边界直接拿 Store。它们原先放在 service_package.go，与
-// 打包/清单校验代码混在一起；移到这里与 Settings/UpdateSettings/ResetSettings
-// 同文件，读设置的四条路径一眼可见。
+// 打包/清单校验代码混在一起；移到这里与 Settings/UpdateSettings 同文件，
+// 读设置的三条路径一眼可见。
 // ListSettingsForRuntime 供插件子进程注入：返回解密后的设置；解密失败则错误。
 func (s *SettingsService) ListSettingsForRuntime(ctx context.Context, extensionID string) (map[string]string, error) {
 	extension, err := s.store.Get(ctx, normalizeID(extensionID))
@@ -209,52 +209,6 @@ func (s *serviceCore) updateSettingsViaLifecycle(
 	if err := s.restartPluginForSettings(ctx, actor, extension, restart, settingsRestartMutationKey(extension, doc)); err != nil {
 		// 设置已 CAS 提交；Lifecycle 权威已前进，不倒退 revision。明确返回
 		// “已保存但重启失败”，由生命周期账本保留安全恢复状态。
-		return ExtensionSettings{}, err
-	}
-	restartAt = time.Now()
-	maybeBumpPublicSurfaceRevision(s.host, ctx, extension)
-	return resolveExtensionSettings(extension, settingsDocumentViewValues(doc), locale), nil
-}
-
-// resetSettingsViaLifecycle 重置为字段默认值（推荐路径保留 SecretStore refs）。
-func (s *serviceCore) resetSettingsViaLifecycle(
-	ctx context.Context,
-	actor identity.Actor,
-	extension Extension,
-	locale string,
-) (ExtensionSettings, error) {
-	started := time.Now()
-	var schemaAt, preflightAt, putAt, restartAt time.Time
-	defer func() {
-		// 只在成功走完全程时输出分段耗时；失败路径由返回错误本身说话。
-		if restartAt.IsZero() {
-			return
-		}
-		slog.InfoContext(ctx, "extension settings save stages",
-			"extension", extension.ID, "op", "reset",
-			"schema_ms", schemaAt.Sub(started).Milliseconds(),
-			"preflight_ms", preflightAt.Sub(schemaAt).Milliseconds(),
-			"put_ms", putAt.Sub(preflightAt).Milliseconds(),
-			"restart_ms", restartAt.Sub(putAt).Milliseconds())
-	}()
-	if err := s.host.RegisterSettingsLifecycleFromManifest(extension); err != nil {
-		return ExtensionSettings{}, err
-	}
-	schemaAt = time.Now()
-	restart, err := s.preparePluginSettingsRestart(ctx, actor, extension)
-	if err != nil {
-		return ExtensionSettings{}, err
-	}
-	preflightAt = time.Now()
-	doc, err := s.settingsLifecycle.ResetDefaults(ctx, extension.ID, settingsActorID(actor), settingslifecycle.ResetOptions{
-		// 初学者友好：重置表单默认值时保留密钥引用。
-		PreserveSecrets: true,
-	})
-	if err != nil {
-		return ExtensionSettings{}, mapSettingsLifecycleError(err)
-	}
-	putAt = time.Now()
-	if err := s.restartPluginForSettings(ctx, actor, extension, restart, settingsRestartMutationKey(extension, doc)); err != nil {
 		return ExtensionSettings{}, err
 	}
 	restartAt = time.Now()
@@ -568,11 +522,14 @@ func settingsRestartPhaseKey(mutationKey string, phase string) string {
 	return "settings-" + phase + "-" + hex.EncodeToString(digest[:])
 }
 
-// 以下三个入口（Settings / UpdateSettings / ResetSettings）原先在 service.go。
-// 它们与 UpdateSettings 的 lifecycle 变体、updateSettingsViaLifecycle、
-// resetSettingsViaLifecycle 是同一个职责的两条实现路径（有 SettingsLifecycle 走
-// 文档 CAS，没有它走 store.ReplaceSettings），分处两个文件时「改一条路径漏掉另一条」
-// 是很容易发生的事。移到一起后，读设置/写设置/重置设置的全部路径在同一屏内可见。
+// 以下两个入口（Settings / UpdateSettings）原先在 service.go。
+// 它们与 UpdateSettings 的 lifecycle 变体、updateSettingsViaLifecycle 是同一个职责的
+// 两条实现路径（有 SettingsLifecycle 走文档 CAS，没有它走 store.ReplaceSettings），
+// 分处两个文件时「改一条路径漏掉另一条」是很容易发生的事。移到一起后，
+// 读设置/写设置的全部路径在同一屏内可见。
+//
+// 曾经的第三个入口 ResetSettings 已在 #217 下线：web 的「恢复默认」走 PUT /settings
+// 提交推荐值，服务端「清空已存值」是另一套语义，两套并存会互相覆盖。
 //
 // CatalogService.AdminPageBootstrap 仍留在 service.go：它是扩展详情页的装载器，
 // 设置只是其中一种 page view。
@@ -644,41 +601,4 @@ func (s *SettingsService) UpdateSettings(ctx context.Context, actor identity.Act
 	maybeBumpPublicSurfaceRevision(s.Service, ctx, extension)
 	// 返回解密后的视图（secret 仍在 resolve 中掩码）。
 	return resolveExtensionSettings(extension, values, locale), nil
-}
-
-func (s *SettingsService) ResetSettings(ctx context.Context, actor identity.Actor, extensionID string, locale string) (ExtensionSettings, error) {
-	s.assetPublicationMu.Lock()
-	defer s.assetPublicationMu.Unlock()
-
-	extension, err := s.store.Get(ctx, normalizeID(extensionID))
-	if err != nil {
-		return ExtensionSettings{}, err
-	}
-	if !canManageExtensionSettings(actor, extension) {
-		return ExtensionSettings{}, identity.ErrPermissionDenied
-	}
-	if err := requireArtifactAvailable(extension); err != nil {
-		return ExtensionSettings{}, err
-	}
-	if s.settingsLifecycle != nil && len(extension.Manifest.Settings) > 0 {
-		return s.resetSettingsViaLifecycle(ctx, actor, extension, locale)
-	}
-	previousRaw, err := s.store.ListSettings(ctx, extension.ID)
-	if err != nil {
-		return ExtensionSettings{}, err
-	}
-	restart, err := s.preparePluginSettingsRestart(ctx, actor, extension)
-	if err != nil {
-		return ExtensionSettings{}, err
-	}
-	if mutationErr := s.store.ResetSettings(ctx, extension.ID); mutationErr != nil {
-		if err := s.resolvePreparedSettingsMutation(ctx, extension.ID, previousRaw, map[string]string{}, restart, mutationErr); err != nil {
-			return ExtensionSettings{}, err
-		}
-	}
-	if err := s.restartPluginForSettings(ctx, actor, extension, restart, legacySettingsRestartMutationKey(extension, actor)); err != nil {
-		return ExtensionSettings{}, s.restoreSettingsAfterRestartFailure(ctx, extension.ID, previousRaw, restart, err)
-	}
-	maybeBumpPublicSurfaceRevision(s.Service, ctx, extension)
-	return resolveExtensionSettings(extension, map[string]string{}, locale), nil
 }

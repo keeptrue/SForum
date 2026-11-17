@@ -82,7 +82,6 @@ func (h *Controller) RegisterRoutes(api fiber.Router) {
 	api.Get("/admin/extensions/:id/page-bootstrap", h.pageBootstrap)
 	api.Get("/admin/extensions/:id/settings", h.settings)
 	api.Put("/admin/extensions/:id/settings", h.updateSettings)
-	api.Post("/admin/extensions/:id/settings/reset", h.resetSettings)
 	api.Post("/admin/extensions/:id/settings/actions/:actionId", h.executeSettingsAction)
 	api.Get("/admin/extensions/:id/frontend", h.frontendStatus)
 	api.Get("/admin/extensions/:id/frontend/assets/:digest/:component/:asset", h.frontendComponentAsset)

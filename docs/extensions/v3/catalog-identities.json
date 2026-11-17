@@ -608,12 +608,6 @@
       "path": "/api/v1/admin/extensions/:id/settings/actions/:actionId"
     },
     {
-      "id": "core.route.extensions.reset_settings",
-      "contractVersion": "sforum.route.extensions.reset_settings@1",
-      "method": "POST",
-      "path": "/api/v1/admin/extensions/:id/settings/reset"
-    },
-    {
       "id": "core.route.extensions.revoke_executable_trust",
       "contractVersion": "sforum.route.extensions.revoke_executable_trust@1",
       "method": "DELETE",

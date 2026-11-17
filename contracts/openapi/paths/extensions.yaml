@@ -1531,41 +1531,6 @@ adminExtensionSettings:
           application/json:
             schema:
               "$ref": "../schemas/common.yaml#/ApiErrorResponse"
-adminExtensionSettingsReset:
-  post:
-    summary: Reset extension settings to manifest defaults
-    operationId: resetAdminExtensionSettings
-    parameters:
-    - "$ref": "../components/parameters.yaml#/ExtensionID"
-    responses:
-      '200':
-        description: Settings after default resolution.
-        content:
-          application/json:
-            schema:
-              "$ref": "../schemas/extensions.yaml#/ApiResponseExtensionSettings"
-      '401':
-        "$ref": "../components/responses.yaml#/Unauthorized"
-      '403':
-        "$ref": "../components/responses.yaml#/Forbidden"
-      '404':
-        "$ref": "../components/responses.yaml#/NotFound"
-      '409':
-        description: Settings revision conflict; refresh the current document before retrying.
-        content:
-          application/json:
-            schema:
-              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
-      '503':
-        description: >-
-          Safe restart preflight failed before persistence, or defaults were
-          persisted but the enabled plugin failed to restart. Stable reasons
-          distinguish extension.settings_restart_unavailable from
-          extension.settings_restart_failed.
-        content:
-          application/json:
-            schema:
-              "$ref": "../schemas/common.yaml#/ApiErrorResponse"
 adminExtensionSettingsAction:
   post:
     summary: Execute a declared extension settings action
@@ -1894,8 +1859,13 @@ adminDevTrustSessions:
     summary: List development trust sessions
     description: >-
       Development-only. Lists dev trust sessions (active plus optionally
-      revoked) for the extension admin surface. Returns 503 with reason
+      revoked) for `sforum extension dev-trust list`. Returns 503 with reason
       `extension.dev_trust_disabled` when APP_ENV is not development.
+      **Developer / CLI surface, no admin entry.** Managed exclusively by the
+      `sforum extension dev-trust` subcommands (`list` / `create` / `revoke`); `apps/web` never calls
+      it and there is no admin panel for it. The dev-trust service is not injected
+      outside `APP_ENV=development`, so the endpoint does not exist in production.
+
     operationId: listAdminDevTrustSessions
     parameters:
     - name: extensionId
@@ -1934,6 +1904,11 @@ adminDevTrustSessions:
       the same CLI watch loop session (each grant is still per-digest,
       audited, and revocable). Requires the package root to live under
       extensions/dev.
+      **Developer / CLI surface, no admin entry.** Managed exclusively by the
+      `sforum extension dev-trust` subcommands (`create`); `apps/web` never calls
+      it and there is no admin panel for it. The dev-trust service is not injected
+      outside `APP_ENV=development`, so the endpoint does not exist in production.
+
     operationId: createAdminDevTrustSession
     requestBody:
       required: true
@@ -1986,7 +1961,14 @@ adminDevTrustSessions:
 adminDevTrustSession:
   delete:
     summary: Revoke a development trust session
-    description: Super-admin only. Revokes the session; subsequent digests fall back to manual exact-artifact confirmation.
+    description: >-
+      Super-admin only. Revokes the session; subsequent digests fall back to
+      manual exact-artifact confirmation.
+      **Developer / CLI surface, no admin entry.** Managed exclusively by the
+      `sforum extension dev-trust` subcommands (`revoke`); `apps/web` never calls
+      it and there is no admin panel for it. The dev-trust service is not injected
+      outside `APP_ENV=development`, so the endpoint does not exist in production.
+
     operationId: revokeAdminDevTrustSession
     parameters:
     - name: id
@@ -2024,6 +2006,11 @@ adminExtensionDevTrustRefresh:
       writes an idempotent exact live grant when an active dev trust session
       exists for the caller and package. Otherwise fails closed with
       `extension.trust_challenge_required`, identical to the manual path.
+      **Developer / CLI surface, no admin entry.** Managed exclusively by the
+      `sforum extension dev-trust` subcommands (`dev --auto-trust`); `apps/web` never calls
+      it and there is no admin panel for it. The dev-trust service is not injected
+      outside `APP_ENV=development`, so the endpoint does not exist in production.
+
     operationId: refreshAdminExtensionDevTrust
     parameters:
     - "$ref": "../components/parameters.yaml#/ExtensionID"

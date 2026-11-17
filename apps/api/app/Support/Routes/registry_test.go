@@ -543,6 +543,10 @@ func TestCoreRouteCatalogHasExactReviewedGuardParity(t *testing.T) {
 	//   core.route.mail.replay_delivery（P2-6：POST /admin/mail/deliveries/:deliveryID/replay）
 	//   core.route.identity.admin_revoke_user_api_tokens（P2-2：DELETE /users/:userID/api-tokens）
 	// 照旧：计数、catalog-identities.json 的 routes、core_catalog_gen.go 三者同一批。
+	// 436 = 437 - 1：core.route.extensions.reset_settings 随 #217 下线
+	//   （POST /admin/extensions/{id}/settings/reset）。web 的「恢复默认」走
+	//   PUT /settings 提交推荐值；服务端「清空已存值」是另一套语义，两套并存会
+	//   互相覆盖，且没有任何调用方。照旧三者同一批：identities、生成物、这里。
 	// 到此为止不再单边改数字：421→423→428→433→435→437 这六次漏改正是本条被改成
 	// 跨产物等值断言的原因（见下方断言与 TestCatalogArtifactsAgreeOnRouteCount）。
 	identities := readCatalogIdentities(t)

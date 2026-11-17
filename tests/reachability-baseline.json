@@ -1,8 +1,8 @@
 {
   "说明": "契约可达性门基线。由 node tests/validate-contract-reachability.mjs --refresh 维护；「已登记未声明状态码」「通配路由」「已复核误报」「未登记401503产出点」四组例外只能人工新增，--refresh 只会删除过期条目；「守卫升级记录」由 --refresh 自动写入。",
   "期望计数": {
-    "契约operation数": 441,
-    "实现侧路由数": 437,
+    "契约operation数": 440,
+    "实现侧路由数": 436,
     "退化区路由数": 0,
     "退化区已映射operation数": 0,
     "路由可达guard码但契约未声明条数": 0,
@@ -806,9 +806,6 @@
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/extensions/:param/settings/actions/:param": [
-      "app/Http:RequireActor"
-    ],
-    "POST /api/v1/admin/extensions/:param/settings/reset": [
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/extensions/:param/trust/challenge": [
@@ -1961,9 +1958,6 @@
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/extensions/:param/settings/actions/:param": [
-      "app/Http:RequireActor"
-    ],
-    "POST /api/v1/admin/extensions/:param/settings/reset": [
       "app/Http:RequireActor"
     ],
     "POST /api/v1/admin/extensions/:param/trust/challenge": [
@@ -4696,18 +4690,6 @@
     },
     {
       "operation": "POST /api/v1/admin/extensions/:param/settings/actions/:param",
-      "from": "app/Http:LoadActor",
-      "to": "app/Http:RequireActor",
-      "fromCodes": [
-        401
-      ],
-      "toCodes": [
-        401,
-        503
-      ]
-    },
-    {
-      "operation": "POST /api/v1/admin/extensions/:param/settings/reset",
       "from": "app/Http:LoadActor",
       "to": "app/Http:RequireActor",
       "fromCodes": [

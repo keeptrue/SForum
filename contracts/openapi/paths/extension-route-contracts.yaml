@@ -8,6 +8,10 @@ adminExtensionOpenAPIAggregate:
       lifecycle publication revision, and digest ETag from one immutable
       snapshot. Core operations are collision reservations and are not copied
       into the extension document.
+      **Developer / tooling surface, no admin entry.** Consumed by external
+      generated clients and the SDK packaging scripts; `apps/web` never calls it and
+      there is no admin panel for it.
+
     responses:
       '200':
         description: Exact lifecycle-published extension OpenAPI aggregate.
@@ -35,6 +39,9 @@ adminExtensionGeneratedClientMetadata:
       one operation per exact artifact route contract with Host-derived guard,
       permission, rate-limit, idempotency, schema, and security metadata. The
       metadata revision and ETag are identical to the aggregate endpoint.
+      **Developer / tooling surface, no admin entry.** Consumed by external
+      generated clients and the SDK packaging scripts; `apps/web` never calls it
+      and there is no admin panel for it.
     responses:
       '200':
         description: Exact generated-client operation catalog.

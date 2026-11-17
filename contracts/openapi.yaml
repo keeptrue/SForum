@@ -677,8 +677,6 @@ paths:
     "$ref": "./openapi/paths/extensions.yaml#/adminExtensionPageBootstrap"
   "/admin/extensions/{id}/settings":
     "$ref": "./openapi/paths/extensions.yaml#/adminExtensionSettings"
-  "/admin/extensions/{id}/settings/reset":
-    "$ref": "./openapi/paths/extensions.yaml#/adminExtensionSettingsReset"
   "/admin/extensions/{id}/settings/actions/{actionID}":
     "$ref": "./openapi/paths/extensions.yaml#/adminExtensionSettingsAction"
   "/admin/extensions/{id}/frontend":

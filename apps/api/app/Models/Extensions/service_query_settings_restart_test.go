@@ -11,37 +11,29 @@ import (
 func TestLegacyQuerySettingsUseExactRestartBoundary(t *testing.T) {
 	for _, surface := range legacyQuerySurfaceCases() {
 		t.Run(surface.name, func(t *testing.T) {
-			for _, operation := range []string{"update", "reset"} {
-				t.Run(operation, func(t *testing.T) {
-					item := querySettingsRestartExtension(t, surface.build)
-					events := []string{}
-					store := &querySettingsRestartStore{
-						fakeExtensionStore: newFakeExtensionStore(map[string]Extension{item.ID: item}),
-						events:             &events,
-					}
-					store.settings = map[string]map[string]string{item.ID: {"name": "before"}}
-					runtime := &fakeRuntimeManager{}
-					boundary := newRecordingQuerySettingsRestartBoundary(&events)
-					service := NewServiceWithRuntime(store, t.TempDir(), runtime).BindRuntimeQueryPublications(boundary)
+			// settings reset 端点在 #217 下线（web 的「恢复默认」走 PUT /settings 提交推荐值），
+			// 这条用例只覆盖 update 这一条写入路径。
+			item := querySettingsRestartExtension(t, surface.build)
+			events := []string{}
+			store := &querySettingsRestartStore{
+				fakeExtensionStore: newFakeExtensionStore(map[string]Extension{item.ID: item}),
+				events:             &events,
+			}
+			store.settings = map[string]map[string]string{item.ID: {"name": "before"}}
+			runtime := &fakeRuntimeManager{}
+			boundary := newRecordingQuerySettingsRestartBoundary(&events)
+			service := NewServiceWithRuntime(store, t.TempDir(), runtime).BindRuntimeQueryPublications(boundary)
 
-					var err error
-					if operation == "update" {
-						_, err = service.UpdateSettings(t.Context(), extensionManager(), item.ID, UpdateSettingsInput{
-							Values: map[string]string{"name": "after"},
-						}, "zh-CN")
-					} else {
-						_, err = service.ResetSettings(t.Context(), extensionManager(), item.ID, "zh-CN")
-					}
-					if err != nil {
-						t.Fatal(err)
-					}
-					want := []string{"query.settings.prepare", "store." + operation, "query.settings.restart"}
-					if !slices.Equal(events, want) || boundary.restartCalls != 1 ||
-						boundary.prepareCalls != 1 ||
-						len(runtime.started) != 0 || len(runtime.stopped) != 0 {
-						t.Fatalf("settings restart order=%v boundary=%#v runtime=%#v", events, boundary, runtime)
-					}
-				})
+			if _, err := service.UpdateSettings(t.Context(), extensionManager(), item.ID, UpdateSettingsInput{
+				Values: map[string]string{"name": "after"},
+			}, "zh-CN"); err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"query.settings.prepare", "store.update", "query.settings.restart"}
+			if !slices.Equal(events, want) || boundary.restartCalls != 1 ||
+				boundary.prepareCalls != 1 ||
+				len(runtime.started) != 0 || len(runtime.stopped) != 0 {
+				t.Fatalf("settings restart order=%v boundary=%#v runtime=%#v", events, boundary, runtime)
 			}
 		})
 	}
@@ -101,32 +93,23 @@ func TestLifecycleV2QuerySettingsRequireLifecycleCoordinatorBeforeStoreMutation(
 }
 
 func TestLifecycleV2SettingsWithoutQueryRequireLifecycleCoordinatorBeforeStoreMutation(t *testing.T) {
-	for _, operation := range []string{"update", "reset"} {
-		t.Run(operation, func(t *testing.T) {
-			item := installedExtension("lifecycle-settings.plugin", TypePlugin, ManifestBackend{
-				Entry: "backend/plugin", ProtocolVersion: 2,
-			})
-			item.Status = StatusEnabled
-			item.Manifest.Lifecycle = &ManifestLifecycle{ContractVersion: item.ID + ".lifecycle@1"}
-			item.Manifest.Settings = []ManifestSetting{{Key: "name", Label: LocalizedText{Default: "Name"}, Type: "text"}}
-			store := newFakeExtensionStore(map[string]Extension{item.ID: item})
-			store.settings = map[string]map[string]string{item.ID: {"name": "before"}}
-			runtime := &fakeRuntimeManager{}
-			service := NewServiceWithRuntime(store, t.TempDir(), runtime)
+	item := installedExtension("lifecycle-settings.plugin", TypePlugin, ManifestBackend{
+		Entry: "backend/plugin", ProtocolVersion: 2,
+	})
+	item.Status = StatusEnabled
+	item.Manifest.Lifecycle = &ManifestLifecycle{ContractVersion: item.ID + ".lifecycle@1"}
+	item.Manifest.Settings = []ManifestSetting{{Key: "name", Label: LocalizedText{Default: "Name"}, Type: "text"}}
+	store := newFakeExtensionStore(map[string]Extension{item.ID: item})
+	store.settings = map[string]map[string]string{item.ID: {"name": "before"}}
+	runtime := &fakeRuntimeManager{}
+	service := NewServiceWithRuntime(store, t.TempDir(), runtime)
 
-			var err error
-			if operation == "update" {
-				_, err = service.UpdateSettings(t.Context(), extensionManager(), item.ID, UpdateSettingsInput{
-					Values: map[string]string{"name": "after"},
-				}, "zh-CN")
-			} else {
-				_, err = service.ResetSettings(t.Context(), extensionManager(), item.ID, "zh-CN")
-			}
-			if !errors.Is(err, ErrSettingsRestartUnavailable) || store.replaceCalls != 0 ||
-				store.settings[item.ID]["name"] != "before" || len(runtime.started) != 0 || len(runtime.stopped) != 0 {
-				t.Fatalf("Lifecycle V2 %s crossed fail-closed preflight: err=%v store=%#v runtime=%#v", operation, err, store, runtime)
-			}
-		})
+	_, err := service.UpdateSettings(t.Context(), extensionManager(), item.ID, UpdateSettingsInput{
+		Values: map[string]string{"name": "after"},
+	}, "zh-CN")
+	if !errors.Is(err, ErrSettingsRestartUnavailable) || store.replaceCalls != 0 ||
+		store.settings[item.ID]["name"] != "before" || len(runtime.started) != 0 || len(runtime.stopped) != 0 {
+		t.Fatalf("Lifecycle V2 update crossed fail-closed preflight: err=%v store=%#v runtime=%#v", err, store, runtime)
 	}
 }
 
@@ -176,42 +159,24 @@ func TestLegacyQuerySettingsStoreFailureRestoresPreparedRuntime(t *testing.T) {
 }
 
 func TestLegacyQuerySettingsVerifiesCommittedMutationAfterTransportError(t *testing.T) {
-	for _, operation := range []string{"update", "reset"} {
-		t.Run(operation, func(t *testing.T) {
-			item := querySettingsRestartExtension(t, legacyQueryServiceExtension)
-			events := []string{}
-			store := &querySettingsRestartStore{
-				fakeExtensionStore: newFakeExtensionStore(map[string]Extension{item.ID: item}),
-				events:             &events,
-			}
-			store.settings = map[string]map[string]string{item.ID: {"name": "before"}}
-			transportErr := errors.New("commit response lost")
-			if operation == "update" {
-				store.replaceAppliedErr = transportErr
-			} else {
-				store.resetAppliedErr = transportErr
-			}
-			boundary := newRecordingQuerySettingsRestartBoundary(&events)
-			service := NewServiceWithRuntime(store, t.TempDir(), &fakeRuntimeManager{}).BindRuntimeQueryPublications(boundary)
+	item := querySettingsRestartExtension(t, legacyQueryServiceExtension)
+	events := []string{}
+	store := &querySettingsRestartStore{
+		fakeExtensionStore: newFakeExtensionStore(map[string]Extension{item.ID: item}),
+		events:             &events,
+	}
+	store.settings = map[string]map[string]string{item.ID: {"name": "before"}}
+	store.replaceAppliedErr = errors.New("commit response lost")
+	boundary := newRecordingQuerySettingsRestartBoundary(&events)
+	service := NewServiceWithRuntime(store, t.TempDir(), &fakeRuntimeManager{}).BindRuntimeQueryPublications(boundary)
 
-			var err error
-			if operation == "update" {
-				_, err = service.UpdateSettings(t.Context(), extensionManager(), item.ID, UpdateSettingsInput{
-					Values: map[string]string{"name": "after"},
-				}, "zh-CN")
-			} else {
-				_, err = service.ResetSettings(t.Context(), extensionManager(), item.ID, "zh-CN")
-			}
-			if err != nil || boundary.restartCalls != 1 || boundary.restoreCalls != 0 || boundary.keepClosedCalls != 0 {
-				t.Fatalf("verified committed %s: err=%v boundary=%#v", operation, err, boundary)
-			}
-			if operation == "update" && store.settings[item.ID]["name"] != "after" {
-				t.Fatalf("verified committed update settings=%v", store.settings)
-			}
-			if operation == "reset" && len(store.settings[item.ID]) != 0 {
-				t.Fatalf("verified committed reset settings=%v", store.settings)
-			}
-		})
+	if _, err := service.UpdateSettings(t.Context(), extensionManager(), item.ID, UpdateSettingsInput{
+		Values: map[string]string{"name": "after"},
+	}, "zh-CN"); err != nil || boundary.restartCalls != 1 || boundary.restoreCalls != 0 || boundary.keepClosedCalls != 0 {
+		t.Fatalf("verified committed update: err=%v boundary=%#v", err, boundary)
+	}
+	if store.settings[item.ID]["name"] != "after" {
+		t.Fatalf("verified committed update settings=%v", store.settings)
 	}
 }
 
@@ -403,16 +368,6 @@ func (s *querySettingsRestartStore) ReplaceSettings(ctx context.Context, extensi
 		s.afterReplace()
 	}
 	return s.replaceAppliedErr
-}
-
-func (s *querySettingsRestartStore) ResetSettings(ctx context.Context, extensionID string) error {
-	if s.events != nil {
-		*s.events = append(*s.events, "store.reset")
-	}
-	if err := s.fakeExtensionStore.ResetSettings(ctx, extensionID); err != nil {
-		return err
-	}
-	return s.resetAppliedErr
 }
 
 type recordingQuerySettingsRestartBoundary struct {

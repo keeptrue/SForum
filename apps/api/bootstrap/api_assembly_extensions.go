@@ -282,7 +282,7 @@ func wireAPIExtensionPlatform(ctx context.Context, cfg config.Config, logger *sl
 		pool.Close()
 		return nil, fmt.Errorf("Host platform services setup failed: %w", err)
 	}
-	// 生产接线：后台设置保存/重置/导入/升级必须走 SettingsLifecycle。
+	// 生产接线：后台设置保存/导入/升级必须走 SettingsLifecycle（重置已在 #217 下线）。
 	if hostPlatform != nil && hostPlatform.Settings != nil {
 		extensionService.BindSettingsLifecycle(hostPlatform.Settings)
 	}

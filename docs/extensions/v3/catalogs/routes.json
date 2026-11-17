@@ -1685,22 +1685,6 @@
     }
   },
   {
-    "id": "core.route.extensions.reset_settings",
-    "contractVersion": "sforum.route.extensions.reset_settings@1",
-    "module": "extensions",
-    "handler": "resetSettings",
-    "method": "POST",
-    "path": "/api/v1/admin/extensions/:id/settings/reset",
-    "source": "apps/api/app/Http/Controllers/Extensions/routes.go#resetSettings",
-    "access": "permission",
-    "policy": "extension.plugin.manage or extension.theme.manage; operation-specific service policy",
-    "guard": {
-      "kind": "contextual",
-      "permissions": [],
-      "evaluatorId": "core.guard.extensions.mutation"
-    }
-  },
-  {
     "id": "core.route.extensions.revoke_executable_trust",
     "contractVersion": "sforum.route.extensions.revoke_executable_trust@1",
     "module": "extensions",

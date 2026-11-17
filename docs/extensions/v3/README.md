@@ -77,6 +77,33 @@ handler, route path, or Vue component does not authorize silently changing its
 stable ID or contract version. Update the reviewed mapping deliberately and
 record compatibility impact.
 
+## Developer-Only Route Surfaces
+
+Six admin-prefixed routes have **no admin entry in `apps/web`**. They exist for
+the developer CLI and external tooling, and are listed here so the generated
+route catalog is not read as "every `/admin/...` route has a backend screen":
+
+| Route | Consumer |
+|---|---|
+| `POST /admin/extensions/dev-trust-sessions` | `sforum extension dev-trust create` |
+| `GET /admin/extensions/dev-trust-sessions` | `sforum extension dev-trust list` |
+| `DELETE /admin/extensions/dev-trust-sessions/{id}` | `sforum extension dev-trust revoke` |
+| `POST /admin/extensions/{id}/dev-trust-refresh` | `sforum extension dev --auto-trust` |
+| `GET /admin/extensions/openapi/aggregate` | external generated clients / SDK packaging |
+| `GET /admin/extensions/openapi/generated-client` | external generated clients / SDK packaging |
+
+The dev-trust routes are development-only: the service is not injected outside
+`APP_ENV=development`, so they do not exist in production. Removing them would
+break the CLI (`sforum extension dev-trust *` would 404), which is why they keep
+their contract entries. Every one of the six carries the same note in its
+OpenAPI path item, and `docs/zh-CN/development/cli.md` /
+`docs/en-US/development/cli.md` state the same thing for operators.
+
+`POST /admin/extensions/{id}/settings/reset` was **retired** in #217: `apps/web`'s
+"restore defaults" submits recommended values through `PUT /settings`, and a
+server-side reset that clears stored values is a second, conflicting semantic
+with no callers.
+
 ## Phase State
 
 - P0–P12 phase checklists are complete, but this is not a stable-production
