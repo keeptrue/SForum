@@ -85,7 +85,7 @@
 - **H1 防自我提权**：Identity service `ReplaceUserRoles`/`ReplaceUserPermissionOverrides` 加 `actor.ID==targetUserID` 拒绝（`ErrSelfRoleChange`）+ 授予 `super_admin` 要求 actor 本身是 `super_admin`（`ErrSuperAdminGrantRestricted`）。
 - **H2a option 敏感值 AES-GCM 加密**：新增 `Support/Crypto` 包（`OptionCipher`），Options service 写入加密/读取解密，bootstrap 注入 `APP_OPTION_ENC_KEY`。透明模式兼容开发环境，明文历史值兼容解密。
 - **H2b SFTP 强制主机密钥**：空指纹不再回退 `InsecureIgnoreHostKey`，改为拒绝连接。
-- **H3 前端 DOMPurify**：新增 `dompurify` 依赖 + `utils/sfSanitize.ts`，`SFComment`/`SFEditor`/topic 页 `v-html` 前净化（client 端 DOMPurify，SSR 信任服务端 bluemonday）。
+- **H3 前端 DOMPurify**：新增 `dompurify` 依赖 + `utils/sfSanitize.ts`，`SFComment`/`SFEditor`/topic 页 `v-html` 前净化。（原文「SSR 信任服务端 bluemonday」已于 2026-11-17 更正：SSR 分支自己用 parse5 白名单净化，且与客户端同口径，见 `2026-11-17-sanitize-single-whitelist.md`。）
 - **H4 安全响应头**：`Caddyfile` 加 HSTS/`X-Content-Type-Options`/`X-Frame-Options`/`Referrer-Policy`。
 - **H6 容器降权**：api/worker/migrate/web Dockerfile 加非 root `sforum` 用户 + `chown` + `USER`。
 - **M4 registration-status 不泄漏**：恒定返回 `NextUserIsInitialSuperAdmin=false`，消除首用户劫持信息面。
