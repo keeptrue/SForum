@@ -8307,7 +8307,22 @@
       "reason": "Review reason",
       "emptyTitle": "No content awaiting action",
       "emptyDescription": "Your content is published or does not require review.",
-      "loadFailed": "Could not load content review status."
+      "loadFailed": "Could not load content review status.",
+      "nav": "My content",
+      "railLabel": "About your content review",
+      "refresh": "Refresh",
+      "pendingHint": "These items are submitted and waiting for a moderator. They go public once approved.",
+      "rejectedHint": "These items did not pass review and stay private for now. The review note is shown under each item.",
+      "pendingEmptyTitle": "Nothing waiting for review",
+      "pendingEmptyDescription": "Everything you submitted has been handled; nothing is stuck in the queue.",
+      "rejectedEmptyTitle": "Nothing was rejected",
+      "rejectedEmptyDescription": "No content has been rejected. If that ever happens, the review note shows up here.",
+      "reviewNoteEmpty": "The moderator left no written note this time. If you need details, ask in the site feedback category.",
+      "submittedAt": "Submitted {date}",
+      "targetTopic": "Topic",
+      "targetComment": "Comment",
+      "untitled": "(untitled)",
+      "createAction": "Write a topic"
     },
     "trigger": {
       "all_content": "Review all",

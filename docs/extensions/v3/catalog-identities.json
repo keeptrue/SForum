@@ -2626,104 +2626,184 @@
   ],
   "ui": [
     {
-      "id": "core.component.shared.sf_badge_wall",
-      "contractVersion": "sforum.component.shared.sf_badge_wall@1",
+      "id": "core.component.admin.s_f_admin_badge_backfill_row",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_backfill_row@1",
       "kind": "component",
       "owners": [
-        "public"
-      ],
-      "state": "retired",
-      "source": "apps/web/app/components/profile/SFBadgeWall.vue"
-    },
-    {
-      "id": "core.component.public.s_f_confirm_dialog",
-      "contractVersion": "sforum.component.public.s_f_confirm_dialog@1",
-      "kind": "component",
-      "owners": [
-        "public"
+        "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/forum/SFConfirmDialog.vue"
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeBackfillRow.vue"
     },
     {
-      "id": "core.component.shared.sf_badge_catalog_page",
-      "contractVersion": "sforum.component.shared.sf_badge_catalog_page@1",
+      "id": "core.component.admin.s_f_admin_badge_edit_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_edit_dialog@1",
       "kind": "component",
       "owners": [
-        "public"
+        "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue"
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeEditDialog.vue"
     },
     {
-      "id": "core.component.shared.sf_badge_card",
-      "contractVersion": "sforum.component.shared.sf_badge_card@1",
+      "id": "core.component.admin.s_f_admin_badge_grant_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_grant_dialog@1",
       "kind": "component",
       "owners": [
-        "public"
+        "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/forum/badges/SFBadgeCard.vue"
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeGrantDialog.vue"
     },
     {
-      "id": "core.component.page.badges.username",
-      "contractVersion": "sforum.component.page.badges.username@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "retired",
-      "source": "apps/web/app/pages/badges/[username].vue"
-    },
-    {
-      "id": "core.component.page.admin.gamification",
-      "contractVersion": "sforum.component.page.admin.gamification@1",
-      "kind": "page",
-      "owners": [
-        "admin"
-      ],
-      "state": "retired",
-      "source": "apps/web/app/pages/admin/gamification.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_gamification_backfill_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_gamification_backfill_tab@1",
+      "id": "core.component.admin.s_f_admin_badge_icon_field",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_icon_field@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationBackfillTab.vue"
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeIconField.vue"
     },
     {
-      "id": "core.component.admin.sf_admin_gamification_badges_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_gamification_badges_tab@1",
+      "id": "core.component.admin.s_f_admin_badge_rule_editor",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_editor@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationBadgesTab.vue"
+      "state": "active",
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleEditor.vue"
     },
     {
-      "id": "core.component.admin.sf_admin_gamification_grants_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_gamification_grants_tab@1",
+      "id": "core.component.admin.s_f_admin_badge_rule_group",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_group@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationGrantsTab.vue"
+      "state": "active",
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleGroup.vue"
     },
     {
-      "id": "core.component.admin.sf_admin_gamification_levels_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_gamification_levels_tab@1",
+      "id": "core.component.admin.s_f_admin_badge_rule_impact_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_impact_dialog@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationLevelsTab.vue"
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleImpactDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_json_preview@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleJsonPreview.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_leaf",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_leaf@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleLeaf.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_param_field",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_param_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleParamField.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_section",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_section@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleSection.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_simple_form@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/rules/SFAdminRuleSimpleForm.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_table",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_table@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTable.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_tier_delete_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_delete_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDeleteDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_tier_dialog",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDialog.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badge_user_picker",
+      "contractVersion": "sforum.component.admin.s_f_admin_badge_user_picker@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/SFAdminBadgeUserPicker.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_badges_tiers_tab",
+      "contractVersion": "sforum.component.admin.s_f_admin_badges_tiers_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue"
+    },
+    {
+      "id": "core.component.admin.s_f_admin_tier_color_field",
+      "contractVersion": "sforum.component.admin.s_f_admin_tier_color_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/shared/SFAdminTierColorField.vue"
     },
     {
       "id": "core.component.admin.sf_admin_ai_auto_action_block",
@@ -2734,6 +2814,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIAutoActionBlock.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_ai_diagnose_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_ai_diagnose_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIDiagnoseTab.vue"
     },
     {
       "id": "core.component.admin.sf_admin_ai_identity_block",
@@ -2766,46 +2856,6 @@
       "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIMultimodalBlock.vue"
     },
     {
-      "id": "core.component.admin.sf_admin_ai_provider_picker",
-      "contractVersion": "sforum.component.admin.sf_admin_ai_provider_picker@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIProviderPicker.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_ai_redaction_block",
-      "contractVersion": "sforum.component.admin.sf_admin_ai_redaction_block@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIRedactionBlock.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_ai_trigger_mode_block",
-      "contractVersion": "sforum.component.admin.sf_admin_ai_trigger_mode_block@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAITriggerModeBlock.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_ai_diagnose_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_ai_diagnose_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIDiagnoseTab.vue"
-    },
-    {
       "id": "core.component.admin.sf_admin_ai_observability_tab",
       "contractVersion": "sforum.component.admin.sf_admin_ai_observability_tab@1",
       "kind": "component",
@@ -2816,6 +2866,16 @@
       "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIObservabilityTab.vue"
     },
     {
+      "id": "core.component.admin.sf_admin_ai_provider_picker",
+      "contractVersion": "sforum.component.admin.sf_admin_ai_provider_picker@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIProviderPicker.vue"
+    },
+    {
       "id": "core.component.admin.sf_admin_ai_providers_tab",
       "contractVersion": "sforum.component.admin.sf_admin_ai_providers_tab@1",
       "kind": "component",
@@ -2824,16 +2884,6 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIProvidersTab.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_ai_reply_prompt_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_ai_reply_prompt_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIReplyPromptTab.vue"
     },
     {
       "id": "core.component.admin.sf_admin_ai_purposes_block",
@@ -2856,6 +2906,36 @@
       "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIPurposesTab.vue"
     },
     {
+      "id": "core.component.admin.sf_admin_ai_redaction_block",
+      "contractVersion": "sforum.component.admin.sf_admin_ai_redaction_block@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIRedactionBlock.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_ai_reply_prompt_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_ai_reply_prompt_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIReplyPromptTab.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_ai_run_timeline",
+      "contractVersion": "sforum.component.admin.sf_admin_ai_run_timeline@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIRunTimeline.vue"
+    },
+    {
       "id": "core.component.admin.sf_admin_ai_tool_references_block",
       "contractVersion": "sforum.component.admin.sf_admin_ai_tool_references_block@1",
       "kind": "component",
@@ -2876,14 +2956,54 @@
       "source": "apps/web/app/components/admin/ai/tabs/SFAdminAIToolsTab.vue"
     },
     {
-      "id": "core.component.admin.sf_admin_site_client_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_site_client_tab@1",
+      "id": "core.component.admin.sf_admin_ai_trigger_mode_block",
+      "contractVersion": "sforum.component.admin.sf_admin_ai_trigger_mode_block@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminSiteClientTab.vue"
+      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAITriggerModeBlock.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_extension_identity",
+      "contractVersion": "sforum.component.admin.sf_admin_extension_identity@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionIdentity.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_extension_primary_action",
+      "contractVersion": "sforum.component.admin.sf_admin_extension_primary_action@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionPrimaryAction.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_extension_update_badges",
+      "contractVersion": "sforum.component.admin.sf_admin_extension_update_badges@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateBadges.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_extension_update_state",
+      "contractVersion": "sforum.component.admin.sf_admin_extension_update_state@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateState.vue"
     },
     {
       "id": "core.component.admin.sf_admin_forum_comment_editor",
@@ -2926,34 +3046,54 @@
       "source": "apps/web/app/components/admin/forum/SFAdminForumTaxonomyDeleteDialog.vue"
     },
     {
-      "id": "core.component.shared.sf_topic_mobile_info_drawer",
-      "contractVersion": "sforum.component.shared.sf_topic_mobile_info_drawer@1",
+      "id": "core.component.admin.sf_admin_gamification_backfill_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_gamification_backfill_tab@1",
       "kind": "component",
       "owners": [
-        "public"
+        "admin"
       ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFTopicMobileInfoDrawer.vue"
+      "state": "retired",
+      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationBackfillTab.vue"
     },
     {
-      "id": "core.component.shared.sf_registry_page_body",
-      "contractVersion": "sforum.component.shared.sf_registry_page_body@1",
+      "id": "core.component.admin.sf_admin_gamification_badges_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_gamification_badges_tab@1",
       "kind": "component",
       "owners": [
-        "public"
+        "admin"
       ],
-      "state": "active",
-      "source": "apps/web/app/components/extensions/public/SFRegistryPageBody.vue"
+      "state": "retired",
+      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationBadgesTab.vue"
     },
     {
-      "id": "core.component.shared.sf_registry_page_shell",
-      "contractVersion": "sforum.component.shared.sf_registry_page_shell@1",
+      "id": "core.component.admin.sf_admin_gamification_grants_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_gamification_grants_tab@1",
       "kind": "component",
       "owners": [
-        "public"
+        "admin"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationGrantsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_gamification_levels_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_gamification_levels_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/components/admin/gamification/tabs/SFAdminGamificationLevelsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sf_admin_query_catalog_table",
+      "contractVersion": "sforum.component.admin.sf_admin_query_catalog_table@1",
+      "kind": "component",
+      "owners": [
+        "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/public/SFRegistryPageShell.vue"
+      "source": "apps/web/app/components/admin/SFAdminQueryCatalogTable.vue"
     },
     {
       "id": "core.component.admin.sf_admin_route_catalog_group",
@@ -2966,134 +3106,24 @@
       "source": "apps/web/app/components/admin/SFAdminRouteCatalogGroup.vue"
     },
     {
-      "id": "core.component.admin.sf_admin_theme_activate_dialog",
-      "contractVersion": "sforum.component.admin.sf_admin_theme_activate_dialog@1",
+      "id": "core.component.admin.sf_admin_settings_extension_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_settings_extension_tab@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminThemeActivateDialog.vue"
+      "source": "apps/web/app/components/admin/settings/contributions/SFAdminSettingsExtensionTab.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_executable_trust_impact",
-      "contractVersion": "sforum.component.admin.sfadmin_executable_trust_impact@1",
+      "id": "core.component.admin.sf_admin_site_client_tab",
+      "contractVersion": "sforum.component.admin.sf_admin_site_client_tab@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminExecutableTrustImpact.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_extension_enable_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_extension_enable_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminExtensionEnableDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_extension_lifecycle_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_extension_lifecycle_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminExtensionLifecycleDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_extension_store_shelf",
-      "contractVersion": "sforum.component.admin.sfadmin_extension_store_shelf@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/SFAdminExtensionStoreShelf.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_extension_install_panel",
-      "contractVersion": "sforum.component.admin.sfadmin_extension_install_panel@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionInstallPanel.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_extension_uninstall_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_extension_uninstall_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminExtensionUninstallDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_footer",
-      "contractVersion": "sforum.component.admin.sfadmin_footer@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminFooter.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_form_footer",
-      "contractVersion": "sforum.component.admin.sfadmin_form_footer@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminFormFooter.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_frontend_trust_panel",
-      "contractVersion": "sforum.component.admin.sfadmin_frontend_trust_panel@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminFrontendTrustPanel.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_overview_trend_trio",
-      "contractVersion": "sforum.component.admin.sfadmin_overview_trend_trio@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminOverviewTrendTrio.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_site_chrome_panel",
-      "contractVersion": "sforum.component.admin.sfadmin_site_chrome_panel@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/SFAdminSiteChromePanel.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_surface_outlet",
-      "contractVersion": "sforum.component.admin.sfadmin_surface_outlet@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminSurfaceOutlet.vue"
+      "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminSiteClientTab.vue"
     },
     {
       "id": "core.component.admin.sf_admin_tab_strip",
@@ -3106,124 +3136,104 @@
       "source": "apps/web/app/components/admin/shell/SFAdminTabStrip.vue"
     },
     {
-      "id": "core.component.admin.sfextension_settings_actions",
-      "contractVersion": "sforum.component.admin.sfextension_settings_actions@1",
+      "id": "core.component.admin.sf_admin_theme_activate_dialog",
+      "contractVersion": "sforum.component.admin.sf_admin_theme_activate_dialog@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsActions.vue"
+      "source": "apps/web/app/components/admin/SFAdminThemeActivateDialog.vue"
     },
     {
-      "id": "core.component.admin.sfextension_settings_callout",
-      "contractVersion": "sforum.component.admin.sfextension_settings_callout@1",
+      "id": "core.component.admin.sf_admin_user_account_section",
+      "contractVersion": "sforum.component.admin.sf_admin_user_account_section@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsCallout.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserAccountSection.vue"
     },
     {
-      "id": "core.component.admin.sfextension_settings_field",
-      "contractVersion": "sforum.component.admin.sfextension_settings_field@1",
+      "id": "core.component.admin.sf_admin_user_detail_drawer",
+      "contractVersion": "sforum.component.admin.sf_admin_user_detail_drawer@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsField.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserDetailDrawer.vue"
     },
     {
-      "id": "core.component.admin.sfextension_settings_group",
-      "contractVersion": "sforum.component.admin.sfextension_settings_group@1",
+      "id": "core.component.admin.sf_admin_user_permissions_section",
+      "contractVersion": "sforum.component.admin.sf_admin_user_permissions_section@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsGroup.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserPermissionsSection.vue"
     },
     {
-      "id": "core.component.admin.sfextension_settings_renderer",
-      "contractVersion": "sforum.component.admin.sfextension_settings_renderer@1",
+      "id": "core.component.admin.sf_admin_user_profile_section",
+      "contractVersion": "sforum.component.admin.sf_admin_user_profile_section@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsRenderer.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserProfileSection.vue"
     },
     {
-      "id": "core.component.admin.sfseocontent_types",
-      "contractVersion": "sforum.component.admin.sfseocontent_types@1",
+      "id": "core.component.admin.sf_admin_user_roles_section",
+      "contractVersion": "sforum.component.admin.sf_admin_user_roles_section@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/seo/tabs/SFSEOContentTypes.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserRolesSection.vue"
     },
     {
-      "id": "core.component.admin.sfseoimage_picker",
-      "contractVersion": "sforum.component.admin.sfseoimage_picker@1",
+      "id": "core.component.admin.sf_admin_user_security_section",
+      "contractVersion": "sforum.component.admin.sf_admin_user_security_section@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/seo/tabs/SFSEOImagePicker.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserSecuritySection.vue"
     },
     {
-      "id": "core.component.admin.sfseosearch_appearance",
-      "contractVersion": "sforum.component.admin.sfseosearch_appearance@1",
+      "id": "core.component.admin.sf_admin_user_table",
+      "contractVersion": "sforum.component.admin.sf_admin_user_table@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/seo/tabs/SFSEOSearchAppearance.vue"
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserTable.vue"
     },
     {
-      "id": "core.component.admin.sftrusted_settings_component",
-      "contractVersion": "sforum.component.admin.sftrusted_settings_component@1",
+      "id": "core.component.admin.sf_live_region",
+      "contractVersion": "sforum.component.admin.sf_live_region@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/settings/SFTrustedSettingsComponent.vue"
+      "source": "apps/web/app/components/a11y/SFLiveRegion.vue"
     },
     {
-      "id": "core.component.admin.sftrusted_admin_page_component",
-      "contractVersion": "sforum.component.admin.sftrusted_admin_page_component@1",
+      "id": "core.component.admin.sf_native_select",
+      "contractVersion": "sforum.component.admin.sf_native_select@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/extensions/admin/SFTrustedAdminPageComponent.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_missing_artifacts_cleanup_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_missing_artifacts_cleanup_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminMissingArtifactsCleanupDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_version_gc_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_version_gc_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminVersionGcDialog.vue"
+      "source": "apps/web/app/components/forms/SFNativeSelect.vue"
     },
     {
       "id": "core.component.admin.sfadmin_attachment_compression_tab",
@@ -3234,16 +3244,6 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/settings/attachments/tabs/SFAdminAttachmentCompressionTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_attachment_storage_instances",
-      "contractVersion": "sforum.component.admin.sfadmin_attachment_storage_instances@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/attachments/providers/SFAdminAttachmentStorageInstances.vue"
     },
     {
       "id": "core.component.admin.sfadmin_attachment_manager_tab",
@@ -3266,6 +3266,16 @@
       "source": "apps/web/app/components/admin/settings/attachments/tabs/SFAdminAttachmentSettingsTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_attachment_storage_instances",
+      "contractVersion": "sforum.component.admin.sfadmin_attachment_storage_instances@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/attachments/providers/SFAdminAttachmentStorageInstances.vue"
+    },
+    {
       "id": "core.component.admin.sfadmin_attachment_upload_policies_tab",
       "contractVersion": "sforum.component.admin.sfadmin_attachment_upload_policies_tab@1",
       "kind": "component",
@@ -3276,14 +3286,144 @@
       "source": "apps/web/app/components/admin/settings/attachments/tabs/SFAdminAttachmentUploadPoliciesTab.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_forum_tab_frame",
-      "contractVersion": "sforum.component.admin.sfadmin_forum_tab_frame@1",
+      "id": "core.component.admin.sfadmin_badges_badges_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_badges_badges_tab@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/forum/SFAdminForumTabFrame.vue"
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_badges_grants_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_badges_grants_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGrantsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_badges_groups_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_badges_groups_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_brand_asset_field",
+      "contractVersion": "sforum.component.admin.sfadmin_brand_asset_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/personalization/SFAdminBrandAssetField.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_executable_trust_impact",
+      "contractVersion": "sforum.component.admin.sfadmin_executable_trust_impact@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminExecutableTrustImpact.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_extension_enable_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_extension_enable_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminExtensionEnableDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_extension_host_actions_notice",
+      "contractVersion": "sforum.component.admin.sfadmin_extension_host_actions_notice@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminExtensionHostActionsNotice.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_extension_install_panel",
+      "contractVersion": "sforum.component.admin.sfadmin_extension_install_panel@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionInstallPanel.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_extension_lifecycle_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_extension_lifecycle_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminExtensionLifecycleDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_extension_store_shelf",
+      "contractVersion": "sforum.component.admin.sfadmin_extension_store_shelf@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/components/admin/SFAdminExtensionStoreShelf.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_extension_uninstall_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_extension_uninstall_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminExtensionUninstallDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_fixed_tab_nav",
+      "contractVersion": "sforum.component.admin.sfadmin_fixed_tab_nav@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/shared/SFAdminFixedTabNav.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_footer",
+      "contractVersion": "sforum.component.admin.sfadmin_footer@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminFooter.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_form_footer",
+      "contractVersion": "sforum.component.admin.sfadmin_form_footer@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminFormFooter.vue"
     },
     {
       "id": "core.component.admin.sfadmin_forum_behavior_tab",
@@ -3336,6 +3476,16 @@
       "source": "apps/web/app/components/admin/settings/forum/tabs/SFAdminForumSearchTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_forum_tab_frame",
+      "contractVersion": "sforum.component.admin.sfadmin_forum_tab_frame@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/forum/SFAdminForumTabFrame.vue"
+    },
+    {
       "id": "core.component.admin.sfadmin_forum_tags_tab",
       "contractVersion": "sforum.component.admin.sfadmin_forum_tags_tab@1",
       "kind": "component",
@@ -3354,6 +3504,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/settings/forum/tabs/SFAdminForumTopicsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_frontend_trust_panel",
+      "contractVersion": "sforum.component.admin.sfadmin_frontend_trust_panel@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminFrontendTrustPanel.vue"
     },
     {
       "id": "core.component.admin.sfadmin_mail_deliveries_tab",
@@ -3396,14 +3556,64 @@
       "source": "apps/web/app/components/admin/settings/mail/tabs/SFAdminMailProviderTab.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_notification_policy_page",
-      "contractVersion": "sforum.component.admin.sfadmin_notification_policy_page@1",
+      "id": "core.component.admin.sfadmin_missing_artifacts_cleanup_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_missing_artifacts_cleanup_dialog@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/notifications/SFAdminNotificationPolicyPage.vue"
+      "source": "apps/web/app/components/admin/SFAdminMissingArtifactsCleanupDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_navigation_defaults_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_navigation_defaults_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationDefaultsDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_navigation_history",
+      "contractVersion": "sforum.component.admin.sfadmin_navigation_history@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationHistory.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_navigation_import_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_navigation_import_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationImportDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_navigation_location_list",
+      "contractVersion": "sforum.component.admin.sfadmin_navigation_location_list@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/personalization/SFAdminNavigationLocationList.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_navigation_recovery_panel",
+      "contractVersion": "sforum.component.admin.sfadmin_navigation_recovery_panel@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationRecoveryPanel.vue"
     },
     {
       "id": "core.component.admin.sfadmin_notification_channels",
@@ -3414,6 +3624,56 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/settings/notifications/SFAdminNotificationChannels.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_notification_policy_page",
+      "contractVersion": "sforum.component.admin.sfadmin_notification_policy_page@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/notifications/SFAdminNotificationPolicyPage.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_overview_resource_cards",
+      "contractVersion": "sforum.component.admin.sfadmin_overview_resource_cards@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminOverviewResourceCards.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_overview_runtime_card",
+      "contractVersion": "sforum.component.admin.sfadmin_overview_runtime_card@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminOverviewRuntimeCard.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_overview_trend_trio",
+      "contractVersion": "sforum.component.admin.sfadmin_overview_trend_trio@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminOverviewTrendTrio.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_page_install_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_page_install_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/admin/SFAdminPageInstallDialog.vue"
     },
     {
       "id": "core.component.admin.sfadmin_personalization_announcements_tab",
@@ -3476,14 +3736,24 @@
       "source": "apps/web/app/components/admin/settings/personalization/tabs/SFAdminPersonalizationNavigationTab.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_seo_tab_frame",
-      "contractVersion": "sforum.component.admin.sfadmin_seo_tab_frame@1",
+      "id": "core.component.admin.sfadmin_role_approvals_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_role_approvals_tab@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/settings/seo/SFAdminSeoTabFrame.vue"
+      "source": "apps/web/app/components/admin/identity/roles/tabs/SFAdminRoleApprovalsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_role_groups_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_role_groups_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/roles/tabs/SFAdminRoleGroupsTab.vue"
     },
     {
       "id": "core.component.admin.sfadmin_seo_content_tab",
@@ -3566,6 +3836,16 @@
       "source": "apps/web/app/components/admin/settings/seo/tabs/SFAdminSeoSitemapTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_seo_tab_frame",
+      "contractVersion": "sforum.component.admin.sfadmin_seo_tab_frame@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/seo/SFAdminSeoTabFrame.vue"
+    },
+    {
       "id": "core.component.admin.sfadmin_seo_verification_tab",
       "contractVersion": "sforum.component.admin.sfadmin_seo_verification_tab@1",
       "kind": "component",
@@ -3574,16 +3854,6 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/settings/seo/tabs/SFAdminSeoVerificationTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_fixed_tab_nav",
-      "contractVersion": "sforum.component.admin.sfadmin_fixed_tab_nav@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/shared/SFAdminFixedTabNav.vue"
     },
     {
       "id": "core.component.admin.sfadmin_site_account_security_tab",
@@ -3604,6 +3874,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminSiteBasicTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_site_chrome_panel",
+      "contractVersion": "sforum.component.admin.sfadmin_site_chrome_panel@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/components/admin/SFAdminSiteChromePanel.vue"
     },
     {
       "id": "core.component.admin.sfadmin_site_maintenance_tab",
@@ -3656,14 +3936,64 @@
       "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminSiteVerificationTab.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_trust_levels_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_levels_tab@1",
+      "id": "core.component.admin.sfadmin_surface_outlet",
+      "contractVersion": "sforum.component.admin.sfadmin_surface_outlet@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
-      "state": "retired",
-      "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue"
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminSurfaceOutlet.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_system_update_prompt",
+      "contractVersion": "sforum.component.admin.sfadmin_system_update_prompt@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/system/SFAdminSystemUpdatePrompt.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_action_button",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_action_button@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelActionButton.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_appearance_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearanceDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_appearance_preview",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_preview@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearancePreview.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_color_field",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_color_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelColorField.vue"
     },
     {
       "id": "core.component.admin.sfadmin_trust_level_earnable_matrix",
@@ -3686,24 +4016,14 @@
       "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelEarnableRow.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_trust_level_tiers_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tiers_tab@1",
+      "id": "core.component.admin.sfadmin_trust_level_earnable_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_earnable_tab@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelTiersTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_action_button",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_action_button@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelActionButton.vue"
+      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableTab.vue"
     },
     {
       "id": "core.component.admin.sfadmin_trust_level_field_errors",
@@ -3726,14 +4046,34 @@
       "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelIconPicker.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_trust_level_earnable_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_earnable_tab@1",
+      "id": "core.component.admin.sfadmin_trust_level_limits_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_limits_tab@1",
       "kind": "component",
       "owners": [
         "admin"
       ],
       "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelEarnableTab.vue"
+      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_rule_impact_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_impact_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleImpactDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_rule_section",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_section@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleSection.vue"
     },
     {
       "id": "core.component.admin.sfadmin_trust_level_thresholds_tab",
@@ -3746,6 +4086,36 @@
       "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelThresholdsTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_trust_level_tier_confirm_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_confirm_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierConfirmDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_tier_row",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_row@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierRow.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_trust_level_tiers_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tiers_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelTiersTab.vue"
+    },
+    {
       "id": "core.component.admin.sfadmin_trust_levels_overview_tab",
       "contractVersion": "sforum.component.admin.sfadmin_trust_levels_overview_tab@1",
       "kind": "component",
@@ -3756,6 +4126,226 @@
       "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelsOverviewTab.vue"
     },
     {
+      "id": "core.component.admin.sfadmin_trust_levels_tab",
+      "contractVersion": "sforum.component.admin.sfadmin_trust_levels_tab@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/components/admin/settings/site/tabs/SFAdminTrustLevelsTab.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_create_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_user_create_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserCreateDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_email_verification_control",
+      "contractVersion": "sforum.component.admin.sfadmin_user_email_verification_control@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserEmailVerificationControl.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_list_toolbar",
+      "contractVersion": "sforum.component.admin.sfadmin_user_list_toolbar@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserListToolbar.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_nickname_history",
+      "contractVersion": "sforum.component.admin.sfadmin_user_nickname_history@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserNicknameHistory.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_user_preview_modal",
+      "contractVersion": "sforum.component.admin.sfadmin_user_preview_modal@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/identity/users/SFAdminUserPreviewModal.vue"
+    },
+    {
+      "id": "core.component.admin.sfadmin_version_gc_dialog",
+      "contractVersion": "sforum.component.admin.sfadmin_version_gc_dialog@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFAdminVersionGcDialog.vue"
+    },
+    {
+      "id": "core.component.admin.sfextension_settings_actions",
+      "contractVersion": "sforum.component.admin.sfextension_settings_actions@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsActions.vue"
+    },
+    {
+      "id": "core.component.admin.sfextension_settings_callout",
+      "contractVersion": "sforum.component.admin.sfextension_settings_callout@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsCallout.vue"
+    },
+    {
+      "id": "core.component.admin.sfextension_settings_field",
+      "contractVersion": "sforum.component.admin.sfextension_settings_field@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsField.vue"
+    },
+    {
+      "id": "core.component.admin.sfextension_settings_group",
+      "contractVersion": "sforum.component.admin.sfextension_settings_group@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsGroup.vue"
+    },
+    {
+      "id": "core.component.admin.sfextension_settings_renderer",
+      "contractVersion": "sforum.component.admin.sfextension_settings_renderer@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/settings/SFExtensionSettingsRenderer.vue"
+    },
+    {
+      "id": "core.component.admin.sfresource_gauge",
+      "contractVersion": "sforum.component.admin.sfresource_gauge@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/SFResourceGauge.vue"
+    },
+    {
+      "id": "core.component.admin.sfseocontent_types",
+      "contractVersion": "sforum.component.admin.sfseocontent_types@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/seo/tabs/SFSEOContentTypes.vue"
+    },
+    {
+      "id": "core.component.admin.sfseoimage_picker",
+      "contractVersion": "sforum.component.admin.sfseoimage_picker@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/seo/tabs/SFSEOImagePicker.vue"
+    },
+    {
+      "id": "core.component.admin.sfseosearch_appearance",
+      "contractVersion": "sforum.component.admin.sfseosearch_appearance@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/admin/settings/seo/tabs/SFSEOSearchAppearance.vue"
+    },
+    {
+      "id": "core.component.admin.sftrusted_admin_page_component",
+      "contractVersion": "sforum.component.admin.sftrusted_admin_page_component@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/admin/SFTrustedAdminPageComponent.vue"
+    },
+    {
+      "id": "core.component.admin.sftrusted_settings_component",
+      "contractVersion": "sforum.component.admin.sftrusted_settings_component@1",
+      "kind": "component",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/settings/SFTrustedSettingsComponent.vue"
+    },
+    {
+      "id": "core.component.forum.sf_public_sidebar_content",
+      "contractVersion": "sforum.component.forum.sf_public_sidebar_content@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/navigation/SFPublicSidebarContent.vue"
+    },
+    {
+      "id": "core.component.forum.sf_responsive_public_sidebar",
+      "contractVersion": "sforum.component.forum.sf_responsive_public_sidebar@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/navigation/SFResponsivePublicSidebar.vue"
+    },
+    {
+      "id": "core.component.forum.sf_selection_quote_action",
+      "contractVersion": "sforum.component.forum.sf_selection_quote_action@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFSelectionQuoteAction.vue"
+    },
+    {
+      "id": "core.component.notifications.sf_notification_preview",
+      "contractVersion": "sforum.component.notifications.sf_notification_preview@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/notifications/SFNotificationPreview.vue"
+    },
+    {
       "id": "core.component.page.admin",
       "contractVersion": "sforum.component.page.admin@1",
       "kind": "page",
@@ -3764,6 +4354,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/admin/index.vue"
+    },
+    {
+      "id": "core.component.page.admin.ai",
+      "contractVersion": "sforum.component.page.admin.ai@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/ai.vue"
     },
     {
       "id": "core.component.page.admin.attachments",
@@ -3794,6 +4394,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/admin/attachments/settings.vue"
+    },
+    {
+      "id": "core.component.page.admin.badges",
+      "contractVersion": "sforum.component.page.admin.badges@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/badges.vue"
     },
     {
       "id": "core.component.page.admin.database",
@@ -3876,16 +4486,6 @@
       "source": "apps/web/app/pages/admin/extensions/events.vue"
     },
     {
-      "id": "core.component.page.admin.extensions.install",
-      "contractVersion": "sforum.component.page.admin.extensions.install@1",
-      "kind": "page",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/admin/extensions/install.vue"
-    },
-    {
       "id": "core.component.page.admin.extensions.extension.id.pages.page.path",
       "contractVersion": "sforum.component.page.admin.extensions.extension.id.pages.page.path@1",
       "kind": "page",
@@ -3894,6 +4494,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/admin/extensions/[extensionId]/pages/[...pagePath].vue"
+    },
+    {
+      "id": "core.component.page.admin.extensions.install",
+      "contractVersion": "sforum.component.page.admin.extensions.install@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/extensions/install.vue"
     },
     {
       "id": "core.component.page.admin.extensions.navigation.inspector",
@@ -3936,6 +4546,16 @@
       "source": "apps/web/app/pages/admin/extensions/provider-slots.vue"
     },
     {
+      "id": "core.component.page.admin.extensions.query.catalog",
+      "contractVersion": "sforum.component.page.admin.extensions.query.catalog@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/extensions/query-catalog.vue"
+    },
+    {
       "id": "core.component.page.admin.extensions.registry.catalogs",
       "contractVersion": "sforum.component.page.admin.extensions.registry.catalogs@1",
       "kind": "page",
@@ -3946,16 +4566,6 @@
       "source": "apps/web/app/pages/admin/extensions/registry-catalogs.vue"
     },
     {
-      "id": "core.component.page.admin.extensions.route.inspector",
-      "contractVersion": "sforum.component.page.admin.extensions.route.inspector@1",
-      "kind": "page",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/admin/extensions/route-inspector.vue"
-    },
-    {
       "id": "core.component.page.admin.extensions.route.catalog",
       "contractVersion": "sforum.component.page.admin.extensions.route.catalog@1",
       "kind": "page",
@@ -3964,6 +4574,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/admin/extensions/route-catalog.vue"
+    },
+    {
+      "id": "core.component.page.admin.extensions.route.inspector",
+      "contractVersion": "sforum.component.page.admin.extensions.route.inspector@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/admin/extensions/route-inspector.vue"
     },
     {
       "id": "core.component.page.admin.extensions.route.providers",
@@ -4084,6 +4704,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/admin/forum/trust-levels.vue"
+    },
+    {
+      "id": "core.component.page.admin.gamification",
+      "contractVersion": "sforum.component.page.admin.gamification@1",
+      "kind": "page",
+      "owners": [
+        "admin"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/pages/admin/gamification.vue"
     },
     {
       "id": "core.component.page.admin.jobs",
@@ -4256,6 +4886,26 @@
       "source": "apps/web/app/pages/admin/webhooks.vue"
     },
     {
+      "id": "core.component.page.auth.email_verification",
+      "contractVersion": "sforum.component.page.auth.email_verification@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/email-verification.vue"
+    },
+    {
+      "id": "core.component.page.auth.external_continuation",
+      "contractVersion": "sforum.component.page.auth.external_continuation@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/auth/continue.vue"
+    },
+    {
       "id": "core.component.page.auth.forgot_password",
       "contractVersion": "sforum.component.page.auth.forgot_password@1",
       "kind": "page",
@@ -4276,16 +4926,6 @@
       "source": "apps/web/app/pages/login.vue"
     },
     {
-      "id": "core.component.page.auth.external_continuation",
-      "contractVersion": "sforum.component.page.auth.external_continuation@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/auth/continue.vue"
-    },
-    {
       "id": "core.component.page.auth.register",
       "contractVersion": "sforum.component.page.auth.register@1",
       "kind": "page",
@@ -4304,6 +4944,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/reset-password.vue"
+    },
+    {
+      "id": "core.component.page.badges.username",
+      "contractVersion": "sforum.component.page.badges.username@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/pages/badges/[username].vue"
     },
     {
       "id": "core.component.page.dev.components",
@@ -4416,6 +5066,36 @@
       "source": "apps/web/app/pages/search.vue"
     },
     {
+      "id": "core.component.page.forum.settings.appearance",
+      "contractVersion": "sforum.component.page.forum.settings.appearance@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/settings/appearance.vue"
+    },
+    {
+      "id": "core.component.page.forum.settings.login_methods",
+      "contractVersion": "sforum.component.page.forum.settings.login_methods@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/settings/security/login-methods.vue"
+    },
+    {
+      "id": "core.component.page.forum.settings.password",
+      "contractVersion": "sforum.component.page.forum.settings.password@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/settings/security/password.vue"
+    },
+    {
       "id": "core.component.page.forum.settings.profile",
       "contractVersion": "sforum.component.page.forum.settings.profile@1",
       "kind": "page",
@@ -4424,16 +5104,6 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/settings/profile.vue"
-    },
-    {
-      "id": "core.component.page.settings.notifications",
-      "contractVersion": "sforum.component.page.settings.notifications@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/settings/notifications.vue"
     },
     {
       "id": "core.component.page.forum.settings.security",
@@ -4516,6 +5186,26 @@
       "source": "apps/web/app/pages/moderation/index.vue"
     },
     {
+      "id": "core.component.page.settings.content",
+      "contractVersion": "sforum.component.page.settings.content@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/settings/content.vue"
+    },
+    {
+      "id": "core.component.page.settings.notifications",
+      "contractVersion": "sforum.component.page.settings.notifications@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/settings/notifications.vue"
+    },
+    {
       "id": "core.component.page.sf.registry.page",
       "contractVersion": "sforum.component.page.sf.registry.page@1",
       "kind": "page",
@@ -4534,6 +5224,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/guidelines.vue"
+    },
+    {
+      "id": "core.component.page.site.outbound",
+      "contractVersion": "sforum.component.page.site.outbound@1",
+      "kind": "page",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/pages/outbound.vue"
     },
     {
       "id": "core.component.page.site.privacy",
@@ -4556,16 +5256,6 @@
       "source": "apps/web/app/pages/terms.vue"
     },
     {
-      "id": "core.component.page.site.outbound",
-      "contractVersion": "sforum.component.page.site.outbound@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/outbound.vue"
-    },
-    {
       "id": "core.component.page.topics.reply",
       "contractVersion": "sforum.component.page.topics.reply@1",
       "kind": "page",
@@ -4584,6 +5274,86 @@
       ],
       "state": "active",
       "source": "apps/web/app/pages/x/[...path].vue"
+    },
+    {
+      "id": "core.component.public.s_f_badge_chip",
+      "contractVersion": "sforum.component.public.s_f_badge_chip@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFBadgeChip.vue"
+    },
+    {
+      "id": "core.component.public.s_f_comment_author_row",
+      "contractVersion": "sforum.component.public.s_f_comment_author_row@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFCommentAuthorRow.vue"
+    },
+    {
+      "id": "core.component.public.s_f_confirm_dialog",
+      "contractVersion": "sforum.component.public.s_f_confirm_dialog@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFConfirmDialog.vue"
+    },
+    {
+      "id": "core.component.public.s_f_profile_badge_tab",
+      "contractVersion": "sforum.component.public.s_f_profile_badge_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFProfileBadgeTab.vue"
+    },
+    {
+      "id": "core.component.public.s_f_topic_author_block",
+      "contractVersion": "sforum.component.public.s_f_topic_author_block@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFTopicAuthorBlock.vue"
+    },
+    {
+      "id": "core.component.public.s_f_trust_level_badge",
+      "contractVersion": "sforum.component.public.s_f_trust_level_badge@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFTrustLevelBadge.vue"
+    },
+    {
+      "id": "core.component.public.s_f_trust_level_card",
+      "contractVersion": "sforum.component.public.s_f_trust_level_card@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFTrustLevelCard.vue"
+    },
+    {
+      "id": "core.component.public.s_f_trust_level_detail_modal",
+      "contractVersion": "sforum.component.public.s_f_trust_level_detail_modal@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFTrustLevelDetailModal.vue"
     },
     {
       "id": "core.component.shared.author_content_review_status",
@@ -4677,6 +5447,226 @@
       "source": "apps/web/app/components/moderation/ModerationWorkbenchNav.vue"
     },
     {
+      "id": "core.component.shared.sf_badge_card",
+      "contractVersion": "sforum.component.shared.sf_badge_card@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeCard.vue"
+    },
+    {
+      "id": "core.component.shared.sf_badge_catalog_page",
+      "contractVersion": "sforum.component.shared.sf_badge_catalog_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeCatalogPage.vue"
+    },
+    {
+      "id": "core.component.shared.sf_badge_detail_dialog_host",
+      "contractVersion": "sforum.component.shared.sf_badge_detail_dialog_host@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeDetailDialogHost.vue"
+    },
+    {
+      "id": "core.component.shared.sf_badge_wall",
+      "contractVersion": "sforum.component.shared.sf_badge_wall@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "retired",
+      "source": "apps/web/app/components/profile/SFBadgeWall.vue"
+    },
+    {
+      "id": "core.component.shared.sf_celebration_host",
+      "contractVersion": "sforum.component.shared.sf_celebration_host@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/notifications/SFCelebrationHost.vue"
+    },
+    {
+      "id": "core.component.shared.sf_declarative_settings_field",
+      "contractVersion": "sforum.component.shared.sf_declarative_settings_field@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/shared/SFDeclarativeSettingsField.vue"
+    },
+    {
+      "id": "core.component.shared.sf_plugin_page_body_island",
+      "contractVersion": "sforum.component.shared.sf_plugin_page_body_island@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/public/SFPluginPageBodyIsland.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_extension_tab_panel",
+      "contractVersion": "sforum.component.shared.sf_profile_extension_tab_panel@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/SFProfileExtensionTabPanel.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_identity_tab",
+      "contractVersion": "sforum.component.shared.sf_profile_identity_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/tabs/SFProfileIdentityTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_links_tab",
+      "contractVersion": "sforum.component.shared.sf_profile_links_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/tabs/SFProfileLinksTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_settings_footer",
+      "contractVersion": "sforum.component.shared.sf_profile_settings_footer@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/SFProfileSettingsFooter.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_settings_tab_nav",
+      "contractVersion": "sforum.component.shared.sf_profile_settings_tab_nav@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFProfileSettingsTabNav.vue"
+    },
+    {
+      "id": "core.component.shared.sf_profile_story_tab",
+      "contractVersion": "sforum.component.shared.sf_profile_story_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/profile/tabs/SFProfileStoryTab.vue"
+    },
+    {
+      "id": "core.component.shared.sf_public_schema_view",
+      "contractVersion": "sforum.component.shared.sf_public_schema_view@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/public/SFPublicSchemaView.vue"
+    },
+    {
+      "id": "core.component.shared.sf_reaction_control",
+      "contractVersion": "sforum.component.shared.sf_reaction_control@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFReactionControl.vue"
+    },
+    {
+      "id": "core.component.shared.sf_reaction_roster",
+      "contractVersion": "sforum.component.shared.sf_reaction_roster@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFReactionRoster.vue"
+    },
+    {
+      "id": "core.component.shared.sf_reaction_stack",
+      "contractVersion": "sforum.component.shared.sf_reaction_stack@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFReactionStack.vue"
+    },
+    {
+      "id": "core.component.shared.sf_registry_page_body",
+      "contractVersion": "sforum.component.shared.sf_registry_page_body@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/public/SFRegistryPageBody.vue"
+    },
+    {
+      "id": "core.component.shared.sf_registry_page_shell",
+      "contractVersion": "sforum.component.shared.sf_registry_page_shell@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/extensions/public/SFRegistryPageShell.vue"
+    },
+    {
+      "id": "core.component.shared.sf_settings_tab_nav",
+      "contractVersion": "sforum.component.shared.sf_settings_tab_nav@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFSettingsTabNav.vue"
+    },
+    {
+      "id": "core.component.shared.sf_topic_mobile_info_drawer",
+      "contractVersion": "sforum.component.shared.sf_topic_mobile_info_drawer@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFTopicMobileInfoDrawer.vue"
+    },
+    {
+      "id": "core.component.shared.sf_topic_reaction_bar",
+      "contractVersion": "sforum.component.shared.sf_topic_reaction_bar@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFTopicReactionBar.vue"
+    },
+    {
       "id": "core.component.shared.sf_topic_reply_composer",
       "contractVersion": "sforum.component.shared.sf_topic_reply_composer@1",
       "kind": "component",
@@ -4695,6 +5685,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/forum/SFTopicReplyPage.vue"
+    },
+    {
+      "id": "core.component.shared.sf_user_identity_name",
+      "contractVersion": "sforum.component.shared.sf_user_identity_name@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFUserIdentityName.vue"
     },
     {
       "id": "core.component.shared.sfalert",
@@ -4729,6 +5729,16 @@
       "source": "apps/web/app/components/errors/SFApiConnectionModal.vue"
     },
     {
+      "id": "core.component.shared.sfappearance_settings_page",
+      "contractVersion": "sforum.component.shared.sfappearance_settings_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFAppearanceSettingsPage.vue"
+    },
+    {
       "id": "core.component.shared.sfauth_provider_buttons",
       "contractVersion": "sforum.component.shared.sfauth_provider_buttons@1",
       "kind": "component",
@@ -4737,6 +5747,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/identity/SFAuthProviderButtons.vue"
+    },
+    {
+      "id": "core.component.shared.sfauth_shell",
+      "contractVersion": "sforum.component.shared.sfauth_shell@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/identity/auth/SFAuthShell.vue"
     },
     {
       "id": "core.component.shared.sfavatar",
@@ -4771,6 +5791,36 @@
       "source": "apps/web/app/components/SFBadge.vue"
     },
     {
+      "id": "core.component.shared.sfbadgedetailbody",
+      "contractVersion": "sforum.component.shared.sfbadgedetailbody@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeDetailBody.vue"
+    },
+    {
+      "id": "core.component.shared.sfbadgedetailmodal",
+      "contractVersion": "sforum.component.shared.sfbadgedetailmodal@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/badges/SFBadgeDetailModal.vue"
+    },
+    {
+      "id": "core.component.shared.sfbookmark_control",
+      "contractVersion": "sforum.component.shared.sfbookmark_control@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFBookmarkControl.vue"
+    },
+    {
       "id": "core.component.shared.sfbutton",
       "contractVersion": "sforum.component.shared.sfbutton@1",
       "kind": "component",
@@ -4803,6 +5853,16 @@
       "source": "apps/web/app/components/forum/SFCategoryIndexPage.vue"
     },
     {
+      "id": "core.component.shared.sfcategory_navigation_block",
+      "contractVersion": "sforum.component.shared.sfcategory_navigation_block@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/navigation/SFCategoryNavigationBlock.vue"
+    },
+    {
       "id": "core.component.shared.sfcategory_select",
       "contractVersion": "sforum.component.shared.sfcategory_select@1",
       "kind": "component",
@@ -4833,6 +5893,16 @@
       "source": "apps/web/app/components/forum/SFComment.vue"
     },
     {
+      "id": "core.component.shared.sfcomment_citations",
+      "contractVersion": "sforum.component.shared.sfcomment_citations@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFCommentAIActivity.vue"
+    },
+    {
       "id": "core.component.shared.sfcomment_stream_controls",
       "contractVersion": "sforum.component.shared.sfcomment_stream_controls@1",
       "kind": "component",
@@ -4841,6 +5911,26 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/forum/SFCommentStreamControls.vue"
+    },
+    {
+      "id": "core.component.shared.sfcomment_stream_notice",
+      "contractVersion": "sforum.component.shared.sfcomment_stream_notice@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFCommentStreamNotice.vue"
+    },
+    {
+      "id": "core.component.shared.sfcomment_user_preview",
+      "contractVersion": "sforum.component.shared.sfcomment_user_preview@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFCommentUserPreview.vue"
     },
     {
       "id": "core.component.shared.sfcontent_column_footer",
@@ -4853,6 +5943,16 @@
       "source": "apps/web/app/components/forum/SFContentColumnFooter.vue"
     },
     {
+      "id": "core.component.shared.sfcontent_review_page",
+      "contractVersion": "sforum.component.shared.sfcontent_review_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFContentReviewPage.vue"
+    },
+    {
       "id": "core.component.shared.sfeditor",
       "contractVersion": "sforum.component.shared.sfeditor@1",
       "kind": "component",
@@ -4863,6 +5963,46 @@
       "source": "apps/web/app/components/SFEditor.vue"
     },
     {
+      "id": "core.component.shared.sfeditor_image_menu",
+      "contractVersion": "sforum.component.shared.sfeditor_image_menu@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/editor/SFEditorImageMenu.vue"
+    },
+    {
+      "id": "core.component.shared.sfeditor_image_upload_modal",
+      "contractVersion": "sforum.component.shared.sfeditor_image_upload_modal@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/editor/SFEditorImageUploadModal.vue"
+    },
+    {
+      "id": "core.component.shared.sfeditor_table_menu",
+      "contractVersion": "sforum.component.shared.sfeditor_table_menu@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/editor/SFEditorTableMenu.vue"
+    },
+    {
+      "id": "core.component.shared.sfeditor_table_picker",
+      "contractVersion": "sforum.component.shared.sfeditor_table_picker@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/editor/SFEditorTablePicker.vue"
+    },
+    {
       "id": "core.component.shared.sfeditor_toolbar",
       "contractVersion": "sforum.component.shared.sfeditor_toolbar@1",
       "kind": "component",
@@ -4871,6 +6011,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/editor/SFEditorToolbar.vue"
+    },
+    {
+      "id": "core.component.shared.sfemail_verification_page",
+      "contractVersion": "sforum.component.shared.sfemail_verification_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/identity/SFEmailVerificationPage.vue"
     },
     {
       "id": "core.component.shared.sfempty_state",
@@ -4912,6 +6062,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/SFExtensionWidget.vue"
+    },
+    {
+      "id": "core.component.shared.sfexternal_auth_continuation_page",
+      "contractVersion": "sforum.component.shared.sfexternal_auth_continuation_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/identity/SFExternalAuthContinuationPage.vue"
     },
     {
       "id": "core.component.shared.sffeed_row",
@@ -5035,6 +6195,16 @@
       "source": "apps/web/app/components/identity/SFLinkedAccountsSection.vue"
     },
     {
+      "id": "core.component.shared.sflocal_password_settings_page",
+      "contractVersion": "sforum.component.shared.sflocal_password_settings_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFLocalPasswordSettingsPage.vue"
+    },
+    {
       "id": "core.component.shared.sflogin_form_page",
       "contractVersion": "sforum.component.shared.sflogin_form_page@1",
       "kind": "component",
@@ -5045,14 +6215,34 @@
       "source": "apps/web/app/components/identity/SFLoginFormPage.vue"
     },
     {
-      "id": "core.component.shared.sfexternal_auth_continuation_page",
-      "contractVersion": "sforum.component.shared.sfexternal_auth_continuation_page@1",
+      "id": "core.component.shared.sflogin_methods_settings_page",
+      "contractVersion": "sforum.component.shared.sflogin_methods_settings_page@1",
       "kind": "component",
       "owners": [
         "public"
       ],
       "state": "active",
-      "source": "apps/web/app/components/identity/SFExternalAuthContinuationPage.vue"
+      "source": "apps/web/app/components/settings/SFLoginMethodsSettingsPage.vue"
+    },
+    {
+      "id": "core.component.shared.sfmention_content",
+      "contractVersion": "sforum.component.shared.sfmention_content@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFMentionContent.vue"
+    },
+    {
+      "id": "core.component.shared.sfmobile_sidebar_content",
+      "contractVersion": "sforum.component.shared.sfmobile_sidebar_content@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/navigation/SFMobileSidebarContent.vue"
     },
     {
       "id": "core.component.shared.sfmoderation_review_page",
@@ -5135,6 +6325,26 @@
       "source": "apps/web/app/components/notifications/detail/SFNotificationDetailPage.vue"
     },
     {
+      "id": "core.component.shared.sfnotification_settings_page",
+      "contractVersion": "sforum.component.shared.sfnotification_settings_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFNotificationSettingsPage.vue"
+    },
+    {
+      "id": "core.component.shared.sfnotification_type_nav",
+      "contractVersion": "sforum.component.shared.sfnotification_type_nav@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/notifications/SFNotificationTypeNav.vue"
+    },
+    {
       "id": "core.component.shared.sfnotifications_page",
       "contractVersion": "sforum.component.shared.sfnotifications_page@1",
       "kind": "component",
@@ -5143,6 +6353,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/notifications/SFNotificationsPage.vue"
+    },
+    {
+      "id": "core.component.shared.sfoutbound_interstitial",
+      "contractVersion": "sforum.component.shared.sfoutbound_interstitial@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/outbound/SFOutboundInterstitial.vue"
     },
     {
       "id": "core.component.shared.sfpage_outlet",
@@ -5186,6 +6406,16 @@
       "source": "apps/web/app/components/SFPagination.vue"
     },
     {
+      "id": "core.component.shared.sfpersonal_access_tokens_page",
+      "contractVersion": "sforum.component.shared.sfpersonal_access_tokens_page@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFPersonalAccessTokensPage.vue"
+    },
+    {
       "id": "core.component.shared.sfprivacy_page",
       "contractVersion": "sforum.component.shared.sfprivacy_page@1",
       "kind": "component",
@@ -5194,6 +6424,36 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/legal/SFPrivacyPage.vue"
+    },
+    {
+      "id": "core.component.shared.sfprofile_bookmark_tab",
+      "contractVersion": "sforum.component.shared.sfprofile_bookmark_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFProfileBookmarkTab.vue"
+    },
+    {
+      "id": "core.component.shared.sfprofile_feed_tab",
+      "contractVersion": "sforum.component.shared.sfprofile_feed_tab@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/profile/SFProfileFeedTab.vue"
+    },
+    {
+      "id": "core.component.shared.sfprofile_nickname_field",
+      "contractVersion": "sforum.component.shared.sfprofile_nickname_field@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFProfileNicknameField.vue"
     },
     {
       "id": "core.component.shared.sfprofile_right_rail",
@@ -5226,16 +6486,6 @@
       "source": "apps/web/app/components/settings/SFProfileSettingsPreview.vue"
     },
     {
-      "id": "core.component.shared.sfprofile_nickname_field",
-      "contractVersion": "sforum.component.shared.sfprofile_nickname_field@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFProfileNicknameField.vue"
-    },
-    {
       "id": "core.component.shared.sfprofile_show_page",
       "contractVersion": "sforum.component.shared.sfprofile_show_page@1",
       "kind": "component",
@@ -5257,6 +6507,76 @@
       "source": "apps/web/app/components/SFProgress.vue"
     },
     {
+      "id": "core.component.shared.sfpublic_mobile_bottom_navigation",
+      "contractVersion": "sforum.component.shared.sfpublic_mobile_bottom_navigation@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/navigation/SFPublicMobileBottomNavigation.vue"
+    },
+    {
+      "id": "core.component.shared.sfpublic_mobile_navigation",
+      "contractVersion": "sforum.component.shared.sfpublic_mobile_navigation@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/navigation/SFPublicMobileNavigation.vue"
+    },
+    {
+      "id": "core.component.shared.sfpublic_mobile_right_drawer_header",
+      "contractVersion": "sforum.component.shared.sfpublic_mobile_right_drawer_header@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/navigation/SFPublicMobileRightDrawerHeader.vue"
+    },
+    {
+      "id": "core.component.shared.sfpublic_mobile_search_bar",
+      "contractVersion": "sforum.component.shared.sfpublic_mobile_search_bar@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/navigation/SFPublicMobileSearchBar.vue"
+    },
+    {
+      "id": "core.component.shared.sfpublic_mobile_user_menu",
+      "contractVersion": "sforum.component.shared.sfpublic_mobile_user_menu@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/navigation/SFPublicMobileUserMenu.vue"
+    },
+    {
+      "id": "core.component.shared.sfpublic_navigation_links",
+      "contractVersion": "sforum.component.shared.sfpublic_navigation_links@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/navigation/SFPublicNavigationLinks.vue"
+    },
+    {
+      "id": "core.component.shared.sfpublic_page_header",
+      "contractVersion": "sforum.component.shared.sfpublic_page_header@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/public/SFPublicPageHeader.vue"
+    },
+    {
       "id": "core.component.shared.sfrecovery_confirm_page",
       "contractVersion": "sforum.component.shared.sfrecovery_confirm_page@1",
       "kind": "component",
@@ -5275,6 +6595,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/identity/SFRecoveryRequestPage.vue"
+    },
+    {
+      "id": "core.component.shared.sfrecovery_shell",
+      "contractVersion": "sforum.component.shared.sfrecovery_shell@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/identity/recovery/SFRecoveryShell.vue"
     },
     {
       "id": "core.component.shared.sfregion_outlet",
@@ -5327,16 +6657,6 @@
       "source": "apps/web/app/components/settings/SFSecuritySettingsPage.vue"
     },
     {
-      "id": "core.component.shared.sfpersonal_access_tokens_page",
-      "contractVersion": "sforum.component.shared.sfpersonal_access_tokens_page@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFPersonalAccessTokensPage.vue"
-    },
-    {
       "id": "core.component.shared.sfsettings_account_nav",
       "contractVersion": "sforum.component.shared.sfsettings_account_nav@1",
       "kind": "component",
@@ -5357,6 +6677,16 @@
       "source": "apps/web/app/components/settings/SFSettingsAccountSidebar.vue"
     },
     {
+      "id": "core.component.shared.sfsettings_security_tab_nav",
+      "contractVersion": "sforum.component.shared.sfsettings_security_tab_nav@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/settings/SFSettingsSecurityTabNav.vue"
+    },
+    {
       "id": "core.component.shared.sfsettings_shell",
       "contractVersion": "sforum.component.shared.sfsettings_shell@1",
       "kind": "component",
@@ -5367,24 +6697,34 @@
       "source": "apps/web/app/components/settings/SFSettingsShell.vue"
     },
     {
-      "id": "core.component.shared.sfnotification_settings_page",
-      "contractVersion": "sforum.component.shared.sfnotification_settings_page@1",
+      "id": "core.component.shared.sfshortcode_protected_node_view",
+      "contractVersion": "sforum.component.shared.sfshortcode_protected_node_view@1",
       "kind": "component",
       "owners": [
         "public"
       ],
       "state": "active",
-      "source": "apps/web/app/components/settings/SFNotificationSettingsPage.vue"
+      "source": "apps/web/app/components/editor/shortcodes/SFShortcodeProtectedNodeView.vue"
     },
     {
-      "id": "core.component.shared.sfweb_push_settings_section",
-      "contractVersion": "sforum.component.shared.sfweb_push_settings_section@1",
+      "id": "core.component.shared.sfshortcode_reference_dialog",
+      "contractVersion": "sforum.component.shared.sfshortcode_reference_dialog@1",
       "kind": "component",
       "owners": [
         "public"
       ],
       "state": "active",
-      "source": "apps/web/app/components/settings/SFWebPushSettingsSection.vue"
+      "source": "apps/web/app/components/editor/shortcodes/SFShortcodeReferenceDialog.vue"
+    },
+    {
+      "id": "core.component.shared.sfshortcode_reference_node_view",
+      "contractVersion": "sforum.component.shared.sfshortcode_reference_node_view@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/editor/shortcodes/SFShortcodeReferenceNodeView.vue"
     },
     {
       "id": "core.component.shared.sfskeleton",
@@ -5398,16 +6738,6 @@
       "source": "apps/web/app/components/SFSkeleton.vue"
     },
     {
-      "id": "core.component.shared.sfsystem_error_bootstrap_fallback",
-      "contractVersion": "sforum.component.shared.sfsystem_error_bootstrap_fallback@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/errors/SFSystemErrorBootstrapFallback.vue"
-    },
-    {
       "id": "core.component.shared.sfsystem_error_actions",
       "contractVersion": "sforum.component.shared.sfsystem_error_actions@1",
       "kind": "component",
@@ -5416,6 +6746,16 @@
       ],
       "state": "active",
       "source": "apps/web/app/components/errors/SFSystemErrorActions.vue"
+    },
+    {
+      "id": "core.component.shared.sfsystem_error_bootstrap_fallback",
+      "contractVersion": "sforum.component.shared.sfsystem_error_bootstrap_fallback@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/errors/SFSystemErrorBootstrapFallback.vue"
     },
     {
       "id": "core.component.shared.sfsystem_error_details",
@@ -5611,6 +6951,16 @@
       "source": "apps/web/app/components/forum/SFTopicActionMenu.vue"
     },
     {
+      "id": "core.component.shared.sftopic_comment_composer_drawer",
+      "contractVersion": "sforum.component.shared.sftopic_comment_composer_drawer@1",
+      "kind": "component",
+      "owners": [
+        "public"
+      ],
+      "state": "active",
+      "source": "apps/web/app/components/forum/SFTopicCommentComposerDrawer.vue"
+    },
+    {
       "id": "core.component.shared.sftopic_composer_left_rail",
       "contractVersion": "sforum.component.shared.sftopic_composer_left_rail@1",
       "kind": "component",
@@ -5711,526 +7061,6 @@
       "source": "apps/web/app/components/forum/SFTopicSideCard.vue"
     },
     {
-      "id": "core.component.admin.sfadmin_overview_runtime_card",
-      "contractVersion": "sforum.component.admin.sfadmin_overview_runtime_card@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminOverviewRuntimeCard.vue"
-    },
-    {
-      "id": "core.component.admin.sfresource_gauge",
-      "contractVersion": "sforum.component.admin.sfresource_gauge@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFResourceGauge.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_overview_resource_cards",
-      "contractVersion": "sforum.component.admin.sfadmin_overview_resource_cards@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminOverviewResourceCards.vue"
-    },
-    {
-      "id": "core.component.notifications.sf_notification_preview",
-      "contractVersion": "sforum.component.notifications.sf_notification_preview@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/notifications/SFNotificationPreview.vue"
-    },
-    {
-      "id": "core.component.forum.sf_public_sidebar_content",
-      "contractVersion": "sforum.component.forum.sf_public_sidebar_content@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/navigation/SFPublicSidebarContent.vue"
-    },
-    {
-      "id": "core.component.forum.sf_responsive_public_sidebar",
-      "contractVersion": "sforum.component.forum.sf_responsive_public_sidebar@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/navigation/SFResponsivePublicSidebar.vue"
-    },
-    {
-      "id": "core.component.forum.sf_selection_quote_action",
-      "contractVersion": "sforum.component.forum.sf_selection_quote_action@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFSelectionQuoteAction.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_role_approvals_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_role_approvals_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/roles/tabs/SFAdminRoleApprovalsTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_role_groups_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_role_groups_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/roles/tabs/SFAdminRoleGroupsTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_user_list_toolbar",
-      "contractVersion": "sforum.component.admin.sfadmin_user_list_toolbar@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserListToolbar.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_user_preview_modal",
-      "contractVersion": "sforum.component.admin.sfadmin_user_preview_modal@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserPreviewModal.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_user_create_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_user_create_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserCreateDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_user_nickname_history",
-      "contractVersion": "sforum.component.admin.sfadmin_user_nickname_history@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserNicknameHistory.vue"
-    },
-    {
-      "id": "core.component.shared.sfcategory_navigation_block",
-      "contractVersion": "sforum.component.shared.sfcategory_navigation_block@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/navigation/SFCategoryNavigationBlock.vue"
-    },
-    {
-      "id": "core.component.shared.sfeditor_image_menu",
-      "contractVersion": "sforum.component.shared.sfeditor_image_menu@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/SFEditorImageMenu.vue"
-    },
-    {
-      "id": "core.component.shared.sfeditor_table_menu",
-      "contractVersion": "sforum.component.shared.sfeditor_table_menu@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/SFEditorTableMenu.vue"
-    },
-    {
-      "id": "core.component.shared.sfeditor_table_picker",
-      "contractVersion": "sforum.component.shared.sfeditor_table_picker@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/SFEditorTablePicker.vue"
-    },
-    {
-      "id": "core.component.shared.sfeditor_image_upload_modal",
-      "contractVersion": "sforum.component.shared.sfeditor_image_upload_modal@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/SFEditorImageUploadModal.vue"
-    },
-    {
-      "id": "core.component.shared.sfshortcode_reference_dialog",
-      "contractVersion": "sforum.component.shared.sfshortcode_reference_dialog@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/shortcodes/SFShortcodeReferenceDialog.vue"
-    },
-    {
-      "id": "core.component.shared.sfshortcode_reference_node_view",
-      "contractVersion": "sforum.component.shared.sfshortcode_reference_node_view@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/shortcodes/SFShortcodeReferenceNodeView.vue"
-    },
-    {
-      "id": "core.component.shared.sfshortcode_protected_node_view",
-      "contractVersion": "sforum.component.shared.sfshortcode_protected_node_view@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/editor/shortcodes/SFShortcodeProtectedNodeView.vue"
-    },
-    {
-      "id": "core.component.shared.sfmobile_sidebar_content",
-      "contractVersion": "sforum.component.shared.sfmobile_sidebar_content@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/navigation/SFMobileSidebarContent.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_brand_asset_field",
-      "contractVersion": "sforum.component.admin.sfadmin_brand_asset_field@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/personalization/SFAdminBrandAssetField.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_navigation_location_list",
-      "contractVersion": "sforum.component.admin.sfadmin_navigation_location_list@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/personalization/SFAdminNavigationLocationList.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_navigation_defaults_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_navigation_defaults_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationDefaultsDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_navigation_history",
-      "contractVersion": "sforum.component.admin.sfadmin_navigation_history@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationHistory.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_navigation_import_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_navigation_import_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationImportDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_navigation_recovery_panel",
-      "contractVersion": "sforum.component.admin.sfadmin_navigation_recovery_panel@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/personalization/navigation/SFAdminNavigationRecoveryPanel.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_system_update_prompt",
-      "contractVersion": "sforum.component.admin.sfadmin_system_update_prompt@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/system/SFAdminSystemUpdatePrompt.vue"
-    },
-    {
-      "id": "core.component.shared.sfcomment_user_preview",
-      "contractVersion": "sforum.component.shared.sfcomment_user_preview@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFCommentUserPreview.vue"
-    },
-    {
-      "id": "core.component.shared.sftopic_comment_composer_drawer",
-      "contractVersion": "sforum.component.shared.sftopic_comment_composer_drawer@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFTopicCommentComposerDrawer.vue"
-    },
-    {
-      "id": "core.component.shared.sfauth_shell",
-      "contractVersion": "sforum.component.shared.sfauth_shell@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/identity/auth/SFAuthShell.vue"
-    },
-    {
-      "id": "core.component.shared.sfrecovery_shell",
-      "contractVersion": "sforum.component.shared.sfrecovery_shell@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/identity/recovery/SFRecoveryShell.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_mobile_bottom_navigation",
-      "contractVersion": "sforum.component.shared.sfpublic_mobile_bottom_navigation@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/navigation/SFPublicMobileBottomNavigation.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_mobile_navigation",
-      "contractVersion": "sforum.component.shared.sfpublic_mobile_navigation@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/navigation/SFPublicMobileNavigation.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_mobile_search_bar",
-      "contractVersion": "sforum.component.shared.sfpublic_mobile_search_bar@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/navigation/SFPublicMobileSearchBar.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_navigation_links",
-      "contractVersion": "sforum.component.shared.sfpublic_navigation_links@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/navigation/SFPublicNavigationLinks.vue"
-    },
-    {
-      "id": "core.component.shared.sfnotification_type_nav",
-      "contractVersion": "sforum.component.shared.sfnotification_type_nav@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/notifications/SFNotificationTypeNav.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_page_header",
-      "contractVersion": "sforum.component.shared.sfpublic_page_header@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/public/SFPublicPageHeader.vue"
-    },
-    {
-      "id": "core.component.shared.sfappearance_settings_page",
-      "contractVersion": "sforum.component.shared.sfappearance_settings_page@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFAppearanceSettingsPage.vue"
-    },
-    {
-      "id": "core.component.shared.sflocal_password_settings_page",
-      "contractVersion": "sforum.component.shared.sflocal_password_settings_page@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFLocalPasswordSettingsPage.vue"
-    },
-    {
-      "id": "core.component.shared.sflogin_methods_settings_page",
-      "contractVersion": "sforum.component.shared.sflogin_methods_settings_page@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFLoginMethodsSettingsPage.vue"
-    },
-    {
-      "id": "core.component.page.forum.settings.appearance",
-      "contractVersion": "sforum.component.page.forum.settings.appearance@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/settings/appearance.vue"
-    },
-    {
-      "id": "core.component.page.forum.settings.login_methods",
-      "contractVersion": "sforum.component.page.forum.settings.login_methods@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/settings/security/login-methods.vue"
-    },
-    {
-      "id": "core.component.page.forum.settings.password",
-      "contractVersion": "sforum.component.page.forum.settings.password@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/settings/security/password.vue"
-    },
-    {
-      "id": "core.component.page.auth.email_verification",
-      "contractVersion": "sforum.component.page.auth.email_verification@1",
-      "kind": "page",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/email-verification.vue"
-    },
-    {
-      "id": "core.component.shared.sfemail_verification_page",
-      "contractVersion": "sforum.component.shared.sfemail_verification_page@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/identity/SFEmailVerificationPage.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_user_email_verification_control",
-      "contractVersion": "sforum.component.admin.sfadmin_user_email_verification_control@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserEmailVerificationControl.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_mobile_right_drawer_header",
-      "contractVersion": "sforum.component.shared.sfpublic_mobile_right_drawer_header@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/navigation/SFPublicMobileRightDrawerHeader.vue"
-    },
-    {
-      "id": "core.component.shared.sfpublic_mobile_user_menu",
-      "contractVersion": "sforum.component.shared.sfpublic_mobile_user_menu@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/navigation/SFPublicMobileUserMenu.vue"
-    },
-    {
-      "id": "core.component.page.admin.ai",
-      "contractVersion": "sforum.component.page.admin.ai@1",
-      "kind": "page",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/admin/ai.vue"
-    },
-    {
-      "id": "core.component.shared.sfmention_content",
-      "contractVersion": "sforum.component.shared.sfmention_content@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFMentionContent.vue"
-    },
-    {
       "id": "core.component.shared.sfuser_mention_preview",
       "contractVersion": "sforum.component.shared.sfuser_mention_preview@1",
       "kind": "component",
@@ -6241,824 +7071,14 @@
       "source": "apps/web/app/components/forum/SFUserMentionPreview.vue"
     },
     {
-      "id": "core.component.shared.sf_user_identity_name",
-      "contractVersion": "sforum.component.shared.sf_user_identity_name@1",
+      "id": "core.component.shared.sfweb_push_settings_section",
+      "contractVersion": "sforum.component.shared.sfweb_push_settings_section@1",
       "kind": "component",
       "owners": [
         "public"
       ],
       "state": "active",
-      "source": "apps/web/app/components/forum/SFUserIdentityName.vue"
-    },
-    {
-      "id": "core.component.shared.sfcomment_stream_notice",
-      "contractVersion": "sforum.component.shared.sfcomment_stream_notice@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFCommentStreamNotice.vue"
-    },
-    {
-      "id": "core.component.shared.sfoutbound_interstitial",
-      "contractVersion": "sforum.component.shared.sfoutbound_interstitial@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/outbound/SFOutboundInterstitial.vue"
-    },
-    {
-      "id": "core.component.shared.sf_plugin_page_body_island",
-      "contractVersion": "sforum.component.shared.sf_plugin_page_body_island@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/extensions/public/SFPluginPageBodyIsland.vue"
-    },
-    {
-      "id": "core.component.shared.sf_public_schema_view",
-      "contractVersion": "sforum.component.shared.sf_public_schema_view@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/extensions/public/SFPublicSchemaView.vue"
-    },
-    {
-      "id": "core.component.shared.sfsettings_security_tab_nav",
-      "contractVersion": "sforum.component.shared.sfsettings_security_tab_nav@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFSettingsSecurityTabNav.vue"
-    },
-    {
-      "id": "core.component.page.admin.extensions.query.catalog",
-      "contractVersion": "sforum.component.page.admin.extensions.query.catalog@1",
-      "kind": "page",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/admin/extensions/query-catalog.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_query_catalog_table",
-      "contractVersion": "sforum.component.admin.sf_admin_query_catalog_table@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminQueryCatalogTable.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_ai_run_timeline",
-      "contractVersion": "sforum.component.admin.sf_admin_ai_run_timeline@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/ai/blocks/SFAdminAIRunTimeline.vue"
-    },
-    {
-      "id": "core.component.shared.sfcomment_citations",
-      "contractVersion": "sforum.component.shared.sfcomment_citations@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFCommentAIActivity.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_extension_host_actions_notice",
-      "contractVersion": "sforum.component.admin.sfadmin_extension_host_actions_notice@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/SFAdminExtensionHostActionsNotice.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_page_install_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_page_install_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/extensions/admin/SFAdminPageInstallDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_extension_identity",
-      "contractVersion": "sforum.component.admin.sf_admin_extension_identity@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionIdentity.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_extension_update_badges",
-      "contractVersion": "sforum.component.admin.sf_admin_extension_update_badges@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateBadges.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_extension_primary_action",
-      "contractVersion": "sforum.component.admin.sf_admin_extension_primary_action@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionPrimaryAction.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_extension_update_state",
-      "contractVersion": "sforum.component.admin.sf_admin_extension_update_state@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/extensions/SFAdminExtensionUpdateState.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_account_section",
-      "contractVersion": "sforum.component.admin.sf_admin_user_account_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserAccountSection.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_detail_drawer",
-      "contractVersion": "sforum.component.admin.sf_admin_user_detail_drawer@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserDetailDrawer.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_permissions_section",
-      "contractVersion": "sforum.component.admin.sf_admin_user_permissions_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserPermissionsSection.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_profile_section",
-      "contractVersion": "sforum.component.admin.sf_admin_user_profile_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserProfileSection.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_roles_section",
-      "contractVersion": "sforum.component.admin.sf_admin_user_roles_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserRolesSection.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_security_section",
-      "contractVersion": "sforum.component.admin.sf_admin_user_security_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserSecuritySection.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_user_table",
-      "contractVersion": "sforum.component.admin.sf_admin_user_table@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/identity/users/SFAdminUserTable.vue"
-    },
-    {
-      "id": "core.component.shared.sf_reaction_control",
-      "contractVersion": "sforum.component.shared.sf_reaction_control@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFReactionControl.vue"
-    },
-    {
-      "id": "core.component.shared.sf_reaction_roster",
-      "contractVersion": "sforum.component.shared.sf_reaction_roster@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFReactionRoster.vue"
-    },
-    {
-      "id": "core.component.shared.sf_reaction_stack",
-      "contractVersion": "sforum.component.shared.sf_reaction_stack@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFReactionStack.vue"
-    },
-    {
-      "id": "core.component.shared.sf_topic_reaction_bar",
-      "contractVersion": "sforum.component.shared.sf_topic_reaction_bar@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFTopicReactionBar.vue"
-    },
-    {
-      "id": "core.component.shared.sfbookmark_control",
-      "contractVersion": "sforum.component.shared.sfbookmark_control@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFBookmarkControl.vue"
-    },
-    {
-      "id": "core.component.shared.sfprofile_bookmark_tab",
-      "contractVersion": "sforum.component.shared.sfprofile_bookmark_tab@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/profile/SFProfileBookmarkTab.vue"
-    },
-    {
-      "id": "core.component.shared.sfprofile_feed_tab",
-      "contractVersion": "sforum.component.shared.sfprofile_feed_tab@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/profile/SFProfileFeedTab.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_table",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_table@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTable.vue"
-    },
-    {
-      "id": "core.component.public.s_f_badge_chip",
-      "contractVersion": "sforum.component.public.s_f_badge_chip@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFBadgeChip.vue"
-    },
-    {
-      "id": "core.component.public.s_f_profile_badge_tab",
-      "contractVersion": "sforum.component.public.s_f_profile_badge_tab@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/profile/SFProfileBadgeTab.vue"
-    },
-    {
-      "id": "core.component.public.s_f_trust_level_card",
-      "contractVersion": "sforum.component.public.s_f_trust_level_card@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/profile/SFTrustLevelCard.vue"
-    },
-    {
-      "id": "core.component.public.s_f_trust_level_badge",
-      "contractVersion": "sforum.component.public.s_f_trust_level_badge@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/profile/SFTrustLevelBadge.vue"
-    },
-    {
-      "id": "core.component.public.s_f_trust_level_detail_modal",
-      "contractVersion": "sforum.component.public.s_f_trust_level_detail_modal@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/profile/SFTrustLevelDetailModal.vue"
-    },
-    {
-      "id": "core.component.page.admin.badges",
-      "contractVersion": "sforum.component.page.admin.badges@1",
-      "kind": "page",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/pages/admin/badges.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_edit_dialog",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_edit_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeEditDialog.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_grant_dialog",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_grant_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeGrantDialog.vue"
-    },
-    {
-      "id": "core.component.public.s_f_topic_author_block",
-      "contractVersion": "sforum.component.public.s_f_topic_author_block@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFTopicAuthorBlock.vue"
-    },
-    {
-      "id": "core.component.public.s_f_comment_author_row",
-      "contractVersion": "sforum.component.public.s_f_comment_author_row@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/SFCommentAuthorRow.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_appearance_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearanceDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_appearance_preview",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_appearance_preview@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelAppearancePreview.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_color_field",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_color_field@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelColorField.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_tier_row",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_row@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierRow.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_tier_confirm_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_tier_confirm_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelTierConfirmDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_limits_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_limits_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/tabs/SFAdminTrustLevelLimitsTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_rule_section",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleSection.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_trust_level_rule_impact_dialog",
-      "contractVersion": "sforum.component.admin.sfadmin_trust_level_rule_impact_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/forum/trust-levels/SFAdminTrustLevelRuleImpactDialog.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_badges_badges_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_badges_badges_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesBadgesTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_badges_grants_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_badges_grants_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGrantsTab.vue"
-    },
-    {
-      "id": "core.component.admin.sfadmin_badges_groups_tab",
-      "contractVersion": "sforum.component.admin.sfadmin_badges_groups_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesGroupsTab.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_tier_color_field",
-      "contractVersion": "sforum.component.admin.s_f_admin_tier_color_field@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/shared/SFAdminTierColorField.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_user_picker",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_user_picker@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeUserPicker.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_tier_dialog",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDialog.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_icon_field",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_icon_field@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeIconField.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_tier_delete_dialog",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_tier_delete_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeTierDeleteDialog.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_section",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_section@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleSection.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badges_tiers_tab",
-      "contractVersion": "sforum.component.admin.s_f_admin_badges_tiers_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/tabs/SFAdminBadgesTiersTab.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_editor",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_editor@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/rules/SFAdminRuleEditor.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_group",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_group@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/rules/SFAdminRuleGroup.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_leaf",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_leaf@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/rules/SFAdminRuleLeaf.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_param_field",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_param_field@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/rules/SFAdminRuleParamField.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_simple_form",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_simple_form@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/rules/SFAdminRuleSimpleForm.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_json_preview",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_json_preview@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/rules/SFAdminRuleJsonPreview.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_rule_impact_dialog",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_rule_impact_dialog@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeRuleImpactDialog.vue"
-    },
-    {
-      "id": "core.component.admin.s_f_admin_badge_backfill_row",
-      "contractVersion": "sforum.component.admin.s_f_admin_badge_backfill_row@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/badges/SFAdminBadgeBackfillRow.vue"
-    },
-    {
-      "id": "core.component.admin.sf_admin_settings_extension_tab",
-      "contractVersion": "sforum.component.admin.sf_admin_settings_extension_tab@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/admin/settings/contributions/SFAdminSettingsExtensionTab.vue"
-    },
-    {
-      "id": "core.component.shared.sf_declarative_settings_field",
-      "contractVersion": "sforum.component.shared.sf_declarative_settings_field@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/shared/SFDeclarativeSettingsField.vue"
-    },
-    {
-      "id": "core.component.shared.sf_profile_extension_tab_panel",
-      "contractVersion": "sforum.component.shared.sf_profile_extension_tab_panel@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/profile/SFProfileExtensionTabPanel.vue"
-    },
-    {
-      "id": "core.component.shared.sf_profile_identity_tab",
-      "contractVersion": "sforum.component.shared.sf_profile_identity_tab@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/profile/tabs/SFProfileIdentityTab.vue"
-    },
-    {
-      "id": "core.component.shared.sf_profile_links_tab",
-      "contractVersion": "sforum.component.shared.sf_profile_links_tab@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/profile/tabs/SFProfileLinksTab.vue"
-    },
-    {
-      "id": "core.component.shared.sf_profile_settings_footer",
-      "contractVersion": "sforum.component.shared.sf_profile_settings_footer@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/profile/SFProfileSettingsFooter.vue"
-    },
-    {
-      "id": "core.component.shared.sf_profile_settings_tab_nav",
-      "contractVersion": "sforum.component.shared.sf_profile_settings_tab_nav@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFProfileSettingsTabNav.vue"
-    },
-    {
-      "id": "core.component.shared.sf_profile_story_tab",
-      "contractVersion": "sforum.component.shared.sf_profile_story_tab@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/profile/tabs/SFProfileStoryTab.vue"
-    },
-    {
-      "id": "core.component.shared.sf_settings_tab_nav",
-      "contractVersion": "sforum.component.shared.sf_settings_tab_nav@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/settings/SFSettingsTabNav.vue"
-    },
-    {
-      "id": "core.component.shared.sf_celebration_host",
-      "contractVersion": "sforum.component.shared.sf_celebration_host@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/notifications/SFCelebrationHost.vue"
-    },
-    {
-      "id": "core.component.shared.sf_badge_detail_dialog_host",
-      "contractVersion": "sforum.component.shared.sf_badge_detail_dialog_host@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/badges/SFBadgeDetailDialogHost.vue"
-    },
-    {
-      "id": "core.component.shared.sfbadgedetailmodal",
-      "contractVersion": "sforum.component.shared.sfbadgedetailmodal@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/badges/SFBadgeDetailModal.vue"
-    },
-    {
-      "id": "core.component.shared.sfbadgedetailbody",
-      "contractVersion": "sforum.component.shared.sfbadgedetailbody@1",
-      "kind": "component",
-      "owners": [
-        "public"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forum/badges/SFBadgeDetailBody.vue"
-    },
-    {
-      "id": "core.component.admin.sf_live_region",
-      "contractVersion": "sforum.component.admin.sf_live_region@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/a11y/SFLiveRegion.vue"
-    },
-    {
-      "id": "core.component.admin.sf_native_select",
-      "contractVersion": "sforum.component.admin.sf_native_select@1",
-      "kind": "component",
-      "owners": [
-        "admin"
-      ],
-      "state": "active",
-      "source": "apps/web/app/components/forms/SFNativeSelect.vue"
+      "source": "apps/web/app/components/settings/SFWebPushSettingsSection.vue"
     }
   ]
 }

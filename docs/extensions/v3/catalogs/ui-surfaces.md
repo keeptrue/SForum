@@ -229,6 +229,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.page.forum.profile.show` | `sforum.component.page.forum.profile.show@1` | page | `public` | `/u/:username` | `apps/web/app/pages/u/[username].vue` | P9 Component Registry |
 | `core.component.page.forum.search` | `sforum.component.page.forum.search@1` | page | `public` | `/search` | `apps/web/app/pages/search.vue` | P9 Component Registry |
 | `core.component.page.forum.settings.appearance` | `sforum.component.page.forum.settings.appearance@1` | page | `public` | `/settings/appearance` | `apps/web/app/pages/settings/appearance.vue` | P9 Component Registry |
+| `core.component.page.settings.content` | `sforum.component.page.settings.content@1` | page | `public` | `/settings/content` | `apps/web/app/pages/settings/content.vue` | P9 Component Registry |
 | `core.component.page.forum.settings.login_methods` | `sforum.component.page.forum.settings.login_methods@1` | page | `public` | `/settings/security/login-methods` | `apps/web/app/pages/settings/security/login-methods.vue` | P9 Component Registry |
 | `core.component.page.settings.notifications` | `sforum.component.page.settings.notifications@1` | page | `public` | `/settings/notifications` | `apps/web/app/pages/settings/notifications.vue` | P9 Component Registry |
 | `core.component.page.forum.settings.password` | `sforum.component.page.forum.settings.password@1` | page | `public` | `/settings/security/password` | `apps/web/app/pages/settings/security/password.vue` | P9 Component Registry |
@@ -287,6 +288,7 @@ Manifest V3 component targets declare both `targetId` and `targetContractVersion
 | `core.component.shared.sfcomment_user_preview` | `sforum.component.shared.sfcomment_user_preview@1` | component | `public` | — | `apps/web/app/components/forum/SFCommentUserPreview.vue` | P9 Component Registry |
 | `core.component.public.s_f_confirm_dialog` | `sforum.component.public.s_f_confirm_dialog@1` | component | `public` | — | `apps/web/app/components/forum/SFConfirmDialog.vue` | P9 Component Registry |
 | `core.component.shared.sfcontent_column_footer` | `sforum.component.shared.sfcontent_column_footer@1` | component | `public` | — | `apps/web/app/components/forum/SFContentColumnFooter.vue` | P9 Component Registry |
+| `core.component.shared.sfcontent_review_page` | `sforum.component.shared.sfcontent_review_page@1` | component | `public` | — | `apps/web/app/components/settings/SFContentReviewPage.vue` | P9 Component Registry |
 | `core.component.shared.sf_declarative_settings_field` | `sforum.component.shared.sf_declarative_settings_field@1` | component | `public` | — | `apps/web/app/components/settings/shared/SFDeclarativeSettingsField.vue` | P9 Component Registry |
 | `core.component.shared.sfeditor` | `sforum.component.shared.sfeditor@1` | component | `public` | — | `apps/web/app/components/SFEditor.vue` | P9 Component Registry |
 | `core.component.shared.sfeditor_image_menu` | `sforum.component.shared.sfeditor_image_menu@1` | component | `public` | — | `apps/web/app/components/editor/SFEditorImageMenu.vue` | P9 Component Registry |

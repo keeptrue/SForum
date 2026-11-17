@@ -2286,6 +2286,17 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.page.settings.content",
+    "contractVersion": "sforum.component.page.settings.content@1",
+    "kind": "page",
+    "route": "/settings/content",
+    "source": "apps/web/app/pages/settings/content.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.page.forum.settings.login_methods",
     "contractVersion": "sforum.component.page.forum.settings.login_methods@1",
     "kind": "page",
@@ -2886,6 +2897,16 @@
     "contractVersion": "sforum.component.shared.sfcontent_column_footer@1",
     "kind": "component",
     "source": "apps/web/app/components/forum/SFContentColumnFooter.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfcontent_review_page",
+    "contractVersion": "sforum.component.shared.sfcontent_review_page@1",
+    "kind": "component",
+    "source": "apps/web/app/components/settings/SFContentReviewPage.vue",
     "owners": [
       "public"
     ],

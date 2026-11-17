@@ -216,6 +216,7 @@ func TestCorePageViewModelSourcePopulatesEveryCatalogContract(t *testing.T) {
 		"forum.settings.security":      {"/settings/security", nil, nil, reflect.TypeOf(themecompiler.SecuritySettingsPageViewModel{})},
 		"forum.settings.tokens":        {"/settings/tokens", nil, nil, reflect.TypeOf(themecompiler.PersonalAccessTokensPageViewModel{})},
 		"forum.settings.notifications": {"/settings/notifications", nil, nil, reflect.TypeOf(themecompiler.NotificationSettingsPageViewModel{})},
+		"forum.settings.content":       {"/settings/content", nil, nil, reflect.TypeOf(themecompiler.ContentReviewPageViewModel{})},
 		"forum.notifications":          {"/notifications", nil, nil, reflect.TypeOf(themecompiler.NotificationsPageViewModel{})},
 		"forum.notification.show":      {"/notifications/58", map[string]string{"notificationId": "58"}, nil, reflect.TypeOf(themecompiler.NotificationsPageViewModel{})},
 		"moderation.review":            {"/moderation", nil, nil, reflect.TypeOf(themecompiler.ModerationReviewPageViewModel{})},
