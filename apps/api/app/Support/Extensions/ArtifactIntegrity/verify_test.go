@@ -1,6 +1,9 @@
 package artifactintegrity_test
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -8,8 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
+	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 )
 
 // 夹具源是仓库内的真实 Manifest V3 包（含 backend/plugin 与匹配的
@@ -48,6 +52,9 @@ func copyFixture(t *testing.T) (string, artifactintegrity.Member) {
 	if err := copyTree(source, target); err != nil {
 		t.Fatalf("copy fixture: %v", err)
 	}
+	if err := materializeBackendEntry(target); err != nil {
+		t.Fatalf("materialize backend entry: %v", err)
+	}
 	digest, err := extensionpackage.DigestTree(target)
 	if err != nil {
 		t.Fatalf("digest fixture: %v", err)
@@ -61,6 +68,59 @@ func copyFixture(t *testing.T) (string, artifactintegrity.Member) {
 		Version:     "1.0.0",
 		Digest:      digest,
 	}
+}
+
+// materializeBackendEntry 保证被拷进来的包里一定有 backend/plugin。
+//
+// 为什么需要：fixture 源里的 `backend/plugin` 是**构建产物**，被
+// `.gitignore` 的 `extensions/fixtures/plugins/*/backend/plugin` 忽略 ——
+// 开发机上跑过构建就有，CI 上永远没有。测试直接依赖它会让「本地绿、CI 红」。
+//
+// 本地有真实二进制时原样保留（Verify 校验的是 digest 一致性，真文件更有代表性）；
+// 没有时补一个占位二进制，并把 manifest 里 **两处** digest 同步成它的 sha256：
+// `backend.digest`（verifyEntry 用它比对文件）与 `packageFiles[backend/plugin]`
+// （LoadPackage 的严格装载会校验它）。两处不同步，后续的 DigestTree/LoadPackage 必红。
+func materializeBackendEntry(packagePath string) error {
+	entryPath := filepath.Join(packagePath, "backend", "plugin")
+	if info, err := os.Stat(entryPath); err == nil && !info.IsDir() {
+		return nil
+	}
+	body := []byte("#!/bin/sh\nexit 1\n")
+	if err := os.MkdirAll(filepath.Dir(entryPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(entryPath, body, 0o755); err != nil {
+		return err
+	}
+	sum := sha256.Sum256(body)
+	entryDigest := hex.EncodeToString(sum[:])
+
+	manifestPath := filepath.Join(packagePath, extensionmanifest.ManifestFileName)
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return err
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return err
+	}
+	if backend, ok := doc["backend"].(map[string]any); ok {
+		backend["digest"] = entryDigest
+	}
+	if files, ok := doc["packageFiles"].([]any); ok {
+		for _, item := range files {
+			file, ok := item.(map[string]any)
+			if !ok || file["path"] != "backend/plugin" {
+				continue
+			}
+			file["digest"] = entryDigest
+		}
+	}
+	updated, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(manifestPath, append(updated, '\n'), 0o644)
 }
 
 func copyTree(source, target string) error {
