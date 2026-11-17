@@ -24,7 +24,9 @@ describe('admin surface placement catalog', () => {
     // 2026-10-24：应用商城三页（store / store.plugins / store.themes）随死代码清算删除。
     // 2026-11-10：+ core.component.page.admin.badges（徽章管理页）。
     // 2026-11-11：+ core.component.page.admin.forum.trust_levels（信任等级独立页，属预期 +1）。
-    expect(adminSurfacePlacements.length).toBe(50)
+    // 2026-11-17：+ core.component.page.admin.extensions.added.pages / .migrations
+    //   （插件迁移账本与主题新增页面两个后台入口，属预期 +2）。
+    expect(adminSurfacePlacements.length).toBe(52)
     expect(adminSurfacePlacements).toContainEqual({
       id: 'core.component.page.admin.extensions.install',
       contractVersion: 'sforum.component.page.admin.extensions.install@1',

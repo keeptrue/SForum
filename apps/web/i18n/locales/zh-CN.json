@@ -1576,7 +1576,9 @@
       "extensionPages": "页面注册表",
       "extensionComponentInspector": "组件检查器",
       "extensionNavigationInspector": "导航检查器",
-      "extensionRegistryCatalogs": "注册表目录"
+      "extensionRegistryCatalogs": "注册表目录",
+      "extensionAddedPages": "主题新增页面",
+      "extensionMigrations": "插件迁移账本"
     },
     "avatar": {
       "metaTitle": "头像设置",
@@ -3208,6 +3210,66 @@
         "title": "可请求安装扩展包",
         "body": "此插件的管理页可以请求宿主安装扩展包（来源、摘要与声明身份由宿主确认框展示）。安装只暂存，启用与信任仍需管理员在扩展管理页完成。",
         "enableBody": "此插件的管理页还可以让宿主在安装后直接启用扩展。未信任的可执行后端包仍要超级管理员审阅完整影响并确认一次；已信任的制品直接启用，前端包启用后立即运行。"
+      },
+      "migrations": {
+        "metaTitle": "插件迁移账本",
+        "title": "插件迁移账本",
+        "intro": "查看插件在 manifest.migrations 里声明的迁移路径与记录状态。v1 宿主只记录文件校验和，不执行插件 SQL。",
+        "selectPlaceholder": "选择插件",
+        "count": "账本 {count} 条 · 声明 {declared} 条",
+        "apply": "记录声明的迁移",
+        "applyNoPermission": "需要插件管理权限（extension.plugin.manage）",
+        "applyRecorded": "已记录到账本",
+        "applyUnchanged": "账本已是最新，没有新增条目",
+        "applyFailed": "记录迁移失败",
+        "loadExtensionsFailed": "加载插件列表失败",
+        "loadFailed": "加载迁移账本失败",
+        "noExtensions": "还没有安装任何插件。先安装一个插件，再回来看它的迁移账本。",
+        "noDeclarations": "这个插件的 manifest 里没有声明 migrations，它的升级不需要宿主记录迁移路径。",
+        "empty": "账本还是空的。点「记录声明的迁移」把 manifest 里声明的路径写进来。",
+        "failedWarning": "有 {count} 条迁移文件缺失或不安全，请检查插件包是否完整。",
+        "colPath": "路径",
+        "colStatus": "状态",
+        "colChecksum": "校验和",
+        "colRecordedAt": "记录时间",
+        "colMessage": "说明",
+        "status": {
+          "recorded": "已记录",
+          "applied": "已执行",
+          "failed": "失败"
+        },
+        "confirmTitle": "记录声明的迁移？",
+        "confirmBody": "将把「{extension}」在 manifest 里声明的 {count} 条迁移路径写入账本，并记录文件校验和。",
+        "confirmHint": "这一步幂等，不会执行插件 SQL；已记录且校验和相同的条目不会重复写入。",
+        "confirmAction": "确认记录",
+        "cancel": "取消",
+        "noExtensionsTitle": "还没有安装插件",
+        "emptyTitle": "账本还是空的"
+      },
+      "addedPages": {
+        "metaTitle": "主题新增页面",
+        "title": "主题新增页面",
+        "intro": "这里列出主题通过 action: add 贡献、但不在核心页面目录里的页面。页面注册表只遍历核心目录，所以这些条目只在这里可见。",
+        "count": "共 {count} 条（新增 {add} / 覆盖 {replace}）",
+        "colId": "页面 id",
+        "colAction": "动作",
+        "colPath": "路径 / 目标",
+        "colExtension": "来源扩展",
+        "colVersion": "版本",
+        "colView": "视图",
+        "colAccess": "访问",
+        "action": {
+          "add": "新增",
+          "replace": "覆盖"
+        },
+        "view": {
+          "template": "模板",
+          "component": "组件",
+          "schema": "Schema"
+        },
+        "empty": "还没有主题新增页面。主题通过 action: add 声明的路由会出现在这里。",
+        "loadFailed": "加载主题新增页面失败",
+        "emptyTitle": "还没有主题新增页面"
       }
     },
     "jobs": {
