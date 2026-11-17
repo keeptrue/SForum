@@ -15,10 +15,15 @@ import (
 // 前后端净化白名单契约（H3 纵深防御的接缝守卫）。
 //
 // 背景：后端 bluemonday（executionReviewedHTML）放行一批标签，前端 DOMPurify
-// （apps/web/app/utils/sfSanitize.ts 的 SF_PURIFY_CONFIG.ALLOWED_TAGS）再净化
-// 一次。两者一旦不对齐，前端会静默剥掉后端刚渲染出的标签——标签没了但文本
-// 还在，CSS 后代选择器全部落空，表面上只呈现为「样式没生效」，极难定位。
+// （apps/web/app/utils/sfSanitize.ts）再净化一次。两者一旦不对齐，前端会静默
+// 剥掉后端刚渲染出的标签——标签没了但文本还在，CSS 后代选择器全部落空，表面上
+// 只呈现为「样式没生效」，极难定位。
 // 已发生过一次：shortcode 卡片的 <article>/<time> 被剥，卡片 CSS 全失效。
+//
+// 白名单的**权威位置**是 `SF_SANITIZE_POLICY.allowedTags`（单一来源）。PR #242 把
+// 原来两份配置收口成一份后，`SF_PURIFY_CONFIG.ALLOWED_TAGS` 只是
+// `[...SF_SANITIZE_POLICY.allowedTags]` 这种展开引用、不含标签字面量，所以解析必须
+// 指向策略里的字面量数组（见 frontendAllowedTags）。
 //
 // 这里不枚举「后端允许什么」，而是断言「后端实际渲染出的标签 ⊆ 前端白名单」，
 // 这样后端新增任何一个渲染标签而前端没跟上，测试立刻红。
@@ -48,7 +53,28 @@ func frontendSanitizeRepoRoot(t *testing.T) string {
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "..", "..", ".."))
 }
 
-// frontendAllowedTags 从前端 sfSanitize.ts 解析出 ALLOWED_TAGS 白名单。
+// sfSanitizePolicyPattern 匹配前端单一白名单 `SF_SANITIZE_POLICY.allowedTags` 的
+// **字面量数组**。
+//
+// 为什么不是 `ALLOWED_TAGS`：PR #242 收口成单一来源后，`SF_PURIFY_CONFIG.ALLOWED_TAGS`
+// 变成 `[...SF_SANITIZE_POLICY.allowedTags]` 这种展开引用，数组里没有任何标签字面量。
+// 旧正则匹配到的正是那一处，抠出的 `...SF_SANITIZE_POLICY.allowedTags` 里一个引号都没有
+// —— 解析结果为空，`后端标签 ⊆ 白名单` 的守卫被静默关掉（三个契约测试同时红）。
+var sfSanitizePolicyPattern = regexp.MustCompile(`(?s)allowedTags:\s*\[(.*?)\]`)
+
+// frontendSanitizeMinAllowedTags 是白名单规模的**下限**，不是目标值。
+//
+// 加它是因为「解析退化成一两个标签」比「解析为空」更危险：空集至少会让三个测试同时红，
+// 而只抠到几个标签时断言照样跑、看起来还在守卫，实际上几乎什么都不拦。
+// 当前策略有 57 项，40 是留足余量的地板。
+const frontendSanitizeMinAllowedTags = 40
+
+// frontendSanitizeRequiredTags 是白名单必须包含的已知项：表格、折叠块，以及 shortcode
+// 渲染用的语义标签（<article>/<time> 曾经被剥掉，是本文件的由来）。缺任何一项都说明
+// 解析拿到的不是策略里的那份数组。
+var frontendSanitizeRequiredTags = []string{"table", "colgroup", "details", "article", "time"}
+
+// frontendAllowedTags 从前端 sfSanitize.ts 解析出 SF_SANITIZE_POLICY.allowedTags 白名单。
 // 直接读源码而非复制常量：复制的常量会在前端改了之后继续绿，失去守卫意义。
 func frontendAllowedTags(t *testing.T) map[string]bool {
 	t.Helper()
@@ -57,19 +83,64 @@ func frontendAllowedTags(t *testing.T) map[string]bool {
 	if err != nil {
 		t.Fatalf("读取前端净化配置失败（契约测试依赖它）: %v", err)
 	}
-	block := regexp.MustCompile(`(?s)ALLOWED_TAGS:\s*\[(.*?)\]`).FindStringSubmatch(string(raw))
-	if block == nil {
-		t.Fatalf("%s 中未找到 ALLOWED_TAGS 白名单", path)
+	source := string(raw)
+
+	// 先钉住解析目标确实是策略定义，而不是文件里别处的同名键。
+	policyAt := strings.Index(source, "SF_SANITIZE_POLICY = {")
+	if policyAt < 0 {
+		t.Fatalf("%s 中未找到 SF_SANITIZE_POLICY 定义，契约测试无法守卫", path)
 	}
-	allowed := make(map[string]bool)
-	names := regexp.MustCompile(`'([a-zA-Z][a-zA-Z0-9]*)'`).FindAllStringSubmatch(block[1], -1)
+	loc := sfSanitizePolicyPattern.FindStringSubmatchIndex(source)
+	if loc == nil {
+		t.Fatalf("%s 中未找到 SF_SANITIZE_POLICY.allowedTags 字面量数组", path)
+	}
+	if loc[0] < policyAt {
+		t.Fatalf("%s 的 allowedTags 首次出现在 SF_SANITIZE_POLICY 定义之前，解析目标不对", path)
+	}
+	// 注释里的引号不是标签名，先剥掉行注释再抠。
+	block := stripLineComments(source[loc[2]:loc[3]])
+
+	names := regexp.MustCompile(`'([a-zA-Z][a-zA-Z0-9]*)'`).FindAllStringSubmatch(block, -1)
 	if len(names) == 0 {
-		t.Fatalf("%s 的 ALLOWED_TAGS 为空，契约测试无法守卫", path)
+		t.Fatalf("%s 的 SF_SANITIZE_POLICY.allowedTags 为空，契约测试无法守卫", path)
 	}
+	if len(names) < frontendSanitizeMinAllowedTags {
+		t.Fatalf("%s 的 SF_SANITIZE_POLICY.allowedTags 只解析出 %d 个标签（下限 %d）：解析很可能已经退化，"+
+			"`后端标签 ⊆ 白名单` 的守卫会变成假绿；请确认正则仍指向策略里的字面量数组",
+			path, len(names), frontendSanitizeMinAllowedTags)
+	}
+
+	allowed := make(map[string]bool, len(names))
 	for _, name := range names {
 		allowed[strings.ToLower(name[1])] = true
 	}
+	// 逐项相等：解析出的每一项都进了集合，且没有重复项把集合压小。
+	if len(allowed) != len(names) {
+		t.Fatalf("%s 的 SF_SANITIZE_POLICY.allowedTags 解析出 %d 项但只有 %d 个不同标签（白名单有重复项）",
+			path, len(names), len(allowed))
+	}
+	missing := make([]string, 0, len(frontendSanitizeRequiredTags))
+	for _, required := range frontendSanitizeRequiredTags {
+		if !allowed[required] {
+			missing = append(missing, required)
+		}
+	}
+	if len(missing) > 0 {
+		t.Fatalf("%s 的 SF_SANITIZE_POLICY.allowedTags 缺少已知项 %v：解析到的很可能不是策略里的那份数组",
+			path, missing)
+	}
 	return allowed
+}
+
+// stripLineComments 去掉 `//` 行注释，避免注释里的引号被当成标签名。
+func stripLineComments(block string) string {
+	lines := strings.Split(block, "\n")
+	for index, line := range lines {
+		if at := strings.Index(line, "//"); at >= 0 {
+			lines[index] = line[:at]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // assertTagsCovered 断言 layer 渲染出的标签全部在前端白名单内。
@@ -91,9 +162,9 @@ func assertTagsCovered(t *testing.T, layer, html string, extra []string, allowed
 	}
 	sort.Strings(missing)
 	t.Errorf(
-		"%s 渲染出的标签 %v 不在前端 SF_PURIFY_CONFIG.ALLOWED_TAGS 内；"+
+		"%s 渲染出的标签 %v 不在前端 SF_SANITIZE_POLICY.allowedTags 内；"+
 			"前端 DOMPurify 会把它们剥掉（标签没了、文本还在，CSS 后代选择器静默失效）。"+
-			"修复方式：把它们加入 apps/web/app/utils/sfSanitize.ts 的 ALLOWED_TAGS，"+
+			"修复方式：把它们加入 apps/web/app/utils/sfSanitize.ts 的 SF_SANITIZE_POLICY.allowedTags，"+
 			"或调整后端渲染改用已在白名单内的标签。", layer, missing)
 }
 
