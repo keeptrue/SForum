@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+# 终端配色层：唯一实现是 deploy/scripts/term-ui.sh（随部署包分发、由 bootstrap 提升）。
+# 颜色只在打印点生效：say() 的返回值、.deployrc、.env.production、DEPLOY_LOCK_LOG
+# 一律保持无 ESC。
+# shellcheck source=deploy/scripts/term-ui.sh
+source "$ROOT_DIR/deploy/scripts/term-ui.sh"
+
 REQUESTED_VERSION=""
 TARGET_VERSION=""
 ASSUME_YES=false
@@ -67,7 +73,7 @@ EOF
 }
 
 die() {
-  printf '%s\n' "$1" >&2
+  ui_err "$1"
   exit 1
 }
 
@@ -171,7 +177,7 @@ backfill_env_keys() {
   done
   chmod 600 "$temp_file"
   mv -f "$temp_file" "$file"
-  say "已为 .env.production 补上缺失的生产配置键：${missing[*]}" \
+  warn "已为 .env.production 补上缺失的生产配置键：${missing[*]}" \
     "Added missing production key(s) to .env.production: ${missing[*]}"
 }
 
@@ -252,7 +258,7 @@ ensure_backup_key() {
   chmod 600 "$key_file" || die "无法设置备份加密口令文件权限：$key_file"
   export SFORUM_BACKUP_KEY_FILE="$key_file"
   persist_backup_key_file "$key_file"
-  say "未找到备份加密口令，已在 $key_file 生成一个（0600）并写入 .env.production。请把它复制到与备份归档不同的位置：丢掉它等于丢掉全部加密备份。" \
+  warn "未找到备份加密口令，已在 $key_file 生成一个（0600）并写入 .env.production。请把它复制到与备份归档不同的位置：丢掉它等于丢掉全部加密备份。" \
     "No backup encryption key was configured; generated one at $key_file (0600) and recorded it in .env.production. Copy it somewhere other than the disk that holds the archives: losing it makes every encrypted backup unrecoverable."
 }
 
@@ -262,10 +268,23 @@ lang() {
   printf '%s' "${value:-zh}"
 }
 
-say() {
+# 纯文本出口：语言选择只在这里。任何被 $(...) 捕获或写进状态文件的调用都必须继续
+# 走 say()/lock_text()，它们的返回值不能带 ESC。
+_say_text() {
   local zh="$1" en="$2"
-  if [ "$(lang)" = "en" ]; then printf '%s\n' "$en"; else printf '%s\n' "$zh"; fi
+  if [ "$(lang)" = "en" ]; then printf '%s' "$en"; else printf '%s' "$zh"; fi
 }
+
+say() {
+  _say_text "$1" "$2"
+  printf '\n'
+}
+
+step() { ui_step "$(_say_text "$1" "$2")"; }
+key() { ui_key "$(_say_text "$1" "$2")"; }
+ok() { ui_ok "$(_say_text "$1" "$2")"; }
+warn() { ui_warn "$(_say_text "$1" "$2")"; }
+err() { ui_err "$(_say_text "$1" "$2")"; }
 
 # 部署锁与 deploy.sh 共用 deploy/scripts/deploy-lock.sh 的同一套判定：pid 存活用
 # ps -p 兜底（跨用户 kill -0 会 EPERM），并用 lstart 识别被复用的 pid。
@@ -283,9 +302,9 @@ lock_text() {
 source "$ROOT_DIR/deploy/scripts/deploy-lock.sh"
 
 print_install_location() {
-  say "安装目录：$ROOT_DIR" "Install directory: $ROOT_DIR"
-  say "配置文件：$ROOT_DIR/.env.production" "Configuration file: $ROOT_DIR/.env.production"
-  say "备份目录：$ROOT_DIR/backups" "Backup directory: $ROOT_DIR/backups"
+  key "安装目录：$ROOT_DIR" "Install directory: $ROOT_DIR"
+  key "配置文件：$ROOT_DIR/.env.production" "Configuration file: $ROOT_DIR/.env.production"
+  key "备份目录：$ROOT_DIR/backups" "Backup directory: $ROOT_DIR/backups"
 }
 
 rewrite_env_registry() {
@@ -318,7 +337,7 @@ resolve_registry() {
       backup="$ROOT_DIR/.env.production.bak.$stamp"
       cp -p .env.production "$backup"
       rewrite_env_registry "$CANONICAL_REGISTRY"
-      say \
+      warn \
         "检测到改名前的镜像命名空间 $LEGACY_REGISTRY，已更新为 $CANONICAL_REGISTRY（备份：$backup）。" \
         "Found the pre-rename image namespace $LEGACY_REGISTRY; updated it to $CANONICAL_REGISTRY (backup: $backup)."
       REGISTRY="$CANONICAL_REGISTRY"
@@ -346,12 +365,12 @@ fetch_with_retry() {
       return 0
     fi
     if [ "$attempt" -lt 3 ]; then
-      say "查询失败，正在重试（第 $((attempt + 1))/3 次）..." \
+      warn "查询失败，正在重试（第 $((attempt + 1))/3 次）..." \
         "Request failed; retrying (attempt $((attempt + 1))/3)..." >&2
       sleep $((attempt * 2))
     fi
   done
-  say "${desc_zh}" "${desc_en}" >&2
+  err "${desc_zh}" "${desc_en}" >&2
   return 1
 }
 
@@ -364,7 +383,7 @@ github_api_headers=(
 resolve_latest_version() {
   local response resolved
   if [ "$CHANNEL" = "stable" ]; then
-    say "正在查询最新稳定版..." "Resolving the newest stable GitHub Release..." >&2
+    step "正在查询最新稳定版..." "Resolving the newest stable GitHub Release..." >&2
     local api_url="${SFORUM_LATEST_RELEASE_API_URL:-https://api.github.com/repos/keeptrue/SForum/releases/latest}"
     response="$(fetch_with_retry \
       "无法查询最新稳定版 Release。请检查网络（或配置 https_proxy 代理），也可使用 --channel prerelease。" \
@@ -374,7 +393,7 @@ resolve_latest_version() {
     resolved="$(printf '%s\n' "$response" | sed -n 's/^.*"tag_name":[[:space:]]*"\([^"]*\)".*$/\1/p' | sed -n '1p')"
     [ -n "$resolved" ] || die "GitHub returned no stable SForum Release. Use --channel prerelease to allow prereleases."
   else
-    say "正在查询最新发布版本（含预发布）..." "Resolving the newest published GitHub Release (including prereleases)..." >&2
+    step "正在查询最新发布版本（含预发布）..." "Resolving the newest published GitHub Release (including prereleases)..." >&2
     # Public unauthenticated listings exclude drafts. Asking for one result keeps
     # the parser dependency-free while still including prereleases.
     local api_url="${SFORUM_RELEASES_API_URL:-https://api.github.com/repos/keeptrue/SForum/releases?per_page=1}"
@@ -446,8 +465,8 @@ select_target_version() {
 confirm_target_version() {
   local current_version="$1" confirmation channel_note=""
   [ "$CHANNEL" = prerelease ] && channel_note=" (prerelease)"
-  say "当前实际版本：$current_version" "Current resolved version: $current_version"
-  say "目标实际版本：$TARGET_VERSION$channel_note" "Target resolved version: $TARGET_VERSION$channel_note"
+  key "当前实际版本：$current_version" "Current resolved version: $current_version"
+  key "目标实际版本：$TARGET_VERSION$channel_note" "Target resolved version: $TARGET_VERSION$channel_note"
   [ "$ASSUME_YES" = true ] && return 0
   if [ "$(lang)" = en ]; then
     read -r -p "Update to $TARGET_VERSION? [Y/n]: " confirmation || \
@@ -521,7 +540,7 @@ pull_with_retry() {
       return 0
     fi
     if [ "$attempt" -lt 3 ]; then
-      say "镜像 $label 拉取失败，正在重试（第 $((attempt + 1))/3 次）..." \
+      warn "镜像 $label 拉取失败，正在重试（第 $((attempt + 1))/3 次）..." \
         "Image $label pull failed; retrying (attempt $((attempt + 1))/3)..."
       sleep $((attempt * 2))
     fi
@@ -531,7 +550,7 @@ pull_with_retry() {
 
 pull_target_images() {
   local version="$1" image reference digest
-  say "正在拉取目标版本镜像：$version" "Pulling target release images: $version"
+  step "正在拉取目标版本镜像：$version" "Pulling target release images: $version"
   PULLED_IMAGE_DIGESTS=""
   for image in api migrate web; do
     reference="${REGISTRY}/sforum-${image}:${version}"
@@ -605,13 +624,13 @@ check_online_safe_declaration_form() {
     0) return 0 ;;
     3)
       printf '%s\n' "$output" >&2
-      say "目标版本的在线迁移声明形态不合格（含 NO TRANSACTION 或缺 SET LOCAL 超时）：这是构建缺陷，既不能在线升级，也不降级成停机升级。" \
+      warn "目标版本的在线迁移声明形态不合格（含 NO TRANSACTION 或缺 SET LOCAL 超时）：这是构建缺陷，既不能在线升级，也不降级成停机升级。" \
         "The target release has malformed online-safe declarations (NO TRANSACTION or missing SET LOCAL timeouts): a build defect; the upgrade is refused rather than downgraded to a maintenance window." >&2
       die "Fix the migration declarations named above, then re-release."
       ;;
     *)
       printf '%s\n' "$output" >&2
-      say "无法完成声明形态预检（退出码 $status），继续由 --check-online-safe 判定。" \
+      warn "无法完成声明形态预检（退出码 $status），继续由 --check-online-safe 判定。" \
         "The declaration form pre-check did not complete (exit $status); --check-online-safe remains authoritative." >&2
       return 0
       ;;
@@ -621,7 +640,7 @@ check_online_safe_declaration_form() {
 plan_schema_for_online_update() {
   local version="$1"
   ONLINE_MIGRATION_REQUIRED=false
-  say "正在检查目标版本的数据库兼容性..." "Checking the target database compatibility..."
+  step "正在检查目标版本的数据库兼容性..." "Checking the target database compatibility..."
   if SFORUM_VERSION="$version" "${COMPOSE[@]}" run --rm -T --no-deps --pull never \
     migrate sforum-migrate --check-no-pending >/dev/null 2>&1; then
     return 0
@@ -641,18 +660,18 @@ handle_unsafe_online_migrations() {
   # 目标版本包含无法在线安全执行的迁移：交互确认后原地降级为停机升级；
   # 非交互保持拒绝但给出可复制的授权命令，避免无人值守静默停机。
   if [ "$CONFIRM_MAINTENANCE" = true ]; then
-    say "已获得停机升级授权，将在短暂维护窗口内完成迁移。" \
+    step "已获得停机升级授权，将在短暂维护窗口内完成迁移。" \
       "Maintenance-window upgrade authorized; migrations will run in a short downtime window."
     return 0
   fi
   if [ "$ASSUME_YES" = true ]; then
-    say \
+    warn \
       "目标版本包含无法在线安全执行的迁移。无人值守模式不会自动停机；请执行：./upgrade.sh --version $TARGET_VERSION --confirm-maintenance" \
       "The target release has migrations that are not safe online. Unattended mode will not trigger downtime automatically; run: ./upgrade.sh --version $TARGET_VERSION --confirm-maintenance"
     die "Maintenance-window confirmation required."
   fi
   local confirmation
-  say \
+  warn \
     "目标版本包含无法在旧版本继续服务时安全执行的数据库迁移，需要短暂停机完成升级。" \
     "The target release has migrations that cannot run while the old release serves traffic; a short maintenance window is required."
   if [ "$(lang)" = en ]; then
@@ -684,17 +703,17 @@ maintenance_update() {
   new_api="$(slot_api "$inactive_slot")"
   new_web="$(slot_web "$inactive_slot")"
 
-  say "进入维护窗口：停止当前槽并执行完整数据库迁移..." \
+  step "进入维护窗口：停止当前槽并执行完整数据库迁移..." \
     "Entering the maintenance window: stopping the active slot and running all migrations..."
   "${COMPOSE[@]}" stop "$old_web" "$old_api"
 
   if ! SFORUM_VERSION="$target_version" "${COMPOSE[@]}" run --rm -T --pull never migrate; then
-    say "迁移失败，正在恢复旧版本槽..." "Migration failed; restoring the previous slot..."
+    err "迁移失败，正在恢复旧版本槽..." "Migration failed; restoring the previous slot..."
     "${COMPOSE[@]}" start "$old_web" "$old_api" || true
     die "Migration failed. The previous slot was restarted; restore the pre-upgrade backup if the schema is now inconsistent."
   fi
 
-  say "迁移完成，正在启动新版本槽..." "Migrations complete; starting the target slot..."
+  step "迁移完成，正在启动新版本槽..." "Migrations complete; starting the target slot..."
   if ! "${COMPOSE[@]}" up -d --no-build --pull never "$new_api" "$new_web"; then
     "${COMPOSE[@]}" start "$old_web" "$old_api" || true
     die "Could not start the target slot; the previous slot was restarted."
@@ -714,7 +733,7 @@ maintenance_update() {
   "${COMPOSE[@]}" stop "$old_web" "$old_api" || true
   remove_legacy_worker_containers || true
   persist_state "$inactive_slot" "$target_version" "$blue_version" "$green_version"
-  say "停机升级完成：$current_version -> $target_version" \
+  ok "停机升级完成：$current_version -> $target_version" \
     "Maintenance-window upgrade completed: $current_version -> $target_version"
   print_install_location
 }
@@ -722,7 +741,7 @@ maintenance_update() {
 apply_planned_online_migrations() {
   local version="$1"
   [ "$ONLINE_MIGRATION_REQUIRED" = true ] || return 0
-  say \
+  step \
     "正在保持当前槽在线并执行已声明兼容的数据库迁移..." \
     "Applying declared backward-compatible migrations while the active slot stays online..."
   SFORUM_VERSION="$version" "${COMPOSE[@]}" run --rm -T --pull never migrate
@@ -732,7 +751,7 @@ apply_planned_online_migrations() {
 }
 
 backup_database() {
-  say "在线切换前创建 PostgreSQL 备份..." "Creating a PostgreSQL backup before the online switch..."
+  step "在线切换前创建 PostgreSQL 备份..." "Creating a PostgreSQL backup before the online switch..."
   ensure_backup_key
   ./deploy/scripts/backup-postgres.sh
 }
@@ -791,7 +810,7 @@ slot_health_failure_die() {
   local fallback="$1"
 
   if [ -n "$SLOT_HEALTH_RECOVERY_REASON" ]; then
-    say "备用槽进入了恢复态（${SLOT_HEALTH_RECOVERY_REASON}）：Host 只放行 /health 与 /ready，其余路径一律 503。这不是启动慢，等下去不会变好。" \
+    err "备用槽进入了恢复态（${SLOT_HEALTH_RECOVERY_REASON}）：Host 只放行 /health 与 /ready，其余路径一律 503。这不是启动慢，等下去不会变好。" \
       "The standby slot booted into recovery-only mode (${SLOT_HEALTH_RECOVERY_REASON}): only /health and /ready answer, every other path returns 503. This is not a slow start and waiting will not fix it." >&2
     die "Fix the artifact named in the recovery block, then run: sforum extension recovery recheck"
   fi
@@ -801,7 +820,7 @@ slot_health_failure_die() {
 dump_slot_diagnostics() {
   # 探针只说「没就绪」，原因在容器日志里；新槽随后会被 stop，所以先留现场。
   local service="$1"
-  say "正在收集 ${service} 的容器状态与最近 60 行日志..." \
+  step "正在收集 ${service} 的容器状态与最近 60 行日志..." \
     "Collecting container state and the last 60 log lines for ${service}..." >&2
   "${COMPOSE[@]}" ps -a "$service" >&2 || true
   "${COMPOSE[@]}" logs --tail=60 --no-color "$service" >&2 || true
@@ -846,7 +865,7 @@ wait_inside_slot() {
       last_failure="web api ready"; last_service="$web"
     else
       if [ "$attempts" -gt 1 ]; then
-        say "备用槽 $slot 已就绪（等待 ${elapsed}s，共 ${attempts} 次探测）。" \
+        ok "备用槽 $slot 已就绪（等待 ${elapsed}s，共 ${attempts} 次探测）。" \
           "Standby slot $slot is ready after ${elapsed}s (${attempts} probes)."
       fi
       return 0
@@ -859,16 +878,16 @@ wait_inside_slot() {
     fi
     last_output="$PROBE_OUTPUT"
     if [ "$elapsed" -ge "$next_report" ]; then
-      say "备用槽 $slot 仍在启动：${last_failure}（$last_service），已等待 ${elapsed}s/${timeout}s..." \
+      warn "备用槽 $slot 仍在启动：${last_failure}（$last_service），已等待 ${elapsed}s/${timeout}s..." \
         "Standby slot $slot is still starting: ${last_failure} ($last_service); waited ${elapsed}s/${timeout}s..." >&2
       next_report=$((elapsed + 15))
     fi
     sleep 2
   done
-  say "健康检查超时（${timeout} 秒），最后未通过的检查：${last_failure:-无}（${last_service:-未知}）" \
+  err "健康检查超时（${timeout} 秒），最后未通过的检查：${last_failure:-无}（${last_service:-未知}）" \
     "Health check timed out after ${timeout}s; the last failing probe was: ${last_failure:-none} (${last_service:-unknown})" >&2
   if [ -n "$last_output" ]; then
-    say "最后一次探针输出：${last_output}" "Last probe output: ${last_output}" >&2
+    err "最后一次探针输出：${last_output}" "Last probe output: ${last_output}" >&2
   fi
   [ -z "$last_service" ] || dump_slot_diagnostics "$last_service"
   return 1
@@ -985,7 +1004,7 @@ bootstrap_topology() {
   "${COMPOSE[@]}" up -d --wait postgres redis
   if ! plan_schema_for_online_update "$target_version"; then
     # 首次拓扑转换本来就是维护窗口，可直接执行全部迁移。
-    say "目标版本需要停机迁移；本次拓扑转换将一并完成。" \
+    warn "目标版本需要停机迁移；本次拓扑转换将一并完成。" \
       "The target release requires offline migrations; this topology conversion will apply them."
     backup_database
     SFORUM_VERSION="$target_version" "${COMPOSE[@]}" run --rm -T --pull never migrate
@@ -998,7 +1017,7 @@ bootstrap_topology() {
   wait_inside_slot blue || slot_health_failure_die "Blue candidate failed its internal API/Web checks."
 
   write_router_config blue "$RUNTIME_DIR/Caddyfile"
-  say "正在执行一次性入口转换..." "Performing the one-time ingress conversion..."
+  step "正在执行一次性入口转换..." "Performing the one-time ingress conversion..."
   "${COMPOSE[@]}" stop "${legacy_services[@]}"
   remove_legacy_worker_containers || die "Could not remove legacy standalone Worker containers."
   if ! "${COMPOSE[@]}" up -d --no-build --pull never edge; then
@@ -1011,7 +1030,7 @@ bootstrap_topology() {
     die "Router health check failed; legacy services were restarted."
   fi
   persist_state blue "$target_version" "$target_version" "$target_version"
-  say "双槽入口已启用。后续兼容版本可保持 HTTP 在线切换。" "Blue/green ingress is enabled. Later compatible releases can switch without HTTP downtime."
+  ok "双槽入口已启用。后续兼容版本可保持 HTTP 在线切换。" "Blue/green ingress is enabled. Later compatible releases can switch without HTTP downtime."
 }
 
 online_update() {
@@ -1036,14 +1055,14 @@ online_update() {
   backup_database
   apply_planned_online_migrations "$target_version"
 
-  say "正在启动并检查备用槽 ${inactive_slot}..." "Starting and checking standby slot ${inactive_slot}..."
+  step "正在启动并检查备用槽 ${inactive_slot}..." "Starting and checking standby slot ${inactive_slot}..."
   "${COMPOSE[@]}" up -d --no-build --pull never "$new_api" "$new_web"
   if ! wait_inside_slot "$inactive_slot"; then
     "${COMPOSE[@]}" stop "$new_web" "$new_api" || true
     slot_health_failure_die "Standby slot failed internal health checks; live traffic was not changed."
   fi
 
-  say "正在原子切换 Web/API 流量..." "Atomically switching Web/API traffic..."
+  step "正在原子切换 Web/API 流量..." "Atomically switching Web/API traffic..."
   if ! switch_router "$inactive_slot" "$active_slot"; then
     "${COMPOSE[@]}" stop "$new_web" "$new_api" || true
     die "Ingress switch failed and was rolled back to the active slot."
@@ -1052,7 +1071,7 @@ online_update() {
   remove_legacy_worker_containers || die "Could not remove legacy standalone Worker containers."
   "${COMPOSE[@]}" stop "$old_web" "$old_api"
   persist_state "$inactive_slot" "$target_version" "$blue_version" "$green_version"
-  say "零停机更新完成：$current_version -> $target_version" "Zero-downtime update completed: $current_version -> $target_version"
+  ok "零停机更新完成：$current_version -> $target_version" "Zero-downtime update completed: $current_version -> $target_version"
   print_install_location
 }
 
@@ -1087,7 +1106,7 @@ main() {
     command -v docker >/dev/null 2>&1 || die "Docker is required."
     docker info >/dev/null 2>&1 || die "Docker daemon is not running."
     if current_version="$(infer_running_version)"; then
-      say ".deployrc 缺少版本记录，已从运行容器推断当前版本：$current_version" \
+      warn ".deployrc 缺少版本记录，已从运行容器推断当前版本：$current_version" \
         ".deployrc has no version record; inferred the running version from containers: $current_version"
     else
       die "The currently deployed version is unknown; re-run ./deploy.sh to restore state."

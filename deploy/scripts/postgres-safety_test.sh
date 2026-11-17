@@ -102,6 +102,7 @@ cp "$ROOT_DIR/deploy/scripts/backup-postgres.sh" "$TEST_ROOT/deploy/scripts/"
 cp "$ROOT_DIR/deploy/scripts/restore-postgres.sh" "$TEST_ROOT/deploy/scripts/"
 cp "$ROOT_DIR/deploy/scripts/postgres-common.sh" "$TEST_ROOT/deploy/scripts/"
 cp "$ROOT_DIR/deploy/scripts/postgres-backup-format.sh" "$TEST_ROOT/deploy/scripts/"
+cp "$ROOT_DIR/deploy/scripts/term-ui.sh" "$TEST_ROOT/deploy/scripts/"
 touch "$TEST_ROOT/compose.yaml" "$TEST_ROOT/compose.prod.yaml"
 touch "$TEST_ROOT/compose.release.yaml" "$TEST_ROOT/compose.zero-downtime.yaml"
 printf '%s\n' \

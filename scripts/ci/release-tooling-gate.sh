@@ -169,5 +169,8 @@ node ./scripts/ci/verify-web-sdks.mjs
 echo "Running built-in plugin release version validation..."
 node tests/validate-builtin-plugin-versions.mjs
 
+echo "Running terminal color layer validation..."
+./tests/validate-term-ui.sh
+
 echo "Running verified latest-wrapper validation..."
 ./tests/validate-sforum-latest.sh

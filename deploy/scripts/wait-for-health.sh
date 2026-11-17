@@ -16,6 +16,11 @@
 # health_failed，把真正的原因埋掉。
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 终端配色层：唯一实现在同目录的 term-ui.sh，随部署包分发、由 bootstrap 提升。
+# shellcheck source=deploy/scripts/term-ui.sh
+source "$SCRIPT_DIR/term-ui.sh"
+
 URL="${1:-}"
 TIMEOUT_SECONDS="${2:-60}"
 
@@ -52,7 +57,7 @@ while true; do
 
   case "$status" in
     2??)
-      echo "Healthy: $URL"
+      ui_ok "Healthy: $URL"
       exit 0
       ;;
     5??)
@@ -61,10 +66,9 @@ while true; do
       if grep -Eq '"recovery"[[:space:]]*:' "$BODY_FILE" 2>/dev/null; then
         reason="$(sed -n 's/.*"recovery"[[:space:]]*:[^{]*{[^}]*"code"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
           "$BODY_FILE" | head -n 1)"
-        printf 'Recovery-only: %s answered %s with a recovery block%s\n' \
-          "$URL" "$status" "${reason:+ ($reason)}" >&2
-        printf 'The Host booted into recovery-only mode: only /health and /ready are reachable.\n' >&2
-        printf 'Fix the reported artifact, then run: sforum extension recovery recheck\n' >&2
+        ui_err "Recovery-only: $URL answered $status with a recovery block${reason:+ ($reason)}"
+        ui_err 'The Host booted into recovery-only mode: only /health and /ready are reachable.'
+        ui_err 'Fix the reported artifact, then run: sforum extension recovery recheck'
         exit 3
       fi
       ;;
@@ -72,7 +76,7 @@ while true; do
 
   now="$(date +%s)"
   if [ $((now - started_at)) -ge "$TIMEOUT_SECONDS" ]; then
-    echo "Timed out waiting for health: $URL"
+    ui_err "Timed out waiting for health: $URL"
     exit 1
   fi
 

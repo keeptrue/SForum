@@ -18,6 +18,35 @@
 # ./sforum-latest.sh when even the first layer must be verified.
 set -euo pipefail
 export LC_ALL=C
+# 终端配色层：本文件要在 deploy/scripts 还不存在的空目录里执行，所以内联同一份标记块；
+# tests/validate-term-ui.sh 与 deploy/scripts/term-ui.sh 逐字节比对。
+# >>> term-ui
+ui_init_color() {
+  if [ "${SFORUM_COLOR:-auto}" = never ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = dumb ]; then
+    UI_COLOR=false
+  elif [ "${SFORUM_COLOR:-auto}" = always ] || [ -t 1 ]; then
+    UI_COLOR=true
+  else
+    UI_COLOR=false
+  fi
+  if [ "$UI_COLOR" = true ]; then
+    UI_RESET=$'\033[0m';  UI_BANNER=$'\033[1;36m'; UI_STEP=$'\033[1m'
+    UI_OK=$'\033[1;32m';  UI_WARN=$'\033[1;33m';   UI_ERR=$'\033[1;31m'
+    UI_KEY=$'\033[36m';   UI_PROMPT=$'\033[1;36m'
+  else
+    UI_RESET=''; UI_BANNER=''; UI_STEP=''; UI_OK=''
+    UI_WARN=''; UI_ERR=''; UI_KEY=''; UI_PROMPT=''
+  fi
+}
+ui_init_color
+ui_banner() { printf '%s== %s ==%s\n' "$UI_BANNER" "$1" "$UI_RESET"; }
+ui_step()   { printf '%s==> %s%s\n' "$UI_STEP" "$1" "$UI_RESET"; }
+ui_ok()     { printf '%s[ok] %s%s\n' "$UI_OK" "$1" "$UI_RESET"; }
+ui_warn()   { printf '%s[!] %s%s\n' "$UI_WARN" "$1" "$UI_RESET" >&2; }
+ui_err()    { printf '%s[x] %s%s\n' "$UI_ERR" "$1" "$UI_RESET" >&2; }
+ui_key()    { printf '%s%s%s\n' "$UI_KEY" "$1" "$UI_RESET"; }
+ui_prompt() { printf '%s%s%s' "$UI_PROMPT" "$1" "$UI_RESET"; }
+# <<< term-ui
 
 REPOSITORY="${SFORUM_RELEASE_REPOSITORY:-keeptrue/SForum}"
 DOWNLOAD_BASE="${SFORUM_RELEASE_DOWNLOAD_BASE_URL:-https://github.com/$REPOSITORY/releases/download}"
@@ -81,8 +110,9 @@ state and is left to ./sforum-latest.sh or manual repair.
 EOF
 }
 
+# 机器前缀必须留在行首字节，颜色只包裹前缀之后的正文。
 die() {
-  printf 'sforum-install: %s\n' "$1" >&2
+  printf 'sforum-install: %s[x] %s%s\n' "$UI_ERR" "$1" "$UI_RESET" >&2
   exit 1
 }
 
@@ -205,53 +235,54 @@ prompt_install_dir() {
   fi
   default_dir="$(display_path "$default_dir")"
 
-  printf '\n%s\n' "$(msg 'SForum 安装目录' 'SForum install directory')"
-  printf '  %s%s\n' "$(msg '当前目录：' 'Current directory: ')" "$WORK_DIR"
+  printf '\n'
+  ui_banner "$(msg 'SForum 安装目录' 'SForum install directory')"
+  ui_key "  $(msg '当前目录：' 'Current directory: ')$WORK_DIR"
   existing="$(existing_version "$default_dir")"
   if [ -n "$existing" ]; then
     if [ "$UI_LANG" = zh ]; then
-      printf '  检测到已有安装：%s（本次将执行更新）\n' "$existing"
+      ui_key "  检测到已有安装：$existing（本次将执行更新）"
     else
-      printf '  Existing installation detected: %s (this run updates it)\n' "$existing"
+      ui_key "  Existing installation detected: $existing (this run updates it)"
     fi
   fi
 
   while :; do
-    printf '  %s [ %s ]: ' "$(msg '安装目录' 'Install directory')" "$default_dir"
+    ui_prompt "  $(msg '安装目录' 'Install directory') [ $default_dir ]: "
     if ! ask_line; then
-      printf '\n  %s\n' "$(msg '未读取到输入，使用默认目录。' 'No input received; using the default directory.')"
+      printf '\n'
+      ui_warn "$(msg '未读取到输入，使用默认目录。' 'No input received; using the default directory.')"
       ANSWER="$default_dir"
     fi
     answer="${ANSWER:-$default_dir}"
     case "$answer" in
       *$'\n'*|*$'\r'*)
-        printf '  %s\n' "$(msg '路径不能包含换行符。' 'The path must not contain a newline.')"
+        ui_warn "$(msg '路径不能包含换行符。' 'The path must not contain a newline.')"
         continue
         ;;
     esac
     candidate="$(lexical_abs "$answer")"
     if [ "$candidate" = "/" ]; then
-      printf '  %s\n' "$(msg '不能安装到根目录 /。' 'Refusing to install into the filesystem root /.')"
+      ui_warn "$(msg '不能安装到根目录 /。' 'Refusing to install into the filesystem root /.')"
       continue
     fi
     if [ -e "$candidate" ] && [ ! -d "$candidate" ]; then
-      printf '  %s%s\n' \
-        "$(msg '目标已存在且不是目录：' 'The target exists and is not a directory: ')" "$candidate"
+      ui_warn "$(msg '目标已存在且不是目录：' 'The target exists and is not a directory: ')$candidate"
       continue
     fi
     if ! writable_target "$candidate"; then
-      printf '  %s%s\n' "$(msg '没有写入权限：' 'No write permission: ')" "$candidate"
+      ui_warn "$(msg '没有写入权限：' 'No write permission: ')$candidate"
       continue
     fi
     if [ -d "$candidate" ] && ! dir_is_installation "$candidate" && \
        [ -n "$(ls -A "$candidate" 2>/dev/null)" ]; then
-      printf '  %s%s\n' "$(msg '目录非空：' 'The directory is not empty: ')" "$candidate"
-      printf '  %s ' "$(msg '仍要安装到这里？[y/N]:' 'Install here anyway? [y/N]:')"
+      ui_warn "$(msg '目录非空：' 'The directory is not empty: ')$candidate"
+      ui_prompt "  $(msg '仍要安装到这里？[y/N]:' 'Install here anyway? [y/N]:') "
       if ! ask_line; then ANSWER=""; fi
       case "${ANSWER:-}" in
         y|Y|yes|YES) ;;
         *)
-          printf '  %s\n' "$(msg '已取消，请重新选择安装目录。' 'Canceled; choose the install directory again.')"
+          ui_warn "$(msg '已取消，请重新选择安装目录。' 'Canceled; choose the install directory again.')"
           continue
           ;;
       esac
@@ -282,7 +313,7 @@ resolve_install_dir() {
     fi
     INSTALL_DIR="$(lexical_abs "$INSTALL_DIR")"
   fi
-  printf '%s%s\n' "$(msg '安装目录：' 'Install directory: ')" "$(display_path "$INSTALL_DIR")"
+  ui_key "$(msg '安装目录：' 'Install directory: ')$(display_path "$INSTALL_DIR")"
 }
 
 parse_args() {
@@ -467,7 +498,7 @@ stage_and_verify() {
       # Match sforum-latest.sh: an old gh must not fail the install, but the
       # bootstrap performs the same check, so skip it there too.
       export SFORUM_SKIP_ATTESTATION=true
-      printf 'notice: local gh lacks attestation support; SHA-256 already verified\n' >&2
+      ui_warn 'notice: local gh lacks attestation support; SHA-256 already verified'
     fi
   fi
 }
@@ -500,7 +531,7 @@ run_bootstrap() {
     exec "$BOOTSTRAP" "${args[@]}" </dev/tty
   fi
   if [ "$assume" = false ]; then
-    printf 'notice: no interactive terminal available; continuing with recommended defaults (--yes)\n' >&2
+    ui_warn 'notice: no interactive terminal available; continuing with recommended defaults (--yes)'
     args+=(--yes)
   fi
   exec "$BOOTSTRAP" "${args[@]}"
@@ -518,9 +549,9 @@ main() {
     detect_action
   fi
 
-  printf 'SForum install loader: resolving %s release\n' "$CHANNEL"
+  ui_step "SForum install loader: resolving $CHANNEL release"
   TARGET_VERSION="$(resolve_version)"
-  printf 'Target release: %s\n' "$TARGET_VERSION"
+  ui_step "Target release: $TARGET_VERSION"
 
   case "$ACTION" in
     install|upgrade) ;;
@@ -546,8 +577,7 @@ main() {
   stage_and_verify
   promote
 
-  printf 'Verified sforum-bootstrap.sh for %s; handing off to %s\n' \
-    "$TARGET_VERSION" "$ACTION"
+  ui_step "Verified sforum-bootstrap.sh for $TARGET_VERSION; handing off to $ACTION"
   run_bootstrap
 }
 

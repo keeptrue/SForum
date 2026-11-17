@@ -291,6 +291,7 @@ DEPLOY_ROOT="$TEMP_DIR/deploy-root"
 mkdir -p "$DEPLOY_ROOT/deploy/scripts"
 cp "$ROOT_DIR/deploy.sh" "$DEPLOY_ROOT/"
 cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$DEPLOY_ROOT/deploy/scripts/"
+cp "$ROOT_DIR/deploy/scripts/term-ui.sh" "$DEPLOY_ROOT/deploy/scripts/"
 cp "$TEMP_DIR/.env.production" "$DEPLOY_ROOT/.env.production"
 
 if ! env "${SHELL_OVERRIDES[@]}" bash "$DEPLOY_ROOT/deploy.sh" --lang en --action check-env \

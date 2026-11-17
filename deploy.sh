@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+# 终端配色层：唯一实现是 deploy/scripts/term-ui.sh（随部署包分发、由 bootstrap 提升）。
+# 颜色只在打印点生效：t() 的返回值、run_database_backup 的 stdout、.deployrc、
+# .env.production、DEPLOY_LOCK_LOG 一律保持无 ESC。
+# shellcheck source=deploy/scripts/term-ui.sh
+source "$ROOT_DIR/deploy/scripts/term-ui.sh"
+
 DEPLOY_RC=".deployrc"
 DEFAULT_RELEASE_VERSION="${SFORUM_DEFAULT_VERSION:-latest}"
 LANGUAGE=""
@@ -91,7 +97,7 @@ EOF
 }
 
 die() {
-  printf '%s\n' "$1" >&2
+  ui_err "$1"
   exit 1
 }
 
@@ -184,7 +190,7 @@ sanitize_env_contract_overrides() {
     unset "$key"
   done
   if [ "${#ignored[@]}" -gt 0 ]; then
-    printf '%s %s\n' "$(t env_override_ignored)" "${ignored[*]}" >&2
+    ui_warn "$(t env_override_ignored) ${ignored[*]}"
   fi
 }
 
@@ -235,7 +241,7 @@ backfill_env_keys() {
   done
   chmod 600 "$temp_file"
   mv -f "$temp_file" "$file"
-  printf '%s %s\n' "$(t env_key_backfilled)" "${missing[*]}" >&2
+  ui_warn "$(t env_key_backfilled) ${missing[*]}"
 }
 
 # 备份加密口令自举（一键脚本）。第一次 update 会先做一次加密备份，而这条路径
@@ -315,7 +321,7 @@ ensure_backup_key() {
   chmod 600 "$key_file" || die "Could not set the backup key file mode: $key_file"
   export SFORUM_BACKUP_KEY_FILE="$key_file"
   persist_backup_key_file "$key_file"
-  printf '%s %s\n' "$(t backup_key_generated)" "$key_file" >&2
+  ui_warn "$(t backup_key_generated) $key_file"
 }
 
 # 校验失败必须指向运维真正能改的地方：.env.production。只有在 shell 覆盖没被清掉
@@ -335,7 +341,8 @@ die_env_contract() {
 # 新键」而停不掉服务、读不到日志，是把闸门一致性排在可用性前面。
 contract_fail() {
   if [ "$CONTRACT_MODE" = advisory ]; then
-    printf 'warning: %s\n' "$1" >&2
+    # 保留 `warning: ` 字面量：status/logs/stop 的告警分级靠它识别（deploy_test.sh）。
+    printf '%s%s%s\n' "$UI_WARN" "warning: $1" "$UI_RESET" >&2
     return 0
   fi
   die "$1"
@@ -349,9 +356,9 @@ load_language() {
     if [ "$ASSUME_DEFAULTS" = true ]; then
       LANGUAGE="zh"
     else
-      echo "Choose language / 选择语言:"
-      echo "1) English"
-      echo "2) 简体中文（推荐）"
+      ui_banner "Choose language / 选择语言"
+      ui_key "  1) English"
+      ui_key "  2) 简体中文（推荐）"
       read -r -p "> [2] " choice
       case "$choice" in
         1) LANGUAGE="en" ;;
@@ -756,7 +763,7 @@ validate_ports_available() {
 preflight() {
   local check_ports="${1:-false}"
   local contract_mode="${2:-strict}"
-  t preflight
+  ui_step "$(t preflight)"
   command -v docker >/dev/null 2>&1 || die "$(t no_docker)"
   docker info >/dev/null 2>&1 || die "$(t no_daemon)"
   docker compose version >/dev/null 2>&1 || die "$(t no_compose)"
@@ -789,7 +796,7 @@ database_has_installation() {
 }
 
 run_migrations_command() {
-  t migrations_running
+  ui_step "$(t migrations_running)"
   "${COMPOSE[@]}" run --rm -T --pull never migrate
 }
 
@@ -834,10 +841,10 @@ verify_deployment_health() {
   [ "$status" -ne 0 ] || return 0
   if [ "$status" -eq 3 ]; then
     persist_recovery_state recovery_only "$backup_file" "$previous_version"
-    t recovery_only >&2
+    ui_err "$(t recovery_only)"
   else
     persist_recovery_state health_failed "$backup_file" "$previous_version"
-    t recovery_required >&2
+    ui_err "$(t recovery_required)"
   fi
   return 1
 }
@@ -925,16 +932,15 @@ source "$ROOT_DIR/deploy/scripts/deploy-lock.sh"
 # installation, its configuration, and its backups actually live.
 print_install_location() {
   local recorded
-  printf '%s %s\n' "$(t install_dir)" "$ROOT_DIR"
-  printf '%s %s\n' "$(t config_file)" "$ROOT_DIR/.env.production"
-  printf '%s %s\n' "$(t backup_dir)" "$ROOT_DIR/backups"
+  ui_key "$(t install_dir) $ROOT_DIR"
+  ui_key "$(t config_file) $ROOT_DIR/.env.production"
+  ui_key "$(t backup_dir) $ROOT_DIR/backups"
   recorded="$(rc_value install_dir)"
   if [ -n "$recorded" ] && [ "$recorded" != "$ROOT_DIR" ]; then
     if [ "$LANGUAGE" = en ]; then
-      printf 'Note: .deployrc records %s but the current directory is %s\n' \
-        "$recorded" "$ROOT_DIR"
+      ui_warn "Note: .deployrc records $recorded but the current directory is $ROOT_DIR"
     else
-      printf '注意：.deployrc 记录为 %s，当前目录是 %s\n' "$recorded" "$ROOT_DIR"
+      ui_warn "注意：.deployrc 记录为 $recorded，当前目录是 $ROOT_DIR"
     fi
   fi
 }
@@ -947,14 +953,15 @@ print_access_urls() {
   admin_url="${app_url}${admin_prefix}"
   web_port="$(env_file_value .env.production WEB_PORT 3000)"
   api_port="$(env_file_value .env.production API_PORT 18080)"
-  printf '%s %s\n' "$(t web_proxy)" "http://127.0.0.1:${web_port}"
-  printf '%s %s\n' "$(t api_proxy)" "http://127.0.0.1:${api_port}"
-  printf '%s %s\n' "$(t access_url)" "$app_url"
-  printf '%s %s\n' "$(t admin_url)" "$admin_url"
+  ui_key "$(t web_proxy) http://127.0.0.1:${web_port}"
+  ui_key "$(t api_proxy) http://127.0.0.1:${api_port}"
+  ui_key "$(t access_url) $app_url"
+  ui_key "$(t admin_url) $admin_url"
 }
 
 deploy_update() {
   local backup_output="" backup_file="" previous_version previous_running
+  ui_banner "$(t title)"
   # 拓扑在动手之前就要判死：蓝绿安装只走 upgrade.sh（见 refuse_blue_green_deploy）。
   refuse_blue_green_deploy
   acquire_deploy_lock deploy
@@ -970,25 +977,25 @@ deploy_update() {
   else
     previous_running="$("${COMPOSE[@]}" ps --status running --services | grep -E '^(api|web)$' || true)"
   fi
-  printf '%s %s\n' "$(t version):" "$RELEASE_VERSION"
+  ui_key "$(t version): $RELEASE_VERSION"
 
-  echo "$(t pulling_release) $RELEASE_VERSION"
+  ui_step "$(t pulling_release) $RELEASE_VERSION"
   "${COMPOSE[@]}" pull "${RELEASE_IMAGE_SERVICES[@]}"
   verify_release_identities || die "Release image verification failed before any database change."
 
-  t starting_infra
+  ui_step "$(t starting_infra)"
   "${COMPOSE[@]}" up -d --wait postgres redis
 
   if database_has_installation; then
-    t backup_first
+    ui_step "$(t backup_first)"
     backup_output="$(run_database_backup)"
     printf '%s\n' "$backup_output"
     backup_file="$(tail -n 1 <<< "$backup_output")"
   else
-    t fresh_database
+    ui_step "$(t fresh_database)"
   fi
 
-  t stopping_app
+  ui_step "$(t stopping_app)"
   if [ "${#BLUE_GREEN_COMPOSE[@]}" -gt 0 ]; then
     if ! "${BLUE_GREEN_COMPOSE[@]}" stop \
       web-blue web-green api-blue api-green edge; then
@@ -1008,18 +1015,18 @@ deploy_update() {
   remove_legacy_worker_containers || die "Could not remove legacy standalone Worker containers."
   if ! run_migrations_command; then
     persist_recovery_state migration_failed "$backup_file" "$previous_version"
-    t recovery_required >&2
+    ui_err "$(t recovery_required)"
     return 1
   fi
 
-  t starting_app
+  ui_step "$(t starting_app)"
   if ! "${COMPOSE[@]}" up -d --no-build --pull never "${APP_SERVICES[@]}"; then
     persist_recovery_state startup_failed "$backup_file" "$previous_version"
-    t recovery_required >&2
+    ui_err "$(t recovery_required)"
     return 1
   fi
 
-  t verifying
+  ui_step "$(t verifying)"
   if ! verify_deployment_health "$backup_file" "$previous_version"; then
     "${COMPOSE[@]}" ps >&2 || true
     return 1
@@ -1029,10 +1036,11 @@ deploy_update() {
   release_deploy_lock
   print_install_location
   print_access_urls
-  t success
+  ui_ok "$(t success)"
 }
 
 create_backup() {
+  ui_banner "$(t backup)"
   acquire_deploy_lock backup
   preflight
   "${COMPOSE[@]}" up -d --wait postgres
@@ -1041,17 +1049,18 @@ create_backup() {
 }
 
 restore_backup() {
+  ui_banner "$(t restore)"
   acquire_deploy_lock restore
   preflight
   # 只解析、不生成：恢复时凭空造一把新口令只会把「缺密钥」变成「口令不对」。
   # 口令写在 .env.production 里也要认得到，否则备份成功、恢复认不到。
   resolve_backup_key
-  t backup_path
+  ui_prompt "$(t backup_path) "
   read -r backup_file
-  t confirm_restore
+  ui_prompt "$(t confirm_restore) "
   read -r confirmation
   if [ "$confirmation" != "RESTORE" ]; then
-    t canceled
+    ui_warn "$(t canceled)"
     release_deploy_lock
     return
   fi
@@ -1059,10 +1068,21 @@ restore_backup() {
   release_deploy_lock
 }
 
-show_status() { preflight false advisory; print_install_location; "${COMPOSE[@]}" ps; }
-show_logs() { preflight false advisory; "${COMPOSE[@]}" logs -f --tail=200; }
+show_status() {
+  ui_banner "$(t status)"
+  preflight false advisory
+  print_install_location
+  "${COMPOSE[@]}" ps
+}
+
+show_logs() {
+  ui_banner "$(t logs)"
+  preflight false advisory
+  "${COMPOSE[@]}" logs -f --tail=200
+}
 restart_services() {
   local status=0
+  ui_banner "$(t restart)"
   acquire_deploy_lock restart
   preflight true
   "${COMPOSE[@]}" restart
@@ -1081,7 +1101,13 @@ restart_services() {
   print_access_urls
   release_deploy_lock
 }
-stop_services() { acquire_deploy_lock stop; preflight false advisory; "${COMPOSE[@]}" stop; release_deploy_lock; }
+stop_services() {
+  ui_banner "$(t stop)"
+  acquire_deploy_lock stop
+  preflight false advisory
+  "${COMPOSE[@]}" stop
+  release_deploy_lock
+}
 
 # 只校验生产配置：不启动容器、不需要 Docker daemon，供 CI 与运维本地自检。
 # 与 preflight 共用同一套 effective 取值，所以「这里通过」等价于「容器会拿到这些值」。
@@ -1090,7 +1116,7 @@ check_env_contract() {
   chmod 600 .env.production
   sanitize_env_contract_overrides
   validate_env_contract
-  printf '%s\n' "$(t env_contract_ok)"
+  ui_ok "$(t env_contract_ok)"
 }
 
 run_action() {
@@ -1112,15 +1138,15 @@ run_action() {
 main_menu() {
   while true; do
     echo
-    echo "== $(t title) =="
-    echo "1) $(t install)"
-    echo "2) $(t backup)"
-    echo "3) $(t restore)"
-    echo "4) $(t status)"
-    echo "5) $(t logs)"
-    echo "6) $(t restart)"
-    echo "7) $(t stop)"
-    echo "0) $(t exit)"
+    ui_banner "$(t title)"
+    ui_key "  1) $(t install)"
+    ui_key "  2) $(t backup)"
+    ui_key "  3) $(t restore)"
+    ui_key "  4) $(t status)"
+    ui_key "  5) $(t logs)"
+    ui_key "  6) $(t restart)"
+    ui_key "  7) $(t stop)"
+    ui_key "  0) $(t exit)"
     read -r -p "> [1] " menu_action
     case "$menu_action" in
       ""|1) resolve_target_version; deploy_update ;;

@@ -22,6 +22,9 @@ set -euo pipefail
 umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 终端配色层：唯一实现在同目录的 term-ui.sh，随部署包分发、由 bootstrap 提升。
+# shellcheck source=deploy/scripts/term-ui.sh
+source "$SCRIPT_DIR/term-ui.sh"
 # shellcheck source=deploy/scripts/postgres-common.sh
 source "$SCRIPT_DIR/postgres-common.sh"
 # shellcheck source=deploy/scripts/postgres-backup-format.sh
@@ -32,7 +35,7 @@ usage() {
 }
 
 if [ "${SFORUM_CONFIRM_RESTORE:-}" != "RESTORE" ]; then
-  echo "Set SFORUM_CONFIRM_RESTORE=RESTORE to run a database restore."
+  ui_err "Set SFORUM_CONFIRM_RESTORE=RESTORE to run a database restore."
   exit 1
 fi
 
@@ -45,14 +48,14 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
 if [ ! -f .env.production ]; then
-  echo ".env.production is required."
+  ui_err ".env.production is required."
   exit 1
 fi
 chmod 600 .env.production
 
 BACKUP_INPUT="$1"
 if [ ! -f "$BACKUP_INPUT" ]; then
-  echo "Backup file not found: $BACKUP_INPUT"
+  ui_err "Backup file not found: $BACKUP_INPUT"
   exit 1
 fi
 
@@ -67,7 +70,7 @@ SFORUM_ATTACHMENT_CONTAINER_DIR="${SFORUM_ATTACHMENT_CONTAINER_DIR:-$SFORUM_ATTA
 TARGET_DB="$POSTGRES_DB"
 case "$TARGET_DB" in
   ""|postgres|template0|template1)
-    echo "Refusing to restore protected PostgreSQL database: ${TARGET_DB:-<empty>}" >&2
+    ui_err "Refusing to restore protected PostgreSQL database: ${TARGET_DB:-<empty>}"
     exit 1
     ;;
 esac
@@ -86,7 +89,7 @@ sforum_sweep_stale_restore_dirs() {
   while IFS= read -r stale; do
     [ -n "$stale" ] || continue
     rm -rf -- "$stale"
-    printf '清理上次异常退出留下的恢复工作目录（含明文转储）：%s\n' "$stale" >&2
+    ui_warn "清理上次异常退出留下的恢复工作目录（含明文转储）：$stale"
   done < <(find "$tmpdir" -mindepth 1 -maxdepth 1 -type d -name 'sforum-restore.*' \
     -user "$(id -u)" -mmin +1440 2>/dev/null | sort)
 }
@@ -150,7 +153,7 @@ rollback_after_swap() {
   local failed_db="sforum_restore_failed_${RESTORE_SUFFIX}"
   local status=0
 
-  printf '切换后校验未通过，回滚到切换前的数据库。\n' >&2
+  ui_err '切换后校验未通过，回滚到切换前的数据库。'
   if "${SFORUM_COMPOSE[@]}" exec -T postgres psql -X --set=ON_ERROR_STOP=1 --single-transaction \
     --set=target_db="$TARGET_DB" \
     --set=previous_db="$PREVIOUS_DB" \
@@ -164,13 +167,13 @@ SQL
   then
     SWAPPED=false
     ROLLED_BACK=true
-    printf '已回滚：%s 恢复为切换前内容；未通过校验的新库保留为 %s。\n' "$TARGET_DB" "$failed_db" >&2
+    ui_err "已回滚：$TARGET_DB 恢复为切换前内容；未通过校验的新库保留为 $failed_db。"
     if [ "$ASSETS_RESTORED" = true ]; then
       sforum_restore_asset_snapshots "$ASSET_SNAPSHOT_DIR" || status=1
     fi
   else
     status=1
-    printf '自动回滚失败。\n' >&2
+    ui_err '自动回滚失败。'
   fi
   print_recovery_hint "$failed_db"
   return "$status"
@@ -196,7 +199,7 @@ cleanup() {
 trap cleanup EXIT
 
 # 1. 解密 / 解包 / 内容预检：不碰数据库。
-echo "Verifying restore payload: $BACKUP_INPUT"
+ui_step "Verifying restore payload: $BACKUP_INPUT"
 sforum_prepare_payload "$BACKUP_INPUT" "$WORK_DIR/payload"
 RESTORE_SQL="$WORK_DIR/payload/database.sql"
 sforum_validate_sql_payload "$RESTORE_SQL"
@@ -284,10 +287,10 @@ if [ "$SFORUM_TOPOLOGY" = "blue-green" ]; then
       sforum_die "蓝绿拓扑下无法确定槽位容器地址；拒绝无差别终止数据库连接。请先手动停掉运行中的槽位再恢复。"
     fi
     TERMINATE_SCOPE="slots"
-    printf 'Slot connections protected for termination scope: %s\n' "$STOPPED_ADDRS"
+    ui_step "Slot connections protected for termination scope: $STOPPED_ADDRS"
   else
     TERMINATE_SCOPE="none"
-    printf '蓝绿拓扑下没有运行中的槽位：本次不做连接终止，残留连接会让改名失败并触发回滚。\n'
+    ui_warn '蓝绿拓扑下没有运行中的槽位：本次不做连接终止，残留连接会让改名失败并触发回滚。'
   fi
 fi
 
@@ -304,7 +307,7 @@ sforum_wait_for_postgres "$TARGET_DB"
 "${SFORUM_COMPOSE[@]}" exec -T postgres createdb -U "$POSTGRES_ACTOR" \
   --owner "$POSTGRES_ACTOR" --template template0 "$RESTORE_DB"
 
-echo "Restoring PostgreSQL backup into $RESTORE_DB"
+ui_step "Restoring PostgreSQL backup into $RESTORE_DB"
 "${SFORUM_COMPOSE[@]}" exec -T postgres psql \
   -X \
   --set=ON_ERROR_STOP=1 \
@@ -369,7 +372,7 @@ sforum_db_validate "$TARGET_DB" "$MANIFEST" quiet
 # 7. 附件卷与扩展制品卷。回滚靠切换前快照。
 if [ -f "$ASSETS_DIR/attachments.tar" ] || [ -f "$ASSETS_DIR/extensions.tar" ]; then
   if [ "${SFORUM_RESTORE_SKIP_ASSETS:-0}" = "1" ]; then
-    echo "Skipping volume restore (SFORUM_RESTORE_SKIP_ASSETS=1)."
+    ui_warn 'Skipping volume restore (SFORUM_RESTORE_SKIP_ASSETS=1).'
   else
     # 先置位再动手：附件卷解到一半失败时，回滚同样要把已写进去的内容还原。
     ASSETS_RESTORED=true
@@ -377,7 +380,7 @@ if [ -f "$ASSETS_DIR/attachments.tar" ] || [ -f "$ASSETS_DIR/extensions.tar" ]; 
     sforum_verify_restored_assets "$ASSETS_DIR" "$WORK_DIR"
   fi
 else
-  echo "该备份不含附件/扩展制品卷，跳过卷恢复。"
+  ui_warn '该备份不含附件/扩展制品卷，跳过卷恢复。'
 fi
 
 # 8. 启动应用槽并等 API 就绪：这里不通过就不算恢复成功，旧库也还不删。
@@ -393,7 +396,7 @@ fi
 # 已内嵌在 api 进程里，sforum_app_services 列它只是为了过滤历史遗留容器。
 restart_stopped_services
 if [ "$API_SLOT_LAUNCH_REQUIRED" = true ]; then
-  echo "没有正在运行的 API 槽位，按拓扑拉起并等待就绪：${API_SERVICES[*]}"
+  ui_step "没有正在运行的 API 槽位，按拓扑拉起并等待就绪：${API_SERVICES[*]}"
   if ! "${SFORUM_COMPOSE[@]}" up -d --no-build --pull never "${API_SERVICES[@]}"; then
     sforum_die "无法拉起 API 槽位（${API_SERVICES[*]}）；不判定恢复成功，切换前的数据库不做删除。"
   fi
@@ -405,8 +408,8 @@ sforum_wait_for_api_services "${API_SERVICES[@]}"
 # 删不掉只是留了一份取证副本（已禁止连接），不应该把一次成功且已验证的恢复倒回去。
 if ! "${SFORUM_COMPOSE[@]}" exec -T postgres dropdb --if-exists --force \
   -U "$POSTGRES_ACTOR" "$PREVIOUS_DB"; then
-  printf '警告：旧库未能删除，已禁止连接，可稍后手工清理：%s\n' "$PREVIOUS_DB" >&2
+  ui_warn "警告：旧库未能删除，已禁止连接，可稍后手工清理：$PREVIOUS_DB"
 fi
 PREVIOUS_DB=""
 SWAPPED=false
-echo "PostgreSQL restore completed and validated: $TARGET_DB"
+ui_ok "PostgreSQL restore completed and validated: $TARGET_DB"

@@ -51,6 +51,8 @@ on:
       - contracts/proto/**
       - tests/builtin-plugin-release-baseline.json
       - tests/validate-sforum-latest.sh
+      # 配色层门：读 deploy/scripts/term-ui.sh 与三份内联副本，并实际执行 5 个入口。
+      - tests/validate-term-ui.sh
       - sforum-latest.sh
       - sforum-latest.sh.sha256
   push:
@@ -105,6 +107,8 @@ on:
       - contracts/proto/**
       - tests/builtin-plugin-release-baseline.json
       - tests/validate-sforum-latest.sh
+      # 配色层门：读 deploy/scripts/term-ui.sh 与三份内联副本，并实际执行 5 个入口。
+      - tests/validate-term-ui.sh
       - sforum-latest.sh
       - sforum-latest.sh.sha256
 

@@ -183,6 +183,28 @@ fails the release when the pair disagrees), so the checksum anchors the script
 bytes instead of living on the same mutable branch. It stays outside
 `sforum-deploy.tar.gz`, and the bootstrap does not refresh it.
 
+Terminal UI layer (2026-11-18): the one-click chain prints through a single
+semantic color layer, `deploy/scripts/term-ui.sh`. It is the only implementation:
+`sforum-install.sh`, `sforum-bootstrap.sh`, and `sforum-latest.sh` inline the
+same `# >>> term-ui` … `# <<< term-ui` block byte-for-byte because they run in an
+empty directory where `deploy/scripts/` does not exist yet, while `deploy.sh`,
+`upgrade.sh`, the configuration wizard, the health probe, and the restore helper
+`source` the shipped library. `tests/validate-term-ui.sh` compares the four
+copies byte-for-byte, so a change must land in all four places. Three invariants
+carry the design: (1) a whole message is wrapped, never split into "label in one
+color, value in another", so existing substring assertions and operator
+readability survive; (2) the machine prefixes `sforum-install: `,
+`sforum-bootstrap: `, and `sforum-latest: ` stay at the first byte of the line
+and color starts after the colon, which is what
+`tests/validate-sforum-latest.sh` anchors on; (3) color exists only at print
+sites — `t()`, `say()`/`_say_text()`, `lock_text()`, `run_database_backup`'s
+stdout, `.deployrc`, `.env.production`, and `DEPLOY_LOCK_LOG` never carry an
+escape byte, and a prompt printed inside `$(...)` goes to stderr so it cannot
+pollute a captured value. Precedence is `SFORUM_COLOR=never` / non-empty
+`NO_COLOR` / `TERM=dumb` first, then `SFORUM_COLOR=always` or a terminal stdout,
+otherwise plain text; redirected and CI output is therefore colorless by
+default.
+
 Normal production deployment uses one API process with an embedded River
 worker. Worker ownership is not configurable; Compose exposes no standalone
 Worker service. Queue concurrency and shutdown controls go to the API-owned

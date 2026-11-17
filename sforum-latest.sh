@@ -8,6 +8,35 @@
 # 的 bootstrap 执行 install/upgrade。任何过期或缺失的受管文件都会在这里被替换。
 set -euo pipefail
 export LC_ALL=C
+# 终端配色层：本文件要在 deploy/scripts 还不存在的空目录里执行，所以内联同一份标记块；
+# tests/validate-term-ui.sh 与 deploy/scripts/term-ui.sh 逐字节比对。
+# >>> term-ui
+ui_init_color() {
+  if [ "${SFORUM_COLOR:-auto}" = never ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = dumb ]; then
+    UI_COLOR=false
+  elif [ "${SFORUM_COLOR:-auto}" = always ] || [ -t 1 ]; then
+    UI_COLOR=true
+  else
+    UI_COLOR=false
+  fi
+  if [ "$UI_COLOR" = true ]; then
+    UI_RESET=$'\033[0m';  UI_BANNER=$'\033[1;36m'; UI_STEP=$'\033[1m'
+    UI_OK=$'\033[1;32m';  UI_WARN=$'\033[1;33m';   UI_ERR=$'\033[1;31m'
+    UI_KEY=$'\033[36m';   UI_PROMPT=$'\033[1;36m'
+  else
+    UI_RESET=''; UI_BANNER=''; UI_STEP=''; UI_OK=''
+    UI_WARN=''; UI_ERR=''; UI_KEY=''; UI_PROMPT=''
+  fi
+}
+ui_init_color
+ui_banner() { printf '%s== %s ==%s\n' "$UI_BANNER" "$1" "$UI_RESET"; }
+ui_step()   { printf '%s==> %s%s\n' "$UI_STEP" "$1" "$UI_RESET"; }
+ui_ok()     { printf '%s[ok] %s%s\n' "$UI_OK" "$1" "$UI_RESET"; }
+ui_warn()   { printf '%s[!] %s%s\n' "$UI_WARN" "$1" "$UI_RESET" >&2; }
+ui_err()    { printf '%s[x] %s%s\n' "$UI_ERR" "$1" "$UI_RESET" >&2; }
+ui_key()    { printf '%s%s%s\n' "$UI_KEY" "$1" "$UI_RESET"; }
+ui_prompt() { printf '%s%s%s' "$UI_PROMPT" "$1" "$UI_RESET"; }
+# <<< term-ui
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPOSITORY="${SFORUM_RELEASE_REPOSITORY:-keeptrue/SForum}"
@@ -82,8 +111,10 @@ deploy.sh、upgrade.sh、compose 文件、deploy/scripts、Caddy 示例与 VERSI
 EOF
 }
 
+# 机器前缀必须留在行首字节（tests/validate-sforum-latest.sh 按 `^sforum-latest: ` 判定），
+# 颜色只包裹前缀之后的正文。
 die() {
-  printf 'sforum-latest: %s\n' "$1" >&2
+  printf 'sforum-latest: %s[x] %s%s\n' "$UI_ERR" "$1" "$UI_RESET" >&2
   exit 1
 }
 
@@ -191,7 +222,7 @@ acquire_lock() {
     reclaim_stale_lock "$stale_pid"
     mkdir "$LOCK_DIR" 2>/dev/null || \
       die "同目录已有另一个部署操作正在运行：$(lock_holder_summary)"
-    printf 'sforum-latest: 已回收陈旧锁（reason=%s）\n' "${LOCK_REASON:-manual}" >&2
+    ui_warn "sforum-latest: 已回收陈旧锁（reason=${LOCK_REASON:-manual}）"
   fi
   printf '%s\n' "$$" > "$LOCK_DIR/pid"
   printf 'pid=%s\naction=%s\nstarted_at=%s\nproc_start=%s\n' "$$" "$LOCK_ACTION" \
@@ -213,7 +244,7 @@ release_lock() {
 force_unlock() {
   local summary
   if [ ! -e "$LOCK_DIR" ]; then
-    printf '当前没有部署锁（%s）。\n' "$LOCK_DIR"
+    ui_warn "当前没有部署锁（$LOCK_DIR）。"
     return 0
   fi
   summary="$(lock_holder_summary)"
@@ -222,7 +253,7 @@ force_unlock() {
   lock_is_stale || [ "${LOCK_REASON:-}" = no_owner ] || \
     die "部署锁仍被活性进程持有（$summary）；确认持有者已退出后重试"
   reclaim_stale_lock "$(lock_dir_pid "$LOCK_DIR" || true)"
-  printf '已回收部署锁（reason=%s）：%s\n' "${LOCK_REASON:-manual}" "$summary"
+  ui_warn "已回收部署锁（reason=${LOCK_REASON:-manual}）：$summary"
 }
 
 passthrough_has() {
@@ -264,13 +295,18 @@ version_is_older() {
 
 prompt_channel() {
   local choice tag
-  printf '请选择发布渠道：\n  1) 正式版 stable（推荐）\n  2) 最新发布版（含 alpha/beta）\n  3) 指定版本\n'
-  read -r -p '渠道 [1]: ' choice || choice=1
+  ui_banner '请选择发布渠道'
+  ui_key '  1) 正式版 stable（推荐）'
+  ui_key '  2) 最新发布版（含 alpha/beta）'
+  ui_key '  3) 指定版本'
+  ui_prompt '渠道 [1]: '
+  read -r choice || choice=1
   case "${choice:-1}" in
     1|stable) CHANNEL=stable ;;
     2|prerelease) CHANNEL=prerelease ;;
     3)
-      read -r -p '版本标签（如 v3.0.12-alpha.6）: ' tag || die "未读取到版本标签"
+      ui_prompt '版本标签（如 v3.0.12-alpha.6）: '
+      read -r tag || die "未读取到版本标签"
       TARGET_TAG="$(normalize_tag "$tag")"
       ;;
     *) die "无效的渠道选择: $choice" ;;
@@ -444,7 +480,7 @@ stage_bundle() {
       # 旧版 gh 没有 attestation 子命令；同步给 bootstrap，避免它内部的同样调用失败。
       ATTESTATION_STATUS="skipped-unsupported-gh"
       export SFORUM_SKIP_ATTESTATION=true
-      printf '提示: 本机 gh 不支持 attestation，已跳过构建来源校验（SHA-256 已通过）\n' >&2
+      ui_warn '提示: 本机 gh 不支持 attestation，已跳过构建来源校验（SHA-256 已通过）'
     fi
   fi
 
@@ -520,7 +556,7 @@ backup_toolkit() {
     cp -p "$ROOT_DIR/$rel" "$BACKUP_ROOT/$rel"
   done < "$MANAGED_LIST"
   if [ "$copied" = true ]; then
-    printf '旧工具链备份: %s\n' "$BACKUP_ROOT"
+    ui_key "旧工具链备份: $BACKUP_ROOT"
   else
     BACKUP_ROOT=""
   fi
@@ -554,42 +590,42 @@ promote_toolkit() {
 
 print_attestation() {
   case "$ATTESTATION_STATUS" in
-    verified) printf '构建来源: gh attestation 校验通过\n' ;;
-    skipped-env) printf '构建来源: 按 SFORUM_SKIP_ATTESTATION 跳过\n' ;;
-    skipped-no-gh) printf '构建来源: 未安装 gh，仅做 SHA-256 校验\n' ;;
-    *) printf '构建来源: 本机 gh 不支持 attestation，仅做 SHA-256 校验\n' ;;
+    verified) ui_ok '构建来源: gh attestation 校验通过' ;;
+    skipped-env) ui_warn '构建来源: 按 SFORUM_SKIP_ATTESTATION 跳过' ;;
+    skipped-no-gh) ui_warn '构建来源: 未安装 gh，仅做 SHA-256 校验' ;;
+    *) ui_warn '构建来源: 本机 gh 不支持 attestation，仅做 SHA-256 校验' ;;
   esac
 }
 
 report() {
   local tag="$1" count
-  printf '目标 Release: %s\n' "$tag"
-  printf '部署包 SHA-256: %s\n' "$BUNDLE_SHA"
+  ui_key "目标 Release: $tag"
+  ui_key "部署包 SHA-256: $BUNDLE_SHA"
   print_attestation
   if [ -s "$DIFF_FILE" ]; then
     count="$(wc -l < "$DIFF_FILE" | tr -d '[:space:]')"
-    printf '受管工具链: %s 个文件需要更新\n' "$count"
+    ui_step "受管工具链: $count 个文件需要更新"
     sed -n '1,10p' "$DIFF_FILE" | sed 's/^/  /'
-    [ "$count" -le 10 ] || printf '  ...（其余 %s 个）\n' "$((count - 10))"
+    [ "$count" -le 10 ] || ui_key "  ...（其余 $((count - 10)) 个）"
   else
-    printf '受管工具链: 已是最新\n'
+    ui_ok '受管工具链: 已是最新'
   fi
   case "$ACTION" in
-    install) printf '安装状态: 未安装，计划动作 install\n' ;;
-    upgrade) printf '安装状态: 已安装，计划动作 upgrade\n' ;;
-    repair) printf '安装状态: .deployrc 缺少有效版本记录，计划动作 deploy（重建状态）\n' ;;
-    *) printf '安装状态: 不完整（只有 .deployrc，没有 .env.production），需要先人工修复\n' ;;
+    install) ui_key '安装状态: 未安装，计划动作 install' ;;
+    upgrade) ui_key '安装状态: 已安装，计划动作 upgrade' ;;
+    repair) ui_key '安装状态: .deployrc 缺少有效版本记录，计划动作 deploy（重建状态）' ;;
+    *) ui_key '安装状态: 不完整（只有 .deployrc，没有 .env.production），需要先人工修复' ;;
   esac
 }
 
 run_action() {
   case "$ACTION" in
     install|upgrade)
-      printf '执行: ./sforum-bootstrap.sh %s --version %s\n' "$ACTION" "$TARGET_TAG"
+      ui_step "执行: ./sforum-bootstrap.sh $ACTION --version $TARGET_TAG"
       "$BOOTSTRAP" "$ACTION" --version "$TARGET_TAG" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
       ;;
     repair)
-      printf '执行: ./deploy.sh --action deploy --version %s\n' "$TARGET_TAG"
+      ui_step "执行: ./deploy.sh --action deploy --version $TARGET_TAG"
       "$ROOT_DIR/deploy.sh" --action deploy --version "$TARGET_TAG" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
       ;;
   esac
@@ -601,12 +637,12 @@ main() {
 
   parse_args "$@"
   if [ "$UNLOCK" = true ]; then
-    printf '安装目录: %s\n' "$ROOT_DIR"
+    ui_key "安装目录: $ROOT_DIR"
     force_unlock
     exit 0
   fi
   detect_action
-  printf '安装目录: %s\n' "$ROOT_DIR"
+  ui_key "安装目录: $ROOT_DIR"
 
   if [ -z "$TARGET_TAG" ] && [ "$CHANNEL_EXPLICIT" != true ] && \
      [ "$ASSUME_YES" != true ] && [ -t 0 ]; then
@@ -648,8 +684,7 @@ main() {
   fi
   if [ -n "$CURRENT_VERSION" ] && version_is_older "$TARGET_TAG" "$CURRENT_VERSION"; then
     if [ "$CHECK_ONLY" = true ]; then
-      printf '警告: 目标 %s 低于当前记录的 %s，直接部署会被数据库迁移拒绝。\n' \
-        "$TARGET_TAG" "$CURRENT_VERSION" >&2
+      ui_warn "警告: 目标 $TARGET_TAG 低于当前记录的 $CURRENT_VERSION，直接部署会被数据库迁移拒绝。"
     else
       die "目标 $TARGET_TAG 低于当前记录的 $CURRENT_VERSION；改用 --version $CURRENT_VERSION 或更高版本"
     fi
@@ -665,16 +700,16 @@ main() {
     exit 0
   fi
 
-  printf '目标 Release: %s\n' "$TARGET_TAG"
-  printf '部署包 SHA-256: %s\n' "$BUNDLE_SHA"
+  ui_key "目标 Release: $TARGET_TAG"
+  ui_key "部署包 SHA-256: $BUNDLE_SHA"
   print_attestation
 
   if [ -s "$DIFF_FILE" ]; then
-    printf '同步受管工具链: %s 个文件\n' "$(wc -l < "$DIFF_FILE" | tr -d '[:space:]')"
+    ui_step "同步受管工具链: $(wc -l < "$DIFF_FILE" | tr -d '[:space:]') 个文件"
     backup_toolkit
     promote_toolkit
   else
-    printf '受管工具链: 已是最新\n'
+    ui_ok '受管工具链: 已是最新'
   fi
 
   # OPS-02：跨进程交接。run_action 会把控制权交给 deploy.sh / upgrade.sh，它们自己
@@ -693,16 +728,16 @@ main() {
     migrated="$(grep -o 'migrated Core=[0-9A-Za-z._-]*' "$STAGE/action.log" 2>/dev/null \
       | head -n1 | cut -d= -f2 || true)"
     if [ -n "$migrated" ]; then
-      printf '\n数据库已迁移到 %s，目标 %s 更旧。\n' "$migrated" "$TARGET_TAG" >&2
-      printf '改用：./sforum-latest.sh --version %s\n' "${migrated#v}" >&2
-      printf '或：./sforum-latest.sh --channel prerelease\n' >&2
+      ui_err "数据库已迁移到 $migrated，目标 $TARGET_TAG 更旧。"
+      ui_err "改用：./sforum-latest.sh --version ${migrated#v}"
+      ui_err '或：./sforum-latest.sh --channel prerelease'
     fi
   fi
 
   if [ "$status" -eq 0 ]; then
     toolkit_diff
     if [ -s "$DIFF_FILE" ]; then
-      printf '执行后工具链仍与 %s 不一致：\n' "$TARGET_TAG" >&2
+      ui_err "执行后工具链仍与 $TARGET_TAG 不一致："
       sed -n '1,20p' "$DIFF_FILE" >&2
       status=1
     fi

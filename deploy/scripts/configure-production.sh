@@ -2,6 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 终端配色层：唯一实现在同目录的 term-ui.sh，随部署包分发、由 bootstrap 提升。
+# shellcheck source=deploy/scripts/term-ui.sh
+source "$SCRIPT_DIR/term-ui.sh"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUTPUT_PATH=""
 LANGUAGE="zh"
@@ -27,7 +30,7 @@ EOF
 }
 
 die() {
-  printf '%s\n' "$1" >&2
+  ui_err "$1"
   exit 1
 }
 
@@ -190,7 +193,10 @@ prompt_default() {
   local label="$1"
   local default="$2"
   local answer
-  read -r -p "$label [$default]: " answer
+  # 提示必须走 stderr：本函数的 stdout 是返回值，调用方一律用 $(...) 捕获它。
+  # 提示写进 stdout 会让 $(...) 把「标签 + 答案」当成值，版本校验当场失败。
+  ui_prompt "$label [$default]: " >&2
+  read -r answer
   printf '%s' "${answer:-$default}"
 }
 
@@ -198,7 +204,7 @@ if [ -e "$OUTPUT_PATH" ]; then
   if [ "$FORCE" = true ]; then
     die "$(t refuse_force)"
   fi
-  printf '%s %s\n' "$(t exists)" "$OUTPUT_PATH"
+  ui_warn "$(t exists) $OUTPUT_PATH"
   exit 0
 fi
 
@@ -209,7 +215,9 @@ app_url="http://127.0.0.1:3000"
 admin_prefix="/control-panel"
 
 if [ "$DEFAULTS" != true ]; then
-  printf '%s\n%s\n\n' "$(t intro)" "$(t managed)"
+  ui_banner "$(t intro)"
+  ui_key "$(t managed)"
+  printf '\n'
   if [ -z "$PINNED_VERSION" ]; then
     release_version="$(prompt_default "$(t version)" "$DEFAULT_VERSION")"
   fi
@@ -325,8 +333,9 @@ mv -f "$temp_file" "$OUTPUT_PATH"
 temp_file=""
 trap - EXIT HUP INT TERM
 
-printf '%s %s\n' "$(t written)" "$OUTPUT_PATH"
-printf '%s\n' "$(t client_ip)"
-printf '%s\n' "$(t managed)"
-printf '\n%s\n' "$(t backup_key)"
-printf '%s\n' "$(t backup_key_command)"
+ui_ok "$(t written) $OUTPUT_PATH"
+ui_key "$(t client_ip)"
+ui_key "$(t managed)"
+printf '\n'
+ui_warn "$(t backup_key)"
+ui_key "$(t backup_key_command)"

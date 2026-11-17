@@ -2,6 +2,35 @@
 set -euo pipefail
 export LC_ALL=C
 export LANG=C
+# 终端配色层：本文件要在 deploy/scripts 还不存在的空目录里执行，所以内联同一份标记块；
+# tests/validate-term-ui.sh 与 deploy/scripts/term-ui.sh 逐字节比对。
+# >>> term-ui
+ui_init_color() {
+  if [ "${SFORUM_COLOR:-auto}" = never ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = dumb ]; then
+    UI_COLOR=false
+  elif [ "${SFORUM_COLOR:-auto}" = always ] || [ -t 1 ]; then
+    UI_COLOR=true
+  else
+    UI_COLOR=false
+  fi
+  if [ "$UI_COLOR" = true ]; then
+    UI_RESET=$'\033[0m';  UI_BANNER=$'\033[1;36m'; UI_STEP=$'\033[1m'
+    UI_OK=$'\033[1;32m';  UI_WARN=$'\033[1;33m';   UI_ERR=$'\033[1;31m'
+    UI_KEY=$'\033[36m';   UI_PROMPT=$'\033[1;36m'
+  else
+    UI_RESET=''; UI_BANNER=''; UI_STEP=''; UI_OK=''
+    UI_WARN=''; UI_ERR=''; UI_KEY=''; UI_PROMPT=''
+  fi
+}
+ui_init_color
+ui_banner() { printf '%s== %s ==%s\n' "$UI_BANNER" "$1" "$UI_RESET"; }
+ui_step()   { printf '%s==> %s%s\n' "$UI_STEP" "$1" "$UI_RESET"; }
+ui_ok()     { printf '%s[ok] %s%s\n' "$UI_OK" "$1" "$UI_RESET"; }
+ui_warn()   { printf '%s[!] %s%s\n' "$UI_WARN" "$1" "$UI_RESET" >&2; }
+ui_err()    { printf '%s[x] %s%s\n' "$UI_ERR" "$1" "$UI_RESET" >&2; }
+ui_key()    { printf '%s%s%s\n' "$UI_KEY" "$1" "$UI_RESET"; }
+ui_prompt() { printf '%s%s%s' "$UI_PROMPT" "$1" "$UI_RESET"; }
+# <<< term-ui
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMMAND=""
@@ -50,8 +79,9 @@ not forward --confirm-maintenance.
 EOF
 }
 
+# 机器前缀必须留在行首字节，颜色只包裹前缀之后的正文。
 die() {
-  printf 'sforum-bootstrap: %s\n' "$1" >&2
+  printf 'sforum-bootstrap: %s[x] %s%s\n' "$UI_ERR" "$1" "$UI_RESET" >&2
   exit 1
 }
 
@@ -275,6 +305,7 @@ deploy/scripts/postgres-backup-format.sh
 deploy/scripts/restore-postgres.sh
 deploy/scripts/wait-for-health.sh
 deploy/scripts/deploy-lock.sh
+deploy/scripts/term-ui.sh
 deploy/caddy/Caddyfile
 deploy/router/Caddyfile.example
 deploy/volumes/README.md
@@ -348,7 +379,7 @@ promote_bundle() {
   done < <(managed_files)
 
   if [ -n "$backup_root" ]; then
-    printf 'Previous deployment tools backed up to %s\n' "$backup_root"
+    ui_warn "Previous deployment tools backed up to $backup_root"
   fi
   release_promote_lock
 }
@@ -476,10 +507,14 @@ main() {
     if [ "$has_defaults" = 0 ]; then
       local choice
       if [ "$LANGUAGE" = en ]; then
-        printf '1) Stable (recommended)\n2) Newest release (includes alpha/beta prereleases)\n'
+        ui_banner 'Release channel'
+        ui_key '  1) Stable (recommended)'
+        ui_key '  2) Newest release (includes alpha/beta prereleases)'
         read -r -p "Release channel [1]: " choice || die "could not read a channel"
       else
-        printf '1) 稳定版（推荐）\n2) 最新发布版（包含 alpha/beta 预发布）\n'
+        ui_banner '请选择发布渠道'
+        ui_key '  1) 稳定版（推荐）'
+        ui_key '  2) 最新发布版（包含 alpha/beta 预发布）'
         read -r -p "请选择发布渠道 [1]: " choice || die "无法读取渠道选择"
       fi
       case "${choice:-1}" in
@@ -497,11 +532,11 @@ main() {
     validate_version "$TARGET_VERSION"
   fi
 
-  printf 'Resolved deployment toolkit: %s\n' "$TARGET_VERSION"
+  ui_step "Resolved deployment toolkit: $TARGET_VERSION"
   refresh_bootstrap
   refresh_toolkit
 
-  printf 'Install directory: %s\n' "$ROOT_DIR"
+  ui_key "Install directory: $ROOT_DIR"
 
   if [ "$COMMAND" = install ]; then
     exec "$ROOT_DIR/deploy.sh" --action deploy --version "$TARGET_VERSION" \

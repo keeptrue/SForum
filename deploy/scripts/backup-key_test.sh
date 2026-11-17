@@ -56,6 +56,7 @@ prepare_upgrade_root() {
   mkdir -p "$UPGRADE_ROOT/deploy/scripts"
   cp "$ROOT_DIR/upgrade.sh" "$UPGRADE_ROOT/"
   cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$UPGRADE_ROOT/deploy/scripts/"
+  cp "$ROOT_DIR/deploy/scripts/term-ui.sh" "$UPGRADE_ROOT/deploy/scripts/"
   printf '%s\n' \
     'APP_ENV=production' \
     '# SFORUM_BACKUP_KEY_FILE=/etc/sforum/backup.key' > "$UPGRADE_ROOT/.env.production"
@@ -172,6 +173,7 @@ cp "$ROOT_DIR/deploy.sh" "$DEPLOY_ROOT/"
 cp "$ROOT_DIR/compose.yaml" "$ROOT_DIR/compose.prod.yaml" "$ROOT_DIR/compose.release.yaml" \
   "$ROOT_DIR/compose.zero-downtime.yaml" "$DEPLOY_ROOT/"
 cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$DEPLOY_ROOT/deploy/scripts/"
+cp "$ROOT_DIR/deploy/scripts/term-ui.sh" "$DEPLOY_ROOT/deploy/scripts/"
 
 "$ROOT_DIR/deploy/scripts/configure-production.sh" \
   --lang en --defaults --version v3.0.0 \

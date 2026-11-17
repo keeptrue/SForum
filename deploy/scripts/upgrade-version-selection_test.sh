@@ -32,6 +32,7 @@ assert_not_contains() {
 mkdir -p "$TEST_ROOT/deploy/scripts" "$MOCK_BIN"
 cp "$ROOT_DIR/upgrade.sh" "$TEST_ROOT/"
 cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$TEST_ROOT/deploy/scripts/"
+cp "$ROOT_DIR/deploy/scripts/term-ui.sh" "$TEST_ROOT/deploy/scripts/"
 touch \
   "$TEST_ROOT/compose.yaml" \
   "$TEST_ROOT/compose.prod.yaml" \

@@ -905,7 +905,17 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **观感回归修复：头像字色 / 侧栏分组箭头 / 激活项品牌色（2026-11-17，最新）**：起因
+- **一键脚本终端配色层（2026-11-18，最新）**：新增 `deploy/scripts/term-ui.sh` 作为唯一实现，
+  `sforum-install.sh` / `sforum-bootstrap.sh` / `sforum-latest.sh` 内联同一份
+  `# >>> term-ui` 块（逐字节），`deploy.sh` / `upgrade.sh` / 配置向导 / 健康探针 / 恢复脚本
+  `source` 那一份。三条不变量：整行包裹不拆色、机器前缀留在行首字节、颜色只在打印点
+  （`t()`/`say()`/`lock_text()` 返回值、`run_database_backup` stdout、`.deployrc`、
+  `.env.production`、`DEPLOY_LOCK_LOG` 一律无 ESC）。新门 `tests/validate-term-ui.sh`
+  六条断言，已接进 `release-tooling-gate.sh` 与 `release-tooling.yml` 两个触发块；
+  资产闭包登记 `SOURCE_FILES` + `managed_files()`。见
+  `sessions/2026-11-18-one-click-script-color.md`（含 `NO_COLOR` 与 `SFORUM_COLOR=always`
+  优先级的待确认项）。
+- **观感回归修复：头像字色 / 侧栏分组箭头 / 激活项品牌色（2026-11-17）**：起因
   `739a282c5`（第 15 轮 W4 a11y，`git tag --contains` 为空，v3.1.0 不带）；只修观感、不撤
   a11y 收益。① 头像色板改「深底 + 白字」，8 档顺序不变、白字 4.847–5.554:1；② `admin.vue`
   的 `#folder` 槽补回 `linkTrailing` 包裹（`ms-auto`）承接箭头靠右，折叠态 label `hidden` /

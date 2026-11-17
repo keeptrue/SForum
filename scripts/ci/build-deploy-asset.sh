@@ -42,6 +42,9 @@ SOURCE_FILES=(
   "deploy/scripts/wait-for-health.sh"
   # deploy.sh 与 upgrade.sh 共用同一套锁判定；漏了它，两个入口都在第一条 source 就坏。
   "deploy/scripts/deploy-lock.sh"
+  # 终端配色层：deploy.sh / upgrade.sh 与 configure-production.sh、wait-for-health.sh、
+  # restore-postgres.sh 的第一条 source 行就要它；漏了它整条一键链路在 source 处坏。
+  "deploy/scripts/term-ui.sh"
   "deploy/caddy/Caddyfile"
   "deploy/router/Caddyfile.example"
   "deploy/volumes/README.md"

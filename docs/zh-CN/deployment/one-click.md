@@ -451,6 +451,47 @@ SFORUM_CONFIRM_RESTORE=RESTORE ./deploy.sh --action restore
 - **版本回退**：确认数据库迁移向后兼容后，用较早的不可变标签重新部署。
   迁移不兼容时，恢复部署前备份，不要只回退镜像。
 
+## 输出颜色
+
+一键链路的所有脚本共用同一层语义化配色：`sforum-install.sh`、`sforum-bootstrap.sh`、
+`deploy.sh`、`upgrade.sh`、`sforum-latest.sh`，以及 `deploy/scripts/` 里的配置向导、
+健康探针和恢复脚本。颜色只作用于**打印点**：`.deployrc`、`.env.production`、部署锁日志、
+备份脚本的 stdout、以及所有被 `$(...)` 捕获的返回值一律不含转义字节，机器可继续解析。
+
+六类语义：
+
+| 标记 | 含义 | 典型内容 |
+| --- | --- | --- |
+| `== … ==` | 标题 / 长动作开始 | 控制台标题、安装目录向导、渠道菜单 |
+| `==> …` | 阶段推进 | 拉取镜像、启动依赖、迁移、健康检查 |
+| `[ok] …` | 成功终局 | 部署完成、零停机更新完成、健康就绪 |
+| `[!] …` | 可继续的警告 | 端口占用提示之外的配置后补、跳过项、陈旧锁回收 |
+| `[x] …` | 失败 | 参数错误、契约校验失败、恢复态、健康超时 |
+| 无标记的强调行 | 键值 / 下一步命令 | 安装目录、访问地址、版本号、备份路径 |
+
+开关与优先级（从上到下，命中即停）：
+
+1. `SFORUM_COLOR=never`、`NO_COLOR`（非空）、`TERM=dumb` —— 任意一条成立就不上色；
+2. `SFORUM_COLOR=always`，或 stdout 是终端 —— 上色；
+3. 其余情况（输出被重定向、CI 里采集日志）—— 不上色。
+
+也就是说：**CI 日志和重定向输出默认是纯文本**，要人工在管道里看清颜色时显式
+`SFORUM_COLOR=always`；反过来 `NO_COLOR=1` 是终局退出开关，它压过 `SFORUM_COLOR=always`。
+机器前缀（`sforum-install: `、`sforum-bootstrap: `、`sforum-latest: `）始终留在行首字节，
+颜色只包裹前缀之后的正文。
+
+示例输出（下面刻意不带转义序列，就是重定向到文件时看到的样子）：
+
+```text
+== SForum deployment console ==
+==> Checking Docker and production configuration...
+==> Starting the managed PostgreSQL and Redis services...
+==> Existing installation detected; creating a PostgreSQL backup...
+[ok] Deployment completed successfully.
+Release version: vX.Y.Z
+Install directory: /srv/sforum
+```
+
 ## 验证
 
 ```sh

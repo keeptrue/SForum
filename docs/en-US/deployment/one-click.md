@@ -528,6 +528,53 @@ Common edge cases:
   incompatible, restore the pre-deployment backup instead of only rolling back
   images.
 
+## Terminal colors
+
+Every script in the one-click chain shares one semantic color layer:
+`sforum-install.sh`, `sforum-bootstrap.sh`, `deploy.sh`, `upgrade.sh`,
+`sforum-latest.sh`, plus the configuration wizard, health probe, and restore
+helpers under `deploy/scripts/`. Color is applied only at the print site:
+`.deployrc`, `.env.production`, the deployment-lock log, the backup script's
+stdout, and every value captured through `$(...)` stay free of escape bytes, so
+machines can keep parsing them.
+
+Six semantic classes:
+
+| Marker | Meaning | Typical content |
+| --- | --- | --- |
+| `== … ==` | Title / long action start | Console title, install-directory wizard, channel menu |
+| `==> …` | Phase progress | Pulling images, starting dependencies, migrating, health checks |
+| `[ok] …` | Success terminal state | Deployment complete, zero-downtime update complete, slot ready |
+| `[!] …` | Warning that does not stop the run | Backfilled keys, skipped steps, reclaimed stale lock |
+| `[x] …` | Failure | Bad option, contract failure, recovery-only, health timeout |
+| Unmarked emphasis line | Key/value or next command | Install directory, access URLs, version, backup path |
+
+Switches and precedence (first match wins):
+
+1. `SFORUM_COLOR=never`, `NO_COLOR` (non-empty), or `TERM=dumb` — any one of them
+   disables color;
+2. `SFORUM_COLOR=always`, or stdout is a terminal — color is enabled;
+3. everything else (redirected output, CI log capture) — no color.
+
+In other words **CI logs and redirected output are plain text by default**; set
+`SFORUM_COLOR=always` explicitly when you want color inside a pipe. Conversely
+`NO_COLOR=1` is a hard opt-out that wins over `SFORUM_COLOR=always`. Machine
+prefixes (`sforum-install: `, `sforum-bootstrap: `, `sforum-latest: `) always stay
+at the first byte of the line; color wraps only the body after the prefix.
+
+Example output (deliberately without escape sequences — this is what a
+redirected file contains):
+
+```text
+== SForum deployment console ==
+==> Checking Docker and production configuration...
+==> Starting the managed PostgreSQL and Redis services...
+==> Existing installation detected; creating a PostgreSQL backup...
+[ok] Deployment completed successfully.
+Release version: vX.Y.Z
+Install directory: /srv/sforum
+```
+
 ## Verification
 
 ```sh

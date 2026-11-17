@@ -76,6 +76,7 @@ cp "$ROOT_DIR/compose.yaml" "$ROOT_DIR/compose.prod.yaml" "$ROOT_DIR/compose.rel
   "$ROOT_DIR/compose.zero-downtime.yaml" "$TEST_ROOT/"
 cp "$ROOT_DIR/deploy/scripts/configure-production.sh" "$TEST_ROOT/deploy/scripts/"
 cp "$ROOT_DIR/deploy/scripts/deploy-lock.sh" "$TEST_ROOT/deploy/scripts/"
+cp "$ROOT_DIR/deploy/scripts/term-ui.sh" "$TEST_ROOT/deploy/scripts/"
 
 "$ROOT_DIR/deploy/scripts/configure-production.sh" \
   --lang en --defaults --version v3.0.0-alpha.9 \
@@ -358,6 +359,11 @@ assert_contains "$TEMP_DIR/clean.out" "Install directory: $EXPECTED_ROOT"
 assert_contains "$TEMP_DIR/clean.out" "Configuration file: $EXPECTED_ROOT/.env.production"
 assert_contains "$TEMP_DIR/clean.out" "Backup directory: $EXPECTED_ROOT/backups"
 assert_contains "$TEST_ROOT/.deployrc" "install_dir=$EXPECTED_ROOT"
+# 捕获路径不着色：.deployrc 是被 sed/awk 读回去的状态文件，一个 ESC 字节都会让它
+# 变成不可解析的值。
+if grep -q $'\033' "$TEST_ROOT/.deployrc"; then
+  fail ".deployrc contains an ANSI escape byte"
+fi
 
 # A retained legacy setting cannot disable the API-owned Worker or revive the
 # removed standalone service.

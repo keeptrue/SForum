@@ -127,6 +127,7 @@ EOF
     postgres-common.sh \
     postgres-backup-format.sh \
     restore-postgres.sh \
+    term-ui.sh \
     wait-for-health.sh; do
     printf '#!/usr/bin/env bash\nexit 0\n' > "$bundle/deploy/scripts/$relative"
   done
