@@ -8,20 +8,23 @@ load archived sessions or completed plans as current context.
 
 ### v3.1.2 发版（2026-11-18）
 
-- Status: **待发布**。`v3.1.1`（`d87fdf0ed`）之后到 `0b194c9e0` 共 5 个提交（3 `fix` / 1 `feat` /
-  1 `docs`），26 files changed / 1327 insertions / 232 deletions，无迁移、无破坏性变更。两条主轴：一键链路
+- Status: **已发布（2026-11-18）**。`v3.1.1`（`d87fdf0ed`）之后到 `0b194c9e0` 共 5 个提交（3 `fix` /
+  1 `feat` / 1 `docs`），26 files changed / 1327 insertions / 232 deletions，无迁移、无破坏性变更。两条主轴：一键链路
   补语义化终端配色层（`deploy/scripts/term-ui.sh` 为唯一实现 + 三份内联副本 + 逐字节奇偶门
   `tests/validate-term-ui.sh`；优先级 `SFORUM_COLOR=always|never` > `NO_COLOR` > `TERM=dumb` >
   TTY 自动判定，CI 日志与重定向默认无色），以及首次 update / upgrade 缺备份口令时自举并持久化到
   `<安装目录>/.sforum/backup.key`（0600，写回 `.env.production` 的 `SFORUM_BACKUP_KEY_FILE`；
   恢复侧只解析不生成，`backup-postgres.sh` 仍 fail-closed）。
-- 提交：`daf0a043d` / `75ee2789b` / `d5e8abc2f` / `0b194c9e0` / `f6e32b85f`。`0b194c9e0` 上
-  Security `44166883714`、Release tooling `44166883629` success；CI `44166883649` 被随后推送的
-  docs 提交按 `concurrency` **取消**（`cancelled`，Go gate 未跑完），不能当发版依据——发版门看被
-  tag 提交自身的 `ci.yml` / `security.yml`；open PR / issue / code-scanning / dependabot /
-  secret-scanning 全 0。
-- 发布说明 `reports/2026-11-18-v3.1.2-release-notes.md`（正文即 tag body，`## Installation`
-  由发布流程追加）；Handoff `sessions/2026-11-18-v3.1.2-release-cut.md`。tag 与 push 留给 Lead。
+- 结果：tag `v3.1.2`（tag 对象 `59dd80fc7` → commit `c55341763`）已推送；发版门 CI
+  `44170310462`、Security `44170310390` 在 `c55341763` 上均 success（`Release tooling` 在该
+  docs-only 提交上未触发，paths 未命中）；Release run `44172038346` 全绿，`SForum v3.1.2` 已发布
+  （非 prerelease、13 个资产、`Latest`，`gh api …/releases/latest --jq .tag_name` → `v3.1.2`）。
+  早前 `0b194c9e0` 上的 CI `44166883649` 被 docs 提交按 `concurrency` 取消，不作为发版依据。
+- 提交：`daf0a043d` / `75ee2789b` / `d5e8abc2f` / `0b194c9e0` / `f6e32b85f` 加两笔收口 docs
+  （`1e8d4bdbc` 发布说明与 handoff、`c55341763` 状态与区间核正）；open PR / issue /
+  code-scanning / dependabot / secret-scanning 全 0。
+- 发布说明 `reports/2026-11-18-v3.1.2-release-notes.md`（正文即已发布的 tag body）；Handoff
+  `sessions/2026-11-18-v3.1.2-release-cut.md`。
 
 ### v3.1.1 发版收口（2026-11-18）
 
