@@ -162,6 +162,12 @@
         "browserslist"
       ]
     },
+    "https://github.com/advisories/GHSA-fc5q-39xc-vjpf": {
+      "severity": "high",
+      "packages": [
+        "picomatch"
+      ]
+    },
     "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp": {
       "severity": "moderate",
       "packages": [
