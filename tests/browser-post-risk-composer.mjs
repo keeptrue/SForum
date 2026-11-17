@@ -171,6 +171,122 @@ function withTimeout(promise, ms, label) {
   ])
 }
 
+/* ── 页面内探针：静态函数声明 + CDP `arguments` 传值 ──────────────────────
+ *
+ * 下面每个探针都是**静态函数声明字面量**；选择器、按钮文案、ALTCHA token 这类动态值
+ * 只经 `Runtime.callFunctionOn` 的 `arguments` 传进页面，表达式里没有任何字符串插值。
+ *
+ * 为什么不再用 `Runtime.evaluate` 拼表达式：`${JSON.stringify(x)}` 把值塞进代码字符串
+ * 既会被 CodeQL 判成 `js/bad-code-sanitization`（代码构造依赖 JSON.stringify 这种不当
+ * 「消毒」，alert #49），也真的会被值本身拼坏 —— 反引号、`${`、U+2028/U+2029 都能让
+ * 探针变成语法错误或另一段代码。传值通道让这两类问题在结构上不存在。
+ */
+const PAGE_HAS_SUBMIT_BUTTON = `function (label) {
+  return [...document.querySelectorAll('button')].some(button => button.textContent.trim() === label)
+}`
+const PAGE_SUBMIT_BUTTON_ENABLED = `function (label) {
+  const button = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === label)
+  return Boolean(button) && !button.disabled
+}`
+const PAGE_CLICK_SUBMIT_BUTTON = `function (label) {
+  const button = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === label)
+  if (!button) return 'missing'
+  if (button.disabled) return 'disabled'
+  button.click()
+  return 'clicked'
+}`
+const PAGE_ELEMENT_CENTER_POINT = `function (selector) {
+  const el = document.querySelector(selector)
+  if (!el) return null
+  const rect = el.getBoundingClientRect()
+  return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + Math.min(24, rect.height / 2)) }
+}`
+const PAGE_FOCUS_ELEMENT = `function (selector) {
+  const el = document.querySelector(selector)
+  if (!el) return false
+  el.focus()
+  return true
+}`
+const PAGE_SET_INPUT_VALUE = `function (selector, value) {
+  const el = document.querySelector(selector)
+  if (!el) return false
+  el.focus()
+  if (el.isContentEditable) {
+    el.textContent = value
+  } else {
+    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
+  }
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }))
+  return true
+}`
+const PAGE_READ_COUNTER = `function (selector) {
+  const node = document.querySelector(selector)
+  if (!node) return -1
+  const matched = node.textContent.match(/(\\d+)\\s*\\//)
+  return matched ? Number(matched[1]) : -1
+}`
+const PAGE_DELIVER_ALTCHA_TOKEN = `function (token) {
+  const widget = document.querySelector('.sf-forum-altcha')
+  if (!widget) return 'no-widget'
+  widget.payload = token
+  widget.dispatchEvent(new CustomEvent('verified', { detail: { payload: token } }))
+  return 'dispatched'
+}`
+
+// `Runtime.callFunctionOn` 需要 objectId 或 executionContextId；这里取页面全局对象当宿主。
+// 导航会销毁执行上下文、让旧 objectId 失效（"Cannot find context with specified id"），
+// 所以按 send 缓存、导航后主动作废，并在报错时兜底重取一次。
+const pageHandles = new WeakMap()
+
+async function pageHandle(send) {
+  const cached = pageHandles.get(send)
+  if (cached) return cached
+  const handle = await send('Runtime.evaluate', { expression: 'globalThis' })
+  const objectId = handle.result?.objectId
+  if (!objectId) throw new Error('Runtime.evaluate(globalThis) did not return an objectId')
+  pageHandles.set(send, objectId)
+  return objectId
+}
+
+function invalidatePageHandle(send) {
+  pageHandles.delete(send)
+}
+
+function toCallArgument(value) {
+  if (value === undefined) return { unserializableValue: 'undefined' }
+  if (typeof value === 'number' && !Number.isFinite(value)) return { unserializableValue: String(value) }
+  return { value }
+}
+
+/** 参数化求值通道：函数体是静态声明，动态值只走 arguments。 */
+async function callInPage(send, declaration, args = []) {
+  const invoke = async () => {
+    const objectId = await pageHandle(send)
+    return send('Runtime.callFunctionOn', {
+      objectId,
+      functionDeclaration: declaration,
+      arguments: args.map(toCallArgument),
+      awaitPromise: true,
+      returnByValue: true
+    })
+  }
+  let result
+  try {
+    result = await invoke()
+  } catch (error) {
+    if (!/context/i.test(error?.message || '')) throw error
+    // 执行上下文已换（导航）：丢掉失效句柄再试一次。
+    invalidatePageHandle(send)
+    result = await invoke()
+  }
+  if (result.exceptionDetails) {
+    throw new Error(`callInPage failed: ${result.exceptionDetails.text} :: ${declaration.slice(0, 80)}`)
+  }
+  return result.result?.value
+}
+
+/** 求值一段**静态**表达式（无插值）。带动态值的探针一律用 `callInPage`。 */
 async function evaluate(send, expression) {
   const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
   if (result.exceptionDetails) {
@@ -188,6 +304,16 @@ async function waitFor(send, expression, label, timeoutMs = 20000) {
   throw new Error(`timeout waiting for ${label}`)
 }
 
+/** 与 `waitFor` 同义，但谓词走参数化通道。 */
+async function waitForCall(send, declaration, args, label, timeoutMs = 20000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (await callInPage(send, declaration, args)) return true
+    await sleep(150)
+  }
+  throw new Error(`timeout waiting for ${label}`)
+}
+
 async function setViewport(send, viewport) {
   await send('Emulation.setDeviceMetricsOverride', {
     width: viewport.width, height: viewport.height, deviceScaleFactor: viewport.dpr, mobile: viewport.width < 600
@@ -198,9 +324,11 @@ async function gotoComposer(send, viewport) {
   console.error(`→ navigate ${web}${TOPIC_PATH} @ ${viewport.width}x${viewport.height}`)
   await setViewport(send, viewport)
   await send('Page.navigate', { url: `${web}${TOPIC_PATH}` })
+  // 新文档 = 新执行上下文，旧全局句柄作废。
+  invalidatePageHandle(send)
   await waitFor(send, `document.readyState === 'complete'`, 'document complete')
   await waitFor(send, `Boolean(document.querySelector('#topic-composer-title-input'))`, 'composer title input')
-  await waitFor(send, `[...document.querySelectorAll('button')].some(button => button.textContent.trim() === ${JSON.stringify(SUBMIT_LABEL)})`, 'submit button')
+  await waitForCall(send, PAGE_HAS_SUBMIT_BUTTON, [SUBMIT_LABEL], 'submit button')
   // SSR 就有输入框，但水合可能迟到很久（dev 模式客户端 chunk 很大）。以 Vue 是否接管了这个
   // 节点为准：`__vueParentComponent` 只有在水合/挂载后才挂上。不等到它，后面打字只改 DOM
   // 值、组件状态仍是空，ALTCHA 的 ClientOnly 也还停在 fallback 上。
@@ -295,13 +423,8 @@ async function solveAltcha(send) {
   })).toString('base64')
 
   // 交给页面里真实的 widget + 组件：组件监听 `verified` 事件读 detail.payload。
-  await evaluate(send, `(() => {
-    const widget = document.querySelector('.sf-forum-altcha')
-    if (!widget) return 'no-widget'
-    widget.payload = ${JSON.stringify(token)}
-    widget.dispatchEvent(new CustomEvent('verified', { detail: { payload: ${JSON.stringify(token)} } }))
-    return 'dispatched'
-  })()`)
+  const delivered = await callInPage(send, PAGE_DELIVER_ALTCHA_TOKEN, [token])
+  if (delivered !== 'dispatched') throw new Error(`altcha: token delivery failed (${delivered})`)
   await sleep(400)
   return { counter, took, tokenLength: token.length, token }
 }
@@ -314,53 +437,25 @@ async function typeUntilCounted(send, { selector, counterSelector, text, label, 
   for (let attempt = 0; attempt < 40; attempt += 1) {
     if (attempt % 2 === 0) {
       if (click) {
-        const point = await evaluate(send, `(() => {
-          const el = document.querySelector(${JSON.stringify(selector)})
-          if (!el) return null
-          const rect = el.getBoundingClientRect()
-          return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + Math.min(24, rect.height / 2)) }
-        })()`)
+        const point = await callInPage(send, PAGE_ELEMENT_CENTER_POINT, [selector])
         if (point) {
           await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 })
           await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 })
         }
       } else {
-        await evaluate(send, `(() => {
-          const el = document.querySelector(${JSON.stringify(selector)})
-          if (!el) return false
-          el.focus()
-          return true
-        })()`)
+        await callInPage(send, PAGE_FOCUS_ELEMENT, [selector])
       }
     }
     if (attempt % 2 === 0) {
       await send('Input.insertText', { text })
     } else {
       // 备用路径：合成 InputEvent（Vue 的 @input 只读 event.target.value，不要求 isTrusted）。
-      await evaluate(send, `(() => {
-        const el = document.querySelector(${JSON.stringify(selector)})
-        if (!el) return false
-        el.focus()
-        const value = ${JSON.stringify(text)}
-        if (el.isContentEditable) {
-          el.textContent = value
-        } else {
-          const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
-          Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
-        }
-        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }))
-        return true
-      })()`)
+      await callInPage(send, PAGE_SET_INPUT_VALUE, [selector, text])
     }
     await sleep(250)
     // 只断言「输入真的进了组件状态」（计数器 > 0）。精确字数会受 runeLength 去空白、
     // 富文本序列化影响，用等值比较会把用例绑死在实现细节上。
-    const count = await evaluate(send, `(() => {
-      const node = document.querySelector(${JSON.stringify(counterSelector)})
-      if (!node) return -1
-      const matched = node.textContent.match(/(\\d+)\\s*\\//)
-      return matched ? Number(matched[1]) : -1
-    })()`)
+    const count = await callInPage(send, PAGE_READ_COUNTER, [counterSelector])
     if (count > 0) return count
     await sleep(500)
   }
@@ -386,24 +481,12 @@ async function fillComposer(send, title) {
     label: 'body',
     click: true
   })
-  await waitFor(
-    send,
-    `(() => { const button = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === ${JSON.stringify(SUBMIT_LABEL)}); return Boolean(button) && !button.disabled })()`,
-    'enabled submit button',
-    15000
-  )
+  await waitForCall(send, PAGE_SUBMIT_BUTTON_ENABLED, [SUBMIT_LABEL], 'enabled submit button', 15000)
 }
 
 async function submitComposer(send) {
-  await evaluate(send, `(() => {
-    const button = [...document.querySelectorAll('button')].find(item => item.textContent.trim() === ${JSON.stringify(SUBMIT_LABEL)})
-    if (!button) return 'missing'
-    if (button.disabled) return 'disabled'
-    button.click()
-    return 'clicked'
-  })()`).then(result => {
-    assert(result === 'clicked', `submit button not clickable: ${result}`)
-  })
+  const result = await callInPage(send, PAGE_CLICK_SUBMIT_BUTTON, [SUBMIT_LABEL])
+  assert(result === 'clicked', `submit button not clickable: ${result}`)
 }
 
 function parseBody(raw) {
