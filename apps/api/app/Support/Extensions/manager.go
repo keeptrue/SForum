@@ -226,11 +226,11 @@ func (m *RuntimeSupervisor) Check(_ context.Context, extension extensions.Extens
 	}
 	path, ok := extensions.InstalledFilePathForRuntime(extension, extension.Manifest.Backend.Entry)
 	if !ok {
-		return extensions.ErrInvalidManifest
+		return NewArtifactEntryPathRejected(extension, extension.Manifest.Backend.Entry)
 	}
 	info, err := os.Stat(path)
 	if err != nil || info.IsDir() {
-		return fmt.Errorf("backend entry %s is not available", extension.Manifest.Backend.Entry)
+		return NewArtifactEntryUnavailable(extension, extension.Manifest.Backend.Entry, err)
 	}
 	return nil
 }

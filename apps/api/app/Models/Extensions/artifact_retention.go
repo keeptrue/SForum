@@ -2,7 +2,6 @@ package extensions
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,11 +10,15 @@ import (
 
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 )
 
 // ErrArtifactUnusable 表示一份冻结制品当前无法被装载。它与「行在、盘缺」是
 // 同一族结论：调用方应先放弃，而不是按退避无限重试。
-var ErrArtifactUnusable = errors.New("extensions: artifact is not loadable")
+//
+// 哨兵本体在 ArtifactIntegrity 包（坐标载体所在处），这里同名再导出：制品族
+// 的判定只认这一个值，启动期装载、发布期校验与恢复码映射不各持一份。
+var ErrArtifactUnusable = artifactintegrity.ErrArtifactUnusable
 
 // artifactState 判定一个制品路径在磁盘上是否可用。它是制品保留（GC）与
 // 缺失制品清理共用的唯一判据来源：任何"行在、盘缺"的结论都必须经过它。

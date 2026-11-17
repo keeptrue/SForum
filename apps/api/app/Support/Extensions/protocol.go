@@ -275,10 +275,10 @@ func (s *ProtocolStarter) startProtocolInstanceLocked(
 	}
 	path, ok := extensions.InstalledFilePathForRuntime(extension, extension.Manifest.Backend.Entry)
 	if !ok {
-		return RouteTarget{}, extensions.ErrInvalidManifest
+		return RouteTarget{}, NewArtifactEntryPathRejected(extension, extension.Manifest.Backend.Entry)
 	}
 	if info, err := os.Stat(path); err != nil || info.IsDir() {
-		return RouteTarget{}, fmt.Errorf("backend entry %s is not available", extension.Manifest.Backend.Entry)
+		return RouteTarget{}, NewArtifactEntryUnavailable(extension, extension.Manifest.Backend.Entry, err)
 	}
 
 	// 子进程生命周期由 exact Stop/Discard 管理；Start 的 context 只约束启动握手（EX2-01）。

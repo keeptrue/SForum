@@ -18,6 +18,7 @@ import (
 	appevents "github.com/keeptrue/sforum/apps/api/app/Support/Events"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
 	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
+	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 	settingslifecycle "github.com/keeptrue/sforum/apps/api/app/Support/SettingsLifecycle"
 )
 
@@ -510,7 +511,8 @@ func (LocalRuntimePreflight) Check(_ context.Context, extension Extension) error
 	}
 	info, err := os.Stat(entry)
 	if err != nil || info.IsDir() {
-		return fmt.Errorf("backend entry %s is not available", extension.Manifest.Backend.Entry)
+		return artifactintegrity.EntryUnavailable(extension.ID, extension.Version, extension.PackageDigest,
+			extension.Manifest.Backend.Entry, err)
 	}
 	return nil
 }
