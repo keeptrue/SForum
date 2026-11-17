@@ -490,7 +490,7 @@ sforum_archive_volume() {
   [ -n "$container_dir" ] || sforum_die "归档卷时容器内目录为空。"
   # `run` 不接受 `--no-build`（那是 `up` / `build` 的 flag，真 compose 会直接
   # `unknown flag: --no-build`）。`run` 本来也不会隐式构建，所以这里不需要它。
-  if ! "${SFORUM_COMPOSE[@]}" run --rm -T --no-deps --entrypoint tar \
+  if ! "${SFORUM_COMPOSE[@]}" run --rm -T --no-deps --pull never --entrypoint tar \
     api -C "$container_dir" -cf - . > "$out"; then
     sforum_die "读取容器目录失败：$container_dir"
   fi
@@ -548,7 +548,7 @@ sforum_restore_assets() {
       *) dir="$EXTENSION_CONTAINER_DIR" ;;
     esac
     sforum_archive_volume "$dir" "$snapshot_dir/$name.before.tar"
-    if ! "${SFORUM_COMPOSE[@]}" run --rm -T --no-deps --entrypoint tar \
+    if ! "${SFORUM_COMPOSE[@]}" run --rm -T --no-deps --pull never --entrypoint tar \
       api -C "$dir" -xf - < "$archive"; then
       sforum_die "解包卷内容失败：$dir"
     fi
@@ -568,7 +568,7 @@ sforum_restore_asset_snapshots() {
       attachments) dir="$SFORUM_ATTACHMENT_CONTAINER_DIR" ;;
       *) dir="$EXTENSION_CONTAINER_DIR" ;;
     esac
-    if ! "${SFORUM_COMPOSE[@]}" run --rm -T --no-deps --entrypoint tar \
+    if ! "${SFORUM_COMPOSE[@]}" run --rm -T --no-deps --pull never --entrypoint tar \
       api -C "$dir" -xf - < "$snapshot"; then
       printf '警告：卷快照回滚失败，需人工恢复：%s（快照 %s）\n' "$dir" "$snapshot" >&2
       return 1

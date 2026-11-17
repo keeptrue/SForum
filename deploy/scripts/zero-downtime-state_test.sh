@@ -245,4 +245,15 @@ fi
 assert_contains "$RUNTIME_DIR/Caddyfile" 'old-blue-config'
 [ "$(cat "$RELOAD_COUNT_FILE")" = 2 ] || fail "old router config was not reloaded"
 
+# --- 基础镜像显式拉取：`up -d --pull never` 不联网，tag 漂移就会 No such image ---
+# 现场：v3.0.23 的 redis:7.4.10-alpine → 8.10.2-alpine，compose 重建 redis 时拉不到
+# 镜像，api 槽因 depends_on redis 健康而起不来。在线与停机两条路径都必须在起槽前拉
+# （bootstrap_topology 的 `up -d --wait postgres redis` 没有 --pull never，会隐式拉）。
+COMPOSE=(fake_compose)
+: > "$LOG_FILE"
+pull_infra_images >/dev/null
+assert_contains "$LOG_FILE" 'compose pull postgres redis'
+call_sites="$(grep -c '^  pull_infra_images$' "$ROOT_DIR/upgrade.sh")"
+[ "$call_sites" = 2 ] || fail "pull_infra_images is called from $call_sites flow(s), expected 2 (online / maintenance)"
+
 printf 'zero-downtime-state_test.sh: all checks passed\n'

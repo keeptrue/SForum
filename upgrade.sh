@@ -581,6 +581,17 @@ verify_target_images() {
   done
 }
 
+# 基础镜像也必须显式拉。后面的 `up -d --pull never` 不会联网，而 compose 文件里
+# 基础镜像 tag 一变（v3.0.23 的 redis:7.4.10-alpine → 8.10.2-alpine），compose 就要
+# 重建容器，重建拿不到镜像直接 `No such image`，接着依赖 redis 的 api 槽起不来，
+# 报出来的却是一句无关的 `dependency failed to start`。升级路径以前只拉 api /
+# migrate / web 三个发布镜像，基础镜像全靠「本机碰巧有」。
+pull_infra_images() {
+  step "正在拉取基础服务镜像：postgres / redis" "Pulling infrastructure images: postgres / redis"
+  "${COMPOSE[@]}" pull postgres redis || \
+    die "Could not pull the postgres/redis images; the target slot cannot start without them."
+}
+
 verify_caddy_image() {
   local image digest digests
   image="$(caddy_image)"
@@ -695,6 +706,7 @@ maintenance_update() {
 
   pull_target_images "$target_version"
   verify_target_images "$target_version"
+  pull_infra_images
   backup_database
 
   local old_api old_web new_api new_web
@@ -1053,6 +1065,7 @@ online_update() {
     return 0
   fi
   backup_database
+  pull_infra_images
   apply_planned_online_migrations "$target_version"
 
   step "正在启动并检查备用槽 ${inactive_slot}..." "Starting and checking standby slot ${inactive_slot}..."
