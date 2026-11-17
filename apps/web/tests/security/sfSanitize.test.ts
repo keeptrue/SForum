@@ -1,25 +1,36 @@
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
+import { JSDOM } from 'jsdom'
+import {
+  SF_DROP_SUBTREE_TAGS,
+  SF_PURIFY_CONFIG,
+  SF_SANITIZE_POLICY,
+  sanitizeHtml,
+  sanitizeHtmlServer
+} from '../../app/utils/sfSanitize'
 
-// 客户端分支的真实净化由浏览器里的 DOMPurify 完成。测试环境是 happy-dom，
-// 它和 DOMPurify 3.4 的节点遍历（NodeIterator + 原型访问器）不兼容：首个顶层
-// 元素会被误判为非白名单标签而剥掉。断言真实净化结果只会测出这个环境缺陷，
-// 所以这里用记录型替身验证客户端分支的接线（HTML 与 SF_PURIFY_CONFIG 一起
-// 交给 DOMPurify），净化策略本身由同构的 sanitizeHtmlServer 纯函数逐条断言。
-const purifyCalls: Array<{ html: string, config: unknown }> = []
+/**
+ * SSR 分支（parse5）逐条行为 + 客户端分支的真实净化结果。
+ *
+ * 历史：这一族断言曾经把 `dompurify` 换成记录型替身，因为 happy-dom 下 DOMPurify
+ * 3.4 的节点遍历不可靠（既漏剥 `<script>`，又过度剥正常节点），真实净化只能靠真实 DOM。
+ * 现在用 `jsdom` 绑定一个独立实例来跑真实 DOMPurify —— 注意 `mock.module('dompurify')`
+ * 是**整轮测试共享**的，用替身会连带把别的测试文件也污染成假绿。
+ *
+ * 两端等价性（同输入 → 同输出）在 `sanitizeEquivalence.test.ts` 里断言；
+ * 这里只钉 SSR 自己的行为与白名单语义。
+ */
+// `mock.module('dompurify', …)` 是整轮测试共享的（tests/content/richContentMermaid.test.ts
+// 会把**裸模块名**换成记录型替身），按裸名导入会拿到替身 → 断言变假绿。
+// 这里用包的 UMD 子路径导入真实实现（exports 里公开声明，不受裸名替身影响）。
+const createDOMPurify = ((await import('dompurify/dist/purify.js')) as unknown as {
+  default: typeof import('dompurify').default
+}).default
 
-const domPurifyStub = {
-  sanitize(html: string, config?: unknown) {
-    purifyCalls.push({ html, config })
-    return html
-  }
-}
+const { window } = new JSDOM('')
+const purify = createDOMPurify(window as unknown as Parameters<typeof createDOMPurify>[0])
+const sanitizeHtmlClient = (html: string) => String(purify.sanitize(html, SF_PURIFY_CONFIG))
 
-mock.module('dompurify', () => ({ default: domPurifyStub }))
-
-const { sanitizeHtml, sanitizeHtmlServer, SF_PURIFY_CONFIG, SF_SERVER_DROP_SUBTREE_TAGS } =
-  await import('../../app/utils/sfSanitize')
-
-describe('sanitizeHtmlServer：SSR 分支与客户端同构净化', () => {
+describe('sanitizeHtmlServer：SSR 分支（首屏权威实现）', () => {
   test('剥离 <script> 及其内容', () => {
     const out = sanitizeHtmlServer('<p>ok</p><script>alert(1)</script>')
 
@@ -81,32 +92,35 @@ describe('sanitizeHtmlServer：SSR 分支与客户端同构净化', () => {
     expect(out).toContain('data-sforum-image-long="0"')
   })
 
-  test('未列入 ALLOWED_ATTR 的属性与客户端一样被剥离', () => {
+  test('剥掉白名单外的属性与任意 data-/aria- 属性', () => {
     expect(sanitizeHtmlServer('<time datetime="2020-01-01">d</time>')).toBe('<time>d</time>')
     expect(sanitizeHtmlServer('<p data-track="x">t</p>')).toBe('<p>t</p>')
+    expect(sanitizeHtmlServer('<p aria-label="x">t</p>')).toBe('<p>t</p>')
   })
 
-  test('整棵丢弃禁止子树（script/style/form/iframe/object/embed/template）', () => {
-    for (const payload of [
-      '<script>alert(1)</script>',
-      '<style>p{}</style>',
-      '<form><input type="text" value="x"></form>',
-      '<iframe src="https://evil.example"></iframe>',
-      '<object data="x"></object>',
-      '<embed src="x">',
-      '<template><p>hidden</p></template>'
-    ]) {
+  test('丢弃禁止容器与外来内容的整棵子树', () => {
+    const payloads = [
+      '<form><input type="text"><p>inside</p></form>',
+      '<object><p>inside</p></object>',
+      '<iframe src="/x"><p>inside</p></iframe>',
+      // 外来内容：HTML 解析器遇到 <p> 会先跳出 svg/math，所以这里用留在外来内容里的
+      // 子节点形状（真实攻击面也是这种：<svg><script>）。
+      '<svg><script>alert(1)</script></svg>',
+      '<math><mtext><script>alert(1)</script></mtext></math>',
+      '<template><p>inside</p></template>'
+    ]
+
+    for (const payload of payloads) {
       expect(sanitizeHtmlServer(payload)).toBe('')
     }
   })
 
-  test('嵌套在非白名单容器里的脚本同样被剥离', () => {
-    expect(sanitizeHtmlServer('<svg><script>alert(1)</script></svg>')).toBe('')
-    // section 不在白名单：只剥标签、保留子节点（与 DOMPurify 的 KEEP_CONTENT 一致）。
+  test('非白名单标签只剥标签、保留子节点与文本', () => {
     expect(sanitizeHtmlServer('<section><p onclick="x()">c</p></section>')).toBe('<p>c</p>')
+    expect(sanitizeHtmlServer('<custom-el>keep</custom-el>')).toBe('keep')
   })
 
-  test('空输入返回空串，且文本与属性值被重新转义', () => {
+  test('空输入与实体转义', () => {
     expect(sanitizeHtmlServer('')).toBe('')
     expect(sanitizeHtmlServer(undefined)).toBe('')
     expect(sanitizeHtmlServer(null)).toBe('')
@@ -116,88 +130,73 @@ describe('sanitizeHtmlServer：SSR 分支与客户端同构净化', () => {
   })
 })
 
-/**
- * SSR 与客户端的已知差异（用真实浏览器 DOMPurify 3.4 对拍得出）。
- * 两条路径共享白名单条目，但**不是等价结果**：SSR 严格更严，水合后客户端会补回
- * 一部分属性与子树。下面逐条把差异钉住 —— 谁改白名单导致差异扩大，测试会红。
- */
-describe('SSR 与客户端的已知差异（SSR 更严，非等价）', () => {
-  test('① 禁止容器：客户端 KEEP_CONTENT 保留子节点，SSR 整棵丢弃', () => {
-    // 客户端等价输出：<input type="text"><p>inside</p>
-    expect(sanitizeHtmlServer('<form><input type="text"><p>inside</p></form>')).toBe('')
-    expect(sanitizeHtmlServer('<object><p>inside</p></object>')).toBe('')
+describe('客户端分支：真实 DOMPurify 的结果', () => {
+  test('与 SSR 同口径地剥离脚本、事件处理器与任意 data-/aria- 属性', () => {
+    expect(sanitizeHtmlClient('<p>ok</p><script>alert(1)</script>')).toBe('<p>ok</p>')
+    expect(sanitizeHtmlClient('<p data-x="1" aria-label="a">t</p>')).toBe('<p>t</p>')
+    expect(sanitizeHtmlClient('<img src="/a.png" onerror="alert(1)">')).toBe('<img src="/a.png">')
   })
 
-  test('② 非白名单容器里的文本：客户端连文本一起丢，SSR 保留文本', () => {
-    // 客户端等价输出：''
-    expect(sanitizeHtmlServer('<svg>hello</svg>')).toBe('hello')
-  })
-
-  test('③ data-* / aria-*：客户端默认放行任意，SSR 只认 ALLOWED_ATTR', () => {
-    // 客户端等价输出：<p data-foo="1" aria-label="x">t</p>
-    expect(sanitizeHtmlServer('<p data-foo="1" aria-label="x">t</p>')).toBe('<p>t</p>')
-    // 白名单内的 data-sforum-image-* 必须继续保留（编辑器与图片查看器依赖它）。
-    expect(sanitizeHtmlServer('<img src="/a.png" data-sforum-image-viewer="1">'))
+  test('白名单内的 data-sforum-image-* 仍然保留（编辑器与图片查看器依赖）', () => {
+    expect(sanitizeHtmlClient('<img src="/a.png" data-sforum-image-viewer="1">'))
       .toBe('<img src="/a.png" data-sforum-image-viewer="1">')
   })
 
-  test('④ URL scheme：客户端还放行 xmpp/sms/callto/cid，SSR 只放行 6 种', () => {
-    for (const scheme of ['xmpp:', 'sms:', 'callto:', 'cid:']) {
-      expect(sanitizeHtmlServer(`<a href="${scheme}x">y</a>`)).toBe('<a>y</a>')
-    }
-    expect(sanitizeHtmlServer('<a href="https://sforum.example/x">y</a>'))
-      .toBe('<a href="https://sforum.example/x">y</a>')
+  test('非 URL 属性的协议文案不会被误删（SSR 只校验 href/src）', () => {
+    expect(sanitizeHtmlClient('<p title="javascript:alert(1)">t</p>')).toBe('<p title="javascript:alert(1)">t</p>')
+  })
+})
+
+describe('sanitizeHtml：分支选择与短路', () => {
+  test('空输入短路，不进入任何分支', () => {
+    expect(sanitizeHtml('')).toBe('')
+    expect(sanitizeHtml(undefined)).toBe('')
+    expect(sanitizeHtml(null)).toBe('')
   })
 
-  test('⑤ DOM clobbering：客户端 SANITIZE_DOM 会剥同名 id，SSR 原样保留', () => {
-    // 客户端等价输出：<p>x</p>
-    expect(sanitizeHtmlServer('<p id="document">x</p>')).toBe('<p id="document">x</p>')
+  test('SSR 上下文走 parse5 分支（与 sanitizeHtmlServer 同一实现）', () => {
+    // bun test 里 import.meta.server 为 false，这里直接比对 SSR 纯函数，
+    // 保证「服务端渲染走的那条路」就是被断言的那条路。
+    expect(sanitizeHtmlServer('<p>a</p><script>x</script>')).toBe('<p>a</p>')
   })
 })
 
 /**
- * 伴生硬编码集合是唯一会静默漂移的地方：它们不在 SF_PURIFY_CONFIG 里，
- * 改白名单时容易忘。这里把「与配置的派生关系」写成断言。
+ * 伴生硬编码集合是唯一会静默漂移的地方：改白名单时容易忘。
+ * 这里把「与策略的派生关系」写成断言。
  */
-describe('伴生硬编码集合与 SF_PURIFY_CONFIG 的派生关系', () => {
-  test('SSR 丢弃集合覆盖全部 FORBID_TAGS，且无重复', () => {
-    for (const tag of SF_PURIFY_CONFIG.FORBID_TAGS) {
-      expect(SF_SERVER_DROP_SUBTREE_TAGS).toContain(tag)
+describe('整棵丢弃集合与策略的派生关系', () => {
+  test('丢弃集合覆盖全部 forbiddenTags，且无重复', () => {
+    for (const tag of SF_SANITIZE_POLICY.forbiddenTags) {
+      expect(SF_DROP_SUBTREE_TAGS).toContain(tag)
     }
-    expect(new Set(SF_SERVER_DROP_SUBTREE_TAGS).size).toBe(SF_SERVER_DROP_SUBTREE_TAGS.length)
+    expect(new Set(SF_DROP_SUBTREE_TAGS).size).toBe(SF_DROP_SUBTREE_TAGS.length)
+  })
+
+  test('允许的标签不得出现在丢弃集合里（否则表格结构会被整块删掉）', () => {
+    for (const tag of SF_SANITIZE_POLICY.allowedTags) {
+      expect(SF_DROP_SUBTREE_TAGS).not.toContain(tag)
+    }
   })
 
   test('每个非 void 的丢弃标签都真的丢掉了子树内容', () => {
-    // embed 是 void 元素，parse5 会把后续节点当成兄弟，单独由上方 ① 覆盖。
+    // embed 是 void 元素，parse5 会把后续节点当成兄弟。
     const voidLike = new Set(['embed'])
-    for (const tag of SF_SERVER_DROP_SUBTREE_TAGS) {
-      if (voidLike.has(tag)) {
+    // 外来内容族：parse5 遇到 HTML 标签会先跳出 svg/math（`<svg><p>x</p></svg>` 解析成
+    // 空的 svg + 兄弟 p），所以「用 <p> 当子节点」测不出丢弃行为；它们的覆盖在
+    // sanitizeEquivalence.test.ts 的外来内容用例里（<svg><script>、<math><mtext>）。
+    const foreignContent = new Set([
+      'svg', 'math', 'annotation-xml', 'desc', 'foreignobject', 'mi', 'mn', 'mo', 'ms', 'mtext',
+      // head 同理：parse5 会把 body 内容移出 <head>，`<head><p>x</p></head>` 解析成
+      // 空的 head + 兄弟 p，用 <p> 当子节点测不出丢弃行为。
+      'head'
+    ])
+    for (const tag of SF_DROP_SUBTREE_TAGS) {
+      if (voidLike.has(tag) || foreignContent.has(tag)) {
         continue
       }
       expect(sanitizeHtmlServer(`<${tag}><p>inside</p></${tag}>`)).toBe('')
     }
-  })
-})
-
-describe('sanitizeHtml：客户端分支接线', () => {
-  test('把原始 HTML 与 SF_PURIFY_CONFIG 一起交给 DOMPurify', () => {
-    purifyCalls.length = 0
-
-    const out = sanitizeHtml('<p>hi</p>')
-
-    expect(purifyCalls).toHaveLength(1)
-    expect(purifyCalls[0]!.html).toBe('<p>hi</p>')
-    expect(purifyCalls[0]!.config).toBe(SF_PURIFY_CONFIG)
-    expect(out).toBe('<p>hi</p>')
-  })
-
-  test('空输入短路，不触碰 DOMPurify', () => {
-    purifyCalls.length = 0
-
-    expect(sanitizeHtml('')).toBe('')
-    expect(sanitizeHtml(undefined)).toBe('')
-    expect(sanitizeHtml(null)).toBe('')
-    expect(purifyCalls).toHaveLength(0)
   })
 
   test('SF_PURIFY_CONFIG 白名单语义未被 SSR 分支改动', () => {
