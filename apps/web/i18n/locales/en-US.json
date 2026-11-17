@@ -1536,7 +1536,9 @@
       "extensionNavigationInspector": "Navigation inspector",
       "extensionRegistryCatalogs": "Registry catalogs",
       "extensionRouteCatalog": "Route catalog",
-      "extensionQueryCatalog": "Query Catalog"
+      "extensionQueryCatalog": "Query Catalog",
+      "extensionAddedPages": "Theme-added pages",
+      "extensionMigrations": "Plugin migration ledger"
     },
     "avatar": {
       "metaTitle": "Avatar settings",
@@ -3168,6 +3170,66 @@
         "title": "Can request extension installs",
         "body": "This plugin's admin page can ask the Host to install an extension package; the Host confirmation dialog shows the URL, digest, and declared identity. Installing only stages the package — enabling and trust still happen on the extension management page.",
         "enableBody": "This plugin's admin page can also have the Host enable the extension right after installing. An untrusted executable backend still needs a super administrator to review the full impact and confirm once; an already trusted artifact is enabled directly, and a front-end-only package starts running as soon as it is enabled."
+      },
+      "migrations": {
+        "metaTitle": "Plugin migration ledger",
+        "title": "Plugin migration ledger",
+        "intro": "Inspect the migration paths a plugin declares in manifest.migrations and how the host recorded them. The v1 host records file checksums only and never executes plugin SQL.",
+        "selectPlaceholder": "Choose a plugin",
+        "count": "{count} ledger rows · {declared} declared",
+        "apply": "Record declared migrations",
+        "applyNoPermission": "Requires the extension.plugin.manage permission",
+        "applyRecorded": "Recorded in the ledger",
+        "applyUnchanged": "Ledger already up to date, nothing new recorded",
+        "applyFailed": "Could not record migrations",
+        "loadExtensionsFailed": "Could not load the plugin list",
+        "loadFailed": "Could not load the migration ledger",
+        "noExtensions": "No plugins installed yet. Install one, then come back to see its migration ledger.",
+        "noDeclarations": "This plugin declares no migrations, so its upgrades need no ledger rows.",
+        "empty": "The ledger is empty. Use \"Record declared migrations\" to write the declared paths into it.",
+        "failedWarning": "{count} migration files are missing or unsafe. Check that the plugin package is complete.",
+        "colPath": "Path",
+        "colStatus": "Status",
+        "colChecksum": "Checksum",
+        "colRecordedAt": "Recorded at",
+        "colMessage": "Note",
+        "status": {
+          "recorded": "Recorded",
+          "applied": "Applied",
+          "failed": "Failed"
+        },
+        "confirmTitle": "Record the declared migrations?",
+        "confirmBody": "This writes the {count} migration paths declared by \"{extension}\" into the ledger together with their file checksums.",
+        "confirmHint": "The step is idempotent and does not run plugin SQL; rows with an unchanged checksum are not written twice.",
+        "confirmAction": "Record",
+        "cancel": "Cancel",
+        "noExtensionsTitle": "No plugins installed yet",
+        "emptyTitle": "The ledger is empty"
+      },
+      "addedPages": {
+        "metaTitle": "Theme-added pages",
+        "title": "Theme-added pages",
+        "intro": "Pages contributed by themes through action: add that are not part of the core page catalog. The page registry only walks the core catalog, so these entries are visible here only.",
+        "count": "{count} rows (added {add} / replaced {replace})",
+        "colId": "Page id",
+        "colAction": "Action",
+        "colPath": "Path / target",
+        "colExtension": "Source extension",
+        "colVersion": "Version",
+        "colView": "View",
+        "colAccess": "Access",
+        "action": {
+          "add": "Added",
+          "replace": "Replaced"
+        },
+        "view": {
+          "template": "Template",
+          "component": "Component",
+          "schema": "Schema"
+        },
+        "empty": "No theme-added pages yet. Routes a theme declares with action: add show up here.",
+        "loadFailed": "Could not load theme-added pages",
+        "emptyTitle": "No theme-added pages yet"
       }
     },
     "jobs": {

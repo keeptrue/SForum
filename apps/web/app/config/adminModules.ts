@@ -322,6 +322,24 @@ export const adminPageDefinitions = [
     professionalMode: true
   },
   {
+    id: '/extensions/added-pages',
+    labelKey: 'admin.nav.extensionAddedPages',
+    icon: 'i-lucide-file-plus-2',
+    componentName: 'AdminExtensionAddedPages',
+    requiredPermissions: ['extension.view', 'extension.theme.manage', 'extension.manage'],
+    permissionMode: 'any',
+    professionalMode: true
+  },
+  {
+    id: '/extensions/migrations',
+    labelKey: 'admin.nav.extensionMigrations',
+    icon: 'i-lucide-database-zap',
+    componentName: 'AdminExtensionMigrations',
+    requiredPermissions: ['extension.view', 'extension.plugin.manage'],
+    permissionMode: 'any',
+    professionalMode: true
+  },
+  {
     id: '/extensions/route-catalog',
     labelKey: 'admin.nav.extensionRouteCatalog',
     icon: 'i-lucide-table-2',
@@ -507,6 +525,8 @@ export const adminSidebarNavigation = [
         { type: 'page', pageId: '/extensions/plugins' },
         { type: 'page', pageId: '/extensions/themes' },
         { type: 'page', pageId: '/extensions/pages' },
+        { type: 'page', pageId: '/extensions/added-pages' },
+        { type: 'page', pageId: '/extensions/migrations' },
         { type: 'page', pageId: '/extensions/route-catalog' },
         { type: 'page', pageId: '/extensions/query-catalog' },
         { type: 'page', pageId: '/extensions/route-providers' },

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { inventory } from '../../../../tests/a11y/listStateInventory.mjs'
 
 /**
- * UX2-17 剩余面棘轮：86 个页面的列表三态（加载 / 空 / 错误）现状。
+ * UX2-17 剩余面棘轮：88 个页面的列表三态（加载 / 空 / 错误）现状。
  *
  * 审计原文：「85 页里其余 bespoke 状态区（列表空态、加载中、行内校验）未逐页扫」。
  * 这里把口径落成可复跑的实现（`tests/a11y/listStateInventory.mjs`），并用**白名单**
@@ -48,10 +48,10 @@ function gapPages(): string[] {
     .map(row => row.page)
 }
 
-describe('UX2-17 列表三态：86 页清单与缺口白名单', () => {
-  test('清单覆盖全部 86 个页面（反真空绿）', () => {
+describe('UX2-17 列表三态：88 页清单与缺口白名单', () => {
+  test('清单覆盖全部 88 个页面（反真空绿）', () => {
     const rows = inventory()
-    expect(rows.length).toBe(86)
+    expect(rows.length).toBe(88)
     // 每行都必须能算出「有没有列表面」，否则说明扫描口径坏了。
     expect(rows.every(row => typeof row.inlineList === 'boolean')).toBe(true)
   })
