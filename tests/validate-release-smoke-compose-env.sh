@@ -43,6 +43,9 @@ strip_comments() {
 FLAG_RE='(^|[[:space:]])(-f|--file)[[:space:]]*'
 # 解析面：只认规范写法 —— `-f` 与路径之间必须有空白（`-f"$ROOT_DIR/x"` 是 pflag 式的
 # 贴写，本门不猜，直接判为未识别），路径必须是 `$ROOT_DIR/` 开头。
+# 不按引号剥字符串是有意的：`echo "usage: -f <file>"` 这类文档字符串会被计数面算成未识别
+# 而红（fail-closed），但若为了放过它去剥引号内内容，真正的 `-f "$ROOT_DIR/..."` 代码行
+# 也会被一起剥掉，门就彻底瞎了。代价是遇到这种字符串要改措辞，失败消息里会提示。
 PATH_RE='(^|[[:space:]])-f[[:space:]]+"?\$ROOT_DIR/[^"[:space:]]+'
 
 mapfile -t flag_hits < <(grep -noE "$FLAG_RE" <(strip_comments "$SMOKE_SCRIPT") || true)
@@ -79,6 +82,7 @@ while IFS= read -r line_number; do
   fi
 done < <(printf '%s\n' "${!flag_per_line[@]}" | sort -n)
 if (( unrecognized > 0 )); then
+  echo "      若这是文档/usage 字符串里的 -f（例如 echo \"usage: -f <file>\"），请改写措辞，例如 -f ＜file＞；" >&2
   fail "$SMOKE_SCRIPT 里有 $unrecognized 行 -f/--file 写法本门认不出来。
       compose 文件清单必须全部写成 -f \"\$ROOT_DIR/<file>\"：其它写法（--file、-f\"\$ROOT_DIR/x\"）
       会让那份文件不进检查。请改成规范写法 —— 不要放宽本门的识别面。"
@@ -99,9 +103,11 @@ for hit in "${path_hits[@]:-}"; do
 done
 [ "${#compose_files[@]}" -gt 0 ] || fail "守卫自身失效：认出了 -f，却没解出任何 compose 文件"
 
-# 脚本导出的变量：`export VAR=value` 记值（要判空），`export VAR` 视为非空 —— 后者是
-# 导出脚本前面已经赋值的变量（例如 SFORUM_VERSION="${1:-}"，而且脚本自己会先校验它非空）；
-# 静态解析看不到那次赋值，把裸 export 判空会造成误报。
+# 脚本导出的变量：`export VAR=value` 记值（要判空）；裸 `export VAR` 不直接算非空。
+# 它只有在**脚本真的给 VAR 赋过值**时才算非空 —— 例如 SFORUM_VERSION="${1:-}"（脚本还会
+# 先校验它非空）。裸导出一个从没赋值过的变量，运行时就是空串，`${VAR:?}` 照样拒绝：
+# 把它一律当非空，等于给「把 export 值删掉」留一条静默变绿的路，那正是本门存在的理由。
+# 赋值行只认 `[export ]VAR=...` 这一种写法；认不出就红（fail-closed），需要时再扩判据。
 declare -A export_value=()
 declare -A export_bare=()
 while IFS= read -r line; do
@@ -114,15 +120,25 @@ while IFS= read -r line; do
   fi
 done < <(strip_comments "$SMOKE_SCRIPT")
 
-[ "${#export_value[@]}" -gt 0 ] || fail "在 $SMOKE_SCRIPT 里解析不到任何 export，守卫自身失效"
+[ $(( ${#export_value[@]} + ${#export_bare[@]} )) -gt 0 ] ||
+  fail "在 $SMOKE_SCRIPT 里既没有任何 export VAR=value，也没有任何裸 export VAR，守卫自身失效"
+
+assigned_names="$(strip_comments "$SMOKE_SCRIPT" |
+  sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' | sort -u)"
+has_assignment() {
+  grep -qxF -- "$1" <<< "$assigned_names"
+}
 
 declared() {
   [ -n "${export_value[$1]+x}" ] || [ -n "${export_bare[$1]+x}" ]
 }
 
-# `${VAR:?}` 拒绝的是空串：`""` 与 `''` 去掉引号后就是空串，和什么都没写等价。
+# `${VAR:?}` 拒绝的是空串，而 shell 语义下「等号后只有空白」就是空串：`export X= ` 与
+# `export X=` 完全等价。所以先右裁尾部空白，再去成对引号，最后判空；只裁尾部，
+# 值内部的空格必须留着（`export X="a b"`、`export X=a b` 都是非空）。
 is_empty_value() {
   local value="$1"
+  value="${value%"${value##*[![:space:]]}"}"
   case "$value" in
     \"*\") value="${value#\"}"; value="${value%\"}" ;;
     \'*\') value="${value#\'}"; value="${value%\'}" ;;
@@ -145,6 +161,9 @@ for compose_file in "${compose_files[@]}"; do
       missing=$(( missing + 1 ))
     elif [ -n "${export_value[$variable]+x}" ] && is_empty_value "${export_value[$variable]}"; then
       echo "EMPTY $variable required by $compose_file:$line_number（export 给了空串，\${VAR:?} 同样拒绝）" >&2
+      empty=$(( empty + 1 ))
+    elif [ -n "${export_bare[$variable]+x}" ] && ! has_assignment "$variable"; then
+      echo "EMPTY $variable required by $compose_file:$line_number（只有裸 export $variable，脚本前面从未给它赋值 → 运行时是空串）" >&2
       empty=$(( empty + 1 ))
     fi
   done < <(grep -noE '\$\{[A-Za-z_][A-Za-z0-9_]*(:\?|\?)' <(strip_comments "$compose_file") || true)
