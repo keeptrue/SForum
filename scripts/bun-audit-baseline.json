@@ -285,12 +285,6 @@
         "simple-git"
       ]
     },
-    "https://github.com/advisories/GHSA-gcqx-w48m-w2h4": {
-      "severity": "low",
-      "packages": [
-        "deepmerge"
-      ]
-    },
     "https://github.com/advisories/GHSA-h46v-rmh6-fq4f": {
       "severity": "moderate",
       "packages": [
