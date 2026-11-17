@@ -471,12 +471,15 @@ SFORUM_CONFIRM_RESTORE=RESTORE ./deploy.sh --action restore
 
 开关与优先级（从上到下，命中即停）：
 
-1. `SFORUM_COLOR=never`、`NO_COLOR`（非空）、`TERM=dumb` —— 任意一条成立就不上色；
-2. `SFORUM_COLOR=always`，或 stdout 是终端 —— 上色；
-3. 其余情况（输出被重定向、CI 里采集日志）—— 不上色。
+1. `SFORUM_COLOR=always` / `SFORUM_COLOR=never` —— 显式开关，优先级最高；
+2. `NO_COLOR`（非空）—— 环境级退出；
+3. `TERM=dumb` —— 终端自述不支持颜色；
+4. stdout 是终端 —— 自动上色；
+5. 其余情况（输出被重定向、CI 里采集日志）—— 不上色。
 
 也就是说：**CI 日志和重定向输出默认是纯文本**，要人工在管道里看清颜色时显式
-`SFORUM_COLOR=always`；反过来 `NO_COLOR=1` 是终局退出开关，它压过 `SFORUM_COLOR=always`。
+`SFORUM_COLOR=always`。显式开关优先于环境默认关：`SFORUM_COLOR=always` 压过
+`NO_COLOR=1` 和 `TERM=dumb`；反过来 `SFORUM_COLOR=never` 在任何情况下都不上色。
 机器前缀（`sforum-install: `、`sforum-bootstrap: `、`sforum-latest: `）始终留在行首字节，
 颜色只包裹前缀之后的正文。
 

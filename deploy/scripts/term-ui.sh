@@ -3,10 +3,14 @@
 # sforum-latest.sh 内联同一份标记块（它们运行在 deploy/scripts 还不存在的空目录里）。
 # 改动必须四处同改，tests/validate-term-ui.sh 会逐字节比对。
 # >>> term-ui
+# 开关优先级：SFORUM_COLOR=always|never > NO_COLOR > TERM=dumb > TTY 自动判定。
+# 显式开关优先于环境默认关（no-color.org 惯例），所以 always 压过 NO_COLOR。
 ui_init_color() {
-  if [ "${SFORUM_COLOR:-auto}" = never ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = dumb ]; then
+  if [ "${SFORUM_COLOR:-auto}" = always ]; then
+    UI_COLOR=true
+  elif [ "${SFORUM_COLOR:-auto}" = never ] || [ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = dumb ]; then
     UI_COLOR=false
-  elif [ "${SFORUM_COLOR:-auto}" = always ] || [ -t 1 ]; then
+  elif [ -t 1 ]; then
     UI_COLOR=true
   else
     UI_COLOR=false

@@ -35,19 +35,22 @@
 - **颜色只在打印点**：`t()` / `say()` / `lock_text()` 的返回值被 `$(...)` 捕获或被
   `sed`/`awk` 读回（`.deployrc`、`DEPLOY_LOCK_LOG`），一个 ESC 字节就会让状态文件不可解析。
   配置向导的 `prompt_default` 把提示打到 stderr，正是同一条不变量的直接后果。
-- **`NO_COLOR` 压过 `SFORUM_COLOR=always`**：沿用给定的 `ui_init_color` 判定顺序
-  （`NO_COLOR` 是终局退出开关）。任务书里「`SFORUM_COLOR=always NO_COLOR=1` → 含 ESC」
-  与这份逐字实现互斥，本轮按实现写断言并在交接里点名；要反过来只需改一行判定 + 四处副本。
+- **显式开关优先于环境默认关**：`SFORUM_COLOR=always|never` > `NO_COLOR` > `TERM=dumb`
+  > TTY 自动判定。`SFORUM_COLOR=always` 压过 `NO_COLOR` 与 `TERM=dumb`（用户 2026-11-18
+  裁定，与 no-color.org「程序显式开关优先」的惯例一致）；`SFORUM_COLOR=never` 无条件不上色。
+  首轮按任务书逐字实现把 `NO_COLOR` 放进第一分支，已按方案在 task-3 纠正（四处副本同改，
+  块 sha256 仍一致）。
 
 ## Next
 
-- 若用户确认「`SFORUM_COLOR=always` 应压过 `NO_COLOR`」：改 `ui_init_color` 的判定顺序
-  （四处同改）→ 更新 `tests/validate-term-ui.sh` 的 nocolor 用例 → 更新两份文档的优先级段落。
+- 配色层已收口：新增入口脚本必须内联（空目录可执行）或 `source` 同一份实现，
+  `tests/validate-term-ui.sh` 的奇偶与开关矩阵会拦住漂移。
 - `deploy/scripts/backup-postgres.sh` 仍刻意无色（stdout 被 `tail -n 1` 解析），不要顺手统一。
 - 蓝绿入口 Caddyfile、`docker compose` 透传输出同样不在配色层范围内。
 
 ## Open Questions
 
-- `SFORUM_COLOR` 与 `NO_COLOR` 的优先级是否按上文反过来（见 Decisions 最后一条）。
+- **已决（2026-11-18）**：`SFORUM_COLOR=always` 压过 `NO_COLOR` 与 `TERM=dumb`，即
+  「显式开关 > 环境默认关」；见 Decisions 与两份部署文档的优先级段落。
 - 是否要把 `deploy/scripts/*.sh` 的 usage 文本也纳入强调行（当前刻意保持纯文本，
   帮助输出必须无色是 `tests/validate-term-ui.sh` 的断言之一）。

@@ -551,16 +551,19 @@ Six semantic classes:
 
 Switches and precedence (first match wins):
 
-1. `SFORUM_COLOR=never`, `NO_COLOR` (non-empty), or `TERM=dumb` — any one of them
-   disables color;
-2. `SFORUM_COLOR=always`, or stdout is a terminal — color is enabled;
-3. everything else (redirected output, CI log capture) — no color.
+1. `SFORUM_COLOR=always` / `SFORUM_COLOR=never` — explicit switch, highest priority;
+2. `NO_COLOR` (non-empty) — environment-level opt-out;
+3. `TERM=dumb` — the terminal reports no color support;
+4. stdout is a terminal — color is enabled automatically;
+5. everything else (redirected output, CI log capture) — no color.
 
 In other words **CI logs and redirected output are plain text by default**; set
-`SFORUM_COLOR=always` explicitly when you want color inside a pipe. Conversely
-`NO_COLOR=1` is a hard opt-out that wins over `SFORUM_COLOR=always`. Machine
-prefixes (`sforum-install: `, `sforum-bootstrap: `, `sforum-latest: `) always stay
-at the first byte of the line; color wraps only the body after the prefix.
+`SFORUM_COLOR=always` explicitly when you want color inside a pipe. An explicit
+switch beats an environment-level default: `SFORUM_COLOR=always` wins over
+`NO_COLOR=1` and `TERM=dumb`, while `SFORUM_COLOR=never` disables color
+unconditionally. Machine prefixes (`sforum-install: `, `sforum-bootstrap: `,
+`sforum-latest: `) always stay at the first byte of the line; color wraps only the
+body after the prefix.
 
 Example output (deliberately without escape sequences — this is what a
 redirected file contains):

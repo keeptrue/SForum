@@ -121,19 +121,29 @@ for entry in "${ENTRIES[@]}"; do
     fail "$entry: 输出被重定向且未显式要求时不得上色（CI 日志必须干净）"
   fi
 
-  # NO_COLOR 是显式退出开关：它压过 SFORUM_COLOR=always（见 term-ui.sh 的判定顺序）。
-  run_entry "$TEMP_DIR/$slug-nocolor.err" SFORUM_COLOR=always NO_COLOR=1 -- "$entry"
+  # 显式开关优先于环境默认关：SFORUM_COLOR=always 压过 NO_COLOR。
+  run_entry "$TEMP_DIR/$slug-always-nocolor.err" SFORUM_COLOR=always NO_COLOR=1 -- "$entry"
+  [ "$ENTRY_STATUS" -ne 0 ] || fail "$entry --nope 应当失败"
+  has_esc "$TEMP_DIR/$slug-always-nocolor.err" || \
+    fail "$entry: SFORUM_COLOR=always 必须压过 NO_COLOR=1"
+
+  # 单独 NO_COLOR=1（非 TTY）仍然是不上色。
+  run_entry "$TEMP_DIR/$slug-nocolor.err" NO_COLOR=1 -- "$entry"
   [ "$ENTRY_STATUS" -ne 0 ] || fail "$entry --nope 应当失败"
   if has_esc "$TEMP_DIR/$slug-nocolor.err"; then
-    fail "$entry: NO_COLOR=1 必须压过 SFORUM_COLOR=always"
+    fail "$entry: 单独 NO_COLOR=1 时必须不上色"
   fi
 
-  # TERM=dumb 同样是不上色的终局信号。
-  run_entry "$TEMP_DIR/$slug-dumb.err" TERM=dumb SFORUM_COLOR=always -- "$entry"
+  # TERM=dumb 是不上色信号，但显式 always 仍压过它（完整优先级链的最后一段）。
+  run_entry "$TEMP_DIR/$slug-dumb.err" TERM=dumb -- "$entry"
   [ "$ENTRY_STATUS" -ne 0 ] || fail "$entry --nope 应当失败"
   if has_esc "$TEMP_DIR/$slug-dumb.err"; then
     fail "$entry: TERM=dumb 时必须不上色"
   fi
+  run_entry "$TEMP_DIR/$slug-dumb-always.err" TERM=dumb SFORUM_COLOR=always -- "$entry"
+  [ "$ENTRY_STATUS" -ne 0 ] || fail "$entry --nope 应当失败"
+  has_esc "$TEMP_DIR/$slug-dumb-always.err" || \
+    fail "$entry: SFORUM_COLOR=always 必须压过 TERM=dumb"
 done
 
 # c) TTY 自动判定 -------------------------------------------------------------
