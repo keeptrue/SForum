@@ -187,7 +187,7 @@
     {
       "path": "apps/api/app/Models/Extensions",
       "type": "Service",
-      "maxMethods": 70
+      "maxMethods": 69
     },
     {
       "path": "apps/api/app/Models/Extensions",
@@ -207,7 +207,7 @@
     {
       "path": "apps/api/app/Models/Extensions",
       "type": "SettingsService",
-      "maxMethods": 11
+      "maxMethods": 10
     },
     {
       "path": "apps/api/app/Models/Extensions",
@@ -217,7 +217,7 @@
     {
       "path": "apps/api/app/Models/Extensions",
       "type": "serviceCore",
-      "maxMethods": 79
+      "maxMethods": 78
     },
     {
       "path": "apps/api/app/Models/Identity",

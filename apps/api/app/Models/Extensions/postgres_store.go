@@ -777,13 +777,6 @@ func (s *PostgresStore) ReplaceSettingsCAS(ctx context.Context, extensionID stri
 	return nextRev, nil
 }
 
-func (s *PostgresStore) ResetSettings(ctx context.Context, extensionID string) error {
-	if _, err := s.pool.Exec(ctx, "DELETE FROM extension_settings WHERE extension_id = $1", extensionID); err != nil {
-		return fmt.Errorf("reset extension settings: %w", err)
-	}
-	return nil
-}
-
 func (s *PostgresStore) CreateEventDelivery(ctx context.Context, input EventDeliveryInput) (ExtensionEventDelivery, error) {
 	return createEventDelivery(ctx, s.pool, input)
 }

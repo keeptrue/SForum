@@ -106,7 +106,7 @@ func extensionsMutationGuardEvaluator(policy ExtensionGuardPolicy) routes.CoreGu
 				return requireCoreGuardPermission(evaluation, "*")
 			}
 			return requireExtensionPluginAuthority(evaluation)
-		case "core.route.extensions.update_settings", "core.route.extensions.reset_settings":
+		case "core.route.extensions.update_settings":
 			return requireExtensionSettingsAuthority(evaluation, entry)
 		case "core.route.extensions.execute_settings_action":
 			if lookup.SafeMode {

@@ -249,10 +249,6 @@ func (s *Service) UpdateSettings(ctx context.Context, actor identity.Actor, exte
 	return s.settings.UpdateSettings(ctx, actor, extensionID, input, locale)
 }
 
-func (s *Service) ResetSettings(ctx context.Context, actor identity.Actor, extensionID string, locale string) (ExtensionSettings, error) {
-	return s.settings.ResetSettings(ctx, actor, extensionID, locale)
-}
-
 func (s *Service) PublicActiveThemeSettings(ctx context.Context) (PublicActiveThemeSettings, error) {
 	return s.lifecycle.PublicActiveThemeSettings(ctx)
 }

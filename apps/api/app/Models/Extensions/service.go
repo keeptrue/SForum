@@ -120,7 +120,6 @@ type SettingsLifecycleRuntime interface {
 	Put(ctx context.Context, extensionID, actor string, values map[string]string, preserveSecrets bool) (settingslifecycle.Document, error)
 	Get(ctx context.Context, extensionID string) (settingslifecycle.Document, error)
 	RuntimeValues(ctx context.Context, extensionID string, purpose string) (map[string]string, error)
-	ResetDefaults(ctx context.Context, extensionID, actor string, opts settingslifecycle.ResetOptions) (settingslifecycle.Document, error)
 	Export(ctx context.Context, extensionID string) (settingslifecycle.ExportBundle, error)
 	Import(ctx context.Context, extensionID, actor string, bundle settingslifecycle.ExportBundle) (settingslifecycle.Document, error)
 }

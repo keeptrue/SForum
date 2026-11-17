@@ -461,7 +461,10 @@ APP_ENV=development go run ./cmd/sforum extension dev-trust revoke <sessionID>
   或会话对（`{"kind":"session",...}`，管理端会话页可撤销/登出即失效）。
   缓存文件只属于本机 dev 环境；生产从不读它（dev trust 服务生产不注入）。
 - Safe Mode 启动时全部会话立即吊销；Safe Mode 结束后旧会话不会复活。
-- 管理端可查看活跃会话列表并一键撤销（`/admin/extensions/dev-trust-sessions`）。
+- **仅 CLI 可管理**：活跃会话的创建/列出/撤销只有 `extension dev-trust` 子命令
+  （`create` / `list` / `revoke`）提供，后台没有对应面板。这些端点
+  （`/admin/extensions/dev-trust-sessions`、`/admin/extensions/{id}/dev-trust-refresh`）
+  是开发者 / CLI 专用接口，`apps/web` 不调用。生产不注入该服务，端点在那里不存在。
 
 ### 内置包发现 — `builtins`
 

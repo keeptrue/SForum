@@ -938,7 +938,7 @@ func TestServiceThemeSettingsRequireThemeManagePermission(t *testing.T) {
 	}
 }
 
-func TestServiceSettingsResolveUpdateAndResetDefaults(t *testing.T) {
+func TestServiceSettingsResolveAndUpdate(t *testing.T) {
 	item := installedExtension("settings.plugin", TypePlugin, ManifestBackend{})
 	// 设置读写仅对已启用扩展开放。
 	item.Status = StatusEnabled
@@ -973,12 +973,8 @@ func TestServiceSettingsResolveUpdateAndResetDefaults(t *testing.T) {
 		t.Fatalf("expected invalid setting key, got %v", err)
 	}
 
-	reset, err := service.ResetSettings(context.Background(), extensionManager(), item.ID, "zh-CN")
-	if err != nil {
-		t.Fatalf("ResetSettings returned error: %v", err)
-	}
-	if settingValue(reset, "demo.title") != "Hello" {
-		t.Fatalf("expected default after reset, got %#v", reset)
+	if settingValue(settings, "demo.title") != "Hello" {
+		t.Fatalf("expected manifest default on first read, got %#v", settings)
 	}
 }
 
@@ -1058,9 +1054,6 @@ func TestServiceSettingsAllowConfigurationWhenExtensionDisabled(t *testing.T) {
 	if _, err := service.UpdateSettings(context.Background(), actor, item.ID, UpdateSettingsInput{Values: map[string]string{"demo.title": "x"}}, "zh-CN"); err != nil {
 		t.Fatalf("expected disabled settings update, got %v", err)
 	}
-	if _, err := service.ResetSettings(context.Background(), actor, item.ID, "zh-CN"); err != nil {
-		t.Fatalf("expected disabled settings reset, got %v", err)
-	}
 }
 
 func TestUpdateSettingsRestoresSnapshotWhenPluginRestartFails(t *testing.T) {
@@ -1082,25 +1075,6 @@ func TestUpdateSettingsRestoresSnapshotWhenPluginRestartFails(t *testing.T) {
 	}
 	if got := store.settings[item.ID]["name"]; got != "before" {
 		t.Fatalf("previous settings were not restored: %q", got)
-	}
-}
-
-func TestResetSettingsRestoresSnapshotWhenPluginRestartFails(t *testing.T) {
-	item := installedExtension("settings-reset.plugin", TypePlugin, ManifestBackend{Entry: "backend/plugin"})
-	item.Status = StatusEnabled
-	item.Manifest.Settings = []ManifestSetting{{Key: "name", Label: LocalizedText{Default: "Name"}, Type: "text"}}
-	store := &fakeExtensionStore{
-		items:    map[string]Extension{item.ID: item},
-		settings: map[string]map[string]string{item.ID: {"name": "keep"}},
-	}
-	service := NewServiceWithRuntime(store, t.TempDir(), &fakeRuntimeManager{startErr: errors.New("start failed")})
-
-	_, err := service.ResetSettings(context.Background(), extensionManager(), item.ID, "zh-CN")
-	if err == nil {
-		t.Fatal("restart failure must be returned")
-	}
-	if got := store.settings[item.ID]["name"]; got != "keep" {
-		t.Fatalf("reset lost the previous settings: %q", got)
 	}
 }
 
@@ -2805,13 +2779,6 @@ func (s *fakeExtensionStore) CompareAndSwapSetting(_ context.Context, extensionI
 	}
 	s.settings[extensionID][name] = newValue
 	return true, nil
-}
-
-func (s *fakeExtensionStore) ResetSettings(_ context.Context, extensionID string) error {
-	if s.settings != nil {
-		delete(s.settings, extensionID)
-	}
-	return nil
 }
 
 func (s *fakeExtensionStore) Delete(_ context.Context, id string) error {

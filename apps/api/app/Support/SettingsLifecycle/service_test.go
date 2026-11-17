@@ -97,12 +97,6 @@ func TestPutPreviewResetExportImportAndMigration(t *testing.T) {
 		t.Fatal("export must not include plaintext secret")
 	}
 
-	// Reset 明确不保留密钥。
-	reset, err := svc.ResetDefaults(ctx, "demo.settings", "admin", ResetOptions{PreserveSecrets: false})
-	if err != nil || reset.Values["mode"] != "safe" || reset.SecretSet["token"] {
-		t.Fatalf("reset clear secrets = %#v err=%v", reset, err)
-	}
-
 	// Import restores values + secret refs (no plaintext).
 	imported, err := svc.Import(ctx, "demo.settings", "admin", exported)
 	if err != nil || imported.SecretRefs["token"] == "" {
@@ -114,14 +108,8 @@ func TestPutPreviewResetExportImportAndMigration(t *testing.T) {
 		t.Fatalf("ciphertext import = %v", err)
 	}
 
-	// Reset 保留密钥（beginner-friendly 推荐路径）。
-	if _, err := svc.Put(ctx, "demo.settings", "admin", map[string]string{"mode": "advanced", "token": "again"}, true); err != nil {
-		t.Fatal(err)
-	}
-	kept, err := svc.ResetDefaults(ctx, "demo.settings", "admin", ResetOptions{PreserveSecrets: true})
-	if err != nil || kept.Values["mode"] != "safe" || !kept.SecretSet["token"] {
-		t.Fatalf("reset preserve secrets = %#v err=%v", kept, err)
-	}
+	// 文档级 reset（ResetDefaults / ResetOptions）随 #217 的 settings/reset 端点一并下线：
+	// 「清空已存值」与 web 的「提交推荐值」是两套语义，只保留后者。
 }
 
 func TestRuntimeValuesResolveSecretReferences(t *testing.T) {

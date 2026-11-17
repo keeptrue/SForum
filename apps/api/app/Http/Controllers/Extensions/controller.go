@@ -710,18 +710,6 @@ func (h *Controller) updateSettings(c fiber.Ctx) error {
 	return apphttp.OK(c, settings)
 }
 
-func (h *Controller) resetSettings(c fiber.Ctx) error {
-	actor, err := h.actor(c)
-	if err != nil {
-		return err
-	}
-	settings, err := h.service.ResetSettings(c.Context(), actor, c.Params("id"), apphttp.Locale(c))
-	if err != nil {
-		return mapExtensionError(err)
-	}
-	return apphttp.OK(c, settings)
-}
-
 func (h *Controller) executeSettingsAction(c fiber.Ctx) error {
 	actor, err := h.actor(c)
 	if err != nil {

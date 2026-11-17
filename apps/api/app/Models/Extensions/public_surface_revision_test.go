@@ -88,13 +88,6 @@ func TestUpdateSettingsBumpsPublicSurfaceRevisionWhenAffects(t *testing.T) {
 	if bumper.count.Load() != 1 {
 		t.Fatalf("expected one bump after update, got %d", bumper.count.Load())
 	}
-
-	if _, err := service.ResetSettings(context.Background(), actor, plugin.ID, "zh-CN"); err != nil {
-		t.Fatalf("ResetSettings: %v", err)
-	}
-	if bumper.count.Load() != 2 {
-		t.Fatalf("expected bump after reset, got %d", bumper.count.Load())
-	}
 }
 
 func TestUpdateSettingsDoesNotBumpWhenNoPublicSurface(t *testing.T) {

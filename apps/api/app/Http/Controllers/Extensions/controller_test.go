@@ -740,17 +740,7 @@ func TestControllerListsNavigationAndManagesExtensionSettings(t *testing.T) {
 		t.Fatalf("expected updated setting, got %#v", settings.Data)
 	}
 
-	resp = performExtensionRequest(t, app, http.MethodPost, "/api/v1/admin/extensions/demo.plugin/settings/reset", cookie)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200 reset settings, got %d", resp.StatusCode)
-	}
-	defer resp.Body.Close()
-	if err := json.NewDecoder(resp.Body).Decode(&settings); err != nil {
-		t.Fatalf("decode reset settings: %v", err)
-	}
-	if controllerSettingValue(settings.Data, "demo.title") != "Hello" {
-		t.Fatalf("expected default after reset, got %#v", settings.Data)
-	}
+	// settings/reset 端点在 #217 下线：web 的「恢复默认」走 PUT /settings 提交推荐值。
 }
 
 func TestControllerProxiesOnlyDeclaredPluginRoutesAfterHostAuthorization(t *testing.T) {
@@ -1687,13 +1677,6 @@ func (s *controllerFakeStore) CompareAndSwapSetting(_ context.Context, extension
 	}
 	s.settings[extensionID][name] = newValue
 	return true, nil
-}
-
-func (s *controllerFakeStore) ResetSettings(_ context.Context, extensionID string) error {
-	if s.settings != nil {
-		delete(s.settings, extensionID)
-	}
-	return nil
 }
 
 func (s *controllerFakeStore) Delete(_ context.Context, id string) error {

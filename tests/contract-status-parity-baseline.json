@@ -1,8 +1,8 @@
 {
   "说明": "契约状态码 parity 门的例外登记表（见 tests/validate-contract-status-parity.mjs）。只登记两类：静态判定不了的 operation，以及人工复核后接受的实现多出状态码。每条例外必须写中文原因；条目过期（现在能映射 / 不再多出码）会被判红，必须删除。新增例外要人来判断，--refresh 只刷新「期望计数」，不会增删条目，且只有本次运行零失败时才落盘。「状态码集合为空的实现侧路由数」是只降不升的棘轮，当前是 0/437（G3 之前是 30/437）。归零靠的是扩识别面，不是放宽判据：除了响应助手白名单与 guard 白名单，门还沿三条调用边走——F1 同包委派（`h.topicAction(...)` 这类一行委派的 handler）、F2 跟包 `apphttp.*`（RequireActor/ReadActor → 401/503）、F3 依赖故障出口（构造 readPathDependencyFailure ⇒ 503）。错误映射器 `mapXxxError` 族**识别但不归因**：它的分支按 err sentinel 选，一个具体 handler 只命中其中几条，全量并入就是过近似、会让门为假缺陷变红；按 handler 收窄需要跨到 app/Models 追 sentinel 产点，属 AST 阶段工作。这条边界由 tests/validate-contract-parity-call-edges.test.mjs 钉住。新增 endpoint 若既不直出状态常量、也不走上述任何一条调用边，仍会让空集数 +1 并判红——这是预期行为：处置方式是在同一次改动里说明原因并手改基线数字，不许为凑够数字给路由加无意义的状态码噪音。",
   "期望计数": {
-    "契约operation数": 441,
-    "已映射operation数": 434,
+    "契约operation数": 440,
+    "已映射operation数": 433,
     "未映射operation数": 7,
     "已复核未声明状态码条数": 2,
     "状态码集合为空的实现侧路由数": 0

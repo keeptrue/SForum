@@ -569,7 +569,6 @@ func TestProductionExtensionsMutationGuardPartitionsCatalogByProvablePolicy(t *t
 		"core.route.extensions.apply_migrations":        {method: "POST"},
 		"core.route.extensions.update_settings":         {method: "PUT"},
 		"core.route.extensions.execute_settings_action": {method: "POST"},
-		"core.route.extensions.reset_settings":          {method: "POST"},
 		"core.route.extensions.upgrade":                 {method: "POST"},
 		"core.route.extensions.verify":                  {method: "POST"},
 	}
@@ -873,7 +872,6 @@ func TestProductionExtensionPolicyClosesExactArtifactCatalogRoutes(t *testing.T)
 		"core.route.extensions.apply_migrations":        identity.PermissionExtensionPluginManage,
 		"core.route.extensions.update_settings":         identity.PermissionExtensionPluginManage,
 		"core.route.extensions.execute_settings_action": identity.PermissionExtensionPluginManage,
-		"core.route.extensions.reset_settings":          identity.PermissionExtensionPluginManage,
 		"core.route.extensions.upgrade":                 identity.PermissionExtensionPluginManage,
 		"core.route.extensions.restart":                 identity.PermissionExtensionPluginManage,
 		"core.route.extensions.verify":                  identity.PermissionExtensionPluginManage,
@@ -901,7 +899,8 @@ func TestProductionExtensionPolicyClosesExactArtifactCatalogRoutes(t *testing.T)
 			t.Fatalf("%s denied error = %v", route.ID, err)
 		}
 	}
-	if covered != 13 || len(expected) != 0 {
+	// 13 → 12：core.route.extensions.reset_settings 随 #217 下线（settings/reset 端点退役）。
+	if covered != 12 || len(expected) != 0 {
 		t.Fatalf("covered=%d missing=%#v", covered, expected)
 	}
 	for _, route := range routes.CoreRouteCatalog() {

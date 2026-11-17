@@ -523,8 +523,12 @@ APP_ENV=development go run ./cmd/sforum extension dev-trust revoke <sessionID>
   trust service is not injected there).
 - Starting Safe Mode revokes all sessions immediately; they do not resurrect after
   Safe Mode ends.
-- The admin surface lists active sessions with one-click revocation
-  (`/admin/extensions/dev-trust-sessions`).
+- **CLI-only**: creating, listing, and revoking active sessions is available
+  exclusively through the `extension dev-trust` subcommands (`create` / `list` /
+  `revoke`); there is no admin panel for it. The underlying endpoints
+  (`/admin/extensions/dev-trust-sessions`, `/admin/extensions/{id}/dev-trust-refresh`)
+  are developer/CLI surfaces that `apps/web` never calls. Production does not
+  inject the dev-trust service, so the endpoints do not exist there.
 
 ### Built-in discovery — `builtins`
 
