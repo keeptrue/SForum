@@ -52,14 +52,14 @@ run_static_line() {
     ./scripts/ci/release-tooling-gate.sh
   fi
   ./scripts/ci/contracts-gate.sh
-  # compose 的 `${VAR:?}` 硬闸必须被 release-smoke.sh 的 export 满足：这条断言过去只
-  # 存在于 release workflow 的 smoke job 里，v3.1.1 发布时 MEILI_MASTER_KEY 缺 export，
-  # smoke 在 compose 插值阶段就炸，而本地/主线全绿。纯文本解析，不起容器。
-  ./tests/validate-release-smoke-compose-env.sh
   # Explicit marker: tests/validate-host-api-v2-docs.mjs asserts the repository
   # test gate still runs the Host API v2 documentation validation (executed
   # inside contracts-gate.sh).
   # node tests/validate-host-api-v2-docs.mjs
+  # compose 的 `${VAR:?}` 硬闸必须被 release-smoke.sh 的 export 满足：这条断言过去只
+  # 存在于 release workflow 的 smoke job 里，v3.1.1 发布时 MEILI_MASTER_KEY 缺 export，
+  # smoke 在 compose 插值阶段就炸，而本地/主线全绿。纯文本解析，不起容器。
+  ./tests/validate-release-smoke-compose-env.sh
   node tests/validate-runtime-tzdata.mjs
   # bun audit 棘轮门的逻辑自检：8 个场景（无新增绿 / 新增红 / 基线失效红 /
   # 严重度升级红 / 严重度降级红 / 未播种两态 / 空报告红 / --refresh 播种）

@@ -34,8 +34,9 @@ func TestKillGroupIgnoresInvalidTargets(t *testing.T) {
 	}
 }
 
-// Limit 必须容忍「还没 start 的命令」：启动失败路径上 Limit 可能先于进程出现被
-// 调用，这里守住它对 nil 与空 Cmd 都不 panic。平台差异部分见 hardening_linux_test.go。
+// Limit 的签名契约：nil 与尚未 start 的 Cmd 必须安全返回、不得 panic。
+// 现唯一调用点 applyPluginProcessLimits 在 client.Client() 成功之后才调，没有更早的
+// 调用路径；这条用例守的是「将来若有人提前调用，也不至于把宿主打崩」。平台差异见 hardening_linux_test.go。
 func TestLimitToleratesUnstartedCommand(t *testing.T) {
 	Limit(nil)
 	Limit(&exec.Cmd{})
