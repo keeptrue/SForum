@@ -20,6 +20,11 @@ definePageMeta({ requiresAuth: true })
 
 const { t } = useI18n()
 
+// head 由本页的 useSForumSeo 独占（本页是唯一调用它的 settings 页）：
+// 同一份 noindex 也在 `PageViewModels` 的 `forum.settings.content` 分支里声明，
+// 但 ViewModel 的 SEO 只在主题模板路径生效；本页是 host-owned + core 回退，
+// 回退壳不渲染 ViewModel 的 SEO，所以不会出现重复标签。
+// 改 robots 只需改这里；那边是给主题模板路径留的兜底，不要以为要同时改两处。
 useSForumSeo({
   title: () => t('moderation.authorStatus.title'),
   description: () => t('moderation.authorStatus.description'),
