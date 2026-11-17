@@ -14,6 +14,8 @@
 - 新增决策 `decisions/2026-11-17-artifact-integrity-at-publish-time.md`（D1 发布期 vs apply 期、
   D2 dev 自愈范围、D3 republish 不热恢复 + 六条撤销条件）。
 - `modules/extensions.md` 新增 "Artifact Integrity And Recovery (2026-11-17)" 一节。
+- 第二轮（同日）：按 #254 实现回填两个 CLI 的签名、退出码、输出字段与 dry-run 语义
+  （`AGENTS.md`、模块笔记、本决策的 D3/Consequences/Evidence）。
 
 ## Decisions
 
@@ -31,25 +33,27 @@
 
 ## Next
 
-- **P2 / task-3（老后，blocked_by task-1）**：发布期完整性闸门 + dev 自愈 +
-  `sforum recovery republish-artifact`。定稿后回填本刀文档里的命令签名（当前按 issue #256
-  原名写：`sforum extension verify-artifacts`、`sforum recovery republish-artifact`）。
-- **P1 / task-1（老后）**：`plugin_artifact_incomplete` 的 code 常量 + message 映射 + 测试；
-  本文档已按「新 code 优先、旧 code 兜底」表述，实现若改名需同步。
-- 事故现场恢复：`republish` 落地后，把 revision 1540 里不可用的 `sforum-shortcodes@1.3.10`
-  重指向自洽制品（1.3.10 现有另外三个 digest 都完整），再走正常启动闸门；**不要**手工往
-  `b4f399bd…` 里补文件。
+- **发布期完整性闸门 + dev 自愈仍未实现**（task-3 剩余部分）：`AGENTS.md` 的「Publication is
+  fail-closed」与 D2 目前只是规范要求，代码里还没有写入前校验、也没有 `APP_ENV=development`
+  自愈通道（`rg 'self-heal|autoRepair' apps/api` 无命中）。落地时按五条条文写测试。
+- **已落地（可直接用）**：`ae2487303` + `5f857cc38`（#253 `plugin_artifact_incomplete` +
+  四坐标 message）、`c7e80dd51`（#254 `sforum extension verify-artifacts` 与
+  `sforum recovery republish-artifact`）。
+- 事故现场恢复：先 dry-run
+  `sforum recovery republish-artifact sforum-shortcodes --reason "<原因>" --root apps/api`
+  看 `DEFECT` / `CANDIDATE`（1.3.10 现有另外三个 digest 都完整），确认候选后再加
+  `--confirm-token <任意非空>` 执行，然后走正常启动闸门；**不要**手工往 `b4f399bd…` 补文件。
 - 收尾时把 `knowledge/index.md` 的 Latest Handoff 换成最终状态（本文件已指过去）。
 
 ## Open Questions
 
-- 两个 CLI 的命令名/参数/exit code 全未定稿，待 task-3。文档里对未定部分已标
-  「命令名待 P2 定稿后同步」。P1 已定的 message 坐标是
-  `extensionId` / `version` / `digest` / `path`（相对包根），CLI 输出是否沿用同一组字段名未定。
 - 发布期校验失败该不该也返回 `plugin_artifact_incomplete`（即「拒绝发布」与「recovery-only」
-  是否共用同一 code），还是发布侧独立一个 code——属 P2 设计范围，未拍。
-- dev 自愈的形态未定：重建 stage，还是重写 publication 指向？两者对 `dev-auto` 审计记录的
-  影响不同。
-- `republish` 是全量重写最新 publication 还是按成员定向？16 成员场景下影响恢复动作的粒度。
+  是否共用同一 code），还是发布侧独立一个 code——未拍。
+- dev 自愈形态未定：重建 stage，还是重写 publication 指向？两者对 `dev-auto` 审计记录的
+  影响不同；若复用 republish 通道，还要决定 dev 自愈是否也要求 `--confirm-token`。
+- `--confirm-token` 目前只判非空、不校验内容（显式确认闸门）。是否要绑到具体
+  `(extensionId, digest, revision)` 防误用，未定。
+- `republish` 只支持**同版本**重指向：若某版本在 `extension_versions` 里没有自洽候选，
+  出口只剩「重建该版本制品」；跨版本回退不在该命令范围内。需确认这覆盖了运维的真实恢复路径。
 - 取证残留：`storage/extensions/sforum-shortcodes/1.3.10/` 目录 mtime 为 `2026-11-17 19:05:16`
   （本会话开始前），说明有人在该时刻增删过子项；谁在动这个目录尚未查明，复盘时需排除干扰。

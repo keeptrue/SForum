@@ -4,10 +4,13 @@
 
 Accepted（2026-11-17，issue #256，事故 `recovery_required` 之后）。
 
-本文只固定**取舍与撤销条件**；实现由 P1（#253 可诊断性：`plugin_artifact_incomplete`）与
-P2（task-3：发布期完整性 + dev 自愈 + `sforum recovery republish-artifact`）交付。规范条文见
-`AGENTS.md` 的 "Extension artifact directories are **read-only immutable facts**" 起五条，
-运行时现状见 `knowledge/modules/extensions.md` 的 "Artifact Integrity And Recovery"。
+本文只固定**取舍与撤销条件**。实现进度（2026-11-17 当日）：P1（#253 可诊断性：
+`plugin_artifact_incomplete`）已落 `5f857cc38` / `ae2487303`；只读自检与恢复通道已落
+`c7e80dd51`（#254，`sforum extension verify-artifacts` +
+`sforum recovery republish-artifact`）；**发布期校验闸门与 dev 自愈尚未实现**，D1 的发布期
+部分与 D2 仍是待落地的规范要求。规范条文见 `AGENTS.md` 的
+"Extension artifact directories are **read-only immutable facts**" 起五条，运行时现状见
+`knowledge/modules/extensions.md` 的 "Artifact Integrity And Recovery"。
 
 ## Context
 
@@ -87,8 +90,11 @@ publication 落到运行时的过程。
 
 ### D3 `republish` 只写 durable 事实，不做热恢复
 
-`republish` 的语义：校验每个成员制品 → 把不可用成员从 desired set 中剔除或重指向自洽制品 →
-**追加**一条新 publication revision → 退出。它不启动插件、不重建运行时、不热修当前进程。
+`republish` 的语义（已实现，`c7e80dd51`）：`sforum recovery republish-artifact <extension-id>
+--reason TEXT [--confirm-token TOKEN]` → 只读 durable 行 + 盘上制品，发现该成员不可装载 →
+在**同一版本**的其它 `extension_versions` 行里找自洽候选 → 追加一条新 publication revision
+把该成员重指向候选 digest → 退出。它不启动插件、不重建运行时、不热修当前进程；不带
+`--confirm-token` 时只报告（dry-run，exit 1），写入只发生在带 token 的那一次事务里。
 
 理由：
 
@@ -127,9 +133,12 @@ publication 落到运行时的过程。
 - 启动路径保留 fail-closed，但 artifact 类失败从此命中 `plugin_artifact_incomplete`
   （`/api/v1/ready` 的 `recovery.code` 与 503 body 的 `data.code`）；旧 code
   `plugin_runtime_convergence_failed` 仍是兜底。
-- 运维多两条动作：发布前/CI 跑只读自检 `sforum extension verify-artifacts`；坏制品用
-  `sforum recovery republish-artifact` 重写 durable 事实后重启。
-- dev 有自愈，生产没有；两边行为分叉点只有一个，且由 `APP_ENV` 断言。
+- 运维多两条动作：发布前/CI 跑只读自检
+  `sforum extension verify-artifacts [--root apps/api]`（exit 0/1/2）；坏制品用
+  `sforum recovery republish-artifact <id> --reason TEXT [--confirm-token TOKEN]` 重写 durable
+  事实后重启（不带 token 是 dry-run）。
+- dev 自愈（待实现）只允许在 `APP_ENV=development`，生产没有；两边行为分叉点只有一个，
+  且由 `APP_ENV` 断言。
 - 制品目录彻底变成只读事实：**任何**「进目录改一改让它启动」的直觉都是错的，包括
   「只是把文件拷回来」。
 
@@ -165,4 +174,7 @@ publication 落到运行时的过程。
   `last_applied_revision=0`，`last_seen_at == first_seen_at`。
 - 代码坐标：`apps/api/bootstrap/api_assembly_extension_restore.go` 的
   `pluginRuntimeRecoveryMessage`（default 分支）、`apps/api/app/Support/Health/recovery.go`
-  的 `PluginRuntimeRecoveryCode`。
+  的 `PluginRuntimeRecoveryCode` / `PluginArtifactIncompleteCode`。
+- 已落地实现：`ae2487303` + `5f857cc38`（#253 类型化 `plugin_artifact_incomplete`，
+  四坐标 message）、`c7e80dd51`（#254 只读自检 + republish；退出码 0/1/2 见
+  `apps/api/cmd/sforum/artifact_integrity.go` 的 `artifactExitOK/Defect/Usage`）。

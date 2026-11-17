@@ -901,11 +901,24 @@ Authoritative sources:
   `recovery.code` 与 503 body 的 `data.code`，P1 / #253）；旧 code
   `plugin_runtime_convergence_failed` 仍是兜底。default 分支的
   "inspect API logs for the exact cause" 表示「尚未类型化」，不是「原因未知」。
-- 恢复通道：`sforum recovery republish-artifact` 重写 durable desired set（剔除/重指向不可用
-  成员 → 追加新 revision），**不做热恢复**；之后走正常启动闸门。dev 下存在自愈通道，仅在
-  `APP_ENV=development` 生效（Safe Mode 也拦），与 `2026-10-17-dev-zero-command.md` 同一道闸门。
-- 只读自检：`sforum extension verify-artifacts` 校验最新 publication 全部成员并输出不一致清单，
-  非零退出；dev 启动前与 CI 可调用。（命令名与参数以 P2 / task-3 定稿为准。）
+- 恢复通道：`sforum recovery republish-artifact <extension-id> --reason TEXT
+  [--confirm-token TOKEN] [--root DIR] [--database-url URL] [--json]`（同一实现也挂在
+  `sforum extension recovery republish-artifact`）。按**单个成员**重发：只把该 extension 在
+  最新 publication 里的成员重指向**同一版本**的另一个自洽 digest，追加一条新 revision。
+  `--reason` 必填（≤4096 字节）；不带 `--confirm-token` 是 dry-run，只打印
+  `publication revision N pins …` / `DEFECT path=… reason=…` / `CANDIDATE versionId=… digest=… path=…`
+  并 exit 1；exit 2 = 用法错；exit 0 = 制品本就健康或已写入。**不做热恢复**，之后走正常启动
+  闸门。dev 自愈（若装配）只允许在 `APP_ENV=development`（Safe Mode 也拦），与
+  `2026-10-17-dev-zero-command.md` 同一道闸门；该通道截至 2026-11-17 尚未实现。
+- 只读自检：`sforum extension verify-artifacts [--database-url URL] [--root DIR]
+  [--publication-revision N] [--json]`（#254，`c7e80dd51`）。默认校验**最新** publication
+  的全部成员；文本模式打印 `checked N artifact(s)` + 每个缺陷一行
+  `DEFECT <id>@<version> digest=… path=… reason=…`，全好时打印 `all artifacts are loadable`；
+  `--json` 输出 `{publicationRevision, checked, defects[]}`，缺陷字段
+  `extensionId / version / digest / path / reason / packagePath`。退出码 0 / 1 / 2
+  （全可装载 / 有缺陷 / 用法错）。`--root` 给 durable 行里 `package_path` 的基准目录（默认 `.`，
+  实际用法 `--root apps/api`）；`--database-url` 缺省只读 `DATABASE_URL`。它不启动 SForum、
+  不加载插件代码、不写状态。
 - 现场案例（2026-11-17，revision 1540）：`sforum-shortcodes@1.3.10` 的 `b4f399bd…` 目录在
   `17:34:53` 被带外删掉 `backend/plugin`（28/29 文件），manifest 声明 `backend.digest=b29b4775…`
   在全包 35 个二进制里无副本 → 补文件不可能成功，只能 republish 重指向。四次启动全部
