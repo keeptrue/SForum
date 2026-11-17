@@ -881,6 +881,36 @@ Authoritative sources:
 - Manifest/protocol decision:
   `../decisions/2026-07-29-manifest-v3-protocol-v2-only.md`
 
+## Artifact Integrity And Recovery (2026-11-17)
+
+制品目录是**只读不变事实**，发布期 fail-closed，坏制品只能「重指向自洽制品」而不能「补文件」。
+规范条文在 `AGENTS.md`（"Extension artifact directories are **read-only immutable facts**" 起
+五条），取舍与撤销条件在
+`../decisions/2026-11-17-artifact-integrity-at-publish-time.md`。
+
+- 布局与摘要：`<EXTENSION_ROOT>/<extension-id>/<version>/<digest>/`；`<digest>` = 包目录树摘要，
+  manifest `backend.digest` = `backend.entry` 文件的 sha256（同一目录内两者必须自洽）。重建只能
+  从源包走 `sforum extension`（`build` / `digest --write` / `validate` / `test`）。
+- 发布期 fail-closed：写 `plugin_runtime_publications` / `plugin_runtime_publication_members`
+  之前必须逐成员校验（目录在、`<digest>` 匹配树摘要、入口文件在、`backend.digest` 匹配文件）。
+  失败即 abort，上一 revision 继续当权。publication 是追加式不可变表，写坏只能追加新 revision
+  覆盖，所以「先写后修」在这张表上等于永久启动失败。
+- apply 期校验保留（纵深防御）：它管的是「盘上**现在**还是好的」，覆盖带外删除、磁盘损坏、
+  同步漏文件。发布期管「写进去的是好的」，两者不可互相替代。
+- 可诊断性：artifact 类失败命中 `plugin_artifact_incomplete`（`/api/v1/ready` 的
+  `recovery.code` 与 503 body 的 `data.code`，P1 / #253）；旧 code
+  `plugin_runtime_convergence_failed` 仍是兜底。default 分支的
+  "inspect API logs for the exact cause" 表示「尚未类型化」，不是「原因未知」。
+- 恢复通道：`sforum recovery republish-artifact` 重写 durable desired set（剔除/重指向不可用
+  成员 → 追加新 revision），**不做热恢复**；之后走正常启动闸门。dev 下存在自愈通道，仅在
+  `APP_ENV=development` 生效（Safe Mode 也拦），与 `2026-10-17-dev-zero-command.md` 同一道闸门。
+- 只读自检：`sforum extension verify-artifacts` 校验最新 publication 全部成员并输出不一致清单，
+  非零退出；dev 启动前与 CI 可调用。（命令名与参数以 P2 / task-3 定稿为准。）
+- 现场案例（2026-11-17，revision 1540）：`sforum-shortcodes@1.3.10` 的 `b4f399bd…` 目录在
+  `17:34:53` 被带外删掉 `backend/plugin`（28/29 文件），manifest 声明 `backend.digest=b29b4775…`
+  在全包 35 个二进制里无副本 → 补文件不可能成功，只能 republish 重指向。四次启动全部
+  fail-closed，`plugin_runtime_nodes.last_applied_revision` 恒为 0。
+
 ## Production Remediation Status
 
 Do not close residuals from Support-only tests. Require the production

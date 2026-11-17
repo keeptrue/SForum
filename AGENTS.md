@@ -324,6 +324,54 @@ contracts first.
   artifact, actor-bound `super_admin` trust confirmation. Raw request/session
   authority and raw core database access are separately declared high-risk
   powers. Do not add undocumented monkey-patching or implicit override paths.
+- Extension artifact directories are **read-only immutable facts**:
+  `<EXTENSION_ROOT>/<extension-id>/<version>/<digest>/`. The directory name
+  `<digest>` must equal the package tree digest, and the manifest's
+  `backend.digest` must equal the sha256 of the file at `backend.entry`. Never
+  add, replace, or delete a file inside a published artifact directory to make a
+  boot succeed: a substituted file satisfies neither digest, so the only legal
+  repair is to publish a self-consistent artifact and re-point durable state at
+  it. Everything is rebuilt through the `sforum extension` commands (`build`,
+  `digest --write`, `validate`, `test`) from the source package — never by
+  hand-editing a staged or active directory. Verify with
+  `sforum extension verify-artifacts` before a dev startup and in CI.
+- Publication is fail-closed: a `plugin_runtime_publications` revision and its
+  `plugin_runtime_publication_members` rows may be written only after every
+  member artifact passed integrity verification (directory present, `<digest>`
+  equals the tree digest, `backend.entry` present, `backend.digest` equals the
+  file). A verification failure aborts the write and leaves the previous
+  revision authoritative. Never publish "now" and repair "later": publications
+  are append-only, so an unverified revision is a permanent boot failure, not a
+  deferred cleanup. A member whose artifact cannot be verified must be excluded
+  or the publish refused — never recorded as expected state.
+- Every failure that can push the API into recovery-only must be diagnosable
+  from the response alone: a typed code plus a message carrying coordinates —
+  for artifact failures `extensionId`, `version`, `digest`, and the missing or
+  mismatched `path` relative to the package root, alongside the publication
+  revision. Do not add a stage/apply failure point that falls into the default
+  branch of `pluginRuntimeRecoveryMessage`
+  (`apps/api/bootstrap/api_assembly_extension_restore.go`): a new failure point
+  ships, in the same change, with its `health` code constant, its message
+  mapping, and a test asserting the mapping. Artifact-class failures use
+  `plugin_artifact_incomplete`; `plugin_runtime_convergence_failed` remains the
+  fallback for genuinely unclassified causes, and its generic "inspect API
+  logs" text means "not yet typed", never "cause unknown".
+- Recovery channels must be complete: every shape of "durable state points at an
+  unusable artifact" needs an out-of-band CLI exit that does not depend on the
+  plugin runtime — artifact directory missing, entry file missing inside an
+  existing directory, tree or manifest digest mismatch, manifest unreadable, and
+  a publication member whose version/digest never existed on disk. Use
+  `sforum recovery republish-artifact` to rewrite the durable desired set to
+  self-consistent members, then restart through the normal startup gate. A new
+  durable-state → artifact reference shape ships with its recovery path in the
+  same change; "restart until it works" is not a recovery path.
+- Diagnosis discipline for extension boot failures: reproduce against a cloned
+  database on a separate port and capture the raw error before proposing a fix.
+  Record the raw error text, the commands run, and the relevant field values
+  (`plugin_runtime_publications`, `plugin_runtime_publication_members`,
+  `plugin_runtime_nodes.last_applied_revision`) in the handoff. Do not write
+  `.env`, business tables, or extension directories while diagnosing; do not
+  kill an operator-owned dev process to "reset" the symptom.
 - Trusted Route Registry contributions may claim any declared public, admin, or
   API path and HTTP method. Theme overrides are presentation-only and must not
   alter a plugin's versioned business data contract.
