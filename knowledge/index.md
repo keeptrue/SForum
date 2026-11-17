@@ -6,6 +6,13 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### GitHub Issues + Security 收口（2026-11-17）
+
+- Status: **已收口（2026-11-17）**。GitHub `keeptrue/SForum` 4 条 open issue + security 面板全部处置：#232 关闭（Nuxt 4.6.4 代码早在 PR #233 落地，本轮补验收：typecheck / build exit 0、`bun test` 3498 pass、单版本断言、`bun-audit-gate` 44 条基线 0 命中）、#238 关闭（226 条断言 / 198 pass / **真实视觉回归 0** / a11y 缺陷 1 条）、#235 取 b 实现、#237 实现 —— 后两条并入 PR [#249](https://github.com/keeptrue/SForum/pull/249) 并**已通过独立审查**（含「摘掉反向检查 → CI 立刻红」的回归证明）；security 面板 advisories / dependabot / secret scanning 全 0，CodeQL alert 49 由 PR [#248](https://github.com/keeptrue/SForum/pull/248) 修（待合并后 CI 重扫确认）。
+- 契约侧增量：parity 门 **119/433 → 214/433**，反向缺口 **537 → 310**，新增 `tests/helpers/contract-parity/mapper-attribution.mjs` 收窄归因（379 分支 / 335 哨兵，盲区 206 个）；**新暴露的 31 条真实缺口只登记不修**（本批只做可见性）。口径以本 handoff 为准：#237 正文的 `119/434` 与 `403=234` 都是旧快照。
+- 遗留：#248 / #249 / #251 待合并（#249 合并后 #235 自动关闭、#237 手动关闭），#250 `aria-modal` 待修，QA 脚本其余 10 页暗色与弹窗待补（`roles` 页需 `SFORUM_ONLY_PHASES` 分段），本机 API `recovery_required` 根因未修。
+- Handoff：`sessions/2026-11-17-issues-security-closeout.md`（含两条环境发现：`apps/web/node_modules` 曾与 lockfile 不一致；本机 API recovery 死锁的取证与修法建议）。
+
 ### 全仓审计修复（P0–P3，113 条）
 
 - Status: 已收口。总 **113**；§7 噪声 9 条 + F-D2 + FE2-02（审计前提不成立）+ RV-46（判设计如此，见 `decisions/2026-11-15-admin-coarse-gate.md`）+ RV-03（判设计如此，见 `decisions/2026-11-15-core-guard-authority-boundary.md`）已摘出分母，**有效待修池 100**；已修 **100**，剩余 **0**（EX2-01 已随第 13 轮交付内核级沙箱）。全部 18 个动作簇已收口。**「未闭环 / 新发现」后备池也已清零**：第 14 轮 B1 读路径 A–E + B2 匿名 `/ready` 收面（`96c2769ad`），第 15 轮 8 条流共 9 个提交（W1–W7 的 `23bd1e11a`…`0b6bbcdfd` + W8 的 `1e6db900c`）；`./scripts/test.sh --fast` 三线 PASS，parity 空集路由 **194 → 30/435**，契约 **3785 refs / 65 files**，架构闸门 passed（2299 files / 221 >500）。
