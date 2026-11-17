@@ -74,9 +74,13 @@
 
 ## 测试环境注意事项
 
-- DOMPurify 在 **happy-dom 下是空操作**（实测把 `<script>` 原样返回），所以
-  客户端分支的真实行为必须在 **jsdom** 里跑：`createDOMPurify(jsdomWindow)`。
-  为此 `apps/web` 增加 devDependency `jsdom`（仅测试用，不进产物）。
+- DOMPurify 在 **happy-dom 下行为不可靠**：既漏剥危险内容，又过度剥正常节点。
+  实测（同一实例、同一配置）：`<p>ok</p><script>alert(1)</script>` → `"ok<script>alert(1)</script>"`
+  （`<script>` 原样返回），`<img src="/a.png" onerror="…">` → `""`（连合法 `<img>` 一起剥掉），
+  `<p style="…" data-x="1">t</p>` → `"t"`。它**不是**统一的空操作，而是既漏又过，
+  所以在它上面断言「客户端分支也净化」只会得到假绿。客户端分支的真实行为必须在
+  **jsdom** 里跑：`createDOMPurify(jsdomWindow)`。为此 `apps/web` 增加 devDependency
+  `jsdom`（仅测试用，不进产物）。
 - `mock.module('dompurify', …)` 在 bun 里是**整轮测试共享**的
   （`tests/content/richContentMermaid.test.ts` 会替换裸模块名），所以
   sanitize 相关测试用包的 UMD 子路径 `dompurify/dist/purify.js` 导入真实实现，
@@ -84,3 +88,8 @@
 - parse5 会把 HTML 标签移出外来内容（`<svg><p>x</p></svg>` 解析成空 svg + 兄弟 p），
   也会把 body 内容移出 `<head>`；「整棵丢弃」的全量扫描因此跳过这些标签，
   它们的覆盖放在等价性语料的外来内容用例里。
+- **新增测试依赖会带动整棵树重解析**：`bun install` 在加 devDependency 时会重新解析
+  lockfile，可能夹带与本单无关的升级/去重（本次就带上了 `rollup` 4.62.2 → 4.68.4、
+  27 条 `nitropack/rollup*` 嵌套条目去重、`@types/estree`/`lru-cache` 小版本）。
+  PR 必须把这些漂移**逐条点名**，不要让它们藏在「加了一个测试依赖」后面；
+  也不要为了消灭 diff 手工做 lock 手术（风险高于收益）。

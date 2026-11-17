@@ -14,9 +14,10 @@ import {
  * 比对，**首屏实际落 DOM 的是 SSR 分支**。两条分支若给出不同结果，用户先看到的
  * 就是其中较松的那套，而「客户端兜底」在首屏根本没生效。
  *
- * 为什么用 jsdom：DOMPurify 依赖真实 DOM 的节点遍历。happy-dom 下它会把输入
- * 原样返回（`<script>` 都不剥），断言会变成假绿；jsdom 是 DOMPurify 官方测试
- * 使用的 DOM，绑定 `DOMPurify(jsdomWindow)` 后行为与浏览器一致。
+ * 为什么用 jsdom：DOMPurify 依赖真实 DOM 的节点遍历。happy-dom 下它**行为不可靠** ——
+ * 既漏剥危险内容（`<p>ok</p><script>alert(1)</script>` 会原样保留 script），
+ * 又过度剥正常节点（`<img onerror>` 连合法 img 一起丢），在它上面断言只会得到假绿。
+ * jsdom 是 DOMPurify 官方测试使用的 DOM，绑定 `DOMPurify(jsdomWindow)` 后行为与浏览器一致。
  *
  * 两处**已点名**的残留差异（各自有断言，理由见决策记录）：
  * 1. DOMPurify 的 `SANITIZE_DOM` 会额外剥掉与 document 属性同名的 id/name；
