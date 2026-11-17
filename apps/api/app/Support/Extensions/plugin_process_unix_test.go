@@ -10,13 +10,15 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sys/unix"
-
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 )
 
-// 这组用例守的是 exec 路径上三个「接线点」：独立进程组、rlimit、整组回收顺序。
-// 它们都是「摘掉就全绿」的典型位置——所以必须由测试直接盯住调用结果而不是存在性。
+// 这组用例守的是 exec 路径上的「接线点」：独立进程组与整组回收顺序。它们都是
+// 「摘掉就全绿」的典型位置——所以必须由测试直接盯住调用结果而不是存在性。
+//
+// rlimit 那条接线断言不在这里：读回另一个进程的限额依赖 prlimit(2)，只有 Linux 有，
+// 因此它在 plugin_process_linux_test.go（本文件是 `//go:build unix`，darwin/*BSD 也
+// 会编译它，把 unix.Prlimit 放进来会让那些平台的测试编译直接失败）。
 
 // TestPreparePluginCommandUsesIndependentProcessGroup 盯住 pluginprocess.Apply 的接线：
 // 摘掉它，SysProcAttr 就是 nil，整组回收会退化成「只杀组长」。
@@ -35,42 +37,6 @@ func TestPreparePluginCommandUsesIndependentProcessGroup(t *testing.T) {
 	}
 	if want := filepath.Dir(entry); cmd.Dir != want {
 		t.Fatalf("plugin cwd = %q, want %q", cmd.Dir, want)
-	}
-}
-
-// TestProtocolStartLowersOpenFileLimit 盯住 applyPluginProcessLimits 的接线：
-// 摘掉它，子进程的 RLIMIT_NOFILE 就还是宿主的（通常 1024/1048576 且与本断言无关）。
-func TestProtocolStartLowersOpenFileLimit(t *testing.T) {
-	starter := NewProtocolStarter(ProtocolStarterConfig{
-		Trust:                          protocolDatabaseTrust{},
-		DatabaseLeases:                 newProtocolDatabaseLeaseRegistry(),
-		DatabaseLeaseHeartbeatInterval: 10 * time.Millisecond,
-		DatabaseLeaseOperationTimeout:  time.Second,
-	})
-	extension := protocolDatabaseLeaseExtension(t, true)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	target, err := starter.Start(ctx, extension)
-	if err != nil {
-		t.Fatalf("start plugin process: %v", err)
-	}
-	t.Cleanup(func() { _ = starter.Stop(context.Background(), extension) })
-
-	instance := starter.protocolInstance(RuntimeInstanceIdentity{
-		ExtensionID: extension.ID, InstanceID: target.InstanceID,
-	})
-	if instance == nil || instance.processGroup <= 0 {
-		t.Fatalf("started runtime instance has no process group: %#v", instance)
-	}
-	var limit unix.Rlimit
-	if err := unix.Prlimit(instance.processGroup, unix.RLIMIT_NOFILE, nil, &limit); err != nil {
-		t.Fatalf("read back plugin fd limit: %v", err)
-	}
-	if limit.Cur > pluginProcessOpenFileCeiling {
-		t.Fatalf("plugin fd soft limit = %d, want <= %d", limit.Cur, pluginProcessOpenFileCeiling)
-	}
-	if limit.Max < limit.Cur {
-		t.Fatalf("plugin fd hard limit %d is below soft limit %d", limit.Max, limit.Cur)
 	}
 }
 
@@ -207,7 +173,3 @@ func assertTeardownReapsGroupFirst(
 		time.Sleep(20 * time.Millisecond)
 	}
 }
-
-// pluginProcessOpenFileCeiling 与 pluginprocess.MaxOpenFiles 对齐；这里单独抄一份，
-// 是为了让测试断言的是「生效的上限」而不是被测试代码里的常量。
-const pluginProcessOpenFileCeiling = 4096
