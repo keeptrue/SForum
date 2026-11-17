@@ -67,6 +67,25 @@ jobs:
           SFORUM_BUILTIN_VERSION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: ./scripts/ci/go-gate.sh
 
+      # 这条交叉编译原本只存在于 release.yml 的 darwin 资产 job 里，而且只在发 tag
+      # 之后才跑。v3.1.1 发布时它红在主线之外：pluginprocess/hardening_unix.go 的
+      # `//go:build unix` 覆盖 darwin，却用了只有 Linux 才定义的 unix.Prlimit，
+      # 两个 darwin 资产 job 都编译失败，而 main CI 全绿（它从不交叉编译）。
+      # 发布链路里的校验必须在主线上也跑一遍，否则等于没有校验。
+      #
+      # build 守发版资产：两个 darwin 资产 job 打包的就是这两个架构的二进制。
+      # vet 守测试编译：`go build ./...` 根本不编译 _test.go，所以同一场事故里
+      # plugin_process_unix_test.go 也用了只有 Linux 才定义的 unix.Prlimit，
+      # 却只在 `go vet`（会编译测试包）下才炸。只留 build 就等于只守住一半：
+      # 测试拆分（plugin_process_linux_test.go）回退时，发版仍会在 tag 之后崩。
+      - name: Cross-compile and vet Go API for darwin (release asset gate)
+        run: |
+          cd apps/api
+          GOOS=darwin GOARCH=arm64 go build ./...
+          GOOS=darwin GOARCH=amd64 go build ./...
+          GOOS=darwin GOARCH=arm64 go vet ./...
+          GOOS=darwin GOARCH=amd64 go vet ./...
+
       - name: Reject generated module drift
         run: git diff --exit-code -- apps/api/sqlc apps/api/database extensions fixtures
 
@@ -134,6 +153,13 @@ jobs:
       # Vue 脚手架模板没跟上」这类问题要等到发版最后一步才暴露（v3.0.17 就是这么红的）。
       - name: Validate Web SDK packages
         run: node ./scripts/ci/validate-web-sdks.mjs
+
+      # 同一形状的第二个缺口：compose 的 `${VAR:?}` 硬闸过去只由 release workflow 的
+      # smoke job 撞到。v3.1.1 发布时 MEILI_MASTER_KEY 没有出现在 release-smoke.sh 的
+      # export 里，docker compose 在插值阶段（连 `compose pull` 之前）就失败，而 main CI
+      # 全绿。静态线在这里也跑一遍：改 compose 硬闸或 smoke 环境时当场红。
+      - name: Validate release smoke compose environment
+        run: ./tests/validate-release-smoke-compose-env.sh
 
   containers:
     name: Container / ${{ matrix.image }}

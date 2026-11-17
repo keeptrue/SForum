@@ -18,6 +18,10 @@ export APP_URL=http://127.0.0.1:3000
 export POSTGRES_PASSWORD=sforum-release-smoke-postgres
 export DATABASE_URL='postgres://sforum:sforum-release-smoke-postgres@postgres:5432/sforum?sslmode=disable'
 export REDIS_PASSWORD=sforum-release-smoke-redis
+# compose.prod.yaml 对 MEILI_MASTER_KEY 加了 `:?` 硬闸，而 docker compose 在任何子命令
+# 之前都会先给整份文件做插值 —— 缺这个变量时连 `compose pull` 都跑不到，与本次是否
+# 启用 `search` profile 无关。这里给一个固定的测试值，只是为了让插值过关。
+export MEILI_MASTER_KEY=sforum-release-smoke-meili-key
 export SESSION_HASH_SECRET=sforum-release-smoke-session-secret-32-bytes
 export IDENTITY_SUBJECT_HMAC_SECRET=sforum-release-smoke-identity-secret-32-bytes
 export APP_OPTION_ENC_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
