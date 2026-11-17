@@ -62,12 +62,16 @@ func EntryUnavailable(extensionID, version, digest, entry string, cause error) e
 
 // EntryDigestMismatch 报告入口文件在位但摘要与 manifest 声明不符。
 //
-// 启动期装载目前不比对摘要（那是发布期校验的职责），这条形态由 task-3 的
-// `sforum extension verify-artifacts` 与 `recovery republish-artifact` 复用，
-// 以便同一个故障在两条链路上有同一种说法。
-func EntryDigestMismatch(extensionID, version, digest, entry, want, got string) error {
+// 这是制品损坏里最隐蔽的一种：文件名对、文件也在，只 stat 的判据会放行。exec
+// 路径（OpenVerifiedRuntimeExecutable）与发布期校验（Verify）都归到这一句，
+// 保证同一个故障在两条链路上有同一种说法、同一组 want/got。
+//
+// causes 允许调用方追加既有的语义哨兵（例如 ErrFrontendPackageChanged），
+// 让本函数的返回值同时是「制品损坏」和调用方原有的分类。
+func EntryDigestMismatch(extensionID, version, digest, entry, want, got string, causes ...error) error {
 	return New(extensionID, version, digest, entry,
-		fmt.Sprintf("digest mismatch: want %s got %s", want, got), ErrArtifactUnusable)
+		fmt.Sprintf("digest mismatch: want %s got %s", want, got),
+		append([]error{ErrArtifactUnusable}, causes...)...)
 }
 
 // EntryPathRejected 报告入口路径被解析拒绝（越界或非法相对路径）。

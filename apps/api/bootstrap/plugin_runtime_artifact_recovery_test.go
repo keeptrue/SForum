@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
+	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	artifactintegrity "github.com/keeptrue/sforum/apps/api/app/Support/Extensions/ArtifactIntegrity"
 	health "github.com/keeptrue/sforum/apps/api/app/Support/Health"
 	pluginbootstrap "github.com/keeptrue/sforum/apps/api/app/Support/PluginBootstrap"
@@ -100,6 +101,22 @@ func TestPluginRuntimeRecoveryClassification(t *testing.T) {
 				artifactTestExtensionID, artifactTestVersion, artifactTestDigest, artifactTestEntry,
 				"b29b4775581dc792d1135f1bfd8ecf4bc7bb02e6b03f77bd083f9ec26f1726f4",
 				"d171bf2d74d7e1c088b1ea9bb46b858cabf7c3e04505282b01131143ab29533d"),
+			wantCode:        health.PluginArtifactIncompleteCode,
+			wantCoordinates: []string{artifactTestExtensionID, artifactTestVersion, artifactTestDigest, artifactTestEntry},
+		},
+		{
+			// exec 路径的真实现场：OpenVerifiedRuntimeExecutable 的摘要不符 →
+			// prepareVerifiedPluginExecutable 用 errors.Join 追加
+			// ErrPluginExecutableUntrusted → stage → apply。
+			name: "exec path digest mismatch behind errors.Join",
+			cause: errors.Join(
+				extensionsruntime.ErrPluginExecutableUntrusted,
+				artifactintegrity.EntryDigestMismatch(
+					artifactTestExtensionID, artifactTestVersion, artifactTestDigest, artifactTestEntry,
+					"b29b4775581dc792d1135f1bfd8ecf4bc7bb02e6b03f77bd083f9ec26f1726f4",
+					"d171bf2d74d7e1c088b1ea9bb46b858cabf7c3e04505282b01131143ab29533d",
+					extensions.ErrFrontendPackageChanged),
+			),
 			wantCode:        health.PluginArtifactIncompleteCode,
 			wantCoordinates: []string{artifactTestExtensionID, artifactTestVersion, artifactTestDigest, artifactTestEntry},
 		},
