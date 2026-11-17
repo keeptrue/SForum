@@ -13,11 +13,11 @@ load archived sessions or completed plans as current context.
   却调用只有 Linux 才有的 `unix.Prlimit`，以及 `compose.prod.yaml` 的 `${VAR:?}` 硬闸在插值
   阶段就炸、`release-smoke.sh` 缺 `export MEILI_MASTER_KEY`；同一形状的第三条是 `main` 的
   Security 审计棘轮报未登记的 picomatch ReDoS advisory（上游无修复版本，已登记基线例外
-  45 → 46）。
+  44 → 45）。
 - 三条的共同点是**校验只存在于 release workflow、只有推 tag 之后才跑**，所以 `main` 全绿。
   修复为 `23fad3e3b` / `5f39e0d2c` / `41923f941`；证据是 darwin 两架构 build + vet 与
   Extensions 813 PASS、新门 15 处硬闸变量正例通过且负例点名变量、候选镜像 `sha-3b53128d…`
-  跑通整条本地 smoke。发布说明 `reports/2026-11-18-v3.1.1-release-notes.md` 已同步为 202 个提交。
+  跑通整条本地 smoke。发布说明 `reports/2026-11-18-v3.1.1-release-notes.md` 已同步为 204 个提交。
 - Handoff：`sessions/2026-11-18-v3.1.1-release-cut.md`（retag + 复跑 + 确认 release 与镜像 promote）。
 
 ### 预构建设置页首屏：骨架替代 Schema 表单（2026-11-18）
