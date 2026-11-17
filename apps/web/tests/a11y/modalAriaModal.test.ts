@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 /**
  * 管理端模态弹窗的 `aria-modal`（issue #250）。
  *
- * 背景：`@nuxt/ui@4.12.2` 的 `UModal` 不给内容根输出 `aria-modal`，于是全仓 115 处
+ * 背景：`@nuxt/ui@4.12.2` 的 `UModal` 不给内容根输出 `aria-modal`，于是全仓 54 处
  * `<UModal>` 渲染出的 `[role="dialog"]` 都是「模态但没声明模态」——读屏软件不会把
  * 弹窗外内容当背景忽略，焦点/朗读可能落到后面的表格和工具栏上。
  *

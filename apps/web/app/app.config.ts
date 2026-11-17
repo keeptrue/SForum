@@ -6,7 +6,7 @@ export default defineAppConfig({
       // UModal 不给内容根输出 aria-modal（@nuxt/ui 4.12.2 的 Modal.vue 里没有这个属性），
       // 而 `content` 是组件 prop：`useComponentProps` 会把 appConfig 的 defaultVariants
       // 合并进 prop，Modal.vue 再把 contentProps 绑到 DialogContent（= [role="dialog"]）。
-      // 一处配置覆盖全仓 115 处 <UModal>，不改任何调用点。
+      // 一处配置覆盖全仓 54 处 <UModal>，不改任何调用点。
       // 运行时由 useComponentProps 读取；@nuxt/ui 4.12.2 的 AppConfig 类型
       // 只声明了 slots / variants，没有 defaultVariants —— 运行时支持、类型没跟上。
       // 用 @ts-expect-error 而不是 as any：一旦上游补上类型，这行会因「未使用」报错，
