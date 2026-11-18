@@ -193,8 +193,9 @@ describe('profile page CSP wiring', () => {
     expect(outlet).toContain(':extra-l2-refs="extraL2Refs"')
     expect(resolver).toContain('extraL2Refs?: PublicFrontendComponentRef[]')
     expect(resolver).toContain('normalizePublicFrontendComponentRefs([...regionRefs, ...extraRefs])')
-    // 只有页面级 widget、没有区域 widget 时也必须写 header
-    expect(resolver).toContain('regionWidgetRefs.value.length > 0 && !willUseThemeTemplate.value')
+    // 每个公开页都写 header：不再判 ref 长度，只保留与主题模板路径的互斥
+    expect(resolver).toContain('if (import.meta.server && !willUseThemeTemplate.value)')
+    expect(resolver).not.toMatch(/regionWidgetRefs\.value\.length > 0/)
     expect(resolver).toContain(':region-widget-refs="regionWidgetRefs"')
     expect(render).toContain(':extra-l2-refs="regionWidgetRefs"')
   })

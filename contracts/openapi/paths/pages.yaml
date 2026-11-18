@@ -308,6 +308,12 @@ siteThemeAsset:
             schema: { type: string, enum: [nosniff] }
           Content-Security-Policy:
             schema: { type: string }
+            description: >-
+              主题资产响应自身的资产级 CSP（当前实现为
+              `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'`），
+              用来把被直接打开的 CSS/字体/图片限制为惰性资源。它不是
+              `publicExtensionPagePolicy` 下发的 SSR 文档 CSP；文档基线以
+              `PublicFrontendDocumentPolicy.headerValue` 为准。
           X-Frame-Options:
             schema: { type: string, enum: [DENY] }
         content:

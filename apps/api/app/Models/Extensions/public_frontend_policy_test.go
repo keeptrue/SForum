@@ -42,11 +42,11 @@ func TestPublicPagePolicyAggregatesStrictStructuredDirectives(t *testing.T) {
 		{Name: "font-src", Sources: []string{"'self'"}},
 		{Name: "form-action", Sources: []string{"'self'"}},
 		{Name: "frame-ancestors", Sources: []string{"'none'"}},
-		{Name: "img-src", Sources: []string{"'self'", "https://cdn.example.com"}},
+		{Name: "img-src", Sources: []string{"'self'", "blob:", "data:", "https:", "https://cdn.example.com"}},
 		{Name: "media-src", Sources: []string{"'self'"}},
 		{Name: "object-src", Sources: []string{"'none'"}},
 		{Name: "script-src", Sources: []string{"'self'"}},
-		{Name: "style-src", Sources: []string{"'self'"}},
+		{Name: "style-src", Sources: []string{"'self'", "'unsafe-inline'"}},
 		{Name: "worker-src", Sources: []string{"'self'"}},
 	}
 	if policy.SchemaVersion != PublicFrontendPolicySchemaV1 ||
@@ -227,6 +227,92 @@ func TestPublicPagePolicyForComponentsExpandsSoftRefsAndBaseline(t *testing.T) {
 	requirePublicPagePolicyError(t, err, PublicPagePolicyComponentUnavailable)
 }
 
+// 宿主基线必须是一份 Nuxt SSR 文档能满足的来源白名单：内联 style（设计 token、
+// Icon SSR、Vue :style）与内联 data:/blob: 图片放行，内容图片允许站外 https
+// （Gravatar 头像、用户贴的外链图），脚本与 Worker 仍只允许同源。
+func TestPublicPageDocumentPolicyHostBaselineIsSSRSatisfiable(t *testing.T) {
+	policy := PublicFrontendPolicy{
+		SchemaVersion: PublicFrontendPolicySchemaV1,
+		GraphDigest:   strings.Repeat("a", 64),
+	}
+	policy.ExtensionPolicyDigest = publicPageExtensionPolicyDigest(policy)
+	document, err := publicPageDocumentPolicy(policy)
+	if err != nil {
+		t.Fatalf("Host baseline alone must produce a document policy: %v", err)
+	}
+	wantDirectives := []PublicFrontendPolicyDirective{
+		{Name: "base-uri", Sources: []string{"'none'"}},
+		{Name: "connect-src", Sources: []string{"'self'"}},
+		{Name: "default-src", Sources: []string{"'none'"}},
+		{Name: "font-src", Sources: []string{"'self'"}},
+		{Name: "form-action", Sources: []string{"'self'"}},
+		{Name: "frame-ancestors", Sources: []string{"'none'"}},
+		{Name: "img-src", Sources: []string{"'self'", "blob:", "data:", "https:"}},
+		{Name: "media-src", Sources: []string{"'self'"}},
+		{Name: "object-src", Sources: []string{"'none'"}},
+		{Name: "script-src", Sources: []string{"'self'"}},
+		{Name: "style-src", Sources: []string{"'self'", "'unsafe-inline'"}},
+		{Name: "worker-src", Sources: []string{"'self'"}},
+	}
+	if !reflect.DeepEqual(document.Directives, wantDirectives) {
+		t.Fatalf("unexpected Host baseline: %#v", document.Directives)
+	}
+	wantHeader := "base-uri 'none'; connect-src 'self'; default-src 'none'; font-src 'self'; " +
+		"form-action 'self'; frame-ancestors 'none'; img-src 'self' blob: data: https:; media-src 'self'; " +
+		"object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'"
+	if document.HeaderValue != wantHeader {
+		t.Fatalf("unexpected Host baseline header:\ngot  %q\nwant %q", document.HeaderValue, wantHeader)
+	}
+	for _, name := range []string{"script-src", "worker-src"} {
+		directive := publicPagePolicyDirectiveByName(t, document.Directives, name)
+		if !reflect.DeepEqual(directive.Sources, []string{"'self'"}) {
+			t.Fatalf("%s must stay exactly 'self': %#v", name, directive)
+		}
+	}
+	// CSP3 下 style-src 一旦出现 nonce/hash，其中的 'unsafe-inline' 会被忽略。
+	if strings.Contains(document.HeaderValue, "'nonce-") || strings.Contains(document.HeaderValue, "'sha") {
+		t.Fatalf("baseline must not mix nonce/hash into style-src: %q", document.HeaderValue)
+	}
+	if document.Digest != publicPageDocumentPolicyDigest(policy, document) {
+		t.Fatal("document digest is not reproducible for the Host baseline")
+	}
+}
+
+// 可执行指令的权威只有宿主基线：扩展片段不能借 style-src/img-src 的放宽夹带
+// 'unsafe-inline'、nonce 或远程源。
+func TestPublicPageDocumentPolicyRejectsExtensionExecutableWidening(t *testing.T) {
+	tests := []struct {
+		name string
+		csp  string
+	}{
+		{name: "script unsafe-inline", csp: "script-src 'unsafe-inline'"},
+		{name: "style unsafe-inline", csp: "style-src 'unsafe-inline'"},
+		{name: "style nonce", csp: "style-src 'nonce-abc123'"},
+		{name: "worker unsafe-inline", csp: "worker-src 'unsafe-inline'"},
+		{name: "remote script", csp: "script-src https://scripts.example.com"},
+		{name: "remote style", csp: "style-src https://styles.example.com"},
+		{name: "img data scheme", csp: "img-src data:"},
+		// img-src 的 https: 是宿主基线独有的权利：扩展片段只能声明具体 https 主机。
+		{name: "img broad scheme", csp: "img-src https:"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			name, source, ok := strings.Cut(test.csp, " ")
+			if !ok {
+				t.Fatalf("fixture %q is not a single directive", test.csp)
+			}
+			policy := PublicFrontendPolicy{
+				SchemaVersion: PublicFrontendPolicySchemaV1,
+				GraphDigest:   strings.Repeat("b", 64),
+				Directives:    []PublicFrontendPolicyDirective{{Name: name, Sources: []string{source}}},
+			}
+			policy.ExtensionPolicyDigest = publicPageExtensionPolicyDigest(policy)
+			_, err := publicPageDocumentPolicy(policy)
+			requirePublicPagePolicyError(t, err, PublicPagePolicyDirectiveInvalid)
+		})
+	}
+}
+
 func TestPublicPagePolicyIsDeterministicAcrossOrderAndRestart(t *testing.T) {
 	owner := publicFrontendFixtureFor(t, "a.policy", nil)
 	owner.Manifest.Assets[0].CSP = []string{"img-src https://images.example.com", "connect-src 'self'"}
@@ -273,6 +359,7 @@ func TestPublicPagePolicyRejectsUnsafeSourcesAndInvalidNone(t *testing.T) {
 	}{
 		{name: "wildcard", csp: "script-src *"},
 		{name: "unsafe keyword", csp: "script-src 'unsafe-inline'"},
+		{name: "style unsafe keyword", csp: "style-src 'unsafe-inline'"},
 		{name: "extension nonce", csp: "script-src 'nonce-deadbeef'"},
 		{name: "external script", csp: "script-src https://scripts.example.com"},
 		{name: "external style", csp: "style-src https://styles.example.com"},

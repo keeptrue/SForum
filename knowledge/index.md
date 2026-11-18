@@ -6,6 +6,24 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### v3.1.5 发版（2026-11-18）
+
+- Status: **已提交，待推 tag**。修复「公开页文档 CSP 拦掉宿主自己的内联样式与内联脚本」
+  （真实 Chrome 实测修复前 41 条 `securitypolicyviolation`、`--ui-primary` 为空），并把
+  文档 CSP 从「只有挂 L2 岛的页才下发」扩到**所有公开页**。
+- 基线：`style-src 'self' 'unsafe-inline'`（Vue `:style` 属性无法 nonce）、
+  `img-src 'self' blob: data: https:`（Gravatar / 富文本外链图）、
+  `script-src 'self' 'nonce-…'`（Nitro `render:html` 打标，代码边界未放松）；
+  收窄「合并后可执行指令必须恰好 `['self']`」为只约束扩展片段。
+- 第二个回归（生产构建门禁抓到）：客户端图标走公共 Iconify API 被 `connect-src` 拦，
+  改为同源 `/api/_nuxt_icon` provider；dev 环境因放行三主机永远看不见。
+- 新增门禁 `tests/validate-document-csp.mjs`（真实 Chrome + CDP，`--self-test` 进 static 线必过）。
+- 验证：生产构建四路径（`/`、`/t/*`、`/tags`、`/categories`）`violations=0` 且 exit=0；
+  全量 `./scripts/test.sh` api 391s / web 214s / static 268s 全 PASS。
+- 发布说明 `reports/2026-11-18-v3.1.5-release-notes.md`；Handoff
+  `sessions/2026-11-18-v3.1.5-release-cut.md`；决策
+  `decisions/2026-11-18-public-document-csp-host-compatible.md`。
+
 ### v3.1.2 发版（2026-11-18）
 
 - Status: **已发布（2026-11-18）**。`v3.1.1`（`d87fdf0ed`）之后到 `0b194c9e0` 共 5 个提交（3 `fix` /

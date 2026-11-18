@@ -134,6 +134,34 @@ Build, typecheck, lint, test:
   keep the failure, do not convert it back to `t.Skip`.
 - `node tests/validate-architecture-boundaries.mjs` — enforce file-size,
   flat-directory, fixed-tab, and legacy God-object non-growth guardrails.
+- `node tests/validate-document-csp.mjs` — document-CSP regression gate in a real
+  Chrome (CDP, no Playwright dependency): asserts the target page really sends
+  `Content-Security-Policy`, that `securitypolicyviolation` fires zero times,
+  that `--ui-primary` and at least one inline style actually take effect, that
+  `script-src` carries exactly one nonce and the rendered inline `<script>`
+  uses it, and that `style-src` carries no nonce/hash (which would silently
+  disable `'unsafe-inline'`). The nonce is read from the response headers of the
+  same navigation the browser rendered, never from a second request: document
+  nonces are per request, so a cross-request comparison can never match.
+  When the navigation response is a 304 cache hit (or carries no CSP header at
+  all), the header is re-read through a cache-bypassing request and reported as
+  `headerSource=cache-bypass`; the nonce comparison is then skipped and
+  annotated instead of failing, because that header belongs to a different
+  request.
+  Every public page emits the document policy, so the default target is `/`
+  (`SFORUM_CSP_PATHS` overrides it with a comma-separated list) and a public
+  page without the header is itself a regression. Needs **both** the web and the
+  API running (`SFORUM_WEB_BASE_URL`, default `http://127.0.0.1:3000`). Exit
+  codes: 0 pass; 1 failure, including a page that answers without the header
+  while `/api/v1/extensions/runtime/page-policy` is reachable (that means the
+  code stopped writing the header); 2 environment not ready — the web does not
+  answer, or a page has no header and the policy endpoint is unreachable too
+  (web up, API down), which is the only case `./scripts/test.sh` records as
+  SKIP.
+  Because the default target always exists, "a target is configured but cannot
+  be reached" is never a skip — a page that answers but fails is exit 1. The
+  static line runs `--self-test` unconditionally and it must pass, so the
+  service-absent skip can never turn this gate permanently green.
 - `./scripts/test.sh` — full repo test gate, run as three concurrent lines:
   Go tests plus the compatibility farm and `go build ./...`; Nuxt typecheck,
   `bun test`, and the production build; the static contract/release gates and

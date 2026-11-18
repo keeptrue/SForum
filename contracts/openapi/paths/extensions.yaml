@@ -308,7 +308,13 @@ publicExtensionPagePolicy:
       Resolves page-local public L2 soft refs (`extensionId/componentId`) against
       the live exact-artifact Asset Registry, then returns the Host-owned
       restrictive document Content-Security-Policy. Empty `component` lists are
-      valid and return the Host baseline when public L2 gates pass. Nuxt SSR must
+      valid and return the Host baseline when public L2 gates pass. The baseline
+      is a source allow-list that a Nuxt SSR document can satisfy:
+      `style-src 'self' 'unsafe-inline'` (Nuxt UI design-token `<style>`, Nuxt
+      Icon SSR styles, and Vue `:style` attributes can never carry a nonce or
+      hash) and `img-src 'self' blob: data: https:`; `script-src` and `worker-src` stay
+      exactly `'self'`. An extension fragment may restate a baseline source for
+      an executable directive but can never widen it. Nuxt SSR must
       apply `documentPolicy.headerValue` as the `Content-Security-Policy`
       response header before mounting any public L2 module. Missing, revoked,
       stale, Safe Mode, or disabled public L2 all collapse to the same 404 so
@@ -338,6 +344,12 @@ publicExtensionPagePolicy:
             schema: { type: string, enum: [nosniff] }
           X-SForum-Document-Policy-Digest:
             schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+            description: >-
+              Digest of the returned Host policy snapshot, not of the header the
+              browser finally receives: SSR appends a per-request `'nonce-…'` to
+              `script-src`, so the delivered header no longer equals
+              `documentPolicy.headerValue`. Use this value to correlate the
+              snapshot (audit, cache keys), never to verify the delivered header.
         content:
           application/json:
             schema:

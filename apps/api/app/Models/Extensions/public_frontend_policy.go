@@ -518,9 +518,13 @@ func publicPagePolicyDirectivesFromSets(
 
 func publicPageDocumentPolicy(policy PublicFrontendPolicy) (PublicFrontendDocumentPolicy, error) {
 	sets := make(map[string]map[string]struct{})
+	executableBaseline := make(map[string]map[string]struct{})
 	for _, directive := range publicPageHostBaselinePolicy() {
 		for _, source := range directive.Sources {
 			addPublicPagePolicySource(sets, directive.Name, source)
+			if publicPagePolicyExecutableDirective(directive.Name) {
+				addPublicPagePolicySource(executableBaseline, directive.Name, source)
+			}
 		}
 	}
 	for _, directive := range policy.Directives {
@@ -535,15 +539,23 @@ func publicPageDocumentPolicy(policy PublicFrontendPolicy) (PublicFrontendDocume
 			addPublicPagePolicySource(sets, directive.Name, source)
 		}
 	}
+	// 可执行指令（script-src / style-src / worker-src）的唯一权威是宿主基线：扩展
+	// 片段可以复述基线来源，但永远不能拓宽它。这条不变量只约束**扩展片段**——
+	// 合并后的 style-src 会带上宿主自己需要的 'unsafe-inline'，那属于宿主注入的
+	// 权利，不是扩展可以声明的来源；strictPublicPagePolicySource 已对逐条来源把关。
+	for _, directive := range policy.Directives {
+		if !publicPagePolicyExecutableDirective(directive.Name) {
+			continue
+		}
+		for _, source := range directive.Sources {
+			if _, ok := executableBaseline[directive.Name][source]; !ok {
+				return PublicFrontendDocumentPolicy{}, &PublicPagePolicyError{Code: PublicPagePolicyDirectiveInvalid}
+			}
+		}
+	}
 	directives, err := publicPagePolicyDirectivesFromSets(sets, false)
 	if err != nil {
 		return PublicFrontendDocumentPolicy{}, err
-	}
-	for _, directive := range directives {
-		if publicPagePolicyExecutableDirective(directive.Name) &&
-			(len(directive.Sources) != 1 || directive.Sources[0] != "'self'") {
-			return PublicFrontendDocumentPolicy{}, &PublicPagePolicyError{Code: PublicPagePolicyDirectiveInvalid}
-		}
 	}
 	headerValue := publicPagePolicyHeaderValue(directives)
 	if len(publicPagePolicyHeaderPrefix)+len(headerValue) > maxPublicPagePolicyHeaderBytes {
@@ -559,7 +571,22 @@ func publicPageDocumentPolicy(policy PublicFrontendPolicy) (PublicFrontendDocume
 }
 
 func publicPageHostBaselinePolicy() []PublicFrontendPolicyDirective {
-	// Host 基线不可被扩展移除；可执行脚本、样式和 Worker 始终只允许同源制品。
+	// Host 基线不可被扩展移除。它是「一份 Nuxt SSR 文档必须能通过」的来源白名单，
+	// 不是内联执行防线：宿主自己会注入 Nuxt UI 设计 token 的 <style id="nuxt-ui-colors">、
+	// Nuxt Icon 的 SSR <style> 与 Vue 的 :style 属性，而 style 属性永远无法携带
+	// nonce/hash，所以 style-src 必须给 'unsafe-inline'；img-src 则要放行 Host 自己
+	// 内联的 data:（占位/内联图标）与 blob:（前端生成的对象 URL）。
+	//
+	// img-src 还要允许 https:：这条策略现在对所有公开页下发，而公开页的图片来自
+	// 站外——Gravatar 头像（avatar.gravatar_base_url 默认 https://gravatar.com/avatar/）
+	// 与用户贴进富文本的外链图片。CSP 在这里管的是**代码来源**，不是内容图片；
+	// 把图片来源钉成 'self' 只会让全站图片不显示，换不到任何执行边界。
+	//
+	// 脚本执行边界不随之放开：script-src 与 worker-src 仍然恰好 'self'。
+	//
+	// 约束：style-src 里**不得**再追加 nonce/hash。CSP3 规定同一指令只要出现 nonce
+	// 或 hash，其中的 'unsafe-inline' 就被忽略，SSR 内联样式会立刻被浏览器拦掉——
+	// 那会把「放宽基线」变成「静默失效」。
 	return []PublicFrontendPolicyDirective{
 		{Name: "base-uri", Sources: []string{"'none'"}},
 		{Name: "connect-src", Sources: []string{"'self'"}},
@@ -567,11 +594,11 @@ func publicPageHostBaselinePolicy() []PublicFrontendPolicyDirective {
 		{Name: "font-src", Sources: []string{"'self'"}},
 		{Name: "form-action", Sources: []string{"'self'"}},
 		{Name: "frame-ancestors", Sources: []string{"'none'"}},
-		{Name: "img-src", Sources: []string{"'self'"}},
+		{Name: "img-src", Sources: []string{"'self'", "blob:", "data:", "https:"}},
 		{Name: "media-src", Sources: []string{"'self'"}},
 		{Name: "object-src", Sources: []string{"'none'"}},
 		{Name: "script-src", Sources: []string{"'self'"}},
-		{Name: "style-src", Sources: []string{"'self'"}},
+		{Name: "style-src", Sources: []string{"'self'", "'unsafe-inline'"}},
 		{Name: "worker-src", Sources: []string{"'self'"}},
 	}
 }

@@ -184,7 +184,7 @@ const regionWidgetRefs = computed(() => {
 
 // CSP 单点聚合:主题模板路径把 refs 交给 SFThemeTemplate 合并(那里是唯一调用点);
 // 原生路径(host chrome / 纯 slot)没有 ThemeTemplate,由本组件(已在 async setup 内)聚合一次。
-// 聚合条件用合并后的长度：只有页面级 widget、没有区域 widget 时也必须写 header。
+// 两条路径互斥即可：这里不再判 ref 长度——零 ref 的原生页同样要写 Host 基线头。
 const willUseThemeTemplate = computed(() => {
   const payload = resolved.value as ResolvePayload | null
   return Boolean(payload
@@ -192,7 +192,7 @@ const willUseThemeTemplate = computed(() => {
     && (payload.renderOutput || (payload.templateHtml || '').trim())
     && !payload.fallback)
 })
-if (import.meta.server && regionWidgetRefs.value.length > 0 && !willUseThemeTemplate.value) {
+if (import.meta.server && !willUseThemeTemplate.value) {
   await applyPublicPageDocumentPolicy(regionWidgetRefs.value)
 }
 

@@ -3379,7 +3379,19 @@ PublicFrontendDocumentPolicy:
   required: [schemaVersion, digest, directives, headerValue]
   properties:
     schemaVersion: { type: string, const: sforum.public-frontend-document-policy@1 }
-    digest: { type: string, pattern: '^[0-9a-f]{64}$' }
+    digest:
+      type: string
+      pattern: '^[0-9a-f]{64}$'
+      description: >-
+        Digest of this Host policy snapshot: schema version, graph digest,
+        extension policy digest, directives, and `headerValue`. It identifies
+        WHICH policy the page was built from — it is NOT a checksum of the
+        header finally delivered to the browser. The rendered document header
+        additionally carries a per-request `'nonce-…'` on `script-src` (SSR
+        inline scripts cannot be allowed by `'self'` alone), so the delivered
+        header intentionally no longer equals `headerValue` and cannot be
+        verified against this digest. Verify what the browser actually received
+        from the `Content-Security-Policy` response header itself.
     directives:
       type: array
       items:
@@ -3388,7 +3400,21 @@ PublicFrontendDocumentPolicy:
       type: string
       minLength: 1
       maxLength: 8192
-      description: Exact Content-Security-Policy header value without the header name.
+      description: >-
+        Exact Content-Security-Policy header value without the header name.
+        Directives and their sources are sorted and serialized as
+        `name source ...` joined by `; `. The Host baseline contributes
+        `base-uri 'none'`, `default-src 'none'`, `frame-ancestors 'none'`,
+        `object-src 'none'`, `connect-src`/`font-src`/`media-src`/`script-src`/
+        `worker-src` exactly `'self'`, `form-action 'self'`,
+        `img-src 'self' blob: data: https:`, and `style-src 'self'
+        'unsafe-inline'`. `img-src` allows `https:` because the document policy
+        also covers public pages whose images are off-site (Gravatar avatars,
+        user-linked images in rich content); CSP here governs code sources, not
+        content images. `style-src 'unsafe-inline'` exists because SSR inline
+        styles and Vue `:style` attributes cannot carry a nonce or hash; adding
+        a nonce or hash to that directive would disable `'unsafe-inline'` under
+        CSP3, so it is deliberately absent.
 PublicFrontendPolicy:
   type: object
   additionalProperties: false

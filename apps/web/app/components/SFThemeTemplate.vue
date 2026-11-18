@@ -152,8 +152,8 @@ const renderState = computed(() => {
   }
 })
 
-// SSR：按页面实际 L2 岛聚合 Host document CSP。
-// 策略不可用（信任撤销 / Safe Mode / 制品不可用）时不写 header；widget 自身回退 L1。
+// SSR：每个公开页都写 Host document CSP（零 L2 岛时用缓存的 Host 基线，不额外请求）。
+// 逐页策略不可用（信任撤销 / Safe Mode / 制品不可用）时回退到基线；widget 自身仍回退 L1。
 const publicL2Refs = computed(() => {
   const themeRefs = (() => {
     if (renderState.value.error) return []
@@ -171,8 +171,8 @@ const publicL2Refs = computed(() => {
     return themeRefs
   }
 })
-// 仅在页面声明了 L2 岛时聚合 CSP，避免每个公开页多一次 404。
-const publicPagePolicy = import.meta.server && publicL2Refs.value.length > 0
+// 无条件下发：零 ref 页面走模块级缓存的 Host 基线，不产生逐页 API 往返。
+const publicPagePolicy = import.meta.server
   ? await applyPublicPageDocumentPolicy(publicL2Refs.value)
   : null
 

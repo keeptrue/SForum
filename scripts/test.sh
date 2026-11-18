@@ -66,6 +66,22 @@ run_static_line() {
   # 全部用内联夹具跑，不联网。真正的扫描与基线比对在 Security workflow 的
   # web-audit 里。
   node scripts/bun-audit-gate.mjs --self-test
+  # 文档 CSP 门禁自检：本地夹具 + 真实 Chrome，不联网、不需要服务，**必须通过**。
+  # 它证明门禁本身能抓到 style-src-elem / style-src-attr / script-src-elem 三类违规，
+  # 否则下面那条真实服务跑在 CI 里永远 2→SKIP，等于常绿。
+  node tests/validate-document-csp.mjs --self-test
+  # 文档 CSP 门禁真实跑：抓宿主文档被自己的 CSP 拦掉这类回归。目标默认就是 `/`。
+  # 本门禁要求 **API 与 web 同时在线**：SKIP 只对应「环境没就绪」（脚本退 2，含
+  # web 不在，以及 web 在但 API 不在导致策略端点不可达）。页面能开、策略端点也
+  # 可达却断言不过（含缺 CSP 头）一律退 1 失败，不会被 SKIP 掩盖。
+  node tests/validate-document-csp.mjs || {
+    status=$?
+    if [[ $status == 2 ]]; then
+      echo "document CSP gate SKIPPED: no web service is answering (start the dev stack to exercise it)."
+    else
+      exit "$status"
+    fi
+  }
 }
 
 LINES=(api web static)
