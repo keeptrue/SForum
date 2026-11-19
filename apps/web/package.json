@@ -40,7 +40,7 @@
     "@tiptap/extension-link": "3.32.0",
     "@tiptap/extension-placeholder": "3.32.0",
     "@tiptap/extension-table": "3.32.0",
-    "@tiptap/extension-text-style": "3.32.0",
+    "@tiptap/extension-text-style": "3.34.0",
     "@tiptap/extension-underline": "3.32.0",
     "@tiptap/markdown": "3.32.0",
     "@tiptap/pm": "3.32.0",
