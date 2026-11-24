@@ -48,12 +48,18 @@ describe('default theme V32 left-nav homepage contract', () => {
     expect(defaultTpl).toContain('sf-theme-shell--fullwidth-3col')
   })
 
-  test('search owns a distinct Page Registry route while reusing the forum feed island', () => {
+  test('search owns a distinct Page Registry route and its own page island', () => {
     const route = searchRoute()
     expect(route).toContain('page="forum.search"')
-    expect(route).toContain('<SFHomePage')
+    // 搜索页不再复用 SFHomePage：路由壳的 fail-closed slot 指向独立组件。
+    expect(route).toContain('<SFSearchPage')
     expect(route).toContain("publicPagePath('/search'")
     expect(route).toContain('noindex: true')
+
+    // 主题模板的岛名不变，但 Host 侧必须绑到搜索页组件。
+    expect(themeTemplate()).toContain(
+      "'forum.component.search_page': defineAsyncComponent(() => import('./forum/search/SFSearchPage.vue'))"
+    )
 
     const template = defaultSearchTemplate()
     expect(template).toContain('data-page="forum.search"')

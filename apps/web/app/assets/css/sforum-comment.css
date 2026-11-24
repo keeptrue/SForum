@@ -81,15 +81,36 @@
   font-size: 0.86rem;
   font-weight: 800;
   text-decoration: none;
-  /* 触发按钮的 UA 默认 text-align:center 会让双行身份的名字居中，按阅读方向左对齐 */
-  text-align: start;
   min-width: 0;
   max-width: 100%;
 }
 
-/* 评论区身份双行：昵称在上、@username 在下，整块限宽截断 */
-.sf-comment__author .sf-user-identity-name {
+/* 昵称触发按钮只包「昵称 + 楼主标」：宽度随昵称收缩，同一名字行里的徽章 chip 才能贴住
+ * 昵称右缘；chip 放在按钮外面是硬约束（button 不能嵌 button）。
+ * 昵称本身由调用方渲染（身份组件的 name-row 槽），所以截断规则留在域内样式表里。
+ * `text-align: start` 必须写在按钮上而不是父级：button 的 UA 样式自带 `text-align: center`，
+ * 它会覆盖从父级继承来的值；长昵称被 ellipsis 裁掉时，居中对齐会把可见片段切成中间一段。 */
+.sf-comment__author-trigger {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
   max-width: 100%;
+  text-align: start;
+}
+
+.sf-comment__author-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* chip 高 18px、昵称行盒 18.2px：按基线对齐时 chip 的下沉量比昵称多 1px，
+ * 会把整行顶高（有/无徽章作者行高度差必须为 0）。居中后两者都在 18.2px 行盒内，
+ * 高度完全一致，也不再需要任何负 margin 补偿。 */
+.sf-comment__author .sf-badge-chip {
+  align-self: center;
 }
 
 .sf-comment__author .sf-user-identity-name__handle {

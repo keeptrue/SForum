@@ -7,6 +7,18 @@ accepted revisions, lifecycle states, public read models, and forum policy.
 
 ## Current Status
 
+- **搜索页（2026-11-24 落地）：** `/search` 有自己的 Host 岛组件
+  `app/components/forum/search/SFSearchPage.vue`，绑定在
+  `SFThemeTemplate.vue` 的 `forum.component.search_page`；主题模板
+  `templates/search.html` 的 `<sf-search-page>` 岛名不变，因此落地不需要重打主题 artifact。
+  `pages/search.vue` 只保留 SEO + `SFPageOutlet`，其 slot 里的同一个组件仅在 fail-closed
+  回退（registry 关闭 / resolve 失败）时渲染。数据流在 `useSearchFeed.ts`（URL `?q=` →
+  300ms 防抖 → `forumApi.searchTopics` → 首屏 + 加载更多，URL 只写 `q`）。
+  `SFHomePage.vue` 已抽走搜索分支，只服务 `forum.home`。
+  视觉为「极光玻璃」：`assets/css/sforum-search.css` 的 `--sf-aurora-*` 两套 token 全部由
+  `--sf-accent-rgb` / `--sf-accent-dark` 派生；`backdrop-filter` 只出现在胶囊与结果面容器。
+  细节与残留见 `../sessions/2026-11-24-search-page-aurora-glass.md`。
+
 - **点赞（2026-10-28 落地，2026-10-29 补齐，2026-11-09 补头像组预览）：** `content_reactions` 单 like、
   多态目标、计数反规范化到 `topics.like_count` / `comments.like_count`；`hot_score`
   收敛为 `TopicHotScoreSQL` 一处公式（评论/浏览/点赞三信号，评论点赞不计入）。

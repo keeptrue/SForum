@@ -51,7 +51,9 @@ const islandComponents: Record<string, Component> = {
   // 首页 body 岛由 SFHomePage 自包含数据+UI；主题 L1 拥有壳层结构。
   // 不再经 HostPageIsland 嵌回 pages/index slot（slot 仅 fail-closed 紧急回退）。
   'forum.component.home_page': defineAsyncComponent(() => import('./forum/SFHomePage.vue')),
-  'forum.component.search_page': defineAsyncComponent(() => import('./forum/SFHomePage.vue')),
+  // 搜索页与首页是两个交互模型：搜索页有自己的编排组件（02 极光玻璃），
+  // 不再靠 SFHomePage 的 isSearchPage 分支复用同一棵 DOM。
+  'forum.component.search_page': defineAsyncComponent(() => import('./forum/search/SFSearchPage.vue')),
   'forum.component.category_index': defineAsyncComponent(() => import('./forum/SFCategoryIndexPage.vue')),
   'forum.component.category_show': defineAsyncComponent(() => import('./forum/SFCategoryShowPage.vue')),
   'forum.component.tag_index': defineAsyncComponent(() => import('./forum/SFTagIndexPage.vue')),

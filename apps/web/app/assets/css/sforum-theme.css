@@ -1126,8 +1126,11 @@ body[data-sforum-error="404"] > nuxt-error-overlay.pip-hidden {
     min-height: 0;
   }
 
-  .sf-theme-template:has(.navbar__mobile-bottom-nav),
-  .sf-host-public-chrome:has(.navbar__mobile-bottom-nav) {
+  /* 固定底栏（60px）会盖住内容末尾，给外壳留出等高的底部安全区。
+     真实类名是 `.sf-public-mobile-bottom-nav`（SFPublicMobileBottomNavigation.vue）；
+     `.navbar__mobile-bottom-nav` 全仓无渲染来源，仅作为旧载体的兼容分支保留。 */
+  .sf-theme-template:has(.navbar__mobile-bottom-nav, .sf-public-mobile-bottom-nav),
+  .sf-host-public-chrome:has(.navbar__mobile-bottom-nav, .sf-public-mobile-bottom-nav) {
     padding-bottom: 60px;
   }
 

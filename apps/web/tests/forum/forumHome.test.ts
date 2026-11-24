@@ -154,17 +154,27 @@ describe('forum homepage query helpers', () => {
     expect(source).toContain('hasMore')
   })
 
-  test('keeps search empty results inside the active theme with stable presentation hooks', () => {
+  test('keeps empty results inside the active theme with stable presentation hooks', () => {
     const source = readFileSync(new URL('../../app/components/forum/SFHomePage.vue', import.meta.url), 'utf8')
     const settings = readFileSync(new URL('../../app/composables/themes/useActiveThemeSettings.ts', import.meta.url), 'utf8')
 
     expect(source).not.toContain('forceDefaultTheme')
     expect(settings).not.toContain('forceDefaultTheme')
     expect(source).toContain(":data-feed-state=\"feedState\"")
-    expect(source).toContain("return 'search-empty'")
-    expect(source).toContain("'sforum-home__empty--search'")
-    expect(source).toContain("'search-empty' : 'topic-list-empty'")
+    expect(source).toContain('data-sf-region="topic-list-empty"')
     expect(source).toContain('@action="resetFilters"')
+  })
+
+  // 搜索页从 SFHomePage 拆出后，搜索空态钩子与 island 身份由独立组件承担。
+  test('search page owns its own empty-state hooks and island identity', () => {
+    const page = readFileSync(new URL('../../app/components/forum/search/SFSearchPage.vue', import.meta.url), 'utf8')
+    const surface = readFileSync(new URL('../../app/components/forum/search/SFSearchResultSurface.vue', import.meta.url), 'utf8')
+
+    expect(page).toContain('data-sforum-island-body="forum.component.search_page"')
+    expect(page).toContain(':data-feed-state="state"')
+    expect(surface).toContain('data-sf-region="search-empty"')
+    expect(surface).toContain('search.emptyTitle')
+    expect(surface).toContain('search.emptyDescription')
   })
 })
 

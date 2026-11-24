@@ -267,7 +267,13 @@
     "emptyTitle": "搜索社区内容",
     "emptyDescription": "在顶部搜索框输入关键词后查看匹配结果。",
     "placeholder": "搜索主题、用户或标签",
-    "filtersLabel": "搜索过滤"
+    "filtersLabel": "搜索过滤",
+    "landmarkHero": "站内搜索关键词",
+    "submit": "开始搜索",
+    "heroSubtitle": "输入记得的任何一个词，标题、正文、标签与作者都会被检索。",
+    "quickTermsLabel": "常用标签",
+    "resultCount": "共 {count} 条结果",
+    "clearQuery": "清空搜索"
   },
   "home": {
     "metaTitle": "{siteName} 社区首页",

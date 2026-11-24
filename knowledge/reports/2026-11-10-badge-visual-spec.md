@@ -17,7 +17,7 @@ Status: 施工规范，可直接照此写代码
 | --- | --- | --- |
 | 评论作者行 | `app/assets/css/sforum-comment.css` `.sf-comment__header`：`display:flex; flex-wrap:wrap; align-items:baseline; gap:0.45rem` | chip 必须能塞进 baseline 行且不加高行盒 |
 | 评论昵称字号 | 同上 `.sf-comment__author`：`font-size:0.86rem; font-weight:800` | 桌面行盒约 17.9px，窄屏（≤680）14px → 约 18.2px |
-| 昵称同行插槽 | `app/components/forum/SFUserIdentityName.vue` 的 `#name-suffix` 插槽，源码注释明确「渲染在昵称同一行……不会落到 handle 行」 | chip 唯一正确挂载点，禁止另起 flex 容器 |
+| 昵称同行插槽 | `app/components/forum/SFUserIdentityName.vue` 的 `#name-suffix` 插槽，源码注释明确「渲染在昵称同一行……不会落到 handle 行」 | chip 必须与昵称同处**名字行**（见 §2.2 的两种挂载形状） |
 | 资料页主列宽度 | `sforum-home__layout--with-right` = `230px + 1fr + 270px`，`--sf-public-edge-inset:24px` | 1633 视口下主列约 1060px；390 视口下主列 358px（`padding:20px 16px`） |
 | 资料页 tab 条 | `.sf-profile-tabs`：`min-height:51px`、`border-bottom:1px solid var(--sf-public-border-strong)`、`overflow-x:auto`、滚动条隐藏 | 新 tab 只追加一项，不改容器几何 |
 | 后台页头 | `pages/admin/users.vue:103-122`、`pages/admin/settings/index.vue:97-116` | 标题 `text-xl font-bold` + `size-5` accent 图标 + 描述；工具栏用 `UDashboardToolbar` |
@@ -93,12 +93,33 @@ Status: 施工规范，可直接照此写代码
 
 ### 2.2 挂载位置与不跳动
 
-- 唯一挂载点：`SFUserIdentityName` 的 `#name-suffix` 插槽，与昵称同基线。
+- chip 必须挂在**名字行**内（昵称所在的那一行），不能挂在整块身份之后：身份是双行结构
+  （名字行 + `@username` 行），整块宽度取两行的 max-content，短昵称时 chip 会被推到
+  `@username` 宽度之后，产生几十像素空隙（2026-11-24 实测：昵称右缘 364、chip 左缘 415.6）。
+- 两种合法挂载形状：
+  1. **单行身份**（`SFCommentUserPreview` 等用 `SFUserIdentityName` 的单行场景）：
+     `#name-suffix` 插槽，与昵称同基线。`SFTopicAuthorBlock` 不含身份组件、只有「作者链接 +
+     chip」两个节点，属于第 3 种形状（见 §2.5），不走这个槽。
+  2. **双行身份**（评论 / 回复作者行，`SFCommentAuthorRow`）：`SFUserIdentityName` 传
+     `variant="split"`，名字行与 `@username` 行互相独立；chip 与昵称触发按钮同处名字行，
+     是按钮的**兄弟**（按钮内不能嵌按钮）。结构为
+     `名字行 [触发按钮: 昵称 + 楼主标] [tier chip]` + 下一行 `@username` 链接。
+     chip 因此贴住昵称右缘，间距由名字行 `gap:5px` 提供。
+- 双行身份里 chip 用 `align-self:center` 而不是基线对齐：chip 18px 对 18.2px 行盒按基线
+  对齐会多出 1px 下沉、把整行顶高，居中后「有徽章 / 无徽章作者行高度差 = 0」才成立。
+  这条不变量只在**交互（双行身份）分支**实测：非交互分支没有身份块，chip 是 header 里作者
+  链接的兄弟节点，不参与身份块高度，所以该不变量对它不适用（不是漏测）。
 - 无徽章时：`v-if="comment.topBadge"` **整块不渲染**，不留占位元素。
 - 作者行**禁止**设 `min-height`、`height`、`padding-block`，也禁止给 chip 负 `margin-top` 补偿。
   18px ≤ 行盒即可零位移。
-- 昵称本身已限宽（`.sf-user-identity-name__name` 有 `min-width:0`），chip 追加后由 `name-line` 的
-  `max-width:100%` 接管溢出：先截 chip 文字，再截昵称。
+- 昵称本身已限宽（`.sf-user-identity-name__name` 有 `min-width:0`；双行身份里昵称由调用方
+  渲染，截断规则落在域内样式表的 `.sf-comment__author-name` 上）。
+- 截断顺序（2026-11-24 实测，别再照抄旧文的「先截 chip」）：**chip 不参与收缩**
+  （`flex:0 0 auto` + `max-width:120px`／≤480 视口 `96px`），chip 文字只在自己的 `max-width`
+  处省略；昵称是唯一的可收缩项，名字行空间不足时由它先出省略号（实测：超长昵称下
+  `chip.x − name.right` 仍为 5，chip 右缘贴住 header 右缘，不溢出）。
+  **禁止**把 chip 改成 `flex:0 1 auto`——那会让徽章先被压窄，与「chip 是身份标记、昵称可让位」的
+  优先级相反。
 
 ```css
 .sf-badge-chip {
@@ -186,8 +207,13 @@ Status: 施工规范，可直接照此写代码
 ### 2.4 与「楼主」徽标共存
 
 作者行里可能出现两个身份标记：`.sf-comment__op-badge`（4px 方角、纯文字）与 `SFBadgeChip`
-（胶囊、带图标）。顺序固定为 **昵称 → 楼主 → tier chip**：chip 永远在 `#name-suffix` 内且排在
-`isOpAuthor` 之后，两者间距由 `name-line` 的 `gap:5px` 提供，不加额外 margin。
+（胶囊、带图标）。顺序固定为 **昵称 → 楼主 → tier chip**，两者间距由名字行的 `gap:5px` 提供，
+不加额外 margin。
+
+- 单行身份（§2.2 形状 1）：楼主标与 chip 都在 `#name-suffix` 内，按上述顺序排列。
+- 双行身份（§2.2 形状 2）：楼主标与昵称同在触发按钮内，chip 紧随按钮之后（按钮的兄弟）——
+  位置变了，顺序没变，chip 仍然排在楼主标之后。
+- 非交互分支（无预览按钮）：按同一顺序平铺：昵称 → 楼主 → chip。
 
 ### 2.5 主题页作者块
 
@@ -611,7 +637,10 @@ admin.badges.*（title / intro / columns.* / actions.* / form.* / grant.* / toas
 
 - [ ] 全仓新增 CSS 无十六进制、无 `rgb(`/`rgba(` 字面量，只有 `var(--token)` 与 `color-mix`。
 - [ ] `sforum-components.css` 未新增任何 `--sf-*` 颜色变量。
-- [ ] chip 高度 18px，挂在 `#name-suffix`，有/无徽章时作者行高度差为 0（1633 与 390 各验一次）。
+- [ ] chip 高度 18px，挂在名字行内（单行身份用 `#name-suffix`，评论双行身份用 `variant="split"` 的
+      名字行兄弟位），有/无徽章时作者行高度差为 0（1633 与 390 各验一次）。
+      该不变量只对**交互（双行身份）分支**成立且只对它实测；非交互分支 chip 在身份块之外，
+      量的是 header 高度，不是身份块高度。
 - [ ] chip 最大宽 120px / ≤480 时 96px，长名称出省略号，不换行、不撑破作者行。
 - [ ] 资料页 1633 → 4 列、390 → 1 列；无横向溢出。
 - [ ] 未获得态无 `opacity`，tier 名用 `--sf-fg-secondary`。

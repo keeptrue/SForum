@@ -7,6 +7,7 @@
  */
 import type { ForumTopicExtensionBadge, ForumTopicSummary } from '~/utils/forum/forumTaxonomy'
 import { forumAuthorName, forumTagPath, forumTopicExtensionLabel } from '~/utils/forum/forumTaxonomy'
+import { highlightSegments, tokenizeQuery } from '~/utils/forum/searchHighlight'
 import {
   forumCategoryChipToneClass,
   forumListBadgeToneClass
@@ -21,6 +22,11 @@ const props = defineProps<{
   activityLabel: string
   /** forum.topic.list.badges；列表级一次解析后挂到每行；空时不渲染 */
   extensionListBadges?: ForumTopicExtensionBadge[]
+  /**
+   * 搜索页命中高亮词（原样查询串）。默认空串 = 不高亮，首页与其它列表零影响。
+   * 只高亮标题：行式结果不渲染摘要，摘要高亮在卡阵组件 `SFSearchResultCard` 里。
+   */
+  highlightQuery?: string
 }>()
 
 const { t, locale } = useI18n()
@@ -33,6 +39,8 @@ const lastReplyName = computed(() =>
   forumAuthorName(lastReplyAuthor.value, lastReplyAuthor.value?.id || props.topic.authorUserId)
 )
 const listBadges = computed(() => props.extensionListBadges || [])
+const highlightTerms = computed(() => tokenizeQuery(props.highlightQuery || ''))
+const titleSegments = computed(() => highlightSegments(props.topic.title, highlightTerms.value))
 const hasReplies = computed(() => (props.topic.commentCount || 0) > 0)
 /** 桌面 C1 最多展示 3 个标签 */
 const desktopTags = computed(() => (props.topic.tags || []).slice(0, 3))
@@ -120,7 +128,10 @@ const pillBase =
             :prefetch="false"
             class="text-inherit no-underline hover:text-[var(--sf-accent)]"
           >
-            {{ topic.title }}
+            <template v-for="(segment, index) in titleSegments" :key="index">
+              <mark v-if="segment.hit" class="sf-search-hit">{{ segment.text }}</mark>
+              <template v-else>{{ segment.text }}</template>
+            </template>
           </NuxtLink>
         </h2>
       </div>

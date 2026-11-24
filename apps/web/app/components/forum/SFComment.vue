@@ -142,8 +142,8 @@ function toggleBranch() {
   branchExpanded.value = !branchExpanded.value
 }
 
-// 预览按钮内已没有链接（作者名 `linked=false`、chip 也移到了按钮外），
-// 因此不再需要捕获阶段拦截 NuxtLink 的导航，按钮的 click 直接开卡片。
+// 预览按钮里只有「昵称 + 楼主标」：`@username` 是按钮外的独立资料页链接，chip 也在按钮外，
+// 因此不需要在捕获阶段拦截 NuxtLink 的导航，按钮的 click 直接开卡片。
 function toggleUserPreview(event?: MouseEvent) {
   if (!canPreviewUser.value) {
     return

@@ -53,6 +53,9 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const localePath = useLocalePath()
+// 搜索页已由独立组件拥有（forum/search/SFSearchPage.vue）；这里保留路由判定只用于
+// 区域出口的 page id 与回退路径，使本组件被第三方主题误挂到 /search 时不会把区域
+// 贡献算到 forum.home 头上。
 const isSearchPage = computed(() => route.path === localePath('/search'))
 const registryPage = computed(() => isSearchPage.value ? 'forum.search' : 'forum.home')
 const surfacePath = computed(() => isSearchPage.value ? localePath('/search') : localePath('/'))
@@ -95,7 +98,7 @@ const siteDefaultSort = computed<ForumTopicSort>(
 // URL 未携带 sort 时列表就是站点默认排序，因此高亮取「URL > 站点默认」。
 const activeFeedSort = computed<ForumTopicSort>(() => committedFilters.value.sort || siteDefaultSort.value)
 // 关键词搜索端点没有 sort；搜索态不展示排序入口，避免对用户做出假承诺。
-const showFeedSort = computed(() => !isSearchPage.value && !committedFilters.value.query)
+const showFeedSort = computed(() => !committedFilters.value.query)
 
 const emptyTopicList = (): ForumTopicList => ({
   items: [],
@@ -114,25 +117,15 @@ const { data: activeTags, pending: tagsPending } = await useAsyncData(
   { default: () => [] as ForumTag[] }
 )
 
+/**
+ * 首页信息流。搜索已迁到独立页面（`forum/search/SFSearchPage.vue` + `useSearchFeed`）：
+ * `?q=` 在 `pages/index.vue` 就被 301 到 `/search`，这里不会再走搜索端点。
+ */
 function loadTopicPage(
   page: number,
   filters: ForumHomeFilters = committedFilters.value,
   after?: string
 ) {
-  if (filters.query) {
-    // 搜索端点仍为 page 分页（非 M5 keyset 范围）
-    return forumApi.searchTopics({
-      query: filters.query,
-      categorySlug: filters.categorySlug,
-      tagSlug: filters.tagSlug,
-      page
-    })
-  }
-
-  if (isSearchPage.value) {
-    return Promise.resolve(emptyTopicList())
-  }
-
   // M5：有 nextCursor 时用 after keyset，避免深 OFFSET
   // 排序始终交给服务端：游标与 sort 绑定，前端不得本地重排
   const sort = filters.sort || undefined
@@ -210,7 +203,6 @@ const feedState = computed(() => {
   if (topicsPending.value) return 'loading'
   if (topicsError.value) return 'error'
   if (topics.value.length) return 'results'
-  if (committedFilters.value.query) return 'search-empty'
   if (hasActiveFilters.value) return 'filtered-empty'
   return 'empty'
 })
@@ -218,22 +210,14 @@ const feedState = computed(() => {
 const selectedCategory = computed(() => categories.value.find(
   category => category.slug === selectedCategorySlug.value
 ))
-const feedTitle = computed(() => isSearchPage.value
-  ? t('search.title')
-  : selectedCategory.value?.name || t('home.feed.latestTitle'))
+const feedTitle = computed(() => selectedCategory.value?.name || t('home.feed.latestTitle'))
 const emptyTitle = computed(() => {
-  if (isSearchPage.value && !hasActiveFilters.value) {
-    return t('search.emptyTitle')
-  }
   if (hasActiveFilters.value) {
     return t('home.emptyState.title')
   }
   return homeEmptyTitle.value || t('home.emptyState.title')
 })
 const emptyDescription = computed(() => {
-  if (isSearchPage.value && !hasActiveFilters.value) {
-    return t('search.emptyDescription')
-  }
   if (hasActiveFilters.value) {
     return t('home.emptyState.filteredDescription')
   }
@@ -539,7 +523,7 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="sforum-home"
-    :data-sforum-island-body="isSearchPage ? 'forum.component.search_page' : 'forum.component.home_page'"
+    data-sforum-island-body="forum.component.home_page"
     data-layout="fullwidth-3col"
     :data-feed-state="feedState"
   >
@@ -711,12 +695,11 @@ onBeforeUnmount(() => {
             />
           </template>
 
-          <div
-            v-else
-            class="sforum-home__empty px-4 py-10 text-center"
-            :class="{ 'sforum-home__empty--search': Boolean(committedFilters.query) }"
-            :data-sf-region="committedFilters.query ? 'search-empty' : 'topic-list-empty'"
-          >
+            <div
+              v-else
+              class="sforum-home__empty px-4 py-10 text-center"
+              data-sf-region="topic-list-empty"
+            >
             <SFEmptyState
               :title="emptyTitle"
               :description="emptyDescription"

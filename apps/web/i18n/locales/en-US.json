@@ -227,7 +227,13 @@
     "emptyTitle": "Search the community",
     "emptyDescription": "Enter keywords in the search field above to view matching results.",
     "placeholder": "Search topics, users, or tags",
-    "filtersLabel": "Search filters"
+    "filtersLabel": "Search filters",
+    "landmarkHero": "Site search keywords",
+    "submit": "Search",
+    "heroSubtitle": "Type any word you remember — titles, content, tags and authors are all searched.",
+    "quickTermsLabel": "Popular tags",
+    "resultCount": "{count} results",
+    "clearQuery": "Clear search"
   },
   "home": {
     "metaTitle": "{siteName} Community",

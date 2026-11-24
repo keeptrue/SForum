@@ -44,6 +44,10 @@ const {
 const { can } = usePermissions()
 const { topbarItems, sidebarItems } = usePublicNavigation(props.fetchRemoteChrome)
 
+// /search 上有页面级 hero 搜索框，移动端搜索条不再渲染：
+// 同页多个 role="search" 地标同名会触发 axe landmark-unique（见 SFSearch.vue 注释）。
+const isSearchRoute = computed(() => route.path === localePath('/search'))
+
 // 标签公开列表受运行时选项控制；关闭时隐藏导航入口（详情页同样 404）。
 const publicTagPagesEnabled = computed(() => parseForumTagPublicPagesOption(
   webOption('forum.tags.public_pages', 'enabled')
@@ -404,6 +408,7 @@ function submitSearch(query: string) {
     </div>
 
     <SFPublicMobileSearchBar
+      v-if="!isSearchRoute"
       v-model="searchQuery"
       :can-create-topic="canCreateTopic"
       :open="mobileSearchOpen"

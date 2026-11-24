@@ -1,0 +1,829 @@
+/* ============================================================================
+ * /search · 极光玻璃（方案 02）
+ *
+ * 颜色纪律：本文件不出现任何写死的品牌色。所有色相都从
+ * `--sf-accent` / `--sf-accent-rgb` / `--sf-accent-dark` 派生，
+ * 因此运营切 ocean_blue / violet / rose / amber 四套预设时光晕跟着走。
+ *
+ * 性能纪律：`backdrop-filter` 只出现在两处——搜索胶囊与结果面容器。
+ * 结果行一律不加（长列表逐行开模糊 = 逐行合成层，滚动必掉帧）。
+ *
+ * 圆角纪律：胶囊 16px / 表面 14px 是对壳基线 `--sf-public-radius:4px` 的**有意偏离**，
+ * 只在本页生效；不要再引入第三个半径值。
+ * ========================================================================== */
+
+:root {
+  /* —— 极光层（亮色：低 alpha + multiply）—— */
+  --sf-aurora-bleed: 14vmax;
+  --sf-aurora-blur: 64px;
+  --sf-aurora-blend: multiply;
+  --sf-aurora-grain: 0.16;
+  --sf-aurora-1: rgb(var(--sf-accent-rgb) / 0.10);
+  --sf-aurora-2: color-mix(in srgb, var(--sf-accent-dark) 12%, transparent);
+  --sf-aurora-3: color-mix(in srgb, var(--sf-accent-dark) 55%, #ffd0ec);
+
+  /* —— 玻璃表面 —— */
+  --sf-aurora-glass-fill: rgb(255 255 255 / 0.55);
+  --sf-aurora-glass-line: color-mix(in srgb, #ffffff 70%, var(--sf-public-border));
+  --sf-aurora-glass-sheen: inset 0 1px 0 #ffffff;
+  --sf-aurora-glass-shadow: 0 18px 44px -26px rgb(20 27 38 / 0.16);
+  --sf-aurora-surface-blur: 22px;
+  --sf-aurora-saturate: 160%;
+  --sf-aurora-capsule-fill: rgb(255 255 255 / 0.62);
+  --sf-aurora-capsule-blur: 26px;
+  --sf-aurora-capsule-sheen: inset 0 1px 0 #ffffff;
+  --sf-aurora-capsule-shadow: 0 20px 50px -18px rgb(20 27 38 / 0.18);
+  --sf-aurora-focus-ring: 0 0 0 4px rgb(var(--sf-accent-rgb) / 0.14);
+  --sf-aurora-chip-fill: rgb(37 37 43 / 0.035);
+  --sf-aurora-empty-fill: rgb(255 255 255 / 0.42);
+  --sf-aurora-halo-blur: 14px;
+  --sf-aurora-row-line: color-mix(in srgb, var(--sf-public-border) 60%, transparent);
+  --sf-aurora-row-hover: rgb(var(--sf-accent-rgb) / 0.06);
+
+  /* —— 文本 —— */
+  /* 壳的 --sf-public-text-muted 在白卡上只有 2.35:1，不能承载文字，只做装饰。 */
+  --sf-aurora-text-meta: #6f6f7a;
+  --sf-aurora-mark-bg: rgb(var(--sf-accent-rgb) / 0.22);
+  --sf-aurora-mark-fg: var(--sf-public-text);
+  --sf-aurora-title-a: var(--sf-public-text);
+  --sf-aurora-title-b: var(--sf-accent-strong);
+  --sf-aurora-title-c: var(--sf-accent);
+
+  /* —— 尺寸 —— */
+  --sf-aurora-radius-capsule: 16px;
+  --sf-aurora-radius-surface: 14px;
+  --sf-aurora-radius-pill: 999px;
+  --sf-aurora-capsule-max: 660px;
+  --sf-aurora-capsule-h: 62px;
+  --sf-aurora-go-size: 44px;
+  --sf-aurora-orb: 84px;
+  --sf-aurora-column: 1120px;
+  --sf-aurora-input-size: 17px;
+  --sf-aurora-h1-size: clamp(30px, 4.2vw, 46px);
+  --sf-aurora-h1-weight: 300;
+  --sf-aurora-h1-tracking: -0.01em;
+}
+
+.dark {
+  --sf-aurora-blend: screen;
+  --sf-aurora-grain: 0.35;
+  --sf-aurora-1: rgb(var(--sf-accent-rgb) / 0.86);
+  --sf-aurora-2: color-mix(in srgb, var(--sf-accent-dark) 62%, transparent);
+  --sf-aurora-3: color-mix(in srgb, var(--sf-accent-dark) 55%, #ffd0ec);
+  --sf-aurora-glass-fill: rgb(255 255 255 / 0.055);
+  --sf-aurora-glass-line: rgb(255 255 255 / 0.13);
+  --sf-aurora-glass-sheen: inset 0 1px 0 rgb(255 255 255 / 0.10);
+  --sf-aurora-glass-shadow: 0 18px 44px -26px rgb(0 0 0 / 0.90);
+  --sf-aurora-capsule-fill: rgb(16 18 34 / 0.55);
+  --sf-aurora-capsule-sheen: inset 0 1px 0 rgb(255 255 255 / 0.13);
+  --sf-aurora-capsule-shadow: 0 20px 50px -18px rgb(0 0 0 / 0.90);
+  --sf-aurora-chip-fill: rgb(255 255 255 / 0.035);
+  --sf-aurora-empty-fill: rgb(255 255 255 / 0.035);
+  --sf-aurora-row-line: rgb(255 255 255 / 0.08);
+  --sf-aurora-row-hover: rgb(255 255 255 / 0.04);
+  --sf-aurora-text-meta: rgb(238 240 255 / 0.52);
+  --sf-aurora-mark-bg: color-mix(in srgb, var(--sf-accent-dark) 38%, transparent);
+  --sf-aurora-mark-fg: color-mix(in srgb, var(--sf-accent-dark) 45%, #ffffff);
+  --sf-aurora-title-a: #ffffff;
+  --sf-aurora-title-b: color-mix(in srgb, var(--sf-accent-dark) 55%, #ffffff);
+  --sf-aurora-title-c: var(--sf-accent-dark);
+}
+
+/* ---------------------------------------------------------------- 页面骨架 */
+
+.sforum-search {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  min-height: calc(100vh - var(--sf-public-topbar-height, 58px));
+  padding: 0 0 72px;
+  color: var(--sf-public-text);
+}
+
+.sforum-search__inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: var(--sf-aurora-column);
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 56px) var(--sf-public-edge-inset, 24px) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sforum-search__intro {
+  text-align: center;
+  max-width: 46ch;
+  margin: 0 auto;
+}
+
+.sforum-search__title {
+  margin: 0 0 12px;
+  font-size: var(--sf-aurora-h1-size);
+  font-weight: var(--sf-aurora-h1-weight);
+  line-height: 1.16;
+  letter-spacing: var(--sf-aurora-h1-tracking);
+  background: linear-gradient(
+    120deg,
+    var(--sf-aurora-title-a) 8%,
+    var(--sf-aurora-title-b) 62%,
+    var(--sf-aurora-title-c) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.sforum-search__subtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--sf-public-text-secondary);
+}
+
+/* 渐变文字在强制配色下必须回退成纯色，否则会整段消失。 */
+@media (forced-colors: active) {
+  .sforum-search__title {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--sf-public-text);
+  }
+}
+
+/* ------------------------------------------------------------------ 极光层 */
+
+.sf-aurora {
+  position: fixed;
+  inset: calc(var(--sf-aurora-bleed) * -1);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  isolation: isolate;
+  contain: paint;
+  filter: blur(var(--sf-aurora-blur));
+}
+
+.sf-aurora__blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: var(--sf-aurora-blend);
+  will-change: transform;
+}
+
+.sf-aurora__blob--1 {
+  width: 62vmax;
+  height: 52vmax;
+  left: -8vmax;
+  top: -6vmax;
+  background: radial-gradient(circle at 40% 40%, var(--sf-aurora-1), transparent 66%);
+  animation: sf-aurora-drift-1 26s ease-in-out infinite;
+}
+
+.sf-aurora__blob--2 {
+  width: 56vmax;
+  height: 56vmax;
+  right: -10vmax;
+  top: 4vmax;
+  background: radial-gradient(circle at 50% 50%, var(--sf-aurora-2), transparent 64%);
+  animation: sf-aurora-drift-2 32s ease-in-out infinite;
+}
+
+.sf-aurora__blob--3 {
+  width: 66vmax;
+  height: 46vmax;
+  left: 2vmax;
+  bottom: -6vmax;
+  background: radial-gradient(circle at 50% 50%, var(--sf-aurora-3), transparent 66%);
+  animation: sf-aurora-drift-3 38s ease-in-out infinite;
+}
+
+/* 三档周期取质数（26/32/38）：视觉上永不重复，不要改成整 30/30/30。 */
+@keyframes sf-aurora-drift-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(9vmax, 6vmax, 0) scale(1.12); }
+}
+
+@keyframes sf-aurora-drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-11vmax, 9vmax, 0) scale(0.92); }
+}
+
+@keyframes sf-aurora-drift-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-8vmax, -7vmax, 0) scale(1.14); }
+}
+
+.sf-aurora__grain {
+  position: absolute;
+  inset: 0;
+  opacity: var(--sf-aurora-grain);
+  background-image: radial-gradient(rgb(0 0 0 / 0.55) 0.5px, transparent 0.5px);
+  background-size: 3px 3px;
+}
+
+.dark .sf-aurora__grain {
+  background-image: radial-gradient(rgb(255 255 255 / 0.5) 0.5px, transparent 0.5px);
+}
+
+/* --------------------------------------------------------------- 搜索胶囊 */
+
+.sf-aurora-hero {
+  width: 100%;
+  max-width: var(--sf-aurora-capsule-max);
+  margin: clamp(20px, 3vw, 34px) auto 0;
+}
+
+.sf-aurora-capsule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--sf-aurora-capsule-h);
+  padding: 0 8px 0 22px;
+  border: 1px solid var(--sf-aurora-glass-line);
+  border-radius: var(--sf-aurora-radius-capsule);
+  background: var(--sf-aurora-capsule-fill);
+  /* 白名单 #1：搜索胶囊 */
+  backdrop-filter: blur(var(--sf-aurora-capsule-blur)) saturate(var(--sf-aurora-saturate));
+  -webkit-backdrop-filter: blur(var(--sf-aurora-capsule-blur)) saturate(var(--sf-aurora-saturate));
+  box-shadow: var(--sf-aurora-capsule-sheen), var(--sf-aurora-capsule-shadow);
+  transition: border-color 0.35s, box-shadow 0.45s, background 0.35s;
+}
+
+/* 聚焦光晕：一层 accent 渐变，用 opacity 过渡而不是重绘阴影 */
+.sf-aurora-capsule::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    rgb(var(--sf-accent-rgb) / 0.9),
+    var(--sf-accent-dark),
+    color-mix(in srgb, var(--sf-accent-dark) 55%, #ffd0ec)
+  );
+  opacity: 0;
+  filter: blur(var(--sf-aurora-halo-blur));
+  transition: opacity 0.5s ease;
+}
+
+.sf-aurora-capsule.is-focus::before {
+  opacity: 0.85;
+}
+
+.sf-aurora-capsule.is-focus {
+  border-color: color-mix(in srgb, var(--sf-accent) 55%, var(--sf-public-border));
+  box-shadow: var(--sf-aurora-capsule-sheen), var(--sf-aurora-focus-ring), var(--sf-aurora-capsule-shadow);
+}
+
+.sf-aurora-capsule__mag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--sf-public-text-muted);
+  transition: color 0.3s;
+}
+
+.sf-aurora-capsule.is-focus .sf-aurora-capsule__mag {
+  color: var(--sf-accent);
+}
+
+/* 让 SFSearch 本体在胶囊里退化成「只有输入框」 */
+.sf-aurora-capsule .sf-search {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  gap: 0;
+}
+
+.sf-aurora-capsule .sf-search__box {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sf-aurora-capsule .sf-search__box:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* 胶囊自己承担提交动作（唯一的「开始搜索」控件），隐藏 SFSearch 内置图标键 */
+.sf-aurora-capsule .sf-search__submit {
+  display: none;
+}
+
+.sf-aurora-capsule .sf-search__input {
+  height: 100%;
+  font-size: var(--sf-aurora-input-size);
+  color: var(--sf-public-text);
+  caret-color: var(--sf-accent);
+}
+
+.sf-aurora-capsule .sf-search__input::placeholder {
+  color: var(--sf-public-text-muted);
+}
+
+.sf-aurora-capsule .sf-search__input:-webkit-autofill,
+.sf-aurora-capsule .sf-search__input:-webkit-autofill:hover,
+.sf-aurora-capsule .sf-search__input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--sf-aurora-capsule-fill) inset;
+  -webkit-text-fill-color: var(--sf-public-text);
+}
+
+.sf-aurora-capsule .sf-search__kbd {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid var(--sf-aurora-glass-line);
+  border-radius: 5px;
+  background: var(--sf-aurora-chip-fill);
+  color: var(--sf-aurora-text-meta);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.sf-aurora-capsule__go {
+  flex: 0 0 auto;
+  width: var(--sf-aurora-go-size);
+  height: var(--sf-aurora-go-size);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: calc(var(--sf-aurora-radius-capsule) - 3px);
+  background: linear-gradient(
+    140deg,
+    var(--sf-accent),
+    var(--sf-accent-hover) 60%,
+    var(--sf-accent-dark)
+  );
+  color: var(--sf-accent-contrast);
+  cursor: pointer;
+  box-shadow: 0 8px 22px -8px rgb(var(--sf-accent-rgb) / 0.95);
+  transition: transform 0.25s, box-shadow 0.25s, filter 0.25s;
+}
+
+.sf-aurora-capsule__go:hover {
+  transform: translateY(-1px) scale(1.03);
+  filter: saturate(115%);
+}
+
+.sf-aurora-capsule__go:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 3px;
+}
+
+.sf-aurora-spin {
+  animation: sf-aurora-spin 0.9s linear infinite;
+}
+
+@keyframes sf-aurora-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------- 快捷词 chips */
+
+.sf-aurora-quick {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: var(--sf-aurora-capsule-max);
+  margin: 18px auto 0;
+}
+
+.sf-aurora-quick__chip {
+  padding: 6px 13px;
+  border: 1px solid var(--sf-aurora-glass-line);
+  border-radius: var(--sf-aurora-radius-pill);
+  background: var(--sf-aurora-chip-fill);
+  color: var(--sf-public-text-secondary);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.25s, border-color 0.25s, background 0.25s;
+}
+
+.sf-aurora-quick__chip:hover,
+.sf-aurora-quick__chip.is-active {
+  color: var(--sf-accent-strong);
+  border-color: color-mix(in srgb, var(--sf-accent) 45%, var(--sf-public-border));
+  background: rgb(var(--sf-accent-rgb) / 0.14);
+}
+
+.sf-aurora-quick__chip:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------- 结果面（玻璃） */
+
+.sf-aurora-surface {
+  position: relative;
+  margin-top: clamp(28px, 4vw, 48px);
+  border: 1px solid var(--sf-aurora-glass-line);
+  border-radius: var(--sf-aurora-radius-surface);
+  background: var(--sf-aurora-glass-fill);
+  /* 白名单 #2：结果面容器（整页唯一一块玻璃，行内一律不加） */
+  backdrop-filter: blur(var(--sf-aurora-surface-blur)) saturate(var(--sf-aurora-saturate));
+  -webkit-backdrop-filter: blur(var(--sf-aurora-surface-blur)) saturate(var(--sf-aurora-saturate));
+  box-shadow: var(--sf-aurora-glass-sheen), var(--sf-aurora-glass-shadow);
+  container-type: inline-size;
+  overflow: hidden;
+}
+
+.sf-aurora-surface__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--sf-aurora-row-line);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--sf-aurora-text-meta);
+}
+
+.sf-aurora-surface__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-aurora-surface__grid {
+  display: block;
+}
+
+/* 结果渲染器二选一：容器 ≥900px 走卡片，否则走行式。
+ * 两套都在 DOM 里，靠容器查询切换，所以 SSR 首帧就是对的、不会 hydration 后跳版。 */
+.sforum-search__cards {
+  display: none;
+}
+
+@container (min-width: 900px) {
+  .sforum-search__rows {
+    display: none;
+  }
+
+  .sforum-search__cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 16px;
+    align-items: start;
+  }
+}
+
+.sforum-search__row {
+  border-bottom: 1px solid var(--sf-aurora-row-line);
+  transition: background 0.15s;
+}
+
+.sforum-search__row:hover {
+  background: var(--sf-aurora-row-hover);
+}
+
+
+.sf-aurora-surface__skeleton {
+  padding: 4px 0;
+}
+
+.sf-aurora-surface__skeleton-row {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--sf-aurora-row-line);
+}
+
+.sf-aurora-surface__skeleton-row:last-child {
+  border-bottom: 0;
+}
+
+.sf-aurora-surface__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  font-size: 13px;
+  color: var(--sf-public-text-secondary);
+}
+
+.sf-aurora-surface__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 44px 24px 48px;
+  border: 1px dashed var(--sf-aurora-glass-line);
+  border-radius: var(--sf-aurora-radius-surface);
+  margin: 16px;
+  background: var(--sf-aurora-empty-fill);
+}
+
+/* 光核取代 SFEmptyState 的默认小图标（同一屏两个图标是噪音） */
+.sf-aurora-surface__empty .sf-empty-state__icon {
+  display: none;
+}
+
+.sf-aurora-surface__empty .sf-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.sf-aurora-surface__foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid var(--sf-aurora-row-line);
+  font-size: 12px;
+  color: var(--sf-aurora-text-meta);
+}
+
+
+/* ------------------------------------------------------------- 结果卡片（宽容器） */
+
+.sf-aurora-card {
+  position: relative;
+  border: 1px solid var(--sf-aurora-glass-line);
+  border-radius: var(--sf-aurora-radius-surface);
+  background: var(--sf-aurora-glass-fill);
+  box-shadow: var(--sf-aurora-glass-sheen), var(--sf-aurora-glass-shadow);
+  /* 注意：这里**没有** backdrop-filter——玻璃感由父级结果面统一提供 */
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1), border-color 0.2s, box-shadow 0.2s;
+}
+
+.sf-aurora-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--sf-accent) 42%, var(--sf-aurora-glass-line));
+  box-shadow: var(--sf-aurora-glass-sheen), var(--sf-aurora-glass-shadow);
+}
+
+.sf-aurora-card__link {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 20px 20px 18px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sf-aurora-card__link:focus-visible {
+  outline: 2px solid var(--sf-accent);
+  outline-offset: 3px;
+  border-radius: var(--sf-aurora-radius-surface);
+}
+
+.sf-aurora-card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--sf-public-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sf-aurora-card__excerpt {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--sf-public-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sf-aurora-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sf-aurora-card__tag {
+  padding: 2px 9px;
+  border-radius: var(--sf-aurora-radius-pill);
+  border: 1px solid rgb(var(--sf-accent-rgb) / 0.22);
+  background: rgb(var(--sf-accent-rgb) / 0.13);
+  color: var(--sf-accent-strong);
+  font-size: 10.5px;
+  text-decoration: none;
+}
+
+.sf-aurora-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  padding-top: 13px;
+  border-top: 1px solid var(--sf-aurora-row-line);
+  font-size: 10.5px;
+  color: var(--sf-aurora-text-meta);
+}
+
+.sf-aurora-card__avatar {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(
+    140deg,
+    rgb(var(--sf-accent-rgb) / 0.85),
+    var(--sf-accent-dark)
+  );
+  color: var(--sf-accent-contrast);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.sf-aurora-card__author {
+  color: var(--sf-public-text-secondary);
+}
+
+.sf-aurora-card__sep {
+  opacity: 0.45;
+}
+
+.sf-aurora-card__stats {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- 空态光核 */
+
+.sf-aurora-orb {
+  position: relative;
+  width: var(--sf-aurora-orb);
+  height: var(--sf-aurora-orb);
+  display: grid;
+  place-items: center;
+}
+
+.sf-aurora-orb__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--sf-accent-rgb) / 0.35);
+}
+
+.sf-aurora-orb__ring:nth-child(2) {
+  inset: 14px;
+  border-color: color-mix(in srgb, var(--sf-accent-dark) 30%, transparent);
+}
+
+.sf-aurora-orb__ring:nth-child(3) {
+  inset: 28px;
+  border-color: color-mix(in srgb, var(--sf-accent-dark) 55%, #ffd0ec);
+  opacity: 0.5;
+}
+
+.sf-aurora-orb__core {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff, rgb(var(--sf-accent-rgb) / 0.4));
+  box-shadow: 0 0 26px rgb(var(--sf-accent-rgb) / 0.9);
+  animation: sf-aurora-pulse 2.4s ease-out infinite;
+}
+
+@keyframes sf-aurora-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(var(--sf-accent-rgb) / 0.55); }
+  70% { box-shadow: 0 0 0 9px rgb(var(--sf-accent-rgb) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--sf-accent-rgb) / 0); }
+}
+
+/* ------------------------------------------------------------- 命中高亮配方 */
+
+/* 命中高亮（规格 §2.5）：
+ * 亮色 = accent 22% 底 + 正文色字（accent 当字色只有 4.49:1，正文色 10.22:1）；
+ * 暗色 = accent-dark 半透明底 + 亮字。box-decoration-break:clone 保证跨行时
+ * 每一段都保留 padding 与圆角，不会被 background 拉成一条直边。 */
+.sforum-search .sf-search-hit {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--sf-aurora-mark-bg);
+  color: var(--sf-aurora-mark-fg);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* --------------------------------------------------------------- 区域出口 */
+
+.sforum-search__regions {
+  margin-top: 24px;
+}
+
+/* ------------------------------------------------------------------ 响应式 */
+
+@media (max-width: 1180px) {
+  :root {
+    --sf-aurora-column: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --sf-aurora-bleed: 8vmax;
+    --sf-aurora-blur: 40px;
+    --sf-aurora-capsule-h: 54px;
+    --sf-aurora-go-size: 40px;
+    --sf-aurora-input-size: 15px;
+    --sf-aurora-h1-size: 26px;
+  }
+
+  /* 移动端省电：两团静态构图 + 关掉磨砂（改不透明表面） */
+  .sf-aurora__blob--3 {
+    display: none;
+  }
+
+  .sf-aurora__blob {
+    animation: none;
+    will-change: auto;
+  }
+
+  .sforum-search__inner {
+    padding-top: 28px;
+  }
+
+  .sforum-search__title {
+    font-size: var(--sf-aurora-h1-size);
+  }
+
+  .sf-aurora-capsule {
+    gap: 10px;
+    padding: 0 6px 0 16px;
+  }
+
+  .sf-aurora-capsule .sf-search__kbd {
+    display: none;
+  }
+
+  .sf-aurora-quick {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .sf-aurora-quick::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sf-aurora-quick__chip {
+    flex: 0 0 auto;
+  }
+
+  .sforum-search__cards {
+    display: none;
+  }
+
+  .sf-aurora-surface {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--sf-public-surface);
+    box-shadow: var(--sf-public-shadow, 0 1px 2px rgb(15 23 42 / 0.04));
+  }
+
+  .sf-aurora-surface__empty {
+    margin: 12px;
+    padding: 32px 16px 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 冻结而非隐藏：光晕仍是完整构图，只停掉会引发前庭反应的位移 */
+  .sf-aurora__blob,
+  .sf-aurora-orb__core,
+  .sf-aurora-spin {
+    animation: none;
+  }
+
+  .sf-aurora-capsule,
+  .sf-aurora-capsule__go,
+  .sf-aurora-quick__chip,
+  .sforum-search__row {
+    transition-duration: 0.01ms;
+  }
+
+  .sf-aurora-capsule__go:hover {
+    transform: none;
+  }
+}

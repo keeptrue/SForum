@@ -22,11 +22,6 @@ const commentComponent = () => readFileSync(
   new URL('../../app/components/forum/SFComment.vue', import.meta.url),
   'utf8'
 )
-// 作者身份行（昵称 + 楼主标 + 徽章 chip）已抽成独立组件。
-const commentAuthorRow = () => readFileSync(
-  new URL('../../app/components/forum/SFCommentAuthorRow.vue', import.meta.url),
-  'utf8'
-)
 const commentCss = () => readFileSync(
   new URL('../../app/assets/css/sforum-comment.css', import.meta.url),
   'utf8'
@@ -261,31 +256,24 @@ describe('SFComment responsive CSS contract', () => {
 
 describe('SFComment identity layout contract', () => {
   test('stacks @username under the display name', () => {
-    const source = commentAuthorRow()
     const styles = commentCss()
-    const identityTag = source.match(/<SFUserIdentityName\b[\s\S]*?>/)?.[0]
 
-    expect(identityTag).toBeDefined()
-    expect(identityTag).not.toContain('inline')
     // 双行身份常驻：身份组件的窄屏隐藏规则只服务卡片场景，评论区要显式放开。
     expect(styles).toContain('.sf-comment__header .sf-comment__author .sf-user-identity-name__handle')
     // 楼主徽标与时间/楼层跟随昵称基线，不落到 @username 行。
     expect(styles).toMatch(/\.sf-comment__header\s*\{[^}]*align-items: baseline/)
   })
 
-  test('keeps the OP badge on the name line instead of after the wider handle', () => {
-    const source = commentAuthorRow()
+  test('left aligns the clipped nickname on the trigger button itself', () => {
+    const styles = commentCss()
+    // 这个类名在文件里出现多次（按钮 reset + 布局规则），只要求其中一条声明了对齐方式。
+    const triggerRules = [...styles.matchAll(/\.sf-comment__author-trigger\s*\{([^}]*)\}/g)].map(match => match[1])
 
-    // 徽标经 name-suffix 插槽渲染在昵称行；否则它会被更长的 @username 顶到远处。
-    expect(source).toContain('#name-suffix')
-    expect(source).toContain('props.isOpAuthor && !props.interactive')
-  })
-
-  test('left aligns the two-line identity inside the trigger button', () => {
-    const authorRule = commentCss().match(/\.sf-comment__author\s*\{([^}]*)\}/)?.[1]
-
-    // 触发按钮的 UA 默认 text-align:center 会把较短的名字居中在较长的 @username 上方。
-    expect(authorRule).toBeDefined()
-    expect(authorRule).toContain('text-align: start')
+    // button 的 UA 样式自带 text-align:center，会覆盖从父级继承的值；长昵称被 ellipsis
+    // 裁掉时，居中对齐会把可见片段切成中间一段。所以这条必须写在按钮自己的规则里，
+    // 写在父级 `.sf-comment__author` 上不会生效。
+    expect(triggerRules.length).toBeGreaterThan(0)
+    expect(triggerRules.some(rule => rule.includes('text-align: start'))).toBe(true)
+    expect(styles.match(/\.sf-comment__author\s*\{([^}]*)\}/)?.[1]).not.toContain('text-align')
   })
 })

@@ -6,6 +6,12 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### 搜索页「极光玻璃」落地（2026-11-24）
+
+- `/search` 换成独立 Host 岛（`components/forum/search/`），island 绑定
+  `forum.component.search_page` → `SFSearchPage.vue`；`SFHomePage` 只服务首页。
+- 交接：`sessions/2026-11-24-search-page-aurora-glass.md`。
+
 ### v3.1.5 发版（2026-11-18）
 
 - Status: **已提交，待推 tag**。修复「公开页文档 CSP 拦掉宿主自己的内联样式与内联脚本」
