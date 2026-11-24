@@ -34,6 +34,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readParityReport } from './helpers/contract-parity/report.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -66,6 +67,12 @@ function runGate(args) {
   });
   if (result.error) throw result.error;
   return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
+}
+
+const repoReport = readParityReport();
+
+function repoGate() {
+  return repoReport || runGate([]);
 }
 
 function failureLines(stderr) {
@@ -102,7 +109,7 @@ function check(name, fn) {
 // ---------------------------------------------------------------------------
 
 check('对照：仓库自身的门为绿，且空集计数是 0（不是「没扫到路由」的假绿）', () => {
-  const repo = runGate([]);
+  const repo = repoGate();
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   const empty = /状态码集合为空的实现侧路由数：(\d+)\/(\d+)/.exec(repo.stdout);
   assert.ok(empty, '门没有打印空集计数');
@@ -111,7 +118,7 @@ check('对照：仓库自身的门为绿，且空集计数是 0（不是「没�
 });
 
 check('识别面有命中面：跟包函数 / 映射器 / 剪枝三项都非 0', () => {
-  const repo = runGate([]);
+  const repo = repoGate();
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   const stats = /调用边识别（F1 同包委派 \/ F2 跟包 apphttp\.\* \/ F3 依赖故障 503）：跟包函数命中 (\d+) 个、错误映射器识别 (\d+) 个（识别后按 handler 收窄归因，不全量并入）、按实参剪枝 (\d+) 处/.exec(
     repo.stdout,
@@ -176,10 +183,10 @@ check('合成树：五条路由的实现侧集合逐条非空，且与契约精�
 // ---------------------------------------------------------------------------
 
 check('诊断开关默认关闭：无参数运行不打印任何 [parity-*] 清单块', () => {
-  const repo = runGate([]);
-  assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
+  const fixture = runGate(['--root', FIXTURE]);
+  assert.equal(fixture.status, 0, `fixture 退出码 ${fixture.status}\n${fixture.stderr}`);
   for (const marker of ['[parity-empty-routes]', '[parity-operation-codes]']) {
-    assert.ok(!repo.stdout.includes(marker), `无参数运行打印了 ${marker}：诊断开关必须是 opt-in`);
+    assert.ok(!fixture.stdout.includes(marker), `无参数运行打印了 ${marker}：诊断开关必须是 opt-in`);
   }
 });
 

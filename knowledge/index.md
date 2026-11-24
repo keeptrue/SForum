@@ -6,6 +6,16 @@ load archived sessions or completed plans as current context.
 
 ## Active Workstreams
 
+### CI/CD 与测试提速第一批（2026-11-24）
+
+- Status: **M0–M2 landed；M3–M6 待批准**。CI 缓存与死 service 清理、Go LPT 分片/
+  显式缓存/compat 复用、release/contracts 动态并行、parity 单次快照、KDF/重试 sleep
+  提速均已落地。
+- 最终 `./scripts/test.sh`：287.5s（api 288 / web 244 / static 80）；
+  稳态 `--fast`：69.2s；两轮无缓存隔离测试均绿且 max/avg ≤1.063。
+- Handoff：`sessions/2026-11-24-ci-cd-test-speedup-batch1.md`；
+  决策：`decisions/2026-11-24-ci-test-throughput-batch1.md`。
+
 ### 搜索页「极光玻璃」落地（2026-11-24）
 
 - `/search` 换成独立 Host 岛（`components/forum/search/`），island 绑定
@@ -951,7 +961,13 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **一键脚本终端配色层（2026-11-18，最新）**：新增 `deploy/scripts/term-ui.sh` 作为唯一实现，
+- **CI/CD 与测试提速第一批（2026-11-24，最新）**：M0–M2 已落地，M3–M6 未动。
+  全量门禁从 `api 391 / web 214 / static 268` 变为
+  `api 288 / web 244 / static 80`，壁钟 **287.5s**；稳态 `--fast` **69.2s**。
+  无缓存隔离测试两轮为 216.1s / 212.0s，四分片最大/均值 1.063 / 1.039。
+  release tooling 45.3s，contracts 12.5–17.1s。CI 缓存待下一次 Actions 命中确认。
+  见 `sessions/2026-11-24-ci-cd-test-speedup-batch1.md`。
+- **一键脚本终端配色层（2026-11-18）**：新增 `deploy/scripts/term-ui.sh` 作为唯一实现，
   `sforum-install.sh` / `sforum-bootstrap.sh` / `sforum-latest.sh` 内联同一份
   `# >>> term-ui` 块（逐字节），`deploy.sh` / `upgrade.sh` / 配置向导 / 健康探针 / 恢复脚本
   `source` 那一份。三条不变量：整行包裹不拆色、机器前缀留在行首字节、颜色只在打印点

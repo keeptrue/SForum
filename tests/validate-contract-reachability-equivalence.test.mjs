@@ -56,12 +56,8 @@ function parseNumber(text, pattern, label) {
 // 退出码刻意**不**参与断言：本测试比的是两道门对同一棵树算出的数字是否一致，
 // 而不是它们各自的例外登记是否已经补齐。门红着（例如契约还没跟上实现）时数字仍然
 // 可比，这时把退出码也钉住只会让等价性测试跟着一起红，查不出真正的问题。
-const parityDefault = run(PARITY, []);
-// 诊断开关必须默认关闭：无参数运行不许出现清单块，否则等于给门加了隐藏输出。
-if (parityDefault.stdout.includes('[parity-empty-routes]')) {
-  failures.push('parity 门无参数运行时打印了 [parity-empty-routes]：诊断开关必须是 opt-in');
-}
-
+// 默认关闭诊断开关由 call-edges 测试用合成树钉住；这里只跑一次带清单的 parity，
+// 避免同一个全仓扫描在等价性测试里重复两次。两道门仍各自启动、各自解析。
 const parity = run(PARITY, ['--print-empty-routes']);
 
 const parityOperationCount = parseNumber(parity.stdout, /契约 operation 数：(\d+)/, 'parity 契约 operation 数');

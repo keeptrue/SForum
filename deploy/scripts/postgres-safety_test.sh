@@ -10,6 +10,9 @@
 #   冷库（OPS2-03）：pg_isready 重试与明确超时
 set -euo pipefail
 
+export APP_ENV=test
+unset SFORUM_BACKUP_KDF_ITER
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sforum-postgres-safety-test.XXXXXX")"
 TEST_ROOT="$TEMP_DIR/repo"
@@ -416,6 +419,20 @@ export MOCK_DOCKER_LOG="$MOCK_LOG"
 export MOCK_DATA
 export SFORUM_BACKUP_KEY_FILE="$KEY_FILE"
 
+# 测试专用 KDF 口不能成为生产绕过口：非 test 环境设置覆盖必须在任何 docker 动作前失败。
+reset_log
+if (cd "$TEST_ROOT" && APP_ENV=production SFORUM_BACKUP_KDF_ITER=1000 \
+  SFORUM_BACKUP_DIR="$TEMP_DIR/backups-production-kdf" ./deploy/scripts/backup-postgres.sh \
+  >/dev/null 2>"$TEMP_DIR/production-kdf.err"); then
+  fail "production accepted a test-only backup KDF override"
+fi
+grep -q '只允许在 APP_ENV=test 下覆盖' "$TEMP_DIR/production-kdf.err" || \
+  fail "production KDF override was not rejected with the test-only explanation"
+if grep -q '^compose up \|^exec ' "$MOCK_LOG"; then
+  fail "production KDF override reached docker before being rejected"
+fi
+case_ok "KDF 测试口仅在 APP_ENV=test 开放，生产覆盖在动手前拒绝"
+
 # --- C1 备份：单一加密归档，含库 + 附件 + 扩展制品 ---------------------------
 reset_log
 SUCCESS_BACKUP_DIR="$TEMP_DIR/backups-success"
@@ -451,7 +468,24 @@ grep -q '^encryption=openssl-aes-256-cbc-pbkdf2-iter200000+hmac-sha256$' "$TEMP_
 grep -q '^CREATE TABLE public\.users ' "$TEMP_DIR/unpack/database.sql" || fail "database dump has no core tables"
 grep -q 'exec pg_dump ' "$MOCK_LOG" || fail "backup did not call pg_dump"
 grep -q '^compose up -d --wait postgres$' "$MOCK_LOG" || fail "backup did not wait for postgres to be healthy"
+archive_header_bytes="$(envelope_header_bytes "$archive")"
+head -c "$archive_header_bytes" "$archive" >"$TEMP_DIR/default-envelope"
+grep -qx 'SFORUM-BACKUP-ENVELOPE 2' "$TEMP_DIR/default-envelope" || \
+  fail "default envelope magic is missing"
+grep -qx 'scheme=openssl-aes-256-cbc-pbkdf2-iter200000+hmac-sha256' "$TEMP_DIR/default-envelope" || \
+  fail "default envelope scheme is not the 200000-iteration v2 contract"
+grep -qx 'mac-iter=200000' "$TEMP_DIR/default-envelope" || \
+  fail "default envelope MAC KDF iteration is not 200000"
 case_ok "C1 备份=单一加密归档（库+附件+扩展+清单，0600，无临时残留）"
+
+# 默认闭环已经取证；其余大量状态机/篡改/轮转用例改用测试专用低迭代。
+# shellcheck disable=SC2031 # 前面的 decrypt_archive 在子 shell 里 source 生产库，父 shell 的 export 仍然生效
+export SFORUM_BACKUP_KDF_ITER=1000
+reset_log
+FAST_ARCHIVE_DIR="$TEMP_DIR/backups-fast-kdf"
+fast_backup_output="$(cd "$TEST_ROOT" && SFORUM_BACKUP_DIR="$FAST_ARCHIVE_DIR" ./deploy/scripts/backup-postgres.sh)"
+archive="$(tail -n 1 <<< "$fast_backup_output")"
+[[ -s "$archive" ]] || fail "fast-KDF fixture backup is missing"
 
 # --- C1b 独立跑备份（不经 deploy.sh）：--wait 失败但库随后就绪 → 继续 --------
 # deploy.sh 的两条调用路径都会先 wait，所以这条冷机路径以前只在「有人直接跑
@@ -709,7 +743,7 @@ sed -i.bak 's/^encryption=.*/encryption=openssl-aes-256-cbc-pbkdf2-iter200000/' 
   "$V1_DIR/payload/manifest.env"
 rm -f "$V1_DIR/payload/manifest.env.bak"
 tar -C "$V1_DIR/payload" -czf "$V1_DIR/payload-v1.tar.gz" manifest.env database.sql assets
-openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass file:"$KEY_FILE" \
+openssl enc -aes-256-cbc -pbkdf2 -iter "$SFORUM_BACKUP_KDF_ITER" -salt -pass file:"$KEY_FILE" \
   -in "$V1_DIR/payload-v1.tar.gz" -out "$V1_DIR/sforum-backup-v1.tar.gz.enc"
 reset_log
 if ! (cd "$TEST_ROOT" && MOCK_RUNNING_SERVICES='api' MOCK_API_READY=true \

@@ -85,6 +85,33 @@ exit 43
 EOF
 chmod +x "$MOCK_BIN/curl" "$MOCK_BIN/docker" "$TEST_ROOT/upgrade.sh"
 
+# 默认退避仍是 2s、4s；用只记录不等待的 sleep 钉住默认值，随后所有重试用例
+# 显式关闭等待，避免把网络失败路径变成 12 秒以上的固定睡眠。
+DEFAULT_SLEEP_BIN="$TEMP_DIR/default-sleep-bin"
+DEFAULT_SLEEP_LOG="$TEMP_DIR/default-sleep.log"
+mkdir -p "$DEFAULT_SLEEP_BIN"
+cat > "$DEFAULT_SLEEP_BIN/sleep" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$MOCK_SLEEP_LOG"
+EOF
+chmod +x "$DEFAULT_SLEEP_BIN/sleep"
+: > "$DEFAULT_SLEEP_LOG"
+if (
+  cd "$TEST_ROOT"
+  PATH="$DEFAULT_SLEEP_BIN:$MOCK_BIN:$PATH" \
+    MOCK_UPGRADE_LOG="$MOCK_LOG" \
+    MOCK_SLEEP_LOG="$DEFAULT_SLEEP_LOG" \
+    MOCK_NO_RELEASE=1 \
+    ./upgrade.sh --yes </dev/null
+) > "$TEMP_DIR/default-backoff.out" 2>&1; then
+  fail "the missing-release fixture should fail after retry backoff"
+fi
+if [[ "$(paste -sd, "$DEFAULT_SLEEP_LOG")" != "2,4" ]]; then
+  fail "default retry backoff should be 2,4 seconds: $(cat "$DEFAULT_SLEEP_LOG")"
+fi
+export SFORUM_UPGRADE_RETRY_SLEEP_SECONDS=0
+
 run_canceled() {
   local name="$1"
   local input="$2"

@@ -354,6 +354,13 @@ validate_version() {
     die "Version must look like v3.0.0 or v3.0.0-alpha.11"
 }
 
+retry_backoff_seconds() {
+  local attempt="$1" base="${SFORUM_UPGRADE_RETRY_SLEEP_SECONDS:-2}"
+  [[ "$base" =~ ^[0-9]+$ ]] || \
+    die "SFORUM_UPGRADE_RETRY_SLEEP_SECONDS must be a non-negative integer: $base"
+  printf '%s' "$((attempt * base))"
+}
+
 fetch_with_retry() {
   # 用法: fetch_with_retry <描述zh> <描述en> <url> [curl 参数...]
   # 失败自动重试（共 3 次，指数退避），网络偶发抖动不再直接终止更新。
@@ -367,7 +374,7 @@ fetch_with_retry() {
     if [ "$attempt" -lt 3 ]; then
       warn "查询失败，正在重试（第 $((attempt + 1))/3 次）..." \
         "Request failed; retrying (attempt $((attempt + 1))/3)..." >&2
-      sleep $((attempt * 2))
+      sleep "$(retry_backoff_seconds "$attempt")"
     fi
   done
   err "${desc_zh}" "${desc_en}" >&2
@@ -542,7 +549,7 @@ pull_with_retry() {
     if [ "$attempt" -lt 3 ]; then
       warn "镜像 $label 拉取失败，正在重试（第 $((attempt + 1))/3 次）..." \
         "Image $label pull failed; retrying (attempt $((attempt + 1))/3)..."
-      sleep $((attempt * 2))
+      sleep "$(retry_backoff_seconds "$attempt")"
     fi
   done
   return 1

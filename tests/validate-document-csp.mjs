@@ -150,7 +150,15 @@ async function launchChrome(binary) {
   mkdirSync(profile, { recursive: true })
   const child = spawn(binary, [
     '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
-    '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', 'about:blank',
+    // Chrome 154 在部分宿主的默认无头配置里会卡住对 loopback 的 Page.navigate；
+    // 关掉后台网络/同步/扩展并显式绕回环代理后，CDP 导航才有确定返回。
+    '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars',
+    '--no-proxy-server', '--proxy-bypass-list=<-loopback>', '--disable-background-networking',
+    '--disable-breakpad', '--disable-component-extensions-with-background-pages',
+    '--disable-client-side-phishing-detection', '--disable-default-apps', '--disable-extensions',
+    '--disable-hang-monitor', '--disable-popup-blocking', '--disable-prompt-on-repost',
+    '--disable-sync', '--metrics-recording-only', '--password-store=basic', '--use-mock-keychain',
+    '--disable-dev-shm-usage', 'about:blank',
   ], { stdio: 'ignore' })
   for (let attempt = 0; attempt < 120; attempt += 1) {
     try {

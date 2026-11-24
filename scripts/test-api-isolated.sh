@@ -28,6 +28,9 @@ cid=""
 container=""
 redis_cid=""
 redis_container=""
+shard_plan_dir=""
+script_started=$SECONDS
+timing_file="${SFORUM_TEST_TIMING_FILE:-}"
 
 # Core 兼容版本的测试 pin（门禁确定性，不是产品行为）。
 #
@@ -89,11 +92,17 @@ remove_owned_container() {
 cleanup() {
   local status=$?
   trap - EXIT
+  if [[ -n "$timing_file" ]]; then
+    printf 'elapsed=%s\nstatus=%s\n' "$((SECONDS - script_started))" "$status" >"$timing_file" || true
+  fi
   if [[ -n "$redis_cid" ]]; then
     remove_owned_container "$redis_cid"
   fi
   if [[ -n "$cid" ]]; then
     remove_owned_container "$cid"
+  fi
+  if [[ -n "$shard_plan_dir" ]]; then
+    rm -rf "$shard_plan_dir"
   fi
   exit "$status"
 }
@@ -116,16 +125,20 @@ provision_cluster() {
     return 0
   fi
   container="sforum-test-api-${owner}"
-  if ! cid="$(start_cluster "127.0.0.1:${preferred_port}:5432" 2>/dev/null)"; then
-    docker rm -f "$container" >/dev/null 2>&1 || true
-    echo "端口 ${preferred_port} 已被占用，回退临时端口（本轮测试缓存不会命中）。" >&2
+  if [[ "$cache_enabled" == 1 ]]; then
+    if ! cid="$(start_cluster "127.0.0.1:${preferred_port}:5432" 2>/dev/null)"; then
+      docker rm -f "$container" >/dev/null 2>&1 || true
+      echo "端口 ${preferred_port} 已被占用，回退临时端口（本轮测试缓存不会命中）。" >&2
+      cid="$(start_cluster "127.0.0.1::5432")"
+    fi
+  else
     cid="$(start_cluster "127.0.0.1::5432")"
   fi
   # postgres 官方镜像首次启动会跑 initdb 然后重启一次；pg_isready 在重启前的
   # 临时实例上就可能返回 0，紧接着的 psql 会撞上 shutdown。用真实认证连接做
   # 就绪判定，并要求连续两次成功，避开首次启动的重启窗口。
   local ready=0 stable=0
-  for _ in {1..60}; do
+  for _ in {1..150}; do
     if docker exec -e PGPASSWORD=sforum "$cid" psql -U sforum -d sforum_test_suite -tAc 'SELECT 1' >/dev/null 2>&1; then
       stable=$((stable + 1))
       if [[ "$stable" == 2 ]]; then
@@ -135,7 +148,7 @@ provision_cluster() {
     else
       stable=0
     fi
-    sleep 1
+    sleep 0.2
   done
   if [[ "$ready" != 1 ]]; then
     docker logs "$cid" >&2
@@ -182,15 +195,20 @@ provision_redis() {
     return 0
   fi
   redis_container="sforum-test-api-redis-${owner}"
-  if ! redis_cid="$(start_redis "127.0.0.1:${redis_preferred_port}:6379" 2>/dev/null)"; then
-    docker rm -f "$redis_container" >/dev/null 2>&1 || true
-    # 首选端口起不来有两种原因：端口被占（回退只损失缓存）或镜像不可用
-    # （下面这次重试会把 docker 的真实报错带出来，再补一条明确的中文结论）。
-    echo "以首选端口 ${redis_preferred_port} 启动一次性 Redis 失败，回退临时端口（端口被占用时本轮测试缓存不会命中）。" >&2
-    if ! redis_cid="$(start_redis "127.0.0.1::6379")"; then
-      echo "无法启动一次性 Redis（镜像 ${redis_image}），请检查 SFORUM_TEST_REDIS_IMAGE 与 docker。" >&2
-      exit 1
+  if [[ "$cache_enabled" == 1 ]]; then
+    if ! redis_cid="$(start_redis "127.0.0.1:${redis_preferred_port}:6379" 2>/dev/null)"; then
+      docker rm -f "$redis_container" >/dev/null 2>&1 || true
+      # 首选端口起不来有两种原因：端口被占（回退只损失缓存）或镜像不可用
+      # （下面这次重试会把 docker 的真实报错带出来，再补一条明确的中文结论）。
+      echo "以首选端口 ${redis_preferred_port} 启动一次性 Redis 失败，回退临时端口（端口被占用时本轮测试缓存不会命中）。" >&2
+      if ! redis_cid="$(start_redis "127.0.0.1::6379")"; then
+        echo "无法启动一次性 Redis（镜像 ${redis_image}），请检查 SFORUM_TEST_REDIS_IMAGE 与 docker。" >&2
+        exit 1
+      fi
     fi
+  elif ! redis_cid="$(start_redis "127.0.0.1::6379")"; then
+    echo "无法启动一次性 Redis（镜像 ${redis_image}），请检查 SFORUM_TEST_REDIS_IMAGE 与 docker。" >&2
+    exit 1
   fi
   local binding port
   binding="$(docker port "$redis_cid" 6379/tcp)"
@@ -206,7 +224,7 @@ provision_redis() {
   # 首个 EVAL(INCR) 因连接失败被 fail-open 吞掉，用例报「键不存在」，红得像
   # 产品 bug。exec 作为容器级前置检查保留，两者都连续两次成功才算就绪。
   local ready=0 stable=0
-  for _ in {1..60}; do
+  for _ in {1..150}; do
     if [[ "$(docker exec "$redis_cid" redis-cli ping 2>/dev/null)" == "PONG" ]] &&
       probe_redis_port "$port"; then
       stable=$((stable + 1))
@@ -217,7 +235,7 @@ provision_redis() {
     else
       stable=0
     fi
-    sleep 1
+    sleep 0.2
   done
   if [[ "$ready" != 1 ]]; then
     docker logs "$redis_cid" >&2
@@ -251,10 +269,28 @@ else
 fi
 shards="${SFORUM_TEST_SHARDS:-$((cores > 4 ? 4 : cores))}"
 shard_parallel="${SFORUM_TEST_PARALLEL:-1}"
+if [[ ! "$shards" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SFORUM_TEST_SHARDS 必须是正整数：$shards" >&2
+  exit 2
+fi
+if [[ ! "$shard_parallel" =~ ^[1-9][0-9]*$ ]]; then
+  echo "SFORUM_TEST_PARALLEL 必须是正整数：$shard_parallel" >&2
+  exit 2
+fi
 
 mode="test"
 passthrough=()
 shard_spec=""
+cache_enabled=0
+cache_cli=""
+case "${SFORUM_TEST_CACHE:-0}" in
+  0|"") ;;
+  1) cache_enabled=1 ;;
+  *)
+    echo "SFORUM_TEST_CACHE 只能是 0 或 1：$SFORUM_TEST_CACHE" >&2
+    exit 2
+    ;;
+esac
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --compat)
@@ -275,6 +311,24 @@ while [[ $# -gt 0 ]]; do
       shard_spec="$1"
       shift
       ;;
+    --cache)
+      if [[ "$cache_cli" == "no-cache" ]]; then
+        echo '--cache 与 --no-cache 不能同时使用。' >&2
+        exit 2
+      fi
+      cache_cli="cache"
+      cache_enabled=1
+      shift
+      ;;
+    --no-cache)
+      if [[ "$cache_cli" == "cache" ]]; then
+        echo '--cache 与 --no-cache 不能同时使用。' >&2
+        exit 2
+      fi
+      cache_cli="no-cache"
+      cache_enabled=0
+      shift
+      ;;
     *)
       passthrough+=("$1")
       shift
@@ -282,11 +336,75 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+force_cache_off=""
+if [[ "${CI:-}" == "true" ]]; then
+  force_cache_off="CI=true"
+elif [[ "${SFORUM_TEST_NO_CACHE:-0}" == "1" ]]; then
+  force_cache_off="SFORUM_TEST_NO_CACHE=1"
+fi
+if [[ -n "$force_cache_off" ]]; then
+  if [[ "$cache_enabled" == 1 ]]; then
+    echo "Go test cache: requested but disabled by $force_cache_off." >&2
+  fi
+  cache_enabled=0
+fi
+if [[ "$cache_enabled" == 1 ]]; then
+  echo "Go test cache: enabled (explicit local mode; fixed ports; Go cache allowed)."
+else
+  echo "Go test cache: disabled (${force_cache_off:-default local/evidence mode}; -count=1; ephemeral ports)."
+fi
+
 # 参数原样透传给 go test：只把字面量 ./... 换成当前分片的包清单，
 # 其余（含 -run/-timeout 的取值）保持相邻顺序，不做 flag/包路径猜测。
 if [[ ${#passthrough[@]} -eq 0 ]]; then
   passthrough=(./...)
 fi
+
+# 无缓存模式下不允许透传参数把注入的 -count=1 再覆盖掉。缓存模式则保留调用方
+# 自己的 count 语义，便于本地做定向实验。
+test_cache_args=()
+sanitized_passthrough=()
+for ((i = 0; i < ${#passthrough[@]}; i++)); do
+  arg="${passthrough[$i]}"
+  case "$arg" in
+    -count=*|-test.count=*)
+      value="${arg#*=}"
+      if [[ "$cache_enabled" == 0 && "$value" != "1" ]]; then
+        echo "测试缓存已禁用，透传的 $arg 会破坏 -count=1 证据语义。" >&2
+        exit 2
+      fi
+      if [[ "$cache_enabled" == 1 ]]; then
+        sanitized_passthrough+=("$arg")
+      fi
+      ;;
+    -count|-test.count)
+      if ((i + 1 >= ${#passthrough[@]})); then
+        echo "$arg 缺少取值。" >&2
+        exit 2
+      fi
+      value="${passthrough[$((i + 1))]}"
+      if [[ "$cache_enabled" == 0 && "$value" != "1" ]]; then
+        echo "测试缓存已禁用，透传的 $arg $value 会破坏 -count=1 证据语义。" >&2
+        exit 2
+      fi
+      if [[ "$cache_enabled" == 1 ]]; then
+        sanitized_passthrough+=("$arg" "$value")
+      fi
+      i=$((i + 1))
+      ;;
+    *)
+      sanitized_passthrough+=("$arg")
+      ;;
+  esac
+done
+passthrough=("${sanitized_passthrough[@]}")
+if [[ ${#passthrough[@]} -eq 0 ]]; then
+  passthrough=(./...)
+fi
+if [[ "$cache_enabled" == 0 ]]; then
+  test_cache_args=(-count=1)
+fi
+
 full_run=0
 for arg in "${passthrough[@]}"; do
   if [[ "$arg" == "./..." ]]; then
@@ -295,19 +413,103 @@ for arg in "${passthrough[@]}"; do
   fi
 done
 
-# 分片按包名序号轮转分配，确定性且与包数量无关。
+# 静态权重来自 2026-11-24 首轮无缓存隔离测试的实测长尾。新热点出现时用
+# tests/.logs/api.log 的分片耗时更新这里；未列出的包保持权重 1。
+package_weight() {
+  case "$1" in
+    */database/migrator) echo 120 ;;
+    */app/Models/Extensions) echo 114 ;;
+    */app/Support/Extensions/IntegrationTests) echo 99 ;;
+    */app/Models/Identity) echo 81 ;;
+    */app/Support/Extensions) echo 66 ;;
+    */app/Support/HostAPI) echo 44 ;;
+    */bootstrap) echo 39 ;;
+    */app/Models/Forum) echo 37 ;;
+    */app/Support/IdentityRegistry) echo 33 ;;
+    */cmd/sforum) echo 32 ;;
+    */app/Models/Badges) echo 16 ;;
+    */app/Http) echo 12 ;;
+    */app/Support/ThemeCompiler) echo 8 ;;
+    */app/Support/Localization) echo 5 ;;
+    */app/Http/Controllers/Identity) echo 4 ;;
+    */app/Support/CompatFarm) echo 4 ;;
+    */app/Models/Conditions) echo 4 ;;
+    */app/Support/AI) echo 3 ;;
+    */app/Support/ExtensionOpenAPI) echo 3 ;;
+    */app/Support/ExtensionManifest) echo 3 ;;
+    */app/Support/Extensions/pluginprocess) echo 2 ;;
+    *) echo 1 ;;
+  esac
+}
+
+# 一次列出包并按权重降序做 LPT 贪心分配。包名作为第二排序键，保证并发和重复
+# 运行得到同一份计划。
+write_shard_plan() {
+  local total="$1" dir="$2" index
+  for ((index = 0; index < total; index++)); do
+    : >"$dir/$index.packages"
+  done
+  go list ./... | awk '
+    function weight(p) {
+      if (p ~ /\/database\/migrator$/) return 120
+      if (p ~ /\/app\/Models\/Extensions$/) return 114
+      if (p ~ /\/app\/Support\/Extensions\/IntegrationTests$/) return 99
+      if (p ~ /\/app\/Models\/Identity$/) return 81
+      if (p ~ /\/app\/Support\/Extensions$/) return 66
+      if (p ~ /\/app\/Support\/HostAPI$/) return 44
+      if (p ~ /\/bootstrap$/) return 39
+      if (p ~ /\/app\/Models\/Forum$/) return 37
+      if (p ~ /\/app\/Support\/IdentityRegistry$/) return 33
+      if (p ~ /\/cmd\/sforum$/) return 32
+      if (p ~ /\/app\/Models\/Badges$/) return 16
+      if (p ~ /\/app\/Http$/) return 12
+      if (p ~ /\/app\/Support\/ThemeCompiler$/) return 8
+      if (p ~ /\/app\/Support\/Localization$/) return 5
+      if (p ~ /\/app\/Http\/Controllers\/Identity$/) return 4
+      if (p ~ /\/app\/Support\/CompatFarm$/) return 4
+      if (p ~ /\/app\/Models\/Conditions$/) return 4
+      if (p ~ /\/app\/Support\/AI$/) return 3
+      if (p ~ /\/app\/Support\/ExtensionOpenAPI$/) return 3
+      if (p ~ /\/app\/Support\/ExtensionManifest$/) return 3
+      if (p ~ /\/app\/Support\/Extensions\/pluginprocess$/) return 2
+      return 1
+    }
+    { print weight($0) "|" $0 }
+  ' | LC_ALL=C sort -t'|' -k1,1nr -k2,2 | awk -F'|' -v total="$total" -v dir="$dir" '
+    {
+      slot = 1
+      for (s = 2; s <= total; s++) {
+        if (loads[s] < loads[slot]) slot = s
+      }
+      loads[slot] += $1
+      print $2 > (dir "/" (slot - 1) ".packages")
+    }
+    END {
+      for (s = 1; s <= total; s++) {
+        printf "%d\t%d\n", s - 1, loads[s] > (dir "/loads.tsv")
+      }
+    }
+  '
+}
+
 select_shard_packages() {
-  local index="$1" total="$2" i=0 pkg
-  while IFS= read -r pkg; do
-    if ((i % total == index)); then
-      printf '%s\n' "$pkg"
-    fi
-    i=$((i + 1))
-  done < <(go list ./...)
+  local index="$1" total="$2" dir
+  if [[ -n "${SFORUM_TEST_PACKAGE_FILE:-}" ]]; then
+    [[ -f "$SFORUM_TEST_PACKAGE_FILE" ]] || {
+      echo "分片包清单不存在：$SFORUM_TEST_PACKAGE_FILE" >&2
+      return 1
+    }
+    cat "$SFORUM_TEST_PACKAGE_FILE"
+    return 0
+  fi
+  dir="$(mktemp -d "${TMPDIR:-/tmp}/sforum-test-shard.XXXXXX")"
+  write_shard_plan "$total" "$dir"
+  cat "$dir/$index.packages"
+  rm -rf "$dir"
 }
 
 run_shard() {
-  local index="$1" total="$2" arg
+  local index="$1" total="$2" arg pkg selected_weight=0 compat_started
   local -a selected=() forwarded=()
   mapfile -t selected < <(select_shard_packages "$index" "$total")
   if [[ ${#selected[@]} == 0 ]]; then
@@ -319,32 +521,69 @@ run_shard() {
       forwarded+=("$arg")
     fi
   done
-  echo "shard ${index}/${total}: ${#selected[@]} 个包，-p ${shard_parallel}"
+  for pkg in "${selected[@]}"; do
+    selected_weight=$((selected_weight + $(package_weight "$pkg")))
+  done
+  echo "shard ${index}/${total}: ${#selected[@]} 个包，权重 ${selected_weight}，-p ${shard_parallel}"
   provision_backends
-  # -count=1 必须在透传参数**之前**：默认的测试缓存会让「上一版的绿」冒充这一版的绿，
-  # 而本脚本的输出常被当作证据（M8 验收、基线、变异对照）。调用方仍可自行覆盖。
-  go test -count=1 -p "$shard_parallel" "${version_ldflags[@]}" "${forwarded[@]}" "${selected[@]}"
+  go test "${test_cache_args[@]}" -p "$shard_parallel" "${version_ldflags[@]}" "${forwarded[@]}" "${selected[@]}"
+  if [[ "${SFORUM_TEST_SHARD_COMPAT:-0}" == "1" ]]; then
+    echo "Running V3 P12 compatibility farm on shard ${index}/${total} (required cells; skip/missing fail)..."
+    compat_started=$SECONDS
+    run_compat_farm
+    echo "Compatibility farm completed on shard ${index}/${total} in $((SECONDS - compat_started))s."
+  fi
 }
 
 run_shards() {
-  local total="$1" index status=0 failures=0 arg
+  local total="$1" include_compat="$2" index status=0 failures=0 arg timing compat_index=-1
   local -a pids=() forwarded=()
   for arg in "${passthrough[@]}"; do
     if [[ "$arg" != "./..." ]]; then
       forwarded+=("$arg")
     fi
   done
+  shard_plan_dir="$(mktemp -d "${TMPDIR:-/tmp}/sforum-test-plan.XXXXXX")"
+  write_shard_plan "$total" "$shard_plan_dir"
+  echo "LPT shard weights:"
+  while IFS=$'\t' read -r index weight; do
+    printf '  shard %s: %s\n' "$index" "$weight"
+  done <"$shard_plan_dir/loads.tsv"
+  if [[ "$include_compat" == "1" ]]; then
+    compat_index="$(awk -F'\t' '
+      BEGIN { best = -1; min = 0 }
+      {
+        if (best < 0 || $2 < min || ($2 == min && $1 > best)) {
+          best = $1
+          min = $2
+        }
+      }
+      END { print best }
+    ' "$shard_plan_dir/loads.tsv")"
+    echo "Compatibility farm assigned to shard ${compat_index}/${total} (lightest LPT bucket)."
+  fi
   for ((index = 0; index < total; index++)); do
     (
-      SFORUM_TEST_POSTGRES_PORT="$((preferred_port + index))" \
-        SFORUM_TEST_REDIS_PORT="$((redis_preferred_port + index))" \
-        "$ROOT_DIR/scripts/test-api-isolated.sh" --shard "${index}/${total}" "${forwarded[@]}"
+      export SFORUM_TEST_CACHE="$cache_enabled"
+      export SFORUM_TEST_POSTGRES_PORT="$((preferred_port + index))"
+      export SFORUM_TEST_REDIS_PORT="$((redis_preferred_port + index))"
+      export SFORUM_TEST_PACKAGE_FILE="$shard_plan_dir/$index.packages"
+      export SFORUM_TEST_TIMING_FILE="$shard_plan_dir/$index.timing"
+      if [[ "$include_compat" == "1" && "$index" == "$compat_index" ]]; then
+        export SFORUM_TEST_SHARD_COMPAT=1
+      fi
+      "$ROOT_DIR/scripts/test-api-isolated.sh" --shard "${index}/${total}" "${forwarded[@]}"
     ) &
     pids+=($!)
   done
   for index in "${!pids[@]}"; do
     status=0
     wait "${pids[$index]}" || status=$?
+    timing="?"
+    if [[ -f "$shard_plan_dir/$index.timing" ]]; then
+      timing="$(sed -n 's/^elapsed=//p' "$shard_plan_dir/$index.timing" | head -n 1)"
+    fi
+    echo "shard ${index}/${total} elapsed=${timing}s exit=${status}"
     if [[ $status != 0 ]]; then
       echo "shard ${index}/${total} 失败（exit ${status}）。" >&2
       failures=$((failures + 1))
@@ -389,17 +628,19 @@ case "$mode" in
     ;;
   test | with-compat)
     if [[ $full_run == 1 ]]; then
-      run_shards "$shards"
+      include_compat=0
+      if [[ "$mode" == "with-compat" ]]; then
+        include_compat=1
+      fi
+      run_shards "$shards" "$include_compat"
     else
       # 显式包路径（含 -run 定位）保持单次调用，不分片。
-      # -count=1 同上：证据脚本不允许返回缓存结果。
       provision_backends
-      go test -count=1 -p "$shard_parallel" "${version_ldflags[@]}" "${passthrough[@]}"
-    fi
-    if [[ "$mode" == "with-compat" ]]; then
-      echo 'Running V3 P12 compatibility farm (required cells; skip/missing fail)...'
-      provision_backends
-      run_compat_farm
+      go test "${test_cache_args[@]}" -p "$shard_parallel" "${version_ldflags[@]}" "${passthrough[@]}"
+      if [[ "$mode" == "with-compat" ]]; then
+        echo 'Running V3 P12 compatibility farm (required cells; skip/missing fail)...'
+        run_compat_farm
+      fi
     fi
     ;;
 esac

@@ -8,15 +8,39 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 FAST=0
+CACHE_MODE=""
 for arg in "$@"; do
   case "$arg" in
     --fast) FAST=1 ;;
+    --cache)
+      if [[ "$CACHE_MODE" == "no-cache" ]]; then
+        echo "--cache and --no-cache cannot be used together." >&2
+        exit 2
+      fi
+      CACHE_MODE="cache"
+      ;;
+    --no-cache)
+      if [[ "$CACHE_MODE" == "cache" ]]; then
+        echo "--cache and --no-cache cannot be used together." >&2
+        exit 2
+      fi
+      CACHE_MODE="no-cache"
+      ;;
     *)
-      echo "unknown argument: $arg (supported: --fast)" >&2
+      echo "unknown argument: $arg (supported: --fast, --cache, --no-cache)" >&2
       exit 2
       ;;
   esac
 done
+
+if [[ $FAST == 1 && -z "$CACHE_MODE" ]]; then
+  CACHE_MODE="cache"
+fi
+API_CACHE_ARGS=()
+case "$CACHE_MODE" in
+  cache) API_CACHE_ARGS=(--cache) ;;
+  no-cache) API_CACHE_ARGS=(--no-cache) ;;
+esac
 
 LOG_DIR="$ROOT_DIR/tests/.logs"
 mkdir -p "$LOG_DIR"
@@ -24,9 +48,9 @@ mkdir -p "$LOG_DIR"
 run_api_line() {
   echo "Running Go tests on a disposable cluster..."
   if [[ $FAST == 1 ]]; then
-    ./scripts/test-api-isolated.sh
+    ./scripts/test-api-isolated.sh "${API_CACHE_ARGS[@]}"
   else
-    ./scripts/test-api-isolated.sh --with-compat
+    ./scripts/test-api-isolated.sh "${API_CACHE_ARGS[@]}" --with-compat
   fi
   echo "Building Go commands..."
   (cd apps/api && go build ./...)
@@ -51,7 +75,7 @@ run_static_line() {
   if [[ $FAST == 0 ]]; then
     ./scripts/ci/release-tooling-gate.sh
   fi
-  ./scripts/ci/contracts-gate.sh
+  SFORUM_CONTRACTS_SKIP_WEB_UNIT=1 ./scripts/ci/contracts-gate.sh
   # Explicit marker: tests/validate-host-api-v2-docs.mjs asserts the repository
   # test gate still runs the Host API v2 documentation validation (executed
   # inside contracts-gate.sh).
@@ -111,7 +135,7 @@ cleanup_lines() {
 trap cleanup_lines INT TERM
 
 if [[ $FAST == 1 ]]; then
-  echo "Fast mode: skipping the production web build, the compatibility farm, and the release/deploy tooling gate (CI covers those in full)."
+  echo "Fast mode: skipping the production web build, the compatibility farm, and the release/deploy tooling gate (CI covers those in full); Go cache mode=${CACHE_MODE:-disabled}."
 fi
 echo "Running three gate lines in parallel; per-line logs in tests/.logs/."
 

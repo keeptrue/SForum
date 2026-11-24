@@ -25,6 +25,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readParityReport } from './helpers/contract-parity/report.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -180,7 +181,7 @@ function check(name, fn) {
 
 // ---------------------------------------------------------------------------
 
-const gateRun = runGate(['--print-operation-codes']);
+const gateRun = readParityReport() || runGate(['--print-operation-codes']);
 const declared = readDeclaredCodes();
 const implementation = parseImplementationCodes(gateRun.stdout);
 

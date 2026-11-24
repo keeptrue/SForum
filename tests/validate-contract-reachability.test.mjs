@@ -30,7 +30,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -124,7 +124,7 @@ function ruleCodesOf(stderr) {
   return [...codes].sort();
 }
 
-function runFixture(name) {
+async function runFixture(name) {
   const root = path.join(FIXTURE_ROOT, name);
   for (const relative of REQUIRED_FILES) {
     assert.ok(
@@ -132,22 +132,66 @@ function runFixture(name) {
       `fixture ${name} 缺少文件 ${relative}（fixture 被删/改名后本测试不能假装通过）`,
     );
   }
-  const result = spawnSync(process.execPath, [VALIDATOR, '--root', root], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    timeout: 120_000,
+  return await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [VALIDATOR, '--root', root], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    const timeout = setTimeout(() => child.kill('SIGKILL'), 120_000);
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on('close', (status, signal) => {
+      clearTimeout(timeout);
+      resolve({
+        status: status ?? 1,
+        stdout,
+        stderr: signal ? `${stderr}\nterminated by ${signal}` : stderr,
+        root,
+      });
+    });
   });
-  if (result.error) throw result.error;
-  return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '', root };
 }
 
 const failures = [];
 let passed = 0;
 
-for (const testCase of CASES) {
+const fixtureResults = new Array(CASES.length);
+let nextFixture = 0;
+async function runFixtureWorker() {
+  while (true) {
+    const index = nextFixture++;
+    if (index >= CASES.length) return;
+    try {
+      fixtureResults[index] = { result: await runFixture(CASES[index].name) };
+    } catch (error) {
+      fixtureResults[index] = { error };
+    }
+  }
+}
+await Promise.all(Array.from({ length: Math.min(4, CASES.length) }, () => runFixtureWorker()));
+
+for (let caseIndex = 0; caseIndex < CASES.length; caseIndex += 1) {
+  const testCase = CASES[caseIndex];
+  const fixtureResult = fixtureResults[caseIndex];
+  if (fixtureResult.error) {
+    failures.push(`${testCase.name}: 运行失败 —— ${fixtureResult.error.message}`);
+    continue;
+  }
   let result;
   try {
-    result = runFixture(testCase.name);
+    result = fixtureResult.result;
   } catch (error) {
     failures.push(`${testCase.name}: 运行失败 —— ${error.message}`);
     continue;

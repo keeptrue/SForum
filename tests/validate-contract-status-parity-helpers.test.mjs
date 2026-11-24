@@ -24,6 +24,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readParityReport } from './helpers/contract-parity/report.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -51,6 +52,12 @@ function runGate(args) {
   return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
 }
 
+const repoReport = readParityReport();
+
+function repoGate() {
+  return repoReport || runGate([]);
+}
+
 function failureLines(stderr) {
   return stderr.split('\n').filter((line) => line.trim().startsWith('✗'));
 }
@@ -69,7 +76,7 @@ function check(name, fn) {
 }
 
 check('对照：仓库自身的门为绿，且打印响应助手白名单规模', () => {
-  const repo = runGate([]);
+  const repo = repoGate();
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   assert.match(repo.stdout, /\[parity\] 响应助手白名单：\d+ 条/);
   assert.match(repo.stdout, /通过：0 个未登记例外/);
@@ -104,13 +111,13 @@ check('反例 2：实现设了 503 的 Retry-After，组件未声明就必须红
 });
 
 check('header 全局存在性检查在仓库自身生效：503 组件必须声明 Retry-After', () => {
-  const repo = runGate([]);
+  const repo = repoGate();
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   assert.match(repo.stdout, /\[parity\] header 全局存在性（header-global/);
 });
 
 check('正例：仓库自身没有数字字面量的 NewError*/Abort* 调用（构造器实参形态 0 个）', () => {
-  const repo = runGate([]);
+  const repo = repoGate();
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   // 这条钉住「Abort*/NewError* 不在白名单里」所依赖的不变量：所有调用点都传常量。
   assert.match(repo.stdout, /\[parity\] 构造器实参形态：apphttp\.NewError\*\/Abort\* 的数字字面量调用点 0 个/);

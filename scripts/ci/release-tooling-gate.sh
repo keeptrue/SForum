@@ -40,19 +40,6 @@ for trigger in pull_request push; do
 	done
 done
 
-# RV-14 的第二处同形状缺口：deploy/scripts/*_test.sh 曾经是手工列进本 gate 的，
-# 目录里 12 个、清单里 9 个，三个（含本轮新增的两个）永远不会在 CI 里跑——
-# 测试存在、本地绿、CI 从不执行，删掉被测行为也发现不了。判据只断言「目录里的
-# 每个 *_test.sh 都在本脚本里被**执行**」：不比对数量（两边同时改就绕过了），
-# 也不认注释里的路径（只认 `./path` 形式的调用行）。
-echo "Running deploy test script coverage validation..."
-gate_self="${BASH_SOURCE[0]}"
-for script in deploy/scripts/*_test.sh; do
-	[ -e "$script" ] || continue
-	grep -qE "^\./${script}([[:space:]]|$)" "$gate_self" ||
-		fail "deploy 测试脚本 $script 没有在本 gate 里被执行，CI 永远不会跑它"
-done
-
 # R7-OPS-01：归档、提升、source 三个集合必须一起闭合。发布包里打了、而 bootstrap 的
 # managed_files() 从不提升的文件不会让安装报错 —— 它只是安静地留在包里，直到操作员在
 # 已经"装好"的实例上第一次跑 backup/restore 才崩在 source 行上。同族缺口的另一半
@@ -102,75 +89,129 @@ done < <(git ls-files | grep 'go\.mod$')
 [ "$manifest_count" -gt 0 ] || fail "找不到任何 tracked go.mod，无法校验工具链一致性"
 echo "Toolchain parity: go $go_version across $manifest_count go.mod, Dockerfile, and govulncheck."
 
-echo "Running release script validation..."
-./scripts/release_test.sh
+JOB_LABELS=()
+JOB_COMMANDS=()
+DEPLOY_JOB_SCRIPTS=()
 
-echo "Running exact main CI release gate validation..."
-./scripts/ci/verify-main-ci_test.sh
+register_job() {
+	local label="$1" command="$2" deploy_script="${3:-}"
+	JOB_LABELS+=("$label")
+	JOB_COMMANDS+=("$command")
+	if [ -n "$deploy_script" ]; then
+		DEPLOY_JOB_SCRIPTS+=("$deploy_script")
+	fi
+}
 
-echo "Running release workflow architecture validation..."
-ruby ./scripts/ci/release_workflow_test.rb
+# 这些命令是实际执行清单，不是注释或旁路副本。RV-14 的 deploy 覆盖检查直接
+# 比对下面的登记项，新增测试却没有接入并发队列时会在启动任何任务前失败。
+register_job "release script validation" "./scripts/release_test.sh"
+register_job "exact main CI release gate validation" "./scripts/ci/verify-main-ci_test.sh"
+register_job "release workflow architecture validation" "ruby ./scripts/ci/release_workflow_test.rb"
+register_job "automatic release notes validation" "./scripts/ci/generate-release-notes_test.sh"
+register_job "release asset packaging validation" "./scripts/ci/release_assets_test.sh"
+register_job "anonymous release image pull validation" "./scripts/ci/verify-public-images_test.sh"
+register_job "PostgreSQL backup and restore safety validation" "./deploy/scripts/postgres-safety_test.sh" "deploy/scripts/postgres-safety_test.sh"
+register_job "release deployment state-machine validation" "./deploy/scripts/deploy_test.sh" "deploy/scripts/deploy_test.sh"
+register_job "one-click backup key bootstrap validation" "./deploy/scripts/backup-key_test.sh" "deploy/scripts/backup-key_test.sh"
+register_job "deploy lock alignment validation" "./deploy/scripts/deploy-lock_test.sh" "deploy/scripts/deploy-lock_test.sh"
+register_job "production Compose migration configuration validation" "./deploy/scripts/compose-production_test.sh" "deploy/scripts/compose-production_test.sh"
+register_job "production configure script validation" "./deploy/scripts/configure-production_test.sh" "deploy/scripts/configure-production_test.sh"
+register_job "zero-downtime Compose topology validation" "./deploy/scripts/zero-downtime-compose_test.sh" "deploy/scripts/zero-downtime-compose_test.sh"
+register_job "zero-downtime release selection validation" "./deploy/scripts/upgrade-version-selection_test.sh" "deploy/scripts/upgrade-version-selection_test.sh"
+register_job "verified release bootstrap validation" "./deploy/scripts/bootstrap_test.sh" "deploy/scripts/bootstrap_test.sh"
+register_job "release bootstrap image validation" "./deploy/scripts/upgrade-bootstrap-image_test.sh" "deploy/scripts/upgrade-bootstrap-image_test.sh"
+register_job "one-line install loader validation" "./deploy/scripts/install-loader_test.sh" "deploy/scripts/install-loader_test.sh"
+register_job "zero-downtime state-machine validation" "./deploy/scripts/zero-downtime-state_test.sh" "deploy/scripts/zero-downtime-state_test.sh"
+register_job "blue/green slot health probe validation" "./deploy/scripts/upgrade-health-probe_test.sh" "deploy/scripts/upgrade-health-probe_test.sh"
+register_job "documentation validation failure-path tests" "./tests/validate-docs_test.sh"
+register_job "publishable Web SDK package validation" "node ./scripts/ci/publish-web-sdks_test.mjs && node ./scripts/ci/verify-web-sdks.mjs"
+register_job "built-in plugin release version validation" "node tests/validate-builtin-plugin-versions.mjs"
+register_job "terminal color layer validation" "./tests/validate-term-ui.sh"
+register_job "verified latest-wrapper validation" "./tests/validate-sforum-latest.sh"
 
-echo "Running automatic release notes validation..."
-./scripts/ci/generate-release-notes_test.sh
+echo "Running deploy test script coverage validation..."
+for script in deploy/scripts/*_test.sh; do
+	[ -e "$script" ] || continue
+	found=0
+	for registered in "${DEPLOY_JOB_SCRIPTS[@]}"; do
+		if [ "$registered" = "$script" ]; then
+			found=1
+			break
+		fi
+	done
+	[ "$found" = 1 ] ||
+		fail "deploy 测试脚本 $script 没有登记到并行执行列表，CI 永远不会跑它"
+done
 
-echo "Running release asset packaging validation..."
-./scripts/ci/release_assets_test.sh
+if command -v nproc >/dev/null 2>&1; then
+	cores="$(nproc)"
+else
+	cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
+fi
+job_limit="${SFORUM_RELEASE_TOOLING_JOBS:-$((cores > 4 ? 4 : cores))}"
+[[ "$job_limit" =~ ^[1-9][0-9]*$ ]] ||
+	fail "SFORUM_RELEASE_TOOLING_JOBS 必须是正整数：$job_limit"
 
-echo "Running anonymous release image pull validation..."
-./scripts/ci/verify-public-images_test.sh
+JOB_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sforum-release-tooling.XXXXXX")"
+ACTIVE_PIDS=()
+cleanup_jobs() {
+	local status=$?
+	trap - EXIT INT TERM
+	local pid
+	for pid in "${ACTIVE_PIDS[@]:-}"; do
+		kill "$pid" 2>/dev/null || true
+	done
+	rm -rf "$JOB_TMP_DIR"
+	exit "$status"
+}
+trap cleanup_jobs EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-echo "Running PostgreSQL backup and restore safety validation..."
-./deploy/scripts/postgres-safety_test.sh
+total="${#JOB_LABELS[@]}"
+echo "Running $total release/deploy tooling jobs with concurrency $job_limit..."
+failed=0
+declare -A JOB_PID_INDEX=()
+next_index=0
+active=0
+completed=0
+while [ "$completed" -lt "$total" ]; do
+	while [ "$active" -lt "$job_limit" ] && [ "$next_index" -lt "$total" ]; do
+		printf '[%d/%d] %s\n' "$((next_index + 1))" "$total" "${JOB_LABELS[$next_index]}"
+		(
+			set -o pipefail
+			bash -euo pipefail -c "${JOB_COMMANDS[$next_index]}"
+		) >"$JOB_TMP_DIR/$next_index.log" 2>&1 &
+		pid=$!
+		JOB_PID_INDEX["$pid"]="$next_index"
+		ACTIVE_PIDS+=("$pid")
+		next_index=$((next_index + 1))
+		active=$((active + 1))
+	done
 
-echo "Running release deployment state-machine validation..."
-./deploy/scripts/deploy_test.sh
+	status=0
+	wait -n || status=$?
+	finished_pid=""
+	for pid in "${!JOB_PID_INDEX[@]}"; do
+		if ! kill -0 "$pid" 2>/dev/null; then
+			finished_pid="$pid"
+			break
+		fi
+	done
+	[ -n "$finished_pid" ] || fail "无法识别已完成的 release tooling 任务"
+	job_index="${JOB_PID_INDEX[$finished_pid]}"
+	unset 'JOB_PID_INDEX[$finished_pid]'
+	ACTIVE_PIDS=("${!JOB_PID_INDEX[@]}")
+	active=$((active - 1))
+	completed=$((completed + 1))
+	if [ "$status" -eq 0 ]; then
+		printf 'PASS %s\n' "${JOB_LABELS[$job_index]}"
+	else
+		printf 'FAIL %s (exit %s)\n' "${JOB_LABELS[$job_index]}" "$status" >&2
+		cat "$JOB_TMP_DIR/$job_index.log" >&2
+		failed=1
+	fi
+done
 
-echo "Running one-click backup key bootstrap validation..."
-./deploy/scripts/backup-key_test.sh
-
-echo "Running deploy lock alignment validation..."
-./deploy/scripts/deploy-lock_test.sh
-
-echo "Running production Compose migration configuration validation..."
-./deploy/scripts/compose-production_test.sh
-
-echo "Running production configure script validation..."
-./deploy/scripts/configure-production_test.sh
-
-echo "Running zero-downtime Compose topology validation..."
-./deploy/scripts/zero-downtime-compose_test.sh
-
-echo "Running zero-downtime release selection validation..."
-./deploy/scripts/upgrade-version-selection_test.sh
-
-echo "Running verified release bootstrap validation..."
-./deploy/scripts/bootstrap_test.sh
-
-echo "Running release bootstrap image validation..."
-./deploy/scripts/upgrade-bootstrap-image_test.sh
-
-echo "Running one-line install loader validation..."
-./deploy/scripts/install-loader_test.sh
-
-echo "Running zero-downtime state-machine validation..."
-./deploy/scripts/zero-downtime-state_test.sh
-
-echo "Running blue/green slot health probe validation..."
-./deploy/scripts/upgrade-health-probe_test.sh
-
-echo "Running documentation validation failure-path tests..."
-./tests/validate-docs_test.sh
-
-echo "Running publishable Web SDK package validation..."
-node ./scripts/ci/publish-web-sdks_test.mjs
-node ./scripts/ci/verify-web-sdks.mjs
-
-echo "Running built-in plugin release version validation..."
-node tests/validate-builtin-plugin-versions.mjs
-
-echo "Running terminal color layer validation..."
-./tests/validate-term-ui.sh
-
-echo "Running verified latest-wrapper validation..."
-./tests/validate-sforum-latest.sh
+[ "$failed" = 0 ] || fail "one or more release/deploy tooling jobs failed"
+echo "All release/deploy tooling jobs passed."

@@ -27,6 +27,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readParityReport } from './helpers/contract-parity/report.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -41,6 +42,12 @@ function runGate(args) {
   });
   if (result.error) throw result.error;
   return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
+}
+
+const repoReport = readParityReport();
+
+function repoGate() {
+  return repoReport || runGate([]);
 }
 
 function failureLines(stderr) {
@@ -61,7 +68,7 @@ function check(name, fn) {
 }
 
 check('对照：仓库自身的门为绿，且两条新判据都在自报里', () => {
-  const repo = runGate([]);
+  const repo = repoGate();
   assert.equal(repo.status, 0, `仓库门退出码 ${repo.status}\n${repo.stderr}`);
   assert.match(repo.stdout, /\[parity\] 映射器收窄归因（#237）：映射器分支 \d+ 个、哨兵 \d+ 个/);
   assert.match(repo.stdout, /\[parity\] 反向检查（契约声明的码必须真被实现产出）：缺口 \d+ 条 operation/);

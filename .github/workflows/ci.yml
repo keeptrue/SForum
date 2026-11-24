@@ -29,29 +29,27 @@ jobs:
     # Go 测试统一走 ./scripts/test-api-isolated.sh：脚本用 runner 上的 docker 自建
     # 一次性 PostgreSQL + Redis 容器（同一 com.sforum.test-owner label、同一 trap
     # 清理），并 export DATABASE_URL / SFORUM_TEST_DATABASE_URL /
-    # SFORUM_COMPAT_DATABASE_URL / SFORUM_TEST_REDIS_ADDR。因此这里不声明 redis
-    # service —— 声明了也不会被用上；下面保留的 postgres service 同样不参与测试
-    # （连接串被脚本覆盖），删除它属于独立的 workflow 清理。
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: sforum
-          POSTGRES_USER: sforum
-          POSTGRES_PASSWORD: sforum
-        ports:
-          - 15432:5432
-        options: >-
-          --health-cmd "pg_isready -U sforum -d sforum"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # SFORUM_COMPAT_DATABASE_URL / SFORUM_TEST_REDIS_ADDR。因此这里不声明任何
+    # database service；GitHub 提供的 service 容器不参与测试，只会增加启动等待。
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 2
           ref: ${{ inputs.ref || github.sha }}
+
+      - name: Fetch built-in plugin version baseline
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            exit 0
+          fi
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          fi
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -63,7 +61,6 @@ jobs:
 
       - name: Run Go gate
         env:
-          SFORUM_COMPAT_DATABASE_URL: postgres://sforum:sforum@127.0.0.1:15432/sforum?sslmode=disable
           SFORUM_BUILTIN_VERSION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: ./scripts/ci/go-gate.sh
 
@@ -109,6 +106,26 @@ jobs:
         with:
           bun-version: 1.4.4
 
+      - name: Restore Bun package cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Restore Nuxt incremental caches
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            apps/web/.nuxt-typecheck.tsbuildinfo
+            apps/web/.nuxt-build
+            apps/web/node_modules/.cache
+          key: ${{ runner.os }}-nuxt-${{ hashFiles('apps/web/bun.lock', 'apps/web/package.json', 'apps/web/nuxt.config.ts') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nuxt-${{ hashFiles('apps/web/bun.lock', 'apps/web/package.json', 'apps/web/nuxt.config.ts') }}-
+            ${{ runner.os }}-nuxt-
+
       - name: Install web dependencies
         working-directory: apps/web
         run: bun install --frozen-lockfile
@@ -127,7 +144,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: 2
           ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Go
@@ -141,14 +158,45 @@ jobs:
         with:
           bun-version: 1.4.4
 
+      - name: Restore Bun package cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Restore Protobuf tool cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: tools/proto/.bin
+          key: ${{ runner.os }}-proto-${{ hashFiles('tools/proto/go.mod', 'tools/proto/go.sum', 'scripts/proto.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-proto-
+
+      - name: Restore actionlint
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/sforum/actionlint/v1.7.12
+          key: ${{ runner.os }}-actionlint-v1.7.12
+
       - name: Lint GitHub Actions workflows
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+        run: |
+          set -euo pipefail
+          actionlint_bin="$HOME/.cache/sforum/actionlint/v1.7.12/actionlint"
+          if [[ ! -x "$actionlint_bin" ]]; then
+            mkdir -p "$(dirname "$actionlint_bin")"
+            GOBIN="$(dirname "$actionlint_bin")" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          fi
+          "$actionlint_bin"
 
       - name: Install web dependencies
         working-directory: apps/web
         run: bun install --frozen-lockfile
 
       - name: Run contracts and static gates
+        env:
+          SFORUM_CONTRACTS_SKIP_WEB_UNIT: "1"
         run: ./scripts/ci/contracts-gate.sh
 
       - name: Reject generated SDK drift

@@ -126,6 +126,11 @@ Build, typecheck, lint, test:
   `internal/testdb`, which reads `SFORUM_TEST_DATABASE_URL` alone and refuses
   to run against the development database (identified by the
   `public.sforum_dev_guard` sentinel that `scripts/api-dev.sh` writes).
+- The isolated runner defaults to no-cache evidence mode: `-count=1` and
+  ephemeral host ports. Explicit local daily runs use `--cache` (or
+  `SFORUM_TEST_CACHE=1`) to reuse Go's test cache and fixed ports. `CI=true`
+  and `SFORUM_TEST_NO_CACHE=1` always force no-cache mode, even if a cache flag
+  was supplied.
 - The same script exports `SFORUM_TEST_REDIS_ADDR` at a disposable Redis it
   starts alongside PostgreSQL. `TestLoginLockoutTTLAgainstRedis` in
   `app/Support/Auth` is a hard gate on that variable: with no address it fails
@@ -166,11 +171,14 @@ Build, typecheck, lint, test:
   Go tests plus the compatibility farm and `go build ./...`; Nuxt typecheck,
   `bun test`, and the production build; the static contract/release gates and
   the product `tests/validate-*` scripts (demos remain optional offline
-  checks). Per-line logs land in `tests/.logs/`.
+  checks). It defaults to no-cache Go evidence mode; `--cache` opts into the
+  local test cache. Per-line logs land in `tests/.logs/`.
 - `./scripts/test.sh --fast` — local daily loop: the same Go tests and Nuxt
   typecheck plus `bun test`, but skips the production web build, the
   compatibility farm, and the release/deploy tooling gate, which CI already
-  covers in full. Without the flag the gate keeps its full meaning.
+  covers in full. It enables the Go test cache by default; pass `--no-cache`
+  when the fast run is itself evidence. Without the flag the gate keeps its
+  full meaning.
 - `ruby scripts/validate-openapi-refs.rb` — validate OpenAPI `$ref`s after
   editing any contract file.
 

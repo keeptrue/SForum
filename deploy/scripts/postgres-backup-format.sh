@@ -30,7 +30,21 @@ SFORUM_BACKUP_ENCRYPTION_SCHEME_V1="openssl-aes-256-cbc-pbkdf2-iter200000"
 SFORUM_BACKUP_ENCRYPTION_SCHEME="openssl-aes-256-cbc-pbkdf2-iter200000+hmac-sha256"
 # 信封头第一行。恢复侧靠它区分「v2 信封」与「v1 纯密文（Salted__）」。
 SFORUM_BACKUP_ENVELOPE_MAGIC="SFORUM-BACKUP-ENVELOPE 2"
-SFORUM_BACKUP_MAC_KDF_ITER=200000
+SFORUM_BACKUP_KDF_ITER_DEFAULT=200000
+# 生产必须使用 200000 次。测试夹具可以显式降为小值以覆盖大量加密/篡改分支，
+# 但只有 APP_ENV=test 能打开这个测试口，避免部署环境误用弱 KDF。
+if [ -n "${SFORUM_BACKUP_KDF_ITER:-}" ]; then
+  [ "${APP_ENV:-}" = "test" ] || \
+    sforum_die "SFORUM_BACKUP_KDF_ITER 只允许在 APP_ENV=test 下覆盖；生产备份固定使用 200000 次 PBKDF2。"
+  case "$SFORUM_BACKUP_KDF_ITER" in
+    ""|*[!0-9]*|0)
+      sforum_die "SFORUM_BACKUP_KDF_ITER 必须是正整数：$SFORUM_BACKUP_KDF_ITER"
+      ;;
+  esac
+else
+  SFORUM_BACKUP_KDF_ITER="$SFORUM_BACKUP_KDF_ITER_DEFAULT"
+fi
+SFORUM_BACKUP_MAC_KDF_ITER="$SFORUM_BACKUP_KDF_ITER"
 # MAC key 的 PBKDF2 目的串："sforum-b"（"sforum-backup-mac-v2" 的前 8 字节，
 # 十六进制）。它与加密侧每次随机的 salt 必然不同，因此两把 key 由同一口令派生但
 # 不可互相推导。
@@ -135,7 +149,7 @@ sforum_encrypt_file() {
   # `sforum-backup-*` 前缀扫，本来也扫不到它。派生只依赖口令与常量，与密文无关。
   sforum_derive_mac_key
   rm -f "$body" "$envelope"
-  openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+  openssl enc -aes-256-cbc -pbkdf2 -iter "$SFORUM_BACKUP_KDF_ITER" -salt \
     "${SFORUM_KEY_ARGS[@]}" -in "$in" -out "$body" >/dev/null 2>&1 || {
       rm -f "$body"
       sforum_die "openssl 加密失败：$out"
@@ -173,7 +187,7 @@ sforum_decrypt_file() {
   local out="$2"
 
   [ "${#SFORUM_KEY_ARGS[@]}" -gt 0 ] || sforum_die "解密前必须先加载备份密钥。"
-  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+  openssl enc -d -aes-256-cbc -pbkdf2 -iter "$SFORUM_BACKUP_KDF_ITER" \
     "${SFORUM_KEY_ARGS[@]}" -in "$in" -out "$out" >/dev/null 2>&1 || \
     sforum_die "openssl 解密失败（密钥不对或文件损坏）：$in"
   chmod 600 "$out"

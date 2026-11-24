@@ -346,6 +346,48 @@ assert_validator_fails_with() {
   fi
 }
 
+PARALLEL_CASE_DIRS=()
+PARALLEL_CASE_EXPECTED=()
+PARALLEL_CASE_LABELS=()
+
+register_failure_case() {
+  PARALLEL_CASE_DIRS+=("$1")
+  PARALLEL_CASE_EXPECTED+=("$2")
+  PARALLEL_CASE_LABELS+=("$3")
+}
+
+run_registered_cases() {
+  local jobs="${SFORUM_VALIDATE_DOCS_JOBS:-4}" total index base status failed=0
+  [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || fail "SFORUM_VALIDATE_DOCS_JOBS must be a positive integer: $jobs"
+  total=${#PARALLEL_CASE_DIRS[@]}
+  [[ "$total" -gt 0 ]] || return 0
+  local result_dir="$TEMP_DIR/parallel-results"
+  mkdir -p "$result_dir"
+  for ((base = 0; base < total; base += jobs)); do
+    local pids=()
+    local indexes=()
+    for ((index = base; index < base + jobs && index < total; index++)); do
+      (
+        assert_validator_fails_with \
+          "${PARALLEL_CASE_DIRS[$index]}" \
+          "${PARALLEL_CASE_EXPECTED[$index]}" \
+          "${PARALLEL_CASE_LABELS[$index]}"
+      ) >"$result_dir/$index.log" 2>&1 &
+      pids+=($!)
+      indexes+=("$index")
+    done
+    for index in "${!pids[@]}"; do
+      status=0
+      wait "${pids[$index]}" || status=$?
+      if [[ "$status" != 0 ]]; then
+        cat "$result_dir/${indexes[$index]}.log" >&2
+        failed=1
+      fi
+    done
+  done
+  [[ "$failed" == 0 ]] || fail "one or more parallel documentation fixtures failed"
+}
+
 # Positive: the base fixture passes.
 BASE="$TEMP_DIR/base"
 write_base_fixture "$BASE"
@@ -380,7 +422,7 @@ cat >> "$CASE_IGNORED_LINK/docs/README.md" <<'EOF'
 [Local-only documentation](../local-only/README.md)
 EOF
 git -C "$CASE_IGNORED_LINK" init -q
-assert_validator_fails_with "$CASE_IGNORED_LINK" "local link points to a gitignored target" "gitignored local link check"
+register_failure_case "$CASE_IGNORED_LINK" "local link points to a gitignored target" "gitignored local link check"
 
 # The rolling entry must be the one-line loader; a bare bootstrap download is
 # no longer the documented first step.
@@ -392,7 +434,7 @@ cat > "$CASE_INSTALL_SAFETY/README.md" <<'EOF'
 curl -fsSLo sforum-bootstrap.sh https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh
 Use --channel prerelease for prereleases.
 EOF
-assert_validator_fails_with "$CASE_INSTALL_SAFETY" "must use the stable rolling one-line entry" "one-line entry check"
+register_failure_case "$CASE_INSTALL_SAFETY" "must use the stable rolling one-line entry" "one-line entry check"
 
 # Only the loader may run from a pipe. The install state machine must not.
 CASE_PIPE_TO_SHELL="$TEMP_DIR/pipe-to-shell"
@@ -401,7 +443,7 @@ cat >> "$CASE_PIPE_TO_SHELL/README.md" <<'EOF'
 
 curl -fsSL https://example.invalid/install.sh | bash
 EOF
-assert_validator_fails_with "$CASE_PIPE_TO_SHELL" "only the one-line loader may be piped into a shell" "remote shell pipe check"
+register_failure_case "$CASE_PIPE_TO_SHELL" "only the one-line loader may be piped into a shell" "remote shell pipe check"
 
 CASE_BOOTSTRAP_PIPE="$TEMP_DIR/bootstrap-pipe"
 write_base_fixture "$CASE_BOOTSTRAP_PIPE"
@@ -409,7 +451,7 @@ cat >> "$CASE_BOOTSTRAP_PIPE/README.md" <<'EOF'
 
 curl -fsSL https://github.com/keeptrue/SForum/releases/latest/download/sforum-bootstrap.sh | bash
 EOF
-assert_validator_fails_with "$CASE_BOOTSTRAP_PIPE" "only the one-line loader may be piped into a shell" "bootstrap pipe check"
+register_failure_case "$CASE_BOOTSTRAP_PIPE" "only the one-line loader may be piped into a shell" "bootstrap pipe check"
 
 # The auditable sequence must stay complete even though the first screen is a
 # one-liner.
@@ -424,7 +466,7 @@ cat > "$CASE_AUDIT_MISSING/docs/zh-CN/deployment/one-click.md" <<'EOF'
 .deployrc
 ./sforum-bootstrap.sh upgrade
 EOF
-assert_validator_fails_with "$CASE_AUDIT_MISSING" "the auditable bootstrap sequence must stay complete" "auditable sequence check"
+register_failure_case "$CASE_AUDIT_MISSING" "the auditable bootstrap sequence must stay complete" "auditable sequence check"
 
 # Unknown CLI constructor registered at the root.
 CASE_CLI="$TEMP_DIR/cli"
@@ -441,7 +483,7 @@ func newRootCommand() *cobra.Command {
 	return cmd
 }
 EOF
-assert_validator_fails_with "$CASE_CLI" "unknown command constructor" "CLI constructor check"
+register_failure_case "$CASE_CLI" "unknown command constructor" "CLI constructor check"
 
 # A root command expression that does not use the new*Command constructor
 # convention must also fail instead of disappearing from the expected set.
@@ -459,7 +501,7 @@ func newRootCommand() *cobra.Command {
 	return cmd
 }
 EOF
-assert_validator_fails_with "$CASE_CLI_UNPARSED" "unparsed AddCommand argument: existingCommand" "CLI unparsed argument check"
+register_failure_case "$CASE_CLI_UNPARSED" "unparsed AddCommand argument: existingCommand" "CLI unparsed argument check"
 
 # A method shown in docs must exist under that path in OpenAPI.
 CASE_HTTP_OPENAPI="$TEMP_DIR/http-openapi"
@@ -468,7 +510,7 @@ cat >> "$CASE_HTTP_OPENAPI/docs/en-US/README.md" <<'EOF'
 
 Wrong method: `DELETE /auth/register`.
 EOF
-assert_validator_fails_with "$CASE_HTTP_OPENAPI" "not declared by OpenAPI: DELETE /api/v1/auth/register" "documented OpenAPI method check"
+register_failure_case "$CASE_HTTP_OPENAPI" "not declared by OpenAPI: DELETE /api/v1/auth/register" "documented OpenAPI method check"
 
 # Matching OpenAPI text is insufficient when the generated Go route catalog
 # registers a different method.
@@ -481,7 +523,7 @@ var generatedCoreRouteCatalog = [...]CoreRoute{
 	{Method: "DELETE", Path: "/api/v1/auth/register"},
 }
 EOF
-assert_validator_fails_with "$CASE_HTTP_GO" "not registered in the Go route catalog: POST /api/v1/auth/register" "documented Go route method check"
+register_failure_case "$CASE_HTTP_GO" "not registered in the Go route catalog: POST /api/v1/auth/register" "documented Go route method check"
 
 # The generic Docker YAML fetcher filters out Compose manifests; the root entry
 # must use the dedicated docker-compose ecosystem.
@@ -495,7 +537,7 @@ updates:
   - package-ecosystem: "gomod"
     directory: "/apps/api"
 EOF
-assert_validator_fails_with "$CASE_DEPENDABOT_COMPOSE" "must use the docker-compose ecosystem" "Dependabot Compose ecosystem check"
+register_failure_case "$CASE_DEPENDABOT_COMPOSE" "must use the docker-compose ecosystem" "Dependabot Compose ecosystem check"
 
 # A new governed Go module must not silently fall outside update governance.
 CASE_DEPENDABOT_GOMOD="$TEMP_DIR/dependabot-gomod"
@@ -506,7 +548,7 @@ module fixture/demo
 
 go 1.26.6
 EOF
-assert_validator_fails_with "$CASE_DEPENDABOT_GOMOD" "does not cover governed Go module: /extensions/builtin/plugins/demo/backend/go.mod" "Dependabot Go module coverage check"
+register_failure_case "$CASE_DEPENDABOT_GOMOD" "does not cover governed Go module: /extensions/builtin/plugins/demo/backend/go.mod" "Dependabot Go module coverage check"
 
 # Dockerfile golang base image drifts from go.mod.
 CASE_DOCKER="$TEMP_DIR/docker"
@@ -514,7 +556,7 @@ write_base_fixture "$CASE_DOCKER"
 cat > "$CASE_DOCKER/apps/api/Dockerfile" <<'EOF'
 FROM golang:1.26.7-alpine AS base
 EOF
-assert_validator_fails_with "$CASE_DOCKER" "must match the go.mod toolchain" "Dockerfile Go version check"
+register_failure_case "$CASE_DOCKER" "must match the go.mod toolchain" "Dockerfile Go version check"
 
 # The narrow version rule: a line mentioning a prerelease must NOT exempt an
 # unlisted stable-shaped token on the same line.
@@ -524,7 +566,7 @@ cat >> "$CASE_VERSION/docs/zh-CN/README.md" <<'EOF'
 
 Legacy: v3.0.0-alpha.13 examples may not hide v9.9.9.
 EOF
-assert_validator_fails_with "$CASE_VERSION" "must not contain the concrete release number v9.9.9" "narrow version allowlist check"
+register_failure_case "$CASE_VERSION" "must not contain the concrete release number v9.9.9" "narrow version allowlist check"
 
 # Unlisted stable-shaped token in rolling docs.
 CASE_TOKEN="$TEMP_DIR/token"
@@ -533,7 +575,7 @@ cat >> "$CASE_TOKEN/README.md" <<'EOF'
 
 Deploy v7.7.7 for the demo.
 EOF
-assert_validator_fails_with "$CASE_TOKEN" "must not contain the concrete release number v7.7.7" "rolling version token check"
+register_failure_case "$CASE_TOKEN" "must not contain the concrete release number v7.7.7" "rolling version token check"
 
 # A stable token that shares the prefix of an allowed historical prerelease is
 # still forbidden outside that full prerelease token.
@@ -543,27 +585,27 @@ cat >> "$CASE_HISTORICAL_PREFIX/docs/en-US/README.md" <<'EOF'
 
 Deploy v3.0.0 for the demo.
 EOF
-assert_validator_fails_with "$CASE_HISTORICAL_PREFIX" "must not contain the concrete release number v3.0.0" "historical prerelease prefix check"
+register_failure_case "$CASE_HISTORICAL_PREFIX" "must not contain the concrete release number v3.0.0" "historical prerelease prefix check"
 
 # A deployment task page must exist in both locales.
 CASE_DEPLOY_PAGE="$TEMP_DIR/deploy-page"
 write_base_fixture "$CASE_DEPLOY_PAGE"
 rm "$CASE_DEPLOY_PAGE/docs/zh-CN/deployment/manual.md"
 rm "$CASE_DEPLOY_PAGE/docs/en-US/deployment/manual.md"
-assert_validator_fails_with "$CASE_DEPLOY_PAGE" "required deployment guide is missing" "deployment page presence check"
+register_failure_case "$CASE_DEPLOY_PAGE" "required deployment guide is missing" "deployment page presence check"
 
 # Every production env key must stay documented in both locales.
 CASE_ENV_KEY="$TEMP_DIR/env-key"
 write_base_fixture "$CASE_ENV_KEY"
 printf 'NEW_SECRET=change-me\n' >> "$CASE_ENV_KEY/.env.production.example"
-assert_validator_fails_with "$CASE_ENV_KEY" "must document NEW_SECRET" "environment key coverage check"
+register_failure_case "$CASE_ENV_KEY" "must document NEW_SECRET" "environment key coverage check"
 
 # A documented proxy variable must actually reach the API container.
 CASE_COMPOSE_PASSTHROUGH="$TEMP_DIR/compose-passthrough"
 write_base_fixture "$CASE_COMPOSE_PASSTHROUGH"
 grep -v 'TRUST_PROXY: ' "$CASE_COMPOSE_PASSTHROUGH/compose.yaml" > "$CASE_COMPOSE_PASSTHROUGH/compose.yaml.next"
 mv "$CASE_COMPOSE_PASSTHROUGH/compose.yaml.next" "$CASE_COMPOSE_PASSTHROUGH/compose.yaml"
-assert_validator_fails_with "$CASE_COMPOSE_PASSTHROUGH" "API environment must pass through TRUST_PROXY" "Compose passthrough check"
+register_failure_case "$CASE_COMPOSE_PASSTHROUGH" "API environment must pass through TRUST_PROXY" "Compose passthrough check"
 
 # Stale image/service counts must not come back.
 CASE_STALE_COUNT="$TEMP_DIR/stale-count"
@@ -572,13 +614,14 @@ cat >> "$CASE_STALE_COUNT/docs/en-US/deployment.md" <<'EOF'
 
 four GHCR images
 EOF
-assert_validator_fails_with "$CASE_STALE_COUNT" "stale service/image count" "deployment count check"
+register_failure_case "$CASE_STALE_COUNT" "stale service/image count" "deployment count check"
 
 # Operational commands must survive edits to the task pages.
 CASE_MARKER="$TEMP_DIR/deploy-marker"
 write_base_fixture "$CASE_MARKER"
 grep -v -- '--confirm-maintenance' "$CASE_MARKER/docs/en-US/deployment/one-click.md" > "$CASE_MARKER/docs/en-US/deployment/one-click.md.next"
 mv "$CASE_MARKER/docs/en-US/deployment/one-click.md.next" "$CASE_MARKER/docs/en-US/deployment/one-click.md"
-assert_validator_fails_with "$CASE_MARKER" "missing operational marker --confirm-maintenance" "deployment marker check"
+register_failure_case "$CASE_MARKER" "missing operational marker --confirm-maintenance" "deployment marker check"
 
+run_registered_cases
 printf 'validate-docs_test.sh: all checks passed\n'

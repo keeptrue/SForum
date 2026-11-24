@@ -6,6 +6,22 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/sforum-contracts-gate.XXXXXX")"
+ACTIVE_PIDS=()
+cleanup_jobs() {
+  local status=$?
+  trap - EXIT INT TERM
+  local pid
+  for pid in "${ACTIVE_PIDS[@]:-}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+  rm -rf "$TMP_DIR"
+  exit "$status"
+}
+trap cleanup_jobs EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 echo "Running Protobuf lint and generated SDK drift validation..."
 ./scripts/proto.sh check
 
@@ -15,119 +31,64 @@ node tests/validate-host-api-v2-docs.mjs
 echo "Running OpenAPI reference validation..."
 ruby scripts/validate-openapi-refs.rb
 
-echo "Running contract status-code parity validation..."
-node tests/validate-contract-status-parity.mjs
+echo "Running contract status-code parity validation and capturing its read-only output snapshot..."
+PARITY_REPORT_DIR="$TMP_DIR/parity-report"
+mkdir -p "$PARITY_REPORT_DIR"
+parity_status=0
+node tests/validate-contract-status-parity.mjs --print-empty-routes --print-operation-codes \
+  >"$PARITY_REPORT_DIR/stdout.log" 2>"$PARITY_REPORT_DIR/stderr.log" || parity_status=$?
+printf '%s\n' "$parity_status" >"$PARITY_REPORT_DIR/status"
+cat "$PARITY_REPORT_DIR/stdout.log"
+if [ "$parity_status" != 0 ]; then
+  cat "$PARITY_REPORT_DIR/stderr.log" >&2
+  exit "$parity_status"
+fi
+export SFORUM_PARITY_REPORT="$PARITY_REPORT_DIR"
 
-# 响应助手白名单必须是闭的：漏登记一个「首参 fiber.Ctx 且自己产状态码」的助手，
-# 那个码就静默消失、路由状态码集合变空、比对退化成 ∅ ⊆ 任意（第 14 轮 P1 的成因）。
-echo "Running response-helper registry closure validation..."
-node tests/validate-contract-status-parity-helpers.test.mjs
+JOB_LABELS=()
+JOB_COMMANDS=()
+register_job() {
+  JOB_LABELS+=("$1")
+  JOB_COMMANDS+=("$2")
+}
 
-# G3：parity 门扩出的三条调用边识别形态（同包委派 / 跟包 apphttp.* / 依赖故障 503）
-# 必须有命中面，且三条精度闸门（映射器不归因、error 吞噬、实参 bool 剪枝）同时成立。
-# 摘掉任一形态，合成树里对应那条路由就会掉进空集或撞上契约 —— 门会重新红。
-echo "Running contract parity call-edge recognition validation..."
-node tests/validate-contract-parity-call-edges.test.mjs
-
-# 子集成立不等于两边说的是同一件事：三个样本 operation 做**双向集合相等**比对，
-# 契约侧独立解析（不读门打印的「已声明」列），用来证明实现侧集合真的收敛了。
-echo "Running contract parity sample-set equality validation..."
-node tests/validate-contract-parity-sample-equality.test.mjs
-
-# 反向检查（#237）不许被改回恒绿：契约声明的码必须真被实现产出。
-# 三个单因合成树分别钉住「契约删掉 403、实现经映射器仍能产出 403 → 必须红」、
-# 「契约声明了实现永不产出的 418 → 必须红」、「映射器里有 403 但 handler 不调用那个
-# 领域方法 → 必须保持绿」（后者是收窄归因与「全量并入」的分界线）。
-# 只跑主门不够：主门自己的反向判据被摘掉时，只有这组反例会让 CI 红。
-echo "Running contract status-code reverse-parity and mapper-attribution validation..."
-node tests/validate-contract-status-parity-reverse.test.mjs
-
-# 可达性门补的是 parity 门的另一半盲区：parity 门只认 requireGuestRead / requireAdmin
-# 两条 guard 白名单，ReadActor / RequireActor / LoadActor 产出的 401/503 它看不见
-# （第 14 轮 P1 就是这么变绿的）。两道门互为补集，都不许被关掉。
-echo "Running contract reachability validation (route -> same-package call graph -> guard helpers)..."
-node tests/validate-contract-reachability.mjs
-
-# 门必须能被证明会红：1 个对照 + 8 个单一成因反例（漏 503 / guard 换直连 / guard 改名 /
-# 未登记通配路由 / 登记表过期 / 基线被删 / 基线被截断 / 棘轮上调）。
-echo "Running contract reachability negative fixtures..."
-node tests/validate-contract-reachability.test.mjs
-
-# 两门必须对同一棵树得出同样的分母与同样的退化区成员。这条测试**不共享实现**，
-# 只比对两道门各自打印的结果 —— 共享会让「互相独立复核」失去意义。
-echo "Running contract gate equivalence validation (parity vs reachability)..."
-node tests/validate-contract-reachability-equivalence.test.mjs
-
-echo "Running staged extension management contract validation..."
-node tests/validate-staged-extension-contracts.js
-
-echo "Running V3 production trust deployment validation..."
-node tests/validate-v3-production-trust.mjs
-
-echo "Running production WebSocket proxy validation..."
-node tests/validate-production-websocket-proxy.mjs
-
-echo "Running architecture boundary validation..."
-node tests/validate-architecture-boundaries.mjs
-
-echo "Running documentation and version-governance validation..."
-node tests/validate-docs.mjs
-
-echo "Running identity UI validation..."
-node tests/validate-identity-ui.js
-
-echo "Running homepage validation..."
-node tests/validate-homepage.js
-
-echo "Running public SEO validation..."
-bun tests/validate-public-seo.ts
-
-echo "Running SEO workbench validation..."
-bun tests/validate-seo-workbench.ts
-
-echo "Running moderation workbench validation..."
-bun tests/validate-moderation-workbenches.ts
-
-echo "Running theme runtime validation..."
-node tests/validate-theme-runtime.js
-
-echo "Running trusted admin runtime validation..."
-node tests/validate-trusted-admin-runtime.js
-
-echo "Running synchronous theme activation validation..."
-node tests/validate-theme-activation.js
-
-echo "Running development worker script validation..."
-node tests/validate-dev-worker-script.js
-
-echo "Running Signal Garden theme validation..."
-node tests/validate-signal-garden-theme.js
-
-echo "Running SF component library validation..."
-node tests/validate-sf-components.js
-
-echo "Running Runtime Page Registry offline contracts (+ optional live HTTP smoke)..."
-node tests/validate-page-registry-runtime.js
-
-echo "Running V3 platform catalog and traceability validation..."
-node tests/validate-v3-p0-catalogs.mjs
-
-echo "Running public page runtime surface catalog validation..."
-node tests/validate-public-page-surface-catalog.mjs
+# 响应助手白名单、调用边、集合相等、反向检查都消费上面同一次真实仓库扫描；
+# 它们仍各自启动合成失败树，parity/reachability 两套解析器仍完全独立。
+register_job "response-helper registry closure validation" "node tests/validate-contract-status-parity-helpers.test.mjs"
+register_job "contract parity call-edge recognition validation" "node tests/validate-contract-parity-call-edges.test.mjs"
+register_job "contract parity sample-set equality validation" "node tests/validate-contract-parity-sample-equality.test.mjs"
+register_job "contract status-code reverse-parity and mapper-attribution validation" "node tests/validate-contract-status-parity-reverse.test.mjs"
+register_job "contract reachability validation" "node tests/validate-contract-reachability.mjs"
+register_job "contract reachability negative fixtures" "node tests/validate-contract-reachability.test.mjs"
+register_job "contract gate equivalence validation" "node tests/validate-contract-reachability-equivalence.test.mjs"
+register_job "staged extension management contract validation" "node tests/validate-staged-extension-contracts.js"
+register_job "V3 production trust deployment validation" "node tests/validate-v3-production-trust.mjs"
+register_job "production WebSocket proxy validation" "node tests/validate-production-websocket-proxy.mjs"
+register_job "architecture boundary validation" "node tests/validate-architecture-boundaries.mjs"
+register_job "documentation and version-governance validation" "node tests/validate-docs.mjs"
+register_job "identity UI validation" "node tests/validate-identity-ui.js"
+register_job "homepage validation" "node tests/validate-homepage.js"
+register_job "public SEO validation" "bun tests/validate-public-seo.ts"
+register_job "SEO workbench validation" "bun tests/validate-seo-workbench.ts"
+register_job "moderation workbench validation" "bun tests/validate-moderation-workbenches.ts"
+register_job "theme runtime validation" "node tests/validate-theme-runtime.js"
+register_job "trusted admin runtime validation" "node tests/validate-trusted-admin-runtime.js"
+register_job "synchronous theme activation validation" "node tests/validate-theme-activation.js"
+register_job "development worker script validation" "node tests/validate-dev-worker-script.js"
+register_job "Signal Garden theme validation" "node tests/validate-signal-garden-theme.js"
+register_job "SF component library validation" "node tests/validate-sf-components.js"
+register_job "Runtime Page Registry offline contracts" "node tests/validate-page-registry-runtime.js"
+register_job "V3 platform catalog and traceability validation" "node tests/validate-v3-p0-catalogs.mjs"
+register_job "public page runtime surface catalog validation" "node tests/validate-public-page-surface-catalog.mjs"
 
 if [ -d apps/web/node_modules ]; then
-  echo "Running web unit tests for trusted editor L2 and registry catalogs..."
-  (cd apps/web && bun test \
-    tests/framework/editorL2Load.test.ts \
-    tests/framework/editorDomLoadOrder.test.ts \
-    tests/admin/adminRegistryCatalogs.test.ts \
-    tests/identity/authProvidersPublicUi.test.ts \
-    tests/identity/authRouteRendering.test.ts \
-    tests/admin/adminLoginMethods.test.ts \
-    tests/admin/adminMailNotifications.test.ts \
-    tests/identity/accountSecurityM4b.test.ts)
-  echo "Running admin framework validation..."
-  bun tests/validate-admin-framework.ts
+  if [ "${SFORUM_CONTRACTS_SKIP_WEB_UNIT:-0}" = "1" ]; then
+    echo "Skipping duplicated web unit tests because the web gate owns the full suite."
+  else
+    register_job "web unit tests for trusted editor L2 and registry catalogs" \
+      "(cd apps/web && bun test tests/framework/editorL2Load.test.ts tests/framework/editorDomLoadOrder.test.ts tests/admin/adminRegistryCatalogs.test.ts tests/identity/authProvidersPublicUi.test.ts tests/identity/authRouteRendering.test.ts tests/admin/adminLoginMethods.test.ts tests/admin/adminMailNotifications.test.ts tests/identity/accountSecurityM4b.test.ts)"
+  fi
+  register_job "admin framework validation" "bun tests/validate-admin-framework.ts"
 else
   if [ "${CI:-}" = "true" ]; then
     echo "apps/web/node_modules is required in CI; run bun install --frozen-lockfile first." >&2
@@ -135,3 +96,60 @@ else
   fi
   echo "Skipping web contract unit tests because apps/web/node_modules is missing."
 fi
+
+if command -v nproc >/dev/null 2>&1; then
+  cores="$(nproc)"
+else
+  cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
+fi
+job_limit="${SFORUM_CONTRACTS_JOBS:-$((cores > 4 ? 4 : cores))}"
+[[ "$job_limit" =~ ^[1-9][0-9]*$ ]] ||
+  { echo "SFORUM_CONTRACTS_JOBS 必须是正整数：$job_limit" >&2; exit 2; }
+
+total="${#JOB_LABELS[@]}"
+echo "Running $total contracts/static jobs with concurrency $job_limit..."
+failed=0
+declare -A JOB_PID_INDEX=()
+next_index=0
+active=0
+completed=0
+while [ "$completed" -lt "$total" ]; do
+  while [ "$active" -lt "$job_limit" ] && [ "$next_index" -lt "$total" ]; do
+    printf '[%d/%d] %s\n' "$((next_index + 1))" "$total" "${JOB_LABELS[$next_index]}"
+    (
+      set -o pipefail
+      bash -euo pipefail -c "${JOB_COMMANDS[$next_index]}"
+    ) >"$TMP_DIR/$next_index.log" 2>&1 &
+    pid=$!
+    JOB_PID_INDEX["$pid"]="$next_index"
+    ACTIVE_PIDS+=("$pid")
+    next_index=$((next_index + 1))
+    active=$((active + 1))
+  done
+
+  status=0
+  wait -n || status=$?
+  finished_pid=""
+  for pid in "${!JOB_PID_INDEX[@]}"; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      finished_pid="$pid"
+      break
+    fi
+  done
+  [ -n "$finished_pid" ] || { echo "无法识别已完成的 contracts/static 任务" >&2; exit 1; }
+  job_index="${JOB_PID_INDEX[$finished_pid]}"
+  unset 'JOB_PID_INDEX[$finished_pid]'
+  ACTIVE_PIDS=("${!JOB_PID_INDEX[@]}")
+  active=$((active - 1))
+  completed=$((completed + 1))
+  if [ "$status" -eq 0 ]; then
+    printf 'PASS %s\n' "${JOB_LABELS[$job_index]}"
+  else
+    printf 'FAIL %s (exit %s)\n' "${JOB_LABELS[$job_index]}" "$status" >&2
+    cat "$TMP_DIR/$job_index.log" >&2
+    failed=1
+  fi
+done
+
+[ "$failed" = 0 ] || { echo "One or more contracts/static jobs failed." >&2; exit 1; }
+echo "All contracts/static jobs passed."

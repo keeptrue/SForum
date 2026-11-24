@@ -119,6 +119,14 @@ jobs:
         with:
           bun-version: 1.4.4
 
+      - name: Restore Bun package cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install web dependencies
         working-directory: apps/web
         run: bun install --frozen-lockfile
