@@ -3809,6 +3809,56 @@
     "targetRegistry": "P9 Component Registry"
   },
   {
+    "id": "core.component.shared.sfsearch_hero",
+    "contractVersion": "sforum.component.shared.sfsearch_hero@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/search/SFSearchHero.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfsearch_page",
+    "contractVersion": "sforum.component.shared.sfsearch_page@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/search/SFSearchPage.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfsearch_quick_terms",
+    "contractVersion": "sforum.component.shared.sfsearch_quick_terms@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/search/SFSearchQuickTerms.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfsearch_result_card",
+    "contractVersion": "sforum.component.shared.sfsearch_result_card@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/search/SFSearchResultCard.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
+    "id": "core.component.shared.sfsearch_result_surface",
+    "contractVersion": "sforum.component.shared.sfsearch_result_surface@1",
+    "kind": "component",
+    "source": "apps/web/app/components/forum/search/SFSearchResultSurface.vue",
+    "owners": [
+      "public"
+    ],
+    "targetRegistry": "P9 Component Registry"
+  },
+  {
     "id": "core.component.shared.sfsecurity_settings_page",
     "contractVersion": "sforum.component.shared.sfsecurity_settings_page@1",
     "kind": "component",

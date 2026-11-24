@@ -2,8 +2,17 @@
 
 ## Status
 
-Accepted（2026-11-18）。只改 `scripts/bun-audit-baseline.json` 一条记录，不动依赖树、
-不改 `scripts/bun-audit-gate.mjs` 判据。
+Resolved（2026-11-24；原裁决 2026-11-18 Accepted）。GitHub 已撤回该 advisory，审计
+基线中的例外条目随之删除；依赖树与 `scripts/bun-audit-gate.mjs` 判据均未改动。
+
+## Resolution
+
+- GitHub Advisory API 记录 `withdrawn_at = 2026-11-18T15:38:56Z`。撤回说明为
+  “not a security issue”，上游讨论见 picomatch PR #235。
+- 2026-11-24 按 CI 口径复现：`bun audit --prod` 返回 44 条去重 advisory，基线仍有
+  45 条，唯一差异是 `GHSA-fc5q-39xc-vjpf`。
+- 按下方复位条件 3 精确删除该 6 行基线条目；不升级 picomatch、不改 `bun.lock`、
+  不调整审计范围。复核后审计门为 44/44，`--self-test` 8 个场景通过。
 
 ## Context
 
