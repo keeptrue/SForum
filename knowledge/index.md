@@ -10,6 +10,8 @@ load archived sessions or completed plans as current context.
 
 - `/search` 换成独立 Host 岛（`components/forum/search/`），island 绑定
   `forum.component.search_page` → `SFSearchPage.vue`；`SFHomePage` 只服务首页。
+- 5 个搜索页公开组件已登记 V3 稳定身份并重生成目录，修复 `Contracts and static gates`
+  的 catalog 红灯。
 - 交接：`sessions/2026-11-24-search-page-aurora-glass.md`。
 
 ### v3.1.5 发版（2026-11-18）

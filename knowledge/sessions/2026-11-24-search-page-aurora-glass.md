@@ -11,6 +11,9 @@
   的 `<style src>` 引入（不新增 `nuxt.config.ts` 条目）。
 - `SFThemeTemplate.vue`：`forum.component.search_page` 改绑 `SFSearchPage.vue`（**唯一决定
   `/search` 渲染什么的地方**）。`pages/search.vue` 的 fail-closed slot 同步换组件。
+- V3 稳定身份：`SFSearchPage`、`SFSearchHero`、`SFSearchQuickTerms`、
+  `SFSearchResultSurface`、`SFSearchResultCard` 已以 `public` owner 登记到
+  `docs/extensions/v3/catalog-identities.json`，并重生成 UI 与 Go 组件目录。
 - `SFHomePage.vue`：抽走搜索分支（`loadTopicPage` 的 `searchTopics`/空列表分支、
   `feedState` 的 `search-empty`、标题/空态文案的 `isSearchPage` 分支、空态 `data-sf-region`
   常量化为 `topic-list-empty`、island 身份常量化为 `forum.component.home_page`）。
