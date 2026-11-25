@@ -17,6 +17,81 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Detect security changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.detect.outputs.go }}
+      web: ${{ steps.detect.outputs.web }}
+      web_audit: ${{ steps.detect.outputs.web_audit }}
+      codeql_languages: ${{ steps.detect.outputs.codeql_languages }}
+    steps:
+      - name: Check out repository
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed paths
+        id: filter
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            go:
+              - 'apps/api/**'
+            web:
+              - 'apps/web/**'
+              - 'extensions/**'
+              - 'contracts/**'
+              - 'scripts/**'
+              - 'tests/**'
+            web_audit:
+              - 'apps/web/package.json'
+              - 'apps/web/bun.lock'
+              - 'apps/web/packages/**'
+              - 'scripts/bun-audit-gate.mjs'
+              - 'scripts/bun-audit-baseline.json'
+
+      - name: Publish security outputs
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FILTER_GO: ${{ steps.filter.outputs.go }}
+          FILTER_WEB: ${{ steps.filter.outputs.web }}
+          FILTER_WEB_AUDIT: ${{ steps.filter.outputs.web_audit }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "schedule" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            go=true
+            web=true
+            web_audit=true
+          else
+            go="${FILTER_GO:-true}"
+            web="${FILTER_WEB:-true}"
+            web_audit="${FILTER_WEB_AUDIT:-true}"
+          fi
+
+          codeql_languages='[]'
+          if [[ "$go" == "true" && "$web" == "true" ]]; then
+            codeql_languages='[{"language":"go","build-mode":"manual"},{"language":"javascript-typescript","build-mode":"none"}]'
+          elif [[ "$go" == "true" ]]; then
+            codeql_languages='[{"language":"go","build-mode":"manual"}]'
+          elif [[ "$web" == "true" ]]; then
+            codeql_languages='[{"language":"javascript-typescript","build-mode":"none"}]'
+          fi
+
+          {
+            echo "go=$go"
+            echo "web=$web"
+            echo "web_audit=$web_audit"
+            echo "codeql_languages=$codeql_languages"
+          } >> "$GITHUB_OUTPUT"
+
   dependency-review:
     name: Dependency review
     if: github.event_name == 'pull_request'
@@ -35,6 +110,8 @@ jobs:
 
   codeql:
     name: CodeQL / ${{ matrix.language }}
+    needs: changes
+    if: needs.changes.outputs.codeql_languages != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -44,11 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: go
-            build-mode: manual
-          - language: javascript-typescript
-            build-mode: none
+        include: ${{ fromJSON(needs.changes.outputs.codeql_languages) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -78,6 +151,8 @@ jobs:
 
   govulncheck:
     name: Govulncheck / core-api
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -108,6 +183,8 @@ jobs:
 
   web-audit:
     name: Dependency audit / web
+    needs: changes
+    if: needs.changes.outputs.web_audit == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

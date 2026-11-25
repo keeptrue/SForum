@@ -122,6 +122,15 @@ distribution check, so private or mislinked GHCR packages fail before public
 release metadata is created.
 See `decisions/2026-07-29-ghcr-multi-platform-release-pipeline.md`.
 
+Container build acceleration (2026-11-25): `apps/api/Dockerfile` compiles the
+`sforum` CLI once, then builds the eight protected builtin backends with
+`SFORUM_BUILTIN_BUILD_JOBS` (default 4) and runs digest/validate/test under the
+same fail-fast pool. The default `build` stage now compiles only `sforum-api`;
+`sforum-migrate` has an independent `migrate-build` stage, and the retired
+standalone `sforum-worker` target is gone. The first line remains the RV-18
+Go 1.26.11 base image. See
+`decisions/2026-11-25-ci-container-and-path-gating.md`.
+
 The clean-host deployment entrypoint now defaults to immutable GHCR images and
 managed Compose PostgreSQL/Redis. Its bilingual wizard creates a mode-`0600`
 production environment with secure generated secrets and working local

@@ -1,6 +1,6 @@
 # 2026-11-24 CI/CD 与测试全链路二次提速任务书
 
-**Status**: active（2026-11-24；M0–M2 landed，M3–M6 待明确批准）
+**Status**: active（2026-11-25；M0–M4 landed，M5–M6 未批准）
 **Owner**: 2026-11-24 session
 **前置基础**: 接续 [2026-10-23 全量测试提速任务书](./2026-10-23-test-suite-speedup.md)（已完成集群分片、`--with-compat`、`test.sh` 三线并行与 `--fast`）。
 
@@ -212,6 +212,7 @@
 
 ### 6.1 范围与结论
 
+- 以下 6.1–6.5 保留为 M0–M2 批次的历史记录；M3/M4 的 2026-11-25 实施证据见 6.6。
 - **M0–M2 已完成**；M3（Docker/Web 构建）、M4（workflow 路径门控）、M5（Go 重包内部
   模板库/并行）、M6（`release.yml` 关键路径）均未修改，等待明确批准。
 - 用户现有 `.codegraph/`、工作区分支与 3000 端口服务未改动；未运行 pnpm。
@@ -267,7 +268,7 @@
 - CSP：`tests/validate-document-csp.mjs`。
 - 知识库：本任务书、`knowledge/plans/README.md`、`knowledge/index.md`、
   `knowledge/decisions/2026-11-24-ci-test-throughput-batch1.md`、
-  `knowledge/sessions/2026-11-24-ci-cd-test-speedup-batch1.md`。
+  `knowledge/sessions/archive/2026-11/2026-11-24-ci-cd-test-speedup-batch1.md`。
 
 ### 6.5 偏离与残余
 
@@ -279,3 +280,77 @@
 - `SFORUM_CONTRACTS_SKIP_WEB_UNIT=1` 依赖当前 web job 无条件执行；实施 M4 时必须改绑
   `changes` 输出，否则会漏测。
 - 全量仍受 Nuxt production build 与 Go/Web 并发资源竞争限制；M3/M5 是后续主要收益。
+
+### 6.6 M3+M4 执行记录（2026-11-25）
+
+#### 范围与结论
+
+- **M3 已完成**：API Dockerfile 只编译一次 `sforum` CLI；8 个内置插件按
+  `SFORUM_BUILTIN_BUILD_JOBS`（默认 4）执行 build/digest/validate/test，失败即终止同批
+  任务；`build` 只保留 `sforum-api`；新增独立 `migrate-build`；删除独立 worker 目标。
+- **M4 已完成**：`ci.yml` 新增 `changes` + `ci-summary`，go/web/contracts/containers
+  按布尔输出跳过，container matrix 由 `container_images` 精确派生；`security.yml`
+  的 CodeQL/Govulncheck/Web audit 按路径跳过；contracts 的重复 Web 单测改绑
+  `changes.web == true`。
+- M5/M6 未开始；未修改 `release.yml`、Go 重包模板库或 `apps/web/nuxt.config.ts` 的
+  生产压缩配置。
+
+#### 实测耗时与体积
+
+| 场景 | 优化前 | 优化后 |
+| --- | --- | --- |
+| `docker build --target api` 无缓存 | 343s | **149s（-56.6%）** |
+| `docker build --target migrate` 无缓存 | 268s | **62s（-76.9%）** |
+| `docker build --target prod` | 204s（首次冷网络） | **109s（同 Dockerfile 复测）** |
+| 内置插件 build/digest/validate/test | 171s 串行 | **64s，4 路受控并发** |
+| API 二进制构建阶段 | 62s | **2.7s** |
+| Nitro brotli+gzip | 96.6s / 15,818,123 bytes / 1,089 files | 生产配置不变 |
+| Nitro gzip-only | 89.7s / 13,353,408 bytes / 776 files | 仅实验 |
+| Nitro 关闭预压缩 | 89.9s / 10,470,114 bytes / 463 files | 仅实验 |
+| BuildKit cache mount 冷 / 热 / control | 119s / 116s / 109s | 不采用 |
+| `./scripts/test.sh --fast` | 上一批稳态 69.2s | **45–49s（最终 api 20 / web 49 / static 22）** |
+| `./scripts/test.sh` 全量 | 上一批 287.5s | **259s（api 259 / web 222 / static 83）** |
+
+Nitro 最大收益约 6.9s，未达到任务书要求的 30s 阈值；Caddy 当前
+`encode zstd gzip` 可兜底，但生产配置保持不变。BuildKit cache mount 没有收益且
+`.nuxt-build` 复用扩大转换量，因此 Web Dockerfile 未改。
+
+#### 门禁与证据
+
+- `docker build --target api|migrate` 均 exit 0；API/migrate 镜像内二进制
+  `--version` 均输出 `SForum dev`，API 镜像确认不存在 `/usr/local/bin/sforum-worker`。
+- `release-tooling-gate.sh` 全绿；RV-18 输出
+  `Toolchain parity: go 1.26.11 across 28 go.mod, Dockerfile, and govulncheck.`。
+- `contracts-gate.sh` 独立入口全绿；`actionlint` v1.7.12、`release_workflow_test.rb`、
+  `verify-main-ci_test.sh` 全绿。
+- `release_workflow_test.rb` 现在直接执行 workflow 的 change-output 与 ci-summary shell，
+  覆盖 docs-only / Go-only / Web-only / workflow_call / workflow_dispatch，以及
+  success+skipped / failed 汇总结果；Security 的 docs / Go / Web / web-audit /
+  schedule / workflow_dispatch 路径与 CodeQL 语言矩阵也由同一测试执行。
+- `./scripts/test.sh --fast` 重跑 exit 0；`./scripts/test.sh` 全量 exit 0。
+- 日志：`tests/.logs/ci-speedup-2026-11-25-m3m4/`。其中 Docker 前后测日志、
+  Nitro 三组日志、Web cache 三组日志和全量三线日志均已保留。
+
+#### 改动文件
+
+- 构建：`apps/api/Dockerfile`、`apps/api/cmd/sforum/test_extension_test.go`。
+- Workflow：`.github/workflows/ci.yml`、`.github/workflows/security.yml`、
+  `scripts/ci/release_workflow_test.rb`。
+- 知识库：本任务书、`knowledge/plans/README.md`、`knowledge/index.md`、
+  `knowledge/modules/backend.md`、`knowledge/modules/frontend.md`、
+  `knowledge/decisions/2026-11-24-ci-test-throughput-batch1.md`、
+  `knowledge/decisions/2026-11-25-ci-container-and-path-gating.md`、
+  `knowledge/sessions/2026-11-25-ci-cd-test-speedup-batch2.md`、
+  `knowledge/sessions/archive/2026-11/2026-11-24-ci-cd-test-speedup-batch1.md`。
+
+#### 偏离与残余
+
+- 首轮 `--fast` 命中旧的 Dockerfile 契约测试（仍期待逐插件 `cd` 与 api+worker 两处
+  copy）；测试已同步为新的单次 CLI、受控并发清单、单一 API 最终镜像和独立
+  `migrate-build`，随后 `--fast` 与全量均通过。
+- 首轮 `release-tooling-gate.sh` / `contracts-gate.sh` 在沙箱内被
+  `spawnSync ... EPERM` 阻断；在沙箱外重跑均 exit 0，未改测试断言。
+- 全量静态线中 document-CSP 自检通过；真实服务探针因 `127.0.0.1:3000` 无响应而按
+  设计记为 SKIP。未触碰用户手动运行的 web dev 进程。
+- GitHub Actions 的 `paths-filter` 实际命中率、GHA cache 命中率和 `ci-summary`
+  远端落库只能在推送后确认；本地已完成 actionlint、结构守卫和 shell 级场景执行。

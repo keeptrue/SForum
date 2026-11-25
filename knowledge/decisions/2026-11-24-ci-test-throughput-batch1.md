@@ -39,7 +39,8 @@
 
 ## Guardrails
 
-- `SFORUM_CONTRACTS_SKIP_WEB_UNIT=1` 仅在当前 web job 无条件执行时成立；实施 M4
-  路径门控时必须改绑 `changes` 输出。
+- M4（2026-11-25）已把 `SFORUM_CONTRACTS_SKIP_WEB_UNIT` 改绑到
+  `changes.web == true`：Web job 执行时 contracts 才跳过重复单测，Web job 被跳过时
+  contracts 自己运行这些测试。
 - LPT 权重是实测快照，不自动学习；长尾变化时应从分片日志更新。
 - 生产备份 KDF 200000、CI 无缓存证据模式、RV-14、parity/reachability 独立性不可弱化。

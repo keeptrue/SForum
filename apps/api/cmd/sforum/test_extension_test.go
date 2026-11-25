@@ -151,42 +151,63 @@ func TestDockerBuildsProtectedBuiltinBackendsAndValidatesV3Digest(t *testing.T) 
 		t.Fatal(err)
 	}
 	text := string(body)
-	const linuxBuild = "CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false -ldflags=\"-s -w\" -o plugin ."
-	if count := strings.Count(text, linuxBuild); count < 7 {
-		t.Errorf("Dockerfile builds only %d protected builtin Linux backends, want at least 7", count)
+	if !strings.HasPrefix(text, "FROM golang:1.26.11-alpine AS base\n") {
+		t.Fatal("Dockerfile must keep the RV-18 Go toolchain base as its first line")
 	}
-	const builtinCopy = "COPY --from=build --chown=sforum:sforum /app/extensions/builtin /app/extensions/builtin"
-	if count := strings.Count(text, builtinCopy); count != 2 {
-		t.Errorf("Dockerfile copies protected builtins into %d final images, want api and worker", count)
+	if count := strings.Count(text, "CGO_ENABLED=0 go build -trimpath -buildvcs=false -o /usr/local/bin/sforum ./cmd/sforum"); count != 1 {
+		t.Errorf("Dockerfile builds the sforum CLI %d times, want exactly once", count)
+	}
+	if strings.Contains(text, "go run ./cmd/sforum") {
+		t.Error("Dockerfile must not recompile the sforum CLI through go run")
 	}
 	for _, required := range []string{
-		"cd /app/extensions/builtin/plugins/sforum-smtp/backend",
-		"cd /app/extensions/builtin/plugins/sforum-content-policy/backend",
-		"cd /app/extensions/builtin/plugins/sforum-storage-fs/backend",
-		"cd /app/extensions/builtin/plugins/sforum-storage-s3/backend",
-		"cd /app/extensions/builtin/plugins/sforum-search-site/backend",
-		"cd /app/extensions/builtin/plugins/sforum-auth-github/backend",
-		"cd /app/extensions/builtin/plugins/sforum-web-push/backend",
-		// 受保护插件均需 digest --write + extension test，避免 Linux 镜像摘要漂移。
-		"extension digest --write /app/extensions/builtin/plugins/sforum-smtp",
-		"extension test /app/extensions/builtin/plugins/sforum-smtp",
-		"extension digest --write /app/extensions/builtin/plugins/sforum-content-policy",
-		"extension validate /app/extensions/builtin/plugins/sforum-content-policy",
-		"extension test /app/extensions/builtin/plugins/sforum-content-policy",
-		"extension digest --write /app/extensions/builtin/plugins/sforum-storage-fs",
-		"extension test /app/extensions/builtin/plugins/sforum-storage-fs",
-		"extension digest --write /app/extensions/builtin/plugins/sforum-storage-s3",
-		"extension test /app/extensions/builtin/plugins/sforum-storage-s3",
-		"extension digest --write /app/extensions/builtin/plugins/sforum-search-site",
-		"extension test /app/extensions/builtin/plugins/sforum-search-site",
-		"extension digest --write /app/extensions/builtin/plugins/sforum-auth-github",
-		"extension test /app/extensions/builtin/plugins/sforum-auth-github",
-		"extension digest --write /app/extensions/builtin/plugins/sforum-web-push",
-		"extension test /app/extensions/builtin/plugins/sforum-web-push",
+		`jobs="${SFORUM_BUILTIN_BUILD_JOBS:-4}"`,
+		`pkg="/app/extensions/builtin/plugins/$id"`,
+		`cd "$pkg/backend"`,
+		`CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false -ldflags="-s -w" -o plugin .`,
+		`sforum extension digest --write "$pkg"`,
+		`sforum extension validate "$pkg"`,
+		`sforum extension test "$pkg"`,
+		"wait_batch $batch",
+		"kill \"$other\"",
 	} {
 		if !strings.Contains(text, required) {
-			t.Errorf("Dockerfile is missing protected builtin Linux package gate %q", required)
+			t.Errorf("Dockerfile is missing protected builtin gate %q", required)
 		}
+	}
+	for _, plugin := range []string{
+		"sforum-smtp:0",
+		"sforum-content-policy:1",
+		"sforum-storage-fs:0",
+		"sforum-storage-s3:0",
+		"sforum-search-site:0",
+		"sforum-auth-github:0",
+		"sforum-web-push:0",
+		"sforum-shortcodes:0",
+	} {
+		if !strings.Contains(text, plugin) {
+			t.Errorf("Dockerfile concurrency list is missing protected builtin %q", plugin)
+		}
+	}
+	const builtinCopy = "COPY --from=build --chown=sforum:sforum /app/extensions/builtin /app/extensions/builtin"
+	if count := strings.Count(text, builtinCopy); count != 1 {
+		t.Errorf("Dockerfile copies protected builtins into %d final images, want only api", count)
+	}
+	for _, required := range []string{
+		"FROM golang:1.26.11-alpine AS migrate-build",
+		"COPY --from=migrate-build /out/sforum-migrate /usr/local/bin/sforum-migrate",
+		"-o /out/sforum-api ./cmd/api",
+	} {
+		if !strings.Contains(text, required) {
+			t.Errorf("Dockerfile is missing build-stage contract %q", required)
+		}
+	}
+	if strings.Contains(text, "AS worker") || strings.Contains(text, "sforum-worker") {
+		t.Error("Dockerfile must not retain the retired standalone worker target")
+	}
+	migrateBuild := text[strings.Index(text, "FROM golang:1.26.11-alpine AS migrate-build"):strings.Index(text, "FROM alpine:3.24 AS api")]
+	if strings.Contains(migrateBuild, "extensions/builtin") {
+		t.Error("migrate-build must not build or copy protected builtins")
 	}
 }
 

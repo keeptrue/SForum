@@ -2,10 +2,14 @@
 # frozen_string_literal: true
 
 require "yaml"
+require "json"
+require "open3"
+require "tmpdir"
 
 root = File.expand_path("../..", __dir__)
 release = YAML.load_file(File.join(root, ".github/workflows/release.yml"))
 ci = YAML.load_file(File.join(root, ".github/workflows/ci.yml"))
+security = YAML.load_file(File.join(root, ".github/workflows/security.yml"))
 
 def fail!(message)
   abort "release_workflow_test.rb: #{message}"
@@ -13,6 +17,41 @@ end
 
 def needs(job)
   Array(job.fetch("needs", []))
+end
+
+def step_named(job, name)
+  step = Array(job["steps"]).find { |candidate| candidate["name"] == name }
+  fail!("missing workflow step: #{name}") unless step
+  step
+end
+
+def glob_match?(pattern, path)
+  expression = Regexp.escape(pattern)
+    .gsub('\*\*', '.*')
+    .gsub('\*', '[^/]*')
+    .gsub('\?', '[^/]')
+  Regexp.new("\\A#{expression}\\z").match?(path)
+end
+
+def run_script(script, environment)
+  Dir.mktmpdir("sforum-workflow-test.") do |dir|
+    output_path = File.join(dir, "github-output")
+    stdout, stderr, status = Open3.capture3(
+      environment.merge("GITHUB_OUTPUT" => output_path),
+      "bash",
+      "-c",
+      script
+    )
+    unless status.success?
+      fail!("workflow script failed: #{stdout}#{stderr}")
+    end
+    next {} unless File.exist?(output_path)
+
+    File.read(output_path).lines.each_with_object({}) do |line, outputs|
+      key, value = line.chomp.split("=", 2)
+      outputs[key] = value
+    end
+  end
 end
 
 release_jobs = release.fetch("jobs")
@@ -137,9 +176,121 @@ end
 ci_jobs = ci.fetch("jobs")
 fail!("CI must not keep a duplicate Web dependency build") if ci_jobs.key?("web-runtime-vulnerabilities")
 
+ci_source = File.read(File.join(root, ".github/workflows/ci.yml"))
+push_trigger = ci_source[/^  push:\n(.*?)(?=^  [a-z_]+:|\z)/m, 1]
+fail!("CI push trigger must not use paths") if push_trigger&.match?(/^\s+paths:/)
+
+changes = ci_jobs.fetch("changes")
+expected_change_outputs = %w[go web contracts container_api container_web]
+expected_change_outputs.each do |output|
+  fail!("CI changes job must publish #{output}") unless changes.fetch("outputs", {}).key?(output)
+end
+filter_step = step_named(changes, "Detect changed paths")
+filters = YAML.safe_load(filter_step.dig("with", "filters"))
+publish_step = step_named(changes, "Publish change outputs")
+
+change_scenarios = {
+  "docs-only" => {
+    "files" => ["docs/ci.md"],
+    "expected" => {
+      "go" => "false",
+      "web" => "false",
+      "contracts" => "true",
+      "container_api" => "false",
+      "container_web" => "false",
+      "images" => []
+    }
+  },
+  "go-only" => {
+    "files" => ["apps/api/cmd/api/main.go"],
+    "expected" => {
+      "go" => "true",
+      "web" => "false",
+      "contracts" => "true",
+      "container_api" => "true",
+      "container_web" => "false",
+      "images" => ["api"]
+    }
+  },
+  "web-only" => {
+    "files" => ["apps/web/app/pages/index.vue"],
+    "expected" => {
+      "go" => "false",
+      "web" => "true",
+      "contracts" => "true",
+      "container_api" => "false",
+      "container_web" => "true",
+      "images" => ["web"]
+    }
+  }
+}
+
+change_scenarios.each do |label, scenario|
+  matched = filters.transform_values do |patterns|
+    scenario.fetch("files").any? do |path|
+      patterns.any? { |pattern| glob_match?(pattern, path) }
+    end
+  end
+  outputs = run_script(
+    publish_step.fetch("run"),
+    {
+      "EVENT_NAME" => "push",
+      "FILTER_GO" => matched.fetch("go").to_s,
+      "FILTER_WEB" => matched.fetch("web").to_s,
+      "FILTER_CONTRACTS" => matched.fetch("contracts").to_s,
+      "FILTER_CONTAINER_API" => matched.fetch("container_api").to_s,
+      "FILTER_CONTAINER_WEB" => matched.fetch("container_web").to_s
+    }
+  )
+  expected = scenario.fetch("expected")
+  expected.each do |key, value|
+    next if key == "images"
+    fail!("#{label} changes output #{key} was #{outputs[key]}") unless outputs[key] == value
+  end
+  images = JSON.parse(outputs.fetch("container_images")).map { |entry| entry.fetch("image") }
+  fail!("#{label} selected containers #{images}") unless images == expected.fetch("images")
+end
+
+%w[workflow_call workflow_dispatch].each do |event_name|
+  outputs = run_script(
+    publish_step.fetch("run"),
+    {
+      "EVENT_NAME" => event_name,
+      "FILTER_GO" => "",
+      "FILTER_WEB" => "",
+      "FILTER_CONTRACTS" => "",
+      "FILTER_CONTAINER_API" => "",
+      "FILTER_CONTAINER_WEB" => ""
+    }
+  )
+  %w[go web contracts container_api container_web].each do |key|
+    fail!("#{event_name} must default #{key} to true") unless outputs[key] == "true"
+  end
+  images = JSON.parse(outputs.fetch("container_images")).map { |entry| entry.fetch("image") }
+  fail!("#{event_name} must default both containers") unless images == %w[api web]
+end
+
+%w[go web contracts].each do |job_name|
+  job = ci_jobs.fetch(job_name)
+  fail!("#{job_name} must depend only on the changes detector") unless needs(job) == ["changes"]
+  fail!("#{job_name} must be gated by its changes output") unless job["if"].to_s.include?("needs.changes.outputs.#{job_name} == 'true'")
+end
+
+contracts_run = ci_jobs.fetch("contracts").fetch("steps").find do |step|
+  step["name"] == "Run contracts and static gates"
+end
+fail!("contracts gate step is missing") unless contracts_run
+skip_web_unit = contracts_run.dig("env", "SFORUM_CONTRACTS_SKIP_WEB_UNIT").to_s
+unless skip_web_unit.include?("needs.changes.outputs.web == 'true'")
+  fail!("contracts may skip duplicated Web unit tests only when the Web gate runs")
+end
+
 containers = ci_jobs.fetch("containers")
 container_needs = needs(containers)
-fail!("container builds must start immediately") unless container_needs.empty?
+fail!("container builds may depend only on the changes detector") unless container_needs == ["changes"]
+fail!("container matrix must be selected by changes") unless containers.dig("strategy", "matrix", "include").to_s.include?(
+  "fromJSON(needs.changes.outputs.container_images)"
+)
 
 container_steps = containers.fetch("steps")
 build_index = container_steps.index do |step|
@@ -180,6 +331,139 @@ fail!("CI Web image scan must be report-only (no blocking trivy step)") if block
 cache_to = build_inputs["cache-to"].to_s
 unless cache_to.include?("github.event_name != 'pull_request'")
   fail!("pull requests must not export max-mode container caches")
+end
+
+summary = ci_jobs.fetch("ci-summary")
+fail!("CI summary must run even when heavy jobs are skipped") unless summary["if"] == "always()"
+expected_summary_needs = %w[changes go web contracts containers]
+unless needs(summary).sort == expected_summary_needs.sort
+  fail!("CI summary must cover changes and every downstream gate")
+end
+summary_step = step_named(summary, "Verify downstream job outcomes")
+summary_success = run_script(
+  summary_step.fetch("run"),
+  {
+    "CHANGES_RESULT" => "success",
+    "GO_RESULT" => "skipped",
+    "WEB_RESULT" => "success",
+    "CONTRACTS_RESULT" => "success",
+    "CONTAINERS_RESULT" => "skipped"
+  }
+)
+fail!("CI summary must accept success and skipped jobs") unless summary_success.empty?
+stdout, stderr, status = Open3.capture3(
+  {
+    "CHANGES_RESULT" => "success",
+    "GO_RESULT" => "failure",
+    "WEB_RESULT" => "skipped",
+    "CONTRACTS_RESULT" => "skipped",
+    "CONTAINERS_RESULT" => "skipped"
+  },
+  "bash",
+  "-c",
+  summary_step.fetch("run")
+)
+fail!("CI summary must reject a failed downstream job") if status.success?
+fail!("CI summary did not identify the failed job") unless "#{stdout}#{stderr}".include?("go job ended with failure")
+
+security_jobs = security.fetch("jobs")
+security_changes = security_jobs.fetch("changes")
+%w[go web web_audit codeql_languages].each do |output|
+  fail!("Security changes job must publish #{output}") unless security_changes.fetch("outputs", {}).key?(output)
+end
+security_filters = YAML.safe_load(step_named(security_changes, "Detect changed paths").dig("with", "filters"))
+security_publish = step_named(security_changes, "Publish security outputs")
+security_scenarios = {
+  "docs-only" => {
+    "files" => ["docs/security.md"],
+    "expected" => {
+      "go" => "false",
+      "web" => "false",
+      "web_audit" => "false",
+      "languages" => []
+    }
+  },
+  "go-only" => {
+    "files" => ["apps/api/cmd/api/main.go"],
+    "expected" => {
+      "go" => "true",
+      "web" => "false",
+      "web_audit" => "false",
+      "languages" => ["go"]
+    }
+  },
+  "web-only" => {
+    "files" => ["apps/web/app/pages/index.vue"],
+    "expected" => {
+      "go" => "false",
+      "web" => "true",
+      "web_audit" => "false",
+      "languages" => ["javascript-typescript"]
+    }
+  },
+  "web-audit" => {
+    "files" => ["apps/web/bun.lock"],
+    "expected" => {
+      "go" => "false",
+      "web" => "true",
+      "web_audit" => "true",
+      "languages" => ["javascript-typescript"]
+    }
+  }
+}
+security_scenarios.each do |label, scenario|
+  matched = security_filters.transform_values do |patterns|
+    scenario.fetch("files").any? do |path|
+      patterns.any? { |pattern| glob_match?(pattern, path) }
+    end
+  end
+  outputs = run_script(
+    security_publish.fetch("run"),
+    {
+      "EVENT_NAME" => "pull_request",
+      "FILTER_GO" => matched.fetch("go").to_s,
+      "FILTER_WEB" => matched.fetch("web").to_s,
+      "FILTER_WEB_AUDIT" => matched.fetch("web_audit").to_s
+    }
+  )
+  expected = scenario.fetch("expected")
+  expected.each do |key, value|
+    next if key == "languages"
+    fail!("security #{label} output #{key} was #{outputs[key]}") unless outputs[key] == value
+  end
+  languages = JSON.parse(outputs.fetch("codeql_languages")).map { |entry| entry.fetch("language") }
+  fail!("security #{label} selected CodeQL languages #{languages}") unless languages == expected.fetch("languages")
+end
+
+%w[schedule workflow_dispatch].each do |event_name|
+  outputs = run_script(
+    security_publish.fetch("run"),
+    {
+      "EVENT_NAME" => event_name,
+      "FILTER_GO" => "",
+      "FILTER_WEB" => "",
+      "FILTER_WEB_AUDIT" => ""
+    }
+  )
+  %w[go web web_audit].each do |key|
+    fail!("security #{event_name} must default #{key} to true") unless outputs[key] == "true"
+  end
+  languages = JSON.parse(outputs.fetch("codeql_languages")).map { |entry| entry.fetch("language") }
+  fail!("security #{event_name} must default both CodeQL languages") unless languages == %w[go javascript-typescript]
+end
+
+codeql = security_jobs.fetch("codeql")
+fail!("CodeQL must depend only on security changes") unless needs(codeql) == ["changes"]
+fail!("CodeQL languages must be selected by security changes") unless codeql["if"].to_s.include?(
+  "needs.changes.outputs.codeql_languages != '[]'"
+)
+unless needs(security_jobs.fetch("govulncheck")) == ["changes"] &&
+       security_jobs.fetch("govulncheck")["if"].to_s.include?("needs.changes.outputs.go == 'true'")
+  fail!("Govulncheck must be gated by Go changes")
+end
+unless needs(security_jobs.fetch("web-audit")) == ["changes"] &&
+       security_jobs.fetch("web-audit")["if"].to_s.include?("needs.changes.outputs.web_audit == 'true'")
+  fail!("Web audit must be gated by Web dependency changes")
 end
 
 smoke_script = File.read(File.join(root, "scripts/ci/release-smoke.sh"))

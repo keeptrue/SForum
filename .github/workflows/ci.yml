@@ -22,8 +22,115 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.detect.outputs.go }}
+      web: ${{ steps.detect.outputs.web }}
+      contracts: ${{ steps.detect.outputs.contracts }}
+      container_api: ${{ steps.detect.outputs.container_api }}
+      container_web: ${{ steps.detect.outputs.container_web }}
+      container_images: ${{ steps.detect.outputs.container_images }}
+    steps:
+      - name: Check out repository
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Detect changed paths
+        id: filter
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            go:
+              - 'apps/api/**'
+              - 'extensions/builtin/**'
+              - 'tests/compat/**'
+              - 'scripts/ci/go-gate.sh'
+              - 'scripts/test-api-isolated.sh'
+              - 'scripts/test.sh'
+            web:
+              - 'apps/web/**'
+              - 'extensions/builtin/**'
+              - 'scripts/ci/web-gate.sh'
+              - 'scripts/test.sh'
+            contracts:
+              - 'apps/api/**'
+              - 'apps/web/**'
+              - 'extensions/**'
+              - 'contracts/**'
+              - 'tools/proto/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - '.github/**'
+              - 'docs/**'
+              - 'knowledge/**'
+              - 'deploy/**'
+              - 'compose*.yaml'
+              - 'AGENTS.md'
+              - '*.md'
+            container_api:
+              - 'apps/api/**'
+              - 'extensions/builtin/**'
+            container_web:
+              - 'apps/web/**'
+              - 'extensions/builtin/**'
+
+      - name: Publish change outputs
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FILTER_GO: ${{ steps.filter.outputs.go }}
+          FILTER_WEB: ${{ steps.filter.outputs.web }}
+          FILTER_CONTRACTS: ${{ steps.filter.outputs.contracts }}
+          FILTER_CONTAINER_API: ${{ steps.filter.outputs.container_api }}
+          FILTER_CONTAINER_WEB: ${{ steps.filter.outputs.container_web }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_call" || "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            go=true
+            web=true
+            contracts=true
+            container_api=true
+            container_web=true
+          else
+            go="${FILTER_GO:-true}"
+            web="${FILTER_WEB:-true}"
+            contracts="${FILTER_CONTRACTS:-true}"
+            container_api="${FILTER_CONTAINER_API:-true}"
+            container_web="${FILTER_CONTAINER_WEB:-true}"
+          fi
+
+          container_images='[]'
+          if [[ "$container_api" == "true" && "$container_web" == "true" ]]; then
+            container_images='[{"image":"api","dockerfile":"apps/api/Dockerfile","target":"api","cache_scope":"ci-backend","cache_writer":true},{"image":"web","dockerfile":"apps/web/Dockerfile","target":"prod","cache_scope":"ci-web","cache_writer":true}]'
+          elif [[ "$container_api" == "true" ]]; then
+            container_images='[{"image":"api","dockerfile":"apps/api/Dockerfile","target":"api","cache_scope":"ci-backend","cache_writer":true}]'
+          elif [[ "$container_web" == "true" ]]; then
+            container_images='[{"image":"web","dockerfile":"apps/web/Dockerfile","target":"prod","cache_scope":"ci-web","cache_writer":true}]'
+          fi
+
+          {
+            echo "go=$go"
+            echo "web=$web"
+            echo "contracts=$contracts"
+            echo "container_api=$container_api"
+            echo "container_web=$container_web"
+            echo "container_images=$container_images"
+          } >> "$GITHUB_OUTPUT"
+
   go:
     name: Go gate
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # Go 测试统一走 ./scripts/test-api-isolated.sh：脚本用 runner 上的 docker 自建
@@ -93,6 +200,8 @@ jobs:
 
   web:
     name: Web gate
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -138,6 +247,8 @@ jobs:
 
   contracts:
     name: Contracts and static gates
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -196,7 +307,7 @@ jobs:
 
       - name: Run contracts and static gates
         env:
-          SFORUM_CONTRACTS_SKIP_WEB_UNIT: "1"
+          SFORUM_CONTRACTS_SKIP_WEB_UNIT: ${{ needs.changes.outputs.web == 'true' && '1' || '0' }}
         run: ./scripts/ci/contracts-gate.sh
 
       - name: Reject generated SDK drift
@@ -216,22 +327,14 @@ jobs:
 
   containers:
     name: Container / ${{ matrix.image }}
+    needs: changes
+    if: needs.changes.outputs.container_api == 'true' || needs.changes.outputs.container_web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: api
-            dockerfile: apps/api/Dockerfile
-            target: api
-            cache_scope: ci-backend
-            cache_writer: true
-          - image: web
-            dockerfile: apps/web/Dockerfile
-            target: prod
-            cache_scope: ci-web
-            cache_writer: true
+        include: ${{ fromJSON(needs.changes.outputs.container_images) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -268,3 +371,40 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: "0"
+
+  ci-summary:
+    name: CI summary
+    if: always()
+    needs:
+      - changes
+      - go
+      - web
+      - contracts
+      - containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify downstream job outcomes
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          GO_RESULT: ${{ needs.go.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          CONTRACTS_RESULT: ${{ needs.contracts.result }}
+          CONTAINERS_RESULT: ${{ needs.containers.result }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for pair in \
+            "changes:$CHANGES_RESULT" \
+            "go:$GO_RESULT" \
+            "web:$WEB_RESULT" \
+            "contracts:$CONTRACTS_RESULT" \
+            "containers:$CONTAINERS_RESULT"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "::error::$name job ended with $result"
+              failed=1
+            fi
+          done
+          exit "$failed"

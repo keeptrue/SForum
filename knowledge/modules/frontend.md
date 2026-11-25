@@ -87,6 +87,19 @@ responsibilities.
   surface not exercised end-to-end by this migration.
 - See `decisions/2026-08-14-web-production-bun-runtime.md`.
 
+## Build Compression And Cache
+
+- Nitro keeps `compressPublicAssets: { brotli: true, gzip: true }`. A
+  2026-11-25 same-runtime experiment measured brotli+gzip at 96.6s /
+  15.82MB public output, gzip-only at 89.7s / 13.35MB, and no precompression at
+  89.9s / 10.47MB. The roughly 7s saving is below the task-book threshold for a
+  production behavior change, so the production config was not changed.
+- BuildKit cache mounts for Bun, Vite/Nuxt `.cache`, and `.nuxt-build` were not
+  adopted: against a 109s no-mount control, cold and warm mounted builds took
+  119s and 116s, and reusing `.nuxt-build` increased module transformation work.
+  Existing GitHub Actions layer caching remains the supported path.
+- See `decisions/2026-11-25-ci-container-and-path-gating.md`.
+
 ## SEO Title Ownership
 
 - Public page titles are resolved once by `useSForumSeo` and
