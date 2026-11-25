@@ -16,6 +16,7 @@ import (
 )
 
 func TestIdentitySessionPolicyPostgresEffectDoesNotStarveHostPool(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	hostPool := fixture.newPool("identity-session-policy-effect-host")
 	store, err := NewPostgresIdentitySessionPolicyStore(hostPool, fixture.registry)
@@ -102,6 +103,7 @@ func TestIdentitySessionPolicyPostgresEffectDoesNotStarveHostPool(t *testing.T) 
 }
 
 func TestIdentitySessionPolicyPostgresConcurrentEffectsDelayWriterUntilAllReturn(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution := selectIdentitySessionPolicyFixture(t, fixture)
 	release0, releaseEffect0 := newIdentitySessionPolicyRelease(t)
@@ -155,6 +157,7 @@ func TestIdentitySessionPolicyPostgresConcurrentEffectsDelayWriterUntilAllReturn
 }
 
 func TestIdentitySessionPolicyPostgresNonCooperativeEffectRetainsAdmissionAfterCancellation(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution, err := fixture.sessionPolicy.Resolve(fixture.ctx)
 	if err != nil {
@@ -212,6 +215,7 @@ func TestIdentitySessionPolicyPostgresNonCooperativeEffectRetainsAdmissionAfterC
 }
 
 func TestIdentitySessionPolicyPostgresEffectSerializesSelectionMutations(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution := selectIdentitySessionPolicyFixture(t, fixture)
 
@@ -264,6 +268,7 @@ func TestIdentitySessionPolicyPostgresEffectSerializesSelectionMutations(t *test
 }
 
 func TestIdentitySessionPolicyPostgresEffectSerializesLifecycleInvalidation(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution := selectIdentitySessionPolicyFixture(t, fixture)
 
@@ -326,6 +331,7 @@ func TestIdentitySessionPolicyPostgresEffectSerializesLifecycleInvalidation(t *t
 }
 
 func TestIdentitySessionPolicyPostgresEffectSerializesRegistryAuthorityMutations(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution := selectIdentitySessionPolicyFixture(t, fixture)
 
@@ -377,6 +383,7 @@ func TestIdentitySessionPolicyPostgresEffectSerializesRegistryAuthorityMutations
 }
 
 func TestIdentitySessionPolicyPostgresEffectHoldsExactArtifactAndUserRows(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		mutate func(context.Context, *pgxpool.Pool, *identityPersistencePGFixture) error
@@ -454,6 +461,7 @@ func TestIdentitySessionPolicyPostgresEffectHoldsExactArtifactAndUserRows(t *tes
 }
 
 func TestIdentitySessionPolicyPostgresEffectRejectsInactiveUser(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution, err := fixture.sessionPolicy.Resolve(fixture.ctx)
 	if err != nil {
@@ -477,6 +485,7 @@ func TestIdentitySessionPolicyPostgresEffectRejectsInactiveUser(t *testing.T) {
 }
 
 func TestIdentitySessionPolicyPostgresEffectRejectsStaleResolutionWithoutMutation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name   string
 		mutate func(*testing.T, *identityPersistencePGFixture)
@@ -547,6 +556,7 @@ func TestIdentitySessionPolicyPostgresEffectRejectsStaleResolutionWithoutMutatio
 }
 
 func TestIdentitySessionPolicyPostgresEffectAllowsUnrelatedRegistryDrift(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution := selectIdentitySessionPolicyFixture(t, fixture)
 	artifact, err := identityregistry.NewCoreArtifact(
@@ -573,6 +583,7 @@ func TestIdentitySessionPolicyPostgresEffectAllowsUnrelatedRegistryDrift(t *test
 }
 
 func TestIdentitySessionPolicyPostgresCanceledEffectWaitersReleaseAdmission(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	resolution, err := fixture.sessionPolicy.Resolve(fixture.ctx)
 	if err != nil {
@@ -618,6 +629,7 @@ func TestIdentitySessionPolicyPostgresCanceledEffectWaitersReleaseAdmission(t *t
 }
 
 func TestIdentitySessionPolicyPostgresEffectExitReleasesAdmission(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	applicationName := "sp-effect-exit-" + fixture.schema[len(fixture.schema)-12:]
 	effectPool := fixture.newPool(applicationName)

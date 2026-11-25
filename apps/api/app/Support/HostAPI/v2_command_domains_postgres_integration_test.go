@@ -22,6 +22,7 @@ type postgresDomainCommandExercise struct {
 }
 
 func TestPostgresProtocolV2SixDomainCommandsAllowedDeniedReplayAndRollback(t *testing.T) {
+	t.Parallel()
 	h := newPostgresDomainCommandHarness(t)
 
 	t.Run("identity", func(t *testing.T) {
@@ -174,6 +175,7 @@ func TestPostgresProtocolV2SixDomainCommandsAllowedDeniedReplayAndRollback(t *te
 // 权益 Host Command 的完整原子性出口：并发同键回放、指纹冲突、expected-revision
 // CAS、revoke 提交，以及 actorless 拒绝 actor delegation。
 func TestPostgresProtocolV2EntitlementCommandConcurrentRevisionAndRevoke(t *testing.T) {
+	t.Parallel()
 	h := newPostgresDomainCommandHarness(t)
 	spec := postgresDomainCommandSpec{
 		ID: CommandEntitlementsMutateID, Version: CommandEntitlementsMutateVersion,
@@ -607,6 +609,7 @@ func assertPostgresDomainAttachmentStatus(t *testing.T, h *postgresDomainCommand
 // entitlements.mutate 是 actorless service 命令且没有 RequiredCapability，原来唯一挡它
 // 的就是 host_commands 闸门——闸门静默失效时它会直接提交（CommittedRevision=1）。
 func TestPostgresProtocolV2EntitlementCommandDeniesExtensionWithoutHostCommandsGrant(t *testing.T) {
+	t.Parallel()
 	h := newPostgresDomainCommandHarness(t)
 	spec := postgresDomainCommandSpec{
 		ID: CommandEntitlementsMutateID, Version: CommandEntitlementsMutateVersion,

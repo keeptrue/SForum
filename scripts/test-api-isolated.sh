@@ -31,6 +31,16 @@ redis_container=""
 shard_plan_dir=""
 script_started=$SECONDS
 timing_file="${SFORUM_TEST_TIMING_FILE:-}"
+full_template_database="${SFORUM_TEST_FULL_TEMPLATE_DATABASE:-sforum_test_template}"
+
+validate_database_name() {
+  local value="$1" label="$2"
+  if [[ ! "$value" =~ ^[a-z_][a-z0-9_]*$ ]]; then
+    echo "$label 必须是小写 PostgreSQL 标识符：$value" >&2
+    exit 2
+  fi
+}
+validate_database_name "$full_template_database" "SFORUM_TEST_FULL_TEMPLATE_DATABASE"
 
 # Core 兼容版本的测试 pin（门禁确定性，不是产品行为）。
 #
@@ -119,6 +129,16 @@ start_cluster() {
     -c fsync=off -c synchronous_commit=off -c full_page_writes=off
 }
 
+create_template_databases() {
+  # 模板库与分片集群同生同灭。完整模板只复制一次已迁移的 base database；
+  # 包级夹具再克隆它、建立私有 schema，并让用例克隆最终模板。
+  docker exec -e PGPASSWORD=sforum "$cid" psql -U sforum -d postgres -v ON_ERROR_STOP=1 \
+    -c "CREATE DATABASE ${full_template_database} TEMPLATE sforum_test_suite" \
+    -c "ALTER DATABASE ${full_template_database} IS_TEMPLATE true" >/dev/null
+  export SFORUM_TEST_FULL_TEMPLATE_DATABASE="$full_template_database"
+  printf 'Disposable database template: %s\n' "$full_template_database"
+}
+
 # 幂等：同一个进程最多建一个集群，重复调用直接复用。
 provision_cluster() {
   if [[ -n "$cid" ]]; then
@@ -168,6 +188,7 @@ provision_cluster() {
   export SFORUM_COMPAT_DATABASE_URL="$DATABASE_URL"
   printf 'Disposable test cluster: %s, database: sforum_test_suite, port: %s\n' "$container" "$port"
   go run "${version_ldflags[@]}" ./cmd/migrate
+  create_template_databases
 }
 
 # probe_redis_port 在**宿主侧**用 RESP 打一次 PING，走的就是测试连接的发布端口。
@@ -267,7 +288,7 @@ if command -v nproc >/dev/null 2>&1; then
 else
   cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
 fi
-shards="${SFORUM_TEST_SHARDS:-$((cores > 4 ? 4 : cores))}"
+shards="${SFORUM_TEST_SHARDS:-$((cores > 6 ? 6 : cores))}"
 shard_parallel="${SFORUM_TEST_PARALLEL:-1}"
 if [[ ! "$shards" =~ ^[1-9][0-9]*$ ]]; then
   echo "SFORUM_TEST_SHARDS 必须是正整数：$shards" >&2
@@ -413,31 +434,33 @@ for arg in "${passthrough[@]}"; do
   fi
 done
 
-# 静态权重来自 2026-11-24 首轮无缓存隔离测试的实测长尾。新热点出现时用
-# tests/.logs/api.log 的分片耗时更新这里；未列出的包保持权重 1。
+# 静态权重来自无缓存隔离测试的实测长尾。新热点出现时用 tests/.logs/api.log
+# 或定向 -json 日志更新这里；未列出的包保持权重 1。
 package_weight() {
   case "$1" in
-    */database/migrator) echo 120 ;;
-    */app/Models/Extensions) echo 114 ;;
-    */app/Support/Extensions/IntegrationTests) echo 99 ;;
-    */app/Models/Identity) echo 81 ;;
-    */app/Support/Extensions) echo 66 ;;
-    */app/Support/HostAPI) echo 44 ;;
-    */bootstrap) echo 39 ;;
-    */app/Models/Forum) echo 37 ;;
-    */app/Support/IdentityRegistry) echo 33 ;;
-    */cmd/sforum) echo 32 ;;
-    */app/Models/Badges) echo 16 ;;
-    */app/Http) echo 12 ;;
+    */database/migrator) echo 101 ;;
+    */app/Support/Extensions/IntegrationTests) echo 70 ;;
+    */app/Support/Extensions) echo 56 ;;
+    */bootstrap) echo 44 ;;
+    */app/Models/Extensions) echo 36 ;;
+    */app/Models/Forum) echo 27 ;;
+    */app/Support/IdentityRegistry) echo 22 ;;
+    */cmd/sforum) echo 18 ;;
+    */app/Models/Identity) echo 17 ;;
+    */app/Support/HostAPI) echo 13 ;;
+    */app/Models/Badges) echo 12 ;;
+    */app/Support/CompatFarm) echo 11 ;;
+    */app/Http) echo 8 ;;
     */app/Support/ThemeCompiler) echo 8 ;;
     */app/Support/Localization) echo 5 ;;
     */app/Http/Controllers/Identity) echo 4 ;;
-    */app/Support/CompatFarm) echo 4 ;;
     */app/Models/Conditions) echo 4 ;;
     */app/Support/AI) echo 3 ;;
-    */app/Support/ExtensionOpenAPI) echo 3 ;;
-    */app/Support/ExtensionManifest) echo 3 ;;
+    */internal/testdb) echo 3 ;;
+    */app/Support/ExtensionOpenAPI) echo 2 ;;
+    */app/Support/ExtensionManifest) echo 2 ;;
     */app/Support/Extensions/pluginprocess) echo 2 ;;
+    */sdk/plugin) echo 6 ;;
     *) echo 1 ;;
   esac
 }
@@ -451,27 +474,29 @@ write_shard_plan() {
   done
   go list ./... | awk '
     function weight(p) {
-      if (p ~ /\/database\/migrator$/) return 120
-      if (p ~ /\/app\/Models\/Extensions$/) return 114
-      if (p ~ /\/app\/Support\/Extensions\/IntegrationTests$/) return 99
-      if (p ~ /\/app\/Models\/Identity$/) return 81
-      if (p ~ /\/app\/Support\/Extensions$/) return 66
-      if (p ~ /\/app\/Support\/HostAPI$/) return 44
-      if (p ~ /\/bootstrap$/) return 39
-      if (p ~ /\/app\/Models\/Forum$/) return 37
-      if (p ~ /\/app\/Support\/IdentityRegistry$/) return 33
-      if (p ~ /\/cmd\/sforum$/) return 32
-      if (p ~ /\/app\/Models\/Badges$/) return 16
-      if (p ~ /\/app\/Http$/) return 12
+      if (p ~ /\/database\/migrator$/) return 101
+      if (p ~ /\/app\/Support\/Extensions\/IntegrationTests$/) return 70
+      if (p ~ /\/app\/Support\/Extensions$/) return 56
+      if (p ~ /\/bootstrap$/) return 44
+      if (p ~ /\/app\/Models\/Extensions$/) return 36
+      if (p ~ /\/app\/Models\/Forum$/) return 27
+      if (p ~ /\/app\/Support\/IdentityRegistry$/) return 22
+      if (p ~ /\/cmd\/sforum$/) return 18
+      if (p ~ /\/app\/Models\/Identity$/) return 17
+      if (p ~ /\/app\/Support\/HostAPI$/) return 13
+      if (p ~ /\/app\/Models\/Badges$/) return 12
+      if (p ~ /\/app\/Support\/CompatFarm$/) return 11
+      if (p ~ /\/app\/Http$/) return 8
       if (p ~ /\/app\/Support\/ThemeCompiler$/) return 8
       if (p ~ /\/app\/Support\/Localization$/) return 5
       if (p ~ /\/app\/Http\/Controllers\/Identity$/) return 4
-      if (p ~ /\/app\/Support\/CompatFarm$/) return 4
       if (p ~ /\/app\/Models\/Conditions$/) return 4
       if (p ~ /\/app\/Support\/AI$/) return 3
-      if (p ~ /\/app\/Support\/ExtensionOpenAPI$/) return 3
-      if (p ~ /\/app\/Support\/ExtensionManifest$/) return 3
+      if (p ~ /\/internal\/testdb$/) return 3
+      if (p ~ /\/app\/Support\/ExtensionOpenAPI$/) return 2
+      if (p ~ /\/app\/Support\/ExtensionManifest$/) return 2
       if (p ~ /\/app\/Support\/Extensions\/pluginprocess$/) return 2
+      if (p ~ /\/sdk\/plugin$/) return 6
       return 1
     }
     { print weight($0) "|" $0 }

@@ -8,18 +8,21 @@ load archived sessions or completed plans as current context.
 
 ### CI/CD 与测试提速（2026-11-24 / 2026-11-25）
 
-- Status: **M0–M4 landed；M5–M6 未批准**。M0–M2 完成 CI 缓存、Go LPT 分片/
+- Status: **M0–M5 landed；M6 未批准**。M0–M2 完成 CI 缓存、Go LPT 分片/
   显式缓存/compat 复用、release/contracts 动态并行、parity 单次快照与 KDF/重试 sleep
   提速；M3 完成 API 单次 CLI、4 路内置插件构建、独立 `migrate-build`、worker 退役；
   M4 完成 `changes` + `ci-summary` 路径门控、Security 按语言/依赖面跳过和 contracts
-  Web 单测条件跳过。
+  Web 单测条件跳过；M5 用迁移模板库与包级夹具把 Extensions / Identity / HostAPI
+  从 71 / 56 / 30s 降到 26 / 13 / 10s，并把默认分片上限升到 6。
 - M3 后测：`api` 149s（原 343s）、`migrate` 62s（原 268s）、`prod` 109s
   （首次冷网络 204s）；Nitro 压缩与 BuildKit cache mount 已实测，生产配置不变。
-- 最终 `./scripts/test.sh`：**259s**（api 259 / web 222 / static 83）；
-  `./scripts/test.sh --fast`：**45–49s**。
-- Handoff：`sessions/2026-11-25-ci-cd-test-speedup-batch2.md`（上一批
+- 无缓存 `./scripts/test.sh`：**195s**（api 172 / web 195 / static 83）；
+  4 分片对照 api 200s；`./scripts/test.sh --fast` 稳态：**43s**。
+- Handoff：`sessions/2026-11-25-ci-cd-test-speedup-batch3.md`（上一批
+  `sessions/2026-11-25-ci-cd-test-speedup-batch2.md`；
   `sessions/archive/2026-11/2026-11-24-ci-cd-test-speedup-batch1.md`）；
-  决策：`decisions/2026-11-25-ci-container-and-path-gating.md`。
+  决策：`decisions/2026-11-25-go-template-db-and-package-parallelism.md`、
+  `decisions/2026-11-25-ci-container-and-path-gating.md`。
 
 ### 搜索页「极光玻璃」落地（2026-11-24）
 
@@ -966,11 +969,11 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **CI/CD 与测试提速 M3+M4（2026-11-25，最新）**：M0–M4 已落地，M5–M6 未批准。
-  API/migrate 无缓存构建 **343s→149s / 268s→62s**；Nitro 压缩与 BuildKit cache
-  mount 已实测但生产配置不变；CI 使用 `changes` + `ci-summary` 路径门控。
-  最终全量 **259s**，`--fast` **45–49s**。见
-  `sessions/2026-11-25-ci-cd-test-speedup-batch2.md`。
+- **CI/CD 与测试提速 M5（2026-11-25，最新）**：M0–M5 已落地，M6 未批准。
+  Extensions / Identity / HostAPI 分别 **71→26s / 56→13s / 30→10s**；6 分片
+  无缓存全量 **api 172s / web 195s / static 83s**，`--fast` 稳态 **43s**。
+  migrator 的额外并行因 Goose 解析内存长尾被否决。见
+  `sessions/2026-11-25-ci-cd-test-speedup-batch3.md`。
 - **一键脚本终端配色层（2026-11-18）**：新增 `deploy/scripts/term-ui.sh` 作为唯一实现，
   `sforum-install.sh` / `sforum-bootstrap.sh` / `sforum-latest.sh` 内联同一份
   `# >>> term-ui` 块（逐字节），`deploy.sh` / `upgrade.sh` / 配置向导 / 健康探针 / 恢复脚本

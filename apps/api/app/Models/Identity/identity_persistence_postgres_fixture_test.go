@@ -10,9 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
@@ -53,45 +52,22 @@ const (
 
 func newIdentityPersistencePGFixture(t *testing.T) *identityPersistencePGFixture {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := identityPersistencePGFixtureTemplate.Clone(t, "identity_persistence")
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	schema := fmt.Sprintf("identity_persistence_%d", time.Now().UnixNano())
-	quotedSchema := pgx.Identifier{schema}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+quotedSchema); err != nil {
-		admin.Close()
-		t.Fatal(err)
-	}
-	removeSchema := func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+quotedSchema+" CASCADE")
-	}
-
-	config, err := pgx.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	config.RuntimeParams["search_path"] = schema + ",public"
-	db := stdlib.OpenDB(*config)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	applyIdentityPersistenceTestMigrations(t, ctx, db, removeSchema)
 
 	poolConfig, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
-	poolConfig.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
 	poolConfig.MaxConns = 12
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
@@ -104,7 +80,6 @@ func newIdentityPersistencePGFixture(t *testing.T) *identityPersistencePGFixture
 	}
 	if err := fixture.seed(); err != nil {
 		pool.Close()
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
@@ -113,14 +88,12 @@ func newIdentityPersistencePGFixture(t *testing.T) *identityPersistencePGFixture
 	)
 	if err != nil {
 		pool.Close()
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
 	fixture.sessionPolicy, err = NewPostgresIdentitySessionPolicyStore(pool, fixture.registry)
 	if err != nil {
 		pool.Close()
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
@@ -132,7 +105,6 @@ func newIdentityPersistencePGFixture(t *testing.T) *identityPersistencePGFixture
 	)
 	t.Cleanup(func() {
 		pool.Close()
-		removeSchema()
 		admin.Close()
 	})
 	return fixture
@@ -144,7 +116,6 @@ func (f *identityPersistencePGFixture) newPool(name string) *pgxpool.Pool {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	config.ConnConfig.RuntimeParams["search_path"] = f.schema + ",public"
 	config.ConnConfig.RuntimeParams["application_name"] = name
 	config.MaxConns = 1
 	pool, err := pgxpool.NewWithConfig(f.ctx, config)
@@ -155,24 +126,25 @@ func (f *identityPersistencePGFixture) newPool(name string) *pgxpool.Pool {
 	return pool
 }
 
-func applyIdentityPersistenceTestMigrations(
-	t *testing.T,
-	ctx context.Context,
-	db *sql.DB,
-	removeSchema func(),
-) {
-	t.Helper()
+var identityPersistencePGFixtureTemplate = testdb.NewTemplate(
+	"identity_persistence",
+	prepareIdentityPersistencePGFixtureTemplate,
+)
+
+func prepareIdentityPersistencePGFixtureTemplate(ctx context.Context, databaseURL string) error {
+	db, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 	if err := seedIdentityPersistenceTestBaseTables(ctx, db); err != nil {
-		removeSchema()
-		t.Fatalf("seed isolated identity persistence schema: %v", err)
+		return fmt.Errorf("seed identity persistence base tables: %w", err)
 	}
 	provider, err := goose.NewProvider(
 		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
 	)
 	if err != nil {
-		removeSchema()
-		t.Fatal(err)
+		return err
 	}
 	for _, version := range []int64{
 		202607160028,
@@ -187,10 +159,10 @@ func applyIdentityPersistenceTestMigrations(
 		202607231001,
 	} {
 		if _, err := provider.ApplyVersion(ctx, version, true); err != nil {
-			removeSchema()
-			t.Fatalf("apply identity persistence migration %d: %v", version, err)
+			return fmt.Errorf("apply identity persistence migration %d: %w", version, err)
 		}
 	}
+	return nil
 }
 
 func seedIdentityPersistenceTestBaseTables(ctx context.Context, db *sql.DB) error {

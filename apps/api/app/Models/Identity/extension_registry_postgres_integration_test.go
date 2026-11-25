@@ -8,9 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 
 	identityregistry "github.com/keeptrue/sforum/apps/api/app/Support/IdentityRegistry"
@@ -120,108 +119,60 @@ type productionIdentityApprovalFixture struct {
 
 func newProductionIdentityApprovalFixture(t *testing.T) *productionIdentityApprovalFixture {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := productionIdentityApprovalTemplate.Clone(t, "identity_approval")
 
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(pool.Close)
 	schema := fmt.Sprintf("identity_prod_%d", time.Now().UnixNano())
-	quotedSchema := pgx.Identifier{schema}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+quotedSchema); err != nil {
-		admin.Close()
-		t.Fatal(err)
-	}
-	removeSchema := func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+quotedSchema+" CASCADE")
-	}
-
-	config, err := pgx.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	config.RuntimeParams["search_path"] = schema + ",public"
-	db := stdlib.OpenDB(*config)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	if err := seedProductionIdentityApprovalBaseTables(ctx, db); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("seed production identity approval fixture: %v", err)
-	}
-	provider, err := goose.NewProvider(
-		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
-	)
-	if err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	if _, err := provider.ApplyVersion(ctx, 202607160028, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply identity ownership fixture migration: %v", err)
-	}
-	if _, err := provider.ApplyVersion(ctx, 202607160029, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply identity approval fixture migration: %v", err)
-	}
-	if _, err := provider.ApplyVersion(ctx, 202607231001, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply extension permission localization fixture migration: %v", err)
-	}
-	// 批准角色建议现在要求操作者自己持有被建议的权限（R8-BE-06），判定在 SQL 里。
-	if _, err := provider.ApplyVersion(ctx, 202611170001, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply identity actor holds permission fixture migration: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-
-	poolConfig, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	poolConfig.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
 	fixture := &productionIdentityApprovalFixture{
 		ctx: ctx, pool: pool, schema: schema,
 		roles: NewPostgresStore(pool), registry: identityregistry.NewPostgresStore(pool),
 	}
 	if err := fixture.seed(); err != nil {
 		pool.Close()
-		removeSchema()
-		admin.Close()
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		pool.Close()
-		removeSchema()
-		admin.Close()
-	})
 	return fixture
+}
+
+var productionIdentityApprovalTemplate = testdb.NewTemplate(
+	"identity_approval",
+	prepareProductionIdentityApprovalTemplate,
+)
+
+func prepareProductionIdentityApprovalTemplate(ctx context.Context, databaseURL string) error {
+	db, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err := seedProductionIdentityApprovalBaseTables(ctx, db); err != nil {
+		return fmt.Errorf("seed production identity approval fixture: %w", err)
+	}
+	provider, err := goose.NewProvider(
+		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
+	)
+	if err != nil {
+		return err
+	}
+	for _, step := range []struct {
+		version int64
+		label   string
+	}{
+		{202607160028, "identity ownership"},
+		{202607160029, "identity approval"},
+		{202607231001, "extension permission localization"},
+		{202611170001, "identity actor holds permission"},
+	} {
+		if _, err := provider.ApplyVersion(ctx, step.version, true); err != nil {
+			return fmt.Errorf("apply %s fixture migration: %w", step.label, err)
+		}
+	}
+	return nil
 }
 
 func seedProductionIdentityApprovalBaseTables(ctx context.Context, db *sql.DB) error {

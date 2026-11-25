@@ -94,6 +94,7 @@ func sortedSIDs(sids []string) []string {
 
 // TestPluginSessionStateErasureFollowsRevokeSession 证明单会话撤销擦除的正是刚结束的 sid。
 func TestPluginSessionStateErasureFollowsRevokeSession(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -115,6 +116,7 @@ func TestPluginSessionStateErasureFollowsRevokeSession(t *testing.T) {
 // TestPluginSessionStateErasureFollowsRevokeOtherSessions 证明「下线其他设备」
 // 只擦除被下线的 sid，当前会话的插件状态保留。
 func TestPluginSessionStateErasureFollowsRevokeOtherSessions(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -137,6 +139,7 @@ func TestPluginSessionStateErasureFollowsRevokeOtherSessions(t *testing.T) {
 // TestPluginSessionStateErasureFollowsRevokeUserSessions 证明管理员清空全部会话时
 // 每个被结束的 sid 都被擦除。
 func TestPluginSessionStateErasureFollowsRevokeUserSessions(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -160,6 +163,7 @@ func TestPluginSessionStateErasureFollowsRevokeUserSessions(t *testing.T) {
 // TestPluginSessionStateErasureFollowsDeviceCapEviction 证明设备数驱逐只擦除被踢出的
 // sid：当前会话与最新保留会话的插件状态不被动。
 func TestPluginSessionStateErasureFollowsDeviceCapEviction(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -189,6 +193,7 @@ func TestPluginSessionStateErasureFollowsDeviceCapEviction(t *testing.T) {
 // TestPluginSessionStateErasureFollowsPasswordReset 证明改密（确认重置）结束后
 // 该用户全部活跃会话的插件状态被擦除。
 func TestPluginSessionStateErasureFollowsPasswordReset(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -222,6 +227,7 @@ func TestPluginSessionStateErasureFollowsPasswordReset(t *testing.T) {
 // TestPluginSessionStateErasureIsIdempotentOnAlreadyRevokedSession 证明对「已下线但行存在」
 // 的 sid 再撤销一次是幂等成功，且仍然补擦插件状态。
 func TestPluginSessionStateErasureIsIdempotentOnAlreadyRevokedSession(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -242,6 +248,7 @@ func TestPluginSessionStateErasureIsIdempotentOnAlreadyRevokedSession(t *testing
 // TestPluginSessionStateErasureSkipsMissingSession 证明撤销不存在的 sid 返回
 // ErrSessionNotFound 且不触发擦除。
 func TestPluginSessionStateErasureSkipsMissingSession(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	err := p.store.RevokeSession(context.Background(), p.fixture.targetUserID, "erasure-missing", "test")
@@ -256,6 +263,7 @@ func TestPluginSessionStateErasureSkipsMissingSession(t *testing.T) {
 // TestPluginSessionStateErasureFailureDoesNotFailRevoke 证明擦除失败（返回错误或 panic）
 // 都不影响撤销本身——best-effort 语义。
 func TestPluginSessionStateErasureFailureDoesNotFailRevoke(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{failWith: errors.New("redis down")}
 	p := newPluginSessionStatePGStore(t, fake)
 	user := p.fixture.targetUserID
@@ -285,6 +293,7 @@ func TestPluginSessionStateErasureFailureDoesNotFailRevoke(t *testing.T) {
 // TestPluginSessionStateRevokesWorkWithoutInvalidator 证明未注入 invalidator 时
 // 主操作照常（装配前/未接存储的部署不被拖挂）。
 func TestPluginSessionStateRevokesWorkWithoutInvalidator(t *testing.T) {
+	t.Parallel()
 	p := newPluginSessionStatePGStore(t, nil)
 	user := p.fixture.targetUserID
 	p.createSession(t, user, "erasure-plain-s1")
@@ -301,6 +310,7 @@ func TestPluginSessionStateRevokesWorkWithoutInvalidator(t *testing.T) {
 // TestPluginSessionStateErasureDistinguishesUsers 证明擦除按 sid 精确到达：
 // 其他用户的会话不受本用户撤销的影响（子会话隔离的目录侧表达）。
 func TestPluginSessionStateErasureDistinguishesUsers(t *testing.T) {
+	t.Parallel()
 	fake := &recordingPluginSessionInvalidator{}
 	p := newPluginSessionStatePGStore(t, fake)
 	p.createSession(t, p.fixture.targetUserID, "erasure-scope-target")

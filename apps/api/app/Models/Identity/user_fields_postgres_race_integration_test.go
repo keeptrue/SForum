@@ -11,6 +11,7 @@ import (
 )
 
 func TestIdentityUserFieldPostgresJSONBCanonicalDigest(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()
@@ -80,6 +81,7 @@ func TestIdentityUserFieldPostgresJSONBCanonicalDigest(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresConcurrentSameKeyReplay(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -126,6 +128,7 @@ func TestIdentityUserFieldPostgresConcurrentSameKeyReplay(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresConcurrentAbsentCAS(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -152,6 +155,7 @@ func TestIdentityUserFieldPostgresConcurrentAbsentCAS(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresConcurrentUpdateEraseCAS(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -192,6 +196,7 @@ func TestIdentityUserFieldPostgresConcurrentUpdateEraseCAS(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresPermissionRevocationRace(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -230,6 +235,7 @@ func TestIdentityUserFieldPostgresPermissionRevocationRace(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresPrivacyEraseUserDeletionRace(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -288,6 +294,7 @@ func TestIdentityUserFieldPostgresPrivacyEraseUserDeletionRace(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresOrdinaryReplayRequiresLiveTarget(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()
@@ -306,6 +313,7 @@ func TestIdentityUserFieldPostgresOrdinaryReplayRequiresLiveTarget(t *testing.T)
 }
 
 func TestIdentityUserFieldPostgresOrdinaryReplayActorDeletionRace(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()

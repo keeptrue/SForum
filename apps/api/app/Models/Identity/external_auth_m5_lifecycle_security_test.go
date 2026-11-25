@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -407,7 +408,7 @@ func TestM5_Security_ActivationCASAndDuplicateRegistrationTicket(t *testing.T) {
 	}
 
 	// concurrent CAS：恰好一个成功
-	var success, conflict int
+	var success, conflict atomic.Int64
 	var wg sync.WaitGroup
 	act, _ := store.Get(ctx, "m5.cas")
 	off := false
@@ -421,18 +422,18 @@ func TestM5_Security_ActivationCASAndDuplicateRegistrationTicket(t *testing.T) {
 				LoginEnabled: &off,
 			})
 			if err == nil || errors.Is(err, ErrProviderActivationNoMutation) {
-				success++
+				success.Add(1)
 				return
 			}
 			if errors.Is(err, ErrProviderActivationCASConflict) {
-				conflict++
+				conflict.Add(1)
 				return
 			}
 		}()
 	}
 	wg.Wait()
-	if success < 1 {
-		t.Fatalf("expected CAS success>=1, success=%d conflict=%d", success, conflict)
+	if success.Load() < 1 {
+		t.Fatalf("expected CAS success>=1, success=%d conflict=%d", success.Load(), conflict.Load())
 	}
 
 	// duplicate registration ticket one-use

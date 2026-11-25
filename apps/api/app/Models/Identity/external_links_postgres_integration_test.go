@@ -14,6 +14,7 @@ import (
 )
 
 func TestExternalIdentityLinkPostgresLifecycleAndPrivacy(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()
@@ -119,6 +120,7 @@ func TestExternalIdentityLinkPostgresLifecycleAndPrivacy(t *testing.T) {
 }
 
 func TestExternalIdentityLinkPostgresRegistrationTransactionBoundary(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()
@@ -206,6 +208,7 @@ func insertExternalIdentityRegistrationUser(ctx context.Context, tx pgx.Tx, user
 }
 
 func TestExternalIdentityLinkPostgresRejectsDriftAndRollsBack(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()
@@ -262,6 +265,7 @@ func TestExternalIdentityLinkPostgresRejectsDriftAndRollsBack(t *testing.T) {
 }
 
 func TestExternalIdentityLinkPostgresConcurrentSameKeyReplay(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -306,6 +310,7 @@ func TestExternalIdentityLinkPostgresConcurrentSameKeyReplay(t *testing.T) {
 }
 
 func TestExternalIdentityLinkPostgresConcurrentSubjectUniqueness(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -348,6 +353,7 @@ func TestExternalIdentityLinkPostgresConcurrentSubjectUniqueness(t *testing.T) {
 }
 
 func TestExternalIdentityLinkPostgresTransitionCAS(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -409,6 +415,7 @@ func TestExternalIdentityLinkPostgresTransitionCAS(t *testing.T) {
 }
 
 func TestExternalIdentityLinkPostgresInvalidTransitionActorRollsBack(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()

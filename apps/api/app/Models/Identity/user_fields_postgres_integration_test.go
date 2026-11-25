@@ -13,6 +13,7 @@ import (
 )
 
 func TestIdentityUserFieldPostgresLifecycleAndRedaction(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -112,6 +113,7 @@ func TestIdentityUserFieldPostgresLifecycleAndRedaction(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresPermissionLifecycleAndPrivacy(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -294,6 +296,7 @@ func TestIdentityUserFieldPostgresPermissionLifecycleAndPrivacy(t *testing.T) {
 }
 
 func TestIdentityUserFieldPostgresOrdinaryEraseReplayRequiresLiveAuthority(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 30*time.Second)
 	defer cancel()
@@ -340,6 +343,7 @@ func TestIdentityUserFieldPostgresOrdinaryEraseReplayRequiresLiveAuthority(t *te
 }
 
 func TestIdentityUserFieldPostgresCallerTransactionAndFinalFence(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()

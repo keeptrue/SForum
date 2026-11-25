@@ -69,3 +69,6 @@ Go 段默认 `-p 1` 完全串行；隔离集群被建了两遍（全量一次、
 - CI 的 Go gate 变成单次调用（`--with-compat`），容器与迁移各跑一遍而不是两遍。
 - 包内串行成为新长尾（`database/migrator` 34 个测试文件只有 1 个用 `t.Parallel()`），
   这是后续独立任务，不在本次范围。
+- 2026-11-25 M5 更新：模板库降低重包耗时后，默认分片上限提升为
+  `min(nproc,6)`；migrator 仍不开启额外并行。见
+  `2026-11-25-go-template-db-and-package-parallelism.md`。

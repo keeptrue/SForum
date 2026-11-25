@@ -23,32 +23,48 @@ import (
 // 叠加 plugin runtime publication migration，避免依赖全局脏库状态。
 func newBuiltinPluginRuntimeSaveFixture(t *testing.T, label string) *pluginRuntimePublicationPGFixture {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := builtinPluginRuntimeSaveFixtureTemplate.Clone(t, "builtin_runtime_publication")
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	schema := fmt.Sprintf("bps_%d_%s", time.Now().UnixNano(), label)
-	quotedSchema := pgx.Identifier{schema}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+quotedSchema); err != nil {
+
+	poolConfig, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
 		admin.Close()
 		t.Fatal(err)
 	}
-	removeSchema := func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+quotedSchema+" CASCADE")
+	poolConfig.ConnConfig.RuntimeParams["application_name"] = schema
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		admin.Close()
+		t.Fatal(err)
 	}
+	fixture := &pluginRuntimePublicationPGFixture{
+		t: t, ctx: ctx, admin: admin, pool: pool, store: NewPostgresStore(pool), schema: schema,
+	}
+	// SaveBuiltin 写入的 package_path 会被发布期闸门回查，必须在盘上有真实制品。
+	attachPluginRuntimeArtifacts(t, fixture)
+	t.Cleanup(fixture.cleanup)
+	return fixture
+}
 
+var builtinPluginRuntimeSaveFixtureTemplate = testdb.NewTemplate(
+	"builtin_runtime_publication",
+	prepareBuiltinPluginRuntimeSaveFixtureTemplate,
+)
+
+func prepareBuiltinPluginRuntimeSaveFixtureTemplate(ctx context.Context, databaseURL string) error {
 	config, err := pgx.ParseConfig(databaseURL)
 	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
+		return err
 	}
-	config.RuntimeParams["search_path"] = schema + ",public"
 	db := stdlib.OpenDB(*config)
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
+	defer db.Close()
 	if _, err := db.ExecContext(ctx, `
 		CREATE TABLE extensions (
 			id TEXT PRIMARY KEY,
@@ -89,65 +105,27 @@ func newBuiltinPluginRuntimeSaveFixture(t *testing.T, label string) *pluginRunti
 			extension_id TEXT
 		)
 	`); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
+		return err
 	}
 	provider, err := goose.NewProvider(
 		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
 	)
 	if err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
+		return err
 	}
-	if _, err := provider.ApplyVersion(ctx, 202607160027, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply plugin runtime publication migration: %v", err)
+	for _, step := range []struct {
+		version int64
+		label   string
+	}{
+		{202607160027, "plugin runtime publication"},
+		{202607270063, "missing artifact removal"},
+		{202607300002, "builtin removal"},
+	} {
+		if _, err := provider.ApplyVersion(ctx, step.version, true); err != nil {
+			return fmt.Errorf("apply %s migration: %w", step.label, err)
+		}
 	}
-	if _, err := provider.ApplyVersion(ctx, 202607270063, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply missing artifact removal migration: %v", err)
-	}
-	if _, err := provider.ApplyVersion(ctx, 202607300002, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply builtin removal migration: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-
-	poolConfig, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	poolConfig.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
-	poolConfig.ConnConfig.RuntimeParams["application_name"] = schema
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	fixture := &pluginRuntimePublicationPGFixture{
-		t: t, ctx: ctx, admin: admin, pool: pool, store: NewPostgresStore(pool), schema: schema,
-	}
-	// SaveBuiltin 写入的 package_path 会被发布期闸门回查，必须在盘上有真实制品。
-	attachPluginRuntimeArtifacts(t, fixture)
-	t.Cleanup(fixture.cleanup)
-	return fixture
+	return nil
 }
 
 func builtinPluginManifest(id, version, backendEntry string) Manifest {
@@ -209,6 +187,7 @@ func saveBuiltinPlugin(
 }
 
 func TestSaveBuiltinAuthProviderDefaultsInstalledForExplicitLifecycleEnable(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "auth_default_off")
 	const pluginID = "builtin.auth-provider"
 	digest := strings.Repeat("a", 64)
@@ -257,6 +236,7 @@ func seedBuiltinPluginRuntimePublication(
 }
 
 func TestPruneMissingPublishedBuiltinPluginRetainsHistoryAndPublishesRemoval(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "prune_published")
 	const (
 		keptID    = "builtin.kept"
@@ -331,6 +311,7 @@ func TestPruneMissingPublishedBuiltinPluginRetainsHistoryAndPublishesRemoval(t *
 }
 
 func TestSaveBuiltinEnabledPluginStagesDigestBWithoutBypassingLifecycle(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "upgrade_a_b")
 	const pluginID = "builtin.policy"
 
@@ -365,6 +346,7 @@ func TestSaveBuiltinEnabledPluginStagesDigestBWithoutBypassingLifecycle(t *testi
 // 必须以 immutable 成员 A 为 source 追加 actorless upgrade，不能因
 // previousActive==B 而短路跳过修复。
 func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "repair_stale_a")
 	const pluginID = "builtin.stale.active"
 
@@ -439,6 +421,7 @@ func TestSaveBuiltinPluginRuntimeRepairsStalePublicationWhenActiveAlreadyB(t *te
 }
 
 func TestSaveBuiltinPluginRuntimeConcurrentRepeatIdempotent(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "concurrent_idempotent")
 	const pluginID = "builtin.concurrent"
 
@@ -503,6 +486,7 @@ func TestSaveBuiltinPluginRuntimeConcurrentRepeatIdempotent(t *testing.T) {
 }
 
 func TestSaveBuiltinPluginRuntimeDoesNotResurrectAbsentMember(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "no_resurrect")
 	const pluginID = "builtin.revoked"
 
@@ -528,6 +512,7 @@ func TestSaveBuiltinPluginRuntimeDoesNotResurrectAbsentMember(t *testing.T) {
 }
 
 func TestSaveBuiltinPluginRuntimePreservesUnrelatedMembers(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "preserve_third")
 	const (
 		pluginID = "builtin.primary"
@@ -595,6 +580,7 @@ func TestSaveBuiltinPluginRuntimePreservesUnrelatedMembers(t *testing.T) {
 }
 
 func TestSaveBuiltinPluginRuntimeNoPublicationLeavesGenesisToLater(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "no_publication")
 	const pluginID = "builtin.genesis"
 
@@ -622,6 +608,7 @@ func TestSaveBuiltinPluginRuntimeNoPublicationLeavesGenesisToLater(t *testing.T)
 }
 
 func TestSaveBuiltinPluginRuntimeNewExecutableEnableWithPublication(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "new_enable")
 	// 先有空 full-set authority，再插入全新可执行 builtin。
 	empty := seedBuiltinPluginRuntimePublication(
@@ -644,6 +631,7 @@ func TestSaveBuiltinPluginRuntimeNewExecutableEnableWithPublication(t *testing.T
 }
 
 func TestSaveBuiltinPluginRuntimeDeclarationOnlyDoesNotAddMember(t *testing.T) {
+	t.Parallel()
 	fixture := newBuiltinPluginRuntimeSaveFixture(t, "declaration_only")
 	empty := seedBuiltinPluginRuntimePublication(
 		t, fixture, PluginRuntimePublicationStartupReconcile,

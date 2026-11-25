@@ -4,6 +4,11 @@
 **Owner**: 2026-10-23 session
 **目标**：`./scripts/test.sh` 本地全量从 20+ 分钟降到 6–8 分钟；新增 `--fast` 分层约 3–4 分钟；不删测试、不降低任何门禁。
 
+**2026-11-25 更新**：M5 模板库降低重包耗时后，`SFORUM_TEST_SHARDS` 默认上限已从
+`min(nproc,4)` 提升到 `min(nproc,6)`；见
+`2026-11-24-ci-cd-and-test-speedup.md` 与
+`decisions/2026-11-25-go-template-db-and-package-parallelism.md`。
+
 ## 背景与诊断（已完成勘察，证据如下）
 
 基线：开发机 12 核，本地全量 `./scripts/test.sh` 20 余分钟。耗时结构：

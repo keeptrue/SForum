@@ -18,6 +18,7 @@ import (
 )
 
 func TestPostgresPluginRuntimePublicationFullSetRoundTrip(t *testing.T) {
+	t.Parallel()
 	fixture := newPluginRuntimePublicationPGFixture(t, "full-set")
 	if _, err := fixture.store.LatestPluginRuntimePublication(fixture.ctx); !errors.Is(err, ErrPluginRuntimePublicationNotFound) {
 		t.Fatalf("empty latest error=%v", err)
@@ -89,6 +90,7 @@ func TestPostgresPluginRuntimePublicationFullSetRoundTrip(t *testing.T) {
 }
 
 func TestPostgresPluginRuntimeNodeApplyCASAndWorkerRetry(t *testing.T) {
+	t.Parallel()
 	fixture := newPluginRuntimePublicationPGFixture(t, "node-cas")
 	publication, err := fixture.store.publishPluginRuntimePublication(
 		fixture.ctx, PluginRuntimePublicationEnable, 7, []PluginRuntimeMember{fixture.firstMember()},
@@ -237,6 +239,7 @@ func TestPostgresPluginRuntimeNodeApplyCASAndWorkerRetry(t *testing.T) {
 }
 
 func TestPostgresPluginRuntimeExpiredBootCannotResume(t *testing.T) {
+	t.Parallel()
 	fixture := newPluginRuntimePublicationPGFixture(t, "expired")
 	publication, err := fixture.store.publishPluginRuntimePublication(
 		fixture.ctx, PluginRuntimePublicationStartupReconcile, 0, nil,
@@ -293,7 +296,7 @@ type pluginRuntimePublicationPGFixture struct {
 
 func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRuntimePublicationPGFixture {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := pluginRuntimePublicationPGFixtureTemplate.Clone(t, "plugin_runtime_publication")
 	ctx := context.Background()
 	admin, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -302,91 +305,15 @@ func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRun
 	// PostgreSQL 会把标识符截断到 63 字节；唯一部分必须放在前面，避免
 	// 长 label 在 -count 重跑时把尾部时间戳截掉并复用旧 schema。
 	schema := fmt.Sprintf("prp_%d_%s", time.Now().UnixNano(), label)
-	quotedSchema := pgx.Identifier{schema}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+quotedSchema); err != nil {
-		admin.Close()
-		t.Fatal(err)
-	}
-	removeSchema := func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+quotedSchema+" CASCADE")
-	}
-
-	config, err := pgx.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	config.RuntimeParams["search_path"] = schema + ",public"
-	db := stdlib.OpenDB(*config)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	if _, err := db.ExecContext(ctx, `
-		CREATE TABLE extensions (
-			id TEXT PRIMARY KEY,
-			type TEXT NOT NULL,
-			status TEXT NOT NULL DEFAULT 'installed',
-			active_version_id BIGINT
-		);
-		CREATE TABLE extension_versions (
-			-- 与生产同构：id 是序列主键（BIGSERIAL），夹具显式插 101/102… 之后
-			-- 必须把序列对齐到 max(id)，否则同库别的包会撞 23505。
-			id BIGSERIAL PRIMARY KEY,
-			extension_id TEXT NOT NULL REFERENCES extensions(id) ON DELETE CASCADE,
-			version TEXT NOT NULL,
-			package_digest TEXT NOT NULL,
-			manifest JSONB NOT NULL DEFAULT '{}'::jsonb,
-			-- 与生产同构：制品完整性自检要按 durable 行里的路径回查盘上制品。
-			package_path TEXT NOT NULL DEFAULT ''
-		);
-		ALTER TABLE extensions
-			ADD CONSTRAINT extensions_active_version_fk
-			FOREIGN KEY (active_version_id) REFERENCES extension_versions(id) ON DELETE SET NULL;
-		INSERT INTO extensions (id, type) VALUES
-			('fixture.plugin', 'plugin'),
-			('second.plugin', 'plugin'),
-			('fixture.theme', 'theme');
-	`); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	provider, err := goose.NewProvider(
-		goose.DialectPostgres,
-		db,
-		migrations.Files(),
-		goose.WithDisableGlobalRegistry(true),
-	)
-	if err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
-	if _, err := provider.ApplyVersion(ctx, 202607160027, true); err != nil {
-		db.Close()
-		removeSchema()
-		admin.Close()
-		t.Fatalf("apply plugin runtime publication migration: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		removeSchema()
-		admin.Close()
-		t.Fatal(err)
-	}
 
 	poolConfig, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
-	poolConfig.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
 	poolConfig.ConnConfig.RuntimeParams["application_name"] = schema
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		removeSchema()
 		admin.Close()
 		t.Fatal(err)
 	}
@@ -403,9 +330,62 @@ func newPluginRuntimePublicationPGFixture(t *testing.T, label string) *pluginRun
 	return fixture
 }
 
+var pluginRuntimePublicationPGFixtureTemplate = testdb.NewTemplate(
+	"plugin_runtime_publication",
+	preparePluginRuntimePublicationPGFixtureTemplate,
+)
+
+func preparePluginRuntimePublicationPGFixtureTemplate(ctx context.Context, databaseURL string) error {
+	config, err := pgx.ParseConfig(databaseURL)
+	if err != nil {
+		return err
+	}
+	db := stdlib.OpenDB(*config)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE extensions (
+			id TEXT PRIMARY KEY,
+			type TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'installed',
+			active_version_id BIGINT
+		);
+		CREATE TABLE extension_versions (
+			id BIGSERIAL PRIMARY KEY,
+			extension_id TEXT NOT NULL REFERENCES extensions(id) ON DELETE CASCADE,
+			version TEXT NOT NULL,
+			package_digest TEXT NOT NULL,
+			manifest JSONB NOT NULL DEFAULT '{}'::jsonb,
+			package_path TEXT NOT NULL DEFAULT ''
+		);
+		ALTER TABLE extensions
+			ADD CONSTRAINT extensions_active_version_fk
+			FOREIGN KEY (active_version_id) REFERENCES extension_versions(id) ON DELETE SET NULL;
+		INSERT INTO extensions (id, type) VALUES
+			('fixture.plugin', 'plugin'),
+			('second.plugin', 'plugin'),
+			('fixture.theme', 'theme');
+	`); err != nil {
+		return err
+	}
+	provider, err := goose.NewProvider(
+		goose.DialectPostgres,
+		db,
+		migrations.Files(),
+		goose.WithDisableGlobalRegistry(true),
+	)
+	if err != nil {
+		return err
+	}
+	if _, err := provider.ApplyVersion(ctx, 202607160027, true); err != nil {
+		return fmt.Errorf("apply plugin runtime publication migration: %w", err)
+	}
+	return nil
+}
+
 func (f *pluginRuntimePublicationPGFixture) cleanup() {
 	f.pool.Close()
-	_, _ = f.admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+pgx.Identifier{f.schema}.Sanitize()+" CASCADE")
 	f.admin.Close()
 }
 

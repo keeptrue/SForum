@@ -28,48 +28,19 @@ type pluginJobLifecycleIntegrationHarness struct {
 
 func newPluginJobLifecycleIntegrationHarness(t *testing.T) *pluginJobLifecycleIntegrationHarness {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := pluginJobLifecycleIntegrationHarnessTemplate.Clone(t, "plugin_job_lifecycle")
 
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
-		t.Fatalf("open integration admin pool: %v", err)
-	}
-	schema := fmt.Sprintf("plugin_job_lifecycle_%d", time.Now().UnixNano())
-	identifier := pgx.Identifier{schema}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+identifier); err != nil {
-		admin.Close()
-		t.Fatalf("create integration schema: %v", err)
-	}
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+identifier+" CASCADE")
-		admin.Close()
-	})
-
-	config, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		t.Fatalf("parse integration database URL: %v", err)
-	}
-	config.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatalf("open isolated integration pool: %v", err)
+		t.Fatalf("open integration pool: %v", err)
 	}
 	t.Cleanup(pool.Close)
 
 	driver := riverpgxv5.New(pool)
-	riverMigrator, err := rivermigrate.New(driver, &rivermigrate.Config{Schema: schema})
+	riverClient, err := river.NewClient(driver, &river.Config{Schema: "public"})
 	if err != nil {
-		t.Fatalf("create isolated River migrator: %v", err)
-	}
-	if _, err := riverMigrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
-		t.Fatalf("migrate isolated River schema: %v", err)
-	}
-	installPluginJobMigrationLedger(t, ctx, pool)
-
-	riverClient, err := river.NewClient(driver, &river.Config{Schema: schema})
-	if err != nil {
-		t.Fatalf("create isolated River client: %v", err)
+		t.Fatalf("create River client: %v", err)
 	}
 	return &pluginJobLifecycleIntegrationHarness{
 		ctx: ctx, pool: pool, river: riverClient,
@@ -77,20 +48,42 @@ func newPluginJobLifecycleIntegrationHarness(t *testing.T) *pluginJobLifecycleIn
 	}
 }
 
-func installPluginJobMigrationLedger(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-	t.Helper()
+var pluginJobLifecycleIntegrationHarnessTemplate = testdb.NewTemplate(
+	"plugin_job_lifecycle",
+	preparePluginJobLifecycleIntegrationHarnessTemplate,
+)
+
+func preparePluginJobLifecycleIntegrationHarnessTemplate(ctx context.Context, databaseURL string) error {
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	driver := riverpgxv5.New(pool)
+	riverMigrator, err := rivermigrate.New(driver, &rivermigrate.Config{Schema: "public"})
+	if err != nil {
+		return err
+	}
+	if _, err := riverMigrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
+		return fmt.Errorf("migrate River template: %w", err)
+	}
+	return installPluginJobMigrationLedger(ctx, pool)
+}
+
+func installPluginJobMigrationLedger(ctx context.Context, pool *pgxpool.Pool) error {
 	const filename = "202607140003_extension_plugin_job_migrations.sql"
 	body, err := fs.ReadFile(migrations.Files(), filename)
 	if err != nil {
-		t.Fatalf("read %s: %v", filename, err)
+		return fmt.Errorf("read %s: %w", filename, err)
 	}
 	up := strings.SplitN(string(body), "-- +goose Down", 2)
 	if len(up) != 2 {
-		t.Fatalf("migration %s has no Down boundary", filename)
+		return fmt.Errorf("migration %s has no Down boundary", filename)
 	}
 	if _, err := pool.Exec(ctx, up[0]); err != nil {
-		t.Fatalf("install plugin job migration ledger: %v", err)
+		return fmt.Errorf("install plugin job migration ledger: %w", err)
 	}
+	return nil
 }
 
 func (h *pluginJobLifecycleIntegrationHarness) insertJob(

@@ -11,6 +11,7 @@ import (
 )
 
 func TestIdentitySessionPolicyPostgresSelectResetRuntimeRebindAndSafeMode(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx := fixture.ctx
 
@@ -213,6 +214,7 @@ func TestIdentitySessionPolicyPostgresSelectResetRuntimeRebindAndSafeMode(t *tes
 }
 
 func TestIdentitySessionPolicyPostgresStaleDesiredFailsClosed(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {
@@ -246,6 +248,7 @@ func TestIdentitySessionPolicyPostgresStaleDesiredFailsClosed(t *testing.T) {
 }
 
 func TestIdentitySessionPolicyPostgresLifecycleReplayAndInvalidation(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {
@@ -316,6 +319,7 @@ func TestIdentitySessionPolicyPostgresLifecycleReplayAndInvalidation(t *testing.
 }
 
 func TestIdentitySessionPolicyPostgresLifecycleAllowsDeletedActorProvenance(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {
@@ -353,6 +357,7 @@ func TestIdentitySessionPolicyPostgresLifecycleAllowsDeletedActorProvenance(t *t
 }
 
 func TestIdentitySessionPolicyPostgresLifecycleUpgradeAssociationAndRollback(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		removeAssociation bool
@@ -463,6 +468,7 @@ func TestIdentitySessionPolicyPostgresLifecycleUpgradeAssociationAndRollback(t *
 }
 
 func TestIdentitySessionPolicyPostgresLifecycleFailureRollsBackRegistryAndSelection(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []string{"audit", "event", "root"} {
 		t.Run(failure, func(t *testing.T) {
 			fixture := newIdentityPersistencePGFixture(t)
@@ -499,6 +505,7 @@ func TestIdentitySessionPolicyPostgresLifecycleFailureRollsBackRegistryAndSelect
 }
 
 func TestIdentitySessionPolicyPostgresRejectsAuthorityAndRollsBack(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {

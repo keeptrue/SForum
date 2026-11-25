@@ -131,6 +131,22 @@ standalone `sforum-worker` target is gone. The first line remains the RV-18
 Go 1.26.11 base image. See
 `decisions/2026-11-25-ci-container-and-path-gating.md`.
 
+Isolated database tests now freeze one fully migrated `sforum_test_template`
+database per disposable cluster. `internal/testdb` clones that base into
+package-owned templates, applies fixture-local DDL under a private schema, and
+clones the final template for each test. Missing templates fail closed; tests
+never fall back to `DATABASE_URL` or a development database. The
+Extensions, Identity, and HostAPI packages run independent Postgres fixtures in
+parallel, while `database/migrator` remains serial because concurrent Goose
+parsing creates a race-mode memory/GC long tail. LPT weights and the default
+shard ceiling (`min(nproc, 6)`) are measured from the current suite. See
+`decisions/2026-11-25-go-template-db-and-package-parallelism.md`.
+
+CompatFarm can reuse prebuilt builtin packages through
+`SFORUM_COMPAT_PREBUILT_ROOT` / `RunOptions.PrebuiltPluginRoot`. Reuse requires
+clean `apps/api` and `extensions/builtin` trees plus manifest, package-tree, and
+executable digest verification; an explicit `BuiltinPluginPath` always wins.
+
 The clean-host deployment entrypoint now defaults to immutable GHCR images and
 managed Compose PostgreSQL/Redis. Its bilingual wizard creates a mode-`0600`
 production environment with secure generated secrets and working local

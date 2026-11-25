@@ -12,6 +12,7 @@ import (
 )
 
 func TestIdentitySessionPolicyPostgresConcurrentCASHasOneWinner(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {
@@ -46,6 +47,7 @@ func TestIdentitySessionPolicyPostgresConcurrentCASHasOneWinner(t *testing.T) {
 }
 
 func TestIdentitySessionPolicyPostgresLifecycleSelectRace(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {
@@ -139,6 +141,7 @@ func TestIdentitySessionPolicyPostgresLifecycleSelectRace(t *testing.T) {
 }
 
 func TestIdentitySessionPolicyPostgresSelectFirstLifecycleRace(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	candidate, err := fixture.sessionPolicy.Candidate(fixture.ctx, fixture.sessionProvider.ID)
 	if err != nil {

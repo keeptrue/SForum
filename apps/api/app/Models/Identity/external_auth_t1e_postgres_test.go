@@ -14,6 +14,7 @@ import (
 // 需要 SFORUM_TEST_DATABASE_URL；未设置时 skip。
 
 func TestT1E_PostgresExternalLinkTransitionAndRevisionRace(t *testing.T) {
+	t.Parallel()
 	fixture := newIdentityPersistencePGFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 20*time.Second)
 	defer cancel()
@@ -96,6 +97,7 @@ func TestT1E_PostgresExternalLinkTransitionAndRevisionRace(t *testing.T) {
 }
 
 func TestT1E_PostgresRegistrationRollbackOnDefaultRoleFailure(t *testing.T) {
+	t.Parallel()
 	// 证明 LinkTx 与调用方事务可 rollback：模拟 link 写入后主动 Rollback，
 	// 行不得残留（registration 原子边界的 DB 证据）。
 	fixture := newIdentityPersistencePGFixture(t)

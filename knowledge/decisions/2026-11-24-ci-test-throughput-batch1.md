@@ -13,6 +13,9 @@
 2. **分片使用实测 LPT 权重，默认仍为 4 片**。首轮无缓存实测更新了
    `database/migrator`、`Models/Extensions`、`Extensions/IntegrationTests` 等长尾；
    默认不升到 6 片，避免与 web/static 并发争抢资源。`SFORUM_TEST_SHARDS=6` 仍可手工压测。
+   **2026-11-25 M5 更新**：模板库降低重包耗时后，6 分片实测优于 4 分片，
+   默认上限已改为 `min(nproc,6)`，见
+   `2026-11-25-go-template-db-and-package-parallelism.md`。
 3. **compat 复用最轻分片的已迁移集群**。`--with-compat` 不再串行新建第 5 套
    PG/Redis，也不重复跑迁移；compat 在 LPT 最轻分片的测试完成后同库执行。
 4. **门禁并行使用动态 worker pool**。release/contracts 的并发上限默认

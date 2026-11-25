@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -50,34 +49,13 @@ type postgresDomainCommandSpec struct {
 
 func newPostgresDomainCommandHarness(t *testing.T) *postgresDomainCommandHarness {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := postgresDomainCommandHarnessTemplate.Clone(t, "host_command_domains")
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		t.Fatalf("open domain Host Command admin pool: %v", err)
-	}
-	schema := fmt.Sprintf("host_command_domains_%d", time.Now().UnixNano())
-	identifier := pgx.Identifier{schema}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+identifier); err != nil {
-		admin.Close()
-		t.Fatalf("create domain Host Command schema: %v", err)
-	}
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+identifier+" CASCADE")
-		admin.Close()
-	})
-
-	config, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
-	pool, err := pgxpool.NewWithConfig(ctx, config)
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	installPostgresDomainCommandSchema(t, ctx, pool)
 	seedPostgresDomainCommandActors(t, ctx, pool)
 
 	identity := seedPostgresDomainCommandExtension(t, ctx, pool, "fixture.domain-command", "host_commands", "a")
@@ -103,9 +81,17 @@ func newPostgresDomainCommandHarness(t *testing.T) *postgresDomainCommandHarness
 	}
 }
 
-func installPostgresDomainCommandSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-	t.Helper()
-	db := stdlib.OpenDB(*pool.Config().ConnConfig)
+var postgresDomainCommandHarnessTemplate = testdb.NewTemplate(
+	"host_command_domains",
+	preparePostgresDomainCommandHarnessTemplate,
+)
+
+func preparePostgresDomainCommandHarnessTemplate(ctx context.Context, databaseURL string) error {
+	config, err := pgx.ParseConfig(databaseURL)
+	if err != nil {
+		return err
+	}
+	db := stdlib.OpenDB(*config)
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 	defer db.Close()
@@ -113,11 +99,11 @@ func installPostgresDomainCommandSchema(t *testing.T, ctx context.Context, pool 
 		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
 	)
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	entries, err := fs.ReadDir(migrations.Files(), ".")
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
@@ -133,21 +119,22 @@ func installPostgresDomainCommandSchema(t *testing.T, ctx context.Context, pool 
 		}
 		version, err := postgresDomainCommandMigrationVersion(name)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
 		if _, err := provider.ApplyVersion(ctx, version, true); err != nil {
-			t.Fatalf("install domain Host Command migration %s: %v", name, err)
+			return fmt.Errorf("install domain Host Command migration %s: %w", name, err)
 		}
 	}
-	if _, err := pool.Exec(ctx, `
+	if _, err := db.ExecContext(ctx, `
 		CREATE TABLE host_command_domain_jobs (
 		  id BIGSERIAL PRIMARY KEY,
 		  kind TEXT NOT NULL,
 		  created_at TIMESTAMPTZ NOT NULL DEFAULT transaction_timestamp()
 		)
 	`); err != nil {
-		t.Fatal(err)
+		return err
 	}
+	return nil
 }
 
 func postgresDomainCommandMigrationVersion(name string) (int64, error) {
@@ -168,13 +155,11 @@ func seedPostgresDomainCommandActors(t *testing.T, ctx context.Context, pool *pg
 		{id: postgresDomainCommandActorID, username: "domain-command-admin", role: "super_admin"},
 		{id: postgresDomainCommandDeniedActorID, username: "domain-command-member", role: "member"},
 	} {
-		if _, err := pool.Exec(ctx, `
+		testdb.InsertUserWithExplicitID(t, ctx, pool, `
 			INSERT INTO users (
 			  id, username, username_lower, email, email_lower, display_name, status
 			) VALUES ($1, $2, $2, $2 || '@example.test', $2 || '@example.test', $2, 'active')
-		`, actor.id, actor.username); err != nil {
-			t.Fatal(err)
-		}
+		`, actor.id, actor.username)
 		if _, err := pool.Exec(ctx, `
 			INSERT INTO user_roles (user_id, role_id)
 			SELECT $1, id FROM roles WHERE key = $2

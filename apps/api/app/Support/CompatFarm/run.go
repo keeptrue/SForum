@@ -21,6 +21,7 @@ import (
 	extensions "github.com/keeptrue/sforum/apps/api/app/Models/Extensions"
 	apilts "github.com/keeptrue/sforum/apps/api/app/Support/APILTS"
 	extensionmanifest "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionManifest"
+	extensionpackage "github.com/keeptrue/sforum/apps/api/app/Support/ExtensionPackage"
 	extensionsruntime "github.com/keeptrue/sforum/apps/api/app/Support/Extensions"
 	pluginsdk "github.com/keeptrue/sforum/apps/api/sdk/plugin"
 )
@@ -76,6 +77,9 @@ type RunOptions struct {
 	LTS *apilts.Registry
 	// BuiltinPluginPath overrides the default builtin plugin used for contracts.
 	BuiltinPluginPath string
+	// PrebuiltPluginRoot is an optional staging root containing verified
+	// prebuilt builtin packages. It is used only when relevant source trees are clean.
+	PrebuiltPluginRoot string
 	// DatabaseURL for cells that declare database=postgres.
 	DatabaseURL string
 	// Now is injectable for tests.
@@ -158,7 +162,9 @@ func RunMatrix(ctx context.Context, matrixPath string, opts RunOptions) (RunResu
 			return result, err
 		}
 		started := now()
-		cr := executeCell(ctx, cell, root, lts, opts.BuiltinPluginPath, workDir, dbURL)
+		cr := executeCell(
+			ctx, cell, root, lts, opts.BuiltinPluginPath, opts.PrebuiltPluginRoot, workDir, dbURL,
+		)
 		cr.Duration = now().Sub(started)
 		// 证据完整性：通过的 cell 必须具备 process + request + response。
 		if cr.Outcome == OutcomePass && !evidenceComplete(cr) {
@@ -193,6 +199,7 @@ func executeCell(
 	repoRoot string,
 	lts *apilts.Registry,
 	builtinOverride string,
+	prebuiltRoot string,
 	workDir string,
 	dbURL string,
 ) CellResult {
@@ -213,9 +220,13 @@ func executeCell(
 
 	switch {
 	case cell.Command == "extension-test-builtin" || cell.ID == "manifest-v3-contract":
-		return runManifestSDKWithProcess(ctx, base, repoRoot, builtinOverride, workDir, lts)
+		return runManifestSDKWithProcess(
+			ctx, base, repoRoot, builtinOverride, prebuiltRoot, workDir, lts,
+		)
 	case protocol == "v2" && (manifest == "v3" || manifest == "3"):
-		return runProtocolV2RealProcessRPC(ctx, base, repoRoot, workDir, lts, builtinOverride)
+		return runProtocolV2RealProcessRPC(
+			ctx, base, repoRoot, workDir, lts, builtinOverride, prebuiltRoot,
+		)
 	default:
 		base.Outcome = OutcomeSkip
 		base.Message = fmt.Sprintf("no executor for protocol=%s manifest=%s command=%s", cell.Protocol, cell.Manifest, cell.Command)
@@ -230,6 +241,7 @@ func runProtocolV2RealProcessRPC(
 	repoRoot, workDir string,
 	lts *apilts.Registry,
 	builtinOverride string,
+	prebuiltRoot string,
 ) CellResult {
 	// LTS 种子必须声明 current Host / protocol v2 / manifest v3。
 	if err := assertLTSCurrent(lts); err != nil {
@@ -238,7 +250,9 @@ func runProtocolV2RealProcessRPC(
 		return base
 	}
 
-	extension, pluginPath, err := buildBuiltinPlugin(ctx, repoRoot, workDir, "sforum-smtp", builtinOverride)
+	extension, pluginPath, err := buildBuiltinPlugin(
+		ctx, repoRoot, workDir, "sforum-smtp", builtinOverride, prebuiltRoot,
+	)
 	if err != nil {
 		base.Outcome = OutcomeFail
 		base.Message = "build v2 plugin: " + err.Error()
@@ -301,14 +315,18 @@ func runManifestSDKWithProcess(
 	ctx context.Context,
 	base CellResult,
 	repoRoot string,
-	builtinOverride, workDir string,
+	builtinOverride, prebuiltRoot, workDir string,
 	lts *apilts.Registry,
 ) CellResult {
 	// 先构建真实二进制（禁止 SkipBackendBinary）。
-	extension, pluginPath, err := buildBuiltinPlugin(ctx, repoRoot, workDir, "sforum-search-site", builtinOverride)
+	extension, pluginPath, err := buildBuiltinPlugin(
+		ctx, repoRoot, workDir, "sforum-search-site", builtinOverride, prebuiltRoot,
+	)
 	if err != nil {
 		// search-site 可能无 backend；回退 smtp。
-		extension, pluginPath, err = buildBuiltinPlugin(ctx, repoRoot, workDir, "sforum-smtp", builtinOverride)
+		extension, pluginPath, err = buildBuiltinPlugin(
+			ctx, repoRoot, workDir, "sforum-smtp", builtinOverride, prebuiltRoot,
+		)
 		if err != nil {
 			base.Outcome = OutcomeFail
 			base.Message = "build plugin for sdk contract: " + err.Error()
@@ -435,11 +453,18 @@ func provePostgres(ctx context.Context, databaseURL string) error {
 // 禁止 SkipBackendBinary：二进制必须真实存在。
 func buildBuiltinPlugin(
 	ctx context.Context,
-	repoRoot, workDir, packageName, override string,
+	repoRoot, workDir, packageName, override, prebuiltRoot string,
 ) (extensions.Extension, string, error) {
 	_ = ctx
 	sourceRoot := strings.TrimSpace(override)
 	if sourceRoot == "" {
+		if prebuilt, path, ok, err := loadVerifiedPrebuiltPlugin(
+			repoRoot, prebuiltRoot, packageName,
+		); err != nil {
+			return extensions.Extension{}, "", err
+		} else if ok {
+			return prebuilt, path, nil
+		}
 		sourceRoot = filepath.Join(repoRoot, "extensions", "builtin", "plugins", packageName)
 	}
 	info, err := os.Stat(sourceRoot)
@@ -517,6 +542,94 @@ func buildBuiltinPlugin(
 		Manifest:      manifest,
 	}
 	return ext, packageRoot, nil
+}
+
+func loadVerifiedPrebuiltPlugin(
+	repoRoot, prebuiltRoot, packageName string,
+) (extensions.Extension, string, bool, error) {
+	prebuiltRoot = strings.TrimSpace(prebuiltRoot)
+	if prebuiltRoot == "" {
+		return extensions.Extension{}, "", false, nil
+	}
+	packageRoot, found, err := resolvePrebuiltPackageRoot(prebuiltRoot, packageName)
+	if err != nil {
+		return extensions.Extension{}, "", false, err
+	}
+	if !found {
+		return extensions.Extension{}, "", false, nil
+	}
+	clean, err := relevantSourceTreeClean(repoRoot)
+	if err != nil || !clean {
+		return extensions.Extension{}, "", false, nil
+	}
+
+	manifest, err := extensionmanifest.LoadPackage(packageRoot)
+	if err != nil {
+		return extensions.Extension{}, "", false,
+			fmt.Errorf("prebuilt package %s manifest verification failed: %w", packageName, err)
+	}
+	packageDigest, err := extensionpackage.VerifiedTreeDigest(packageRoot)
+	if err != nil {
+		return extensions.Extension{}, "", false,
+			fmt.Errorf("prebuilt package %s tree digest failed: %w", packageName, err)
+	}
+	ext := extensions.Extension{
+		ID:            manifest.ID,
+		Name:          manifest.Name,
+		Version:       manifest.Version,
+		Type:          extensions.TypePlugin,
+		Status:        extensions.StatusEnabled,
+		Source:        extensions.SourceBuiltin,
+		PackagePath:   packageRoot,
+		PackageDigest: packageDigest,
+		Manifest:      manifest,
+	}
+	if _, err := extensions.VerifyRuntimeExecutableDigest(ext); err != nil {
+		return extensions.Extension{}, "", false,
+			fmt.Errorf("prebuilt package %s executable digest failed: %w", packageName, err)
+	}
+	return ext, packageRoot, true, nil
+}
+
+func resolvePrebuiltPackageRoot(root, packageName string) (string, bool, error) {
+	root = filepath.Clean(strings.TrimSpace(root))
+	info, err := os.Stat(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", false, fmt.Errorf("prebuilt plugin root missing: %s", root)
+		}
+		return "", false, err
+	}
+	if !info.IsDir() {
+		return "", false, fmt.Errorf("prebuilt plugin root is not a directory: %s", root)
+	}
+	candidates := []string{
+		filepath.Join(root, "plugins", packageName),
+		filepath.Join(root, packageName),
+	}
+	if filepath.Base(root) == packageName {
+		candidates = append([]string{root}, candidates...)
+	}
+	for _, candidate := range candidates {
+		if candidateInfo, statErr := os.Stat(candidate); statErr == nil && candidateInfo.IsDir() {
+			if _, manifestErr := os.Stat(filepath.Join(candidate, extensionmanifest.ManifestFileName)); manifestErr == nil {
+				return candidate, true, nil
+			}
+		}
+	}
+	return "", false, nil
+}
+
+func relevantSourceTreeClean(repoRoot string) (bool, error) {
+	cmd := exec.Command(
+		"git", "-C", repoRoot, "status", "--porcelain=v1", "--untracked-files=normal",
+		"--", "apps/api", "extensions/builtin",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("inspect source tree cleanliness: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return strings.TrimSpace(string(output)) == "", nil
 }
 
 func backendEntryFromManifestJSON(raw []byte) string {

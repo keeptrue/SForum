@@ -126,6 +126,13 @@ Build, typecheck, lint, test:
   `internal/testdb`, which reads `SFORUM_TEST_DATABASE_URL` alone and refuses
   to run against the development database (identified by the
   `public.sforum_dev_guard` sentinel that `scripts/api-dev.sh` writes).
+- After the base migrations, the isolated runner creates
+  `sforum_test_template` (override with
+  `SFORUM_TEST_FULL_TEMPLATE_DATABASE`). `internal/testdb` template helpers
+  clone this database, prepare package-local fixtures, and fail closed if the
+  template is missing. They must never fall back to `DATABASE_URL`. The runner
+  defaults to `min(nproc, 6)` shards; fixed ports may fall back to ephemeral
+  ports without taking another test container's port.
 - The isolated runner defaults to no-cache evidence mode: `-count=1` and
   ephemeral host ports. Explicit local daily runs use `--cache` (or
   `SFORUM_TEST_CACHE=1`) to reuse Go's test cache and fixed ports. `CI=true`

@@ -52,8 +52,9 @@ func main() {
 	defer cancel()
 
 	result, err := compatfarm.RunMatrix(ctx, matrixPath, compatfarm.RunOptions{
-		RepoRoot:    repoRoot,
-		DatabaseURL: os.Getenv("SFORUM_COMPAT_DATABASE_URL"),
+		RepoRoot:           repoRoot,
+		DatabaseURL:        os.Getenv("SFORUM_COMPAT_DATABASE_URL"),
+		PrebuiltPluginRoot: os.Getenv("SFORUM_COMPAT_PREBUILT_ROOT"),
 	})
 	if *jsonFlag {
 		enc := json.NewEncoder(os.Stdout)

@@ -20,6 +20,7 @@ import (
 )
 
 func TestPostgresThemeActivationPublishesAtomicallyAndRollsBackInsertFailure(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "atomic")
 	target := fixture.saveTheme("target", "1.0.0", strings.Repeat("a", 64))
 	current := fixture.activeTheme()
@@ -84,6 +85,7 @@ func TestPostgresThemeActivationPublishesAtomicallyAndRollsBackInsertFailure(t *
 }
 
 func TestPostgresThemeActivationConcurrentCASHasOneWinner(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "concurrent")
 	left := fixture.saveTheme("left", "1.0.0", strings.Repeat("b", 64))
 	right := fixture.saveTheme("right", "1.0.0", strings.Repeat("c", 64))
@@ -131,6 +133,7 @@ func TestPostgresThemeActivationConcurrentCASHasOneWinner(t *testing.T) {
 }
 
 func TestPostgresThemeCompensationRestoresPriorApprovalAndRejectsReplay(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "compensation")
 	priorActor := fixture.addUser("prior")
 	targetActor := fixture.addUser("target")
@@ -181,6 +184,7 @@ func TestPostgresThemeCompensationRestoresPriorApprovalAndRejectsReplay(t *testi
 }
 
 func TestPostgresPageBindingReplayClearsDeletedHistoricalApprover(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "deleted-approver-replay")
 	actorID := fixture.addUser("historical-approver")
 	pageStore := pages.NewPostgresStore(fixture.pool)
@@ -208,6 +212,7 @@ func TestPostgresPageBindingReplayClearsDeletedHistoricalApprover(t *testing.T) 
 }
 
 func TestPostgresActiveThemeMutationBypassesFailClosed(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "bypasses")
 	active := fixture.saveTheme("active", "1.0.0", strings.Repeat("f", 64))
 	current := fixture.activeTheme()
@@ -240,6 +245,7 @@ func TestPostgresActiveThemeMutationBypassesFailClosed(t *testing.T) {
 }
 
 func TestPostgresBuiltinThemeSyncStagesUntilExactActivation(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "builtin-upgrade")
 	id := fixture.prefix + ".builtin"
 	v1, err := fixture.store.SaveBuiltin(fixture.ctx, SaveBuiltinInput{
@@ -310,6 +316,7 @@ func TestPostgresBuiltinThemeSyncStagesUntilExactActivation(t *testing.T) {
 }
 
 func TestPostgresBuiltinSyncRejectsUploadedIDCollision(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "builtin-source-collision")
 	uploaded := fixture.saveTheme("uploaded", "1.0.0", strings.Repeat("5", 64))
 	current := fixture.activeTheme()
@@ -346,6 +353,7 @@ func TestPostgresBuiltinSyncRejectsUploadedIDCollision(t *testing.T) {
 }
 
 func TestPostgresRemovedActiveBuiltinConvergesBeforePrune(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "builtin-prune")
 	saveBuiltin := func(label, digit string) Extension {
 		id := fixture.prefix + "." + label
@@ -395,6 +403,7 @@ func TestPostgresRemovedActiveBuiltinConvergesBeforePrune(t *testing.T) {
 }
 
 func TestPostgresSameThemeRegistryFailureAppendsCompensation(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "same-theme")
 	priorActor := fixture.addUser("prior")
 	targetActor := fixture.addUser("target")
@@ -483,10 +492,8 @@ func TestPostgresSameThemeRegistryFailureAppendsCompensation(t *testing.T) {
 type themePublicationPGFixture struct {
 	t      *testing.T
 	ctx    context.Context
-	admin  *pgxpool.Pool
 	pool   *pgxpool.Pool
 	store  *PostgresStore
-	schema string
 	prefix string
 
 	extensionIDs []string
@@ -508,110 +515,16 @@ func newThemePublicationPGFixtureWithInitialPublication(
 	publishInitial bool,
 ) *themePublicationPGFixture {
 	t.Helper()
-	databaseURL := testdb.IsolatedURL(t)
+	databaseURL := themePublicationPGFixtureTemplate.Clone(t, "theme_publication")
 	ctx := context.Background()
-	admin, err := pgxpool.New(ctx, databaseURL)
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
-	}
-	schema := fmt.Sprintf("theme_publication_%d", time.Now().UnixNano())
-	quotedSchema := pgx.Identifier{schema}.Sanitize()
-	// admin 必须晚于 setup 归还才关闭：puddle 的 Pool.Close 会等待所有已取出的
-	// 连接归还，defer 顺序反了就会在 fixture 失败时永久挂住（并行跑时整包挂死）。
-	keepAdmin := false
-	defer func() {
-		if !keepAdmin {
-			admin.Close()
-		}
-	}()
-	setup, err := admin.Acquire(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer setup.Release()
-	if _, err := setup.Exec(ctx, `SELECT pg_advisory_lock(202607150020)`); err != nil {
-		t.Fatal(err)
-	}
-	setupLocked := true
-	defer func() {
-		if setupLocked {
-			_, _ = setup.Exec(context.Background(), `SELECT pg_advisory_unlock(202607150020)`)
-		}
-	}()
-	if _, err := setup.Exec(ctx, "CREATE SCHEMA "+quotedSchema); err != nil {
-		t.Fatal(err)
-	}
-	removeSchema := func() {
-		_, _ = admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+quotedSchema+" CASCADE")
-	}
-
-	config, err := pgx.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		t.Fatal(err)
-	}
-	config.RuntimeParams["search_path"] = schema + ",public"
-	db := stdlib.OpenDB(*config)
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-	provider, err := goose.NewProvider(
-		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
-	)
-	if err != nil {
-		db.Close()
-		removeSchema()
-		t.Fatal(err)
-	}
-	if _, err := provider.UpTo(ctx, 202607140015); err != nil {
-		db.Close()
-		removeSchema()
-		t.Fatalf("migrate isolated theme schema to registry: %v", err)
-	}
-	// 202610170002（Version GC 台账）也在列：GC 的主题发布钉住用例必须在
-	// 隔离 schema 里跑——主题发布账本是 append-only 的，往共享库里插测试行
-	// 会让最新修订指向测试制品，真实 watcher 会永久 apply 失败。
-	for _, version := range []int64{
-		202607150019, 202607150020, 202607150021, 202607160027,
-		202607270063, 202607300002, 202610170002, 202610230001,
-	} {
-		if _, err := provider.ApplyVersion(ctx, version, true); err != nil {
-			db.Close()
-			removeSchema()
-			t.Fatalf("apply isolated theme migration %d: %v", version, err)
-		}
-	}
-	if err := db.Close(); err != nil {
-		removeSchema()
-		t.Fatal(err)
-	}
-	if _, err := setup.Exec(ctx, `SELECT pg_advisory_unlock(202607150020)`); err != nil {
-		removeSchema()
-		t.Fatal(err)
-	}
-	setupLocked = false
-
-	poolConfig, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		removeSchema()
-		t.Fatal(err)
-	}
-	poolConfig.ConnConfig.RuntimeParams["search_path"] = schema + ",public"
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
-	if err != nil {
-		removeSchema()
-		t.Fatal(err)
-	}
-	var currentSchema string
-	if err := pool.QueryRow(ctx, `SELECT current_schema()`).Scan(&currentSchema); err != nil || currentSchema != schema {
-		pool.Close()
-		removeSchema()
-		t.Fatalf("isolated theme schema=%q want=%q err=%v", currentSchema, schema, err)
 	}
 	fixture := &themePublicationPGFixture{
-		t: t, ctx: ctx, admin: admin, pool: pool, store: NewPostgresStore(pool), schema: schema,
+		t: t, ctx: ctx, pool: pool, store: NewPostgresStore(pool),
 		prefix: fmt.Sprintf("test.theme-publication.%s.%d", label, time.Now().UnixNano()),
 	}
-	keepAdmin = true
 	t.Cleanup(fixture.cleanup)
 	base := fixture.saveTheme("base", "1.0.0", strings.Repeat("0", 64))
 	if publishInitial {
@@ -625,6 +538,41 @@ func newThemePublicationPGFixtureWithInitialPublication(
 		t.Fatalf("prepare legacy active theme: rows=%d error=%v", command.RowsAffected(), err)
 	}
 	return fixture
+}
+
+var themePublicationPGFixtureTemplate = testdb.NewTemplate(
+	"theme_publication",
+	prepareThemePublicationPGFixtureTemplate,
+)
+
+func prepareThemePublicationPGFixtureTemplate(ctx context.Context, databaseURL string) error {
+	config, err := pgx.ParseConfig(databaseURL)
+	if err != nil {
+		return err
+	}
+	db := stdlib.OpenDB(*config)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	defer db.Close()
+
+	provider, err := goose.NewProvider(
+		goose.DialectPostgres, db, migrations.Files(), goose.WithDisableGlobalRegistry(true),
+	)
+	if err != nil {
+		return err
+	}
+	if _, err := provider.UpTo(ctx, 202607140015); err != nil {
+		return fmt.Errorf("migrate theme fixture template to registry: %w", err)
+	}
+	for _, version := range []int64{
+		202607150019, 202607150020, 202607150021, 202607160027,
+		202607270063, 202607300002, 202610170002, 202610230001,
+	} {
+		if _, err := provider.ApplyVersion(ctx, version, true); err != nil {
+			return fmt.Errorf("apply theme fixture migration %d: %w", version, err)
+		}
+	}
+	return nil
 }
 
 func (f *themePublicationPGFixture) saveTheme(label, version, digest string) Extension {
@@ -678,8 +626,6 @@ func (f *themePublicationPGFixture) latestRevision() int64 {
 
 func (f *themePublicationPGFixture) cleanup() {
 	f.pool.Close()
-	_, _ = f.admin.Exec(context.Background(), "DROP SCHEMA IF EXISTS "+pgx.Identifier{f.schema}.Sanitize()+" CASCADE")
-	f.admin.Close()
 }
 
 func exactThemeActivationInput(current, target Extension, actorID int64, approve bool) ThemeActivationInput {
@@ -720,6 +666,7 @@ func (f *themePublicationPGFixture) publicationRow(revision int64) (bool, string
 // 首次安装/启动修复：Host 自带的受保护默认主题由 Host 自己批准核心页替换，
 // 发布账本记录 host 来源且不带审批用户。
 func TestPostgresStartupRepairHostApprovesProtectedDefaultTheme(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "host-approve-default")
 	fixture.saveBuiltinTheme(DefaultThemeID, "default", "1.0.0", "e")
 
@@ -742,6 +689,7 @@ func TestPostgresStartupRepairHostApprovesProtectedDefaultTheme(t *testing.T) {
 // 受保护判定必须同时满足「默认主题 ID + builtin + system + 不可删除」：
 // 其它内置主题仍然需要 super_admin 显式批准。
 func TestPostgresStartupRepairDoesNotHostApproveOtherThemes(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "host-approve-other")
 	other := fixture.saveBuiltinTheme(fixture.prefix+".other-builtin", "other", "1.0.0", "f")
 
@@ -766,6 +714,7 @@ func TestPostgresStartupRepairDoesNotHostApproveOtherThemes(t *testing.T) {
 // 升级前的老库：已有活动主题、发布账本为空。默认主题由 Host 批准，
 // 上传主题保持未批准（必须由 super_admin 显式批准）。
 func TestPostgresGenesisHostApprovesOnlyProtectedDefaultTheme(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixtureWithoutPublication(t, "genesis-host")
 	fixture.saveBuiltinTheme(DefaultThemeID, "default", "1.0.0", "b")
 	if _, err := fixture.pool.Exec(fixture.ctx, `
@@ -804,6 +753,7 @@ func TestPostgresGenesisHostApprovesOnlyProtectedDefaultTheme(t *testing.T) {
 
 // 人工激活永远保留人工来源：批准 → admin + actor；不批准 → 未批准。
 func TestPostgresHumanActivationKeepsAdminProvenance(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "human-approval")
 	defaultTheme := fixture.saveBuiltinTheme(DefaultThemeID, "default", "1.0.0", "c")
 	actor := fixture.addUser("approver")
@@ -862,6 +812,7 @@ func saveExactBuiltinTheme(t *testing.T, fixture *themePublicationPGFixture, id,
 // 漏掉批准，watcher apply 会走普通替换路径清空 page_provider_bindings，
 // 整站回落 Core（现网 rev 23 的形态）。
 func TestPostgresStagedDefaultThemePromotionKeepsHostApprovalAndBindings(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "staged-default-approval")
 	pageStore := pages.NewPostgresStore(fixture.pool)
 	registry := pages.NewRegistry(pageStore)
@@ -942,6 +893,7 @@ func TestPostgresStagedDefaultThemePromotionKeepsHostApprovalAndBindings(t *test
 // EnsureDefaultThemeApproved 是启动自愈：健康时零写入，账本丢了批准时追加一版
 // host 批准；只碰 sforum.default-theme，Safe Mode 不动作。
 func TestPostgresDefaultThemeApprovalSelfHeal(t *testing.T) {
+	t.Parallel()
 	fixture := newThemePublicationPGFixture(t, "default-approval-self-heal")
 	service := NewServiceWithOptions(
 		fixture.store, t.TempDir(), "", LocalRuntimeManager{}, WithPageRegistry(&themeActivationApprovalRegistry{}),

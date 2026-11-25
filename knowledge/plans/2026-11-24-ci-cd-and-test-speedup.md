@@ -1,6 +1,6 @@
 # 2026-11-24 CI/CD 与测试全链路二次提速任务书
 
-**Status**: active（2026-11-25；M0–M4 landed，M5–M6 未批准）
+**Status**: active（2026-11-25；M0–M5 landed，M6 未批准）
 **Owner**: 2026-11-24 session
 **前置基础**: 接续 [2026-10-23 全量测试提速任务书](./2026-10-23-test-suite-speedup.md)（已完成集群分片、`--with-compat`、`test.sh` 三线并行与 `--fast`）。
 
@@ -292,8 +292,8 @@
   按布尔输出跳过，container matrix 由 `container_images` 精确派生；`security.yml`
   的 CodeQL/Govulncheck/Web audit 按路径跳过；contracts 的重复 Web 单测改绑
   `changes.web == true`。
-- M5/M6 未开始；未修改 `release.yml`、Go 重包模板库或 `apps/web/nuxt.config.ts` 的
-  生产压缩配置。
+- 当时 M5/M6 尚未开始；本批未修改 `release.yml`、Go 重包模板库或
+  `apps/web/nuxt.config.ts` 的生产压缩配置。
 
 #### 实测耗时与体积
 
@@ -354,3 +354,83 @@ Nitro 最大收益约 6.9s，未达到任务书要求的 30s 阈值；Caddy 当�
   设计记为 SKIP。未触碰用户手动运行的 web dev 进程。
 - GitHub Actions 的 `paths-filter` 实际命中率、GHA cache 命中率和 `ci-summary`
   远端落库只能在推送后确认；本地已完成 actionlint、结构守卫和 shell 级场景执行。
+
+### 6.7 M5 执行记录（2026-11-25）
+
+#### 范围与结论
+
+- **M5 已完成**：隔离测试集群在完整迁移后创建一个 `sforum_test_template`
+  模板库；高频重包通过 `internal/testdb` 的包级模板 + `CREATE DATABASE ... TEMPLATE`
+  获得干净克隆，不再为每个用例重放 178 条 Core 迁移和 7 条 River 迁移。
+- `Models/Extensions`、`Models/Identity`、`Support/HostAPI` 已按包开启
+  `t.Parallel()`；所有 fixture 使用独立数据库，固定测试 ID 不再共享
+  `public` schema。`database/migrator` 保持原并发语义，未开启额外并行。
+- CompatFarm 支持 `SFORUM_COMPAT_PREBUILT_ROOT` / `RunOptions.PrebuiltPluginRoot`：
+  仅当 `apps/api` 与 `extensions/builtin` 干净、manifest/package tree/executable
+  digest 全部验证通过时复用预编译内置插件；显式 `BuiltinPluginPath` 始终优先。
+- LPT 权重按本批实测重算，默认分片上限从 4 提升到 `min(nproc, 6)`。
+
+#### 包级耗时
+
+| 包 | M5 前 | M5 后 |
+| --- | --- | --- |
+| `app/Models/Extensions` | 71.1s | **26.1s** |
+| `app/Models/Identity` | 55.9s | **13.3s** |
+| `app/Support/HostAPI` | 30.0s | **10.2s** |
+| `database/migrator` | 77.6s | **77.6s（保持原状）** |
+
+三个改动包单轮合计从 157.0s 降到 49.6s，节省约 **107.4s**。
+
+#### 全链路耗时
+
+| 场景 | M3+M4 | M5 |
+| --- | --- | --- |
+| 无缓存隔离，4 分片 + compat | 259s API | **200s API** |
+| 无缓存隔离，6 分片 + compat | — | **172s API** |
+| `./scripts/test.sh --no-cache`，6 分片 | — | **api 172 / web 195 / static 83，壁钟 195s** |
+| `./scripts/test.sh --fast` 稳态 | 45–49s | **43s（api 20 / web 43 / static 19）** |
+
+6 分片无缓存 API 已低于 180s；完整门禁仍由 Web 生产构建主导。API 最大分片
+从 4 分片的 194s 降到 6 分片的 137s，分片耗时为
+127 / 122 / 123 / 126 / 137 / 133s，`max/avg=1.093`。
+
+#### 稳定性与门禁
+
+- `-race -count=5`：Identity 124.4s、Extensions 234.4s、HostAPI 73.6s、
+  `internal/testdb` 53.6s、CompatFarm 42.2s，均通过。
+- Identity 的红门根因是既有测试在并发 goroutine 中直接自增普通整数；已改为
+  `atomic.Int64`，不是模板库或产品竞态。
+- `./scripts/test.sh --fast`、`./scripts/test.sh --no-cache`、`go-gate`、
+  `contracts-gate`、`validate-architecture-boundaries.mjs` 全部通过。
+- `contracts-gate` 在沙箱内因 Node `spawnSync` EPERM 失败；沙箱外重跑全绿，
+  契约断言未修改。
+- 日志：`tests/.logs/ci-speedup-2026-11-25-m5/`。定向 `-json` 包耗时、
+  6 分片无缓存隔离、归档全量三线日志与 `.elapsed` 均已保留。
+
+#### 改动文件
+
+- 测试基础设施：`apps/api/internal/testdb/template.go`、
+  `apps/api/internal/testdb/template_test.go`、`scripts/test-api-isolated.sh`。
+- 包级夹具：`apps/api/app/Models/Extensions/*postgres*_test.go`、
+  `apps/api/app/Models/Identity/*postgres*_test.go`、
+  `apps/api/app/Support/HostAPI/*postgres*_test.go`。
+- CompatFarm：`apps/api/app/Support/CompatFarm/run.go`、
+  `apps/api/app/Support/CompatFarm/run_prebuilt_test.go`、
+  `tests/compat/run_matrix.go`。
+- 知识库：本任务书、`knowledge/plans/README.md`、`knowledge/index.md`、
+  `knowledge/modules/backend.md`、`AGENTS.md`、
+  `knowledge/decisions/2026-11-25-go-template-db-and-package-parallelism.md`、
+  `knowledge/sessions/2026-11-25-ci-cd-test-speedup-batch3.md`。
+
+#### 偏离与残余
+
+- **migrator 不开启 `t.Parallel()`**。实测 `-race -count=5` 在默认 10 分钟
+  上限内无法完成；多个 Goose `ParseAllFromFS` 会为每个迁移文件并发持有
+  4 MiB 解析缓冲，race 模式下出现内存/GC 长尾。保持原有单测串行语义比
+  强推并行更稳定，后续若要提速需先替换/缓存 Goose 解析结果。
+- `SFORUM_COMPAT_PREBUILT_ROOT` 仍由调用方显式提供；仓库不自动信任
+  `storage/builtin-dev`，避免干净提交复用旧 staging 制品。
+- 完整门禁壁钟仍约 195s，主要由 Nuxt production build 决定；M5 不修改 Web
+  构建，未承诺整体 150–180s。
+- document-CSP 真实服务探针在本地无 web 服务时按设计 SKIP；未触碰用户
+  3000 端口进程。

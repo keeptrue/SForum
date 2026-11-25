@@ -48,6 +48,7 @@ type p7JoinedAuthorityWriter struct {
 // authority. Explicit channels freeze both legal orders; no scheduler delay is
 // used as evidence.
 func TestP7IdentitySessionAuthorityPostgresJoinedMatrix(t *testing.T) {
+	t.Parallel()
 	writers := []p7JoinedAuthorityWriter{
 		{
 			name: "password_reset", newHash: "p7-password-reset-hash",
@@ -141,6 +142,7 @@ func TestP7IdentitySessionAuthorityPostgresJoinedMatrix(t *testing.T) {
 }
 
 func TestP7IdentitySessionIssueAllowsExternalOnlyUserWithoutCredential(t *testing.T) {
+	t.Parallel()
 	harness := newP7JoinedSessionHarness(t, p7JoinedIssue)
 	if _, err := harness.pool.Exec(harness.fixture.ctx, `
 		DELETE FROM user_credentials WHERE user_id = $1

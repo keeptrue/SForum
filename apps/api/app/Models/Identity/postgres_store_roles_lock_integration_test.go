@@ -12,6 +12,7 @@ import (
 // 只要角色行被占着，全量替换就必须排队；否则两条写路径会撞 role_permissions 主键，
 // 管理端在并发审批期间改权限会拿到 23505。
 func TestReplaceRolePermissionsWaitsForRoleRowLock(t *testing.T) {
+	t.Parallel()
 	fixture := newProductionIdentityApprovalFixture(t)
 	ctx, cancel := context.WithTimeout(fixture.ctx, 15*time.Second)
 	defer cancel()

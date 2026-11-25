@@ -20,6 +20,7 @@ import (
 const postgresNotificationType = "fixture.domain-command.order_ready"
 
 func TestPostgresProtocolV2NotificationEmitExactArtifactMatrix(t *testing.T) {
+	t.Parallel()
 	h := newPostgresDomainCommandHarness(t)
 	registry, declaration := installPostgresNotificationFixture(t, h)
 	spec := postgresDomainCommandSpec{
@@ -193,6 +194,7 @@ func TestPostgresProtocolV2NotificationEmitExactArtifactMatrix(t *testing.T) {
 }
 
 func TestPostgresProtocolV2NotificationEmitRateLimit(t *testing.T) {
+	t.Parallel()
 	h := newPostgresDomainCommandHarness(t)
 	installPostgresNotificationFixture(t, h)
 	spec := postgresDomainCommandSpec{ID: CommandNotificationsEmitID, Version: CommandNotificationsEmitVersion, InputSchema: CommandNotificationsEmitInputSchema, SchemaVersion: CommandNotificationsEmitSchemaVersion}

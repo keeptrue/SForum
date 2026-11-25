@@ -2,18 +2,12 @@ package hostapi
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 
 	options "github.com/keeptrue/sforum/apps/api/app/Models/Options"
 	trustlevels "github.com/keeptrue/sforum/apps/api/app/Models/TrustLevels"
-	"github.com/keeptrue/sforum/apps/api/database/migrations"
 	"github.com/keeptrue/sforum/apps/api/internal/testdb"
 )
 
@@ -81,47 +75,8 @@ func trustLevelQueryUserFixture(t *testing.T, ctx context.Context, pool *pgxpool
 func newHostAPIQueryDatabase(t *testing.T) (context.Context, *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
-	baseURL := testdb.IsolatedURL(t)
-	adminConfig, err := pgx.ParseConfig(baseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	adminConfig.Database = "postgres"
-	admin, err := pgx.ConnectConfig(ctx, adminConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-	databaseName := fmt.Sprintf("hostapi_trust_%d", time.Now().UnixNano())
-	quoted := pgx.Identifier{databaseName}.Sanitize()
-	if _, err := admin.Exec(ctx, "CREATE DATABASE "+quoted); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = admin.Exec(context.Background(), "DROP DATABASE IF EXISTS "+quoted+" WITH (FORCE)")
-		_ = admin.Close(context.Background())
-	})
-
-	migrationConfig, err := pgx.ParseConfig(baseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	migrationConfig.Database = databaseName
-	sqlDB := stdlib.OpenDB(*migrationConfig)
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.Files(), goose.WithDisableGlobalRegistry(true))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := provider.Up(ctx); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	_ = sqlDB.Close()
-
-	poolConfig, err := pgxpool.ParseConfig(baseURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	poolConfig.ConnConfig.Database = databaseName
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	databaseURL := testdb.MigratedDatabaseURL(t, "hostapi_trust")
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +86,7 @@ func newHostAPIQueryDatabase(t *testing.T) (context.Context, *pgxpool.Pool) {
 }
 
 func TestUserTrustLevelSourceComputesInsteadOfReadingLedger(t *testing.T) {
+	t.Parallel()
 	ctx, pool := newHostAPIQueryDatabase(t)
 
 	// 夹具：active 用户，注册 400 天前；统计只够 TL1（days 4 / comments 6；TL2 要 days 15）。
@@ -209,6 +165,7 @@ func TestUserTrustLevelSourceComputesInsteadOfReadingLedger(t *testing.T) {
 //
 // 三态都要求 level / tier_id 为 null：0 是一个真实等级，不能拿来冒充「不知道」。
 func TestUserTrustLevelSourceKeepsIncompleteAndDisabledNullable(t *testing.T) {
+	t.Parallel()
 	ctx, pool := newHostAPIQueryDatabase(t)
 	userID := trustLevelQueryUserFixture(t, ctx, pool, "incomplete_user")
 
