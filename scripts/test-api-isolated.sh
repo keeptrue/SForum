@@ -71,6 +71,13 @@ if [[ -z "$pinned_core_version" ]]; then
     fi
     if [[ "${describe#v}" =~ ^(.+)-([0-9]+)-g([0-9a-f]+)$ ]]; then
       pinned_core_version="${BASH_REMATCH[1]}+${BASH_REMATCH[2]}.g${BASH_REMATCH[3]}${dirty_suffix}"
+    elif [[ "$describe" =~ ^[0-9a-f]{7,40}$ ]]; then
+      # Shallow CI checkouts (fetch-depth: 2) may contain no reachable v* tag.
+      # `git describe --long --always` then returns a bare commit id. Use the
+      # same deterministic compatibility fallback as apps/api/version instead
+      # of treating that valid shallow state as a broken checkout.
+      pinned_core_version="1.0.0"
+      echo "No reachable v* tag; pinning isolated test Core version to 1.0.0." >&2
     else
       echo "无法从 git 派生 Core 兼容版本（describe=${describe:-<empty>}）：用 SFORUM_TEST_PINNED_VERSION 显式指定，否则迁移记录的版本会与测试二进制漂移。" >&2
       exit 1
