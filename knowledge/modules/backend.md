@@ -131,6 +131,16 @@ standalone `sforum-worker` target is gone. The first line remains the RV-18
 Go 1.26.11 base image. See
 `decisions/2026-11-25-ci-container-and-path-gating.md`.
 
+Release asset critical path (2026-11-25): the darwin amd64/arm64 CLI archives
+run directly after `prepare` and `verify-ci`, without waiting for Linux image
+merging and without GHCR package permissions. The Linux amd64/arm64 backend
+bundles still wait for `merge-candidate`, then extract `sforum-api`,
+`sforum-migrate`, and protected built-ins from the scanned candidate images.
+Both jobs keep the `release-asset-<goos>-<goarch>` artifact names;
+`verify-release-assets` aggregates them with the deploy asset through the
+unchanged `release-asset-*` pattern before checksums and attestation. See
+`decisions/2026-11-25-release-asset-critical-path-split.md`.
+
 Isolated database tests now freeze one fully migrated `sforum_test_template`
 database per disposable cluster. `internal/testdb` clones that base into
 package-owned templates, applies fixture-local DDL under a private schema, and

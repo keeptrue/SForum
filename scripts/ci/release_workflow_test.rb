@@ -156,21 +156,67 @@ unless merge_command.include?('sort == ["amd64", "arm64"]') && merge_command.inc
   fail!("manifest merge must verify both runtime architectures and export its digest")
 end
 
-%w[smoke release-assets].each do |job_name|
-  job_needs = needs(release_jobs.fetch(job_name))
-  fail!("#{job_name} must wait for merged candidates") unless job_needs.include?("merge-candidate")
-  fail!("#{job_name} must not consume unmerged platform candidates") if job_needs.include?("publish-candidate-platform")
-end
+smoke_needs = needs(release_jobs.fetch("smoke"))
+fail!("smoke must wait for merged candidates") unless smoke_needs.include?("merge-candidate")
+fail!("smoke must not consume unmerged platform candidates") if smoke_needs.include?("publish-candidate-platform")
 
-asset_matrix = release_jobs.fetch("release-assets").dig("strategy", "matrix", "include")
-expected_asset_matrix = [
-  { "goos" => "linux", "goarch" => "amd64" },
-  { "goos" => "linux", "goarch" => "arm64" },
+darwin_assets = release_jobs.fetch("release-assets-darwin")
+linux_assets = release_jobs.fetch("release-assets-linux")
+fail!("legacy combined release-assets job must stay removed") if release_jobs.key?("release-assets")
+unless needs(darwin_assets).sort == %w[prepare verify-ci]
+  fail!("darwin release assets must depend only on prepare and verified CI")
+end
+unless needs(linux_assets).sort == %w[merge-candidate prepare]
+  fail!("Linux release assets must wait for the merged scanned candidate")
+end
+unless darwin_assets.dig("permissions", "packages").nil?
+  fail!("darwin release assets must not receive GHCR package permissions")
+end
+unless linux_assets.dig("permissions", "packages") == "read"
+  fail!("Linux release assets need read-only GHCR access for scanned bundle extraction")
+end
+step_named(linux_assets, "Log in to GHCR for Linux bundle extraction")
+
+darwin_asset_matrix = darwin_assets.dig("strategy", "matrix", "include")
+expected_darwin_asset_matrix = [
   { "goos" => "darwin", "goarch" => "amd64" },
   { "goos" => "darwin", "goarch" => "arm64" }
 ]
-unless asset_matrix == expected_asset_matrix
-  fail!("release assets must target only Linux and macOS on amd64/arm64")
+unless darwin_asset_matrix == expected_darwin_asset_matrix
+  fail!("darwin release assets must target only macOS on amd64/arm64")
+end
+
+linux_asset_matrix = linux_assets.dig("strategy", "matrix", "include")
+expected_linux_asset_matrix = [
+  { "goos" => "linux", "goarch" => "amd64" },
+  { "goos" => "linux", "goarch" => "arm64" }
+]
+unless linux_asset_matrix == expected_linux_asset_matrix
+  fail!("Linux release assets must target only Linux on amd64/arm64")
+end
+
+[darwin_assets, linux_assets].each do |asset_job|
+  upload = step_named(asset_job, "Upload release assets")
+  expected_name = "release-asset-${{ matrix.goos }}-${{ matrix.goarch }}"
+  unless upload.dig("with", "name") == expected_name
+    fail!("release asset artifact names must remain #{expected_name}")
+  end
+end
+
+verify_assets = release_jobs.fetch("verify-release-assets")
+expected_verify_needs = %w[deploy-asset prepare release-assets-darwin release-assets-linux]
+unless needs(verify_assets).sort == expected_verify_needs
+  fail!("release asset verification must aggregate darwin, Linux, and deploy assets")
+end
+download_assets = step_named(verify_assets, "Download release asset matrix")
+unless download_assets.dig("with", "pattern") == "release-asset-*"
+  fail!("release asset verification must keep the release-asset-* download pattern")
+end
+step_named(verify_assets, "Verify release assets and generate checksums")
+step_named(verify_assets, "Attest release assets")
+verified_upload = step_named(verify_assets, "Upload verified release assets")
+unless verified_upload.dig("with", "name") == "verified-release-assets"
+  fail!("release asset verification must keep publishing verified-release-assets")
 end
 
 ci_jobs = ci.fetch("jobs")

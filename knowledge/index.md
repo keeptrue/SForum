@@ -8,21 +8,27 @@ load archived sessions or completed plans as current context.
 
 ### CI/CD 与测试提速（2026-11-24 / 2026-11-25）
 
-- Status: **M0–M5 landed；M6 未批准**。M0–M2 完成 CI 缓存、Go LPT 分片/
+- Status: **M0–M6 landed；待真实 Release run 与远端确认**。M0–M2 完成 CI 缓存、Go LPT 分片/
   显式缓存/compat 复用、release/contracts 动态并行、parity 单次快照与 KDF/重试 sleep
   提速；M3 完成 API 单次 CLI、4 路内置插件构建、独立 `migrate-build`、worker 退役；
   M4 完成 `changes` + `ci-summary` 路径门控、Security 按语言/依赖面跳过和 contracts
   Web 单测条件跳过；M5 用迁移模板库与包级夹具把 Extensions / Identity / HostAPI
-  从 71 / 56 / 30s 降到 26 / 13 / 10s，并把默认分片上限升到 6。
+  从 71 / 56 / 30s 降到 26 / 13 / 10s，并把默认分片上限升到 6；M6 让 darwin CLI
+  资产不再等待 `merge-candidate`，Linux bundle 继续等待扫描后的合并镜像。
 - M3 后测：`api` 149s（原 343s）、`migrate` 62s（原 268s）、`prod` 109s
   （首次冷网络 204s）；Nitro 压缩与 BuildKit cache mount 已实测，生产配置不变。
 - 无缓存 `./scripts/test.sh`：**195s**（api 172 / web 195 / static 83）；
   4 分片对照 api 200s；`./scripts/test.sh --fast` 稳态：**43s**。
-- Handoff：`sessions/2026-11-25-ci-cd-test-speedup-batch3.md`（上一批
-  `sessions/2026-11-25-ci-cd-test-speedup-batch2.md`；
+- M6 本地门禁：actionlint、Ruby release 结构守卫、`verify-main-ci_test.sh`、
+  release-tooling、contracts 均通过；`--fast` api 26 / web 54 / static 27，
+  全量 api 240 / web 268 / static 106。
+- Handoff：`sessions/2026-11-25-ci-cd-test-speedup-batch4.md`（上一批
+  `sessions/archive/2026-11/2026-11-25-ci-cd-test-speedup-batch3.md`；
+  `sessions/archive/2026-11/2026-11-25-ci-cd-test-speedup-batch2.md`；
   `sessions/archive/2026-11/2026-11-24-ci-cd-test-speedup-batch1.md`）；
   决策：`decisions/2026-11-25-go-template-db-and-package-parallelism.md`、
-  `decisions/2026-11-25-ci-container-and-path-gating.md`。
+  `decisions/2026-11-25-ci-container-and-path-gating.md`、
+  `decisions/2026-11-25-release-asset-critical-path-split.md`。
 
 ### 搜索页「极光玻璃」落地（2026-11-24）
 
@@ -969,11 +975,12 @@ load archived sessions or completed plans as current context.
 
 ## Latest Handoff
 
-- **CI/CD 与测试提速 M5（2026-11-25，最新）**：M0–M5 已落地，M6 未批准。
-  Extensions / Identity / HostAPI 分别 **71→26s / 56→13s / 30→10s**；6 分片
-  无缓存全量 **api 172s / web 195s / static 83s**，`--fast` 稳态 **43s**。
-  migrator 的额外并行因 Goose 解析内存长尾被否决。见
-  `sessions/2026-11-25-ci-cd-test-speedup-batch3.md`。
+- **CI/CD 与测试提速 M6（2026-11-25，最新）**：M0–M6 已落地。darwin CLI 资产
+  只等待 `prepare + verify-ci`；Linux bundle 继续等待扫描后的 `merge-candidate`；
+  `verify-release-assets` 聚合两组资产，artifact 名称与 `release-asset-*` pattern
+  不变。actionlint、Ruby 守卫、release-tooling、contracts、`--fast` 与全量
+  `test.sh` 均通过。真实 tag Release run 尚未执行。见
+  `sessions/2026-11-25-ci-cd-test-speedup-batch4.md`。
 - **一键脚本终端配色层（2026-11-18）**：新增 `deploy/scripts/term-ui.sh` 作为唯一实现，
   `sforum-install.sh` / `sforum-bootstrap.sh` / `sforum-latest.sh` 内联同一份
   `# >>> term-ui` 块（逐字节），`deploy.sh` / `upgrade.sh` / 配置向导 / 健康探针 / 恢复脚本

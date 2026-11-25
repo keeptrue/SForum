@@ -1,4 +1,4 @@
-# 2026-11-25 CI/CD 与测试提速 M5 Handoff
+# 2026-11-25 CI/CD 与测试提速 M5 Handoff (archived)
 
 ## Changed
 

@@ -1,4 +1,4 @@
-# 2026-11-25 CI/CD 与测试提速 M3+M4 Handoff
+# 2026-11-25 CI/CD 与测试提速 M3+M4 Handoff (archived)
 
 ## Changed
 
@@ -39,7 +39,7 @@
 ## Next
 
 1. M5 已完成：Go 模板库/重包内部并行见
-   `sessions/2026-11-25-ci-cd-test-speedup-batch3.md`。
+   `sessions/archive/2026-11/2026-11-25-ci-cd-test-speedup-batch3.md`。
 2. M6 未开始：`release.yml` 的 darwin 资产关键路径拆分需要另行批准。
 3. 下一次 GitHub Actions 运行确认 path-filter 命中率、GHA cache 命中率和
    main push 的 `ci-summary` success 记录。

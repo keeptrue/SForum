@@ -390,24 +390,19 @@ jobs:
           "${{ needs.prepare.outputs.version }}"
           "${{ needs.prepare.outputs.commit }}"
 
-  release-assets:
-    name: Release asset / ${{ matrix.goos }} / ${{ matrix.goarch }}
+  release-assets-darwin:
+    name: Release asset / darwin / ${{ matrix.goarch }}
     needs:
       - prepare
-      - merge-candidate
+      - verify-ci
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
-      packages: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
           - goos: darwin
             goarch: amd64
           - goos: darwin
@@ -424,8 +419,59 @@ jobs:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
 
+      - name: Build release assets
+        env:
+          SFORUM_REGISTRY: ${{ env.REGISTRY }}/${{ github.repository_owner }}
+        run: >-
+          ./scripts/ci/build-release-assets.sh
+          "${{ needs.prepare.outputs.version }}"
+          "${{ needs.prepare.outputs.commit }}"
+          "${{ needs.prepare.outputs.build_time }}"
+          "${{ needs.prepare.outputs.sha }}"
+          "${{ matrix.goos }}"
+          "${{ matrix.goarch }}"
+          "$GITHUB_WORKSPACE/dist"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-asset-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  release-assets-linux:
+    name: Release asset / linux / ${{ matrix.goarch }}
+    needs:
+      - prepare
+      - merge-candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
       - name: Log in to GHCR for Linux bundle extraction
-        if: matrix.goos == 'linux'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -496,7 +542,8 @@ jobs:
     name: Verify release assets
     needs:
       - prepare
-      - release-assets
+      - release-assets-darwin
+      - release-assets-linux
       - deploy-asset
     runs-on: ubuntu-latest
     permissions:

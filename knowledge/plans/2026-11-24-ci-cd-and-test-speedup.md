@@ -1,6 +1,6 @@
 # 2026-11-24 CI/CD 与测试全链路二次提速任务书
 
-**Status**: active（2026-11-25；M0–M5 landed，M6 未批准）
+**Status**: active（2026-11-25；M0–M6 landed，待真实 Release run 与远端确认）
 **Owner**: 2026-11-24 session
 **前置基础**: 接续 [2026-10-23 全量测试提速任务书](./2026-10-23-test-suite-speedup.md)（已完成集群分片、`--with-compat`、`test.sh` 三线并行与 `--fast`）。
 
@@ -189,7 +189,7 @@
   2. **按包渐进开启 `t.Parallel()`**：先隔离修改包级全局变量 / `os.Setenv` / 固定租约 ID 的测试，再给其余独立 Postgres 测试加 `t.Parallel()`，每包用 `go test -race -count=5` 核验稳定性。
   3. **`CompatFarm` 复用预编译内置插件**：允许通过选项或环境变量传入已验证 digest 的预编内置插件目录，在源码干净时跳过 `CompatFarm` 中的现场 `go build`。
 
-### M6：Release 发版关键路径并行化（可选）
+### M6：Release 发版关键路径并行化（已落地 2026-11-25）
 
 - **改动范围**：
   - `.github/workflows/release.yml`
@@ -340,7 +340,7 @@ Nitro 最大收益约 6.9s，未达到任务书要求的 30s 阈值；Caddy 当�
   `knowledge/modules/backend.md`、`knowledge/modules/frontend.md`、
   `knowledge/decisions/2026-11-24-ci-test-throughput-batch1.md`、
   `knowledge/decisions/2026-11-25-ci-container-and-path-gating.md`、
-  `knowledge/sessions/2026-11-25-ci-cd-test-speedup-batch2.md`、
+  `knowledge/sessions/archive/2026-11/2026-11-25-ci-cd-test-speedup-batch2.md`、
   `knowledge/sessions/archive/2026-11/2026-11-24-ci-cd-test-speedup-batch1.md`。
 
 #### 偏离与残余
@@ -420,7 +420,7 @@ Nitro 最大收益约 6.9s，未达到任务书要求的 30s 阈值；Caddy 当�
 - 知识库：本任务书、`knowledge/plans/README.md`、`knowledge/index.md`、
   `knowledge/modules/backend.md`、`AGENTS.md`、
   `knowledge/decisions/2026-11-25-go-template-db-and-package-parallelism.md`、
-  `knowledge/sessions/2026-11-25-ci-cd-test-speedup-batch3.md`。
+  `knowledge/sessions/archive/2026-11/2026-11-25-ci-cd-test-speedup-batch3.md`。
 
 #### 偏离与残余
 
@@ -434,3 +434,71 @@ Nitro 最大收益约 6.9s，未达到任务书要求的 30s 阈值；Caddy 当�
   构建，未承诺整体 150–180s。
 - document-CSP 真实服务探针在本地无 web 服务时按设计 SKIP；未触碰用户
   3000 端口进程。
+
+### 6.8 M6 执行记录（2026-11-25）
+
+#### 范围与结论
+
+- **M6 已完成**：原四平台 `release-assets` matrix 拆为
+  `release-assets-darwin` 与 `release-assets-linux` 两个 job。
+- darwin 两个 CLI 资产只等待 `[prepare, verify-ci]`，不再等待
+  `merge-candidate`；Linux 两个后端 bundle 继续等待 `[prepare, merge-candidate]`，
+  从已扫描并合并的 GHCR 候选镜像提取 `sforum-api` / `sforum-migrate`。
+- artifact 名称仍为 `release-asset-<goos>-<goarch>`；
+  `verify-release-assets` 继续用 `release-asset-*` 聚合四平台与 deploy 资产。
+- `verify-release-assets` 的校验和生成、attestation、`verified-release-assets`
+  上传逻辑未改。
+
+#### DAG 前后
+
+```text
+before:
+prepare -> verify-ci -> publish-candidate-platform -> merge-candidate -> release-assets
+  release-assets matrix = linux/amd64, linux/arm64, darwin/amd64, darwin/arm64
+prepare -> deploy-asset
+prepare + release-assets + deploy-asset -> verify-release-assets
+
+after:
+prepare -> verify-ci -> release-assets-darwin
+  release-assets-darwin matrix = darwin/amd64, darwin/arm64
+verify-ci -> publish-candidate-platform -> merge-candidate -> release-assets-linux
+  release-assets-linux matrix = linux/amd64, linux/arm64
+prepare -> deploy-asset
+prepare + release-assets-darwin + release-assets-linux + deploy-asset -> verify-release-assets
+```
+
+Trivy 扫描顺序、QEMU 禁令、`cache_writer` 策略、digest 上传顺序、SDK 发布依赖、
+smoke 顺序和三镜像 promote 规则均未改变。
+
+#### 门禁与证据
+
+- `actionlint` v1.7.12：通过。
+- `ruby scripts/ci/release_workflow_test.rb`：通过。新增断言锁定两组 job 的精确
+  `needs`、matrix、artifact 命名、Linux GHCR 权限、旧合并 job 不得回潮，以及
+  `release-asset-*` 聚合与校验和/attestation/verified artifact 步骤。
+- `./scripts/ci/verify-main-ci_test.sh`：通过。
+- `./scripts/ci/release-tooling-gate.sh`：通过。沙箱内首轮因 Node/npm
+  `spawnSync ... EPERM` 失败，沙箱外原样重跑 24/24 通过。
+- `./scripts/ci/contracts-gate.sh`：通过。沙箱内首轮因 Node `spawnSync ... EPERM`
+  失败，沙箱外原样重跑 28/28 通过。
+- `./scripts/test.sh --fast`：通过，api 26s / web 54s / static 27s，壁钟约 50s。
+- `./scripts/test.sh`：通过，api 240s / web 268s / static 106s，壁钟约 268s。
+
+#### 改动文件
+
+- `.github/workflows/release.yml`
+- `scripts/ci/release_workflow_test.rb`
+- 本任务书、`knowledge/plans/README.md`、`knowledge/index.md`、
+  `knowledge/modules/backend.md`、
+  `knowledge/decisions/2026-11-25-release-asset-critical-path-split.md`、
+  `knowledge/sessions/2026-11-25-ci-cd-test-speedup-batch4.md`。
+- 上一份 M5 热 handoff 归档到
+  `knowledge/sessions/archive/2026-11/2026-11-25-ci-cd-test-speedup-batch3.md`。
+
+#### 偏离与残余
+
+- 本轮没有创建或推送 tag，也没有执行真实 GitHub Release run；本地只验证 workflow
+  结构、actionlint、Ruby 守卫和仓库门禁。
+- darwin 提前后的实际 GitHub Actions 关键路径缩短、Linux GHCR 拉取和远端
+  attestation 只能在真实 tag Release 中确认。
+- 本轮未修改 M5 的测试基础设施，未触碰用户 3000 端口 web dev 服务，也未 push。
