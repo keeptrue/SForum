@@ -5,7 +5,7 @@ Project memory for future sessions and contributors.
 ## Start here
 
 1. Human product/dev handbooks: `docs/zh-CN/` or `docs/en-US/` (not this tree)
-2. `index.md` — current handoffs, short project state, navigation
+2. `index.md` — active workstreams, module navigation, session rules
 3. `modules/<area>.md` — living feature notes
 4. `sessions/` — hot handoffs only
 5. `plans/` — active task books (see `plans/README.md` for status)
@@ -17,14 +17,14 @@ Project memory for future sessions and contributors.
 | --- | --- |
 | `index.md` | Entry point; keep slim |
 | `modules/` | Per-domain living status |
-| `sessions/` | Actionable recent handoffs |
-| `sessions/archive/` | Cold historical handoffs |
+| `sessions/` | Active hot handoffs plus cold files retained for live references |
+| `sessions/archive/` | Cold historical handoffs; explicit recovery only |
 | `plans/` | Current implementation checklists and progress ledgers |
-| `plans/archive/` | Completed, cancelled, and superseded task books |
+| `plans/archive/` | Completed or superseded task books; explicit recovery only |
 | `decisions/` | Accepted / superseded decisions |
 | `glossary.md` | Shared terms |
-| `archive/` | Stale audits, legacy comparisons, and historical research |
-| `reports/` | Point-in-time scans |
+| `archive/` | Legacy material retained only when still referenced |
+| `reports/` | Point-in-time evidence; explicit recovery only |
 | `runbooks/` | Reproducible operational procedures with their expected signals |
 
 ## Hygiene
@@ -32,7 +32,8 @@ Project memory for future sessions and contributors.
 - Prefer updating a module note over appending long changelog text to `index.md`.
 - Keep `index.md` under 150 lines and limited to active workstreams/current
   state; completed feature summaries belong in module notes or cold history.
-- Hot sessions stay few; move intermediate checkpoints to `sessions/archive/YYYY-MM/`.
+- Active hot sessions stay few. Historical top-level sessions are retained only
+  to keep durable references valid and are hidden by the root `.rgignore`.
 - Every plan file needs a clear **Status** line.
 - Superseded decisions keep their file; mark `Superseded by:` at the top.
 - **Current fact vs. superseded claim.** Product and implementation docs (module

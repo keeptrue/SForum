@@ -1,0 +1,7 @@
+knowledge/sessions/*
+!knowledge/sessions/README.md
+!knowledge/sessions/2026-11-25-ci-cd-test-speedup-batch4.md
+!knowledge/sessions/2026-11-24-search-page-aurora-glass.md
+knowledge/reports/
+knowledge/plans/archive/
+knowledge/archive/
