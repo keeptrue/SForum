@@ -146,6 +146,9 @@ while [ "$completed" -lt "$total" ]; do
     printf 'PASS %s\n' "${JOB_LABELS[$job_index]}"
   else
     printf 'FAIL %s (exit %s)\n' "${JOB_LABELS[$job_index]}" "$status" >&2
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+      printf '::error title=Contracts gate failed::%s\n' "${JOB_LABELS[$job_index]}"
+    fi
     cat "$TMP_DIR/$job_index.log" >&2
     failed=1
   fi
