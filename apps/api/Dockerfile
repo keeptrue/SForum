@@ -1,4 +1,4 @@
-FROM golang:1.26.11-alpine AS base
+FROM golang:1.27.4-alpine AS base
 
 ARG SFORUM_BUILTIN_BUILD_JOBS=4
 
@@ -96,7 +96,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -buildvcs=false \
 	-ldflags="-s -w -X github.com/keeptrue/sforum/apps/api/version.Current=${SFORUM_VERSION} -X github.com/keeptrue/sforum/apps/api/version.Commit=${SFORUM_COMMIT} -X github.com/keeptrue/sforum/apps/api/version.BuildTime=${SFORUM_BUILD_TIME}" \
 	-o /out/sforum-api ./cmd/api
 
-FROM golang:1.26.11-alpine AS migrate-build
+FROM golang:1.27.4-alpine AS migrate-build
 
 WORKDIR /app/apps/api
 RUN apk add --no-cache ca-certificates
