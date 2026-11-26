@@ -104,7 +104,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Review dependency changes
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         with:
           fail-on-severity: high
 
@@ -128,13 +128,13 @@ jobs:
 
       - name: Set up Go
         if: matrix.language == 'go'
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: apps/api/go.sum
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@3ea37a44b6e4e6847c46edae209410d258d548d1 # v4
+        uses: github/codeql-action/init@776237d428f23fefc3d9e0fe1962921cbcd53e17 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -145,7 +145,7 @@ jobs:
         run: go build ./...
 
       - name: Analyze
-        uses: github/codeql-action/analyze@3ea37a44b6e4e6847c46edae209410d258d548d1 # v4
+        uses: github/codeql-action/analyze@776237d428f23fefc3d9e0fe1962921cbcd53e17 # v4
         with:
           category: /language:${{ matrix.language }}
 
@@ -197,7 +197,7 @@ jobs:
           bun-version: 1.4.4
 
       - name: Restore Bun package cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
