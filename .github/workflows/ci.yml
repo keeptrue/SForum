@@ -159,7 +159,7 @@ jobs:
           fi
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: apps/api/go.mod
           cache-dependency-path: |
@@ -216,7 +216,7 @@ jobs:
           bun-version: 1.4.4
 
       - name: Restore Bun package cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
@@ -224,7 +224,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - name: Restore Nuxt incremental caches
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             apps/web/.nuxt-typecheck.tsbuildinfo
@@ -261,7 +261,7 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: tools/proto/go.mod
           cache-dependency-path: tools/proto/go.sum
@@ -272,7 +272,7 @@ jobs:
           bun-version: 1.4.4
 
       - name: Restore Bun package cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('apps/web/bun.lock') }}
@@ -280,7 +280,7 @@ jobs:
             ${{ runner.os }}-bun-
 
       - name: Restore Protobuf tool cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tools/proto/.bin
           key: ${{ runner.os }}-proto-${{ hashFiles('tools/proto/go.mod', 'tools/proto/go.sum', 'scripts/proto.sh') }}
@@ -288,7 +288,7 @@ jobs:
             ${{ runner.os }}-proto-
 
       - name: Restore actionlint
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/sforum/actionlint/v1.7.12
           key: ${{ runner.os }}-actionlint-v1.7.12
