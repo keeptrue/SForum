@@ -25,7 +25,7 @@
         "@tiptap/extension-table": "3.32.0",
         "@tiptap/extension-text-style": "3.32.0",
         "@tiptap/extension-underline": "3.32.0",
-        "@tiptap/markdown": "3.32.0",
+        "@tiptap/markdown": "3.34.0",
         "@tiptap/pm": "3.32.0",
         "@tiptap/starter-kit": "3.32.0",
         "@tiptap/suggestion": "3.32.0",
@@ -759,7 +759,7 @@
 
     "@tiptap/extensions": ["@tiptap/extensions@3.32.0", "https://registry.npmmirror.com/@tiptap/extensions/-/extensions-3.32.0.tgz", { "peerDependencies": { "@tiptap/core": "3.32.0", "@tiptap/pm": "3.32.0" } }, "sha512-qO+ndNvlOjzU2MWCtQHoRg1tIortCXLvqPjDx58F1pUYFNCOVZegXi+jqLGDODUA31er+TVz66umzRbbN1bO1Q=="],
 
-    "@tiptap/markdown": ["@tiptap/markdown@3.32.0", "https://registry.npmmirror.com/@tiptap/markdown/-/markdown-3.32.0.tgz", { "dependencies": { "marked": "^17.0.1" }, "peerDependencies": { "@tiptap/core": "3.32.0", "@tiptap/pm": "3.32.0" } }, "sha512-y+pGAu4QMkXBMxhBoLvc6FWucQ1EWIoPi+Ajf4rAh5OlZtSV3CjBwyK6/xTwO7mvQxtoUf7DD23CzSaj5nCTBA=="],
+    "@tiptap/markdown": ["@tiptap/markdown@3.34.0", "", { "dependencies": { "marked": "^17.0.1" }, "peerDependencies": { "@tiptap/core": "3.34.0", "@tiptap/pm": "3.34.0" } }, "sha512-4FdekimtlcHuZcRTnIJzskxhU5KMKD/JVtU89OMT351C3DvXRK415fDUYJB4OUsNt/U6ChnDgQyxa/Cv274z7A=="],
 
     "@tiptap/pm": ["@tiptap/pm@3.32.0", "https://registry.npmmirror.com/@tiptap/pm/-/pm-3.32.0.tgz", { "dependencies": { "prosemirror-changeset": "^2.4.4", "prosemirror-commands": "^1.7.2", "prosemirror-dropcursor": "^1.8.4", "prosemirror-gapcursor": "^1.4.1", "prosemirror-history": "^1.5.1", "prosemirror-inputrules": "^1.5.1", "prosemirror-keymap": "^1.2.3", "prosemirror-model": "^1.25.12", "prosemirror-schema-list": "^1.5.1", "prosemirror-state": "^1.4.4", "prosemirror-tables": "^1.8.5", "prosemirror-transform": "^1.12.2", "prosemirror-view": "^1.42.6" } }, "sha512-H9eN+xHFboJybE7KPGVsu24S8aBlCIgYz38vCHRSnNv17nwmqm06owq/IQ5scza0n3Y7IfUfpgPOtm9SgeHmNQ=="],
 
