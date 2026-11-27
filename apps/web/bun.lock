@@ -16,7 +16,7 @@
         "@sforum/admin-sdk": "workspace:*",
         "@sforum/plugin-ui": "workspace:*",
         "@tiptap/core": "3.32.0",
-        "@tiptap/extension-character-count": "3.32.0",
+        "@tiptap/extension-character-count": "3.34.0",
         "@tiptap/extension-code-block": "3.32.0",
         "@tiptap/extension-file-handler": "3.32.0",
         "@tiptap/extension-image": "3.32.0",
@@ -697,7 +697,7 @@
 
     "@tiptap/extension-bullet-list": ["@tiptap/extension-bullet-list@3.32.0", "https://registry.npmmirror.com/@tiptap/extension-bullet-list/-/extension-bullet-list-3.32.0.tgz", { "peerDependencies": { "@tiptap/extension-list": "3.32.0" } }, "sha512-Y5P/l06pVCUG46vXpBl3z0fW2b6JpSMX4Cvr+5sfQh8zB3TxwSiLQaaPwI3R5MFD1KfRk3AjiPRieEyXdWcNHw=="],
 
-    "@tiptap/extension-character-count": ["@tiptap/extension-character-count@3.32.0", "https://registry.npmmirror.com/@tiptap/extension-character-count/-/extension-character-count-3.32.0.tgz", { "peerDependencies": { "@tiptap/extensions": "3.32.0" } }, "sha512-/O2tdGr7MPDIWIWzPzmaqPwSrnrW17/K1tFZVL+LbvVs1ur+QTCKcJgvQls6OpKDqL3tDmlZbI8bUCvBhB2/7Q=="],
+    "@tiptap/extension-character-count": ["@tiptap/extension-character-count@3.34.0", "", { "peerDependencies": { "@tiptap/extensions": "3.34.0" } }, "sha512-bV0agK3QzB5nXFDEkuq4VNhaNCsPQh7YlBVaFbgxXAzRKo1oYOhBtVErXB8LKIg3vJmnl9pQc3xwTBqCT8JVcA=="],
 
     "@tiptap/extension-code": ["@tiptap/extension-code@3.32.0", "https://registry.npmmirror.com/@tiptap/extension-code/-/extension-code-3.32.0.tgz", { "peerDependencies": { "@tiptap/core": "3.32.0" } }, "sha512-I+aEVl0dTmkfnU6HzBGEefb9U7ja2MkucwBBwrmoMwU+uIKpC4xw8NcHC9X6sjAcom3Pxs2HX+8WEo4Vp13R/Q=="],
 
